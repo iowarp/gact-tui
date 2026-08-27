@@ -111,10 +111,17 @@ export function ArtifactProvenance({
                   ) : null}
                   {version.custody_gap ? <ClioStatus label="Custody gap" value="degraded" /> : null}
                 </TimelineHeader>
-                <TimelineContent>
-                  {[version.mechanism, version.custody, version.evidence_class, version.annotation]
-                    .filter(Boolean)
-                    .join(' — ')}
+                <TimelineContent className="flex flex-wrap gap-x-3 gap-y-1">
+                  {[
+                    version.mechanism,
+                    version.custody,
+                    version.evidence_class,
+                    version.annotation,
+                  ]
+                    .filter((field): field is string => Boolean(field))
+                    .map((field, fieldIndex) => (
+                      <span key={`${fieldIndex}:${field}`}>{field}</span>
+                    ))}
                 </TimelineContent>
               </TimelineItem>
             ))}

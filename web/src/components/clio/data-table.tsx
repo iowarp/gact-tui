@@ -21,11 +21,13 @@ export function ClioDataTable({
   columns: columnDefinitions,
   rows,
   label = 'Data table',
+  description,
   onRowClick,
 }: {
   columns: readonly ClioDataColumn[];
   rows: readonly ClioDataRow[];
   label?: string;
+  description?: string;
   onRowClick?: (row: ClioDataRow) => void;
 }) {
   const columns = useMemo<ColumnDef<DataGridFeatures, ClioDataRow, unknown>[]>(
@@ -70,6 +72,7 @@ export function ClioDataTable({
           </ReUIBadge>
         </div>
         <div
+          aria-description={description}
           aria-label={`${label} columns`}
           className="max-w-full overflow-x-auto overscroll-x-contain"
           role="region"

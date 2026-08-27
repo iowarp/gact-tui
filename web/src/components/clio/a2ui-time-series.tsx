@@ -4,6 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { Frame, FramePanel } from '@/components/reui/frame';
 import { useRepository } from '@/hooks/use-repository';
+import {
+  a2uiAccessibilityDescription,
+  a2uiAccessibilityLabel,
+  type A2UIAccessibility,
+} from './a2ui-accessibility';
 import { ClioTimeSeriesPlot, type PlotRow } from './time-series-plot';
 
 const plotValue = z.union([z.string(), z.number(), z.null()]);
@@ -18,7 +23,9 @@ function ArtifactTimeSeries({
   title,
   xKey,
   yKeys,
+  accessibility,
 }: {
+  accessibility?: A2UIAccessibility;
   dataUri: string;
   title?: string;
   xKey: string;
@@ -61,6 +68,8 @@ function ArtifactTimeSeries({
   }
   return (
     <ClioTimeSeriesPlot
+      accessibilityDescription={a2uiAccessibilityDescription(accessibility)}
+      accessibilityLabel={a2uiAccessibilityLabel(accessibility)}
       rows={preview.data.rows as PlotRow[]}
       sourceRows={preview.data.total_rows}
       title={title}
@@ -77,7 +86,9 @@ export function ClioA2UITimeSeries({
   title,
   xKey,
   yKeys,
+  accessibility,
 }: {
+  accessibility?: A2UIAccessibility;
   dataUri?: string;
   rows?: PlotRow[];
   title?: string;
@@ -85,9 +96,26 @@ export function ClioA2UITimeSeries({
   yKeys: string[];
 }) {
   if (dataUri) {
-    return <ArtifactTimeSeries dataUri={dataUri} title={title} xKey={xKey} yKeys={yKeys} />;
+    return (
+      <ArtifactTimeSeries
+        accessibility={accessibility}
+        dataUri={dataUri}
+        title={title}
+        xKey={xKey}
+        yKeys={yKeys}
+      />
+    );
   }
-  return <ClioTimeSeriesPlot rows={rows ?? []} title={title} xKey={xKey} yKeys={yKeys} />;
+  return (
+    <ClioTimeSeriesPlot
+      accessibilityDescription={a2uiAccessibilityDescription(accessibility)}
+      accessibilityLabel={a2uiAccessibilityLabel(accessibility)}
+      rows={rows ?? []}
+      title={title}
+      xKey={xKey}
+      yKeys={yKeys}
+    />
+  );
 }
 
 const schema = z
@@ -111,6 +139,7 @@ export const ClioTimeSeriesCatalogComponent = createComponentImplementation(
   { name: 'clio.time-series.v1', schema },
   ({ props }) => (
     <ClioA2UITimeSeries
+      accessibility={props.accessibility}
       dataUri={props.dataUri}
       rows={props.series as PlotRow[] | undefined}
       title={props.title}

@@ -53,6 +53,10 @@ describe('CLIO A2UI scientific catalog', () => {
       {
         id: 'plot',
         component: 'clio.time-series.v1',
+        accessibility: {
+          label: 'Accessible displacement chart',
+          description: 'Three observed displacement samples',
+        },
         title: 'Vertical displacement',
         xKey: 'day',
         yKeys: ['displacement_mm'],
@@ -65,6 +69,10 @@ describe('CLIO A2UI scientific catalog', () => {
       {
         id: 'table',
         component: 'clio.data-table.v1',
+        accessibility: {
+          label: 'Accessible displacement table',
+          description: 'Observed displacement and quality',
+        },
         columns: ['day', 'displacement_mm', 'quality'],
         rows: [{ day: 1, displacement_mm: 0.2, quality: 'accepted' }],
       },
@@ -81,6 +89,14 @@ describe('CLIO A2UI scientific catalog', () => {
     expect(within(table).getByRole('cell', { name: 'accepted' })).toBeVisible();
     expect(container.querySelector('[data-slot="chart"]')).toBeInTheDocument();
     expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument();
+    expect(screen.getByLabelText('Accessible displacement chart')).toHaveAttribute(
+      'aria-description',
+      'Three observed displacement samples',
+    );
+    expect(screen.getByLabelText('Accessible displacement table columns')).toHaveAttribute(
+      'aria-description',
+      'Observed displacement and quality',
+    );
     expect(container.textContent).not.toContain('"series"');
   });
 
@@ -135,6 +151,10 @@ describe('CLIO A2UI scientific catalog', () => {
       {
         id: 'map',
         component: 'clio.map.v1',
+        accessibility: {
+          label: 'Accessible station map',
+          description: 'Two bounded EarthScope locations',
+        },
         title: 'EarthScope stations',
         points: [
           {
@@ -159,11 +179,147 @@ describe('CLIO A2UI scientific catalog', () => {
     const { container } = render(<A2uiSurface surface={surface} />);
 
     expect(await screen.findByTestId('professional-map-renderer')).toBeInTheDocument();
+    expect(screen.getByLabelText('Accessible station map')).toHaveAttribute(
+      'aria-description',
+      'Two bounded EarthScope locations',
+    );
     expect(screen.getByText('2 labeled locations')).toBeVisible();
     const second = screen.getByRole('button', { name: /Station 2/ });
     fireEvent.click(second);
     expect(second).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('40.12000, -88.21000')).toBeVisible();
     expect(container.textContent).not.toContain('tile.openstreetmap.org');
+  });
+
+  it('consumes accessibility metadata across the custom catalog renderers', () => {
+    const action = { event: { name: 'approval.respond' } };
+    const surface = buildSurface([
+      {
+        id: 'root',
+        component: 'Grid',
+        children: [
+          'frame',
+          'metric',
+          'progress',
+          'callout',
+          'table',
+          'diagram',
+          'workflow',
+          'code',
+          'diff',
+          'action',
+          'approval',
+        ],
+        accessibility: { label: 'Catalog grid', description: 'Accessible renderer collection' },
+      },
+      {
+        id: 'frame',
+        component: 'Frame',
+        child: 'status',
+        title: 'Run state',
+        accessibility: { label: 'State frame', description: 'Current run state' },
+      },
+      {
+        id: 'status',
+        component: 'clio.status.v1',
+        label: 'Analysis',
+        state: 'running',
+        accessibility: { label: 'Analysis status', description: 'Analysis is active' },
+      },
+      {
+        id: 'metric',
+        component: 'clio.metric.v1',
+        label: 'Stations',
+        value: 72,
+        accessibility: { label: 'Station metric', description: 'Observed station count' },
+      },
+      {
+        id: 'progress',
+        component: 'clio.progress.v1',
+        label: 'Collect evidence',
+        state: 'running',
+        accessibility: { label: 'Evidence progress', description: 'Collection is active' },
+      },
+      {
+        id: 'callout',
+        component: 'clio.callout.v1',
+        title: 'Source limitation',
+        body: 'Historical data',
+        severity: 'warning',
+        accessibility: { label: 'Source warning', description: 'Data is historical' },
+      },
+      {
+        id: 'table',
+        component: 'clio.data-table.v1',
+        columns: ['station'],
+        rows: [{ station: 'MTA1' }],
+        accessibility: { label: 'Station table', description: 'Ranked stations' },
+      },
+      {
+        id: 'diagram',
+        component: 'clio.mermaid.v1',
+        source: 'flowchart LR\nA --> B',
+        accessibility: { label: 'Analysis diagram', description: 'Analysis workflow' },
+      },
+      {
+        id: 'workflow',
+        component: 'clio.workflow.v1',
+        nodes: [{ id: 'a', label: 'Acquire' }, { id: 'b', label: 'Analyze' }],
+        edges: [{ source: 'a', target: 'b' }],
+        accessibility: { label: 'Workflow graph', description: 'Acquire then analyze' },
+      },
+      {
+        id: 'code',
+        component: 'clio.code.v1',
+        code: 'print(72)',
+        language: 'python',
+        accessibility: { label: 'Analysis code', description: 'Python station count' },
+      },
+      {
+        id: 'diff',
+        component: 'clio.diff.v1',
+        path: 'analysis.py',
+        diff: '+print(72)',
+        accessibility: { label: 'Analysis diff', description: 'Proposed analysis change' },
+      },
+      {
+        id: 'action',
+        component: 'clio.action-card.v1',
+        title: 'Continue analysis',
+        body: 'Review the result',
+        severity: 'info',
+        actions: [],
+        accessibility: { label: 'Analysis action', description: 'Available next action' },
+      },
+      {
+        id: 'approval',
+        component: 'clio.approval.v1',
+        title: 'Approve export',
+        reason: 'Write the report',
+        risk: 'low',
+        actions: [{ label: 'Approve', action }],
+        accessibility: { label: 'Export approval', description: 'Approval required' },
+      },
+    ]);
+
+    render(<A2uiSurface surface={surface} />);
+
+    for (const label of [
+      'Catalog grid',
+      'State frame',
+      'Analysis status',
+      'Station metric',
+      'Evidence progress',
+      'Source warning',
+      'Station table columns',
+      'Analysis diagram',
+      'Workflow graph',
+      'Analysis code',
+      'Analysis diff',
+      'Analysis action',
+      'Export approval',
+    ]) {
+      expect(screen.getAllByLabelText(label).length).toBeGreaterThan(0);
+    }
   });
 });

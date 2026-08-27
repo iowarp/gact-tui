@@ -214,7 +214,7 @@ function DesktopCapabilityStatus({
     >
       <Icon aria-hidden="true" className="size-3.5" />
       <span>{presentation.label}</span>
-      <span className="sr-only"> — {detail}</span>
+      <span className="sr-only">, {detail}</span>
     </Badge>
   );
 }

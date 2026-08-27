@@ -32,6 +32,7 @@ describe('ClioA2UITimeSeries', () => {
     render(
       <QueryClientProvider client={client}>
         <ClioA2UITimeSeries
+          accessibility={{ label: 'Position chart', description: 'Observed east and north values' }}
           dataUri="artifact://artifact_series"
           title="MTA1 position"
           xKey="time"
@@ -41,6 +42,10 @@ describe('ClioA2UITimeSeries', () => {
     );
 
     expect(await screen.findByText('MTA1 position')).toBeInTheDocument();
+    expect(screen.getByLabelText('Position chart')).toHaveAttribute(
+      'aria-description',
+      'Observed east and north values',
+    );
     expect(screen.getByText(/2 evenly sampled rows from 250,000 total/i)).toBeInTheDocument();
     await waitFor(() =>
       expect(repository.artifactTablePreview).toHaveBeenCalledWith(

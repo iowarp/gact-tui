@@ -156,7 +156,7 @@ export function ClioStatus({ value, label, detail, className }: ClioStatusProps)
         )}
       />
       <span>{label ?? presentation.label}</span>
-      {detail ? <span className="sr-only"> — {detail}</span> : null}
+      {detail ? <span className="sr-only">, {detail}</span> : null}
     </Badge>
   );
 }

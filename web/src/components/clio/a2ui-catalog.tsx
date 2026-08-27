@@ -46,6 +46,12 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import {
+  a2uiAccessibilityDescription,
+  a2uiAccessibilityLabel,
+  a2uiAccessibilityProps,
+  type A2UIAccessibility,
+} from './a2ui-accessibility';
 import { ClioDataTable, type ClioDataColumn, type ClioDataRow } from './data-table';
 import { ClioArtifactCatalogComponent } from './a2ui-artifact';
 import { ClioMapCatalogComponent } from './a2ui-map';
@@ -101,10 +107,9 @@ const Grid = createComponentImplementation(
   },
   ({ props, buildChild }) => (
     <div
-      aria-label={
-        typeof props.accessibility?.label === 'string' ? props.accessibility.label : undefined
-      }
+      {...a2uiAccessibilityProps(props.accessibility)}
       className="grid gap-3"
+      role="group"
       style={{ gridTemplateColumns: `repeat(${props.columns ?? 2}, minmax(0, 1fr))` }}
     >
       {props.children.map((child: string) => (
@@ -128,7 +133,7 @@ const Frame = createComponentImplementation(
       .strict(),
   },
   ({ props, buildChild }) => (
-    <ReUIFrame spacing="sm">
+    <ReUIFrame {...a2uiAccessibilityProps(props.accessibility)} role="group" spacing="sm">
       {props.title || props.description ? (
         <FrameHeader>
           {props.title ? <FrameTitle>{props.title}</FrameTitle> : null}
@@ -155,7 +160,7 @@ const Status = createComponentImplementation(
       .strict(),
   },
   ({ props }) => (
-    <ReUIFrame dense spacing="sm">
+    <ReUIFrame {...a2uiAccessibilityProps(props.accessibility)} dense role="group" spacing="sm">
       <FramePanel className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium">{props.label}</span>
         <ClioStatus
@@ -189,7 +194,7 @@ const Metric = createComponentImplementation(
       .strict(),
   },
   ({ props }) => (
-    <ReUIFrame dense spacing="sm">
+    <ReUIFrame {...a2uiAccessibilityProps(props.accessibility)} dense role="group" spacing="sm">
       <FramePanel>
         <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{props.label}</p>
         <p className="mt-2 font-mono text-2xl font-semibold">
@@ -227,7 +232,7 @@ const ClioProgress = createComponentImplementation(
     const determinate = props.value !== undefined && props.max !== undefined && props.max > 0;
     const state = props.state ?? 'running';
     return (
-      <ReUIFrame dense spacing="sm">
+      <ReUIFrame {...a2uiAccessibilityProps(props.accessibility)} dense role="group" spacing="sm">
         <FramePanel>
           <div className="mb-3 flex items-center justify-between gap-3">
             <span className="text-sm font-medium">{props.label}</span>
@@ -268,7 +273,10 @@ const Callout = createComponentImplementation(
       .strict(),
   },
   ({ props }) => (
-    <Alert variant={props.severity === 'critical' ? 'destructive' : 'default'}>
+    <Alert
+      {...a2uiAccessibilityProps(props.accessibility)}
+      variant={props.severity === 'critical' ? 'destructive' : 'default'}
+    >
       <AlertTitle>{props.title}</AlertTitle>
       <AlertDescription>{props.body}</AlertDescription>
       {props.action ? (
@@ -299,6 +307,8 @@ const DataTable = createComponentImplementation(
   ({ props }) => (
     <ClioDataTable
       columns={props.columns as ClioDataColumn[]}
+      description={a2uiAccessibilityDescription(props.accessibility)}
+      label={a2uiAccessibilityLabel(props.accessibility)}
       onRowClick={props.action ? () => void props.action?.() : undefined}
       rows={props.rows as ClioDataRow[]}
     />
@@ -317,7 +327,14 @@ const Mermaid = createComponentImplementation(
       })
       .strict(),
   },
-  ({ props }) => <ClioMermaidDiagram source={props.source} title={props.title} />,
+  ({ props }) => (
+    <ClioMermaidDiagram
+      accessibilityDescription={a2uiAccessibilityDescription(props.accessibility)}
+      accessibilityLabel={a2uiAccessibilityLabel(props.accessibility)}
+      source={props.source}
+      title={props.title}
+    />
+  ),
 );
 
 const workflowNode = z
@@ -385,8 +402,10 @@ const Workflow = createComponentImplementation(
       .strict(),
   },
   ({ props }) => (
-    <div className="grid gap-2">
+    <div {...a2uiAccessibilityProps(props.accessibility)} className="grid gap-2" role="group">
       <ClioMermaidDiagram
+        accessibilityDescription={a2uiAccessibilityDescription(props.accessibility)}
+        accessibilityLabel={a2uiAccessibilityLabel(props.accessibility)}
         source={workflowSource(props.nodes, props.edges, props.selected)}
         title="Workflow"
       />
@@ -434,16 +453,23 @@ function codeLanguage(value: string): BundledLanguage {
 }
 
 function RenderedCode({
+  accessibility,
   code,
   language,
   title,
 }: {
+  accessibility?: A2UIAccessibility;
   code: string;
   language: string;
   title?: string;
 }) {
   return (
-    <CodeBlock code={code} language={codeLanguage(language)} showLineNumbers>
+    <CodeBlock
+      {...a2uiAccessibilityProps(accessibility)}
+      code={code}
+      language={codeLanguage(language)}
+      showLineNumbers
+    >
       <CodeBlockHeader>
         <CodeBlockTitle>
           <FileCode2Icon aria-hidden="true" className="size-3.5" />
@@ -470,7 +496,14 @@ const Code = createComponentImplementation(
       })
       .strict(),
   },
-  ({ props }) => <RenderedCode code={props.code} language={props.language} title={props.title} />,
+  ({ props }) => (
+    <RenderedCode
+      accessibility={props.accessibility}
+      code={props.code}
+      language={props.language}
+      title={props.title}
+    />
+  ),
 );
 
 const Diff = createComponentImplementation(
@@ -488,8 +521,13 @@ const Diff = createComponentImplementation(
       .strict(),
   },
   ({ props }) => (
-    <div className="grid gap-2">
-      <RenderedCode code={props.diff} language="diff" title={props.path} />
+    <div {...a2uiAccessibilityProps(props.accessibility)} className="grid gap-2" role="group">
+      <RenderedCode
+        accessibility={props.accessibility}
+        code={props.diff}
+        language="diff"
+        title={props.path}
+      />
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <GitCompareArrowsIcon aria-hidden="true" className="size-3.5" />
         <span>{props.status || 'Proposed change'}</span>
@@ -531,7 +569,10 @@ const ActionCard = createComponentImplementation(
       .strict(),
   },
   ({ props, context }) => (
-    <Alert variant={props.severity === 'critical' ? 'destructive' : 'default'}>
+    <Alert
+      {...a2uiAccessibilityProps(props.accessibility)}
+      variant={props.severity === 'critical' ? 'destructive' : 'default'}
+    >
       <AlertTitle>{props.title}</AlertTitle>
       <AlertDescription>{props.body}</AlertDescription>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -565,27 +606,29 @@ const Approval = createComponentImplementation(
       .strict(),
   },
   ({ props, context }) => (
-    <Confirmation approval={{ id: props.title }} state="approval-requested">
-      <ShieldAlertIcon aria-hidden="true" className="size-4 text-warning" />
-      <ConfirmationTitle>
-        <span className="font-medium">{props.title}</span>
-        <span className="mt-1 block text-sm text-muted-foreground">{props.reason}</span>
-        <span className="mt-2 block text-xs">Risk: {props.risk}</span>
-      </ConfirmationTitle>
-      <ConfirmationRequest>
-        <ConfirmationActions>
-          {props.actions.map((item) => (
-            <ConfirmationAction
-              key={item.label}
-              onClick={() => void context.dispatchAction(item.action)}
-              variant={item.tone === 'destructive' ? 'destructive' : 'outline'}
-            >
-              {item.label}
-            </ConfirmationAction>
-          ))}
-        </ConfirmationActions>
-      </ConfirmationRequest>
-    </Confirmation>
+    <div {...a2uiAccessibilityProps(props.accessibility)} role="group">
+      <Confirmation approval={{ id: props.title }} state="approval-requested">
+        <ShieldAlertIcon aria-hidden="true" className="size-4 text-warning" />
+        <ConfirmationTitle>
+          <span className="font-medium">{props.title}</span>
+          <span className="mt-1 block text-sm text-muted-foreground">{props.reason}</span>
+          <span className="mt-2 block text-xs">Risk: {props.risk}</span>
+        </ConfirmationTitle>
+        <ConfirmationRequest>
+          <ConfirmationActions>
+            {props.actions.map((item) => (
+              <ConfirmationAction
+                key={item.label}
+                onClick={() => void context.dispatchAction(item.action)}
+                variant={item.tone === 'destructive' ? 'destructive' : 'outline'}
+              >
+                {item.label}
+              </ConfirmationAction>
+            ))}
+          </ConfirmationActions>
+        </ConfirmationRequest>
+      </Confirmation>
+    </div>
   ),
 );
 

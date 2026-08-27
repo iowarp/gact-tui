@@ -12,12 +12,12 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { FileBoxIcon, TriangleAlertIcon, WrenchIcon } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface LineageNodeData extends Record<string, unknown> {
   artifact?: Artifact;
-  detail: string;
+  details: readonly string[];
   label: string;
   nodeType: ArtifactLineageNode['type'];
   onOpenArtifact?: (artifact: Artifact) => void;
@@ -88,16 +88,16 @@ export function buildArtifactLineageGraph(
     const self = node.id === lineage.root;
     const linkedArtifact =
       node.type === 'artifact' && !self ? artifactFromNode(node, artifact) : undefined;
-    const detail = lineageNodeDetails(node);
+    const details = lineageNodeDetails(node);
     const label = lineageNodeLabel(node);
-    const width = lineageNodeWidth(label, detail);
+    const width = lineageNodeWidth(label, details);
     return {
       id: node.id,
       type: 'clio-lineage',
       position: { x: 0, y: 0 },
       data: {
         artifact: linkedArtifact,
-        detail,
+        details,
         label,
         nodeType: node.type,
         onOpenArtifact,
@@ -105,7 +105,7 @@ export function buildArtifactLineageGraph(
         width,
       },
       style: { width },
-      ariaLabel: [label, detail, self ? 'current artifact' : ''].filter(Boolean).join(', '),
+      ariaLabel: [label, ...details, self ? 'current artifact' : ''].filter(Boolean).join(', '),
     };
   });
   const edges: Edge[] = lineage.edges.map((edge) => ({
@@ -153,8 +153,12 @@ function LineageNodeCard({ data }: NodeProps<LineageFlowNode>) {
         <span className={cn('block truncate text-xs font-medium', data.self && 'text-primary')}>
           {data.label}
         </span>
-        <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
-          {data.detail}
+        <span className="mt-0.5 flex min-w-0 gap-1.5 text-[10px] text-muted-foreground">
+          {data.details.map((detail) => (
+            <span className="truncate" key={detail}>
+              {detail}
+            </span>
+          ))}
         </span>
       </span>
     </>
@@ -220,8 +224,9 @@ function layoutGraph(
   };
 }
 
-function lineageNodeWidth(label: string, detail: string): number {
-  const contentWidth = Math.max(label.length * 7.2, detail.length * 5.8) + 58;
+function lineageNodeWidth(label: string, details: readonly string[]): number {
+  const detailWidth = details.reduce((total, detail) => total + detail.length * 5.8 + 6, 0);
+  const contentWidth = Math.max(label.length * 7.2, detailWidth) + 58;
   return Math.round(Math.min(maximumNodeWidth, Math.max(minimumNodeWidth, contentWidth)));
 }
 
@@ -247,20 +252,25 @@ function lineageNodeLabel(node: ArtifactLineageNode): string {
   return stringField(node, 'name') || 'Artifact';
 }
 
-function lineageNodeDetails(node: ArtifactLineageNode): string {
-  if (node.type === 'activity') return stringField(node, 'status') || 'Recorded activity';
-  if (node.type === 'gap') return 'Evidence missing';
+function lineageNodeDetails(node: ArtifactLineageNode): string[] {
+  if (node.type === 'activity') return [stringField(node, 'status') || 'Recorded activity'];
+  if (node.type === 'gap') return ['Evidence missing'];
   const version = numberField(node, 'version');
   const size = numberField(node, 'size_bytes') ?? numberField(node, 'size');
-  return [version ? `Version ${version}` : '', size ? formatBytes(size) : '']
-    .filter(Boolean)
-    .join(' — ');
+  return [version ? `Version ${version}` : '', size ? formatBytes(size) : ''].filter(Boolean);
 }
 
-function edgeLabel(type: ArtifactLineage['edges'][number]['type'], evidence: string): string {
+function edgeLabel(type: ArtifactLineage['edges'][number]['type'], evidence: string): ReactNode {
   const relationship =
     type === 'revision_of' ? 'Revises' : type === 'generated' ? 'Generated' : 'Used';
-  return evidence && evidence !== 'hash-pair' ? `${relationship} — ${evidence}` : relationship;
+  return evidence && evidence !== 'hash-pair' ? (
+    <span className="flex items-center gap-1.5">
+      <span>{relationship}</span>
+      <span className="font-normal text-muted-foreground">{evidence}</span>
+    </span>
+  ) : (
+    relationship
+  );
 }
 
 function stringField(node: ArtifactLineageNode, key: string): string {

@@ -44,7 +44,17 @@ const config: MermaidConfig = {
 };
 
 /** A MermaidCN-backed diagram with source, export, fullscreen, and auto-fit canvas controls. */
-export function ClioMermaidDiagram({ source, title }: { source: string; title?: string }) {
+export function ClioMermaidDiagram({
+  accessibilityDescription,
+  accessibilityLabel,
+  source,
+  title,
+}: {
+  accessibilityDescription?: string;
+  accessibilityLabel?: string;
+  source: string;
+  title?: string;
+}) {
   const [view, setView] = useState<MermaidView>('render');
   const [svgOutput, setSvgOutput] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
@@ -59,7 +69,8 @@ export function ClioMermaidDiagram({ source, title }: { source: string; title?: 
 
   const content = (
     <section
-      aria-label={title || 'Diagram'}
+      aria-description={accessibilityDescription}
+      aria-label={accessibilityLabel || title || 'Diagram'}
       className={fullscreen ? 'flex min-h-0 min-w-0 flex-1 flex-col bg-card' : 'min-w-0 bg-card'}
     >
       <header className="flex items-center justify-between gap-3 pb-2">

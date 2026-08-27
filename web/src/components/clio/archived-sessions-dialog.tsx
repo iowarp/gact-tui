@@ -123,8 +123,20 @@ export function ClioArchivedSessionsDialog({
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{session.title}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {labels.get(session.workspace_id) ?? 'Workspace unavailable'}, archived{' '}
+                      <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
+                        {labels.get(session.workspace_id) ? (
+                          <>
+                            <span className="truncate">
+                              {labels.get(session.workspace_id)!.name}
+                            </span>
+                            {labels.get(session.workspace_id)!.qualifiers.map((qualifier) => (
+                              <span key={qualifier}>{qualifier}</span>
+                            ))}
+                          </>
+                        ) : (
+                          <span>Workspace unavailable</span>
+                        )}
+                        <span>Archived</span>
                         <time dateTime={session.updated_at}>
                           {new Date(session.updated_at).toLocaleDateString()}
                         </time>

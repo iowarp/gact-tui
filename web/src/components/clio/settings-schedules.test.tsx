@@ -90,7 +90,7 @@ describe('scheduled work settings', () => {
 
     await user.click(screen.getByRole('combobox', { name: 'Session' }));
     expect(screen.queryByRole('option', { name: 'Analysis task' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('option', { name: 'Evidence review — EarthScope campaign' }));
+    await user.click(screen.getByRole('option', { name: 'Evidence review, EarthScope campaign' }));
 
     await user.type(
       screen.getByRole('textbox', { name: 'Instruction' }),

@@ -53,7 +53,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
-import { workspaceLabels } from '@/lib/workspace-labels';
+import {
+  workspaceLabels,
+  workspaceLabelText,
+  type WorkspaceDisplayLabel,
+} from '@/lib/workspace-labels';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { returnRouteFromState } from '@/lib/workspace-route-memory';
 
@@ -68,6 +72,7 @@ interface RunRow {
   host: string;
   placement: string;
   workspaceLabel: string;
+  workspaceLabelFields: WorkspaceDisplayLabel;
   workspaceId?: string;
   targetSessionId?: string;
   updatedAt: string;
@@ -124,6 +129,9 @@ function buildRows(
     const targetSession = targetSessionId ? sessionsById.get(targetSessionId) : undefined;
     const parentSession = sessionsById.get(run.parent_session_id);
     const workspaceId = targetSession?.workspace_id ?? parentSession?.workspace_id;
+    const workspaceLabelFields = workspaceId
+      ? (labels.get(workspaceId) ?? { name: 'Workspace unavailable', qualifiers: [] })
+      : { name: 'Workspace unavailable', qualifiers: [] };
     return {
       handleId: run.handle_id,
       taskId: run.task_id,
@@ -134,9 +142,8 @@ function buildRows(
       source: run.source,
       host: run.host,
       placement: run.placement,
-      workspaceLabel: workspaceId
-        ? (labels.get(workspaceId) ?? 'Workspace unavailable')
-        : 'Workspace unavailable',
+      workspaceLabel: workspaceLabelText(workspaceLabelFields),
+      workspaceLabelFields,
       workspaceId,
       targetSessionId,
       updatedAt: run.updated_at,
@@ -304,7 +311,16 @@ export function RunsPage() {
       {
         accessorKey: 'workspaceLabel',
         header: ({ column }) => <DataGridColumnHeader column={column} title="Workspace" />,
-        cell: ({ row }) => <span className="text-sm">{row.original.workspaceLabel}</span>,
+        cell: ({ row }) => (
+          <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm">
+            <span>{row.original.workspaceLabelFields.name}</span>
+            {row.original.workspaceLabelFields.qualifiers.map((qualifier) => (
+              <span className="text-xs text-muted-foreground" key={qualifier}>
+                {qualifier}
+              </span>
+            ))}
+          </span>
+        ),
         meta: { headerTitle: 'Workspace' },
       },
       {

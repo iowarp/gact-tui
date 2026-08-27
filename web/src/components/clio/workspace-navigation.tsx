@@ -35,7 +35,11 @@ import {
   visibleWorkspaceSessions,
 } from '@/lib/recent-sessions';
 import { isSessionRunning } from '@/lib/session-state';
-import { workspaceLabels } from '@/lib/workspace-labels';
+import {
+  workspaceLabels,
+  workspaceLabelText,
+  type WorkspaceDisplayLabel,
+} from '@/lib/workspace-labels';
 import { ClioInteractiveRow } from './interactive-row';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
@@ -54,6 +58,25 @@ interface WorkspaceNavigationProps {
   onDownloadSession: (sessionId: string, title: string) => Promise<void>;
   onOpenWorkspaceFiles?: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
+}
+
+function WorkspaceLabelFields({
+  className = '',
+  label,
+}: {
+  className?: string;
+  label: WorkspaceDisplayLabel;
+}) {
+  return (
+    <span className={`flex min-w-0 items-baseline gap-1.5 ${className}`}>
+      <span className="truncate font-medium">{label.name}</span>
+      {label.qualifiers.map((qualifier) => (
+        <span className="shrink-0 text-xs font-normal text-muted-foreground" key={qualifier}>
+          {qualifier}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 export function WorkspaceNavigation({
@@ -135,7 +158,7 @@ export function WorkspaceNavigation({
               blueprints={blueprints}
               expanded={expanded}
               key={workspace.id}
-              label={labels.get(workspace.id) ?? workspace.display_name}
+              label={labels.get(workspace.id) ?? { name: workspace.display_name, qualifiers: [] }}
               onAction={onAction}
               onCreateSession={onCreateSession}
               onDelete={onDelete}
@@ -186,7 +209,7 @@ interface WorkspaceTreeItemProps {
   workspace: Workspace;
   sessions: readonly Session[];
   blueprints: readonly AgentBlueprint[];
-  label: string;
+  label: WorkspaceDisplayLabel;
   expanded: boolean;
   sessionLimitExpanded: boolean;
   activeWorkspaceId: string;
@@ -318,7 +341,7 @@ function WorkspaceTreeItem({
 
 interface WorkspaceActionsMenuProps {
   workspace: Workspace;
-  label: string;
+  label: WorkspaceDisplayLabel;
   activeWorkspaceId: string;
   actions: ResourceActions;
   onCreateSession: (workspaceId: string) => void;
@@ -341,13 +364,14 @@ function WorkspaceActionsMenu({
   onOpenWorkspaceFiles,
   onAction,
 }: WorkspaceActionsMenuProps) {
+  const labelText = workspaceLabelText(label);
   return (
     <DropdownMenu>
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
             <Button
-              aria-label={`Workspace actions for ${label}`}
+              aria-label={`Workspace actions for ${labelText}`}
               size="icon-xs"
               type="button"
               variant="ghost"
@@ -360,7 +384,7 @@ function WorkspaceActionsMenu({
       </Tooltip>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel className="min-w-0">
-          <span className="block truncate">{label}</span>
+          <WorkspaceLabelFields label={label} />
           <span
             className="mt-0.5 block truncate font-mono text-[10px] font-normal text-muted-foreground"
             title={workspace.path}
@@ -396,7 +420,7 @@ function WorkspaceActionsMenu({
         </DropdownMenuItem>
         <DropdownMenuItem
           className="whitespace-nowrap"
-          onSelect={() => onRename({ kind: 'workspace', id: workspace.id, label })}
+          onSelect={() => onRename({ kind: 'workspace', id: workspace.id, label: labelText })}
         >
           <PencilIcon aria-hidden="true" /> Rename workspace
         </DropdownMenuItem>
@@ -416,7 +440,7 @@ function WorkspaceActionsMenu({
         <DropdownMenuItem
           className="whitespace-nowrap"
           disabled={workspace.id === 'ws_default'}
-          onSelect={() => onDelete({ kind: 'workspace', id: workspace.id, label })}
+          onSelect={() => onDelete({ kind: 'workspace', id: workspace.id, label: labelText })}
           variant="destructive"
         >
           <Trash2Icon aria-hidden="true" /> Remove workspace
@@ -428,7 +452,7 @@ function WorkspaceActionsMenu({
 
 interface WorkspaceHoverCardProps {
   workspace: Workspace;
-  label: string;
+  label: WorkspaceDisplayLabel;
   workspaceExpanded: boolean;
   sessionCount: number;
   runningCount: number;
@@ -447,6 +471,7 @@ function WorkspaceHoverCard({
   onRename,
   onEditWorkspace,
 }: WorkspaceHoverCardProps) {
+  const labelText = workspaceLabelText(label);
   const folders = workspace.source_folders?.length
     ? workspace.source_folders
     : [
@@ -465,15 +490,16 @@ function WorkspaceHoverCard({
       <HoverCardTrigger asChild>
         <button
           aria-expanded={workspaceExpanded}
-          aria-label={`${workspaceExpanded ? 'Collapse' : 'Expand'} workspace ${label}`}
+          aria-label={`${workspaceExpanded ? 'Collapse' : 'Expand'} workspace ${labelText}`}
           className="flex h-full w-full min-w-0 cursor-pointer items-center gap-2 text-left outline-none"
           onClick={() => onExpandedChange(!workspaceExpanded)}
           type="button"
         >
           <FolderGit2Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-          <span className="truncate text-sm font-medium group-data-[collapsible=icon]:hidden">
-            {label}
-          </span>
+          <WorkspaceLabelFields
+            className="group-data-[collapsible=icon]:hidden"
+            label={label}
+          />
           <ChevronDownIcon
             aria-hidden="true"
             className={`ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[collapsible=icon]:hidden ${workspaceExpanded ? '' : '-rotate-90'}`}
@@ -494,10 +520,12 @@ function WorkspaceHoverCard({
             <div className="min-w-0 flex-1">
               <button
                 className="group/name flex max-w-full items-center gap-1 rounded-sm text-left font-medium outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() => onRename({ kind: 'workspace', id: workspace.id, label })}
+                onClick={() =>
+                  onRename({ kind: 'workspace', id: workspace.id, label: labelText })
+                }
                 type="button"
               >
-                <span className="truncate">{label}</span>
+                <WorkspaceLabelFields label={label} />
                 <PencilIcon
                   aria-hidden="true"
                   className="size-3 shrink-0 opacity-0 transition-opacity group-hover/name:opacity-100 group-focus/name:opacity-100"

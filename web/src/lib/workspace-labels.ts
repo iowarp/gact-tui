@@ -5,7 +5,18 @@ function parentName(path: string): string | undefined {
   return parts.length > 1 ? parts.at(-2) : undefined;
 }
 
-export function workspaceLabels(workspaces: readonly Workspace[]): Map<string, string> {
+export interface WorkspaceDisplayLabel {
+  name: string;
+  qualifiers: readonly string[];
+}
+
+export function workspaceLabelText(label: WorkspaceDisplayLabel): string {
+  return [label.name, ...label.qualifiers].join(' ');
+}
+
+export function workspaceLabels(
+  workspaces: readonly Workspace[],
+): Map<string, WorkspaceDisplayLabel> {
   const grouped = new Map<string, Workspace[]>();
   for (const workspace of workspaces) {
     const current = grouped.get(workspace.display_name) ?? [];
@@ -13,11 +24,11 @@ export function workspaceLabels(workspaces: readonly Workspace[]): Map<string, s
     grouped.set(workspace.display_name, current);
   }
 
-  const labels = new Map<string, string>();
+  const labels = new Map<string, WorkspaceDisplayLabel>();
   for (const [name, group] of grouped) {
     if (group.length === 1) {
       const workspace = group[0];
-      if (workspace) labels.set(workspace.id, name);
+      if (workspace) labels.set(workspace.id, { name, qualifiers: [] });
       continue;
     }
     const parentCounts = new Map<string, number>();
@@ -27,9 +38,11 @@ export function workspaceLabels(workspaces: readonly Workspace[]): Map<string, s
     }
     for (const workspace of group) {
       const parent = parentName(workspace.path) ?? workspace.connection_id;
-      const suffix =
-        (parentCounts.get(parent) ?? 0) > 1 ? `${parent} — ${workspace.connection_id}` : parent;
-      labels.set(workspace.id, `${name} — ${suffix}`);
+      const qualifiers =
+        (parentCounts.get(parent) ?? 0) > 1
+          ? [parent, workspace.connection_id]
+          : [parent];
+      labels.set(workspace.id, { name, qualifiers });
     }
   }
   return labels;

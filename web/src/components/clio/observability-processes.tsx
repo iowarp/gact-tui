@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { SubagentOpenTarget } from './subagent-card';
+import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
 import { getToolPresentation } from './tool-presentation';
 
@@ -316,7 +317,7 @@ function ProcessLaneRow({
           } as CSSProperties;
           const content = (
             <span
-              aria-label={`${span.label}, ${span.status}`}
+              aria-label={`${span.label}, ${humanizeProtocolValue(span.status)}`}
               data-execution-span-id={span.id}
               data-execution-action={interactive ? '' : undefined}
               className={cn(

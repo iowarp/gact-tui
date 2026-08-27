@@ -35,6 +35,7 @@ function renderArtifact(action = vi.fn()) {
   render(
     <QueryClientProvider client={client}>
       <ClioA2UIArtifact
+        accessibility={{ label: 'Position plot artifact', description: 'Static plot download' }}
         action={action}
         mediaType="image/png"
         name="MTA1_position_timeseries.png"
@@ -53,6 +54,10 @@ describe('ClioA2UIArtifact', () => {
     expect(
       await screen.findByRole('img', { name: 'MTA1_position_timeseries.png' }),
     ).toHaveAttribute('src', 'blob:a2ui-artifact-preview');
+    expect(screen.getByLabelText('Position plot artifact')).toHaveAttribute(
+      'aria-description',
+      'Static plot download',
+    );
     expect(screen.queryByText('artifact://artifact_plot')).not.toBeInTheDocument();
     expect(repository.readArtifactBytesFor).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'artifact_plot' }),

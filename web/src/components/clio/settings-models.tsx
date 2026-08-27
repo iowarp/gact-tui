@@ -235,8 +235,14 @@ function ModelsSettingsContent({
               <SelectContent>
                 {configuration.presets.map((preset) => (
                   <SelectItem key={preset.id} value={preset.id}>
-                    {providerDisplayName(preset)}
-                    {preset.is_authenticated ? '' : ' — sign-in needed'}
+                    <span className="flex min-w-0 items-baseline gap-2">
+                      <span className="truncate">{providerDisplayName(preset)}</span>
+                      {!preset.is_authenticated ? (
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          Sign-in needed
+                        </span>
+                      ) : null}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

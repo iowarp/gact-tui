@@ -66,7 +66,11 @@ export function ClioTimeSeriesPlot({
   title,
   sourceRows,
   truncated = false,
+  accessibilityDescription,
+  accessibilityLabel,
 }: {
+  accessibilityDescription?: string;
+  accessibilityLabel?: string;
   rows: PlotRow[];
   xKey: string;
   yKeys: string[];
@@ -246,7 +250,13 @@ export function ClioTimeSeriesPlot({
       ? `Selected rows ${selectionStart + 1}–${selectionEnd + 1}`
       : undefined;
   return (
-    <Frame dense spacing="sm">
+    <Frame
+      aria-description={accessibilityDescription}
+      aria-label={accessibilityLabel}
+      dense
+      role="group"
+      spacing="sm"
+    >
       <FrameHeader className="flex-row items-center gap-2">
         <ChartNoAxesCombinedIcon aria-hidden="true" className="size-4 text-primary" />
         <div className="min-w-0">

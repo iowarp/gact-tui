@@ -1,4 +1,5 @@
 import type { Artifact, ArtifactLineage } from '@clio/core/v3';
+import { isValidElement } from 'react';
 import { describe, expect, it } from 'vitest';
 import { buildArtifactLineageGraph } from './artifact-lineage-graph';
 
@@ -67,7 +68,7 @@ describe('buildArtifactLineageGraph', () => {
       184,
     );
     expect(graph.nodes.every((node) => Number.isFinite(node.position.x))).toBe(true);
-    expect(graph.edges[0]?.label).toBe('Generated — tool-observed source declaration');
+    expect(isValidElement(graph.edges[0]?.label)).toBe(true);
     expect(graph.edges[0]?.labelStyle).toMatchObject({ fill: 'var(--popover-foreground)' });
     expect(graph.edges[0]?.style).toMatchObject({ strokeWidth: 1.5 });
   });

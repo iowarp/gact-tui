@@ -215,14 +215,29 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
                 <SelectValue placeholder="Choose a session" />
               </SelectTrigger>
               <SelectContent>
-                {availableSessions.map((session) => (
-                  <SelectItem key={session.id} value={session.id}>
-                    {session.title || 'Untitled session'}
-                    {workspaceNameById.get(session.workspace_id)
-                      ? ` — ${workspaceNameById.get(session.workspace_id)}`
-                      : ''}
-                  </SelectItem>
-                ))}
+                {availableSessions.map((session) => {
+                  const sessionTitle = session.title || 'Untitled session';
+                  const workspaceName = workspaceNameById.get(session.workspace_id);
+                  return (
+                    <SelectItem
+                      key={session.id}
+                      textValue={workspaceName ? `${sessionTitle}, ${workspaceName}` : sessionTitle}
+                      value={session.id}
+                    >
+                      <span className="sr-only">
+                        {workspaceName ? `${sessionTitle}, ${workspaceName}` : sessionTitle}
+                      </span>
+                      <span aria-hidden="true" className="flex min-w-0 items-baseline gap-2">
+                        <span className="truncate">{sessionTitle}</span>
+                        {workspaceName ? (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {workspaceName}
+                          </span>
+                        ) : null}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>

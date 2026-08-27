@@ -171,10 +171,10 @@ function workspaceFolderChoices(workspaces: readonly Workspace[]): PathChoice[] 
   }
   return uniqueChoices.map(({ workspaceName, ...choice }) => ({
     ...choice,
-    name:
+    qualifiers:
       (nameCounts.get(choice.name) ?? 0) > 1
-        ? `${choice.name} — ${workspaceName || parentName(choice.path)}`
-        : choice.name,
+        ? [workspaceName || parentName(choice.path)]
+        : undefined,
   }));
 }
 

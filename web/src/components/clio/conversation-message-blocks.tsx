@@ -31,6 +31,7 @@ import { ClioA2UISurface } from './a2ui-surface';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import type { ClioConversationProps } from './conversation';
 import { ConversationProcessSequence } from './conversation-process-sequence';
+import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 
@@ -234,7 +235,7 @@ function MessageBlockView({
       return (
         <Alert variant="destructive">
           <AlertTriangleIcon aria-hidden="true" />
-          <AlertTitle>{block.code}</AlertTitle>
+          <AlertTitle>{humanizeProtocolValue(block.code)}</AlertTitle>
           <AlertDescription>
             {block.message}
             {block.recoverable ? ' You can retry this step.' : ''}
@@ -255,16 +256,12 @@ function MessageBlockView({
           <AlertTriangleIcon aria-hidden="true" />
           <AlertTitle>New message content</AlertTitle>
           <AlertDescription>
-            This service sent a {humanizeProtocolLabel(block.original_type)} block that this version
+            This service sent a {humanizeProtocolValue(block.original_type)} block that this version
             cannot display yet. The rest of the conversation remains available.
           </AlertDescription>
         </Alert>
       );
   }
-}
-
-function humanizeProtocolLabel(value: string): string {
-  return value.replaceAll('_', ' ').replaceAll('.', ' ');
 }
 
 export function MessageBlockSequence({

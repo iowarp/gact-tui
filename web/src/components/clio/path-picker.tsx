@@ -1,6 +1,11 @@
 import { FolderIcon, FolderOpenIcon, KeyboardIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { FileTree, FileTreeFile } from '@/components/ai-elements/file-tree';
+import {
+  FileTree,
+  FileTreeFile,
+  FileTreeIcon,
+  FileTreeName,
+} from '@/components/ai-elements/file-tree';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -19,6 +24,7 @@ export interface PathChoice {
   name: string;
   path: string;
   detail?: string;
+  qualifiers?: readonly string[];
 }
 
 interface ClioPathPickerProps {
@@ -103,12 +109,24 @@ export function ClioPathPicker({
               <FileTree onSelect={setCandidate} selectedPath={candidate}>
                 {folders.map((folder) => (
                   <FileTreeFile
-                    icon={<FolderIcon className="size-4 text-primary" />}
                     key={folder.path}
                     name={folder.name}
                     path={folder.path}
                     title={folder.detail || folder.path}
-                  />
+                  >
+                    <FileTreeIcon>
+                      <FolderIcon className="size-4 text-primary" />
+                    </FileTreeIcon>
+                    <FileTreeName>{folder.name}</FileTreeName>
+                    {folder.qualifiers?.map((qualifier) => (
+                      <span
+                        className="shrink-0 text-xs text-muted-foreground"
+                        key={qualifier}
+                      >
+                        {qualifier}
+                      </span>
+                    ))}
+                  </FileTreeFile>
                 ))}
               </FileTree>
             ) : (

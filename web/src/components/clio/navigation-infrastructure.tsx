@@ -170,7 +170,7 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   return (
     <Collapsible asChild onOpenChange={setOpen} open={open}>
       <SidebarMenuItem>
-        <SidebarMenuButton asChild tooltip={`Infrastructure — ${overall.stateLabel}`}>
+        <SidebarMenuButton asChild tooltip={`Infrastructure status: ${overall.stateLabel}`}>
           <Link
             aria-label={`Infrastructure: ${overall.stateLabel}`}
             state={{ endpoint, from }}

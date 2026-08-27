@@ -14,6 +14,11 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import { cn } from '@/lib/utils';
+import {
+  a2uiAccessibilityLabel,
+  a2uiAccessibilityProps,
+  type A2UIAccessibility,
+} from './a2ui-accessibility';
 import type { ScientificMapPoint } from './scientific-map-view';
 
 const ClioScientificMapView = lazy(() =>
@@ -32,6 +37,7 @@ const pointSchema = z
   .strict();
 
 interface ClioMapProps {
+  accessibility?: A2UIAccessibility;
   title?: string;
   points: ScientificMapPoint[];
   selected?: string;
@@ -40,6 +46,7 @@ interface ClioMapProps {
 }
 
 export function ClioScientificMap({
+  accessibility,
   title = 'Locations',
   points,
   selected,
@@ -55,7 +62,12 @@ export function ClioScientificMap({
 
   return (
     <div className="min-w-0" ref={surfaceRef}>
-      <Frame aria-label={`${title} map`} dense>
+      <Frame
+        {...a2uiAccessibilityProps(accessibility)}
+        aria-label={a2uiAccessibilityLabel(accessibility) ?? `${title} map`}
+        dense
+        role="group"
+      >
         <FrameHeader className="flex-row items-center gap-2">
           <MapIcon aria-hidden="true" className="size-4 text-primary" />
           <div className="min-w-0">
@@ -157,6 +169,7 @@ export const ClioMapCatalogComponent = createComponentImplementation(
   },
   ({ props }) => (
     <ClioScientificMap
+      accessibility={props.accessibility}
       action={props.action}
       actionLabel={props.actionLabel}
       points={props.points}
