@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   A2UI_VERSION,
   a2uiSurfaceSchema,
+  capabilitiesSchema,
   messageSchema,
   runStateSchema,
   toolInvocationSchema,
@@ -53,5 +54,29 @@ describe('forward-compatible wire enums', () => {
         messages: [],
       }).state,
     ).toBe('unknown');
+  });
+
+  it('preserves structured capability vocabulary values', () => {
+    const result = capabilitiesSchema.parse({
+      gact_versions: ['0.3'],
+      a2ui_versions: ['0.9.1'],
+      replay: { supported: true },
+      capabilities: {
+        attachments: true,
+        x_clio_cancellation: 'cooperative',
+        x_clio_document_artifacts: { formats: ['markdown', 'pdf'] },
+      },
+      model_catalog: {
+        source: 'server',
+        observed_at: '2026-08-27T12:00:00Z',
+        stale: false,
+      },
+    });
+
+    expect(result.capabilities).toMatchObject({
+      attachments: true,
+      x_clio_cancellation: 'cooperative',
+      x_clio_document_artifacts: { formats: ['markdown', 'pdf'] },
+    });
   });
 });

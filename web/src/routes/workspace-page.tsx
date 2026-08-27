@@ -70,6 +70,7 @@ export function WorkspacePage() {
     contextTargetOptions,
     conversationSubagents,
     entities,
+    executionProvenance,
     messages,
     modelConfiguration,
     modelOptions,
@@ -296,13 +297,23 @@ export function WorkspacePage() {
                 contextFiles={sessionObservability.contextFiles.data ?? []}
                 contextFrames={sessionObservability.contextFrames.data ?? []}
                 diffs={sessionObservability.diffs.data ?? []}
+                executionProvenance={executionProvenance.execution.data}
                 messages={messages}
                 onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
                 onOpenFile={openWorkspaceFile}
                 onOpenSubagent={openSubagent}
+                onProvenanceProviderChange={executionProvenance.setProvider}
                 processes={processes}
+                provenanceDegradation={executionProvenance.degradation}
+                provenancePending={
+                  executionProvenance.providers.isPending ||
+                  executionProvenance.execution.isPending
+                }
+                provenanceProvider={executionProvenance.provider}
+                provenanceProviders={executionProvenance.providers.data?.providers}
+                artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
                 runs={runs}
                 sessionId={sessionId}
                 sessionState={state}
@@ -442,6 +453,7 @@ export function WorkspacePage() {
             sessionView={
               <ClioObservabilityView
                 artifacts={artifacts}
+                artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
                 context={context}
                 contextError={sessionContext.state.error?.message}
                 contextFiles={contextObservability.contextFiles.data ?? []}
@@ -450,6 +462,7 @@ export function WorkspacePage() {
                 contextTargets={contextTargetOptions}
                 compactContextPending={sessionContext.compact.isPending}
                 diffs={sessionObservability.diffs.data ?? []}
+                executionProvenance={executionProvenance.execution.data}
                 messages={messages}
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
@@ -457,10 +470,18 @@ export function WorkspacePage() {
                 onOpenSubagent={openSubagent}
                 onCompactContext={() => sessionContext.compact.mutateAsync()}
                 onContextTargetChange={setContextTargetId}
+                onProvenanceProviderChange={executionProvenance.setProvider}
                 onUpdateContextPreferences={(input) =>
                   sessionContext.preferences.mutateAsync(input)
                 }
                 processes={processes}
+                provenanceDegradation={executionProvenance.degradation}
+                provenancePending={
+                  executionProvenance.providers.isPending ||
+                  executionProvenance.execution.isPending
+                }
+                provenanceProvider={executionProvenance.provider}
+                provenanceProviders={executionProvenance.providers.data?.providers}
                 runs={runs}
                 sessionId={sessionId}
                 subagents={subagents}

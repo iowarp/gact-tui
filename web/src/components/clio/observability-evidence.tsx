@@ -1,4 +1,13 @@
-import type { Artifact, AsyncProcess, ContextFile, Message, SessionDiff } from '@clio/core/v3';
+import type {
+  Artifact,
+  ArtifactProvenanceProviderSummary,
+  AsyncProcess,
+  ContextFile,
+  ExecutionProvenanceDegradation,
+  Message,
+  ProvenanceProviderSummary,
+  SessionDiff,
+} from '@clio/core/v3';
 import {
   BoxIcon,
   ExternalLinkIcon,
@@ -45,6 +54,9 @@ export interface ClioEvidenceViewProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
+  provenanceProvider?: ProvenanceProviderSummary;
+  artifactProvenanceProvider?: ArtifactProvenanceProviderSummary;
+  provenanceDegradation?: ExecutionProvenanceDegradation;
 }
 
 export function ClioEvidenceView(props: ClioEvidenceViewProps) {
@@ -60,8 +72,11 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
     sources.length ||
     plans.length ||
     props.contextFiles.length;
+  const hasProvenance = Boolean(
+    props.provenanceProvider || props.artifactProvenanceProvider || props.provenanceDegradation,
+  );
 
-  if (!hasEvidence) {
+  if (!hasEvidence && !hasProvenance) {
     return (
       <p className="p-6 text-center text-sm text-muted-foreground">
         No changed files, sources, artifacts, plans, or attached context are available.
@@ -71,6 +86,43 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
 
   return (
     <div className="grid gap-3">
+      {hasProvenance ? (
+        <Frame spacing="sm" variant="ghost">
+          <FrameHeader>
+            <FrameTitle>Evidence custody</FrameTitle>
+            <FrameDescription>
+              Provenance availability reported by the connected service.
+            </FrameDescription>
+          </FrameHeader>
+          <FramePanel className="flex flex-wrap gap-2">
+            {props.provenanceProvider ? (
+              <ClioStatus
+                label={`Execution: ${props.provenanceProvider.name}`}
+                detail={props.provenanceProvider.status}
+                value={evidenceProviderStatus(
+                  props.provenanceProvider.status,
+                  props.provenanceProvider.queryable,
+                )}
+              />
+            ) : null}
+            {props.artifactProvenanceProvider ? (
+              <ClioStatus
+                label={`Artifacts: ${props.artifactProvenanceProvider.provider}`}
+                detail={props.artifactProvenanceProvider.status}
+                value={evidenceProviderStatus(
+                  props.artifactProvenanceProvider.status,
+                  props.artifactProvenanceProvider.queryable,
+                )}
+              />
+            ) : null}
+            {props.provenanceDegradation ? (
+              <p className="basis-full text-xs leading-5 text-muted-foreground">
+                {props.provenanceDegradation.reason}
+              </p>
+            ) : null}
+          </FramePanel>
+        </Frame>
+      ) : null}
       <EvidenceCounts
         artifacts={props.artifacts.length}
         contextFiles={props.contextFiles.length}
@@ -134,6 +186,15 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
       </Accordion>
     </div>
   );
+}
+
+function evidenceProviderStatus(
+  status: string,
+  queryable: boolean,
+): 'healthy' | 'degraded' | 'unavailable' {
+  if (!queryable || status === 'unavailable' || status === 'disabled') return 'unavailable';
+  if (status === 'degraded' || status === 'partial') return 'degraded';
+  return 'healthy';
 }
 
 function EvidenceSection({

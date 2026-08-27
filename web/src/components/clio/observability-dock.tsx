@@ -4,6 +4,8 @@ import type {
   ContextFile,
   ContextFrame,
   ContextSnapshot,
+  ExecutionProvenanceDegradation,
+  ExecutionProvenanceResult,
   Message,
   Run,
   RunState,
@@ -11,6 +13,8 @@ import type {
   SubagentRun,
   Task,
   ToolInvocation,
+  ProvenanceProviderSummary,
+  ArtifactProvenanceProviderSummary,
 } from '@clio/core/v3';
 import {
   ActivityIcon,
@@ -20,6 +24,7 @@ import {
   ChartNoAxesGanttIcon,
   Layers3Icon,
   PanelRightOpenIcon,
+  WaypointsIcon,
 } from 'lucide-react';
 import { lazy, Suspense, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
@@ -33,6 +38,13 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import type { ClioContextTarget } from '@/lib/context-targets';
 import {
@@ -51,6 +63,11 @@ import type { SubagentOpenTarget } from './subagent-card';
 
 const ClioWorkflowGraph = lazy(() =>
   import('./workflow-graph').then((module) => ({ default: module.ClioWorkflowGraph })),
+);
+const ClioExecutionProvenanceGraph = lazy(() =>
+  import('./workflow-graph').then((module) => ({
+    default: module.ClioExecutionProvenanceGraph,
+  })),
 );
 
 export interface ClioObservabilityDockProps {
@@ -83,6 +100,13 @@ export interface ClioObservabilityDockProps {
   onOpenFile?: (path: string) => void;
   sessionState?: RunState;
   sessionId?: string;
+  executionProvenance?: ExecutionProvenanceResult;
+  provenanceProviders?: readonly ProvenanceProviderSummary[];
+  artifactProvenanceProvider?: ArtifactProvenanceProviderSummary;
+  provenanceProvider?: string;
+  provenancePending?: boolean;
+  provenanceDegradation?: ExecutionProvenanceDegradation;
+  onProvenanceProviderChange?: (provider: string) => void;
 }
 
 function isActiveWork(state: string): boolean {
@@ -296,6 +320,13 @@ export function ClioObservabilityView({
   onOpenDiff,
   onOpenFile,
   onOpenSubagent,
+  executionProvenance,
+  provenanceProviders,
+  artifactProvenanceProvider,
+  provenanceProvider,
+  provenancePending,
+  provenanceDegradation,
+  onProvenanceProviderChange,
 }: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const hasMediumNavigation = useContainerQuery(surfaceRef, 320);
@@ -381,6 +412,23 @@ export function ClioObservabilityView({
               subagents={subagents}
               tools={tools}
             />
+            <ProvenanceSourceBar
+              artifactProvider={artifactProvenanceProvider}
+              degradation={provenanceDegradation}
+              onProviderChange={onProvenanceProviderChange}
+              pending={provenancePending}
+              provider={provenanceProvider}
+              providers={provenanceProviders}
+            />
+            {executionProvenance?.nodes.length ? (
+              <Suspense fallback={<ObservabilityLoading label="Loading execution provenance" />}>
+                <ClioExecutionProvenanceGraph provenance={executionProvenance} />
+              </Suspense>
+            ) : executionProvenance ? (
+              <p className="rounded-lg border border-dashed p-3 text-xs leading-5 text-muted-foreground">
+                {executionProvenance.provider} reported no execution nodes for this session.
+              </p>
+            ) : null}
             {hasGraphSpace ? (
               <Suspense fallback={<ObservabilityLoading label="Loading delegation map" />}>
                 <ClioWorkflowGraph
@@ -409,6 +457,11 @@ export function ClioObservabilityView({
               onOpenDiff={onOpenDiff}
               onOpenFile={onOpenFile}
               processes={processes}
+              artifactProvenanceProvider={artifactProvenanceProvider}
+              provenanceDegradation={provenanceDegradation}
+              provenanceProvider={provenanceProviders?.find(
+                (provider) => provider.name === provenanceProvider,
+              )}
             />
           </TabsContent>
           <TabsContent className="m-0 grid gap-4 p-4" value="context">
@@ -431,6 +484,82 @@ export function ClioObservabilityView({
       </Tabs>
     </div>
   );
+}
+
+function ProvenanceSourceBar({
+  artifactProvider,
+  degradation,
+  onProviderChange,
+  pending,
+  provider,
+  providers,
+}: {
+  artifactProvider?: ArtifactProvenanceProviderSummary;
+  degradation?: ExecutionProvenanceDegradation;
+  onProviderChange?: (provider: string) => void;
+  pending?: boolean;
+  provider?: string;
+  providers?: readonly ProvenanceProviderSummary[];
+}) {
+  const selected = providers?.find((item) => item.name === provider);
+  return (
+    <div className="grid gap-2 rounded-lg border bg-muted/20 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <WaypointsIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Provenance source</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {pending ? 'Discovering service providers' : selected?.source ?? 'Unavailable'}
+            </p>
+          </div>
+        </div>
+        {providers?.length && provider ? (
+          <Select onValueChange={onProviderChange} value={provider}>
+            <SelectTrigger aria-label="Execution provenance provider" size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {providers.map((item) => (
+                <SelectItem key={item.name} value={item.name}>
+                  {item.name} — {item.status}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {selected ? (
+          <ClioStatus
+            label={`${selected.name}: ${selected.status}`}
+            value={providerStatus(selected.status, selected.queryable)}
+          />
+        ) : null}
+        {artifactProvider ? (
+          <ClioStatus
+            label={`Artifacts: ${artifactProvider.provider}`}
+            detail={artifactProvider.status}
+            value={providerStatus(artifactProvider.status, artifactProvider.queryable)}
+          />
+        ) : null}
+      </div>
+      {degradation ? (
+        <p className={`text-xs leading-5 ${degradation.partial ? 'text-warning' : 'text-muted-foreground'}`}>
+          {degradation.reason}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function providerStatus(
+  status: string,
+  queryable: boolean,
+): 'healthy' | 'degraded' | 'unavailable' {
+  if (!queryable || status === 'unavailable' || status === 'disabled') return 'unavailable';
+  if (status === 'degraded' || status === 'partial') return 'degraded';
+  return 'healthy';
 }
 
 function ObservabilityLoading({ label }: { label: string }) {

@@ -22,6 +22,7 @@ export type ClioQueryNamespace =
   | 'document-manifest'
   | 'expert-pack'
   | 'expert-packs'
+  | 'execution-provenance'
   | 'hook-inspection'
   | 'language-model-configuration'
   | 'mcp-server'
@@ -37,6 +38,7 @@ export type ClioQueryNamespace =
   | 'prompt'
   | 'prompts'
   | 'provider-models'
+  | 'provenance-providers'
   | 'providers'
   | 'relay-status'
   | 'runs'
@@ -79,6 +81,9 @@ export const queryKeys = {
     providerId
       ? (['provider-models', endpoint, providerId] as const)
       : (['provider-models', endpoint] as const),
+  provenanceProviders: (endpoint: string) => ['provenance-providers', endpoint] as const,
+  executionProvenance: (endpoint: string, sessionId: string, provider: string) =>
+    ['execution-provenance', endpoint, sessionId, provider] as const,
   runs: (endpoint: string) => ['runs', endpoint] as const,
   sessionArtifacts: (endpoint: string, sessionId: string) =>
     ['session-artifacts', endpoint, sessionId] as const,

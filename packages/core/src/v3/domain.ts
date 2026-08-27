@@ -734,7 +734,7 @@ export interface CapabilityNegotiation {
   gact_versions: string[];
   a2ui_versions: string[];
   replay: { supported: boolean; retention?: number };
-  capabilities: Record<string, boolean>;
+  capabilities: Record<string, unknown>;
   degradations: Degradation[];
   model_catalog: Provenance;
   active_model?: { provider_id: string; model_id: string; effort?: string };

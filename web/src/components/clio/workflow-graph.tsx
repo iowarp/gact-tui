@@ -1,8 +1,14 @@
-import type { AsyncProcess, RunState, SubagentRun } from '@clio/core/v3';
+import type {
+  AsyncProcess,
+  ExecutionProvenanceResult,
+  RunState,
+  SubagentRun,
+} from '@clio/core/v3';
 import { graphlib, layout } from '@dagrejs/dagre';
 import {
   Controls,
   Handle,
+  MarkerType,
   Position,
   ReactFlow,
   type Edge,
@@ -27,9 +33,19 @@ interface WorkflowNodeData extends Record<string, unknown> {
   openSubagent?: (target: SubagentOpenTarget) => void;
 }
 
+interface ExecutionNodeData extends Record<string, unknown> {
+  label: string;
+  detail: string;
+  status: string;
+  missing?: boolean;
+  width: number;
+  direction: 'LR' | 'TB';
+}
+
 type WorkflowNode = Node<WorkflowNodeData, 'clio-workflow'>;
 
 const nodeTypes = { 'clio-workflow': WorkflowNodeCard };
+const executionNodeTypes = { 'clio-execution': ExecutionNodeCard };
 const nodeWidth = 196;
 const nodeHeight = 108;
 
@@ -111,6 +127,179 @@ export function ClioWorkflowGraph({
       </FramePanel>
     </Frame>
   );
+}
+
+/** Provider-neutral execution graph rendered directly from CLIO's normalized provenance model. */
+export function ClioExecutionProvenanceGraph({
+  provenance,
+}: {
+  provenance: ExecutionProvenanceResult;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const horizontal = useContainerQuery(containerRef, 560);
+  const graph = useMemo(
+    () => buildExecutionProvenanceGraph(provenance, horizontal ? 'LR' : 'TB'),
+    [horizontal, provenance],
+  );
+  const height = Math.min(760, Math.max(300, graph.nodes.length * (horizontal ? 42 : 72)));
+
+  return (
+    <Frame spacing="sm" variant="ghost">
+      <FrameHeader>
+        <div className="flex min-w-0 items-start gap-3">
+          <NetworkIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <FrameTitle>Execution provenance</FrameTitle>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {provenance.nodes.length.toLocaleString()} nodes and{' '}
+              {provenance.edges.length.toLocaleString()} relationships reported by{' '}
+              {provenance.provider}.
+            </p>
+          </div>
+        </div>
+      </FrameHeader>
+      <FramePanel>
+        <div
+          aria-label={`${provenance.provider} execution provenance graph`}
+          className="min-h-72 overflow-hidden rounded-lg border bg-background/55"
+          ref={containerRef}
+          role="img"
+          style={{ height }}
+        >
+          <ReactFlow
+            edges={graph.edges}
+            fitView
+            fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
+            maxZoom={1.75}
+            minZoom={0.12}
+            nodeTypes={executionNodeTypes}
+            nodes={graph.nodes}
+            nodesConnectable={false}
+            nodesDraggable={false}
+            panOnDrag
+            proOptions={{ hideAttribution: true }}
+            zoomOnDoubleClick={false}
+          >
+            <Controls aria-label="Execution provenance graph controls" showInteractive={false} />
+          </ReactFlow>
+        </div>
+      </FramePanel>
+    </Frame>
+  );
+}
+
+// Pure construction preserves every service-reported relationship and exposes broken references.
+// oxlint-disable-next-line react/only-export-components
+export function buildExecutionProvenanceGraph(
+  provenance: ExecutionProvenanceResult,
+  direction: 'LR' | 'TB',
+): { nodes: Node<ExecutionNodeData, 'clio-execution'>[]; edges: Edge[] } {
+  const serviceNodes = new Map(provenance.nodes.map((node) => [node.id, node]));
+  const referencedIds = new Set(
+    provenance.edges.flatMap((edge) => [edge.source, edge.target]),
+  );
+  const missingIds = [...referencedIds].filter((id) => !serviceNodes.has(id));
+  const nodes: Node<ExecutionNodeData, 'clio-execution'>[] = [
+    ...provenance.nodes.map((node) => {
+      const width = executionNodeWidth(node.label);
+      return {
+        id: node.id,
+        type: 'clio-execution' as const,
+        position: { x: 0, y: 0 },
+        data: {
+          label: node.label,
+          detail: [node.kind, node.agent_id].filter(Boolean).join(', '),
+          status: node.status,
+          width,
+          direction,
+        },
+        ariaLabel: `${node.label}, ${node.kind}, ${node.status}`,
+        style: { width },
+      };
+    }),
+    ...missingIds.map((id) => ({
+      id,
+      type: 'clio-execution' as const,
+      position: { x: 0, y: 0 },
+      data: {
+        label: id,
+        detail: 'Referenced node unavailable',
+        status: 'unavailable',
+        missing: true,
+        width: 220,
+        direction,
+      },
+      ariaLabel: `${id}, referenced node unavailable`,
+      style: { width: 220 },
+    })),
+  ];
+  const edges: Edge[] = provenance.edges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    label: edge.kind,
+    type: 'smoothstep',
+    markerEnd: { type: MarkerType.ArrowClosed },
+  }));
+  return layoutExecutionGraph(nodes, edges, direction);
+}
+
+function layoutExecutionGraph(
+  nodes: Node<ExecutionNodeData, 'clio-execution'>[],
+  edges: Edge[],
+  direction: 'LR' | 'TB',
+) {
+  const graph = new graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+  graph.setGraph({ rankdir: direction, nodesep: 30, ranksep: 86, marginx: 24, marginy: 24 });
+  for (const node of nodes) graph.setNode(node.id, { width: node.data.width, height: 82 });
+  for (const edge of edges) graph.setEdge(edge.source, edge.target);
+  layout(graph);
+  return {
+    nodes: nodes.map((node) => {
+      const position = graph.node(node.id);
+      return {
+        ...node,
+        sourcePosition: direction === 'LR' ? Position.Right : Position.Bottom,
+        targetPosition: direction === 'LR' ? Position.Left : Position.Top,
+        position: { x: position.x - node.data.width / 2, y: position.y - 41 },
+      };
+    }),
+    edges,
+  };
+}
+
+function ExecutionNodeCard({ data }: NodeProps<Node<ExecutionNodeData, 'clio-execution'>>) {
+  const status = statusValue(data.status);
+  return (
+    <div
+      className={`rounded-lg border bg-background px-3 py-2 shadow-sm ${
+        data.missing ? 'border-warning border-dashed' : 'hover:border-primary'
+      }`}
+      style={{ width: data.width }}
+    >
+      <Handle className="!size-0 !border-0 !bg-transparent" position={data.direction === 'LR' ? Position.Left : Position.Top} type="target" />
+      <p className="truncate text-sm font-medium" title={data.label}>{data.label}</p>
+      <p className="mt-0.5 truncate text-[10px] text-muted-foreground" title={data.detail}>
+        {data.detail}
+      </p>
+      <ClioStatus className="mt-2 py-0.5" label={data.status || undefined} value={status} />
+      <Handle className="!size-0 !border-0 !bg-transparent" position={data.direction === 'LR' ? Position.Right : Position.Bottom} type="source" />
+    </div>
+  );
+}
+
+function executionNodeWidth(label: string): number {
+  return Math.min(320, Math.max(196, 112 + label.length * 7));
+}
+
+function statusValue(status: string): 'healthy' | 'degraded' | 'unavailable' | RunState {
+  if (status === 'healthy' || status === 'ready') return 'healthy';
+  if (status === 'degraded') return 'degraded';
+  if (status === 'unavailable') return 'unavailable';
+  if (
+    ['queued', 'running', 'waiting_permission', 'waiting_user', 'completed', 'failed', 'cancelled', 'interrupted'].includes(status)
+  ) return status as RunState;
+  return 'unavailable';
 }
 
 // Pure graph construction is exported for deterministic layout tests; it owns no React state.

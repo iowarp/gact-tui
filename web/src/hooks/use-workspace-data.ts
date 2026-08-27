@@ -15,6 +15,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
 import { useSessionContext } from './use-session-context';
+import { useExecutionProvenance } from './use-execution-provenance';
 import { useSessionLiveStream } from './use-session-live-stream';
 import { useSessionObservability } from './use-session-observability';
 import { useWorkspaceCapabilities } from './use-workspace-capabilities';
@@ -153,6 +154,7 @@ export function useWorkspaceData({
     Boolean(session && contextTargetSession),
   );
   const sessionObservability = useSessionObservability(sessionId);
+  const executionProvenance = useExecutionProvenance(sessionId);
   const contextObservability = useSessionObservability(contextTargetId);
   const workspaceFiles = useQuery({
     queryKey: queryKeys.key('workspace-files', settings.endpoint, workspaceId),
@@ -269,6 +271,7 @@ export function useWorkspaceData({
     contextTargetOptions,
     conversationSubagents,
     entities,
+    executionProvenance,
     messages,
     modelConfiguration,
     modelOptions,

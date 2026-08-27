@@ -31,7 +31,7 @@ export const capabilitiesSchema = z.object({
     supported: z.boolean(),
     retention: z.number().int().nonnegative().optional(),
   }),
-  capabilities: z.record(z.string(), z.boolean()),
+  capabilities: z.record(z.string(), z.unknown()),
   degradations: z.array(degradationSchema).default([]),
   model_catalog: provenanceSchema,
   active_model: z

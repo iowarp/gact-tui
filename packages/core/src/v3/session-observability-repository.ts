@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { AsyncProcess, ContextFile, ContextFrame, SessionDiff } from './domain.js';
-import { AdministrationRepository } from './administration-repository.js';
+import { ExecutionProvenanceRepository } from './execution-provenance-repository.js';
 
 const runStateSchema = z.string().transform((value): AsyncProcess['live_state'] => {
   if (value === 'working') return 'running';
@@ -105,7 +105,7 @@ const asyncProcessSchema = z
   .transform((process) => ({ ...process, metadata: process as Record<string, unknown> }));
 
 /** Authoritative read models for session work, evidence, and retained context. */
-export class SessionObservabilityRepository extends AdministrationRepository {
+export class SessionObservabilityRepository extends ExecutionProvenanceRepository {
   public async sessionDiffs(sessionId: string, signal?: AbortSignal): Promise<SessionDiff[]> {
     const value = await this.transport.request({
       method: 'GET',

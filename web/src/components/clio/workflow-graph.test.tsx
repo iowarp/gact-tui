@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildWorkflowGraph } from './workflow-graph';
+import { buildExecutionProvenanceGraph, buildWorkflowGraph } from './workflow-graph';
 
 describe('buildWorkflowGraph', () => {
   it('builds an accessible session-to-child topology from authoritative processes', () => {
@@ -41,5 +41,57 @@ describe('buildWorkflowGraph', () => {
     expect(graph.edges).toEqual([
       expect.objectContaining({ source: 'session-root', target: 'task_ndp' }),
     ]);
+  });
+});
+
+describe('buildExecutionProvenanceGraph', () => {
+  it('preserves every provider relationship and exposes missing referenced nodes', () => {
+    const graph = buildExecutionProvenanceGraph(
+      {
+        schema_version: 'clio.execution_provenance.v1',
+        provider: 'flowcept',
+        session_id: 'sess_1',
+        complete: false,
+        truncated: false,
+        provider_health: {},
+        campaigns: [],
+        workflows: [],
+        agents: [],
+        spans: [],
+        nodes: [
+          {
+            id: 'tool_1',
+            kind: 'tool',
+            label: 'Stage resource',
+            status: 'completed',
+            session_id: 'sess_1',
+            agent_id: 'main',
+            start_time: 1,
+            end_time: 2,
+            attributes: {},
+          },
+        ],
+        edges: [
+          { id: 'edge_1', source: 'tool_1', target: 'artifact_missing', kind: 'generated' },
+        ],
+      },
+      'LR',
+    );
+
+    expect(graph.edges).toHaveLength(1);
+    expect(graph.edges[0]).toMatchObject({
+      source: 'tool_1',
+      target: 'artifact_missing',
+      label: 'generated',
+    });
+    expect(graph.nodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'tool_1' }),
+        expect.objectContaining({
+          id: 'artifact_missing',
+          data: expect.objectContaining({ missing: true }),
+        }),
+      ]),
+    );
   });
 });

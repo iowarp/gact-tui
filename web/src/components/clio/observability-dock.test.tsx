@@ -127,7 +127,7 @@ describe('ClioObservabilityView', () => {
       />,
     );
 
-    const childLane = screen.getByRole('button', { name: 'geospatial #1, completed' });
+    const childLane = screen.getByRole('button', { name: /geospatial #1, completed/iu });
     await user.click(childLane);
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
 
@@ -356,6 +356,90 @@ describe('ClioObservabilityView', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText('Campaign health')).toBeVisible();
     expect(screen.queryByText('Time unavailable')).not.toBeInTheDocument();
+  });
+
+  it('switches authoritative provenance providers and exposes artifact custody', async () => {
+    const user = userEvent.setup();
+    const onProviderChange = vi.fn();
+    renderObservability(
+      <ClioObservabilityView
+        artifactProvenanceProvider={{
+          provider: 'cmf',
+          queryable: true,
+          durable: true,
+          status: 'ready',
+          health: {},
+        }}
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[]}
+        onProvenanceProviderChange={onProviderChange}
+        processes={[]}
+        provenanceProvider="native"
+        provenanceProviders={[
+          {
+            name: 'native',
+            configured: true,
+            queryable: true,
+            durable: true,
+            status: 'ready',
+            source: 'clio',
+            health: {},
+          },
+          {
+            name: 'flowcept',
+            configured: true,
+            queryable: true,
+            durable: false,
+            status: 'ready',
+            source: 'flowcept',
+            health: {},
+          },
+        ]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole('combobox', { name: 'Execution provenance provider' }));
+    await user.click(screen.getByRole('option', { name: /flowcept/u }));
+    expect(onProviderChange).toHaveBeenCalledWith('flowcept');
+
+    await user.click(screen.getByRole('tab', { name: 'Evidence' }));
+    expect(screen.getByText('Evidence custody')).toBeVisible();
+    expect(screen.getByText('Artifacts: cmf')).toBeVisible();
+  });
+
+  it('renders typed provenance degradation instead of an empty successful view', () => {
+    renderObservability(
+      <ClioObservabilityView
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[]}
+        processes={[]}
+        provenanceDegradation={{
+          code: 'execution_provenance_partial',
+          reason: 'Partial flowcept provenance: the provider marked the snapshot incomplete.',
+          capability: 'execution_provenance',
+          recoverable: true,
+          provider: 'flowcept',
+          partial: true,
+        }}
+        provenanceProvider="flowcept"
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    expect(screen.getByText(/Partial flowcept provenance/u)).toBeVisible();
   });
 });
 
