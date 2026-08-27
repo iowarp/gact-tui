@@ -30,8 +30,7 @@ export class ProviderRepository extends ContextRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/providers/lm',
-      decode: (value) =>
-        languageModelConfigurationSchema.parse(value) as LanguageModelConfiguration,
+      decode: (value) => languageModelConfigurationSchema.parse(value),
       signal,
     });
   }
@@ -74,7 +73,7 @@ export class ProviderRepository extends ContextRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/providers/${encodeURIComponent(providerId)}/handshake${query.size ? `?${query.toString()}` : ''}`,
-      decode: (value) => providerHandshakeSchema.parse(value) as ProviderHandshake,
+      decode: (value) => providerHandshakeSchema.parse(value),
       signal,
     });
   }
@@ -92,8 +91,7 @@ export class ProviderRepository extends ContextRepository {
       method: 'PUT',
       path: '/v1/providers/lm',
       body: input,
-      decode: (value) =>
-        languageModelConfigurationSchema.parse(value) as LanguageModelConfiguration,
+      decode: (value) => languageModelConfigurationSchema.parse(value),
       signal,
     });
   }

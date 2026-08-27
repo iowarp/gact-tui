@@ -40,7 +40,7 @@ export class SessionHistoryRepository {
       method: 'POST',
       path: '/v1/sessions/import',
       body: value,
-      decode: (response) => sessionSchema.parse(response) as Session,
+      decode: (response) => sessionSchema.parse(response),
       signal,
     });
   }
@@ -54,7 +54,7 @@ export class SessionHistoryRepository {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/fork`,
       body: input,
-      decode: (value) => sessionSchema.parse(value) as Session,
+      decode: (value) => sessionSchema.parse(value),
       signal,
     });
   }

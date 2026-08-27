@@ -24,7 +24,7 @@ export class McpRepository extends DocumentRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/mcp/servers/${encodeURIComponent(serverId)}`,
-      decode: (value) => mcpServerDefinitionSchema.parse(value) as McpServerDefinition,
+      decode: (value) => mcpServerDefinitionSchema.parse(value),
       signal,
     });
   }
@@ -45,7 +45,7 @@ export class McpRepository extends DocumentRepository {
       method: 'POST',
       path: '/v1/mcp/servers',
       body: input,
-      decode: (value) => mcpServerDefinitionSchema.parse(value) as McpServerDefinition,
+      decode: (value) => mcpServerDefinitionSchema.parse(value),
       signal,
     });
   }
@@ -54,7 +54,7 @@ export class McpRepository extends DocumentRepository {
     return this.transport.request({
       method: 'POST',
       path: `/v1/mcp/servers/${encodeURIComponent(serverId)}/reconnect`,
-      decode: (value) => mcpServerDefinitionSchema.parse(value) as McpServerDefinition,
+      decode: (value) => mcpServerDefinitionSchema.parse(value),
       signal,
     });
   }

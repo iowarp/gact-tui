@@ -4,7 +4,6 @@ import type {
   ArtifactDetail,
   ArtifactLineage,
   ArtifactRecord,
-  A2UISurface,
   CapabilityNegotiation,
   ApprovalRequest,
   PermissionLedgerItem,
@@ -15,9 +14,6 @@ import type {
   Session,
   SessionArtifactListing,
   SessionDefaults,
-  SubagentRun,
-  Task,
-  ToolInvocation,
   TranscriptSnapshot,
   TurnAttempt,
   Workspace,
@@ -71,7 +67,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/capabilities',
-      decode: (value) => capabilitiesSchema.parse(value) as CapabilityNegotiation,
+      decode: (value) => capabilitiesSchema.parse(value),
       signal,
     });
   }
@@ -83,7 +79,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       decode: (value) => workspaceListSchema.parse(value),
       signal,
     });
-    return result.workspaces as Workspace[];
+    return result.workspaces;
   }
 
   public createWorkspace(
@@ -98,7 +94,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
         root_path: input.root_path,
         metadata: input.pinned === undefined ? {} : { pinned: input.pinned },
       },
-      decode: (value) => workspaceSchema.parse(value) as Workspace,
+      decode: (value) => workspaceSchema.parse(value),
       signal,
     });
   }
@@ -116,7 +112,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
         ...(input.pinned === undefined ? {} : { metadata: { pinned: input.pinned } }),
         ...(input.root_path === undefined ? {} : { root_path: input.root_path }),
       },
-      decode: (value) => workspaceSchema.parse(value) as Workspace,
+      decode: (value) => workspaceSchema.parse(value),
       signal,
     });
   }
@@ -165,7 +161,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       decode: (value) => sessionListSchema.parse(value),
       signal,
     });
-    return result.sessions as Session[];
+    return result.sessions;
   }
 
   public createSession(
@@ -195,7 +191,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
         ...(input.routing_mode ? { routing_mode: input.routing_mode } : {}),
         ...(input.approval_mode ? { approval_mode: input.approval_mode } : {}),
       },
-      decode: (value) => sessionSchema.parse(value) as Session,
+      decode: (value) => sessionSchema.parse(value),
       signal,
     });
   }
@@ -230,7 +226,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
           ? { model: { provider_id: input.provider_id ?? '', model_id: input.model_id ?? '' } }
           : {}),
       },
-      decode: (value) => sessionSchema.parse(value) as Session,
+      decode: (value) => sessionSchema.parse(value),
       signal,
     });
   }
@@ -248,7 +244,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/session-defaults',
-      decode: (value) => sessionDefaultsSchema.parse(value) as SessionDefaults,
+      decode: (value) => sessionDefaultsSchema.parse(value),
       signal,
     });
   }
@@ -261,7 +257,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       method: 'PATCH',
       path: '/v1/session-defaults',
       body: input,
-      decode: (value) => sessionDefaultsSchema.parse(value) as SessionDefaults,
+      decode: (value) => sessionDefaultsSchema.parse(value),
       signal,
     });
   }
@@ -274,7 +270,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       signal,
     });
     return {
-      schedules: result.schedules as ScheduledTurn[],
+      schedules: result.schedules,
       timezone: result.cron_timezone,
     };
   }
@@ -288,7 +284,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/schedules`,
       body: input,
-      decode: (value) => scheduledTurnSchema.parse(value) as ScheduledTurn,
+      decode: (value) => scheduledTurnSchema.parse(value),
       signal,
     });
   }
@@ -309,7 +305,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       decode: (value) => sessionListSchema.parse(value),
       signal,
     });
-    return result.sessions as Session[];
+    return result.sessions;
   }
 
   public async runs(signal?: AbortSignal): Promise<OperationalRun[]> {
@@ -319,7 +315,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       decode: (value) => operationalRunListSchema.parse(value),
       signal,
     });
-    return result.runs as OperationalRun[];
+    return result.runs;
   }
 
   public async workspaceFiles(
@@ -365,7 +361,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/relay/status',
-      decode: (value) => relayStatusSchema.parse(value) as RelayStatus,
+      decode: (value) => relayStatusSchema.parse(value),
       signal,
     });
   }
@@ -375,7 +371,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       method: 'PUT',
       path: '/v1/relay/configuration',
       body: input,
-      decode: (value) => relayStatusSchema.parse(value) as RelayStatus,
+      decode: (value) => relayStatusSchema.parse(value),
       signal,
     });
   }
@@ -384,7 +380,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
     return this.transport.request({
       method: 'DELETE',
       path: '/v1/relay/configuration',
-      decode: (value) => relayStatusSchema.parse(value) as RelayStatus,
+      decode: (value) => relayStatusSchema.parse(value),
       signal,
     });
   }
@@ -461,7 +457,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/artifacts/${encodeURIComponent(artifactId)}`,
-      decode: (value) => artifactDetailSchema.parse(value) as ArtifactDetail,
+      decode: (value) => artifactDetailSchema.parse(value),
       signal,
     });
   }
@@ -494,10 +490,10 @@ export class ClioRepository extends ArtifactPreviewRepository {
       includeChildren ||= page.include_children;
       childSessionIds = page.child_session_ids;
       for (const record of page.artifacts) {
-        produced.set(`${record.workspace_id}:${record.name}`, record as ArtifactRecord);
+        produced.set(`${record.workspace_id}:${record.name}`, record);
       }
       for (const record of page.used) {
-        used.set(`${record.workspace_id}:${record.name}`, record as ArtifactRecord);
+        used.set(`${record.workspace_id}:${record.name}`, record);
       }
       if (!page.next_cursor) {
         return {
@@ -543,7 +539,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/artifacts/${encodeURIComponent(artifactId)}/lineage?${query.toString()}`,
-      decode: (value) => artifactLineageSchema.parse(value) as ArtifactLineage,
+      decode: (value) => artifactLineageSchema.parse(value),
       signal,
     });
   }
@@ -560,7 +556,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
     return this.transport.request({
       method: 'POST',
       path: `/v1/runs/${encodeURIComponent(handleId)}/detach`,
-      decode: (value) => operationalRunSchema.parse(value) as OperationalRun,
+      decode: (value) => operationalRunSchema.parse(value),
       signal,
     });
   }
@@ -643,7 +639,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       decode: (value) => questionListSchema.parse(value),
       signal,
     });
-    return result.questions as UserQuestion[];
+    return result.questions;
   }
 
   public answerQuestion(
@@ -656,7 +652,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/questions/${encodeURIComponent(questionId)}/answer`,
       body: answer,
-      decode: (value) => userQuestionSchema.parse(value) as UserQuestion,
+      decode: (value) => userQuestionSchema.parse(value),
       signal,
     });
   }
@@ -669,7 +665,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/questions/${encodeURIComponent(questionId)}/cancel`,
-      decode: (value) => userQuestionSchema.parse(value) as UserQuestion,
+      decode: (value) => userQuestionSchema.parse(value),
       signal,
     });
   }
@@ -684,11 +680,11 @@ export class ClioRepository extends ArtifactPreviewRepository {
     return {
       cursor: result.cursor,
       messages: result.messages,
-      tools: result.tools as ToolInvocation[],
-      tasks: result.tasks as Task[],
-      subagents: result.subagents as SubagentRun[],
-      artifacts: result.artifacts as Artifact[],
-      surfaces: result.surfaces as A2UISurface[],
+      tools: result.tools,
+      tasks: result.tasks,
+      subagents: result.subagents,
+      artifacts: result.artifacts,
+      surfaces: result.surfaces,
     };
   }
 
@@ -741,7 +737,7 @@ export class ClioRepository extends ArtifactPreviewRepository {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/retry`,
       body: input,
-      decode: (value) => turnAttemptSchema.parse(value) as TurnAttempt,
+      decode: (value) => turnAttemptSchema.parse(value),
       signal,
     });
   }

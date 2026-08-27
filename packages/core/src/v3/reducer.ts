@@ -1,18 +1,4 @@
-import type {
-  A2UISurface,
-  ApprovalRequest,
-  Artifact,
-  EntityState,
-  Message,
-  MessageBlock,
-  Run,
-  Session,
-  SubagentRun,
-  Task,
-  ToolInvocation,
-  Workspace,
-  UserQuestion,
-} from './domain.js';
+import type { EntityState, Message, MessageBlock } from './domain.js';
 import {
   a2uiSurfaceSchema,
   approvalRequestSchema,
@@ -133,15 +119,15 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
 
   switch (envelope.type) {
     case 'workspace.upserted': {
-      const workspace = workspaceSchema.parse(envelope.payload) as Workspace;
+      const workspace = workspaceSchema.parse(envelope.payload);
       return { ...base, revisions, workspaces: { ...base.workspaces, [workspace.id]: workspace } };
     }
     case 'message.upserted': {
-      const message = messageSchema.parse(envelope.payload) as Message;
+      const message = messageSchema.parse(envelope.payload);
       return { ...base, revisions, messages: { ...base.messages, [message.id]: message } };
     }
     case 'session.upserted': {
-      const session = sessionSchema.parse(envelope.payload) as Session;
+      const session = sessionSchema.parse(envelope.payload);
       return { ...base, revisions, sessions: { ...base.sessions, [session.id]: session } };
     }
     case 'message.block.upserted': {
@@ -149,7 +135,7 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       if (typeof payload.message_id !== 'string') throw new Error('Invalid message block owner');
       const message = base.messages[payload.message_id];
       if (!message) return { ...base, revisions };
-      const block = messageBlockSchema.parse(payload.block) as MessageBlock;
+      const block = messageBlockSchema.parse(payload.block);
       return {
         ...base,
         revisions,
@@ -230,17 +216,17 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       };
     }
     case 'tool.upserted': {
-      const candidate = toolInvocationSchema.parse(envelope.payload) as ToolInvocation;
+      const candidate = toolInvocationSchema.parse(envelope.payload);
       const previous = base.tools[candidate.id];
       const tool = previous ? { ...previous, ...candidate } : candidate;
       return { ...base, revisions, tools: { ...base.tools, [tool.id]: tool } };
     }
     case 'run.upserted': {
-      const run = runSchema.parse(envelope.payload) as Run;
+      const run = runSchema.parse(envelope.payload);
       return { ...base, revisions, runs: { ...base.runs, [run.id]: run } };
     }
     case 'approval.upserted': {
-      const approval = approvalRequestSchema.parse(envelope.payload) as ApprovalRequest;
+      const approval = approvalRequestSchema.parse(envelope.payload);
       return { ...base, revisions, approvals: { ...base.approvals, [approval.id]: approval } };
     }
     case 'approval.resolved': {
@@ -282,23 +268,23 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       };
     }
     case 'question.upserted': {
-      const question = userQuestionSchema.parse(envelope.payload) as UserQuestion;
+      const question = userQuestionSchema.parse(envelope.payload);
       return { ...base, revisions, questions: { ...base.questions, [question.id]: question } };
     }
     case 'task.upserted': {
-      const task = taskSchema.parse(envelope.payload) as Task;
+      const task = taskSchema.parse(envelope.payload);
       return { ...base, revisions, tasks: { ...base.tasks, [task.id]: task } };
     }
     case 'subagent.upserted': {
-      const subagent = subagentSchema.parse(envelope.payload) as SubagentRun;
+      const subagent = subagentSchema.parse(envelope.payload);
       return { ...base, revisions, subagents: { ...base.subagents, [subagent.id]: subagent } };
     }
     case 'artifact.upserted': {
-      const artifact = artifactSchema.parse(envelope.payload) as Artifact;
+      const artifact = artifactSchema.parse(envelope.payload);
       return { ...base, revisions, artifacts: { ...base.artifacts, [artifact.id]: artifact } };
     }
     case 'a2ui.surface.upserted': {
-      const surface = a2uiSurfaceSchema.parse(envelope.payload) as A2UISurface;
+      const surface = a2uiSurfaceSchema.parse(envelope.payload);
       return { ...base, revisions, surfaces: { ...base.surfaces, [surface.id]: surface } };
     }
     case 'a2ui.surface.deleted': {

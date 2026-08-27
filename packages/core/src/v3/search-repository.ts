@@ -113,7 +113,7 @@ export class SearchRepository extends PromptRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/memory/search?${params.toString()}`,
-      decode: (value) => memorySearchSchema.parse(value) as MemorySearchResult,
+      decode: (value) => memorySearchSchema.parse(value),
       signal,
     });
   }

@@ -25,7 +25,10 @@ const contextPolicySchema = z.object({
   memory_scope: z.literal('session').default('session'),
   writable_scope: z.literal('session').default('session'),
   cross_session_read_available: z.boolean().default(false),
-  cross_session_read_endpoint: z.string().nullish(),
+  cross_session_read_endpoint: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
   requires_user_consent: z.boolean().default(true),
   notes: z.array(z.string()).default([]),
   metadata: z.record(z.unknown()).default({}),
@@ -80,7 +83,7 @@ export class ContextRepository extends SearchRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/context/policy`,
-      decode: (value) => contextPolicySchema.parse(value) as SessionContextPolicy,
+      decode: (value) => contextPolicySchema.parse(value),
       signal,
     });
   }
@@ -107,7 +110,7 @@ export class ContextRepository extends SearchRepository {
       method: 'PATCH',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/context/preferences`,
       body: input,
-      decode: (value) => contextPreferencesSchema.parse(value) as ContextPreferences,
+      decode: (value) => contextPreferencesSchema.parse(value),
       signal,
     });
   }

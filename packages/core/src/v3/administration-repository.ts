@@ -186,7 +186,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/agents/${encodeURIComponent(agentId)}`,
-      decode: (input) => agentDefinitionSchema.parse(input) as AgentDefinition,
+      decode: (input) => agentDefinitionSchema.parse(input),
       signal,
     });
   }
@@ -196,7 +196,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
       method: 'POST',
       path: '/v1/agents',
       body: input,
-      decode: (value) => agentDefinitionSchema.parse(value) as AgentDefinition,
+      decode: (value) => agentDefinitionSchema.parse(value),
       signal,
     });
   }
@@ -210,7 +210,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
       method: 'PUT',
       path: `/v1/agents/${encodeURIComponent(agentId)}`,
       body: input,
-      decode: (value) => agentDefinitionSchema.parse(value) as AgentDefinition,
+      decode: (value) => agentDefinitionSchema.parse(value),
       signal,
     });
   }
@@ -355,7 +355,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/hooks',
-      decode: (input) => hookInspectionSchema.parse(input) as HookInspection,
+      decode: (input) => hookInspectionSchema.parse(input),
       signal,
     });
   }
@@ -365,7 +365,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/memory/stats${query}`,
-      decode: (input) => memoryStatisticsSchema.parse(input) as MemoryStatistics,
+      decode: (input) => memoryStatisticsSchema.parse(input),
       signal,
     });
   }
@@ -402,7 +402,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/health',
-      decode: (input) => serviceHealthSchema.parse(input) as ServiceHealth,
+      decode: (input) => serviceHealthSchema.parse(input),
       signal,
     });
   }
@@ -411,7 +411,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/metrics',
-      decode: (input) => runtimeMetricsSchema.parse(input) as RuntimeMetrics,
+      decode: (input) => runtimeMetricsSchema.parse(input),
       signal,
     });
   }

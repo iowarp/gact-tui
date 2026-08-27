@@ -30,9 +30,24 @@ const documentAnchorSchema = z.object({
   prefix: optionalString,
   suffix: optionalString,
   source_path: optionalString,
-  start: z.number().int().nonnegative().nullish().transform((value) => value ?? undefined),
-  end: z.number().int().nonnegative().nullish().transform((value) => value ?? undefined),
-  page_index: z.number().int().nonnegative().nullish().transform((value) => value ?? undefined),
+  start: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  end: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  page_index: z
+    .number()
+    .int()
+    .nonnegative()
+    .nullish()
+    .transform((value) => value ?? undefined),
   quads: z.array(z.array(z.number())).optional(),
   selector: optionalString,
   stable_id: optionalString,
@@ -141,7 +156,7 @@ export class DocumentRepository extends BlueprintRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/artifacts/${encodeURIComponent(artifactId)}/document`,
-      decode: (value) => documentManifestSchema.parse(value) as DocumentManifest,
+      decode: (value) => documentManifestSchema.parse(value),
       signal,
     });
   }
@@ -176,7 +191,7 @@ export class DocumentRepository extends BlueprintRepository {
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/artifact-reviews`,
       body: input,
-      decode: (value) => artifactReviewSchema.parse(value) as ArtifactReview,
+      decode: (value) => artifactReviewSchema.parse(value),
       signal,
     });
   }
@@ -197,7 +212,7 @@ export class DocumentRepository extends BlueprintRepository {
             converter: z.string(),
             artifact: documentManifestSchema,
           })
-          .parse(value) as DocumentRendition,
+          .parse(value),
       signal,
     });
   }
@@ -216,7 +231,7 @@ export class DocumentRepository extends BlueprintRepository {
       method: 'POST',
       path: `/v1/artifacts/${encodeURIComponent(artifactId)}/working-copies`,
       body: input,
-      decode: (value) => workingCopySchema.parse(value) as DocumentWorkingCopy,
+      decode: (value) => workingCopySchema.parse(value),
       signal,
     });
   }
@@ -228,7 +243,7 @@ export class DocumentRepository extends BlueprintRepository {
     return this.transport.request({
       method: 'GET',
       path: `/v1/document-working-copies/${encodeURIComponent(workingCopyId)}`,
-      decode: (value) => workingCopySchema.parse(value) as DocumentWorkingCopy,
+      decode: (value) => workingCopySchema.parse(value),
       signal,
     });
   }
@@ -240,7 +255,7 @@ export class DocumentRepository extends BlueprintRepository {
     return this.transport.request({
       method: 'DELETE',
       path: `/v1/document-working-copies/${encodeURIComponent(workingCopyId)}`,
-      decode: (value) => workingCopySchema.parse(value) as DocumentWorkingCopy,
+      decode: (value) => workingCopySchema.parse(value),
       signal,
     });
   }
@@ -257,7 +272,7 @@ export class DocumentRepository extends BlueprintRepository {
       method: 'POST',
       path: `/v1/document-working-copies/${encodeURIComponent(workingCopyId)}/conflict`,
       body: input,
-      decode: (value) => workingCopySchema.parse(value) as DocumentWorkingCopy,
+      decode: (value) => workingCopySchema.parse(value),
       signal,
     });
   }
@@ -266,7 +281,7 @@ export class DocumentRepository extends BlueprintRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/document-editors/health',
-      decode: (value) => editorHealthSchema.parse(value) as DocumentEditorHealth,
+      decode: (value) => editorHealthSchema.parse(value),
       signal,
     });
   }
@@ -280,7 +295,7 @@ export class DocumentRepository extends BlueprintRepository {
       method: 'POST',
       path: `/v1/document-working-copies/${encodeURIComponent(workingCopyId)}/editor-sessions`,
       body: { provider },
-      decode: (value) => editorSessionSchema.parse(value) as DocumentEditorSession,
+      decode: (value) => editorSessionSchema.parse(value),
       signal,
     });
   }
