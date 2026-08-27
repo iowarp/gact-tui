@@ -1,4 +1,8 @@
-import { A2UI_VERSION, type A2UISurface as DomainSurface } from '@clio/core/v3';
+import {
+  A2UI_VERSION,
+  a2uiComponentSchema,
+  type A2UISurface as DomainSurface,
+} from '@clio/core/v3';
 import { brand } from '@brand';
 import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
@@ -60,6 +64,26 @@ class SurfaceBoundary extends Component<SurfaceBoundaryProps, SurfaceBoundarySta
 
 const LOCAL_ACTIONS = new Set(['artifact.open', 'data.select', 'workflow.focus']);
 
+function validateSurfaceComponents(messages: unknown[]): A2uiMessage[] {
+  return messages.map((message, messageIndex) => {
+    if (typeof message !== 'object' || message === null) return message as A2uiMessage;
+    const update = Reflect.get(message, 'updateComponents');
+    if (typeof update !== 'object' || update === null) return message as A2uiMessage;
+    const components = Reflect.get(update, 'components');
+    if (!Array.isArray(components)) return message as A2uiMessage;
+    components.forEach((component, componentIndex) => {
+      const result = a2uiComponentSchema.safeParse(component);
+      if (!result.success) {
+        const detail = result.error.issues[0]?.message || 'unknown schema violation';
+        throw new Error(
+          `A2UI component ${componentIndex + 1} in update ${messageIndex + 1} does not satisfy the shared CLIO catalog: ${detail}`,
+        );
+      }
+    });
+    return message as A2uiMessage;
+  });
+}
+
 export type A2UILocalActionHandler = (
   action: A2uiClientAction,
 ) => string | void | Promise<string | void>;
@@ -117,7 +141,7 @@ function ClioA2UISurfaceContent({
       const processor = new MessageProcessor([clioA2UICatalog], handleAction, {
         version: `v${A2UI_VERSION}`,
       });
-      processor.processMessages(surface.messages as A2uiMessage[]);
+      processor.processMessages(validateSurfaceComponents(surface.messages));
       return { model: processor.model.getSurface(surface.id) };
     } catch (processingError) {
       return {

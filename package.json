@@ -13,10 +13,13 @@
     "build": "pnpm --filter @clio/core build && pnpm --filter @clio/workspace build",
     "dev": "pnpm --filter @clio/workspace dev",
     "desktop:dev": "pnpm --filter @clio/desktop tauri:dev",
+    "schema:generate:zod": "node scripts/generate_clio_schema_zod.mjs",
     "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,css,md}\" --ignore-path .gitignore"
   },
   "devDependencies": {
+    "@apidevtools/json-schema-ref-parser": "11.9.3",
     "@types/node": "^25.9.1",
+    "json-schema-to-zod": "2.7.0",
     "prettier": "3.3.3",
     "typescript": "5.6.3"
   },

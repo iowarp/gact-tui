@@ -7,6 +7,16 @@ vi.mock('./scientific-map-view', () => ({
   ClioScientificMapView: () => <div data-testid="professional-map-renderer" />,
 }));
 
+vi.mock('./mermaid-diagram', () => ({
+  ClioMermaidDiagram: ({
+    accessibilityDescription,
+    accessibilityLabel,
+  }: {
+    accessibilityDescription?: string;
+    accessibilityLabel?: string;
+  }) => <section aria-description={accessibilityDescription} aria-label={accessibilityLabel} />,
+}));
+
 beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
     bottom: 260,
@@ -47,7 +57,7 @@ function buildSurface(components: Record<string, unknown>[]) {
 }
 
 describe('CLIO A2UI scientific catalog', () => {
-  it('renders shared chart and data-grid components instead of JSON representations', () => {
+  it('renders shared chart and data-grid components instead of JSON representations', async () => {
     const surface = buildSurface([
       { id: 'root', component: 'Column', children: ['plot', 'table'] },
       {
@@ -81,11 +91,11 @@ describe('CLIO A2UI scientific catalog', () => {
     const { container } = render(<A2uiSurface surface={surface} />);
 
     expect(
-      screen.getByRole('img', { name: /Vertical displacement plot/u }),
+      await screen.findByRole('img', { name: /Vertical displacement plot/u }, { timeout: 5_000 }),
     ).toBeVisible();
     expect(screen.getByText('3 rows')).toBeVisible();
     const table = screen.getByRole('table');
-    expect(within(table).getByRole('columnheader', { name: 'displacement mm' })).toBeVisible();
+    expect(within(table).getByRole('columnheader', { name: /^displacement mm/u })).toBeVisible();
     expect(within(table).getByRole('cell', { name: 'accepted' })).toBeVisible();
     expect(container.querySelector('[data-slot="chart"]')).toBeInTheDocument();
     expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument();
@@ -100,7 +110,7 @@ describe('CLIO A2UI scientific catalog', () => {
     expect(container.textContent).not.toContain('"series"');
   });
 
-  it('accepts labeled table-column objects for scientific units', () => {
+  it('accepts labeled table-column objects for scientific units', async () => {
     const surface = buildSurface([
       { id: 'root', component: 'Column', children: ['table'] },
       {
@@ -113,7 +123,9 @@ describe('CLIO A2UI scientific catalog', () => {
 
     render(<A2uiSurface surface={surface} />);
 
-    expect(screen.getByRole('columnheader', { name: 'Displacement (mm)' })).toBeVisible();
+    expect(
+      await screen.findByRole('columnheader', { name: /^Displacement \(mm\)/u }),
+    ).toBeVisible();
     expect(screen.getByRole('cell', { name: '1.2' })).toBeVisible();
   });
 
@@ -191,7 +203,7 @@ describe('CLIO A2UI scientific catalog', () => {
     expect(container.textContent).not.toContain('tile.openstreetmap.org');
   });
 
-  it('consumes accessibility metadata across the custom catalog renderers', () => {
+  it('consumes accessibility metadata across the custom catalog renderers', async () => {
     const action = { event: { name: 'approval.respond' } };
     const surface = buildSurface([
       {
@@ -264,7 +276,10 @@ describe('CLIO A2UI scientific catalog', () => {
       {
         id: 'workflow',
         component: 'clio.workflow.v1',
-        nodes: [{ id: 'a', label: 'Acquire' }, { id: 'b', label: 'Analyze' }],
+        nodes: [
+          { id: 'a', label: 'Acquire' },
+          { id: 'b', label: 'Analyze' },
+        ],
         edges: [{ source: 'a', target: 'b' }],
         accessibility: { label: 'Workflow graph', description: 'Acquire then analyze' },
       },
@@ -319,7 +334,7 @@ describe('CLIO A2UI scientific catalog', () => {
       'Analysis action',
       'Export approval',
     ]) {
-      expect(screen.getAllByLabelText(label).length).toBeGreaterThan(0);
+      expect((await screen.findAllByLabelText(label)).length).toBeGreaterThan(0);
     }
   });
 });

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   A2UI_VERSION,
+  a2uiComponentSchema,
   a2uiSurfaceSchema,
   capabilitiesSchema,
+  messageBlockSchema,
   messageSchema,
   runStateSchema,
   toolInvocationSchema,
@@ -54,6 +56,54 @@ describe('forward-compatible wire enums', () => {
         messages: [],
       }).state,
     ).toBe('unknown');
+  });
+
+  it('rejects malformed known blocks instead of disguising them as future blocks', () => {
+    expect(() => messageBlockSchema.parse({ id: 'block_1', type: 'text' })).toThrow();
+    expect(
+      messageBlockSchema.parse({
+        id: 'block_2',
+        type: 'reasoning',
+        text: 'Grounded thought',
+        source: 'provider',
+      }),
+    ).toEqual({
+      id: 'block_2',
+      type: 'reasoning',
+      text: 'Grounded thought',
+      source: 'provider',
+    });
+  });
+
+  it('uses the shared closed A2UI component vocabulary and limits', () => {
+    expect(
+      a2uiComponentSchema.parse({
+        id: 'consent',
+        component: 'CheckBox',
+        label: 'Include uncertain stations',
+        value: false,
+      }),
+    ).toMatchObject({ component: 'CheckBox' });
+    expect(
+      a2uiComponentSchema.safeParse({
+        id: 'consent',
+        component: 'Checkbox',
+        label: 'Include uncertain stations',
+        value: false,
+      }).success,
+    ).toBe(false);
+    expect(
+      a2uiComponentSchema.safeParse({
+        id: 'map',
+        component: 'clio.map.v1',
+        points: Array.from({ length: 501 }, (_, index) => ({
+          id: `station-${index}`,
+          label: `Station ${index}`,
+          latitude: 34,
+          longitude: -118,
+        })),
+      }).success,
+    ).toBe(false);
   });
 
   it('preserves structured capability vocabulary values', () => {

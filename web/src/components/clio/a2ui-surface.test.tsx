@@ -92,6 +92,19 @@ describe('ClioA2UISurface actions', () => {
     expect(consoleError).not.toHaveBeenCalled();
   });
 
+  it('rejects component-name drift at the generated catalog boundary', () => {
+    const surface = actionSurface('artifact.open', {});
+    const update = surface.messages[1] as {
+      updateComponents: { components: Array<Record<string, unknown>> };
+    };
+    update.updateComponents.components[0]!.component = 'Checkbox';
+
+    renderSurface(surface);
+
+    expect(screen.getByText('Interactive surface unavailable')).toBeVisible();
+    expect(screen.getAllByText(/does not satisfy the shared CLIO catalog/u)[0]).toBeVisible();
+  });
+
   it('keeps artifact.open local and never posts it to the server action route', async () => {
     const user = userEvent.setup();
     const onLocalAction = vi.fn().mockResolvedValue('result.csv opened in the workspace canvas');
