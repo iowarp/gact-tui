@@ -168,7 +168,7 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   const overall = aggregateInfrastructureState(items);
 
   return (
-    <Collapsible onOpenChange={setOpen} open={open}>
+    <Collapsible asChild onOpenChange={setOpen} open={open}>
       <SidebarMenuItem>
         <SidebarMenuButton asChild tooltip={`Infrastructure — ${overall.stateLabel}`}>
           <Link

@@ -1,7 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
-const fixtureEndpoint = 'http://127.0.0.1:8799';
+const fixturePort = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
+const fixtureEndpoint = `http://127.0.0.1:${fixturePort}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
 const unexpectedErrors = new WeakMap<Page, string[]>();
 
@@ -41,7 +42,9 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(page.getByRole('button', { name: 'Send response' })).toBeDisabled();
   await expect(page).toHaveScreenshot('workspace-desktop-dark.png', { animations: 'disabled' });
 
+  await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
+  await expect(canvas).toBeVisible();
   await page.getByRole('button', { name: 'Maximize canvas' }).click();
   await expect(canvas).toHaveCSS('position', 'fixed');
   const canvasBounds = await canvas.boundingBox();

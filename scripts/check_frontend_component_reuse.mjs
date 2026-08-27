@@ -6,6 +6,10 @@ const root = resolve(import.meta.dirname, '..');
 const requiredImports = {
   'web/src/components/clio/conversation.tsx': [
     '@/components/ai-elements/conversation',
+    '@/components/ai-elements/message',
+    './conversation-message-blocks',
+  ],
+  'web/src/components/clio/conversation-message-blocks.tsx': [
     '@/components/ai-elements/code-block',
     '@/components/ai-elements/message',
     '@/components/ai-elements/plan',
@@ -56,11 +60,12 @@ const requiredImports = {
     './artifact-card',
   ],
   'web/src/components/clio/a2ui-catalog.tsx': [
-    '@/components/ai-elements/artifact',
     '@/components/ai-elements/code-block',
     '@/components/ai-elements/confirmation',
     '@/components/reui/frame',
+    './a2ui-artifact',
   ],
+  'web/src/components/clio/a2ui-artifact.tsx': ['./artifact-card'],
   'web/src/components/clio/data-table.tsx': ['@/components/reui/data-grid/data-grid'],
   'web/src/routes/runs-page.tsx': ['@/components/reui/data-grid/data-grid'],
   'web/src/components/clio/settings-session-defaults.tsx': ['@/components/ui/select'],

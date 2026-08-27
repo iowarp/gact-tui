@@ -67,9 +67,14 @@ export function WorkspacePage() {
     key: string;
     request: ClioWorkbenchOpenRequest;
   }>();
-  const [composerDraft, setComposerDraft] = useState('');
+  const [composerDraftState, setComposerDraftState] = useState({ sessionId, value: '' });
+  const composerDraft = composerDraftState.sessionId === sessionId ? composerDraftState.value : '';
+  const setComposerDraft = useCallback(
+    (value: string) => setComposerDraftState({ sessionId, value }),
+    [sessionId],
+  );
   const [composerFocusKey, setComposerFocusKey] = useState(0);
-  const [conversationStarted, setConversationStarted] = useState(false);
+  const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
   const diffActions = useSessionDiffActions();
@@ -240,13 +245,14 @@ export function WorkspacePage() {
     ],
   );
   const { messages, processes, subagents } = relations;
-  useEffect(() => {
-    setComposerDraft('');
-    setConversationStarted(false);
-  }, [sessionId]);
-  useEffect(() => {
-    if (messages.length > 0) setConversationStarted(true);
-  }, [messages.length]);
+  const conversationStarted = messages.length > 0 || startedSessionId === sessionId;
+  const setConversationStarted = useCallback(
+    (started: boolean) =>
+      setStartedSessionId((current) =>
+        started ? sessionId : current === sessionId ? undefined : current,
+      ),
+    [sessionId],
+  );
   const interactionSessionIds = useMemo(() => {
     const related = new Set([sessionId]);
     let changed = true;

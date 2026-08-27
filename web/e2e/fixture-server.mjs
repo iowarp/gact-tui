@@ -1,6 +1,9 @@
 import { createServer } from 'node:http';
 
-const port = 8799;
+const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
+if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
+  throw new Error(`Invalid CLIO_FIXTURE_PORT: ${process.env['CLIO_FIXTURE_PORT'] ?? ''}`);
+}
 const observedAt = '2026-08-22T20:00:00.000Z';
 const workspaceId = 'ws_flat_ndp';
 const sessionId = 'sess_flat_ndp';
@@ -12,6 +15,10 @@ let streamedText = '';
 let streamStarted = false;
 let nextCursor = 1;
 const streamClients = new Set();
+const artifactPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+X8wNAAAAAElFTkSuQmCC',
+  'base64',
+);
 
 const capabilities = {
   gact_versions: ['0.3'],
@@ -49,6 +56,34 @@ const session = {
   model_id: 'gpt-5.6-luna',
   effort: 'medium',
   agent_id: 'main',
+};
+
+const artifactRecord = {
+  workspace_id: workspaceId,
+  name: 'vertical-displacement.png',
+  kind: 'image/png',
+  latest_version: 1,
+  head_artifact_id: 'artifact_plot',
+  aliases: {},
+  producing_session_ids: [sessionId],
+  versions: [
+    {
+      artifact_id: 'artifact_plot',
+      workspace_id: workspaceId,
+      name: 'vertical-displacement.png',
+      version: 1,
+      kind: 'image/png',
+      custody: 'fixture',
+      mechanism: 'fixture_capture',
+      evidence_class: 'test_owned',
+      sha256: 'fixture-vertical-displacement-v1',
+      size_bytes: artifactPng.length,
+      created_at: observedAt,
+      producer: { session_id: sessionId },
+      uri: 'artifact://flat-ndp/vertical-displacement.png@v1',
+      fetch_url: '/v1/artifacts/artifact_plot/bytes',
+    },
+  ],
 };
 
 /** Return a dense sanitized transcript with one active, always-mounted streaming turn. */
@@ -205,6 +240,32 @@ const server = createServer((request, response) => {
     sendJson(response, capabilities);
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/health') {
+    sendJson(response, {
+      healthy: true,
+      uptime_s: 1,
+      overall_status: 'healthy',
+      integrations: [],
+      tool_hooks_installed: true,
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/relay/status') {
+    sendJson(response, {
+      configured: false,
+      configuration_scope: 'none',
+      can_manage: false,
+      reachable: false,
+      checked_at: observedAt,
+      reason: 'Not configured for this test-owned fixture.',
+      details: {},
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/mcp/servers') {
+    sendJson(response, { servers: [] });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/commands') {
     sendJson(response, { commands: [] });
     return;
@@ -262,6 +323,29 @@ const server = createServer((request, response) => {
       ],
       surfaces: [],
     });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/artifacts`) {
+    sendJson(response, {
+      artifacts: [artifactRecord],
+      used: [],
+      count: 1,
+      include_children: true,
+      child_session_ids: [],
+      next_cursor: null,
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/artifacts/artifact_plot') {
+    sendJson(response, { artifact: artifactRecord, resolved: artifactRecord.versions[0] });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/artifacts/artifact_plot/bytes') {
+    response.writeHead(200, {
+      ...commonHeaders('image/png'),
+      'Content-Length': String(artifactPng.length),
+    });
+    response.end(artifactPng);
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/events`) {

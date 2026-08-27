@@ -2,39 +2,42 @@ name: workspace
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, 'codex/**']
+    tags: ['clio-desktop-v*']
     paths:
-      - "web/**"
-      - "packages/core/**"
-      - "desktop/**"
-      - "branding/**"
-      - "brand.config.json"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - ".github/workflows/apps.yml"
+      - 'web/**'
+      - 'packages/core/**'
+      - 'desktop/**'
+      - 'branding/**'
+      - 'contract/**'
+      - 'brand.config.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/apps.yml'
   pull_request:
     paths:
-      - "web/**"
-      - "packages/core/**"
-      - "desktop/**"
-      - "branding/**"
-      - "brand.config.json"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - ".github/workflows/apps.yml"
+      - 'web/**'
+      - 'packages/core/**'
+      - 'desktop/**'
+      - 'branding/**'
+      - 'contract/**'
+      - 'brand.config.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.github/workflows/apps.yml'
   workflow_dispatch:
 
 env:
-  NODE_VERSION: "22.x"
-  PNPM_VERSION: "9.15.9"
+  NODE_VERSION: '22.x'
+  PNPM_VERSION: '9.15.9'
 
 jobs:
-  web:
-    name: React workspace
+  ci:
+    name: lint · typecheck · test · build · visual
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -46,7 +49,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - name: Lint
+      - name: Lint and frontend ratchets
         run: pnpm lint
       - name: Typecheck
         run: pnpm typecheck
@@ -54,10 +57,23 @@ jobs:
         run: pnpm test
       - name: Production build
         run: pnpm build
+      - name: Install Playwright Chromium
+        run: pnpm --dir web exec playwright install --with-deps chromium
+      - name: Browser e2e, accessibility, and visual baselines
+        run: pnpm --dir web test:e2e
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-browser-evidence
+          path: |
+            web/screenshots/
+            web/test-results/
+          if-no-files-found: warn
 
-  desktop:
-    name: Tauri debug · ${{ matrix.os }}
-    needs: web
+  tauri-debug:
+    name: tauri debug · ${{ matrix.os }}
+    needs: ci
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -75,6 +91,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            desktop/src-tauri/target/
+            ~/.cargo/registry/
+            ~/.cargo/git/
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.toml') }}
+          restore-keys: ${{ matrix.os }}-cargo-
       - name: Linux desktop dependencies
         if: matrix.os == 'ubuntu-22.04'
         run: |
@@ -87,9 +111,294 @@ jobs:
             libdbus-1-dev \
             patchelf
       - run: pnpm install --frozen-lockfile
-      - name: Generate neutral desktop brand
-        run: pnpm --filter @clio/desktop gen-brand-backend
       - name: Build webview
         run: pnpm build
       - name: Build native debug application
-        run: pnpm --filter @clio/desktop exec tauri build --debug --no-bundle
+        run: pnpm --filter @clio/desktop tauri:build:debug
+
+  native-webview-proof:
+    name: native WebView proof · fixture-backed
+    if: github.event_name == 'workflow_dispatch'
+    needs: ci
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux desktop and WebDriver dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            libdbus-1-dev \
+            patchelf \
+            webkit2gtk-driver \
+            xvfb
+      - name: Install tauri-driver
+        run: cargo install tauri-driver --locked
+      - run: pnpm install --frozen-lockfile
+      - name: Start test-owned GACT fixture on the desktop attach port
+        run: |
+          CLIO_FIXTURE_PORT=17800 node web/e2e/fixture-server.mjs > /tmp/clio-fixture.log 2>&1 &
+          echo $! > /tmp/clio-fixture.pid
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:17800/v1/capabilities >/dev/null; then
+              exit 0
+            fi
+            sleep 0.5
+          done
+          cat /tmp/clio-fixture.log
+          exit 1
+      - name: Build desktop debug app
+        run: pnpm --filter @clio/desktop tauri:build:debug
+      - name: Exercise the real native WebView and Rust transport
+        run: |
+          mkdir -p web/screenshots/native-webview
+          xvfb-run -a env \
+            TAURI_E2E=1 \
+            TAURI_E2E_CHAT_ONLY=1 \
+            TAURI_DRIVER="$HOME/.cargo/bin/tauri-driver" \
+            TAURI_NATIVE_DRIVER="$(which WebKitWebDriver)" \
+            CLIO_DESKTOP_BACKEND_URL=http://127.0.0.1:17800 \
+            CLIO_DESKTOP_SCREENSHOT_DIR="$PWD/web/screenshots/native-webview" \
+            pnpm --filter @clio/desktop test:webview
+      - name: Upload native WebView evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-native-webview-proof
+          path: web/screenshots/native-webview/
+          if-no-files-found: error
+      - name: Dump fixture log
+        if: always()
+        run: cat /tmp/clio-fixture.log || true
+      - name: Stop fixture
+        if: always()
+        run: |
+          if [ -f /tmp/clio-fixture.pid ]; then
+            kill "$(cat /tmp/clio-fixture.pid)" || true
+          fi
+
+  release-matrix-contract:
+    name: release matrix contract
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prove both variants and all four targets remain declared
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/apps.yml
+          grep -F 'variant: [lite, bundled]' "$workflow"
+          grep -F 'x86_64-pc-windows-msvc' "$workflow"
+          grep -F 'aarch64-apple-darwin' "$workflow"
+          grep -F 'x86_64-apple-darwin' "$workflow"
+          grep -F 'x86_64-unknown-linux-gnu' "$workflow"
+          grep -F 'release-web:' "$workflow"
+
+  release:
+    name: release · ${{ matrix.variant }} · ${{ matrix.target }}
+    if: startsWith(github.ref, 'refs/tags/clio-desktop-v')
+    needs: [ci, tauri-debug, release-matrix-contract]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [lite, bundled]
+        target:
+          - x86_64-pc-windows-msvc
+          - aarch64-apple-darwin
+          - x86_64-apple-darwin
+          - x86_64-unknown-linux-gnu
+        include:
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            bundle-args: '--bundles msi,nsis'
+          - target: aarch64-apple-darwin
+            os: macos-14
+            bundle-args: '--bundles dmg --target aarch64-apple-darwin'
+          - target: x86_64-apple-darwin
+            os: macos-13
+            bundle-args: '--bundles dmg --target x86_64-apple-darwin'
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+            bundle-args: '--bundles deb,appimage,rpm'
+          - target: x86_64-unknown-linux-gnu
+            variant: bundled
+            bundle-args: '--bundles deb,rpm'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+      - name: Linux desktop dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            libdbus-1-dev \
+            pkg-config \
+            patchelf \
+            rpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build sidecar launcher for target triple
+        shell: bash
+        run: bash desktop/scripts/fetch-sidecar.sh ${{ matrix.target }}
+      - name: Stage self-describing stub runtime for bundled contract proof
+        if: matrix.variant == 'bundled'
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime=desktop/src-tauri/gact-runtime
+          mkdir -p "$runtime/bin"
+          printf '#!/bin/sh\nexit 0\n' > "$runtime/bin/backend-stub"
+          chmod +x "$runtime/bin/backend-stub"
+          printf '{"schema":1,"exec":["bin/backend-stub"]}\n' > "$runtime/runtime.json"
+      - name: Build web
+        run: pnpm build
+      - name: Build unsigned installer
+        run: pnpm --filter @clio/desktop tauri build ${{ matrix.variant == 'bundled' && '--config src-tauri/tauri.bundled.conf.json' || '' }} ${{ matrix.bundle-args }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ''
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
+      - name: Stage installers
+        shell: bash
+        run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/clio-stage"
+          mkdir -p "$stage"
+          bundle_root=desktop/src-tauri/target/release/bundle
+          if [ -d "desktop/src-tauri/target/${{ matrix.target }}/release/bundle" ]; then
+            bundle_root="desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          fi
+          find "$bundle_root" -type f \( \
+              -iname '*.exe' -o -iname '*.msi' -o -iname '*.dmg' \
+              -o -iname '*.deb' -o -iname '*.AppImage' -o -iname '*.rpm' \
+              \) -print0 | while IFS= read -r -d '' file; do
+            base="$(basename "$file")"
+            if [ '${{ matrix.variant }}' = bundled ]; then
+              extension="${base##*.}"
+              stem="${base%.*}"
+              destination="$stage/${stem}-bundled.${extension}"
+            else
+              destination="$stage/$base"
+            fi
+            cp -v "$file" "$destination"
+          done
+          test -n "$(find "$stage" -type f -print -quit)"
+      - name: Generate SHA256 sums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/clio-stage"
+          sums="SHA256SUMS.${{ matrix.target }}.${{ matrix.variant }}.txt"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum * > "$sums"
+          else
+            shasum -a 256 * > "$sums"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clio-desktop-${{ matrix.variant }}-${{ matrix.target }}
+          path: ${{ runner.temp }}/clio-stage/
+          if-no-files-found: error
+      - name: Attach installers to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ runner.temp }}/clio-stage/*
+          generate_release_notes: false
+          append_body: false
+          prerelease: false
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-web:
+    name: release · pure-web zip
+    if: startsWith(github.ref, 'refs/tags/clio-desktop-v')
+    needs: ci
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Package pure-web zip
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF##*/}"
+          version="${tag#clio-desktop-v}"
+          stage="$RUNNER_TEMP/clio-web-stage"
+          mkdir -p "$stage/clio-web-$version"
+          cp -r web/dist/. "$stage/clio-web-$version/"
+          (cd "$stage" && zip -r "clio-web-$version.zip" "clio-web-$version")
+          sha256sum "$stage/clio-web-$version.zip" > "$stage/SHA256SUMS.web.txt"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ runner.temp }}/clio-web-stage/clio-web-*.zip
+            ${{ runner.temp }}/clio-web-stage/SHA256SUMS.web.txt
+          generate_release_notes: false
+          append_body: false
+          prerelease: false
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  finalize-notes:
+    name: finalize · release notes once
+    if: ${{ always() && startsWith(github.ref, 'refs/tags/clio-desktop-v') }}
+    needs: [release, release-web]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          append_body: false
+          prerelease: false
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

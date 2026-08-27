@@ -181,7 +181,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     useLayoutEffect(() => {
       const strip = tabStripRef.current;
-      const activeTab = activeTabRef.current?.parentElement;
+      const activeTab = activeTabRef.current;
       if (!strip || !activeTab) return;
       const left = activeTab.offsetLeft;
       const right = left + activeTab.offsetWidth;
@@ -215,6 +215,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         setActiveTabId(next[Math.max(0, index - 1)]?.id ?? '');
       }
     };
+    const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
     const openCanvasResource = useCallback(
       (kind: CanvasResourceKind) => {
@@ -298,7 +299,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         aria-label="Workspace canvas"
         data-maximized={maximized || undefined}
         className={cn(
-          'flex h-full min-w-0 flex-col bg-card/45',
+          'relative z-30 flex h-full min-w-0 flex-col bg-card/45',
           maximized && 'fixed inset-0 z-[80] bg-background shadow-2xl',
         )}
       >
@@ -311,40 +312,39 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             >
               <TabsList className="h-10 w-max justify-start gap-1 rounded-lg bg-transparent p-1">
                 {tabs.map((tab) => (
-                  <div
+                  <TabsTrigger
                     className={cn(
-                      'group/tab flex h-8 min-w-24 max-w-56 shrink-0 items-center rounded-lg transition-colors',
+                      'h-8 min-w-24 max-w-56 shrink-0 justify-start rounded-lg border-transparent bg-transparent px-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
                       tab.id === activeTabId
-                        ? 'bg-muted text-foreground shadow-sm'
+                        ? 'text-foreground'
                         : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
                     )}
                     key={tab.id}
+                    ref={tab.id === activeTabId ? activeTabRef : undefined}
+                    value={tab.id}
                   >
-                    <TabsTrigger
-                      className="h-8 min-w-0 flex-1 justify-start rounded-lg border-transparent bg-transparent px-2 data-active:border-transparent data-active:bg-transparent data-active:shadow-none dark:data-active:border-transparent dark:data-active:bg-transparent"
-                      ref={tab.id === activeTabId ? activeTabRef : undefined}
-                      value={tab.id}
-                    >
-                      <TabIcon kind={tab.kind} />
-                      <span className="truncate">{tab.label}</span>
-                    </TabsTrigger>
-                    <Button
-                      aria-label={`Close ${tab.label}`}
-                      className="mr-1 size-6 opacity-60 hover:opacity-100 focus-visible:opacity-100"
-                      onClick={() => closeTab(tab.id)}
-                      size="icon-xs"
-                      variant="ghost"
-                    >
-                      <XIcon aria-hidden="true" />
-                    </Button>
-                  </div>
+                    <TabIcon kind={tab.kind} />
+                    <span className="truncate">{tab.label}</span>
+                  </TabsTrigger>
                 ))}
               </TabsList>
             </div>
+            {activeTab ? (
+              <Button
+                aria-label={`Close ${activeTab.label}`}
+                className="size-8 shrink-0 rounded-lg opacity-70 hover:opacity-100 focus-visible:opacity-100"
+                onClick={() => closeTab(activeTab.id)}
+                size="icon-sm"
+                title={`Close ${activeTab.label}`}
+                variant="ghost"
+              >
+                <XIcon aria-hidden="true" />
+              </Button>
+            ) : null}
             <CanvasLauncher onOpen={openCanvasResource} />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
-              className="size-9 shrink-0 rounded-lg"
+              className="relative z-10 size-9 shrink-0 rounded-lg"
               onClick={() => setMaximized((value) => !value)}
               size="icon"
               title={maximized ? 'Restore canvas' : 'Maximize canvas'}

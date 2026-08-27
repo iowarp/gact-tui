@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
-    "lint": "oxlint src/components/ai-elements src/components/kibo-ui src/components/mermaidcn src/components/reui src/components/theokit src/components/ui --quiet && oxlint src/components/clio src/routes src/providers src/hooks src/lib src/tauri --deny-warnings",
+    "lint": "oxlint src/components/ai-elements src/components/kibo-ui src/components/mermaidcn src/components/reui src/components/theokit src/components/ui --quiet && oxlint src/components/clio src/routes src/providers src/hooks src/lib src/store src/tauri src/App.tsx src/main.tsx --deny-warnings",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "pretest:e2e": "pnpm build",

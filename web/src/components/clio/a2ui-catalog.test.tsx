@@ -72,8 +72,10 @@ describe('CLIO A2UI scientific catalog', () => {
 
     const { container } = render(<A2uiSurface surface={surface} />);
 
-    expect(screen.getByRole('img', { name: 'Vertical displacement plot' })).toBeVisible();
-    expect(screen.getByText('3 observations')).toBeVisible();
+    expect(
+      screen.getByRole('img', { name: /Vertical displacement plot/u }),
+    ).toBeVisible();
+    expect(screen.getByText('3 rows')).toBeVisible();
     const table = screen.getByRole('table');
     expect(within(table).getByRole('columnheader', { name: 'displacement mm' })).toBeVisible();
     expect(within(table).getByRole('cell', { name: 'accepted' })).toBeVisible();

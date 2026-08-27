@@ -19,7 +19,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('ClioTimeSeriesPlot', () => {
-  it('adds a labeled two-handle window control for dense series', () => {
+  it('offers drag-to-select focus controls for dense series', () => {
     render(
       <ClioTimeSeriesPlot
         rows={Array.from({ length: 30 }, (_, index) => ({ time: index, east: index / 10 }))}
@@ -30,8 +30,13 @@ describe('ClioTimeSeriesPlot', () => {
     );
 
     expect(screen.getByText('30 rows')).toBeVisible();
-    expect(screen.getByText('Visible rows 1–30')).toBeVisible();
-    expect(screen.getAllByRole('slider')).toHaveLength(2);
-    expect(screen.getByRole('button', { name: 'Reset chart window' })).toBeDisabled();
+    expect(
+      screen.getByRole('img', {
+        name: 'GNSS displacement plot. Drag across the chart to select a range.',
+      }),
+    ).toBeVisible();
+    expect(screen.getByText('Drag across the chart to select a range')).toBeVisible();
+    expect(screen.queryAllByRole('slider')).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Focus chart selection' })).toBeDisabled();
   });
 });

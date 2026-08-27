@@ -353,7 +353,7 @@ function ProcessLaneRow({
                     }
                   : undefined
               }
-              role={interactive ? 'button' : undefined}
+              role={interactive ? 'button' : 'img'}
               style={style}
               tabIndex={interactive ? 0 : undefined}
             >

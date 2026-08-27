@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const fixturePort = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
+
+if (!Number.isSafeInteger(fixturePort) || fixturePort < 1 || fixturePort > 65_535) {
+  throw new Error(`Invalid CLIO_FIXTURE_PORT: ${process.env['CLIO_FIXTURE_PORT'] ?? ''}`);
+}
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -13,7 +19,8 @@ export default defineConfig({
   webServer: [
     {
       command: 'node e2e/fixture-server.mjs',
-      port: 8799,
+      env: { CLIO_FIXTURE_PORT: String(fixturePort) },
+      port: fixturePort,
       reuseExistingServer: false,
       timeout: 30_000,
     },

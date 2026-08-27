@@ -126,10 +126,16 @@ export function ClioAppShell({
     },
     [workbenchRevealKey],
   );
+
   const toggleWorkbench = useCallback(
     () => setWorkbenchOpen(!workbenchOpen),
     [setWorkbenchOpen, workbenchOpen],
   );
+  const synchronizeWorkbenchPanel = useCallback(() => {
+    const panel = workbenchPanelRef.current;
+    if (!panel) return;
+    setWorkbenchOpen(!panel.isCollapsed());
+  }, [setWorkbenchOpen]);
   useMenuAction('toggle-inspector', toggleWorkbench);
 
   useEffect(() => {
@@ -183,6 +189,8 @@ export function ClioAppShell({
             <ResizableHandle
               aria-label="Resize workspace canvas"
               className="z-20 bg-border/60 after:w-3 hover:bg-primary/50 focus-visible:bg-primary/60"
+              onKeyUp={synchronizeWorkbenchPanel}
+              onPointerUp={synchronizeWorkbenchPanel}
             />
             <ResizablePanel
               collapsedSize="0px"
@@ -190,11 +198,6 @@ export function ClioAppShell({
               defaultSize="420px"
               maxSize="70%"
               minSize="320px"
-              onResize={(size, _id, previous) => {
-                if (!previous) return;
-                if (size.inPixels === 0 && workbenchOpen) setWorkbenchOpen(false);
-                if (size.inPixels >= 320 && !workbenchOpen) setWorkbenchOpen(true);
-              }}
               panelRef={workbenchPanelRef}
             >
               {workbench}

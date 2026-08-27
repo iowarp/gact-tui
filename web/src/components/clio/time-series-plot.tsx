@@ -77,14 +77,14 @@ export function ClioTimeSeriesPlot({
   title?: string;
   sourceRows?: number;
 }) {
-  const [selectedRange, setSelectedRange] = useState<[number, number]>();
-  const [selection, setSelection] = useState<[number, number]>();
+  const [selectedRange, setSelectedRange] = useState<[number, number] | undefined>(undefined);
+  const [selection, setSelection] = useState<[number, number] | undefined>(undefined);
   const [isSelecting, setIsSelecting] = useState(false);
   const selectingRef = useRef(false);
-  const draftSelectionRef = useRef<[number, number]>();
-  const dragStartXRef = useRef<number>();
-  const pendingDragXRef = useRef<number>();
-  const selectionFrameRef = useRef<number>();
+  const draftSelectionRef = useRef<[number, number] | undefined>(undefined);
+  const dragStartXRef = useRef<number | undefined>(undefined);
+  const pendingDragXRef = useRef<number | undefined>(undefined);
+  const selectionFrameRef = useRef<number | undefined>(undefined);
   const selectionOverlayRef = useRef<HTMLDivElement>(null);
   const [hiddenSeries, setHiddenSeries] = useState<Set<string>>(() => new Set());
   useEffect(

@@ -14,14 +14,14 @@ THEME     ?= dark
 PREFIX    ?= $(HOME)/.local
 BINDIR    ?= $(PREFIX)/bin
 CLIO_GACT_BIN ?= $(HOME)/.local/share/clio/gact
-TUI_BUILD_REVISION ?= dev
-TUI_BUILD_TIME     ?= unknown
-TUI_BUILD_DIRTY    ?= true
-TUI_VERSION        ?= dev
+TUI_BUILD_REVISION ?= $(shell git describe --always --dirty --abbrev=12 2>/dev/null || echo unknown)
+TUI_BUILD_TIME     ?= $(shell git show -s --format=%cI HEAD 2>/dev/null || echo unknown)
+TUI_BUILD_DIRTY    ?= $(shell test -n "$$(git status --porcelain --untracked-files=no 2>/dev/null)" && echo true || echo false)
+TUI_VERSION        ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 TUI_VERSION_PKG    := github.com/JaimeCernuda/gact-tui/tui/internal/version
 TUI_LDFLAGS        ?= -X $(TUI_VERSION_PKG).BuildRevision=$(TUI_BUILD_REVISION) -X $(TUI_VERSION_PKG).BuildTime=$(TUI_BUILD_TIME) -X $(TUI_VERSION_PKG).BuildDirty=$(TUI_BUILD_DIRTY) -X $(TUI_VERSION_PKG).Release=$(TUI_VERSION)
 
-.PHONY: help build build-web build-tui test test-web test-go test-race adapter-py-test \
+.PHONY: help build build-web build-tui test test-web test-go test-tui test-race adapter-py-test \
         check-size run-tui ping list \
         screenshots clean fmt vet install dev-install verify-dev-install \
         install-for-clio verify-clio-install uninstall \
@@ -45,6 +45,9 @@ test-web: ## Run JavaScript workspace tests without opt-in live suites.
 
 test-go: ## Run the remaining contract and adapter Go suites.
 	node scripts/go-workspace.mjs test
+
+test-tui: ## Run the deprecated TUI compatibility suite explicitly.
+	cd tui && GOWORK=off $(GO) test $(GO_TEST_FLAGS) ./...
 
 test-race: ## Run tests under -race for every module.
 	node scripts/go-workspace.mjs race

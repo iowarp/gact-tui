@@ -79,6 +79,9 @@ jobs:
             echo "::endgroup::"
           done
 
+      - name: Test deprecated TUI compatibility target
+        run: make test-tui
+
   install-smoke:
     runs-on: ubuntu-latest
     steps:
