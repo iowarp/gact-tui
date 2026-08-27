@@ -613,70 +613,82 @@ const messageBlockContextSchema = z.object({
   channel: z.string().optional(),
 });
 
+const knownMessageBlockSchema = z.discriminatedUnion('type', [
+  z.object({
+    id: z.string(),
+    type: z.literal('text'),
+    text: z.string(),
+    streaming: z.boolean().optional(),
+  }),
+  z.object({
+    id: z.string(),
+    type: z.literal('reasoning'),
+    text: z.string(),
+    streaming: z.boolean().optional(),
+    source: z.string().optional(),
+    provider_source: z.string().optional(),
+    default_collapsed: z.boolean().optional(),
+  }),
+  z.object({
+    id: z.string(),
+    type: z.literal('tool'),
+    tool_id: z.string(),
+    thought: z.string().optional(),
+  }),
+  z.object({
+    id: z.string(),
+    type: z.literal('plan'),
+    title: z.string(),
+    detail: z.string().optional(),
+  }),
+  z.object({ id: z.string(), type: z.literal('task'), task_id: z.string() }),
+  z.object({ id: z.string(), type: z.literal('subagent'), subagent_id: z.string() }),
+  z.object({ id: z.string(), type: z.literal('artifact'), artifact_id: z.string() }),
+  z.object({
+    id: z.string(),
+    type: z.literal('action_card'),
+    title: z.string(),
+    detail: z.string().optional(),
+    source: z.string().optional(),
+    severity: z.string().optional(),
+    status: z.string().optional(),
+    actions: z.array(actionCardActionSchema),
+  }),
+  z.object({ id: z.string(), type: z.literal('a2ui'), surface_id: z.string() }),
+  z.object({ id: z.string(), type: z.literal('citation'), label: z.string(), uri: z.string() }),
+  z.object({
+    id: z.string(),
+    type: z.literal('diff'),
+    path: z.string(),
+    unified_diff: z.string(),
+  }),
+  z.object({
+    id: z.string(),
+    type: z.literal('error'),
+    code: z.string(),
+    message: z.string(),
+    recoverable: z.boolean(),
+  }),
+  z.object({
+    id: z.string(),
+    type: z.literal('routing'),
+    label: z.string(),
+    detail: z.string().optional(),
+  }),
+]);
+
+const unknownMessageBlockSchema = z
+  .object({ id: z.string(), type: z.string() })
+  .passthrough()
+  .transform((value) => ({
+    id: value.id,
+    type: 'unknown' as const,
+    original_type: value.type,
+    raw: value,
+  }));
+
 export const messageBlockSchema = z
-  .discriminatedUnion('type', [
-    z.object({
-      id: z.string(),
-      type: z.literal('text'),
-      text: z.string(),
-      streaming: z.boolean().optional(),
-    }),
-    z.object({
-      id: z.string(),
-      type: z.literal('reasoning'),
-      text: z.string(),
-      streaming: z.boolean().optional(),
-      source: z.string().optional(),
-      provider_source: z.string().optional(),
-      default_collapsed: z.boolean().optional(),
-    }),
-    z.object({
-      id: z.string(),
-      type: z.literal('tool'),
-      tool_id: z.string(),
-      thought: z.string().optional(),
-    }),
-    z.object({
-      id: z.string(),
-      type: z.literal('plan'),
-      title: z.string(),
-      detail: z.string().optional(),
-    }),
-    z.object({ id: z.string(), type: z.literal('task'), task_id: z.string() }),
-    z.object({ id: z.string(), type: z.literal('subagent'), subagent_id: z.string() }),
-    z.object({ id: z.string(), type: z.literal('artifact'), artifact_id: z.string() }),
-    z.object({
-      id: z.string(),
-      type: z.literal('action_card'),
-      title: z.string(),
-      detail: z.string().optional(),
-      source: z.string().optional(),
-      severity: z.string().optional(),
-      status: z.string().optional(),
-      actions: z.array(actionCardActionSchema),
-    }),
-    z.object({ id: z.string(), type: z.literal('a2ui'), surface_id: z.string() }),
-    z.object({ id: z.string(), type: z.literal('citation'), label: z.string(), uri: z.string() }),
-    z.object({
-      id: z.string(),
-      type: z.literal('diff'),
-      path: z.string(),
-      unified_diff: z.string(),
-    }),
-    z.object({
-      id: z.string(),
-      type: z.literal('error'),
-      code: z.string(),
-      message: z.string(),
-      recoverable: z.boolean(),
-    }),
-    z.object({
-      id: z.string(),
-      type: z.literal('routing'),
-      label: z.string(),
-      detail: z.string().optional(),
-    }),
-  ])
+  .union([knownMessageBlockSchema, unknownMessageBlockSchema])
   .and(messageBlockContextSchema);
 
 export const messageUsageSchema = z.object({

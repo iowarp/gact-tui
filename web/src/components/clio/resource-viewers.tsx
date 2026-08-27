@@ -1,4 +1,5 @@
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
+import { brand } from '@brand';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-json';
@@ -267,7 +268,7 @@ export function ArtifactView({
   );
   const fallbackPath = fallbackFile?.path;
   const previewSize = artifact.size ?? fallbackFile?.size;
-  const canLoadInline = previewSize === undefined || previewSize <= maxInlinePreviewBytes;
+  const canLoadInline = previewSize !== undefined && previewSize <= maxInlinePreviewBytes;
   const text = useQuery({
     queryKey: ['artifact-text', artifact.id, fallbackPath],
     queryFn: async ({ signal }) => {
@@ -290,7 +291,7 @@ export function ArtifactView({
         return repository.readWorkspaceFileBytes(workspaceId, fallbackPath, signal);
       }
     },
-    enabled: canPreviewImage,
+    enabled: canPreviewImage && canLoadInline,
   });
   const preview = canPreviewText ? (
     !canLoadInline ? (
@@ -312,12 +313,16 @@ export function ArtifactView({
       <ResourceLoading label={`Loading ${artifact.name}`} />
     )
   ) : canPreviewImage ? (
-    <ImageResourceView
-      bytes={image.data}
-      error={image.error?.message}
-      mediaType={artifact.media_type || imageMediaType(artifact.name)}
-      name={artifact.name}
-    />
+    canLoadInline ? (
+      <ImageResourceView
+        bytes={image.data}
+        error={image.error?.message}
+        mediaType={artifact.media_type || imageMediaType(artifact.name)}
+        name={artifact.name}
+      />
+    ) : (
+      <LargeResourceNotice name={artifact.name} size={previewSize} />
+    )
   ) : (
     <ResourceUnavailable
       detail="The service does not advertise an inline renderer for this media type."
@@ -669,9 +674,17 @@ function isDocumentArtifact(mediaType: string, name: string): boolean {
 function LargeResourceNotice({ name, size }: { name: string; size?: number }) {
   return (
     <ResourceUnavailable
-      detail={`${size === undefined ? 'This file' : formatBytes(size)} exceeds the ${formatBytes(maxInlinePreviewBytes)} inline-read budget. CLIO left the source untouched; use a bounded analysis or visualization action to inspect it.`}
+      detail={
+        size === undefined
+          ? `The service did not report a size, so ${brand.name} did not download this file into the browser. Use a bounded analysis or visualization action to inspect it.`
+          : `${formatBytes(size)} exceeds the ${formatBytes(maxInlinePreviewBytes)} inline-read budget. ${brand.name} left the source untouched; use a bounded analysis or visualization action to inspect it.`
+      }
       icon={FileCode2Icon}
-      label={`${name} is too large for an inline preview`}
+      label={
+        size === undefined
+          ? `${name} has no verified preview size`
+          : `${name} is too large for an inline preview`
+      }
     />
   );
 }

@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { copyText } from '@/lib/clipboard';
 import { cn } from '@/lib/utils';
+import { sanitizeMermaidSvg } from '@/components/clio/mermaid-security';
 import { Mermaid, type MermaidConfig } from './mermaid';
 import { ZoomPan } from './zoom-pan';
 
@@ -33,6 +34,7 @@ export function MermaidPreview({
   className,
 }: MermaidPreviewProps) {
   const [copied, setCopied] = React.useState(false);
+  const [renderError, setRenderError] = React.useState<string>();
   const copiedTimerRef = React.useRef<number | undefined>(undefined);
   const imageSrc = React.useMemo(
     () =>
@@ -112,6 +114,7 @@ export function MermaidPreview({
     <ZoomPan
       ariaLabel="Interactive Mermaid diagram"
       className={cn('min-h-0', className)}
+      error={renderError}
       imageSrc={imageSrc}
       controls={({ zoomIn, zoomOut, resetZoom, centerView, scalePercent }) => (
         <div className="flex min-h-9 items-center justify-between gap-2 border-b px-2 py-1">
@@ -209,8 +212,20 @@ export function MermaidPreview({
         className="size-full"
         config={config}
         debounceTime={0}
-        onError={() => onSvgOutputChange('')}
-        onSuccess={onSvgOutputChange}
+        onError={(error) => {
+          onSvgOutputChange('');
+          setRenderError(error.split('\n')[0] || 'The diagram could not be rendered.');
+        }}
+        onSuccess={(svg) => {
+          try {
+            const sanitized = sanitizeMermaidSvg(svg);
+            onSvgOutputChange(new XMLSerializer().serializeToString(sanitized));
+            setRenderError(undefined);
+          } catch (error) {
+            onSvgOutputChange('');
+            setRenderError(errorMessage(error));
+          }
+        }}
       />
     </ZoomPan>
   );

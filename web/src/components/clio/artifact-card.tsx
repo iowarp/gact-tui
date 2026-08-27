@@ -77,7 +77,7 @@ function ClioArtifactAttachment({
 }) {
   const repository = useRepository();
   const image = isImageArtifact(artifact);
-  const withinBudget = artifact.size === undefined || artifact.size <= cardPreviewBudget;
+  const withinBudget = artifact.size !== undefined && artifact.size <= cardPreviewBudget;
   const imageBytes = useQuery({
     queryKey: ['artifact-attachment-image', artifact.id, artifact.fetch_path],
     queryFn: async ({ signal }) => {
@@ -188,8 +188,8 @@ export function ClioArtifactCard({
   const image = isImageArtifact(artifact);
   const text = isTextArtifact(artifact);
   const tabular = isTabularArtifact(artifact);
-  const withinBudget = artifact.size === undefined || artifact.size <= cardPreviewBudget;
-  const textWithinBudget = artifact.size === undefined || artifact.size <= textCardPreviewBudget;
+  const withinBudget = artifact.size !== undefined && artifact.size <= cardPreviewBudget;
+  const textWithinBudget = artifact.size !== undefined && artifact.size <= textCardPreviewBudget;
   const imageBytes = useQuery({
     queryKey: ['artifact-card-image', artifact.id, artifact.fetch_path],
     queryFn: async ({ signal }) => {
@@ -315,8 +315,9 @@ export function ClioArtifactCard({
           ) : null}
           {image && !withinBudget ? (
             <p className="px-4 py-2 text-xs text-muted-foreground">
-              Preview withheld because this image exceeds the {formatBytes(cardPreviewBudget)} card
-              budget. Open it for the full view.
+              {artifact.size === undefined
+                ? 'Preview withheld because the service did not report a size for this image.'
+                : `Preview withheld because this image exceeds the ${formatBytes(cardPreviewBudget)} card budget. Open it for the full view.`}
             </p>
           ) : null}
           {text && !tabular && textPreview.isPending && textWithinBudget ? (
@@ -324,7 +325,9 @@ export function ClioArtifactCard({
           ) : null}
           {text && !tabular && !textWithinBudget ? (
             <p className="px-4 py-2 text-xs text-muted-foreground">
-              Open this artifact to read the full {formatBytes(artifact.size ?? 0)} result.
+              {artifact.size === undefined
+                ? 'Preview withheld because the service did not report a size for this artifact.'
+                : `Open this artifact to read the full ${formatBytes(artifact.size)} result.`}
             </p>
           ) : null}
           {contentUnavailable ? (

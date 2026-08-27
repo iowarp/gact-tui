@@ -65,6 +65,18 @@ function renderSurface(
 }
 
 describe('ClioA2UISurface actions', () => {
+  it('renders a service-reported surface failure instead of a busy surface', () => {
+    const surface = actionSurface('artifact.open', {});
+    surface.state = 'failed';
+    surface.error = 'The server rejected an invalid component binding.';
+
+    renderSurface(surface);
+
+    expect(screen.getByText('Interactive surface unavailable')).toBeVisible();
+    expect(screen.getAllByText(new RegExp(surface.error, 'u'))[0]).toBeVisible();
+    expect(screen.queryByText('Analysis view')).not.toBeInTheDocument();
+  });
+
   it('contains an invalid historical surface without throwing through React', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const surface = actionSurface('artifact.open', {});
@@ -76,7 +88,7 @@ describe('ClioA2UISurface actions', () => {
     renderSurface(surface);
 
     expect(screen.getByText('Interactive surface unavailable')).toBeVisible();
-    expect(screen.getByText(/accessibility: Expected object/u)).toBeInTheDocument();
+    expect(screen.getAllByText(/accessibility: Expected object/u)[0]).toBeVisible();
     expect(consoleError).not.toHaveBeenCalled();
   });
 

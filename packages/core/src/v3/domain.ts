@@ -656,6 +656,7 @@ export type MessageBlock = MessageBlockContext &
     | { id: string; type: 'diff'; path: string; unified_diff: string }
     | { id: string; type: 'error'; code: string; message: string; recoverable: boolean }
     | { id: string; type: 'routing'; label: string; detail?: string }
+    | { id: string; type: 'unknown'; original_type: string; raw: Record<string, unknown> }
   );
 
 export interface MessageUsage {

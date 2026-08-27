@@ -249,7 +249,22 @@ function MessageBlockView({
           {block.detail ? <span>{block.detail}</span> : null}
         </div>
       );
+    case 'unknown':
+      return (
+        <Alert>
+          <AlertTriangleIcon aria-hidden="true" />
+          <AlertTitle>New message content</AlertTitle>
+          <AlertDescription>
+            This service sent a {humanizeProtocolLabel(block.original_type)} block that this version
+            cannot display yet. The rest of the conversation remains available.
+          </AlertDescription>
+        </Alert>
+      );
   }
+}
+
+function humanizeProtocolLabel(value: string): string {
+  return value.replaceAll('_', ' ').replaceAll('.', ' ');
 }
 
 export function MessageBlockSequence({

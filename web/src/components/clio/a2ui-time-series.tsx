@@ -64,6 +64,7 @@ function ArtifactTimeSeries({
       rows={preview.data.rows as PlotRow[]}
       sourceRows={preview.data.total_rows}
       title={title}
+      truncated={preview.data.truncated}
       xKey={xKey}
       yKeys={yKeys}
     />

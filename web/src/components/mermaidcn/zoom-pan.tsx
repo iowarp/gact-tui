@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import { AlertTriangleIcon, Loader2 } from 'lucide-react';
 
 export interface ZoomPanProps {
   imageSrc?: string;
@@ -14,6 +14,7 @@ export interface ZoomPanProps {
   zoomStep?: number;
   className?: string;
   onLoad?: () => void;
+  onError?: (error: Error) => void;
   controls?: (api: {
     zoomIn: () => void;
     zoomOut: () => void;
@@ -23,6 +24,7 @@ export interface ZoomPanProps {
   }) => React.ReactNode;
   isLoading?: boolean;
   loadingFallback?: React.ReactNode;
+  error?: string;
 }
 
 export function ZoomPan({
@@ -35,9 +37,11 @@ export function ZoomPan({
   zoomStep = 0.1,
   className = '',
   onLoad,
+  onError,
   controls,
   isLoading = false,
   loadingFallback,
+  error,
 }: ZoomPanProps) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -49,6 +53,7 @@ export function ZoomPan({
 
   // UI state for controls
   const [scalePercent, setScalePercent] = React.useState(Math.round(initialScale * 100));
+  const [imageError, setImageError] = React.useState<string>();
 
   // Interaction refs
   const isDragging = React.useRef(false);
@@ -256,6 +261,41 @@ export function ZoomPan({
     updateImmediate();
   };
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLCanvasElement>) => {
+    const panStep = event.shiftKey ? 80 : 32;
+    switch (event.key) {
+      case 'ArrowLeft':
+        targetRef.current.x += panStep;
+        break;
+      case 'ArrowRight':
+        targetRef.current.x -= panStep;
+        break;
+      case 'ArrowUp':
+        targetRef.current.y += panStep;
+        break;
+      case 'ArrowDown':
+        targetRef.current.y -= panStep;
+        break;
+      case '+':
+      case '=':
+        zoomIn();
+        event.preventDefault();
+        return;
+      case '-':
+        zoomOut();
+        event.preventDefault();
+        return;
+      case '0':
+        centerView();
+        event.preventDefault();
+        return;
+      default:
+        return;
+    }
+    event.preventDefault();
+    updateImmediate();
+  };
+
   // Setup non-passive wheel event listener
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -439,10 +479,12 @@ export function ZoomPan({
     if (!imageSrc) {
       imageRef.current = null;
       hasCentered.current = false;
+      setImageError(undefined);
       render();
       return;
     }
 
+    setImageError(undefined);
     const image = new Image();
     image.crossOrigin = 'anonymous';
     image.onload = () => {
@@ -469,8 +511,15 @@ export function ZoomPan({
       render();
       onLoad?.();
     };
+    image.onerror = () => {
+      const loadError = new Error('The image could not be decoded or loaded.');
+      imageRef.current = null;
+      setImageError(loadError.message);
+      render();
+      onError?.(loadError);
+    };
     image.src = imageSrc;
-  }, [imageSrc, onLoad, render, getCenterTransform]);
+  }, [imageSrc, onError, onLoad, render, getCenterTransform]);
 
   return (
     <div ref={containerRef} className={cn('flex flex-col min-h-0 h-full w-full', className)}>
@@ -480,7 +529,9 @@ export function ZoomPan({
       <div className="relative flex-1 min-h-0 overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none">
         <canvas
           aria-label={ariaLabel}
+          aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown + - 0"
           ref={canvasRef}
+          onKeyDown={handleKeyDown}
           onMouseDown={handleMouseDown}
           // onWheel handled via useEffect with passive: false
           onTouchStart={handleTouchStart}
@@ -506,6 +557,18 @@ export function ZoomPan({
             {loadingFallback || <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
           </div>
         )}
+        {error || imageError ? (
+          <div
+            className="absolute inset-0 z-40 grid place-items-center bg-background/95 p-6 text-center"
+            role="alert"
+          >
+            <div className="max-w-md">
+              <AlertTriangleIcon aria-hidden="true" className="mx-auto size-5 text-destructive" />
+              <p className="mt-2 text-sm font-medium">Preview unavailable</p>
+              <p className="mt-1 text-xs text-muted-foreground">{error || imageError}</p>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

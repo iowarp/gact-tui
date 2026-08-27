@@ -1,5 +1,5 @@
 import { MapPinIcon } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Map, { Marker, NavigationControl, Popup, type ViewState } from 'react-map-gl/maplibre';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { cn } from '@/lib/utils';
@@ -65,60 +65,75 @@ function initialView(points: readonly ScientificMapPoint[]): Partial<ViewState> 
 export function ClioScientificMapView({ points, selectedId, onSelect }: ScientificMapViewProps) {
   const viewState = useMemo(() => initialView(points), [points]);
   const selected = points.find((point) => point.id === selectedId);
+  const [mapError, setMapError] = useState<string>();
 
   return (
-    <Map
-      initialViewState={viewState}
-      mapStyle={rasterStyle}
-      maxPitch={0}
-      maxZoom={16}
-      minZoom={1}
-      reuseMaps
-      style={{ height: '100%', width: '100%' }}
-    >
-      <NavigationControl position="top-right" showCompass={false} />
-      {points.map((point) => (
-        <Marker
-          anchor="bottom"
-          key={point.id}
-          latitude={point.latitude}
-          longitude={point.longitude}
-        >
-          <button
-            aria-label={`Select ${point.label}`}
-            aria-pressed={point.id === selectedId}
-            className={cn(
-              'group grid size-8 place-items-center rounded-full border bg-card text-primary shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              point.id === selectedId &&
-                'scale-110 border-primary bg-primary text-primary-foreground',
-            )}
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelect(point.id);
-            }}
-            type="button"
+    <div className="relative size-full">
+      <Map
+        initialViewState={viewState}
+        mapStyle={rasterStyle}
+        maxPitch={0}
+        maxZoom={16}
+        minZoom={1}
+        onError={(event) =>
+          setMapError(event.error?.message || 'The map tiles could not be loaded.')
+        }
+        onLoad={() => setMapError(undefined)}
+        reuseMaps
+        style={{ height: '100%', width: '100%' }}
+      >
+        <NavigationControl position="top-right" showCompass={false} />
+        {points.map((point) => (
+          <Marker
+            anchor="bottom"
+            key={point.id}
+            latitude={point.latitude}
+            longitude={point.longitude}
           >
-            <MapPinIcon aria-hidden="true" className="size-4" />
-          </button>
-        </Marker>
-      ))}
-      {selected ? (
-        <Popup
-          anchor="top"
-          className="clio-scientific-map-popup"
-          closeButton={false}
-          closeOnClick={false}
-          latitude={selected.latitude}
-          longitude={selected.longitude}
-          maxWidth="280px"
-          offset={12}
+            <button
+              aria-label={`Select ${point.label}`}
+              aria-pressed={point.id === selectedId}
+              className={cn(
+                'group grid size-8 place-items-center rounded-full border bg-card text-primary shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                point.id === selectedId &&
+                  'scale-110 border-primary bg-primary text-primary-foreground',
+              )}
+              onClick={(event) => {
+                event.stopPropagation();
+                onSelect(point.id);
+              }}
+              type="button"
+            >
+              <MapPinIcon aria-hidden="true" className="size-4" />
+            </button>
+          </Marker>
+        ))}
+        {selected ? (
+          <Popup
+            anchor="top"
+            className="clio-scientific-map-popup"
+            closeButton={false}
+            closeOnClick={false}
+            latitude={selected.latitude}
+            longitude={selected.longitude}
+            maxWidth="280px"
+            offset={12}
+          >
+            <p className="font-medium text-foreground">{selected.label}</p>
+            {selected.detail ? (
+              <p className="mt-1 text-xs text-muted-foreground">{selected.detail}</p>
+            ) : null}
+          </Popup>
+        ) : null}
+      </Map>
+      {mapError ? (
+        <p
+          className="absolute inset-x-3 bottom-3 rounded-md border border-destructive/30 bg-background/95 px-3 py-2 text-xs text-destructive shadow-sm"
+          role="alert"
         >
-          <p className="font-medium text-foreground">{selected.label}</p>
-          {selected.detail ? (
-            <p className="mt-1 text-xs text-muted-foreground">{selected.detail}</p>
-          ) : null}
-        </Popup>
+          Map background unavailable. Station coordinates remain listed beside the map.
+        </p>
       ) : null}
-    </Map>
+    </div>
   );
 }

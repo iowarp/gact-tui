@@ -16,9 +16,24 @@ describe('forward-compatible wire enums', () => {
         session_id: 'sess_1',
         role: 'delegate',
         created_at: '2026-08-27T12:00:00Z',
-        blocks: [],
+        blocks: [
+          {
+            id: 'block_1',
+            type: 'future_visualization',
+            payload: { retained: true },
+          },
+        ],
       }).role,
     ).toBe('unknown');
+    expect(
+      messageSchema.parse({
+        id: 'msg_2',
+        session_id: 'sess_1',
+        role: 'assistant',
+        created_at: '2026-08-27T12:00:00Z',
+        blocks: [{ id: 'block_1', type: 'future_visualization', payload: { retained: true } }],
+      }).blocks[0],
+    ).toMatchObject({ type: 'unknown', original_type: 'future_visualization' });
     expect(
       toolInvocationSchema.parse({
         id: 'tool_1',

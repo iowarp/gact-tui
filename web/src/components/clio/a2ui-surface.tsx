@@ -1,4 +1,5 @@
 import { A2UI_VERSION, type A2UISurface as DomainSurface } from '@clio/core/v3';
+import { brand } from '@brand';
 import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
 import { MessageProcessor, type A2uiClientAction, type A2uiMessage } from '@a2ui/web_core/v0_9';
@@ -22,7 +23,7 @@ function SurfaceFailure({ error }: { error: Error }) {
         <ClioStatus className="ml-auto" label="Failed safely" value="failed" />
       </div>
       <p className="px-4 py-3 text-xs text-muted-foreground">
-        {brand.name} rejected an invalid surface representation. The conversation remains available.
+        {error.message} The conversation remains available, and no action was taken by this view.
       </p>
       <details className="border-t border-destructive/20 px-4 py-2 text-xs text-muted-foreground">
         <summary className="cursor-pointer">Validation detail</summary>
@@ -131,6 +132,13 @@ function ClioA2UISurfaceContent({
   const surfaceBusy = isPending || localActionPending || surface.state !== 'ready';
 
   if (processedSurface.error) return <SurfaceFailure error={processedSurface.error} />;
+  if (surface.error || surface.state === 'failed') {
+    return (
+      <SurfaceFailure
+        error={new Error(surface.error || 'The service reported that this surface failed.')}
+      />
+    );
+  }
   if (!processedSurface.model || surface.state === 'deleted') return null;
   return (
     <section
@@ -153,10 +161,10 @@ function ClioA2UISurfaceContent({
             value={
               isPending || localActionPending
                 ? 'running'
-                : surface.state === 'failed'
-                  ? 'failed'
-                  : surface.state === 'updating'
-                    ? 'running'
+                : surface.state === 'updating'
+                  ? 'running'
+                  : surface.state === 'unknown'
+                    ? 'unavailable'
                     : 'healthy'
             }
           />
@@ -203,4 +211,3 @@ export function ClioA2UISurface({
     </SurfaceBoundary>
   );
 }
-import { brand } from '@brand';

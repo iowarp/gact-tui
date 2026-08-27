@@ -1,9 +1,4 @@
-import {
-  ChartNoAxesCombinedIcon,
-  FocusIcon,
-  Maximize2Icon,
-  XIcon,
-} from 'lucide-react';
+import { ChartNoAxesCombinedIcon, FocusIcon, Maximize2Icon, XIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 import {
@@ -70,12 +65,14 @@ export function ClioTimeSeriesPlot({
   yKeys,
   title,
   sourceRows,
+  truncated = false,
 }: {
   rows: PlotRow[];
   xKey: string;
   yKeys: string[];
   title?: string;
   sourceRows?: number;
+  truncated?: boolean;
 }) {
   const [selectedRange, setSelectedRange] = useState<[number, number] | undefined>(undefined);
   const [selection, setSelection] = useState<[number, number] | undefined>(undefined);
@@ -241,7 +238,9 @@ export function ClioTimeSeriesPlot({
   const selectionStart = selection ? Math.min(...selection) : undefined;
   const selectionEnd = selection ? Math.max(...selection) : undefined;
   const selectionReady =
-    selectionStart !== undefined && selectionEnd !== undefined && selectionEnd - selectionStart >= 2;
+    selectionStart !== undefined &&
+    selectionEnd !== undefined &&
+    selectionEnd - selectionStart >= 2;
   const selectionLabel =
     selectionStart !== undefined && selectionEnd !== undefined
       ? `Selected rows ${selectionStart + 1}–${selectionEnd + 1}`
@@ -253,7 +252,7 @@ export function ClioTimeSeriesPlot({
         <div className="min-w-0">
           <FrameTitle>{chartTitle}</FrameTitle>
           <FrameDescription>
-            {sourceCount > visibleRows.length
+            {truncated && sourceCount > visibleRows.length
               ? `${visibleRows.length.toLocaleString()} evenly sampled rows from ${sourceCount.toLocaleString()} total`
               : selectedRange
                 ? `${displayedRows.length.toLocaleString()} of ${visibleRows.length.toLocaleString()} rows visible`
@@ -276,9 +275,13 @@ export function ClioTimeSeriesPlot({
               accessibilityLayer
               data={displayedRows}
               margin={{ left: 6, right: 18, top: 8 }}
-              onMouseDown={(state) => beginSelection(state?.activeLabel, state?.activeCoordinate?.x)}
+              onMouseDown={(state) =>
+                beginSelection(state?.activeLabel, state?.activeCoordinate?.x)
+              }
               onMouseLeave={endSelection}
-              onMouseMove={(state) => extendSelection(state?.activeLabel, state?.activeCoordinate?.x)}
+              onMouseMove={(state) =>
+                extendSelection(state?.activeLabel, state?.activeCoordinate?.x)
+              }
               onMouseUp={endSelection}
             >
               <CartesianGrid vertical={false} />

@@ -102,4 +102,25 @@ describe('ClioArtifactCard', () => {
     expect(screen.queryByText(/Open this data table/u)).not.toBeInTheDocument();
     expect(repository.readArtifactTextFor).not.toHaveBeenCalled();
   });
+
+  it('does not download an inline preview when the service omits artifact size', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ClioArtifactCard
+          artifact={{
+            id: 'artifact_unbounded',
+            session_id: 'session_1',
+            workspace_id: 'workspace_1',
+            name: 'unbounded.png',
+            media_type: 'image/png',
+            uri: 'artifact://workspace_1/unbounded.png@v1',
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText(/did not report a size for this image/u)).toBeVisible();
+    expect(repository.readArtifactBytesFor).not.toHaveBeenCalled();
+  });
 });
