@@ -697,6 +697,7 @@ export function WorkspacePage() {
                 onOpenSubagent={openSubagent}
                 processes={processes}
                 runs={runs}
+                sessionId={sessionId}
                 sessionState={state}
                 subagents={subagents}
                 tasks={tasks}
@@ -856,6 +857,7 @@ export function WorkspacePage() {
                 }
                 processes={processes}
                 runs={runs}
+                sessionId={sessionId}
                 subagents={subagents}
                 selectedContextTargetId={contextTargetId}
                 tasks={tasks}

@@ -1,4 +1,6 @@
 import type { ToolInvocation, ToolState } from '@clio/core/v3';
+import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
+import { reportPresentationOverride } from '@/lib/presentation-overrides';
 import type { ClioStatusValue } from './status';
 
 export interface ToolPresentation {
@@ -122,17 +124,17 @@ export function humanizeToolName(name: string): string {
   const normalized = parts.map((part) => part.toLowerCase());
   const exact = normalized.join('_');
   const curatedTitle = CURATED_TOOL_TITLES[exact];
-  if (curatedTitle) return curatedTitle;
-  if (/^(shell_)?(bash|command|exec|execute)$/.test(exact)) return 'Run command';
-  if (exact === 'fs_propose_edit') return 'Propose file change';
-  if (exact === 'fs_apply_edit_write') return 'Apply file change';
-  if (exact === 'web_search' || exact.endsWith('_web_search')) return 'Search web';
-  if (exact === 'create_a2ui_surface') return 'Create analysis view';
-  if (exact === 'wait_agent_tasks') return 'Wait for child agents';
-  if (exact === 'check_agent_tasks') return 'Check child agents';
-  if (exact === 'observe_agent_tasks') return 'Watch child agents';
-  if (exact === 'spawn_agent_task') return 'Start child agent';
-  if (exact === 'spawn_agents_parallel') return 'Start child agents';
+  let rendered = curatedTitle;
+  if (!rendered && /^(shell_)?(bash|command|exec|execute)$/.test(exact)) rendered = 'Run command';
+  if (!rendered && exact === 'fs_propose_edit') rendered = 'Propose file change';
+  if (!rendered && exact === 'fs_apply_edit_write') rendered = 'Apply file change';
+  if (!rendered && (exact === 'web_search' || exact.endsWith('_web_search'))) rendered = 'Search web';
+  if (!rendered && exact === 'create_a2ui_surface') rendered = 'Create analysis view';
+  if (!rendered && exact === 'wait_agent_tasks') rendered = 'Wait for child agents';
+  if (!rendered && exact === 'check_agent_tasks') rendered = 'Check child agents';
+  if (!rendered && exact === 'observe_agent_tasks') rendered = 'Watch child agents';
+  if (!rendered && exact === 'spawn_agent_task') rendered = 'Start child agent';
+  if (!rendered && exact === 'spawn_agents_parallel') rendered = 'Start child agents';
 
   const actionIndex = normalized.findIndex((part) =>
     [
@@ -162,7 +164,15 @@ export function humanizeToolName(name: string): string {
     parts.shift();
   }
   const label = parts.join(' ').trim() || 'Tool activity';
-  return label.charAt(0).toUpperCase() + label.slice(1);
+  rendered ??= label.charAt(0).toUpperCase() + label.slice(1);
+  reportPresentationOverride({
+    kind: 'tool-name-humanization',
+    entityId: name,
+    serverValue: name,
+    rendered,
+    issue: PRESENTATION_OVERRIDE_REGISTRY['tool-name-humanization'].issue,
+  });
+  return rendered;
 }
 
 interface ToolIntent {

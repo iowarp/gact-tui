@@ -21,7 +21,7 @@ import {
   Layers3Icon,
   PanelRightOpenIcon,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -35,6 +35,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import type { ClioContextTarget } from '@/lib/context-targets';
+import {
+  getPresentationOverrideCount,
+  subscribePresentationOverrides,
+} from '@/lib/presentation-overrides';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import { ClioInteractiveRow } from './interactive-row';
@@ -75,6 +79,7 @@ export interface ClioObservabilityDockProps {
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
   sessionState?: RunState;
+  sessionId?: string;
 }
 
 function isActiveWork(state: string): boolean {
@@ -83,6 +88,11 @@ function isActiveWork(state: string): boolean {
 
 export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
   const [childAgentsOpen, setChildAgentsOpen] = useState(false);
+  const presentationOverrideCount = useSyncExternalStore(
+    subscribePresentationOverrides,
+    () => getPresentationOverrideCount(props.sessionId),
+    () => 0,
+  );
   const activityCount = props.processes.length || props.subagents.length;
   const activeActivityCount = props.processes.length
     ? props.processes.filter((process) => isActiveWork(process.live_state)).length
@@ -143,7 +153,13 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
           <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         )}
         <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
-        {activeActivityCount || sessionActive || activityCount ? (
+        {presentationOverrideCount ? (
+          <ClioStatus
+            className="hidden py-0.5 sm:inline-flex"
+            label={`${presentationOverrideCount} display ${presentationOverrideCount === 1 ? 'fallback' : 'fallbacks'}`}
+            value="degraded"
+          />
+        ) : activeActivityCount || sessionActive || activityCount ? (
           <ClioStatus
             className="hidden py-0.5 sm:inline-flex"
             label={dockStatus}

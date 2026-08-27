@@ -2,6 +2,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
+import { reportPresentationOverride } from '@/lib/presentation-overrides';
 
 const repository = vi.hoisted(() => ({
   readArtifactBytesFor: vi.fn().mockResolvedValue(new Uint8Array([137, 80, 78, 71])),
@@ -28,6 +30,37 @@ afterEach(() => {
 });
 
 describe('ClioObservabilityView', () => {
+  it('surfaces governed presentation fallbacks for the active session', () => {
+    window.history.replaceState({}, '', '/workspaces/ws_1/sessions/sess_override_dock');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    reportPresentationOverride({
+      kind: 'tool-name-humanization',
+      entityId: 'fs_read_file',
+      serverValue: 'fs_read_file',
+      rendered: 'Read file',
+      issue: PRESENTATION_OVERRIDE_REGISTRY['tool-name-humanization'].issue,
+    });
+
+    render(
+      <ClioObservabilityDock
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[]}
+        processes={[]}
+        runs={[]}
+        sessionId="sess_override_dock"
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    expect(screen.getByText('1 display fallback')).toBeInTheDocument();
+    warn.mockRestore();
+  });
+
   it('opens the unified workspace canvas instead of a duplicate popover', async () => {
     const user = userEvent.setup();
     const onOpenCanvas = vi.fn();
@@ -87,6 +120,7 @@ describe('ClioObservabilityView', () => {
           },
         ]}
         runs={[]}
+        sessionId="sess_dock"
         subagents={[child]}
         tasks={[]}
         tools={[]}
@@ -140,6 +174,7 @@ describe('ClioObservabilityView', () => {
           },
         ]}
         runs={[]}
+        sessionId="sess_child_conversations"
         subagents={[child]}
         tasks={[]}
         tools={[]}
