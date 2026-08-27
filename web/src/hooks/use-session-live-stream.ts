@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import { recordById } from '@/lib/entities';
+import { queryKeys } from '@/lib/query-keys';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
 import { useRepository } from './use-repository';
-import { sessionContextQueryKey } from './use-session-context';
-import { sessionObservabilityQueryKey } from './use-session-observability';
 
 interface SessionLiveStreamInput {
   enabled: boolean;
@@ -77,6 +76,7 @@ export function useSessionLiveStream({
     if (!enabled || !sessionId || !pageActive) return;
     const controller = new AbortController();
     const batcher = new FrameBatcher(applyFrames);
+    const invalidations = new QueryInvalidationBatcher(queryClient);
     let reconnectDelay = 250;
     const consume = async () => {
       setStreamState('connecting');
@@ -91,80 +91,17 @@ export function useSessionLiveStream({
             reconnectDelay = 250;
             setStreamState('live');
             batcher.push(frame);
-            if (isPendingInteractionEvent(frame.eventName)) {
-              await Promise.all([
-                queryClient.invalidateQueries({
-                  queryKey: ['pending-approvals', settings.endpoint, sessionId],
-                }),
-                queryClient.invalidateQueries({
-                  queryKey: ['pending-questions', settings.endpoint, sessionId],
-                }),
-              ]);
-            }
-            if (isProcessEvent(frame.eventName)) {
-              await Promise.all([
-                queryClient.invalidateQueries({
-                  queryKey: [
-                    ...sessionObservabilityQueryKey(settings.endpoint, sessionId),
-                    'processes',
-                  ],
-                }),
-                queryClient.invalidateQueries({
-                  queryKey: ['sessions', settings.endpoint, 'all'],
-                }),
-              ]);
-            }
-            if (frame.eventName === 'semantic.event') {
-              await queryClient.invalidateQueries({
-                queryKey: [
-                  ...sessionObservabilityQueryKey(settings.endpoint, sessionId),
-                  'agent-iterations',
-                ],
-              });
-            }
-            if (isModelConfigurationEvent(frame.eventName)) {
-              await Promise.all([
-                queryClient.invalidateQueries({
-                  queryKey: ['capabilities', settings.endpoint],
-                }),
-                queryClient.invalidateQueries({
-                  queryKey: ['language-model-configuration', settings.endpoint],
-                }),
-                queryClient.invalidateQueries({
-                  queryKey: ['provider-models', settings.endpoint],
-                }),
-              ]);
-            }
             if (frame.eventName === 'message.completed') {
               batcher.flush();
-              await Promise.all([
-                queryClient.invalidateQueries({
-                  queryKey: ['transcript', settings.endpoint, sessionId],
-                }),
-                queryClient.invalidateQueries({
-                  queryKey: ['sessions', settings.endpoint, workspaceId],
-                }),
-                queryClient.invalidateQueries({
-                  queryKey: ['sessions', settings.endpoint, 'all'],
-                }),
-                queryClient.invalidateQueries({
-                  queryKey: sessionObservabilityQueryKey(settings.endpoint, sessionId),
-                }),
-                queryClient.invalidateQueries({
-                  queryKey: sessionContextQueryKey(settings.endpoint, sessionId),
-                }),
-              ]);
             }
-            if (frame.eventName === 'session.status_changed') {
-              await Promise.all([
-                queryClient.invalidateQueries({
-                  queryKey: ['sessions', settings.endpoint, workspaceId],
-                }),
-                queryClient.invalidateQueries({
-                  queryKey: ['sessions', settings.endpoint, 'all'],
-                }),
-              ]);
-            }
+            invalidations.push(
+              ...queryInvalidationKeysForEvent({
+                endpoint: settings.endpoint,
+                eventName: frame.eventName,
+                sessionId,
+                workspaceId,
+              }),
+            );
           }
           if (!controller.signal.aborted) setStreamState('reconnecting');
         } catch (error) {
@@ -180,6 +117,7 @@ export function useSessionLiveStream({
     return () => {
       controller.abort();
       batcher.stop({ flush: true });
+      invalidations.stop({ flush: true });
     };
   }, [
     applyFrames,
@@ -206,9 +144,9 @@ export function useSessionLiveStream({
           repository.transcript(sessionId, controller.signal),
         ]);
         if (controller.signal.aborted) return;
-        queryClient.setQueryData(['workspaces', settings.endpoint], workspaces);
-        queryClient.setQueryData(['sessions', settings.endpoint, workspaceId], sessions);
-        queryClient.setQueryData(['transcript', settings.endpoint, sessionId], transcript);
+        queryClient.setQueryData(queryKeys.workspaces(settings.endpoint), workspaces);
+        queryClient.setQueryData(queryKeys.sessions(settings.endpoint, workspaceId), sessions);
+        queryClient.setQueryData(queryKeys.transcript(settings.endpoint, sessionId), transcript);
         reconcileSnapshots({
           workspaces: recordById(workspaces),
           sessions: recordById(sessions),
@@ -259,6 +197,90 @@ function isProcessEvent(eventName: string): boolean {
 
 function isModelConfigurationEvent(eventName: string): boolean {
   return eventName === 'lm.provider.changed' || eventName === 'lm.provider.failed';
+}
+
+interface QueryInvalidationEvent {
+  endpoint: string;
+  eventName: string;
+  sessionId: string;
+  workspaceId: string;
+}
+
+/** Maps wire events to the authoritative REST snapshots that must be refreshed. */
+export function queryInvalidationKeysForEvent({
+  endpoint,
+  eventName,
+  sessionId,
+  workspaceId,
+}: QueryInvalidationEvent): QueryKey[] {
+  const keys: QueryKey[] = [];
+  if (isPendingInteractionEvent(eventName)) {
+    keys.push(
+      queryKeys.pendingApprovals(endpoint, sessionId),
+      queryKeys.pendingQuestions(endpoint, sessionId),
+    );
+  }
+  if (isProcessEvent(eventName)) {
+    keys.push(
+      queryKeys.sessionObservabilityDetail(endpoint, sessionId, 'processes'),
+      queryKeys.sessions(endpoint, 'all'),
+    );
+  }
+  if (eventName === 'semantic.event') {
+    keys.push(queryKeys.sessionObservabilityDetail(endpoint, sessionId, 'agent-iterations'));
+  }
+  if (isModelConfigurationEvent(eventName)) {
+    keys.push(
+      queryKeys.capabilities(endpoint),
+      queryKeys.languageModelConfiguration(endpoint),
+      queryKeys.providerModels(endpoint),
+    );
+  }
+  if (eventName === 'message.completed') {
+    keys.push(
+      queryKeys.transcript(endpoint, sessionId),
+      queryKeys.sessions(endpoint, workspaceId),
+      queryKeys.sessions(endpoint, 'all'),
+      queryKeys.sessionObservability(endpoint, sessionId),
+      queryKeys.sessionContext(endpoint, sessionId),
+    );
+  }
+  if (eventName === 'session.status_changed') {
+    keys.push(queryKeys.sessions(endpoint, workspaceId), queryKeys.sessions(endpoint, 'all'));
+  }
+  return keys;
+}
+
+class QueryInvalidationBatcher {
+  private readonly pending = new Map<string, QueryKey>();
+  private scheduled = false;
+  private stopped = false;
+
+  constructor(private readonly queryClient: Pick<QueryClient, 'invalidateQueries'>) {}
+
+  push(...keys: QueryKey[]): void {
+    if (this.stopped) return;
+    for (const key of keys) this.pending.set(JSON.stringify(key), key);
+    if (this.scheduled || this.pending.size === 0) return;
+    this.scheduled = true;
+    queueMicrotask(() => this.flush());
+  }
+
+  flush(): void {
+    this.scheduled = false;
+    const keys = [...this.pending.values()];
+    this.pending.clear();
+    if (keys.length === 0) return;
+    void Promise.allSettled(
+      keys.map((queryKey) => this.queryClient.invalidateQueries({ queryKey })),
+    );
+  }
+
+  stop({ flush }: { flush: boolean }): void {
+    if (flush) this.flush();
+    this.stopped = true;
+    this.pending.clear();
+  }
 }
 
 function abortableDelay(controller: AbortController, milliseconds: number): Promise<void> {

@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import {
   forwardRef,
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -27,6 +29,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type ComponentType,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
@@ -39,7 +42,6 @@ import {
 } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { ArtifactView, BlueprintFileEditor } from './resource-viewers';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
@@ -51,6 +53,13 @@ import {
   FileBrowser,
   type CanvasResourceKind,
 } from './workbench-resource-browser';
+
+const ArtifactView = lazy(() =>
+  import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
+);
+const BlueprintFileEditor = lazy(() =>
+  import('./resource-viewers').then((module) => ({ default: module.BlueprintFileEditor })),
+);
 
 type WorkbenchTab =
   | { id: 'session'; kind: 'session'; label: 'Observability' }
@@ -147,6 +156,29 @@ const blueprintBrowserTab: WorkbenchTab = {
   label: 'Blueprints',
 };
 
+const canvasResourceTabs = {
+  session: sessionTab,
+  files: fileBrowserTab,
+  artifacts: artifactBrowserTab,
+  blueprints: blueprintBrowserTab,
+} satisfies Record<CanvasResourceKind, WorkbenchTab>;
+
+const workbenchTabIcons = {
+  session: ActivityIcon,
+  files: FolderIcon,
+  artifacts: BoxIcon,
+  blueprints: BoxesIcon,
+  'workspace-file': FileCode2Icon,
+  diff: FileDiffIcon,
+  'blueprint-file': FileCode2Icon,
+  artifact: BoxIcon,
+  blueprint: BoxesIcon,
+  subagent: BoxesIcon,
+} satisfies Record<
+  WorkbenchTab['kind'],
+  ComponentType<{ 'aria-hidden'?: boolean; className?: string }>
+>;
+
 export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>(
   function ClioWorkbench(
     {
@@ -218,63 +250,68 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
     const openCanvasResource = useCallback(
-      (kind: CanvasResourceKind) => {
-        if (kind === 'session') openTab(sessionTab);
-        else if (kind === 'files') openTab(fileBrowserTab);
-        else if (kind === 'artifacts') openTab(artifactBrowserTab);
-        else openTab(blueprintBrowserTab);
-      },
+      (kind: CanvasResourceKind) => openTab(canvasResourceTabs[kind]),
       [openTab],
     );
 
     const openRequest = useCallback(
       (request: ClioWorkbenchOpenRequest) => {
-        if (request.kind === 'workspace-file') {
-          openTab({
-            id: `workspace-file:${request.path}`,
-            kind: 'workspace-file',
-            label: fileName(request.path),
-            path: request.path,
-            workspaceId,
-          });
-        } else if (request.kind === 'diff') {
-          openTab({
-            id: `diff:${sessionId}:${request.diff.path}`,
-            kind: 'diff',
-            label: fileName(request.diff.path),
-            diff: request.diff,
-            sessionId,
-            workspaceId,
-          });
-        } else if (request.kind === 'artifact') {
-          openTab({
-            id: `artifact:${request.artifact.id}`,
-            kind: 'artifact',
-            label: request.artifact.name,
-            artifact: request.artifact,
-            workspaceId: request.artifact.workspace_id ?? workspaceId,
-          });
-        } else if (request.kind === 'blueprint') {
-          openTab({
-            id: `blueprint:${request.blueprint.id}`,
-            kind: 'blueprint',
-            label: request.blueprint.display_name,
-            blueprint: request.blueprint,
-            sessionId,
-            workspaceId,
-          });
-        } else if (request.kind === 'subagent') {
-          openTab({
-            id: `subagent:${request.subagent.child_session_id ?? request.subagent.id}`,
-            kind: 'subagent',
-            label: request.subagent.title,
-            subagent: request.subagent,
-            workspaceId,
-          });
-        } else if (request.kind === 'resources') {
-          openCanvasResource(request.section ?? 'files');
-        } else {
-          openTab(sessionTab);
+        switch (request.kind) {
+          case 'workspace-file':
+            openTab({
+              id: `workspace-file:${request.path}`,
+              kind: 'workspace-file',
+              label: fileName(request.path),
+              path: request.path,
+              workspaceId,
+            });
+            return;
+          case 'diff':
+            openTab({
+              id: `diff:${sessionId}:${request.diff.path}`,
+              kind: 'diff',
+              label: fileName(request.diff.path),
+              diff: request.diff,
+              sessionId,
+              workspaceId,
+            });
+            return;
+          case 'artifact':
+            openTab({
+              id: `artifact:${request.artifact.id}`,
+              kind: 'artifact',
+              label: request.artifact.name,
+              artifact: request.artifact,
+              workspaceId: request.artifact.workspace_id ?? workspaceId,
+            });
+            return;
+          case 'blueprint':
+            openTab({
+              id: `blueprint:${request.blueprint.id}`,
+              kind: 'blueprint',
+              label: request.blueprint.display_name,
+              blueprint: request.blueprint,
+              sessionId,
+              workspaceId,
+            });
+            return;
+          case 'subagent':
+            openTab({
+              id: `subagent:${request.subagent.child_session_id ?? request.subagent.id}`,
+              kind: 'subagent',
+              label: request.subagent.title,
+              subagent: request.subagent,
+              workspaceId,
+            });
+            return;
+          case 'resources':
+            openCanvasResource(request.section ?? 'files');
+            return;
+          case 'session':
+            openTab(sessionTab);
+            return;
+          default:
+            assertNever(request);
         }
       },
       [openCanvasResource, openTab, sessionId, workspaceId],
@@ -293,6 +330,193 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       window.addEventListener('keydown', restore, true);
       return () => window.removeEventListener('keydown', restore, true);
     }, [maximized]);
+
+    const renderTabContent = (tab: WorkbenchTab): ReactNode => {
+      switch (tab.kind) {
+        case 'session':
+          return sessionView;
+        case 'files':
+          return (
+            <FileBrowser
+              files={files}
+              filesError={filesError}
+              filesPending={filesPending}
+              onSelectedPathChange={(path) =>
+                setTabs((current) =>
+                  current.map((candidate) =>
+                    candidate.id === tab.id && candidate.kind === 'files'
+                      ? { ...candidate, path }
+                      : candidate,
+                  ),
+                )
+              }
+              selectedPath={tab.path}
+              workspaceId={workspaceId}
+            />
+          );
+        case 'artifacts':
+          return (
+            <ArtifactBrowser
+              artifacts={artifacts}
+              artifactsError={artifactsError}
+              artifactsPending={artifactsPending}
+              artifactsTruncated={artifactsTruncated}
+              defaultSplit={maximized}
+              files={files}
+              onReplaceArtifact={(artifact) =>
+                replaceTab(tab.id, {
+                  id: `artifact:${artifact.id}`,
+                  kind: 'artifact',
+                  label: artifact.name,
+                  artifact,
+                  workspaceId: artifact.workspace_id ?? workspaceId,
+                })
+              }
+              workspaceId={workspaceId}
+            />
+          );
+        case 'blueprints':
+          return (
+            <BlueprintBrowser
+              blueprints={blueprints}
+              blueprintsError={blueprintsError}
+              blueprintsPending={blueprintsPending}
+              onOpenBlueprint={(blueprint, event) => {
+                const blueprintTab: WorkbenchTab = {
+                  id: `blueprint:${blueprint.id}`,
+                  kind: 'blueprint',
+                  label: blueprint.display_name,
+                  blueprint,
+                  sessionId,
+                  workspaceId,
+                };
+                if (event.shiftKey) openTab(blueprintTab);
+                else replaceTab(tab.id, blueprintTab);
+              }}
+            />
+          );
+        case 'workspace-file':
+          return (
+            <FileBrowser
+              files={files}
+              filesError={filesError}
+              filesPending={filesPending}
+              onSelectedPathChange={(path) =>
+                setTabs((current) =>
+                  current.map((candidate) =>
+                    candidate.id === tab.id && candidate.kind === 'workspace-file'
+                      ? { ...candidate, label: fileName(path), path }
+                      : candidate,
+                  ),
+                )
+              }
+              selectedPath={tab.path}
+              workspaceId={tab.workspaceId}
+            />
+          );
+        case 'diff':
+          return (
+            <DiffCanvasView
+              diff={
+                tab.sessionId === sessionId
+                  ? (diffs.find((candidate) => candidate.path === tab.diff.path) ?? tab.diff)
+                  : tab.diff
+              }
+              error={diffActionError}
+              onApply={(path) => onApplyDiff(tab.sessionId, tab.workspaceId, path)}
+              onOpenFile={(path) =>
+                openTab({
+                  id: `workspace-file:${tab.workspaceId}:${path}`,
+                  kind: 'workspace-file',
+                  label: fileName(path),
+                  path,
+                  workspaceId: tab.workspaceId,
+                })
+              }
+              onReject={(path) => onRejectDiff(tab.sessionId, tab.workspaceId, path)}
+              pending={diffActionPending}
+            />
+          );
+        case 'blueprint-file':
+          return (
+            <Suspense fallback={<CanvasLoading label="Loading blueprint file" />}>
+              <BlueprintFileEditor
+                blueprintId={tab.blueprintId}
+                path={tab.path}
+                sessionId={tab.sessionId}
+                workspaceId={tab.workspaceId}
+              />
+            </Suspense>
+          );
+        case 'artifact':
+          return (
+            <Suspense fallback={<CanvasLoading label="Loading artifact" />}>
+              <ArtifactView
+                artifact={tab.artifact}
+                files={tab.workspaceId === workspaceId ? files : []}
+                onOpenArtifact={(artifact) =>
+                  openTab({
+                    id: `artifact:${artifact.id}`,
+                    kind: 'artifact',
+                    label: artifact.name,
+                    artifact,
+                    workspaceId: artifact.workspace_id ?? tab.workspaceId,
+                  })
+                }
+                workspaceId={tab.workspaceId}
+              />
+            </Suspense>
+          );
+        case 'blueprint':
+          return (
+            <BlueprintView
+              blueprint={tab.blueprint}
+              sessionId={tab.sessionId}
+              workspaceId={tab.workspaceId}
+            />
+          );
+        case 'subagent':
+          return (
+            <ClioSubagentCanvasView
+              activeSessionId={sessionId}
+              onOpenArtifact={(artifact) =>
+                openTab({
+                  id: `artifact:${artifact.id}`,
+                  kind: 'artifact',
+                  label: artifact.name,
+                  artifact,
+                  workspaceId: artifact.workspace_id ?? tab.workspaceId,
+                })
+              }
+              onOpenConversation={(subagent) => onOpenSubagent(subagent, 'conversation')}
+              onOpenFile={(path) =>
+                openTab({
+                  id: `workspace-file:${path}`,
+                  kind: 'workspace-file',
+                  label: fileName(path),
+                  path,
+                  workspaceId: tab.workspaceId,
+                })
+              }
+              onOpenSubagent={(subagent, target) => {
+                if (target === 'conversation') onOpenSubagent(subagent, target);
+                else
+                  openTab({
+                    id: `subagent:${subagent.child_session_id ?? subagent.id}`,
+                    kind: 'subagent',
+                    label: subagent.title,
+                    subagent,
+                    workspaceId: tab.workspaceId,
+                  });
+              }}
+              subagent={tab.subagent}
+              workspaceId={tab.workspaceId}
+            />
+          );
+        default:
+          return assertNever(tab);
+      }
+    };
 
     const canvas = (
       <aside
@@ -359,165 +583,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           </div>
           {tabs.map((tab) => (
             <TabsContent className="m-0 min-h-0 overflow-hidden" key={tab.id} value={tab.id}>
-              {tab.kind === 'session' ? (
-                sessionView
-              ) : tab.kind === 'files' ? (
-                <FileBrowser
-                  files={files}
-                  filesError={filesError}
-                  filesPending={filesPending}
-                  onSelectedPathChange={(path) =>
-                    setTabs((current) =>
-                      current.map((candidate) =>
-                        candidate.id === tab.id && candidate.kind === 'files'
-                          ? { ...candidate, path }
-                          : candidate,
-                      ),
-                    )
-                  }
-                  selectedPath={tab.path}
-                  workspaceId={workspaceId}
-                />
-              ) : tab.kind === 'artifacts' ? (
-                <ArtifactBrowser
-                  artifacts={artifacts}
-                  artifactsError={artifactsError}
-                  artifactsPending={artifactsPending}
-                  artifactsTruncated={artifactsTruncated}
-                  defaultSplit={maximized}
-                  files={files}
-                  onReplaceArtifact={(artifact) =>
-                    replaceTab(tab.id, {
-                      id: `artifact:${artifact.id}`,
-                      kind: 'artifact',
-                      label: artifact.name,
-                      artifact,
-                      workspaceId: artifact.workspace_id ?? workspaceId,
-                    })
-                  }
-                  workspaceId={workspaceId}
-                />
-              ) : tab.kind === 'blueprints' ? (
-                <BlueprintBrowser
-                  blueprints={blueprints}
-                  blueprintsError={blueprintsError}
-                  blueprintsPending={blueprintsPending}
-                  onOpenBlueprint={(blueprint, event) => {
-                    const blueprintTab: WorkbenchTab = {
-                      id: `blueprint:${blueprint.id}`,
-                      kind: 'blueprint',
-                      label: blueprint.display_name,
-                      blueprint,
-                      sessionId,
-                      workspaceId,
-                    };
-                    if (event.shiftKey) openTab(blueprintTab);
-                    else replaceTab(tab.id, blueprintTab);
-                  }}
-                />
-              ) : tab.kind === 'workspace-file' ? (
-                <FileBrowser
-                  files={files}
-                  filesError={filesError}
-                  filesPending={filesPending}
-                  onSelectedPathChange={(path) =>
-                    setTabs((current) =>
-                      current.map((candidate) =>
-                        candidate.id === tab.id && candidate.kind === 'workspace-file'
-                          ? { ...candidate, label: fileName(path), path }
-                          : candidate,
-                      ),
-                    )
-                  }
-                  selectedPath={tab.path}
-                  workspaceId={tab.workspaceId}
-                />
-              ) : tab.kind === 'diff' ? (
-                <DiffCanvasView
-                  diff={
-                    tab.sessionId === sessionId
-                      ? (diffs.find((candidate) => candidate.path === tab.diff.path) ?? tab.diff)
-                      : tab.diff
-                  }
-                  error={diffActionError}
-                  onApply={(path) => onApplyDiff(tab.sessionId, tab.workspaceId, path)}
-                  onOpenFile={(path) =>
-                    openTab({
-                      id: `workspace-file:${tab.workspaceId}:${path}`,
-                      kind: 'workspace-file',
-                      label: fileName(path),
-                      path,
-                      workspaceId: tab.workspaceId,
-                    })
-                  }
-                  onReject={(path) => onRejectDiff(tab.sessionId, tab.workspaceId, path)}
-                  pending={diffActionPending}
-                />
-              ) : tab.kind === 'blueprint-file' ? (
-                <BlueprintFileEditor
-                  blueprintId={tab.blueprintId}
-                  path={tab.path}
-                  sessionId={tab.sessionId}
-                  workspaceId={tab.workspaceId}
-                />
-              ) : tab.kind === 'artifact' ? (
-                <ArtifactView
-                  artifact={tab.artifact}
-                  files={tab.workspaceId === workspaceId ? files : []}
-                  onOpenArtifact={(artifact) =>
-                    openTab({
-                      id: `artifact:${artifact.id}`,
-                      kind: 'artifact',
-                      label: artifact.name,
-                      artifact,
-                      workspaceId: artifact.workspace_id ?? tab.workspaceId,
-                    })
-                  }
-                  workspaceId={tab.workspaceId}
-                />
-              ) : tab.kind === 'blueprint' ? (
-                <BlueprintView
-                  blueprint={tab.blueprint}
-                  sessionId={tab.sessionId}
-                  workspaceId={tab.workspaceId}
-                />
-              ) : (
-                <ClioSubagentCanvasView
-                  activeSessionId={sessionId}
-                  onOpenArtifact={(artifact) =>
-                    openTab({
-                      id: `artifact:${artifact.id}`,
-                      kind: 'artifact',
-                      label: artifact.name,
-                      artifact,
-                      workspaceId: artifact.workspace_id ?? tab.workspaceId,
-                    })
-                  }
-                  onOpenConversation={(subagent) => onOpenSubagent(subagent, 'conversation')}
-                  onOpenFile={(path) =>
-                    openTab({
-                      id: `workspace-file:${path}`,
-                      kind: 'workspace-file',
-                      label: fileName(path),
-                      path,
-                      workspaceId: tab.workspaceId,
-                    })
-                  }
-                  onOpenSubagent={(subagent, target) => {
-                    if (target === 'conversation') onOpenSubagent(subagent, target);
-                    else
-                      openTab({
-                        id: `subagent:${subagent.child_session_id ?? subagent.id}`,
-                        kind: 'subagent',
-                        label: subagent.title,
-                        subagent,
-                        workspaceId: tab.workspaceId,
-                      });
-                  }}
-                  subagent={tab.subagent}
-                  workspaceId={tab.workspaceId}
-                />
-              )}
+              {renderTabContent(tab)}
             </TabsContent>
           ))}
           {tabs.length === 0 ? (
@@ -558,25 +624,18 @@ function WorkbenchRequestDispatcher({
 }
 
 function TabIcon({ kind }: { kind: WorkbenchTab['kind'] }) {
-  const Icon =
-    kind === 'session'
-      ? ActivityIcon
-      : kind === 'files'
-        ? FolderIcon
-        : kind === 'artifacts'
-          ? BoxIcon
-          : kind === 'blueprints'
-            ? BoxesIcon
-            : kind === 'diff'
-              ? FileDiffIcon
-              : kind === 'subagent'
-                ? BoxesIcon
-                : kind === 'artifact'
-                  ? BoxIcon
-                  : kind === 'blueprint'
-                    ? BoxesIcon
-                    : FileCode2Icon;
+  const Icon = workbenchTabIcons[kind];
   return <Icon aria-hidden="true" className="size-3.5" />;
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported workbench item: ${JSON.stringify(value)}`);
+}
+
+function CanvasLoading({ label }: { label: string }) {
+  return (
+    <div className="grid h-full place-items-center p-6 text-sm text-muted-foreground">{label}…</div>
+  );
 }
 
 function fileName(path: string): string {

@@ -5,13 +5,13 @@ import { useMemo } from 'react';
 import { Badge as ReUIBadge } from '@/components/reui/badge';
 import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header';
 import { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination';
-import { DataGridTable } from '@/components/reui/data-grid/data-grid-table';
 import {
   DataGrid,
   DataGridContainer,
   dataGridFeatures,
   type DataGridFeatures,
 } from '@/components/reui/data-grid/data-grid';
+import { ClioDataGridTable } from './data-grid-table';
 
 export type ClioDataColumn = string | { key: string; label: string };
 export type ClioDataRow = Record<string, unknown>;
@@ -78,7 +78,7 @@ export function ClioDataTable({
           role="region"
           tabIndex={0}
         >
-          <DataGridTable />
+          <ClioDataGridTable />
         </div>
         {rows.length > 10 ? (
           <div className="border-t px-3">

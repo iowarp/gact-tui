@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { Artifact } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { DownloadIcon } from 'lucide-react';
@@ -27,12 +28,12 @@ export function ArtifactProvenance({
 }) {
   const repository = useRepository();
   const detail = useQuery({
-    queryKey: ['artifact-detail', artifact.id],
+    queryKey: queryKeys.key('artifact-detail', artifact.id),
     queryFn: ({ signal }) => repository.artifactDetail(artifact.id, signal),
     enabled: view === 'versions',
   });
   const lineage = useQuery({
-    queryKey: ['artifact-lineage', artifact.id, 'both', 5],
+    queryKey: queryKeys.key('artifact-lineage', artifact.id, 'both', 5),
     queryFn: ({ signal }) =>
       repository.artifactLineage(artifact.id, { direction: 'both', depth: 5 }, signal),
     enabled: view === 'lineage',
@@ -112,12 +113,7 @@ export function ArtifactProvenance({
                   {version.custody_gap ? <ClioStatus label="Custody gap" value="degraded" /> : null}
                 </TimelineHeader>
                 <TimelineContent className="flex flex-wrap gap-x-3 gap-y-1">
-                  {[
-                    version.mechanism,
-                    version.custody,
-                    version.evidence_class,
-                    version.annotation,
-                  ]
+                  {[version.mechanism, version.custody, version.evidence_class, version.annotation]
                     .filter((field): field is string => Boolean(field))
                     .map((field, fieldIndex) => (
                       <span key={`${fieldIndex}:${field}`}>{field}</span>

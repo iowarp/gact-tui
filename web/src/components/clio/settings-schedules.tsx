@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { CreateScheduledTurnInput, ScheduledTurn } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -126,11 +127,11 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
   const [customCron, setCustomCron] = useState('');
 
   const sessions = useQuery({
-    queryKey: ['sessions', 'all', settings.endpoint],
+    queryKey: queryKeys.key('sessions', 'all', settings.endpoint),
     queryFn: ({ signal }) => repository.allSessions(signal),
   });
   const workspaces = useQuery({
-    queryKey: ['workspaces', settings.endpoint],
+    queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const availableSessions = useMemo(

@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { AgentBlueprint, SessionDefaults, Workspace } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronDownIcon } from 'lucide-react';
@@ -131,7 +132,7 @@ function CreateResourceDialog({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const sessionDefaults = useQuery({
-    queryKey: ['session-defaults', settings.endpoint],
+    queryKey: queryKeys.key('session-defaults', settings.endpoint),
     queryFn: ({ signal }) => repository.sessionDefaults(signal),
   });
   const [title, setTitle] = useState('');

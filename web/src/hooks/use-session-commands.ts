@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useRepository } from '@/hooks/use-repository';
@@ -10,7 +11,7 @@ export function useSessionCommands(sessionId: string, workspaceId: string) {
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const commands = useQuery({
-    queryKey: ['commands', settings.endpoint, workspaceId, sessionId],
+    queryKey: queryKeys.key('commands', settings.endpoint, workspaceId, sessionId),
     queryFn: ({ signal }) => repository.commands(signal, { sessionId, workspaceId }),
     enabled: Boolean(sessionId && workspaceId),
   });
@@ -20,10 +21,10 @@ export function useSessionCommands(sessionId: string, workspaceId: string) {
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ['transcript', settings.endpoint, sessionId],
+          queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
         }),
         queryClient.invalidateQueries({
-          queryKey: ['sessions', settings.endpoint, workspaceId],
+          queryKey: queryKeys.key('sessions', settings.endpoint, workspaceId),
         }),
         queryClient.invalidateQueries({
           queryKey: sessionObservabilityQueryKey(settings.endpoint, sessionId),

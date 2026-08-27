@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { AgentDefinition, ToolCatalogItem } from '@clio/core/v3';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { ChevronDownIcon, Settings2Icon } from 'lucide-react';
@@ -85,7 +86,7 @@ export function AgentEditorDialog({
   const update = <K extends keyof AgentDraft>(key: K, value: AgentDraft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
   const modelConfiguration = useQuery({
-    queryKey: ['language-model-configuration', settings.endpoint],
+    queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
     queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
   });
   const configuredPreset = modelConfiguration.data?.presets.find(
@@ -105,7 +106,7 @@ export function AgentEditorDialog({
     modelConfiguration.data?.presets.filter((preset) => preset.is_authenticated) ?? [];
   const modelCatalogs = useQueries({
     queries: authenticatedPresets.map((preset) => ({
-      queryKey: ['provider-models', settings.endpoint, preset.id],
+      queryKey: queryKeys.key('provider-models', settings.endpoint, preset.id),
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         repository.providerModels(preset.id, signal),
     })),

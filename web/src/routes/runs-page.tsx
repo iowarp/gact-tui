@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { OperationalRun, RunState, Session, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -13,10 +14,10 @@ import {
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ClioDataGridTable } from '@/components/clio/data-grid-table';
 import { ClioStatus } from '@/components/clio/status';
 import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header';
 import { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination';
-import { DataGridTable } from '@/components/reui/data-grid/data-grid-table';
 import {
   DataGrid,
   DataGridContainer,
@@ -169,25 +170,25 @@ export function RunsPage() {
   const [sourceFilter, setSourceFilter] = useState('all');
   const [confirmedAction, setConfirmedAction] = useState<ConfirmedRunAction>();
   const workspaces = useQuery({
-    queryKey: ['workspaces', settings.endpoint],
+    queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const sessions = useQuery({
-    queryKey: ['sessions', settings.endpoint, 'all'],
+    queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
     queryFn: ({ signal }) => repository.allSessions(signal),
   });
   const runs = useQuery({
-    queryKey: ['runs', settings.endpoint],
+    queryKey: queryKeys.key('runs', settings.endpoint),
     queryFn: ({ signal }) => repository.runs(signal),
     refetchInterval: 5_000,
   });
   const relay = useQuery({
-    queryKey: ['relay-status', settings.endpoint],
+    queryKey: queryKeys.key('relay-status', settings.endpoint),
     queryFn: ({ signal }) => repository.relayStatus(signal),
     refetchInterval: 30_000,
   });
   const refreshRuns = useCallback(
-    () => queryClient.invalidateQueries({ queryKey: ['runs', settings.endpoint] }),
+    () => queryClient.invalidateQueries({ queryKey: queryKeys.key('runs', settings.endpoint) }),
     [queryClient, settings.endpoint],
   );
   const detach = useMutation({
@@ -458,7 +459,7 @@ export function RunsPage() {
             }}
           >
             <DataGridContainer className="mt-6 rounded-xl border bg-card">
-              <DataGridTable />
+              <ClioDataGridTable />
               <div className="border-t px-4">
                 <DataGridPagination sizes={[10, 25, 50, 100]} />
               </div>

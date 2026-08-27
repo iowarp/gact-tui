@@ -32,9 +32,7 @@ const requiredImports = {
     '@/components/ai-elements/artifact',
     '@/components/ai-elements/attachments',
   ],
-  'web/src/components/clio/resource-viewers.tsx': [
-    '@/components/ai-elements/code-block',
-  ],
+  'web/src/components/clio/resource-viewers.tsx': ['@/components/ai-elements/code-block'],
   'web/src/components/clio/subagent-card.tsx': ['@/components/theokit/sub-agent-dispatch'],
   'web/src/components/clio/pending-interactions.tsx': ['@/components/ai-elements/confirmation'],
   'web/src/components/clio/workbench.tsx': ['@/components/ui/tabs', './workbench-resource-browser'],
@@ -60,14 +58,21 @@ const requiredImports = {
     './artifact-card',
   ],
   'web/src/components/clio/a2ui-catalog.tsx': [
-    '@/components/ai-elements/code-block',
     '@/components/ai-elements/confirmation',
     '@/components/reui/frame',
     './a2ui-artifact',
+    './a2ui-code-view',
   ],
+  'web/src/components/clio/a2ui-code-view.tsx': ['@/components/ai-elements/code-block'],
   'web/src/components/clio/a2ui-artifact.tsx': ['./artifact-card'],
-  'web/src/components/clio/data-table.tsx': ['@/components/reui/data-grid/data-grid'],
-  'web/src/routes/runs-page.tsx': ['@/components/reui/data-grid/data-grid'],
+  'web/src/components/clio/data-table.tsx': [
+    '@/components/reui/data-grid/data-grid',
+    './data-grid-table',
+  ],
+  'web/src/routes/runs-page.tsx': [
+    '@/components/clio/data-grid-table',
+    '@/components/reui/data-grid/data-grid',
+  ],
   'web/src/components/clio/settings-session-defaults.tsx': ['@/components/ui/select'],
   'web/src/components/clio/settings-models.tsx': ['@/components/ui/select'],
   'web/src/components/clio/settings-prompts.tsx': [
@@ -86,7 +91,11 @@ function escapeRegExp(value) {
 }
 
 function imports(source, moduleName) {
-  return new RegExp(`from\\s+['"]${escapeRegExp(moduleName)}['"]`, 'u').test(source);
+  const escaped = escapeRegExp(moduleName);
+  return (
+    new RegExp(`from\\s+['"]${escaped}['"]`, 'u').test(source) ||
+    new RegExp(`import\\(\\s*['"]${escaped}['"]\\s*\\)`, 'u').test(source)
+  );
 }
 
 const failures = [];

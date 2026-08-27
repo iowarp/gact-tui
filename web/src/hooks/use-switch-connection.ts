@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -40,11 +41,11 @@ export function useSwitchConnection() {
           sessions,
         ) ?? latestConnectionSessionTarget(workspaces, sessions);
 
-      queryClient.setQueryData(['workspaces', connection.endpoint], workspaces);
-      queryClient.setQueryData(['sessions', connection.endpoint, 'all'], sessions);
+      queryClient.setQueryData(queryKeys.key('workspaces', connection.endpoint), workspaces);
+      queryClient.setQueryData(queryKeys.key('sessions', connection.endpoint, 'all'), sessions);
       if (target) {
         queryClient.setQueryData(
-          ['sessions', connection.endpoint, target.workspace.id],
+          queryKeys.key('sessions', connection.endpoint, target.workspace.id),
           sessions.filter((session) => session.workspace_id === target.workspace.id),
         );
         rememberWorkspaceRoute(connection.endpoint, target.workspace.id, target.session.id);

@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -18,8 +19,8 @@ export function useAvailableSessionNavigation() {
       repository.workspaces(),
       repository.allSessions(),
     ]);
-    queryClient.setQueryData(['workspaces', settings.endpoint], workspaces);
-    queryClient.setQueryData(['sessions', settings.endpoint, 'all'], sessions);
+    queryClient.setQueryData(queryKeys.key('workspaces', settings.endpoint), workspaces);
+    queryClient.setQueryData(queryKeys.key('sessions', settings.endpoint, 'all'), sessions);
 
     const target = latestConnectionSessionTarget(workspaces, sessions);
     if (!target) {
@@ -28,7 +29,7 @@ export function useAvailableSessionNavigation() {
     }
 
     queryClient.setQueryData(
-      ['sessions', settings.endpoint, target.workspace.id],
+      queryKeys.key('sessions', settings.endpoint, target.workspace.id),
       sessions.filter((session) => session.workspace_id === target.workspace.id),
     );
     rememberWorkspaceRoute(settings.endpoint, target.workspace.id, target.session.id);

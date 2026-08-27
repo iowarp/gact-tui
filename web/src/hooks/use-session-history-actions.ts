@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -13,9 +14,15 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
 
   const refreshFocusedSession = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['transcript', settings.endpoint, sessionId] }),
-      queryClient.invalidateQueries({ queryKey: ['sessions', settings.endpoint, workspaceId] }),
-      queryClient.invalidateQueries({ queryKey: ['sessions', settings.endpoint, 'all'] }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('sessions', settings.endpoint, workspaceId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
+      }),
     ]);
   };
 
@@ -24,10 +31,12 @@ export function useSessionHistoryActions(sessionId: string, workspaceId: string)
       repository.forkSession(sessionId, atMessageId ? { at_message_id: atMessageId } : {}),
     onSuccess: async (forked) => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['workspaces', settings.endpoint] }),
-        queryClient.invalidateQueries({ queryKey: ['sessions', settings.endpoint, 'all'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.key('workspaces', settings.endpoint) }),
         queryClient.invalidateQueries({
-          queryKey: ['sessions', settings.endpoint, forked.workspace_id],
+          queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('sessions', settings.endpoint, forked.workspace_id),
         }),
       ]);
       toast.success(`Branched into ${forked.title}`);

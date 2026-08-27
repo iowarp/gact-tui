@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { CommandDefinition, PromptDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -157,19 +158,19 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
   const [selectedCommand, setSelectedCommand] = useState<CommandDefinition>();
   const context = workspaceId ? { workspaceId } : {};
   const workspaces = useQuery({
-    queryKey: ['workspaces', settings.endpoint, 'prompt-settings'],
+    queryKey: queryKeys.key('workspaces', settings.endpoint, 'prompt-settings'),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const prompts = useQuery({
-    queryKey: ['prompts', settings.endpoint, workspaceId],
+    queryKey: queryKeys.key('prompts', settings.endpoint, workspaceId),
     queryFn: ({ signal }) => repository.prompts(signal, context),
   });
   const commands = useQuery({
-    queryKey: ['commands', settings.endpoint, workspaceId],
+    queryKey: queryKeys.key('commands', settings.endpoint, workspaceId),
     queryFn: ({ signal }) => repository.commands(signal, context),
   });
   const resolved = useQuery({
-    queryKey: ['prompt', settings.endpoint, editing?.id, draft.profile, workspaceId],
+    queryKey: queryKeys.key('prompt', settings.endpoint, editing?.id, draft.profile, workspaceId),
     queryFn: ({ signal }) =>
       repository.prompt(editing?.id ?? '', { ...context, profile: draft.profile }, signal),
     enabled: editorOpen && Boolean(editing?.id),
@@ -177,7 +178,9 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
   const reload = useMutation({
     mutationFn: () => repository.reloadPrompts(context),
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ['prompts', settings.endpoint] });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.key('prompts', settings.endpoint),
+      });
       toast.success('Prompt sources reloaded', {
         description: `${result.prompt_count} prompt ${result.prompt_count === 1 ? 'family' : 'families'} available.`,
       });
@@ -223,7 +226,9 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['prompts', settings.endpoint] });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.key('prompts', settings.endpoint),
+      });
       setEditorOpen(false);
       toast.success(editing ? 'Prompt override saved' : 'Prompt created');
     },

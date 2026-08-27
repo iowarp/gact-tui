@@ -1,8 +1,9 @@
-import type { Artifact, Message, RunState, SessionDiff, SubagentRun } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-keys';
+import type { RunState } from '@clio/core/v3';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
@@ -13,13 +14,9 @@ import { ClioNavigation } from '@/components/clio/navigation';
 import { ClioObservabilityDock, ClioObservabilityView } from '@/components/clio/observability-dock';
 import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { ClioPendingInteractions } from '@/components/clio/pending-interactions';
-import {
-  ClioSessionBehaviorMenu,
-  type SessionBehaviorPatch,
-} from '@/components/clio/session-behavior-menu';
+import { ClioSessionBehaviorMenu } from '@/components/clio/session-behavior-menu';
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
-import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
-import { ClioWorkbench, type ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
+import { ClioWorkbench } from '@/components/clio/workbench';
 import {
   WorkspaceLoading,
   WorkspaceStatusStrip,
@@ -29,28 +26,15 @@ import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useA2UILocalActions } from '@/hooks/use-a2ui-local-actions';
 import { useRepository } from '@/hooks/use-repository';
-import { useSessionObservability } from '@/hooks/use-session-observability';
 import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
 import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
 import { useSessionCommands } from '@/hooks/use-session-commands';
-import { useSessionContext } from '@/hooks/use-session-context';
-import { useSessionLiveStream } from '@/hooks/use-session-live-stream';
-import { useWorkspaceCapabilities } from '@/hooks/use-workspace-capabilities';
+import { useSessionMutations } from '@/hooks/use-session-mutations';
+import { useWorkspaceData } from '@/hooks/use-workspace-data';
+import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
-import { recordById } from '@/lib/entities';
-import { connectionSessionRoute, latestConnectionSessionTarget } from '@/lib/connection-target';
-import { resolveActiveBlueprint } from '@/lib/active-blueprint';
-import { buildModelOptions } from '@/lib/model-options';
-import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
-import { sessionArtifactEntities } from '@/lib/session-artifacts';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
-import { useLiveStore } from '@/store/live-store';
-
-function isThinkingLevel(value?: string): value is 'off' | 'low' | 'medium' | 'high' {
-  return value === 'off' || value === 'low' || value === 'medium' || value === 'high';
-}
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -59,13 +43,6 @@ export function WorkspacePage() {
   const navigateToAvailableSession = useAvailableSessionNavigation();
   const repository = useRepository();
   const queryClient = useQueryClient();
-  const entities = useLiveStore((state) => state.entities);
-  const replaceSnapshots = useLiveStore((state) => state.replaceSnapshots);
-  const [workbenchRequest, setWorkbenchRequest] = useState<{
-    endpoint: string;
-    key: string;
-    request: ClioWorkbenchOpenRequest;
-  }>();
   const [composerDraftState, setComposerDraftState] = useState({ sessionId, value: '' });
   const composerDraft = composerDraftState.sessionId === sessionId ? composerDraftState.value : '';
   const setComposerDraft = useCallback(
@@ -78,157 +55,44 @@ export function WorkspacePage() {
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
   const diffActions = useSessionDiffActions();
   const { commands, isPending, run } = useSessionCommands(sessionId, workspaceId);
-  const { capabilities, modelConfiguration } = useWorkspaceCapabilities();
-  const workspaces = useQuery({
-    queryKey: ['workspaces', settings.endpoint],
-    queryFn: ({ signal }) => repository.workspaces(signal),
-  });
-  const sessions = useQuery({
-    queryKey: ['sessions', settings.endpoint, workspaceId],
-    queryFn: ({ signal }) => repository.sessions(workspaceId, signal),
-    enabled: Boolean(workspaceId),
-    refetchInterval: (query) => {
-      const current = query.state.data?.find((item) => item.id === sessionId);
-      return current &&
-        ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(current.state)
-        ? 1_500
-        : false;
-    },
-  });
-  const allSessions = useQuery({
-    queryKey: ['sessions', settings.endpoint, 'all'],
-    queryFn: ({ signal }) => repository.allSessions(signal),
-  });
-  const transcript = useQuery({
-    queryKey: ['transcript', settings.endpoint, sessionId],
-    queryFn: ({ signal }) => repository.transcript(sessionId, signal),
-    enabled: Boolean(sessionId),
-  });
-  const sessionArtifacts = useQuery({
-    queryKey: ['session-artifacts', settings.endpoint, sessionId],
-    queryFn: ({ signal }) => repository.sessionArtifacts(sessionId, signal),
-    enabled: Boolean(sessionId),
-  });
-  const streamError = useSessionLiveStream({
-    enabled: workspaceRouteState.canOpenSessionStream(capabilities.data?.gact_versions, sessionId),
-    initialCursor: transcript.data?.cursor,
-    sessionId,
-    workspaceId,
-  });
-  const approvals = useQuery({
-    queryKey: ['pending-approvals', settings.endpoint, 'all-active'],
-    queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
-    enabled: Boolean(sessionId),
-    refetchInterval: 1_500,
-  });
-  const questions = useQuery({
-    queryKey: ['pending-questions', settings.endpoint, sessionId],
-    queryFn: ({ signal }) => repository.questions(sessionId, signal, 'pending'),
-    enabled: Boolean(sessionId),
-  });
-
-  useEffect(() => {
-    if (workspaces.data) replaceSnapshots({ workspaces: recordById(workspaces.data) });
-  }, [replaceSnapshots, workspaces.data]);
-
-  useEffect(() => {
-    if (sessions.data) replaceSnapshots({ sessions: recordById(sessions.data) });
-  }, [replaceSnapshots, sessions.data]);
-
-  useEffect(() => {
-    if (!transcript.data) return;
-    replaceSnapshots({
-      messages: recordById(transcript.data.messages),
-      tools: recordById(transcript.data.tools),
-      tasks: recordById(transcript.data.tasks),
-      subagents: recordById(transcript.data.subagents),
-      artifacts: recordById(transcript.data.artifacts),
-      surfaces: recordById(transcript.data.surfaces),
-    });
-  }, [replaceSnapshots, transcript.data]);
-
-  const sessionCandidate =
-    entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);
-  const session = sessionCandidate?.workspace_id === workspaceId ? sessionCandidate : undefined;
-  const workspace =
-    entities.workspaces[workspaceId] ?? workspaces.data?.find((item) => item.id === workspaceId);
-  const recoveryTarget = useMemo(
-    () => latestConnectionSessionTarget(workspaces.data ?? [], allSessions.data ?? []),
-    [allSessions.data, workspaces.data],
-  );
-  useEffect(() => {
-    if (
-      session ||
-      !recoveryTarget ||
-      workspaces.isPending ||
-      sessions.isPending ||
-      allSessions.isPending
-    ) {
-      return;
-    }
-    void navigate(connectionSessionRoute(recoveryTarget), { replace: true });
-  }, [
-    allSessions.isPending,
-    navigate,
+  const {
+    activeBlueprint,
+    activeEffort,
+    activeModel,
+    activeProvider,
+    agentBlueprints,
+    allSessions,
+    approvals,
+    artifacts,
+    capabilities,
+    context,
+    contextObservability,
+    contextTargetOptions,
+    conversationSubagents,
+    entities,
+    messages,
+    modelConfiguration,
+    modelOptions,
+    parentSession,
+    processes,
+    questions,
     recoveryTarget,
+    runs,
     session,
-    sessions.isPending,
-    workspaces.isPending,
-  ]);
-  useEffect(() => {
-    if (workspace?.id !== workspaceId) return;
-    rememberValidatedWorkspaceRoute(settings.endpoint, workspaceId, session);
-  }, [session, settings.endpoint, workspace?.id, workspaceId]);
-  const parentSession = session?.parent_session_id
-    ? allSessions.data?.find((item) => item.id === session.parent_session_id)
-    : undefined;
-  const transcriptError = workspaceRouteState.conversationUnavailableMessage(transcript.error);
-  const contextTargetSession = resolveContextSession(
-    contextTargetId,
-    session,
-    allSessions.data ?? [],
-  );
-  const sessionContext = useSessionContext(
-    contextTargetId,
-    contextTargetSession?.agent_id ?? 'main',
-    Boolean(session && contextTargetSession),
-  );
-  const sessionObservability = useSessionObservability(sessionId);
-  const contextObservability = useSessionObservability(contextTargetId);
-  const workspaceFiles = useQuery({
-    queryKey: ['workspace-files', settings.endpoint, workspaceId],
-    queryFn: ({ signal }) => repository.workspaceFiles(workspaceId, signal),
-    enabled: Boolean(workspaceId),
-  });
-  const agentBlueprints = useQuery({
-    queryKey: ['agent-blueprints', settings.endpoint, workspaceId],
-    queryFn: ({ signal }) => repository.agentBlueprints(workspaceId, signal),
-    enabled: Boolean(workspaceId),
-  });
-  const recordedMessages = useMemo(
-    () =>
-      Object.values(entities.messages)
-        .filter((message): message is Message => message.session_id === sessionId)
-        .sort((left, right) => left.created_at.localeCompare(right.created_at)),
-    [entities.messages, sessionId],
-  );
-  const tasks = Object.values(entities.tasks).filter((task) => task.session_id === sessionId);
-  const tools = Object.values(entities.tools).filter((tool) => tool.session_id === sessionId);
-  const transcriptArtifacts = useMemo(
-    () => Object.values(entities.artifacts).filter((artifact) => artifact.session_id === sessionId),
-    [entities.artifacts, sessionId],
-  );
-  const artifacts = useMemo(
-    () => sessionArtifactEntities(sessionArtifacts.data, transcriptArtifacts, sessionId),
-    [sessionArtifacts.data, sessionId, transcriptArtifacts],
-  );
-  const recordedSubagents = useMemo(
-    () => Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
-    [entities.subagents, sessionId],
-  );
-  const messages = recordedMessages;
-  const processes = sessionObservability.processes.data ?? [];
-  const subagents = recordedSubagents;
+    sessionArtifacts,
+    sessionContext,
+    sessionObservability,
+    sessions,
+    streamError,
+    subagents,
+    tasks,
+    tools,
+    transcript,
+    transcriptError,
+    visibleApprovals,
+    workspaceFiles,
+    workspaces,
+  } = useWorkspaceData({ contextTargetId, sessionId, workspaceId });
   const conversationStarted = messages.length > 0 || startedSessionId === sessionId;
   const setConversationStarted = useCallback(
     (started: boolean) =>
@@ -237,234 +101,45 @@ export function WorkspacePage() {
       ),
     [sessionId],
   );
-  const interactionSessionIds = useMemo(() => {
-    const related = new Set([sessionId]);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const subagent of Object.values(entities.subagents)) {
-        if (
-          subagent.child_session_id &&
-          related.has(subagent.session_id) &&
-          !related.has(subagent.child_session_id)
-        ) {
-          related.add(subagent.child_session_id);
-          changed = true;
-        }
-      }
-      for (const candidate of allSessions.data ?? []) {
-        if (
-          candidate.parent_session_id &&
-          related.has(candidate.parent_session_id) &&
-          !related.has(candidate.id)
-        ) {
-          related.add(candidate.id);
-          changed = true;
-        }
-      }
-    }
-    return related;
-  }, [allSessions.data, entities.subagents, sessionId]);
-  const visibleApprovals = useMemo(
-    () =>
-      (approvals.data ?? []).filter((approval) => interactionSessionIds.has(approval.session_id)),
-    [approvals.data, interactionSessionIds],
-  );
-  const conversationSubagents = useMemo(() => recordById(subagents), [subagents]);
-  const runs = Object.values(entities.runs).filter((run) => run.session_id === sessionId);
-  const context = sessionContext.state.data ?? entities.context[contextTargetId];
-  const activeProvider =
-    session?.provider_id ??
-    modelConfiguration.data?.provider ??
-    capabilities.data?.active_model?.provider_id;
-  const activeModel =
-    session?.model_id ??
-    modelConfiguration.data?.model ??
-    capabilities.data?.active_model?.model_id;
-  const activeEffort =
-    session?.effort ??
-    modelConfiguration.data?.thinking_level ??
-    capabilities.data?.active_model?.effort;
-  const activeBlueprint = resolveActiveBlueprint(session, agentBlueprints.data);
-  const contextAgentLabel = activeBlueprint?.display_name ?? session?.agent_id;
-  const contextTargetOptions = buildContextTargets(sessionId, contextAgentLabel, subagents);
-  const activePreset = modelConfiguration.data?.presets.find(
-    (preset) => preset.id === activeProvider || preset.provider === activeProvider,
-  );
-  const activeCatalogProvider = activePreset?.id ?? activeProvider ?? '';
-  const modelCatalog = useQuery({
-    queryKey: ['provider-models', settings.endpoint, activeCatalogProvider],
-    queryFn: ({ signal }) => repository.providerModels(activeCatalogProvider, signal),
-    enabled: Boolean(activeCatalogProvider),
-  });
-  const modelOptions = buildModelOptions({
-    activeCatalogProvider,
-    activeModel,
-    activeProvider,
-    catalogModels: modelCatalog.data?.models,
-    presets: modelConfiguration.data?.presets ?? [],
-  });
   const showConversationWelcome =
     messages.length === 0 && !transcript.isPending && !transcriptError && !conversationStarted;
 
-  const revealWorkbench = useCallback(
-    (request: ClioWorkbenchOpenRequest) => {
-      setWorkbenchRequest({
-        endpoint: settings.endpoint,
-        key: `${request.kind}:${Date.now()}`,
-        request,
-      });
-    },
-    [settings.endpoint],
-  );
-
-  const openSubagent = useCallback(
-    (subagent: SubagentRun, target: SubagentOpenTarget) => {
-      if (!subagent.child_session_id) return;
-      if (target === 'canvas') {
-        revealWorkbench({
-          kind: 'subagent',
-          subagent,
-        });
-        return;
-      }
-      const child = allSessions.data?.find((item) => item.id === subagent.child_session_id);
-      void navigate(
-        `/workspaces/${encodeURIComponent(child?.workspace_id ?? workspaceId)}/sessions/${encodeURIComponent(subagent.child_session_id)}`,
-      );
-    },
-    [allSessions.data, navigate, revealWorkbench, workspaceId],
-  );
-  const openArtifact = useCallback(
-    (artifact: Artifact) => revealWorkbench({ kind: 'artifact', artifact }),
-    [revealWorkbench],
-  );
-  const openWorkspaceFile = useCallback(
-    (path: string) => revealWorkbench({ kind: 'workspace-file', path }),
-    [revealWorkbench],
-  );
-  const openDiff = useCallback(
-    (diff: SessionDiff) => revealWorkbench({ kind: 'diff', diff }),
-    [revealWorkbench],
-  );
+  const {
+    activeRequest: workbenchRequest,
+    openArtifact,
+    openDiff,
+    openSubagent,
+    openWorkspaceFile,
+    revealWorkbench,
+  } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
   const handleA2UILocalAction = useA2UILocalActions(entities.artifacts, sessionId, openArtifact);
 
-  const send = useMutation({
-    mutationFn: async (value: {
-      text: string;
-      provider?: string;
-      model?: string;
-      effort?: string;
-    }) => {
-      const selectedPreset = modelConfiguration.data?.presets.find(
-        (preset) => preset.id === value.provider || preset.provider === value.provider,
-      );
-      const provider = selectedPreset?.provider ?? value.provider;
-      const model = value.model;
-      const effort = isThinkingLevel(value.effort) ? value.effort : undefined;
-      const configured = modelConfiguration.data;
-
-      if (
-        provider &&
-        model &&
-        (!configured ||
-          configured.provider !== provider ||
-          configured.model !== model ||
-          (effort !== undefined && configured.thinking_level !== effort))
-      ) {
-        if (!selectedPreset) {
-          throw new Error(`The connected service did not report configuration for ${provider}.`);
-        }
-        if (!selectedPreset.is_authenticated) {
-          throw new Error(
-            selectedPreset.status_message || `${selectedPreset.label} is not connected.`,
-          );
-        }
-        const nextConfiguration = await repository.updateLanguageModelConfiguration({
-          provider: selectedPreset.provider,
-          api_base: selectedPreset.api_base ?? '',
-          model,
-          thinking_level: effort,
-        });
-        queryClient.setQueryData(
-          ['language-model-configuration', settings.endpoint],
-          nextConfiguration,
-        );
-      }
-
-      if (
-        provider &&
-        model &&
-        session &&
-        (session.provider_id !== provider || session.model_id !== model)
-      ) {
-        const updatedSession = await repository.updateSession(sessionId, {
-          provider_id: provider,
-          model_id: model,
-        });
-        queryClient.setQueryData(
-          ['sessions', settings.endpoint, workspaceId],
-          (current: typeof sessions.data) =>
-            current?.map((item) => (item.id === updatedSession.id ? updatedSession : item)),
-        );
-      }
-
-      return repository.sendMessage(sessionId, value.text, {
-        provider_id: provider,
-        model_id: model,
-        effort,
-      });
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['transcript', settings.endpoint, sessionId] }),
-        queryClient.invalidateQueries({ queryKey: ['sessions', settings.endpoint, workspaceId] }),
-        queryClient.invalidateQueries({ queryKey: ['sessions', settings.endpoint, 'all'] }),
-        queryClient.invalidateQueries({ queryKey: ['capabilities', settings.endpoint] }),
-      ]);
-    },
-  });
-  const cancel = useMutation({
-    mutationFn: () => repository.cancelSession(sessionId),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['transcript', settings.endpoint, sessionId] }),
-        queryClient.invalidateQueries({ queryKey: ['sessions', settings.endpoint, workspaceId] }),
-      ]);
-    },
-  });
-  const retry = useMutation({
-    mutationFn: (messageId: string) =>
-      repository.retryTurn(sessionId, messageId, {
-        execute: true,
-        provider_id: activeProvider,
-        model_id: activeModel,
-      }),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['transcript', settings.endpoint, sessionId] }),
-        queryClient.invalidateQueries({ queryKey: ['sessions', settings.endpoint, workspaceId] }),
-      ]);
-    },
-  });
-  const updateSessionBehavior = useMutation({
-    mutationFn: (patch: SessionBehaviorPatch) => repository.updateSession(sessionId, patch),
-    onSuccess: async (updated) => {
-      replaceSnapshots({
-        sessions: { ...useLiveStore.getState().entities.sessions, [updated.id]: updated },
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ['sessions', settings.endpoint, workspaceId],
-      });
-    },
+  const {
+    actionCard,
+    answerQuestion,
+    cancel,
+    cancelQuestion,
+    respondPermission,
+    retry,
+    send,
+    updateSessionBehavior,
+  } = useSessionMutations({
+    activeModel,
+    activeProvider,
+    modelConfiguration: modelConfiguration.data,
+    session,
+    sessionId,
+    workspaceId,
   });
   const refreshNavigation = useCallback(
     async (targetWorkspaceId = workspaceId) => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['workspaces', settings.endpoint] }),
-        queryClient.invalidateQueries({ queryKey: ['sessions', settings.endpoint, 'all'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.key('workspaces', settings.endpoint) }),
         queryClient.invalidateQueries({
-          queryKey: ['sessions', settings.endpoint, targetWorkspaceId],
+          queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('sessions', settings.endpoint, targetWorkspaceId),
         }),
       ]);
     },
@@ -560,74 +235,6 @@ export function WorkspacePage() {
     }),
     [navigate, navigateToAvailableSession, refreshNavigation, repository, sessionId, workspaceId],
   );
-  const respondPermission = useMutation({
-    mutationFn: ({
-      id,
-      action,
-    }: {
-      id: string;
-      action: 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
-    }) => repository.respondPermission(id, action),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['pending-approvals', settings.endpoint],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['sessions', settings.endpoint, workspaceId],
-        }),
-      ]);
-    },
-  });
-  const answerQuestion = useMutation({
-    mutationFn: ({
-      id,
-      answer,
-    }: {
-      id: string;
-      answer: { answer?: string; selected_options?: string[] };
-    }) => repository.answerQuestion(sessionId, id, answer),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['pending-questions', settings.endpoint, sessionId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['sessions', settings.endpoint, workspaceId],
-        }),
-      ]);
-    },
-  });
-  const cancelQuestion = useMutation({
-    mutationFn: (id: string) => repository.cancelQuestion(sessionId, id),
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: ['pending-questions', settings.endpoint, sessionId],
-        }),
-        queryClient.invalidateQueries({
-          queryKey: ['sessions', settings.endpoint, workspaceId],
-        }),
-      ]);
-    },
-  });
-  const actionCard = useMutation({
-    mutationFn: async (action: {
-      id: string;
-      label: string;
-      enabled: boolean;
-      behavior: { kind: string; handle_id?: string; reason?: string };
-    }) => {
-      if (action.behavior.kind !== 'focus_session' || !action.behavior.handle_id) {
-        throw new Error(action.behavior.reason || 'This action is not available.');
-      }
-      return repository.agentTask(action.behavior.handle_id);
-    },
-    onSuccess: (task) => {
-      void navigate(`/workspaces/${workspaceId}/sessions/${task.child_session_id}`);
-    },
-  });
-
   const queryError = capabilities.error ?? workspaces.error ?? sessions.error ?? transcript.error;
   if (
     !session &&
@@ -830,9 +437,7 @@ export function WorkspacePage() {
               })
             }
             key={settings.endpoint}
-            requestedOpen={
-              workbenchRequest?.endpoint === settings.endpoint ? workbenchRequest : undefined
-            }
+            requestedOpen={workbenchRequest}
             sessionId={sessionId}
             sessionView={
               <ClioObservabilityView
@@ -867,9 +472,7 @@ export function WorkspacePage() {
             workspaceId={workspaceId}
           />
         }
-        workbenchRevealKey={
-          workbenchRequest?.endpoint === settings.endpoint ? workbenchRequest.key : undefined
-        }
+        workbenchRevealKey={workbenchRequest?.key}
         statusStrip={
           <WorkspaceStatusStrip
             activeWorkCount={activeWorkCount}

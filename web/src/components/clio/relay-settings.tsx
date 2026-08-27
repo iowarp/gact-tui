@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { RelayConnectionInput, RelayStatus } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CableIcon, KeyRoundIcon, PencilIcon, RefreshCwIcon, UnplugIcon } from 'lucide-react';
@@ -47,16 +48,18 @@ export function RelaySettings() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [disconnectOpen, setDisconnectOpen] = useState(false);
   const relay = useQuery({
-    queryKey: ['relay-status', settings.endpoint],
+    queryKey: queryKeys.key('relay-status', settings.endpoint),
     queryFn: ({ signal }) => repository.relayStatus(signal),
     refetchInterval: 30_000,
   });
   const refreshSurfaces = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['relay-status', settings.endpoint] }),
-      queryClient.invalidateQueries({ queryKey: ['service-health', settings.endpoint] }),
-      queryClient.invalidateQueries({ queryKey: ['tools', settings.endpoint] }),
-      queryClient.invalidateQueries({ queryKey: ['capabilities', settings.endpoint] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('relay-status', settings.endpoint) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('service-health', settings.endpoint),
+      }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('capabilities', settings.endpoint) }),
     ]);
   };
   const connect = useMutation({

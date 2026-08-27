@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { AgentBlueprint, AgentBlueprintSource } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -64,21 +65,25 @@ export function BlueprintSettings() {
   const [deleteBlueprint, setDeleteBlueprint] = useState<AgentBlueprint>();
   const [deleteSource, setDeleteSource] = useState<AgentBlueprintSource>();
   const blueprints = useQuery({
-    queryKey: ['agent-blueprints', settings.endpoint, 'settings'],
+    queryKey: queryKeys.key('agent-blueprints', settings.endpoint, 'settings'),
     queryFn: ({ signal }) => repository.agentBlueprints(undefined, signal),
   });
   const sources = useQuery({
-    queryKey: ['agent-blueprint-sources', settings.endpoint],
+    queryKey: queryKeys.key('agent-blueprint-sources', settings.endpoint),
     queryFn: ({ signal }) => repository.agentBlueprintSources(signal),
   });
   const workspaces = useQuery({
-    queryKey: ['workspaces', settings.endpoint],
+    queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const invalidate = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['agent-blueprints', settings.endpoint] }),
-      queryClient.invalidateQueries({ queryKey: ['agent-blueprint-sources', settings.endpoint] }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('agent-blueprints', settings.endpoint),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('agent-blueprint-sources', settings.endpoint),
+      }),
     ]);
   };
   const addSource = useMutation({

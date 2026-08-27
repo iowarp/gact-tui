@@ -21,7 +21,7 @@ import {
   Layers3Icon,
   PanelRightOpenIcon,
 } from 'lucide-react';
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { lazy, Suspense, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -48,7 +48,10 @@ import { ClioProcessLanes } from './observability-processes';
 import { ClioStatus } from './status';
 import { getToolOutcome, getToolPresentation, getToolSummary } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
-import { ClioWorkflowGraph } from './workflow-graph';
+
+const ClioWorkflowGraph = lazy(() =>
+  import('./workflow-graph').then((module) => ({ default: module.ClioWorkflowGraph })),
+);
 
 export interface ClioObservabilityDockProps {
   artifacts: readonly Artifact[];
@@ -379,11 +382,13 @@ export function ClioObservabilityView({
               tools={tools}
             />
             {hasGraphSpace ? (
-              <ClioWorkflowGraph
-                onOpenSubagent={onOpenSubagent}
-                processes={processes}
-                subagents={subagents}
-              />
+              <Suspense fallback={<ObservabilityLoading label="Loading delegation map" />}>
+                <ClioWorkflowGraph
+                  onOpenSubagent={onOpenSubagent}
+                  processes={processes}
+                  subagents={subagents}
+                />
+              </Suspense>
             ) : processes.some((process) => process.kind === 'agent') ? (
               <p className="rounded-lg border border-dashed p-3 text-xs leading-5 text-muted-foreground">
                 The delegation map is available in a wider canvas. Maximize or widen this panel to
@@ -424,6 +429,14 @@ export function ClioObservabilityView({
           </TabsContent>
         </ScrollArea>
       </Tabs>
+    </div>
+  );
+}
+
+function ObservabilityLoading({ label }: { label: string }) {
+  return (
+    <div className="grid min-h-32 place-items-center rounded-lg border border-dashed p-4 text-xs text-muted-foreground">
+      {label}…
     </div>
   );
 }

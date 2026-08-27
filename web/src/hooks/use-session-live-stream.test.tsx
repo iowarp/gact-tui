@@ -18,7 +18,7 @@ const mocks = vi.hoisted(() => {
     { getState: vi.fn(() => storeState) },
   );
   return {
-    queryClient: { invalidateQueries: vi.fn(), setQueryData: vi.fn() },
+    queryClient: { invalidateQueries: vi.fn(async () => undefined), setQueryData: vi.fn() },
     repository,
     resume: undefined as (() => void) | undefined,
     storeState,
@@ -46,22 +46,27 @@ vi.mock('@/tauri/desktop-lifecycle', () => ({
   }),
 }));
 
-import { useSessionLiveStream } from './use-session-live-stream';
+import { queryInvalidationKeysForEvent, useSessionLiveStream } from './use-session-live-stream';
 
 describe('useSessionLiveStream resume recovery', () => {
   beforeEach(() => {
+    vi.spyOn(document, 'hasFocus').mockReturnValue(true);
     mocks.repository.stream.mockReset();
+    mocks.queryClient.invalidateQueries.mockReset();
+    mocks.queryClient.invalidateQueries.mockResolvedValue(undefined);
     mocks.resume = undefined;
     mocks.storeState.setStreamState.mockReset();
-    mocks.repository.stream.mockImplementation(
-      async function* (_scope: unknown, _cursor: unknown, signal: AbortSignal) {
-        await new Promise<void>((resolve) => {
-          if (signal.aborted) resolve();
-          else signal.addEventListener('abort', () => resolve(), { once: true });
-        });
-        if (!signal.aborted) yield undefined;
-      },
-    );
+    mocks.repository.stream.mockImplementation(async function* (
+      _scope: unknown,
+      _cursor: unknown,
+      signal: AbortSignal,
+    ) {
+      await new Promise<void>((resolve) => {
+        if (signal.aborted) resolve();
+        else signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+      if (!signal.aborted) yield undefined;
+    });
   });
 
   it('reopens the cursor-aware stream when the desktop resumes', async () => {
@@ -84,6 +89,49 @@ describe('useSessionLiveStream resume recovery', () => {
       '42',
       expect.any(AbortSignal),
     );
+    unmount();
+  });
+
+  it('maps process events to process and session snapshots', () => {
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'agent.task.completed',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).toEqual([
+      ['session-observability', 'http://127.0.0.1:8790', 'sess_1', 'processes'],
+      ['sessions', 'http://127.0.0.1:8790', 'all'],
+    ]);
+  });
+
+  it('continues consuming frames while cache invalidation is unresolved', async () => {
+    let advancedPastFirstFrame = false;
+    mocks.queryClient.invalidateQueries.mockImplementation(() => new Promise(() => undefined));
+    mocks.repository.stream.mockImplementation(async function* (
+      _scope: unknown,
+      _cursor: unknown,
+      signal: AbortSignal,
+    ) {
+      yield { eventName: 'permission.requested' };
+      advancedPastFirstFrame = true;
+      await new Promise<void>((resolve) => {
+        if (signal.aborted) resolve();
+        else signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+    });
+
+    const { unmount } = renderHook(() =>
+      useSessionLiveStream({
+        enabled: true,
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    );
+
+    await waitFor(() => expect(mocks.queryClient.invalidateQueries).toHaveBeenCalled());
+    expect(advancedPastFirstFrame).toBe(true);
     unmount();
   });
 });

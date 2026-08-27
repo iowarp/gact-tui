@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { McpServerDefinition, ToolCatalogItem, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -147,7 +148,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
   const [deleteServer, setDeleteServer] = useState<McpServerDefinition>();
 
   const workspaces = useQuery({
-    queryKey: ['workspaces', settings.endpoint, 'tool-settings'],
+    queryKey: queryKeys.key('workspaces', settings.endpoint, 'tool-settings'),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const requestedWorkspaceId = workspacePreference || initialWorkspaceId;
@@ -156,32 +157,37 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
     workspaces.data?.[0]?.id ||
     '';
   const servers = useQuery({
-    queryKey: ['mcp-servers', settings.endpoint, workspaceId || 'global'],
+    queryKey: queryKeys.key('mcp-servers', settings.endpoint, workspaceId || 'global'),
     queryFn: ({ signal }) => repository.mcpServers(workspaceId || undefined, signal),
   });
   const tools = useQuery({
-    queryKey: ['tools', settings.endpoint],
+    queryKey: queryKeys.key('tools', settings.endpoint),
     queryFn: ({ signal }) => repository.tools(signal),
   });
   const detail = useQuery({
     enabled: Boolean(detailServer),
-    queryKey: ['mcp-server', settings.endpoint, detailServer?.id],
+    queryKey: queryKeys.key('mcp-server', settings.endpoint, detailServer?.id),
     queryFn: ({ signal }) => repository.mcpServer(detailServer?.id ?? '', signal),
   });
   const toolInventory = useQuery({
     enabled: Boolean(detailServer),
-    queryKey: ['mcp-server-inventory', settings.endpoint, detailServer?.id, 'tools'],
+    queryKey: queryKeys.key('mcp-server-inventory', settings.endpoint, detailServer?.id, 'tools'),
     queryFn: ({ signal }) => repository.mcpServerInventory(detailServer?.id ?? '', 'tools', signal),
   });
   const resourceInventory = useQuery({
     enabled: Boolean(detailServer),
-    queryKey: ['mcp-server-inventory', settings.endpoint, detailServer?.id, 'resources'],
+    queryKey: queryKeys.key(
+      'mcp-server-inventory',
+      settings.endpoint,
+      detailServer?.id,
+      'resources',
+    ),
     queryFn: ({ signal }) =>
       repository.mcpServerInventory(detailServer?.id ?? '', 'resources', signal),
   });
   const promptInventory = useQuery({
     enabled: Boolean(detailServer),
-    queryKey: ['mcp-server-inventory', settings.endpoint, detailServer?.id, 'prompts'],
+    queryKey: queryKeys.key('mcp-server-inventory', settings.endpoint, detailServer?.id, 'prompts'),
     queryFn: ({ signal }) =>
       repository.mcpServerInventory(detailServer?.id ?? '', 'prompts', signal),
   });
@@ -194,9 +200,9 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
 
   const invalidate = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['mcp-servers', settings.endpoint] }),
-      queryClient.invalidateQueries({ queryKey: ['tools', settings.endpoint] }),
-      queryClient.invalidateQueries({ queryKey: ['agents', settings.endpoint] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('mcp-servers', settings.endpoint) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) }),
     ]);
   };
   const resetInstallForm = () => {

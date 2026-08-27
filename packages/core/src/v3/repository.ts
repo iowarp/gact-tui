@@ -51,6 +51,7 @@ import {
   workspaceListSchema,
 } from './repository-decoders.js';
 import {
+  historicalArtifactWorkspacePath,
   readArtifactWithCustodyFallback,
   readBytesPath,
   readTextPath,
@@ -792,9 +793,4 @@ export class ClioRepository extends ArtifactPreviewRepository {
   ): AsyncIterable<TransportFrame> {
     return this.transport.stream(scope, cursor, signal);
   }
-}
-
-function historicalArtifactWorkspacePath(artifact: Artifact): string | undefined {
-  if (!artifact.workspace_id || !artifact.name) return undefined;
-  return `/v1/workspaces/${encodeURIComponent(artifact.workspace_id)}/files/read?path=${encodeURIComponent(artifact.name)}`;
 }

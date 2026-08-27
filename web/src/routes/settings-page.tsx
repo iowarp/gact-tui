@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import { brand } from '@brand';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
@@ -127,7 +128,7 @@ function ConnectionsSettings() {
       switchConnection(connection, { navigateToWorkspace: false }),
   });
   const capabilities = useQuery({
-    queryKey: ['capabilities', settings.endpoint],
+    queryKey: queryKeys.key('capabilities', settings.endpoint),
     queryFn: ({ signal }) => repository.capabilities(signal),
   });
   const materialDegradations = materialConnectionDegradations(
@@ -265,7 +266,7 @@ function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const permissions = useQuery({
-    queryKey: ['permissions', settings.endpoint],
+    queryKey: queryKeys.key('permissions', settings.endpoint),
     queryFn: ({ signal }) => repository.permissions(signal),
   });
   return (
@@ -509,7 +510,7 @@ function AboutSettings() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const capabilities = useQuery({
-    queryKey: ['capabilities', settings.endpoint],
+    queryKey: queryKeys.key('capabilities', settings.endpoint),
     queryFn: ({ signal }) => repository.capabilities(signal),
   });
   const activeModel = capabilities.data?.active_model;

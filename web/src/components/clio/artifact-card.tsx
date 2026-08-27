@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { Artifact as ArtifactEntity } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { TriangleAlertIcon } from 'lucide-react';
@@ -79,7 +80,7 @@ function ClioArtifactAttachment({
   const image = isImageArtifact(artifact);
   const withinBudget = artifact.size !== undefined && artifact.size <= cardPreviewBudget;
   const imageBytes = useQuery({
-    queryKey: ['artifact-attachment-image', artifact.id, artifact.fetch_path],
+    queryKey: queryKeys.key('artifact-attachment-image', artifact.id, artifact.fetch_path),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactBytesFor(artifact, signal);
@@ -191,7 +192,7 @@ export function ClioArtifactCard({
   const withinBudget = artifact.size !== undefined && artifact.size <= cardPreviewBudget;
   const textWithinBudget = artifact.size !== undefined && artifact.size <= textCardPreviewBudget;
   const imageBytes = useQuery({
-    queryKey: ['artifact-card-image', artifact.id, artifact.fetch_path],
+    queryKey: queryKeys.key('artifact-card-image', artifact.id, artifact.fetch_path),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactBytesFor(artifact, signal);
@@ -211,7 +212,7 @@ export function ClioArtifactCard({
     artifact.media_type || imageMediaType(artifact.name),
   );
   const textPreview = useQuery({
-    queryKey: ['artifact-card-text', artifact.id, artifact.fetch_path],
+    queryKey: queryKeys.key('artifact-card-text', artifact.id, artifact.fetch_path),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactTextFor(artifact, signal);

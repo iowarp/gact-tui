@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { MemoryStatistics, RuntimeMetrics, ServiceIntegrationHealth } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -299,22 +300,22 @@ export function SystemSettings() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const health = useQuery({
-    queryKey: ['service-health', settings.endpoint],
+    queryKey: queryKeys.key('service-health', settings.endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
     refetchInterval: 30_000,
   });
   const metrics = useQuery({
-    queryKey: ['runtime-metrics', settings.endpoint],
+    queryKey: queryKeys.key('runtime-metrics', settings.endpoint),
     queryFn: ({ signal }) => repository.runtimeMetrics(signal),
     refetchInterval: 30_000,
   });
   const memory = useQuery({
-    queryKey: ['memory-statistics', settings.endpoint],
+    queryKey: queryKeys.key('memory-statistics', settings.endpoint),
     queryFn: ({ signal }) => repository.memoryStatistics(signal),
     refetchInterval: 30_000,
   });
   const hooks = useQuery({
-    queryKey: ['hook-inspection', settings.endpoint],
+    queryKey: queryKeys.key('hook-inspection', settings.endpoint),
     queryFn: ({ signal }) => repository.hooks(signal),
     refetchInterval: 30_000,
   });

@@ -88,8 +88,7 @@ export function ClioContextCanvasPanel({
     value: serverThreshold,
   });
   const threshold =
-    thresholdDraft.targetId === selectedTargetId &&
-    thresholdDraft.serverValue === serverThreshold
+    thresholdDraft.targetId === selectedTargetId && thresholdDraft.serverValue === serverThreshold
       ? thresholdDraft.value
       : serverThreshold;
   const setThreshold = (value: number) =>
@@ -291,7 +290,7 @@ function ContextCompositionBar({
       {threshold !== undefined ? (
         <span
           aria-hidden="true"
-          className="absolute inset-y-0 w-px bg-foreground/80 shadow-[0_0_0_1px_hsl(var(--background))]"
+          className="absolute inset-y-0 w-px bg-foreground/80 shadow-[0_0_0_1px_var(--background)]"
           style={{ left: `${threshold}%` }}
           title={`Automatic compaction at ${threshold}%`}
         />

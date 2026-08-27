@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { PermissionPolicy } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -189,17 +190,17 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
   const [draft, setDraft] = useState<PolicyDraft>(emptyDraft);
   const [removeIndex, setRemoveIndex] = useState<number>();
   const policies = useQuery({
-    queryKey: ['permission-policies', settings.endpoint],
+    queryKey: queryKeys.key('permission-policies', settings.endpoint),
     queryFn: ({ signal }) => repository.policies(signal),
   });
   const workspaces = useQuery({
-    queryKey: ['workspaces', settings.endpoint, 'permission-settings'],
+    queryKey: queryKeys.key('workspaces', settings.endpoint, 'permission-settings'),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const replace = useMutation({
     mutationFn: (next: PermissionPolicy[]) => repository.updatePolicies(next),
     onSuccess: (next) => {
-      queryClient.setQueryData(['permission-policies', settings.endpoint], next);
+      queryClient.setQueryData(queryKeys.key('permission-policies', settings.endpoint), next);
       setEditorOpen(false);
       setRemoveIndex(undefined);
       toast.success('Access rules saved');

@@ -1,43 +1,37 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRepository } from './use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { queryKeys } from '@/lib/query-keys';
 
 export function sessionObservabilityQueryKey(endpoint: string, sessionId: string) {
-  return ['session-observability', endpoint, sessionId] as const;
+  return queryKeys.sessionObservability(endpoint, sessionId);
 }
 
 /** Session-scoped work, evidence, and retained-context snapshots. */
 export function useSessionObservability(sessionId: string) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const baseKey = sessionObservabilityQueryKey(settings.endpoint, sessionId);
   const enabled = Boolean(sessionId);
 
   const diffs = useQuery({
-    queryKey: [...baseKey, 'diffs'],
+    queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'diffs'),
     queryFn: ({ signal }) => repository.sessionDiffs(sessionId, signal),
     enabled,
   });
   const contextFiles = useQuery({
-    queryKey: [...baseKey, 'context-files'],
+    queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'context-files'),
     queryFn: ({ signal }) => repository.contextFiles(sessionId, signal),
     enabled,
   });
   const contextFrames = useQuery({
-    queryKey: [...baseKey, 'context-frames'],
+    queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'context-frames'),
     queryFn: ({ signal }) => repository.contextFrames(sessionId, signal),
     enabled,
   });
   const processes = useQuery({
-    queryKey: [...baseKey, 'processes'],
+    queryKey: queryKeys.sessionObservabilityDetail(settings.endpoint, sessionId, 'processes'),
     queryFn: ({ signal }) => repository.asyncProcesses(sessionId, signal),
     enabled,
-    refetchInterval: (query) =>
-      query.state.data?.some((process) =>
-        ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(process.live_state),
-      )
-        ? 1_500
-        : false,
   });
 
   return { contextFiles, contextFrames, diffs, processes };

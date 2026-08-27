@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { AgentDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -46,15 +47,15 @@ export function AgentSettings() {
   const [editing, setEditing] = useState<AgentDefinition | null>();
   const [deleting, setDeleting] = useState<AgentDefinition>();
   const agents = useQuery({
-    queryKey: ['agents', settings.endpoint],
+    queryKey: queryKeys.key('agents', settings.endpoint),
     queryFn: ({ signal }) => repository.agents(signal),
   });
   const tools = useQuery({
-    queryKey: ['tools', settings.endpoint],
+    queryKey: queryKeys.key('tools', settings.endpoint),
     queryFn: ({ signal }) => repository.tools(signal),
   });
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['agents', settings.endpoint] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) });
   const save = useMutation({
     mutationFn: (agent: AgentDefinition) =>
       editing ? repository.updateAgent(editing.id, agent) : repository.createAgent(agent),

@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type {
   LanguageModelConfiguration,
   LanguageModelPreset,
@@ -41,11 +42,11 @@ export function ModelsSettings() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const providers = useQuery({
-    queryKey: ['providers', settings.endpoint],
+    queryKey: queryKeys.key('providers', settings.endpoint),
     queryFn: ({ signal }) => repository.providers(signal),
   });
   const configuration = useQuery({
-    queryKey: ['language-model-configuration', settings.endpoint],
+    queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
     queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
   });
   return (
@@ -99,7 +100,7 @@ function ModelsSettingsContent({
   );
   const selectedAvailability = providerAvailability(selectedProvider, selectedPreset);
   const models = useQuery({
-    queryKey: ['provider-models', settings.endpoint, presetId],
+    queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
     queryFn: ({ signal }) => repository.providerModels(presetId, signal),
     enabled: Boolean(presetId && selectedPreset?.is_authenticated),
   });
@@ -123,8 +124,13 @@ function ModelsSettingsContent({
       });
     },
     onSuccess: async (next) => {
-      queryClient.setQueryData(['language-model-configuration', settings.endpoint], next);
-      await queryClient.invalidateQueries({ queryKey: ['capabilities', settings.endpoint] });
+      queryClient.setQueryData(
+        queryKeys.key('language-model-configuration', settings.endpoint),
+        next,
+      );
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.key('capabilities', settings.endpoint),
+      });
     },
   });
   const refreshModels = useMutation({
@@ -139,12 +145,14 @@ function ModelsSettingsContent({
       setRefreshResult(result);
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ['provider-models', settings.endpoint, presetId],
+          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
         }),
         queryClient.invalidateQueries({
-          queryKey: ['language-model-configuration', settings.endpoint],
+          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
         }),
-        queryClient.invalidateQueries({ queryKey: ['capabilities', settings.endpoint] }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('capabilities', settings.endpoint),
+        }),
       ]);
     },
   });

@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { MemoryEvent, MemorySearchHit, Session, SessionMemoryStatistics } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -249,7 +250,7 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
   const [submittedQuery, setSubmittedQuery] = useState('');
   const [crossSession, setCrossSession] = useState(false);
   const sessions = useQuery({
-    queryKey: ['all-sessions', settings.endpoint, 'memory-settings'],
+    queryKey: queryKeys.key('all-sessions', settings.endpoint, 'memory-settings'),
     queryFn: ({ signal }) => repository.allSessions(signal),
   });
   const primarySessions = (sessions.data ?? []).filter(isPrimarySession);
@@ -258,16 +259,22 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
     : (primarySessions[0]?.id ?? '');
   const selectedSession = primarySessions.find((session) => session.id === selectedSessionId);
   const statistics = useQuery({
-    queryKey: ['memory-statistics', settings.endpoint, selectedSessionId],
+    queryKey: queryKeys.key('memory-statistics', settings.endpoint, selectedSessionId),
     queryFn: ({ signal }) => repository.memoryStatistics(signal, selectedSessionId || undefined),
   });
   const events = useQuery({
-    queryKey: ['memory-events', settings.endpoint, selectedSessionId],
+    queryKey: queryKeys.key('memory-events', settings.endpoint, selectedSessionId),
     queryFn: ({ signal }) => repository.memoryEvents(selectedSessionId, 50, signal),
     enabled: Boolean(selectedSessionId),
   });
   const search = useQuery({
-    queryKey: ['memory-search', settings.endpoint, selectedSessionId, submittedQuery, crossSession],
+    queryKey: queryKeys.key(
+      'memory-search',
+      settings.endpoint,
+      selectedSessionId,
+      submittedQuery,
+      crossSession,
+    ),
     queryFn: ({ signal }) =>
       repository.searchMemory(
         submittedQuery,

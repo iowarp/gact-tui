@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { sessionObservabilityQueryKey } from './use-session-observability';
@@ -12,13 +13,13 @@ export function useSessionDiffActions() {
   const refresh = async (target: { sessionId: string; workspaceId: string }) => {
     await Promise.all([
       queryClient.invalidateQueries({
-        queryKey: [
+        queryKey: queryKeys.key(
           ...sessionObservabilityQueryKey(settings.endpoint, target.sessionId),
           'diffs',
-        ],
+        ),
       }),
       queryClient.invalidateQueries({
-        queryKey: ['workspace-files', settings.endpoint, target.workspaceId],
+        queryKey: queryKeys.key('workspace-files', settings.endpoint, target.workspaceId),
       }),
     ]);
   };

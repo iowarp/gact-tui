@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { McpServerDefinition, ServiceIntegrationHealth } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -33,17 +34,17 @@ export function InfrastructurePage() {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const health = useQuery({
-    queryKey: ['service-health', settings.endpoint],
+    queryKey: queryKeys.key('service-health', settings.endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
     refetchInterval: 20_000,
   });
   const relay = useQuery({
-    queryKey: ['relay-status', settings.endpoint],
+    queryKey: queryKeys.key('relay-status', settings.endpoint),
     queryFn: ({ signal }) => repository.relayStatus(signal),
     refetchInterval: 20_000,
   });
   const servers = useQuery({
-    queryKey: ['mcp-servers', settings.endpoint, 'infrastructure'],
+    queryKey: queryKeys.key('mcp-servers', settings.endpoint, 'infrastructure'),
     queryFn: ({ signal }) => repository.mcpServers(undefined, signal),
     refetchInterval: 20_000,
   });

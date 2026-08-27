@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { SessionDefaults } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BotIcon, BrainCircuitIcon, ShieldCheckIcon, SlidersHorizontalIcon } from 'lucide-react';
@@ -45,15 +46,15 @@ export function SessionDefaultsSettings() {
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const defaults = useQuery({
-    queryKey: ['session-defaults', settings.endpoint],
+    queryKey: queryKeys.key('session-defaults', settings.endpoint),
     queryFn: ({ signal }) => repository.sessionDefaults(signal),
   });
   const modelConfiguration = useQuery({
-    queryKey: ['language-model-configuration', settings.endpoint],
+    queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
     queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
   });
   const blueprints = useQuery({
-    queryKey: ['agent-blueprints', settings.endpoint, 'session-defaults'],
+    queryKey: queryKeys.key('agent-blueprints', settings.endpoint, 'session-defaults'),
     queryFn: ({ signal }) => repository.agentBlueprints(undefined, signal),
   });
   const [draft, setDraft] = useState<{
@@ -76,7 +77,7 @@ export function SessionDefaultsSettings() {
   );
   const modelCatalog = useQuery({
     enabled: Boolean(form?.provider_id && selectedPreset?.is_authenticated),
-    queryKey: ['provider-models', settings.endpoint, form?.provider_id],
+    queryKey: queryKeys.key('provider-models', settings.endpoint, form?.provider_id),
     queryFn: ({ signal }) => repository.providerModels(form?.provider_id ?? '', signal),
   });
   const modelOptions = useMemo(() => {
@@ -92,7 +93,7 @@ export function SessionDefaultsSettings() {
     mutationFn: (value: SessionDefaults) => repository.updateSessionDefaults(value),
     onSuccess: (value) => {
       setDraft({ source: value, value });
-      queryClient.setQueryData(['session-defaults', settings.endpoint], value);
+      queryClient.setQueryData(queryKeys.key('session-defaults', settings.endpoint), value);
       toast.success('New session defaults saved');
     },
     onError: (error) => toast.error(error.message),

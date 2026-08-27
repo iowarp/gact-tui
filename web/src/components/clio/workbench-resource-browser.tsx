@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type {
   AgentBlueprint,
   AgentBlueprintReference,
@@ -14,7 +15,16 @@ import {
   PlusIcon,
   SearchIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react';
 import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,8 +51,17 @@ import { useRepository } from '@/hooks/use-repository';
 import { cn } from '@/lib/utils';
 import { ClioArtifactCard } from './artifact-card';
 import { ClioInteractiveRow } from './interactive-row';
-import { ArtifactView, BlueprintFileEditor, WorkspaceFileView } from './resource-viewers';
 import { ClioStatus } from './status';
+
+const ArtifactView = lazy(() =>
+  import('./resource-viewers').then((module) => ({ default: module.ArtifactView })),
+);
+const BlueprintFileEditor = lazy(() =>
+  import('./resource-viewers').then((module) => ({ default: module.BlueprintFileEditor })),
+);
+const WorkspaceFileView = lazy(() =>
+  import('./resource-viewers').then((module) => ({ default: module.WorkspaceFileView })),
+);
 
 export type CanvasResourceKind = 'session' | 'files' | 'artifacts' | 'blueprints';
 
@@ -212,11 +231,13 @@ export function FileBrowser({
         <ResizablePanel id="workspace-file-preview" minSize={stacked ? '180px' : '240px'}>
           <section aria-label="Workspace file preview" className="h-full min-h-0 overflow-hidden">
             {activeFile ? (
-              <WorkspaceFileView
-                path={activeFile.path}
-                size={activeFile.size}
-                workspaceId={workspaceId}
-              />
+              <Suspense fallback={<ResourceLoading label="Loading file" />}>
+                <WorkspaceFileView
+                  path={activeFile.path}
+                  size={activeFile.size}
+                  workspaceId={workspaceId}
+                />
+              </Suspense>
             ) : (
               <div className="grid h-full place-items-center p-4">
                 <Unavailable
@@ -313,12 +334,14 @@ export function ArtifactBrowser({
           <ResizableHandle aria-label="Resize artifact list" withHandle />
           <ResizablePanel id="session-artifact-preview" minSize={stacked ? '220px' : '230px'}>
             <section aria-label="Selected artifact" className="h-full min-h-0 overflow-hidden">
-              <ArtifactView
-                artifact={splitArtifact}
-                files={files}
-                onOpenArtifact={(artifact) => setSelectedId(artifact.id)}
-                workspaceId={splitArtifact.workspace_id ?? workspaceId}
-              />
+              <Suspense fallback={<ResourceLoading label="Loading artifact" />}>
+                <ArtifactView
+                  artifact={splitArtifact}
+                  files={files}
+                  onOpenArtifact={(artifact) => setSelectedId(artifact.id)}
+                  workspaceId={splitArtifact.workspace_id ?? workspaceId}
+                />
+              </Suspense>
             </section>
           </ResizablePanel>
         </ResizablePanelGroup>
@@ -393,7 +416,7 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
   const [stacked, setStacked] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string>();
   const files = useQuery({
-    queryKey: ['blueprint-files', blueprint.id, workspaceId, sessionId],
+    queryKey: queryKeys.key('blueprint-files', blueprint.id, workspaceId, sessionId),
     queryFn: ({ signal }) =>
       repository.agentBlueprintFiles(blueprint.id, { workspaceId, sessionId }, signal),
   });
@@ -468,12 +491,14 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
         <ResizableHandle aria-label="Resize blueprint file tree" withHandle />
         <ResizablePanel minSize={stacked ? '220px' : '320px'}>
           {resolvedSelectedPath ? (
-            <BlueprintFileEditor
-              blueprintId={blueprint.id}
-              path={resolvedSelectedPath}
-              sessionId={sessionId}
-              workspaceId={workspaceId}
-            />
+            <Suspense fallback={<ResourceLoading label="Loading blueprint file" />}>
+              <BlueprintFileEditor
+                blueprintId={blueprint.id}
+                path={resolvedSelectedPath}
+                sessionId={sessionId}
+                workspaceId={workspaceId}
+              />
+            </Suspense>
           ) : (
             <div className="grid h-full place-items-center p-4">
               <Unavailable
@@ -486,6 +511,12 @@ export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintVi
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>
+  );
+}
+
+function ResourceLoading({ label }: { label: string }) {
+  return (
+    <div className="grid h-full place-items-center p-6 text-sm text-muted-foreground">{label}…</div>
   );
 }
 

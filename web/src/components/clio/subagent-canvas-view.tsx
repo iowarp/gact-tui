@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import {
   createEntityState,
   reduceTransportFrame,
@@ -46,7 +47,7 @@ export function ClioSubagentCanvasView({
   const childSessionId = subagent.child_session_id;
   const assignment = getChildAgentAssignment(subagent);
   const transcript = useQuery({
-    queryKey: ['transcript', settings.endpoint, childSessionId, 'canvas'],
+    queryKey: queryKeys.key('transcript', settings.endpoint, childSessionId, 'canvas'),
     queryFn: ({ signal }) => repository.transcript(childSessionId!, signal),
     enabled: Boolean(childSessionId),
   });

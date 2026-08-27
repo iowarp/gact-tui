@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type {
   Artifact,
   DocumentAnchor,
@@ -77,22 +78,22 @@ export function ClioDocumentWorkspace({
   const [workingCopy, setWorkingCopy] = useState<DocumentWorkingCopy>();
   const [editor, setEditor] = useState<DocumentEditorSession>();
   const manifest = useQuery({
-    queryKey: ['document-manifest', artifact.id],
+    queryKey: queryKeys.key('document-manifest', artifact.id),
     queryFn: ({ signal }) => repository.documentManifest(artifact.id, signal),
   });
   const effectiveManifest = overrideManifest ?? manifest.data;
   const content = useQuery({
-    queryKey: ['document-content', effectiveManifest?.artifact_id],
+    queryKey: queryKeys.key('document-content', effectiveManifest?.artifact_id),
     queryFn: ({ signal }) => repository.documentContent(effectiveManifest!.artifact_id, signal),
     enabled: Boolean(effectiveManifest && directProfiles.has(effectiveManifest.profile)),
   });
   const reviews = useQuery({
-    queryKey: ['artifact-reviews', artifact.id],
+    queryKey: queryKeys.key('artifact-reviews', artifact.id),
     queryFn: ({ signal }) => repository.artifactReviews(artifact.id, signal),
     enabled: Boolean(manifest.data),
   });
   const editorHealth = useQuery({
-    queryKey: ['document-editor-health'],
+    queryKey: queryKeys.key('document-editor-health'),
     queryFn: ({ signal }) => repository.documentEditorHealth(signal),
     enabled: Boolean(manifest.data?.embedded_editors.length),
   });
@@ -118,7 +119,9 @@ export function ClioDocumentWorkspace({
       setSelection(undefined);
       window.getSelection()?.removeAllRanges();
       setStatus('Review sent to the agent against this exact immutable revision.');
-      await queryClient.invalidateQueries({ queryKey: ['artifact-reviews', artifact.id] });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.key('artifact-reviews', artifact.id),
+      });
     },
   });
   const rendition = useMutation({

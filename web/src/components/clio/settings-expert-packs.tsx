@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { AgentBlueprintSource, ExpertPackDefinition, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -93,7 +94,7 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
   const [deletePack, setDeletePack] = useState<ExpertPackDefinition>();
 
   const workspaces = useQuery({
-    queryKey: ['workspaces', settings.endpoint, 'expert-pack-settings'],
+    queryKey: queryKeys.key('workspaces', settings.endpoint, 'expert-pack-settings'),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const requestedWorkspaceId = workspacePreference || initialWorkspaceId;
@@ -103,16 +104,16 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
     '';
 
   const packs = useQuery({
-    queryKey: ['expert-packs', settings.endpoint, workspaceId || 'global'],
+    queryKey: queryKeys.key('expert-packs', settings.endpoint, workspaceId || 'global'),
     queryFn: ({ signal }) => repository.expertPacks(workspaceId || undefined, signal),
   });
   const sources = useQuery({
-    queryKey: ['agent-blueprint-sources', settings.endpoint],
+    queryKey: queryKeys.key('agent-blueprint-sources', settings.endpoint),
     queryFn: ({ signal }) => repository.agentBlueprintSources(signal),
   });
   const details = useQuery({
     enabled: Boolean(detailPack),
-    queryKey: ['expert-pack', settings.endpoint, detailPack?.id, workspaceId],
+    queryKey: queryKeys.key('expert-pack', settings.endpoint, detailPack?.id, workspaceId),
     queryFn: ({ signal }) =>
       repository.expertPack(detailPack?.id ?? '', workspaceId || undefined, signal),
   });
@@ -136,9 +137,11 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
 
   const invalidate = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['expert-packs', settings.endpoint] }),
-      queryClient.invalidateQueries({ queryKey: ['agent-blueprints', settings.endpoint] }),
-      queryClient.invalidateQueries({ queryKey: ['agents', settings.endpoint] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('expert-packs', settings.endpoint) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('agent-blueprints', settings.endpoint),
+      }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) }),
     ]);
   };
   const install = useMutation({

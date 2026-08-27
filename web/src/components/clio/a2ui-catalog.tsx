@@ -18,17 +18,9 @@ import {
   createComponentImplementation,
   type ReactComponentImplementation,
 } from '@a2ui/react/v0_9';
-import { FileCode2Icon, GitCompareArrowsIcon, ShieldAlertIcon } from 'lucide-react';
-import type { BundledLanguage } from 'shiki';
+import { GitCompareArrowsIcon, ShieldAlertIcon } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import { z } from 'zod';
-import {
-  CodeBlock,
-  CodeBlockActions,
-  CodeBlockCopyButton,
-  CodeBlockFilename,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from '@/components/ai-elements/code-block';
 import {
   Confirmation,
   ConfirmationAction,
@@ -55,9 +47,13 @@ import {
 import { ClioDataTable, type ClioDataColumn, type ClioDataRow } from './data-table';
 import { ClioArtifactCatalogComponent } from './a2ui-artifact';
 import { ClioMapCatalogComponent } from './a2ui-map';
+import { ClioTimeSeriesCatalogComponent } from './a2ui-time-series-catalog';
 import { ClioMermaidDiagram } from './mermaid-diagram';
 import { ClioStatus, type ClioStatusProps } from './status';
-import { ClioTimeSeriesCatalogComponent } from './a2ui-time-series';
+
+const ClioA2UICodeView = lazy(() =>
+  import('./a2ui-code-view').then((module) => ({ default: module.ClioA2UICodeView })),
+);
 
 export const CLIO_A2UI_CATALOG_ID = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
 
@@ -423,35 +419,6 @@ const Workflow = createComponentImplementation(
   ),
 );
 
-const LANGUAGE_ALIASES: Record<string, BundledLanguage> = {
-  py: 'python',
-  python: 'python',
-  js: 'javascript',
-  javascript: 'javascript',
-  ts: 'typescript',
-  typescript: 'typescript',
-  tsx: 'tsx',
-  jsx: 'jsx',
-  json: 'json',
-  yaml: 'yaml',
-  yml: 'yaml',
-  bash: 'bash',
-  shell: 'shellscript',
-  sh: 'shellscript',
-  rust: 'rust',
-  go: 'go',
-  sql: 'sql',
-  markdown: 'markdown',
-  md: 'markdown',
-  diff: 'diff',
-  text: 'text' as BundledLanguage,
-  txt: 'text' as BundledLanguage,
-};
-
-function codeLanguage(value: string): BundledLanguage {
-  return LANGUAGE_ALIASES[value.trim().toLowerCase()] ?? ('text' as BundledLanguage);
-}
-
 function RenderedCode({
   accessibility,
   code,
@@ -464,22 +431,14 @@ function RenderedCode({
   title?: string;
 }) {
   return (
-    <CodeBlock
-      {...a2uiAccessibilityProps(accessibility)}
-      code={code}
-      language={codeLanguage(language)}
-      showLineNumbers
-    >
-      <CodeBlockHeader>
-        <CodeBlockTitle>
-          <FileCode2Icon aria-hidden="true" className="size-3.5" />
-          <CodeBlockFilename>{title || language}</CodeBlockFilename>
-        </CodeBlockTitle>
-        <CodeBlockActions>
-          <CodeBlockCopyButton aria-label="Copy code" />
-        </CodeBlockActions>
-      </CodeBlockHeader>
-    </CodeBlock>
+    <Suspense fallback={<div className="h-24 animate-pulse rounded-lg bg-muted" />}>
+      <ClioA2UICodeView
+        accessibility={accessibility}
+        code={code}
+        language={language}
+        title={title}
+      />
+    </Suspense>
   );
 }
 

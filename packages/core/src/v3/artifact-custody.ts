@@ -1,5 +1,11 @@
 import { z } from 'zod';
+import type { Artifact } from './domain.js';
 import { TransportError, type ClioTransport } from './transport.js';
+
+export function historicalArtifactWorkspacePath(artifact: Artifact): string | undefined {
+  if (!artifact.workspace_id || !artifact.name) return undefined;
+  return `/v1/workspaces/${encodeURIComponent(artifact.workspace_id)}/files/read?path=${encodeURIComponent(artifact.name)}`;
+}
 
 export function readTextPath(
   transport: ClioTransport,

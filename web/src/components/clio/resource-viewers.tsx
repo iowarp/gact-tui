@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { brand } from '@brand';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -86,7 +87,7 @@ function WorkspaceTextView({
   const repository = useRepository();
   const canLoad = size === undefined || size <= maxInlinePreviewBytes;
   const content = useQuery({
-    queryKey: ['workspace-file', workspaceId, path],
+    queryKey: queryKeys.key('workspace-file', workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFile(workspaceId, path, signal),
     enabled: canLoad,
   });
@@ -97,7 +98,7 @@ function WorkspaceTextView({
 function WorkspaceImageView({ workspaceId, path }: { workspaceId: string; path: string }) {
   const repository = useRepository();
   const content = useQuery({
-    queryKey: ['workspace-file-bytes', workspaceId, path],
+    queryKey: queryKeys.key('workspace-file-bytes', workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
   });
   return (
@@ -161,9 +162,9 @@ export function BlueprintFileEditor({
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: ['blueprint-files', blueprintId, workspaceId, sessionId],
+          queryKey: queryKeys.key('blueprint-files', blueprintId, workspaceId, sessionId),
         }),
-        queryClient.invalidateQueries({ queryKey: ['agent-blueprints'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.key('agent-blueprints') }),
       ]);
       toast.success(`Saved ${fileName(path)}`);
     },
@@ -270,7 +271,7 @@ export function ArtifactView({
   const previewSize = artifact.size ?? fallbackFile?.size;
   const canLoadInline = previewSize !== undefined && previewSize <= maxInlinePreviewBytes;
   const text = useQuery({
-    queryKey: ['artifact-text', artifact.id, fallbackPath],
+    queryKey: queryKeys.key('artifact-text', artifact.id, fallbackPath),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactTextFor(artifact, signal);
@@ -282,7 +283,7 @@ export function ArtifactView({
     enabled: canPreviewText && canLoadInline,
   });
   const image = useQuery({
-    queryKey: ['artifact-image', artifact.id, fallbackPath],
+    queryKey: queryKeys.key('artifact-image', artifact.id, fallbackPath),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactBytesFor(artifact, signal);

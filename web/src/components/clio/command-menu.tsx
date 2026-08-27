@@ -1,3 +1,4 @@
+import { queryKeys } from '@/lib/query-keys';
 import type { Artifact, MemorySearchHit } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -45,20 +46,20 @@ export function ClioCommandMenu({
   const { settings } = useConnectionSettings();
   const artifacts = useLiveStore((state) => state.entities.artifacts);
   const workspaces = useQuery({
-    queryKey: ['workspaces', settings.endpoint],
+    queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
   });
   const sessions = useQuery({
-    queryKey: ['sessions', settings.endpoint, 'all'],
+    queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
     queryFn: ({ signal }) => repository.allSessions(signal),
   });
   const files = useQuery({
-    queryKey: ['workspace-files', settings.endpoint, workspaceId],
+    queryKey: queryKeys.key('workspace-files', settings.endpoint, workspaceId),
     queryFn: ({ signal }) => repository.workspaceFiles(workspaceId, signal),
     enabled: Boolean(workspaceId),
   });
   const memory = useQuery({
-    queryKey: ['workspace-memory-search', settings.endpoint, workspaceId, serverQuery],
+    queryKey: queryKeys.key('workspace-memory-search', settings.endpoint, workspaceId, serverQuery),
     queryFn: ({ signal }) =>
       repository.searchMemory(
         serverQuery,
