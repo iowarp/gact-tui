@@ -1,4 +1,4 @@
-import type { Artifact, Message, MessageBlock, ToolInvocation } from '@clio/core/v3';
+import type { Message, MessageBlock, ToolInvocation } from '@clio/core/v3';
 
 export interface ConversationIteration {
   id: string;
@@ -21,26 +21,6 @@ export interface ConversationIteration {
 export interface ConversationTurnPresentation {
   iterations: ConversationIteration[];
   residualBlocks: MessageBlock[];
-}
-
-/** Remove only repeated links to the exact same immutable artifact. */
-export function deduplicateArtifactBlocks(
-  blocks: readonly MessageBlock[],
-  artifacts: Record<string, Artifact>,
-): MessageBlock[] {
-  const latestBlockByArtifact = new Map<string, string>();
-  for (const block of blocks) {
-    if (block.type !== 'artifact') continue;
-    const artifact = artifacts[block.artifact_id];
-    if (!artifact) continue;
-    latestBlockByArtifact.set(artifact.id, block.id);
-  }
-  return blocks.filter((block) => {
-    if (block.type !== 'artifact') return true;
-    const artifact = artifacts[block.artifact_id];
-    if (!artifact) return true;
-    return latestBlockByArtifact.get(artifact.id) === block.id;
-  });
 }
 
 /** Build one lossless turn view from the canonical ordered transcript parts. */
@@ -85,8 +65,7 @@ function fallbackIterations(
     current = emptyIteration(message, iterations.length);
   };
 
-  for (let position = 0; position < ordered.length; position += 1) {
-    const block = ordered[position]!.block;
+  for (const { block } of ordered) {
     if (block.type === 'reasoning') {
       if (current.nextThoughts.length > 0 || current.tools.length > 0) flush();
       current.thinking.push({
@@ -99,7 +78,7 @@ function fallbackIterations(
       consumed.add(block.id);
       continue;
     }
-    if (block.type === 'text' && isNextThought(block, ordered, position)) {
+    if (block.type === 'text' && block.channel === 'next_thought') {
       if (current.tools.length > 0) flush();
       current.nextThoughts.push(block.text);
       current.streaming ||= Boolean(block.streaming);
@@ -165,21 +144,6 @@ function messageInterrupted(message: Message): boolean {
   );
 }
 
-function isNextThought(
-  block: Extract<MessageBlock, { type: 'text' }>,
-  ordered: Array<{ block: MessageBlock; position: number }>,
-  position: number,
-): boolean {
-  if (block.channel === 'next_thought') return true;
-  for (let cursor = position + 1; cursor < ordered.length; cursor += 1) {
-    const candidate = ordered[cursor]!.block;
-    if (candidate.type === 'tool') return true;
-    if (candidate.type === 'reasoning') return false;
-    if (candidate.type === 'text' && candidate.channel === 'answer') return false;
-  }
-  return false;
-}
-
 function reasoningLabel(_provider?: string): string {
   return 'Thinking';
 }
@@ -191,22 +155,11 @@ function iterationSummary(
   eventSummary?: string,
 ): string {
   const thought = nextThoughts.find((value) => value.trim());
-  if (thought) {
-    if (isResponseContractRepair(thought)) return 'Finalizing the response';
-    return compactSentence(thought);
-  }
-  if (eventSummary && !/react step/iu.test(eventSummary)) return compactSentence(eventSummary);
+  if (thought) return compactSentence(thought);
+  if (eventSummary) return compactSentence(eventSummary);
   const tool = tools[0];
-  if (tool) return `${tool.title ?? humanize(tool.name)} requested`;
+  if (tool) return `${tool.title ?? tool.name} requested`;
   return terminal ? 'Preparing the final response' : 'Reasoning about the next action';
-}
-
-function isResponseContractRepair(value: string): boolean {
-  return (
-    /\b(?:submit|final(?:ize|ization)|response)\b/iu.test(value) &&
-    /\b(?:failed|rejected|retry|resubmit)\b/iu.test(value) &&
-    /\b(?:required|schema|field|format)\b/iu.test(value)
-  );
 }
 
 function compactSentence(value: string): string {
@@ -214,11 +167,4 @@ function compactSentence(value: string): string {
   const sentenceEnd = line.search(/(?<=[.!?])\s/u);
   const sentence = (sentenceEnd >= 0 ? line.slice(0, sentenceEnd + 1) : line).trim();
   return sentence.length > 180 ? `${sentence.slice(0, 177).trimEnd()}…` : sentence;
-}
-
-function humanize(value: string): string {
-  return value
-    .replace(/^remote_[^_]+_/u, '')
-    .replaceAll('_', ' ')
-    .replace(/\b\w/gu, (letter) => letter.toUpperCase());
 }

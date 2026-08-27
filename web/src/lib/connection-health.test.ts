@@ -11,18 +11,17 @@ const degradation = (capability: string, overrides: Partial<Degradation> = {}): 
 });
 
 describe('connection health presentation', () => {
-  it('does not call a usable connection degraded for optional future features', () => {
-    expect(
-      materialConnectionDegradations([
-        degradation('voice'),
-        degradation('lsp'),
-        degradation('session_summary'),
-        degradation('attachments_upload'),
-      ]),
-    ).toEqual([]);
+  it('preserves every server-reported limitation', () => {
+    const limitations = [
+      degradation('voice'),
+      degradation('lsp'),
+      degradation('session_summary'),
+      degradation('attachments_upload'),
+    ];
+    expect(materialConnectionDegradations(limitations)).toEqual(limitations);
   });
 
-  it('keeps material limitations and gives them product language', () => {
+  it('renders the server reason without rewriting it', () => {
     const modelCatalog = degradation('providers', {
       code: 'model_catalog_unavailable',
       reason: 'No active provider model catalog has been observed.',
@@ -31,7 +30,7 @@ describe('connection health presentation', () => {
 
     expect(materialConnectionDegradations([modelCatalog])).toEqual([modelCatalog]);
     expect(connectionDegradationLabel(modelCatalog)).toBe(
-      'Model choices have not been checked on this agent.',
+      'No active provider model catalog has been observed.',
     );
   });
 });

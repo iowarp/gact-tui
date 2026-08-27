@@ -39,7 +39,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
 import { cn } from '@/lib/utils';
-import { visibleWorkspaceFiles } from '@/lib/workspace-files';
 import { ClioArtifactCard } from './artifact-card';
 import { ClioInteractiveRow } from './interactive-row';
 import { ArtifactView, BlueprintFileEditor, WorkspaceFileView } from './resource-viewers';
@@ -130,24 +129,21 @@ export function FileBrowser({
   const [stacked, setStacked] = useState(false);
   const [query, setQuery] = useState('');
   const [internalSelectedPath, setInternalSelectedPath] = useState<string>();
-  const visibleFiles = useMemo(() => visibleWorkspaceFiles(files), [files]);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredFiles = useMemo(
     () =>
       normalizedQuery
-        ? visibleFiles.filter(
+        ? files.filter(
             (entry) =>
               entry.type === 'file' &&
               entry.path.replace(/\\/gu, '/').toLocaleLowerCase().includes(normalizedQuery),
           )
-        : visibleFiles,
-    [normalizedQuery, visibleFiles],
+        : files,
+    [files, normalizedQuery],
   );
   const fileTree = useMemo(() => buildFileTree(filteredFiles), [filteredFiles]);
   const activePath = selectedPath ?? internalSelectedPath;
-  const activeFile = visibleFiles.find(
-    (entry) => entry.type === 'file' && entry.path === activePath,
-  );
+  const activeFile = files.find((entry) => entry.type === 'file' && entry.path === activePath);
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -190,7 +186,7 @@ export function FileBrowser({
             <ScrollArea className="min-h-0 flex-1 p-2">
               {filesPending ? (
                 <LoadingRows label="Loading workspace files" />
-              ) : visibleFiles.length ? (
+              ) : files.length ? (
                 filteredFiles.length ? (
                   <FileTree
                     className="rounded-none border-0 bg-transparent"

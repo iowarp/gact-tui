@@ -35,7 +35,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import type { ClioContextTarget } from '@/lib/context-targets';
-import { childAgentRelationshipLabel, getChildAgentAssignment } from './child-agent-presentation';
+import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioActivityTimeline, type ObservabilityActivityItem } from './observability-activity';
@@ -446,8 +446,7 @@ function toolActivityContext(
 }
 
 function childAgentProcessDetail(placement: string | undefined): string {
-  const relationship = childAgentRelationshipLabel(placement);
-  return relationship ? `Child agent. ${relationship}` : 'Child agent';
+  return placement?.trim() || 'Child agent';
 }
 
 function formatDuration(milliseconds: number): string {

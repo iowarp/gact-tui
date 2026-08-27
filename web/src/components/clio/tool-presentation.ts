@@ -47,10 +47,7 @@ export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
   }
   const providedTitle = tool.title?.trim();
   return {
-    title:
-      providedTitle && !isMachineFacingToolTitle(providedTitle)
-        ? providedTitle
-        : humanizeToolName(tool.name),
+    title: providedTitle || tool.name,
     kind: 'tool',
   };
 }
@@ -166,10 +163,6 @@ export function humanizeToolName(name: string): string {
   }
   const label = parts.join(' ').trim() || 'Tool activity';
   return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
-function isMachineFacingToolTitle(title: string): boolean {
-  return /^[a-z][a-z0-9_.-]*(?:\([a-z0-9_., -]*\))?$/u.test(title);
 }
 
 interface ToolIntent {

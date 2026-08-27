@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Artifact, Message, ToolInvocation } from '@clio/core/v3';
-import { conversationTurnPresentation, deduplicateArtifactBlocks } from './conversation-turn-model';
+import type { Message, ToolInvocation } from '@clio/core/v3';
+import { conversationTurnPresentation } from './conversation-turn-model';
 
 const tools: Record<string, ToolInvocation> = {
   call_read: {
@@ -293,7 +293,7 @@ describe('conversationTurnPresentation', () => {
     });
   });
 
-  it('keeps response-schema recovery expandable without using it as the chain label', () => {
+  it('keeps the server-provided response recovery text as the chain label', () => {
     const message: Message = {
       id: 'assistant_retry',
       session_id: 'session_1',
@@ -311,42 +311,11 @@ describe('conversationTurnPresentation', () => {
 
     const view = conversationTurnPresentation(message, tools);
 
-    expect(view.iterations[0]?.summary).toBe('Finalizing the response');
+    expect(view.iterations[0]?.summary).toBe(
+      'The submit call failed because workflow_state is a required field I omitted.',
+    );
     expect(view.iterations[0]?.nextThoughts).toEqual([
       'The submit call failed because workflow_state is a required field I omitted.',
     ]);
-  });
-
-  it('preserves causally distinct same-named artifacts and removes only an exact duplicate', () => {
-    const artifacts: Record<string, Artifact> = {
-      artifact_v2: {
-        id: 'artifact_v2',
-        session_id: 'session_1',
-        workspace_id: 'workspace_1',
-        name: 'stations.csv',
-        media_type: 'text/csv',
-        uri: 'artifact://workspace_1/stations.csv@v2',
-      },
-      artifact_v3: {
-        id: 'artifact_v3',
-        session_id: 'session_1',
-        workspace_id: 'workspace_1',
-        name: 'stations.csv',
-        media_type: 'text/csv',
-        uri: 'artifact://workspace_1/stations.csv@v3',
-      },
-    };
-
-    expect(
-      deduplicateArtifactBlocks(
-        [
-          { id: 'answer', type: 'text', text: 'Complete.', channel: 'answer' },
-          { id: 'link_v2', type: 'artifact', artifact_id: 'artifact_v2' },
-          { id: 'link_v3', type: 'artifact', artifact_id: 'artifact_v3' },
-          { id: 'link_v3_duplicate', type: 'artifact', artifact_id: 'artifact_v3' },
-        ],
-        artifacts,
-      ).map((block) => block.id),
-    ).toEqual(['answer', 'link_v2', 'link_v3_duplicate']);
   });
 });

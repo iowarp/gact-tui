@@ -42,7 +42,7 @@ describe('getToolPresentation', () => {
     ).toEqual({ title: 'Read file', kind: 'tool' });
   });
 
-  it('replaces machine syntax with a curated child-agent action title', () => {
+  it('preserves the server-provided title verbatim', () => {
     expect(
       getToolPresentation({
         id: 'tool-wait',
@@ -51,7 +51,7 @@ describe('getToolPresentation', () => {
         title: 'wait(tasks)',
         state: 'succeeded',
       }),
-    ).toEqual({ title: 'Wait for child agents', kind: 'tool' });
+    ).toEqual({ title: 'wait(tasks)', kind: 'tool' });
   });
 
   it('uses clean fallbacks for namespaced tool identifiers', () => {

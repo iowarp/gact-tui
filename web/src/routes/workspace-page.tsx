@@ -43,7 +43,6 @@ import { connectionSessionRoute, latestConnectionSessionTarget } from '@/lib/con
 import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import { buildModelOptions } from '@/lib/model-options';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
-import { sessionChildRelations } from '@/lib/session-child-relations';
 import { sessionArtifactEntities } from '@/lib/session-artifacts';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
@@ -227,24 +226,9 @@ export function WorkspacePage() {
     () => Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
     [entities.subagents, sessionId],
   );
-  const relations = useMemo(
-    () =>
-      sessionChildRelations({
-        messages: recordedMessages,
-        parentSessionId: sessionId,
-        processes: sessionObservability.processes.data ?? [],
-        sessions: allSessions.data ?? [],
-        subagents: recordedSubagents,
-      }),
-    [
-      allSessions.data,
-      recordedMessages,
-      recordedSubagents,
-      sessionId,
-      sessionObservability.processes.data,
-    ],
-  );
-  const { messages, processes, subagents } = relations;
+  const messages = recordedMessages;
+  const processes = sessionObservability.processes.data ?? [];
+  const subagents = recordedSubagents;
   const conversationStarted = messages.length > 0 || startedSessionId === sessionId;
   const setConversationStarted = useCallback(
     (started: boolean) =>

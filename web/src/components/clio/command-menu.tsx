@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/command';
 import { useRepository } from '@/hooks/use-repository';
 import { isPrimarySession, sessionInteractionAt } from '@/lib/recent-sessions';
-import { isClioInternalPath } from '@/lib/workspace-files';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioRelativeTime } from './relative-time';
 import { useLiveStore } from '@/store/live-store';
@@ -97,9 +96,7 @@ export function ClioCommandMenu({
         ? (files.data ?? [])
             .filter(
               (file) =>
-                file.type === 'file' &&
-                !isClioInternalPath(file.path) &&
-                file.path.toLocaleLowerCase().includes(normalizedQuery),
+                file.type === 'file' && file.path.toLocaleLowerCase().includes(normalizedQuery),
             )
             .slice(0, 16)
         : [],

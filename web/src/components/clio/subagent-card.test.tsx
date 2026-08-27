@@ -47,7 +47,7 @@ describe('ClioSubagentCard', () => {
     expect(onOpen).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'task_geo' }), 'canvas');
   });
 
-  it('surfaces the useful outcome instead of a trailing no-staging caveat', () => {
+  it('preserves the authoritative result without selecting a preferred paragraph', () => {
     render(
       <ClioSubagentCard
         subagent={{
@@ -63,13 +63,12 @@ describe('ClioSubagentCard', () => {
       />,
     );
 
-    expect(
-      screen.getByText('Found 72 candidate GNSS stations within 50 km of Los Angeles.'),
-    ).toBeVisible();
-    expect(screen.queryByText(/No station time-series/u)).not.toBeInTheDocument();
+    expect(screen.getByText(/Starting catalog discovery/u)).toBeVisible();
+    expect(screen.getByText(/Found 72 candidate GNSS stations/u)).toBeVisible();
+    expect(screen.getByText(/No station time-series CSV was staged/u)).toBeVisible();
   });
 
-  it('translates persisted routing syntax into a useful assignment', () => {
+  it('does not reinterpret persisted routing syntax', () => {
     render(
       <ClioSubagentCard
         subagent={{
@@ -83,7 +82,6 @@ describe('ClioSubagentCard', () => {
       />,
     );
 
-    expect(screen.getByText('Delegated from main session')).toBeVisible();
-    expect(screen.queryByText('main <- geospatial')).not.toBeInTheDocument();
+    expect(screen.getByText('main <- geospatial')).toBeVisible();
   });
 });

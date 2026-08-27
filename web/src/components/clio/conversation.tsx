@@ -22,15 +22,7 @@ import {
 } from 'lucide-react';
 import { m } from 'motion/react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
-import {
-  memo,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConversationEmptyState } from '@/components/ai-elements/conversation';
 import { copyText } from '@/lib/clipboard';
 import {
@@ -48,7 +40,7 @@ import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { ClioMessageHistoryActions } from './message-history-actions';
 import { DeferredA2UISurface, MessageBlockSequence } from './conversation-message-blocks';
 import { ConversationTurn } from './conversation-turn';
-import { conversationTurnPresentation, deduplicateArtifactBlocks } from './conversation-turn-model';
+import { conversationTurnPresentation } from './conversation-turn-model';
 import { subagentsForTool } from './subagent-tool-link';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -107,10 +99,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     () => conversationTurnPresentation(message, entities.tools),
     [entities.tools, message],
   );
-  const residualBlocks = useMemo(
-    () => deduplicateArtifactBlocks(turn.residualBlocks, entities.artifacts),
-    [entities.artifacts, turn.residualBlocks],
-  );
+  const residualBlocks = turn.residualBlocks;
   const linkedSubagentIds = useMemo(
     () =>
       new Set(
