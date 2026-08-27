@@ -1,11 +1,8 @@
 import { queryKeys } from '@/lib/query-keys';
-import type { Message } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { resolveActiveBlueprint } from '@/lib/active-blueprint';
-import { connectionSessionRoute, latestConnectionSessionTarget } from '@/lib/connection-target';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
@@ -32,10 +29,38 @@ export function useWorkspaceData({
   sessionId,
   workspaceId,
 }: UseWorkspaceDataInput) {
-  const navigate = useNavigate();
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const entities = useLiveStore((state) => state.entities);
+  const entityArtifacts = useLiveStore((state) => state.entities.artifacts);
+  const entityContext = useLiveStore((state) => state.entities.context);
+  const entityRuns = useLiveStore((state) => state.entities.runs);
+  const entitySessions = useLiveStore((state) => state.entities.sessions);
+  const entitySubagents = useLiveStore((state) => state.entities.subagents);
+  const entityTasks = useLiveStore((state) => state.entities.tasks);
+  const entityTools = useLiveStore((state) => state.entities.tools);
+  const entityWorkspaces = useLiveStore((state) => state.entities.workspaces);
+  const entities = useMemo(
+    () => ({
+      artifacts: entityArtifacts,
+      context: entityContext,
+      runs: entityRuns,
+      sessions: entitySessions,
+      subagents: entitySubagents,
+      tasks: entityTasks,
+      tools: entityTools,
+      workspaces: entityWorkspaces,
+    }),
+    [
+      entityArtifacts,
+      entityContext,
+      entityRuns,
+      entitySessions,
+      entitySubagents,
+      entityTasks,
+      entityTools,
+      entityWorkspaces,
+    ],
+  );
   const replaceSnapshots = useLiveStore((state) => state.replaceSnapshots);
   const { capabilities, modelConfiguration } = useWorkspaceCapabilities();
 
@@ -110,30 +135,6 @@ export function useWorkspaceData({
   const session = sessionCandidate?.workspace_id === workspaceId ? sessionCandidate : undefined;
   const workspace =
     entities.workspaces[workspaceId] ?? workspaces.data?.find((item) => item.id === workspaceId);
-  const recoveryTarget = useMemo(
-    () => latestConnectionSessionTarget(workspaces.data ?? [], allSessions.data ?? []),
-    [allSessions.data, workspaces.data],
-  );
-
-  useEffect(() => {
-    if (
-      session ||
-      !recoveryTarget ||
-      workspaces.isPending ||
-      sessions.isPending ||
-      allSessions.isPending
-    ) {
-      return;
-    }
-    void navigate(connectionSessionRoute(recoveryTarget), { replace: true });
-  }, [
-    allSessions.isPending,
-    navigate,
-    recoveryTarget,
-    session,
-    sessions.isPending,
-    workspaces.isPending,
-  ]);
   useEffect(() => {
     if (workspace?.id !== workspaceId) return;
     rememberValidatedWorkspaceRoute(settings.endpoint, workspaceId, session);
@@ -166,13 +167,6 @@ export function useWorkspaceData({
     queryFn: ({ signal }) => repository.agentBlueprints(workspaceId, signal),
     enabled: Boolean(workspaceId),
   });
-  const messages = useMemo(
-    () =>
-      Object.values(entities.messages)
-        .filter((message): message is Message => message.session_id === sessionId)
-        .sort((left, right) => left.created_at.localeCompare(right.created_at)),
-    [entities.messages, sessionId],
-  );
   const tasks = Object.values(entities.tasks).filter((task) => task.session_id === sessionId);
   const tools = Object.values(entities.tools).filter((tool) => tool.session_id === sessionId);
   const transcriptArtifacts = useMemo(
@@ -221,7 +215,6 @@ export function useWorkspaceData({
       (approvals.data ?? []).filter((approval) => interactionSessionIds.has(approval.session_id)),
     [approvals.data, interactionSessionIds],
   );
-  const conversationSubagents = useMemo(() => recordById(subagents), [subagents]);
   const runs = Object.values(entities.runs).filter((run) => run.session_id === sessionId);
   const context = sessionContext.state.data ?? entities.context[contextTargetId];
   const activeProvider =
@@ -269,16 +262,13 @@ export function useWorkspaceData({
     context,
     contextObservability,
     contextTargetOptions,
-    conversationSubagents,
     entities,
     executionProvenance,
-    messages,
     modelConfiguration,
     modelOptions,
     parentSession,
     processes,
     questions,
-    recoveryTarget,
     runs,
     session,
     sessionArtifacts,

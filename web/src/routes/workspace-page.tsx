@@ -8,21 +8,21 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioComposer } from '@/components/clio/composer';
-import { ClioConversation } from '@/components/clio/conversation';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
 import { ClioNavigation } from '@/components/clio/navigation';
-import { ClioObservabilityDock, ClioObservabilityView } from '@/components/clio/observability-dock';
 import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { ClioPendingInteractions } from '@/components/clio/pending-interactions';
 import { ClioSessionBehaviorMenu } from '@/components/clio/session-behavior-menu';
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
-import {
-  WorkspaceLoading,
-  WorkspaceStatusStrip,
-  WorkspaceUnavailable,
-} from '@/components/clio/workspace-route-surfaces';
+import { WorkspaceLoading, WorkspaceUnavailable } from '@/components/clio/workspace-route-surfaces';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
+import {
+  WorkspaceLiveConversation,
+  WorkspaceLiveObservabilityDock,
+  WorkspaceLiveObservabilityView,
+  WorkspaceLiveStatusStrip,
+} from '@/components/clio/workspace-live-projections';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useA2UILocalActions } from '@/hooks/use-a2ui-local-actions';
 import { useRepository } from '@/hooks/use-repository';
@@ -30,6 +30,7 @@ import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
 import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
 import { useSessionCommands } from '@/hooks/use-session-commands';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
+import { useSessionMessageCount } from '@/hooks/use-session-message-count';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
 import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
@@ -68,16 +69,13 @@ export function WorkspacePage() {
     context,
     contextObservability,
     contextTargetOptions,
-    conversationSubagents,
     entities,
     executionProvenance,
-    messages,
     modelConfiguration,
     modelOptions,
     parentSession,
     processes,
     questions,
-    recoveryTarget,
     runs,
     session,
     sessionArtifacts,
@@ -94,7 +92,8 @@ export function WorkspacePage() {
     workspaceFiles,
     workspaces,
   } = useWorkspaceData({ contextTargetId, sessionId, workspaceId });
-  const conversationStarted = messages.length > 0 || startedSessionId === sessionId;
+  const messageCount = useSessionMessageCount(sessionId);
+  const conversationStarted = messageCount > 0 || startedSessionId === sessionId;
   const setConversationStarted = useCallback(
     (started: boolean) =>
       setStartedSessionId((current) =>
@@ -103,7 +102,7 @@ export function WorkspacePage() {
     [sessionId],
   );
   const showConversationWelcome =
-    messages.length === 0 && !transcript.isPending && !transcriptError && !conversationStarted;
+    messageCount === 0 && !transcript.isPending && !transcriptError && !conversationStarted;
 
   const {
     activeRequest: workbenchRequest,
@@ -243,14 +242,6 @@ export function WorkspacePage() {
   ) {
     return <WorkspaceLoading />;
   }
-  if (!session && recoveryTarget) {
-    return (
-      <WorkspaceLoading
-        description="The previous conversation is no longer available. Opening the most recent conversation on this service instead."
-        label="Recovering workspace"
-      />
-    );
-  }
   if (queryError && !session) {
     return (
       <WorkspaceUnavailable
@@ -291,14 +282,13 @@ export function WorkspacePage() {
         activityControl={
           variant === 'docked' ? (
             <div className="flex min-w-0 flex-1 items-center gap-1">
-              <ClioObservabilityDock
+              <WorkspaceLiveObservabilityDock
                 artifacts={artifacts}
                 context={context}
                 contextFiles={sessionObservability.contextFiles.data ?? []}
                 contextFrames={sessionObservability.contextFrames.data ?? []}
                 diffs={sessionObservability.diffs.data ?? []}
                 executionProvenance={executionProvenance.execution.data}
-                messages={messages}
                 onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
@@ -347,7 +337,7 @@ export function WorkspacePage() {
           try {
             await run(value);
           } catch (error) {
-            if (startedFromWelcome && messages.length === 0) setConversationStarted(false);
+            if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
             throw error;
           }
         }}
@@ -357,7 +347,7 @@ export function WorkspacePage() {
           try {
             await send.mutateAsync(value);
           } catch (error) {
-            if (startedFromWelcome && messages.length === 0) setConversationStarted(false);
+            if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
             throw error;
           }
         }}
@@ -451,7 +441,7 @@ export function WorkspacePage() {
             requestedOpen={workbenchRequest}
             sessionId={sessionId}
             sessionView={
-              <ClioObservabilityView
+              <WorkspaceLiveObservabilityView
                 artifacts={artifacts}
                 artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
                 context={context}
@@ -463,7 +453,6 @@ export function WorkspacePage() {
                 compactContextPending={sessionContext.compact.isPending}
                 diffs={sessionObservability.diffs.data ?? []}
                 executionProvenance={executionProvenance.execution.data}
-                messages={messages}
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
                 onOpenFile={openWorkspaceFile}
@@ -495,16 +484,13 @@ export function WorkspacePage() {
         }
         workbenchRevealKey={workbenchRequest?.key}
         statusStrip={
-          <WorkspaceStatusStrip
+          <WorkspaceLiveStatusStrip
             activeWorkCount={activeWorkCount}
             a2uiVersions={capabilities.data?.a2ui_versions}
-            cost={entities.usage[sessionId]?.cost_usd}
-            cursor={entities.cursor}
             gactVersions={capabilities.data?.gact_versions}
-            inputTokens={entities.usage[sessionId]?.input_tokens}
             service={capabilities.data?.service}
+            sessionId={sessionId}
             sessionState={session?.state}
-            stream={entities.stream}
             streamError={streamError}
           />
         }
@@ -517,7 +503,7 @@ export function WorkspacePage() {
               <AlertDescription>{streamError}</AlertDescription>
             </Alert>
           ) : null}
-          {transcriptError && messages.length > 0 ? (
+          {transcriptError && messageCount > 0 ? (
             <Alert className="m-3 mb-0" variant="destructive">
               <AlertTriangleIcon aria-hidden="true" />
               <AlertTitle>Conversation unavailable</AlertTitle>
@@ -554,11 +540,9 @@ export function WorkspacePage() {
                   initial={{ opacity: 0 }}
                   key="conversation"
                 >
-                  <ClioConversation
-                    artifacts={entities.artifacts}
+                  <WorkspaceLiveConversation
                     error={transcriptError}
                     loading={transcript.isPending}
-                    messages={messages}
                     onActionCardAction={actionCard.mutateAsync}
                     onA2UILocalAction={handleA2UILocalAction}
                     onOpenArtifact={openArtifact}
@@ -576,10 +560,7 @@ export function WorkspacePage() {
                       sessionHistory.rewind.isPending ? sessionHistory.rewind.variables : undefined
                     }
                     retryingMessageId={retry.isPending ? retry.variables : undefined}
-                    subagents={conversationSubagents}
-                    surfaces={entities.surfaces}
-                    tasks={entities.tasks}
-                    tools={entities.tools}
+                    sessionId={sessionId}
                   />
                 </m.div>
               )}

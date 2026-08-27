@@ -40,6 +40,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(page.getByRole('region', { name: 'Agent needs your response' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Allow once' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send response' })).toBeDisabled();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await expect(page).toHaveScreenshot('workspace-desktop-dark.png', { animations: 'disabled' });
 
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
@@ -107,6 +108,11 @@ test('batches a 100-delta stream over a virtualized 1,000-message transcript', a
 
   await page.getByRole('log', { name: 'Conversation' }).evaluate((element) => {
     element.scrollTop = element.scrollHeight;
+  });
+  await page.evaluate(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+  await page.getByRole('log', { name: 'Conversation' }).evaluate((element) => {
     window.__clioLongTasks = [];
     window.__clioAnimationFrames = 0;
     window.__clioStreamMutationBatches = 0;
