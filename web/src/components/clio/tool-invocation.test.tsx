@@ -1,4 +1,5 @@
 import type { ToolInvocation } from '@clio/core/v3';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
   formatToolDuration,
@@ -7,6 +8,7 @@ import {
   getToolSummary,
   humanizeToolName,
 } from './tool-presentation';
+import { ClioToolInvocation } from './tool-invocation';
 
 function tool(state: ToolInvocation['state']): ToolInvocation {
   return {
@@ -19,6 +21,22 @@ function tool(state: ToolInvocation['state']): ToolInvocation {
 }
 
 describe('getToolPresentation', () => {
+  it('keeps tool arguments available under the approved heading', () => {
+    render(
+      <ClioToolInvocation
+        defaultOpen
+        tool={{
+          ...tool('succeeded'),
+          input: { surface_id: 'earthscope-map' },
+          output: { state: 'ready' },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Arguments' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Result' })).toBeVisible();
+  });
+
   it('presents A2UI production as a first-class analysis view', () => {
     expect(getToolPresentation(tool('running'))).toEqual({
       title: 'Building analysis view',

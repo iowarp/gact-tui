@@ -296,8 +296,8 @@ func (c *executionComponent) renderProjectedTurnBlock(
 	return strings.Join(parts, "\n"), blocks
 }
 
-// renderExecutionTimeline renders a turn's projected nodes in the canonical
-// transcript grammar (apps/web/CANONICAL-CONVERSATION.md):
+// renderExecutionTimeline renders the TUI's compact projection of the owner-locked
+// conversation contract (web/CONVERSATION-RENDER-CONTRACT.md):
 //
 //	▎agent  — a colored header, shown once atop a block and re-shown when the
 //	          root agent resumes after control returned to it.

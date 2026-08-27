@@ -124,7 +124,7 @@ export type ToolInputProps = ComponentProps<'div'> & {
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
   <div className={cn('space-y-2 overflow-hidden', className)} {...props}>
     <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-      Parameters
+      Arguments
     </h4>
     <div className="rounded-md bg-muted/50">
       <DeferredCodeBlock value={JSON.stringify(input, null, 2)} />
