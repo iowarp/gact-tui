@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -24,6 +25,7 @@ import { ConnectionProvider, useConnectionSettings } from './connection-provider
 function ConnectionState() {
   const context = useConnectionSettings();
   const { credentialsReady, credentialError, recents, settings } = context;
+  const [resolvedToken, setResolvedToken] = useState('not-resolved');
   return (
     <div>
       <output aria-label="credential state">
@@ -36,6 +38,17 @@ function ConnectionState() {
         {context.managedConnectionReady ? 'managed' : 'saved'}
       </output>
       <output aria-label="recent count">{recents.length}</output>
+      <output aria-label="resolved token">{resolvedToken}</output>
+      <button
+        onClick={() =>
+          void context.resolveConnection(settings).then((resolved) => {
+            setResolvedToken(resolved.token ?? 'none');
+          })
+        }
+        type="button"
+      >
+        Resolve active connection
+      </button>
       <button
         onClick={() =>
           void context.connect({
@@ -106,6 +119,10 @@ describe('connection provider credentials', () => {
       expect(screen.getByLabelText('active token')).toHaveTextContent('none');
       expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed');
     });
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve active connection' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('resolved token')).toHaveTextContent('none');
+    });
     expect(mocks.waitForManagedBackend).toHaveBeenCalledOnce();
     expect(mocks.read).not.toHaveBeenCalled();
   });
@@ -131,6 +148,10 @@ describe('connection provider credentials', () => {
       expect(screen.getByLabelText('active token')).toHaveTextContent('supervisor-token');
       expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed');
     });
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve active connection' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('resolved token')).toHaveTextContent('supervisor-token');
+    });
     expect(mocks.read).not.toHaveBeenCalled();
   });
 
@@ -154,6 +175,10 @@ describe('connection provider credentials', () => {
       expect(screen.getByLabelText('active endpoint')).toHaveTextContent('http://127.0.0.1:17800');
       expect(screen.getByLabelText('active token')).toHaveTextContent('none');
       expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve active connection' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('resolved token')).toHaveTextContent('none');
     });
     expect(mocks.read).not.toHaveBeenCalled();
   });

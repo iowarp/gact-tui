@@ -110,10 +110,11 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       if (settings.endpoint === endpoint && settings.token) {
         return { ...normalized, token: settings.token };
       }
+      if (managedConnectionReady && settings.endpoint === endpoint) return normalized;
       const token = await readConnectionCredential(endpoint);
       return { ...normalized, token };
     },
-    [settings.endpoint, settings.token],
+    [managedConnectionReady, settings.endpoint, settings.token],
   );
 
   const connect = useCallback(
