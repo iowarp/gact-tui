@@ -79,39 +79,19 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (!inTauri()) return;
-    if (recents.length === 0) {
-      let cancelled = false;
-      void waitForManagedBackend()
-        .then((handle) => {
-          if (cancelled) return;
-          const endpoint = normalizeEndpoint(handle.url);
-          setSettings({ endpoint, token: handle.bearer_token || undefined });
-          setManagedConnectionReady(true);
-        })
-        .catch((error: unknown) => {
-          if (cancelled) return;
-          setCredentialError(
-            error instanceof Error ? error.message : 'The managed CLIO service is unavailable.',
-          );
-        })
-        .finally(() => {
-          if (!cancelled) setCredentialsReady(true);
-        });
-      return () => {
-        cancelled = true;
-      };
-    }
-    const endpoint = settings.endpoint;
     let cancelled = false;
-    void readConnectionCredential(endpoint)
-      .then((token) => {
+    void waitForManagedBackend()
+      .then((handle) => {
         if (cancelled) return;
-        setSettings((current) => (current.endpoint === endpoint ? { ...current, token } : current));
+        const endpoint = normalizeEndpoint(handle.url);
+        setSettings({ endpoint, token: handle.bearer_token || undefined });
+        setManagedConnectionReady(true);
+        setCredentialError(undefined);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
         setCredentialError(
-          error instanceof Error ? error.message : 'Saved access credentials are unavailable.',
+          error instanceof Error ? error.message : 'The managed CLIO service is unavailable.',
         );
       })
       .finally(() => {
@@ -120,7 +100,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, [recents.length, settings.endpoint]);
+  }, []);
 
   const resolveConnection = useCallback(
     async (next: ConnectionSettings): Promise<ConnectionSettings> => {
@@ -144,9 +124,6 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         await storeConnectionCredential(endpoint, normalized.token);
       }
       setCredentialError(undefined);
-      if (inTauri() && settings.endpoint !== endpoint) {
-        setCredentialsReady(false);
-      }
       setSettings(normalized);
       setRecents((current) => {
         const updated = [
@@ -157,7 +134,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         return updated;
       });
     },
-    [settings.endpoint],
+    [],
   );
 
   const forget = useCallback(async (endpoint: string): Promise<void> => {

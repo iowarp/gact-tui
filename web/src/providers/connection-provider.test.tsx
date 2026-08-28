@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -80,18 +80,18 @@ describe('connection provider credentials', () => {
     expect(mocks.read).not.toHaveBeenCalled();
   });
 
-  it('hydrates the most recent installed-app connection before marking it ready', async () => {
+  it('prefers the supervisor endpoint over a remembered installed-app connection', async () => {
     localStorage.setItem(
       'clio.recent-connections',
       JSON.stringify([{ endpoint: 'http://agent.local', label: 'Lab agent' }]),
     );
     mocks.inTauri.mockReturnValue(true);
-    let releaseCredential: (value: string) => void = () => undefined;
-    mocks.read.mockReturnValue(
-      new Promise<string>((resolve) => {
-        releaseCredential = resolve;
-      }),
-    );
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'ready' },
+    });
+    mocks.read.mockRejectedValue(new Error('credential service unavailable'));
 
     render(
       <ConnectionProvider>
@@ -100,18 +100,14 @@ describe('connection provider credentials', () => {
     );
 
     expect(screen.getByLabelText('credential state')).toHaveTextContent('loading');
-    expect(screen.getByLabelText('active token')).toHaveTextContent('none');
-    await act(async () => {
-      releaseCredential('saved-secret');
-      await Promise.resolve();
-    });
-
     await waitFor(() => {
       expect(screen.getByLabelText('credential state')).toHaveTextContent('ready');
-      expect(screen.getByLabelText('active token')).toHaveTextContent('saved-secret');
+      expect(screen.getByLabelText('active endpoint')).toHaveTextContent('http://127.0.0.1:17800');
+      expect(screen.getByLabelText('active token')).toHaveTextContent('none');
+      expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed');
     });
-    expect(mocks.read).toHaveBeenCalledWith('http://agent.local');
-    expect(mocks.waitForManagedBackend).not.toHaveBeenCalled();
+    expect(mocks.waitForManagedBackend).toHaveBeenCalledOnce();
+    expect(mocks.read).not.toHaveBeenCalled();
   });
 
   it('uses the supervisor endpoint and bearer token when the installed app has no recents', async () => {
@@ -186,7 +182,11 @@ describe('connection provider credentials', () => {
       'clio.recent-connections',
       JSON.stringify([{ endpoint: 'http://existing.local', label: 'Existing' }]),
     );
-    mocks.read.mockResolvedValue('saved-secret');
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'ready' },
+    });
     mocks.store.mockResolvedValue(undefined);
     mocks.remove.mockResolvedValue(undefined);
 
