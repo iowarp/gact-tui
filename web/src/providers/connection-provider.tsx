@@ -82,12 +82,10 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     if (recents.length === 0) {
       let cancelled = false;
       void waitForManagedBackend()
-        .then(async (handle) => {
+        .then((handle) => {
           if (cancelled) return;
           const endpoint = normalizeEndpoint(handle.url);
-          const token = handle.bearer_token || (await readConnectionCredential(endpoint));
-          if (cancelled) return;
-          setSettings({ endpoint, token });
+          setSettings({ endpoint, token: handle.bearer_token || undefined });
           setManagedConnectionReady(true);
         })
         .catch((error: unknown) => {

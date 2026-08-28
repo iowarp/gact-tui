@@ -138,6 +138,30 @@ describe('connection provider credentials', () => {
     expect(mocks.read).not.toHaveBeenCalled();
   });
 
+  it('uses an unauthenticated supervisor endpoint without consulting secure storage', async () => {
+    mocks.inTauri.mockReturnValue(true);
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'ready' },
+    });
+    mocks.read.mockRejectedValue(new Error('credential service unavailable'));
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('credential state')).toHaveTextContent('ready');
+      expect(screen.getByLabelText('active endpoint')).toHaveTextContent('http://127.0.0.1:17800');
+      expect(screen.getByLabelText('active token')).toHaveTextContent('none');
+      expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed');
+    });
+    expect(mocks.read).not.toHaveBeenCalled();
+  });
+
   it('publishes credential-store failures instead of silently retrying without a token', async () => {
     mocks.inTauri.mockReturnValue(true);
     mocks.waitForManagedBackend.mockRejectedValue(new Error('Credential vault is locked'));
