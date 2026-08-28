@@ -21,6 +21,7 @@ const artifactPng = Buffer.from(
 );
 
 const capabilities = {
+  contract_version: '0.2',
   gact_versions: ['0.3'],
   a2ui_versions: ['0.9.1'],
   replay: { supported: true, retention: 2048 },

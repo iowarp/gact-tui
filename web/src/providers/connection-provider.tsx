@@ -19,6 +19,7 @@ import {
   readConnectionCredential,
   storeConnectionCredential,
 } from '@/tauri/secure-credentials';
+import { waitForManagedBackend } from '@/tauri/managed-backend';
 
 const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
 
@@ -26,6 +27,7 @@ interface ConnectionContextValue {
   settings: ConnectionSettings;
   recents: SavedConnection[];
   credentialsReady: boolean;
+  managedConnectionReady: boolean;
   credentialError?: string;
   resolveConnection: (settings: ConnectionSettings) => Promise<ConnectionSettings>;
   connect: (settings: ConnectionSettings) => Promise<void>;
@@ -72,18 +74,41 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     label: recents[0]?.label,
   }));
   const [credentialsReady, setCredentialsReady] = useState(() => !inTauri());
+  const [managedConnectionReady, setManagedConnectionReady] = useState(false);
   const [credentialError, setCredentialError] = useState<string>();
 
   useEffect(() => {
     if (!inTauri()) return;
+    if (recents.length === 0) {
+      let cancelled = false;
+      void waitForManagedBackend()
+        .then(async (handle) => {
+          if (cancelled) return;
+          const endpoint = normalizeEndpoint(handle.url);
+          const token = handle.bearer_token || (await readConnectionCredential(endpoint));
+          if (cancelled) return;
+          setSettings({ endpoint, token });
+          setManagedConnectionReady(true);
+        })
+        .catch((error: unknown) => {
+          if (cancelled) return;
+          setCredentialError(
+            error instanceof Error ? error.message : 'The managed CLIO service is unavailable.',
+          );
+        })
+        .finally(() => {
+          if (!cancelled) setCredentialsReady(true);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
     const endpoint = settings.endpoint;
     let cancelled = false;
     void readConnectionCredential(endpoint)
       .then((token) => {
         if (cancelled) return;
-        setSettings((current) =>
-          current.endpoint === endpoint ? { ...current, token } : current,
-        );
+        setSettings((current) => (current.endpoint === endpoint ? { ...current, token } : current));
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -97,7 +122,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     return () => {
       cancelled = true;
     };
-  }, [settings.endpoint]);
+  }, [recents.length, settings.endpoint]);
 
   const resolveConnection = useCallback(
     async (next: ConnectionSettings): Promise<ConnectionSettings> => {
@@ -152,12 +177,22 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       settings,
       recents,
       credentialsReady,
+      managedConnectionReady,
       credentialError,
       resolveConnection,
       connect,
       forget,
     }),
-    [connect, credentialError, credentialsReady, forget, recents, resolveConnection, settings],
+    [
+      connect,
+      credentialError,
+      credentialsReady,
+      forget,
+      managedConnectionReady,
+      recents,
+      resolveConnection,
+      settings,
+    ],
   );
 
   return <ConnectionContext.Provider value={value}>{children}</ConnectionContext.Provider>;

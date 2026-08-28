@@ -1,4 +1,15 @@
-import { ChartNoAxesCombinedIcon, FocusIcon, Maximize2Icon, XIcon } from 'lucide-react';
+import {
+  ChartNoAxesCombinedIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  FocusIcon,
+  Maximize2Icon,
+  MoveHorizontalIcon,
+  RotateCcwIcon,
+  XIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 import {
@@ -15,6 +26,13 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 type PlotValue = string | number | null;
 export type PlotRow = Record<string, PlotValue>;
@@ -133,6 +151,25 @@ export function ClioTimeSeriesPlot({
   const rangeEnd = Math.max(rangeStart, Math.min(selectedRange?.[1] ?? maximumIndex, maximumIndex));
   const displayedRows = visibleRows.slice(rangeStart, rangeEnd + 1);
   const sourceCount = Math.max(sourceRows ?? rows.length, rows.length);
+
+  function setWindow(start: number, end: number): void {
+    const width = Math.max(1, Math.min(end - start, maximumIndex));
+    const boundedStart = Math.max(0, Math.min(start, maximumIndex - width));
+    setSelectedRange([boundedStart, boundedStart + width]);
+  }
+
+  function zoom(factor: number): void {
+    const width = rangeEnd - rangeStart;
+    const nextWidth = Math.max(5, Math.min(maximumIndex, Math.round(width * factor)));
+    const center = (rangeStart + rangeEnd) / 2;
+    setWindow(Math.round(center - nextWidth / 2), Math.round(center + nextWidth / 2));
+  }
+
+  function pan(direction: -1 | 1): void {
+    const width = rangeEnd - rangeStart;
+    const distance = Math.max(1, Math.round(width * 0.25)) * direction;
+    setWindow(rangeStart + distance, rangeEnd + distance);
+  }
 
   function toggleSeries(key: string): void {
     setHiddenSeries((current) => {
@@ -412,6 +449,48 @@ export function ClioTimeSeriesPlot({
                     <Maximize2Icon aria-hidden="true" />
                   </Button>
                 ) : null}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      aria-label="More chart navigation"
+                      size="icon-xs"
+                      title="Chart navigation"
+                      variant="ghost"
+                    >
+                      <MoveHorizontalIcon aria-hidden="true" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        disabled={!selectedRange || rangeStart === 0}
+                        onSelect={() => pan(-1)}
+                      >
+                        <ChevronLeftIcon aria-hidden="true" />
+                        Pan left
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={!selectedRange || rangeEnd === maximumIndex}
+                        onSelect={() => pan(1)}
+                      >
+                        <ChevronRightIcon aria-hidden="true" />
+                        Pan right
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => zoom(0.5)}>
+                        <ZoomInIcon aria-hidden="true" />
+                        Zoom in
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={!selectedRange} onSelect={() => zoom(2)}>
+                        <ZoomOutIcon aria-hidden="true" />
+                        Zoom out
+                      </DropdownMenuItem>
+                      <DropdownMenuItem disabled={!selectedRange} onSelect={resetWindow}>
+                        <RotateCcwIcon aria-hidden="true" />
+                        Show full range
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>

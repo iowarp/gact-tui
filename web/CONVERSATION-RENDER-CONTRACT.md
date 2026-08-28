@@ -181,6 +181,14 @@ Artifacts use the native AI Elements-backed artifact card. The card itself is th
 there is no redundant `Open` button or raw URI. Static images may be subordinate fallbacks for an
 interactive analysis view, but they do not duplicate that view inline.
 
+Adjacent artifact blocks render as one AI Elements `Attachments` grid without changing their wire
+order or entity identity. Tiles use a compact, consistent footprint that is large enough to scan in
+the transcript; the preview/icon is vertically centered above one single-line filename with its
+extension preserved, followed by quiet media-type and size metadata. The grid is only a visual
+group: activating a tile replaces the artifact-index canvas tab with that artifact, while
+Shift-click may retain the index in a split canvas when space permits. Hover details supplement the
+tile and never contain its only required information.
+
 If an entity referenced by a residual block is unavailable, the renderer shows a bounded typed
 state at that exact location. It does not silently omit the block.
 

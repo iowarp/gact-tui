@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   read: vi.fn(),
   store: vi.fn(),
   remove: vi.fn(),
+  waitForManagedBackend: vi.fn(),
 }));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
@@ -13,6 +14,9 @@ vi.mock('@/tauri/secure-credentials', () => ({
   readConnectionCredential: mocks.read,
   storeConnectionCredential: mocks.store,
   deleteConnectionCredential: mocks.remove,
+}));
+vi.mock('@/tauri/managed-backend', () => ({
+  waitForManagedBackend: mocks.waitForManagedBackend,
 }));
 
 import { ConnectionProvider, useConnectionSettings } from './connection-provider';
@@ -27,6 +31,10 @@ function ConnectionState() {
         {credentialError ? `: ${credentialError}` : ''}
       </output>
       <output aria-label="active token">{settings.token ?? 'none'}</output>
+      <output aria-label="active endpoint">{settings.endpoint}</output>
+      <output aria-label="managed connection">
+        {context.managedConnectionReady ? 'managed' : 'saved'}
+      </output>
       <output aria-label="recent count">{recents.length}</output>
       <button
         onClick={() =>
@@ -54,6 +62,7 @@ describe('connection provider credentials', () => {
     mocks.read.mockReset();
     mocks.store.mockReset();
     mocks.remove.mockReset();
+    mocks.waitForManagedBackend.mockReset();
   });
 
   afterEach(cleanup);
@@ -102,10 +111,36 @@ describe('connection provider credentials', () => {
       expect(screen.getByLabelText('active token')).toHaveTextContent('saved-secret');
     });
     expect(mocks.read).toHaveBeenCalledWith('http://agent.local');
+    expect(mocks.waitForManagedBackend).not.toHaveBeenCalled();
+  });
+
+  it('uses the supervisor endpoint and bearer token when the installed app has no recents', async () => {
+    mocks.inTauri.mockReturnValue(true);
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: 'supervisor-token',
+      status: { kind: 'ready' },
+    });
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+
+    expect(screen.getByLabelText('credential state')).toHaveTextContent('loading');
+    await waitFor(() => {
+      expect(screen.getByLabelText('credential state')).toHaveTextContent('ready');
+      expect(screen.getByLabelText('active endpoint')).toHaveTextContent('http://127.0.0.1:17800');
+      expect(screen.getByLabelText('active token')).toHaveTextContent('supervisor-token');
+      expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed');
+    });
+    expect(mocks.read).not.toHaveBeenCalled();
   });
 
   it('publishes credential-store failures instead of silently retrying without a token', async () => {
     mocks.inTauri.mockReturnValue(true);
+    mocks.waitForManagedBackend.mockRejectedValue(new Error('Credential vault is locked'));
     mocks.read.mockRejectedValue(new Error('Credential vault is locked'));
 
     render(
@@ -123,6 +158,10 @@ describe('connection provider credentials', () => {
 
   it('stores and removes the token with the remembered connection', async () => {
     mocks.inTauri.mockReturnValue(true);
+    localStorage.setItem(
+      'clio.recent-connections',
+      JSON.stringify([{ endpoint: 'http://existing.local', label: 'Existing' }]),
+    );
     mocks.read.mockResolvedValue('saved-secret');
     mocks.store.mockResolvedValue(undefined);
     mocks.remove.mockResolvedValue(undefined);
@@ -147,7 +186,7 @@ describe('connection provider credentials', () => {
 
     await waitFor(() => {
       expect(mocks.remove).toHaveBeenCalledWith('http://agent.local');
-      expect(screen.getByLabelText('recent count')).toHaveTextContent('0');
+      expect(screen.getByLabelText('recent count')).toHaveTextContent('1');
     });
   });
 });

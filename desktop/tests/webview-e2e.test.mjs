@@ -396,7 +396,13 @@ test(
 
       // The app boots, the supervisor attaches to :17800, the WebView loads
       // the chat shell. Generous window for boot + attach + agent-ready.
-      await waitFor(sid, SHELL_SELECTOR, 30_000);
+      await waitFor(sid, SHELL_SELECTOR, 30_000).catch(async (error) => {
+        await screenshot(sid, 'desktop-webview-boot-failure');
+        const diagnostics = await sendDiagnostics(sid).catch((diagnosticError) => ({
+          diagnosticError: String(diagnosticError),
+        }));
+        throw new Error(`${error.message}; diagnostics=${JSON.stringify(diagnostics)}`);
+      });
 
       await waitForPaintedShell(sid);
       await sleep(1_000);

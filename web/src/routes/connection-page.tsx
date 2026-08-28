@@ -52,17 +52,21 @@ export function ConnectionPage() {
     settings,
     recents,
     credentialsReady,
+    managedConnectionReady,
     credentialError,
     resolveConnection,
     connect,
     forget,
   } = useConnectionSettings();
-  const [endpoint, setEndpoint] = useState(settings.endpoint);
-  const [serviceName, setServiceName] = useState(settings.label ?? '');
+  const [endpointDraft, setEndpoint] = useState<string>();
+  const [serviceNameDraft, setServiceName] = useState<string>();
   const [token, setToken] = useState('');
+  const endpoint = endpointDraft ?? settings.endpoint;
+  const serviceName = serviceNameDraft ?? settings.label ?? '';
   const autoConnectStarted = useRef(false);
   const connectionIntent = searchParams.get('intent');
-  const shouldResumeAutomatically = recents.length > 0 && connectionIntent !== 'connect';
+  const shouldResumeAutomatically =
+    (recents.length > 0 || managedConnectionReady) && connectionIntent !== 'connect';
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -132,13 +136,22 @@ export function ConnectionPage() {
     if (
       autoConnectStarted.current ||
       !credentialsReady ||
-      recents.length === 0 ||
+      (recents.length === 0 && !managedConnectionReady) ||
+      endpoint !== settings.endpoint ||
       connectionIntent === 'connect'
     )
       return;
     autoConnectStarted.current = true;
     mutation.mutate();
-  }, [connectionIntent, credentialsReady, mutation, recents.length]);
+  }, [
+    connectionIntent,
+    credentialsReady,
+    endpoint,
+    managedConnectionReady,
+    mutation,
+    recents.length,
+    settings.endpoint,
+  ]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();

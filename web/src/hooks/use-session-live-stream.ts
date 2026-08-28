@@ -32,8 +32,8 @@ export function useSessionLiveStream({
   const setStreamError = useLiveStore((state) => state.setStreamError);
   const setStreamState = useLiveStore((state) => state.setStreamState);
   const [reconnectEpoch, setReconnectEpoch] = useState(0);
-  const [pageActive, setPageActive] = useState(
-    () => document.visibilityState === 'visible' && document.hasFocus(),
+  const [documentVisible, setDocumentVisible] = useState(
+    () => document.visibilityState === 'visible',
   );
 
   useEffect(() => {
@@ -44,15 +44,13 @@ export function useSessionLiveStream({
       lastReconnectAt = now;
       setReconnectEpoch((value) => value + 1);
     };
-    const updatePageActivity = () => {
-      const active = document.visibilityState === 'visible' && document.hasFocus();
-      setPageActive(active);
-      if (active) reconnect();
+    const reconnectWhenVisible = () => {
+      const visible = document.visibilityState === 'visible';
+      setDocumentVisible(visible);
+      if (visible) reconnect();
     };
     window.addEventListener('online', reconnect);
-    window.addEventListener('focus', updatePageActivity);
-    window.addEventListener('blur', updatePageActivity);
-    document.addEventListener('visibilitychange', updatePageActivity);
+    document.addEventListener('visibilitychange', reconnectWhenVisible);
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void listenForDesktopResume(reconnect).then(
@@ -65,15 +63,13 @@ export function useSessionLiveStream({
     return () => {
       disposed = true;
       window.removeEventListener('online', reconnect);
-      window.removeEventListener('focus', updatePageActivity);
-      window.removeEventListener('blur', updatePageActivity);
-      document.removeEventListener('visibilitychange', updatePageActivity);
+      document.removeEventListener('visibilitychange', reconnectWhenVisible);
       unlisten?.();
     };
   }, []);
 
   useEffect(() => {
-    if (!enabled || !sessionId || !pageActive) return;
+    if (!enabled || !sessionId || !documentVisible) return;
     const controller = new AbortController();
     const batcher = new FrameBatcher(applyFrames);
     const invalidations = new QueryInvalidationBatcher(queryClient);
@@ -121,9 +117,9 @@ export function useSessionLiveStream({
     };
   }, [
     applyFrames,
+    documentVisible,
     enabled,
     initialCursor,
-    pageActive,
     queryClient,
     reconnectEpoch,
     repository,

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClioTimeSeriesPlot } from './time-series-plot';
 
@@ -19,7 +20,8 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('ClioTimeSeriesPlot', () => {
-  it('offers drag-to-select focus controls for dense series', () => {
+  it('offers drag selection plus compact keyboard navigation for dense series', async () => {
+    const user = userEvent.setup();
     render(
       <ClioTimeSeriesPlot
         rows={Array.from({ length: 30 }, (_, index) => ({ time: index, east: index / 10 }))}
@@ -38,5 +40,8 @@ describe('ClioTimeSeriesPlot', () => {
     expect(screen.getByText('Drag across the chart to select a range')).toBeVisible();
     expect(screen.queryAllByRole('slider')).toHaveLength(0);
     expect(screen.getByRole('button', { name: 'Focus chart selection' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'More chart navigation' }));
+    expect(screen.getByRole('menuitem', { name: 'Zoom in' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'Pan left' })).toHaveAttribute('data-disabled');
   });
 });
