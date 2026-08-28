@@ -282,10 +282,18 @@ async function waitForPaintedShell(sid) {
       'return new Promise((resolve) => {' +
         '  requestAnimationFrame(() => requestAnimationFrame(() => {' +
         "    const body = document.body?.innerText || '';" +
+        '    const workspace = document.querySelector(\'section[aria-label="Session workspace"]\');' +
+        '    const navigation = document.querySelector(\'nav[aria-label="Workspace navigation"]\');' +
+        `    const composer = document.querySelector('${COMPOSER_SELECTOR}');` +
+        '    const visible = (node) => {' +
+        '      const rect = node?.getBoundingClientRect();' +
+        '      return !!rect && rect.width > 0 && rect.height > 0;' +
+        '    };' +
         '    resolve({' +
-        '      hasSessionWorkspace: !!document.querySelector(\'section[aria-label="Session workspace"]\'),' +
-        '      hasNavigation: !!document.querySelector(\'nav[aria-label="Workspace navigation"]\'),' +
-        `      hasComposer: !!document.querySelector('${COMPOSER_SELECTOR}'),` +
+        '      hasSessionWorkspace: visible(workspace),' +
+        '      hasNavigation: visible(navigation),' +
+        '      hasComposer: visible(composer),' +
+        '      readyState: document.readyState,' +
         '      text: body.slice(0, 500)' +
         '    });' +
         '  }));' +
@@ -293,9 +301,11 @@ async function waitForPaintedShell(sid) {
     );
     const state = j.value ?? {};
     if (
-      (state.hasSessionWorkspace || state.hasNavigation) &&
+      state.readyState === 'complete' &&
+      state.hasSessionWorkspace &&
+      state.hasNavigation &&
       state.hasComposer &&
-      /GACT|CLIO|session/i.test(state.text ?? '')
+      (state.text ?? '').trim().length > 0
     ) {
       return state;
     }
