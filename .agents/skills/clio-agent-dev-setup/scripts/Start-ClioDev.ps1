@@ -45,6 +45,16 @@ foreach ($requiredPath in @($backendRoot, $frontendRoot, $webRoot, $skillRoot)) 
 
 & $stopScript -DevRoot $devRootFull -BackendPort $BackendPort -WebPort $WebPort
 
+$uv = (Get-Command uv -ErrorAction Stop).Source
+& $uv sync --frozen --project $backendRoot
+if ($LASTEXITCODE -ne 0) {
+    throw "The backend environment could not be synchronized from its pinned uv.lock."
+}
+& $uv run --frozen --no-sync --project $backendRoot python -c "import iowarp_core, psutil; from clio_schemas import A2UIClientActionMessage"
+if ($LASTEXITCODE -ne 0) {
+    throw "The synchronized backend environment is missing CTE, process-lifecycle, or current schema imports."
+}
+
 if ($ResetState -and (Test-Path -LiteralPath $runtimeRoot)) {
     $resolvedRuntime = [System.IO.Path]::GetFullPath($runtimeRoot)
     $resolvedAllowed = [System.IO.Path]::GetFullPath((Join-Path $devRootFull "runtime"))
@@ -69,7 +79,6 @@ $backendStderr = Join-Path $logRoot "clio-agent-$BackendPort.stderr.log"
 $webStdout = Join-Path $logRoot "gact-web-$WebPort.stdout.log"
 $webStderr = Join-Path $logRoot "gact-web-$WebPort.stderr.log"
 
-$uv = (Get-Command uv -ErrorAction Stop).Source
 $runtimeEnvironment = @{
     CLIO_USER_DIR = $runtimeRoot
     CLIO_RUNTIME_STATE_DIR = Join-Path $runtimeRoot "clio-core-runtime"
@@ -92,7 +101,7 @@ foreach ($name in $runtimeEnvironment.Keys) {
 
 try {
     $backendProcess = Start-Process -FilePath $uv -WorkingDirectory $backendRoot -ArgumentList @(
-        "run", "clio-agent", "serve",
+        "run", "--frozen", "--no-sync", "clio-agent", "serve",
         "--host", "127.0.0.1",
         "--port", "$BackendPort"
     ) -RedirectStandardOutput $backendStdout -RedirectStandardError $backendStderr -WindowStyle Hidden -PassThru

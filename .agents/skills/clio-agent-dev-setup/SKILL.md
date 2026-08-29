@@ -51,6 +51,12 @@ The MCP handshake is intentionally a warm-up gate, not a catalog-presence check.
 
 Warnings remain warnings only when the service reports an explicit degraded capability, such as the unverified Windows sandbox. The CTE capacity diagnostic is also surfaced: a preallocated `storage.bin` can make the current doctor report 100% even on an empty store, so do not treat that specific number as used-byte evidence.
 
+## Environment ownership
+
+The start script owns one canonical environment derived from the selected backend checkout. It runs `uv sync --frozen` before launch, verifies the current schema, `psutil`, and `iowarp-core` imports, and then launches with `uv run --frozen --no-sync`. Do not borrow another checkout's `.venv`, add an overlay to `PYTHONPATH`, or repair only one missing wheel in place. A server that cannot reproduce the lock is not ready.
+
+For Linux qualification hosts, first verify that the host glibc satisfies every locked native wheel. If it does not, use a clean container built from the exact checkout or upgrade the host; never omit `iowarp-core` or switch the qualification to LocalFS. Initialize the checkout's pinned submodules before installing its bundled marketplace. Qualification drivers must use fail-fast HTTP calls and must stop on any failed/error session state.
+
 ## Browser check before a run
 
 Open the visible connection flow at `http://127.0.0.1:5174/?intent=connect`. Do not inspect or mutate browser storage directly.
