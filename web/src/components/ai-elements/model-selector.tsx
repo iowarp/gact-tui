@@ -173,20 +173,28 @@ export type ModelSelectorLogoProps = Omit<
     | (string & {});
 };
 
+const locallyBundledProviderLogos = new Set(["anthropic", "llama", "lmstudio", "openai"]);
+
 export const ModelSelectorLogo = ({
   provider,
   className,
   ...props
-}: ModelSelectorLogoProps) => (
-  <img
-    {...props}
-    alt={`${provider} logo`}
-    className={cn("size-3 dark:invert", className)}
-    height={12}
-    src={`https://models.dev/logos/${provider}.svg`}
-    width={12}
-  />
-);
+}: ModelSelectorLogoProps) => {
+  const source = locallyBundledProviderLogos.has(provider)
+    ? `/provider-logos/${provider}.svg`
+    : `https://models.dev/logos/${provider}.svg`;
+
+  return (
+    <img
+      {...props}
+      alt={`${provider} logo`}
+      className={cn("size-3 dark:invert", className)}
+      height={12}
+      src={source}
+      width={12}
+    />
+  );
+};
 
 export type ModelSelectorLogoGroupProps = ComponentProps<"div">;
 
