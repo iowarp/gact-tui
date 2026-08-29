@@ -1,0 +1,147 @@
+[CmdletBinding()]
+param(
+    [string]$BackendRepo = "D:\Libraries\Documents\projects\.codex-campaign-clio-agent",
+    [string]$FrontendRepo = "D:\Libraries\Documents\projects\gact-tui-node-revamp",
+    [string]$DevRoot = "D:\Libraries\Documents\projects\clio_develop_workspace",
+    [ValidateRange(1, 65535)]
+    [int]$BackendPort = 8787,
+    [ValidateRange(1, 65535)]
+    [int]$WebPort = 5174,
+    [string]$Provider = "claude_code",
+    [string]$Model = "sonnet",
+    [string]$CteFileCapacity = "8GB",
+    [string]$CteRamCapacity = "1GB",
+    [switch]$ResetState
+)
+
+$ErrorActionPreference = "Stop"
+$skillRoot = Split-Path -Parent $PSScriptRoot
+$stopScript = Join-Path $PSScriptRoot "Stop-ClioDev.ps1"
+$preflightScript = Join-Path $PSScriptRoot "Test-ClioDevPreflight.ps1"
+$backendRoot = [System.IO.Path]::GetFullPath($BackendRepo)
+$frontendRoot = [System.IO.Path]::GetFullPath($FrontendRepo)
+$devRootFull = [System.IO.Path]::GetFullPath($DevRoot)
+$runtimeRoot = Join-Path $devRootFull "runtime\clio-agent-dev"
+$logRoot = Join-Path $devRootFull "logs"
+$webRoot = Join-Path $frontendRoot "web"
+
+foreach ($requiredPath in @($backendRoot, $frontendRoot, $webRoot, $skillRoot)) {
+    if (-not (Test-Path -LiteralPath $requiredPath)) {
+        throw "Required path does not exist: $requiredPath"
+    }
+}
+
+& $stopScript -DevRoot $devRootFull -BackendPort $BackendPort -WebPort $WebPort
+
+if ($ResetState -and (Test-Path -LiteralPath $runtimeRoot)) {
+    $resolvedRuntime = [System.IO.Path]::GetFullPath($runtimeRoot)
+    $resolvedAllowed = [System.IO.Path]::GetFullPath((Join-Path $devRootFull "runtime"))
+    if (-not $resolvedRuntime.StartsWith($resolvedAllowed, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to delete runtime outside $resolvedAllowed."
+    }
+    Remove-Item -LiteralPath $resolvedRuntime -Recurse -Force
+}
+
+New-Item -ItemType Directory -Force -Path $runtimeRoot, $logRoot | Out-Null
+$backendStdout = Join-Path $logRoot "clio-agent-$BackendPort.stdout.log"
+$backendStderr = Join-Path $logRoot "clio-agent-$BackendPort.stderr.log"
+$webStdout = Join-Path $logRoot "gact-web-$WebPort.stdout.log"
+$webStderr = Join-Path $logRoot "gact-web-$WebPort.stderr.log"
+
+$uv = (Get-Command uv -ErrorAction Stop).Source
+$runtimeEnvironment = @{
+    CLIO_USER_DIR = $runtimeRoot
+    CLIO_RUNTIME_STATE_DIR = Join-Path $runtimeRoot "clio-core-runtime"
+    CLIO_SESSIONS_PATH = Join-Path $runtimeRoot "sessions.json"
+    CLIO_ARC_STORE = "cte"
+    CLIO_ARC_CTE_DIR = Join-Path $runtimeRoot "cte"
+    CLIO_ARC_CTE_FILE_CAPACITY = $CteFileCapacity
+    CLIO_ARC_CTE_RAM_CAPACITY = $CteRamCapacity
+    CLIO_LM_PROVIDER = $Provider
+    CLIO_LM_MODEL = $Model
+    CLIO_CLAUDE_CODE_TRANSPORT = "sdk"
+}
+$originalEnvironment = @{}
+foreach ($name in $runtimeEnvironment.Keys) {
+    $originalEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+    [Environment]::SetEnvironmentVariable($name, $runtimeEnvironment[$name], "Process")
+}
+
+try {
+    $backendProcess = Start-Process -FilePath $uv -WorkingDirectory $backendRoot -ArgumentList @(
+        "run", "clio-agent", "serve",
+        "--host", "127.0.0.1",
+        "--port", "$BackendPort"
+    ) -RedirectStandardOutput $backendStdout -RedirectStandardError $backendStderr -WindowStyle Hidden -PassThru
+}
+finally {
+    foreach ($name in $originalEnvironment.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $originalEnvironment[$name], "Process")
+    }
+}
+
+$healthUri = "http://127.0.0.1:$BackendPort/v1/health"
+$deadline = [DateTime]::UtcNow.AddSeconds(120)
+do {
+    if ($backendProcess.HasExited) {
+        throw "CLIO backend exited during startup. See $backendStderr"
+    }
+    try {
+        $health = Invoke-RestMethod -Uri $healthUri -TimeoutSec 3
+    }
+    catch {
+        $health = $null
+    }
+    if ($null -ne $health -and $health.overall_status -eq "ready") {
+        break
+    }
+    Start-Sleep -Milliseconds 500
+} while ([DateTime]::UtcNow -lt $deadline)
+
+if ($null -eq $health -or $health.overall_status -ne "ready") {
+    Stop-Process -Id $backendProcess.Id -Force -ErrorAction SilentlyContinue
+    throw "CLIO backend did not become ready within 120 seconds."
+}
+
+$viteCommand = Join-Path $webRoot "node_modules\.bin\vite.cmd"
+if (-not (Test-Path -LiteralPath $viteCommand)) {
+    throw "Vite is not installed at $viteCommand. Run pnpm install in the repository first."
+}
+
+$webProcess = Start-Process -FilePath $viteCommand -WorkingDirectory $webRoot -ArgumentList @(
+    "--force",
+    "--host", "127.0.0.1",
+    "--port", "$WebPort"
+) -RedirectStandardOutput $webStdout -RedirectStandardError $webStderr -WindowStyle Hidden -PassThru
+
+$webDeadline = [DateTime]::UtcNow.AddSeconds(60)
+do {
+    if ($webProcess.HasExited) {
+        throw "CLIO web exited during startup. See $webStderr"
+    }
+    try {
+        $webResponse = Invoke-WebRequest -Uri "http://127.0.0.1:$WebPort/" -TimeoutSec 3
+    }
+    catch {
+        $webResponse = $null
+    }
+    if ($null -ne $webResponse -and $webResponse.StatusCode -eq 200) {
+        break
+    }
+    Start-Sleep -Milliseconds 300
+} while ([DateTime]::UtcNow -lt $webDeadline)
+
+if ($null -eq $webResponse -or $webResponse.StatusCode -ne 200) {
+    & $stopScript -DevRoot $devRootFull -BackendPort $BackendPort -WebPort $WebPort
+    throw "CLIO web did not become ready within 60 seconds."
+}
+
+@{
+    backend_pid = $backendProcess.Id
+    web_pid = $webProcess.Id
+    backend_port = $BackendPort
+    web_port = $WebPort
+    started_at = [DateTime]::UtcNow.ToString("o")
+} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtimeRoot "dev-processes.json")
+
+& $preflightScript -BackendPort $BackendPort -WebPort $WebPort -ExpectedProvider $Provider -ExpectedModel $Model
