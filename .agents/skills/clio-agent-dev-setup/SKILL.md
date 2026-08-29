@@ -1,95 +1,127 @@
 ---
 name: clio-agent-dev-setup
-description: Start, restart, clean, and verify one local CLIO development backend and React UI on Windows. Use for CLIO dev mode, recurring ARC/CTE startup errors, stale endpoints, provider/model mismatches, bundled marketplace installation, or preparing a clean environment before a live run.
+description: Clean, start, restart, and verify one contained CLIO development backend and React UI on Windows. Use for CLIO dev mode, ARC/CTE startup failures, stale endpoints, provider/model mismatches, marketplace installation, disk hygiene, or preparing a reproducible live qualification run.
 ---
 
 # CLIO agent development setup
 
-Use the scripts in `scripts/` instead of rebuilding the environment from memory. The contract is one backend, one clio-core daemon, one web server, one dedicated state root, and no demo submission until preflight passes.
+Use the scripts in `scripts/`; do not rebuild this workflow from memory. The contract is one disposable development root, one backend, one clio-core daemon, one web server, and no prompt submission until preflight passes.
 
-## Start or restart
+## Single writable root
+
+All generated CLIO development state belongs under exactly:
+
+```text
+D:\Libraries\Documents\projects\clio_develop_workspace
+```
+
+This includes runtime source clones, Python environments, Node dependencies, uv/pnpm/npm caches, temporary files, child-agent caches, CTE/ARC state, tools, configuration, logs, run workspaces, screenshots, and qualification output. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
+
+Never create or reuse `D:\tmp`, `D:\relay-local`, `D:\ws`, `D:\clio-workspace`, a checkout-local `.venv`, a source-repository `node_modules`, a `PYTHONPATH` overlay, or another checkout's environment. The containment audit treats the four legacy roots as failures.
+
+## Hard reset
 
 Run from this skill directory:
+
+```powershell
+.\scripts\Reset-ClioDev.ps1 -Confirm:$false
+```
+
+Reset stops only the recorded CLIO processes and listeners on the configured CLIO ports, deletes the development root itself, and verifies that it is absent. It never renames, moves, quarantines, or preserves a broken tree. If Windows denies deletion, stop: repair the ACLs in an elevated Windows shell, delete the same exact root, and rerun reset. Do not create a replacement root beside it and do not continue qualification around the residue.
+
+Use `-RecreateRoot` only when the next operation needs an empty root immediately. Do not add deletion targets outside the owned root.
+
+## Start or restart
 
 ```powershell
 .\scripts\Start-ClioDev.ps1
 ```
 
-Start and stop are clean by default. They delete only the owned disposable runtime at `D:\Libraries\Documents\projects\clio_develop_workspace\runtime\clio-agent-dev`; they do not touch canonical NDP/SPOTTER evidence, repository worktrees, or the retained workspace root. Pass `-PreserveState` explicitly only when saved development sessions must survive a restart.
+Clean startup is the default. It:
+
+1. deletes and recreates the owned root;
+2. clones the exact committed backend and frontend heads into `worktrees` inside it;
+3. initializes pinned submodules;
+4. reproduces the backend with `uv sync --frozen` inside the runtime clone;
+5. installs the frontend with `pnpm install --frozen-lockfile` inside the runtime clone;
+6. redirects temp, caches, tool installs, child-process state, logs, workspaces, and CTE data into the owned root;
+7. installs the bundled marketplace launcher in the contained tool directory;
+8. starts one backend and one UI; and
+9. runs mandatory preflight.
 
 Defaults:
 
-- backend: `D:\Libraries\Documents\projects\.codex-campaign-clio-agent`
-- web repository: `D:\Libraries\Documents\projects\gact-tui-node-revamp`
+- source backend: `D:\Libraries\Documents\projects\.codex-campaign-clio-agent`
+- source frontend: `D:\Libraries\Documents\projects\gact-tui-node-revamp`
 - backend/UI: `http://127.0.0.1:8787` and `http://127.0.0.1:5174`
 - provider/model: Claude Code SDK and Sonnet
 - ARC: CTE only, 8 GB cold tier, 1 GB RAM bound
-- SPOTTER: the installed blueprint implementation and a generated native-provider YAML are exported to the backend as `SPOTTER_IMPL_DIR` and `SPOTTER_CLIO_CONFIG`
 
-Override paths, ports, provider, model, or CTE capacities with script parameters when the task requires a different exact head.
+Override source paths, ports, provider, model, or CTE capacity only when the task identifies another exact head or contract. Commit intended source changes before qualification; runtime clones deliberately exclude dirty or uncommitted filesystem state.
+
+`-PreserveState` is only for a short restart of the same known run at the same cloned heads. It must not be used after dependency, branch, provider, marketplace, schema, MCP, ARC/CTE, or startup failures. Those require a hard reset.
 
 ## Mandatory preflight
 
-`Start-ClioDev.ps1` calls `Test-ClioDevPreflight.ps1` after startup. Run it again before every live qualification:
+`Start-ClioDev.ps1` calls both the containment audit and live preflight. Run them again before every qualification:
 
 ```powershell
+.\scripts\Test-ClioDevContainment.ps1
 .\scripts\Test-ClioDevPreflight.ps1
 ```
 
-It fails when:
+Containment fails when generated paths escape the owned root or a legacy runtime root exists. Live preflight fails when:
 
 - the API is not `ready`;
 - ARC is not backed by the live clio-core/CTE daemon;
-- the configured provider, model, or transport differs from the requested values;
-- the expected bundled blueprints are absent or invalid;
-- the SPOTTER implementation or its explicit native-provider configuration is missing;
-- the required `geo`, `ndp`, `pandas`, and `plot` MCP namespaces do not finish cold startup and report `ready` with their real tool catalogs;
-- a real ARC sentinel cannot be written, read back, and deleted through the configured CTE store;
-- the backend or UI port is not owned by exactly one process;
-- the UI is not reachable.
+- provider, model, or SDK transport differs from the requested values;
+- bundled marketplace blueprints are absent, invalid, or merely advertised rather than installed;
+- SPOTTER's implementation or native-provider configuration is missing;
+- required `geo`, `ndp`, `pandas`, and `plot` MCP namespaces do not complete cold startup with real catalogs;
+- an ARC sentinel cannot be written, read, and deleted through CTE;
+- a CLIO port has zero or multiple owners; or
+- the UI is unreachable.
 
-The MCP handshake is intentionally a warm-up gate, not a catalog-presence check. A newly installed namespace can require more than one handshake while its isolated environment is created. Preflight retries the live handshake and fails with each unresolved namespace and server-reported reason; do not submit a qualification prompt until this completes.
+MCP preparation is a warm-up gate, not a catalog-presence check. Retry only within the bounded preflight. Never submit a qualification prompt while any namespace is unresolved.
 
-Warnings remain warnings only when the service reports an explicit degraded capability, such as the unverified Windows sandbox. The CTE capacity diagnostic is also surfaced: a preallocated `storage.bin` can make the current doctor report 100% even on an empty store, so do not treat that specific number as used-byte evidence.
-
-## Environment ownership
-
-The start script owns one canonical environment derived from the selected backend checkout. It runs `uv sync --frozen` before launch, verifies the current schema, `psutil`, and `iowarp-core` imports, and then launches with `uv run --frozen --no-sync`. Do not borrow another checkout's `.venv`, add an overlay to `PYTHONPATH`, or repair only one missing wheel in place. A server that cannot reproduce the lock is not ready.
-
-The script also installs the bundled marketplace's pinned `clio-kit` launcher into the dedicated disposable runtime, never the user's global tool directory. The backend receives only that runtime's bin directory on `PATH`. Marketplace blueprints and their declared MCP catalogs are therefore checked against the same launcher installation that the server will actually use.
-
-For Linux qualification hosts, first verify that the host glibc satisfies every locked native wheel. If it does not, use a clean container built from the exact checkout or upgrade the host; never omit `iowarp-core` or switch the qualification to LocalFS. Initialize the checkout's pinned submodules before installing its bundled marketplace. Qualification drivers must use fail-fast HTTP calls and must stop on any failed/error session state.
+Warnings remain warnings only when the service reports an explicit degraded capability. Never reinterpret a sparse CTE file's logical size as allocated disk usage; capacity and disk diagnostics must use physical allocation evidence.
 
 ## Browser check before a run
 
-Open the visible connection flow at `http://127.0.0.1:5174/?intent=connect`. Do not inspect or mutate browser storage directly.
+Open `http://127.0.0.1:5174/?intent=connect` through the visible connection flow. Do not mutate browser storage directly.
 
-1. Select or enter `http://127.0.0.1:8787`.
-2. Confirm the page says the service is ready.
-3. Create an empty disposable session.
-4. Confirm the empty-session welcome renders and the model picker shows the requested provider/model.
-5. Confirm the blueprint catalog contains the expected bundled marketplace entries.
-6. Do not submit a demo prompt as part of setup.
+1. Select `http://127.0.0.1:8787`.
+2. Confirm the service reports ready.
+3. Create one empty disposable session.
+4. Confirm the empty-session welcome and requested provider/model.
+5. Confirm the bundled blueprint catalog is installed and usable.
+6. Stop setup without submitting a demo prompt.
 
-If the page opens a dead remembered endpoint, treat that as a failed preflight and repair it through the connection UI. A healthy backend alone is not a usable environment.
+A dead remembered endpoint, mismatched picker/backend provider, missing implementation, or delayed MCP install is a failed setup—not a reason to switch demos or providers.
 
-## Stop
+## Finish and clean
+
+Default stop removes the complete development root after stopping its processes:
 
 ```powershell
 .\scripts\Stop-ClioDev.ps1
 ```
 
-The stop script targets only PIDs recorded in the dedicated dev runtime plus listeners on the configured CLIO ports. It does not kill unrelated Python, Node, or Rust processes. After those processes stop, it removes its disposable runtime by default; use `-PreserveState` only when that state is intentionally retained.
+Use `-PreserveState` only while actively diagnosing the same run. After capturing the minimal evidence required by the task, run the default stop and verify:
 
-## Clean-space policy
+```powershell
+.\scripts\Test-ClioDevContainment.ps1
+```
 
-The allocated `clio_develop_workspace` is disposable infrastructure. Keep only the active runtime, current qualification workspaces, current diagnostic logs, and small configuration or manifests required to reproduce retained evidence. Remove failed sessions, stale demo outputs, superseded relay harnesses, stale runtime trees, duplicate worktrees, caches, copied repositories, and misleading generated artifacts. Prefer the Recycle Bin for recoverability. Quarantine ACL-locked paths with a `.delete-pending-acl-*` prefix and report that elevated deletion remains.
+Do not accumulate failed sessions, copied repositories, alternate environments, renamed cleanup trees, stale CAE/child-agent caches, or superseded demo outputs. Reproduction comes from committed heads and lockfiles, not preservation of generated state.
 
 ## Non-negotiable behavior
 
 - Never fall back from CTE to LocalFS.
 - Never switch providers silently.
 - Never start the old flat NDP demo as a setup substitute.
-- Never interpret installed catalog entries as runtime-ready without querying the live backend.
+- Never treat catalog presence as runtime readiness.
+- Never borrow, patch, or overlay an environment from another checkout.
+- Never move failed cleanup state aside; deletion must succeed before work continues.
 - Never run a demo automatically; setup ends at an empty verified session.
 - Preserve server-reported degradation and provenance instead of fabricating green status.
