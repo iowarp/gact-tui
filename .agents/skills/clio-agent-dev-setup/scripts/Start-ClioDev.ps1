@@ -11,10 +11,10 @@ param(
     [string]$Model = "sonnet",
     [string]$CteFileCapacity = "8GB",
     [string]$CteRamCapacity = "1GB",
-    [string]$ClioKitVersion = "2.2.3",
+    [string]$ClioKitVersion = "2.10.6",
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
-    [switch]$ResetState
+    [switch]$PreserveState
 )
 
 $ErrorActionPreference = "Stop"
@@ -44,7 +44,16 @@ foreach ($requiredPath in @($backendRoot, $frontendRoot, $webRoot, $skillRoot)) 
     }
 }
 
-& $stopScript -DevRoot $devRootFull -BackendPort $BackendPort -WebPort $WebPort
+if ($PreserveState) {
+    & $stopScript `
+        -DevRoot $devRootFull `
+        -BackendPort $BackendPort `
+        -WebPort $WebPort `
+        -PreserveState
+}
+else {
+    & $stopScript -DevRoot $devRootFull -BackendPort $BackendPort -WebPort $WebPort
+}
 
 $uv = (Get-Command uv -ErrorAction Stop).Source
 & $uv sync --frozen --project $backendRoot
@@ -56,7 +65,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "The synchronized backend environment is missing CTE, process-lifecycle, or current schema imports."
 }
 
-if ($ResetState -and (Test-Path -LiteralPath $runtimeRoot)) {
+if (-not $PreserveState -and (Test-Path -LiteralPath $runtimeRoot)) {
     $resolvedRuntime = [System.IO.Path]::GetFullPath($runtimeRoot)
     $resolvedAllowed = [System.IO.Path]::GetFullPath((Join-Path $devRootFull "runtime"))
     if (-not $resolvedRuntime.StartsWith($resolvedAllowed, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -204,5 +213,6 @@ if ($null -eq $webResponse -or $webResponse.StatusCode -ne 200) {
     -WebPort $WebPort `
     -ExpectedProvider $Provider `
     -ExpectedModel $Model `
+    -BackendRepo $backendRoot `
     -SpotterImplDir $spotterImplRoot `
     -SpotterConfigPath $spotterConfigFull

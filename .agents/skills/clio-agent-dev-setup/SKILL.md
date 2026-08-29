@@ -12,10 +12,10 @@ Use the scripts in `scripts/` instead of rebuilding the environment from memory.
 Run from this skill directory:
 
 ```powershell
-.\scripts\Start-ClioDev.ps1 -ResetState
+.\scripts\Start-ClioDev.ps1
 ```
 
-`-ResetState` deletes only the dedicated runtime at `D:\Libraries\Documents\projects\clio_develop_workspace\runtime\clio-agent-dev`. It does not touch canonical NDP/SPOTTER evidence or repository worktrees. Omit it when saved dev sessions must survive.
+Start and stop are clean by default. They delete only the owned disposable runtime at `D:\Libraries\Documents\projects\clio_develop_workspace\runtime\clio-agent-dev`; they do not touch canonical NDP/SPOTTER evidence, repository worktrees, or the retained workspace root. Pass `-PreserveState` explicitly only when saved development sessions must survive a restart.
 
 Defaults:
 
@@ -44,6 +44,7 @@ It fails when:
 - the expected bundled blueprints are absent or invalid;
 - the SPOTTER implementation or its explicit native-provider configuration is missing;
 - the required `geo`, `ndp`, `pandas`, and `plot` MCP namespaces do not finish cold startup and report `ready` with their real tool catalogs;
+- a real ARC sentinel cannot be written, read back, and deleted through the configured CTE store;
 - the backend or UI port is not owned by exactly one process;
 - the UI is not reachable.
 
@@ -78,7 +79,7 @@ If the page opens a dead remembered endpoint, treat that as a failed preflight a
 .\scripts\Stop-ClioDev.ps1
 ```
 
-The stop script targets only PIDs recorded in the dedicated dev runtime plus listeners on the configured CLIO ports. It does not kill unrelated Python, Node, or Rust processes.
+The stop script targets only PIDs recorded in the dedicated dev runtime plus listeners on the configured CLIO ports. It does not kill unrelated Python, Node, or Rust processes. After those processes stop, it removes its disposable runtime by default; use `-PreserveState` only when that state is intentionally retained.
 
 ## Clean-space policy
 

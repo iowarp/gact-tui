@@ -7,6 +7,8 @@ param(
     [string]$ExpectedProvider = "claude_code",
     [string]$ExpectedModel = "sonnet",
     [string]$ExpectedTransport = "sdk",
+    [string]$BackendRepo = "D:\Libraries\Documents\projects\.codex-campaign-clio-agent",
+    [string]$ArcProbeScript = "",
     [string]$SpotterImplDir = "D:\Libraries\Documents\projects\clio_develop_workspace\runtime\clio-agent-dev\agent-blueprints\spotter-ai\impl",
     [string]$SpotterConfigPath = "D:\Libraries\Documents\projects\clio_develop_workspace\spotter-clio-config.yaml",
     [string[]]$RequiredMcpNamespaces = @("geo", "ndp", "pandas", "plot"),
@@ -32,6 +34,11 @@ param(
 $ErrorActionPreference = "Stop"
 $backendUrl = "http://127.0.0.1:$BackendPort"
 $webUrl = "http://127.0.0.1:$WebPort"
+$backendRoot = [System.IO.Path]::GetFullPath($BackendRepo)
+if (-not $ArcProbeScript) {
+    $ArcProbeScript = Join-Path $PSScriptRoot "Test-ArcWriteReadDelete.py"
+}
+$arcProbeFull = [System.IO.Path]::GetFullPath($ArcProbeScript)
 
 function Get-OneListenerPid {
     param(
@@ -167,6 +174,18 @@ if ($mcpFailures.Count -gt 0) {
     throw "Required MCP namespaces did not become ready after $McpWarmupAttempts attempts: $($mcpFailures -join '; ')."
 }
 
+if (-not (Test-Path -LiteralPath $backendRoot -PathType Container)) {
+    throw "Backend repository is missing for the ARC write probe: $backendRoot"
+}
+if (-not (Test-Path -LiteralPath $arcProbeFull -PathType Leaf)) {
+    throw "ARC write probe is missing: $arcProbeFull"
+}
+$uv = (Get-Command uv -ErrorAction Stop).Source
+& $uv run --frozen --no-sync --project $backendRoot python $arcProbeFull
+if ($LASTEXITCODE -ne 0) {
+    throw "ARC write/read/delete probe failed after MCP preparation."
+}
+
 $readyMcpServers = @(
     $mcpServers |
         Where-Object { $_.name -in $RequiredMcpNamespaces } |
@@ -199,5 +218,6 @@ foreach ($item in $degraded) {
     spotter_impl_dir = $spotterImplRoot
     spotter_config_path = $spotterConfigFull
     required_mcp_namespaces = $readyMcpServers
+    arc_write_read_delete = "ready"
     warnings = $warnings
 } | ConvertTo-Json -Depth 5

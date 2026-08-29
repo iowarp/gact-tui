@@ -6,7 +6,8 @@ param(
     [ValidateRange(1, 65535)]
     [int]$WebPort = 5174,
     [ValidateRange(1, 65535)]
-    [int]$CtePort = 9413
+    [int]$CtePort = 9413,
+    [switch]$PreserveState
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,4 +49,13 @@ foreach ($port in @($BackendPort, $WebPort, $CtePort)) {
 
 if (Test-Path -LiteralPath $statePath) {
     Remove-Item -LiteralPath $statePath -Force
+}
+
+if (-not $PreserveState -and (Test-Path -LiteralPath $runtimeRoot)) {
+    $resolvedDevRuntime = [System.IO.Path]::GetFullPath((Join-Path $DevRoot "runtime"))
+    if (-not $runtimeRoot.StartsWith($resolvedDevRuntime, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to delete runtime outside $resolvedDevRuntime."
+    }
+    Remove-Item -LiteralPath $runtimeRoot -Recurse -Force
+    Write-Host "Removed disposable CLIO development runtime $runtimeRoot."
 }
