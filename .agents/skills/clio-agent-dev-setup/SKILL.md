@@ -55,6 +55,8 @@ Warnings remain warnings only when the service reports an explicit degraded capa
 
 The start script owns one canonical environment derived from the selected backend checkout. It runs `uv sync --frozen` before launch, verifies the current schema, `psutil`, and `iowarp-core` imports, and then launches with `uv run --frozen --no-sync`. Do not borrow another checkout's `.venv`, add an overlay to `PYTHONPATH`, or repair only one missing wheel in place. A server that cannot reproduce the lock is not ready.
 
+The script also installs the bundled marketplace's pinned `clio-kit` launcher into the dedicated disposable runtime, never the user's global tool directory. The backend receives only that runtime's bin directory on `PATH`. Marketplace blueprints and their declared MCP catalogs are therefore checked against the same launcher installation that the server will actually use.
+
 For Linux qualification hosts, first verify that the host glibc satisfies every locked native wheel. If it does not, use a clean container built from the exact checkout or upgrade the host; never omit `iowarp-core` or switch the qualification to LocalFS. Initialize the checkout's pinned submodules before installing its bundled marketplace. Qualification drivers must use fail-fast HTTP calls and must stop on any failed/error session state.
 
 ## Browser check before a run

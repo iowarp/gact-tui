@@ -116,6 +116,12 @@ if ($bundledSource.status -ne "ready") {
     throw "The default marketplace source is '$($bundledSource.status)', not ready."
 }
 $sourceBlueprintIds = @($bundledSource.available_blueprints.id)
+$uninstalledSourceBlueprints = @(
+    $sourceBlueprintIds | Where-Object { $_ -notin $installedIds }
+)
+if ($uninstalledSourceBlueprints.Count -gt 0) {
+    throw "The default marketplace advertises blueprints that are not installed: $($uninstalledSourceBlueprints -join ', ')."
+}
 $missingSourceBlueprints = @(
     $RequiredBlueprints | Where-Object { $_ -notin $sourceBlueprintIds }
 )
