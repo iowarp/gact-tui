@@ -24,6 +24,7 @@ Defaults:
 - backend/UI: `http://127.0.0.1:8787` and `http://127.0.0.1:5174`
 - provider/model: Claude Code SDK and Sonnet
 - ARC: CTE only, 8 GB cold tier, 1 GB RAM bound
+- SPOTTER: the installed blueprint implementation and a generated native-provider YAML are exported to the backend as `SPOTTER_IMPL_DIR` and `SPOTTER_CLIO_CONFIG`
 
 Override paths, ports, provider, model, or CTE capacities with script parameters when the task requires a different exact head.
 
@@ -41,6 +42,7 @@ It fails when:
 - ARC is not backed by the live clio-core/CTE daemon;
 - the configured provider, model, or transport differs from the requested values;
 - the expected bundled blueprints are absent or invalid;
+- the SPOTTER implementation or its explicit native-provider configuration is missing;
 - the required `geo`, `ndp`, `pandas`, and `plot` MCP namespaces do not finish cold startup and report `ready` with their real tool catalogs;
 - the backend or UI port is not owned by exactly one process;
 - the UI is not reachable.
@@ -72,7 +74,7 @@ The stop script targets only PIDs recorded in the dedicated dev runtime plus lis
 
 ## Clean-space policy
 
-The allocated `clio_develop_workspace` is disposable infrastructure. Keep only active qualification workspaces, required relay harnesses, current diagnostic logs, and small manifests that explain retained evidence. Remove failed sessions, stale demo outputs, stale runtime trees, duplicate worktrees, caches, copied repositories, and misleading generated artifacts. Quarantine ACL-locked paths with a `.delete-pending-acl-*` prefix and report that elevated deletion remains.
+The allocated `clio_develop_workspace` is disposable infrastructure. Keep only the active runtime, current qualification workspaces, current diagnostic logs, and small configuration or manifests required to reproduce retained evidence. Remove failed sessions, stale demo outputs, superseded relay harnesses, stale runtime trees, duplicate worktrees, caches, copied repositories, and misleading generated artifacts. Prefer the Recycle Bin for recoverability. Quarantine ACL-locked paths with a `.delete-pending-acl-*` prefix and report that elevated deletion remains.
 
 ## Non-negotiable behavior
 

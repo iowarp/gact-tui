@@ -7,6 +7,8 @@ param(
     [string]$ExpectedProvider = "claude_code",
     [string]$ExpectedModel = "sonnet",
     [string]$ExpectedTransport = "sdk",
+    [string]$SpotterImplDir = "D:\Libraries\Documents\projects\clio_develop_workspace\runtime\clio-agent-dev\agent-blueprints\spotter-ai\impl",
+    [string]$SpotterConfigPath = "D:\Libraries\Documents\projects\clio_develop_workspace\spotter-clio-config.yaml",
     [string[]]$RequiredMcpNamespaces = @("geo", "ndp", "pandas", "plot"),
     [ValidateRange(1, 10)]
     [int]$McpWarmupAttempts = 4,
@@ -54,6 +56,8 @@ $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 10
 $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
 $sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 10
 $webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 10
+$spotterImplRoot = [System.IO.Path]::GetFullPath($SpotterImplDir)
+$spotterConfigFull = [System.IO.Path]::GetFullPath($SpotterConfigPath)
 
 if ($health.overall_status -ne "ready") {
     throw "CLIO health is '$($health.overall_status)', not ready."
@@ -85,6 +89,22 @@ $installedIds = @($blueprints.id)
 $missingBlueprints = @($RequiredBlueprints | Where-Object { $_ -notin $installedIds })
 if ($missingBlueprints.Count -gt 0) {
     throw "Required bundled blueprints are missing: $($missingBlueprints -join ', ')."
+}
+
+if (-not (Test-Path -LiteralPath $spotterImplRoot -PathType Container)) {
+    throw "SPOTTER implementation is missing: $spotterImplRoot"
+}
+if (-not (Test-Path -LiteralPath $spotterConfigFull -PathType Leaf)) {
+    throw "SPOTTER CLIO configuration is missing: $spotterConfigFull"
+}
+$spotterConfigText = Get-Content -Raw -LiteralPath $spotterConfigFull
+foreach ($requiredSetting in @(
+    "provenance.agentic.jsonl.path:",
+    "provenance.artifacts.native.workspace_root:"
+)) {
+    if (-not $spotterConfigText.Contains($requiredSetting)) {
+        throw "SPOTTER CLIO configuration omits '$requiredSetting'."
+    }
 }
 
 $sourceRows = @($sources.sources)
@@ -170,6 +190,8 @@ foreach ($item in $degraded) {
     blueprint_ids = $installedIds
     marketplace_source = $bundledSource.name
     marketplace_commit = $bundledSource.commit
+    spotter_impl_dir = $spotterImplRoot
+    spotter_config_path = $spotterConfigFull
     required_mcp_namespaces = $readyMcpServers
     warnings = $warnings
 } | ConvertTo-Json -Depth 5
