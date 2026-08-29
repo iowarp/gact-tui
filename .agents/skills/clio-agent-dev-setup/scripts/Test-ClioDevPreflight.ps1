@@ -7,6 +7,11 @@ param(
     [string]$ExpectedProvider = "claude_code",
     [string]$ExpectedModel = "sonnet",
     [string]$ExpectedTransport = "sdk",
+    [string[]]$RequiredMcpNamespaces = @("geo", "ndp", "pandas", "plot"),
+    [ValidateRange(1, 10)]
+    [int]$McpWarmupAttempts = 4,
+    [ValidateRange(10, 600)]
+    [int]$McpWarmupTimeoutSec = 180,
     [string[]]$RequiredBlueprints = @(
         "base-agent",
         "cluster-operator",
@@ -98,6 +103,50 @@ if ($missingSourceBlueprints.Count -gt 0) {
     throw "The default marketplace source omits: $($missingSourceBlueprints -join ', ')."
 }
 
+$mcpServers = @()
+$mcpFailures = @()
+for ($attempt = 1; $attempt -le $McpWarmupAttempts; $attempt++) {
+    try {
+        $handshake = Invoke-RestMethod `
+            -Uri "$backendUrl/v1/mcp/handshake" `
+            -TimeoutSec $McpWarmupTimeoutSec
+        $mcpServers = @($handshake.servers)
+        $mcpFailures = @(
+            foreach ($namespace in $RequiredMcpNamespaces) {
+                $server = $mcpServers |
+                    Where-Object { $_.name -eq $namespace } |
+                    Select-Object -First 1
+                if ($null -eq $server) {
+                    "${namespace}: absent from handshake"
+                }
+                elseif (-not $server.reachable -or $server.state -ne "ready") {
+                    "${namespace}: state=$($server.state), error=$($server.error)"
+                }
+            }
+        )
+    }
+    catch {
+        $mcpFailures = @("handshake request failed: $($_.Exception.Message)")
+    }
+
+    if ($mcpFailures.Count -eq 0) {
+        break
+    }
+    if ($attempt -lt $McpWarmupAttempts) {
+        Start-Sleep -Seconds 2
+    }
+}
+
+if ($mcpFailures.Count -gt 0) {
+    throw "Required MCP namespaces did not become ready after $McpWarmupAttempts attempts: $($mcpFailures -join '; ')."
+}
+
+$readyMcpServers = @(
+    $mcpServers |
+        Where-Object { $_.name -in $RequiredMcpNamespaces } |
+        Select-Object name, state, tools_count, latency_ms
+)
+
 if ($webResponse.StatusCode -ne 200) {
     throw "CLIO web returned HTTP $($webResponse.StatusCode)."
 }
@@ -121,5 +170,6 @@ foreach ($item in $degraded) {
     blueprint_ids = $installedIds
     marketplace_source = $bundledSource.name
     marketplace_commit = $bundledSource.commit
+    required_mcp_namespaces = $readyMcpServers
     warnings = $warnings
 } | ConvertTo-Json -Depth 5

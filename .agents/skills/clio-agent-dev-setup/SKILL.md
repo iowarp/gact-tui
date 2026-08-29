@@ -41,8 +41,11 @@ It fails when:
 - ARC is not backed by the live clio-core/CTE daemon;
 - the configured provider, model, or transport differs from the requested values;
 - the expected bundled blueprints are absent or invalid;
+- the required `geo`, `ndp`, `pandas`, and `plot` MCP namespaces do not finish cold startup and report `ready` with their real tool catalogs;
 - the backend or UI port is not owned by exactly one process;
 - the UI is not reachable.
+
+The MCP handshake is intentionally a warm-up gate, not a catalog-presence check. A newly installed namespace can require more than one handshake while its isolated environment is created. Preflight retries the live handshake and fails with each unresolved namespace and server-reported reason; do not submit a qualification prompt until this completes.
 
 Warnings remain warnings only when the service reports an explicit degraded capability, such as the unverified Windows sandbox. The CTE capacity diagnostic is also surfaced: a preallocated `storage.bin` can make the current doctor report 100% even on an empty store, so do not treat that specific number as used-byte evidence.
 
@@ -69,7 +72,7 @@ The stop script targets only PIDs recorded in the dedicated dev runtime plus lis
 
 ## Clean-space policy
 
-The allocated `clio_develop_workspace` is disposable infrastructure. Keep canonical `clio-workspace\ndp-demo`, working `clio-workspace\spotter-r4`, required relay harnesses, active logs, and intentionally retained archives. Remove failed sessions, stale runtime trees, duplicate worktrees, caches, and misleading generated artifacts. Quarantine ACL-locked paths with a `.delete-pending-acl-*` prefix and report that elevated deletion remains.
+The allocated `clio_develop_workspace` is disposable infrastructure. Keep only active qualification workspaces, required relay harnesses, current diagnostic logs, and small manifests that explain retained evidence. Remove failed sessions, stale demo outputs, stale runtime trees, duplicate worktrees, caches, copied repositories, and misleading generated artifacts. Quarantine ACL-locked paths with a `.delete-pending-acl-*` prefix and report that elevated deletion remains.
 
 ## Non-negotiable behavior
 
