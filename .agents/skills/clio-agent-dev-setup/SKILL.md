@@ -15,9 +15,9 @@ All generated CLIO development state belongs under exactly:
 D:\Libraries\Documents\projects\clio_develop_workspace
 ```
 
-This includes runtime source clones, Python environments, Node dependencies, uv/pnpm/npm caches, temporary files, child-agent caches, CTE/ARC state, tools, configuration, logs, run workspaces, screenshots, and qualification output. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
+Each launch uses a unique `generations/<timestamp-pid>` directory inside that root. This includes runtime source clones, Python environments, Node dependencies, uv/pnpm/npm caches, temporary files, child-agent caches, CTE/ARC state, tools, logs, run workspaces, screenshots, and qualification output. `config/active-generation.json` names the one active generation. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
 
-Never create or reuse `D:\tmp`, `D:\relay-local`, `D:\ws`, `D:\clio-workspace`, a checkout-local `.venv`, a source-repository `node_modules`, a `PYTHONPATH` overlay, or another checkout's environment. The containment audit treats the four legacy roots as failures.
+Never create or reuse `D:\tmp`, `D:\relay-local`, `D:\ws`, `D:\clio-workspace`, a source-repository `.venv` or `node_modules`, a `PYTHONPATH` overlay, or another checkout's environment. A `.venv` and `node_modules` inside the disposable runtime clones under the owned root are expected. The containment audit treats the four legacy roots as failures.
 
 ## Hard reset
 
@@ -27,7 +27,7 @@ Run from this skill directory:
 .\scripts\Reset-ClioDev.ps1 -Confirm:$false
 ```
 
-Reset stops only the recorded CLIO processes and listeners on the configured CLIO ports, deletes the development root itself, and verifies that it is absent. It never renames, moves, quarantines, or preserves a broken tree. If Windows denies deletion, stop: repair the ACLs in an elevated Windows shell, delete the same exact root, and rerun reset. Do not create a replacement root beside it and do not continue qualification around the residue.
+Reset stops the active generation's recorded processes, every process whose executable or command line belongs to that generation, and listeners on the configured CLIO ports. It then attempts to delete the whole owned root. It never renames, moves, or quarantines a broken tree. If Windows retains an ACL-locked inactive path after all owned processes and ports are gone, reset records its exact path in `config\cleanup-residue.json` and starts a unique clean generation beside it. Report that residue at handoff; do not promote it into a blocker for unrelated work.
 
 Use `-RecreateRoot` only when the next operation needs an empty root immediately. Do not add deletion targets outside the owned root.
 
@@ -42,19 +42,20 @@ Clean startup is the default. It:
 1. deletes and recreates the owned root;
 2. clones the exact committed backend and frontend heads into `worktrees` inside it;
 3. initializes pinned submodules;
-4. reproduces the backend with `uv sync --frozen` inside the runtime clone;
+4. reproduces the backend with `uv sync --frozen --python 3.12` inside the runtime clone, adding `--extra claude-code` only when the explicitly selected provider is Claude Code, and uses the repository's pinned official SDK dependency for Codex;
 5. installs the frontend with `pnpm install --frozen-lockfile` inside the runtime clone;
 6. redirects temp, caches, tool installs, child-process state, logs, workspaces, and CTE data into the owned root;
 7. installs the bundled marketplace launcher in the contained tool directory;
 8. starts one backend and one UI; and
-9. runs mandatory preflight.
+9. records wall-clock duration for every startup stage in `config\deploy-timing.json`; and
+10. runs mandatory preflight.
 
 Defaults:
 
 - source backend: `D:\Libraries\Documents\projects\.codex-campaign-clio-agent`
 - source frontend: `D:\Libraries\Documents\projects\gact-tui-node-revamp`
 - backend/UI: `http://127.0.0.1:8787` and `http://127.0.0.1:5174`
-- provider/model: Claude Code SDK and Sonnet
+- provider/model: Codex SDK and `gpt-5.6-luna`
 - ARC: CTE only, 8 GB cold tier, 1 GB RAM bound
 
 Override source paths, ports, provider, model, or CTE capacity only when the task identifies another exact head or contract. Commit intended source changes before qualification; runtime clones deliberately exclude dirty or uncommitted filesystem state.
@@ -77,14 +78,39 @@ Containment fails when generated paths escape the owned root or a legacy runtime
 - provider, model, or SDK transport differs from the requested values;
 - bundled marketplace blueprints are absent, invalid, or merely advertised rather than installed;
 - SPOTTER's implementation or native-provider configuration is missing;
-- required `geo`, `ndp`, `pandas`, and `plot` MCP namespaces do not complete cold startup with real catalogs;
+- required `geo`, `ndp`, `pandas`, and `plot` MCP namespaces do not answer a live readiness probe with real catalogs;
 - an ARC sentinel cannot be written, read, and deleted through CTE;
 - a CLIO port has zero or multiple owners; or
 - the UI is unreachable.
 
-MCP preparation is a warm-up gate, not a catalog-presence check. Retry only within the bounded preflight. Never submit a qualification prompt while any namespace is unresolved.
+The MCP check is a readiness probe, not a persistent install or startup step. Retry only within the bounded preflight. Never submit a qualification prompt while any namespace is unresolved.
+
+## MCP lifecycle
+
+Do not describe blueprint MCP declarations as four independent installations:
+
+1. `uv sync` installs `clio-agent`; it does not install the EarthScope MCP namespaces.
+2. Setup installs one pinned `clio-kit` tool before backend launch. Its executable already provides the `ndp`, `geo`, `pandas`, and `plot` server subcommands.
+3. Installing the marketplace blueprint copies its `mcp_servers` declarations. It starts no server process.
+4. Backend launch uses a blueprintless default gateway and starts none of those four servers.
+5. Activating an EarthScope session mounts only that blueprint's declared specs, still without eagerly spawning them.
+6. `GET /v1/mcp/handshake` briefly starts each declared stdio server, lists its tools, records readiness, and closes it. This may warm package and operating-system caches but leaves no durable workspace MCP process.
+7. The first real tool resolution or call starts the namespace for that workspace. The workspace fleet keeps that process available until it is reaped or the backend stops.
+
+The setup's four-namespace probe exists because the EarthScope qualification blueprint declares those four servers. It must not invent a global bundle or imply that every installed blueprint's MCPs are running.
 
 Warnings remain warnings only when the service reports an explicit degraded capability. Never reinterpret a sparse CTE file's logical size as allocated disk usage; capacity and disk diagnostics must use physical allocation evidence.
+
+## Engineering judgment
+
+Classify findings by consequence before acting:
+
+1. Fix immediately when a finding can invalidate the active runtime, user data, protocol truth, security boundary, or qualification evidence.
+2. Contain, record, and continue when a real issue threatens later reproducibility but cannot affect the current isolated generation.
+3. Record without derailing the task when the finding is unrelated residue, cosmetic drift, or harmless environment noise.
+4. Do not spend more time or introduce more risk fixing a low-impact condition than the condition can cause. In particular, never purge shared/global package caches unless evidence shows that cache is corrupt and causally involved.
+
+A failed committed test is a correctness problem and must be investigated. A stale folder is not equivalent to a failed test. Keep the primary objective moving while preserving an exact, honest handoff of every deferred condition.
 
 ## Browser check before a run
 
@@ -122,6 +148,6 @@ Do not accumulate failed sessions, copied repositories, alternate environments, 
 - Never start the old flat NDP demo as a setup substitute.
 - Never treat catalog presence as runtime readiness.
 - Never borrow, patch, or overlay an environment from another checkout.
-- Never move failed cleanup state aside; deletion must succeed before work continues.
+- Never move failed cleanup state aside. Active runtime residue blocks; unrelated residue is tracked and handed off while work continues.
 - Never run a demo automatically; setup ends at an empty verified session.
 - Preserve server-reported degradation and provenance instead of fabricating green status.

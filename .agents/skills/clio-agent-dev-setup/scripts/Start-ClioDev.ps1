@@ -7,8 +7,9 @@ param(
     [int]$BackendPort = 8787,
     [ValidateRange(1, 65535)]
     [int]$WebPort = 5174,
-    [string]$Provider = "claude_code",
-    [string]$Model = "sonnet",
+    [string]$Provider = "codex",
+    [string]$Model = "gpt-5.6-luna",
+    [string]$PythonVersion = "3.12",
     [string]$CteFileCapacity = "8GB",
     [string]$CteRamCapacity = "1GB",
     [string]$ClioKitVersion = "2.10.6",
@@ -18,6 +19,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$deploymentStartedAt = [DateTimeOffset]::Now
+$deploymentStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+$deploymentStages = [System.Collections.Generic.List[object]]::new()
+$deploymentStageName = $null
+$deploymentStageStartedMs = 0L
+$deploymentTimingWritten = $false
 $skillRoot = Split-Path -Parent $PSScriptRoot
 $stopScript = Join-Path $PSScriptRoot "Stop-ClioDev.ps1"
 $resetScript = Join-Path $PSScriptRoot "Reset-ClioDev.ps1"
@@ -26,17 +33,92 @@ $preflightScript = Join-Path $PSScriptRoot "Test-ClioDevPreflight.ps1"
 $backendSource = [System.IO.Path]::GetFullPath($BackendRepo)
 $frontendSource = [System.IO.Path]::GetFullPath($FrontendRepo)
 $devRootFull = [System.IO.Path]::GetFullPath($DevRoot)
-$worktreeRoot = Join-Path $devRootFull "worktrees"
+$configRoot = Join-Path $devRootFull "config"
+$activeGenerationPath = Join-Path $configRoot "active-generation.json"
+if ($PreserveState) {
+    if (-not (Test-Path -LiteralPath $activeGenerationPath -PathType Leaf)) {
+        throw "Cannot preserve state because no active generation manifest exists at $activeGenerationPath."
+    }
+    $activeGeneration = Get-Content -Raw -LiteralPath $activeGenerationPath | ConvertFrom-Json
+    $generationRoot = [System.IO.Path]::GetFullPath([string]$activeGeneration.generation_root)
+    $generationId = [string]$activeGeneration.generation_id
+}
+else {
+    $generationId = "$(Get-Date -Format 'yyyyMMdd-HHmmss')-$PID"
+    $generationRoot = Join-Path $devRootFull "generations\$generationId"
+}
+$worktreeRoot = Join-Path $generationRoot "worktrees"
 $backendRoot = Join-Path $worktreeRoot "clio-agent"
 $frontendRoot = Join-Path $worktreeRoot "gact-tui"
-$runtimeRoot = Join-Path $devRootFull "runtime\clio-agent-dev"
-$logRoot = Join-Path $devRootFull "logs"
+$runtimeRoot = Join-Path $generationRoot "runtime\clio-agent-dev"
+$logRoot = Join-Path $generationRoot "logs"
 $webRoot = Join-Path $frontendRoot "web"
-$workspaceRoot = Join-Path $devRootFull "workspaces"
-$tempRoot = Join-Path $devRootFull "temp"
-$cacheRoot = Join-Path $devRootFull "cache"
-$toolRoot = Join-Path $devRootFull "tools"
-$configRoot = Join-Path $devRootFull "config"
+$workspaceRoot = Join-Path $generationRoot "workspaces"
+$tempRoot = Join-Path $generationRoot "temp"
+$cacheRoot = Join-Path $generationRoot "cache"
+$toolRoot = Join-Path $generationRoot "tools"
+$timingPath = Join-Path $configRoot "deploy-timing.json"
+
+function Set-DeploymentStage {
+    param([Parameter(Mandatory)][string]$Name)
+
+    if ($null -ne $script:deploymentStageName) {
+        $script:deploymentStages.Add([pscustomobject]@{
+            name = $script:deploymentStageName
+            elapsed_seconds = [Math]::Round(
+                ($script:deploymentStopwatch.ElapsedMilliseconds - $script:deploymentStageStartedMs) / 1000,
+                3
+            )
+        })
+    }
+    $script:deploymentStageName = $Name
+    $script:deploymentStageStartedMs = $script:deploymentStopwatch.ElapsedMilliseconds
+}
+
+function Write-DeploymentTiming {
+    param(
+        [Parameter(Mandatory)][ValidateSet("ready", "failed")][string]$Status,
+        [string]$ErrorMessage = ""
+    )
+
+    if ($script:deploymentTimingWritten) {
+        return
+    }
+    $script:deploymentTimingWritten = $true
+    if ($null -ne $script:deploymentStageName) {
+        $script:deploymentStages.Add([pscustomobject]@{
+            name = $script:deploymentStageName
+            elapsed_seconds = [Math]::Round(
+                ($script:deploymentStopwatch.ElapsedMilliseconds - $script:deploymentStageStartedMs) / 1000,
+                3
+            )
+        })
+    }
+    $script:deploymentStopwatch.Stop()
+    try {
+        New-Item -ItemType Directory -Force -Path $configRoot | Out-Null
+        [pscustomobject]@{
+            status = $Status
+            started_at = $script:deploymentStartedAt.ToString("o")
+            finished_at = [DateTimeOffset]::Now.ToString("o")
+            elapsed_seconds = [Math]::Round($script:deploymentStopwatch.Elapsed.TotalSeconds, 3)
+            stages = $script:deploymentStages
+            error = if ($ErrorMessage) { $ErrorMessage } else { $null }
+        } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $timingPath -Encoding utf8
+    }
+    catch {
+        Write-Warning "Could not write deployment timing to ${timingPath}: $($_.Exception.Message)"
+    }
+}
+
+trap {
+    $failure = $_
+    Write-DeploymentTiming -Status "failed" -ErrorMessage $failure.Exception.Message
+    Write-Error -ErrorRecord $failure
+    exit 1
+}
+
+Set-DeploymentStage -Name "validate_inputs"
 
 if (-not $SpotterImplDir) {
     $SpotterImplDir = Join-Path $runtimeRoot "agent-blueprints\spotter-ai\impl"
@@ -54,6 +136,7 @@ foreach ($requiredPath in @($backendSource, $frontendSource, $skillRoot)) {
 }
 
 if ($PreserveState) {
+    Set-DeploymentStage -Name "stop_previous_runtime"
     & $stopScript `
         -DevRoot $devRootFull `
         -BackendPort $BackendPort `
@@ -67,6 +150,7 @@ if ($PreserveState) {
     }
 }
 else {
+    Set-DeploymentStage -Name "reset_owned_root"
     & $resetScript `
         -DevRoot $devRootFull `
         -BackendPort $BackendPort `
@@ -74,7 +158,17 @@ else {
         -RecreateRoot `
         -Confirm:$false
 
-    $cloneTempRoot = Join-Path $devRootFull "temp\source-clone"
+    New-Item -ItemType Directory -Force -Path $configRoot, $generationRoot | Out-Null
+    [pscustomobject]@{
+        generation_id = $generationId
+        generation_root = $generationRoot
+        runtime_root = $runtimeRoot
+        created_at = [DateTimeOffset]::Now.ToString("o")
+        status = "starting"
+    } | ConvertTo-Json | Set-Content -LiteralPath $activeGenerationPath -Encoding utf8
+
+    Set-DeploymentStage -Name "clone_committed_heads"
+    $cloneTempRoot = Join-Path $tempRoot "source-clone"
     New-Item -ItemType Directory -Force -Path $worktreeRoot, $cloneTempRoot | Out-Null
     $originalCloneTemp = [Environment]::GetEnvironmentVariable("TEMP", "Process")
     $originalCloneTmp = [Environment]::GetEnvironmentVariable("TMP", "Process")
@@ -144,6 +238,7 @@ else {
     }
 }
 
+Set-DeploymentStage -Name "containment"
 $containedPaths = @(
     $backendRoot,
     $frontendRoot,
@@ -194,8 +289,18 @@ foreach ($name in $containedEnvironment.Keys) {
 }
 
 try {
+Set-DeploymentStage -Name "backend_dependencies"
 $uv = (Get-Command uv -ErrorAction Stop).Source
-& $uv sync --frozen --project $backendRoot
+$backendSyncArgs = @(
+    "sync",
+    "--frozen",
+    "--python", $PythonVersion,
+    "--project", $backendRoot
+)
+if ($Provider -eq "claude_code") {
+    $backendSyncArgs += @("--extra", "claude-code")
+}
+& $uv @backendSyncArgs
 if ($LASTEXITCODE -ne 0) {
     throw "The backend environment could not be synchronized from its pinned uv.lock."
 }
@@ -204,9 +309,10 @@ if ($LASTEXITCODE -ne 0) {
     throw "The synchronized backend environment is missing CTE, process-lifecycle, or current schema imports."
 }
 
+Set-DeploymentStage -Name "runtime_tools"
 $uvToolRoot = $containedEnvironment.UV_TOOL_DIR
 $uvToolBin = $containedEnvironment.UV_TOOL_BIN_DIR
-& $uv tool install "clio-kit==$ClioKitVersion"
+& $uv tool install --python $PythonVersion "clio-kit==$ClioKitVersion"
 if ($LASTEXITCODE -ne 0) {
     throw "The dedicated CLIO runtime could not install clio-kit==$ClioKitVersion."
 }
@@ -238,11 +344,16 @@ $runtimeEnvironment = @{
     CLIO_ARC_CTE_RAM_CAPACITY = $CteRamCapacity
     CLIO_LM_PROVIDER = $Provider
     CLIO_LM_MODEL = $Model
-    CLIO_CLAUDE_CODE_TRANSPORT = "sdk"
     CLIO_WORKSPACE_ROOT = $workspaceRoot
     PATH = "$uvToolBin;$([Environment]::GetEnvironmentVariable('PATH', 'Process'))"
     SPOTTER_IMPL_DIR = $spotterImplRoot
     SPOTTER_CLIO_CONFIG = $spotterConfigFull
+}
+if ($Provider -eq "codex") {
+    $runtimeEnvironment.CLIO_CODEX_TRANSPORT = "sdk"
+}
+elseif ($Provider -eq "claude_code") {
+    $runtimeEnvironment.CLIO_CLAUDE_CODE_TRANSPORT = "sdk"
 }
 $originalEnvironment = @{}
 foreach ($name in $runtimeEnvironment.Keys) {
@@ -251,8 +362,13 @@ foreach ($name in $runtimeEnvironment.Keys) {
 }
 
 try {
-    $backendProcess = Start-Process -FilePath $uv -WorkingDirectory $backendRoot -ArgumentList @(
-        "run", "--frozen", "--no-sync", "clio-agent", "serve",
+    Set-DeploymentStage -Name "backend_start"
+    $backendPython = Join-Path $backendRoot ".venv\Scripts\python.exe"
+    if (-not (Test-Path -LiteralPath $backendPython -PathType Leaf)) {
+        throw "The synchronized backend Python is missing: $backendPython"
+    }
+    $backendProcess = Start-Process -FilePath $backendPython -WorkingDirectory $backendRoot -ArgumentList @(
+        "-m", "clio_agent.ui.cli", "serve",
         "--host", "127.0.0.1",
         "--port", "$BackendPort"
     ) -RedirectStandardOutput $backendStdout -RedirectStandardError $backendStderr -WindowStyle Hidden -PassThru
@@ -263,6 +379,7 @@ finally {
     }
 }
 
+Set-DeploymentStage -Name "backend_readiness"
 $healthUri = "http://127.0.0.1:$BackendPort/v1/health"
 $deadline = [DateTime]::UtcNow.AddSeconds(120)
 do {
@@ -286,6 +403,7 @@ if ($null -eq $health -or $health.overall_status -ne "ready") {
     throw "CLIO backend did not become ready within 120 seconds."
 }
 
+Set-DeploymentStage -Name "frontend_dependencies"
 $pnpm = (Get-Command pnpm -ErrorAction Stop).Source
 & $pnpm `
     --dir $frontendRoot `
@@ -296,17 +414,21 @@ if ($LASTEXITCODE -ne 0) {
     throw "The frontend dependencies could not be reproduced from pnpm-lock.yaml."
 }
 
-$viteCommand = Join-Path $webRoot "node_modules\.bin\vite.cmd"
-if (-not (Test-Path -LiteralPath $viteCommand)) {
-    throw "Vite is not installed at $viteCommand. Run pnpm install in the repository first."
+$viteScript = Join-Path $webRoot "node_modules\vite\bin\vite.js"
+if (-not (Test-Path -LiteralPath $viteScript)) {
+    throw "Vite is not installed at $viteScript. Run pnpm install in the repository first."
 }
 
-$webProcess = Start-Process -FilePath $viteCommand -WorkingDirectory $webRoot -ArgumentList @(
+Set-DeploymentStage -Name "web_start"
+$node = (Get-Command node -ErrorAction Stop).Source
+$webProcess = Start-Process -FilePath $node -WorkingDirectory $webRoot -ArgumentList @(
+    $viteScript,
     "--force",
     "--host", "127.0.0.1",
     "--port", "$WebPort"
 ) -RedirectStandardOutput $webStdout -RedirectStandardError $webStderr -WindowStyle Hidden -PassThru
 
+Set-DeploymentStage -Name "web_readiness"
 $webDeadline = [DateTime]::UtcNow.AddSeconds(60)
 do {
     if ($webProcess.HasExited) {
@@ -329,22 +451,50 @@ if ($null -eq $webResponse -or $webResponse.StatusCode -ne 200) {
     throw "CLIO web did not become ready within 60 seconds."
 }
 
+Set-DeploymentStage -Name "record_processes"
+$backendListenerPid = @(
+    Get-NetTCPConnection -State Listen -LocalPort $BackendPort -ErrorAction Stop |
+        Select-Object -ExpandProperty OwningProcess -Unique
+)
+$webListenerPid = @(
+    Get-NetTCPConnection -State Listen -LocalPort $WebPort -ErrorAction Stop |
+        Select-Object -ExpandProperty OwningProcess -Unique
+)
+$cteListenerPid = @(
+    Get-NetTCPConnection -State Listen -LocalPort 9413 -ErrorAction Stop |
+        Select-Object -ExpandProperty OwningProcess -Unique
+)
+if ($backendListenerPid.Count -ne 1 -or $webListenerPid.Count -ne 1 -or $cteListenerPid.Count -ne 1) {
+    throw "Could not record exactly one backend, web, and CTE listener."
+}
 @{
-    backend_pid = $backendProcess.Id
-    web_pid = $webProcess.Id
+    backend_pid = [int]$backendListenerPid[0]
+    web_pid = [int]$webListenerPid[0]
+    cte_pid = [int]$cteListenerPid[0]
+    backend_launcher_pid = $backendProcess.Id
+    web_launcher_pid = $webProcess.Id
     backend_port = $BackendPort
     web_port = $WebPort
+    python_version = $PythonVersion
     started_at = [DateTime]::UtcNow.ToString("o")
 } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtimeRoot "dev-processes.json")
 
+Set-DeploymentStage -Name "live_preflight"
 & $preflightScript `
     -BackendPort $BackendPort `
     -WebPort $WebPort `
     -ExpectedProvider $Provider `
     -ExpectedModel $Model `
-    -BackendRepo $backendRoot `
     -SpotterImplDir $spotterImplRoot `
     -SpotterConfigPath $spotterConfigFull
+[pscustomobject]@{
+    generation_id = $generationId
+    generation_root = $generationRoot
+    runtime_root = $runtimeRoot
+    created_at = if ($PreserveState) { $activeGeneration.created_at } else { $deploymentStartedAt.ToString("o") }
+    status = "ready"
+} | ConvertTo-Json | Set-Content -LiteralPath $activeGenerationPath -Encoding utf8
+Write-DeploymentTiming -Status "ready"
 }
 finally {
     foreach ($name in $originalContainedEnvironment.Keys) {
