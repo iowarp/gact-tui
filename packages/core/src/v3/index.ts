@@ -6,6 +6,7 @@ export * from './protocol-versions.js';
 export * from './agent-domain.js';
 export * from './document-domain.js';
 export * from './execution-provenance-domain.js';
+export * from './infrastructure-domain.js';
 export * from './execution-provenance-repository.js';
 export * from './execution-provenance-schemas.js';
 export * from './event-types.js';

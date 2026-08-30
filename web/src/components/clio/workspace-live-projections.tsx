@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useLiveStore } from '@/store/live-store';
 import { ClioConversation, type ClioConversationProps } from './conversation';
+import { ClioInfrastructurePreparation } from './infrastructure-preparation';
 import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
 import { WorkspaceStatusStrip } from './workspace-route-surfaces';
 
@@ -46,10 +47,9 @@ export function WorkspaceLiveConversation({ sessionId, ...props }: LiveConversat
   return <ClioConversation {...entities} {...props} messages={messages} />;
 }
 
-type LiveObservabilityDockProps = Omit<
-  ComponentProps<typeof ClioObservabilityDock>,
-  'messages'
-> & { sessionId: string };
+type LiveObservabilityDockProps = Omit<ComponentProps<typeof ClioObservabilityDock>, 'messages'> & {
+  sessionId: string;
+};
 
 export function WorkspaceLiveObservabilityDock({
   sessionId,
@@ -58,10 +58,9 @@ export function WorkspaceLiveObservabilityDock({
   return <ClioObservabilityDock {...props} messages={useSessionMessages(sessionId)} />;
 }
 
-type LiveObservabilityViewProps = Omit<
-  ComponentProps<typeof ClioObservabilityView>,
-  'messages'
-> & { sessionId: string };
+type LiveObservabilityViewProps = Omit<ComponentProps<typeof ClioObservabilityView>, 'messages'> & {
+  sessionId: string;
+};
 
 export function WorkspaceLiveObservabilityView({
   sessionId,
@@ -89,4 +88,13 @@ export function WorkspaceLiveStatusStrip({ sessionId, ...props }: LiveStatusStri
       stream={stream}
     />
   );
+}
+
+export function WorkspaceLiveInfrastructurePreparation({ sessionId }: { sessionId: string }) {
+  const infrastructure = useLiveStore((state) => state.entities.infrastructure);
+  const dependencies = useMemo(
+    () => Object.values(infrastructure).filter((item) => item.session_id === sessionId),
+    [infrastructure, sessionId],
+  );
+  return <ClioInfrastructurePreparation dependencies={dependencies} key={sessionId} />;
 }

@@ -1,3 +1,4 @@
+import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
 
@@ -759,6 +760,7 @@ export interface EntityState {
   usage: Record<string, UsageSnapshot>;
   context: Record<string, ContextSnapshot>;
   surfaces: Record<string, A2UISurface>;
+  infrastructure: Record<string, InfrastructureDependency>;
   revisions: Record<string, number>;
   processed_cursors: string[];
 }

@@ -10,7 +10,7 @@ param(
     [string]$DevRoot = "D:\Libraries\Documents\projects\clio_develop_workspace",
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
-    [string[]]$RequiredMcpNamespaces = @("geo", "ndp", "pandas", "plot"),
+    [string[]]$RequiredMcpNamespaces = @(),
     [ValidateRange(10, 600)]
     [int]$McpWarmupTimeoutSec = 180,
     [ValidateRange(30, 900)]
@@ -145,50 +145,54 @@ if ($missingSourceBlueprints.Count -gt 0) {
     throw "The default marketplace source omits: $($missingSourceBlueprints -join ', ')."
 }
 
+$readyMcpServers = @()
 $mcpServers = @()
-$mcpFailures = @()
-$mcpWarmupStarted = [DateTime]::UtcNow
-$mcpWarmupDeadline = $mcpWarmupStarted.AddSeconds($McpWarmupDeadlineSec)
-$mcpAttempt = 0
-do {
-    $mcpAttempt++
-    try {
-        $handshake = Invoke-RestMethod `
-            -Uri "$backendUrl/v1/mcp/handshake" `
-            -TimeoutSec $McpWarmupTimeoutSec
-        $mcpServers = @($handshake.servers)
-        $mcpFailures = @(
-            foreach ($namespace in $RequiredMcpNamespaces) {
-                $server = $mcpServers |
-                    Where-Object { $_.name -eq $namespace } |
-                    Select-Object -First 1
-                if ($null -eq $server) {
-                    "${namespace}: absent from handshake"
+if ($RequiredMcpNamespaces.Count -gt 0) {
+    $mcpFailures = @()
+    $mcpWarmupStarted = [DateTime]::UtcNow
+    $mcpWarmupDeadline = $mcpWarmupStarted.AddSeconds($McpWarmupDeadlineSec)
+    $mcpAttempt = 0
+    do {
+        $mcpAttempt++
+        try {
+            $handshake = Invoke-RestMethod `
+                -Uri "$backendUrl/v1/mcp/handshake" `
+                -TimeoutSec $McpWarmupTimeoutSec
+            $mcpServers = @($handshake.servers)
+            $mcpFailures = @(
+                foreach ($namespace in $RequiredMcpNamespaces) {
+                    $server = $mcpServers |
+                        Where-Object { $_.name -eq $namespace } |
+                        Select-Object -First 1
+                    if ($null -eq $server) {
+                        "${namespace}: absent from handshake"
+                    }
+                    elseif (-not $server.reachable -or $server.state -ne "ready") {
+                        "${namespace}: state=$($server.state), error=$($server.error)"
+                    }
                 }
-                elseif (-not $server.reachable -or $server.state -ne "ready") {
-                    "${namespace}: state=$($server.state), error=$($server.error)"
-                }
-            }
+            )
+        }
+        catch {
+            $mcpFailures = @("handshake request failed: $($_.Exception.Message)")
+        }
+
+        if ($mcpFailures.Count -eq 0) {
+            break
+        }
+        if ([DateTime]::UtcNow -lt $mcpWarmupDeadline) {
+            Start-Sleep -Seconds 2
+        }
+    } while ([DateTime]::UtcNow -lt $mcpWarmupDeadline)
+
+    if ($mcpFailures.Count -gt 0) {
+        $mcpWarmupElapsed = [Math]::Round(
+            ([DateTime]::UtcNow - $mcpWarmupStarted).TotalSeconds,
+            1
         )
+        throw "Required MCP namespaces did not become ready within ${mcpWarmupElapsed}s ($mcpAttempt attempts, deadline ${McpWarmupDeadlineSec}s): $($mcpFailures -join '; ')."
     }
-    catch {
-        $mcpFailures = @("handshake request failed: $($_.Exception.Message)")
-    }
-
-    if ($mcpFailures.Count -eq 0) {
-        break
-    }
-    if ([DateTime]::UtcNow -lt $mcpWarmupDeadline) {
-        Start-Sleep -Seconds 2
-    }
-} while ([DateTime]::UtcNow -lt $mcpWarmupDeadline)
-
-if ($mcpFailures.Count -gt 0) {
-    $mcpWarmupElapsed = [Math]::Round(
-        ([DateTime]::UtcNow - $mcpWarmupStarted).TotalSeconds,
-        1
-    )
-    throw "Required MCP namespaces did not become ready within ${mcpWarmupElapsed}s ($mcpAttempt attempts, deadline ${McpWarmupDeadlineSec}s): $($mcpFailures -join '; ')."
+    $readyMcpServers = @($RequiredMcpNamespaces)
 }
 
 $arcProbeScope = "clio-dev-preflight"

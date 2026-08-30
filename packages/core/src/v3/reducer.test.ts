@@ -254,4 +254,40 @@ describe('GACT 0.3 reducer', () => {
     expect(state.questions.ques_1?.prompt).toBe('Continue?');
     expect(state.subagents.task_1).toMatchObject({ title: 'Data expert #1', state: 'running' });
   });
+
+  it('projects infrastructure readiness transitions in place', () => {
+    const launching = frame('105', 'infrastructure.dependency.changed', {
+      id: 'sess_1:mcp:geo',
+      session_id: 'sess_1',
+      category: 'mcp',
+      namespace: 'geo',
+      title: 'Geospatial tools',
+      phase: 'launch',
+      state: 'running',
+      attempt: 1,
+      max_attempts: 3,
+    });
+    const connected = frame('106', 'infrastructure.dependency.changed', {
+      id: 'sess_1:mcp:geo',
+      session_id: 'sess_1',
+      category: 'mcp',
+      namespace: 'geo',
+      title: 'Geospatial tools',
+      phase: 'connect',
+      state: 'ready',
+      attempt: 2,
+      max_attempts: 3,
+      tool_count: 4,
+    });
+
+    const state = [launching, connected].reduce(reduceTransportFrame, createEntityState());
+
+    expect(state.infrastructure['sess_1:mcp:geo']).toMatchObject({
+      state: 'ready',
+      phase: 'connect',
+      attempt: 2,
+      tool_count: 4,
+      observed_active: true,
+    });
+  });
 });

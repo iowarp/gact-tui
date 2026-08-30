@@ -5,6 +5,7 @@ export const GACT_V3_EVENT_TYPES = [
   'approval.resolved',
   'approval.upserted',
   'artifact.upserted',
+  'infrastructure.dependency.changed',
   'message.block.completed',
   'message.block.delta',
   'message.block.upserted',

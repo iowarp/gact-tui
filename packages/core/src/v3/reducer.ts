@@ -4,6 +4,7 @@ import {
   approvalRequestSchema,
   artifactSchema,
   decodeEventEnvelope,
+  infrastructureDependencySchema,
   messageBlockSchema,
   messageCompletionSchema,
   messageSchema,
@@ -36,6 +37,7 @@ export function createEntityState(): EntityState {
     usage: {},
     context: {},
     surfaces: {},
+    infrastructure: {},
     revisions: {},
     processed_cursors: [],
   };
@@ -282,6 +284,25 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     case 'artifact.upserted': {
       const artifact = artifactSchema.parse(envelope.payload);
       return { ...base, revisions, artifacts: { ...base.artifacts, [artifact.id]: artifact } };
+    }
+    case 'infrastructure.dependency.changed': {
+      const dependency = infrastructureDependencySchema.parse(envelope.payload);
+      const previous = base.infrastructure[dependency.id];
+      const projected = {
+        ...dependency,
+        observed_active:
+          previous?.observed_active ||
+          dependency.state === 'running' ||
+          dependency.state === 'retrying',
+      };
+      return {
+        ...base,
+        revisions,
+        infrastructure: {
+          ...base.infrastructure,
+          [dependency.id]: projected,
+        },
+      };
     }
     case 'a2ui.surface.upserted': {
       const surface = a2uiSurfaceSchema.parse(envelope.payload);

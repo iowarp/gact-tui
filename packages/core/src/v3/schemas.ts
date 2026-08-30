@@ -678,6 +678,21 @@ export const a2uiSurfaceSchema = z.object({
   error: z.string().optional(),
 });
 
+export const infrastructureDependencySchema = z.object({
+  id: z.string(),
+  session_id: z.string(),
+  category: z.string(),
+  namespace: z.string(),
+  title: z.string(),
+  phase: forwardCompatibleEnum(['provision', 'launch', 'connect', 'retry']),
+  state: forwardCompatibleEnum(['running', 'retrying', 'ready', 'failed']),
+  attempt: z.number().int().positive(),
+  max_attempts: z.number().int().positive(),
+  reason: z.string().optional(),
+  retry_in_ms: z.number().int().nonnegative().optional(),
+  tool_count: z.number().int().nonnegative().optional(),
+});
+
 export const scopeSchema = z.object({
   connection_id: z.string(),
   workspace_id: z.string().optional(),

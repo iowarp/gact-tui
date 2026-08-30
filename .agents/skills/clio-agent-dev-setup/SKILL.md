@@ -78,12 +78,11 @@ Containment fails when generated paths escape the owned root or a legacy runtime
 - provider, model, or SDK transport differs from the requested values;
 - bundled marketplace blueprints are absent, invalid, or merely advertised rather than installed;
 - SPOTTER's implementation or native-provider configuration is missing;
-- required `geo`, `ndp`, `pandas`, and `plot` MCP namespaces do not answer a live readiness probe with real catalogs;
 - an ARC sentinel cannot be written, read, and deleted through CTE;
 - a CLIO port has zero or multiple owners; or
 - the UI is unreachable.
 
-The MCP check is a readiness probe, not a persistent install or startup step. Retry only within the bounded preflight. Never submit a qualification prompt while any namespace is unresolved.
+The default preflight deliberately does not warm MCP namespaces. A selected session must exercise its blueprint-declared dependencies through the product readiness path so cold-start failures, retries, and progress remain visible. `Test-ClioDevPreflight.ps1 -RequiredMcpNamespaces ...` remains an opt-in diagnostic for a specific session; it is not part of ordinary startup or acceptance evidence.
 
 ## MCP lifecycle
 
@@ -94,10 +93,11 @@ Do not describe blueprint MCP declarations as four independent installations:
 3. Installing the marketplace blueprint copies its `mcp_servers` declarations. It starts no server process.
 4. Backend launch uses a blueprintless default gateway and starts none of those four servers.
 5. Activating an EarthScope session mounts only that blueprint's declared specs, still without eagerly spawning them.
-6. `GET /v1/mcp/handshake` briefly starts each declared stdio server, lists its tools, records readiness, and closes it. This may warm package and operating-system caches but leaves no durable workspace MCP process.
-7. The first real tool resolution or call starts the namespace for that workspace. The workspace fleet keeps that process available until it is reaped or the backend stops.
+6. When a session first needs a declared namespace, CLIO single-flights discovery, shows launch/connect/retry state above that session's composer, and establishes a persistent workspace-scoped client before releasing the tool call.
+7. Later sessions in that workspace reuse the persistent namespace client. Another workspace reuses installed packages and process-wide discovery results but establishes its own live client because cwd and filesystem scope differ.
+8. `GET /v1/mcp/handshake` is a throwaway diagnostic for the selected session's declarations. It lists tools and closes; it does not prove the workspace's persistent connection and must not be used to hide first-session readiness.
 
-The setup's four-namespace probe exists because the EarthScope qualification blueprint declares those four servers. It must not invent a global bundle or imply that every installed blueprint's MCPs are running.
+Never add domain-specific namespace warming to generic dev setup. The installed marketplace defines what a blueprint declares; the selected session owns preparation and the UI owns its session-scoped projection.
 
 Warnings remain warnings only when the service reports an explicit degraded capability. Never reinterpret a sparse CTE file's logical size as allocated disk usage; capacity and disk diagnostics must use physical allocation evidence.
 
