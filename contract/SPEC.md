@@ -2586,6 +2586,7 @@ a2ui.surface.deleted implemented
 a2ui.surface.upserted implemented
 approval.resolved implemented
 approval.upserted implemented
+infrastructure.dependency.changed implemented
 message.block.completed implemented
 message.block.delta implemented
 message.block.upserted implemented
