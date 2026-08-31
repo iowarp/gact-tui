@@ -344,6 +344,22 @@ const server = createServer((request, response) => {
     });
     return;
   }
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/queued-messages`) {
+    sendJson(response, { queued_messages: [] });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/pending-steers`) {
+    sendJson(response, { pending_steers: [] });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/workspaces/${workspaceId}/resources`) {
+    sendJson(response, { resources: [] });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/v1/provider-catalog') {
+    sendJson(response, { authoritative: 'test-owned fixture', providers: [] });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/artifacts`) {
     sendJson(response, {
       artifacts: [artifactRecord],

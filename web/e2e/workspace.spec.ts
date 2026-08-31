@@ -35,7 +35,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
 
   await expect(page.getByText('EarthScope NDP evidence review').first()).toBeVisible();
   await expect(page.getByText('flat-NDP').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Choose model' })).toContainText('gpt-5.6-luna');
+  await expect(page.getByRole('button', { name: 'Change model' })).toContainText('Codex / Luna');
   await expect(page.getByText('D:\\science\\campaigns\\flat-NDP', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('region', { name: 'Agent needs your response' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Allow once' })).toBeVisible();
