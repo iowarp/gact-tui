@@ -42,16 +42,20 @@ function Add-OwnedProcessId {
         [string]$Reason
     )
 
+    # Stop-ClioDev is also invoked in-process by Start-ClioDev and Reset-ClioDev.
+    # A missing or stale generation manifest may broaden generationRoot to the
+    # owned development root, which appears in this process's own command line.
+    # The cleanup routine must never terminate its caller.
+    if ($ProcessId -eq $PID) {
+        return
+    }
+
     $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
     if ($null -eq $process) {
         return
     }
     $identity = "$($process.ExecutablePath) $($process.CommandLine)"
     if (-not $identity.Contains($devRootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
-        if ($recordedPids.Contains($ProcessId)) {
-            [void]$targetPids.Add($ProcessId)
-            return
-        }
         if ($Reason.StartsWith("recorded ", [System.StringComparison]::OrdinalIgnoreCase)) {
             Write-Warning "Ignoring stale recorded PID $ProcessId ($Reason); its identity is outside the owned root."
             return
