@@ -183,7 +183,7 @@ export function ClioModelPicker({
     <ModelSelector onOpenChange={handleOpenChange} open={open}>
       <ModelSelectorTrigger asChild>{trigger}</ModelSelectorTrigger>
       <ModelSelectorContent
-        className="h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[66rem] overflow-hidden"
+        className="h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] overflow-hidden sm:max-w-[66rem]"
         commandProps={{ className: 'min-h-0 p-0', shouldFilter: false }}
         title={title}
       >
