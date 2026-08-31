@@ -54,11 +54,11 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    expect(screen.getByRole('listbox', { name: 'Providers' })).toBeVisible();
-    expect(screen.getByRole('listbox', { name: 'Models' })).toBeVisible();
+    expect(screen.getByRole('group', { name: 'Providers and models' })).toBeVisible();
 
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'Qwen3');
-    expect(screen.getAllByText('Local vLLM')).toHaveLength(2);
+    expect(screen.getByText('Local vLLM')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Local vLLM/ }));
     expect(screen.getByText('Qwen3-VL-32B')).toBeVisible();
     expect(screen.queryByText('Luna')).not.toBeInTheDocument();
 
@@ -79,10 +79,32 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    expect(screen.getByRole('link', { name: 'Configure Codex' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Configure Codex provider' })).toHaveAttribute(
       'href',
       '/settings/providers?provider=codex',
     );
+  });
+
+  it('shows provider health once as a hoverable visual signal', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={options}
+          provider="codex"
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    expect(screen.queryByText('Ready')).not.toBeInTheDocument();
+
+    const status = screen.getByLabelText('Codex provider status: Ready');
+    await user.hover(status);
+    expect(await screen.findByText('Provider availability')).toBeVisible();
+    expect(screen.getByText('Health: Ready')).toBeVisible();
   });
 
   it('reports unavailable provider failures once instead of listing fake models', async () => {
@@ -118,13 +140,13 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByText('ALCF'));
+    await user.click(screen.getByRole('button', { name: /ALCF/ }));
     expect(screen.getAllByText('Globus sign-in required')).toHaveLength(1);
     expect(screen.queryByText('Candidate A')).not.toBeInTheDocument();
     expect(screen.queryByText('Candidate B')).not.toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: 'Configure ALCF' })).toSatisfy(
-      (links: HTMLElement[]) =>
-        links.every((link) => link.getAttribute('href') === '/settings/providers?provider=alcf'),
+    expect(screen.getByRole('link', { name: 'Configure ALCF provider' })).toHaveAttribute(
+      'href',
+      '/settings/providers?provider=alcf',
     );
   });
 
@@ -142,13 +164,18 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByText('Local vLLM'));
+    await user.click(screen.getByRole('button', { name: /Local vLLM/ }));
     await user.click(screen.getByRole('button', { name: 'Hide Local vLLM' }));
     expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([
       'local-vllm',
     ]);
     expect(screen.queryByText('Local vLLM')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '1 hidden' }));
+    await user.click(screen.getByRole('button', { name: 'Show 1 hidden provider' }));
     expect(screen.getByText('Local vLLM')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Restore all hidden providers' }));
+    expect(window.localStorage.getItem('clio.hidden-providers.v1')).toBe('[]');
+    expect(
+      screen.queryByRole('button', { name: 'Show 1 hidden provider' }),
+    ).not.toBeInTheDocument();
   });
 });

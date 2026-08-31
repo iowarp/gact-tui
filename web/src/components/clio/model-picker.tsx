@@ -1,17 +1,19 @@
-import { ActivityIcon, CheckIcon, EyeIcon, EyeOffIcon, SettingsIcon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon, SettingsIcon } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ModelSelector,
   ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
   ModelSelectorLogo,
-  ModelSelectorName,
   ModelSelectorTrigger,
 } from '@/components/ai-elements/model-selector';
+import { Cascader, CascaderPanel, CascaderStatus } from '@/components/reui/cascader/cascader';
+import { CascaderColumns } from '@/components/reui/cascader/cascader-columns';
+import { CascaderFooter } from '@/components/reui/cascader/cascader-footer';
+import { CascaderInput, CascaderNav } from '@/components/reui/cascader/cascader-nav';
+import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
+import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
+import { IconTile } from '@/components/reui/icon-tile';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import type { ClioModelOption } from '@/lib/model-options';
@@ -39,11 +41,24 @@ interface ProviderGroup {
   detail?: string;
 }
 
+interface ProviderNodeData {
+  kind: 'provider';
+  group: ProviderGroup;
+}
+
+interface ModelNodeData {
+  kind: 'model';
+  choice: ClioModelOption;
+}
+
+type PickerNodeData = ProviderNodeData | ModelNodeData;
 type ProviderHealth = 'healthy' | 'degraded' | 'unavailable';
 
 const HIDDEN_PROVIDERS_STORAGE_KEY = 'clio.hidden-providers.v1';
+const PROVIDER_NODE_PREFIX = 'provider:';
+const MODEL_NODE_PREFIX = 'model:';
 
-/** Searchable AI Elements model picker shared by session and agent surfaces. */
+/** Searchable AI Elements dialog composed with the real ReUI columns cascader. */
 export function ClioModelPicker({
   model,
   onChange,
@@ -78,232 +93,303 @@ export function ClioModelPicker({
       );
     });
   }, [options]);
-  const [requestedProvider, setRequestedProvider] = useState<string | undefined>(
-    provider ?? providers[0]?.id,
+  const [path, setPath] = useState<string[]>(() => {
+    const initialProvider = provider ?? providers[0]?.id;
+    return initialProvider ? [providerNodeValue(initialProvider)] : [];
+  });
+  const visibleProviders = useMemo(
+    () =>
+      providers.filter(
+        (item) => showHidden || !hiddenProviders.has(item.id) || item.id === provider,
+      ),
+    [hiddenProviders, provider, providers, showHidden],
   );
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const visibleProviders = useMemo(() => {
-    const visibilityFiltered = providers.filter(
-      (item) =>
-        showHidden ||
-        !hiddenProviders.has(item.id) ||
-        item.id === provider ||
-        item.id === requestedProvider,
-    );
-    return normalizedQuery
-      ? visibilityFiltered.filter((item) =>
-          [item.name, item.id, ...item.choices.flatMap((choice) => [choice.label, choice.id])]
-            .join(' ')
-            .toLocaleLowerCase()
-            .includes(normalizedQuery),
-        )
-      : visibilityFiltered;
-  }, [hiddenProviders, normalizedQuery, provider, providers, requestedProvider, showHidden]);
+  const providerNodes = useMemo<CascaderNode<PickerNodeData>[]>(
+    () =>
+      visibleProviders.map((group) => ({
+        value: providerNodeValue(group.id),
+        label: group.name,
+        description: providerSearchDescription(group),
+        icon: (
+          <IconTile aria-hidden="true" size="sm" variant="outline">
+            <ModelSelectorLogo className="size-5" provider={providerLogoId(group.id)} />
+          </IconTile>
+        ),
+        hasChildren: true,
+        count: group.availableChoices.length,
+        keywords: [
+          group.id,
+          group.endpoint ?? '',
+          group.detail ?? '',
+          ...group.choices.flatMap((choice) => [choice.id, choice.label]),
+        ],
+        data: { kind: 'provider', group },
+        children: group.availableChoices.map((choice) => ({
+          value: modelNodeValue(choice),
+          label: choice.label,
+          description: choice.description ?? choice.modalities?.join(', '),
+          keywords: [
+            choice.id,
+            choice.providerId,
+            choice.providerName,
+            choice.availabilityDetail ?? '',
+            ...(choice.modalities ?? []),
+          ],
+          data: { kind: 'model', choice },
+        })),
+      })),
+    [visibleProviders],
+  );
   const activeGroup =
-    visibleProviders.find((item) => item.id === requestedProvider) ?? visibleProviders[0];
-  const visibleModels = (activeGroup?.availableChoices ?? []).filter(
-    (choice) =>
-      !normalizedQuery ||
-      [choice.label, choice.id, choice.description, choice.availabilityDetail]
-        .filter(Boolean)
-        .join(' ')
-        .toLocaleLowerCase()
-        .includes(normalizedQuery),
+    providers.find((item) => providerNodeValue(item.id) === path[0]) ?? visibleProviders[0];
+  const selectedChoice = options.find(
+    (choice) => choice.available && choice.providerId === provider && choice.id === model,
   );
 
+  function hideProvider(group: ProviderGroup): void {
+    const nextHidden = new Set(hiddenProviders).add(group.id);
+    persistHiddenProviders(nextHidden);
+    setHiddenProviders(nextHidden);
+    const nextProvider = providers.find((item) => item.id !== group.id && !nextHidden.has(item.id));
+    setPath(nextProvider ? [providerNodeValue(nextProvider.id)] : []);
+  }
+
+  function showProvider(group: ProviderGroup): void {
+    const nextHidden = new Set(hiddenProviders);
+    nextHidden.delete(group.id);
+    persistHiddenProviders(nextHidden);
+    setHiddenProviders(nextHidden);
+  }
+
+  function restoreAllProviders(): void {
+    const nextHidden = new Set<string>();
+    persistHiddenProviders(nextHidden);
+    setHiddenProviders(nextHidden);
+    setShowHidden(false);
+  }
+
+  function handleOpenChange(nextOpen: boolean): void {
+    setOpen(nextOpen);
+    if (nextOpen) {
+      const preferred = providers.find((item) => item.id === provider) ?? visibleProviders[0];
+      if (preferred) setPath([providerNodeValue(preferred.id)]);
+      return;
+    }
+    setQuery('');
+    setShowHidden(false);
+  }
+
   return (
-    <ModelSelector onOpenChange={setOpen} open={open}>
+    <ModelSelector onOpenChange={handleOpenChange} open={open}>
       <ModelSelectorTrigger asChild>{trigger}</ModelSelectorTrigger>
       <ModelSelectorContent
-        className="h-[min(44rem,calc(100dvh-2rem))] w-[min(64rem,calc(100vw-2rem))] max-w-none overflow-hidden sm:min-w-[42rem]"
-        commandProps={{ shouldFilter: false }}
+        className="h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[66rem] overflow-hidden"
+        commandProps={{ className: 'min-h-0 p-0', shouldFilter: false }}
         title={title}
       >
-        <ModelSelectorInput
-          onValueChange={setQuery}
-          placeholder="Search providers and models"
-          value={query}
-        />
-        <div className="flex min-h-10 items-center justify-between gap-3 border-b px-3 py-1.5">
-          <p className="truncate text-xs text-muted-foreground">
-            {providers.length} providers ·{' '}
-            {providers.reduce((total, item) => total + item.availableChoices.length, 0)} available
-            models
-          </p>
-          {hiddenProviders.size ? (
-            <Button
-              aria-pressed={showHidden}
-              className="h-7 shrink-0 gap-1.5 px-2 text-xs"
-              onClick={() => setShowHidden((visible) => !visible)}
-              size="sm"
-              variant="ghost"
-            >
-              {showHidden ? <EyeOffIcon aria-hidden="true" /> : <EyeIcon aria-hidden="true" />}
-              {showHidden ? 'Hide hidden' : `${hiddenProviders.size} hidden`}
-            </Button>
-          ) : null}
-        </div>
-        <ModelSelectorList className="max-h-none flex-1">
-          <ModelSelectorEmpty>No available models match your search.</ModelSelectorEmpty>
-          {visibleProviders.length > 0 ? (
-            <div className="grid h-full min-h-96 grid-cols-1 divide-y sm:grid-cols-[minmax(15rem,0.85fr)_minmax(24rem,1.65fr)] sm:divide-x sm:divide-y-0">
+        <Cascader
+          closeOnSelect={false}
+          indicator
+          inline
+          inputValue={query}
+          items={providerNodes}
+          labels={{
+            actionsLabel: 'Provider actions',
+            columnsLabel: 'Providers and models',
+            empty: 'No available models',
+            rootLevel: 'Providers',
+          }}
+          maxHeight="100%"
+          mode="columns"
+          onInputValueChange={setQuery}
+          onPathChange={(nextPath) => setPath(nextPath)}
+          onValueChange={(_value, details) => {
+            if (details.node?.data?.kind !== 'model') return;
+            onChange(details.node.data.choice);
+            setOpen(false);
+            setQuery('');
+          }}
+          path={path}
+          renderLabel={(node, state) => (
+            <PickerRowLabel
+              hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
+              node={node}
+              state={state}
+            />
+          )}
+          searchScope="deep"
+          selectable={(node) => node.data?.kind === 'model'}
+          value={selectedChoice ? modelNodeValue(selectedChoice) : undefined}
+        >
+          <CascaderPanel className="h-full min-h-0">
+            <CascaderNav>
+              <CascaderInput
+                aria-label="Search providers and models"
+                placeholder="Search providers and models"
+              />
+            </CascaderNav>
+            <CascaderColumns
+              className="w-full flex-1"
+              columnWidth="min(32rem, calc((100vw - 3rem) / 2))"
+              maxHeight="100%"
+            />
+            {activeGroup?.detail ? (
               <div
-                aria-label="Providers"
-                className="max-h-52 space-y-1 overflow-y-auto p-2 sm:max-h-none"
-                role="listbox"
+                className={cn(
+                  'shrink-0 border-t px-3 py-2 text-xs',
+                  activeGroup.health === 'degraded'
+                    ? 'text-warning-foreground'
+                    : 'text-muted-foreground',
+                )}
+                role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
               >
-                {visibleProviders.map((item) => (
-                  <Button
-                    aria-selected={item.id === activeGroup?.id}
-                    className={cn(
-                      'h-auto min-h-11 w-full justify-start gap-2 rounded-lg px-2 py-1.5 font-normal',
-                      item.id === activeGroup?.id
-                        ? 'bg-accent hover:bg-accent'
-                        : 'hover:bg-muted',
-                    )}
-                    key={item.id}
-                    onClick={() => setRequestedProvider(item.id)}
-                    role="option"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <ModelSelectorLogo provider={providerLogoId(item.id)} />
-                    <ModelSelectorName>
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="block min-w-0 flex-1 truncate font-medium">
-                          {item.name}
-                        </span>
-                        <ProviderHealthDot health={item.health} />
-                      </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {providerSummary(item)}
-                      </span>
-                    </ModelSelectorName>
-                  </Button>
-                ))}
+                {activeGroup.detail}
               </div>
-              <div className="min-w-0 p-2">
-                <div className="mb-2 flex min-h-12 items-start gap-2 border-b px-2 pb-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-semibold">{activeGroup?.name}</p>
-                      {activeGroup ? <ProviderHealthDot health={activeGroup.health} label /> : null}
-                    </div>
-                    {activeGroup?.endpoint ? (
-                      <p className="truncate text-xs text-muted-foreground">
-                        {activeGroup.endpoint}
-                      </p>
-                    ) : null}
-                  </div>
-                  {activeGroup ? <ProviderEvidence group={activeGroup} /> : null}
-                  {activeGroup && activeGroup.id !== provider ? (
+            ) : null}
+            {activeGroup || hiddenProviders.size ? (
+              <CascaderFooter className="min-h-11 flex-row items-center justify-between gap-2 px-2">
+                <div className="flex min-w-0 items-center gap-1">
+                  {hiddenProviders.size ? (
                     <Button
-                      aria-label={`Hide ${activeGroup.name}`}
-                      onClick={() => {
-                        const next = new Set(hiddenProviders).add(activeGroup.id);
-                        persistHiddenProviders(next);
-                        setHiddenProviders(next);
-                        setRequestedProvider(
-                          providers.find((item) => item.id !== activeGroup.id && !next.has(item.id))
-                            ?.id,
-                        );
-                      }}
-                      size="icon-sm"
-                      title="Hide provider from this picker"
+                      aria-label={`Show ${hiddenProviders.size} hidden ${hiddenProviders.size === 1 ? 'provider' : 'providers'}`}
+                      aria-pressed={showHidden}
+                      onClick={() => setShowHidden((current) => !current)}
+                      size="sm"
+                      type="button"
                       variant="ghost"
                     >
-                      <EyeOffIcon aria-hidden="true" />
-                    </Button>
-                  ) : activeGroup && hiddenProviders.has(activeGroup.id) ? (
-                    <Button
-                      aria-label={`Show ${activeGroup.name}`}
-                      onClick={() => {
-                        const next = new Set(hiddenProviders);
-                        next.delete(activeGroup.id);
-                        persistHiddenProviders(next);
-                        setHiddenProviders(next);
-                      }}
-                      size="icon-sm"
-                      title="Show provider in this picker"
-                      variant="ghost"
-                    >
-                      <EyeIcon aria-hidden="true" />
+                      {showHidden ? (
+                        <EyeOffIcon data-icon="inline-start" />
+                      ) : (
+                        <EyeIcon data-icon="inline-start" />
+                      )}
+                      Hidden ({hiddenProviders.size})
                     </Button>
                   ) : null}
-                  <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
-                    <Link
-                      aria-label={`Configure ${activeGroup?.name ?? 'provider'}`}
-                      to={activeGroup?.configurationUrl ?? '/settings/providers'}
+                  {showHidden && hiddenProviders.size ? (
+                    <Button
+                      aria-label="Restore all hidden providers"
+                      onClick={restoreAllProviders}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
                     >
-                      <SettingsIcon aria-hidden="true" />
-                    </Link>
-                  </Button>
+                      Restore all
+                    </Button>
+                  ) : null}
                 </div>
-                {activeGroup?.detail ? (
-                  <div
-                    className={
-                      activeGroup.health === 'degraded'
-                        ? 'mb-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground'
-                        : 'mb-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground'
-                    }
-                    role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
-                  >
-                    {activeGroup.detail}
+                {activeGroup ? (
+                  <div className="flex shrink-0 items-center gap-1">
+                    {activeGroup.id !== provider ? (
+                      <Button
+                        aria-label={
+                          hiddenProviders.has(activeGroup.id)
+                            ? `Show ${activeGroup.name}`
+                            : `Hide ${activeGroup.name}`
+                        }
+                        onClick={() =>
+                          hiddenProviders.has(activeGroup.id)
+                            ? showProvider(activeGroup)
+                            : hideProvider(activeGroup)
+                        }
+                        size="icon-sm"
+                        title={
+                          hiddenProviders.has(activeGroup.id)
+                            ? 'Show provider in this picker'
+                            : 'Hide provider from this picker'
+                        }
+                        type="button"
+                        variant="ghost"
+                      >
+                        {hiddenProviders.has(activeGroup.id) ? (
+                          <EyeIcon aria-hidden="true" />
+                        ) : (
+                          <EyeOffIcon aria-hidden="true" />
+                        )}
+                      </Button>
+                    ) : null}
+                    <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
+                      <Link
+                        aria-label={`Configure ${activeGroup.name} provider`}
+                        to={activeGroup.configurationUrl}
+                      >
+                        <SettingsIcon aria-hidden="true" />
+                      </Link>
+                    </Button>
                   </div>
                 ) : null}
-                <div aria-label="Models" className="space-y-1" role="listbox">
-                  {visibleModels.map((choice) => (
-                    <ModelSelectorItem
-                      disabled={!choice.available}
-                      key={`${choice.providerId}:${choice.id}`}
-                      onSelect={() => {
-                        onChange(choice);
-                        setOpen(false);
-                      }}
-                      title={
-                        choice.availabilityDetail ??
-                        choice.description ??
-                        choice.modalities?.join(', ')
-                      }
-                      value={`${choice.providerName} ${choice.label} ${choice.id}`}
-                    >
-                      <ModelSelectorName>
-                        <span className="block truncate">{choice.label}</span>
-                        {choice.modalities?.length || choice.description ? (
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {choice.description ?? choice.modalities?.join(', ')}
-                          </span>
-                        ) : null}
-                      </ModelSelectorName>
-                      {provider === choice.providerId && model === choice.id ? (
-                        <CheckIcon aria-hidden="true" className="size-4 text-primary" />
-                      ) : null}
-                    </ModelSelectorItem>
-                  ))}
-                  {visibleModels.length === 0 ? (
-                    <div className="grid place-items-center gap-3 px-4 py-12 text-center">
-                      <p className="max-w-sm text-sm text-muted-foreground">
-                        {normalizedQuery
-                          ? 'No available models from this provider match the search.'
-                          : 'This provider has no currently available models. Configure or reconnect it to discover models.'}
-                      </p>
-                      {activeGroup ? (
-                        <Button asChild size="sm" variant="outline">
-                          <Link to={activeGroup.configurationUrl}>
-                            <SettingsIcon aria-hidden="true" /> Configure {activeGroup.name}
-                          </Link>
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </ModelSelectorList>
+              </CascaderFooter>
+            ) : null}
+            <CascaderStatus />
+          </CascaderPanel>
+        </Cascader>
       </ModelSelectorContent>
     </ModelSelector>
   );
+}
+
+function PickerRowLabel({
+  hidden,
+  node,
+}: {
+  hidden: boolean;
+  node: CascaderNode<PickerNodeData>;
+  state: CascaderItemState<PickerNodeData>;
+}) {
+  if (node.data?.kind === 'provider') {
+    return (
+      <span className="flex w-full min-w-0 items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-start font-medium">{node.label}</span>
+        {hidden ? (
+          <EyeOffIcon aria-label="Hidden provider" className="text-muted-foreground" />
+        ) : null}
+        <ProviderHealthIndicator group={node.data.group} />
+      </span>
+    );
+  }
+  const description = node.data?.choice.description ?? node.data?.choice.modalities?.join(', ');
+  return (
+    <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+      <span className="w-full truncate text-start">{node.label}</span>
+      {description ? (
+        <span className="w-full truncate text-start text-xs text-muted-foreground">
+          {description}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function ProviderHealthIndicator({ group }: { group: ProviderGroup }) {
+  const presentation = providerHealthPresentation(group.health);
+  return (
+    <HoverCard openDelay={180}>
+      <HoverCardTrigger asChild>
+        <span
+          aria-label={`${group.name} provider status: ${presentation.label}`}
+          className="inline-flex size-5 shrink-0 items-center justify-center"
+          role="img"
+        >
+          <span aria-hidden="true" className={cn('size-2.5 rounded-full', presentation.color)} />
+        </span>
+      </HoverCardTrigger>
+      <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">
+        <p className="font-medium">Provider availability</p>
+        <p>Health: {presentation.label}</p>
+        <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
+        {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
+        {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+function providerHealthPresentation(health: ProviderHealth): { color: string; label: string } {
+  return {
+    healthy: { color: 'bg-success', label: 'Ready' },
+    degraded: { color: 'bg-warning', label: 'Needs attention' },
+    unavailable: { color: 'bg-muted-foreground/45', label: 'Unavailable' },
+  }[health];
 }
 
 function toProviderGroup(group: {
@@ -346,28 +432,23 @@ function providerConfigurationUrl(providerId: string, reported?: string): string
   return `/settings/providers?provider=${encodeURIComponent(providerId)}`;
 }
 
-function providerSummary(group: ProviderGroup): string {
-  if (group.health === 'unavailable') return 'Unavailable';
-  const count = group.availableChoices.length;
-  return `${count} available ${count === 1 ? 'model' : 'models'}`;
+function providerNodeValue(providerId: string): string {
+  return `${PROVIDER_NODE_PREFIX}${providerId}`;
 }
 
-function ProviderHealthDot({ health, label = false }: { health: ProviderHealth; label?: boolean }) {
-  const presentation = {
-    healthy: { color: 'bg-success', text: 'Ready' },
-    degraded: { color: 'bg-warning', text: 'Needs attention' },
-    unavailable: { color: 'bg-muted-foreground/45', text: 'Unavailable' },
-  }[health];
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-      <span aria-hidden="true" className={`size-2 rounded-full ${presentation.color}`} />
-      {label ? (
-        <span>{presentation.text}</span>
-      ) : (
-        <span className="sr-only">{presentation.text}</span>
-      )}
-    </span>
-  );
+function modelNodeValue(choice: ClioModelOption): string {
+  return `${MODEL_NODE_PREFIX}${choice.providerId}:${choice.id}`;
+}
+
+function providerSearchDescription(group: ProviderGroup): string {
+  if (group.health === 'unavailable') return 'Unavailable';
+  const count = group.availableChoices.length;
+  return `${count} ${count === 1 ? 'model' : 'models'}`;
+}
+
+function formatFreshness(freshness: string): string {
+  const parsed = new Date(freshness);
+  return Number.isNaN(parsed.getTime()) ? freshness : parsed.toLocaleString();
 }
 
 function readHiddenProviders(): Set<string> {
@@ -384,30 +465,5 @@ function persistHiddenProviders(providerIds: Set<string>): void {
   window.localStorage.setItem(
     HIDDEN_PROVIDERS_STORAGE_KEY,
     JSON.stringify([...providerIds].sort()),
-  );
-}
-
-function ProviderEvidence({ group }: { group: ProviderGroup }) {
-  const iconColor = {
-    healthy: 'text-success',
-    degraded: 'text-warning',
-    unavailable: 'text-muted-foreground',
-  }[group.health];
-  return (
-    <HoverCard openDelay={180}>
-      <HoverCardTrigger asChild>
-        <Button aria-label="Provider health and catalog freshness" size="icon-sm" variant="ghost">
-          <ActivityIcon aria-hidden="true" className={iconColor} />
-        </Button>
-      </HoverCardTrigger>
-      <HoverCardContent align="end" className="w-72 space-y-1 text-xs">
-        <p className="font-medium">Provider catalog evidence</p>
-        <p>Health: {group.health}</p>
-        <p>
-          Refreshed: {group.freshness ? new Date(group.freshness).toLocaleString() : 'Unavailable'}
-        </p>
-        {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
-      </HoverCardContent>
-    </HoverCard>
   );
 }
