@@ -1,4 +1,4 @@
-import { EyeIcon, EyeOffIcon, SettingsIcon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon, HeartPulseIcon, SettingsIcon } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -7,15 +7,22 @@ import {
   ModelSelectorLogo,
   ModelSelectorTrigger,
 } from '@/components/ai-elements/model-selector';
-import { Cascader, CascaderPanel, CascaderStatus } from '@/components/reui/cascader/cascader';
+import {
+  Cascader,
+  CascaderList,
+  CascaderPanel,
+  CascaderStatus,
+} from '@/components/reui/cascader/cascader';
 import { CascaderColumns } from '@/components/reui/cascader/cascader-columns';
 import { CascaderFooter } from '@/components/reui/cascader/cascader-footer';
+import { CascaderItems } from '@/components/reui/cascader/cascader-item';
 import { CascaderInput, CascaderNav } from '@/components/reui/cascader/cascader-nav';
 import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { IconTile } from '@/components/reui/icon-tile';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import type { ClioModelOption } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
@@ -71,6 +78,7 @@ export function ClioModelPicker({
   const [query, setQuery] = useState('');
   const [showHidden, setShowHidden] = useState(false);
   const [hiddenProviders, setHiddenProviders] = useState<Set<string>>(readHiddenProviders);
+  const showColumns = useMediaQuery('(min-width: 768px)');
   const providers = useMemo(() => {
     const grouped = Object.values(
       options.reduce<Record<string, { id: string; name: string; choices: ClioModelOption[] }>>(
@@ -200,7 +208,7 @@ export function ClioModelPicker({
             rootLevel: 'Providers',
           }}
           maxHeight="100%"
-          mode="columns"
+          mode={showColumns ? 'columns' : 'drill'}
           onInputValueChange={setQuery}
           onPathChange={(nextPath) => setPath(nextPath)}
           onValueChange={(_value, details) => {
@@ -222,17 +230,65 @@ export function ClioModelPicker({
           value={selectedChoice ? modelNodeValue(selectedChoice) : undefined}
         >
           <CascaderPanel className="h-full min-h-0">
-            <CascaderNav>
-              <CascaderInput
-                aria-label="Search providers and models"
-                placeholder="Search providers and models"
-              />
+            <CascaderNav className="flex-row items-center gap-1">
+              <div className="min-w-0 flex-1">
+                <CascaderInput
+                  aria-label="Search providers and models"
+                  placeholder="Search providers and models"
+                />
+              </div>
+              {activeGroup ? (
+                <div className="flex shrink-0 items-center gap-1">
+                  {activeGroup.id !== provider ? (
+                    <Button
+                      aria-label={
+                        hiddenProviders.has(activeGroup.id)
+                          ? `Show ${activeGroup.name}`
+                          : `Hide ${activeGroup.name}`
+                      }
+                      onClick={() =>
+                        hiddenProviders.has(activeGroup.id)
+                          ? showProvider(activeGroup)
+                          : hideProvider(activeGroup)
+                      }
+                      size="icon-sm"
+                      title={
+                        hiddenProviders.has(activeGroup.id)
+                          ? 'Show provider in this picker'
+                          : 'Hide provider from this picker'
+                      }
+                      type="button"
+                      variant="ghost"
+                    >
+                      {hiddenProviders.has(activeGroup.id) ? (
+                        <EyeIcon aria-hidden="true" />
+                      ) : (
+                        <EyeOffIcon aria-hidden="true" />
+                      )}
+                    </Button>
+                  ) : null}
+                  <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
+                    <Link
+                      aria-label={`Configure ${activeGroup.name} provider`}
+                      to={activeGroup.configurationUrl}
+                    >
+                      <SettingsIcon aria-hidden="true" />
+                    </Link>
+                  </Button>
+                </div>
+              ) : null}
             </CascaderNav>
-            <CascaderColumns
-              className="w-full flex-1"
-              columnWidth="min(32rem, calc((100vw - 3rem) / 2))"
-              maxHeight="100%"
-            />
+            {showColumns ? (
+              <CascaderColumns
+                className="w-full flex-1"
+                columnWidth="min(32rem, calc((100vw - 3rem) / 2))"
+                maxHeight="100%"
+              />
+            ) : (
+              <CascaderList className="w-full flex-1" maxHeight="100%">
+                <CascaderItems />
+              </CascaderList>
+            )}
             {activeGroup?.detail ? (
               <div
                 className={cn(
@@ -246,26 +302,24 @@ export function ClioModelPicker({
                 {activeGroup.detail}
               </div>
             ) : null}
-            {activeGroup || hiddenProviders.size ? (
-              <CascaderFooter className="min-h-11 flex-row items-center justify-between gap-2 px-2">
+            {hiddenProviders.size ? (
+              <CascaderFooter className="min-h-11 flex-row items-center gap-1 px-2">
                 <div className="flex min-w-0 items-center gap-1">
-                  {hiddenProviders.size ? (
-                    <Button
-                      aria-label={`Show ${hiddenProviders.size} hidden ${hiddenProviders.size === 1 ? 'provider' : 'providers'}`}
-                      aria-pressed={showHidden}
-                      onClick={() => setShowHidden((current) => !current)}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      {showHidden ? (
-                        <EyeOffIcon data-icon="inline-start" />
-                      ) : (
-                        <EyeIcon data-icon="inline-start" />
-                      )}
-                      Hidden ({hiddenProviders.size})
-                    </Button>
-                  ) : null}
+                  <Button
+                    aria-label={`Show ${hiddenProviders.size} hidden ${hiddenProviders.size === 1 ? 'provider' : 'providers'}`}
+                    aria-pressed={showHidden}
+                    onClick={() => setShowHidden((current) => !current)}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    {showHidden ? (
+                      <EyeOffIcon data-icon="inline-start" />
+                    ) : (
+                      <EyeIcon data-icon="inline-start" />
+                    )}
+                    Hidden ({hiddenProviders.size})
+                  </Button>
                   {showHidden && hiddenProviders.size ? (
                     <Button
                       aria-label="Restore all hidden providers"
@@ -278,46 +332,6 @@ export function ClioModelPicker({
                     </Button>
                   ) : null}
                 </div>
-                {activeGroup ? (
-                  <div className="flex shrink-0 items-center gap-1">
-                    {activeGroup.id !== provider ? (
-                      <Button
-                        aria-label={
-                          hiddenProviders.has(activeGroup.id)
-                            ? `Show ${activeGroup.name}`
-                            : `Hide ${activeGroup.name}`
-                        }
-                        onClick={() =>
-                          hiddenProviders.has(activeGroup.id)
-                            ? showProvider(activeGroup)
-                            : hideProvider(activeGroup)
-                        }
-                        size="icon-sm"
-                        title={
-                          hiddenProviders.has(activeGroup.id)
-                            ? 'Show provider in this picker'
-                            : 'Hide provider from this picker'
-                        }
-                        type="button"
-                        variant="ghost"
-                      >
-                        {hiddenProviders.has(activeGroup.id) ? (
-                          <EyeIcon aria-hidden="true" />
-                        ) : (
-                          <EyeOffIcon aria-hidden="true" />
-                        )}
-                      </Button>
-                    ) : null}
-                    <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
-                      <Link
-                        aria-label={`Configure ${activeGroup.name} provider`}
-                        to={activeGroup.configurationUrl}
-                      >
-                        <SettingsIcon aria-hidden="true" />
-                      </Link>
-                    </Button>
-                  </div>
-                ) : null}
               </CascaderFooter>
             ) : null}
             <CascaderStatus />
@@ -367,10 +381,13 @@ function ProviderHealthIndicator({ group }: { group: ProviderGroup }) {
       <HoverCardTrigger asChild>
         <span
           aria-label={`${group.name} provider status: ${presentation.label}`}
-          className="inline-flex size-5 shrink-0 items-center justify-center"
+          className={cn(
+            'inline-flex size-5 shrink-0 items-center justify-center',
+            presentation.color,
+          )}
           role="img"
         >
-          <span aria-hidden="true" className={cn('size-2.5 rounded-full', presentation.color)} />
+          <HeartPulseIcon aria-hidden="true" className="size-4" />
         </span>
       </HoverCardTrigger>
       <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">
@@ -386,9 +403,9 @@ function ProviderHealthIndicator({ group }: { group: ProviderGroup }) {
 
 function providerHealthPresentation(health: ProviderHealth): { color: string; label: string } {
   return {
-    healthy: { color: 'bg-success', label: 'Ready' },
-    degraded: { color: 'bg-warning', label: 'Needs attention' },
-    unavailable: { color: 'bg-muted-foreground/45', label: 'Unavailable' },
+    healthy: { color: 'text-success', label: 'Ready' },
+    degraded: { color: 'text-warning', label: 'Needs attention' },
+    unavailable: { color: 'text-muted-foreground/55', label: 'Unavailable' },
   }[health];
 }
 

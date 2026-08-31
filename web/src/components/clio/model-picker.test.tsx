@@ -1,13 +1,17 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import { ClioModelPicker } from './model-picker';
 
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+});
+
+beforeEach(() => {
+  setWideViewport(true);
 });
 
 const options = [
@@ -79,10 +83,9 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    expect(screen.getByRole('link', { name: 'Configure Codex provider' })).toHaveAttribute(
-      'href',
-      '/settings/providers?provider=codex',
-    );
+    const configurationLink = screen.getByRole('link', { name: 'Configure Codex provider' });
+    expect(configurationLink).toHaveAttribute('href', '/settings/providers?provider=codex');
+    expect(configurationLink.closest('[data-slot="cascader-nav"]')).not.toBeNull();
   });
 
   it('shows provider health once as a hoverable visual signal', async () => {
@@ -102,9 +105,35 @@ describe('ClioModelPicker', () => {
     expect(screen.queryByText('Ready')).not.toBeInTheDocument();
 
     const status = screen.getByLabelText('Codex provider status: Ready');
+    expect(status).toHaveClass('text-success');
+    expect(status.querySelector('svg')).toBeInTheDocument();
     await user.hover(status);
     expect(await screen.findByText('Provider availability')).toBeVisible();
     expect(screen.getByText('Health: Ready')).toBeVisible();
+  });
+
+  it('reflows to drill navigation instead of compressing columns on a narrow viewport', async () => {
+    setWideViewport(false);
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          model="gpt-5.6-luna"
+          onChange={vi.fn()}
+          options={options}
+          provider="codex"
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    expect(screen.queryByRole('group', { name: 'Providers and models' })).not.toBeInTheDocument();
+    expect(screen.getByText('Luna')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: /Back/i }));
+    expect(screen.getByRole('option', { name: /Codex/ })).toBeVisible();
+    expect(screen.getByRole('option', { name: /Local vLLM/ })).toBeVisible();
   });
 
   it('reports unavailable provider failures once instead of listing fake models', async () => {
@@ -179,3 +208,19 @@ describe('ClioModelPicker', () => {
     ).not.toBeInTheDocument();
   });
 });
+
+function setWideViewport(matches: boolean): void {
+  vi.spyOn(window, 'matchMedia').mockImplementation(
+    (query) =>
+      ({
+        matches,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }) as MediaQueryList,
+  );
+}
