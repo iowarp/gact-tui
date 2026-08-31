@@ -1,10 +1,8 @@
-import type {
-  WorkspaceResourceDerivative,
-  WorkspaceResourceProcessing,
-} from '@clio/core/v3';
+import type { WorkspaceResourceDerivative, WorkspaceResourceProcessing } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
+  CircleStopIcon,
   EyeIcon,
   FileIcon,
   FileStackIcon,
@@ -61,6 +59,22 @@ export function WorkspaceResourceDerivativesView({
     },
     onError: (mutationError) => toast.error(mutationError.message),
   });
+  const cancelProcessing = useMutation({
+    mutationFn: () => repository.cancelResourceProcessing(workspaceId, resourceId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('workspace-resource-derivatives', workspaceId, resourceId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('workspace-resources', workspaceId),
+        }),
+      ]);
+      toast.success('Document conversion cancelled');
+    },
+    onError: (mutationError) => toast.error(mutationError.message),
+  });
+  const processingActive = processing?.state === 'submitted' || processing?.state === 'processing';
 
   if (error) return <ResourceUnavailable detail={error} label="Derivatives unavailable" />;
   if (selected) {
@@ -100,10 +114,23 @@ export function WorkspaceResourceDerivativesView({
         <Badge className="ml-auto" variant="outline">
           {processing?.state ?? 'not started'}
         </Badge>
+        {processingActive ? (
+          <Button
+            aria-label="Cancel conversion"
+            className="size-8"
+            disabled={cancelProcessing.isPending}
+            onClick={() => cancelProcessing.mutate()}
+            size="icon-sm"
+            title="Cancel conversion"
+            variant="ghost"
+          >
+            <CircleStopIcon aria-hidden="true" />
+          </Button>
+        ) : null}
         <Button
           aria-label="Reprocess resource"
           className="size-8"
-          disabled={reprocess.isPending || processing?.state === 'processing'}
+          disabled={reprocess.isPending || processingActive}
           onClick={() => reprocess.mutate()}
           size="icon-sm"
           title="Reprocess resource"

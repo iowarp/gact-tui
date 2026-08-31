@@ -72,9 +72,10 @@ export const workspaceResourceProcessingSchema = z.object({
   processor_url: z.string(),
   job_id: z.string(),
   query_tool: z.string().default('workspace_resource_inspect'),
-  state: z.enum(['not_started', 'submitted', 'processing', 'complete', 'failed']),
+  state: z.enum(['not_started', 'submitted', 'processing', 'complete', 'failed', 'cancelled']),
   progress: z.number().int().min(0).max(100),
   failure: z.record(z.string(), z.unknown()),
+  cancellation: z.record(z.string(), z.unknown()).default({}),
   created_at: z.string(),
   updated_at: z.string(),
 });

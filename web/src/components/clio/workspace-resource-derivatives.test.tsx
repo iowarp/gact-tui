@@ -1,7 +1,4 @@
-import type {
-  WorkspaceResourceDerivative,
-  WorkspaceResourceProcessing,
-} from '@clio/core/v3';
+import type { WorkspaceResourceDerivative, WorkspaceResourceProcessing } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -9,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 
 const repository = {
+  cancelResourceProcessing: vi.fn(),
   reprocessResource: vi.fn(),
   resourceDerivativeContent: vi.fn(),
 };
@@ -39,17 +37,21 @@ const processing: WorkspaceResourceProcessing = {
   state: 'complete',
   progress: 100,
   failure: {},
+  cancellation: {},
   created_at: '2026-08-31T12:00:00Z',
   updated_at: '2026-08-31T12:00:01Z',
 };
 
-function renderView(derivatives: WorkspaceResourceDerivative[] = [derivative]) {
+function renderView(
+  derivatives: WorkspaceResourceDerivative[] = [derivative],
+  processingState: WorkspaceResourceProcessing['state'] = processing.state,
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <WorkspaceResourceDerivativesView
         derivatives={derivatives}
-        processing={processing}
+        processing={{ ...processing, state: processingState }}
         resourceId="resource_1"
         workspaceId="workspace_1"
       />
@@ -78,5 +80,18 @@ describe('WorkspaceResourceDerivativesView', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reprocess resource' }));
     expect(repository.reprocessResource).toHaveBeenCalledWith('workspace_1', 'resource_1');
+  });
+
+  it('lets the user cancel active conversion without an elapsed-time cutoff', async () => {
+    repository.cancelResourceProcessing.mockResolvedValue({
+      ...processing,
+      state: 'cancelled',
+    });
+    const user = userEvent.setup();
+    renderView([], 'processing');
+
+    await user.click(screen.getByRole('button', { name: 'Cancel conversion' }));
+
+    expect(repository.cancelResourceProcessing).toHaveBeenCalledWith('workspace_1', 'resource_1');
   });
 });

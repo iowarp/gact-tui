@@ -2,6 +2,7 @@ import type { CommandDefinition } from '@clio/core/v3';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import { ClioComposer } from './composer';
 
 afterEach(cleanup);
@@ -48,28 +49,64 @@ function renderComposer({
   state?: 'completed' | 'running';
 } = {}) {
   render(
-    <ClioComposer
-      attachments={attachments}
-      commands={commands}
-      effort="medium"
-      model="gpt-5.6-luna"
-      onCommand={onCommand}
-      onStop={onStop}
-      onSubmit={onSubmit}
-      provider="codex"
-      state={state}
-    />,
+    <PromptInputProvider>
+      <ClioComposer
+        attachments={attachments}
+        commands={commands}
+        effort="medium"
+        model="gpt-5.6-luna"
+        onCommand={onCommand}
+        onStop={onStop}
+        onSubmit={onSubmit}
+        provider="codex"
+        state={state}
+      />
+    </PromptInputProvider>,
   );
   return { onCommand, onStop, onSubmit };
 }
 
 describe('ClioComposer service commands', () => {
+  it('adds and submits every file selected in one picker interaction', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    renderComposer({ attachments: true, onSubmit });
+
+    const files = [
+      new File(['# First'], 'first.md', { type: 'text/markdown' }),
+      new File(['print("second")'], 'second.py', { type: 'text/x-python' }),
+    ];
+    const picker = screen.getByLabelText('Upload files');
+
+    expect(picker).toHaveAttribute('multiple');
+    await user.upload(picker, files);
+
+    expect(screen.getByRole('button', { name: 'Open first.md' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Open second.py' })).toBeVisible();
+
+    await user.type(screen.getByRole('textbox'), 'Inspect both files.{Enter}');
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          files: [
+            expect.objectContaining({ filename: 'first.md', mediaType: 'text/markdown' }),
+            expect.objectContaining({ filename: 'second.py', mediaType: 'text/x-python' }),
+          ],
+          text: 'Inspect both files.',
+        }),
+      ),
+    );
+  });
+
   it('opens the AI Elements attachment picker from a direct composer action', async () => {
     const user = userEvent.setup();
     renderComposer({ attachments: true });
+    const picker = screen.getByLabelText('Upload files');
+    const open = vi.spyOn(picker, 'click');
 
     await user.click(screen.getByRole('button', { name: 'Add files' }));
-    expect(screen.getByRole('button', { name: 'Add files' })).toBeVisible();
+    expect(open).toHaveBeenCalledOnce();
   });
 
   it('focuses only after an explicit focus request changes', async () => {

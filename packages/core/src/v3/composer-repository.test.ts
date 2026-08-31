@@ -222,6 +222,7 @@ describe('ComposerRepository', () => {
       state: 'complete',
       progress: 100,
       failure: {},
+      cancellation: {},
       created_at: '2026-08-31T12:00:00Z',
       updated_at: '2026-08-31T12:01:00Z',
     };
@@ -254,7 +255,9 @@ describe('ComposerRepository', () => {
     const repository = new ComposerRepository(transport);
 
     await expect(repository.resourcePreview('workspace_1', 'resource_1')).resolves.toEqual(preview);
-    await expect(repository.resourceDerivatives('workspace_1', 'resource_1')).resolves.toMatchObject({
+    await expect(
+      repository.resourceDerivatives('workspace_1', 'resource_1'),
+    ).resolves.toMatchObject({
       processor: { state: 'complete' },
       derivatives: [{ id: 'markdown', media_type: 'text/markdown' }],
     });
@@ -265,9 +268,7 @@ describe('ComposerRepository', () => {
       repository.resourceStructureNode('workspace_1', 'resource_1', 'tables', 0),
     ).resolves.toEqual({ collection: 'tables', index: 0, node: { data: [['value']] } });
 
-    expect(
-      transport.requests.map(({ path, responseType }) => ({ path, responseType })),
-    ).toEqual([
+    expect(transport.requests.map(({ path, responseType }) => ({ path, responseType }))).toEqual([
       {
         path: '/v1/workspaces/workspace_1/resources/resource_1/preview',
         responseType: 'bytes',
@@ -299,6 +300,8 @@ describe('ComposerRepository', () => {
       state: 'submitted',
       progress: 0,
       failure: {},
+      cancellation: {},
+      query_tool: 'workspace_resource_inspect',
       created_at: '2026-08-31T12:00:00Z',
       updated_at: '2026-08-31T12:00:00Z',
     };
@@ -325,16 +328,22 @@ describe('ComposerRepository', () => {
         truncated: false,
       },
       processing,
+      { ...processing, state: 'cancelled' },
       { records: [delivery] },
     ]);
     const repository = new ComposerRepository(transport);
 
-    await expect(repository.searchResource('workspace_1', 'resource_1', 'station')).resolves.toMatchObject({
+    await expect(
+      repository.searchResource('workspace_1', 'resource_1', 'station'),
+    ).resolves.toMatchObject({
       matches: [{ line: 7 }],
     });
     await expect(repository.reprocessResource('workspace_1', 'resource_1')).resolves.toEqual(
       processing,
     );
+    await expect(
+      repository.cancelResourceProcessing('workspace_1', 'resource_1'),
+    ).resolves.toMatchObject({ state: 'cancelled' });
     await expect(repository.resourceDeliveries('workspace_1')).resolves.toEqual([delivery]);
 
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
@@ -345,6 +354,10 @@ describe('ComposerRepository', () => {
       {
         method: 'POST',
         path: '/v1/workspaces/workspace_1/resources/resource_1/reprocess',
+      },
+      {
+        method: 'POST',
+        path: '/v1/workspaces/workspace_1/resources/resource_1/processing/cancel',
       },
       { method: 'GET', path: '/v1/workspaces/workspace_1/resource-deliveries' },
     ]);

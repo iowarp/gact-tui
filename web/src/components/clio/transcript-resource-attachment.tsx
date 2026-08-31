@@ -34,13 +34,15 @@ export function TranscriptResourceAttachment({
           : 'Converting'
         : state === 'failed'
           ? 'Original available'
-          : 'Original';
+          : state === 'cancelled'
+            ? 'Conversion cancelled'
+            : 'Original';
   const StatusIcon =
     state === 'complete'
       ? CheckCircle2Icon
       : state === 'submitted' || state === 'processing'
         ? LoaderCircleIcon
-        : state === 'failed'
+        : state === 'failed' || state === 'cancelled'
           ? CircleAlertIcon
           : undefined;
 

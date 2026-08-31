@@ -104,9 +104,10 @@ export interface WorkspaceResourceProcessing {
   processor_url: string;
   job_id: string;
   query_tool?: string;
-  state: 'not_started' | 'submitted' | 'processing' | 'complete' | 'failed';
+  state: 'not_started' | 'submitted' | 'processing' | 'complete' | 'failed' | 'cancelled';
   progress: number;
   failure: Record<string, unknown>;
+  cancellation: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }

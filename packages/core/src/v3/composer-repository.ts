@@ -349,6 +349,19 @@ export class ComposerRepository extends ArtifactPreviewRepository {
     });
   }
 
+  public cancelResourceProcessing(
+    workspaceId: string,
+    resourceId: string,
+    signal?: AbortSignal,
+  ): Promise<WorkspaceResourceProcessing> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/resources/${encodeURIComponent(resourceId)}/processing/cancel`,
+      decode: (value) => workspaceResourceProcessingSchema.parse(value),
+      signal,
+    });
+  }
+
   public async resourceDeliveries(
     workspaceId: string,
     signal?: AbortSignal,
