@@ -77,6 +77,7 @@ export function useSessionLiveStream({
     const consume = async () => {
       setStreamState('connecting');
       while (!controller.signal.aborted) {
+        let receivedFrame = false;
         try {
           const cursor = latestCursor(useLiveStore.getState().entities.cursor, initialCursor);
           for await (const frame of repository.stream(
@@ -84,6 +85,7 @@ export function useSessionLiveStream({
             cursor,
             controller.signal,
           )) {
+            receivedFrame = true;
             reconnectDelay = 250;
             setStreamState('live');
             batcher.push(frame);
@@ -99,7 +101,7 @@ export function useSessionLiveStream({
               }),
             );
           }
-          if (!controller.signal.aborted) setStreamState('reconnecting');
+          if (!controller.signal.aborted && !receivedFrame) setStreamState('reconnecting');
         } catch (error) {
           if (controller.signal.aborted) break;
           setStreamState('reconnecting');

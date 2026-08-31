@@ -5,7 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
 import { ClioModelPicker } from './model-picker';
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.localStorage.clear();
+});
 
 const options = [
   {
@@ -78,7 +81,74 @@ describe('ClioModelPicker', () => {
     await user.click(screen.getByRole('button', { name: 'Change model' }));
     expect(screen.getByRole('link', { name: 'Configure Codex' })).toHaveAttribute(
       'href',
-      '/settings/providers/codex',
+      '/settings/providers?provider=codex',
     );
+  });
+
+  it('reports unavailable provider failures once instead of listing fake models', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={[
+            ...options,
+            {
+              providerId: 'alcf',
+              providerName: 'ALCF',
+              id: 'candidate-a',
+              label: 'Candidate A',
+              available: false,
+              availabilityDetail: 'Globus sign-in required',
+              health: 'unavailable',
+            },
+            {
+              providerId: 'alcf',
+              providerName: 'ALCF',
+              id: 'candidate-b',
+              label: 'Candidate B',
+              available: false,
+              availabilityDetail: 'Globus sign-in required',
+              health: 'unavailable',
+            },
+          ]}
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByText('ALCF'));
+    expect(screen.getAllByText('Globus sign-in required')).toHaveLength(1);
+    expect(screen.queryByText('Candidate A')).not.toBeInTheDocument();
+    expect(screen.queryByText('Candidate B')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Configure ALCF' })).toSatisfy(
+      (links: HTMLElement[]) =>
+        links.every((link) => link.getAttribute('href') === '/settings/providers?provider=alcf'),
+    );
+  });
+
+  it('persists hidden providers and offers a reveal control', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={options}
+          provider="codex"
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByText('Local vLLM'));
+    await user.click(screen.getByRole('button', { name: 'Hide Local vLLM' }));
+    expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([
+      'local-vllm',
+    ]);
+    expect(screen.queryByText('Local vLLM')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '1 hidden' }));
+    expect(screen.getByText('Local vLLM')).toBeVisible();
   });
 });

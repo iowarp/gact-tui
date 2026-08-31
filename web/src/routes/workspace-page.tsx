@@ -275,11 +275,7 @@ export function WorkspacePage() {
   }
 
   const state: RunState =
-    session.state === 'running'
-      ? 'running'
-      : send.isPending
-        ? 'queued'
-        : session.state;
+    session.state === 'running' ? 'running' : send.isPending ? 'queued' : session.state;
   const pendingMessageIds = new Set(
     (pendingSteers.data ?? [])
       .filter((steer) => steer.state === 'pending' || steer.state === 'claimed')
@@ -334,11 +330,11 @@ export function WorkspacePage() {
             </div>
           ) : undefined
         }
-        attachments={capabilities.data?.capabilities.attachments === true}
+        attachments={workspaceRouteState.canUploadWorkspaceResources(
+          capabilities.data?.capabilities,
+        )}
         commands={commands}
-        confirmationPolicy={
-          session.approval_mode === 'unknown' ? 'ask' : session.approval_mode
-        }
+        confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
         disabled={!session || send.isPending || cancel.isPending || isPending}
         effort={activeEffort}
         executionMode={

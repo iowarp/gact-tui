@@ -21,6 +21,14 @@ export function canOpenSessionStream(
   return Boolean(sessionId && gactVersions?.includes(PROTOCOL_VERSION));
 }
 
+/** Enables the composer picker only for the workspace-owned GACT 0.3 resource contract. */
+export function canUploadWorkspaceResources(
+  capabilities: Record<string, unknown> | undefined,
+): boolean {
+  const resources = capabilities?.x_clio_resources;
+  return isRecord(resources) && resources.enabled === true;
+}
+
 /** Turns an opaque persistence failure into an actionable conversation state. */
 export function conversationUnavailableMessage(error: unknown): string | undefined {
   if (!(error instanceof Error)) return undefined;

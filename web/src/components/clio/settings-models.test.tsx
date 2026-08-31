@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelsSettings } from './settings-models';
 
@@ -59,6 +60,7 @@ const repository = vi.hoisted(() => ({
     latency_ms: 18.4,
     generated_at: '2026-08-23T05:00:00Z',
   }),
+  authenticateProvider: vi.fn(),
   updateLanguageModelConfiguration: vi.fn(),
 }));
 
@@ -79,9 +81,11 @@ describe('ModelsSettings', () => {
       defaultOptions: { queries: { retry: false } },
     });
     render(
-      <QueryClientProvider client={queryClient}>
-        <ModelsSettings />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     expect(await screen.findByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent(
@@ -101,15 +105,17 @@ describe('ModelsSettings', () => {
       defaultOptions: { queries: { retry: false } },
     });
     render(
-      <QueryClientProvider client={queryClient}>
-        <ModelsSettings />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     await user.click(await screen.findByRole('button', { name: 'Check provider' }));
     await waitFor(() =>
       expect(repository.providerHandshake).toHaveBeenCalledWith('codex', {
-        apiBase: undefined,
+        apiBase: '',
         refresh: true,
       }),
     );

@@ -35,11 +35,13 @@ const commands: CommandDefinition[] = [
 ];
 
 function renderComposer({
+  attachments = false,
   onCommand = vi.fn(async () => undefined),
   onStop = vi.fn(),
   onSubmit = vi.fn(async () => undefined),
   state = 'completed',
 }: {
+  attachments?: boolean;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onStop?: () => void;
   onSubmit?: (value: { text: string }) => Promise<void>;
@@ -47,7 +49,7 @@ function renderComposer({
 } = {}) {
   render(
     <ClioComposer
-      attachments={false}
+      attachments={attachments}
       commands={commands}
       effort="medium"
       model="gpt-5.6-luna"
@@ -62,6 +64,14 @@ function renderComposer({
 }
 
 describe('ClioComposer service commands', () => {
+  it('opens the AI Elements attachment picker from a direct composer action', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+
+    await user.click(screen.getByRole('button', { name: 'Add files' }));
+    expect(screen.getByRole('button', { name: 'Add files' })).toBeVisible();
+  });
+
   it('focuses only after an explicit focus request changes', async () => {
     const props = {
       attachments: false,

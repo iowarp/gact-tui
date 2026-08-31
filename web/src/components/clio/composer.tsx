@@ -6,17 +6,13 @@ import type {
   RunState,
 } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
-import {
-  CornerDownRightIcon,
-  PaperclipIcon,
-} from 'lucide-react';
+import { CornerDownRightIcon, PlusIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { brand } from '@brand';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import {
   PromptInput,
-  PromptInputActionAddAttachments,
   PromptInputButton,
   PromptInputCommand,
   PromptInputCommandEmpty,
@@ -28,9 +24,11 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  usePromptInputAttachments,
 } from '@/components/ai-elements/prompt-input';
 import { ClioStatus } from './status';
 import { ClioModelPicker } from './model-picker';
+import { Button } from '@/components/ui/button';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ClioComposerAttachments } from './composer-attachments';
@@ -78,10 +76,7 @@ export interface ClioComposerProps {
   queuedMessages?: QueuedMessage[];
   queueBusy?: boolean;
   onDeleteQueuedMessage?: (message: QueuedMessage) => Promise<void>;
-  onPromoteQueuedMessage?: (
-    message: QueuedMessage,
-    delivery: MessageDelivery,
-  ) => Promise<void>;
+  onPromoteQueuedMessage?: (message: QueuedMessage, delivery: MessageDelivery) => Promise<void>;
   onReorderQueuedMessages?: (messages: QueuedMessage[]) => Promise<void>;
   onUpdateQueuedMessage?: (message: QueuedMessage, text: string) => Promise<void>;
   value?: string;
@@ -151,10 +146,10 @@ export function ClioComposer({
     );
   }, [commandQuery, commands]);
   const showCommands = commandQuery.startsWith('/') && !commandQuery.includes(' ');
-  const selectedModelLabel =
-    modelOptions.find(
-      (option) => option.providerId === selectedProvider && option.id === selectedModel,
-    )?.label ?? selectedModel ?? 'Model';
+  const selectedOption = modelOptions.find(
+    (option) =>
+      option.providerId === selectedProvider && option.id === selectedModel && option.available,
+  );
 
   useEffect(() => {
     const previousKey = handledFocusRequestKeyRef.current;
@@ -264,8 +259,8 @@ export function ClioComposer({
                 delivery: nextDeliveryRef.current,
                 files,
                 text: trimmed,
-                provider: selectedProvider,
-                model: selectedModel,
+                provider: selectedOption?.providerId,
+                model: selectedOption?.id,
                 effort: behavior.reasoning_effort,
                 onUploadProgress: setUploadProgress,
               });
@@ -307,11 +302,7 @@ export function ClioComposer({
           onKeyDown={(event) => {
             if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
             nextDeliveryRef.current =
-              state === 'running'
-                ? event.ctrlKey || event.metaKey
-                  ? 'steer'
-                  : 'queued'
-                : 'start';
+              state === 'running' ? (event.ctrlKey || event.metaKey ? 'steer' : 'queued') : 'start';
             if (state === 'running') {
               event.preventDefault();
               event.currentTarget.form?.requestSubmit();
@@ -320,37 +311,37 @@ export function ClioComposer({
         />
         <PromptInputFooter className="flex-wrap">
           <PromptInputTools className="min-w-0 flex-1 flex-wrap">
-            {attachments ? (
-              <PromptInputActionAddAttachments aria-label="Attach files">
-                <PaperclipIcon aria-hidden="true" />
-              </PromptInputActionAddAttachments>
-            ) : null}
+            {attachments ? <ComposerAddAttachmentButton /> : null}
             <ClioComposerBehaviorControls
               behavior={behavior}
               disabled={disabled}
               modelControl={
                 <ClioModelPicker
-                  model={selectedModel}
+                  model={selectedOption?.id}
                   onChange={(option) => {
                     setSelectedProvider(option.providerId);
                     setSelectedModel(option.id);
                   }}
                   options={modelOptions}
-                  provider={selectedProvider}
+                  provider={selectedOption?.providerId}
                   trigger={
-                    <PromptInputButton
+                    <Button
                       aria-label="Change model"
-                      className="max-w-48 !rounded-r-none !text-foreground"
+                      className="max-w-48 text-foreground"
+                      size="sm"
                       title="Change model"
+                      type="button"
                       variant="outline"
                     >
-                      {selectedProvider ? (
-                        <ModelSelectorLogo provider={providerLogoId(selectedProvider)} />
+                      {selectedOption ? (
+                        <ModelSelectorLogo provider={providerLogoId(selectedOption.providerId)} />
                       ) : null}
                       <span className="truncate">
-                        {compactProviderName(selectedProvider)} / {selectedModelLabel}
+                        {selectedOption
+                          ? `${compactProviderName(selectedOption.providerId)} / ${selectedOption.label}`
+                          : 'Choose model'}
                       </span>
-                    </PromptInputButton>
+                    </Button>
                   }
                 />
               }
@@ -392,6 +383,19 @@ export function ClioComposer({
         </PromptInputFooter>
       </PromptInput>
     </div>
+  );
+}
+
+function ComposerAddAttachmentButton() {
+  const attachments = usePromptInputAttachments();
+  return (
+    <PromptInputButton
+      aria-label="Add files"
+      onClick={attachments.openFileDialog}
+      title="Add files"
+    >
+      <PlusIcon aria-hidden="true" />
+    </PromptInputButton>
   );
 }
 

@@ -11,10 +11,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  SESSION_APPROVAL_OPTIONS,
-  SESSION_MODE_OPTIONS,
-} from './session-behavior-options';
+import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
 
 interface ClioComposerBehaviorControlsProps {
   behavior: MessageBehavior;
@@ -31,17 +28,20 @@ export function ClioComposerBehaviorControls({
   onChange,
 }: ClioComposerBehaviorControlsProps) {
   const selectedMode =
-    SESSION_MODE_OPTIONS.find((option) => toExecutionMode(option.value) === behavior.execution_mode) ??
-    SESSION_MODE_OPTIONS[0];
+    SESSION_MODE_OPTIONS.find(
+      (option) => toExecutionMode(option.value) === behavior.execution_mode,
+    ) ?? SESSION_MODE_OPTIONS[0];
   const selectedApproval =
-    SESSION_APPROVAL_OPTIONS.find(
-      (option) => option.value === behavior.confirmation_policy,
-    ) ?? SESSION_APPROVAL_OPTIONS[0];
+    SESSION_APPROVAL_OPTIONS.find((option) => option.value === behavior.confirmation_policy) ??
+    SESSION_APPROVAL_OPTIONS[0];
   const ModeIcon = selectedMode.icon;
   const ApprovalIcon = selectedApproval.icon;
 
   return (
-    <ButtonGroup aria-label="Message behavior" className="max-w-full">
+    <ButtonGroup
+      aria-label="Message behavior"
+      className="h-7 max-w-full [&>[data-slot=button]]:h-7"
+    >
       {modelControl}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -130,8 +130,7 @@ export function ClioComposerBehaviorControls({
             onValueChange={(confirmation_policy) =>
               onChange({
                 ...behavior,
-                confirmation_policy:
-                  confirmation_policy as MessageBehavior['confirmation_policy'],
+                confirmation_policy: confirmation_policy as MessageBehavior['confirmation_policy'],
               })
             }
             value={behavior.confirmation_policy}

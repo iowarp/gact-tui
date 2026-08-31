@@ -5,6 +5,7 @@ import type {
   ProviderModelCatalog,
   ProviderModelRefreshResult,
 } from './domain.js';
+import { z } from 'zod';
 import {
   providerHandshakeSchema,
   providerListSchema,
@@ -78,12 +79,38 @@ export class ProviderRepository extends ContextRepository {
     });
   }
 
+  public authenticateProvider(
+    providerId: string,
+    options: { force?: boolean } = {},
+    signal?: AbortSignal,
+  ): Promise<{ provider_id: string; is_authenticated: boolean; instructions: string }> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
+      body: { force: options.force ?? false },
+      decode: (value) =>
+        z
+          .object({
+            provider_id: z.string(),
+            is_authenticated: z.boolean(),
+            instructions: z.string(),
+          })
+          .parse(value),
+      signal,
+    });
+  }
+
   public updateLanguageModelConfiguration(
     input: {
       provider: string;
       api_base: string;
       model: string;
+      api_key?: string;
       thinking_level?: 'off' | 'low' | 'medium' | 'high';
+      parallel?: number;
+      context_length?: number;
+      max_tokens?: number;
+      temperature?: number;
     },
     signal?: AbortSignal,
   ): Promise<LanguageModelConfiguration> {

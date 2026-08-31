@@ -7,8 +7,9 @@ import type {
   ProviderModelRefreshResult,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RadioTowerIcon, RefreshCwIcon } from 'lucide-react';
+import { KeyRoundIcon, RadioTowerIcon, RefreshCwIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import {
@@ -20,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { Input } from '@/components/ui/input';
 import { providerAvailability } from '@/lib/provider-availability';
 import { providerDisplayName, providerSummary } from '@/lib/provider-presentation';
 import { ClioSettingsSection } from './settings-section';
@@ -83,9 +85,21 @@ function ModelsSettingsContent({
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
+  const [searchParams] = useSearchParams();
   const activePreset = resolveActivePreset(configuration);
-  const [presetId, setPresetId] = useState(activePreset?.id ?? configuration.provider);
-  const [modelId, setModelId] = useState(configuration.model);
+  const requestedProvider = searchParams.get('provider');
+  const requestedPreset = configuration.presets.find(
+    (preset) => preset.id === requestedProvider || preset.provider === requestedProvider,
+  );
+  const initialPreset = requestedPreset ?? activePreset;
+  const [presetId, setPresetId] = useState(initialPreset?.id ?? configuration.provider);
+  const [modelId, setModelId] = useState(requestedPreset?.suggested_model ?? configuration.model);
+  const [apiBase, setApiBase] = useState(initialPreset?.api_base ?? configuration.api_base);
+  const [apiKey, setApiKey] = useState('');
+  const [parallel, setParallel] = useState(0);
+  const [contextLength, setContextLength] = useState(0);
+  const [maxTokens, setMaxTokens] = useState(configuration.max_tokens ?? 32000);
+  const [temperature, setTemperature] = useState(configuration.temperature ?? 0);
   const initialEffort = ['off', 'low', 'medium', 'high'].includes(
     configuration.thinking_level ?? '',
   )
@@ -94,11 +108,21 @@ function ModelsSettingsContent({
   const [effort, setEffort] = useState(initialEffort);
   const [refreshResult, setRefreshResult] = useState<ProviderModelRefreshResult>();
   const [handshakeResult, setHandshakeResult] = useState<ProviderHandshake>();
+  const [authInstructions, setAuthInstructions] = useState('');
   const selectedPreset = configuration.presets.find((preset) => preset.id === presetId);
   const selectedProvider = providers.find(
     (provider) => provider.id === selectedPreset?.id || provider.id === selectedPreset?.provider,
   );
   const selectedAvailability = providerAvailability(selectedProvider, selectedPreset);
+  const supportsRuntimeControls = Boolean(
+    selectedPreset && ['vllm', 'lm_studio', 'ollama'].includes(selectedPreset.provider),
+  );
+  const providerReadyForApply = Boolean(
+    selectedPreset &&
+      (selectedPreset.is_authenticated ||
+        (selectedPreset.requires_api_key && apiKey) ||
+        selectedPreset.auth_method === 'none'),
+  );
   const models = useQuery({
     queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
     queryFn: ({ signal }) => repository.providerModels(presetId, signal),
@@ -118,9 +142,14 @@ function ModelsSettingsContent({
       if (!selectedPreset || !modelId) throw new Error('Choose a provider and model first.');
       return repository.updateLanguageModelConfiguration({
         provider: selectedPreset.provider,
-        api_base: selectedPreset.api_base ?? '',
+        api_base: apiBase,
         model: modelId,
+        ...(apiKey ? { api_key: apiKey } : {}),
         thinking_level: effort,
+        parallel,
+        context_length: contextLength,
+        max_tokens: maxTokens,
+        temperature,
       });
     },
     onSuccess: async (next) => {
@@ -160,11 +189,18 @@ function ModelsSettingsContent({
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
       return repository.providerHandshake(presetId, {
-        apiBase: selectedPreset?.api_base,
+        apiBase,
         refresh: true,
       });
     },
     onSuccess: setHandshakeResult,
+  });
+  const authenticate = useMutation({
+    mutationFn: async () => {
+      if (!presetId) throw new Error('Choose a provider first.');
+      return repository.authenticateProvider(presetId);
+    },
+    onSuccess: (result) => setAuthInstructions(result.instructions),
   });
 
   return (
@@ -179,11 +215,23 @@ function ModelsSettingsContent({
           <>
             <div className="flex flex-wrap items-center gap-3">
               <Button
-                disabled={!selectedPreset?.is_authenticated || !modelId || save.isPending}
+                disabled={!providerReadyForApply || !modelId || save.isPending}
                 onClick={() => save.mutate()}
               >
-                {save.isPending ? 'Saving…' : 'Save default'}
+                {save.isPending ? 'Applying…' : 'Apply provider and model'}
               </Button>
+              {selectedPreset?.auth_method === 'oauth' ? (
+                <Button
+                  disabled={authenticate.isPending}
+                  onClick={() => authenticate.mutate()}
+                  variant="outline"
+                >
+                  <KeyRoundIcon aria-hidden="true" />
+                  {authenticate.isPending
+                    ? 'Opening sign-in…'
+                    : `Sign in to ${providerDisplayName(selectedPreset)}`}
+                </Button>
+              ) : null}
               <Button
                 disabled={!presetId || refreshModels.isPending}
                 onClick={() => refreshModels.mutate()}
@@ -218,11 +266,17 @@ function ModelsSettingsContent({
             {handshake.error ? (
               <p className="text-sm text-destructive">{handshake.error.message}</p>
             ) : null}
+            {authenticate.error ? (
+              <p className="text-sm text-destructive">{authenticate.error.message}</p>
+            ) : null}
+            {authInstructions ? (
+              <p className="max-w-3xl text-sm text-muted-foreground">{authInstructions}</p>
+            ) : null}
             {refreshResult ? <RefreshResult result={refreshResult} /> : null}
             {handshakeResult ? <HandshakeResult result={handshakeResult} /> : null}
           </>
         }
-        title="Default model"
+        title="Provider and model"
       >
         <FieldGroup>
           <Field>
@@ -232,8 +286,11 @@ function ModelsSettingsContent({
                 setPresetId(value);
                 const preset = configuration.presets.find((item) => item.id === value);
                 setModelId(preset?.suggested_model ?? '');
+                setApiBase(preset?.api_base ?? '');
+                setApiKey('');
                 setRefreshResult(undefined);
                 setHandshakeResult(undefined);
+                setAuthInstructions('');
               }}
               value={presetId}
             >
@@ -300,6 +357,98 @@ function ModelsSettingsContent({
             </Select>
             <FieldDescription>
               This becomes the reasoning depth used for new work with this model.
+            </FieldDescription>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="provider-api-base">Endpoint / API base</FieldLabel>
+            <Input
+              autoComplete="url"
+              id="provider-api-base"
+              onChange={(event) => setApiBase(event.target.value)}
+              placeholder="http://127.0.0.1:8000/v1"
+              value={apiBase}
+            />
+            <FieldDescription>
+              {selectedPreset?.provider === 'vllm'
+                ? 'Set the vLLM host and port here, including the OpenAI-compatible /v1 path.'
+                : 'The connected service will use this endpoint for the selected provider.'}
+            </FieldDescription>
+          </Field>
+          {selectedPreset?.requires_api_key ? (
+            <Field>
+              <FieldLabel htmlFor="provider-api-key">API key</FieldLabel>
+              <Input
+                autoComplete="off"
+                id="provider-api-key"
+                onChange={(event) => setApiKey(event.target.value)}
+                placeholder={
+                  selectedPreset.is_authenticated
+                    ? 'Leave blank to keep the configured credential'
+                    : 'Enter a provider API key'
+                }
+                type="password"
+                value={apiKey}
+              />
+              <FieldDescription>
+                Credentials are sent to the connected CLIO backend and are never read back into the
+                browser.
+              </FieldDescription>
+            </Field>
+          ) : null}
+          {supportsRuntimeControls ? (
+            <>
+              <Field>
+                <FieldLabel htmlFor="provider-parallel">Parallel model slots</FieldLabel>
+                <Input
+                  id="provider-parallel"
+                  min={0}
+                  onChange={(event) => setParallel(Number(event.target.value) || 0)}
+                  type="number"
+                  value={parallel}
+                />
+                <FieldDescription>
+                  Zero uses CLIO's safe default. Increase only when the local runtime has capacity.
+                </FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="provider-context-length">Context length</FieldLabel>
+                <Input
+                  id="provider-context-length"
+                  min={0}
+                  onChange={(event) => setContextLength(Number(event.target.value) || 0)}
+                  type="number"
+                  value={contextLength}
+                />
+                <FieldDescription>
+                  Zero keeps the runtime-discovered or deployment default context window.
+                </FieldDescription>
+              </Field>
+            </>
+          ) : null}
+          <Field>
+            <FieldLabel htmlFor="provider-max-tokens">Maximum output tokens</FieldLabel>
+            <Input
+              id="provider-max-tokens"
+              min={1}
+              onChange={(event) => setMaxTokens(Math.max(1, Number(event.target.value) || 1))}
+              type="number"
+              value={maxTokens}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="provider-temperature">Temperature</FieldLabel>
+            <Input
+              id="provider-temperature"
+              max={2}
+              min={0}
+              onChange={(event) => setTemperature(Number(event.target.value) || 0)}
+              step={0.1}
+              type="number"
+              value={temperature}
+            />
+            <FieldDescription>
+              Applying these settings also makes this provider and model the backend default for new
+              work.
             </FieldDescription>
           </Field>
         </FieldGroup>
