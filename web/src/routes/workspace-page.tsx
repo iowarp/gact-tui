@@ -110,8 +110,16 @@ export function WorkspacePage() {
     openDiff,
     openSubagent,
     openWorkspaceFile,
+    openWorkspaceResource,
     revealWorkbench,
   } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
+  const workspaceResourceEntities = useMemo(
+    () =>
+      Object.fromEntries(
+        (workspaceResources.data ?? []).map((resource) => [resource.id, resource]),
+      ),
+    [workspaceResources.data],
+  );
   const handleA2UILocalAction = useA2UILocalActions(entities.artifacts, sessionId, openArtifact);
 
   const {
@@ -582,6 +590,7 @@ export function WorkspacePage() {
                     onA2UILocalAction={handleA2UILocalAction}
                     onOpenArtifact={openArtifact}
                     onOpenFile={openWorkspaceFile}
+                    onOpenResource={openWorkspaceResource}
                     forkingMessageId={
                       sessionHistory.fork.isPending && sessionHistory.fork.variables
                         ? sessionHistory.fork.variables
@@ -601,6 +610,7 @@ export function WorkspacePage() {
                       sessionHistory.rewind.isPending ? sessionHistory.rewind.variables : undefined
                     }
                     retryingMessageId={retry.isPending ? retry.variables : undefined}
+                    resources={workspaceResourceEntities}
                     sessionId={sessionId}
                   />
                 </m.div>

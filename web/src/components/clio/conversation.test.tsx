@@ -44,6 +44,84 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation recovery actions', () => {
+  it('renders workspace resources above human prose without exposing private prompt context', () => {
+    const onOpenResource = vi.fn();
+    const resource = {
+      id: 'res_1',
+      workspace_id: 'workspace_1',
+      client_upload_id: 'upload_1',
+      revision: 1,
+      name: 'paper.pdf',
+      claimed_mime: 'application/pdf',
+      detected_mime: 'application/pdf',
+      detection_source: 'signature',
+      declared_size: 42,
+      received_size: 42,
+      sha256: 'abc',
+      state: 'ready' as const,
+      failure: '',
+      created_at: '2026-08-22T00:00:00Z',
+      updated_at: '2026-08-22T00:00:00Z',
+      completed_at: '2026-08-22T00:00:00Z',
+      mime_mismatch: false,
+      processing: {
+        workspace_id: 'workspace_1',
+        resource_id: 'res_1',
+        resource_revision: 1,
+        source_sha256: 'abc',
+        processor: 'clio-web-search-docling',
+        processor_url: 'http://processor.test',
+        job_id: 'job_1',
+        query_tool: 'workspace_resource_inspect',
+        state: 'complete' as const,
+        progress: 100,
+        failure: {},
+        created_at: '2026-08-22T00:00:00Z',
+        updated_at: '2026-08-22T00:00:00Z',
+      },
+    };
+
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_resource',
+            session_id: 'session_1',
+            role: 'user',
+            created_at: '2026-08-22T00:00:00Z',
+            blocks: [
+              {
+                id: 'resource_part',
+                type: 'resource',
+                resource_id: 'res_1',
+                resource_revision: '1',
+                workspace_id: 'workspace_1',
+                name: 'paper.pdf',
+                media_type: 'application/pdf',
+              },
+              { id: 'text_part', type: 'text', text: 'Analyze this filing.' },
+            ],
+          },
+        ]}
+        onOpenResource={onOpenResource}
+        resources={{ res_1: resource }}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    const attachment = screen.getByRole('button', { name: 'Open paper.pdf' });
+    expect(attachment).toHaveTextContent('paper.pdf');
+    expect(attachment).toHaveTextContent('Converted');
+    expect(screen.getByText('Analyze this filing.')).toBeInTheDocument();
+    expect(screen.queryByText(/private runtime context/i)).not.toBeInTheDocument();
+    fireEvent.click(attachment);
+    expect(onOpenResource).toHaveBeenCalledWith(resource);
+  });
+
   it('renders an accepted steer as the real human message and permits cancellation before claim', () => {
     const onCancelPendingSteer = vi.fn();
 
@@ -102,7 +180,9 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByText('Inspect the alternate station.').parentElement).toHaveClass(
       'border-dashed',
     );
-    expect(screen.queryByRole('button', { name: 'Cancel pending message' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Cancel pending message' }),
+    ).not.toBeInTheDocument();
   });
 
   it('does not claim an authoritative transcript is empty while it is loading', () => {

@@ -644,6 +644,15 @@ export type MessageBlock = MessageBlockContext &
     | { id: string; type: 'artifact'; artifact_id: string }
     | {
         id: string;
+        type: 'resource';
+        resource_id: string;
+        resource_revision: string;
+        workspace_id: string;
+        name: string;
+        media_type: string;
+      }
+    | {
+        id: string;
         type: 'action_card';
         title: string;
         detail?: string;

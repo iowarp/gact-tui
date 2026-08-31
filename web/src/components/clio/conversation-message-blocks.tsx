@@ -250,6 +250,9 @@ function MessageBlockView({
           {block.detail ? <span>{block.detail}</span> : null}
         </div>
       );
+    case 'resource':
+      // Human-message resources are grouped above prose by ConversationMessageRow.
+      return null;
     case 'unknown':
       return (
         <Alert>

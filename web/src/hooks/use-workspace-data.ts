@@ -166,6 +166,12 @@ export function useWorkspaceData({
     queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),
     queryFn: ({ signal }) => repository.resources(workspaceId, signal),
     enabled: Boolean(workspaceId),
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some((resource) =>
+        ['submitted', 'processing'].includes(resource.processing?.state ?? ''),
+      )
+        ? 1_500
+        : false,
   });
   const agentBlueprints = useQuery({
     queryKey: queryKeys.key('agent-blueprints', settings.endpoint, workspaceId),

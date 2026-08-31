@@ -73,6 +73,20 @@ describe('forward-compatible wire enums', () => {
       text: 'Grounded thought',
       source: 'provider',
     });
+    expect(
+      messageBlockSchema.parse({
+        id: 'resource_1',
+        type: 'resource',
+        resource_id: 'res_1',
+        resource_revision: '1',
+        workspace_id: 'ws_1',
+        name: 'paper.pdf',
+        media_type: 'application/pdf',
+      }),
+    ).toMatchObject({ type: 'resource', name: 'paper.pdf' });
+    expect(() =>
+      messageBlockSchema.parse({ id: 'resource_2', type: 'resource', resource_id: 'res_2' }),
+    ).toThrow();
   });
 
   it('uses the shared closed A2UI component vocabulary and limits', () => {

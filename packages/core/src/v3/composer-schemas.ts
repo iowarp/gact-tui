@@ -63,6 +63,22 @@ export const queuedMessageSchema = z.object({
   updated_at: z.string(),
 });
 
+export const workspaceResourceProcessingSchema = z.object({
+  workspace_id: z.string(),
+  resource_id: z.string(),
+  resource_revision: z.number().int().positive(),
+  source_sha256: z.string(),
+  processor: z.string(),
+  processor_url: z.string(),
+  job_id: z.string(),
+  query_tool: z.string().default('workspace_resource_inspect'),
+  state: z.enum(['not_started', 'submitted', 'processing', 'complete', 'failed']),
+  progress: z.number().int().min(0).max(100),
+  failure: z.record(z.string(), z.unknown()),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
 export const workspaceResourceSchema = z.object({
   id: z.string(),
   workspace_id: z.string(),
@@ -81,23 +97,9 @@ export const workspaceResourceSchema = z.object({
   updated_at: z.string(),
   completed_at: z.string(),
   mime_mismatch: z.boolean(),
+  processing: workspaceResourceProcessingSchema.optional(),
   idempotent_replay: z.boolean().optional(),
   upload_url: z.string().optional(),
-});
-
-export const workspaceResourceProcessingSchema = z.object({
-  workspace_id: z.string(),
-  resource_id: z.string(),
-  resource_revision: z.number().int().positive(),
-  source_sha256: z.string(),
-  processor: z.string(),
-  processor_url: z.string(),
-  job_id: z.string(),
-  state: z.enum(['not_started', 'submitted', 'processing', 'complete', 'failed']),
-  progress: z.number().int().min(0).max(100),
-  failure: z.record(z.string(), z.unknown()),
-  created_at: z.string(),
-  updated_at: z.string(),
 });
 
 export const workspaceResourceDerivativeSchema = z

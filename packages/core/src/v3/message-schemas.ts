@@ -19,7 +19,22 @@ function omitGeneratedNulls(value: unknown): unknown {
 const knownMessageBlockSchema = messageBlockGeneratedSchema.transform(
   (value) => omitGeneratedNulls(value) as MessageBlock,
 );
-const knownMessageBlockTypes = new Set<string>(messageBlockTypes);
+const resourceMessageBlockSchema = z
+  .object({
+    id: z.string(),
+    type: z.literal('resource'),
+    resource_id: z.string(),
+    resource_revision: z.string(),
+    workspace_id: z.string(),
+    name: z.string(),
+    media_type: z.string(),
+    agent_id: z.string().optional(),
+    sequence: z.number().int().positive().optional(),
+    stream_source: z.string().optional(),
+    channel: z.string().optional(),
+  })
+  .strict();
+const knownMessageBlockTypes = new Set<string>([...messageBlockTypes, 'resource']);
 
 const unknownMessageBlockSchema = z
   .object({
@@ -51,7 +66,11 @@ const unknownMessageBlockSchema = z
     ...(value.stream_source ? { stream_source: value.stream_source } : {}),
   }));
 
-export const messageBlockSchema = z.union([knownMessageBlockSchema, unknownMessageBlockSchema]);
+export const messageBlockSchema = z.union([
+  resourceMessageBlockSchema,
+  knownMessageBlockSchema,
+  unknownMessageBlockSchema,
+]);
 
 export const messageUsageSchema = z.object({
   input: z.number().int().nonnegative(),

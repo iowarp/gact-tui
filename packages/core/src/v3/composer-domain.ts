@@ -90,6 +90,7 @@ export interface WorkspaceResource {
   updated_at: string;
   completed_at: string;
   mime_mismatch: boolean;
+  processing?: WorkspaceResourceProcessing;
   idempotent_replay?: boolean;
   upload_url?: string;
 }
@@ -102,6 +103,7 @@ export interface WorkspaceResourceProcessing {
   processor: string;
   processor_url: string;
   job_id: string;
+  query_tool?: string;
   state: 'not_started' | 'submitted' | 'processing' | 'complete' | 'failed';
   progress: number;
   failure: Record<string, unknown>;

@@ -6,6 +6,7 @@ import type {
   SubagentRun,
   Task as DomainTask,
   ToolInvocation,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import {
@@ -46,6 +47,7 @@ import { conversationTurnPresentation } from './conversation-turn-model';
 import { subagentsForTool } from './subagent-tool-link';
 import type { SubagentOpenTarget } from './subagent-card';
 import { ClioTranscriptMinimap } from './transcript-minimap';
+import { TranscriptResourceAttachment } from './transcript-resource-attachment';
 
 const VIRTUALIZATION_THRESHOLD = 80;
 
@@ -58,6 +60,7 @@ export interface ClioConversationProps {
   subagents: Record<string, SubagentRun>;
   artifacts: Record<string, Artifact>;
   surfaces: Record<string, A2UISurface>;
+  resources?: Record<string, WorkspaceResource>;
   onActionCardAction?: (action: ActionCardAction) => void | Promise<unknown>;
   onA2UILocalAction?: (action: A2uiClientAction) => string | void | Promise<string | void>;
   onForkFromMessage?: (messageId: string) => void | Promise<unknown>;
@@ -68,6 +71,7 @@ export interface ClioConversationProps {
   retryingMessageId?: string;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenFile?: (path: string) => void;
+  onOpenResource?: (resource: WorkspaceResource) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   pendingMessageIds?: ReadonlySet<string>;
   cancellablePendingMessageIds?: ReadonlySet<string>;
@@ -111,16 +115,15 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     turn.iterations.flatMap((iteration) =>
       iteration.tools.flatMap((tool) =>
         subagentsForTool(tool, entities.subagents).map((subagent) => subagent.id),
-        ),
       ),
+    ),
   );
   const actions = (
     <MessageActions className="ml-auto shrink-0 opacity-100 sm:pointer-events-none sm:opacity-0 sm:transition-opacity sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
       {cancellablePendingSteer ? (
         <MessageAction
           disabled={
-            entities.cancellingPendingMessageId === message.id ||
-            !entities.onCancelPendingSteer
+            entities.cancellingPendingMessageId === message.id || !entities.onCancelPendingSteer
           }
           label={
             entities.cancellingPendingMessageId === message.id
@@ -282,7 +285,22 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                 />
               </>
             ) : (
-              <MessageBlockSequence blocks={message.blocks} {...entities} />
+              <>
+                {message.blocks.map((block) =>
+                  block.type === 'resource' ? (
+                    <TranscriptResourceAttachment
+                      block={block}
+                      key={block.id}
+                      onOpen={entities.onOpenResource}
+                      resource={entities.resources?.[block.resource_id]}
+                    />
+                  ) : null,
+                )}
+                <MessageBlockSequence
+                  blocks={message.blocks.filter((block) => block.type !== 'resource')}
+                  {...entities}
+                />
+              </>
             )}
           </MessageContent>
         </Message>
@@ -297,6 +315,7 @@ interface MessageEntityRefs {
   surfaces: Set<string>;
   tasks: Set<string>;
   tools: Set<string>;
+  resources: Set<string>;
 }
 
 const messageEntityRefsCache = new WeakMap<DomainMessage, MessageEntityRefs>();
@@ -310,6 +329,7 @@ function messageEntityRefs(message: DomainMessage): MessageEntityRefs {
     surfaces: new Set(),
     tasks: new Set(),
     tools: new Set(),
+    resources: new Set(),
   };
   for (const block of message.blocks) {
     if (block.type === 'artifact') refs.artifacts.add(block.artifact_id);
@@ -317,6 +337,7 @@ function messageEntityRefs(message: DomainMessage): MessageEntityRefs {
     else if (block.type === 'a2ui') refs.surfaces.add(block.surface_id);
     else if (block.type === 'task') refs.tasks.add(block.task_id);
     else if (block.type === 'tool') refs.tools.add(block.tool_id);
+    else if (block.type === 'resource') refs.resources.add(block.resource_id);
   }
   messageEntityRefsCache.set(message, refs);
   return refs;
@@ -375,6 +396,7 @@ function conversationMessageRowPropsEqual(
     left.onCancelPendingSteer !== right.onCancelPendingSteer ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
+    left.onOpenResource !== right.onOpenResource ||
     left.onOpenSubagent !== right.onOpenSubagent ||
     left.pendingMessageIds?.has(left.message.id) !==
       right.pendingMessageIds?.has(right.message.id) ||
@@ -392,6 +414,7 @@ function conversationMessageRowPropsEqual(
     referencedRowsEqual(left.surfaces, right.surfaces, refs.surfaces) &&
     referencedRowsEqual(left.tasks, right.tasks, refs.tasks) &&
     referencedRowsEqual(left.tools, right.tools, refs.tools) &&
+    referencedRowsEqual(left.resources ?? {}, right.resources ?? {}, refs.resources) &&
     linkedSubagentsEqual(left, right, refs.tools)
   );
 }
@@ -463,7 +486,9 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
     }
     setIsAtBottom(next);
     if (virtualized) {
-      const firstVisible = virtualizer.getVirtualItems().find((item) => item.end >= element.scrollTop);
+      const firstVisible = virtualizer
+        .getVirtualItems()
+        .find((item) => item.end >= element.scrollTop);
       if (firstVisible) setActiveMessageIndex(firstVisible.index);
     }
   }, [virtualized, virtualizer]);
