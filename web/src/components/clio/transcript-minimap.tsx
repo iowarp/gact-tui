@@ -128,9 +128,13 @@ function MinimapRail({
       aria-label="Transcript minimap"
       className="absolute inset-y-3 left-1 z-10 w-3 rounded-full bg-background/80 py-1 shadow-sm backdrop-blur-sm"
     >
-      <div className="clio-scrollbar h-full overflow-y-auto px-0.5" ref={railRef}>
+      <div
+        className="h-full overflow-y-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        ref={railRef}
+      >
         {useScrollspy ? (
           <Scrollspy
+            className="w-full"
             history={false}
             navigate={false}
             onUpdate={(sectionId) => {

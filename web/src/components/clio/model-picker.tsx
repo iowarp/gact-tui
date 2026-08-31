@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import type { ClioModelOption } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
+import { cn } from '@/lib/utils';
 
 interface ClioModelPickerProps {
   model?: string;
@@ -152,12 +153,19 @@ export function ClioModelPicker({
                 role="listbox"
               >
                 {visibleProviders.map((item) => (
-                  <ModelSelectorItem
+                  <Button
                     aria-selected={item.id === activeGroup?.id}
-                    className="min-h-11 rounded-lg data-[selected=true]:bg-accent"
+                    className={cn(
+                      'h-auto min-h-11 w-full justify-start gap-2 rounded-lg px-2 py-1.5 font-normal',
+                      item.id === activeGroup?.id
+                        ? 'bg-accent hover:bg-accent'
+                        : 'hover:bg-muted',
+                    )}
                     key={item.id}
-                    onSelect={() => setRequestedProvider(item.id)}
-                    value={`${item.name} ${item.id} ${item.choices.map((choice) => choice.id).join(' ')}`}
+                    onClick={() => setRequestedProvider(item.id)}
+                    role="option"
+                    type="button"
+                    variant="ghost"
                   >
                     <ModelSelectorLogo provider={providerLogoId(item.id)} />
                     <ModelSelectorName>
@@ -171,7 +179,7 @@ export function ClioModelPicker({
                         {providerSummary(item)}
                       </span>
                     </ModelSelectorName>
-                  </ModelSelectorItem>
+                  </Button>
                 ))}
               </div>
               <div className="min-w-0 p-2">

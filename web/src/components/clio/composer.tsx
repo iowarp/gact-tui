@@ -338,7 +338,7 @@ export function ClioComposer({
                       ) : null}
                       <span className="truncate">
                         {selectedOption
-                          ? `${compactProviderName(selectedOption.providerId)} / ${selectedOption.label}`
+                          ? `${compactProviderName(selectedOption.providerId)} / ${compactModelName(selectedOption.providerId, selectedOption.id, selectedOption.label)}`
                           : 'Choose model'}
                       </span>
                     </Button>
@@ -408,8 +408,18 @@ function compactProviderName(provider?: string): string {
   const names: Record<string, string> = {
     argonne_local_vllm: 'vLLM',
     claude_code: 'Claude',
+    codex: 'Codex',
     lm_studio: 'LM Studio',
   };
   if (!provider) return 'Provider';
   return names[provider] ?? provider.replaceAll('_', ' ');
+}
+
+function compactModelName(provider: string, modelId: string, label: string): string {
+  if (provider === 'codex') {
+    const familyName = modelId.match(/(?:^|[-_.])(luna|sol|terra)$/i)?.[1];
+    if (familyName) return `${familyName.charAt(0).toUpperCase()}${familyName.slice(1).toLowerCase()}`;
+  }
+  if (provider === 'claude_code' && /sonnet/i.test(modelId)) return 'Sonnet';
+  return label;
 }

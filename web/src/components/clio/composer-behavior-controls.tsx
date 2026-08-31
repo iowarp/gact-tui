@@ -47,13 +47,19 @@ export function ClioComposerBehaviorControls({
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`Reasoning effort: ${behavior.reasoning_effort}`}
+            className="gap-1.5 px-2"
             disabled={disabled}
-            size="icon-sm"
+            size="sm"
             title={`Reasoning effort: ${behavior.reasoning_effort}`}
             type="button"
             variant="outline"
           >
             <SlidersHorizontalIcon />
+            <span className="hidden capitalize lg:inline">
+              {behavior.reasoning_effort === 'xhigh'
+                ? 'Extra high'
+                : behavior.reasoning_effort}
+            </span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
@@ -79,13 +85,15 @@ export function ClioComposerBehaviorControls({
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`Execution mode: ${selectedMode.label}`}
+            className="gap-1.5 px-2"
             disabled={disabled}
-            size="icon-sm"
+            size="sm"
             title={`Execution mode: ${selectedMode.label}`}
             type="button"
             variant="outline"
           >
             <ModeIcon />
+            <span className="hidden lg:inline">{selectedMode.label}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
@@ -115,13 +123,15 @@ export function ClioComposerBehaviorControls({
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`Confirmation policy: ${selectedApproval.label}`}
+            className="gap-1.5 px-2"
             disabled={disabled}
-            size="icon-sm"
+            size="sm"
             title={`Confirmation policy: ${selectedApproval.label}`}
             type="button"
             variant="outline"
           >
             <ApprovalIcon />
+            <span className="hidden lg:inline">{selectedApproval.label}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">

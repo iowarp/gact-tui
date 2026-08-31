@@ -21,6 +21,8 @@ const LocalPdfViewer = lazy(() =>
   })),
 );
 
+const MAX_TEXT_PREVIEW_BYTES = 1024 * 1024;
+
 /** Compact AI Elements attachment tray backed by PromptInput file state. */
 export function ClioComposerAttachments() {
   const attachments = usePromptInputAttachments();
@@ -45,9 +47,7 @@ export function ClioComposerAttachments() {
             >
               <AttachmentPreview className="h-full w-full rounded-none [&_svg]:size-6" />
               <span className="min-w-0 border-t bg-background/85 px-2 py-1.5">
-                <span className="block truncate text-xs font-medium">
-                  {file.filename ?? 'Attachment'}
-                </span>
+                <AttachmentFilename filename={file.filename ?? 'Attachment'} />
                 <span className="block truncate text-[10px] text-muted-foreground">
                   {file.mediaType || 'Type pending'}
                 </span>
@@ -58,7 +58,7 @@ export function ClioComposerAttachments() {
         ))}
       </Attachments>
       <Dialog onOpenChange={(open) => !open && setPreview(undefined)} open={Boolean(preview)}>
-        <DialogContent className="grid h-[min(46rem,calc(100dvh-2rem))] max-w-5xl grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0">
+        <DialogContent className="grid h-[min(46rem,calc(100dvh-2rem))] w-[min(64rem,calc(100vw-2rem))] max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 sm:max-w-none">
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="truncate">
               {preview?.filename ?? 'Attachment preview'}
@@ -71,6 +71,19 @@ export function ClioComposerAttachments() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function AttachmentFilename({ filename }: { filename: string }) {
+  const extensionStart = filename.lastIndexOf('.');
+  const hasExtension = extensionStart > 0 && extensionStart < filename.length - 1;
+  const stem = hasExtension ? filename.slice(0, extensionStart) : filename;
+  const extension = hasExtension ? filename.slice(extensionStart) : '';
+  return (
+    <span className="flex min-w-0 text-xs font-medium" title={filename}>
+      <span className="truncate">{stem}</span>
+      {extension ? <span className="shrink-0">{extension}</span> : null}
+    </span>
   );
 }
 
@@ -97,13 +110,7 @@ function LocalAttachmentPreview({ file }: { file: FileUIPart }) {
     file.mediaType?.startsWith('text/') ||
     /\.(md|mdx|py|js|jsx|ts|tsx|json|ya?ml|toml|csv|log)$/i.test(file.filename ?? '')
   ) {
-    return (
-      <iframe
-        className="size-full min-h-[36rem] rounded-lg border bg-background"
-        src={file.url}
-        title={file.filename ?? 'Attachment preview'}
-      />
-    );
+    return <LocalTextPreview file={file} />;
   }
   return (
     <div className="grid h-full min-h-64 place-items-center text-center text-sm text-muted-foreground">
@@ -112,6 +119,44 @@ function LocalAttachmentPreview({ file }: { file: FileUIPart }) {
         <p>This file will be preserved and inspected by the workspace after upload.</p>
       </div>
     </div>
+  );
+}
+
+function LocalTextPreview({ file }: { file: FileUIPart }) {
+  const [text, setText] = useState<string>();
+  const [error, setError] = useState<string>();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(file.url, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Preview request failed with ${response.status}.`);
+        return response.blob();
+      })
+      .then((blob) => {
+        if (blob.size > MAX_TEXT_PREVIEW_BYTES) {
+          throw new Error('Preview unavailable for text files larger than 1 MB.');
+        }
+        return blob.text();
+      })
+      .then(setText)
+      .catch((cause: unknown) => {
+        if (cause instanceof Error && cause.name === 'AbortError') return;
+        setError(cause instanceof Error ? cause.message : 'The text file could not be read.');
+      });
+    return () => controller.abort();
+  }, [file.url]);
+
+  if (error) {
+    return <p className="p-4 text-sm text-destructive">{error}</p>;
+  }
+  if (text === undefined) {
+    return <p className="p-4 text-sm text-muted-foreground">Loading preview…</p>;
+  }
+  return (
+    <pre className="min-h-full whitespace-pre-wrap rounded-lg border bg-background p-4 font-mono text-xs leading-relaxed text-foreground">
+      {text}
+    </pre>
   );
 }
 
