@@ -32,6 +32,7 @@ fn req(method: &str, url: String, body: Option<String>) -> GactHttpRequest {
         url,
         headers: HashMap::new(),
         body,
+        body_encoding: None,
     }
 }
 

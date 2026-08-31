@@ -44,6 +44,67 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation recovery actions', () => {
+  it('renders an accepted steer as the real human message and permits cancellation before claim', () => {
+    const onCancelPendingSteer = vi.fn();
+
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        cancellablePendingMessageIds={new Set(['message_pending'])}
+        messages={[
+          {
+            id: 'message_pending',
+            session_id: 'session_1',
+            role: 'user',
+            created_at: '2026-08-22T00:00:00Z',
+            blocks: [{ id: 'text_pending', type: 'text', text: 'Use the newer evidence.' }],
+          },
+        ]}
+        onCancelPendingSteer={onCancelPendingSteer}
+        pendingMessageIds={new Set(['message_pending'])}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    const message = screen.getByText('Use the newer evidence.').parentElement;
+    expect(message).toHaveClass('border-dashed');
+    expect(screen.queryByText(/steering|safe boundary/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel pending message' }));
+    expect(onCancelPendingSteer).toHaveBeenCalledWith('message_pending');
+  });
+
+  it('keeps a claimed steer visually pending without offering an invalid cancellation', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        cancellablePendingMessageIds={new Set()}
+        messages={[
+          {
+            id: 'message_claimed',
+            session_id: 'session_1',
+            role: 'user',
+            created_at: '2026-08-22T00:00:00Z',
+            blocks: [{ id: 'text_claimed', type: 'text', text: 'Inspect the alternate station.' }],
+          },
+        ]}
+        pendingMessageIds={new Set(['message_claimed'])}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    expect(screen.getByText('Inspect the alternate station.').parentElement).toHaveClass(
+      'border-dashed',
+    );
+    expect(screen.queryByRole('button', { name: 'Cancel pending message' })).not.toBeInTheDocument();
+  });
+
   it('does not claim an authoritative transcript is empty while it is loading', () => {
     renderConversation(
       <ClioConversation

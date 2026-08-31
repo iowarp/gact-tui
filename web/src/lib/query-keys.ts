@@ -38,6 +38,7 @@ export type ClioQueryNamespace =
   | 'prompt'
   | 'prompts'
   | 'provider-models'
+  | 'provider-catalog'
   | 'provenance-providers'
   | 'providers'
   | 'relay-status'
@@ -50,11 +51,20 @@ export type ClioQueryNamespace =
   | 'session-diffs'
   | 'session-observability'
   | 'sessions'
+  | 'pending-steers'
+  | 'queued-messages'
   | 'tools'
   | 'transcript'
   | 'workspace-file'
   | 'workspace-file-bytes'
   | 'workspace-files'
+  | 'workspace-resources'
+  | 'workspace-resource-derivatives'
+  | 'workspace-resource-derivative-content'
+  | 'workspace-resource-deliveries'
+  | 'workspace-resource-preview'
+  | 'workspace-resource-structure'
+  | 'workspace-resource-structure-node'
   | 'workspace-memory-search'
   | 'workspaces';
 
@@ -81,6 +91,11 @@ export const queryKeys = {
     providerId
       ? (['provider-models', endpoint, providerId] as const)
       : (['provider-models', endpoint] as const),
+  providerCatalog: (endpoint: string) => ['provider-catalog', endpoint] as const,
+  pendingSteers: (endpoint: string, sessionId: string) =>
+    ['pending-steers', endpoint, sessionId] as const,
+  queuedMessages: (endpoint: string, sessionId: string) =>
+    ['queued-messages', endpoint, sessionId] as const,
   provenanceProviders: (endpoint: string) => ['provenance-providers', endpoint] as const,
   executionProvenance: (endpoint: string, sessionId: string, provider: string) =>
     ['execution-provenance', endpoint, sessionId, provider] as const,
@@ -109,6 +124,8 @@ export const queryKeys = {
     ['workspace-file-bytes', workspaceId, path] as const,
   workspaceFiles: (endpoint: string, workspaceId: string) =>
     ['workspace-files', endpoint, workspaceId] as const,
+  workspaceResources: (endpoint: string, workspaceId: string) =>
+    ['workspace-resources', endpoint, workspaceId] as const,
   workspaces: (endpoint: string, scope?: string) =>
     scope ? (['workspaces', endpoint, scope] as const) : (['workspaces', endpoint] as const),
 } as const;

@@ -1,67 +1,65 @@
-import type { LanguageModelPreset } from '@clio/core/v3';
+import type { ProviderCatalog } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import { buildModelOptions } from './model-options';
 
-const codexPreset: LanguageModelPreset = {
-  id: 'codex',
-  label: 'Codex',
-  provider: 'codex',
-  requires_api_key: false,
-  is_authenticated: true,
-  supports_live_catalog: true,
-  supports_vision: true,
-};
-
 describe('buildModelOptions', () => {
-  it('uses the live catalog while retaining an unlisted active model', () => {
-    const options = buildModelOptions({
-      activeCatalogProvider: 'codex',
-      activeProvider: 'codex',
-      activeModel: 'gpt-5.6-luna',
-      catalogModels: [{ id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol' }],
-      presets: [codexPreset],
-    });
-
-    expect(options).toEqual([
-      expect.objectContaining({ providerId: 'codex', id: 'gpt-5.6-luna' }),
-      expect.objectContaining({
-        providerId: 'codex',
-        id: 'gpt-5.6-sol',
-        label: 'GPT-5.6 Sol',
-        available: true,
-      }),
-    ]);
-  });
-
-  it('keeps unavailable provider choices discoverable without presenting them as usable', () => {
-    const options = buildModelOptions({
-      activeCatalogProvider: 'codex',
-      activeProvider: 'codex',
-      activeModel: 'gpt-5.6-luna',
-      catalogModels: [{ id: 'gpt-5.6-luna' }],
-      presets: [
-        codexPreset,
+  it('uses the live endpoint catalog and keeps provider and model identity separate', () => {
+    const providerCatalog: ProviderCatalog = {
+      authoritative: 'live_handshake',
+      providers: [
         {
-          id: 'anthropic',
-          label: 'Anthropic API',
-          provider: 'anthropic',
-          suggested_model: 'claude-sonnet-4-20250514',
-          requires_api_key: true,
-          is_authenticated: false,
-          status_message: 'missing ANTHROPIC_API_KEY',
-          supports_live_catalog: true,
-          supports_vision: true,
+          id: 'codex',
+          name: 'OpenAI Codex',
+          kind: 'codex_sdk',
+          endpoint: 'local://codex-sdk',
+          configuration_url: '/settings/providers/codex',
+          connectivity: 'reachable',
+          auth: 'ready',
+          health: 'ready',
+          freshness: { generated_at: '2026-08-31T12:00:00Z', source: 'live' },
+          failure: '',
+          models: [
+            {
+              provider_id: 'codex',
+              provider_kind: 'codex_sdk',
+              endpoint: 'local://codex-sdk',
+              deployment: '',
+              model_id: 'openai/gpt-5.6-luna',
+              revision: '',
+              modalities: ['text', 'image'],
+              reasoning: { supported: true, parameter: 'reasoning_effort' },
+              native_tool_calling: true,
+              availability: 'available',
+              evidence: {
+                source: 'live',
+                generated_at: '2026-08-31T12:00:00Z',
+                live: true,
+                context_source: 'provider',
+              },
+              failure: '',
+            },
+          ],
         },
       ],
-    });
+    };
 
-    expect(options).toContainEqual(
-      expect.objectContaining({
-        providerId: 'anthropic',
-        id: 'claude-sonnet-4-20250514',
-        available: false,
-        availabilityDetail: 'Connect Anthropic API to use this provider.',
+    expect(
+      buildModelOptions({
+        activeCatalogProvider: 'codex',
+        activeModel: 'openai/gpt-5.6-luna',
+        activeProvider: 'codex',
+        providerCatalog,
+        presets: [],
       }),
-    );
+    ).toEqual([
+      expect.objectContaining({
+        providerId: 'codex',
+        id: 'openai/gpt-5.6-luna',
+        label: 'gpt-5.6-luna',
+        configurationUrl: '/settings/providers/codex',
+        available: true,
+        modalities: ['text', 'image'],
+      }),
+    ]);
   });
 });

@@ -141,4 +141,50 @@ describe('ClioComposer service commands', () => {
     );
     expect(onStop).not.toHaveBeenCalled();
   });
+
+  it('queues Enter and steers Ctrl+Enter while work is running', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderComposer({ state: 'running' });
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, 'Review the second station.{Enter}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          delivery: 'queued',
+          text: 'Review the second station.',
+        }),
+      ),
+    );
+
+    await user.type(input, 'Stop using the stale catalog.{Control>}{Enter}{/Control}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          delivery: 'steer',
+          text: 'Stop using the stale catalog.',
+        }),
+      ),
+    );
+  });
+
+  it('starts normally from either Enter shortcut while idle', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderComposer();
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, 'Start the analysis.{Enter}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ delivery: 'start', text: 'Start the analysis.' }),
+      ),
+    );
+
+    await user.type(input, 'Start another turn.{Control>}{Enter}{/Control}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ delivery: 'start', text: 'Start another turn.' }),
+      ),
+    );
+  });
 });

@@ -371,7 +371,7 @@ export function ArtifactView({
   );
 }
 
-function TextResourceView({
+export function TextResourceView({
   path,
   content,
   error,
@@ -511,7 +511,7 @@ export function ImageResourceView({
   );
 }
 
-function ResourceLoading({ label, className }: { label: string; className?: string }) {
+export function ResourceLoading({ label, className }: { label: string; className?: string }) {
   return (
     <div aria-label={label} className={cn('grid gap-2', className)}>
       <Skeleton className="h-8 w-full" />
@@ -521,7 +521,7 @@ function ResourceLoading({ label, className }: { label: string; className?: stri
   );
 }
 
-function ResourceUnavailable({
+export function ResourceUnavailable({
   label,
   detail,
   icon: Icon = BoxIcon,

@@ -1,16 +1,26 @@
 import { queryKeys } from '@/lib/query-keys';
-import type { LanguageModelConfiguration, Session } from '@clio/core/v3';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type {
+  ComposerMessagePart,
+  MessageBehavior,
+  MessageDelivery,
+  QueuedMessage,
+  Session,
+} from '@clio/core/v3';
+import type { FileUIPart } from 'ai';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import type { SessionBehaviorPatch } from '@/components/clio/session-behavior-options';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
+import {
+  uploadWorkspaceResources,
+  type ResourceUploadProgress,
+} from '@/lib/upload-workspace-resources';
 
 interface UseSessionMutationsInput {
   activeModel?: string;
   activeProvider?: string;
-  modelConfiguration?: LanguageModelConfiguration;
   session?: Session;
   sessionId: string;
   workspaceId: string;
@@ -18,9 +28,13 @@ interface UseSessionMutationsInput {
 
 export interface SessionSendInput {
   text: string;
+  files?: FileUIPart[];
   provider?: string;
   model?: string;
   effort?: string;
+  delivery: MessageDelivery | 'queued';
+  behavior: MessageBehavior;
+  onUploadProgress?: (progress: ResourceUploadProgress) => void;
 }
 
 interface ActionCardInput {
@@ -34,7 +48,6 @@ interface ActionCardInput {
 export function useSessionMutations({
   activeModel,
   activeProvider,
-  modelConfiguration,
   session,
   sessionId,
   workspaceId,
@@ -45,82 +58,115 @@ export function useSessionMutations({
   const { settings } = useConnectionSettings();
   const replaceSnapshots = useLiveStore((state) => state.replaceSnapshots);
 
+  const queuedMessages = useQuery({
+    enabled: Boolean(sessionId),
+    queryFn: ({ signal }) => repository.queuedMessages(sessionId, signal),
+    queryKey: queryKeys.queuedMessages(settings.endpoint, sessionId),
+  });
+  const pendingSteers = useQuery({
+    enabled: Boolean(sessionId),
+    queryFn: ({ signal }) => repository.pendingSteers(sessionId, signal),
+    queryKey: queryKeys.pendingSteers(settings.endpoint, sessionId),
+    refetchInterval: session?.state === 'running' ? 1_500 : false,
+  });
+
+  const invalidateComposerState = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.queuedMessages(settings.endpoint, sessionId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.pendingSteers(settings.endpoint, sessionId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.transcript(settings.endpoint, sessionId),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.sessions(settings.endpoint, workspaceId),
+      }),
+    ]);
+  };
+
   const send = useMutation({
     mutationFn: async (value: SessionSendInput) => {
-      const selectedPreset = modelConfiguration?.presets.find(
-        (preset) => preset.id === value.provider || preset.provider === value.provider,
-      );
-      const provider = selectedPreset?.provider ?? value.provider;
-      const model = value.model;
-      const effort = isThinkingLevel(value.effort) ? value.effort : undefined;
+      const provider = value.provider ?? activeProvider;
+      const model = value.model ?? activeModel;
+      if (!provider || !model) throw new Error('Choose an available provider and model.');
 
-      if (
-        provider &&
-        model &&
-        (!modelConfiguration ||
-          modelConfiguration.provider !== provider ||
-          modelConfiguration.model !== model ||
-          (effort !== undefined && modelConfiguration.thinking_level !== effort))
-      ) {
-        if (!selectedPreset) {
-          throw new Error(`The connected service did not report configuration for ${provider}.`);
-        }
-        if (!selectedPreset.is_authenticated) {
-          throw new Error(
-            selectedPreset.status_message || `${selectedPreset.label} is not connected.`,
-          );
-        }
-        const nextConfiguration = await repository.updateLanguageModelConfiguration({
-          provider: selectedPreset.provider,
-          api_base: selectedPreset.api_base ?? '',
-          model,
-          thinking_level: effort,
+      const uploaded = value.files?.length
+        ? await uploadWorkspaceResources({
+            files: value.files,
+            onProgress: value.onUploadProgress,
+            repository,
+            workspaceId,
+          })
+        : { parts: [] as ComposerMessagePart[], resources: [] };
+      const text = value.text.trim();
+      const parts: ComposerMessagePart[] = [
+        ...(text ? [{ text, type: 'text' as const }] : []),
+        ...uploaded.parts,
+      ];
+      if (parts.length === 0) throw new Error('Write a message or attach a resource.');
+
+      const clientMessageId = crypto.randomUUID();
+      const idempotencyKey = crypto.randomUUID();
+      const route = { model_id: model, provider_id: provider };
+      if (value.delivery === 'queued') {
+        return repository.createQueuedMessage(sessionId, {
+          behavior: value.behavior,
+          client_message_id: clientMessageId,
+          idempotency_key: idempotencyKey,
+          model: route,
+          parts,
         });
-        queryClient.setQueryData(
-          queryKeys.key('language-model-configuration', settings.endpoint),
-          nextConfiguration,
-        );
       }
-
-      if (
-        provider &&
-        model &&
-        session &&
-        (session.provider_id !== provider || session.model_id !== model)
-      ) {
-        const updatedSession = await repository.updateSession(sessionId, {
-          provider_id: provider,
-          model_id: model,
-        });
-        queryClient.setQueryData<Session[]>(
-          ['sessions', settings.endpoint, workspaceId],
-          (current) =>
-            current?.map((item) => (item.id === updatedSession.id ? updatedSession : item)),
-        );
-      }
-
-      return repository.sendMessage(sessionId, value.text, {
-        provider_id: provider,
-        model_id: model,
-        effort,
+      return repository.submitMessage(sessionId, {
+        behavior: value.behavior,
+        client_message_id: clientMessageId,
+        delivery: value.delivery,
+        idempotency_key: idempotencyKey,
+        model: route,
+        parts,
       });
     },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('sessions', settings.endpoint, workspaceId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('capabilities', settings.endpoint),
-        }),
-      ]);
+    onSettled: invalidateComposerState,
+  });
+
+  const updateQueuedMessage = useMutation({
+    mutationFn: ({ message, text }: { message: QueuedMessage; text: string }) =>
+      repository.updateQueuedMessage(sessionId, message.id, {
+        parts: replaceQueuedText(message.parts, text),
+        revision: message.revision,
+      }),
+    onSuccess: invalidateComposerState,
+  });
+
+  const deleteQueuedMessage = useMutation({
+    mutationFn: (message: QueuedMessage) =>
+      repository.deleteQueuedMessage(sessionId, message.id, message.revision),
+    onSuccess: invalidateComposerState,
+  });
+
+  const promoteQueuedMessage = useMutation({
+    mutationFn: ({ delivery, message }: { delivery: MessageDelivery; message: QueuedMessage }) =>
+      repository.promoteQueuedMessage(sessionId, message.id, message.revision, delivery),
+    onSuccess: invalidateComposerState,
+  });
+
+  const reorderQueuedMessages = useMutation({
+    mutationFn: (messages: QueuedMessage[]) => repository.reorderQueuedMessages(sessionId, messages),
+    onSuccess: (messages) => {
+      queryClient.setQueryData(queryKeys.queuedMessages(settings.endpoint, sessionId), messages);
     },
+    onSettled: invalidateComposerState,
+  });
+
+  const cancelPendingSteer = useMutation({
+    mutationFn: (messageId: string) => repository.cancelPendingSteer(sessionId, messageId),
+    onSuccess: invalidateComposerState,
   });
 
   const cancel = useMutation({
@@ -239,13 +285,21 @@ export function useSessionMutations({
     answerQuestion,
     cancel,
     cancelQuestion,
+    cancelPendingSteer,
+    deleteQueuedMessage,
+    pendingSteers,
+    promoteQueuedMessage,
+    queuedMessages,
+    reorderQueuedMessages,
     respondPermission,
     retry,
     send,
+    updateQueuedMessage,
     updateSessionBehavior,
   };
 }
 
-function isThinkingLevel(value?: string): value is 'off' | 'low' | 'medium' | 'high' {
-  return value === 'off' || value === 'low' || value === 'medium' || value === 'high';
+function replaceQueuedText(parts: ComposerMessagePart[], text: string): ComposerMessagePart[] {
+  const remaining = parts.filter((part) => part.type !== 'text');
+  return text.trim() ? [{ text: text.trim(), type: 'text' }, ...remaining] : remaining;
 }

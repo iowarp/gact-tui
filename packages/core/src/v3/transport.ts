@@ -1,7 +1,9 @@
 export interface TransportRequest<T> {
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
   body?: unknown;
+  rawBody?: Uint8Array;
+  headers?: Record<string, string>;
   responseType?: 'json' | 'text' | 'bytes';
   decode: (value: unknown) => T;
   signal?: AbortSignal;

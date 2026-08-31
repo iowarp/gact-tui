@@ -192,7 +192,28 @@ function isProcessEvent(eventName: string): boolean {
 }
 
 function isModelConfigurationEvent(eventName: string): boolean {
-  return eventName === 'lm.provider.changed' || eventName === 'lm.provider.failed';
+  return (
+    eventName === 'lm.provider.changed' ||
+    eventName === 'lm.provider.failed' ||
+    eventName === 'provider_catalog.refreshed'
+  );
+}
+
+function isPendingSteerEvent(eventName: string): boolean {
+  return (
+    eventName === 'message.accepted' ||
+    eventName === 'message.cancelled' ||
+    eventName.startsWith('pending_steer.') ||
+    eventName === 'message.upserted'
+  );
+}
+
+function isQueuedMessageEvent(eventName: string): boolean {
+  return eventName.startsWith('queued_message.');
+}
+
+function isResourceEvent(eventName: string): boolean {
+  return eventName.startsWith('resource.');
 }
 
 interface QueryInvalidationEvent {
@@ -230,7 +251,17 @@ export function queryInvalidationKeysForEvent({
       queryKeys.capabilities(endpoint),
       queryKeys.languageModelConfiguration(endpoint),
       queryKeys.providerModels(endpoint),
+      queryKeys.providerCatalog(endpoint),
     );
+  }
+  if (isPendingSteerEvent(eventName)) {
+    keys.push(queryKeys.pendingSteers(endpoint, sessionId));
+  }
+  if (isQueuedMessageEvent(eventName)) {
+    keys.push(queryKeys.queuedMessages(endpoint, sessionId));
+  }
+  if (isResourceEvent(eventName)) {
+    keys.push(queryKeys.workspaceResources(endpoint, workspaceId));
   }
   if (eventName === 'message.completed') {
     keys.push(
@@ -241,7 +272,7 @@ export function queryInvalidationKeysForEvent({
       queryKeys.sessionContext(endpoint, sessionId),
     );
   }
-  if (eventName === 'session.status_changed') {
+  if (eventName === 'session.status_changed' || eventName === 'session.upserted') {
     keys.push(queryKeys.sessions(endpoint, workspaceId), queryKeys.sessions(endpoint, 'all'));
   }
   return keys;

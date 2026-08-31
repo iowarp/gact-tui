@@ -162,6 +162,11 @@ export function useWorkspaceData({
     queryFn: ({ signal }) => repository.workspaceFiles(workspaceId, signal),
     enabled: Boolean(workspaceId),
   });
+  const workspaceResources = useQuery({
+    queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),
+    queryFn: ({ signal }) => repository.resources(workspaceId, signal),
+    enabled: Boolean(workspaceId),
+  });
   const agentBlueprints = useQuery({
     queryKey: queryKeys.key('agent-blueprints', settings.endpoint, workspaceId),
     queryFn: ({ signal }) => repository.agentBlueprints(workspaceId, signal),
@@ -241,11 +246,17 @@ export function useWorkspaceData({
     queryFn: ({ signal }) => repository.providerModels(activeCatalogProvider, signal),
     enabled: Boolean(activeCatalogProvider),
   });
+  const providerCatalog = useQuery({
+    queryKey: queryKeys.providerCatalog(settings.endpoint),
+    queryFn: ({ signal }) => repository.providerCatalog(false, signal),
+    staleTime: 30_000,
+  });
   const modelOptions = buildModelOptions({
     activeCatalogProvider,
     activeModel,
     activeProvider,
     catalogModels: modelCatalog.data?.models,
+    providerCatalog: providerCatalog.data,
     presets: modelConfiguration.data?.presets ?? [],
   });
 
@@ -266,6 +277,7 @@ export function useWorkspaceData({
     executionProvenance,
     modelConfiguration,
     modelOptions,
+    providerCatalog,
     parentSession,
     processes,
     questions,
@@ -283,6 +295,7 @@ export function useWorkspaceData({
     transcriptError,
     visibleApprovals,
     workspaceFiles,
+    workspaceResources,
     workspaces,
   };
 }

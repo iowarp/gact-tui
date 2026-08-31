@@ -5,6 +5,7 @@ import type {
   SessionDiff,
   SubagentRun,
   WorkspaceFileEntry,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import {
   ActivityIcon,
@@ -16,6 +17,7 @@ import {
   Layers3Icon,
   Maximize2Icon,
   Minimize2Icon,
+  PaperclipIcon,
   XIcon,
 } from 'lucide-react';
 import {
@@ -46,6 +48,7 @@ import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
 import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-context';
+import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import {
   ArtifactBrowser,
   BlueprintBrowser,
@@ -62,12 +65,18 @@ const ArtifactView = lazy(() =>
 const BlueprintFileEditor = lazy(() =>
   loadResourceViewers().then((module) => ({ default: module.BlueprintFileEditor })),
 );
+const WorkspaceResourceView = lazy(() =>
+  import('./workspace-resource-view').then((module) => ({
+    default: module.WorkspaceResourceView,
+  })),
+);
 
 type WorkbenchTab =
   | { id: 'session'; kind: 'session'; label: 'Observability' }
   | { id: 'files'; kind: 'files'; label: 'Files'; path?: string }
   | { id: 'artifacts'; kind: 'artifacts'; label: 'Artifacts' }
   | { id: 'blueprints'; kind: 'blueprints'; label: 'Blueprints' }
+  | { id: 'resources'; kind: 'resources'; label: 'Resources' }
   | { id: string; kind: 'workspace-file'; label: string; path: string; workspaceId: string }
   | {
       id: string;
@@ -91,6 +100,13 @@ type WorkbenchTab =
       kind: 'artifact';
       label: string;
       artifact: ArtifactEntity;
+      workspaceId: string;
+    }
+  | {
+      id: string;
+      kind: 'resource';
+      label: string;
+      resource: WorkspaceResource;
       workspaceId: string;
     }
   | {
@@ -119,6 +135,9 @@ export interface ClioWorkbenchProps {
   artifactsPending?: boolean;
   artifactsError?: string;
   artifactsTruncated?: 'page_cap_reached' | 'cursor_cycle_detected';
+  resources?: readonly WorkspaceResource[];
+  resourcesPending?: boolean;
+  resourcesError?: string;
   blueprints: readonly AgentBlueprint[];
   blueprintsPending?: boolean;
   blueprintsError?: string;
@@ -136,6 +155,7 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'workspace-file'; path: string }
   | { kind: 'diff'; diff: SessionDiff }
   | { kind: 'artifact'; artifact: ArtifactEntity }
+  | { kind: 'resource'; resource: WorkspaceResource }
   | { kind: 'blueprint'; blueprint: AgentBlueprintReference }
   | { kind: 'subagent'; subagent: SubagentRun }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
@@ -157,12 +177,18 @@ const blueprintBrowserTab: WorkbenchTab = {
   kind: 'blueprints',
   label: 'Blueprints',
 };
+const resourceBrowserTab: WorkbenchTab = {
+  id: 'resources',
+  kind: 'resources',
+  label: 'Resources',
+};
 
 const canvasResourceTabs = {
   session: sessionTab,
   files: fileBrowserTab,
   artifacts: artifactBrowserTab,
   blueprints: blueprintBrowserTab,
+  resources: resourceBrowserTab,
 } satisfies Record<CanvasResourceKind, WorkbenchTab>;
 
 const workbenchTabIcons = {
@@ -170,10 +196,12 @@ const workbenchTabIcons = {
   files: FolderIcon,
   artifacts: BoxIcon,
   blueprints: BoxesIcon,
+  resources: PaperclipIcon,
   'workspace-file': FileCode2Icon,
   diff: FileDiffIcon,
   'blueprint-file': FileCode2Icon,
   artifact: BoxIcon,
+  resource: PaperclipIcon,
   blueprint: BoxesIcon,
   subagent: BoxesIcon,
 } satisfies Record<
@@ -193,6 +221,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       artifactsPending,
       artifactsError,
       artifactsTruncated,
+      resources = [],
+      resourcesPending,
+      resourcesError,
       blueprints,
       blueprintsPending,
       blueprintsError,
@@ -291,6 +322,15 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               workspaceId: request.artifact.workspace_id ?? workspaceId,
             });
             return;
+          case 'resource':
+            openTab({
+              id: `resource:${request.resource.id}`,
+              kind: 'resource',
+              label: request.resource.name,
+              resource: request.resource,
+              workspaceId: request.resource.workspace_id || workspaceId,
+            });
+            return;
           case 'blueprint':
             openTab({
               id: `blueprint:${request.blueprint.id}`,
@@ -378,6 +418,25 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   workspaceId: artifact.workspace_id ?? workspaceId,
                 })
               }
+              workspaceId={workspaceId}
+            />
+          );
+        case 'resources':
+          return (
+            <WorkspaceResourceBrowser
+              defaultSplit={maximized}
+              error={resourcesError}
+              onOpenResource={(resource) =>
+                openTab({
+                  id: `resource:${resource.id}`,
+                  kind: 'resource',
+                  label: resource.name,
+                  resource,
+                  workspaceId: resource.workspace_id || workspaceId,
+                })
+              }
+              pending={resourcesPending}
+              resources={resources}
               workspaceId={workspaceId}
             />
           );
@@ -471,6 +530,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 }
                 workspaceId={tab.workspaceId}
               />
+            </Suspense>
+          );
+        case 'resource':
+          return (
+            <Suspense fallback={<CanvasLoading label="Loading resource" />}>
+              <WorkspaceResourceView resource={tab.resource} workspaceId={tab.workspaceId} />
             </Suspense>
           );
         case 'blueprint':
@@ -600,7 +665,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 </EmptyMedia>
                 <EmptyTitle>Canvas is empty</EmptyTitle>
                 <EmptyDescription>
-                  Use the add button to open observability, files, artifacts, or blueprints.
+                  Use the add button to open observability, files, resources, artifacts, or
+                  blueprints.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

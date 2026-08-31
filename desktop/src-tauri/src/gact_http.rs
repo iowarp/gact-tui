@@ -20,6 +20,8 @@ pub(crate) struct GactHttpRequest {
     pub(crate) headers: HashMap<String, String>,
     #[serde(default)]
     pub(crate) body: Option<String>,
+    #[serde(default)]
+    pub(crate) body_encoding: Option<String>,
 }
 
 /// Direct HTTP bridge for the frontend.
@@ -36,6 +38,7 @@ pub(crate) fn gact_http(req: GactHttpRequest) -> Result<GactHttpResponse, String
     let method = req.method.to_uppercase();
     let mut builder = match method.as_str() {
         "GET" => ureq::get(&req.url),
+        "HEAD" => ureq::request("HEAD", &req.url),
         "POST" => ureq::post(&req.url),
         "PUT" => ureq::put(&req.url),
         "PATCH" => ureq::request("PATCH", &req.url),
@@ -47,7 +50,14 @@ pub(crate) fn gact_http(req: GactHttpRequest) -> Result<GactHttpResponse, String
     }
     builder = builder.timeout(Duration::from_secs(30));
     let result = if let Some(b) = req.body {
-        builder.send_string(&b)
+        if req.body_encoding.as_deref() == Some("base64") {
+            let bytes = BASE64_STANDARD
+                .decode(b)
+                .map_err(|error| format!("decode request body: {error}"))?;
+            builder.send_bytes(&bytes)
+        } else {
+            builder.send_string(&b)
+        }
     } else {
         builder.call()
     };

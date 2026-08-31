@@ -12,7 +12,6 @@ import { ClioConversationWelcome } from '@/components/clio/conversation-welcome'
 import { ClioNavigation } from '@/components/clio/navigation';
 import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { ClioPendingInteractions } from '@/components/clio/pending-interactions';
-import { ClioSessionBehaviorMenu } from '@/components/clio/session-behavior-menu';
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
 import { WorkspaceLoading, WorkspaceUnavailable } from '@/components/clio/workspace-route-surfaces';
@@ -72,7 +71,6 @@ export function WorkspacePage() {
     contextTargetOptions,
     entities,
     executionProvenance,
-    modelConfiguration,
     modelOptions,
     parentSession,
     processes,
@@ -91,6 +89,7 @@ export function WorkspacePage() {
     transcriptError,
     visibleApprovals,
     workspaceFiles,
+    workspaceResources,
     workspaces,
   } = useWorkspaceData({ contextTargetId, sessionId, workspaceId });
   const messageCount = useSessionMessageCount(sessionId);
@@ -119,15 +118,20 @@ export function WorkspacePage() {
     actionCard,
     answerQuestion,
     cancel,
+    cancelPendingSteer,
     cancelQuestion,
+    deleteQueuedMessage,
+    pendingSteers,
+    promoteQueuedMessage,
+    queuedMessages,
+    reorderQueuedMessages,
     respondPermission,
     retry,
     send,
-    updateSessionBehavior,
+    updateQueuedMessage,
   } = useSessionMutations({
     activeModel,
     activeProvider,
-    modelConfiguration: modelConfiguration.data,
     session,
     sessionId,
     workspaceId,
@@ -270,7 +274,22 @@ export function WorkspacePage() {
     );
   }
 
-  const state: RunState = send.isPending ? 'queued' : (session?.state ?? 'interrupted');
+  const state: RunState =
+    session.state === 'running'
+      ? 'running'
+      : send.isPending
+        ? 'queued'
+        : session.state;
+  const pendingMessageIds = new Set(
+    (pendingSteers.data ?? [])
+      .filter((steer) => steer.state === 'pending' || steer.state === 'claimed')
+      .map((steer) => steer.message_id),
+  );
+  const cancellablePendingMessageIds = new Set(
+    (pendingSteers.data ?? [])
+      .filter((steer) => steer.state === 'pending')
+      .map((steer) => steer.message_id),
+  );
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
   const renderComposer = (variant: 'docked' | 'welcome') => (
     <m.div
@@ -316,18 +335,19 @@ export function WorkspacePage() {
           ) : undefined
         }
         attachments={capabilities.data?.capabilities.attachments === true}
-        behaviorControl={
-          <ClioSessionBehaviorMenu
-            disabled={updateSessionBehavior.isPending}
-            onChange={async (patch) => {
-              await updateSessionBehavior.mutateAsync(patch);
-            }}
-            session={session}
-          />
-        }
         commands={commands}
+        confirmationPolicy={
+          session.approval_mode === 'unknown' ? 'ask' : session.approval_mode
+        }
         disabled={!session || send.isPending || cancel.isPending || isPending}
         effort={activeEffort}
+        executionMode={
+          session.mode === 'plan'
+            ? 'plan'
+            : session.mode === 'architect'
+              ? 'deep_research'
+              : 'execute'
+        }
         focusRequestKey={composerFocusKey}
         key={`composer:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
         model={activeModel}
@@ -353,8 +373,25 @@ export function WorkspacePage() {
           }
         }}
         onStop={() => cancel.mutate()}
+        onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
+        onPromoteQueuedMessage={(message, delivery) =>
+          promoteQueuedMessage.mutateAsync({ delivery, message }).then(() => undefined)
+        }
+        onReorderQueuedMessages={(messages) =>
+          reorderQueuedMessages.mutateAsync(messages).then(() => undefined)
+        }
+        onUpdateQueuedMessage={(message, text) =>
+          updateQueuedMessage.mutateAsync({ message, text }).then(() => undefined)
+        }
         onValueChange={setComposerDraft}
         provider={activeProvider}
+        queuedMessages={queuedMessages.data ?? []}
+        queueBusy={
+          deleteQueuedMessage.isPending ||
+          promoteQueuedMessage.isPending ||
+          reorderQueuedMessages.isPending ||
+          updateQueuedMessage.isPending
+        }
         state={state}
         value={composerDraft}
         variant={variant}
@@ -385,8 +422,7 @@ export function WorkspacePage() {
               sessionHistory.compact.isPending ||
               sessionHistory.undo.isPending ||
               sessionHistory.rewind.isPending ||
-              sessionHistory.share.isPending ||
-              updateSessionBehavior.isPending
+              sessionHistory.share.isPending
             }
             onCompact={async () => {
               await sessionHistory.compact.mutateAsync();
@@ -423,6 +459,9 @@ export function WorkspacePage() {
             files={workspaceFiles.data ?? []}
             filesError={workspaceFiles.error?.message}
             filesPending={workspaceFiles.isPending}
+            resources={workspaceResources.data ?? []}
+            resourcesError={workspaceResources.error?.message}
+            resourcesPending={workspaceResources.isPending}
             onApplyDiff={(targetSessionId, targetWorkspaceId, path) =>
               diffActions.apply.mutateAsync({
                 sessionId: targetSessionId,
@@ -556,6 +595,12 @@ export function WorkspacePage() {
                     onOpenSubagent={openSubagent}
                     onRewindToMessage={sessionHistory.rewind.mutateAsync}
                     onRetryMessage={retry.mutateAsync}
+                    cancellablePendingMessageIds={cancellablePendingMessageIds}
+                    cancellingPendingMessageId={
+                      cancelPendingSteer.isPending ? cancelPendingSteer.variables : undefined
+                    }
+                    onCancelPendingSteer={cancelPendingSteer.mutateAsync}
+                    pendingMessageIds={pendingMessageIds}
                     rewindingMessageId={
                       sessionHistory.rewind.isPending ? sessionHistory.rewind.variables : undefined
                     }

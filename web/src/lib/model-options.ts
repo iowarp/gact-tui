@@ -1,4 +1,4 @@
-import type { LanguageModelPreset, ProviderModel } from '@clio/core/v3';
+import type { LanguageModelPreset, ProviderCatalog, ProviderModel } from '@clio/core/v3';
 import { providerStatusDetail } from './provider-availability';
 import { providerDisplayName } from './provider-presentation';
 
@@ -10,6 +10,11 @@ export interface ClioModelOption {
   description?: string;
   available: boolean;
   availabilityDetail?: string;
+  configurationUrl?: string;
+  endpoint?: string;
+  freshness?: string;
+  health?: string;
+  modalities?: readonly string[];
 }
 
 /** Build the composer catalog without losing an authoritative active model. */
@@ -19,6 +24,7 @@ export function buildModelOptions({
   activeProvider,
   catalogModels,
   catalogModelsByProvider,
+  providerCatalog,
   presets,
 }: {
   activeCatalogProvider: string;
@@ -26,9 +32,29 @@ export function buildModelOptions({
   activeProvider?: string;
   catalogModels?: readonly ProviderModel[];
   catalogModelsByProvider?: Readonly<Record<string, readonly ProviderModel[] | undefined>>;
+  providerCatalog?: ProviderCatalog;
   presets: readonly LanguageModelPreset[];
 }): ClioModelOption[] {
-  const options = presets.flatMap((preset) => {
+  const liveOptions = (providerCatalog?.providers ?? []).flatMap((provider) =>
+    provider.models.map((model) => ({
+      providerId: provider.id,
+      providerName: providerDisplayName(undefined, provider.id),
+      id: model.model_id,
+      label: conciseModelName(model.model_id),
+      description: model.failure || undefined,
+      available: model.availability === 'available',
+      availabilityDetail:
+        model.availability === 'available'
+          ? undefined
+          : model.failure || model.availability,
+      configurationUrl: provider.configuration_url,
+      endpoint: provider.endpoint,
+      freshness: provider.freshness.generated_at,
+      health: provider.health,
+      modalities: model.modalities,
+    })),
+  );
+  const presetOptions = presets.flatMap((preset) => {
     const models =
       catalogModelsByProvider?.[preset.id]?.length
         ? catalogModelsByProvider[preset.id]
@@ -49,6 +75,7 @@ export function buildModelOptions({
         : providerStatusDetail(preset, 'Sign-in needed'),
     }));
   });
+  const options = liveOptions.length > 0 ? liveOptions : presetOptions;
   if (
     activeProvider &&
     activeModel &&
@@ -71,4 +98,9 @@ export function buildModelOptions({
     });
   }
   return options;
+}
+
+function conciseModelName(modelId: string): string {
+  const segments = modelId.split('/');
+  return segments.at(-1) || modelId;
 }
