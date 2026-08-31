@@ -350,7 +350,7 @@ $runtimeEnvironment = @{
     SPOTTER_CLIO_CONFIG = $spotterConfigFull
 }
 if ($Provider -eq "codex") {
-    $runtimeEnvironment.CLIO_CODEX_TRANSPORT = "sdk"
+    $runtimeEnvironment.CLIO_CODEX_TRANSPORT = "app_server"
 }
 elseif ($Provider -eq "claude_code") {
     $runtimeEnvironment.CLIO_CLAUDE_CODE_TRANSPORT = "sdk"

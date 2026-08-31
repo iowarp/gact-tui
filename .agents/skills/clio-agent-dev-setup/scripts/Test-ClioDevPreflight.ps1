@@ -6,7 +6,7 @@ param(
     [int]$WebPort = 5174,
     [string]$ExpectedProvider = "codex",
     [string]$ExpectedModel = "gpt-5.6-luna",
-    [string]$ExpectedTransport = "sdk",
+    [string]$ExpectedTransport = "app_server",
     [string]$DevRoot = "D:\Libraries\Documents\projects\clio_develop_workspace",
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
