@@ -1,12 +1,10 @@
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
-import { createElement, lazy, Suspense } from 'react';
+import { createElement } from 'react';
 import { z } from 'zod';
+import { ClioA2UITimeSeries } from './a2ui-time-series';
 import type { PlotRow } from './time-series-plot';
 
-const LazyTimeSeries = lazy(() =>
-  import('./a2ui-time-series').then((module) => ({ default: module.ClioA2UITimeSeries })),
-);
 const plotValue = z.union([z.string(), z.number(), z.null()]);
 const schema = z
   .object({
@@ -23,20 +21,16 @@ const schema = z
     message: 'Provide exactly one of series or dataUri',
   });
 
-/** Protocol adapter that defers the plotting implementation until the surface is visible. */
+/** Protocol adapter for the shared interactive plotting implementation. */
 export const ClioTimeSeriesCatalogComponent = createComponentImplementation(
   { name: 'clio.time-series.v1', schema },
   ({ props }) =>
-    createElement(
-      Suspense,
-      { fallback: createElement('div', { className: 'h-48 animate-pulse rounded-lg bg-muted' }) },
-      createElement(LazyTimeSeries, {
-        accessibility: props.accessibility,
-        dataUri: props.dataUri,
-        rows: props.series as PlotRow[] | undefined,
-        title: props.title,
-        xKey: props.xKey,
-        yKeys: props.yKeys,
-      }),
-    ),
+    createElement(ClioA2UITimeSeries, {
+      accessibility: props.accessibility,
+      dataUri: props.dataUri,
+      rows: props.series as PlotRow[] | undefined,
+      title: props.title,
+      xKey: props.xKey,
+      yKeys: props.yKeys,
+    }),
 );

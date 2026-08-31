@@ -1,11 +1,28 @@
 import type { CommandDefinition } from '@clio/core/v3';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import { ClioComposer } from './composer';
 
 afterEach(cleanup);
+
+beforeEach(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: (query: string): MediaQueryList => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+      matches: true,
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    }),
+    writable: true,
+  });
+});
 
 const commands: CommandDefinition[] = [
   {
