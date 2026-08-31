@@ -114,7 +114,7 @@ A failed committed test is a correctness problem and must be investigated. A sta
 
 ## Browser check before a run
 
-Open `http://127.0.0.1:5174/?intent=connect` through the visible connection flow. Do not mutate browser storage directly.
+Open `http://127.0.0.1:5174/` through the visible connection flow. Do not mutate browser storage directly.
 
 1. Select `http://127.0.0.1:8787`.
 2. Confirm the service reports ready.

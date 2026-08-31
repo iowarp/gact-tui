@@ -44,7 +44,7 @@ function RouteFallback() {
 function UnknownRouteRedirect() {
   const { settings } = useConnectionSettings();
   const rememberedRoute = lastWorkspaceRoute(settings.endpoint);
-  return <Navigate replace to={rememberedRoute === '/' ? '/?intent=connect' : rememberedRoute} />;
+  return <Navigate replace to={rememberedRoute} />;
 }
 
 export default function App() {
