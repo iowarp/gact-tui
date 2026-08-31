@@ -1,4 +1,4 @@
-import { EyeIcon, EyeOffIcon, HeartPulseIcon, SettingsIcon } from 'lucide-react';
+import { ActivityIcon, EyeIcon, EyeOffIcon, SettingsIcon } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -230,53 +230,55 @@ export function ClioModelPicker({
           value={selectedChoice ? modelNodeValue(selectedChoice) : undefined}
         >
           <CascaderPanel className="h-full min-h-0">
-            <CascaderNav className="flex-row items-center gap-1">
-              <div className="min-w-0 flex-1">
-                <CascaderInput
-                  aria-label="Search providers and models"
-                  placeholder="Search providers and models"
-                />
-              </div>
-              {activeGroup ? (
-                <div className="flex shrink-0 items-center gap-1">
-                  {activeGroup.id !== provider ? (
-                    <Button
-                      aria-label={
-                        hiddenProviders.has(activeGroup.id)
-                          ? `Show ${activeGroup.name}`
-                          : `Hide ${activeGroup.name}`
-                      }
-                      onClick={() =>
-                        hiddenProviders.has(activeGroup.id)
-                          ? showProvider(activeGroup)
-                          : hideProvider(activeGroup)
-                      }
-                      size="icon-sm"
-                      title={
-                        hiddenProviders.has(activeGroup.id)
-                          ? 'Show provider in this picker'
-                          : 'Hide provider from this picker'
-                      }
-                      type="button"
-                      variant="ghost"
-                    >
-                      {hiddenProviders.has(activeGroup.id) ? (
-                        <EyeIcon aria-hidden="true" />
-                      ) : (
-                        <EyeOffIcon aria-hidden="true" />
-                      )}
-                    </Button>
-                  ) : null}
-                  <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
-                    <Link
-                      aria-label={`Configure ${activeGroup.name} provider`}
-                      to={activeGroup.configurationUrl}
-                    >
-                      <SettingsIcon aria-hidden="true" />
-                    </Link>
-                  </Button>
+            <CascaderNav>
+              <div className="flex w-full min-w-0 items-center gap-1 pe-8 md:w-1/2 md:pe-0">
+                <div className="min-w-0 flex-1">
+                  <CascaderInput
+                    aria-label="Search providers and models"
+                    placeholder="Search providers and models"
+                  />
                 </div>
-              ) : null}
+                {activeGroup ? (
+                  <div className="flex shrink-0 items-center gap-1">
+                    {activeGroup.id !== provider ? (
+                      <Button
+                        aria-label={
+                          hiddenProviders.has(activeGroup.id)
+                            ? `Show ${activeGroup.name}`
+                            : `Hide ${activeGroup.name}`
+                        }
+                        onClick={() =>
+                          hiddenProviders.has(activeGroup.id)
+                            ? showProvider(activeGroup)
+                            : hideProvider(activeGroup)
+                        }
+                        size="icon-sm"
+                        title={
+                          hiddenProviders.has(activeGroup.id)
+                            ? 'Show provider in this picker'
+                            : 'Hide provider from this picker'
+                        }
+                        type="button"
+                        variant="ghost"
+                      >
+                        {hiddenProviders.has(activeGroup.id) ? (
+                          <EyeIcon aria-hidden="true" />
+                        ) : (
+                          <EyeOffIcon aria-hidden="true" />
+                        )}
+                      </Button>
+                    ) : null}
+                    <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
+                      <Link
+                        aria-label={`Configure ${activeGroup.name} provider`}
+                        to={activeGroup.configurationUrl}
+                      >
+                        <SettingsIcon aria-hidden="true" />
+                      </Link>
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
             </CascaderNav>
             {showColumns ? (
               <CascaderColumns
@@ -387,7 +389,7 @@ function ProviderHealthIndicator({ group }: { group: ProviderGroup }) {
           )}
           role="img"
         >
-          <HeartPulseIcon aria-hidden="true" className="size-4" />
+          <ActivityIcon aria-hidden="true" className="size-4" />
         </span>
       </HoverCardTrigger>
       <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">
