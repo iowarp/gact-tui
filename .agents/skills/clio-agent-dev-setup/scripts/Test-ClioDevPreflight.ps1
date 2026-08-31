@@ -72,6 +72,24 @@ $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 10
 $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
 $sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 10
 $webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 10
+$gactHeaders = @{
+    Origin = $webUrl
+    "X-GACT-Version" = "0.3"
+}
+$gactResponse = Invoke-WebRequest `
+    -Uri "$backendUrl/v1/capabilities" `
+    -Headers $gactHeaders `
+    -TimeoutSec 10
+$gactCapabilities = $gactResponse.Content | ConvertFrom-Json
+$corsPreflight = Invoke-WebRequest `
+    -Uri "$backendUrl/v1/capabilities" `
+    -Method Options `
+    -Headers @{
+        Origin = $webUrl
+        "Access-Control-Request-Method" = "GET"
+        "Access-Control-Request-Headers" = "x-gact-version"
+    } `
+    -TimeoutSec 10
 $spotterImplRoot = [System.IO.Path]::GetFullPath($SpotterImplDir)
 $spotterConfigFull = [System.IO.Path]::GetFullPath($SpotterConfigPath)
 
@@ -93,6 +111,31 @@ if ($provider.model -ne $ExpectedModel) {
 }
 if ($provider.transport -ne $ExpectedTransport) {
     throw "Transport mismatch: expected '$ExpectedTransport', got '$($provider.transport)'."
+}
+
+$corsOrigin = [string]$gactResponse.Headers["Access-Control-Allow-Origin"]
+if ($corsOrigin -ne $webUrl) {
+    throw "GACT browser CORS mismatch: expected '$webUrl', got '$corsOrigin'."
+}
+$preflightOrigin = [string]$corsPreflight.Headers["Access-Control-Allow-Origin"]
+if ($preflightOrigin -ne $webUrl) {
+    throw "GACT browser preflight rejected '$webUrl'."
+}
+if ($gactCapabilities.contract_version -ne "0.3") {
+    throw "GACT negotiation mismatch: expected '0.3', got '$($gactCapabilities.contract_version)'."
+}
+$campaignCapabilities = $gactCapabilities.capabilities
+foreach ($capabilityName in @(
+    "x_clio_message_delivery",
+    "x_clio_pending_steers",
+    "x_clio_queued_messages"
+)) {
+    if ($campaignCapabilities.$capabilityName -ne $true) {
+        throw "GACT 0.3 capability '$capabilityName' is not enabled."
+    }
+}
+if ($campaignCapabilities.x_clio_resources.enabled -ne $true) {
+    throw "GACT 0.3 resource custody is not enabled."
 }
 
 $blueprints = @($catalog.agent_blueprints)

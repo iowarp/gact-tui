@@ -345,6 +345,7 @@ $runtimeEnvironment = @{
     CLIO_LM_PROVIDER = $Provider
     CLIO_LM_MODEL = $Model
     CLIO_WORKSPACE_ROOT = $workspaceRoot
+    CLIO_GACT_CORS_ORIGINS = "http://127.0.0.1:$WebPort,http://localhost:$WebPort"
     PATH = "$uvToolBin;$([Environment]::GetEnvironmentVariable('PATH', 'Process'))"
     SPOTTER_IMPL_DIR = $spotterImplRoot
     SPOTTER_CLIO_CONFIG = $spotterConfigFull
