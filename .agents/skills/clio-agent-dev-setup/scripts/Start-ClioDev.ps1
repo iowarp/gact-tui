@@ -15,6 +15,7 @@ param(
     [string]$ClioKitVersion = "2.10.6",
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
+    [switch]$FreshInstall,
     [switch]$PreserveState
 )
 
@@ -35,7 +36,13 @@ $frontendSource = [System.IO.Path]::GetFullPath($FrontendRepo)
 $devRootFull = [System.IO.Path]::GetFullPath($DevRoot)
 $configRoot = Join-Path $devRootFull "config"
 $activeGenerationPath = Join-Path $configRoot "active-generation.json"
-if ($PreserveState) {
+if ($FreshInstall -and $PreserveState) {
+    throw "FreshInstall and PreserveState are mutually exclusive."
+}
+$reuseActiveGeneration = (-not $FreshInstall) -and (
+    $PreserveState -or (Test-Path -LiteralPath $activeGenerationPath -PathType Leaf)
+)
+if ($reuseActiveGeneration) {
     if (-not (Test-Path -LiteralPath $activeGenerationPath -PathType Leaf)) {
         throw "Cannot preserve state because no active generation manifest exists at $activeGenerationPath."
     }
@@ -50,7 +57,7 @@ else {
 $worktreeRoot = Join-Path $generationRoot "worktrees"
 $backendRoot = Join-Path $worktreeRoot "clio-agent"
 $frontendRoot = Join-Path $worktreeRoot "gact-tui"
-$runtimeRoot = Join-Path $generationRoot "runtime\clio-agent-dev"
+$runtimeRoot = Join-Path $generationRoot "runtime\clio-agent"
 $logRoot = Join-Path $generationRoot "logs"
 $webRoot = Join-Path $frontendRoot "web"
 $workspaceRoot = Join-Path $generationRoot "workspaces"
@@ -135,7 +142,7 @@ foreach ($requiredPath in @($backendSource, $frontendSource, $skillRoot)) {
     }
 }
 
-if ($PreserveState) {
+if ($reuseActiveGeneration) {
     Set-DeploymentStage -Name "stop_previous_runtime"
     & $stopScript `
         -DevRoot $devRootFull `
@@ -336,6 +343,10 @@ $webStderr = Join-Path $logRoot "gact-web-$WebPort.stderr.log"
 
 $runtimeEnvironment = @{
     CLIO_USER_DIR = $runtimeRoot
+    # Keep Windows' canonical per-user blueprint path inside the owned generation.
+    # Marketplace launchers that use ${LOCALAPPDATA}/clio-agent/agent-blueprints
+    # must resolve to the same contained install as CLIO_USER_DIR.
+    LOCALAPPDATA = Split-Path -Parent $runtimeRoot
     CLIO_RUNTIME_STATE_DIR = Join-Path $runtimeRoot "clio-core-runtime"
     CLIO_SESSIONS_PATH = Join-Path $runtimeRoot "sessions.json"
     CLIO_ARC_STORE = "cte"
@@ -491,7 +502,7 @@ Set-DeploymentStage -Name "live_preflight"
     generation_id = $generationId
     generation_root = $generationRoot
     runtime_root = $runtimeRoot
-    created_at = if ($PreserveState) { $activeGeneration.created_at } else { $deploymentStartedAt.ToString("o") }
+    created_at = if ($reuseActiveGeneration) { $activeGeneration.created_at } else { $deploymentStartedAt.ToString("o") }
     status = "ready"
 } | ConvertTo-Json | Set-Content -LiteralPath $activeGenerationPath -Encoding utf8
 Write-DeploymentTiming -Status "ready"

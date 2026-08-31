@@ -1,3 +1,26 @@
+function Clear-ClioDevReadOnlyAttributes {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    foreach ($item in @(Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue)) {
+        if (-not $item.PSIsContainer -and $item.IsReadOnly) {
+            $item.IsReadOnly = $false
+        }
+    }
+
+    $root = Get-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+    if ($null -ne $root -and -not $root.PSIsContainer -and $root.IsReadOnly) {
+        $root.IsReadOnly = $false
+    }
+}
+
 function Remove-ClioDevCleanupResidue {
     [CmdletBinding()]
     param(
@@ -18,6 +41,7 @@ function Remove-ClioDevCleanupResidue {
 
         foreach ($target in $targets) {
             try {
+                Clear-ClioDevReadOnlyAttributes -Path $target.FullName
                 if ($target.PSIsContainer) {
                     [System.IO.Directory]::Delete($target.FullName, $true)
                 }
