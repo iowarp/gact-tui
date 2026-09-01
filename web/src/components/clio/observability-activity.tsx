@@ -30,6 +30,8 @@ export interface ObservabilityActivityItem {
 interface ActivityGroup {
   id: string;
   at?: string;
+  /** Where the group's timestamp came from: a server event, or its containing turn. */
+  atTiming?: 'event' | 'turn';
   mainTurn: boolean;
   items: ObservabilityActivityItem[];
 }
@@ -56,8 +58,11 @@ export function ClioActivityTimeline({
         <TimelineItem key={group.id} step={index + 1}>
           <TimelineIndicator />
           <TimelineSeparator />
-          <TimelineDate dateTime={group.at}>
-            {group.at ? formatTimestamp(group.at) : 'Time unavailable'}
+          <TimelineDate className="flex flex-wrap items-center gap-2" dateTime={group.at}>
+            <span>{group.at ? formatTimestamp(group.at) : 'Time unavailable'}</span>
+            {group.atTiming === 'turn' ? (
+              <span className="font-normal">Observed in its containing turn</span>
+            ) : null}
           </TimelineDate>
           <TimelineHeader className="flex items-start justify-between gap-2">
             <TimelineTitle>{group.mainTurn ? 'Main agent' : group.items[0]?.label}</TimelineTitle>
@@ -126,12 +131,18 @@ function groupActivity(
     const group = groups.get(id);
     if (group) {
       group.items.push(item);
-      group.at = laterTimestamp(group.at, item.at);
+      const at = laterTimestamp(group.at, item.at);
+      if (at !== group.at) {
+        group.at = at;
+        group.atTiming = item.timing;
+      }
       continue;
     }
+    const containingTurnAt = mainTurns.get(id)?.created_at;
     groups.set(id, {
       id,
-      at: item.at ?? mainTurns.get(id)?.created_at,
+      at: item.at ?? containingTurnAt,
+      atTiming: item.at ? item.timing : containingTurnAt ? 'turn' : undefined,
       mainTurn: mainTurns.has(id),
       items: [item],
     });

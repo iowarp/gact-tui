@@ -366,6 +366,7 @@ describe('ClioObservabilityView', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText('Campaign health')).toBeVisible();
     expect(screen.queryByText('Time unavailable')).not.toBeInTheDocument();
+    expect(screen.getByText('Observed in its containing turn')).toBeVisible();
   });
 
   it('switches authoritative provenance providers and exposes artifact custody', async () => {
