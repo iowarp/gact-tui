@@ -79,6 +79,11 @@ describe('ClioTranscriptMinimap', () => {
     );
 
     expect(screen.getByLabelText('Transcript minimap')).toBeVisible();
+    expect(
+      screen
+        .getByLabelText('Transcript minimap')
+        .querySelector('[data-slot="transcript-minimap-landmarks"]'),
+    ).toHaveClass('min-h-full', 'items-center');
     expect(screen.getByRole('button', { name: 'Jump to assistant message 2' })).toHaveAttribute(
       'aria-current',
       'location',

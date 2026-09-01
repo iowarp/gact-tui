@@ -1,7 +1,7 @@
 import type { Message } from '@clio/core/v3';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ListTreeIcon } from 'lucide-react';
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -79,6 +79,12 @@ function MinimapRail({
   useScrollspy,
 }: Omit<ClioTranscriptMinimapProps, 'visible'>) {
   const railRef = useRef<HTMLDivElement>(null);
+  const [railViewportHeight, setRailViewportHeight] = useState(0);
+  const estimatedContentHeight = messages.length * 11;
+  const edgePadding =
+    railViewportHeight > 0 && estimatedContentHeight > railViewportHeight
+      ? Math.max(0, (railViewportHeight - 8) / 2)
+      : 0;
   // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -86,50 +92,69 @@ function MinimapRail({
     estimateSize: () => 11,
     getScrollElement: () => railRef.current,
     overscan: 10,
+    paddingEnd: edgePadding,
+    paddingStart: edgePadding,
   });
   const rows = virtualizer.getVirtualItems();
   const firstRow = rows[0];
   const lastRow = rows.at(-1);
   const rangeKey = `${firstRow?.index ?? -1}:${firstRow?.start ?? -1}:${lastRow?.index ?? -1}:${lastRow?.end ?? -1}`;
   useLayoutEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const updateHeight = () => {
+      const nextHeight = Math.round(rail.clientHeight);
+      setRailViewportHeight((current) => (current === nextHeight ? current : nextHeight));
+    };
+    updateHeight();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(rail);
+    return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => {
     if (activeIndex < 0) return;
     const rail = railRef.current;
     if (!rail || virtualizer.getTotalSize() <= rail.clientHeight) return;
     virtualizer.scrollToIndex(activeIndex, { align: 'center' });
-  }, [activeIndex, rangeKey, virtualizer]);
+  }, [activeIndex, edgePadding, rangeKey, virtualizer]);
   const content = (
-    <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-      {rows.map((row) => {
-        const message = messages[row.index];
-        if (!message) return null;
-        return (
-          <HoverCard key={message.id} openDelay={120}>
-            <HoverCardTrigger asChild>
-              <button
-                aria-label={`Jump to ${message.role} message ${row.index + 1}`}
-                aria-current={row.index === activeIndex ? 'location' : undefined}
-                className="absolute left-0 flex h-2 w-full items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                data-scrollspy-anchor={useScrollspy ? `message-${message.id}` : undefined}
-                onClick={() => onJump(row.index)}
-                style={{ transform: `translateY(${row.start}px)` }}
-                type="button"
-              >
-                <span
-                  className={cn(
-                    'rounded-full',
-                    row.index === activeIndex ? 'h-1' : 'h-0.5',
-                    landmarkClass(message),
-                  )}
-                />
-              </button>
-            </HoverCardTrigger>
-            <HoverCardContent align="start" className="w-72" side="right">
-              <p className="text-xs font-medium capitalize text-muted-foreground">{message.role}</p>
-              <p className="mt-1 line-clamp-3 text-sm">{messagePreview(message)}</p>
-            </HoverCardContent>
-          </HoverCard>
-        );
-      })}
+    <div className="flex min-h-full w-full items-center" data-slot="transcript-minimap-landmarks">
+      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {rows.map((row) => {
+          const message = messages[row.index];
+          if (!message) return null;
+          return (
+            <HoverCard key={message.id} openDelay={120}>
+              <HoverCardTrigger asChild>
+                <button
+                  aria-label={`Jump to ${message.role} message ${row.index + 1}`}
+                  aria-current={row.index === activeIndex ? 'location' : undefined}
+                  className="absolute left-0 flex h-2 w-full items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-scrollspy-anchor={useScrollspy ? `message-${message.id}` : undefined}
+                  onClick={() => onJump(row.index)}
+                  style={{ transform: `translateY(${row.start}px)` }}
+                  type="button"
+                >
+                  <span
+                    className={cn(
+                      'rounded-full',
+                      row.index === activeIndex ? 'h-1' : 'h-0.5',
+                      landmarkClass(message),
+                    )}
+                  />
+                </button>
+              </HoverCardTrigger>
+              <HoverCardContent align="start" className="w-72" side="right">
+                <p className="text-xs font-medium capitalize text-muted-foreground">
+                  {message.role}
+                </p>
+                <p className="mt-1 line-clamp-3 text-sm">{messagePreview(message)}</p>
+              </HoverCardContent>
+            </HoverCard>
+          );
+        })}
+      </div>
     </div>
   );
   return (
@@ -143,7 +168,7 @@ function MinimapRail({
       >
         {useScrollspy ? (
           <Scrollspy
-            className="w-full"
+            className="h-full w-full"
             history={false}
             navigate={false}
             onUpdate={(sectionId) => {

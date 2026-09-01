@@ -457,6 +457,7 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
     ),
   );
   const virtualized = messages.length >= VIRTUALIZATION_THRESHOLD;
+  const minimapVisible = conversationViewportWidth >= 760;
   // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -617,12 +618,18 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
           onJump={jumpToMessage}
           scrollTargetRef={scrollRef}
           useScrollspy={!virtualized}
-          visible={conversationViewportWidth >= 760}
+          visible={minimapVisible}
         />
       ) : null}
       <div
         aria-label="Conversation"
-        className="clio-scrollbar h-full overflow-y-auto overscroll-contain"
+        className={cn(
+          'h-full overflow-y-auto overscroll-contain',
+          minimapVisible
+            ? '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
+            : 'clio-scrollbar',
+        )}
+        data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
           if (
             ['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' '].includes(event.key)

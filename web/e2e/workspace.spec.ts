@@ -64,6 +64,9 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(page.getByRole('button', { name: 'Allow once' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send response' })).toBeDisabled();
   await settleConversationAtLatest(page);
+  const conversation = page.getByRole('log', { name: 'Conversation' });
+  await expect(conversation).toHaveAttribute('data-minimap-visible', 'true');
+  await expect(conversation).toHaveCSS('scrollbar-width', 'none');
   const activeLandmark = page.getByRole('button', { name: 'Jump to assistant message 1000' });
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
   await expect
@@ -73,7 +76,9 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
         .boundingBox();
       const landmark = await activeLandmark.boundingBox();
       if (!rail || !landmark) return false;
-      return landmark.y >= rail.y && landmark.y + landmark.height <= rail.y + rail.height;
+      const railCenter = rail.y + rail.height / 2;
+      const landmarkCenter = landmark.y + landmark.height / 2;
+      return Math.abs(railCenter - landmarkCenter) <= 2;
     })
     .toBe(true);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
