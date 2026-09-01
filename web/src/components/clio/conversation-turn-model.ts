@@ -69,7 +69,7 @@ function fallbackIterations(
       current.thinking.push({
         id: block.id,
         label: reasoningLabel(block.provider_source),
-        text: readableThinking(block.text),
+        text: block.text,
         streaming: Boolean(block.streaming),
       });
       current.streaming ||= Boolean(block.streaming);
@@ -107,10 +107,6 @@ function fallbackIterations(
     messageInterrupted(message),
   );
   return { consumed, iterations };
-}
-
-function readableThinking(value: string): string {
-  return value.replace(/\*{4}(?=\S)/gu, '**\n\n**');
 }
 
 function emptyIteration(message: Message, index: number): ConversationIteration {

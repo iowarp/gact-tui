@@ -122,7 +122,7 @@ describe('conversationTurnPresentation', () => {
     const view = conversationTurnPresentation(message, tools);
 
     expect(view.iterations[0]?.thinking[0]?.text).toBe(
-      '**Use the file reader.**\n\n**Then inspect the result.**',
+      '**Use the file reader.****Then inspect the result.**',
     );
     expect(view.iterations[0]?.thinking[0]?.label).toBe('Thinking');
     expect(view.iterations[0]?.tools.map((tool) => tool.id)).toEqual(['call_read']);

@@ -138,7 +138,7 @@ function ActivityStep({
         status={block.streaming ? 'active' : 'complete'}
       >
         <MessageResponse className="text-sm leading-6 text-muted-foreground">
-          {reasoningMarkdown(block.text)}
+          {block.text}
         </MessageResponse>
       </ChainOfThoughtStep>
     );
@@ -154,7 +154,7 @@ function ActivityStep({
       >
         {block.thought ? (
           <MessageResponse className="text-sm leading-6 text-muted-foreground">
-            {reasoningMarkdown(block.thought)}
+            {block.thought}
           </MessageResponse>
         ) : null}
       </ChainOfThoughtStep>
@@ -211,7 +211,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
           getThinkingMessage={(streaming) => (streaming ? 'Thinking in progress' : 'Thinking')}
         />
         <ReasoningContent className="mt-3 leading-6">
-          {reasoningMarkdown(block.text)}
+          {block.text}
         </ReasoningContent>
       </Reasoning>
     );
@@ -224,7 +224,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
           <Reasoning className="mb-0">
             <ReasoningTrigger className="min-h-6" getThinkingMessage={() => 'Thinking'} />
             <ReasoningContent className="mt-3 leading-6">
-              {reasoningMarkdown(block.thought)}
+              {block.thought}
             </ReasoningContent>
           </Reasoning>
         ) : null}
@@ -253,10 +253,6 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
       subagent={entities.subagents[block.subagent_id]}
     />
   );
-}
-
-function reasoningMarkdown(text: string): string {
-  return text.replace(/\*{4}(?=\S)/gu, '**\n\n**');
 }
 
 function activitySummary(blocks: readonly ProcessBlock[]): string {
