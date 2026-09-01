@@ -219,30 +219,25 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   );
 }
 
+/**
+ * Severity comes from the typed fields the service owns; `status` is free-form
+ * prose and is shown verbatim rather than pattern-matched into a severity.
+ */
 function serverItem(server: McpServerDefinition): InfrastructureItem {
   const label = serviceTitle(server);
   if (server.status === 'ready') {
     return { id: server.id, label, state: 'healthy', stateLabel: 'Ready' };
   }
-  if (/pending|connecting|installing|starting/iu.test(server.status)) {
-    return { id: server.id, label, state: 'checking', stateLabel: 'Starting' };
-  }
-  if (/fail|error|unreachable|disconnected/iu.test(server.status)) {
+  if (server.error) {
     return {
       id: server.id,
       label,
       state: 'failed',
-      stateLabel: 'Failed',
+      stateLabel: server.status,
       detail: server.error,
     };
   }
-  return {
-    id: server.id,
-    label,
-    state: 'degraded',
-    stateLabel: humanizeToolName(server.status),
-    detail: server.error,
-  };
+  return { id: server.id, label, state: 'unavailable', stateLabel: server.status };
 }
 
 function consolidateServiceItems(items: InfrastructureItem[]): InfrastructureItem[] {
@@ -291,17 +286,15 @@ function stateLabel(state: InfrastructureState): string {
 }
 
 function serviceTitle(server: McpServerDefinition): string {
+  const configuredTitle = server.spec.title ?? server.spec.display_name;
+  if (typeof configuredTitle === 'string' && configuredTitle.trim()) return configuredTitle;
   const names: Record<string, string> = {
     fs: 'Workspace files',
     filesystem: 'Workspace files',
     shell: 'Command execution',
     'clio-web-search': 'Web search',
   };
-  const known = names[server.id] || names[server.name];
-  if (known) return known;
-  const configuredTitle = server.spec.title ?? server.spec.display_name;
-  if (typeof configuredTitle === 'string' && configuredTitle.trim()) return configuredTitle;
-  return humanizeToolName(server.name || server.id);
+  return names[server.id] || names[server.name] || humanizeToolName(server.name || server.id);
 }
 
 function aggregateInfrastructureState(items: readonly InfrastructureItem[]): InfrastructureItem {
