@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from 'react';
@@ -76,6 +77,8 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   const [credentialsReady, setCredentialsReady] = useState(() => !inTauri());
   const [managedConnectionReady, setManagedConnectionReady] = useState(false);
   const [credentialError, setCredentialError] = useState<string>();
+  /** The supervisor's address is allocated per launch, so it is never remembered. */
+  const managedEndpoint = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!inTauri()) return;
@@ -84,6 +87,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       .then((handle) => {
         if (cancelled) return;
         const endpoint = normalizeEndpoint(handle.url);
+        managedEndpoint.current = endpoint;
         setSettings({ endpoint, token: handle.bearer_token || undefined });
         setManagedConnectionReady(true);
         setCredentialError(undefined);
@@ -121,11 +125,15 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     async (next: ConnectionSettings): Promise<void> => {
       const endpoint = normalizeEndpoint(next.endpoint);
       const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
-      if (normalized.token) {
+      const managed = endpoint === managedEndpoint.current;
+      if (normalized.token && !managed) {
         await storeConnectionCredential(endpoint, normalized.token);
       }
       setCredentialError(undefined);
       setSettings(normalized);
+      // The supervisor owns the managed address and its token for this launch only;
+      // recording it would evict remembered remote endpoints from the saved list.
+      if (managed) return;
       setRecents((current) => {
         const updated = [
           { endpoint, label: normalized.label },
