@@ -80,6 +80,8 @@ const BACKEND_URL = process.env['CLIO_DESKTOP_BACKEND_URL'] ?? 'http://127.0.0.1
 const WORKSPACE_ID = process.env['CLIO_DESKTOP_WORKSPACE_ID'] ?? 'ws_default';
 const PORT = 4444;
 const BASE = `http://127.0.0.1:${PORT}`;
+const WD_REQUEST_TIMEOUT_MS = 30_000;
+const API_REQUEST_TIMEOUT_MS = 15_000;
 const EL = 'element-6066-11e4-a52e-4f735466cecf';
 const SHELL_SELECTOR =
   'section[aria-label="Session workspace"], nav[aria-label="Workspace navigation"]';
@@ -118,6 +120,7 @@ async function wd(method, path, body) {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(WD_REQUEST_TIMEOUT_MS),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -131,6 +134,7 @@ async function api(method, path, body) {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
   });
   const text = await res.text();
   const json = text ? JSON.parse(text) : {};
@@ -396,7 +400,9 @@ test(
       // Wait for tauri-driver to accept connections.
       for (let i = 0; i < 30; i++) {
         try {
-          await fetch(`${BASE}/status`);
+          await fetch(`${BASE}/status`, {
+            signal: AbortSignal.timeout(WD_REQUEST_TIMEOUT_MS),
+          });
           break;
         } catch {
           await sleep(300);
