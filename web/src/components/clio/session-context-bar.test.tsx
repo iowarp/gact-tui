@@ -66,5 +66,6 @@ describe('ClioSessionContextBar', () => {
 
     expect(screen.queryByText(/default agent/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/standard agent/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
   });
 });

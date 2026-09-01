@@ -261,6 +261,7 @@ describe('ClioComposer service commands', () => {
     expect(input).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Stop' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Steer current work' })).toBeDisabled();
+    expect(screen.queryByText('Working')).not.toBeInTheDocument();
 
     await user.type(input, 'Prioritize the provenance gap.');
     await user.click(screen.getByRole('button', { name: 'Steer current work' }));

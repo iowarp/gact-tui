@@ -189,15 +189,14 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
             label={`${presentationOverrideCount} display ${presentationOverrideCount === 1 ? 'fallback' : 'fallbacks'}`}
             value="degraded"
           />
-        ) : activeActivityCount || sessionActive || activityCount ? (
-          <ClioStatus
-            className="hidden py-0.5 sm:inline-flex"
-            label={dockStatus}
-            value={
-              activeActivityCount || sessionActive ? (props.sessionState ?? 'running') : 'completed'
-            }
-          />
         ) : null}
+        {activeActivityCount || sessionActive ? (
+          <ClioStatus className="shrink-0 py-0.5" label={dockStatus} value="running" />
+        ) : (
+          <span aria-live="polite" className="sr-only">
+            {dockStatus}
+          </span>
+        )}
         <PanelRightOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
       </Button>
       {props.subagents.length ? (

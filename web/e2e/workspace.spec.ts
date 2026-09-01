@@ -132,6 +132,56 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await expect(page.getByRole('dialog', { name: 'Sidebar' })).toHaveCount(0);
 });
 
+test('renders a ghost queue stack and reconciles a live server update', async ({ page }) => {
+  const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
+  expect(seeded.ok()).toBe(true);
+  await page.addInitScript(() => localStorage.setItem('theme', 'dark'));
+  await page.goto(workspaceUrl);
+
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  const queue = page.getByLabel('Queued messages');
+  await expect(queue).toBeVisible();
+  await expect(queue.getByText('6 queued messages')).toBeVisible();
+  await expect(queue.locator('[data-queue-live-item]')).toHaveCount(6);
+  await expect(queue).toHaveCSS('backdrop-filter', /blur/);
+  await expect(
+    queue.getByRole('button', { name: 'Reorder queued message', exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    queue.getByRole('button', { name: 'Reorder queued message', exact: true }),
+  ).toHaveCount(6);
+  await expect(queue.locator('[data-slot="sortable"]')).toBeVisible();
+  await expect(queue.locator('[draggable="true"]')).toHaveCount(0);
+  await expect(page.getByText('Working', { exact: true })).toBeVisible();
+  await expect(page.getByText('Running', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('status', { name: 'Working now' })).toBeVisible();
+
+  const fourthHandle = queue
+    .getByRole('button', { name: 'Reorder queued message', exact: true })
+    .nth(3);
+  const fourthHandleBounds = await fourthHandle.boundingBox();
+  expect(fourthHandleBounds).not.toBeNull();
+  await page.mouse.move(
+    (fourthHandleBounds?.x ?? 0) + (fourthHandleBounds?.width ?? 0) / 2,
+    (fourthHandleBounds?.y ?? 0) + (fourthHandleBounds?.height ?? 0) / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move((fourthHandleBounds?.x ?? 0) + 4, 1, { steps: 16 });
+  await page.mouse.up();
+  await expect(queue.locator('[data-queue-live-item]').first()).toContainText(
+    'Check why the PDF viewer is always paged.',
+  );
+
+  const appended = await page.request.post(`${fixtureEndpoint}/__test/queue-append`);
+  expect(appended.ok()).toBe(true);
+  await expect(queue.getByText('7 queued messages')).toBeVisible();
+  await expect(queue.getByText('New server update joined the queue.')).toBeVisible();
+  await expect(queue.locator('[data-queue-live-item]')).toHaveCount(7);
+  expect(
+    (await new AxeBuilder({ page }).include('[aria-label="Queued messages"]').analyze()).violations,
+  ).toEqual([]);
+});
+
 test('batches a 100-delta stream over a virtualized 1,000-message transcript', async ({ page }) => {
   await page.addInitScript(() => {
     window.__clioLongTasks = [];

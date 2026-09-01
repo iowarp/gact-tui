@@ -68,9 +68,10 @@ describe('session navigation state', () => {
     expect(screen.getByRole('link', { name: /Evidence review/u })).toBeVisible();
   });
 
-  it('uses a labeled working state and otherwise exposes interaction recency', () => {
+  it('uses one accessible loop for working state and otherwise exposes interaction recency', () => {
     const { rerender } = renderRow({ ...session, state: 'running' }, session.last_interaction_at);
-    expect(screen.getByText('Working')).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Working now' })).toBeVisible();
+    expect(screen.queryByText('Working')).not.toBeInTheDocument();
 
     rerender(
       <MemoryRouter>
@@ -89,7 +90,7 @@ describe('session navigation state', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.queryByText('Working')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Working now' })).not.toBeInTheDocument();
     expect(screen.queryByText('New')).not.toBeInTheDocument();
     expect(screen.getByTitle(/^Last interaction /u)).toBeVisible();
   });

@@ -4,6 +4,7 @@ import type {
   QueuedMessage,
   WorkspaceResource,
 } from '@clio/core/v3';
+import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CheckIcon, GripVerticalIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -28,6 +29,7 @@ import {
   QueueSectionLabel,
   QueueSectionTrigger,
 } from '@/components/ai-elements/queue';
+import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import { Input } from '@/components/ui/input';
 import { resourceAvailability, resourcePipelineStages } from './resource-availability';
 import {
@@ -60,15 +62,19 @@ export function ClioComposerQueue({
   resources = [],
 }: ClioComposerQueueProps) {
   const [orderOverride, setOrderOverride] = useState<QueuedMessage[]>();
-  const ordered = orderOverride ?? messages;
-  const [draggedId, setDraggedId] = useState<string>();
+  const incomingIds = new Set(messages.map((message) => message.id));
+  const orderOverrideMatches =
+    orderOverride !== undefined &&
+    incomingIds.size === orderOverride.length &&
+    orderOverride.every((message) => incomingIds.has(message.id));
+  const ordered = orderOverrideMatches ? orderOverride : messages;
   const [editing, setEditing] = useState<{ id: string; text: string }>();
 
-  const messageById = useMemo(() => new Map(ordered.map((row) => [row.id, row])), [ordered]);
   const resourceById = useMemo(
     () => new Map(resources.map((resource) => [resource.id, resource])),
     [resources],
   );
+
   if (ordered.length === 0) return null;
 
   const saveEdit = async (message: QueuedMessage, text: string) => {
@@ -95,40 +101,7 @@ export function ClioComposerQueue({
     }
   };
 
-  const move = async (messageId: string, offset: -1 | 1) => {
-    const index = ordered.findIndex((item) => item.id === messageId);
-    const destination = index + offset;
-    if (index < 0 || destination < 0 || destination >= ordered.length) return;
-    const next = [...ordered];
-    [next[index], next[destination]] = [next[destination], next[index]];
-    setOrderOverride(next);
-    try {
-      await onReorder(next);
-      setOrderOverride(undefined);
-    } catch (error) {
-      setOrderOverride(undefined);
-      toast.error('Queued messages changed elsewhere', {
-        description: error instanceof Error ? error.message : 'Reloaded the service order.',
-      });
-    }
-  };
-
-  const dropBefore = async (targetId: string) => {
-    if (!draggedId || draggedId === targetId) return;
-    const source = messageById.get(draggedId);
-    const targetIndex = ordered.findIndex((item) => item.id === targetId);
-    if (!source || targetIndex < 0) {
-      setDraggedId(undefined);
-      return;
-    }
-    const next = ordered.filter((item) => item.id !== draggedId);
-    next.splice(
-      next.findIndex((item) => item.id === targetId),
-      0,
-      source,
-    );
-    setDraggedId(undefined);
-    setOrderOverride(next);
+  const commitReorder = async (next: QueuedMessage[]) => {
     try {
       await onReorder(next);
       setOrderOverride(undefined);
@@ -143,149 +116,161 @@ export function ClioComposerQueue({
   return (
     <Queue
       aria-label="Queued messages"
-      className="relative z-10 mx-auto -mb-px w-[calc(100%_-_1.5rem)] max-w-[54.5rem] rounded-b-none border-b-0 py-1"
+      className="relative z-10 mx-auto -mb-px w-[calc(100%_-_1.5rem)] max-w-[54.5rem] rounded-b-none border-b-0 py-0.5"
     >
       <QueueSection>
         <QueueSectionTrigger>
           <QueueSectionLabel count={ordered.length} label="queued messages" />
         </QueueSectionTrigger>
         <QueueSectionContent>
-          <QueueList>
-            {ordered.map((message) => {
-              const text = message.parts.find((part) => part.type === 'text')?.text ?? '';
-              const resources = message.parts.filter((part) => part.type === 'resource_ref');
-              const isEditing = editing?.id === message.id;
-              return (
-                <QueueItem
-                  key={message.id}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => void dropBefore(message.id)}
-                >
-                  <QueueItemAction
-                    aria-label="Reorder queued message"
-                    className="cursor-grab active:cursor-grabbing"
-                    draggable
-                    onDragEnd={() => setDraggedId(undefined)}
-                    onDragStart={() => setDraggedId(message.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'ArrowUp') {
-                        event.preventDefault();
-                        void move(message.id, -1);
-                      }
-                      if (event.key === 'ArrowDown') {
-                        event.preventDefault();
-                        void move(message.id, 1);
-                      }
-                    }}
-                    tooltip="Reorder queued message"
+          <Sortable
+            asChild
+            getItemValue={(message) => message.id}
+            modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+            onValueChange={setOrderOverride}
+            onValueCommit={(next) => void commitReorder(next)}
+            strategy="vertical"
+            value={ordered}
+          >
+            <QueueList
+              className={
+                ordered.length > 4
+                  ? '[mask-image:linear-gradient(to_bottom,transparent_0,black_0.65rem,black_calc(100%_-_0.65rem),transparent_100%)]'
+                  : undefined
+              }
+            >
+              {ordered.map((message) => {
+                const text = message.parts.find((part) => part.type === 'text')?.text ?? '';
+                const resources = message.parts.filter((part) => part.type === 'resource_ref');
+                const isEditing = editing?.id === message.id;
+                return (
+                  <SortableItem
+                    asChild
+                    disabled={busy}
+                    key={message.id}
+                    role="listitem"
+                    tabIndex={-1}
+                    value={message.id}
                   >
-                    <GripVerticalIcon />
-                  </QueueItemAction>
-                  {isEditing ? (
-                    <Input
-                      aria-label="Edit queued message"
-                      autoFocus
-                      className="h-7 min-w-0 flex-1"
-                      onChange={(event) =>
-                        setEditing({ id: message.id, text: event.currentTarget.value })
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === 'Escape') setEditing(undefined);
-                        if (event.key === 'Enter' && editing.text.trim()) {
-                          void saveEdit(message, editing.text);
-                        }
-                      }}
-                      value={editing.text}
-                    />
-                  ) : (
-                    <QueueItemContent title={text}>{text || 'Attachments only'}</QueueItemContent>
-                  )}
-                  {resources.length > 0 ? (
-                    <Attachments className="shrink-0 flex-nowrap gap-1" variant="inline">
-                      {resources.slice(0, 2).map((resourceRef) => (
-                        <QueuedResourceAttachment
-                          key={resourceRef.resource_id}
-                          onOpen={onOpenResource}
-                          resource={resourceById.get(resourceRef.resource_id)}
-                          resourceRef={resourceRef}
-                        />
-                      ))}
-                      {resources.length > 2 ? (
-                        <span
-                          aria-label={`${resources.length - 2} more attachments`}
-                          className="inline-flex h-8 shrink-0 items-center rounded-md border border-border px-1.5 text-xs font-medium text-muted-foreground"
-                          title={resources
-                            .slice(2)
-                            .map((resource) => resource.name)
-                            .join(', ')}
-                        >
-                          +{resources.length - 2}
-                        </span>
-                      ) : null}
-                    </Attachments>
-                  ) : null}
-                  <QueueItemActions>
-                    {isEditing ? (
-                      <>
+                    <QueueItem data-queue-live-item="">
+                      <SortableItemHandle asChild>
                         <QueueItemAction
-                          aria-label="Save queued message"
-                          disabled={busy || !editing.text.trim()}
-                          onClick={() => void saveEdit(message, editing.text)}
-                          tooltip="Save queued message"
+                          aria-label="Reorder queued message"
+                          className="size-6 bg-transparent text-muted-foreground/45 hover:bg-transparent hover:text-foreground [&_svg]:size-3.5"
+                          tooltip="Reorder queued message"
                         >
-                          <CheckIcon />
+                          <GripVerticalIcon />
                         </QueueItemAction>
-                        <QueueItemAction
-                          aria-label="Cancel editing queued message"
-                          onClick={() => setEditing(undefined)}
-                          tooltip="Cancel editing"
-                        >
-                          <XIcon />
-                        </QueueItemAction>
-                      </>
-                    ) : (
-                      <>
-                        <QueueItemAction
+                      </SortableItemHandle>
+                      {isEditing ? (
+                        <Input
                           aria-label="Edit queued message"
-                          disabled={busy}
-                          onClick={() => setEditing({ id: message.id, text })}
-                          tooltip="Edit queued message"
-                        >
-                          <PencilIcon />
-                        </QueueItemAction>
-                        <QueueItemAction
-                          aria-label="Delete queued message"
-                          disabled={busy}
-                          onClick={() =>
-                            void runAction(
-                              () => onDelete(message),
-                              'Queued message was not deleted',
-                            )
+                          autoFocus
+                          className="h-7 min-w-0 flex-1"
+                          onChange={(event) =>
+                            setEditing({ id: message.id, text: event.currentTarget.value })
                           }
-                          tooltip="Delete queued message"
-                        >
-                          <Trash2Icon />
-                        </QueueItemAction>
-                        <QueueItemAction
-                          aria-label="Send queued message now"
-                          disabled={busy}
-                          onClick={() =>
-                            void runAction(
-                              () => onPromote(message, promoteDelivery),
-                              'Queued message was not sent',
-                            )
-                          }
-                          tooltip="Send queued message now"
-                        >
-                          <SendIcon />
-                        </QueueItemAction>
-                      </>
-                    )}
-                  </QueueItemActions>
-                </QueueItem>
-              );
-            })}
-          </QueueList>
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape') setEditing(undefined);
+                            if (event.key === 'Enter' && editing.text.trim()) {
+                              void saveEdit(message, editing.text);
+                            }
+                          }}
+                          value={editing.text}
+                        />
+                      ) : (
+                        <QueueItemContent title={text}>
+                          {text || 'Attachments only'}
+                        </QueueItemContent>
+                      )}
+                      {resources.length > 0 ? (
+                        <Attachments className="shrink-0 flex-nowrap gap-1" variant="inline">
+                          {resources.slice(0, 2).map((resourceRef) => (
+                            <QueuedResourceAttachment
+                              key={resourceRef.resource_id}
+                              onOpen={onOpenResource}
+                              resource={resourceById.get(resourceRef.resource_id)}
+                              resourceRef={resourceRef}
+                            />
+                          ))}
+                          {resources.length > 2 ? (
+                            <span
+                              aria-label={`${resources.length - 2} more attachments`}
+                              className="inline-flex h-8 shrink-0 items-center rounded-md border border-border px-1.5 text-xs font-medium text-muted-foreground"
+                              title={resources
+                                .slice(2)
+                                .map((resource) => resource.name)
+                                .join(', ')}
+                            >
+                              +{resources.length - 2}
+                            </span>
+                          ) : null}
+                        </Attachments>
+                      ) : null}
+                      <QueueItemActions>
+                        {isEditing ? (
+                          <>
+                            <QueueItemAction
+                              aria-label="Save queued message"
+                              disabled={busy || !editing.text.trim()}
+                              onClick={() => void saveEdit(message, editing.text)}
+                              tooltip="Save queued message"
+                            >
+                              <CheckIcon />
+                            </QueueItemAction>
+                            <QueueItemAction
+                              aria-label="Cancel editing queued message"
+                              onClick={() => setEditing(undefined)}
+                              tooltip="Cancel editing"
+                            >
+                              <XIcon />
+                            </QueueItemAction>
+                          </>
+                        ) : (
+                          <>
+                            <QueueItemAction
+                              aria-label="Edit queued message"
+                              disabled={busy}
+                              onClick={() => setEditing({ id: message.id, text })}
+                              tooltip="Edit queued message"
+                            >
+                              <PencilIcon />
+                            </QueueItemAction>
+                            <QueueItemAction
+                              aria-label="Delete queued message"
+                              disabled={busy}
+                              onClick={() =>
+                                void runAction(
+                                  () => onDelete(message),
+                                  'Queued message was not deleted',
+                                )
+                              }
+                              tooltip="Delete queued message"
+                            >
+                              <Trash2Icon />
+                            </QueueItemAction>
+                            <QueueItemAction
+                              aria-label="Send queued message now"
+                              disabled={busy}
+                              onClick={() =>
+                                void runAction(
+                                  () => onPromote(message, promoteDelivery),
+                                  'Queued message was not sent',
+                                )
+                              }
+                              tooltip="Send queued message now"
+                            >
+                              <SendIcon />
+                            </QueueItemAction>
+                          </>
+                        )}
+                      </QueueItemActions>
+                    </QueueItem>
+                  </SortableItem>
+                );
+              })}
+            </QueueList>
+          </Sortable>
         </QueueSectionContent>
       </QueueSection>
     </Queue>

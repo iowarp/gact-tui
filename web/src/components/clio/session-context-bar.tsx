@@ -2,7 +2,6 @@ import type { AgentBlueprintReference, Session } from '@clio/core/v3';
 import { ArrowLeftIcon, GitBranchIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClioSessionActions } from './session-actions';
-import { ClioStatus } from './status';
 
 export interface ClioSessionContextBarProps {
   session?: Session;
@@ -72,7 +71,6 @@ export function ClioSessionContextBar({
         onUndo={onUndo}
         title={session?.title ?? 'session'}
       />
-      <ClioStatus className="hidden sm:inline-flex" value={session?.state ?? 'unavailable'} />
       {session?.branch ? (
         <span className="hidden items-center gap-1 font-mono text-[10px] text-muted-foreground lg:flex">
           <GitBranchIcon aria-hidden="true" className="size-3" />

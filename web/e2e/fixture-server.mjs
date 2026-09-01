@@ -14,6 +14,7 @@ let questionPending = true;
 let streamedText = '';
 let streamStarted = false;
 let nextCursor = 1;
+let queuedMessages = [];
 const streamClients = new Set();
 const artifactPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+X8wNAAAAAElFTkSuQmCC',
@@ -86,6 +87,40 @@ const artifactRecord = {
     },
   ],
 };
+
+/** Build one durable queued message using the explicit GACT 0.3 composer contract. */
+function queuedMessage(id, text, position) {
+  return {
+    id,
+    session_id: sessionId,
+    revision: 1,
+    position,
+    parts: [{ type: 'text', text }],
+    metadata: {},
+    client_message_id: id,
+    idempotency_key: id,
+    behavior: {
+      reasoning_effort: 'medium',
+      execution_mode: 'execute',
+      confirmation_policy: 'ask',
+    },
+    model: { provider_id: 'codex', model_id: 'gpt-5.6-luna' },
+    created_at: observedAt,
+    updated_at: observedAt,
+  };
+}
+
+/** Seed a compact stack long enough to exercise the queue's visual edge fade. */
+function seedQueuedMessages() {
+  queuedMessages = [
+    queuedMessage('queue_current', 'Currently it renders as a static card.', 0),
+    queuedMessage('queue_annotation_1', 'Review the first annotation.', 1),
+    queuedMessage('queue_annotation_2', 'Review the second annotation.', 2),
+    queuedMessage('queue_pdf', 'Check why the PDF viewer is always paged.', 3),
+    queuedMessage('queue_annotation_3', 'Review the attachment processing semantics.', 4),
+    queuedMessage('queue_annotation_4', 'Keep the queue compact while work continues.', 5),
+  ];
+}
 
 /** Return a dense sanitized transcript with one active, always-mounted streaming turn. */
 function transcriptMessages() {
@@ -164,6 +199,19 @@ function sendJson(response, body, status = 200) {
   response.end(JSON.stringify(body));
 }
 
+/** Read one bounded JSON request body from the local browser fixture. */
+async function readJson(request) {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of request) {
+    size += chunk.length;
+    if (size > 1024 * 1024) throw new Error('fixture request body is too large');
+    chunks.push(chunk);
+  }
+  if (chunks.length === 0) return {};
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+}
+
 /** Build the canonical scoped GACT 0.3 envelope used by the SSE fixture. */
 function envelope(type, payload) {
   return {
@@ -214,7 +262,7 @@ function startHighRateStream() {
   }, 10);
 }
 
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? `127.0.0.1:${port}`}`);
   if (request.method === 'OPTIONS') {
     response.writeHead(204, commonHeaders());
@@ -227,8 +275,27 @@ const server = createServer((request, response) => {
     streamedText = '';
     streamStarted = false;
     nextCursor = 1;
+    queuedMessages = [];
     response.writeHead(204, commonHeaders());
     response.end();
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/queue-demo') {
+    seedQueuedMessages();
+    sendJson(response, { queued_messages: queuedMessages }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/queue-append') {
+    const message = queuedMessage(
+      `queue_live_${queuedMessages.length}`,
+      'New server update joined the queue.',
+      queuedMessages.length,
+    );
+    queuedMessages.push(message);
+    publish('queued_message.created', { queued_message: message });
+    sendJson(response, { queued_message: message }, 202);
     return;
   }
 
@@ -345,7 +412,43 @@ const server = createServer((request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/queued-messages`) {
-    sendJson(response, { queued_messages: [] });
+    sendJson(response, { queued_messages: queuedMessages });
+    return;
+  }
+  if (
+    request.method === 'POST' &&
+    url.pathname === `/v1/sessions/${sessionId}/queued-messages/reorder`
+  ) {
+    let body;
+    try {
+      body = await readJson(request);
+    } catch (error) {
+      sendJson(response, { detail: error instanceof Error ? error.message : 'invalid JSON' }, 400);
+      return;
+    }
+    const orderedIds = Array.isArray(body.ordered_ids) ? body.ordered_ids : [];
+    const currentIds = new Set(queuedMessages.map((message) => message.id));
+    const requestedIds = new Set(orderedIds);
+    if (
+      orderedIds.length !== queuedMessages.length ||
+      requestedIds.size !== currentIds.size ||
+      orderedIds.some((id) => typeof id !== 'string' || !currentIds.has(id))
+    ) {
+      sendJson(response, { detail: 'queued message reorder set does not match server state' }, 409);
+      return;
+    }
+    const byId = new Map(queuedMessages.map((message) => [message.id, message]));
+    queuedMessages = orderedIds.map((id, position) => {
+      const message = byId.get(id);
+      return {
+        ...message,
+        position,
+        revision: message.revision + 1,
+        updated_at: new Date().toISOString(),
+      };
+    });
+    publish('queued_message.reordered', { queued_messages: queuedMessages });
+    sendJson(response, { queued_messages: queuedMessages });
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/pending-steers`) {

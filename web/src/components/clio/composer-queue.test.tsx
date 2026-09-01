@@ -84,26 +84,28 @@ function renderQueue(overrides: Partial<Parameters<typeof ClioComposerQueue>[0]>
 }
 
 describe('ClioComposerQueue', () => {
-  it('keeps compact icon actions and supports keyboard reordering from the left handle', async () => {
-    const user = userEvent.setup();
-    const props = renderQueue();
+  it('keeps compact icon actions inside the ReUI sortable contract', () => {
+    renderQueue();
 
-    expect(screen.getByLabelText('Queued messages')).toHaveClass(
+    const queue = screen.getByLabelText('Queued messages');
+    expect(queue).toHaveClass(
       '-mb-px',
       'w-[calc(100%_-_1.5rem)]',
       'max-w-[54.5rem]',
       'rounded-b-none',
       'border-b-0',
+      'bg-card/70',
+      'backdrop-blur-xl',
     );
+    expect(screen.getByText('2 queued messages')).toHaveAttribute('aria-live', 'polite');
+    expect(queue.querySelectorAll('[data-queue-live-item]')).toHaveLength(2);
     const handles = screen.getAllByRole('button', { name: 'Reorder queued message' });
     const firstRowButtons = within(handles[0].closest('li')!).getAllByRole('button');
     expect(firstRowButtons[0]).toBe(handles[0]);
-    await user.click(handles[1]);
-    await user.keyboard('{ArrowUp}');
-    expect(props.onReorder).toHaveBeenCalledWith([
-      expect.objectContaining({ id: 'queue_2' }),
-      expect.objectContaining({ id: 'queue_1' }),
-    ]);
+    expect(queue.querySelector('[data-slot="sortable"]')).toBeInTheDocument();
+    expect(queue.querySelectorAll('[data-slot="sortable-item"]')).toHaveLength(2);
+    expect(queue.querySelectorAll('[data-slot="sortable-item-handle"]')).toHaveLength(2);
+    expect(queue.querySelector('[draggable="true"]')).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Edit queued message' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Delete queued message' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Send queued message now' })).toHaveLength(2);

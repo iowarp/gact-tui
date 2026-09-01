@@ -136,10 +136,15 @@ export function SessionNavigationRow({
             {session.pinned ? <PinIcon aria-hidden="true" className="mr-1 inline size-3" /> : null}
             <span className="min-w-0 flex-1 truncate">{session.title || 'Untitled session'}</span>
             {running ? (
-              <Badge className="h-5 gap-1 px-1.5 text-[10px]" variant="secondary">
-                <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
-                Working
-              </Badge>
+              <span
+                aria-label="Working now"
+                aria-live="polite"
+                className="inline-flex size-5 shrink-0 items-center justify-center text-info"
+                role="status"
+                title="Working now"
+              >
+                <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
+              </span>
             ) : unseen ? (
               <Badge className="h-5 px-1.5 text-[10px]" variant="default">
                 New

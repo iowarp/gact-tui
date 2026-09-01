@@ -1,23 +1,20 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { ChevronDownIcon, PaperclipIcon } from 'lucide-react';
+import { m, type HTMLMotionProps } from 'motion/react';
 import type { ComponentProps, ReactNode } from 'react';
 
-export type QueueItemProps = ComponentProps<'li'>;
+export type QueueItemProps = HTMLMotionProps<'li'>;
 
 export const QueueItem = ({ className, ...props }: QueueItemProps) => (
-  <li
+  <m.li
     className={cn(
-      'group flex min-w-0 items-center gap-1 rounded-md px-2 py-1 text-sm transition-colors hover:bg-muted',
+      'group relative flex min-h-7 min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-sm transition-[background-color,opacity] duration-150 hover:bg-foreground/[0.035] focus-within:bg-foreground/[0.045] dark:hover:bg-foreground/[0.06]',
       className,
     )}
     {...props}
@@ -33,7 +30,13 @@ export const QueueItemContent = ({ className, ...props }: QueueItemContentProps)
 export type QueueItemActionsProps = ComponentProps<'div'>;
 
 export const QueueItemActions = ({ className, ...props }: QueueItemActionsProps) => (
-  <div className={cn('flex shrink-0 items-center gap-0.5', className)} {...props} />
+  <div
+    className={cn(
+      'flex shrink-0 items-center gap-0.5 opacity-55 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 md:opacity-35',
+      className,
+    )}
+    {...props}
+  />
 );
 
 export type QueueItemActionProps = Omit<ComponentProps<typeof Button>, 'variant' | 'size'> & {
@@ -44,7 +47,7 @@ export const QueueItemAction = ({ className, tooltip, ...props }: QueueItemActio
   const button = (
     <Button
       className={cn(
-        'size-7 rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted-foreground/10 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100',
+        'size-7 rounded-md text-muted-foreground/80 transition-[color,background-color,opacity] hover:bg-muted-foreground/10 hover:text-foreground focus-visible:text-foreground',
         className,
       )}
       size="icon"
@@ -88,8 +91,8 @@ export const QueueItemFile = ({ children, ...props }: QueueItemAttachmentProps) 
 export type QueueListProps = ComponentProps<typeof ScrollArea>;
 
 export const QueueList = ({ children, className, ...props }: QueueListProps) => (
-  <ScrollArea className={cn('max-h-36', className)} {...props}>
-    <ul className="space-y-0.5 pr-2">{children}</ul>
+  <ScrollArea className={cn('max-h-40', className)} {...props}>
+    <ul className="space-y-px py-0.5 pr-1">{children}</ul>
   </ScrollArea>
 );
 
@@ -101,11 +104,15 @@ export const QueueSection = ({ className, defaultOpen = true, ...props }: QueueS
 
 export type QueueSectionTriggerProps = ComponentProps<'button'>;
 
-export const QueueSectionTrigger = ({ children, className, ...props }: QueueSectionTriggerProps) => (
+export const QueueSectionTrigger = ({
+  children,
+  className,
+  ...props
+}: QueueSectionTriggerProps) => (
   <CollapsibleTrigger asChild>
     <button
       className={cn(
-        'group flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-xs font-medium text-muted-foreground transition-colors hover:bg-muted',
+        'group flex h-6 w-full items-center justify-between rounded-md px-1.5 text-left text-xs font-medium text-muted-foreground/90 transition-colors hover:text-foreground focus-visible:bg-muted/35',
         className,
       )}
       type="button"
@@ -135,7 +142,7 @@ export const QueueSectionLabel = ({
       className="size-3.5 transition-transform group-data-[state=closed]:-rotate-90"
     />
     {icon}
-    <span>{count === undefined ? label : `${count} ${label}`}</span>
+    <span aria-live="polite">{count === undefined ? label : `${count} ${label}`}</span>
   </span>
 );
 
@@ -150,7 +157,7 @@ export type QueueProps = ComponentProps<'div'>;
 export const Queue = ({ className, ...props }: QueueProps) => (
   <div
     className={cn(
-      'flex flex-col rounded-xl border border-border/80 bg-background/96 p-1.5 shadow-sm',
+      'flex flex-col overflow-hidden rounded-xl border border-border/30 bg-card/70 p-1 shadow-[0_-14px_38px_-28px_rgba(15,23,42,0.5)] backdrop-blur-xl dark:bg-card/60 dark:shadow-[0_-14px_38px_-24px_rgba(0,0,0,0.8)]',
       className,
     )}
     {...props}

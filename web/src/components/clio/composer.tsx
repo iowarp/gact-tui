@@ -364,27 +364,20 @@ export function ClioComposer({
           </PromptInputTools>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {state === 'running' ? (
-              <>
-                <ClioStatus
-                  className="hidden sm:flex"
-                  detail="New input joins the active turn at the next safe boundary"
-                  label="Working"
-                  value="running"
-                />
-                <PromptInputButton
-                  aria-label="Steer current work"
-                  className="gap-1.5 border-action/40 text-action hover:bg-action/10 hover:text-action"
-                  disabled={disabled || !input.trim()}
-                  onClick={() => {
-                    nextDeliveryRef.current = 'steer';
-                  }}
-                  type="submit"
-                  variant="outline"
-                >
-                  <CornerDownRightIcon aria-hidden="true" />
-                  <span className="hidden sm:inline">Steer</span>
-                </PromptInputButton>
-              </>
+              <PromptInputButton
+                aria-label="Steer current work"
+                className="gap-1.5 border-action/40 text-action hover:bg-action/10 hover:text-action"
+                disabled={disabled || !input.trim()}
+                onClick={() => {
+                  nextDeliveryRef.current = 'steer';
+                }}
+                title="Join the active turn at the next safe boundary"
+                type="submit"
+                variant="outline"
+              >
+                <CornerDownRightIcon aria-hidden="true" />
+                <span className="hidden sm:inline">Steer</span>
+              </PromptInputButton>
             ) : state === 'waiting_permission' || state === 'waiting_user' ? (
               <ClioStatus value={state} />
             ) : null}
