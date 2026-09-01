@@ -151,6 +151,10 @@ if ($PreserveState) {
     }
 
     Set-DeploymentStage -Name "sync_preserved_committed_heads"
+    $sourceSyncTemp = Join-Path $tempRoot "source-sync"
+    New-Item -ItemType Directory -Force -Path $sourceSyncTemp | Out-Null
+    [Environment]::SetEnvironmentVariable("TEMP", $sourceSyncTemp, "Process")
+    [Environment]::SetEnvironmentVariable("TMP", $sourceSyncTemp, "Process")
     $git = (Get-Command git -ErrorAction Stop).Source
     $backendHead = (& $git -C $backendSource rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0 -or -not $backendHead) {
