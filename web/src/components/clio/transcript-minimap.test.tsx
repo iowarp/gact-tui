@@ -1,5 +1,5 @@
 import type { Message } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -87,16 +87,19 @@ describe('ClioTranscriptMinimap', () => {
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
     const user = userEvent.setup();
     const onJump = vi.fn();
+    const parentWheel = vi.fn();
     render(
-      <ClioTranscriptMinimap
-        activeIndex={1}
-        messages={messages}
-        onActiveIndexChange={vi.fn()}
-        onJump={onJump}
-        scrollTargetRef={createRef<HTMLDivElement>()}
-        useScrollspy={false}
-        visible
-      />,
+      <div onWheel={parentWheel}>
+        <ClioTranscriptMinimap
+          activeIndex={1}
+          messages={messages}
+          onActiveIndexChange={vi.fn()}
+          onJump={onJump}
+          scrollTargetRef={createRef<HTMLDivElement>()}
+          useScrollspy={false}
+          visible
+        />
+      </div>,
     );
 
     expect(screen.getByLabelText('Transcript minimap')).toBeVisible();
@@ -113,16 +116,30 @@ describe('ClioTranscriptMinimap', () => {
     const activeLandmark = screen.getByRole('button', { name: 'Jump to assistant message 2' });
     expect(activeLandmark).toHaveAttribute('aria-current', 'location');
     expect(activeLandmark).toHaveClass('h-[11px]');
-    expect(screen.getByRole('button', { name: 'Jump to user message 1' })).not.toHaveAttribute(
-      'aria-current',
+    expect(activeLandmark.querySelector('[data-slot="transcript-minimap-landmark"]')).toHaveClass(
+      'h-1',
+      'w-5',
+      'opacity-100',
     );
+    const inactiveLandmark = screen.getByRole('button', { name: 'Jump to user message 1' });
+    expect(inactiveLandmark).not.toHaveAttribute('aria-current');
+    expect(inactiveLandmark.querySelector('[data-slot="transcript-minimap-landmark"]')).toHaveClass(
+      'opacity-60',
+      'group-hover:w-5',
+      'group-focus-visible:w-5',
+    );
+    expect(activeLandmark).not.toHaveClass('ring-2', 'rounded-sm');
+    const scrollArea = screen.getByLabelText('Browse transcript landmarks');
+    expect(scrollArea).toHaveClass('overscroll-y-contain');
+    fireEvent.wheel(scrollArea, { deltaY: 100 });
+    expect(parentWheel).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
     expect(onJump).toHaveBeenCalledWith(1);
     expect(screen.queryByText(/Compare the three stations/)).not.toBeInTheDocument();
     expect(scrollToIndex).not.toHaveBeenCalled();
   });
 
-  it('centers the active landmark when the minimap overflows', () => {
+  it('reveals an edge landmark without forcing it to the center', () => {
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(10);
     render(
       <ClioTranscriptMinimap
@@ -136,6 +153,6 @@ describe('ClioTranscriptMinimap', () => {
       />,
     );
 
-    expect(scrollToIndex).toHaveBeenCalledWith(1, { align: 'center' });
+    expect(scrollToIndex).toHaveBeenCalledWith(1, { align: 'end' });
   });
 });

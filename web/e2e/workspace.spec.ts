@@ -72,20 +72,31 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
   await expect(minimap).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(minimap).toHaveCSS('box-shadow', 'none');
+  await expect(minimap).toHaveCSS('width', '24px');
   await expect
     .poll(async () => {
       const rail = await minimap.boundingBox();
       const landmark = await activeLandmark.boundingBox();
       if (!rail || !landmark) return false;
-      const railCenter = rail.y + rail.height / 2;
-      const landmarkCenter = landmark.y + landmark.height / 2;
-      return Math.abs(railCenter - landmarkCenter) <= 2;
+      return Math.abs(rail.y + rail.height - (landmark.y + landmark.height)) <= 2;
     })
     .toBe(true);
+  const activeMarker = activeLandmark.locator('[data-slot="transcript-minimap-landmark"]');
+  await expect(activeMarker).toHaveCSS('width', '20px');
+  await expect(activeMarker).toHaveCSS('height', '4px');
+  await expect(activeMarker).toHaveCSS('opacity', '1');
   const previousLandmark = minimap.getByRole('button', {
     exact: true,
     name: 'Jump to user message 999',
   });
+  const previousMarker = previousLandmark.locator('[data-slot="transcript-minimap-landmark"]');
+  await expect(previousMarker).toHaveCSS('width', '12px');
+  await expect(previousMarker).toHaveCSS('height', '2px');
+  await expect(previousMarker).toHaveCSS('opacity', '0.6');
+  await previousLandmark.hover();
+  await expect(previousMarker).toHaveCSS('width', '20px');
+  await expect(previousMarker).toHaveCSS('height', '4px');
+  await expect(previousMarker).toHaveCSS('opacity', '1');
   const previousBounds = await previousLandmark.boundingBox();
   const activeBounds = await activeLandmark.boundingBox();
   expect(previousBounds).not.toBeNull();
@@ -96,6 +107,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
 
   const minimapBounds = await minimap.boundingBox();
   expect(minimapBounds).not.toBeNull();
+  const conversationScrollTop = await conversation.evaluate((element) => element.scrollTop);
   if (minimapBounds) {
     await page.mouse.move(
       minimapBounds.x + minimapBounds.width / 2,
@@ -106,6 +118,9 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(
     minimap.getByRole('button', { exact: true, name: 'Jump to user message 1' }),
   ).toBeVisible();
+  await expect
+    .poll(() => conversation.evaluate((element) => element.scrollTop))
+    .toBe(conversationScrollTop);
   if (minimapBounds) await page.mouse.wheel(0, 50_000);
   await expect(activeLandmark).toBeVisible();
   await page.mouse.move(600, 30);

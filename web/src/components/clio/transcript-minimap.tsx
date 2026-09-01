@@ -199,12 +199,7 @@ function MinimapRail({
   useScrollspy,
 }: Omit<ClioTranscriptMinimapProps, 'visible'>) {
   const railRef = useRef<HTMLDivElement>(null);
-  const [railViewportHeight, setRailViewportHeight] = useState(0);
-  const estimatedContentHeight = messages.length * 11;
-  const edgePadding =
-    railViewportHeight > 0 && estimatedContentHeight > railViewportHeight
-      ? Math.max(0, (railViewportHeight - 8) / 2)
-      : 0;
+  const lastRevealedActiveIndexRef = useRef<number | null>(null);
   // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -212,29 +207,17 @@ function MinimapRail({
     estimateSize: () => 11,
     getScrollElement: () => railRef.current,
     overscan: 10,
-    paddingEnd: edgePadding,
-    paddingStart: edgePadding,
   });
   const rows = virtualizer.getVirtualItems();
   useLayoutEffect(() => {
-    const rail = railRef.current;
-    if (!rail) return;
-    const updateHeight = () => {
-      const nextHeight = Math.round(rail.clientHeight);
-      setRailViewportHeight((current) => (current === nextHeight ? current : nextHeight));
-    };
-    updateHeight();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(updateHeight);
-    observer.observe(rail);
-    return () => observer.disconnect();
-  }, []);
-  useLayoutEffect(() => {
-    if (activeIndex < 0) return;
+    if (activeIndex < 0 || lastRevealedActiveIndexRef.current === activeIndex) return;
     const rail = railRef.current;
     if (!rail || virtualizer.getTotalSize() <= rail.clientHeight) return;
-    virtualizer.scrollToIndex(activeIndex, { align: 'center' });
-  }, [activeIndex, edgePadding, virtualizer]);
+    lastRevealedActiveIndexRef.current = activeIndex;
+    const align =
+      activeIndex === 0 ? 'start' : activeIndex === messages.length - 1 ? 'end' : 'auto';
+    virtualizer.scrollToIndex(activeIndex, { align });
+  }, [activeIndex, messages.length, virtualizer]);
   const content = (
     <div className="flex min-h-full w-full items-center" data-slot="transcript-minimap-landmarks">
       <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
@@ -247,7 +230,7 @@ function MinimapRail({
                 <button
                   aria-label={`Jump to ${message.role} message ${row.index + 1}`}
                   aria-current={row.index === activeIndex ? 'location' : undefined}
-                  className="absolute left-0 flex h-[11px] w-full items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group absolute left-0 flex h-[11px] w-full items-center outline-none"
                   data-scrollspy-anchor={useScrollspy ? `message-${message.id}` : undefined}
                   onClick={() => onJump(row.index)}
                   style={{ transform: `translateY(${row.start}px)` }}
@@ -255,10 +238,13 @@ function MinimapRail({
                 >
                   <span
                     className={cn(
-                      'rounded-full',
-                      row.index === activeIndex ? 'h-1' : 'h-0.5',
+                      'rounded-full transition-[width,height,opacity] duration-150 ease-out',
                       landmarkClass(message),
+                      row.index === activeIndex
+                        ? 'h-1 w-5 opacity-100'
+                        : 'h-0.5 opacity-60 group-hover:h-1 group-hover:w-5 group-hover:opacity-100 group-focus-visible:h-1 group-focus-visible:w-5 group-focus-visible:opacity-100',
                     )}
+                    data-slot="transcript-minimap-landmark"
                   />
                 </button>
               </HoverCardTrigger>
@@ -275,10 +261,14 @@ function MinimapRail({
     </div>
   );
   return (
-    <aside aria-label="Transcript minimap" className="absolute inset-y-3 left-1 z-10 w-3">
+    <aside aria-label="Transcript minimap" className="absolute inset-y-3 left-1 z-10 w-6">
       <div
-        className="h-full overflow-y-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        aria-label="Browse transcript landmarks"
+        className="h-full overflow-y-auto overscroll-y-contain px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        data-slot="transcript-minimap-scroll-area"
+        onWheel={(event) => event.stopPropagation()}
         ref={railRef}
+        tabIndex={0}
       >
         {useScrollspy ? (
           <Scrollspy

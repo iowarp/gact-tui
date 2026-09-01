@@ -537,8 +537,8 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       markUserScrollIntent();
       pinnedToBottom.current = index === messages.length - 1;
       setActiveMessageIndex(index);
-      if (virtualized) virtualizer.scrollToIndex(index, { align: 'center' });
-      else document.getElementById(`message-${message.id}`)?.scrollIntoView({ block: 'center' });
+      if (virtualized) virtualizer.scrollToIndex(index, { align: 'auto' });
+      else document.getElementById(`message-${message.id}`)?.scrollIntoView({ block: 'nearest' });
       window.requestAnimationFrame(() => {
         document.getElementById(`message-${message.id}`)?.focus({ preventScroll: true });
       });
