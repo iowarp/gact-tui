@@ -93,10 +93,6 @@ import {
   sessionIdFromRoute,
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
-import {
-  connectionDegradationLabel,
-  materialConnectionDegradations,
-} from '@/lib/connection-health';
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -131,17 +127,15 @@ function ConnectionsSettings() {
     queryKey: queryKeys.key('capabilities', settings.endpoint),
     queryFn: ({ signal }) => repository.capabilities(signal),
   });
-  const materialDegradations = materialConnectionDegradations(
-    capabilities.data?.degradations ?? [],
-  );
+  const degradations = capabilities.data?.degradations ?? [];
   const connectionState = capabilities.isPending
     ? 'connecting'
     : capabilities.isError
       ? 'offline'
-      : materialDegradations.length
+      : degradations.length
         ? 'degraded'
         : 'healthy';
-  const limitationLabels = materialDegradations.map(connectionDegradationLabel);
+  const limitationLabels = degradations.map((degradation) => degradation.reason);
 
   return (
     <div className="grid gap-6">
