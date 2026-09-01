@@ -115,6 +115,27 @@ const enabled = missing.length === 0;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+async function terminateDriverTree(driver) {
+  if (driver.exitCode !== null || driver.signalCode !== null) return;
+  const exited = new Promise((resolveExit) => driver.once('exit', () => resolveExit(true)));
+  const signal = (name) => {
+    if (process.platform !== 'win32' && driver.pid) {
+      try {
+        process.kill(-driver.pid, name);
+        return;
+      } catch {
+        // The process group may have already exited; fall back to the direct child.
+      }
+    }
+    driver.kill(name);
+  };
+  signal('SIGTERM');
+  if (await Promise.race([exited, sleep(3_000).then(() => false)])) return;
+  signal('SIGKILL');
+  await Promise.race([exited, sleep(3_000).then(() => false)]);
+  driver.unref();
+}
+
 async function wd(method, path, body) {
   const res = await fetch(`${BASE}${path}`, {
     method,
@@ -389,10 +410,11 @@ async function waitForVisiblePermissionCard(sid, timeoutMs) {
 
 test(
   'real WebView: permission card renders + clears through the Tauri stack',
-  { skip: !enabled ? `missing ${missing.join(', ')}` : false },
+  { skip: !enabled ? `missing ${missing.join(', ')}` : false, timeout: 120_000 },
   async () => {
     const seeded = CHAT_ONLY ? { agentId: '', sessionId: '' } : await seedPermissionProbeSession();
     const driver = spawn(TAURI_DRIVER, ['--native-driver', DRIVER, '--port', String(PORT)], {
+      detached: process.platform !== 'win32',
       stdio: 'inherit',
     });
     let sid;
@@ -493,7 +515,7 @@ test(
           /* ignore */
         }
       }
-      driver.kill();
+      await terminateDriverTree(driver);
       await cleanupPermissionProbe(seeded.agentId, seeded.sessionId);
     }
   },
