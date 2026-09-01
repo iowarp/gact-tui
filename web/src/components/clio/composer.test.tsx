@@ -3,7 +3,7 @@ import { cleanup, render, screen, waitFor, within } from '@testing-library/react
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
-import { ClioComposer } from './composer';
+import { ClioComposer, type ClioComposerProps } from './composer';
 
 afterEach(cleanup);
 
@@ -62,7 +62,7 @@ function renderComposer({
   attachments?: boolean;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onStop?: () => void;
-  onSubmit?: (value: { text: string }) => Promise<void>;
+  onSubmit?: ClioComposerProps['onSubmit'];
   state?: 'completed' | 'running';
 } = {}) {
   render(
@@ -147,6 +147,36 @@ describe('ClioComposer service commands', () => {
       'src',
       'blob:test-field-map.png',
     );
+  });
+
+  it('keeps a rejected attachment retryable without a stale uploading state', async () => {
+    const user = userEvent.setup();
+    let attempt = 0;
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(async (value) => {
+      value.onUploadProgress({ filename: 'field-map.png', loaded: 6, total: 6 });
+      attempt += 1;
+      if (attempt === 1) {
+        throw new Error('The selected model cannot receive this image resource.');
+      }
+    });
+    renderComposer({ attachments: true, onSubmit });
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['pixels'], 'field-map.png', { type: 'image/png' }),
+    );
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, 'Describe the image.{Enter}');
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Uploading field-map.png 100%')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open field-map.png' })).toBeVisible();
+    expect(input).toHaveValue('Describe the image.');
+
+    await user.click(screen.getByRole('button', { name: /^Submit$/ }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('Uploading field-map.png 100%')).not.toBeInTheDocument();
   });
 
   it('focuses only after an explicit focus request changes', async () => {

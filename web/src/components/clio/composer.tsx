@@ -265,6 +265,7 @@ export function ClioComposer({
                 onUploadProgress: setUploadProgress,
               });
             } catch (error) {
+              setUploadProgress(undefined);
               toast.error(
                 state === 'running' ? 'Message was not accepted' : 'Message was not sent',
                 {
@@ -418,7 +419,8 @@ function compactProviderName(provider?: string): string {
 function compactModelName(provider: string, modelId: string, label: string): string {
   if (provider === 'codex') {
     const familyName = modelId.match(/(?:^|[-_.])(luna|sol|terra)$/i)?.[1];
-    if (familyName) return `${familyName.charAt(0).toUpperCase()}${familyName.slice(1).toLowerCase()}`;
+    if (familyName)
+      return `${familyName.charAt(0).toUpperCase()}${familyName.slice(1).toLowerCase()}`;
   }
   if (provider === 'claude_code' && /sonnet/i.test(modelId)) return 'Sonnet';
   return label;
