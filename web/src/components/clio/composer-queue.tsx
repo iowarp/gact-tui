@@ -115,7 +115,10 @@ export function ClioComposerQueue({
   };
 
   return (
-    <Queue className="mx-auto mb-2 max-w-4xl">
+    <Queue
+      aria-label="Queued messages"
+      className="relative z-10 mx-auto -mb-px w-[calc(100%_-_1.5rem)] max-w-[54.5rem] rounded-b-none border-b-0 py-1"
+    >
       <QueueSection>
         <QueueSectionTrigger>
           <QueueSectionLabel count={ordered.length} label="queued messages" />

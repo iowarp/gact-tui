@@ -44,6 +44,13 @@ describe('ClioComposerQueue', () => {
     const user = userEvent.setup();
     const props = renderQueue();
 
+    expect(screen.getByLabelText('Queued messages')).toHaveClass(
+      '-mb-px',
+      'w-[calc(100%_-_1.5rem)]',
+      'max-w-[54.5rem]',
+      'rounded-b-none',
+      'border-b-0',
+    );
     const handles = screen.getAllByRole('button', { name: 'Reorder queued message' });
     const firstRowButtons = within(handles[0].closest('li')!).getAllByRole('button');
     expect(firstRowButtons[0]).toBe(handles[0]);
