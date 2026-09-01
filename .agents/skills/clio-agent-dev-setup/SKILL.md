@@ -15,7 +15,7 @@ All generated CLIO development state belongs under exactly:
 D:\Libraries\Documents\projects\clio_develop_workspace
 ```
 
-Each launch uses a unique `generations/<timestamp-pid>` directory inside that root. This includes runtime source clones, Python environments, Node dependencies, uv/pnpm/npm caches, temporary files, child-agent caches, CTE/ARC state, tools, logs, run workspaces, screenshots, and qualification output. `config/active-generation.json` names the one active generation. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
+Each launch uses a unique `generations/<timestamp-pid>` directory inside that root. This includes runtime source clones, Python environments, Node dependencies, transient uv/pnpm/npm caches, temporary files, child-agent caches, CTE/ARC state, tools, logs, run workspaces, screenshots, and qualification output. Large Hugging Face/Docling model assets are the deliberate exception: keep one reusable cache at `cache/huggingface` under the contained CLIO root, never one copy per generation or source checkout. `config/active-generation.json` names the one active generation. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
 
 Never create or reuse `D:\tmp`, `D:\relay-local`, `D:\ws`, `D:\clio-workspace`, a source-repository `.venv` or `node_modules`, a `PYTHONPATH` overlay, or another checkout's environment. A `.venv` and `node_modules` inside the disposable runtime clones under the owned root are expected. The containment audit treats the four legacy roots as failures.
 
@@ -44,7 +44,7 @@ Clean startup is the default. It:
 3. initializes pinned submodules;
 4. reproduces the backend with `uv sync --frozen --python 3.12` inside the runtime clone, adding `--extra claude-code` only when the explicitly selected provider is Claude Code, and uses the repository's pinned official SDK dependency for Codex;
 5. installs the frontend with `pnpm install --frozen-lockfile` inside the runtime clone;
-6. redirects temp, caches, tool installs, child-process state, logs, workspaces, and CTE data into the owned root;
+6. redirects temp, caches, tool installs, child-process state, logs, workspaces, and CTE data into the owned root, with one root-scoped Hugging Face/Docling cache reused by every contained generation;
 7. installs the bundled marketplace launcher in the contained tool directory;
 8. starts one backend and one UI; and
 9. records wall-clock duration for every startup stage in `config\deploy-timing.json`; and
@@ -100,6 +100,8 @@ Do not describe blueprint MCP declarations as four independent installations:
 Never add domain-specific namespace warming to generic dev setup. The installed marketplace defines what a blueprint declares; the selected session owns preparation and the UI owns its session-scoped projection.
 
 Warnings remain warnings only when the service reports an explicit degraded capability. Never reinterpret a sparse CTE file's logical size as allocated disk usage; capacity and disk diagnostics must use physical allocation evidence.
+
+The packaged desktop follows the same ownership rule through Tauri's platform app-cache directory. On Windows this resolves beneath the current user's local application data; macOS and Linux use their platform equivalents. The desktop supervisor exports `HF_HOME`, `HF_HUB_CACHE`, and `HF_XET_CACHE` before launching managed children, so model assets survive upgrades without living beside the executable or inside a workspace.
 
 ## Engineering judgment
 

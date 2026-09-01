@@ -20,6 +20,16 @@ foreach ($file in Get-ChildItem -LiteralPath $scriptsRoot -Filter "*.ps1") {
 
 & (Join-Path $scriptsRoot "Test-ClioDevContainment.ps1") | Out-Null
 
+$startSource = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot "Start-ClioDev.ps1")
+if ($startSource -notmatch '\$sharedModelCacheRoot\s*=\s*Join-Path\s+\$devRootFull\s+"cache\\huggingface"') {
+    throw "Start-ClioDev must keep one Hugging Face model cache per contained CLIO root."
+}
+foreach ($name in @("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE")) {
+    if ($startSource -notmatch "\b$name\s*=") {
+        throw "Start-ClioDev does not export $name for shared model-cache reuse."
+    }
+}
+
 $escapeRejected = $false
 try {
     & (Join-Path $scriptsRoot "Test-ClioDevContainment.ps1") `
@@ -55,4 +65,5 @@ foreach ($guardedScript in @("Reset-ClioDev.ps1", "Stop-ClioDev.ps1")) {
     containment_escape_rejected = $true
     unowned_reset_rejected = $true
     unowned_stop_rejected = $true
+    shared_model_cache = $true
 } | ConvertTo-Json

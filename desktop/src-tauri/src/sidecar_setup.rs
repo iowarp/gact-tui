@@ -3,9 +3,15 @@
 //! Resolves the optional `gact-runtime` bundled with the app and exports
 //! its path via env so the launcher can prefer it over a system install.
 
-use std::path::{Path, PathBuf};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 pub(crate) const BUNDLED_RUNTIME_ENV: &str = "GACT_BUNDLED_RUNTIME_DIR";
+pub(crate) const HF_HOME_ENV: &str = "HF_HOME";
+pub(crate) const HF_HUB_CACHE_ENV: &str = "HF_HUB_CACHE";
+pub(crate) const HF_XET_CACHE_ENV: &str = "HF_XET_CACHE";
 
 pub(crate) fn bundled_runtime_dir(resource_dir: &Path) -> Option<PathBuf> {
     let runtime = resource_dir.join("gact-runtime");
@@ -16,6 +22,26 @@ pub(crate) fn install_bundled_runtime_env(resource_dir: &Path) -> Option<PathBuf
     let runtime = bundled_runtime_dir(resource_dir)?;
     std::env::set_var(BUNDLED_RUNTIME_ENV, &runtime);
     Some(runtime)
+}
+
+pub(crate) fn model_cache_dir(app_cache_dir: &Path) -> PathBuf {
+    app_cache_dir.join("huggingface")
+}
+
+/// Configure one persistent model cache for this OS user and packaged app.
+///
+/// Tauri's app cache directory is keyed by the bundle identifier, so the cache
+/// survives upgrades without leaking into workspaces or the executable tree.
+pub(crate) fn install_model_cache_env(app_cache_dir: &Path) -> io::Result<PathBuf> {
+    let root = model_cache_dir(app_cache_dir);
+    let hub = root.join("hub");
+    let xet = root.join("xet");
+    fs::create_dir_all(&hub)?;
+    fs::create_dir_all(&xet)?;
+    std::env::set_var(HF_HOME_ENV, &root);
+    std::env::set_var(HF_HUB_CACHE_ENV, &hub);
+    std::env::set_var(HF_XET_CACHE_ENV, &xet);
+    Ok(root)
 }
 
 pub(crate) fn launcher_missing_message(err: &str) -> String {
@@ -57,5 +83,11 @@ mod tests {
         let msg = launcher_missing_message("not found");
         assert!(msg.contains("sidecar launcher missing: not found"));
         assert!(msg.contains("pnpm fetch-sidecar"));
+    }
+
+    #[test]
+    fn model_cache_is_scoped_to_the_platform_app_cache() {
+        let cache = Path::new("platform-cache");
+        assert_eq!(model_cache_dir(cache), cache.join("huggingface"));
     }
 }

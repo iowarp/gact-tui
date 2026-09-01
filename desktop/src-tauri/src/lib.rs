@@ -98,6 +98,18 @@ pub fn run() {
             // no-op but never blocks boot.
             let _ = supervisor_boot_log::init_boot_log(app.handle());
 
+            // Model runtimes are large and must not be duplicated per workspace,
+            // release generation, or executable. Tauri resolves a stable,
+            // bundle-scoped cache directory for the current OS user; every
+            // managed child inherits these Hugging Face cache variables.
+            if let Ok(app_cache_dir) = app.path().app_cache_dir() {
+                if let Err(error) = sidecar_setup::install_model_cache_env(&app_cache_dir) {
+                    supervisor_boot_log::boot_log_line(&format!(
+                        "warning: could not prepare shared model cache: {error}"
+                    ));
+                }
+            }
+
             // Make the BUNDLED clio runtime (if this build is the bundled
             // installer variant) discoverable by the sidecar launcher on
             // EVERY platform layout. Tauri's resource dir differs per

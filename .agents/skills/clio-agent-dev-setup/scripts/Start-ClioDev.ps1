@@ -56,6 +56,7 @@ $webRoot = Join-Path $frontendRoot "web"
 $workspaceRoot = Join-Path $generationRoot "workspaces"
 $tempRoot = Join-Path $generationRoot "temp"
 $cacheRoot = Join-Path $generationRoot "cache"
+$sharedModelCacheRoot = Join-Path $devRootFull "cache\huggingface"
 $toolRoot = Join-Path $generationRoot "tools"
 $timingPath = Join-Path $configRoot "deploy-timing.json"
 
@@ -247,6 +248,7 @@ $containedPaths = @(
     $logRoot,
     $tempRoot,
     $cacheRoot,
+    $sharedModelCacheRoot,
     $toolRoot,
     $configRoot,
     $spotterImplRoot,
@@ -271,7 +273,9 @@ $containedEnvironment = @{
     PLAYWRIGHT_BROWSERS_PATH = Join-Path $cacheRoot "playwright"
     CARGO_HOME = Join-Path $toolRoot "cargo"
     CARGO_TARGET_DIR = Join-Path $cacheRoot "cargo-target"
-    HF_HOME = Join-Path $cacheRoot "huggingface"
+    HF_HOME = $sharedModelCacheRoot
+    HF_HUB_CACHE = Join-Path $sharedModelCacheRoot "hub"
+    HF_XET_CACHE = Join-Path $sharedModelCacheRoot "xet"
 }
 New-Item -ItemType Directory -Force -Path @(
     $runtimeRoot,
@@ -279,6 +283,7 @@ New-Item -ItemType Directory -Force -Path @(
     $workspaceRoot,
     $tempRoot,
     $cacheRoot,
+    $sharedModelCacheRoot,
     $toolRoot,
     $configRoot
 ) | Out-Null
