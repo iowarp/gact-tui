@@ -1,0 +1,30 @@
+{
+  "name": "@clio/workspace-root",
+  "version": "0.11.0",
+  "private": true,
+  "description": "CLIO web workspace and Tauri desktop host",
+  "scripts": {
+    "lint": "node scripts/check_presentation_overrides.mjs && node scripts/check_frontend_component_reuse.mjs && node scripts/check_frontend_file_size.mjs && pnpm -r --workspace-concurrency=1 lint",
+    "check:presentation-overrides": "node scripts/check_presentation_overrides.mjs",
+    "check:frontend-reuse": "node scripts/check_frontend_component_reuse.mjs",
+    "check:frontend-size": "node scripts/check_frontend_file_size.mjs",
+    "typecheck": "pnpm -r --workspace-concurrency=1 typecheck",
+    "test": "pnpm -r --workspace-concurrency=1 test",
+    "build": "pnpm --filter @clio/core build && pnpm --filter @clio/workspace build",
+    "dev": "pnpm --filter @clio/workspace dev",
+    "desktop:dev": "pnpm --filter @clio/desktop tauri:dev",
+    "schema:generate:zod": "node scripts/generate_clio_schema_zod.mjs",
+    "format": "prettier -w \"**/*.{ts,tsx,js,jsx,json,css,md}\" --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "@apidevtools/json-schema-ref-parser": "11.9.3",
+    "@types/node": "^25.9.1",
+    "json-schema-to-zod": "2.7.0",
+    "prettier": "3.3.3",
+    "typescript": "5.6.3"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22.12"
+  }
+}

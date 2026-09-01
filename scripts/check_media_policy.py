@@ -2,7 +2,7 @@
 """Enforce the repo media policy: doc images live ONLY in ``docs/screenshots/``.
 
 Git history here was bloated by full-screen PNG churn scattered across
-``screenshots/``, ``apps/web/screenshots/``, and ``tui/screenshots/``. Those
+``screenshots/``, the retired web screenshots, and ``tui/screenshots/``. Those
 folders were consolidated into a single curated home, ``docs/screenshots/``
 (iowarp/gact-tui#235). This check enforces two things as a CI gate:
 
@@ -34,13 +34,12 @@ import sys
 # design art, functional build assets, and visual-test fixtures — not doc media.
 _ALLOWED_IMAGE_PREFIXES: tuple[str, ...] = (
     "docs/screenshots/",              # curated doc images (sole screenshot home)
-    "apps/design/",                   # brand + design assets
-    "apps/branding/",                 # branding mechanism assets
+    "branding/",                      # branding mechanism assets
     "docs/ref/",                      # small static design-reference images
     "ref/",                           # design reference
     "logo/",                          # logo art
-    "apps/desktop/src-tauri/icons/",  # functional desktop app icons (build input)
-    "apps/web/tests/",                # visual-test fixtures (build input)
+    "desktop/src-tauri/icons/",       # functional desktop app icons (build input)
+    "web/tests/",                     # visual-test fixtures (build input)
 )
 
 _IMAGE_RE = re.compile(r"\.(png|gif|webm|mp4|jpe?g)$", re.IGNORECASE)
@@ -88,19 +87,18 @@ def _selftest() -> int:
         "visual_loop/tui_audit_2026_07/run.png",
         "screenshots/session/tui_audit_run1/frame.png",
         "screenshots/foo/dump.jsonl",
-        "apps/web/screenshots/audit/run.log",
+        "web/screenshots/audit/run.log",
         "stray.png",
         "screenshots/02-streaming.png",         # old scattered home is now forbidden
-        "apps/web/screenshots/connect-screen.png",  # ditto
+        "web/screenshots/connect-screen.png",  # ditto
         "tui/screenshots/tui-agentview-top.png",    # ditto
     ]
     should_pass = [
         "docs/screenshots/02-streaming.png",     # the sole curated screenshot home
         "docs/screenshots/multi-backend-picker.png",
-        "apps/design/assets/brand/Banner.png",
         "docs/ref/ours.png",
-        "apps/desktop/src-tauri/icons/icon.png",  # functional desktop app icon
-        "apps/web/tests/visual/fixtures/MTA1_GNSS_timeseries_displacement.png",  # visual-test fixture
+        "desktop/src-tauri/icons/icon.png",  # functional desktop app icon
+        "web/tests/visual/fixtures/MTA1_GNSS_timeseries_displacement.png",  # visual-test fixture
         "tui/testdata/tapes/x.tape",
         "README.md",
     ]
@@ -132,8 +130,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  {path} — {reason}")
     print(
         "\nCurated doc screenshots live under docs/screenshots/ (the sole home); "
-        "brand/design art under apps/design, apps/branding, docs/ref; functional "
-        "build assets under apps/desktop/src-tauri/icons and apps/web/tests. "
+        "brand/design art under design, branding, docs/ref; functional "
+        "build assets under desktop/src-tauri/icons and web/tests. "
         "Run/eval outputs are regenerable — remove them from tracking (git rm "
         "--cached) and rely on .gitignore. Screenshots are tape-regenerated, not "
         "committed elsewhere; no Git LFS."

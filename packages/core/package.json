@@ -1,0 +1,28 @@
+{
+  "name": "@clio/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/v3/index.ts",
+  "types": "./src/v3/index.ts",
+  "exports": {
+    "./v3": "./src/v3/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run src/v3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@typescript-eslint/eslint-plugin": "8.16.0",
+    "@typescript-eslint/parser": "8.16.0",
+    "eslint": "9.16.0",
+    "typescript": "5.6.3",
+    "vitest": "2.1.8"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  }
+}

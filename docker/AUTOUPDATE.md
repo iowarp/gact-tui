@@ -3,9 +3,8 @@
 How to keep a running CLIO container current, and an optional startup
 version-check the entrypoint can do. **This is documentation only — nothing here
 changes the runtime behaviour of the images today.** It is the Docker counterpart
-to the web "a new build was deployed — refresh" flow (`apps/web/src/updateCheck.ts`)
-and the desktop signed-updater flow (`apps/desktop/DESKTOP-AUTOUPDATE.md`), and it
-ties to the **same version stamp** those surfaces use (see "Version stamp" below).
+to the desktop signed-updater flow (`desktop/DESKTOP-AUTOUPDATE.md`) and ties to
+the same release identity used by native packages (see "Version stamp" below).
 
 ## TL;DR
 
@@ -203,18 +202,16 @@ git describe --tags --match 'v[0-9]*' --always --dirty
 ```
 
 - **TUI** prints it as the build version.
-- **Web** injects it as `__APP_VERSION__` (`apps/web/src/build-info.ts`) and emits
-  it to `version.json` (`apps/web/vite.config.ts`) — the marker its self-update
-  check polls (`apps/web/src/updateCheck.ts`).
-- **Desktop** uses it for its corner badge and the Tauri updater's `version`
-  field (`apps/desktop/DESKTOP-AUTOUPDATE.md`).
+- **Web** is built as hashed static assets from the top-level `web/` package; it
+  currently has no custom version-marker polling path.
+- **Desktop** uses the Tauri package version for its signed updater feed
+  (`desktop/DESKTOP-AUTOUPDATE.md`).
 - **Docker** should bake it into `org.opencontainers.image.version` / `CLIO_VERSION`
   via the `--build-arg CLIO_VERSION="$(git describe …)"` shown in §3, so an image's
   self-reported version lines up with the badge the web/desktop UIs display.
 
-Keeping the stamp identical means a Watchtower notification, a web "refresh" toast,
-a desktop update prompt, and a `docker inspect … org.opencontainers.image.version`
-all name the same build.
+Keeping the stamp identical means a Watchtower notification, a desktop update prompt,
+and a `docker inspect … org.opencontainers.image.version` all name the same build.
 
 ---
 

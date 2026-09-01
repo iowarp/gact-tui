@@ -22,9 +22,8 @@ func TestCLI_AgentDeployLifecycle(t *testing.T) {
 	adapterBin := testBinaryPath(tmp, "gact-claudecode-adapter")
 	_, file, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(file), "..", "..", "..")
-	build := exec.Command("go", "build", "-o", adapterBin,
-		"./adapters/claudecode/cmd/gact-claudecode-adapter")
-	build.Dir = repoRoot
+	build := exec.Command("go", "build", "-o", adapterBin, "./cmd/gact-claudecode-adapter")
+	build.Dir = filepath.Join(repoRoot, "adapters", "claudecode")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build adapter: %v\n%s", err, out)
 	}

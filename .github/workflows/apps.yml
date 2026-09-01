@@ -1,88 +1,93 @@
-name: apps
+name: workspace
 
 on:
   push:
-    branches:
-      - main
-      - develop
-      - feat/apps-harness
-      - feat/apps-**
+    branches: [main, develop, 'codex/**']
+    tags: ['clio-desktop-v*']
     paths:
-      - 'apps/**'
+      - 'web/**'
+      - 'packages/core/**'
+      - 'desktop/**'
+      - 'branding/**'
+      - 'contract/**'
+      - 'brand.config.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'scripts/**'
+      - 'tsconfig.base.json'
       - '.github/workflows/apps.yml'
-      - 'contract/SPEC.md'
-    tags:
-      - 'clio-desktop-v*'
   pull_request:
     paths:
-      - 'apps/**'
+      - 'web/**'
+      - 'packages/core/**'
+      - 'desktop/**'
+      - 'branding/**'
+      - 'contract/**'
+      - 'brand.config.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      # `pnpm lint` runs the frontend ratchet scripts under scripts/, and
+      # packages/core extends tsconfig.base.json — an edit to either must run
+      # the job that enforces them.
+      - 'scripts/**'
+      - 'tsconfig.base.json'
       - '.github/workflows/apps.yml'
-      - 'contract/SPEC.md'
   workflow_dispatch:
 
 env:
+  NODE_VERSION: '22.x'
   PNPM_VERSION: '9.15.9'
-  NODE_VERSION: '20.x'
 
 jobs:
   ci:
     name: lint · typecheck · test · build · visual
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: apps
-
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-
-      - name: Install Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: apps/pnpm-lock.yaml
-
-      - name: pnpm install
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Lint
-        run: pnpm -r lint
-
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # The Tauri crate embeds gen/brand-backend.json via include_str! and the
+      # release pipelines build from the committed copy, so drift between the
+      # descriptor and brand.config.json ships silently. Regenerate and fail on
+      # any difference.
+      - name: Brand backend descriptor matches brand.config.json
+        run: |
+          pnpm --filter @clio/desktop gen-brand-backend
+          git diff --exit-code -- desktop/src-tauri/gen/brand-backend.json
+      - name: Lint and frontend ratchets
+        run: pnpm lint
       - name: Typecheck
-        run: pnpm -r typecheck
-
-      - name: Unit tests
-        run: pnpm -r test
-
-      - name: Build @clio/web
-        run: pnpm --filter @clio/web build
-
-      - name: Install Playwright browsers
-        run: pnpm --filter @clio/web exec playwright install --with-deps chromium
-
-      # The Session v3 rebuild gates from its first commit — it never ships
-      # untested. The legacy Solid visual suite retired with the tree it
-      # asserted against (parked at apps/web.old); its DOM-level coverage is
-      # rebuilt against the new structure by the visual harness (#340).
-      - name: e2e
-        run: pnpm --filter @clio/web test:e2e
-
-      - name: Upload screenshots
+        run: pnpm typecheck
+      - name: Unit and integration tests
+        run: pnpm test
+      - name: Production build
+        run: pnpm build
+      - name: Install Playwright Chromium
+        run: pnpm --dir web exec playwright install --with-deps chromium
+      - name: Browser e2e, accessibility, and visual baselines
+        run: pnpm --dir web test:e2e
+      - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: apps-screenshots
-          path: apps/web/screenshots/
+          name: workspace-browser-evidence
+          path: |
+            web/screenshots/
+            web/test-results/
           if-no-files-found: warn
 
   tauri-debug:
-    name: tauri build (debug, no bundle)
+    name: tauri debug · ${{ matrix.os }}
     needs: ci
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -90,40 +95,26 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, windows-latest]
-    defaults:
-      run:
-        working-directory: apps
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-
-      - name: Install Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: apps/pnpm-lock.yaml
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo target
-        uses: actions/cache@v4
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
         with:
           path: |
-            apps/desktop/src-tauri/target/
+            desktop/src-tauri/target/
             ~/.cargo/registry/
             ~/.cargo/git/
-          key: ${{ matrix.os }}-cargo-${{ hashFiles('apps/desktop/src-tauri/Cargo.toml') }}
-          restore-keys: |
-            ${{ matrix.os }}-cargo-
-
-      - name: Linux deps for Tauri
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('desktop/src-tauri/Cargo.toml') }}
+          restore-keys: ${{ matrix.os }}-cargo-
+      - name: Linux desktop dependencies
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
@@ -134,49 +125,30 @@ jobs:
             libayatana-appindicator3-dev \
             libdbus-1-dev \
             patchelf
-
-      - name: pnpm install
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Build web (Tauri frontend)
-        run: pnpm --filter @clio/web build
-
-      - name: Tauri debug build
+      - run: pnpm install --frozen-lockfile
+      - name: Build webview
+        run: pnpm build
+      - name: Build native debug application
         run: pnpm --filter @clio/desktop tauri:build:debug
 
   native-webview-proof:
-    name: native WebView proof (manual)
-    if: github.event_name == 'workflow_dispatch'
+    name: native WebView proof · fixture-backed
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: ci
     runs-on: ubuntu-22.04
     timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: apps
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-
-      - name: Install Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: apps/pnpm-lock.yaml
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.26.x'
-
-      - name: Install Linux desktop/WebDriver deps
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux desktop and WebDriver dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -188,77 +160,78 @@ jobs:
             patchelf \
             webkit2gtk-driver \
             xvfb
-
       - name: Install tauri-driver
         run: cargo install tauri-driver --locked
-
-      - name: pnpm install
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Build emulator
-        working-directory: ${{ github.workspace }}
+      - run: pnpm install --frozen-lockfile
+      - name: Start test-owned GACT fixture on the desktop attach port
         run: |
-          mkdir -p .tools
-          go build -o .tools/emulator-server ./emulator/cmd/emulator-server
-
-      - name: Start emulator on :17800
-        working-directory: ${{ github.workspace }}
-        run: |
-          GACT_EMULATOR_LOG_REQUESTS=1 .tools/emulator-server -port 17800 -timing fast -seed-sessions ws_default=1 > /tmp/gact-emulator.log 2>&1 &
-          echo $! > /tmp/gact-emulator.pid
+          CLIO_FIXTURE_PORT=17800 node web/e2e/fixture-server.mjs > /tmp/clio-fixture.log 2>&1 &
+          echo $! > /tmp/clio-fixture.pid
           for i in {1..60}; do
             if curl -fsS http://127.0.0.1:17800/v1/capabilities >/dev/null; then
               exit 0
             fi
             sleep 0.5
           done
-          cat /tmp/gact-emulator.log
+          cat /tmp/clio-fixture.log
           exit 1
-
       - name: Build desktop debug app
         run: pnpm --filter @clio/desktop tauri:build:debug
-
-      - name: Run native WebView proof
+      - name: Exercise the real native WebView and Rust transport
         run: |
           mkdir -p web/screenshots/native-webview
           xvfb-run -a env \
             TAURI_E2E=1 \
+            TAURI_E2E_CHAT_ONLY=1 \
             TAURI_DRIVER="$HOME/.cargo/bin/tauri-driver" \
             TAURI_NATIVE_DRIVER="$(which WebKitWebDriver)" \
+            CLIO_DESKTOP_BACKEND_URL=http://127.0.0.1:17800 \
             CLIO_DESKTOP_SCREENSHOT_DIR="$PWD/web/screenshots/native-webview" \
             pnpm --filter @clio/desktop test:webview
-
-      - name: Upload native WebView screenshots
+      - name: Upload native WebView evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: apps-native-webview-proof
-          path: apps/web/screenshots/native-webview/
-          if-no-files-found: warn
-
-      - name: Dump emulator log
+          name: workspace-native-webview-proof
+          path: web/screenshots/native-webview/
+          if-no-files-found: error
+      - name: Dump fixture log
         if: always()
-        run: cat /tmp/gact-emulator.log || true
-
-      - name: Stop emulator
+        run: cat /tmp/clio-fixture.log || true
+      - name: Stop fixture
         if: always()
         run: |
-          if [ -f /tmp/gact-emulator.pid ]; then
-            kill "$(cat /tmp/gact-emulator.pid)" || true
+          if [ -f /tmp/clio-fixture.pid ]; then
+            kill "$(cat /tmp/clio-fixture.pid)" || true
           fi
 
+  release-matrix-contract:
+    name: release matrix contract
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prove both variants and all four targets remain declared
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/apps.yml
+          grep -F 'variant: [lite, bundled]' "$workflow"
+          grep -F 'x86_64-pc-windows-msvc' "$workflow"
+          grep -F 'aarch64-apple-darwin' "$workflow"
+          grep -F 'x86_64-apple-darwin' "$workflow"
+          grep -F 'x86_64-unknown-linux-gnu' "$workflow"
+          grep -F 'release-web:' "$workflow"
+
   release:
-    name: release · ${{ matrix.variant }} · ${{ matrix.os }} / ${{ matrix.target }}
+    name: release · ${{ matrix.variant }} · ${{ matrix.target }}
     if: startsWith(github.ref, 'refs/tags/clio-desktop-v')
-    needs: [ci, tauri-debug]
+    needs: [ci, tauri-debug, release-matrix-contract]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 120
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
-      # Cross-product: {lite, bundled} × 4 target triples = 8 jobs.
-      # `variant` and `target` are real axes; `include` attaches os +
-      # bundle-args keyed on `target` (matching an existing axis key
-      # EXPANDS those combinations rather than adding standalone jobs).
       matrix:
         variant: [lite, bundled]
         target:
@@ -279,54 +252,26 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-22.04
             bundle-args: '--bundles deb,appimage,rpm'
-          # AppImage is LITE-ONLY on Linux. A half-gigabyte embedded Python
-          # runtime inside AppImage's compressed read-only squashfs is the
-          # wrong vehicle (and build_appimage.sh fails on it — 0.7.0 release
-          # test, take 2). Offline Linux installs use the bundled deb/rpm.
-          # This include matches variant+target and overrides bundle-args
-          # for that one combination.
           - target: x86_64-unknown-linux-gnu
             variant: bundled
             bundle-args: '--bundles deb,rpm'
-
-    defaults:
-      run:
-        working-directory: apps
-
-    permissions:
-      contents: write
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
-
-      - name: Install Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: apps/pnpm-lock.yaml
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
-
-      - name: Install Go (sidecar launcher build)
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
-          # Match the toolchain pinned in go.work and the TUI release workflow.
           go-version: '1.26.x'
-
-      - name: Install uv (bundled runtime build)
-        if: matrix.variant == 'bundled'
-        uses: astral-sh/setup-uv@v5
-
-      - name: Linux deps for Tauri
+      - name: Linux desktop dependencies
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
@@ -339,79 +284,56 @@ jobs:
             pkg-config \
             patchelf \
             rpm
-
-      - name: pnpm install
-        run: pnpm install --frozen-lockfile=false
-
+      - run: pnpm install --frozen-lockfile
       - name: Build sidecar launcher for target triple
         shell: bash
-        run: bash apps/desktop/scripts/fetch-sidecar.sh ${{ matrix.target }}
-        working-directory: ${{ github.workspace }}
-
-      # The bundled variant packs src-tauri/gact-runtime (a self-describing
-      # runtime the EMBEDDING BRAND builds — e.g. iowarp/clio-agent's
-      # install/build-gact-runtime.{sh,ps1}). This generic repo's CI
-      # exercises the packing mechanism with a stub runtime + manifest
-      # instead of building any brand's real backend (iowarp/gact-tui#311).
-      - name: Stage stub gact-runtime (bundled)
+        run: bash desktop/scripts/fetch-sidecar.sh ${{ matrix.target }}
+      - name: Stage self-describing stub runtime for bundled contract proof
         if: matrix.variant == 'bundled'
         shell: bash
-        working-directory: ${{ github.workspace }}
         run: |
           set -euo pipefail
-          rt="apps/desktop/src-tauri/gact-runtime"
-          mkdir -p "$rt/bin"
-          echo '#!/bin/sh' > "$rt/bin/backend-stub"
-          echo 'exit 0' >> "$rt/bin/backend-stub"
-          chmod +x "$rt/bin/backend-stub"
-          echo '{"schema": 1, "exec": ["bin/backend-stub"]}' > "$rt/runtime.json"
-
-      - name: Build web (Tauri frontend)
-        run: pnpm --filter @clio/web build
-
-      - name: Tauri release build (unsigned)
-        # NOTE: the tauri CLI resolves --config relative to its CWD, which
-        # pnpm --filter sets to apps/desktop — NOT to src-tauri/. The first
-        # 0.7.0 release run failed all 4 bundled jobs on exactly this: a bare
-        # tauri.bundled.conf.json "does not exist" from apps/desktop.
+          runtime=desktop/src-tauri/gact-runtime
+          mkdir -p "$runtime/bin"
+          printf '#!/bin/sh\nexit 0\n' > "$runtime/bin/backend-stub"
+          chmod +x "$runtime/bin/backend-stub"
+          printf '{"schema":1,"exec":["bin/backend-stub"]}\n' > "$runtime/runtime.json"
+      # `tauri build` (the bare script) does NOT run the generator, so without
+      # this the installer embeds whatever descriptor happens to be committed.
+      - name: Generate brand backend descriptor
+        run: pnpm --filter @clio/desktop gen-brand-backend
+      - name: Build web
+        run: pnpm build
+      - name: Build unsigned installer
         run: pnpm --filter @clio/desktop tauri build ${{ matrix.variant == 'bundled' && '--config src-tauri/tauri.bundled.conf.json' || '' }} ${{ matrix.bundle-args }}
         env:
           TAURI_SIGNING_PRIVATE_KEY: ''
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
-
-      - name: Stage installer artifacts
+      - name: Stage installers
         shell: bash
         run: |
           set -euo pipefail
           stage="$RUNNER_TEMP/clio-stage"
           mkdir -p "$stage"
-          # Tauri lays bundles under target/release/bundle/<format>/...
-          bundle_root="apps/desktop/src-tauri/target/release/bundle"
-          if [ -d "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle" ]; then
-            bundle_root="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
+          bundle_root=desktop/src-tauri/target/release/bundle
+          if [ -d "desktop/src-tauri/target/${{ matrix.target }}/release/bundle" ]; then
+            bundle_root="desktop/src-tauri/target/${{ matrix.target }}/release/bundle"
           fi
-          # The bundled variant shares productName/version with lite, so
-          # Tauri emits identically-named installers. Tag bundled outputs
-          # with a `-bundled` suffix (before the extension) so the two
-          # variants are distinguishable on the Release page.
-          variant='${{ matrix.variant }}'
           find "$bundle_root" -type f \( \
               -iname '*.exe' -o -iname '*.msi' -o -iname '*.dmg' \
               -o -iname '*.deb' -o -iname '*.AppImage' -o -iname '*.rpm' \
-              \) -print0 | while IFS= read -r -d '' f; do
-            base="$(basename "$f")"
-            if [ "$variant" = "bundled" ]; then
-              ext="${base##*.}"
+              \) -print0 | while IFS= read -r -d '' file; do
+            base="$(basename "$file")"
+            if [ '${{ matrix.variant }}' = bundled ]; then
+              extension="${base##*.}"
               stem="${base%.*}"
-              dest="$stage/${stem}-bundled.${ext}"
+              destination="$stage/${stem}-bundled.${extension}"
             else
-              dest="$stage/$base"
+              destination="$stage/$base"
             fi
-            cp -v "$f" "$dest"
+            cp -v "$file" "$destination"
           done
-          ls -la "$stage"
-        working-directory: ${{ github.workspace }}
-
+          test -n "$(find "$stage" -type f -print -quit)"
       - name: Generate SHA256 sums
         shell: bash
         run: |
@@ -423,24 +345,15 @@ jobs:
           else
             shasum -a 256 * > "$sums"
           fi
-          cat "$sums"
-        working-directory: ${{ github.workspace }}
-
-      - name: Upload installer artifacts (per-runner)
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: clio-desktop-${{ matrix.variant }}-${{ matrix.target }}
           path: ${{ runner.temp }}/clio-stage/
           if-no-files-found: error
-
       - name: Attach installers to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            ${{ runner.temp }}/clio-stage/*
-          # Notes are generated exactly once by the finalize-notes job.
-          # Generating them in every matrix job stacked duplicate
-          # "What's Changed" blocks (7x on the 0.7.0 release).
+          files: ${{ runner.temp }}/clio-stage/*
           generate_release_notes: false
           append_body: false
           prerelease: false
@@ -454,12 +367,8 @@ jobs:
     needs: ci
     runs-on: ubuntu-22.04
     timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: apps
     permissions:
       contents: write
-
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -468,36 +377,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-          cache-dependency-path: apps/pnpm-lock.yaml
-
-      - name: pnpm install
-        run: pnpm install --frozen-lockfile=false
-
-      - name: Build @clio/web
-        run: pnpm --filter @clio/web build
-
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - name: Package pure-web zip
         shell: bash
         run: |
           set -euo pipefail
           tag="${GITHUB_REF##*/}"
-          version="${tag#clio-desktop-}"
+          version="${tag#clio-desktop-v}"
           stage="$RUNNER_TEMP/clio-web-stage"
-          mkdir -p "$stage"
-          cp -r apps/web/dist "$stage/clio-web-$version"
+          mkdir -p "$stage/clio-web-$version"
+          cp -r web/dist/. "$stage/clio-web-$version/"
           (cd "$stage" && zip -r "clio-web-$version.zip" "clio-web-$version")
-          sha256sum "$stage/clio-web-$version.zip" \
-            > "$stage/SHA256SUMS.web.txt"
-        working-directory: ${{ github.workspace }}
-
-      - name: Attach web bundle to Release
-        uses: softprops/action-gh-release@v2
+          sha256sum "$stage/clio-web-$version.zip" > "$stage/SHA256SUMS.web.txt"
+      - uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ runner.temp }}/clio-web-stage/clio-web-*.zip
             ${{ runner.temp }}/clio-web-stage/SHA256SUMS.web.txt
-          # See finalize-notes — do not generate notes per job.
           generate_release_notes: false
           append_body: false
           prerelease: false
@@ -505,11 +404,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Generate the release notes ONCE, after all installer + web jobs have
-  # attached their assets. Doing this per matrix job (8 desktop + 1 web)
-  # is what produced the duplicated "What's Changed" blocks on 0.7.0.
   finalize-notes:
-    name: finalize · release notes (once)
+    name: finalize · release notes once
     if: ${{ always() && startsWith(github.ref, 'refs/tags/clio-desktop-v') }}
     needs: [release, release-web]
     runs-on: ubuntu-22.04
@@ -517,8 +413,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Set release notes once
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           append_body: false

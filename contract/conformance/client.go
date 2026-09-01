@@ -68,8 +68,22 @@ type conformClient struct {
 	http    *http.Client
 }
 
+func (c *conformClient) newRequest(
+	ctx context.Context,
+	method string,
+	path string,
+	body io.Reader,
+) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("X-GACT-Version", "0.3")
+	return req, nil
+}
+
 func (c *conformClient) get(ctx context.Context, path string) (*http.Response, []byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+	req, err := c.newRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -87,7 +101,7 @@ func (c *conformClient) postJSON(ctx context.Context, path string, body any) (*h
 	if err != nil {
 		return nil, nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(buf))
+	req, err := c.newRequest(ctx, http.MethodPost, path, bytes.NewReader(buf))
 	if err != nil {
 		return nil, nil, err
 	}

@@ -1,0 +1,422 @@
+{
+  "version": 1,
+  "project": {
+    "name": "@clio/workspace",
+    "productType": null,
+    "stack": [
+      "react",
+      "shadcn",
+      "tailwind-v4",
+      "vite"
+    ]
+  },
+  "sources": {
+    "tokens": [
+      "src/index.css"
+    ],
+    "components": [
+      "src/components/ui"
+    ],
+    "assets": [
+      "src/assets"
+    ],
+    "instructions": [
+      "Reuse registry components for standard UI behavior; CLIO wrappers adapt domain semantics and never recreate a library component.",
+      "Treat the retired frontend as protocol and data evidence only, never as a visual baseline.",
+      "Use embedding-agent branding for product name, logo, terminology, landing copy, and theme identity."
+    ]
+  },
+  "design": {
+    "colorMode": "light-and-dark",
+    "colors": {
+      "--color-info": {
+        "value": "var(--info)",
+        "source": "src/index.css"
+      },
+      "--color-success": {
+        "value": "var(--success)",
+        "source": "src/index.css"
+      },
+      "--color-warning": {
+        "value": "var(--warning)",
+        "source": "src/index.css"
+      },
+      "--color-action": {
+        "value": "var(--action)",
+        "source": "src/index.css"
+      },
+      "--color-sidebar-ring": {
+        "value": "var(--sidebar-ring)",
+        "source": "src/index.css"
+      },
+      "--color-sidebar-border": {
+        "value": "var(--sidebar-border)",
+        "source": "src/index.css"
+      },
+      "--color-sidebar-accent-foreground": {
+        "value": "var(--sidebar-accent-foreground)",
+        "source": "src/index.css"
+      },
+      "--color-sidebar-accent": {
+        "value": "var(--sidebar-accent)",
+        "source": "src/index.css"
+      },
+      "--color-sidebar-primary-foreground": {
+        "value": "var(--sidebar-primary-foreground)",
+        "source": "src/index.css"
+      },
+      "--color-sidebar-primary": {
+        "value": "var(--sidebar-primary)",
+        "source": "src/index.css"
+      },
+      "--color-sidebar-foreground": {
+        "value": "var(--sidebar-foreground)",
+        "source": "src/index.css"
+      },
+      "--color-sidebar": {
+        "value": "var(--sidebar)",
+        "source": "src/index.css"
+      },
+      "--color-chart-5": {
+        "value": "var(--chart-5)",
+        "source": "src/index.css"
+      },
+      "--color-chart-4": {
+        "value": "var(--chart-4)",
+        "source": "src/index.css"
+      },
+      "--color-chart-3": {
+        "value": "var(--chart-3)",
+        "source": "src/index.css"
+      },
+      "--color-chart-2": {
+        "value": "var(--chart-2)",
+        "source": "src/index.css"
+      },
+      "--color-chart-1": {
+        "value": "var(--chart-1)",
+        "source": "src/index.css"
+      },
+      "--color-ring": {
+        "value": "var(--ring)",
+        "source": "src/index.css"
+      },
+      "--color-input": {
+        "value": "var(--input)",
+        "source": "src/index.css"
+      },
+      "--color-border": {
+        "value": "var(--border)",
+        "source": "src/index.css"
+      },
+      "--color-destructive": {
+        "value": "var(--destructive)",
+        "source": "src/index.css"
+      },
+      "--color-accent-foreground": {
+        "value": "var(--accent-foreground)",
+        "source": "src/index.css"
+      },
+      "--color-accent": {
+        "value": "var(--accent)",
+        "source": "src/index.css"
+      },
+      "--color-muted-foreground": {
+        "value": "var(--muted-foreground)",
+        "source": "src/index.css"
+      },
+      "--color-muted": {
+        "value": "var(--muted)",
+        "source": "src/index.css"
+      },
+      "--color-secondary-foreground": {
+        "value": "var(--secondary-foreground)",
+        "source": "src/index.css"
+      },
+      "--color-secondary": {
+        "value": "var(--secondary)",
+        "source": "src/index.css"
+      },
+      "--color-primary-foreground": {
+        "value": "var(--primary-foreground)",
+        "source": "src/index.css"
+      },
+      "--color-primary": {
+        "value": "var(--primary)",
+        "source": "src/index.css"
+      },
+      "--color-popover-foreground": {
+        "value": "var(--popover-foreground)",
+        "source": "src/index.css"
+      },
+      "--color-popover": {
+        "value": "var(--popover)",
+        "source": "src/index.css"
+      },
+      "--color-card-foreground": {
+        "value": "var(--card-foreground)",
+        "source": "src/index.css"
+      },
+      "--color-card": {
+        "value": "var(--card)",
+        "source": "src/index.css"
+      },
+      "--color-foreground": {
+        "value": "var(--foreground)",
+        "source": "src/index.css"
+      },
+      "--color-background": {
+        "value": "var(--background)",
+        "source": "src/index.css"
+      },
+      "--background": {
+        "value": "oklch(0.115 0.022 235)",
+        "source": "src/index.css"
+      },
+      "--foreground": {
+        "value": "oklch(0.94 0.018 220)",
+        "source": "src/index.css"
+      },
+      "--card-foreground": {
+        "value": "oklch(0.94 0.018 220)",
+        "source": "src/index.css"
+      },
+      "--popover-foreground": {
+        "value": "oklch(0.94 0.018 220)",
+        "source": "src/index.css"
+      },
+      "--primary": {
+        "value": "oklch(0.77 0.145 198)",
+        "source": "src/index.css"
+      },
+      "--primary-foreground": {
+        "value": "oklch(0.12 0.03 225)",
+        "source": "src/index.css"
+      },
+      "--secondary": {
+        "value": "oklch(0.21 0.035 235)",
+        "source": "src/index.css"
+      },
+      "--secondary-foreground": {
+        "value": "oklch(0.94 0.018 220)",
+        "source": "src/index.css"
+      },
+      "--muted": {
+        "value": "oklch(0.195 0.03 235)",
+        "source": "src/index.css"
+      },
+      "--muted-foreground": {
+        "value": "oklch(0.68 0.038 220)",
+        "source": "src/index.css"
+      },
+      "--accent": {
+        "value": "oklch(0.235 0.05 220)",
+        "source": "src/index.css"
+      },
+      "--accent-foreground": {
+        "value": "oklch(0.95 0.02 210)",
+        "source": "src/index.css"
+      },
+      "--destructive": {
+        "value": "oklch(0.69 0.19 24)",
+        "source": "src/index.css"
+      },
+      "--border": {
+        "value": "oklch(0.34 0.035 230 / 55%)",
+        "source": "src/index.css"
+      },
+      "--ring": {
+        "value": "oklch(0.77 0.145 198)",
+        "source": "src/index.css"
+      },
+      "--chart-1": {
+        "value": "oklch(0.77 0.145 198)",
+        "source": "src/index.css"
+      },
+      "--chart-2": {
+        "value": "oklch(0.75 0.17 57)",
+        "source": "src/index.css"
+      },
+      "--chart-3": {
+        "value": "oklch(0.72 0.15 155)",
+        "source": "src/index.css"
+      },
+      "--chart-4": {
+        "value": "oklch(0.72 0.15 290)",
+        "source": "src/index.css"
+      },
+      "--chart-5": {
+        "value": "oklch(0.7 0.18 25)",
+        "source": "src/index.css"
+      },
+      "--sidebar-foreground": {
+        "value": "oklch(0.91 0.02 220)",
+        "source": "src/index.css"
+      },
+      "--sidebar-primary": {
+        "value": "oklch(0.77 0.145 198)",
+        "source": "src/index.css"
+      },
+      "--sidebar-primary-foreground": {
+        "value": "oklch(0.12 0.03 225)",
+        "source": "src/index.css"
+      },
+      "--sidebar-accent": {
+        "value": "oklch(0.22 0.045 225)",
+        "source": "src/index.css"
+      },
+      "--sidebar-accent-foreground": {
+        "value": "oklch(0.95 0.02 210)",
+        "source": "src/index.css"
+      },
+      "--sidebar-border": {
+        "value": "oklch(0.34 0.035 230 / 55%)",
+        "source": "src/index.css"
+      },
+      "--sidebar-ring": {
+        "value": "oklch(0.77 0.145 198)",
+        "source": "src/index.css"
+      }
+    },
+    "typography": {
+      "--font-heading": {
+        "value": "'Inter Variable', 'Segoe UI', system-ui, sans-serif",
+        "source": "src/index.css"
+      },
+      "--font-sans": {
+        "value": "'Inter Variable', 'Segoe UI', system-ui, sans-serif",
+        "source": "src/index.css"
+      },
+      "--font-mono": {
+        "value": "'JetBrains Mono Variable', ui-monospace, monospace",
+        "source": "src/index.css"
+      }
+    },
+    "spacing": {},
+    "radius": {
+      "--radius-sm": {
+        "value": "calc(var(--radius) * 0.6)",
+        "source": "src/index.css"
+      },
+      "--radius-md": {
+        "value": "calc(var(--radius) * 0.8)",
+        "source": "src/index.css"
+      },
+      "--radius-lg": {
+        "value": "var(--radius)",
+        "source": "src/index.css"
+      },
+      "--radius-xl": {
+        "value": "calc(var(--radius) * 1.4)",
+        "source": "src/index.css"
+      },
+      "--radius-2xl": {
+        "value": "calc(var(--radius) * 1.8)",
+        "source": "src/index.css"
+      },
+      "--radius-3xl": {
+        "value": "calc(var(--radius) * 2.2)",
+        "source": "src/index.css"
+      },
+      "--radius-4xl": {
+        "value": "calc(var(--radius) * 2.6)",
+        "source": "src/index.css"
+      },
+      "--radius": {
+        "value": "0.625rem",
+        "source": "src/index.css"
+      }
+    },
+    "shadows": {},
+    "motion": {},
+    "density": "unknown"
+  },
+  "components": {
+    "installed": [
+      "alert",
+      "avatar",
+      "badge",
+      "button",
+      "button-group",
+      "card",
+      "collapsible",
+      "command",
+      "dialog",
+      "dropdown-menu",
+      "empty",
+      "field",
+      "hover-card",
+      "input",
+      "input-group",
+      "label",
+      "progress",
+      "resizable",
+      "scroll-area",
+      "select",
+      "separator",
+      "sheet",
+      "sidebar",
+      "skeleton",
+      "sonner",
+      "spinner",
+      "tabs",
+      "textarea",
+      "toggle",
+      "toggle-group",
+      "tooltip"
+    ],
+    "preferredPrimitives": [
+      "radix-ui"
+    ],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [
+      "Compose standard surfaces from shadcn, AI Elements, ReUI, Kibo UI, TheoKit, Motion, and approved registries before writing custom UI.",
+      "Keep operational states textual and icon-labeled, with motion and elapsed or progress context where available.",
+      "Show workspace display names as primary identity and disclose full paths only as secondary metadata.",
+      "Keep hover, focus-visible, keyboard, touch, reduced-motion, loading, failure, and dense-data behavior equivalent."
+    ],
+    "avoid": [
+      "Hand-coded replicas or wrappers that merely resemble an available registry component.",
+      "Copying the retired frontend composition, dense chrome, tiny status dots, raw workspace paths, or technical transport language.",
+      "Invented percentages, costs, capabilities, provenance, files, or other unavailable server data.",
+      "Hover-only critical actions or unlabeled icon-only operational state."
+    ]
+  },
+  "decisions": [
+    "Custom renderers are limited to CLIO-specific protocol and scientific semantics such as Mermaid validation, scientific data adaptation, and future maps; their containers and interactions still use shared components.",
+    "A2UI is rendered as a first-class product surface using the same component, motion, focus, and trust contracts as native workspace content."
+  ],
+  "evidence": [
+    {
+      "fact": "components.installed",
+      "source": "src/components/ui"
+    },
+    {
+      "fact": "design.colorMode:light-and-dark",
+      "source": "src/index.css"
+    },
+    {
+      "fact": "design.tokens",
+      "source": "src/index.css"
+    },
+    {
+      "fact": "project.stack:react",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:shadcn",
+      "source": "components.json"
+    },
+    {
+      "fact": "project.stack:tailwind-v4",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:vite",
+      "source": "package.json"
+    }
+  ],
+  "generatedAt": "2026-08-23T02:25:24.180Z"
+}

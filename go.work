@@ -6,7 +6,6 @@ use (
 	./adapters/goose
 	./adapters/opencode
 	./contract/conformance
-	./emulator
+	./contract/gact
 	./examples/loop-test
-	./tui
 )

@@ -88,19 +88,11 @@ func TestMyAdapterConformance(t *testing.T) {
 The suite uses `t.Run` for each section, so failures stay isolated and
 individual sections can be re-run via `-run`.
 
-## Running it against the emulator
+## Running conformance
 
-The suite ships a self-test that shells out to the built emulator
-binary. If the binary isn't present, the test skips (so a fresh clone
-can still `go test ./contract/conformance/...` without failing).
-
-```sh
-# Build the emulator first:
-cd emulator && go build -o ./emulator-server ./cmd/emulator-server
-
-# Then:
-cd ../contract/conformance && go test -race -count=1 ./...
-```
+The package is a library used by adapter-owned integration tests. It does not
+start a reference server or silently replace a real backend with fixtures.
+Consumers call `conformance.Run` against a server whose lifecycle they own.
 
 ## Design notes
 

@@ -1,0 +1,280 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  inTauri: vi.fn(),
+  read: vi.fn(),
+  store: vi.fn(),
+  remove: vi.fn(),
+  waitForManagedBackend: vi.fn(),
+}));
+
+vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
+vi.mock('@/tauri/secure-credentials', () => ({
+  readConnectionCredential: mocks.read,
+  storeConnectionCredential: mocks.store,
+  deleteConnectionCredential: mocks.remove,
+}));
+vi.mock('@/tauri/managed-backend', () => ({
+  waitForManagedBackend: mocks.waitForManagedBackend,
+}));
+
+import { ConnectionProvider, useConnectionSettings } from './connection-provider';
+
+function ConnectionState() {
+  const context = useConnectionSettings();
+  const { credentialsReady, credentialError, recents, settings } = context;
+  const [resolvedToken, setResolvedToken] = useState('not-resolved');
+  const [connectCount, setConnectCount] = useState(0);
+  return (
+    <div>
+      <output aria-label="connect count">{connectCount}</output>
+      <button
+        onClick={() =>
+          void context.connect(settings).then(() => setConnectCount((count) => count + 1))
+        }
+        type="button"
+      >
+        Connect active endpoint
+      </button>
+      <output aria-label="credential state">
+        {credentialsReady ? 'ready' : 'loading'}
+        {credentialError ? `: ${credentialError}` : ''}
+      </output>
+      <output aria-label="active token">{settings.token ?? 'none'}</output>
+      <output aria-label="active endpoint">{settings.endpoint}</output>
+      <output aria-label="managed connection">
+        {context.managedConnectionReady ? 'managed' : 'saved'}
+      </output>
+      <output aria-label="recent count">{recents.length}</output>
+      <output aria-label="resolved token">{resolvedToken}</output>
+      <button
+        onClick={() =>
+          void context.resolveConnection(settings).then((resolved) => {
+            setResolvedToken(resolved.token ?? 'none');
+          })
+        }
+        type="button"
+      >
+        Resolve active connection
+      </button>
+      <button
+        onClick={() =>
+          void context.connect({
+            endpoint: 'http://agent.local/',
+            label: 'Lab agent',
+            token: 'saved-secret',
+          })
+        }
+        type="button"
+      >
+        Remember lab agent
+      </button>
+      <button onClick={() => void context.forget('http://agent.local')} type="button">
+        Forget lab agent
+      </button>
+    </div>
+  );
+}
+
+describe('connection provider credentials', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    mocks.inTauri.mockReset();
+    mocks.read.mockReset();
+    mocks.store.mockReset();
+    mocks.remove.mockReset();
+    mocks.waitForManagedBackend.mockReset();
+  });
+
+  afterEach(cleanup);
+
+  it('keeps browser connections ready without loading a native credential', () => {
+    mocks.inTauri.mockReturnValue(false);
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+
+    expect(screen.getByLabelText('credential state')).toHaveTextContent('ready');
+    expect(mocks.read).not.toHaveBeenCalled();
+  });
+
+  it('prefers the supervisor endpoint over a remembered installed-app connection', async () => {
+    localStorage.setItem(
+      'clio.recent-connections',
+      JSON.stringify([{ endpoint: 'http://agent.local', label: 'Lab agent' }]),
+    );
+    mocks.inTauri.mockReturnValue(true);
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'ready' },
+    });
+    mocks.read.mockRejectedValue(new Error('credential service unavailable'));
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+
+    expect(screen.getByLabelText('credential state')).toHaveTextContent('loading');
+    await waitFor(() => {
+      expect(screen.getByLabelText('credential state')).toHaveTextContent('ready');
+      expect(screen.getByLabelText('active endpoint')).toHaveTextContent('http://127.0.0.1:17800');
+      expect(screen.getByLabelText('active token')).toHaveTextContent('none');
+      expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve active connection' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('resolved token')).toHaveTextContent('none');
+    });
+    expect(mocks.waitForManagedBackend).toHaveBeenCalledOnce();
+    expect(mocks.read).not.toHaveBeenCalled();
+  });
+
+  it('uses the supervisor endpoint and bearer token when the installed app has no recents', async () => {
+    mocks.inTauri.mockReturnValue(true);
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: 'supervisor-token',
+      status: { kind: 'ready' },
+    });
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+
+    expect(screen.getByLabelText('credential state')).toHaveTextContent('loading');
+    await waitFor(() => {
+      expect(screen.getByLabelText('credential state')).toHaveTextContent('ready');
+      expect(screen.getByLabelText('active endpoint')).toHaveTextContent('http://127.0.0.1:17800');
+      expect(screen.getByLabelText('active token')).toHaveTextContent('supervisor-token');
+      expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve active connection' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('resolved token')).toHaveTextContent('supervisor-token');
+    });
+    expect(mocks.read).not.toHaveBeenCalled();
+  });
+
+  it('uses an unauthenticated supervisor endpoint without consulting secure storage', async () => {
+    mocks.inTauri.mockReturnValue(true);
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'ready' },
+    });
+    mocks.read.mockRejectedValue(new Error('credential service unavailable'));
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('credential state')).toHaveTextContent('ready');
+      expect(screen.getByLabelText('active endpoint')).toHaveTextContent('http://127.0.0.1:17800');
+      expect(screen.getByLabelText('active token')).toHaveTextContent('none');
+      expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve active connection' }));
+    await waitFor(() => {
+      expect(screen.getByLabelText('resolved token')).toHaveTextContent('none');
+    });
+    expect(mocks.read).not.toHaveBeenCalled();
+  });
+
+  it('never records the ephemeral managed endpoint in saved connections', async () => {
+    const saved = [{ endpoint: 'http://agent.local', label: 'Lab agent' }];
+    localStorage.setItem('clio.recent-connections', JSON.stringify(saved));
+    mocks.inTauri.mockReturnValue(true);
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:52341',
+      bearer_token: 'supervisor-token',
+      status: { kind: 'ready' },
+    });
+    mocks.store.mockResolvedValue(undefined);
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed'),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect active endpoint' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect active endpoint' }));
+    await waitFor(() => expect(screen.getByLabelText('connect count')).toHaveTextContent('2'));
+
+    expect(screen.getByLabelText('recent count')).toHaveTextContent('1');
+    expect(JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')).toEqual(saved);
+    expect(mocks.store).not.toHaveBeenCalled();
+  });
+
+  it('publishes credential-store failures instead of silently retrying without a token', async () => {
+    mocks.inTauri.mockReturnValue(true);
+    mocks.waitForManagedBackend.mockRejectedValue(new Error('Credential vault is locked'));
+    mocks.read.mockRejectedValue(new Error('Credential vault is locked'));
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('credential state')).toHaveTextContent(
+        'ready: Credential vault is locked',
+      );
+    });
+  });
+
+  it('stores and removes the token with the remembered connection', async () => {
+    mocks.inTauri.mockReturnValue(true);
+    localStorage.setItem(
+      'clio.recent-connections',
+      JSON.stringify([{ endpoint: 'http://existing.local', label: 'Existing' }]),
+    );
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'ready' },
+    });
+    mocks.store.mockResolvedValue(undefined);
+    mocks.remove.mockResolvedValue(undefined);
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('credential state')).toHaveTextContent('ready'),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remember lab agent' }));
+
+    await waitFor(() => {
+      expect(mocks.store).toHaveBeenCalledWith('http://agent.local', 'saved-secret');
+      expect(screen.getByLabelText('recent count')).toHaveTextContent('1');
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forget lab agent' }));
+
+    await waitFor(() => {
+      expect(mocks.remove).toHaveBeenCalledWith('http://agent.local');
+      expect(screen.getByLabelText('recent count')).toHaveTextContent('1');
+    });
+  });
+});

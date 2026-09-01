@@ -1,7 +1,7 @@
 # Desktop auto-update release: builds the Tauri shell on each platform, signs
 # the updater artifacts with the minisign key, and publishes a single signed
 # `latest.json` to the GitHub release. The client (tauri-plugin-updater) polls
-# releases/latest/download/latest.json — see apps/desktop/DESKTOP-AUTOUPDATE.md.
+# releases/latest/download/latest.json — see desktop/DESKTOP-AUTOUPDATE.md.
 #
 # Requires two repo secrets (Settings -> Secrets and variables -> Actions):
 #   TAURI_SIGNING_PRIVATE_KEY           contents of ~/.tauri/clio-updater.key
@@ -44,21 +44,27 @@ jobs:
           version: ${{ env.PNPM_VERSION }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
-          cache-dependency-path: apps/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Install JS deps
-        working-directory: apps
         run: pnpm install --frozen-lockfile
+
+      # tauri-action's only pre-build hook is tauri.conf.json's
+      # beforeBuildCommand, which does not run the generator. Regenerate the
+      # embedded brand descriptor here so the signed installer and the
+      # auto-update artifacts match brand.config.json rather than whatever is
+      # committed.
+      - name: Generate brand backend descriptor
+        run: pnpm --filter @clio/desktop gen-brand-backend
 
       # The desktop shell bundles the GACT sidecar (clio-agent runtime); fetch it
       # before building so the bundled installer is self-contained.
       - name: Fetch sidecar
-        working-directory: apps
         run: pnpm --filter @clio/desktop fetch-sidecar
 
       - name: Build, sign, and publish the updater release
@@ -67,7 +73,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          projectPath: apps/desktop
+          projectPath: desktop
           tagName: ${{ github.ref_name }}
           releaseName: 'CLIO Desktop ${{ github.ref_name }}'
           releaseDraft: true

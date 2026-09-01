@@ -3,7 +3,7 @@ package ui
 // live_permissions.go applies permission requested/resolved SSE events and labels permission actions.
 
 import (
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 

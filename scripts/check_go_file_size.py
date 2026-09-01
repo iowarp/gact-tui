@@ -4,8 +4,8 @@
 Ported from clio-agent's ``scripts/check_file_size.py`` (iowarp/clio-agent#714,
 #767). Two independent ratchets run here:
 
-1. **Per-file line-count ratchet** over ``tui/``, ``emulator/`` and
-   ``adapters/`` (``*.go``). A file **not** in :data:`SIZE_BASELINE` may not
+1. **Per-file line-count ratchet** over ``tui/`` and ``adapters/`` (``*.go``).
+   A file **not** in :data:`SIZE_BASELINE` may not
    exceed :data:`DEFAULT_MAX_LINES` -- a brand-new god-file fails. A file **in**
    :data:`SIZE_BASELINE` (a known-oversized file awaiting decomposition) may not
    exceed its *recorded* line count -- it can shrink but never regrow.
@@ -49,7 +49,7 @@ from typing import NamedTuple
 DEFAULT_MAX_LINES = 600
 
 # Source trees scanned for the per-file size ratchet, relative to the repo root.
-SIZE_SCAN_ROOTS = ("tui", "emulator", "adapters")
+SIZE_SCAN_ROOTS = ("tui", "adapters")
 
 # Per-file ratchet baseline: the known-oversized Go files at their current line
 # counts, recorded so they cannot regrow. This mapping may only ratchet DOWN --
@@ -57,8 +57,6 @@ SIZE_SCAN_ROOTS = ("tui", "emulator", "adapters")
 # under DEFAULT_MAX_LINES) in the same change. Paths are relative to the
 # repository root and use forward slashes.
 SIZE_BASELINE: dict[str, int] = {
-    "emulator/internal/server/handlers_catalog_test.go": 1129,
-    "emulator/internal/scenario/scenario_test.go": 719,
     "tui/internal/ui/execution_timeline_test.go": 698,
     "tui/internal/ui/execution_render.go": 646,
     "tui/internal/cli/commands.go": 606,
@@ -69,7 +67,7 @@ SIZE_BASELINE: dict[str, int] = {
 # locale/, testdata/ -- are excluded; they are the extraction precedent). This
 # number is a FREEZE: it may only ratchet DOWN as clusters are extracted.
 UI_PACKAGE_DIR = "tui/internal/ui"
-UI_PACKAGE_FREEZE = 614
+UI_PACKAGE_FREEZE = 612
 
 
 class SizeFailure(NamedTuple):

@@ -1,3 +1,5 @@
+//go:build real_claude
+
 package claudecode
 
 import (

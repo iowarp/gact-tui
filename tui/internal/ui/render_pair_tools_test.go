@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // TestPairToolResults_HappyPath: assistant emits 3 calls; 3 tool

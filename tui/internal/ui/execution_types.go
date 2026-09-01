@@ -2,7 +2,7 @@ package ui
 
 // execution_types.go defines the execution timeline node/event/turn types and node kinds.
 
-import "github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+import "github.com/JaimeCernuda/gact-tui/contract/gact"
 
 type executionNodeKind string
 
@@ -16,7 +16,7 @@ const (
 	// has no dedicated row for (file_diff, image, document, …). It renders via
 	// the part's own view at the owning agent's depth — web parity: the unified
 	// turn model keeps such parts as passthrough rows instead of dropping them
-	// (apps/web transcriptDelegationModel "passthrough" rows).
+	// (web/src/components/clio/conversation-turn-model.ts residual blocks).
 	executionNodePassthrough executionNodeKind = "part_passthrough"
 )
 

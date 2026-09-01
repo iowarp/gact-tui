@@ -1,50 +1,25 @@
-# GACT TUI documentation
+# Workspace documentation
 
-Everything that documents the GACT TUI stack lives here. Start with the
-[root README](../README.md) for orientation; this page indexes the rest.
+Start with the [root README](../README.md). The active product documentation is
+deliberately small so deleted implementations do not continue to influence the
+workspace.
 
 ## Current
 
-- [FEATURES.md](FEATURES.md) — long-form feature reference for the whole stack
-  (TUI, web, desktop); the companion to the root README.
-- [FILE_RENDERERS.md](FILE_RENDERERS.md) — how the file-explorer detail pane
-  previews local workspace files, per type.
-- [agent-operational-memory.md](agent-operational-memory.md) — hard rules for
-  agents doing gact-tui work against live CLIO systems.
-- [system-cleanup-2026-07.md](system-cleanup-2026-07.md) — pointer doc for the
-  2026-07 audit cleanup program (master plan lives in the clio-agent repo).
-- [man/gact.1](man/gact.1) — the `gact` command-line man page.
+- [Frontend decisions](design/frontend-decisions.md) records semantic and visual
+  departures from the retired web clients, with acceptance evidence.
+- [Agent operational memory](agent-operational-memory.md) contains safety rules for
+  exercising real scientific sessions.
+- [Provenance graph](design/provenance-graph-2026-08.md) describes the current
+  scientific provenance model.
 
-## Reference
+## Deferred TUI reference
 
-Distilled library cheatsheets for the Go/Bubbletea UI work (`reference/`):
+The Bubble Tea notes under `reference/`, the visual studies under `ref/`, and
+the `gact(1)` man page are retained only for a future TUI redesign. They are not
+the web or desktop product specification and are outside the default build and
+test gates.
 
-- [reference/bubbletea.md](reference/bubbletea.md) — Bubbletea v2 (`charm.land/bubbletea/v2`).
-- [reference/bubbles.md](reference/bubbles.md) — the Bubbles component set.
-- [reference/lipgloss.md](reference/lipgloss.md) — Lipgloss styling.
-- [reference/ultraviolet.md](reference/ultraviolet.md) — Ultraviolet rendering notes.
-- [reference/testing.md](reference/testing.md) — TUI testing patterns.
-- [reference/pitfalls.md](reference/pitfalls.md) — common gotchas to avoid.
-
-External design studies and target renderings (`ref/`):
-
-- [ref/README.md](ref/README.md) — index of the reference studies (guidance, not copying).
-- [ref/hermes-agent-desktop.md](ref/hermes-agent-desktop.md) — study of NousResearch's Hermes Agent Desktop.
-- `ref/*.png`, `ref/examples/` — static target renderings and competitor diffs used
-  when reasoning about the TUI's look (not a build input).
-
-## Release & operations
-
-- [TUI_ONE_ZERO_CAPABILITY_MATRIX.md](TUI_ONE_ZERO_CAPABILITY_MATRIX.md) — the 1.0 capability matrix.
-- [TUI_ONE_ZERO_RELEASE_CHECKLIST.md](TUI_ONE_ZERO_RELEASE_CHECKLIST.md) — the 1.0 release checklist.
-- [history-rewrite-runbook.md](history-rewrite-runbook.md) — owner runbook for the
-  prepared (not yet executed) git-history rewrite that de-bloats screenshot churn.
-
-## Archive
-
-Historical work-logs and superseded designs live in [archive/](archive/) —
-indexed by [archive/README.md](archive/README.md). It holds the retired planning
-and status logs, the v0.9 readiness / v0.2 feature snapshots, the retired `apps/`
-planning docs (`apps-*.md`), and the superseded `apps/` design series
-(`apps-design/01-goal` … `08-decisions`). Nothing there is current — durable status
-lives in GitHub issues and PRs.
+Superseded frontend plans, emulator-era operating instructions, conformance
+maps, and archived screenshots-as-spec documents have been removed. Durable
+history remains available in Git.

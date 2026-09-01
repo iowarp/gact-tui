@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // runCapabilities prints the backend's contract version, identity, and

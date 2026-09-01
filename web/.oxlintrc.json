@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "oxc"],
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@clio/core",
+            "message": "Import the versioned @clio/core/v3 contract instead."
+          },
+          {
+            "name": "@clio/core/client",
+            "message": "The legacy client facade was removed; use @clio/core/v3."
+          },
+          {
+            "name": "@clio/core/types",
+            "message": "The legacy wire facade was removed; use @clio/core/v3."
+          }
+        ],
+        "patterns": [
+          {
+            "group": ["@clio/core/*/*"],
+            "message": "Web may consume only the public @clio/core/v3 entrypoint."
+          }
+        ]
+      }
+    ],
+    "react/rules-of-hooks": "error",
+    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+  }
+}

@@ -18,7 +18,7 @@ func checkSSE(t Reporter, c *conformClient, sid, wsID string, budget time.Durati
 	if wsID != "" {
 		path += "?workspace_id=" + wsID
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+	req, err := c.newRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		t.Fatalf("new request: %v", err)
 	}

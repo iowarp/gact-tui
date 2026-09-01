@@ -2,7 +2,7 @@ package ui
 
 // live_message_clone.go deep-clones messages, parts, and metadata maps.
 
-import "github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+import "github.com/JaimeCernuda/gact-tui/contract/gact"
 
 func cloneMessages(messages []gact.Message) []gact.Message {
 	if len(messages) == 0 {

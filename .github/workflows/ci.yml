@@ -48,7 +48,7 @@ jobs:
           fi
 
       # Ratchet guards against re-accretion: per-file Go line counts over
-      # tui/ emulator/ adapters/ and the frozen tui/internal/ui package count
+      # tui/ and adapters/, plus the frozen tui/internal/ui package count
       # (iowarp/gact-tui#234). Flipped to ENFORCING 2026-07-08 (ahead of the
       # 2026-09-01 grace date — the backlog is already clear): a new oversized
       # Go file or a baselined file that regrows now fails CI. Baselines only
@@ -60,7 +60,7 @@ jobs:
       # eval/run artifacts (audit dumps, raw captures, logs), not the curated
       # baselines. .gitignore lists them, but `git add -f` walks past it — so
       # re-assert the denylist as a hard CI gate. Curated images under
-      # docs/screenshots/ and apps/design | apps/branding | docs/ media stay
+      # docs/screenshots/ and design | branding | docs/ media stay
       # allowed (no LFS — small plain blobs only).
       - name: Media policy (no tracked eval/run artifacts)
         run: python3 scripts/check_media_policy.py
@@ -79,10 +79,19 @@ jobs:
             echo "::endgroup::"
           done
 
+      - name: Test deprecated TUI compatibility target
+        run: make test-tui
+
   install-smoke:
     runs-on: ubuntu-latest
     steps:
+      # Full history + tags. A shallow, tag-less clone makes `git describe`
+      # fall back to a bare object name, which is how a `git describe`-derived
+      # TUI_BUILD_REVISION stayed green here while failing verify-dev-install
+      # on every real (tagged) clone.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:

@@ -1,11 +1,15 @@
 package presentation
 
 // prose_filters.go is the ONE home for the TUI's transitional prose
-// presentation filters — the Go port of the web client's
-// apps/web/src/components/presentationFilters.ts + the cleanProse chain in
-// transcriptDelegationModel.ts. Behaviour is intended to be behaviorally faithful
-// to the web so the two clients render the same wire the same way (gact-tui #233
-// parity). One known cosmetic difference: the state-blob splice trims the ASCII
+// presentation filters — the Go port of the web client's presentationFilters.ts
+// + the cleanProse chain in transcriptDelegationModel.ts, both of which epic
+// #880 has since DELETED (the web client now renders the stream verbatim). The
+// shared registry this header cross-links back to is contract/SPEC.md
+// Appendix A. Behaviour was written to be faithful to that web chain so the two
+// clients render the same wire the same way (gact-tui #233 parity), and each
+// row here is deleted — not weakened — once the server stops leaking the
+// artifact it strips.
+// One known cosmetic difference: the state-blob splice trims the ASCII
 // whitespace set (" \t\r\n"), not the full ECMAScript trimEnd/trimStart set
 // (\f, \v, NBSP, U+2028/9), so a stray Unicode-space char adjacent to a stripped
 // "typed workflow state:" blob may survive where the web trims it.

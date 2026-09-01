@@ -102,7 +102,7 @@ func probeStatus(c *conformClient, method, path string) (int, error) {
 	if method != http.MethodGet {
 		body = bytes.NewReader([]byte(`{}`))
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+	req, err := c.newRequest(ctx, method, path, body)
 	if err != nil {
 		return 0, err
 	}
@@ -120,11 +120,14 @@ func probeStatus(c *conformClient, method, path string) (int, error) {
 
 // --- 2–4. SSE replay + event payload shapes ----------------------------------
 
-// driftEvent is one parsed SSE event (envelope per SPEC §7.2).
+// driftEvent is one parsed SSE event (envelope per SPEC §7.2, or the scoped
+// 0.3 envelope of §7.8). ProtocolVersion is the envelope's own
+// `protocol_version` — empty for a 0.2 envelope, which has no such field.
 type driftEvent struct {
-	Type    string
-	Payload map[string]any
-	Raw     string
+	Type            string
+	ProtocolVersion string
+	Payload         map[string]any
+	Raw             string
 }
 
 // isPreambleOrHeartbeat reports whether the event is connection
@@ -144,8 +147,8 @@ func isPreambleOrHeartbeat(typ string) bool {
 func collectSSEEvents(c *conformClient, sid, lastEventID string, budget time.Duration) ([]driftEvent, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		c.baseURL+"/v1/sessions/"+sid+"/events", nil)
+	req, err := c.newRequest(ctx, http.MethodGet,
+		"/v1/sessions/"+sid+"/events", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -204,13 +207,18 @@ func parseDriftEvent(block string) (driftEvent, bool) {
 		return driftEvent{}, false
 	}
 	var envelope struct {
-		Type    string          `json:"type"`
-		Payload json.RawMessage `json:"payload"`
+		Type            string          `json:"type"`
+		ProtocolVersion string          `json:"protocol_version"`
+		Payload         json.RawMessage `json:"payload"`
 	}
 	if err := json.Unmarshal([]byte(dataLine), &envelope); err != nil || envelope.Type == "" {
 		return driftEvent{}, false
 	}
-	ev := driftEvent{Type: envelope.Type, Raw: dataLine}
+	ev := driftEvent{
+		Type:            envelope.Type,
+		ProtocolVersion: envelope.ProtocolVersion,
+		Raw:             dataLine,
+	}
 	// Payload may be a non-object for some vendor events; tolerate.
 	_ = json.Unmarshal(envelope.Payload, &ev.Payload)
 	return ev, true
@@ -292,8 +300,8 @@ func checkSSEDrift(t Reporter, c *conformClient, sid string, budget time.Duratio
 func patchSessionTitle(c *conformClient, sid, title string) {
 	ctx, cancel := context.WithTimeout(context.Background(), c.http.Timeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPatch,
-		c.baseURL+"/v1/sessions/"+sid,
+	req, err := c.newRequest(ctx, http.MethodPatch,
+		"/v1/sessions/"+sid,
 		bytes.NewReader(mustJSON(map[string]any{"title": title})))
 	if err != nil {
 		return

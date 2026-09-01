@@ -2,7 +2,7 @@ package ui
 
 // conversation_render_cache.go caches rendered messages and manages cache invalidation/reset per session.
 
-import "github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+import "github.com/JaimeCernuda/gact-tui/contract/gact"
 
 const maxConversationRenderCacheEntries = 1024
 

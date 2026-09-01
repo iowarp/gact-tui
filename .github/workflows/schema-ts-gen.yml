@@ -1,15 +1,25 @@
-# P0.6 (clio-agent#1110): the gact-tui half of the clio-schemas consumer loop.
-# Generates TypeScript from the IMMUTABLE JSON schemas shipped inside the
-# pinned clio-schemas package and typechecks the output. The real record
-# schemas (and the committed generated types + drift gate) arrive with P2.1.
+# Phase 4 consumer gate: regenerate the committed TypeScript and Zod contracts
+# from the exact clio-schemas revision pinned by the frontend campaign.
 name: schema-ts-gen
+
 on:
   push:
     branches: [main]
-    paths: [".github/workflows/schema-ts-gen.yml"]
+    paths:
+      - '.github/workflows/schema-ts-gen.yml'
+      - 'packages/core/**'
+      - 'scripts/generate_clio_schema_zod.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
   pull_request:
-    paths: [".github/workflows/schema-ts-gen.yml"]
+    paths:
+      - '.github/workflows/schema-ts-gen.yml'
+      - 'packages/core/**'
+      - 'scripts/generate_clio_schema_zod.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
   workflow_dispatch: {}
+
 jobs:
   ts-gen:
     runs-on: ubuntu-latest
@@ -18,22 +28,32 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: iowarp/clio-schemas
-          ref: main
+          ref: 8074fda2c2aef417f924ed0d950629d7d7125343
           path: .clio-schemas
-      - uses: astral-sh/setup-uv@v5
+      - uses: pnpm/action-setup@v4
         with:
-          python-version: "3.12"
+          version: 9.15.9
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
-      - name: Export the immutable schemas from the package
+          node-version: '22'
+          cache: pnpm
+      - name: Install pinned generators
         run: |
-          uv venv --clear && uv pip install ./.clio-schemas
-          uv run python -m clio_schemas.export --out /tmp/schemas
-      - name: Generate TypeScript (clean dir) and typecheck
+          pnpm install --frozen-lockfile
+          npm ci --prefix .clio-schemas/tools/ts-gen
+      - name: Regenerate committed contracts
         run: |
-          cd .clio-schemas/tools/ts-gen
-          npm ci
-          node schemas-to-ts.mjs --in /tmp/schemas --out /tmp/generated-ts
-          printf '{"compilerOptions":{"strict":true,"noEmit":true,"types":[]},"include":["./*.ts"]}' > /tmp/generated-ts/tsconfig.json
-          ./node_modules/.bin/tsc -p /tmp/generated-ts
+          node .clio-schemas/tools/ts-gen/schemas-to-ts.mjs \
+            --in .clio-schemas/src/clio_schemas/schemas \
+            --out packages/core/src/generated/clio-schemas
+          pnpm schema:generate:zod \
+            --in .clio-schemas/src/clio_schemas/schemas \
+            --out packages/core/src/generated/clio-schemas
+          pnpm exec prettier --write "packages/core/src/generated/clio-schemas/*.ts"
+      - name: Reject generated drift
+        run: git diff --exit-code -- packages/core/src/generated/clio-schemas
+      - name: Validate generated consumers
+        run: |
+          pnpm --filter @clio/core typecheck
+          pnpm --filter @clio/core lint
+          pnpm --filter @clio/core test

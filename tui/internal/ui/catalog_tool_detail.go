@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 

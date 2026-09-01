@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // Server is a thin GACT-front for an OpenCode upstream. It exposes a

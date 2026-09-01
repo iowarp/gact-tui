@@ -5,7 +5,7 @@ package ui
 import (
 	"charm.land/lipgloss/v2"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // renderPartsForRoleWithResults renders parts in order, but when a

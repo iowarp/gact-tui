@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 func runContextShow(args []string) int {

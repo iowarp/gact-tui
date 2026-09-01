@@ -1,0 +1,39 @@
+{
+  "name": "Agent Workspace",
+  "wordmark": "Workspace",
+  "tagline": "A product-neutral agent workspace",
+  "markGlyph": "W",
+  "landing": {
+    "eyebrow": "Agent Workspace",
+    "headline": "Your agent work, in one place.",
+    "description": "Connect to an agent service to continue your work. Product identity and domain language are supplied by the service you use."
+  },
+  "workspace": {
+    "greeting": "What would you like to work on?",
+    "description": "Start with a question, a workspace resource, or one of these examples."
+  },
+  "logoSvg": "logo.svg",
+  "accent": "#5b8def",
+  "themeTokens": {
+    "--color-accent": "#5b8def"
+  },
+  "releaseUrl": "https://github.com/iowarp/gact-tui/releases",
+  "starterPrompts": [
+    {
+      "eyebrow": "Inspect",
+      "label": "Show me the schema of data/sample.h5 and chart the largest 3 datasets."
+    },
+    {
+      "eyebrow": "Refactor",
+      "label": "Find println calls in src/ and rewrite them to log.Info."
+    },
+    {
+      "eyebrow": "Explain",
+      "label": "Walk me through the SSE event flow in this repo."
+    },
+    {
+      "eyebrow": "Plan",
+      "label": "Draft a migration plan from CSV to Parquet for our pipeline."
+    }
+  ]
+}

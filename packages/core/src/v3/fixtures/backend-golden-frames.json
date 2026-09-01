@@ -1,0 +1,332 @@
+{
+  "metadata": {
+    "producer": "clio_agent.gact.protocol.v3.event.event_to_v3",
+    "backend_sha": "654ff56c0d6684ea51a6366e1ddd510d584fa136",
+    "protocol_version": "0.3",
+    "a2ui_protocol_version": "0.9.1",
+    "generated_at": "2026-08-27T15:00:00+00:00"
+  },
+  "frames": [
+    {
+      "cursor": "101",
+      "eventName": "stream.live",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "stream.live",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": { "connection_id": "local" },
+        "entity_revision": 101,
+        "payload": { "service": "clio-agent" }
+      }
+    },
+    {
+      "cursor": "102",
+      "eventName": "message.upserted",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "message.upserted",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden",
+          "run_id": "run_golden"
+        },
+        "entity_revision": 102,
+        "payload": {
+          "id": "msg_golden",
+          "session_id": "sess_golden",
+          "role": "assistant",
+          "created_at": "2026-08-27T15:00:00+00:00",
+          "blocks": [],
+          "run_id": "run_golden",
+          "usage": { "input": 0, "output": 0, "cache_read": 0, "cache_write": 0 },
+          "cost_usd": 0.0
+        },
+        "entity_id": "msg_golden"
+      }
+    },
+    {
+      "cursor": "103",
+      "eventName": "message.block.upserted",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "message.block.upserted",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden"
+        },
+        "entity_revision": 103,
+        "payload": {
+          "message_id": "msg_golden",
+          "block": {
+            "id": "reasoning_golden",
+            "type": "reasoning",
+            "text": "Inspecting station catalog.",
+            "source": "provider",
+            "provider_source": "claude",
+            "default_collapsed": true,
+            "sequence": 1
+          }
+        },
+        "entity_id": "reasoning_golden"
+      }
+    },
+    {
+      "cursor": "104",
+      "eventName": "message.block.completed",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "message.block.completed",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden"
+        },
+        "entity_revision": 104,
+        "payload": {
+          "message_id": "msg_golden",
+          "block_id": "reasoning_golden",
+          "text": "Inspecting station catalog."
+        },
+        "entity_id": "reasoning_golden"
+      }
+    },
+    {
+      "cursor": "105",
+      "eventName": "tool.upserted",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "tool.upserted",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden",
+          "run_id": "run_golden"
+        },
+        "entity_revision": 105,
+        "payload": {
+          "id": "tool_golden",
+          "session_id": "sess_golden",
+          "run_id": "run_golden",
+          "name": "geo_filter_points_by_radius",
+          "title": "Filter stations by radius",
+          "state": "running",
+          "input": { "radius_km": 50 }
+        },
+        "entity_id": "tool_golden"
+      }
+    },
+    {
+      "cursor": "106",
+      "eventName": "subagent.upserted",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "subagent.upserted",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden"
+        },
+        "entity_revision": 106,
+        "payload": {
+          "id": "task_golden",
+          "session_id": "sess_golden",
+          "parent_run_id": "run_golden",
+          "title": "earthscope-region #1",
+          "state": "running",
+          "agent_id": "earthscope-region",
+          "child_session_id": "sess_child_golden"
+        },
+        "entity_id": "task_golden"
+      }
+    },
+    {
+      "cursor": "107",
+      "eventName": "a2ui.surface.upserted",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "a2ui.surface.upserted",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden",
+          "run_id": "run_golden"
+        },
+        "entity_revision": 107,
+        "payload": {
+          "id": "surface_golden",
+          "session_id": "sess_golden",
+          "catalog_id": "https://iowarp.ai/a2ui/catalogs/clio-workspace/v1",
+          "protocol_version": "0.9.1",
+          "revision": 2,
+          "state": "ready",
+          "messages": [
+            {
+              "version": "v0.9.1",
+              "createSurface": {
+                "surfaceId": "surface_golden",
+                "catalogId": "https://iowarp.ai/a2ui/catalogs/clio-workspace/v1"
+              }
+            },
+            {
+              "version": "v0.9.1",
+              "updateComponents": {
+                "surfaceId": "surface_golden",
+                "components": [
+                  {
+                    "id": "status",
+                    "component": "clio.status.v1",
+                    "label": "Station coverage",
+                    "state": "running"
+                  }
+                ]
+              }
+            }
+          ],
+          "run_id": "run_golden",
+          "message_id": "msg_golden",
+          "part_id": "surface_part_golden",
+          "evicted_messages": 0,
+          "created_at": "2026-08-27T15:00:00+00:00",
+          "updated_at": "2026-08-27T15:00:00+00:00"
+        },
+        "entity_id": "surface_golden"
+      }
+    },
+    {
+      "cursor": "108",
+      "eventName": "tool.upserted",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "tool.upserted",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden"
+        },
+        "entity_revision": 108,
+        "payload": {
+          "id": "tool_golden",
+          "session_id": "sess_golden",
+          "name": "geo_filter_points_by_radius",
+          "title": "Filter stations by radius",
+          "state": "succeeded",
+          "output": { "within_radius_count": 72 },
+          "duration_ms": 4600
+        },
+        "entity_id": "tool_golden"
+      }
+    },
+    {
+      "cursor": "109",
+      "eventName": "message.block.upserted",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "message.block.upserted",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden"
+        },
+        "entity_revision": 109,
+        "payload": {
+          "message_id": "msg_golden",
+          "block": {
+            "id": "text_golden",
+            "type": "text",
+            "text": "",
+            "sequence": 2,
+            "channel": "answer"
+          }
+        },
+        "entity_id": "text_golden"
+      }
+    },
+    {
+      "cursor": "110",
+      "eventName": "message.block.delta",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "message.block.delta",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden"
+        },
+        "entity_revision": 110,
+        "payload": {
+          "message_id": "msg_golden",
+          "block_id": "text_golden",
+          "delta": "Found 72 stations."
+        },
+        "entity_id": "text_golden"
+      }
+    },
+    {
+      "cursor": "111",
+      "eventName": "message.block.completed",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "message.block.completed",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden"
+        },
+        "entity_revision": 111,
+        "payload": {
+          "message_id": "msg_golden",
+          "block_id": "text_golden",
+          "text": "Found 72 stations."
+        },
+        "entity_id": "text_golden"
+      }
+    },
+    {
+      "cursor": "112",
+      "eventName": "message.completed",
+      "receivedAt": "2026-08-27T15:00:00+00:00",
+      "data": {
+        "protocol_version": "0.3",
+        "type": "message.completed",
+        "occurred_at": "2026-08-27T15:00:00+00:00",
+        "scope": {
+          "connection_id": "local",
+          "workspace_id": "ws_golden",
+          "session_id": "sess_golden"
+        },
+        "entity_revision": 112,
+        "payload": {
+          "message_id": "msg_golden",
+          "completed_at": "2026-08-27T15:00:00+00:00",
+          "stop_reason": "end_turn",
+          "tokens": { "input": 120, "output": 45, "cache_read": 30, "cache_write": 0 },
+          "cost_usd": 0.0125
+        },
+        "entity_id": "msg_golden"
+      }
+    }
+  ]
+}

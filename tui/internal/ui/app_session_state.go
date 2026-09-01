@@ -3,7 +3,7 @@ package ui
 // sessionComponent + appSessionState: the active backend/session runtime data and the new-session setup workflow.
 
 import (
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 

@@ -1,0 +1,107 @@
+import type { ColumnDef } from '@tanstack/react-table';
+import { useTable } from '@tanstack/react-table';
+import { Table2Icon } from 'lucide-react';
+import { useMemo } from 'react';
+import { Badge as ReUIBadge } from '@/components/reui/badge';
+import { DataGridColumnHeader } from '@/components/reui/data-grid/data-grid-column-header';
+import { DataGridPagination } from '@/components/reui/data-grid/data-grid-pagination';
+import {
+  DataGrid,
+  DataGridContainer,
+  dataGridFeatures,
+  type DataGridFeatures,
+} from '@/components/reui/data-grid/data-grid';
+import { DATA_GRID_PAGE_SIZES } from '@/lib/runtime-limits';
+import { ClioDataGridTable } from './data-grid-table';
+
+export type ClioDataColumn = string | { key: string; label: string };
+export type ClioDataRow = Record<string, unknown>;
+
+/** Interactive, resizable data table shared by native resources and A2UI surfaces. */
+export function ClioDataTable({
+  columns: columnDefinitions,
+  rows,
+  label = 'Data table',
+  description,
+  onRowClick,
+}: {
+  columns: readonly ClioDataColumn[];
+  rows: readonly ClioDataRow[];
+  label?: string;
+  description?: string;
+  onRowClick?: (row: ClioDataRow) => void;
+}) {
+  const columns = useMemo<ColumnDef<DataGridFeatures, ClioDataRow, unknown>[]>(
+    () =>
+      columnDefinitions.map((definition) => {
+        const key = typeof definition === 'string' ? definition : definition.key;
+        const title =
+          typeof definition === 'string' ? definition.replaceAll('_', ' ') : definition.label;
+        return {
+          id: key,
+          accessorFn: (row: ClioDataRow) => row[key],
+          header: ({ column }) => <DataGridColumnHeader column={column} title={title} />,
+          cell: ({ row }) => {
+            const value = row.original[key];
+            return (
+              <span className="font-mono text-xs" title={exactCell(value)}>
+                {formatCell(value)}
+              </span>
+            );
+          },
+          meta: { autoSize: true, headerTitle: title },
+        };
+      }),
+    [columnDefinitions],
+  );
+  const data = useMemo(() => [...rows], [rows]);
+  const table = useTable({ columns, data, features: dataGridFeatures });
+
+  return (
+    <DataGrid<DataGridFeatures, ClioDataRow>
+      emptyMessage="No rows were provided for this data view."
+      onRowClick={onRowClick}
+      recordCount={rows.length}
+      table={table}
+      tableLayout={{ columnsResizable: true, dense: true, headerSticky: true, width: 'fixed' }}
+    >
+      <DataGridContainer className="overflow-hidden rounded-xl border">
+        <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2">
+          <Table2Icon aria-hidden="true" className="size-3.5 text-primary" />
+          <ReUIBadge radius="full" variant="primary-light">
+            {label}, {rows.length.toLocaleString()} rows
+          </ReUIBadge>
+        </div>
+        <div
+          aria-description={description}
+          aria-label={`${label} columns`}
+          className="max-w-full overflow-x-auto overscroll-x-contain"
+          role="region"
+          tabIndex={0}
+        >
+          <ClioDataGridTable />
+        </div>
+        {rows.length > 10 ? (
+          <div className="border-t px-3">
+            <DataGridPagination sizes={DATA_GRID_PAGE_SIZES} />
+          </div>
+        ) : null}
+      </DataGridContainer>
+    </DataGrid>
+  );
+}
+
+function formatCell(value: unknown): string {
+  if (value === undefined || value === null || value === '') return 'Unavailable';
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Intl.NumberFormat(undefined, { maximumSignificantDigits: 9 }).format(value);
+  }
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function exactCell(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}

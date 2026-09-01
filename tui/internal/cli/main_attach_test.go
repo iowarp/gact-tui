@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,35 +30,6 @@ func TestCLI_AttachPrintOnly_ExplicitSid(t *testing.T) {
 	}
 	if got := strings.TrimSpace(stdout); got != "sess_abc123def456" {
 		t.Errorf("stdout = %q, want 'sess_abc123def456'", got)
-	}
-}
-
-func TestCLI_AttachPrintOnly_NoArgsReadsRegistry(t *testing.T) {
-	url, stop := startEmulator(t)
-	defer stop()
-	bin := buildGact(t)
-
-	sid := createSession(t, url, "print-only-target")
-
-	dir := t.TempDir()
-	regPath := filepath.Join(dir, "detached.json")
-	body := fmt.Sprintf(
-		`{"records":[{"session_id":%q,"title":"print-only-target","backend":%q,"detached_at":"2026-04-20T08:00:00Z"}]}`,
-		sid, url,
-	)
-	if err := os.WriteFile(regPath, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	stdout, stderr, code := runGact(t, bin, map[string]string{
-		"GACT_BACKEND":       url,
-		"GACT_DETACHED_PATH": regPath,
-	}, "attach", "--print-only")
-	if code != 0 {
-		t.Fatalf("attach --print-only no args: exit %d stderr=%q", code, stderr)
-	}
-	if got := strings.TrimSpace(stdout); got != sid {
-		t.Errorf("stdout = %q, want %q", got, sid)
 	}
 }
 

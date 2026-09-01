@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/JaimeCernuda/gact-tui/emulator/pkg/gact"
+	"github.com/JaimeCernuda/gact-tui/contract/gact"
 )
 
 // findBulkyPartIn scans a single message for a bulky tool_result or text part

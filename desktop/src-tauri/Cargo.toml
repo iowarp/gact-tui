@@ -1,0 +1,46 @@
+[package]
+name = "clio-desktop"
+version = "0.7.1"
+description = "CLIO Desktop — Tauri shell"
+authors = ["IOWarp / gact-tui contributors"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "clio_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = ["tray-icon", "image-png"] }
+tauri-plugin-notification = "2.0"
+tauri-plugin-dialog = "2"
+# Auto-update: checks the GitHub-releases latest.json marker, verifies the
+# minisign signature against the configured pubkey, downloads + installs.
+tauri-plugin-updater = "2"
+# Relaunch the app after an in-place update installs (the updater leaves the
+# running process in place on macOS/Linux; `relaunch()` boots the new binary).
+tauri-plugin-process = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Lifecycle supervisor (Wave 0c) + the gact_http command (post-tag bridge)
+rand = "0.8"
+ureq = { version = "2.10", default-features = false }
+hex = "0.4"
+libc = "0.2"
+base64 = "0.22"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3.6.3", default-features = false, features = ["windows-native"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3.6.3", default-features = false, features = ["apple-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3.6.3", default-features = false, features = ["async-secret-service", "crypto-rust", "tokio"] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

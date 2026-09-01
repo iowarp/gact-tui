@@ -1,0 +1,145 @@
+import { describe, expect, it } from 'vitest';
+import {
+  A2UI_VERSION,
+  a2uiComponentSchema,
+  a2uiSurfaceSchema,
+  capabilitiesSchema,
+  messageBlockSchema,
+  messageSchema,
+  runStateSchema,
+  toolInvocationSchema,
+} from './index.js';
+
+describe('forward-compatible wire enums', () => {
+  it('maps future enum values to an explicit unknown state', () => {
+    expect(runStateSchema.parse('paused_by_provider')).toBe('unknown');
+    expect(
+      messageSchema.parse({
+        id: 'msg_1',
+        session_id: 'sess_1',
+        role: 'delegate',
+        created_at: '2026-08-27T12:00:00Z',
+        blocks: [
+          {
+            id: 'block_1',
+            type: 'future_visualization',
+            payload: { retained: true },
+          },
+        ],
+      }).role,
+    ).toBe('unknown');
+    expect(
+      messageSchema.parse({
+        id: 'msg_2',
+        session_id: 'sess_1',
+        role: 'assistant',
+        created_at: '2026-08-27T12:00:00Z',
+        blocks: [{ id: 'block_1', type: 'future_visualization', payload: { retained: true } }],
+      }).blocks[0],
+    ).toMatchObject({ type: 'unknown', original_type: 'future_visualization' });
+    expect(
+      toolInvocationSchema.parse({
+        id: 'tool_1',
+        session_id: 'sess_1',
+        name: 'future_tool',
+        state: 'paused',
+      }).state,
+    ).toBe('unknown');
+    expect(
+      a2uiSurfaceSchema.parse({
+        id: 'surface_1',
+        session_id: 'sess_1',
+        catalog_id: 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1',
+        protocol_version: A2UI_VERSION,
+        revision: 1,
+        state: 'superseded',
+        messages: [],
+      }).state,
+    ).toBe('unknown');
+  });
+
+  it('degrades a malformed known block without disguising what the service sent', () => {
+    expect(messageBlockSchema.parse({ id: 'block_1', type: 'text' })).toEqual({
+      id: 'block_1',
+      type: 'unknown',
+      original_type: 'text',
+      raw: { id: 'block_1', type: 'text' },
+    });
+    expect(
+      messageBlockSchema.parse({
+        id: 'block_4',
+        type: 'text',
+        text: 'Grounded answer',
+        citation_ids: ['cite_1'],
+      }),
+    ).toEqual({ id: 'block_4', type: 'text', text: 'Grounded answer' });
+    expect(
+      messageBlockSchema.parse({
+        id: 'block_2',
+        type: 'reasoning',
+        text: 'Grounded thought',
+        source: 'provider',
+      }),
+    ).toEqual({
+      id: 'block_2',
+      type: 'reasoning',
+      text: 'Grounded thought',
+      source: 'provider',
+    });
+  });
+
+  it('uses the shared closed A2UI component vocabulary and limits', () => {
+    expect(
+      a2uiComponentSchema.parse({
+        id: 'consent',
+        component: 'CheckBox',
+        label: 'Include uncertain stations',
+        value: false,
+      }),
+    ).toMatchObject({ component: 'CheckBox' });
+    expect(
+      a2uiComponentSchema.safeParse({
+        id: 'consent',
+        component: 'Checkbox',
+        label: 'Include uncertain stations',
+        value: false,
+      }).success,
+    ).toBe(false);
+    expect(
+      a2uiComponentSchema.safeParse({
+        id: 'map',
+        component: 'clio.map.v1',
+        points: Array.from({ length: 501 }, (_, index) => ({
+          id: `station-${index}`,
+          label: `Station ${index}`,
+          latitude: 34,
+          longitude: -118,
+        })),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('preserves structured capability vocabulary values', () => {
+    const result = capabilitiesSchema.parse({
+      gact_versions: ['0.3'],
+      a2ui_versions: ['0.9.1'],
+      replay: { supported: true },
+      capabilities: {
+        attachments: true,
+        x_clio_cancellation: 'cooperative',
+        x_clio_document_artifacts: { formats: ['markdown', 'pdf'] },
+      },
+      model_catalog: {
+        source: 'server',
+        observed_at: '2026-08-27T12:00:00Z',
+        stale: false,
+      },
+    });
+
+    expect(result.capabilities).toMatchObject({
+      attachments: true,
+      x_clio_cancellation: 'cooperative',
+      x_clio_document_artifacts: { formats: ['markdown', 'pdf'] },
+    });
+  });
+});

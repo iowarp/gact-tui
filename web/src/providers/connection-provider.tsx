@@ -1,0 +1,194 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from 'react';
+import {
+  DEFAULT_ENDPOINT,
+  normalizeEndpoint,
+  type ConnectionSettings,
+  type SavedConnection,
+} from '@/lib/connection';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import {
+  deleteConnectionCredential,
+  readConnectionCredential,
+  storeConnectionCredential,
+} from '@/tauri/secure-credentials';
+import { waitForManagedBackend } from '@/tauri/managed-backend';
+
+const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
+/**
+ * Endpoints kept in the remembered-connections list. Unit: connections.
+ * Bounds both the stored value and what is read back, so an oversized or
+ * hand-edited localStorage entry cannot grow the picker without limit.
+ */
+const RECENT_CONNECTIONS_LIMIT = 5;
+
+interface ConnectionContextValue {
+  settings: ConnectionSettings;
+  recents: SavedConnection[];
+  credentialsReady: boolean;
+  managedConnectionReady: boolean;
+  credentialError?: string;
+  resolveConnection: (settings: ConnectionSettings) => Promise<ConnectionSettings>;
+  connect: (settings: ConnectionSettings) => Promise<void>;
+  forget: (endpoint: string) => Promise<void>;
+}
+
+const ConnectionContext = createContext<ConnectionContextValue | undefined>(undefined);
+
+function readRecents(): SavedConnection[] {
+  try {
+    const value = JSON.parse(localStorage.getItem(RECENT_CONNECTIONS_KEY) ?? '[]') as unknown;
+    return Array.isArray(value)
+      ? value
+          .flatMap((item): SavedConnection[] => {
+            if (typeof item === 'string') return [{ endpoint: item }];
+            if (
+              item &&
+              typeof item === 'object' &&
+              'endpoint' in item &&
+              typeof item.endpoint === 'string'
+            ) {
+              return [
+                {
+                  endpoint: item.endpoint,
+                  ...('label' in item && typeof item.label === 'string'
+                    ? { label: item.label }
+                    : {}),
+                },
+              ];
+            }
+            return [];
+          })
+          .slice(0, RECENT_CONNECTIONS_LIMIT)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function ConnectionProvider({ children }: PropsWithChildren) {
+  const [recents, setRecents] = useState<SavedConnection[]>(readRecents);
+  const [settings, setSettings] = useState<ConnectionSettings>(() => ({
+    endpoint: recents[0]?.endpoint ?? DEFAULT_ENDPOINT,
+    label: recents[0]?.label,
+  }));
+  const [credentialsReady, setCredentialsReady] = useState(() => !inTauri());
+  const [managedConnectionReady, setManagedConnectionReady] = useState(false);
+  const [credentialError, setCredentialError] = useState<string>();
+  /** The supervisor's address is allocated per launch, so it is never remembered. */
+  const managedEndpoint = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!inTauri()) return;
+    let cancelled = false;
+    void waitForManagedBackend()
+      .then((handle) => {
+        if (cancelled) return;
+        const endpoint = normalizeEndpoint(handle.url);
+        managedEndpoint.current = endpoint;
+        setSettings({ endpoint, token: handle.bearer_token || undefined });
+        setManagedConnectionReady(true);
+        setCredentialError(undefined);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setCredentialError(
+          error instanceof Error ? error.message : 'The managed CLIO service is unavailable.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setCredentialsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const resolveConnection = useCallback(
+    async (next: ConnectionSettings): Promise<ConnectionSettings> => {
+      const endpoint = normalizeEndpoint(next.endpoint);
+      const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
+      if (normalized.token) return normalized;
+      if (settings.endpoint === endpoint && settings.token) {
+        return { ...normalized, token: settings.token };
+      }
+      if (managedConnectionReady && settings.endpoint === endpoint) return normalized;
+      const token = await readConnectionCredential(endpoint);
+      return { ...normalized, token };
+    },
+    [managedConnectionReady, settings.endpoint, settings.token],
+  );
+
+  const connect = useCallback(async (next: ConnectionSettings): Promise<void> => {
+    const endpoint = normalizeEndpoint(next.endpoint);
+    const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
+    const managed = endpoint === managedEndpoint.current;
+    if (normalized.token && !managed) {
+      await storeConnectionCredential(endpoint, normalized.token);
+    }
+    setCredentialError(undefined);
+    setSettings(normalized);
+    // The supervisor owns the managed address and its token for this launch only;
+    // recording it would evict remembered remote endpoints from the saved list.
+    if (managed) return;
+    setRecents((current) => {
+      const updated = [
+        { endpoint, label: normalized.label },
+        ...current.filter((item) => item.endpoint !== endpoint),
+      ].slice(0, RECENT_CONNECTIONS_LIMIT);
+      localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const forget = useCallback(async (endpoint: string): Promise<void> => {
+    const normalizedEndpoint = normalizeEndpoint(endpoint);
+    await deleteConnectionCredential(normalizedEndpoint);
+    setRecents((current) => {
+      const updated = current.filter((item) => item.endpoint !== normalizedEndpoint);
+      localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const value = useMemo<ConnectionContextValue>(
+    () => ({
+      settings,
+      recents,
+      credentialsReady,
+      managedConnectionReady,
+      credentialError,
+      resolveConnection,
+      connect,
+      forget,
+    }),
+    [
+      connect,
+      credentialError,
+      credentialsReady,
+      forget,
+      managedConnectionReady,
+      recents,
+      resolveConnection,
+      settings,
+    ],
+  );
+
+  return <ConnectionContext.Provider value={value}>{children}</ConnectionContext.Provider>;
+}
+
+// Provider and hook intentionally share one private context identity.
+// oxlint-disable-next-line react/only-export-components
+export function useConnectionSettings(): ConnectionContextValue {
+  const value = useContext(ConnectionContext);
+  if (!value) throw new Error('useConnectionSettings must be used inside ConnectionProvider');
+  return value;
+}

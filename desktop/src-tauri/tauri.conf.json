@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Agent Workspace",
+  "version": "0.7.2",
+  "identifier": "ai.iowarp.gact.desktop",
+  "build": {
+    "beforeBuildCommand": "pnpm --filter @clio/workspace build",
+    "beforeDevCommand": "pnpm --filter @clio/workspace dev",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../../web/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Agent Workspace",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 960,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:*; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob:; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "deb", "appimage", "dmg"],
+    "category": "Developer Tool",
+    "shortDescription": "A product-neutral workspace for agent services",
+    "longDescription": "Agent Workspace is the native host for the product-neutral web workspace. It connects to user-authorized agent services and supports secure credentials and remote connections. Embedding products supply their own identity and managed-service configuration.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
+    "externalBin": [],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/iowarp/gact-tui/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgyQ0FBOEYyMjFFMDQzQ0YKUldUUFErQWg4cWpLZ2o3SkxUSEU2QU1kd3F3dmdYU2llbHdnZVArSzhkbnJEb1RoZTZZd09UOXEK",
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

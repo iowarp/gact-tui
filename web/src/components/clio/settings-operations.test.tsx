@@ -1,0 +1,101 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const repository = vi.hoisted(() => ({
+  hooks: vi.fn().mockResolvedValue({
+    backend: 'declarative',
+    enabled: true,
+    hooks: [],
+    recent_invocations: [],
+  }),
+  memoryStatistics: vi.fn().mockResolvedValue({
+    cache: { hits: 3, misses: 1, hit_rate: 0.75, capacity: 1000 },
+    global: { conversations_total: 8, invocations_total: 21 },
+    metadata: {},
+  }),
+  runtimeMetrics: vi.fn().mockResolvedValue({
+    uptime_s: 90,
+    sessions: { total: 4, active: 1, by_status: {} },
+    messages: { total: 42, by_role: {} },
+    tokens: { input_total: 100, output_total: 20, cache_read_total: 0, cache_write_total: 0 },
+    cost: { total_usd: 0, by_provider: {} },
+    latencies: {
+      'tool:remote_scientific_jarvis_jarvis_run': {
+        count: 4,
+        p50_ms: 2_000,
+        p95_ms: 125_000,
+        max_ms: 140_000,
+      },
+    },
+  }),
+  serviceHealth: vi.fn().mockResolvedValue({
+    healthy: false,
+    uptime_s: 90,
+    overall_status: 'degraded',
+    integrations: [
+      {
+        name: 'child_parentage',
+        status: 'degraded',
+        summary: '13 processes do not descend from server pid 42.',
+        next_action: 'Reap the orphans with the process supervisor.',
+      },
+    ],
+    tool_hooks_installed: true,
+  }),
+}));
+
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+}));
+
+import { SystemSettings } from './settings-operations';
+
+afterEach(cleanup);
+
+function renderQuery(children: ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
+}
+
+describe('administration settings', () => {
+  it('turns reported health and metrics into task-oriented labels', async () => {
+    const user = userEvent.setup();
+    renderQuery(<SystemSettings />);
+
+    expect(await screen.findByText('Background process ownership')).toBeInTheDocument();
+    expect(screen.getByText('Needs attention')).toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: /Background process ownership.*Needs attention/ }),
+    );
+    expect(screen.getByText(/Some background work is no longer attached/)).toBeVisible();
+    expect(screen.queryByText(/13 processes do not descend/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Technical details' }));
+    expect(screen.getByText('13 processes do not descend from server pid 42.')).toBeVisible();
+    await user.click(screen.getByRole('tab', { name: 'Activity' }));
+    expect(await screen.findByText('42')).toBeInTheDocument();
+    expect(screen.getByText('95% within 2m 5s')).toBeInTheDocument();
+    expect(screen.getByText('Scientific remote connection')).toBeInTheDocument();
+    expect(screen.queryByText(/p95/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Memory' }));
+    expect(await screen.findByText('75%')).toBeInTheDocument();
+  });
+
+  it('does not invent cache effectiveness before activity exists', async () => {
+    repository.memoryStatistics.mockResolvedValueOnce({
+      cache: { hits: 0, misses: 0, hit_rate: 0, capacity: 1000 },
+      global: { conversations_total: 0, invocations_total: 0 },
+      metadata: {},
+    });
+    const user = userEvent.setup();
+    renderQuery(<SystemSettings />);
+
+    await user.click(screen.getByRole('tab', { name: 'Memory' }));
+    expect(await screen.findByText('Unavailable')).toBeInTheDocument();
+    expect(screen.getByText('No cache activity has been reported yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
+});

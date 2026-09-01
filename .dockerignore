@@ -21,8 +21,6 @@
 
 # --- Read-only research clones (huge) ---
 research
-apps/research
-apps/web/research
 
 # --- Node / pnpm ---
 **/node_modules
@@ -39,25 +37,24 @@ apps/web/research
 .clio-agent-artifacts
 
 # --- Rust / Tauri build output (desktop app — not used by Docker) ---
-apps/desktop/src-tauri/target
+desktop/src-tauri/target
 **/target
 
 # --- Go build output ---
 tui/gact
 tui/gact.exe
-emulator/emulator-server
 **/*.test
 **/*.exe
 
 # --- Frontend build output (rebuilt inside the image) ---
-apps/web/dist
-apps/core/dist
+web/dist
+packages/core/dist
 **/dist
 **/build
 
 # --- Visual artifacts (never needed in an image) ---
 screenshots
-apps/web/screenshots
+web/screenshots
 examples/loop-test
 **/*.png
 **/*.gif

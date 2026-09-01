@@ -1,0 +1,17 @@
+{
+  "$comment": "Single source of truth for native desktop menu action ids. Rust embeds and asserts this file; the React dispatcher derives its action set from it.",
+  "actions": [
+    "new-session",
+    "import-session",
+    "export-session",
+    "open-settings",
+    "toggle-inspector",
+    "toggle-sessions",
+    "cycle-density",
+    "command-palette",
+    "keyboard-shortcuts",
+    "fullscreen",
+    "help-docs",
+    "about"
+  ]
+}
