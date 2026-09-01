@@ -109,7 +109,7 @@ if ($provider.provider -ne $ExpectedProvider) {
 if ($provider.model -ne $ExpectedModel) {
     throw "Model mismatch: expected '$ExpectedModel', got '$($provider.model)'."
 }
-if ($provider.transport -ne $ExpectedTransport) {
+if (-not [string]::IsNullOrWhiteSpace($ExpectedTransport) -and $provider.transport -ne $ExpectedTransport) {
     throw "Transport mismatch: expected '$ExpectedTransport', got '$($provider.transport)'."
 }
 

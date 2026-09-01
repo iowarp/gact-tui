@@ -467,6 +467,71 @@ if ($null -eq $health -or $health.overall_status -ne "ready") {
     throw "CLIO backend did not become ready within 120 seconds."
 }
 
+# The committed CLIO config file deliberately outranks environment variables.
+# A preserved runtime may therefore boot with a stale file-backed provider even
+# though CLIO_LM_PROVIDER/CLIO_LM_MODEL name the requested qualification route.
+# Reconcile through the supported runtime API so app.state.agent, the provider
+# profile store, the catalog, and the UI all observe one effective selection.
+Set-DeploymentStage -Name "provider_reconciliation"
+$providerUri = "http://127.0.0.1:$BackendPort/v1/providers/lm"
+$providerInfo = Invoke-RestMethod -Uri $providerUri -TimeoutSec 20
+$expectedTransport = if ($Provider -eq "codex") {
+    "app_server"
+}
+elseif ($Provider -eq "claude_code") {
+    "sdk"
+}
+else {
+    ""
+}
+$providerNeedsApply = (
+    -not $providerInfo.configured -or
+    $providerInfo.provider -ne $Provider -or
+    $providerInfo.model -ne $Model -or
+    ($expectedTransport -and $providerInfo.transport -ne $expectedTransport)
+)
+if ($providerNeedsApply) {
+    $preset = @($providerInfo.presets | Where-Object { $_.id -eq $Provider }) |
+        Select-Object -First 1
+    $apiBase = if ($null -ne $preset -and -not [string]::IsNullOrWhiteSpace([string]$preset.api_base)) {
+        [string]$preset.api_base
+    }
+    else {
+        [string]$providerInfo.api_base
+    }
+    $providerRequest = @{
+        provider = $Provider
+        api_base = $apiBase
+        model = $Model
+    }
+    if ($expectedTransport) {
+        $providerRequest.transport = $expectedTransport
+    }
+    $providerInfo = Invoke-RestMethod `
+        -Uri $providerUri `
+        -Method Put `
+        -ContentType "application/json" `
+        -Body ($providerRequest | ConvertTo-Json) `
+        -TimeoutSec 300
+    if ($providerInfo.state -eq "configuring") {
+        $providerInfo = Invoke-RestMethod `
+            -Uri "$providerUri/wait?timeout=300" `
+            -TimeoutSec 320
+    }
+}
+if ($providerInfo.state -eq "error") {
+    throw "Provider reconciliation failed: $($providerInfo.error) $($providerInfo.status_message)"
+}
+if (-not $providerInfo.configured) {
+    throw "Provider reconciliation did not produce a configured agent."
+}
+if ($providerInfo.provider -ne $Provider -or $providerInfo.model -ne $Model) {
+    throw "Provider reconciliation mismatch: expected '$Provider/$Model', got '$($providerInfo.provider)/$($providerInfo.model)'."
+}
+if ($expectedTransport -and $providerInfo.transport -ne $expectedTransport) {
+    throw "Provider reconciliation transport mismatch: expected '$expectedTransport', got '$($providerInfo.transport)'."
+}
+
 Set-DeploymentStage -Name "frontend_dependencies"
 $pnpm = (Get-Command pnpm -ErrorAction Stop).Source
 & $pnpm `
@@ -549,6 +614,7 @@ Set-DeploymentStage -Name "live_preflight"
     -WebPort $WebPort `
     -ExpectedProvider $Provider `
     -ExpectedModel $Model `
+    -ExpectedTransport $expectedTransport `
     -SpotterImplDir $spotterImplRoot `
     -SpotterConfigPath $spotterConfigFull
 [pscustomobject]@{
