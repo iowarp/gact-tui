@@ -68,6 +68,14 @@ describe('ClioA2UIArtifact', () => {
     );
   });
 
+  it('claims no session provenance the protocol never supplied', async () => {
+    renderArtifact();
+
+    await screen.findByRole('img', { name: 'MTA1_position_timeseries.png' });
+    expect(screen.queryByText('Output')).not.toBeInTheDocument();
+    expect(screen.queryByText('Input')).not.toBeInTheDocument();
+  });
+
   it('makes the whole artifact card the action target', async () => {
     const user = userEvent.setup();
     const action = renderArtifact();
