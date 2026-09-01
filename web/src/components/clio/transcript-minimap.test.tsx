@@ -5,8 +5,8 @@ import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 
-const { getOffsetForIndex } = vi.hoisted(() => ({
-  getOffsetForIndex: vi.fn(() => [17, 'center'] as const),
+const { scrollToIndex } = vi.hoisted(() => ({
+  scrollToIndex: vi.fn(),
 }));
 
 vi.mock('@tanstack/react-virtual', () => ({
@@ -14,13 +14,13 @@ vi.mock('@tanstack/react-virtual', () => ({
     getTotalSize: () => count * 11,
     getVirtualItems: () =>
       Array.from({ length: count }, (_, index) => ({ index, key: index, start: index * 11 })),
-    getOffsetForIndex,
+    scrollToIndex,
   }),
 }));
 
 afterEach(() => {
   cleanup();
-  getOffsetForIndex.mockClear();
+  scrollToIndex.mockClear();
   vi.restoreAllMocks();
 });
 
@@ -89,7 +89,7 @@ describe('ClioTranscriptMinimap', () => {
     await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
     expect(onJump).toHaveBeenCalledWith(1);
     expect(screen.queryByText('Compare the three stations.')).not.toBeInTheDocument();
-    expect(getOffsetForIndex).not.toHaveBeenCalled();
+    expect(scrollToIndex).not.toHaveBeenCalled();
   });
 
   it('centers the active landmark when the minimap overflows', () => {
@@ -106,10 +106,6 @@ describe('ClioTranscriptMinimap', () => {
       />,
     );
 
-    expect(getOffsetForIndex).toHaveBeenCalledWith(1, 'center');
-    expect(screen.getByLabelText('Transcript minimap').firstElementChild).toHaveProperty(
-      'scrollTop',
-      17,
-    );
+    expect(scrollToIndex).toHaveBeenCalledWith(1, { align: 'center' });
   });
 });

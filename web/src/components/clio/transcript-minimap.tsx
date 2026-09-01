@@ -95,8 +95,7 @@ function MinimapRail({
     if (activeIndex < 0) return;
     const rail = railRef.current;
     if (!rail || virtualizer.getTotalSize() <= rail.clientHeight) return;
-    const offset = virtualizer.getOffsetForIndex(activeIndex, 'center')?.[0];
-    if (offset !== undefined && Math.abs(rail.scrollTop - offset) >= 1) rail.scrollTop = offset;
+    virtualizer.scrollToIndex(activeIndex, { align: 'center' });
   }, [activeIndex, rangeKey, virtualizer]);
   const content = (
     <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>

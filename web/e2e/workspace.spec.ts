@@ -64,9 +64,18 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(page.getByRole('button', { name: 'Allow once' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send response' })).toBeDisabled();
   await settleConversationAtLatest(page);
-  await expect(
-    page.getByRole('button', { name: 'Jump to assistant message 1000' }),
-  ).toHaveAttribute('aria-current', 'location');
+  const activeLandmark = page.getByRole('button', { name: 'Jump to assistant message 1000' });
+  await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
+  await expect
+    .poll(async () => {
+      const rail = await page
+        .getByRole('complementary', { name: 'Transcript minimap' })
+        .boundingBox();
+      const landmark = await activeLandmark.boundingBox();
+      if (!rail || !landmark) return false;
+      return landmark.y >= rail.y && landmark.y + landmark.height <= rail.y + rail.height;
+    })
+    .toBe(true);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await expect(page).toHaveScreenshot('workspace-desktop-dark.png', { animations: 'disabled' });
 
