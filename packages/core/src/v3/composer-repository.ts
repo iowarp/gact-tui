@@ -28,6 +28,7 @@ import {
   workspaceResourceStructureSchema,
 } from './composer-schemas.js';
 import { ArtifactPreviewRepository } from './artifact-preview-repository.js';
+import { TransportError } from './transport.js';
 
 export interface CreateQueuedMessageInput {
   parts: ComposerMessagePart[];
@@ -136,7 +137,36 @@ export class ComposerRepository extends ArtifactPreviewRepository {
     });
   }
 
-  public reorderQueuedMessages(
+  public async reorderQueuedMessages(
+    sessionId: string,
+    rows: QueuedMessage[],
+    signal?: AbortSignal,
+  ): Promise<QueuedMessage[]> {
+    try {
+      return await this.requestQueuedMessageReorder(sessionId, rows, signal);
+    } catch (error) {
+      if (!(error instanceof TransportError) || error.status !== 409) throw error;
+
+      const current = await this.queuedMessages(sessionId, signal);
+      const requested = new Map(rows.map((row) => [row.id, row]));
+      const latest = new Map(current.map((row) => [row.id, row]));
+      const surviving = rows.flatMap((row) => {
+        const currentRow = latest.get(row.id);
+        return currentRow ? [currentRow] : [];
+      });
+      let survivingIndex = 0;
+      const reconciled = current.map((row) =>
+        requested.has(row.id) ? (surviving[survivingIndex++] ?? row) : row,
+      );
+
+      if (reconciled.every((row, index) => row.id === current[index]?.id)) {
+        return current;
+      }
+      return this.requestQueuedMessageReorder(sessionId, reconciled, signal);
+    }
+  }
+
+  private requestQueuedMessageReorder(
     sessionId: string,
     rows: QueuedMessage[],
     signal?: AbortSignal,

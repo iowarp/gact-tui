@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ComposerRepository } from './composer-repository.js';
 import type { QueuedMessage } from './composer-domain.js';
 import { RecordingTransport } from './recording-transport.test-helper.js';
+import { TransportError } from './transport.js';
 
 const behavior = {
   reasoning_effort: 'high' as const,
@@ -95,6 +96,74 @@ describe('ComposerRepository', () => {
       body: {
         ordered_ids: ['queued_2', 'queued_1'],
         revisions: { queued_1: 3, queued_2: 5 },
+      },
+    });
+  });
+
+  it('reconciles a reorder when the service already consumed the queued message', async () => {
+    const queued = (id: string): QueuedMessage => ({
+      id,
+      session_id: 'session_1',
+      revision: 1,
+      position: 0,
+      parts: [{ type: 'text', text: id }],
+      metadata: {},
+      client_message_id: id,
+      idempotency_key: id,
+      behavior,
+      model,
+      created_at: '2026-08-31T12:00:00Z',
+      updated_at: '2026-08-31T12:00:00Z',
+    });
+    const transport = new RecordingTransport([
+      new TransportError('queued message reorder set does not match server state', 409),
+      { queued_messages: [] },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(
+      repository.reorderQueuedMessages('session_1', [queued('queued_1')]),
+    ).resolves.toEqual([]);
+    expect(transport.requests.map((request) => request.method)).toEqual(['POST', 'GET']);
+  });
+
+  it('reapplies the requested relative order to the latest server queue', async () => {
+    const queued = (id: string, revision: number, position: number): QueuedMessage => ({
+      id,
+      session_id: 'session_1',
+      revision,
+      position,
+      parts: [{ type: 'text', text: id }],
+      metadata: {},
+      client_message_id: id,
+      idempotency_key: id,
+      behavior,
+      model,
+      created_at: '2026-08-31T12:00:00Z',
+      updated_at: '2026-08-31T12:00:00Z',
+    });
+    const staleFirst = queued('queued_1', 1, 0);
+    const staleSecond = queued('queued_2', 1, 1);
+    const serverOnly = queued('queued_server', 2, 0);
+    const latestFirst = queued('queued_1', 3, 1);
+    const latestSecond = queued('queued_2', 4, 2);
+    const reorderedSecond = queued('queued_2', 5, 1);
+    const reorderedFirst = queued('queued_1', 4, 2);
+    const transport = new RecordingTransport([
+      new TransportError('queued message revision conflict', 409),
+      { queued_messages: [serverOnly, latestFirst, latestSecond] },
+      { queued_messages: [serverOnly, reorderedSecond, reorderedFirst] },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(
+      repository.reorderQueuedMessages('session_1', [staleSecond, staleFirst]),
+    ).resolves.toEqual([serverOnly, reorderedSecond, reorderedFirst]);
+    expect(transport.requests[2]).toMatchObject({
+      method: 'POST',
+      body: {
+        ordered_ids: ['queued_server', 'queued_2', 'queued_1'],
+        revisions: { queued_1: 3, queued_2: 4, queued_server: 2 },
       },
     });
   });

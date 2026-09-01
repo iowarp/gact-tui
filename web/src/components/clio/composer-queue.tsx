@@ -1,12 +1,5 @@
 import type { MessageDelivery, QueuedMessage } from '@clio/core/v3';
-import {
-  CheckIcon,
-  GripVerticalIcon,
-  PencilIcon,
-  SendIcon,
-  Trash2Icon,
-  XIcon,
-} from 'lucide-react';
+import { CheckIcon, GripVerticalIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -97,9 +90,17 @@ export function ClioComposerQueue({
   const dropBefore = async (targetId: string) => {
     if (!draggedId || draggedId === targetId) return;
     const source = messageById.get(draggedId);
-    if (!source) return;
+    const targetIndex = ordered.findIndex((item) => item.id === targetId);
+    if (!source || targetIndex < 0) {
+      setDraggedId(undefined);
+      return;
+    }
     const next = ordered.filter((item) => item.id !== draggedId);
-    next.splice(next.findIndex((item) => item.id === targetId), 0, source);
+    next.splice(
+      next.findIndex((item) => item.id === targetId),
+      0,
+      source,
+    );
     setDraggedId(undefined);
     setOrderOverride(next);
     try {
