@@ -26,12 +26,15 @@ import {
 } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { ClioStatus } from './status';
 
 type PermissionAction = 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
 
 export interface ClioPendingInteractionsProps {
   approvals: readonly ApprovalRequest[];
   questions: readonly UserQuestion[];
+  /** Sessions this workspace view has discovered; others are labelled, never hidden. */
+  listedSessionIds?: ReadonlySet<string>;
   disabled?: boolean;
   onApproval: (id: string, action: PermissionAction) => Promise<void>;
   onAnswer: (id: string, answer: { answer?: string; selected_options?: string[] }) => Promise<void>;
@@ -41,6 +44,7 @@ export interface ClioPendingInteractionsProps {
 export function ClioPendingInteractions({
   approvals,
   questions,
+  listedSessionIds,
   disabled,
   onApproval,
   onAnswer,
@@ -68,6 +72,14 @@ export function ClioPendingInteractions({
               <span className="mt-1 block text-sm text-muted-foreground">
                 {approval.reason ?? `Protected action: ${approval.tool_name}`}
               </span>
+              {listedSessionIds && !listedSessionIds.has(approval.session_id) ? (
+                <ClioStatus
+                  className="mt-2"
+                  detail={`Requested by session ${approval.session_id}`}
+                  label="Session not listed yet"
+                  value="unavailable"
+                />
+              ) : null}
               <details className="mt-2 text-xs text-muted-foreground">
                 <summary className="cursor-pointer">Technical details</summary>
                 <p className="mt-1 font-mono">{approval.tool_name}</p>

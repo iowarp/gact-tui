@@ -106,6 +106,28 @@ describe('useSessionLiveStream resume recovery', () => {
     ]);
   });
 
+  it('invalidates the approvals query the workspace actually reads', async () => {
+    const { QueryClient } = await vi.importActual<typeof import('@tanstack/react-query')>(
+      '@tanstack/react-query',
+    );
+    const client = new QueryClient();
+    client.setQueryData(['pending-approvals', 'http://127.0.0.1:8790', 'all-active'], []);
+
+    const matched = queryInvalidationKeysForEvent({
+      endpoint: 'http://127.0.0.1:8790',
+      eventName: 'permission.requested',
+      sessionId: 'sess_1',
+      workspaceId: 'ws_1',
+    }).flatMap((queryKey) =>
+      client
+        .getQueryCache()
+        .findAll({ queryKey })
+        .map((query) => query.queryKey),
+    );
+
+    expect(matched).toContainEqual(['pending-approvals', 'http://127.0.0.1:8790', 'all-active']);
+  });
+
   it('continues consuming frames while cache invalidation is unresolved', async () => {
     let advancedPastFirstFrame = false;
     mocks.queryClient.invalidateQueries.mockImplementation(() => new Promise(() => undefined));

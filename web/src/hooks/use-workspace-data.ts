@@ -210,11 +210,9 @@ export function useWorkspaceData({
     }
     return related;
   }, [allSessions.data, entities.subagents, sessionId]);
-  const visibleApprovals = useMemo(
-    () =>
-      (approvals.data ?? []).filter((approval) => interactionSessionIds.has(approval.session_id)),
-    [approvals.data, interactionSessionIds],
-  );
+  // Every pending approval is rendered. A blocked descendant this view has not
+  // discovered yet is labelled by the interaction surface, never hidden.
+  const visibleApprovals = approvals.data ?? [];
   const runs = Object.values(entities.runs).filter((run) => run.session_id === sessionId);
   const context = sessionContext.state.data ?? entities.context[contextTargetId];
   const activeProvider =
@@ -264,6 +262,7 @@ export function useWorkspaceData({
     contextTargetOptions,
     entities,
     executionProvenance,
+    interactionSessionIds,
     modelConfiguration,
     modelOptions,
     parentSession,

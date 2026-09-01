@@ -211,10 +211,9 @@ export function queryInvalidationKeysForEvent({
 }: QueryInvalidationEvent): QueryKey[] {
   const keys: QueryKey[] = [];
   if (isPendingInteractionEvent(eventName)) {
-    keys.push(
-      queryKeys.pendingApprovals(endpoint, sessionId),
-      queryKeys.pendingQuestions(endpoint, sessionId),
-    );
+    // Approvals are read unscoped (a descendant session can raise one), so the
+    // invalidation must be the endpoint-level prefix that query is keyed under.
+    keys.push(queryKeys.pendingApprovals(endpoint), queryKeys.pendingQuestions(endpoint, sessionId));
   }
   if (isProcessEvent(eventName)) {
     keys.push(

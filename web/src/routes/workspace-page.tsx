@@ -72,6 +72,7 @@ export function WorkspacePage() {
     contextTargetOptions,
     entities,
     executionProvenance,
+    interactionSessionIds,
     modelConfiguration,
     modelOptions,
     parentSession,
@@ -588,6 +589,7 @@ export function WorkspacePage() {
             ) : null}
             <ClioPendingInteractions
               approvals={visibleApprovals}
+              listedSessionIds={interactionSessionIds}
               disabled={
                 respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
               }
