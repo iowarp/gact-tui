@@ -1,4 +1,5 @@
-import type { EntityState, Message, MessageBlock } from './domain.js';
+import type { EntityState, Message, MessageBlock, TransportGap } from './domain.js';
+import type { EventEnvelope } from './schemas.js';
 import {
   a2uiSurfaceSchema,
   approvalRequestSchema,
@@ -19,6 +20,7 @@ import {
 import type { TransportFrame } from './transport.js';
 
 const MAX_CURSOR_HISTORY = 2_048;
+const MAX_GAP_HISTORY = 100;
 
 export function createEntityState(): EntityState {
   return {
@@ -40,7 +42,30 @@ export function createEntityState(): EntityState {
     infrastructure: {},
     revisions: {},
     processed_cursors: [],
+    gaps: [],
   };
+}
+
+/**
+ * Records a frame that named an entity the store does not hold, rather than
+ * dropping it silently. The revision is deliberately not banked: the frame
+ * applied nothing, so a redelivery must still be allowed to apply.
+ */
+function recordMissingEntity(
+  base: EntityState,
+  frame: TransportFrame,
+  envelope: EventEnvelope,
+  reason: string,
+): EntityState {
+  const gap: TransportGap = {
+    cursor: frame.cursor,
+    event_name: envelope.type,
+    entity_id: envelope.entity_id,
+    code: 'entity_not_resident',
+    reason,
+    received_at: frame.receivedAt,
+  };
+  return { ...base, gaps: [...base.gaps, gap].slice(-MAX_GAP_HISTORY) };
 }
 
 function revisionKey(type: string, entityId: string): string {
@@ -136,7 +161,14 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       const payload = envelope.payload as { message_id?: unknown; block?: unknown };
       if (typeof payload.message_id !== 'string') throw new Error('Invalid message block owner');
       const message = base.messages[payload.message_id];
-      if (!message) return { ...base, revisions };
+      if (!message) {
+        return recordMissingEntity(
+          base,
+          frame,
+          envelope,
+          `Message ${payload.message_id} is not resident for its block`,
+        );
+      }
       const block = messageBlockSchema.parse(payload.block);
       return {
         ...base,
@@ -158,7 +190,14 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         throw new Error('Invalid message.block.delta payload');
       }
       const message = base.messages[payload.message_id];
-      if (!message) return { ...base, revisions };
+      if (!message) {
+        return recordMissingEntity(
+          base,
+          frame,
+          envelope,
+          `Message ${payload.message_id} is not resident for its block delta`,
+        );
+      }
       return {
         ...base,
         revisions,
@@ -182,7 +221,14 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         throw new Error('Invalid message.block.completed payload');
       }
       const message = base.messages[payload.message_id];
-      if (!message) return { ...base, revisions };
+      if (!message) {
+        return recordMissingEntity(
+          base,
+          frame,
+          envelope,
+          `Message ${payload.message_id} is not resident for its completed block`,
+        );
+      }
       return {
         ...base,
         revisions,
@@ -195,7 +241,14 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     case 'message.completed': {
       const payload = messageCompletionSchema.parse(envelope.payload);
       const message = base.messages[payload.message_id];
-      if (!message) return { ...base, revisions };
+      if (!message) {
+        return recordMissingEntity(
+          base,
+          frame,
+          envelope,
+          `Message ${payload.message_id} is not resident for its completion`,
+        );
+      }
       return {
         ...base,
         revisions,
@@ -240,7 +293,14 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       };
       if (typeof payload.id !== 'string') throw new Error('Invalid resolved approval id');
       const approval = base.approvals[payload.id];
-      if (!approval) return { ...base, revisions };
+      if (!approval) {
+        return recordMissingEntity(
+          base,
+          frame,
+          envelope,
+          `Approval ${payload.id} is not resident for its resolution`,
+        );
+      }
       const status =
         payload.status === 'approved' ||
         payload.status === 'denied' ||
@@ -312,7 +372,14 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       const payload = envelope.payload as { surface_id?: unknown };
       if (typeof payload.surface_id !== 'string') throw new Error('Invalid deleted surface id');
       const surface = base.surfaces[payload.surface_id];
-      if (!surface) return { ...base, revisions };
+      if (!surface) {
+        return recordMissingEntity(
+          base,
+          frame,
+          envelope,
+          `A2UI surface ${payload.surface_id} is not resident for its deletion`,
+        );
+      }
       return {
         ...base,
         revisions,
