@@ -92,9 +92,18 @@ function ModelsSettingsContent({
     (preset) => preset.id === requestedProvider || preset.provider === requestedProvider,
   );
   const initialPreset = requestedPreset ?? activePreset;
+  const initialPresetIsActive = Boolean(
+    initialPreset &&
+      (initialPreset.id === activePreset?.id ||
+        (!activePreset && initialPreset.id === configuration.provider)),
+  );
   const [presetId, setPresetId] = useState(initialPreset?.id ?? configuration.provider);
-  const [modelId, setModelId] = useState(requestedPreset?.suggested_model ?? configuration.model);
-  const [apiBase, setApiBase] = useState(initialPreset?.api_base ?? configuration.api_base);
+  const [modelId, setModelId] = useState(
+    initialPresetIsActive ? configuration.model : (initialPreset?.suggested_model ?? ''),
+  );
+  const [apiBase, setApiBase] = useState(
+    initialPresetIsActive ? configuration.api_base : (initialPreset?.api_base ?? ''),
+  );
   const [apiKey, setApiKey] = useState('');
   const [parallel, setParallel] = useState(0);
   const [contextLength, setContextLength] = useState(0);
@@ -285,8 +294,13 @@ function ModelsSettingsContent({
               onValueChange={(value) => {
                 setPresetId(value);
                 const preset = configuration.presets.find((item) => item.id === value);
-                setModelId(preset?.suggested_model ?? '');
-                setApiBase(preset?.api_base ?? '');
+                const presetIsActive = Boolean(
+                  preset &&
+                    (preset.id === activePreset?.id ||
+                      (!activePreset && preset.id === configuration.provider)),
+                );
+                setModelId(presetIsActive ? configuration.model : (preset?.suggested_model ?? ''));
+                setApiBase(presetIsActive ? configuration.api_base : (preset?.api_base ?? ''));
                 setApiKey('');
                 setRefreshResult(undefined);
                 setHandshakeResult(undefined);

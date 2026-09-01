@@ -75,6 +75,46 @@ afterEach(() => {
 });
 
 describe('ModelsSettings', () => {
+  it('preserves the authoritative configured model when opened for its provider', async () => {
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      configured: true,
+      provider: 'codex',
+      api_base: 'codex://app-server',
+      model: 'gpt-5.6-luna',
+      thinking_level: 'medium',
+      presets: [
+        {
+          id: 'codex',
+          label: 'Codex',
+          provider: 'codex',
+          api_base: 'codex://app-server',
+          suggested_model: 'gpt-5.5',
+          requires_api_key: false,
+          is_authenticated: true,
+          supports_live_catalog: true,
+          supports_vision: true,
+        },
+      ],
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter initialEntries={['/settings/providers?provider=codex']}>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'gpt-5.6-luna',
+    );
+    expect(screen.getByRole('textbox', { name: 'Endpoint / API base' })).toHaveValue(
+      'codex://app-server',
+    );
+  });
+
   it('refreshes the selected service catalog and reports its provenance and delta', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({
