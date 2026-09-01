@@ -184,7 +184,9 @@ export function SessionNavigationRow({
           </div>
           <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-t pt-3 text-xs">
             <span className="text-muted-foreground">Agent</span>
-            <span className="truncate">{blueprint?.display_name || 'Standard agent'}</span>
+            <span className="truncate">
+              {blueprint?.display_name || session.agent_id || 'Agent unavailable'}
+            </span>
             <span className="text-muted-foreground">Model</span>
             <span className="truncate">{session.model_id || 'Inherited workspace default'}</span>
             <span className="text-muted-foreground">Last interaction</span>

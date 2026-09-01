@@ -62,9 +62,7 @@ export function ClioSessionContextBar({
               <span className="truncate">{activeBlueprint.display_name}</span>
             </Button>
           </>
-        ) : (
-          <span className="truncate text-xs text-muted-foreground">/ Default agent</span>
-        )}
+        ) : null}
       </div>
       <ClioSessionActions
         disabled={!session || actionsPending}
