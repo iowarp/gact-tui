@@ -90,6 +90,27 @@ describe('ClioModelPicker', () => {
     expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(10);
   });
 
+  it('retries live discovery from the catalog error surface', async () => {
+    const user = userEvent.setup();
+    const onRetryCatalog = vi.fn();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          catalogStatus="error"
+          onChange={vi.fn()}
+          onRetryCatalog={onRetryCatalog}
+          options={options}
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    expect(screen.queryByText('Luna')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRetryCatalog).toHaveBeenCalledOnce();
+  });
+
   it('links provider configuration without mixing it into model selection', async () => {
     const user = userEvent.setup();
     render(

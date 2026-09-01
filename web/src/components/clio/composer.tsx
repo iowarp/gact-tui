@@ -73,6 +73,7 @@ export interface ClioComposerProps {
   }) => Promise<void>;
   onStop?: () => void;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
+  onRetryModelCatalog?: () => void;
   activityControl?: ReactNode;
   queuedMessages?: QueuedMessage[];
   queueBusy?: boolean;
@@ -108,6 +109,7 @@ export function ClioComposer({
   onSubmit,
   onStop,
   onCommand,
+  onRetryModelCatalog,
   activityControl,
   queuedMessages = [],
   queueBusy,
@@ -326,6 +328,7 @@ export function ClioComposer({
                     setSelectedProvider(option.providerId);
                     setSelectedModel(option.id);
                   }}
+                  onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
                   provider={selectedOption?.providerId}
                   trigger={

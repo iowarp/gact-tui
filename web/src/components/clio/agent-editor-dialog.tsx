@@ -217,6 +217,10 @@ export function AgentEditorDialog({
                     }));
                     setCustomSource(false);
                   }}
+                  onRetryCatalog={() => {
+                    void modelConfiguration.refetch();
+                    for (const catalog of modelCatalogs) void catalog.refetch();
+                  }}
                   options={modelOptions}
                   provider={effectiveProvider}
                   trigger={

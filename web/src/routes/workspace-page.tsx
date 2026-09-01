@@ -74,6 +74,7 @@ export function WorkspacePage() {
     modelOptions,
     modelCatalogStatus,
     parentSession,
+    providerCatalog,
     processes,
     questions,
     runs,
@@ -369,6 +370,9 @@ export function WorkspacePage() {
             if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
             throw error;
           }
+        }}
+        onRetryModelCatalog={() => {
+          void providerCatalog.refetch();
         }}
         onSubmit={async (value) => {
           const startedFromWelcome = showConversationWelcome;

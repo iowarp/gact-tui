@@ -1,4 +1,4 @@
-import { ActivityIcon, EyeIcon, EyeOffIcon, SettingsIcon } from 'lucide-react';
+import { ActivityIcon, EyeIcon, EyeOffIcon, RefreshCwIcon, SettingsIcon } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -33,6 +33,7 @@ interface ClioModelPickerProps {
   catalogStatus?: 'error' | 'loading' | 'ready';
   model?: string;
   onChange: (choice: ClioModelOption) => void;
+  onRetryCatalog?: () => void;
   options: readonly ClioModelOption[];
   provider?: string;
   title?: string;
@@ -73,6 +74,7 @@ export function ClioModelPicker({
   catalogStatus = 'ready',
   model,
   onChange,
+  onRetryCatalog,
   options,
   provider,
   title = 'Choose a model',
@@ -202,7 +204,7 @@ export function ClioModelPicker({
         {catalogStatus === 'loading' ? (
           <ModelCatalogSkeleton columns={showColumns} />
         ) : catalogStatus === 'error' ? (
-          <ModelCatalogError />
+          <ModelCatalogError onRetry={onRetryCatalog} />
         ) : (
           <Cascader
             closeOnSelect={false}
@@ -394,13 +396,19 @@ function ModelCatalogSkeleton({ columns }: { columns: boolean }) {
   );
 }
 
-function ModelCatalogError() {
+function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
   return (
     <div className="flex size-full items-start p-4">
       <Alert variant="destructive">
         <AlertTitle>Models could not be loaded</AlertTitle>
         <AlertDescription>
-          Check the provider connection or configuration, then reopen this picker to retry.
+          <span>Check the provider connection or configuration, then try discovery again.</span>
+          {onRetry ? (
+            <Button className="mt-3" onClick={onRetry} size="sm" type="button" variant="outline">
+              <RefreshCwIcon data-icon="inline-start" />
+              Retry
+            </Button>
+          ) : null}
         </AlertDescription>
       </Alert>
     </div>
