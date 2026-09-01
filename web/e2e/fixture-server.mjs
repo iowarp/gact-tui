@@ -134,7 +134,10 @@ function transcriptMessages() {
       {
         id: `block_history_${String(index).padStart(4, '0')}`,
         type: 'text',
-        text: `Sanitized evidence ledger entry ${index + 1}.`,
+        text:
+          index === 0
+            ? 'Sanitized **evidence ledger** entry 1.'
+            : `Sanitized evidence ledger entry ${index + 1}.`,
       },
     ],
   }));

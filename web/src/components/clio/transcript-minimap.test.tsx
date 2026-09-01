@@ -30,7 +30,13 @@ const messages: Message[] = [
     session_id: 'session_1',
     role: 'user',
     created_at: '2026-08-31T12:00:00Z',
-    blocks: [{ id: 'text_1', type: 'text', text: 'Compare the three stations.' }],
+    blocks: [
+      {
+        id: 'text_1',
+        type: 'text',
+        text: 'Compare the **three stations** with the complete provenance record.',
+      },
+    ],
   },
   {
     id: 'assistant_1',
@@ -58,8 +64,23 @@ describe('ClioTranscriptMinimap', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Open transcript outline' }));
-    await user.click(screen.getByRole('button', { name: 'Compare the three stations.' }));
+    const outline = screen.getByRole('dialog', { name: 'Transcript outline' });
+    expect(outline).toHaveClass('resize');
+    expect(
+      await screen.findByText('three stations', { selector: '[data-streamdown="strong"]' }),
+    ).toBeVisible();
+    const outlineItem = screen.getByRole('button', {
+      name: 'Jump to user message 1',
+    });
+    expect(screen.queryByText(/\*\*three stations\*\*/)).not.toBeInTheDocument();
+    await user.hover(outlineItem);
+    const fullPreview = await screen.findByRole('region', { name: 'Full user message 1' });
+    expect(fullPreview).toHaveTextContent(
+      'Compare the three stations with the complete provenance record.',
+    );
+    await user.click(outlineItem);
     expect(onJump).toHaveBeenCalledWith(0);
+    expect(screen.queryByRole('region', { name: 'Full user message 1' })).not.toBeInTheDocument();
   });
 
   it('renders semantic landmark buttons without transcript text duplication', async () => {
@@ -79,21 +100,25 @@ describe('ClioTranscriptMinimap', () => {
     );
 
     expect(screen.getByLabelText('Transcript minimap')).toBeVisible();
+    expect(screen.getByLabelText('Transcript minimap')).not.toHaveClass(
+      'bg-background/80',
+      'shadow-sm',
+      'backdrop-blur-sm',
+    );
     expect(
       screen
         .getByLabelText('Transcript minimap')
         .querySelector('[data-slot="transcript-minimap-landmarks"]'),
     ).toHaveClass('min-h-full', 'items-center');
-    expect(screen.getByRole('button', { name: 'Jump to assistant message 2' })).toHaveAttribute(
-      'aria-current',
-      'location',
-    );
+    const activeLandmark = screen.getByRole('button', { name: 'Jump to assistant message 2' });
+    expect(activeLandmark).toHaveAttribute('aria-current', 'location');
+    expect(activeLandmark).toHaveClass('h-[11px]');
     expect(screen.getByRole('button', { name: 'Jump to user message 1' })).not.toHaveAttribute(
       'aria-current',
     );
     await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
     expect(onJump).toHaveBeenCalledWith(1);
-    expect(screen.queryByText('Compare the three stations.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Compare the three stations/)).not.toBeInTheDocument();
     expect(scrollToIndex).not.toHaveBeenCalled();
   });
 

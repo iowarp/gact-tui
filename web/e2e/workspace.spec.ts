@@ -69,11 +69,12 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(conversation).toHaveCSS('scrollbar-width', 'none');
   const activeLandmark = page.getByRole('button', { name: 'Jump to assistant message 1000' });
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
+  const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
+  await expect(minimap).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(minimap).toHaveCSS('box-shadow', 'none');
   await expect
     .poll(async () => {
-      const rail = await page
-        .getByRole('complementary', { name: 'Transcript minimap' })
-        .boundingBox();
+      const rail = await minimap.boundingBox();
       const landmark = await activeLandmark.boundingBox();
       if (!rail || !landmark) return false;
       const railCenter = rail.y + rail.height / 2;
@@ -81,6 +82,34 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
       return Math.abs(railCenter - landmarkCenter) <= 2;
     })
     .toBe(true);
+  const previousLandmark = minimap.getByRole('button', {
+    exact: true,
+    name: 'Jump to user message 999',
+  });
+  const previousBounds = await previousLandmark.boundingBox();
+  const activeBounds = await activeLandmark.boundingBox();
+  expect(previousBounds).not.toBeNull();
+  expect(activeBounds).not.toBeNull();
+  expect(
+    Math.abs((previousBounds?.y ?? 0) + (previousBounds?.height ?? 0) - (activeBounds?.y ?? 0)),
+  ).toBeLessThanOrEqual(1);
+
+  const minimapBounds = await minimap.boundingBox();
+  expect(minimapBounds).not.toBeNull();
+  if (minimapBounds) {
+    await page.mouse.move(
+      minimapBounds.x + minimapBounds.width / 2,
+      minimapBounds.y + minimapBounds.height / 2,
+    );
+    await page.mouse.wheel(0, -50_000);
+  }
+  await expect(
+    minimap.getByRole('button', { exact: true, name: 'Jump to user message 1' }),
+  ).toBeVisible();
+  if (minimapBounds) await page.mouse.wheel(0, 50_000);
+  await expect(activeLandmark).toBeVisible();
+  await page.mouse.move(600, 30);
+  await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await expect(page).toHaveScreenshot('workspace-desktop-dark.png', { animations: 'disabled' });
 
@@ -122,6 +151,50 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await expect(page).toHaveScreenshot('workspace-mobile-light-reduced.png', {
     animations: 'disabled',
   });
+
+  await page.getByRole('button', { name: 'Open transcript outline' }).click();
+  const outline = page.getByRole('dialog', { name: 'Transcript outline' });
+  await expect(outline).toBeVisible();
+  await expect(outline).toHaveCSS('resize', 'both');
+  expect(await outline.locator('[data-index]').count()).toBeLessThan(30);
+  const finalOutlineRow = outline.locator('[data-index="999"]');
+  await expect(finalOutlineRow).toBeVisible();
+  await expect(finalOutlineRow.locator('p')).toHaveCSS('white-space', 'nowrap');
+  expect((await finalOutlineRow.boundingBox())?.height ?? 0).toBeLessThanOrEqual(36);
+  const outlineBounds = await outline.boundingBox();
+  expect(outlineBounds).not.toBeNull();
+  if (outlineBounds) {
+    await page.mouse.move(
+      outlineBounds.x + outlineBounds.width - 2,
+      outlineBounds.y + outlineBounds.height - 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      outlineBounds.x + outlineBounds.width + 62,
+      outlineBounds.y + outlineBounds.height + 42,
+      { steps: 8 },
+    );
+    await page.mouse.up();
+    const resizedBounds = await outline.boundingBox();
+    expect(resizedBounds?.width ?? 0).toBeGreaterThan(outlineBounds.width + 40);
+    expect(resizedBounds?.height ?? 0).toBeGreaterThan(outlineBounds.height + 20);
+  }
+  await outline.locator('[data-slot="transcript-outline-list"]').evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  const firstOutlineItem = outline.getByRole('button', {
+    exact: true,
+    name: 'Jump to user message 1',
+  });
+  await expect(firstOutlineItem).toBeVisible();
+  await expect(outline.locator('[data-streamdown="strong"]')).toContainText('evidence ledger');
+  await expect(outline.getByText(/\*\*evidence ledger\*\*/)).toHaveCount(0);
+  await firstOutlineItem.hover();
+  const fullFirstMessage = page.getByRole('region', { name: 'Full user message 1' });
+  await expect(fullFirstMessage).toContainText('Sanitized evidence ledger entry 1.');
+  await firstOutlineItem.click();
+  await expect(fullFirstMessage).toHaveCount(0);
+  await expect(outline).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   await expect(page.getByRole('dialog', { name: 'Workspace canvas' })).toBeVisible();

@@ -2,6 +2,7 @@ import type { Message } from '@clio/core/v3';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ListTreeIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
+import { MarkdownText } from '@/components/ai-elements/markdown';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -40,20 +41,16 @@ export function ClioTranscriptMinimap({
             <ListTreeIcon aria-hidden="true" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-72 p-2" side="right">
-          <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">Transcript outline</p>
-          <div className="max-h-72 space-y-1 overflow-y-auto">
-            {messages.map((message, index) => (
-              <Button
-                className="h-auto w-full justify-start px-2 py-1.5 text-left"
-                key={message.id}
-                onClick={() => onJump(index)}
-                variant={index === activeIndex ? 'secondary' : 'ghost'}
-              >
-                <span className="truncate">{messagePreview(message)}</span>
-              </Button>
-            ))}
-          </div>
+        <PopoverContent
+          align="start"
+          aria-label="Transcript outline"
+          className="h-80 min-h-48 w-80 min-w-64 max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] resize overflow-hidden p-2"
+          side="right"
+        >
+          <p className="shrink-0 px-2 text-xs font-medium text-muted-foreground">
+            Transcript outline
+          </p>
+          <TranscriptOutlineList activeIndex={activeIndex} messages={messages} onJump={onJump} />
         </PopoverContent>
       </Popover>
     );
@@ -67,6 +64,129 @@ export function ClioTranscriptMinimap({
       scrollTargetRef={scrollTargetRef}
       useScrollspy={useScrollspy}
     />
+  );
+}
+
+function TranscriptOutlineList({
+  activeIndex,
+  messages,
+  onJump,
+}: {
+  activeIndex: number;
+  messages: readonly Message[];
+  onJump: (index: number) => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
+  // oxlint-disable-next-line react/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: messages.length,
+    estimateSize: () => 36,
+    getItemKey: (index) => messages[index]?.id ?? index,
+    getScrollElement: () => listRef.current,
+    overscan: 6,
+  });
+  useLayoutEffect(() => {
+    if (activeIndex < 0) return;
+    virtualizer.scrollToIndex(activeIndex, { align: 'center' });
+  }, [activeIndex, virtualizer]);
+  return (
+    <div
+      className="clio-scrollbar min-h-0 flex-1 overflow-y-auto"
+      data-slot="transcript-outline-list"
+      ref={listRef}
+    >
+      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((row) => {
+          const message = messages[row.index];
+          if (!message) return null;
+          return (
+            <div
+              className="absolute top-0 left-0 w-full pr-1"
+              data-index={row.index}
+              key={row.key}
+              style={{ height: row.size, transform: `translateY(${row.start}px)` }}
+            >
+              <TranscriptOutlineItem
+                active={row.index === activeIndex}
+                index={row.index}
+                message={message}
+                onJump={onJump}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function TranscriptOutlineItem({
+  active,
+  index,
+  message,
+  onJump,
+}: {
+  active: boolean;
+  index: number;
+  message: Message;
+  onJump: (index: number) => void;
+}) {
+  const preview = messagePreview(message);
+  const previewDismissedRef = useRef(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  return (
+    <HoverCard
+      onOpenChange={(open) => {
+        if (open && previewDismissedRef.current) return;
+        setPreviewOpen(open);
+      }}
+      open={previewOpen}
+      openDelay={120}
+    >
+      <div className="grid min-h-8 rounded-md">
+        <HoverCardTrigger asChild>
+          <Button
+            aria-current={active ? 'location' : undefined}
+            aria-label={`Jump to ${message.role} message ${index + 1}`}
+            className="h-full w-full [grid-area:1/1]"
+            onClick={() => {
+              previewDismissedRef.current = true;
+              setPreviewOpen(false);
+              onJump(index);
+            }}
+            onPointerLeave={() => {
+              previewDismissedRef.current = false;
+            }}
+            variant={active ? 'secondary' : 'ghost'}
+          />
+        </HoverCardTrigger>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none overflow-hidden px-2 py-1.5 [grid-area:1/1]"
+        >
+          <MarkdownText
+            className="overflow-hidden text-left text-sm text-ellipsis whitespace-nowrap! [&_*]:m-0 [&_br]:hidden [&_pre]:inline [&>*]:inline"
+            controls={false}
+            mode="static"
+          >
+            {preview}
+          </MarkdownText>
+        </div>
+      </div>
+      <HoverCardContent
+        align="start"
+        aria-label={`Full ${message.role} message ${index + 1}`}
+        className="max-h-80 w-96 max-w-[calc(100vw-2rem)] overflow-y-auto"
+        role="region"
+        side="right"
+      >
+        <p className="mb-2 text-xs font-medium capitalize text-muted-foreground">{message.role}</p>
+        <MarkdownText className="text-sm leading-5" controls={false} mode="static">
+          {preview}
+        </MarkdownText>
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 
@@ -96,9 +216,6 @@ function MinimapRail({
     paddingStart: edgePadding,
   });
   const rows = virtualizer.getVirtualItems();
-  const firstRow = rows[0];
-  const lastRow = rows.at(-1);
-  const rangeKey = `${firstRow?.index ?? -1}:${firstRow?.start ?? -1}:${lastRow?.index ?? -1}:${lastRow?.end ?? -1}`;
   useLayoutEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
@@ -117,7 +234,7 @@ function MinimapRail({
     const rail = railRef.current;
     if (!rail || virtualizer.getTotalSize() <= rail.clientHeight) return;
     virtualizer.scrollToIndex(activeIndex, { align: 'center' });
-  }, [activeIndex, edgePadding, rangeKey, virtualizer]);
+  }, [activeIndex, edgePadding, virtualizer]);
   const content = (
     <div className="flex min-h-full w-full items-center" data-slot="transcript-minimap-landmarks">
       <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
@@ -130,7 +247,7 @@ function MinimapRail({
                 <button
                   aria-label={`Jump to ${message.role} message ${row.index + 1}`}
                   aria-current={row.index === activeIndex ? 'location' : undefined}
-                  className="absolute left-0 flex h-2 w-full items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="absolute left-0 flex h-[11px] w-full items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   data-scrollspy-anchor={useScrollspy ? `message-${message.id}` : undefined}
                   onClick={() => onJump(row.index)}
                   style={{ transform: `translateY(${row.start}px)` }}
@@ -158,10 +275,7 @@ function MinimapRail({
     </div>
   );
   return (
-    <aside
-      aria-label="Transcript minimap"
-      className="absolute inset-y-3 left-1 z-10 w-3 rounded-full bg-background/80 py-1 shadow-sm backdrop-blur-sm"
-    >
+    <aside aria-label="Transcript minimap" className="absolute inset-y-3 left-1 z-10 w-3">
       <div
         className="h-full overflow-y-auto px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         ref={railRef}
