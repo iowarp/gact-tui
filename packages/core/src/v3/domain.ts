@@ -1,3 +1,4 @@
+import type { ResourceDeliveryDecision } from './composer-domain.js';
 import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
@@ -650,6 +651,7 @@ export type MessageBlock = MessageBlockContext &
         workspace_id: string;
         name: string;
         media_type: string;
+        delivery?: ResourceDeliveryDecision;
       }
     | {
         id: string;

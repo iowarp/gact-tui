@@ -88,6 +88,37 @@ describe('TranscriptResourceAttachment availability', () => {
     expect(screen.getByRole('img', { name: 'Attachment status: Ready' })).toBeVisible();
   });
 
+  it('marks a natively delivered image ready from the live route decision', () => {
+    render(
+      <TranscriptResourceAttachment
+        block={{
+          ...block,
+          name: 'diagram.png',
+          media_type: 'image/png',
+          delivery: {
+            representation: 'native',
+            evidence_source: 'live_handshake',
+            reason: 'selected model accepts image input',
+          },
+        }}
+        resource={resource('image/png', processing('not_started'))}
+      />,
+    );
+
+    expect(screen.getByRole('img', { name: 'Attachment status: Ready' })).toBeVisible();
+  });
+
+  it('does not claim an image reached the model without a native delivery decision', () => {
+    render(
+      <TranscriptResourceAttachment
+        block={{ ...block, name: 'diagram.png', media_type: 'image/png' }}
+        resource={resource('image/png', processing('not_started'))}
+      />,
+    );
+
+    expect(screen.getByRole('img', { name: 'Attachment status: Needs processing' })).toBeVisible();
+  });
+
   it('marks a failed PDF conversion unavailable when no derivative survived', () => {
     render(
       <TranscriptResourceAttachment

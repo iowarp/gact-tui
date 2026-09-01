@@ -82,8 +82,17 @@ describe('forward-compatible wire enums', () => {
         workspace_id: 'ws_1',
         name: 'paper.pdf',
         media_type: 'application/pdf',
+        delivery: {
+          representation: 'native',
+          evidence_source: 'live_handshake',
+          reason: 'selected model accepts this resource natively',
+        },
       }),
-    ).toMatchObject({ type: 'resource', name: 'paper.pdf' });
+    ).toMatchObject({
+      type: 'resource',
+      name: 'paper.pdf',
+      delivery: { representation: 'native', evidence_source: 'live_handshake' },
+    });
     expect(() =>
       messageBlockSchema.parse({ id: 'resource_2', type: 'resource', resource_id: 'res_2' }),
     ).toThrow();

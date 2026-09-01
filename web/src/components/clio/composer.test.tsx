@@ -1,5 +1,5 @@
 import type { CommandDefinition } from '@clio/core/v3';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
@@ -124,6 +124,29 @@ describe('ClioComposer service commands', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add files' }));
     expect(open).toHaveBeenCalledOnce();
+  });
+
+  it('renders an image thumbnail and opens the full attachment preview', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+    const picker = screen.getByLabelText('Upload files');
+    const image = new File(['pixels'], 'field-map.png', { type: 'image/png' });
+
+    await user.upload(picker, image);
+
+    const thumbnail = screen.getByRole('img', { name: 'field-map.png' });
+    expect(thumbnail).toBeVisible();
+    expect(thumbnail).toHaveAttribute('src', 'blob:test-field-map.png');
+
+    await user.click(screen.getByRole('button', { name: 'Open field-map.png' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'field-map.png' })).toBeVisible();
+    expect(within(dialog).getByRole('img', { name: 'field-map.png' })).toHaveAttribute(
+      'src',
+      'blob:test-field-map.png',
+    );
   });
 
   it('focuses only after an explicit focus request changes', async () => {

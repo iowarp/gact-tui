@@ -1,5 +1,19 @@
 export type MessageDelivery = 'start' | 'steer' | 'auto';
 
+export type ResourceDeliveryRepresentation =
+  | 'native'
+  | 'bounded_tools'
+  | 'structured_document'
+  | 'sandbox'
+  | 'retrieval'
+  | 'metadata_only';
+
+export interface ResourceDeliveryDecision {
+  representation: ResourceDeliveryRepresentation;
+  evidence_source?: string;
+  reason?: string;
+}
+
 export interface ComposerModelRef {
   provider_id: string;
   model_id: string;
@@ -152,7 +166,7 @@ export interface ResourceDeliveryRecord {
   message_id: string;
   provider_id: string;
   model_id: string;
-  representation: string;
+  representation: ResourceDeliveryRepresentation;
   evidence_source: string;
   evidence_generated_at: string;
   reason: string;

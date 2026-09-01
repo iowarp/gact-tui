@@ -19,6 +19,20 @@ function omitGeneratedNulls(value: unknown): unknown {
 const knownMessageBlockSchema = messageBlockGeneratedSchema.transform(
   (value) => omitGeneratedNulls(value) as MessageBlock,
 );
+const resourceDeliverySchema = z
+  .object({
+    representation: z.enum([
+      'native',
+      'bounded_tools',
+      'structured_document',
+      'sandbox',
+      'retrieval',
+      'metadata_only',
+    ]),
+    evidence_source: z.string().optional(),
+    reason: z.string().optional(),
+  })
+  .strict();
 const resourceMessageBlockSchema = z
   .object({
     id: z.string(),
@@ -28,6 +42,7 @@ const resourceMessageBlockSchema = z
     workspace_id: z.string(),
     name: z.string(),
     media_type: z.string(),
+    delivery: resourceDeliverySchema.optional(),
     agent_id: z.string().optional(),
     sequence: z.number().int().positive().optional(),
     stream_source: z.string().optional(),

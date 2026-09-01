@@ -24,7 +24,7 @@ export function TranscriptResourceAttachment({
 }: TranscriptResourceAttachmentProps) {
   const filename = resource?.name ?? block.name;
   const mediaType = resource?.detected_mime || block.media_type;
-  const availability = resourceAvailability(resource);
+  const availability = resourceAvailability(resource, block.delivery);
 
   const open = () => {
     if (resource) onOpen?.(resource);
@@ -67,7 +67,10 @@ export function TranscriptResourceAttachment({
   );
 }
 
-function resourceAvailability(resource?: WorkspaceResource): {
+function resourceAvailability(
+  resource?: WorkspaceResource,
+  delivery?: ResourceBlock['delivery'],
+): {
   className: string;
   detail: string;
   label: string;
@@ -95,6 +98,17 @@ function resourceAvailability(resource?: WorkspaceResource): {
           ? 'The attachment was quarantined and is not available to the agent.'
           : 'The attachment is not available to the agent.'),
       label: 'Unavailable',
+    };
+  }
+
+  if (delivery?.representation === 'native') {
+    const evidence = delivery.evidence_source
+      ? ` Capability evidence: ${delivery.evidence_source.replaceAll('_', ' ')}.`
+      : '';
+    return {
+      className: 'text-emerald-600 dark:text-emerald-400',
+      detail: `Ready; the selected model received the original attachment natively.${evidence}`,
+      label: 'Ready',
     };
   }
 
