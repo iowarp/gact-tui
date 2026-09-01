@@ -74,13 +74,29 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
 }
 
 function toTheoState(state: SubagentRun['state']): SubAgentState {
-  if (state === 'queued') return 'spawning';
-  if (state === 'running' || state === 'waiting_permission' || state === 'waiting_user') {
-    return 'running';
+  switch (state) {
+    case 'queued':
+      return 'spawning';
+    case 'running':
+    case 'waiting_permission':
+    case 'waiting_user':
+      return 'running';
+    case 'completed':
+      return 'completed';
+    case 'failed':
+      return 'failed';
+    case 'cancelled':
+      return 'cancelled';
+    case 'interrupted':
+      return 'interrupted';
+    case 'unknown':
+      return 'unknown';
+    default: {
+      const unhandled: never = state;
+      void unhandled;
+      return 'unknown';
+    }
   }
-  if (state === 'failed' || state === 'interrupted') return 'failed';
-  if (state === 'cancelled') return 'cancelled';
-  return 'completed';
 }
 
 function compactText(value: string, limit: number): string {

@@ -5,7 +5,14 @@ import { forwardRef } from 'react';
 import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-export type SubAgentState = 'spawning' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type SubAgentState =
+  | 'spawning'
+  | 'running'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'interrupted'
+  | 'unknown';
 
 export interface TheoSubAgentRun {
   id: string;
@@ -31,6 +38,8 @@ const STATE_CONFIG: Record<SubAgentState, { label: string; class: string }> = {
   completed: { label: 'Completed', class: 'border-success/40 bg-success/10 text-success' },
   failed: { label: 'Failed', class: 'border-destructive/40 bg-destructive/10 text-destructive' },
   cancelled: { label: 'Cancelled', class: 'border-border bg-muted text-muted-foreground' },
+  interrupted: { label: 'Interrupted', class: 'border-warning/40 bg-warning/10 text-warning' },
+  unknown: { label: 'Unknown', class: 'border-warning/40 bg-warning/10 text-warning' },
 };
 
 const SubAgentDispatch = forwardRef<HTMLElement, SubAgentDispatchProps>(
