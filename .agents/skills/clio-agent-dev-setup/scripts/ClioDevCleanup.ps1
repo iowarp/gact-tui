@@ -19,9 +19,19 @@ function Remove-ClioDevCleanupResidue {
         foreach ($target in $targets) {
             try {
                 if ($target.PSIsContainer) {
+                    Get-ChildItem `
+                        -LiteralPath $target.FullName `
+                        -Recurse `
+                        -Force `
+                        -ErrorAction SilentlyContinue |
+                        ForEach-Object {
+                            $_.Attributes = [System.IO.FileAttributes]::Normal
+                        }
+                    $target.Attributes = [System.IO.FileAttributes]::Normal
                     [System.IO.Directory]::Delete($target.FullName, $true)
                 }
                 else {
+                    $target.Attributes = [System.IO.FileAttributes]::Normal
                     [System.IO.File]::Delete($target.FullName)
                 }
             }

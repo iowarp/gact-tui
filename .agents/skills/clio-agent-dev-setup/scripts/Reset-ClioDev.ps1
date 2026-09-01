@@ -44,7 +44,9 @@ if (Test-Path -LiteralPath $devRootFull) {
     catch {
         $deleteError = $_.Exception.Message
         $trackedResidue = @(Remove-ClioDevCleanupResidue -Root $devRootFull)
-        Write-Warning "Reset could not remove an inactive generation, so it will be retained as tracked residue while a new isolated generation starts. Residue: $($trackedResidue -join ', ')."
+        if ($trackedResidue.Count -gt 0) {
+            Write-Warning "Reset could not remove an inactive generation, so it will be retained as tracked residue while a new isolated generation starts. Residue: $($trackedResidue -join ', ')."
+        }
     }
 }
 
