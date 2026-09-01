@@ -1,7 +1,7 @@
 import type { Message } from '@clio/core/v3';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ListTreeIcon } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -87,11 +87,17 @@ function MinimapRail({
     getScrollElement: () => railRef.current,
     overscan: 10,
   });
-  useEffect(() => {
-    if (activeIndex < 0) return;
-    virtualizer.scrollToIndex(activeIndex, { align: 'center' });
-  }, [activeIndex, virtualizer]);
   const rows = virtualizer.getVirtualItems();
+  const firstRow = rows[0];
+  const lastRow = rows.at(-1);
+  const rangeKey = `${firstRow?.index ?? -1}:${firstRow?.start ?? -1}:${lastRow?.index ?? -1}:${lastRow?.end ?? -1}`;
+  useLayoutEffect(() => {
+    if (activeIndex < 0) return;
+    const rail = railRef.current;
+    if (!rail || virtualizer.getTotalSize() <= rail.clientHeight) return;
+    const offset = virtualizer.getOffsetForIndex(activeIndex, 'center')?.[0];
+    if (offset !== undefined && Math.abs(rail.scrollTop - offset) >= 1) rail.scrollTop = offset;
+  }, [activeIndex, rangeKey, virtualizer]);
   const content = (
     <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
       {rows.map((row) => {

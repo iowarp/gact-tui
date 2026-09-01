@@ -5,16 +5,24 @@ import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioTranscriptMinimap } from './transcript-minimap';
 
+const { getOffsetForIndex } = vi.hoisted(() => ({
+  getOffsetForIndex: vi.fn(() => [17, 'center'] as const),
+}));
+
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count }: { count: number }) => ({
     getTotalSize: () => count * 11,
     getVirtualItems: () =>
       Array.from({ length: count }, (_, index) => ({ index, key: index, start: index * 11 })),
-    scrollToIndex: vi.fn(),
+    getOffsetForIndex,
   }),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  getOffsetForIndex.mockClear();
+  vi.restoreAllMocks();
+});
 
 const messages: Message[] = [
   {
@@ -55,6 +63,7 @@ describe('ClioTranscriptMinimap', () => {
   });
 
   it('renders semantic landmark buttons without transcript text duplication', async () => {
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(200);
     const user = userEvent.setup();
     const onJump = vi.fn();
     render(
@@ -80,5 +89,27 @@ describe('ClioTranscriptMinimap', () => {
     await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
     expect(onJump).toHaveBeenCalledWith(1);
     expect(screen.queryByText('Compare the three stations.')).not.toBeInTheDocument();
+    expect(getOffsetForIndex).not.toHaveBeenCalled();
+  });
+
+  it('centers the active landmark when the minimap overflows', () => {
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(10);
+    render(
+      <ClioTranscriptMinimap
+        activeIndex={1}
+        messages={messages}
+        onActiveIndexChange={vi.fn()}
+        onJump={vi.fn()}
+        scrollTargetRef={createRef<HTMLDivElement>()}
+        useScrollspy={false}
+        visible
+      />,
+    );
+
+    expect(getOffsetForIndex).toHaveBeenCalledWith(1, 'center');
+    expect(screen.getByLabelText('Transcript minimap').firstElementChild).toHaveProperty(
+      'scrollTop',
+      17,
+    );
   });
 });

@@ -476,6 +476,27 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       [activeStreamingIndex],
     ),
   });
+  const virtualRows = virtualizer.getVirtualItems();
+  const firstVirtualRow = virtualRows[0];
+  const lastVirtualRow = virtualRows.at(-1);
+  const virtualRangeKey = `${firstVirtualRow?.index ?? -1}:${firstVirtualRow?.start ?? -1}:${lastVirtualRow?.index ?? -1}:${lastVirtualRow?.end ?? -1}`;
+
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (!virtualized || !element) return;
+    if (pinnedToBottom.current) {
+      const latestIndex = messages.length - 1;
+      setActiveMessageIndex((current) => (current === latestIndex ? current : latestIndex));
+      return;
+    }
+    const firstVisible = virtualizer
+      .getVirtualItems()
+      .find((item) => item.end >= element.scrollTop);
+    if (!firstVisible) return;
+    setActiveMessageIndex((current) =>
+      current === firstVisible.index ? current : firstVisible.index,
+    );
+  }, [messages.length, virtualized, virtualizer, virtualRangeKey]);
 
   const updateBottomState = useCallback(() => {
     const element = scrollRef.current;
@@ -486,12 +507,16 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
     }
     setIsAtBottom(next);
     if (virtualized) {
+      if (next) {
+        setActiveMessageIndex(messages.length - 1);
+        return;
+      }
       const firstVisible = virtualizer
         .getVirtualItems()
         .find((item) => item.end >= element.scrollTop);
       if (firstVisible) setActiveMessageIndex(firstVisible.index);
     }
-  }, [virtualized, virtualizer]);
+  }, [messages.length, virtualized, virtualizer]);
 
   const markUserScrollIntent = useCallback(() => {
     lastUserScrollIntentAt.current = performance.now();
@@ -548,8 +573,10 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
     initialScrollComplete.current = true;
-    if (virtualized) virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
-    else scrollToLatest('instant');
+    if (virtualized) {
+      setActiveMessageIndex(messages.length - 1);
+      virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
+    } else scrollToLatest('instant');
   }, [messages.length, scrollToLatest, virtualized, virtualizer]);
 
   useEffect(() => {
@@ -639,7 +666,7 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
             style={virtualized ? { height: virtualizer.getTotalSize() } : undefined}
           >
             {(virtualized
-              ? virtualizer.getVirtualItems().map((virtualRow) => ({
+              ? virtualRows.map((virtualRow) => ({
                   index: virtualRow.index,
                   start: virtualRow.start,
                 }))
