@@ -51,7 +51,6 @@ import {
   workspaceListSchema,
 } from './repository-decoders.js';
 import {
-  historicalArtifactWorkspacePath,
   readArtifactWithCustodyFallback,
   readBytesPath,
   readTextPath,
@@ -432,26 +431,14 @@ export class ClioRepository extends ArtifactPreviewRepository {
     );
   }
 
-  /** Reads a transcript artifact, recovering old registry gaps through its server-owned workspace. */
+  /** Reads a registered artifact's bytes through the server's own fetch path. */
   public readArtifactBytesFor(artifact: Artifact, signal?: AbortSignal): Promise<Uint8Array> {
-    return readArtifactWithCustodyFallback(
-      artifact.id,
-      artifact.fetch_path,
-      (path, requestSignal) => readBytesPath(this.transport, path, requestSignal),
-      signal,
-      historicalArtifactWorkspacePath(artifact),
-    );
+    return this.readArtifactBytes(artifact.id, artifact.fetch_path, signal);
   }
 
-  /** Reads transcript artifact text with the same server-enforced historical custody recovery. */
+  /** Reads a registered artifact's text through the server's own fetch path. */
   public readArtifactTextFor(artifact: Artifact, signal?: AbortSignal): Promise<string> {
-    return readArtifactWithCustodyFallback(
-      artifact.id,
-      artifact.fetch_path,
-      (path, requestSignal) => readTextPath(this.transport, path, requestSignal),
-      signal,
-      historicalArtifactWorkspacePath(artifact),
-    );
+    return this.readArtifactText(artifact.id, artifact.fetch_path, signal);
   }
 
   public artifactDetail(artifactId: string, signal?: AbortSignal): Promise<ArtifactDetail> {

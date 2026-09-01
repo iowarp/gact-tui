@@ -66,11 +66,10 @@ describe('artifact custody repository contracts', () => {
     ]);
   });
 
-  it('recovers a historical transcript artifact through its server-owned workspace', async () => {
-    const bytes = new Uint8Array([137, 80, 78, 71]);
+  it('refuses a missing artifact payload instead of reading a guessed workspace path', async () => {
     const transport = new RecordingTransport([
       new TransportError('Historical registry entry unavailable', 404, 'not_found'),
-      bytes,
+      new Uint8Array([137, 80, 78, 71]),
     ]);
     const repository = new ClioRepository(transport);
 
@@ -84,13 +83,9 @@ describe('artifact custody repository contracts', () => {
         uri: 'artifact://ws_1/plots/monthly result.png@v1',
         fetch_path: '/v1/artifacts/artifact%20old/bytes',
       }),
-    ).resolves.toEqual(bytes);
+    ).rejects.toMatchObject({ name: 'TransportError', status: 404, code: 'not_found' });
     expect(transport.requests.map(({ path, responseType }) => ({ path, responseType }))).toEqual([
       { path: '/v1/artifacts/artifact%20old/bytes', responseType: 'bytes' },
-      {
-        path: '/v1/workspaces/ws_1/files/read?path=plots%2Fmonthly%20result.png',
-        responseType: 'bytes',
-      },
     ]);
   });
 });
