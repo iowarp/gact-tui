@@ -111,9 +111,7 @@ function ActivityRow({ item }: { item: ObservabilityActivityItem }) {
 }
 
 function ActivityStatus({ item }: { item: ObservabilityActivityItem }) {
-  return (
-    <ClioStatus className="mt-0 shrink-0 py-0.5" value={item.state} />
-  );
+  return <ClioStatus className="mt-0 shrink-0 py-0.5" value={item.state} />;
 }
 
 function groupActivity(

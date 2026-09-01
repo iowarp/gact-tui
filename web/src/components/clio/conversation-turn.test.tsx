@@ -24,7 +24,11 @@ function iteration(overrides: Partial<ConversationIteration> = {}): Conversation
 describe('ConversationTurn incomplete state', () => {
   it('shows the interrupted state of a cancelled turn in full mode', () => {
     render(
-      <ConversationTurn iterations={[iteration({ interrupted: true })]} mode="full" subagents={{}} />,
+      <ConversationTurn
+        iterations={[iteration({ interrupted: true })]}
+        mode="full"
+        subagents={{}}
+      />,
     );
 
     expect(screen.getByText('Interrupted')).toBeVisible();
@@ -43,7 +47,9 @@ describe('ConversationTurn incomplete state', () => {
   });
 
   it('does not mark a normally completed iteration as interrupted', () => {
-    render(<ConversationTurn iterations={[iteration({ terminal: true })]} mode="full" subagents={{}} />);
+    render(
+      <ConversationTurn iterations={[iteration({ terminal: true })]} mode="full" subagents={{}} />,
+    );
 
     expect(screen.queryByText('Interrupted')).not.toBeInTheDocument();
   });

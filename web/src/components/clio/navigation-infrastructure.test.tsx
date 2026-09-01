@@ -66,12 +66,8 @@ describe('NavigationInfrastructure', () => {
   it('does not warn about a server the service reports as disabled', async () => {
     renderInfrastructure([server({ id: 'ndp', name: 'ndp', status: 'disabled', enabled: false })]);
 
-    await waitFor(() =>
-      expect(screen.getByLabelText(/^Infrastructure: /u)).toBeInTheDocument(),
-    );
-    await waitFor(() =>
-      expect(screen.getByLabelText('Infrastructure: Ready')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByLabelText(/^Infrastructure: /u)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('Infrastructure: Ready')).toBeInTheDocument());
   });
 
   it('reports a failing server from its server-owned error instead of its prose', async () => {
@@ -89,9 +85,7 @@ describe('NavigationInfrastructure', () => {
       server({ id: 'fs', name: 'fs', status: 'ready', spec: { title: 'Project files' } }),
     ]);
 
-    await waitFor(() =>
-      expect(screen.getByLabelText('Infrastructure: Ready')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByLabelText('Infrastructure: Ready')).toBeInTheDocument());
     fireEvent.click(screen.getByLabelText('Show infrastructure status'));
 
     await waitFor(() => expect(screen.getByText('Project files')).toBeInTheDocument());

@@ -209,9 +209,7 @@ function ClioA2UISurfaceContent({
                   ? 'Applying local action'
                   : surface.state.replaceAll('_', ' ')
             }
-            value={
-              isPending || localActionPending ? 'running' : surfaceStatusValue(surface.state)
-            }
+            value={isPending || localActionPending ? 'running' : surfaceStatusValue(surface.state)}
           />
         </div>
       ) : null}

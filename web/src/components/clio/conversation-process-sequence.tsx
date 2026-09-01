@@ -61,9 +61,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
           className="min-h-6"
           getThinkingMessage={(streaming) => (streaming ? 'Thinking in progress' : 'Thinking')}
         />
-        <ReasoningContent className="mt-3 leading-6">
-          {block.text}
-        </ReasoningContent>
+        <ReasoningContent className="mt-3 leading-6">{block.text}</ReasoningContent>
       </Reasoning>
     );
   }
@@ -74,9 +72,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
         {block.thought ? (
           <Reasoning className="mb-0">
             <ReasoningTrigger className="min-h-6" getThinkingMessage={() => 'Thinking'} />
-            <ReasoningContent className="mt-3 leading-6">
-              {block.thought}
-            </ReasoningContent>
+            <ReasoningContent className="mt-3 leading-6">{block.thought}</ReasoningContent>
           </Reasoning>
         ) : null}
         <ClioToolInvocation tool={tool} />
