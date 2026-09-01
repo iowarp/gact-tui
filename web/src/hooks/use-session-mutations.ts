@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { invalidateQueriesInBackground } from '@/lib/query-invalidation';
 import type {
   ComposerMessagePart,
   MessageBehavior,
@@ -70,23 +71,13 @@ export function useSessionMutations({
     refetchInterval: session?.state === 'running' ? 1_500 : false,
   });
 
-  const invalidateComposerState = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.queuedMessages(settings.endpoint, sessionId),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.pendingSteers(settings.endpoint, sessionId),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.transcript(settings.endpoint, sessionId),
-      }),
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.sessions(settings.endpoint, workspaceId),
-      }),
+  const invalidateComposerState = () => {
+    invalidateQueriesInBackground(queryClient, [
+      queryKeys.queuedMessages(settings.endpoint, sessionId),
+      queryKeys.pendingSteers(settings.endpoint, sessionId),
+      queryKeys.workspaceResources(settings.endpoint, workspaceId),
+      queryKeys.transcript(settings.endpoint, sessionId),
+      queryKeys.sessions(settings.endpoint, workspaceId),
     ]);
   };
 
@@ -157,7 +148,8 @@ export function useSessionMutations({
   });
 
   const reorderQueuedMessages = useMutation({
-    mutationFn: (messages: QueuedMessage[]) => repository.reorderQueuedMessages(sessionId, messages),
+    mutationFn: (messages: QueuedMessage[]) =>
+      repository.reorderQueuedMessages(sessionId, messages),
     onSuccess: (messages) => {
       queryClient.setQueryData(queryKeys.queuedMessages(settings.endpoint, sessionId), messages);
     },
