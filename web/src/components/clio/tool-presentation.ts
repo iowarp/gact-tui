@@ -43,7 +43,7 @@ export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
   }
   const providedTitle = tool.title?.trim();
   return {
-    title: providedTitle || tool.name,
+    title: providedTitle || humanizeToolName(tool.name),
     kind: 'tool',
   };
 }

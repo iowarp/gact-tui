@@ -50,6 +50,25 @@ describe('tool presentation', () => {
     ).toEqual({ title: 'wait(tasks)', kind: 'tool' });
   });
 
+  it('never uses the raw wire identifier as the primary label', () => {
+    expect(
+      getToolPresentation({
+        id: 'tool-untitled',
+        session_id: 'session-1',
+        name: 'fs_read_file',
+        state: 'succeeded',
+      }),
+    ).toEqual({ title: 'Read file', kind: 'tool' });
+    expect(
+      getToolPresentation({
+        id: 'tool-untitled-shell',
+        session_id: 'session-1',
+        name: 'shell_bash',
+        state: 'running',
+      }),
+    ).toEqual({ title: 'Run command', kind: 'tool' });
+  });
+
   it('uses audited fallbacks for namespaced identifiers', () => {
     expect(humanizeToolName('fs_read_file')).toBe('Read file');
     expect(humanizeToolName('fs_propose_edit')).toBe('Propose file change');
