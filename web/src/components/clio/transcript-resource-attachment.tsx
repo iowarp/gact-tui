@@ -1,12 +1,18 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
-import { ActivityIcon } from 'lucide-react';
 import {
   Attachment,
+  AttachmentHoverCard,
+  AttachmentHoverCardContent,
+  AttachmentHoverCardTrigger,
   AttachmentInfo,
   AttachmentPreview,
   Attachments,
 } from '@/components/ai-elements/attachments';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { resourceAvailability, resourcePipelineStages } from './resource-availability';
+import {
+  ResourcePipelineStatusLines,
+  ResourcePipelineSummaryIcon,
+} from './resource-pipeline-status';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -25,6 +31,7 @@ export function TranscriptResourceAttachment({
   const filename = resource?.name ?? block.name;
   const mediaType = resource?.detected_mime || block.media_type;
   const availability = resourceAvailability(resource, block.delivery);
+  const stages = resourcePipelineStages(resource, availability.label);
 
   const open = () => {
     if (resource) onOpen?.(resource);
@@ -32,148 +39,36 @@ export function TranscriptResourceAttachment({
 
   return (
     <Attachments aria-label="Message attachments" className="mb-2 justify-start" variant="inline">
-      <Attachment
-        aria-label={`Open ${filename}`}
-        className="h-9 max-w-full gap-2 pr-2"
-        data={{ filename, id: block.id, mediaType, type: 'file', url: '' }}
-        onClick={open}
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter' && event.key !== ' ') return;
-          event.preventDefault();
-          open();
-        }}
-        role={resource && onOpen ? 'button' : undefined}
-        tabIndex={resource && onOpen ? 0 : undefined}
-        title={filename}
-      >
-        <AttachmentPreview className="size-6 [&_svg]:size-3.5" />
-        <AttachmentInfo className="max-w-56 text-xs" showMediaType />
-        <TooltipProvider delayDuration={200}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span
-                aria-label={`Attachment status: ${availability.label}`}
-                className="ml-1 inline-flex shrink-0 items-center"
-                role="img"
-              >
-                <ActivityIcon aria-hidden="true" className={`size-3.5 ${availability.className}`} />
-              </span>
-            </TooltipTrigger>
-            <TooltipContent className="max-w-72">{availability.detail}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </Attachment>
+      <AttachmentHoverCard closeDelay={100} openDelay={220}>
+        <AttachmentHoverCardTrigger asChild>
+          <Attachment
+            aria-label={`Open ${filename}`}
+            className="h-9 max-w-full gap-2 pr-2"
+            data={{ filename, id: block.id, mediaType, type: 'file', url: '' }}
+            onClick={open}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              open();
+            }}
+            role={resource && onOpen ? 'button' : undefined}
+            tabIndex={resource && onOpen ? 0 : undefined}
+            title={filename}
+          >
+            <AttachmentPreview className="size-6 [&_svg]:size-3.5" />
+            <AttachmentInfo className="max-w-56 text-xs" showMediaType />
+            <ResourcePipelineSummaryIcon stages={stages} />
+          </Attachment>
+        </AttachmentHoverCardTrigger>
+        <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
+          <p className="truncate text-sm font-medium">{filename}</p>
+          {mediaType ? <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p> : null}
+          <div className="mt-2">
+            <ResourcePipelineStatusLines stages={stages} />
+          </div>
+          <p className="mt-2 max-w-64 text-xs text-muted-foreground">{availability.detail}</p>
+        </AttachmentHoverCardContent>
+      </AttachmentHoverCard>
     </Attachments>
   );
-}
-
-function resourceAvailability(
-  resource?: WorkspaceResource,
-  delivery?: ResourceBlock['delivery'],
-): {
-  className: string;
-  detail: string;
-  label: string;
-} {
-  if (!resource) {
-    return {
-      className: 'text-muted-foreground',
-      detail: 'Availability could not be verified for this historical attachment.',
-      label: 'Unknown',
-    };
-  }
-  if (resource.state === 'uploading') {
-    return {
-      className: 'text-amber-600 dark:text-amber-400',
-      detail: 'The attachment is still uploading and is not available to the agent yet.',
-      label: 'Preparing',
-    };
-  }
-  if (resource.state === 'failed' || resource.state === 'quarantined') {
-    return {
-      className: 'text-destructive',
-      detail:
-        resource.failure ||
-        (resource.state === 'quarantined'
-          ? 'The attachment was quarantined and is not available to the agent.'
-          : 'The attachment is not available to the agent.'),
-      label: 'Unavailable',
-    };
-  }
-
-  if (delivery?.representation === 'native') {
-    const evidence = delivery.evidence_source
-      ? ` Capability evidence: ${delivery.evidence_source.replaceAll('_', ' ')}.`
-      : '';
-    return {
-      className: 'text-emerald-600 dark:text-emerald-400',
-      detail: `Ready; the selected model received the original attachment natively.${evidence}`,
-      label: 'Ready',
-    };
-  }
-
-  const processing = resource.processing;
-  if (
-    processing &&
-    (processing.state === 'submitted' || processing.state === 'processing') &&
-    !processing.derivatives_available
-  ) {
-    return {
-      className: 'text-amber-600 dark:text-amber-400',
-      detail: processing.progress
-        ? `The original is retained; structured content is ${processing.progress}% ready for the agent.`
-        : 'The original is retained; structured content is still being prepared for the agent.',
-      label: 'Preparing',
-    };
-  }
-
-  if (processing?.state === 'failed' && !processing.derivatives_available) {
-    return {
-      className: 'text-destructive',
-      detail:
-        typeof processing.failure.message === 'string'
-          ? processing.failure.message
-          : 'Structured conversion failed, so this attachment is not currently readable by the agent.',
-      label: 'Unavailable',
-    };
-  }
-
-  if (processing?.state === 'cancelled' && !processing.derivatives_available) {
-    return {
-      className: 'text-destructive',
-      detail:
-        'Structured conversion was cancelled before a usable derivative was created. The original remains available for preview.',
-      label: 'Unavailable',
-    };
-  }
-
-  if (!isDirectlyReadable(mediaType(resource)) && !processing?.derivatives_available) {
-    return {
-      className: 'text-amber-600 dark:text-amber-400',
-      detail:
-        'The original is retained and can be previewed, but no agent-readable conversion is available yet.',
-      label: 'Needs processing',
-    };
-  }
-
-  let detail = 'The original attachment is available to the agent.';
-  if (processing?.derivatives_available) {
-    detail =
-      processing.state === 'cancelled'
-        ? 'Ready; the agent can reuse a previously converted derivative. The latest refresh was cancelled.'
-        : processing.state === 'failed'
-          ? 'Ready; the agent can reuse a previously converted derivative. The latest refresh failed.'
-          : processing.state === 'submitted' || processing.state === 'processing'
-            ? 'Ready; the agent can reuse a previously converted derivative while a refresh runs.'
-            : 'Ready; converted content is available to the agent.';
-  }
-  return { className: 'text-emerald-600 dark:text-emerald-400', detail, label: 'Ready' };
-}
-
-function mediaType(resource: WorkspaceResource): string {
-  return (resource.detected_mime || resource.claimed_mime).toLowerCase();
-}
-
-function isDirectlyReadable(value: string): boolean {
-  return value.startsWith('text/') || value === 'application/json' || value.endsWith('+json');
 }

@@ -138,7 +138,19 @@ describe('ClioComposer service commands', () => {
     expect(thumbnail).toBeVisible();
     expect(thumbnail).toHaveAttribute('src', 'blob:test-field-map.png');
 
-    await user.click(screen.getByRole('button', { name: 'Open field-map.png' }));
+    const openAttachment = screen.getByRole('button', { name: 'Open field-map.png' });
+    expect(
+      within(openAttachment).getByRole('img', { name: 'Attachment status: Waiting' }),
+    ).toBeVisible();
+    await user.hover(openAttachment);
+    expect(
+      await screen.findByRole('status', { name: 'Upload status: Ready locally' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('status', { name: 'Conversion status: Starts after submission' }),
+    ).toBeVisible();
+
+    await user.click(openAttachment);
 
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeVisible();

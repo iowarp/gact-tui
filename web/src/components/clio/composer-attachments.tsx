@@ -2,6 +2,10 @@ import type { FileUIPart } from 'ai';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   Attachment,
+  AttachmentHoverCard,
+  AttachmentHoverCardContent,
+  AttachmentHoverCardTrigger,
+  AttachmentInfo,
   AttachmentPreview,
   AttachmentRemove,
   Attachments,
@@ -14,6 +18,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
+import {
+  summarizeResourcePipelineStages,
+  type ResourcePipelineStages,
+} from './resource-availability';
+import {
+  ResourcePipelineStatusLines,
+  ResourcePipelineSummaryIcon,
+} from './resource-pipeline-status';
 
 const LocalPdfViewer = lazy(() =>
   import('./document-pdf-viewer').then((module) => ({
@@ -24,38 +37,54 @@ const LocalPdfViewer = lazy(() =>
 const MAX_TEXT_PREVIEW_BYTES = 1024 * 1024;
 
 /** Compact AI Elements attachment tray backed by PromptInput file state. */
-export function ClioComposerAttachments() {
+export function ClioComposerAttachments({
+  uploadProgress,
+}: {
+  uploadProgress?: ResourceUploadProgress;
+}) {
   const attachments = usePromptInputAttachments();
   const [preview, setPreview] = useState<(FileUIPart & { id: string }) | undefined>();
   if (attachments.files.length === 0) return null;
 
   return (
     <>
-      <Attachments className="ml-0 w-full justify-start px-2.5 pb-1.5 pt-2" variant="grid">
-        {attachments.files.map((file) => (
-          <Attachment
-            className="h-24 w-44 bg-muted/35"
-            data={file}
-            key={file.id}
-            onRemove={() => attachments.remove(file.id)}
-          >
-            <button
-              aria-label={`Open ${file.filename ?? 'attachment'}`}
-              className="grid size-full grid-rows-[minmax(0,1fr)_auto] text-left"
-              onClick={() => setPreview(file)}
-              type="button"
-            >
-              <AttachmentPreview className="h-full w-full rounded-none [&_svg]:size-6" />
-              <span className="min-w-0 border-t bg-background/85 px-2 py-1.5">
-                <AttachmentFilename filename={file.filename ?? 'Attachment'} />
-                <span className="block truncate text-[10px] text-muted-foreground">
-                  {file.mediaType || 'Type pending'}
-                </span>
-              </span>
-            </button>
-            <AttachmentRemove className="opacity-100" />
-          </Attachment>
-        ))}
+      <Attachments className="ml-0 w-full justify-start px-2.5 pb-1.5 pt-2" variant="inline">
+        {attachments.files.map((file) => {
+          const filename = file.filename ?? 'Attachment';
+          const stages = localAttachmentStages(file, uploadProgress);
+          return (
+            <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
+              <AttachmentHoverCardTrigger asChild>
+                <Attachment
+                  className="h-8 max-w-52 gap-0 p-0"
+                  data={file}
+                  onRemove={() => attachments.remove(file.id)}
+                >
+                  <button
+                    aria-label={`Open ${filename}`}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pl-1.5 text-left"
+                    onClick={() => setPreview(file)}
+                    type="button"
+                  >
+                    <AttachmentPreview className="size-5 [&_svg]:size-3" />
+                    <AttachmentInfo className="max-w-28 text-xs" />
+                    <ResourcePipelineSummaryIcon stages={stages} />
+                  </button>
+                  <AttachmentRemove />
+                </Attachment>
+              </AttachmentHoverCardTrigger>
+              <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
+                <p className="truncate text-sm font-medium">{filename}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {file.mediaType || 'Media type pending'}
+                </p>
+                <div className="mt-2">
+                  <ResourcePipelineStatusLines stages={stages} />
+                </div>
+              </AttachmentHoverCardContent>
+            </AttachmentHoverCard>
+          );
+        })}
       </Attachments>
       <Dialog onOpenChange={(open) => !open && setPreview(undefined)} open={Boolean(preview)}>
         <DialogContent className="grid h-[min(46rem,calc(100dvh-2rem))] w-[min(64rem,calc(100vw-2rem))] max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 sm:max-w-none">
@@ -74,17 +103,33 @@ export function ClioComposerAttachments() {
   );
 }
 
-function AttachmentFilename({ filename }: { filename: string }) {
-  const extensionStart = filename.lastIndexOf('.');
-  const hasExtension = extensionStart > 0 && extensionStart < filename.length - 1;
-  const stem = hasExtension ? filename.slice(0, extensionStart) : filename;
-  const extension = hasExtension ? filename.slice(extensionStart) : '';
-  return (
-    <span className="flex min-w-0 text-xs font-medium" title={filename}>
-      <span className="truncate">{stem}</span>
-      {extension ? <span className="shrink-0">{extension}</span> : null}
-    </span>
-  );
+function localAttachmentStages(
+  file: FileUIPart,
+  uploadProgress?: ResourceUploadProgress,
+): ResourcePipelineStages {
+  const progress = uploadProgress?.filename === file.filename ? uploadProgress : undefined;
+  const upload =
+    progress && progress.loaded < progress.total
+      ? {
+          detail:
+            progress.total > 0
+              ? `${Math.round((progress.loaded / progress.total) * 100)}%`
+              : undefined,
+          kind: 'active' as const,
+          label: 'In progress',
+          name: 'Upload' as const,
+        }
+      : {
+          kind: 'complete' as const,
+          label: progress ? 'Complete' : 'Ready locally',
+          name: 'Upload' as const,
+        };
+  const conversion = {
+    kind: 'waiting' as const,
+    label: progress ? 'Waiting for workspace' : 'Starts after submission',
+    name: 'Conversion' as const,
+  };
+  return summarizeResourcePipelineStages(upload, conversion);
 }
 
 function LocalAttachmentPreview({ file }: { file: FileUIPart }) {

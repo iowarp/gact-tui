@@ -4,6 +4,7 @@ import type {
   MessageDelivery,
   QueuedMessage,
   RunState,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
 import { CornerDownRightIcon, PlusIcon } from 'lucide-react';
@@ -76,9 +77,11 @@ export interface ClioComposerProps {
   onRetryModelCatalog?: () => void;
   activityControl?: ReactNode;
   queuedMessages?: QueuedMessage[];
+  resources?: readonly WorkspaceResource[];
   queueBusy?: boolean;
   onDeleteQueuedMessage?: (message: QueuedMessage) => Promise<void>;
   onPromoteQueuedMessage?: (message: QueuedMessage, delivery: MessageDelivery) => Promise<void>;
+  onOpenResource?: (resource: WorkspaceResource) => void;
   onReorderQueuedMessages?: (messages: QueuedMessage[]) => Promise<void>;
   onUpdateQueuedMessage?: (message: QueuedMessage, text: string) => Promise<void>;
   value?: string;
@@ -112,9 +115,11 @@ export function ClioComposer({
   onRetryModelCatalog,
   activityControl,
   queuedMessages = [],
+  resources = [],
   queueBusy,
   onDeleteQueuedMessage,
   onPromoteQueuedMessage,
+  onOpenResource,
   onReorderQueuedMessages,
   onUpdateQueuedMessage,
   value,
@@ -218,10 +223,12 @@ export function ClioComposer({
           busy={queueBusy}
           messages={queuedMessages}
           onDelete={onDeleteQueuedMessage}
+          onOpenResource={onOpenResource}
           onPromote={onPromoteQueuedMessage}
           onReorder={onReorderQueuedMessages}
           onUpdate={onUpdateQueuedMessage}
           promoteDelivery={state === 'running' ? 'steer' : 'start'}
+          resources={resources}
         />
       ) : null}
       <PromptInput
@@ -289,7 +296,7 @@ export function ClioComposer({
             {activityControl}
           </PromptInputHeader>
         ) : null}
-        <ClioComposerAttachments />
+        <ClioComposerAttachments uploadProgress={uploadProgress} />
         {uploadProgress ? (
           <div className="px-3 pt-1 text-xs text-muted-foreground" role="status">
             Uploading {uploadProgress.filename}{' '}

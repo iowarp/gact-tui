@@ -385,6 +385,7 @@ export function WorkspacePage() {
           }
         }}
         onStop={() => cancel.mutate()}
+        onOpenResource={openWorkspaceResource}
         onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
         onPromoteQueuedMessage={(message, delivery) =>
           promoteQueuedMessage.mutateAsync({ delivery, message }).then(() => undefined)
@@ -398,6 +399,7 @@ export function WorkspacePage() {
         onValueChange={setComposerDraft}
         provider={activeProvider}
         queuedMessages={queuedMessages.data ?? []}
+        resources={workspaceResources.data ?? []}
         queueBusy={
           deleteQueuedMessage.isPending ||
           promoteQueuedMessage.isPending ||

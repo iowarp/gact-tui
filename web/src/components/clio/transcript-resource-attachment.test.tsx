@@ -1,5 +1,6 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { TranscriptResourceAttachment } from './transcript-resource-attachment';
 
@@ -65,6 +66,25 @@ function processing(
 afterEach(cleanup);
 
 describe('TranscriptResourceAttachment availability', () => {
+  it('separates active upload from conversion waiting in the expanded status', async () => {
+    const user = userEvent.setup();
+    render(
+      <TranscriptResourceAttachment
+        block={block}
+        resource={{ ...resource('application/pdf', processing('not_started')), state: 'uploading' }}
+      />,
+    );
+
+    const attachment = screen.getByText('paper.pdf').closest('[data-slot="hover-card-trigger"]');
+    expect(attachment).not.toBeNull();
+    expect(screen.getByRole('img', { name: 'Attachment status: Processing' })).toBeVisible();
+    await user.hover(attachment!);
+    expect(await screen.findByRole('status', { name: 'Upload status: In progress' })).toBeVisible();
+    expect(
+      screen.getByRole('status', { name: 'Conversion status: Waiting for upload' }),
+    ).toBeVisible();
+  });
+
   it('does not call an unconverted PDF ready merely because its bytes are retained', () => {
     render(
       <TranscriptResourceAttachment
@@ -73,11 +93,12 @@ describe('TranscriptResourceAttachment availability', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'Attachment status: Needs processing' })).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Attachment status: Waiting' })).toBeVisible();
     expect(screen.queryByRole('img', { name: 'Attachment status: Ready' })).not.toBeInTheDocument();
   });
 
-  it('marks a retained text resource ready without requiring a derivative', () => {
+  it('marks a retained text resource ready without requiring a derivative', async () => {
+    const user = userEvent.setup();
     render(
       <TranscriptResourceAttachment
         block={{ ...block, name: 'notes.md', media_type: 'text/markdown' }}
@@ -86,6 +107,9 @@ describe('TranscriptResourceAttachment availability', () => {
     );
 
     expect(screen.getByRole('img', { name: 'Attachment status: Ready' })).toBeVisible();
+    await user.hover(screen.getByText('notes.md'));
+    expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Conversion status: Not required' })).toBeVisible();
   });
 
   it('marks a natively delivered image ready from the live route decision', () => {
@@ -116,7 +140,7 @@ describe('TranscriptResourceAttachment availability', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'Attachment status: Needs processing' })).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Attachment status: Waiting' })).toBeVisible();
   });
 
   it('marks a failed PDF conversion unavailable when no derivative survived', () => {

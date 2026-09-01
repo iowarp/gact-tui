@@ -1,14 +1,27 @@
-import type { MessageDelivery, QueuedMessage } from '@clio/core/v3';
+import type {
+  ComposerMessagePart,
+  MessageDelivery,
+  QueuedMessage,
+  WorkspaceResource,
+} from '@clio/core/v3';
 import { CheckIcon, GripVerticalIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import {
+  Attachment,
+  AttachmentHoverCard,
+  AttachmentHoverCardContent,
+  AttachmentHoverCardTrigger,
+  AttachmentInfo,
+  AttachmentPreview,
+  Attachments,
+} from '@/components/ai-elements/attachments';
 import {
   Queue,
   QueueItem,
   QueueItemAction,
   QueueItemActions,
   QueueItemContent,
-  QueueItemFile,
   QueueList,
   QueueSection,
   QueueSectionContent,
@@ -16,13 +29,20 @@ import {
   QueueSectionTrigger,
 } from '@/components/ai-elements/queue';
 import { Input } from '@/components/ui/input';
+import { resourceAvailability, resourcePipelineStages } from './resource-availability';
+import {
+  ResourcePipelineStatusLines,
+  ResourcePipelineSummaryIcon,
+} from './resource-pipeline-status';
 
 interface ClioComposerQueueProps {
   messages: QueuedMessage[];
+  resources?: readonly WorkspaceResource[];
   promoteDelivery: MessageDelivery;
   busy?: boolean;
   onDelete: (message: QueuedMessage) => Promise<void>;
   onPromote: (message: QueuedMessage, delivery: MessageDelivery) => Promise<void>;
+  onOpenResource?: (resource: WorkspaceResource) => void;
   onReorder: (messages: QueuedMessage[]) => Promise<void>;
   onUpdate: (message: QueuedMessage, text: string) => Promise<void>;
 }
@@ -32,10 +52,12 @@ export function ClioComposerQueue({
   busy,
   messages,
   onDelete,
+  onOpenResource,
   onPromote,
   onReorder,
   onUpdate,
   promoteDelivery,
+  resources = [],
 }: ClioComposerQueueProps) {
   const [orderOverride, setOrderOverride] = useState<QueuedMessage[]>();
   const ordered = orderOverride ?? messages;
@@ -43,6 +65,10 @@ export function ClioComposerQueue({
   const [editing, setEditing] = useState<{ id: string; text: string }>();
 
   const messageById = useMemo(() => new Map(ordered.map((row) => [row.id, row])), [ordered]);
+  const resourceById = useMemo(
+    () => new Map(resources.map((resource) => [resource.id, resource])),
+    [resources],
+  );
   if (ordered.length === 0) return null;
 
   const saveEdit = async (message: QueuedMessage, text: string) => {
@@ -174,9 +200,30 @@ export function ClioComposerQueue({
                   ) : (
                     <QueueItemContent title={text}>{text || 'Attachments only'}</QueueItemContent>
                   )}
-                  {resources.slice(0, 2).map((resource) => (
-                    <QueueItemFile key={resource.resource_id}>{resource.name}</QueueItemFile>
-                  ))}
+                  {resources.length > 0 ? (
+                    <Attachments className="shrink-0 flex-nowrap gap-1" variant="inline">
+                      {resources.slice(0, 2).map((resourceRef) => (
+                        <QueuedResourceAttachment
+                          key={resourceRef.resource_id}
+                          onOpen={onOpenResource}
+                          resource={resourceById.get(resourceRef.resource_id)}
+                          resourceRef={resourceRef}
+                        />
+                      ))}
+                      {resources.length > 2 ? (
+                        <span
+                          aria-label={`${resources.length - 2} more attachments`}
+                          className="inline-flex h-8 shrink-0 items-center rounded-md border border-border px-1.5 text-xs font-medium text-muted-foreground"
+                          title={resources
+                            .slice(2)
+                            .map((resource) => resource.name)
+                            .join(', ')}
+                        >
+                          +{resources.length - 2}
+                        </span>
+                      ) : null}
+                    </Attachments>
+                  ) : null}
                   <QueueItemActions>
                     {isEditing ? (
                       <>
@@ -242,5 +289,55 @@ export function ClioComposerQueue({
         </QueueSectionContent>
       </QueueSection>
     </Queue>
+  );
+}
+
+function QueuedResourceAttachment({
+  onOpen,
+  resource,
+  resourceRef,
+}: {
+  onOpen?: (resource: WorkspaceResource) => void;
+  resource?: WorkspaceResource;
+  resourceRef: Extract<ComposerMessagePart, { type: 'resource_ref' }>;
+}) {
+  const filename = resource?.name ?? resourceRef.name;
+  const mediaType = resource?.detected_mime || resource?.claimed_mime || '';
+  const availability = resourceAvailability(resource);
+  const stages = resourcePipelineStages(resource, availability.label);
+  const activate = () => {
+    if (resource) onOpen?.(resource);
+  };
+
+  return (
+    <AttachmentHoverCard closeDelay={100} openDelay={220}>
+      <AttachmentHoverCardTrigger asChild>
+        <Attachment
+          aria-label={resource && onOpen ? `Open ${filename}` : filename}
+          className="h-7 max-w-36 gap-1 px-1.5 text-xs focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+          data={{ filename, id: resourceRef.resource_id, mediaType, type: 'file', url: '' }}
+          onClick={activate}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            activate();
+          }}
+          role={resource && onOpen ? 'button' : undefined}
+          tabIndex={resource && onOpen ? 0 : undefined}
+        >
+          <AttachmentPreview className="size-4 [&_svg]:size-3" />
+          <AttachmentInfo className="max-w-20" />
+          <ResourcePipelineSummaryIcon stages={stages} />
+        </Attachment>
+      </AttachmentHoverCardTrigger>
+      <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
+        <p className="truncate text-sm font-medium">{filename}</p>
+        {mediaType ? <p className="mt-0.5 text-xs text-muted-foreground">{mediaType}</p> : null}
+        <div className="mt-2">
+          <ResourcePipelineStatusLines stages={stages} />
+        </div>
+        <p className="mt-2 max-w-64 text-xs text-muted-foreground">{availability.detail}</p>
+      </AttachmentHoverCardContent>
+    </AttachmentHoverCard>
   );
 }

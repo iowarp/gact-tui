@@ -1,4 +1,4 @@
-import type { QueuedMessage } from '@clio/core/v3';
+import type { QueuedMessage, WorkspaceResource } from '@clio/core/v3';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -25,11 +25,55 @@ const queued = (id: string, text: string, position: number): QueuedMessage => ({
   updated_at: '2026-08-31T12:00:00Z',
 });
 
+function workspaceResource(
+  id: string,
+  name: string,
+  processingState: NonNullable<WorkspaceResource['processing']>['state'],
+): WorkspaceResource {
+  return {
+    id,
+    workspace_id: 'ws_1',
+    client_upload_id: `upload_${id}`,
+    revision: 1,
+    name,
+    claimed_mime: name.endsWith('.png') ? 'image/png' : 'application/pdf',
+    detected_mime: name.endsWith('.png') ? 'image/png' : 'application/pdf',
+    detection_source: 'signature',
+    declared_size: 42,
+    received_size: 42,
+    sha256: id,
+    state: 'ready',
+    failure: '',
+    created_at: '2026-09-01T00:00:00Z',
+    updated_at: '2026-09-01T00:00:00Z',
+    completed_at: '2026-09-01T00:00:00Z',
+    mime_mismatch: false,
+    processing: {
+      workspace_id: 'ws_1',
+      resource_id: id,
+      resource_revision: 1,
+      source_sha256: id,
+      processor: 'clio-web-search-docling',
+      processor_url: 'http://127.0.0.1:8089',
+      job_id: `job_${id}`,
+      query_tool: 'workspace_resource_inspect',
+      state: processingState,
+      progress: processingState === 'processing' ? 42 : 100,
+      derivatives_available: processingState === 'complete',
+      failure: {},
+      cancellation: {},
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-01T00:00:00Z',
+    },
+  };
+}
+
 function renderQueue(overrides: Partial<Parameters<typeof ClioComposerQueue>[0]> = {}) {
   const props = {
     messages: [queued('queue_1', 'First message', 0), queued('queue_2', 'Second message', 1)],
     promoteDelivery: 'steer' as const,
     onDelete: vi.fn().mockResolvedValue(undefined),
+    onOpenResource: vi.fn(),
     onPromote: vi.fn().mockResolvedValue(undefined),
     onReorder: vi.fn().mockResolvedValue(undefined),
     onUpdate: vi.fn().mockResolvedValue(undefined),
@@ -100,5 +144,55 @@ describe('ClioComposerQueue', () => {
       expect.objectContaining({ id: 'queue_1' }),
       'steer',
     );
+  });
+
+  it('shows compact queued attachment progress, hover semantics, preview, and overflow', async () => {
+    const user = userEvent.setup();
+    const message = queued('queue_resources', 'Review these files', 0);
+    message.parts.push(
+      {
+        type: 'resource_ref',
+        resource_id: 'res_panel',
+        resource_revision: '1',
+        name: 'panel-b.png',
+      },
+      {
+        type: 'resource_ref',
+        resource_id: 'res_paper',
+        resource_revision: '1',
+        name: 'paper.pdf',
+      },
+      {
+        type: 'resource_ref',
+        resource_id: 'res_notes',
+        resource_revision: '1',
+        name: 'notes.pdf',
+      },
+    );
+    const panel = workspaceResource('res_panel', 'panel-b.png', 'processing');
+    const props = renderQueue({
+      messages: [message],
+      resources: [
+        panel,
+        workspaceResource('res_paper', 'paper.pdf', 'complete'),
+        workspaceResource('res_notes', 'notes.pdf', 'complete'),
+      ],
+    });
+
+    const attachment = screen.getByRole('button', { name: 'Open panel-b.png' });
+    expect(
+      within(attachment).getByRole('img', { name: 'Attachment status: Processing' }),
+    ).toBeVisible();
+    expect(screen.getByLabelText('1 more attachments')).toHaveTextContent('+1');
+
+    await user.hover(attachment);
+    expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
+    expect(screen.getByText(/structured content is 42% ready/i)).toBeVisible();
+    expect(
+      screen.getByRole('status', { name: 'Conversion status: In progress' }),
+    ).toHaveTextContent('ConversionIn progress · 42%');
+
+    await user.click(attachment);
+    expect(props.onOpenResource).toHaveBeenCalledWith(panel);
   });
 });
