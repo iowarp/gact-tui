@@ -6,6 +6,29 @@ const fixtureEndpoint = `http://127.0.0.1:${fixturePort}`;
 const workspaceUrl = '/workspaces/ws_flat_ndp/sessions/sess_flat_ndp';
 const unexpectedErrors = new WeakMap<Page, string[]>();
 
+async function settleConversationAtLatest(page: Page) {
+  const conversation = page.getByRole('log', { name: 'Conversation' });
+  await expect(conversation).toBeVisible();
+  for (let pass = 0; pass < 2; pass += 1) {
+    await conversation.evaluate((element) => {
+      element.scrollTo({ behavior: 'instant', top: element.scrollHeight });
+    });
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+  }
+  await expect
+    .poll(() =>
+      conversation.evaluate(
+        (element) => element.scrollHeight - element.scrollTop - element.clientHeight,
+      ),
+    )
+    .toBeLessThanOrEqual(1);
+}
+
 test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   unexpectedErrors.set(page, errors);
@@ -40,6 +63,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(page.getByRole('region', { name: 'Agent needs your response' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Allow once' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send response' })).toBeDisabled();
+  await settleConversationAtLatest(page);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await expect(page).toHaveScreenshot('workspace-desktop-dark.png', { animations: 'disabled' });
 
