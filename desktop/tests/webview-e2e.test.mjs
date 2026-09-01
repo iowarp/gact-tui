@@ -88,7 +88,7 @@ const SHELL_SELECTOR =
 const COMPOSER_SELECTOR = 'textarea[name="message"]';
 const SUBMIT_SELECTOR = 'button[aria-label="Submit"]';
 const RESPONSE_SELECTOR = 'section[aria-label="Agent needs your response"]';
-const DRIVER_START_ATTEMPTS = 2;
+const DRIVER_START_ATTEMPTS = 1;
 const DRIVER_READY_TIMEOUT_MS = 10_000;
 
 // The native app's supervisor attaches through CLIO_GACT_URL / CLIO_PORT.
@@ -261,7 +261,10 @@ async function cleanupPermissionProbe(agentId, sessionId) {
 async function newSession() {
   const caps = {
     capabilities: {
-      alwaysMatch: { 'tauri:options': { application: APP } },
+      alwaysMatch: {
+        browserName: 'wry',
+        'tauri:options': { application: APP },
+      },
       firstMatch: [{}],
     },
   };
