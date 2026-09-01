@@ -8,14 +8,14 @@ import {
 
 describe('presentation override ledger', () => {
   it('deduplicates rerenders by override kind and entity within a session', () => {
-    window.history.replaceState({}, '', '/workspaces/ws_1/sessions/sess_override_ledger');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const input = {
-      kind: 'tool-name-humanization' as const,
-      entityId: 'fs_read_file',
-      serverValue: 'fs_read_file',
-      rendered: 'Read file',
-      issue: PRESENTATION_OVERRIDE_REGISTRY['tool-name-humanization'].issue,
+      kind: 'child-assignment-fallback' as const,
+      entityId: 'task_ledger',
+      sessionId: 'sess_override_ledger',
+      serverValue: undefined,
+      rendered: 'Delegated work',
+      issue: PRESENTATION_OVERRIDE_REGISTRY['child-assignment-fallback'].issue,
     };
 
     reportPresentationOverride(input);
@@ -26,7 +26,6 @@ describe('presentation override ledger', () => {
   });
 
   it('notifies observers after recording a new override', async () => {
-    window.history.replaceState({}, '', '/workspaces/ws_1/sessions/sess_override_notify');
     const listener = vi.fn();
     const unsubscribe = subscribePresentationOverrides(listener);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
@@ -34,6 +33,7 @@ describe('presentation override ledger', () => {
     reportPresentationOverride({
       kind: 'child-assignment-fallback',
       entityId: 'task_1',
+      sessionId: 'sess_override_notify',
       serverValue: undefined,
       rendered: 'Delegated work',
       issue: PRESENTATION_OVERRIDE_REGISTRY['child-assignment-fallback'].issue,
@@ -42,6 +42,22 @@ describe('presentation override ledger', () => {
 
     expect(listener).toHaveBeenCalledOnce();
     unsubscribe();
+    warn.mockRestore();
+  });
+
+  it('keeps an override with no owning session out of the focused session bucket', () => {
+    window.history.replaceState({}, '', '/workspaces/ws_1/sessions/sess_override_scope');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    reportPresentationOverride({
+      kind: 'tool-name-humanization',
+      entityId: 'relay',
+      serverValue: 'relay',
+      rendered: 'Relay',
+      issue: PRESENTATION_OVERRIDE_REGISTRY['tool-name-humanization'].issue,
+    });
+
+    expect(getPresentationOverrideCount('sess_override_scope')).toBe(0);
     warn.mockRestore();
   });
 });

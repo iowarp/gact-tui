@@ -30,15 +30,15 @@ afterEach(() => {
 });
 
 describe('ClioObservabilityView', () => {
-  it('surfaces governed presentation fallbacks for the active session', () => {
-    window.history.replaceState({}, '', '/workspaces/ws_1/sessions/sess_override_dock');
+  it('surfaces governed presentation fallbacks beside the live session status', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     reportPresentationOverride({
-      kind: 'tool-name-humanization',
-      entityId: 'fs_read_file',
-      serverValue: 'fs_read_file',
-      rendered: 'Read file',
-      issue: PRESENTATION_OVERRIDE_REGISTRY['tool-name-humanization'].issue,
+      kind: 'child-assignment-fallback',
+      entityId: 'task_unassigned',
+      sessionId: 'sess_override_dock',
+      serverValue: { summary: undefined, task: undefined },
+      rendered: 'Delegated work',
+      issue: PRESENTATION_OVERRIDE_REGISTRY['child-assignment-fallback'].issue,
     });
 
     render(
@@ -47,10 +47,19 @@ describe('ClioObservabilityView', () => {
         contextFiles={[]}
         contextFrames={[]}
         diffs={[]}
-        messages={[]}
+        messages={[
+          {
+            id: 'msg_1',
+            session_id: 'sess_override_dock',
+            role: 'assistant',
+            created_at: '2026-08-27T12:00:00Z',
+            blocks: [{ id: 'block_1', type: 'text', text: 'Working on it' }],
+          },
+        ]}
         processes={[]}
         runs={[]}
         sessionId="sess_override_dock"
+        sessionState="running"
         subagents={[]}
         tasks={[]}
         tools={[]}
@@ -58,6 +67,7 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByText('1 display fallback')).toBeInTheDocument();
+    expect(screen.getByText('Working')).toBeInTheDocument();
     warn.mockRestore();
   });
 

@@ -19,6 +19,7 @@ export function getChildAgentAssignment(subagent: SubagentRun): ChildAgentAssign
   reportPresentationOverride({
     kind: 'child-assignment-fallback',
     entityId: subagent.id,
+    sessionId: subagent.session_id,
     serverValue: { summary: subagent.summary, task: subagent.task },
     rendered: label,
     issue: PRESENTATION_OVERRIDE_REGISTRY['child-assignment-fallback'].issue,

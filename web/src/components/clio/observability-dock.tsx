@@ -117,7 +117,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
   const [childAgentsOpen, setChildAgentsOpen] = useState(false);
   const presentationOverrideCount = useSyncExternalStore(
     subscribePresentationOverrides,
-    () => getPresentationOverrideCount(props.sessionId),
+    () => (props.sessionId ? getPresentationOverrideCount(props.sessionId) : 0),
     () => 0,
   );
   const activityCount = props.processes.length || props.subagents.length;
@@ -180,19 +180,20 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
           <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         )}
         <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
-        {presentationOverrideCount ? (
-          <ClioStatus
-            className="hidden py-0.5 sm:inline-flex"
-            label={`${presentationOverrideCount} display ${presentationOverrideCount === 1 ? 'fallback' : 'fallbacks'}`}
-            value="degraded"
-          />
-        ) : activeActivityCount || sessionActive || activityCount ? (
+        {activeActivityCount || sessionActive || activityCount ? (
           <ClioStatus
             className="hidden py-0.5 sm:inline-flex"
             label={dockStatus}
             value={
               activeActivityCount || sessionActive ? (props.sessionState ?? 'running') : 'completed'
             }
+          />
+        ) : null}
+        {presentationOverrideCount ? (
+          <ClioStatus
+            className="hidden py-0.5 sm:inline-flex"
+            label={`${presentationOverrideCount} display ${presentationOverrideCount === 1 ? 'fallback' : 'fallbacks'}`}
+            value="degraded"
           />
         ) : null}
         <PanelRightOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
@@ -522,7 +523,10 @@ function ProvenanceSourceBar({
             <SelectContent>
               {providers.map((item) => (
                 <SelectItem key={item.name} value={item.name}>
-                  {item.name} — {item.status}
+                  <span>
+                    <span>{item.name}</span>
+                    <span className="text-muted-foreground">{item.status}</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
