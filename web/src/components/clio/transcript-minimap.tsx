@@ -102,16 +102,20 @@ function MinimapRail({
             <HoverCardTrigger asChild>
               <button
                 aria-label={`Jump to ${message.role} message ${row.index + 1}`}
-                className={cn(
-                  'absolute left-0 flex h-2 w-full items-center rounded-sm outline-none transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring',
-                  row.index === activeIndex ? 'opacity-100' : 'opacity-55',
-                )}
+                aria-current={row.index === activeIndex ? 'location' : undefined}
+                className="absolute left-0 flex h-2 w-full items-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 data-scrollspy-anchor={useScrollspy ? `message-${message.id}` : undefined}
                 onClick={() => onJump(row.index)}
                 style={{ transform: `translateY(${row.start}px)` }}
                 type="button"
               >
-                <span className={cn('h-0.5 rounded-full', landmarkClass(message))} />
+                <span
+                  className={cn(
+                    'rounded-full',
+                    row.index === activeIndex ? 'h-1' : 'h-0.5',
+                    landmarkClass(message),
+                  )}
+                />
               </button>
             </HoverCardTrigger>
             <HoverCardContent align="start" className="w-72" side="right">
@@ -164,9 +168,7 @@ function landmarkClass(message: Message): string {
     return 'w-2.5 bg-orange-500';
   }
   if (
-    message.blocks.some((block) =>
-      ['reasoning', 'task', 'tool', 'subagent'].includes(block.type),
-    )
+    message.blocks.some((block) => ['reasoning', 'task', 'tool', 'subagent'].includes(block.type))
   ) {
     return 'w-2 bg-cyan-500';
   }

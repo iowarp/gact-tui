@@ -70,6 +70,13 @@ describe('ClioTranscriptMinimap', () => {
     );
 
     expect(screen.getByLabelText('Transcript minimap')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Jump to assistant message 2' })).toHaveAttribute(
+      'aria-current',
+      'location',
+    );
+    expect(screen.getByRole('button', { name: 'Jump to user message 1' })).not.toHaveAttribute(
+      'aria-current',
+    );
     await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
     expect(onJump).toHaveBeenCalledWith(1);
     expect(screen.queryByText('Compare the three stations.')).not.toBeInTheDocument();
