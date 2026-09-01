@@ -600,6 +600,27 @@ describe('ClioRepository interaction contracts', () => {
     });
   });
 
+  it('keeps an unrecognized async-process live state unknown instead of terminally interrupted', async () => {
+    const transport = new RecordingTransport([
+      {
+        processes: [
+          {
+            kind: 'agent',
+            id: 'task_watcher',
+            title: 'Spotter watcher',
+            live_state: 'waiting',
+            status: 'running',
+          },
+        ],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    const processes = await repository.asyncProcesses('sess 1');
+
+    expect(processes[0]).toMatchObject({ id: 'task_watcher', live_state: 'unknown' });
+  });
+
   it('normalizes the server permission ledger without flattening away the input', async () => {
     const transport = new RecordingTransport([
       {

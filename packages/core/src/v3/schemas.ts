@@ -217,11 +217,14 @@ export const runStateSchema = forwardCompatibleEnum([
   'interrupted',
 ]);
 
-const operationalRunStateSchema = z.string().transform((value): z.infer<typeof runStateSchema> => {
-  if (value === 'working') return 'running';
-  if (value === 'input_required') return 'waiting_user';
-  return runStateSchema.safeParse(value).data ?? 'interrupted';
-});
+/** Maps SEP-2663 operational states onto run states; anything unrecognized stays typed `unknown`. */
+export const operationalRunStateSchema = z
+  .string()
+  .transform((value): z.infer<typeof runStateSchema> => {
+    if (value === 'working') return 'running';
+    if (value === 'input_required') return 'waiting_user';
+    return runStateSchema.parse(value);
+  });
 
 export const operationalRunSchema = z.object({
   handle_id: z.string(),
