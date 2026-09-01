@@ -49,6 +49,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ZoomPan } from '@/components/mermaidcn/zoom-pan';
 import { useRepository } from '@/hooks/use-repository';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { cn } from '@/lib/utils';
 import { ClioCsvView } from './csv-view';
@@ -85,9 +86,10 @@ function WorkspaceTextView({
   size?: number;
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const canLoad = size === undefined || size <= maxInlinePreviewBytes;
   const content = useQuery({
-    queryKey: queryKeys.key('workspace-file', workspaceId, path),
+    queryKey: queryKeys.workspaceFile(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFile(workspaceId, path, signal),
     enabled: canLoad,
   });
@@ -97,8 +99,9 @@ function WorkspaceTextView({
 
 function WorkspaceImageView({ workspaceId, path }: { workspaceId: string; path: string }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const content = useQuery({
-    queryKey: queryKeys.key('workspace-file-bytes', workspaceId, path),
+    queryKey: queryKeys.workspaceFileBytes(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
   });
   return (
@@ -124,6 +127,7 @@ export function BlueprintFileEditor({
   path: string;
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
   const queryKey = ['blueprint-file', blueprintId, workspaceId, sessionId, path] as const;
@@ -162,7 +166,7 @@ export function BlueprintFileEditor({
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: queryKeys.key('blueprint-files', blueprintId, workspaceId, sessionId),
+          queryKey: queryKeys.key('blueprint-files', settings.endpoint, blueprintId, workspaceId, sessionId),
         }),
         queryClient.invalidateQueries({ queryKey: queryKeys.key('agent-blueprints') }),
       ]);
@@ -261,6 +265,7 @@ export function ArtifactView({
   onOpenArtifact?: (artifact: Artifact) => void;
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const canPreviewText = isTextArtifact(artifact.media_type, artifact.name);
   const canPreviewImage = isImageArtifact(artifact.media_type, artifact.name);
   const fallbackFile = useMemo(
@@ -271,7 +276,7 @@ export function ArtifactView({
   const previewSize = artifact.size ?? fallbackFile?.size;
   const canLoadInline = previewSize !== undefined && previewSize <= maxInlinePreviewBytes;
   const text = useQuery({
-    queryKey: queryKeys.key('artifact-text', artifact.id, fallbackPath),
+    queryKey: queryKeys.key('artifact-text', settings.endpoint, artifact.id, fallbackPath),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactTextFor(artifact, signal);
@@ -283,7 +288,7 @@ export function ArtifactView({
     enabled: canPreviewText && canLoadInline,
   });
   const image = useQuery({
-    queryKey: queryKeys.key('artifact-image', artifact.id, fallbackPath),
+    queryKey: queryKeys.key('artifact-image', settings.endpoint, artifact.id, fallbackPath),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactBytesFor(artifact, signal);

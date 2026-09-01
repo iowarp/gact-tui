@@ -9,6 +9,9 @@ const repository = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
+}));
 
 import { ClioA2UIArtifact } from './a2ui-artifact';
 

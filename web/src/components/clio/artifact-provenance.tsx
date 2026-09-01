@@ -14,6 +14,7 @@ import {
 } from '@/components/reui/timeline';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { ArtifactLineageGraph } from './artifact-lineage-graph';
 import { ClioStatus } from './status';
 
@@ -27,13 +28,14 @@ export function ArtifactProvenance({
   onOpenArtifact?: (artifact: Artifact) => void;
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const detail = useQuery({
-    queryKey: queryKeys.key('artifact-detail', artifact.id),
+    queryKey: queryKeys.key('artifact-detail', settings.endpoint, artifact.id),
     queryFn: ({ signal }) => repository.artifactDetail(artifact.id, signal),
     enabled: view === 'versions',
   });
   const lineage = useQuery({
-    queryKey: queryKeys.key('artifact-lineage', artifact.id, 'both', 5),
+    queryKey: queryKeys.key('artifact-lineage', settings.endpoint, artifact.id, 'both', 5),
     queryFn: ({ signal }) =>
       repository.artifactLineage(artifact.id, { direction: 'both', depth: 5 }, signal),
     enabled: view === 'lineage',

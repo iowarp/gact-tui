@@ -103,10 +103,10 @@ export const queryKeys = {
     view
       ? (['transcript', endpoint, sessionId, view] as const)
       : (['transcript', endpoint, sessionId] as const),
-  workspaceFile: (workspaceId: string, path: string) =>
-    ['workspace-file', workspaceId, path] as const,
-  workspaceFileBytes: (workspaceId: string, path: string) =>
-    ['workspace-file-bytes', workspaceId, path] as const,
+  workspaceFile: (endpoint: string, workspaceId: string, path: string) =>
+    ['workspace-file', endpoint, workspaceId, path] as const,
+  workspaceFileBytes: (endpoint: string, workspaceId: string, path: string) =>
+    ['workspace-file-bytes', endpoint, workspaceId, path] as const,
   workspaceFiles: (endpoint: string, workspaceId: string) =>
     ['workspace-files', endpoint, workspaceId] as const,
   workspaces: (endpoint: string, scope?: string) =>

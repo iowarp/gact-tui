@@ -48,6 +48,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { cn } from '@/lib/utils';
 import { ClioArtifactCard } from './artifact-card';
 import { ClioInteractiveRow } from './interactive-row';
@@ -412,11 +413,18 @@ interface BlueprintViewProps {
 /** Renders an installed blueprint and its real server-owned files in the canvas. */
 export function BlueprintView({ blueprint, workspaceId, sessionId }: BlueprintViewProps) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const hostRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string>();
   const files = useQuery({
-    queryKey: queryKeys.key('blueprint-files', blueprint.id, workspaceId, sessionId),
+    queryKey: queryKeys.key(
+      'blueprint-files',
+      settings.endpoint,
+      blueprint.id,
+      workspaceId,
+      sessionId,
+    ),
     queryFn: ({ signal }) =>
       repository.agentBlueprintFiles(blueprint.id, { workspaceId, sessionId }, signal),
   });

@@ -24,6 +24,7 @@ import { MessageResponse } from '@/components/ai-elements/message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useRepository } from '@/hooks/use-repository';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { cn } from '@/lib/utils';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
@@ -77,10 +78,11 @@ function ClioArtifactAttachment({
   onOpen?: ClioArtifactAttachmentsProps['onOpen'];
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const image = isImageArtifact(artifact);
   const withinBudget = artifact.size !== undefined && artifact.size <= cardPreviewBudget;
   const imageBytes = useQuery({
-    queryKey: queryKeys.key('artifact-attachment-image', artifact.id, artifact.fetch_path),
+    queryKey: queryKeys.key('artifact-attachment-image', settings.endpoint, artifact.id, artifact.fetch_path),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactBytesFor(artifact, signal);
@@ -186,13 +188,14 @@ export function ClioArtifactCard({
   preview = true,
 }: ClioArtifactCardProps) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const image = isImageArtifact(artifact);
   const text = isTextArtifact(artifact);
   const tabular = isTabularArtifact(artifact);
   const withinBudget = artifact.size !== undefined && artifact.size <= cardPreviewBudget;
   const textWithinBudget = artifact.size !== undefined && artifact.size <= textCardPreviewBudget;
   const imageBytes = useQuery({
-    queryKey: queryKeys.key('artifact-card-image', artifact.id, artifact.fetch_path),
+    queryKey: queryKeys.key('artifact-card-image', settings.endpoint, artifact.id, artifact.fetch_path),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactBytesFor(artifact, signal);
@@ -212,7 +215,7 @@ export function ClioArtifactCard({
     artifact.media_type || imageMediaType(artifact.name),
   );
   const textPreview = useQuery({
-    queryKey: queryKeys.key('artifact-card-text', artifact.id, artifact.fetch_path),
+    queryKey: queryKeys.key('artifact-card-text', settings.endpoint, artifact.id, artifact.fetch_path),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactTextFor(artifact, signal);

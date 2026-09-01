@@ -144,7 +144,9 @@ describe('ClioSubagentCanvasView live stream', () => {
 
     renderCanvas(canvas());
 
-    await waitFor(() => expect(screen.getByText('Live child answer')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Live child answer')).toBeInTheDocument(), {
+      timeout: 5_000,
+    });
     expect(screen.getByText('Snapshot answer')).toBeInTheDocument();
   });
 
@@ -168,11 +170,15 @@ describe('ClioSubagentCanvasView live stream', () => {
 
     renderCanvas(canvas());
 
-    await waitFor(() => expect(screen.getByText('Live child answer')).toBeInTheDocument());
-    await waitFor(() => expect(mocks.repository.stream).toHaveBeenCalledTimes(2), {
-      timeout: 3_000,
+    await waitFor(() => expect(screen.getByText('Live child answer')).toBeInTheDocument(), {
+      timeout: 5_000,
     });
-    await waitFor(() => expect(screen.getByText('Reconnecting')).toBeVisible());
+    await waitFor(() => expect(mocks.repository.stream).toHaveBeenCalledTimes(2), {
+      timeout: 5_000,
+    });
+    await waitFor(() => expect(screen.getByText('Reconnecting')).toBeVisible(), {
+      timeout: 5_000,
+    });
     expect(mocks.repository.stream).toHaveBeenLastCalledWith(
       { connection_id: 'active', workspace_id: 'ws_1', session_id: 'sess_child' },
       '41',

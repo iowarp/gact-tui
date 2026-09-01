@@ -68,6 +68,9 @@ const repository = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
+}));
 
 afterEach(() => {
   cleanup();
@@ -119,6 +122,30 @@ describe('ArtifactProvenance', () => {
       expect.any(AbortSignal),
     );
     expect(document.body).not.toHaveTextContent('"nodes"');
+  });
+
+  it('keys custody reads to the connected service', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ArtifactProvenance
+          artifact={{
+            id: 'artifact_2',
+            session_id: 'sess_1',
+            name: 'result.csv',
+            media_type: 'text/csv',
+            uri: 'artifact://ws_1/result.csv@v2',
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText('Version 1')).toBeVisible();
+    expect(queryClient.getQueryCache().findAll().map((query) => query.queryKey)).toContainEqual([
+      'artifact-detail',
+      'http://127.0.0.1:8790',
+      'artifact_2',
+    ]);
   });
 
   it('keeps service errors behind plain-language provenance states', async () => {
