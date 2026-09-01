@@ -256,7 +256,7 @@ export function ClioComposer({
             try {
               await onSubmit({
                 behavior,
-                delivery: nextDeliveryRef.current,
+                delivery: state === 'running' ? nextDeliveryRef.current : 'start',
                 files,
                 text: trimmed,
                 provider: selectedOption?.providerId,

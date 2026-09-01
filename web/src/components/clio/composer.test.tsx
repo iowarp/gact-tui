@@ -251,4 +251,40 @@ describe('ClioComposer service commands', () => {
       ),
     );
   });
+
+  it('resets a queued running-turn intent when the session becomes idle', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    const renderState = (state: 'completed' | 'running') => (
+      <PromptInputProvider>
+        <ClioComposer
+          attachments={false}
+          effort="medium"
+          model="gpt-5.6-luna"
+          onSubmit={onSubmit}
+          provider="codex"
+          state={state}
+        />
+      </PromptInputProvider>
+    );
+    const view = render(renderState('running'));
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, 'Queue this while running.{Enter}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ delivery: 'queued', text: 'Queue this while running.' }),
+      ),
+    );
+
+    view.rerender(renderState('completed'));
+    await user.type(screen.getByRole('textbox'), 'Start this after completion.');
+    await user.click(screen.getByRole('button', { name: /^Submit$/ }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ delivery: 'start', text: 'Start this after completion.' }),
+      ),
+    );
+  });
 });
