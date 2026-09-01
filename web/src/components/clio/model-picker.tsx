@@ -20,14 +20,17 @@ import { CascaderInput, CascaderNav } from '@/components/reui/cascader/cascader-
 import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { IconTile } from '@/components/reui/icon-tile';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import type { ClioModelOption } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 
 interface ClioModelPickerProps {
+  catalogStatus?: 'error' | 'loading' | 'ready';
   model?: string;
   onChange: (choice: ClioModelOption) => void;
   options: readonly ClioModelOption[];
@@ -67,6 +70,7 @@ const MODEL_NODE_PREFIX = 'model:';
 
 /** Searchable AI Elements dialog composed with the real ReUI columns cascader. */
 export function ClioModelPicker({
+  catalogStatus = 'ready',
   model,
   onChange,
   options,
@@ -195,152 +199,211 @@ export function ClioModelPicker({
         commandProps={{ className: 'min-h-0 p-0', shouldFilter: false }}
         title={title}
       >
-        <Cascader
-          closeOnSelect={false}
-          indicator
-          inline
-          inputValue={query}
-          items={providerNodes}
-          labels={{
-            actionsLabel: 'Provider actions',
-            columnsLabel: 'Providers and models',
-            empty: 'No available models',
-            rootLevel: 'Providers',
-          }}
-          maxHeight="100%"
-          mode={showColumns ? 'columns' : 'drill'}
-          onInputValueChange={setQuery}
-          onPathChange={(nextPath) => setPath(nextPath)}
-          onValueChange={(_value, details) => {
-            if (details.node?.data?.kind !== 'model') return;
-            onChange(details.node.data.choice);
-            setOpen(false);
-            setQuery('');
-          }}
-          path={path}
-          renderLabel={(node, state) => (
-            <PickerRowLabel
-              hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
-              node={node}
-              state={state}
-            />
-          )}
-          searchScope="deep"
-          selectable={(node) => node.data?.kind === 'model'}
-          value={selectedChoice ? modelNodeValue(selectedChoice) : undefined}
-        >
-          <CascaderPanel className="h-full min-h-0">
-            <CascaderNav>
-              <div className="flex w-full min-w-0 items-center gap-1 pe-8 md:w-1/2 md:pe-0">
-                <div className="min-w-0 flex-1">
-                  <CascaderInput
-                    aria-label="Search providers and models"
-                    placeholder="Search providers and models"
-                  />
-                </div>
-                {activeGroup ? (
-                  <div className="flex shrink-0 items-center gap-1">
-                    {activeGroup.id !== provider ? (
-                      <Button
-                        aria-label={
-                          hiddenProviders.has(activeGroup.id)
-                            ? `Show ${activeGroup.name}`
-                            : `Hide ${activeGroup.name}`
-                        }
-                        onClick={() =>
-                          hiddenProviders.has(activeGroup.id)
-                            ? showProvider(activeGroup)
-                            : hideProvider(activeGroup)
-                        }
-                        size="icon-sm"
-                        title={
-                          hiddenProviders.has(activeGroup.id)
-                            ? 'Show provider in this picker'
-                            : 'Hide provider from this picker'
-                        }
-                        type="button"
-                        variant="ghost"
-                      >
-                        {hiddenProviders.has(activeGroup.id) ? (
-                          <EyeIcon aria-hidden="true" />
-                        ) : (
-                          <EyeOffIcon aria-hidden="true" />
-                        )}
-                      </Button>
-                    ) : null}
-                    <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
-                      <Link
-                        aria-label={`Configure ${activeGroup.name} provider`}
-                        to={activeGroup.configurationUrl}
-                      >
-                        <SettingsIcon aria-hidden="true" />
-                      </Link>
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            </CascaderNav>
-            {showColumns ? (
-              <CascaderColumns
-                className="w-full flex-1"
-                columnWidth="min(32rem, calc((100vw - 3rem) / 2))"
-                maxHeight="100%"
+        {catalogStatus === 'loading' ? (
+          <ModelCatalogSkeleton columns={showColumns} />
+        ) : catalogStatus === 'error' ? (
+          <ModelCatalogError />
+        ) : (
+          <Cascader
+            closeOnSelect={false}
+            indicator
+            inline
+            inputValue={query}
+            items={providerNodes}
+            labels={{
+              actionsLabel: 'Provider actions',
+              columnsLabel: 'Providers and models',
+              empty: 'No available models',
+              rootLevel: 'Providers',
+            }}
+            maxHeight="100%"
+            mode={showColumns ? 'columns' : 'drill'}
+            onInputValueChange={setQuery}
+            onPathChange={(nextPath) => setPath(nextPath)}
+            onValueChange={(_value, details) => {
+              if (details.node?.data?.kind !== 'model') return;
+              onChange(details.node.data.choice);
+              setOpen(false);
+              setQuery('');
+            }}
+            path={path}
+            renderLabel={(node, state) => (
+              <PickerRowLabel
+                hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
+                node={node}
+                state={state}
               />
-            ) : (
-              <CascaderList className="w-full flex-1" maxHeight="100%">
-                <CascaderItems />
-              </CascaderList>
             )}
-            {activeGroup?.detail ? (
-              <div
-                className={cn(
-                  'shrink-0 border-t px-3 py-2 text-xs',
-                  activeGroup.health === 'degraded'
-                    ? 'text-warning-foreground'
-                    : 'text-muted-foreground',
-                )}
-                role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
-              >
-                {activeGroup.detail}
-              </div>
-            ) : null}
-            {hiddenProviders.size ? (
-              <CascaderFooter className="min-h-11 flex-row items-center gap-1 px-2">
-                <div className="flex min-w-0 items-center gap-1">
-                  <Button
-                    aria-label={`Show ${hiddenProviders.size} hidden ${hiddenProviders.size === 1 ? 'provider' : 'providers'}`}
-                    aria-pressed={showHidden}
-                    onClick={() => setShowHidden((current) => !current)}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    {showHidden ? (
-                      <EyeOffIcon data-icon="inline-start" />
-                    ) : (
-                      <EyeIcon data-icon="inline-start" />
-                    )}
-                    Hidden ({hiddenProviders.size})
-                  </Button>
-                  {showHidden && hiddenProviders.size ? (
+            searchScope="deep"
+            selectable={(node) => node.data?.kind === 'model'}
+            value={selectedChoice ? modelNodeValue(selectedChoice) : undefined}
+          >
+            <CascaderPanel className="h-full min-h-0">
+              <CascaderNav>
+                <div className="flex w-full min-w-0 items-center gap-1 pe-8 md:w-1/2 md:pe-0">
+                  <div className="min-w-0 flex-1">
+                    <CascaderInput
+                      aria-label="Search providers and models"
+                      placeholder="Search providers and models"
+                    />
+                  </div>
+                  {activeGroup ? (
+                    <div className="flex shrink-0 items-center gap-1">
+                      {activeGroup.id !== provider ? (
+                        <Button
+                          aria-label={
+                            hiddenProviders.has(activeGroup.id)
+                              ? `Show ${activeGroup.name}`
+                              : `Hide ${activeGroup.name}`
+                          }
+                          onClick={() =>
+                            hiddenProviders.has(activeGroup.id)
+                              ? showProvider(activeGroup)
+                              : hideProvider(activeGroup)
+                          }
+                          size="icon-sm"
+                          title={
+                            hiddenProviders.has(activeGroup.id)
+                              ? 'Show provider in this picker'
+                              : 'Hide provider from this picker'
+                          }
+                          type="button"
+                          variant="ghost"
+                        >
+                          {hiddenProviders.has(activeGroup.id) ? (
+                            <EyeIcon aria-hidden="true" />
+                          ) : (
+                            <EyeOffIcon aria-hidden="true" />
+                          )}
+                        </Button>
+                      ) : null}
+                      <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
+                        <Link
+                          aria-label={`Configure ${activeGroup.name} provider`}
+                          to={activeGroup.configurationUrl}
+                        >
+                          <SettingsIcon aria-hidden="true" />
+                        </Link>
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </CascaderNav>
+              {showColumns ? (
+                <CascaderColumns
+                  className="w-full flex-1"
+                  columnWidth="min(32rem, calc((100vw - 3rem) / 2))"
+                  maxHeight="100%"
+                />
+              ) : (
+                <CascaderList className="w-full flex-1" maxHeight="100%">
+                  <CascaderItems />
+                </CascaderList>
+              )}
+              {activeGroup?.detail ? (
+                <div
+                  className={cn(
+                    'shrink-0 border-t px-3 py-2 text-xs',
+                    activeGroup.health === 'degraded'
+                      ? 'text-warning-foreground'
+                      : 'text-muted-foreground',
+                  )}
+                  role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
+                >
+                  {activeGroup.detail}
+                </div>
+              ) : null}
+              {hiddenProviders.size ? (
+                <CascaderFooter className="min-h-11 flex-row items-center gap-1 px-2">
+                  <div className="flex min-w-0 items-center gap-1">
                     <Button
-                      aria-label="Restore all hidden providers"
-                      onClick={restoreAllProviders}
+                      aria-label={`Show ${hiddenProviders.size} hidden ${hiddenProviders.size === 1 ? 'provider' : 'providers'}`}
+                      aria-pressed={showHidden}
+                      onClick={() => setShowHidden((current) => !current)}
                       size="sm"
                       type="button"
                       variant="ghost"
                     >
-                      Restore all
+                      {showHidden ? (
+                        <EyeOffIcon data-icon="inline-start" />
+                      ) : (
+                        <EyeIcon data-icon="inline-start" />
+                      )}
+                      Hidden ({hiddenProviders.size})
                     </Button>
-                  ) : null}
-                </div>
-              </CascaderFooter>
-            ) : null}
-            <CascaderStatus />
-          </CascaderPanel>
-        </Cascader>
+                    {showHidden && hiddenProviders.size ? (
+                      <Button
+                        aria-label="Restore all hidden providers"
+                        onClick={restoreAllProviders}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        Restore all
+                      </Button>
+                    ) : null}
+                  </div>
+                </CascaderFooter>
+              ) : null}
+              <CascaderStatus />
+            </CascaderPanel>
+          </Cascader>
+        )}
       </ModelSelectorContent>
     </ModelSelector>
+  );
+}
+
+function ModelCatalogSkeleton({ columns }: { columns: boolean }) {
+  return (
+    <div
+      aria-busy="true"
+      aria-label="Loading available models"
+      className="flex size-full min-h-0 flex-col"
+      role="status"
+    >
+      <div className="shrink-0 border-b p-2">
+        <Skeleton className="h-9 w-full" />
+      </div>
+      <div className={cn('grid min-h-0 flex-1', columns && 'grid-cols-2 divide-x')}>
+        <div className="flex min-h-0 flex-col gap-2 p-3">
+          {Array.from({ length: 6 }, (_, index) => (
+            <div className="flex h-11 items-center gap-2" key={index}>
+              <Skeleton className="size-8 shrink-0" />
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <Skeleton className="h-3.5 w-2/3" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+              <Skeleton className="size-4 shrink-0 rounded-full" />
+            </div>
+          ))}
+        </div>
+        {columns ? (
+          <div className="flex min-h-0 flex-col gap-3 p-3">
+            {Array.from({ length: 5 }, (_, index) => (
+              <div className="flex h-11 flex-col gap-1.5" key={index}>
+                <Skeleton className="h-3.5 w-1/2" />
+                <Skeleton className="h-3 w-4/5" />
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <span className="sr-only">Discovering providers and models from the connected service.</span>
+    </div>
+  );
+}
+
+function ModelCatalogError() {
+  return (
+    <div className="flex size-full items-start p-4">
+      <Alert variant="destructive">
+        <AlertTitle>Models could not be loaded</AlertTitle>
+        <AlertDescription>
+          Check the provider connection or configuration, then reopen this picker to retry.
+        </AlertDescription>
+      </Alert>
+    </div>
   );
 }
 

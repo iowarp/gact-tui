@@ -41,6 +41,7 @@ export interface ClioComposerProps {
   attachments: boolean;
   provider?: string;
   model?: string;
+  modelCatalogStatus?: 'error' | 'loading' | 'ready';
   effort?: string;
   executionMode?: MessageBehavior['execution_mode'];
   confirmationPolicy?: MessageBehavior['confirmation_policy'];
@@ -97,6 +98,7 @@ export function ClioComposer({
   attachments,
   provider,
   model,
+  modelCatalogStatus = 'ready',
   effort,
   executionMode = 'execute',
   confirmationPolicy = 'ask',
@@ -318,6 +320,7 @@ export function ClioComposer({
               disabled={disabled}
               modelControl={
                 <ClioModelPicker
+                  catalogStatus={modelCatalogStatus}
                   model={selectedOption?.id}
                   onChange={(option) => {
                     setSelectedProvider(option.providerId);

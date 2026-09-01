@@ -3,6 +3,26 @@ import { describe, expect, it } from 'vitest';
 import { buildModelOptions } from './model-options';
 
 describe('buildModelOptions', () => {
+  it('does not expose suggested defaults as live selectable inventory', () => {
+    expect(
+      buildModelOptions({
+        activeCatalogProvider: '',
+        presets: [
+          {
+            id: 'codex',
+            label: 'Codex',
+            provider: 'codex',
+            suggested_model: 'hardcoded-default',
+            is_authenticated: true,
+            requires_api_key: false,
+            supports_live_catalog: true,
+            supports_vision: true,
+          },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
   it('uses the live endpoint catalog and keeps provider and model identity separate', () => {
     const providerCatalog: ProviderCatalog = {
       authoritative: 'live_handshake',

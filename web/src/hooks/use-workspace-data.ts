@@ -265,6 +265,11 @@ export function useWorkspaceData({
     providerCatalog: providerCatalog.data,
     presets: modelConfiguration.data?.presets ?? [],
   });
+  const modelCatalogStatus: 'error' | 'loading' | 'ready' = providerCatalog.isFetching
+    ? 'loading'
+    : providerCatalog.isError
+      ? 'error'
+      : 'ready';
 
   return {
     activeBlueprint,
@@ -282,6 +287,7 @@ export function useWorkspaceData({
     entities,
     executionProvenance,
     modelConfiguration,
+    modelCatalogStatus,
     modelOptions,
     providerCatalog,
     parentSession,

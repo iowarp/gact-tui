@@ -72,6 +72,7 @@ export function WorkspacePage() {
     entities,
     executionProvenance,
     modelOptions,
+    modelCatalogStatus,
     parentSession,
     processes,
     questions,
@@ -357,6 +358,7 @@ export function WorkspacePage() {
         focusRequestKey={composerFocusKey}
         key={`composer:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
         model={activeModel}
+        modelCatalogStatus={modelCatalogStatus}
         modelOptions={modelOptions}
         onCommand={async (value) => {
           const startedFromWelcome = showConversationWelcome;

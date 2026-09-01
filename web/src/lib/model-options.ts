@@ -44,9 +44,7 @@ export function buildModelOptions({
       description: model.failure || undefined,
       available: model.availability === 'available',
       availabilityDetail:
-        model.availability === 'available'
-          ? undefined
-          : model.failure || model.availability,
+        model.availability === 'available' ? undefined : model.failure || model.availability,
       configurationUrl: provider.configuration_url,
       endpoint: provider.endpoint,
       freshness: provider.freshness.generated_at,
@@ -55,14 +53,11 @@ export function buildModelOptions({
     })),
   );
   const presetOptions = presets.flatMap((preset) => {
-    const models =
-      catalogModelsByProvider?.[preset.id]?.length
-        ? catalogModelsByProvider[preset.id]
-        : preset.id === activeCatalogProvider && catalogModels?.length
+    const models = catalogModelsByProvider?.[preset.id]?.length
+      ? catalogModelsByProvider[preset.id]
+      : preset.id === activeCatalogProvider && catalogModels?.length
         ? catalogModels
-        : preset.suggested_model
-          ? [{ id: preset.suggested_model, name: preset.suggested_model }]
-          : [];
+        : [];
     return (models ?? []).map((item) => ({
       providerId: preset.id,
       providerName: providerDisplayName(preset),

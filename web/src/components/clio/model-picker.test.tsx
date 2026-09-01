@@ -70,6 +70,26 @@ describe('ClioModelPicker', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ providerId: 'local-vllm' }));
   });
 
+  it('shows stable skeleton columns instead of provisional options while discovery runs', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          catalogStatus="loading"
+          onChange={vi.fn()}
+          options={options}
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    expect(screen.getByRole('status', { name: 'Loading available models' })).toBeVisible();
+    expect(screen.queryByText('Luna')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Search providers and models')).not.toBeInTheDocument();
+    expect(document.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(10);
+  });
+
   it('links provider configuration without mixing it into model selection', async () => {
     const user = userEvent.setup();
     render(
