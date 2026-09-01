@@ -80,7 +80,7 @@ function IterationSummary({
   const open = iteration.streaming || manualOpen;
   const primaryTool = iteration.tools[0];
   const tool = primaryTool ? getToolPresentation(primaryTool) : undefined;
-  const toolSummary = primaryTool ? compactToolSummary(getToolSummary(primaryTool)) : undefined;
+  const toolSummary = primaryTool ? getToolSummary(primaryTool) : undefined;
   const toolState =
     primaryTool && primaryTool.state !== 'succeeded'
       ? clioStatusLabel(primaryTool.state)
@@ -187,15 +187,4 @@ function IterationDetail({
       </div>
     </article>
   );
-}
-
-function compactToolSummary(summary: string): string | undefined {
-  if (
-    /^(?:Completed(?: successfully)?|Succeeded|Running(?: now)?|Waiting to start)\.?$/iu.test(
-      summary,
-    )
-  ) {
-    return undefined;
-  }
-  return summary;
 }

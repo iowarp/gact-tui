@@ -48,12 +48,12 @@ export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
   };
 }
 
-export function getToolSummary(tool: ToolInvocation): string {
+/** The summary is undefined whenever it would only restate the labeled tool state. */
+export function getToolSummary(tool: ToolInvocation): string | undefined {
   if (tool.error) return truncate(normalize(tool.error), 180);
   const intent = toolIntent(tool);
-  if (tool.state === 'pending')
-    return intent ? `${intent.present} is queued.` : 'Waiting to start.';
-  if (tool.state === 'running') return intent ? `${intent.progressive}…` : 'Running now.';
+  if (tool.state === 'pending') return intent ? `${intent.present} is queued.` : undefined;
+  if (tool.state === 'running') return intent ? `${intent.progressive}…` : undefined;
   if (tool.state === 'denied') return 'The requested action was denied.';
   if (tool.state === 'cancelled') return 'The action was cancelled.';
   const outputSummary = summarizeOutput(tool.output);
@@ -63,7 +63,7 @@ export function getToolSummary(tool: ToolInvocation): string {
       : `${intent.past}.`;
   }
   if (outputSummary) return outputSummary;
-  return tool.state === 'succeeded' ? 'Completed successfully.' : 'No result summary was provided.';
+  return tool.state === 'succeeded' ? undefined : 'No result summary was provided.';
 }
 
 export function humanizeToolName(name: string): string {

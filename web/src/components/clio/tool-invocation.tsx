@@ -24,9 +24,6 @@ export function ClioToolInvocation({
   }
   const presentation = getToolPresentation(tool);
   const summary = getToolSummary(tool);
-  const showSummary = !/^(?:Completed successfully|Running now|Waiting to start)\.?$/iu.test(
-    summary,
-  );
   const PresentationIcon = presentation.kind === 'analysis-view' ? PanelsTopLeftIcon : WrenchIcon;
   return (
     <Tool
@@ -47,7 +44,7 @@ export function ClioToolInvocation({
         ) : null}
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium">{presentation.title}</span>
-          {showSummary ? (
+          {summary ? (
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">{summary}</span>
           ) : null}
         </span>

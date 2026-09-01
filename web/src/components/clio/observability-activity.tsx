@@ -18,7 +18,8 @@ export interface ObservabilityActivityItem {
   id: string;
   kind: 'run' | 'tool' | 'process';
   label: string;
-  detail: string;
+  /** Absent when the record has no summary beyond its labeled state. */
+  detail?: string;
   state: RunState | ClioStatusValue;
   at?: string;
   groupId?: string;
@@ -70,7 +71,9 @@ export function ClioActivityTimeline({
           </TimelineHeader>
           <TimelineContent className="mt-2 grid gap-1">
             {!group.mainTurn && group.items.length === 1 ? (
-              <p className="text-xs leading-5 text-muted-foreground">{group.items[0]!.detail}</p>
+              group.items[0]!.detail ? (
+                <p className="text-xs leading-5 text-muted-foreground">{group.items[0]!.detail}</p>
+              ) : null
             ) : (
               group.items.map((item) => <ActivityRow item={item} key={`${item.kind}:${item.id}`} />)
             )}
@@ -98,7 +101,9 @@ function ActivityRow({ item }: { item: ObservabilityActivityItem }) {
       />
       <div className="min-w-0">
         <p className="truncate text-xs font-medium">{item.label}</p>
-        <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">{item.detail}</p>
+        {item.detail ? (
+          <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">{item.detail}</p>
+        ) : null}
       </div>
       <ActivityStatus item={item} />
     </div>

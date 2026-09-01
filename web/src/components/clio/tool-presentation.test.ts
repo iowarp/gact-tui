@@ -115,6 +115,20 @@ describe('tool presentation', () => {
     expect(formatToolDuration(12_500)).toBe('12.5 s');
   });
 
+  it('reports no summary when the text would only restate the tool state', () => {
+    const bare = (state: ToolInvocation['state']): ToolInvocation => ({
+      id: `tool-bare-${state}`,
+      session_id: 'session-1',
+      name: 'phenotype_measure_cohort',
+      title: 'Measure cohort',
+      state,
+    });
+
+    expect(getToolSummary(bare('pending'))).toBeUndefined();
+    expect(getToolSummary(bare('running'))).toBeUndefined();
+    expect(getToolSummary(bare('succeeded'))).toBeUndefined();
+  });
+
   it('reports a halted domain outcome in the summary without restating the tool state', () => {
     const halted = {
       id: 'tool-halted',
