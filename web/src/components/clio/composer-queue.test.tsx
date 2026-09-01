@@ -1,5 +1,5 @@
 import type { QueuedMessage } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioComposerQueue } from './composer-queue';
@@ -40,11 +40,13 @@ function renderQueue(overrides: Partial<Parameters<typeof ClioComposerQueue>[0]>
 }
 
 describe('ClioComposerQueue', () => {
-  it('keeps compact icon actions and supports keyboard reordering from the right handle', async () => {
+  it('keeps compact icon actions and supports keyboard reordering from the left handle', async () => {
     const user = userEvent.setup();
     const props = renderQueue();
 
     const handles = screen.getAllByRole('button', { name: 'Reorder queued message' });
+    const firstRowButtons = within(handles[0].closest('li')!).getAllByRole('button');
+    expect(firstRowButtons[0]).toBe(handles[0]);
     await user.click(handles[1]);
     await user.keyboard('{ArrowUp}');
     expect(props.onReorder).toHaveBeenCalledWith([
@@ -54,6 +56,15 @@ describe('ClioComposerQueue', () => {
     expect(screen.getAllByRole('button', { name: 'Edit queued message' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Delete queued message' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: 'Send queued message now' })).toHaveLength(2);
+  });
+
+  it('shows a visible name when an icon action is hovered', async () => {
+    const user = userEvent.setup();
+    renderQueue();
+
+    await user.hover(screen.getAllByRole('button', { name: 'Send queued message now' })[0]);
+
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Send queued message now');
   });
 
   it('preserves a local edit when the service rejects a stale revision', async () => {

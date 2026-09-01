@@ -7,6 +7,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { ChevronDownIcon, PaperclipIcon } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
@@ -35,20 +36,35 @@ export const QueueItemActions = ({ className, ...props }: QueueItemActionsProps)
   <div className={cn('flex shrink-0 items-center gap-0.5', className)} {...props} />
 );
 
-export type QueueItemActionProps = Omit<ComponentProps<typeof Button>, 'variant' | 'size'>;
+export type QueueItemActionProps = Omit<ComponentProps<typeof Button>, 'variant' | 'size'> & {
+  tooltip?: string;
+};
 
-export const QueueItemAction = ({ className, ...props }: QueueItemActionProps) => (
-  <Button
-    className={cn(
-      'size-7 rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted-foreground/10 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100',
-      className,
-    )}
-    size="icon"
-    type="button"
-    variant="ghost"
-    {...props}
-  />
-);
+export const QueueItemAction = ({ className, tooltip, ...props }: QueueItemActionProps) => {
+  const button = (
+    <Button
+      className={cn(
+        'size-7 rounded-md text-muted-foreground opacity-70 transition-opacity hover:bg-muted-foreground/10 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100',
+        className,
+      )}
+      size="icon"
+      type="button"
+      variant="ghost"
+      {...props}
+    />
+  );
+
+  if (!tooltip) return button;
+
+  return (
+    <TooltipProvider delayDuration={240}>
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent>{tooltip}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 export type QueueItemAttachmentProps = ComponentProps<'span'>;
 

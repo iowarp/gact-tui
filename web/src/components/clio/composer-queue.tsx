@@ -131,6 +131,26 @@ export function ClioComposerQueue({
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => void dropBefore(message.id)}
                 >
+                  <QueueItemAction
+                    aria-label="Reorder queued message"
+                    className="cursor-grab active:cursor-grabbing"
+                    draggable
+                    onDragEnd={() => setDraggedId(undefined)}
+                    onDragStart={() => setDraggedId(message.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        void move(message.id, -1);
+                      }
+                      if (event.key === 'ArrowDown') {
+                        event.preventDefault();
+                        void move(message.id, 1);
+                      }
+                    }}
+                    tooltip="Reorder queued message"
+                  >
+                    <GripVerticalIcon />
+                  </QueueItemAction>
                   {isEditing ? (
                     <Input
                       aria-label="Edit queued message"
@@ -160,12 +180,14 @@ export function ClioComposerQueue({
                           aria-label="Save queued message"
                           disabled={busy || !editing.text.trim()}
                           onClick={() => void saveEdit(message, editing.text)}
+                          tooltip="Save queued message"
                         >
                           <CheckIcon />
                         </QueueItemAction>
                         <QueueItemAction
                           aria-label="Cancel editing queued message"
                           onClick={() => setEditing(undefined)}
+                          tooltip="Cancel editing"
                         >
                           <XIcon />
                         </QueueItemAction>
@@ -176,6 +198,7 @@ export function ClioComposerQueue({
                           aria-label="Edit queued message"
                           disabled={busy}
                           onClick={() => setEditing({ id: message.id, text })}
+                          tooltip="Edit queued message"
                         >
                           <PencilIcon />
                         </QueueItemAction>
@@ -188,6 +211,7 @@ export function ClioComposerQueue({
                               'Queued message was not deleted',
                             )
                           }
+                          tooltip="Delete queued message"
                         >
                           <Trash2Icon />
                         </QueueItemAction>
@@ -200,29 +224,12 @@ export function ClioComposerQueue({
                               'Queued message was not sent',
                             )
                           }
+                          tooltip="Send queued message now"
                         >
                           <SendIcon />
                         </QueueItemAction>
                       </>
                     )}
-                    <QueueItemAction
-                      aria-label="Reorder queued message"
-                      draggable
-                      onDragEnd={() => setDraggedId(undefined)}
-                      onDragStart={() => setDraggedId(message.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'ArrowUp') {
-                          event.preventDefault();
-                          void move(message.id, -1);
-                        }
-                        if (event.key === 'ArrowDown') {
-                          event.preventDefault();
-                          void move(message.id, 1);
-                        }
-                      }}
-                    >
-                      <GripVerticalIcon />
-                    </QueueItemAction>
                   </QueueItemActions>
                 </QueueItem>
               );
