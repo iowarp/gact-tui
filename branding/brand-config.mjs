@@ -46,7 +46,7 @@ export function resolveBrandConfig(configPath) {
   if (!existsSync(effectivePath)) {
     throw new Error(
       `[brand-config] config file not found: ${effectivePath}. ` +
-        `Create apps/brand.config.json (or a brand.config.local.json override).`,
+        `Create brand.config.json at the repo root (or a brand.config.local.json override).`,
     );
   }
 

@@ -1,8 +1,9 @@
 # CLIO in Docker
 
 Container images for the CLIO stack. This is an **addition** to the existing
-install-script / desktop-installer distribution (see `apps/INSTALL.md`), not a
-replacement — use whichever fits your environment.
+install-script / desktop-installer distribution (the `clio-desktop-v*` release
+installers built by `.github/workflows/apps.yml`; see `desktop/README.md`), not
+a replacement — use whichever fits your environment.
 
 Three images, all built from this repo:
 

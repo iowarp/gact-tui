@@ -91,7 +91,7 @@ intro-logo-anim: ## Regenerate tui/internal/intro/intro-{static,anim}.ansi from 
 		echo "chafa + imagemagick required"; exit 1; \
 	fi
 	@if [ -z "$(INTRO_SRC)" ] || [ ! -f "$(INTRO_SRC)" ]; then \
-		echo "INTRO_SRC='$(INTRO_SRC)': source gif not in repo -- see apps/branding for the brand mechanism; pass INTRO_SRC=path/to/logo.gif"; exit 1; \
+		echo "INTRO_SRC='$(INTRO_SRC)': source gif not in repo -- see branding/ for the brand mechanism; pass INTRO_SRC=path/to/logo.gif"; exit 1; \
 	fi
 	@rm -rf /tmp/gact-intro-frames && mkdir -p /tmp/gact-intro-frames
 	convert $(INTRO_SRC) -coalesce /tmp/gact-intro-frames/f%02d.png

@@ -2290,7 +2290,7 @@ offers an alternative, it is noted.
 | `turn.failed` | not emitted as a plain bus event | `semantic.event` with `status: "failed"` (§7.6) |
 | `session.agent_routed` (v0.2) | **not emitted** | `routing_decision` part (§4.5) + `agent.invocation.*` semantic events (§7.6) |
 | `user_question.expired` | **not emitted by clio** (expiry is inert — §15.7.7) — but **the emulator emits it** (`emulator/internal/server/handlers_user_questions.go`) and the web keeps a live listener | — |
-| `context.frame.created` / `context.frame.completed` | **not emitted by any backend today**; `apps/core/src/wire/events.ts` still carries typed envelopes for both, but no active SSE listener subscribes to them anywhere in the app (the `wire/Live*` dispatch stack that would have consumed them was deleted as a zero-consumer island, gact-tui#365) | frame data rides REST §6.9 + the `semantic.event` spine (§7.6) |
+| `context.frame.created` / `context.frame.completed` | **not emitted by any backend today**, and no client carries typed envelopes for them any more — the `apps/core/src/wire/events.ts` declarations went with the `wire/Live*` dispatch stack that was deleted as a zero-consumer island (gact-tui#365) | frame data rides REST §6.9 + the `semantic.event` spine (§7.6) |
 | `memory.cache.updated` (v0.2) | **not emitted** | poll `/v1/memory/stats` |
 | `integration.status_changed` (v0.2) | **not emitted** | poll `/v1/health` |
 
