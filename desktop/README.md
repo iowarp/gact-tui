@@ -70,12 +70,19 @@ cargo install tauri-driver
 TAURI_E2E=1 pnpm test:webview
 ```
 
-When another real CLIO is already bound to `:17800`, use chat-only mode to
-capture the native shell without sending the permission-triggering prompt:
+Chat-only mode narrows the run to the subtests that do not need a
+permission-emitting backend — useful when another real CLIO is already bound to
+`:17800`, and what the PR `native WebView proof` job uses against the
+`web/e2e/fixture-server.mjs` fixture:
 
 ```sh
 TAURI_E2E=1 TAURI_E2E_CHAT_ONLY=1 pnpm test:webview
 ```
+
+In that mode the run still asserts the endpoint handoff (native Tauri stack,
+`get_backend` ready at the configured backend URL, a session on that backend
+reachable in the shell) and reports the permission subtest as explicitly
+skipped, so the narrowed scope is visible in the output.
 
 Useful overrides:
 
@@ -90,7 +97,8 @@ The test writes:
 
 - `desktop-webview-chat.png`: native shell loaded into the chat surface.
 - `desktop-webview-permission.png`: permission request delivered through the
-  real Tauri bridge and rendered in the WebView.
+  real Tauri bridge and rendered in the WebView. Full runs only — chat-only
+  mode skips the permission subtest and so does not produce this file.
 
 Issue #186 tracks the broader manual release proof still needed for desktop:
 splash/connect/chat, session switching, streaming/freshness, file-open
