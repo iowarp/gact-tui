@@ -318,9 +318,11 @@ export function WorkspacePage() {
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
                 onOpenFile={openWorkspaceFile}
+                onOpenResource={openWorkspaceResource}
                 onOpenSubagent={openSubagent}
                 onProvenanceProviderChange={executionProvenance.setProvider}
                 processes={processes}
+                resources={workspaceResources.data ?? []}
                 provenanceDegradation={executionProvenance.degradation}
                 provenancePending={
                   executionProvenance.providers.isPending || executionProvenance.execution.isPending
@@ -500,6 +502,7 @@ export function WorkspacePage() {
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
                 onOpenFile={openWorkspaceFile}
+                onOpenResource={openWorkspaceResource}
                 onOpenSubagent={openSubagent}
                 onCompactContext={() => sessionContext.compact.mutateAsync()}
                 onContextTargetChange={setContextTargetId}
@@ -508,6 +511,7 @@ export function WorkspacePage() {
                   sessionContext.preferences.mutateAsync(input)
                 }
                 processes={processes}
+                resources={workspaceResources.data ?? []}
                 provenanceDegradation={executionProvenance.degradation}
                 provenancePending={
                   executionProvenance.providers.isPending || executionProvenance.execution.isPending

@@ -106,6 +106,18 @@ describe('useSessionLiveStream resume recovery', () => {
     ]);
   });
 
+  it('does not refetch the complete transcript after an ordered completion event', () => {
+    const keys = queryInvalidationKeysForEvent({
+      endpoint: 'http://127.0.0.1:8790',
+      eventName: 'message.completed',
+      sessionId: 'sess_1',
+      workspaceId: 'ws_1',
+    });
+
+    expect(keys).not.toContainEqual(['transcript', 'http://127.0.0.1:8790', 'sess_1']);
+    expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790', 'ws_1']);
+  });
+
   it('continues consuming frames while cache invalidation is unresolved', async () => {
     let advancedPastFirstFrame = false;
     mocks.queryClient.invalidateQueries.mockImplementation(() => new Promise(() => undefined));

@@ -267,7 +267,6 @@ export function queryInvalidationKeysForEvent({
   }
   if (eventName === 'message.completed') {
     keys.push(
-      queryKeys.transcript(endpoint, sessionId),
       queryKeys.sessions(endpoint, workspaceId),
       queryKeys.sessions(endpoint, 'all'),
       queryKeys.sessionObservability(endpoint, sessionId),

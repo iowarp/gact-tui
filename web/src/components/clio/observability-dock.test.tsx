@@ -199,6 +199,7 @@ describe('ClioObservabilityView', () => {
   it('shows real process spans and groups session evidence without raw payloads', async () => {
     const user = userEvent.setup();
     const openDiff = vi.fn();
+    const openResource = vi.fn();
     renderObservability(
       <ClioObservabilityView
         artifacts={[
@@ -243,6 +244,23 @@ describe('ClioObservabilityView', () => {
         ]}
         messages={[
           {
+            id: 'message_resource',
+            session_id: 'sess_1',
+            role: 'user',
+            created_at: '2026-08-21T23:59:59Z',
+            blocks: [
+              {
+                id: 'resource_1',
+                type: 'resource',
+                resource_id: 'resource_pdf',
+                resource_revision: '1',
+                workspace_id: 'ws_1',
+                name: 'paper.pdf',
+                media_type: 'application/pdf',
+              },
+            ],
+          },
+          {
             id: 'message_1',
             session_id: 'sess_1',
             role: 'assistant',
@@ -259,6 +277,7 @@ describe('ClioObservabilityView', () => {
           },
         ]}
         onOpenDiff={openDiff}
+        onOpenResource={openResource}
         onOpenSubagent={() => undefined}
         processes={[
           {
@@ -281,6 +300,27 @@ describe('ClioObservabilityView', () => {
           },
         ]}
         runs={[]}
+        resources={[
+          {
+            id: 'resource_pdf',
+            workspace_id: 'ws_1',
+            client_upload_id: 'upload_1',
+            revision: 1,
+            name: 'paper.pdf',
+            claimed_mime: 'application/pdf',
+            detected_mime: 'application/pdf',
+            detection_source: 'signature',
+            declared_size: 4096,
+            received_size: 4096,
+            sha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+            state: 'ready',
+            failure: '',
+            created_at: '2026-08-21T23:59:58Z',
+            updated_at: '2026-08-21T23:59:59Z',
+            completed_at: '2026-08-21T23:59:59Z',
+            mime_mismatch: false,
+          },
+        ]}
         subagents={[]}
         tasks={[]}
         tools={[]}
@@ -307,7 +347,12 @@ describe('ClioObservabilityView', () => {
     );
     expect(screen.getByText('ndp #1, Metadata source URL')).toBeVisible();
     expect(screen.getByText('OpenStreetMap Nominatim')).toHaveAttribute('title', 'osm_nominatim');
+    expect(screen.getByText('paper.pdf')).toBeVisible();
+    expect(screen.getByText(/SHA-256 0123456789ab/u)).toBeVisible();
     expect(screen.queryByText(/workflow_state/u)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Open source paper.pdf' }));
+    expect(openResource).toHaveBeenCalledWith(expect.objectContaining({ id: 'resource_pdf' }));
 
     await user.click(
       screen.getByRole('button', { name: 'Review diff for src/analysis.py in canvas' }),

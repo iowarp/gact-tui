@@ -7,6 +7,7 @@ import type {
   Message,
   ProvenanceProviderSummary,
   SessionDiff,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import {
   BoxIcon,
@@ -54,9 +55,11 @@ export interface ClioEvidenceViewProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
+  onOpenResource?: (resource: WorkspaceResource) => void;
   provenanceProvider?: ProvenanceProviderSummary;
   artifactProvenanceProvider?: ArtifactProvenanceProviderSummary;
   provenanceDegradation?: ExecutionProvenanceDegradation;
+  resources?: readonly WorkspaceResource[];
 }
 
 export function ClioEvidenceView(props: ClioEvidenceViewProps) {
@@ -65,7 +68,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
       .filter((block) => block.type === 'plan')
       .map((block) => ({ ...block, messageId: message.id })),
   );
-  const sources = sessionSources(props.messages, props.processes);
+  const sources = sessionSources(props.messages, props.processes, props.resources ?? []);
   const hasEvidence =
     props.diffs.length ||
     props.artifacts.length ||
@@ -149,7 +152,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
           value="sources"
           count={sources.length}
         >
-          <SourceEvidence sources={sources} />
+          <SourceEvidence onOpenResource={props.onOpenResource} sources={sources} />
         </EvidenceSection>
         <EvidenceSection
           icon={BoxIcon}
@@ -283,14 +286,32 @@ interface EvidenceSource {
   label: string;
   value: string;
   link: boolean;
+  resource?: WorkspaceResource;
 }
 
-function SourceEvidence({ sources }: { sources: readonly EvidenceSource[] }) {
+function SourceEvidence({
+  sources,
+  onOpenResource,
+}: {
+  sources: readonly EvidenceSource[];
+  onOpenResource?: (resource: WorkspaceResource) => void;
+}) {
   if (!sources.length) return <EmptyEvidence label="No source references were recorded." />;
   return (
     <div className="grid gap-2">
       {sources.map((source) => (
-        <ClioInteractiveRow key={source.id}>
+        <ClioInteractiveRow
+          aria-label={source.resource && onOpenResource ? `Open source ${source.label}` : undefined}
+          className={source.resource && onOpenResource ? 'cursor-pointer' : undefined}
+          key={source.id}
+          onClick={
+            source.resource && onOpenResource
+              ? () => onOpenResource(source.resource as WorkspaceResource)
+              : undefined
+          }
+          role={source.resource && onOpenResource ? 'button' : undefined}
+          tabIndex={source.resource && onOpenResource ? 0 : undefined}
+        >
           <div className="flex items-start gap-3">
             <WaypointsIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
@@ -412,16 +433,33 @@ function EvidenceCounts(props: {
 function sessionSources(
   messages: readonly Message[],
   processes: readonly AsyncProcess[],
+  resources: readonly WorkspaceResource[],
 ): EvidenceSource[] {
+  const resourcesById = new Map(resources.map((resource) => [resource.id, resource]));
   const sources: EvidenceSource[] = messages.flatMap((message) =>
-    message.blocks
-      .filter((block) => block.type === 'citation')
-      .map((block) => ({
-        id: `citation:${message.id}:${block.id}`,
-        label: block.label,
-        value: block.uri,
-        link: isWebLink(block.uri),
-      })),
+    message.blocks.flatMap((block): EvidenceSource[] => {
+      if (block.type === 'citation') {
+        return [
+          {
+            id: `citation:${message.id}:${block.id}`,
+            label: block.label,
+            value: block.uri,
+            link: isWebLink(block.uri),
+          },
+        ];
+      }
+      if (block.type !== 'resource') return [];
+      const resource = resourcesById.get(block.resource_id);
+      return [
+        {
+          id: `resource:${block.workspace_id}:${block.resource_id}:${block.resource_revision}`,
+          label: resource?.name ?? block.name,
+          value: resourceEvidenceDetail(resource, block.media_type, block.resource_revision),
+          link: false,
+          resource,
+        },
+      ];
+    }),
   );
   for (const process of processes) {
     collectWorkflowSources(process.result?.workflow_state, process.title, sources);
@@ -432,6 +470,20 @@ function sessionSources(
     seen.add(source.value);
     return true;
   });
+}
+
+function resourceEvidenceDetail(
+  resource: WorkspaceResource | undefined,
+  fallbackMediaType: string,
+  fallbackRevision: string,
+): string {
+  const mediaType = resource?.detected_mime || resource?.claimed_mime || fallbackMediaType;
+  const revision = resource?.revision ?? fallbackRevision;
+  const size = resource?.received_size;
+  const digest = resource?.sha256 ? ` · SHA-256 ${resource.sha256.slice(0, 12)}…` : '';
+  return `${mediaType || 'Unknown type'} · revision ${revision}${
+    size === undefined ? '' : ` · ${formatBytes(size)}`
+  }${digest}`;
 }
 
 function collectWorkflowSources(

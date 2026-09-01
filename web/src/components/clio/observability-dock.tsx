@@ -15,6 +15,7 @@ import type {
   ToolInvocation,
   ProvenanceProviderSummary,
   ArtifactProvenanceProviderSummary,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import {
   ActivityIcon,
@@ -98,6 +99,7 @@ export interface ClioObservabilityDockProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
+  onOpenResource?: (resource: WorkspaceResource) => void;
   sessionState?: RunState;
   sessionId?: string;
   executionProvenance?: ExecutionProvenanceResult;
@@ -107,6 +109,7 @@ export interface ClioObservabilityDockProps {
   provenancePending?: boolean;
   provenanceDegradation?: ExecutionProvenanceDegradation;
   onProvenanceProviderChange?: (provider: string) => void;
+  resources?: readonly WorkspaceResource[];
 }
 
 function isActiveWork(state: string): boolean {
@@ -319,6 +322,7 @@ export function ClioObservabilityView({
   onOpenArtifact,
   onOpenDiff,
   onOpenFile,
+  onOpenResource,
   onOpenSubagent,
   executionProvenance,
   provenanceProviders,
@@ -327,6 +331,7 @@ export function ClioObservabilityView({
   provenancePending,
   provenanceDegradation,
   onProvenanceProviderChange,
+  resources,
 }: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const hasMediumNavigation = useContainerQuery(surfaceRef, 320);
@@ -456,12 +461,14 @@ export function ClioObservabilityView({
               onOpenArtifact={onOpenArtifact}
               onOpenDiff={onOpenDiff}
               onOpenFile={onOpenFile}
+              onOpenResource={onOpenResource}
               processes={processes}
               artifactProvenanceProvider={artifactProvenanceProvider}
               provenanceDegradation={provenanceDegradation}
               provenanceProvider={provenanceProviders?.find(
                 (provider) => provider.name === provenanceProvider,
               )}
+              resources={resources}
             />
           </TabsContent>
           <TabsContent className="m-0 grid gap-4 p-4" value="context">
@@ -510,7 +517,7 @@ function ProvenanceSourceBar({
           <div className="min-w-0">
             <p className="text-sm font-medium">Provenance source</p>
             <p className="truncate text-xs text-muted-foreground">
-              {pending ? 'Discovering service providers' : selected?.source ?? 'Unavailable'}
+              {pending ? 'Discovering service providers' : (selected?.source ?? 'Unavailable')}
             </p>
           </div>
         </div>
@@ -545,7 +552,9 @@ function ProvenanceSourceBar({
         ) : null}
       </div>
       {degradation ? (
-        <p className={`text-xs leading-5 ${degradation.partial ? 'text-warning' : 'text-muted-foreground'}`}>
+        <p
+          className={`text-xs leading-5 ${degradation.partial ? 'text-warning' : 'text-muted-foreground'}`}
+        >
           {degradation.reason}
         </p>
       ) : null}
