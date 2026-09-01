@@ -11,6 +11,7 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-e
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import type { ConversationIteration } from './conversation-turn-model';
+import { ClioStatus } from './status';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
 import { getToolOutcome, getToolPresentation, getToolSummary } from './tool-presentation';
@@ -91,6 +92,7 @@ function IterationSummary({
     tool?.title,
     toolSummary,
     toolState,
+    iteration.interrupted ? 'Interrupted' : undefined,
   ]
     .filter(Boolean)
     .map((segment) => String(segment).trim().replace(/[.]+$/u, ''))
@@ -116,6 +118,9 @@ function IterationSummary({
                     <span className="shrink-0">+{iteration.tools.length - 1}</span>
                   ) : null}
                 </span>
+              ) : null}
+              {iteration.interrupted && !open ? (
+                <ClioStatus className="mt-1" value="interrupted" />
               ) : null}
             </span>
             <ChevronDownIcon
@@ -179,6 +184,8 @@ function IterationDetail({
             ))}
           </div>
         ))}
+
+        {iteration.interrupted ? <ClioStatus value="interrupted" /> : null}
       </div>
     </article>
   );
