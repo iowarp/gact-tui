@@ -3,6 +3,11 @@ import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react
 import { recordById } from '@/lib/entities';
 import { queryKeys } from '@/lib/query-keys';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
+import {
+  abortableDelay,
+  INITIAL_RECONNECT_DELAY_MS,
+  nextReconnectDelay,
+} from '@/lib/streaming/reconnect';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
@@ -73,7 +78,7 @@ export function useSessionLiveStream({
     const controller = new AbortController();
     const batcher = new FrameBatcher(applyFrames);
     const invalidations = new QueryInvalidationBatcher(queryClient);
-    let reconnectDelay = 250;
+    let reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
     const consume = async () => {
       setStreamState('connecting');
       while (!controller.signal.aborted) {
@@ -84,7 +89,7 @@ export function useSessionLiveStream({
             cursor,
             controller.signal,
           )) {
-            reconnectDelay = 250;
+            reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
             setStreamState('live');
             batcher.push(frame);
             if (frame.eventName === 'message.completed') {
@@ -106,7 +111,7 @@ export function useSessionLiveStream({
           if (error instanceof Error && error.name === 'AbortError') break;
         }
         await abortableDelay(controller, reconnectDelay);
-        reconnectDelay = Math.min(8_000, reconnectDelay * 2);
+        reconnectDelay = nextReconnectDelay(reconnectDelay);
       }
     };
     void consume();
@@ -276,20 +281,6 @@ class QueryInvalidationBatcher {
     this.stopped = true;
     this.pending.clear();
   }
-}
-
-function abortableDelay(controller: AbortController, milliseconds: number): Promise<void> {
-  return new Promise((resolve) => {
-    const timeout = window.setTimeout(resolve, milliseconds);
-    controller.signal.addEventListener(
-      'abort',
-      () => {
-        window.clearTimeout(timeout);
-        resolve();
-      },
-      { once: true },
-    );
-  });
 }
 
 function latestCursor(

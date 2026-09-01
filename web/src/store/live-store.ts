@@ -1,13 +1,12 @@
 import {
   createEntityState,
-  eventEnvelopeSchema,
-  reduceTransportFrame,
   type EntityState,
   type StreamState,
   type TransportGap,
   type TransportFrame,
 } from '@clio/core/v3';
 import { create } from 'zustand';
+import { reduceFramesContained } from '@/lib/streaming/frame-reduction';
 
 interface LiveStore {
   entities: EntityState;
@@ -81,50 +80,10 @@ export const useLiveStore = create<LiveStore>((set) => ({
     set((state) => ({ entities: { ...state.entities, stream: 'gapped' }, error })),
   applyFrames: (frames) =>
     set((state) => {
-      let entities = state.entities;
-      const frameGaps = [...state.frameGaps];
-
-      for (const frame of frames) {
-        const decoded = eventEnvelopeSchema.safeParse(frame.data);
-        if (!decoded.success) {
-          frameGaps.push({
-            cursor: frame.cursor,
-            event_name: frame.eventName,
-            code: 'frame_decode_failed',
-            reason: decoded.error.issues[0]?.message ?? 'Unable to decode live frame',
-            received_at: frame.receivedAt,
-          });
-          continue;
-        }
-
-        if (decoded.data.type !== frame.eventName) {
-          frameGaps.push({
-            cursor: frame.cursor,
-            event_name: frame.eventName,
-            entity_id: decoded.data.entity_id,
-            code: 'event_name_mismatch',
-            reason: `Stream named ${frame.eventName}; envelope named ${decoded.data.type}`,
-            received_at: frame.receivedAt,
-          });
-        }
-
-        try {
-          entities = reduceTransportFrame(entities, frame);
-        } catch (error) {
-          frameGaps.push({
-            cursor: frame.cursor,
-            event_name: decoded.data.type,
-            entity_id: decoded.data.entity_id,
-            code: 'frame_decode_failed',
-            reason: error instanceof Error ? error.message : 'Unable to decode live frame payload',
-            received_at: frame.receivedAt,
-          });
-        }
-      }
-
+      const { entities, gaps } = reduceFramesContained(state.entities, frames);
       return {
         entities,
-        frameGaps: frameGaps.slice(-100),
+        frameGaps: [...state.frameGaps, ...gaps].slice(-100),
         error: undefined,
       };
     }),
