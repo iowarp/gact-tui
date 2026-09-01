@@ -88,6 +88,8 @@ const SHELL_SELECTOR =
 const COMPOSER_SELECTOR = 'textarea[name="message"]';
 const SUBMIT_SELECTOR = 'button[aria-label="Submit"]';
 const RESPONSE_SELECTOR = 'section[aria-label="Agent needs your response"]';
+const DRIVER_START_ATTEMPTS = 2;
+const DRIVER_READY_TIMEOUT_MS = 10_000;
 
 // The native app's supervisor attaches through CLIO_GACT_URL / CLIO_PORT.
 // Keep the WebView test's backend fixture URL and the launched app's attach
@@ -134,6 +136,59 @@ async function terminateDriverTree(driver) {
   signal('SIGKILL');
   await Promise.race([exited, sleep(3_000).then(() => false)]);
   driver.unref();
+}
+
+function startDriver() {
+  return spawn(TAURI_DRIVER, ['--native-driver', DRIVER, '--port', String(PORT)], {
+    detached: process.platform !== 'win32',
+    stdio: 'inherit',
+  });
+}
+
+async function waitForDriverReady(driver) {
+  const deadline = Date.now() + DRIVER_READY_TIMEOUT_MS;
+  let lastError = 'no status response';
+  while (Date.now() < deadline) {
+    if (driver.exitCode !== null || driver.signalCode !== null) {
+      throw new Error(
+        `tauri-driver exited before becoming ready: exit=${driver.exitCode} signal=${driver.signalCode}`,
+      );
+    }
+    try {
+      const response = await fetch(`${BASE}/status`, {
+        signal: AbortSignal.timeout(1_000),
+      });
+      if (response.ok) return;
+      lastError = `status ${response.status}`;
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+    await sleep(300);
+  }
+  throw new Error(`tauri-driver did not become ready: ${lastError}`);
+}
+
+async function startSessionWithRecovery() {
+  const failures = [];
+  for (let attempt = 1; attempt <= DRIVER_START_ATTEMPTS; attempt += 1) {
+    const driver = startDriver();
+    try {
+      await waitForDriverReady(driver);
+      const sid = await newSession();
+      return { driver, sid };
+    } catch (error) {
+      failures.push(`attempt ${attempt}: ${error instanceof Error ? error.stack : String(error)}`);
+      await terminateDriverTree(driver);
+      if (attempt < DRIVER_START_ATTEMPTS) await sleep(500);
+    }
+  }
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  writeFileSync(
+    resolve(SCREENSHOT_DIR, 'desktop-webview-session-failure.txt'),
+    `${failures.join('\n\n')}\n`,
+    'utf8',
+  );
+  throw new Error(`native WebView session creation failed after ${DRIVER_START_ATTEMPTS} attempts`);
 }
 
 async function wd(method, path, body) {
@@ -410,27 +465,13 @@ async function waitForVisiblePermissionCard(sid, timeoutMs) {
 
 test(
   'real WebView: permission card renders + clears through the Tauri stack',
-  { skip: !enabled ? `missing ${missing.join(', ')}` : false, timeout: 120_000 },
+  { skip: !enabled ? `missing ${missing.join(', ')}` : false, timeout: 210_000 },
   async () => {
     const seeded = CHAT_ONLY ? { agentId: '', sessionId: '' } : await seedPermissionProbeSession();
-    const driver = spawn(TAURI_DRIVER, ['--native-driver', DRIVER, '--port', String(PORT)], {
-      detached: process.platform !== 'win32',
-      stdio: 'inherit',
-    });
+    let driver;
     let sid;
     try {
-      // Wait for tauri-driver to accept connections.
-      for (let i = 0; i < 30; i++) {
-        try {
-          await fetch(`${BASE}/status`, {
-            signal: AbortSignal.timeout(WD_REQUEST_TIMEOUT_MS),
-          });
-          break;
-        } catch {
-          await sleep(300);
-        }
-      }
-      sid = await newSession();
+      ({ driver, sid } = await startSessionWithRecovery());
 
       // The app boots, the supervisor attaches to :17800, the WebView loads
       // the chat shell. Generous window for boot + attach + agent-ready.
@@ -515,7 +556,7 @@ test(
           /* ignore */
         }
       }
-      await terminateDriverTree(driver);
+      if (driver) await terminateDriverTree(driver);
       await cleanupPermissionProbe(seeded.agentId, seeded.sessionId);
     }
   },
