@@ -83,6 +83,14 @@ export interface ClioObservabilityDockProps {
   subagents: readonly SubagentRun[];
   context?: ContextSnapshot;
   contextError?: string;
+  contextFilesError?: string;
+  contextFilesPending?: boolean;
+  contextFramesError?: string;
+  contextFramesPending?: boolean;
+  diffsError?: string;
+  diffsPending?: boolean;
+  processesError?: string;
+  processesPending?: boolean;
   contextTargets?: readonly ClioContextTarget[];
   selectedContextTargetId?: string;
   compactContextPending?: boolean;
@@ -310,7 +318,15 @@ export function ClioObservabilityView({
   subagents,
   context,
   contextError,
+  contextFilesError,
+  contextFilesPending,
+  contextFramesError,
+  contextFramesPending,
   contextTargets,
+  diffsError,
+  diffsPending,
+  processesError,
+  processesPending,
   selectedContextTargetId,
   compactContextPending,
   contextPreferencesPending,
@@ -405,6 +421,11 @@ export function ClioObservabilityView({
         </TabsList>
         <ScrollArea className="min-h-0 min-w-0 flex-1">
           <TabsContent className="m-0 grid gap-2 p-3" value="work">
+            <SectionState
+              error={processesError}
+              label="Background work"
+              pending={processesPending}
+            />
             <ClioProcessLanes
               messages={messages}
               onOpenSubagent={onOpenSubagent}
@@ -448,7 +469,13 @@ export function ClioObservabilityView({
           <TabsContent className="m-0 p-4" value="activity">
             <ClioActivityTimeline items={activity} messages={messages} />
           </TabsContent>
-          <TabsContent className="m-0 p-4" value="evidence">
+          <TabsContent className="m-0 grid gap-2 p-4" value="evidence">
+            <SectionState error={diffsError} label="File changes" pending={diffsPending} />
+            <SectionState
+              error={contextFilesError}
+              label="Attached context"
+              pending={contextFilesPending}
+            />
             <ClioEvidenceView
               artifacts={artifacts}
               contextFiles={contextFiles}
@@ -466,6 +493,16 @@ export function ClioObservabilityView({
             />
           </TabsContent>
           <TabsContent className="m-0 grid gap-4 p-4" value="context">
+            <SectionState
+              error={contextFilesError}
+              label="Attached context"
+              pending={contextFilesPending}
+            />
+            <SectionState
+              error={contextFramesError}
+              label="Context frames"
+              pending={contextFramesPending}
+            />
             <ClioContextCanvasPanel
               compactPending={compactContextPending}
               context={context}
@@ -564,6 +601,21 @@ function providerStatus(
   if (!queryable || status === 'unavailable' || status === 'disabled') return 'unavailable';
   if (status === 'degraded' || status === 'partial') return 'degraded';
   return 'healthy';
+}
+
+/** States an observability section the service could not deliver, or has not delivered yet. */
+function SectionState({
+  error,
+  label,
+  pending,
+}: {
+  error?: string;
+  label: string;
+  pending?: boolean;
+}) {
+  if (error) return <ClioStatus detail={error} label={`${label} unavailable`} value="unavailable" />;
+  if (pending) return <ClioStatus label={`Loading ${label.toLowerCase()}`} value="connecting" />;
+  return null;
 }
 
 function ObservabilityLoading({ label }: { label: string }) {

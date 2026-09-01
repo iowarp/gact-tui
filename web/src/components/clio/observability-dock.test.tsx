@@ -327,6 +327,30 @@ describe('ClioObservabilityView', () => {
     );
   });
 
+  it('distinguishes a failed observability section from an empty one', async () => {
+    const user = userEvent.setup();
+    renderObservability(
+      <ClioObservabilityView
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        diffsError="The service could not read session diffs: 500"
+        messages={[]}
+        processes={[]}
+        processesError="The service could not read background work: 500"
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    expect(screen.getByText('Background work unavailable')).toBeVisible();
+    await user.click(screen.getByRole('tab', { name: 'Evidence' }));
+    expect(screen.getByText('File changes unavailable')).toBeVisible();
+  });
+
   it('labels containing-turn placement inline without a global timing warning', async () => {
     const user = userEvent.setup();
     renderObservability(
