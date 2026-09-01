@@ -15,7 +15,7 @@ All generated CLIO development state belongs under exactly:
 D:\Libraries\Documents\projects\clio_develop_workspace
 ```
 
-Each launch uses a unique `generations/<timestamp-pid>` directory inside that root. This includes runtime source clones, Python environments, Node dependencies, transient uv/pnpm/npm caches, temporary files, child-agent caches, CTE/ARC state, tools, logs, run workspaces, screenshots, and qualification output. Large Hugging Face/Docling model assets are the deliberate exception: keep one reusable cache at `cache/huggingface` under the contained CLIO root, never one copy per generation or source checkout. `config/active-generation.json` names the one active generation. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
+Each launch uses a unique `generations/<timestamp-pid>` directory inside that root. This includes exact-head clones of `clio-agent`, `gact-tui`, and `clio-web-search`, their isolated environments, transient uv/pnpm/npm caches, temporary files, child-agent caches, CTE/ARC state, tools, logs, run workspaces, screenshots, and qualification output. Large Hugging Face/Docling model assets are the deliberate exception: keep one reusable cache at `cache/huggingface` under the contained CLIO root, never one copy per generation or source checkout. `config/active-generation.json` names the one active generation. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
 
 Never create or reuse `D:\tmp`, `D:\relay-local`, `D:\ws`, `D:\clio-workspace`, a source-repository `.venv` or `node_modules`, a `PYTHONPATH` overlay, or another checkout's environment. A `.venv` and `node_modules` inside the disposable runtime clones under the owned root are expected. The containment audit treats the four legacy roots as failures.
 
@@ -40,13 +40,13 @@ Use `-RecreateRoot` only when the next operation needs an empty root immediately
 Clean startup is the default. It:
 
 1. deletes and recreates the owned root;
-2. clones the exact committed backend and frontend heads into `worktrees` inside it;
+2. clones the exact committed backend, frontend, and document-processor heads into `worktrees` inside it;
 3. initializes pinned submodules;
-4. reproduces the backend with `uv sync --frozen --python 3.12` inside the runtime clone, adding `--extra claude-code` only when the explicitly selected provider is Claude Code, and uses the repository's pinned official SDK dependency for Codex;
+4. reproduces the backend and document processor from their frozen `uv.lock` files with Python 3.12, adding `--extra claude-code` only when the explicitly selected provider is Claude Code, and uses the backend's pinned official SDK dependency for Codex;
 5. installs the frontend with `pnpm install --frozen-lockfile` inside the runtime clone;
 6. redirects temp, caches, tool installs, child-process state, logs, workspaces, and CTE data into the owned root, with one root-scoped Hugging Face/Docling cache reused by every contained generation;
 7. installs the bundled marketplace launcher in the contained tool directory;
-8. starts one backend and one UI; and
+8. starts one document processor, one backend, and one UI;
 9. records wall-clock duration for every startup stage in `config\deploy-timing.json`; and
 10. runs mandatory preflight.
 
@@ -54,7 +54,8 @@ Defaults:
 
 - source backend: `D:\Libraries\Documents\projects\.codex-campaign-clio-agent`
 - source frontend: `D:\Libraries\Documents\projects\gact-tui-node-revamp`
-- backend/UI: `http://127.0.0.1:8787` and `http://127.0.0.1:5174`
+- source document processor: `D:\Libraries\Documents\projects\clio-web-search`
+- backend/UI/document processor: `http://127.0.0.1:8787`, `http://127.0.0.1:5174`, and `http://127.0.0.1:8089`
 - provider/model: Codex SDK and `gpt-5.6-luna`
 - ARC: CTE only, 8 GB cold tier, 1 GB RAM bound
 
@@ -80,7 +81,8 @@ Containment fails when generated paths escape the owned root or a legacy runtime
 - SPOTTER's implementation or native-provider configuration is missing;
 - an ARC sentinel cannot be written, read, and deleted through CTE;
 - a CLIO port has zero or multiple owners; or
-- the UI is unreachable.
+- the UI is unreachable; or
+- the contained document processor is unreachable or the backend does not advertise it as a configured converter.
 
 The default preflight deliberately does not warm MCP namespaces. A selected session must exercise its blueprint-declared dependencies through the product readiness path so cold-start failures, retries, and progress remain visible. `Test-ClioDevPreflight.ps1 -RequiredMcpNamespaces ...` remains an opt-in diagnostic for a specific session; it is not part of ordinary startup or acceptance evidence.
 

@@ -113,6 +113,35 @@ function resourceAvailability(resource?: WorkspaceResource): {
     };
   }
 
+  if (processing?.state === 'failed' && !processing.derivatives_available) {
+    return {
+      className: 'text-destructive',
+      detail:
+        typeof processing.failure.message === 'string'
+          ? processing.failure.message
+          : 'Structured conversion failed, so this attachment is not currently readable by the agent.',
+      label: 'Unavailable',
+    };
+  }
+
+  if (processing?.state === 'cancelled' && !processing.derivatives_available) {
+    return {
+      className: 'text-destructive',
+      detail:
+        'Structured conversion was cancelled before a usable derivative was created. The original remains available for preview.',
+      label: 'Unavailable',
+    };
+  }
+
+  if (!isDirectlyReadable(mediaType(resource)) && !processing?.derivatives_available) {
+    return {
+      className: 'text-amber-600 dark:text-amber-400',
+      detail:
+        'The original is retained and can be previewed, but no agent-readable conversion is available yet.',
+      label: 'Needs processing',
+    };
+  }
+
   let detail = 'The original attachment is available to the agent.';
   if (processing?.derivatives_available) {
     detail =
@@ -125,4 +154,12 @@ function resourceAvailability(resource?: WorkspaceResource): {
             : 'Ready; converted content is available to the agent.';
   }
   return { className: 'text-emerald-600 dark:text-emerald-400', detail, label: 'Ready' };
+}
+
+function mediaType(resource: WorkspaceResource): string {
+  return (resource.detected_mime || resource.claimed_mime).toLowerCase();
+}
+
+function isDirectlyReadable(value: string): boolean {
+  return value.startsWith('text/') || value === 'application/json' || value.endsWith('+json');
 }

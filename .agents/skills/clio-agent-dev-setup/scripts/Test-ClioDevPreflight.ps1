@@ -4,6 +4,8 @@ param(
     [int]$BackendPort = 8787,
     [ValidateRange(1, 65535)]
     [int]$WebPort = 5174,
+    [ValidateRange(1, 65535)]
+    [int]$DocumentProcessorPort = 8089,
     [string]$ExpectedProvider = "codex",
     [string]$ExpectedModel = "gpt-5.6-luna",
     [string]$ExpectedTransport = "app_server",
@@ -48,6 +50,7 @@ if ([string]::IsNullOrWhiteSpace($SpotterConfigPath)) {
 }
 $backendUrl = "http://127.0.0.1:$BackendPort"
 $webUrl = "http://127.0.0.1:$WebPort"
+$documentProcessorUrl = "http://127.0.0.1:$DocumentProcessorPort"
 
 function Get-OneListenerPid {
     param(
@@ -67,7 +70,13 @@ function Get-OneListenerPid {
 
 $backendPid = Get-OneListenerPid -Port $BackendPort
 $webPid = Get-OneListenerPid -Port $WebPort
+$documentProcessorPid = Get-OneListenerPid -Port $DocumentProcessorPort
 $health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec 10
+$documentProcessorResponse = Invoke-WebRequest `
+    -Uri "$documentProcessorUrl/readyz" `
+    -SkipHttpErrorCheck `
+    -TimeoutSec 10
+$documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
 $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 10
 $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
 $sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 10
@@ -136,6 +145,27 @@ foreach ($capabilityName in @(
 }
 if ($campaignCapabilities.x_clio_resources.enabled -ne $true) {
     throw "GACT 0.3 resource custody is not enabled."
+}
+$structuredProcessing = $campaignCapabilities.x_clio_resources.structured_document_processing
+if (
+    $structuredProcessing.supported -ne $true -or
+    $structuredProcessing.state -ne "configured"
+) {
+    throw "GACT 0.3 structured document processing is not configured."
+}
+$configuredDocumentProcessor = @(
+    $structuredProcessing.converters |
+        Where-Object {
+            $_.id -eq "clio-web-search-docling" -and
+            $_.configured -eq $true -and
+            $_.endpoint -eq $documentProcessorUrl
+        }
+) | Select-Object -First 1
+if ($null -eq $configuredDocumentProcessor) {
+    throw "CLIO does not advertise the contained document processor at $documentProcessorUrl."
+}
+if ($documentProcessorHealth.checks.docling -ne "ready") {
+    throw "The contained document processor's Docling worker is '$($documentProcessorHealth.checks.docling)', not ready."
 }
 
 $blueprints = @($catalog.agent_blueprints)
@@ -340,6 +370,9 @@ foreach ($item in $degraded) {
     backend_pid = $backendPid
     web_url = $webUrl
     web_pid = $webPid
+    document_processor_url = $documentProcessorUrl
+    document_processor_pid = $documentProcessorPid
+    document_processor = $configuredDocumentProcessor.id
     provider = $provider.provider
     model = $provider.model
     transport = $provider.transport

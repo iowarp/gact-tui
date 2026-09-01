@@ -6,6 +6,8 @@ param(
     [ValidateRange(1, 65535)]
     [int]$WebPort = 5174,
     [ValidateRange(1, 65535)]
+    [int]$DocumentProcessorPort = 8089,
+    [ValidateRange(1, 65535)]
     [int]$CtePort = 9413,
     [switch]$PreserveState
 )
@@ -101,9 +103,11 @@ if (Test-Path -LiteralPath $statePath) {
     foreach ($property in @(
         "backend_pid",
         "web_pid",
+        "document_processor_pid",
         "cte_pid",
         "backend_launcher_pid",
-        "web_launcher_pid"
+        "web_launcher_pid",
+        "document_processor_launcher_pid"
     )) {
         $value = $state.$property
         if ($null -ne $value -and [int]$value -gt 0) {
@@ -120,7 +124,7 @@ Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | ForEach-Object {
     }
 }
 
-foreach ($port in @($BackendPort, $WebPort, $CtePort)) {
+foreach ($port in @($BackendPort, $WebPort, $DocumentProcessorPort, $CtePort)) {
     Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue |
         ForEach-Object {
             Add-OwnedProcessId -ProcessId ([int]$_.OwningProcess) -Reason "listener on port $port"
@@ -137,7 +141,7 @@ foreach ($processId in $targetPids) {
     Write-Host "Stopped $($process.ProcessName) (PID $processId)."
 }
 
-foreach ($port in @($BackendPort, $WebPort, $CtePort)) {
+foreach ($port in @($BackendPort, $WebPort, $DocumentProcessorPort, $CtePort)) {
     $releaseDeadline = [DateTime]::UtcNow.AddSeconds(10)
     do {
         $remaining = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue

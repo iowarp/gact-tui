@@ -6,6 +6,8 @@ param(
     [ValidateRange(1, 65535)]
     [int]$WebPort = 5174,
     [ValidateRange(1, 65535)]
+    [int]$DocumentProcessorPort = 8089,
+    [ValidateRange(1, 65535)]
     [int]$CtePort = 9413,
     [switch]$RecreateRoot
 )
@@ -27,6 +29,7 @@ if (-not $devRootFull.Equals($expectedRoot, [System.StringComparison]::OrdinalIg
     -DevRoot $devRootFull `
     -BackendPort $BackendPort `
     -WebPort $WebPort `
+    -DocumentProcessorPort $DocumentProcessorPort `
     -CtePort $CtePort `
     -PreserveState
 
