@@ -3,6 +3,7 @@ import { ThemeProvider } from 'next-themes';
 import { useState, type PropsWithChildren } from 'react';
 import { ClioMotionProvider } from '@/components/clio/motion';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { QUERY_RETRY_COUNT, QUERY_STALE_TIME_MS } from '@/lib/runtime-limits';
 import { ConnectionProvider } from './connection-provider';
 import { AppearanceProvider } from './appearance-provider';
 import { ConversationDisplayProvider } from './conversation-display-provider';
@@ -12,7 +13,7 @@ export function AppProviders({ children }: PropsWithChildren) {
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { retry: 1, staleTime: 10_000 },
+          queries: { retry: QUERY_RETRY_COUNT, staleTime: QUERY_STALE_TIME_MS },
           mutations: { retry: false },
         },
       }),

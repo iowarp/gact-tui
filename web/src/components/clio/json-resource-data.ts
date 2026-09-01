@@ -1,6 +1,5 @@
+import { JSON_TABLE_ROW_LIMIT } from '@/lib/runtime-limits';
 import type { ClioDataRow } from './data-table';
-
-const maximumTableRows = 5_000;
 
 export interface TabularJsonDataset {
   columns: string[];
@@ -10,10 +9,7 @@ export interface TabularJsonDataset {
 }
 
 /** Extracts a complete homogeneous record collection without silently dropping JSON values. */
-export function tabularJsonDataset(
-  content: string,
-  title: string,
-): TabularJsonDataset | undefined {
+export function tabularJsonDataset(content: string, title: string): TabularJsonDataset | undefined {
   let value: unknown;
   try {
     value = JSON.parse(content);
@@ -26,9 +22,7 @@ export function tabularJsonDataset(
   if (isTabularRecordArray(value)) {
     records = value;
   } else if (isRecord(value)) {
-    const entry = Object.entries(value).find(([, candidate]) =>
-      isTabularRecordArray(candidate),
-    );
+    const entry = Object.entries(value).find(([, candidate]) => isTabularRecordArray(candidate));
     if (entry && isTabularRecordArray(entry[1])) {
       label = entry[0];
       records = entry[1];
@@ -36,7 +30,7 @@ export function tabularJsonDataset(
   }
   if (!records) return undefined;
 
-  const rows = records.slice(0, maximumTableRows);
+  const rows = records.slice(0, JSON_TABLE_ROW_LIMIT);
   const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))].sort(compareColumns);
   if (!columns.length) return undefined;
   return { columns, label, rows, totalRows: records.length };

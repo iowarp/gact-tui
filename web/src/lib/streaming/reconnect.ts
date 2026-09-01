@@ -1,5 +1,4 @@
-export const INITIAL_RECONNECT_DELAY_MS = 250;
-export const MAX_RECONNECT_DELAY_MS = 8_000;
+import { STREAM_RECONNECT_MAX_MS } from '@/lib/runtime-limits';
 
 /** Waits out a reconnect backoff, resolving immediately once the stream aborts. */
 export function abortableDelay(controller: AbortController, milliseconds: number): Promise<void> {
@@ -16,6 +15,7 @@ export function abortableDelay(controller: AbortController, milliseconds: number
   });
 }
 
+/** Doubles the current backoff, stopping at the configured ceiling. */
 export function nextReconnectDelay(current: number): number {
-  return Math.min(MAX_RECONNECT_DELAY_MS, current * 2);
+  return Math.min(STREAM_RECONNECT_MAX_MS, current * 2);
 }

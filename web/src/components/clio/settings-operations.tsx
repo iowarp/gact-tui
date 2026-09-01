@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { OPERATIONS_POLL_MS } from '@/lib/runtime-limits';
 import type { MemoryStatistics, RuntimeMetrics, ServiceIntegrationHealth } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -302,22 +303,22 @@ export function SystemSettings() {
   const health = useQuery({
     queryKey: queryKeys.key('service-health', settings.endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
-    refetchInterval: 30_000,
+    refetchInterval: OPERATIONS_POLL_MS,
   });
   const metrics = useQuery({
     queryKey: queryKeys.key('runtime-metrics', settings.endpoint),
     queryFn: ({ signal }) => repository.runtimeMetrics(signal),
-    refetchInterval: 30_000,
+    refetchInterval: OPERATIONS_POLL_MS,
   });
   const memory = useQuery({
     queryKey: queryKeys.key('memory-statistics', settings.endpoint),
     queryFn: ({ signal }) => repository.memoryStatistics(signal),
-    refetchInterval: 30_000,
+    refetchInterval: OPERATIONS_POLL_MS,
   });
   const hooks = useQuery({
     queryKey: queryKeys.key('hook-inspection', settings.endpoint),
     queryFn: ({ signal }) => repository.hooks(signal),
-    refetchInterval: 30_000,
+    refetchInterval: OPERATIONS_POLL_MS,
   });
   return (
     <div className="grid gap-6">

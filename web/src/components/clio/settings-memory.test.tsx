@@ -161,11 +161,7 @@ describe('memory settings', () => {
     ).toBeVisible();
     expect(repository.searchMemory).toHaveBeenCalledWith(
       'anomaly evidence',
-      {
-        sessionId: 'sess_memory',
-        includeCrossSession: false,
-        limit: 50,
-      },
+      { sessionId: 'sess_memory', includeCrossSession: false },
       expect.any(AbortSignal),
     );
     expect(
@@ -190,11 +186,7 @@ describe('memory settings', () => {
     await waitFor(() =>
       expect(repository.searchMemory).toHaveBeenCalledWith(
         'prior decision',
-        {
-          sessionId: 'sess_memory',
-          includeCrossSession: true,
-          limit: 50,
-        },
+        { sessionId: 'sess_memory', includeCrossSession: true },
         expect.any(AbortSignal),
       ),
     );

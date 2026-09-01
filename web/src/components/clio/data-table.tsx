@@ -11,6 +11,7 @@ import {
   dataGridFeatures,
   type DataGridFeatures,
 } from '@/components/reui/data-grid/data-grid';
+import { DATA_GRID_PAGE_SIZES } from '@/lib/runtime-limits';
 import { ClioDataGridTable } from './data-grid-table';
 
 export type ClioDataColumn = string | { key: string; label: string };
@@ -82,7 +83,7 @@ export function ClioDataTable({
         </div>
         {rows.length > 10 ? (
           <div className="border-t px-3">
-            <DataGridPagination sizes={[10, 25, 50, 100]} />
+            <DataGridPagination sizes={DATA_GRID_PAGE_SIZES} />
           </div>
         ) : null}
       </DataGridContainer>

@@ -1,4 +1,11 @@
 import { queryKeys } from '@/lib/query-keys';
+import { truncate } from '@/lib/format';
+import {
+  DATA_GRID_PAGE_SIZES,
+  OPERATIONS_POLL_MS,
+  RUN_REASON_TRUNCATE_CHARS,
+  RUNS_POLL_MS,
+} from '@/lib/runtime-limits';
 import type { OperationalRun, RunState, Session, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -115,7 +122,7 @@ function conciseReason(reason: string | undefined): string | undefined {
   }
   if (reason.trimStart().startsWith('{'))
     return 'The server reported structured failure details for this run.';
-  return reason.length > 140 ? `${reason.slice(0, 137)}…` : reason;
+  return truncate(reason, RUN_REASON_TRUNCATE_CHARS);
 }
 
 function buildRows(
@@ -180,12 +187,12 @@ export function RunsPage() {
   const runs = useQuery({
     queryKey: queryKeys.key('runs', settings.endpoint),
     queryFn: ({ signal }) => repository.runs(signal),
-    refetchInterval: 5_000,
+    refetchInterval: RUNS_POLL_MS,
   });
   const relay = useQuery({
     queryKey: queryKeys.key('relay-status', settings.endpoint),
     queryFn: ({ signal }) => repository.relayStatus(signal),
-    refetchInterval: 30_000,
+    refetchInterval: OPERATIONS_POLL_MS,
   });
   const refreshRuns = useCallback(
     () => queryClient.invalidateQueries({ queryKey: queryKeys.key('runs', settings.endpoint) }),
@@ -461,7 +468,7 @@ export function RunsPage() {
             <DataGridContainer className="mt-6 rounded-xl border bg-card">
               <ClioDataGridTable />
               <div className="border-t px-4">
-                <DataGridPagination sizes={[10, 25, 50, 100]} />
+                <DataGridPagination sizes={DATA_GRID_PAGE_SIZES} />
               </div>
             </DataGridContainer>
           </DataGrid>

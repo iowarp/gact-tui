@@ -2,6 +2,15 @@ import type { PresentationOverrideKind } from './presentation-override-registry'
 
 const GLOBAL_SCOPE = 'global';
 
+/**
+ * Sessions whose overrides are kept. Unit: sessions.
+ * The registry lives for the tab's lifetime, so without a bound a long browsing
+ * run accumulates one map per visited session. Eviction follows insertion order
+ * and never drops the session-independent scope. Raise it only if a diagnosis
+ * needs overrides from further back than the last few dozen sessions.
+ */
+const MAX_TRACKED_SESSIONS = 32;
+
 export interface PresentationOverrideInput {
   kind: PresentationOverrideKind;
   entityId: string;
@@ -32,8 +41,18 @@ export function reportPresentationOverride(input: PresentationOverrideInput): vo
   const record = { ...input, sessionId };
   sessionOverrides.set(key, record);
   overridesBySession.set(sessionId, sessionOverrides);
+  evictOldestSessions();
   if (import.meta.env.DEV) console.warn('[clio:presentation-override]', record);
   queueNotification();
+}
+
+/** Drops the longest-held sessions once the registry passes its bound. */
+function evictOldestSessions(): void {
+  while (overridesBySession.size > MAX_TRACKED_SESSIONS) {
+    const oldest = [...overridesBySession.keys()].find((key) => key !== GLOBAL_SCOPE);
+    if (oldest === undefined) return;
+    overridesBySession.delete(oldest);
+  }
 }
 
 /** Counts overrides recorded for one session; session-independent ones never land here. */

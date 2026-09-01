@@ -343,7 +343,7 @@ export function ConnectionPage() {
                     className="h-11 font-mono text-sm"
                     id="endpoint"
                     onChange={(event) => setEndpoint(event.target.value)}
-                    placeholder="http://127.0.0.1:8787"
+                    placeholder={DEFAULT_ENDPOINT}
                     required
                     value={endpoint}
                   />

@@ -11,6 +11,13 @@ import type { AgentDefinition } from './agent-domain.js';
 import { agentDefinitionSchema } from './schemas.js';
 import { SessionHistoryRepository } from './session-history-repository.js';
 
+/**
+ * Memory events read per request when a caller does not name a budget.
+ * Unit: events. Enough to fill the retained-context panel in one round trip;
+ * the endpoint clamps anything larger to its own ceiling.
+ */
+const MEMORY_EVENT_PAGE_SIZE = 50;
+
 const recordSchema = z.record(z.string(), z.unknown());
 const expertPackSchema = z.object({
   id: z.string(),
@@ -372,7 +379,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
 
   public async memoryEvents(
     sessionId: string,
-    limit = 50,
+    limit = MEMORY_EVENT_PAGE_SIZE,
     signal?: AbortSignal,
   ): Promise<MemoryEvent[]> {
     const result = await this.transport.request({

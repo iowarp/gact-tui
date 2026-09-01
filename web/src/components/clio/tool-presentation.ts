@@ -1,6 +1,8 @@
 import type { ToolInvocation, ToolState } from '@clio/core/v3';
+import { formatDuration, truncate } from '@/lib/format';
 import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
 import { reportPresentationOverride } from '@/lib/presentation-overrides';
+import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 
 export interface ToolPresentation {
   title: string;
@@ -50,7 +52,7 @@ export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
 
 /** The summary is undefined whenever it would only restate the labeled tool state. */
 export function getToolSummary(tool: ToolInvocation): string | undefined {
-  if (tool.error) return truncate(normalize(tool.error), 180);
+  if (tool.error) return truncate(normalize(tool.error), SUMMARY_TRUNCATE_CHARS);
   const intent = toolIntent(tool);
   if (tool.state === 'pending') return intent ? `${intent.present} is queued.` : undefined;
   if (tool.state === 'running') return intent ? `${intent.progressive}…` : undefined;
@@ -177,11 +179,7 @@ function toolIntent(tool: ToolInvocation): ToolIntent | undefined {
 }
 
 export function formatToolDuration(durationMs: number): string {
-  if (durationMs < 1_000) return `${Math.round(durationMs)} ms`;
-  if (durationMs < 60_000) return `${(durationMs / 1_000).toFixed(1).replace(/\.0$/u, '')} s`;
-  const minutes = Math.floor(durationMs / 60_000);
-  const seconds = Math.round((durationMs % 60_000) / 1_000);
-  return seconds ? `${minutes} min ${seconds} s` : `${minutes} min`;
+  return formatDuration(durationMs, 'tenths');
 }
 
 function verbIntent(
@@ -209,17 +207,17 @@ function summarizeOutput(value: unknown): string | undefined {
         // Preserve non-JSON tool output as a bounded human-readable excerpt.
       }
     }
-    return truncate(normalized, 180);
+    return truncate(normalized, SUMMARY_TRUNCATE_CHARS);
   }
   const output = asRecord(value);
   if (!output) return undefined;
   for (const key of ['message', 'detail', 'result']) {
     if (typeof output[key] === 'string' && output[key]) {
-      return truncate(normalize(output[key]), 180);
+      return truncate(normalize(output[key]), SUMMARY_TRUNCATE_CHARS);
     }
   }
   if (typeof output.summary === 'string' && output.summary) {
-    return truncate(normalize(output.summary), 180);
+    return truncate(normalize(output.summary), SUMMARY_TRUNCATE_CHARS);
   }
 
   const structured = summarizeStructuredOutput(output);
@@ -227,7 +225,7 @@ function summarizeOutput(value: unknown): string | undefined {
 
   for (const key of ['path', 'status']) {
     if (typeof output[key] === 'string' && output[key]) {
-      return truncate(normalize(output[key]), 180);
+      return truncate(normalize(output[key]), SUMMARY_TRUNCATE_CHARS);
     }
   }
   const count = ['count', 'total', 'matches', 'items'].find(
@@ -316,8 +314,4 @@ function fileName(path: string): string {
 
 function normalize(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
-}
-
-function truncate(value: string, length: number): string {
-  return value.length <= length ? value : `${value.slice(0, length - 1)}…`;
 }

@@ -23,6 +23,12 @@ import {
 import { waitForManagedBackend } from '@/tauri/managed-backend';
 
 const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
+/**
+ * Endpoints kept in the remembered-connections list. Unit: connections.
+ * Bounds both the stored value and what is read back, so an oversized or
+ * hand-edited localStorage entry cannot grow the picker without limit.
+ */
+const RECENT_CONNECTIONS_LIMIT = 5;
 
 interface ConnectionContextValue {
   settings: ConnectionSettings;
@@ -61,7 +67,7 @@ function readRecents(): SavedConnection[] {
             }
             return [];
           })
-          .slice(0, 5)
+          .slice(0, RECENT_CONNECTIONS_LIMIT)
       : [];
   } catch {
     return [];
@@ -121,30 +127,27 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     [managedConnectionReady, settings.endpoint, settings.token],
   );
 
-  const connect = useCallback(
-    async (next: ConnectionSettings): Promise<void> => {
-      const endpoint = normalizeEndpoint(next.endpoint);
-      const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
-      const managed = endpoint === managedEndpoint.current;
-      if (normalized.token && !managed) {
-        await storeConnectionCredential(endpoint, normalized.token);
-      }
-      setCredentialError(undefined);
-      setSettings(normalized);
-      // The supervisor owns the managed address and its token for this launch only;
-      // recording it would evict remembered remote endpoints from the saved list.
-      if (managed) return;
-      setRecents((current) => {
-        const updated = [
-          { endpoint, label: normalized.label },
-          ...current.filter((item) => item.endpoint !== endpoint),
-        ].slice(0, 5);
-        localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
-        return updated;
-      });
-    },
-    [],
-  );
+  const connect = useCallback(async (next: ConnectionSettings): Promise<void> => {
+    const endpoint = normalizeEndpoint(next.endpoint);
+    const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
+    const managed = endpoint === managedEndpoint.current;
+    if (normalized.token && !managed) {
+      await storeConnectionCredential(endpoint, normalized.token);
+    }
+    setCredentialError(undefined);
+    setSettings(normalized);
+    // The supervisor owns the managed address and its token for this launch only;
+    // recording it would evict remembered remote endpoints from the saved list.
+    if (managed) return;
+    setRecents((current) => {
+      const updated = [
+        { endpoint, label: normalized.label },
+        ...current.filter((item) => item.endpoint !== endpoint),
+      ].slice(0, RECENT_CONNECTIONS_LIMIT);
+      localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
 
   const forget = useCallback(async (endpoint: string): Promise<void> => {
     const normalizedEndpoint = normalizeEndpoint(endpoint);

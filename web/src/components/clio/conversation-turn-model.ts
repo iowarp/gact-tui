@@ -1,4 +1,6 @@
 import type { Message, MessageBlock, ToolInvocation } from '@clio/core/v3';
+import { truncate } from '@/lib/format';
+import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 
 export interface ConversationIteration {
   id: string;
@@ -44,9 +46,7 @@ function fallbackIterations(
   const indexed = message.blocks.map((block, position) => ({ block, position }));
   const ordered = indexed.some(({ block }) => block.sequence === undefined)
     ? indexed
-    : indexed.sort(
-        (left, right) => (left.block.sequence ?? 0) - (right.block.sequence ?? 0),
-      );
+    : indexed.sort((left, right) => (left.block.sequence ?? 0) - (right.block.sequence ?? 0));
   let current = emptyIteration(message, iterations.length);
 
   const flush = (terminal = false, interrupted = false) => {
@@ -163,5 +163,5 @@ function compactSentence(value: string): string {
   const line = value.replace(/\s+/gu, ' ').trim();
   const sentenceEnd = line.search(/(?<=[.!?])\s/u);
   const sentence = (sentenceEnd >= 0 ? line.slice(0, sentenceEnd + 1) : line).trim();
-  return sentence.length > 180 ? `${sentence.slice(0, 177).trimEnd()}…` : sentence;
+  return truncate(sentence, SUMMARY_TRUNCATE_CHARS);
 }

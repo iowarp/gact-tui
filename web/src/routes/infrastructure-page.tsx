@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { INFRASTRUCTURE_POLL_MS } from '@/lib/runtime-limits';
 import type { McpServerDefinition, ServiceIntegrationHealth } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -36,17 +37,17 @@ export function InfrastructurePage() {
   const health = useQuery({
     queryKey: queryKeys.key('service-health', settings.endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
-    refetchInterval: 20_000,
+    refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const relay = useQuery({
     queryKey: queryKeys.key('relay-status', settings.endpoint),
     queryFn: ({ signal }) => repository.relayStatus(signal),
-    refetchInterval: 20_000,
+    refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const servers = useQuery({
     queryKey: queryKeys.key('mcp-servers', settings.endpoint, 'infrastructure'),
     queryFn: ({ signal }) => repository.mcpServers(undefined, signal),
-    refetchInterval: 20_000,
+    refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const error = health.error ?? relay.error ?? servers.error;
   const foundationIssues =

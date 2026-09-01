@@ -3,7 +3,8 @@ import { useMemo } from 'react';
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { csvPreviewRowLimit, parseCsvPreview } from './csv-preview';
+import { PREVIEW_ROW_LIMIT } from '@/lib/runtime-limits';
+import { parseCsvPreview } from './csv-preview';
 import { ClioDataTable } from './data-table';
 
 /** Parses a bounded CSV sample and renders it with the shared ReUI data grid. */
@@ -17,7 +18,7 @@ export function ClioCsvView({ content, title }: { content: string; title: string
           <p className="truncate text-sm font-medium">{title}</p>
           <p className="text-xs text-muted-foreground">
             {preview.truncated
-              ? `Showing the first ${csvPreviewRowLimit.toLocaleString()} parsed rows.`
+              ? `Showing the first ${PREVIEW_ROW_LIMIT.toLocaleString()} parsed rows.`
               : `${preview.rows.length.toLocaleString()} parsed rows.`}
           </p>
         </div>

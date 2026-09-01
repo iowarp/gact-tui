@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { PromptRepository } from './prompt-repository.js';
 
+/**
+ * Memory-search hits requested when a caller does not name a budget.
+ * Unit: hits. Sized for a full results panel; compact surfaces such as the
+ * command menu pass a smaller value of their own.
+ */
+const MEMORY_SEARCH_LIMIT = 50;
+
 export interface MessageSearchHit {
   message_id: string;
   part_id?: string;
@@ -109,7 +116,7 @@ export class SearchRepository extends PromptRepository {
     if (options.sessionId) params.set('session_id', options.sessionId);
     if (options.workspaceId) params.set('workspace_id', options.workspaceId);
     if (options.includeCrossSession) params.set('include_cross_session', 'true');
-    if (options.limit) params.set('limit', String(options.limit));
+    params.set('limit', String(options.limit ?? MEMORY_SEARCH_LIMIT));
     return this.transport.request({
       method: 'GET',
       path: `/v1/memory/search?${params.toString()}`,

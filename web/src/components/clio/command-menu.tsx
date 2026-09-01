@@ -25,10 +25,30 @@ import {
 } from '@/components/ui/command';
 import { useRepository } from '@/hooks/use-repository';
 import { isPrimarySession, sessionInteractionAt } from '@/lib/recent-sessions';
+import { SEARCH_DEBOUNCE_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioRelativeTime } from './relative-time';
 import { useLiveStore } from '@/store/live-store';
 import { useMenuAction } from '@/tauri/menu-actions';
+
+/**
+ * How many results each command-menu group shows. Unit: entries per group.
+ * The menu is a keyboard jump list, so every group has to stay scannable
+ * without scrolling; raise a value only if a group routinely hides the entry
+ * people are reaching for.
+ */
+const COMMAND_MENU_LIMITS = {
+  /** Workspace files matching the typed query. */
+  files: 16,
+  /** Session artifacts matching the typed query. */
+  artifacts: 12,
+  /** Remembered-context hits fetched from the backend per query. */
+  memoryHits: 12,
+  /** Sessions shown while searching, where the query already narrows them. */
+  searchedSessions: 20,
+  /** Sessions shown on open, before anything is typed. */
+  recentSessions: 10,
+} as const;
 
 export function ClioCommandMenu({
   onOpenResource,
@@ -63,7 +83,7 @@ export function ClioCommandMenu({
     queryFn: ({ signal }) =>
       repository.searchMemory(
         serverQuery,
-        { workspaceId, includeCrossSession: true, limit: 12 },
+        { workspaceId, includeCrossSession: true, limit: COMMAND_MENU_LIMITS.memoryHits },
         signal,
       ),
     enabled: open && serverQuery.length >= 2 && Boolean(workspaceId),
@@ -86,7 +106,7 @@ export function ClioCommandMenu({
     };
   }, []);
   useEffect(() => {
-    const timer = window.setTimeout(() => setServerQuery(query.trim()), 180);
+    const timer = window.setTimeout(() => setServerQuery(query.trim()), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [query]);
 
@@ -99,7 +119,7 @@ export function ClioCommandMenu({
               (file) =>
                 file.type === 'file' && file.path.toLocaleLowerCase().includes(normalizedQuery),
             )
-            .slice(0, 16)
+            .slice(0, COMMAND_MENU_LIMITS.files)
         : [],
     [files.data, normalizedQuery],
   );
@@ -112,7 +132,7 @@ export function ClioCommandMenu({
                 artifact.session_id === sessionId &&
                 artifact.name.toLocaleLowerCase().includes(normalizedQuery),
             )
-            .slice(0, 12)
+            .slice(0, COMMAND_MENU_LIMITS.artifacts)
         : [],
     [artifacts, normalizedQuery, sessionId],
   );
@@ -140,7 +160,10 @@ export function ClioCommandMenu({
           Number(right.pinned) - Number(left.pinned) ||
           sessionInteractionAt(right).localeCompare(sessionInteractionAt(left)),
       )
-      .slice(0, normalizedQuery ? 20 : 10);
+      .slice(
+        0,
+        normalizedQuery ? COMMAND_MENU_LIMITS.searchedSessions : COMMAND_MENU_LIMITS.recentSessions,
+      );
   }, [normalizedQuery, recentThreshold, sessionId, sessions.data, workspaceNames]);
 
   const finish = (action: () => void) => {

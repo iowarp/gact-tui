@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { IMMUTABLE_QUERY, PREVIEW_ROW_LIMIT } from '@/lib/runtime-limits';
 import { useQuery } from '@tanstack/react-query';
 import { Frame, FramePanel } from '@/components/reui/frame';
 import { useRepository } from '@/hooks/use-repository';
@@ -33,10 +34,16 @@ function ArtifactTimeSeries({
   const artifactId = artifactIdFromDataUri(dataUri);
   const preview = useQuery({
     enabled: Boolean(artifactId),
-    queryKey: queryKeys.key('artifact-table-preview', settings.endpoint, artifactId, xKey, ...yKeys),
+    queryKey: queryKeys.key(
+      'artifact-table-preview',
+      settings.endpoint,
+      artifactId,
+      xKey,
+      ...yKeys,
+    ),
     queryFn: ({ signal }) =>
-      repository.artifactTablePreview(artifactId!, [xKey, ...yKeys], 1_000, signal),
-    staleTime: Number.POSITIVE_INFINITY,
+      repository.artifactTablePreview(artifactId!, [xKey, ...yKeys], PREVIEW_ROW_LIMIT, signal),
+    ...IMMUTABLE_QUERY,
   });
 
   if (!artifactId) {

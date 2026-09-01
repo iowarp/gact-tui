@@ -1,4 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
+import { truncate } from '@/lib/format';
+import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import type { McpServerDefinition, ToolCatalogItem, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -711,7 +713,7 @@ function catalogToolSummary(tool: ToolCatalogItem): string {
   const description = tool.description?.replace(/\s+/gu, ' ').trim();
   if (!description) return 'The provider did not describe this tool.';
   const firstSentence = description.match(/^.*?[.!?](?:\s|$)/u)?.[0]?.trim() ?? description;
-  return firstSentence.length <= 180 ? firstSentence : `${firstSentence.slice(0, 179)}…`;
+  return truncate(firstSentence, SUMMARY_TRUNCATE_CHARS);
 }
 
 function InventoryList({

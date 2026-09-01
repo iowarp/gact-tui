@@ -15,14 +15,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { recordById } from '@/lib/entities';
+import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { reduceFramesContained } from '@/lib/streaming/frame-reduction';
-import {
-  abortableDelay,
-  INITIAL_RECONNECT_DELAY_MS,
-  nextReconnectDelay,
-} from '@/lib/streaming/reconnect';
+import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { MAX_RETAINED_FRAME_GAPS } from '@/store/live-store';
 import { ClioConversation } from './conversation';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioStatus } from './status';
@@ -82,12 +80,14 @@ export function ClioSubagentCanvasView({
         // Contained per frame: one unreadable frame becomes a typed gap instead
         // of discarding its batch and throwing into the workspace error boundary.
         const { entities, gaps } = reduceFramesContained(base, frames);
-        return gaps.length ? { ...entities, gaps: [...entities.gaps, ...gaps].slice(-100) } : entities;
+        return gaps.length
+          ? { ...entities, gaps: [...entities.gaps, ...gaps].slice(-MAX_RETAINED_FRAME_GAPS) }
+          : entities;
       });
     });
 
     void (async () => {
-      let reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
+      let reconnectDelay = STREAM_RECONNECT_BASE_MS;
       while (!controller.signal.aborted) {
         try {
           for await (const frame of repository.stream(
@@ -99,7 +99,7 @@ export function ClioSubagentCanvasView({
             cursor,
             controller.signal,
           )) {
-            reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
+            reconnectDelay = STREAM_RECONNECT_BASE_MS;
             if (frame.cursor) cursor = frame.cursor;
             updateEntities((base) => (base.stream === 'live' ? base : { ...base, stream: 'live' }));
             batcher.push(frame);

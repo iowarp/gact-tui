@@ -34,6 +34,7 @@ import {
   sessionInteractionAt,
   visibleWorkspaceSessions,
 } from '@/lib/recent-sessions';
+import { VISIBLE_WORKSPACE_LIMIT } from '@/lib/runtime-limits';
 import { isSessionRunning } from '@/lib/session-state';
 import {
   workspaceLabels,
@@ -122,12 +123,12 @@ export function WorkspaceNavigation({
       (left, right) => Number(Boolean(right.pinned)) - Number(Boolean(left.pinned)),
     );
     if (showAllWorkspaces) return ordered;
-    const visible = ordered.slice(0, 7);
+    const visible = ordered.slice(0, VISIBLE_WORKSPACE_LIMIT);
     const activeWorkspace = ordered.find((workspace) => workspace.id === activeWorkspaceId);
     if (!activeWorkspace || visible.some((workspace) => workspace.id === activeWorkspace.id)) {
       return visible;
     }
-    return [...visible.slice(0, 6), activeWorkspace];
+    return [...visible.slice(0, VISIBLE_WORKSPACE_LIMIT - 1), activeWorkspace];
   }, [activeWorkspaceId, showAllWorkspaces, workspaces]);
 
   const visitSession = (session: Session) => {
@@ -180,7 +181,7 @@ export function WorkspaceNavigation({
             />
           );
         })}
-        {workspaces.length > 7 ? (
+        {workspaces.length > VISIBLE_WORKSPACE_LIMIT ? (
           <Button
             className="mt-1 w-full justify-between group-data-[collapsible=icon]:hidden"
             onClick={() => setShowAllWorkspaces((visible) => !visible)}
@@ -496,10 +497,7 @@ function WorkspaceHoverCard({
           type="button"
         >
           <FolderGit2Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-          <WorkspaceLabelFields
-            className="group-data-[collapsible=icon]:hidden"
-            label={label}
-          />
+          <WorkspaceLabelFields className="group-data-[collapsible=icon]:hidden" label={label} />
           <ChevronDownIcon
             aria-hidden="true"
             className={`ml-auto size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[collapsible=icon]:hidden ${workspaceExpanded ? '' : '-rotate-90'}`}
@@ -520,9 +518,7 @@ function WorkspaceHoverCard({
             <div className="min-w-0 flex-1">
               <button
                 className="group/name flex max-w-full items-center gap-1 rounded-sm text-left font-medium outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                onClick={() =>
-                  onRename({ kind: 'workspace', id: workspace.id, label: labelText })
-                }
+                onClick={() => onRename({ kind: 'workspace', id: workspace.id, label: labelText })}
                 type="button"
               >
                 <WorkspaceLabelFields label={label} />

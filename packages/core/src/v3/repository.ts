@@ -58,6 +58,21 @@ import {
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
 import { ArtifactPreviewRepository } from './artifact-preview-repository.js';
 
+/**
+ * Artifact records requested per page while walking a session's registry.
+ * Unit: records. Larger pages mean fewer round trips; the backend caps the
+ * value it will honour, so raising this alone does not widen a page.
+ */
+const ARTIFACT_PAGE_SIZE = 200;
+/**
+ * Pages the walk will follow before it stops and reports a truncated listing.
+ * Unit: pages. A runaway backstop against a backend that keeps handing back
+ * cursors: at the page size above this is a ceiling of 20,000 records, far
+ * past any real session. Reaching it is reported as `page_cap_reached`, never
+ * silently swallowed.
+ */
+const MAX_ARTIFACT_PAGES = 100;
+
 export class ClioRepository extends ArtifactPreviewRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
@@ -462,11 +477,11 @@ export class ClioRepository extends ArtifactPreviewRepository {
     let childSessionIds: string[] = [];
     let includeChildren = false;
 
-    for (let pageIndex = 0; pageIndex < 100; pageIndex += 1) {
+    for (let pageIndex = 0; pageIndex < MAX_ARTIFACT_PAGES; pageIndex += 1) {
       const query = new URLSearchParams({
         include_children: 'true',
         include_used: 'true',
-        limit: '200',
+        limit: String(ARTIFACT_PAGE_SIZE),
       });
       if (cursor) query.set('before', cursor);
       const page = await this.transport.request({

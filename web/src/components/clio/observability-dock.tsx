@@ -47,6 +47,7 @@ import {
 } from '@/components/ui/select';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import type { ClioContextTarget } from '@/lib/context-targets';
+import { formatDuration } from '@/lib/format';
 import {
   getPresentationOverrideCount,
   subscribePresentationOverrides,
@@ -545,7 +546,7 @@ function ProvenanceSourceBar({
           <div className="min-w-0">
             <p className="text-sm font-medium">Provenance source</p>
             <p className="truncate text-xs text-muted-foreground">
-              {pending ? 'Discovering service providers' : selected?.source ?? 'Unavailable'}
+              {pending ? 'Discovering service providers' : (selected?.source ?? 'Unavailable')}
             </p>
           </div>
         </div>
@@ -583,7 +584,9 @@ function ProvenanceSourceBar({
         ) : null}
       </div>
       {degradation ? (
-        <p className={`text-xs leading-5 ${degradation.partial ? 'text-warning' : 'text-muted-foreground'}`}>
+        <p
+          className={`text-xs leading-5 ${degradation.partial ? 'text-warning' : 'text-muted-foreground'}`}
+        >
           {degradation.reason}
         </p>
       ) : null}
@@ -610,7 +613,8 @@ function SectionState({
   label: string;
   pending?: boolean;
 }) {
-  if (error) return <ClioStatus detail={error} label={`${label} unavailable`} value="unavailable" />;
+  if (error)
+    return <ClioStatus detail={error} label={`${label} unavailable`} value="unavailable" />;
   if (pending) return <ClioStatus label={`Loading ${label.toLowerCase()}`} value="connecting" />;
   return null;
 }
@@ -658,10 +662,4 @@ function toolActivityContext(
 
 function childAgentProcessDetail(placement: string | undefined): string {
   return placement?.trim() || 'Child agent';
-}
-
-function formatDuration(milliseconds: number): string {
-  if (milliseconds < 1_000) return `${milliseconds} ms`;
-  if (milliseconds < 60_000) return `${Math.round(milliseconds / 1_000)} s`;
-  return `${Math.round(milliseconds / 60_000)} min`;
 }

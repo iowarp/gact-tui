@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { ProviderRepository } from './provider-repository.js';
 
+/**
+ * Rows requested when a caller does not name its own budget. Unit: rows.
+ * Enough to plot or scan a table sample without pulling a whole dataset into
+ * the client; the web surface carries the matching `PREVIEW_ROW_LIMIT`.
+ */
+const PREVIEW_ROW_LIMIT = 1_000;
+
 const previewValueSchema = z.union([z.string(), z.null()]);
 const artifactTablePreviewSchema = z
   .object({
@@ -34,7 +41,7 @@ export class ArtifactPreviewRepository extends ProviderRepository {
   public artifactTablePreview(
     artifactId: string,
     columns: readonly string[],
-    limit = 1_000,
+    limit = PREVIEW_ROW_LIMIT,
     signal?: AbortSignal,
   ): Promise<ArtifactTablePreview> {
     const query = new URLSearchParams({

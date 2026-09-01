@@ -1,9 +1,4 @@
-import type {
-  AsyncProcess,
-  ExecutionProvenanceResult,
-  RunState,
-  SubagentRun,
-} from '@clio/core/v3';
+import type { AsyncProcess, ExecutionProvenanceResult, RunState, SubagentRun } from '@clio/core/v3';
 import { graphlib, layout } from '@dagrejs/dagre';
 import {
   Controls,
@@ -21,6 +16,7 @@ import { useMemo, useRef } from 'react';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { useContainerQuery } from '@/hooks/use-container-query';
+import { formatDuration } from '@/lib/format';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -195,9 +191,7 @@ export function buildExecutionProvenanceGraph(
   direction: 'LR' | 'TB',
 ): { nodes: Node<ExecutionNodeData, 'clio-execution'>[]; edges: Edge[] } {
   const serviceNodes = new Map(provenance.nodes.map((node) => [node.id, node]));
-  const referencedIds = new Set(
-    provenance.edges.flatMap((edge) => [edge.source, edge.target]),
-  );
+  const referencedIds = new Set(provenance.edges.flatMap((edge) => [edge.source, edge.target]));
   const missingIds = [...referencedIds].filter((id) => !serviceNodes.has(id));
   const nodes: Node<ExecutionNodeData, 'clio-execution'>[] = [
     ...provenance.nodes.map((node) => {
@@ -277,13 +271,23 @@ function ExecutionNodeCard({ data }: NodeProps<Node<ExecutionNodeData, 'clio-exe
       }`}
       style={{ width: data.width }}
     >
-      <Handle className="!size-0 !border-0 !bg-transparent" position={data.direction === 'LR' ? Position.Left : Position.Top} type="target" />
-      <p className="truncate text-sm font-medium" title={data.label}>{data.label}</p>
+      <Handle
+        className="!size-0 !border-0 !bg-transparent"
+        position={data.direction === 'LR' ? Position.Left : Position.Top}
+        type="target"
+      />
+      <p className="truncate text-sm font-medium" title={data.label}>
+        {data.label}
+      </p>
       <p className="mt-0.5 truncate text-[10px] text-muted-foreground" title={data.detail}>
         {data.detail}
       </p>
       <ClioStatus className="mt-2 py-0.5" label={data.status || undefined} value={status} />
-      <Handle className="!size-0 !border-0 !bg-transparent" position={data.direction === 'LR' ? Position.Right : Position.Bottom} type="source" />
+      <Handle
+        className="!size-0 !border-0 !bg-transparent"
+        position={data.direction === 'LR' ? Position.Right : Position.Bottom}
+        type="source"
+      />
     </div>
   );
 }
@@ -297,8 +301,18 @@ function statusValue(status: string): 'healthy' | 'degraded' | 'unavailable' | R
   if (status === 'degraded') return 'degraded';
   if (status === 'unavailable') return 'unavailable';
   if (
-    ['queued', 'running', 'waiting_permission', 'waiting_user', 'completed', 'failed', 'cancelled', 'interrupted'].includes(status)
-  ) return status as RunState;
+    [
+      'queued',
+      'running',
+      'waiting_permission',
+      'waiting_user',
+      'completed',
+      'failed',
+      'cancelled',
+      'interrupted',
+    ].includes(status)
+  )
+    return status as RunState;
   return 'unavailable';
 }
 
@@ -455,6 +469,5 @@ function formatElapsed(start?: string, end?: string): string | undefined {
   if (!start || !end) return undefined;
   const elapsed = Date.parse(end) - Date.parse(start);
   if (!Number.isFinite(elapsed) || elapsed < 0) return undefined;
-  if (elapsed < 60_000) return `${Math.max(1, Math.round(elapsed / 1_000))}s`;
-  return `${Math.round(elapsed / 60_000)}m`;
+  return formatDuration(elapsed, 'compact');
 }

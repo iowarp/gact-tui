@@ -8,6 +8,14 @@ import {
 import { create } from 'zustand';
 import { reduceFramesContained } from '@/lib/streaming/frame-reduction';
 
+/**
+ * Stream gaps kept for diagnostics. Unit: gap records.
+ * The store lives for the tab's lifetime, so this bound is what stops a long
+ * flapping session from accumulating gap records forever. Raise it only if a
+ * diagnosis needs deeper history than the last few reconnects.
+ */
+export const MAX_RETAINED_FRAME_GAPS = 100;
+
 interface LiveStore {
   entities: EntityState;
   frameGaps: TransportGap[];
@@ -83,7 +91,7 @@ export const useLiveStore = create<LiveStore>((set) => ({
       const { entities, gaps } = reduceFramesContained(state.entities, frames);
       return {
         entities,
-        frameGaps: [...state.frameGaps, ...gaps].slice(-100),
+        frameGaps: [...state.frameGaps, ...gaps].slice(-MAX_RETAINED_FRAME_GAPS),
         error: undefined,
       };
     }),

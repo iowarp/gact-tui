@@ -6,6 +6,7 @@ import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
+import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
 import { sessionArtifactEntities } from '@/lib/session-artifacts';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -76,7 +77,7 @@ export function useWorkspaceData({
       const current = query.state.data?.find((item) => item.id === sessionId);
       return current &&
         ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(current.state)
-        ? 1_500
+        ? ACTIVE_SESSION_POLL_MS
         : false;
     },
   });
@@ -104,7 +105,7 @@ export function useWorkspaceData({
     queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
     queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
     enabled: Boolean(sessionId),
-    refetchInterval: 1_500,
+    refetchInterval: ACTIVE_SESSION_POLL_MS,
   });
   const questions = useQuery({
     queryKey: queryKeys.key('pending-questions', settings.endpoint, sessionId),

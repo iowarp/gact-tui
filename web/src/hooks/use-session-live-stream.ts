@@ -2,12 +2,9 @@ import { useEffect, useState } from 'react';
 import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import { recordById } from '@/lib/entities';
 import { queryKeys } from '@/lib/query-keys';
+import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
-import {
-  abortableDelay,
-  INITIAL_RECONNECT_DELAY_MS,
-  nextReconnectDelay,
-} from '@/lib/streaming/reconnect';
+import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
@@ -45,7 +42,7 @@ export function useSessionLiveStream({
     let lastReconnectAt = Number.NEGATIVE_INFINITY;
     const reconnect = () => {
       const now = performance.now();
-      if (now - lastReconnectAt < 250) return;
+      if (now - lastReconnectAt < STREAM_RECONNECT_BASE_MS) return;
       lastReconnectAt = now;
       setReconnectEpoch((value) => value + 1);
     };
@@ -78,7 +75,7 @@ export function useSessionLiveStream({
     const controller = new AbortController();
     const batcher = new FrameBatcher(applyFrames);
     const invalidations = new QueryInvalidationBatcher(queryClient);
-    let reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
+    let reconnectDelay = STREAM_RECONNECT_BASE_MS;
     const consume = async () => {
       setStreamState('connecting');
       while (!controller.signal.aborted) {
@@ -89,7 +86,7 @@ export function useSessionLiveStream({
             cursor,
             controller.signal,
           )) {
-            reconnectDelay = INITIAL_RECONNECT_DELAY_MS;
+            reconnectDelay = STREAM_RECONNECT_BASE_MS;
             setStreamState('live');
             batcher.push(frame);
             if (frame.eventName === 'message.completed') {
@@ -218,7 +215,10 @@ export function queryInvalidationKeysForEvent({
   if (isPendingInteractionEvent(eventName)) {
     // Approvals are read unscoped (a descendant session can raise one), so the
     // invalidation must be the endpoint-level prefix that query is keyed under.
-    keys.push(queryKeys.pendingApprovals(endpoint), queryKeys.pendingQuestions(endpoint, sessionId));
+    keys.push(
+      queryKeys.pendingApprovals(endpoint),
+      queryKeys.pendingQuestions(endpoint, sessionId),
+    );
   }
   if (isProcessEvent(eventName)) {
     keys.push(

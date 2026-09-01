@@ -46,6 +46,13 @@ pub struct ExecPluginResult {
 /// for slash-command output snippets and keeps the IPC payload bounded.
 const OUTPUT_CAP_BYTES: usize = 64 * 1024;
 
+/// Timeout applied when a caller does not request one. 10 s covers a slash
+/// command that shells out without leaving a hung plugin holding the UI.
+const DEFAULT_PLUGIN_TIMEOUT_MS: u64 = 10_000;
+/// Hard ceiling on a caller-requested timeout. A plugin is an interactive
+/// command, so no caller may pin a worker thread longer than this.
+const MAX_PLUGIN_TIMEOUT_MS: u64 = 60_000;
+
 /// Join one output-reader thread, distinguishing "no reader thread" (the
 /// child never exposed that pipe → empty bytes) from "the reader thread
 /// panicked" (an error the caller must see, not an empty capture).
@@ -64,7 +71,11 @@ fn join_reader(
 
 #[tauri::command]
 pub fn exec_plugin(req: ExecPluginRequest) -> Result<ExecPluginResult, String> {
-    let timeout = Duration::from_millis(req.timeout_ms.unwrap_or(10_000).min(60_000));
+    let timeout = Duration::from_millis(
+        req.timeout_ms
+            .unwrap_or(DEFAULT_PLUGIN_TIMEOUT_MS)
+            .min(MAX_PLUGIN_TIMEOUT_MS),
+    );
     let started = Instant::now();
 
     let mut cmd = Command::new(&req.path);

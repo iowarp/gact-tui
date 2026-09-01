@@ -264,7 +264,7 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
   });
   const events = useQuery({
     queryKey: queryKeys.key('memory-events', settings.endpoint, selectedSessionId),
-    queryFn: ({ signal }) => repository.memoryEvents(selectedSessionId, 50, signal),
+    queryFn: ({ signal }) => repository.memoryEvents(selectedSessionId, undefined, signal),
     enabled: Boolean(selectedSessionId),
   });
   const search = useQuery({
@@ -278,11 +278,7 @@ export function MemorySettings({ initialSessionId }: { initialSessionId?: string
     queryFn: ({ signal }) =>
       repository.searchMemory(
         submittedQuery,
-        {
-          sessionId: selectedSessionId || undefined,
-          includeCrossSession: crossSession,
-          limit: 50,
-        },
+        { sessionId: selectedSessionId || undefined, includeCrossSession: crossSession },
         signal,
       ),
     enabled: Boolean(selectedSessionId && submittedQuery),
