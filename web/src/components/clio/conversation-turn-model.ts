@@ -85,13 +85,16 @@ function fallbackIterations(
     }
     if (block.type === 'tool') {
       const tool = tools[block.tool_id];
-      if (tool && !current.tools.some((candidate) => candidate.id === tool.id)) {
+      // An unresolved invocation contributes nothing here; the block stays in the
+      // residual lane so its typed unavailable state renders at its own position.
+      if (!tool) continue;
+      if (!current.tools.some((candidate) => candidate.id === tool.id)) {
         current.tools.push(tool);
       }
       if (block.thought && current.nextThoughts.length === 0) {
         current.nextThoughts.push(block.thought);
       }
-      current.streaming ||= ['pending', 'running'].includes(tool?.state ?? '');
+      current.streaming ||= ['pending', 'running'].includes(tool.state);
       consumed.add(block.id);
       continue;
     }
