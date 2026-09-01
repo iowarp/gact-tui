@@ -17,7 +17,7 @@ D:\Libraries\Documents\projects\clio_develop_workspace
 
 An explicit installation uses one `generations/<timestamp-pid>` directory inside that root. That generation is the installed development stack: runtime source clones, Python environment, Node dependencies, contained caches and tools, logs, run workspaces, and the single node-wide CTE/ARC core. `config/active-generation.json` names it. Ordinary restarts and qualification retries reuse that generation; they never clone another frontend/backend or provision another core. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
 
-Never create or reuse `D:\tmp`, `D:\relay-local`, `D:\ws`, `D:\clio-workspace`, a source-repository `.venv` or `node_modules`, a `PYTHONPATH` overlay, or another checkout's environment. A `.venv` and `node_modules` inside the disposable runtime clones under the owned root are expected. The containment audit treats the four legacy roots as failures.
+Never create or reuse `D:\tmp`, `D:\relay-local`, `D:\ws`, `D:\clio-workspace`, a source-repository `.venv` or `node_modules`, a `PYTHONPATH` overlay, or another checkout's environment. A `.venv` and `node_modules` inside the disposable runtime clones under the owned root are expected. The containment audit fails on any of the four legacy roots that carries this tooling's own generation state (`config\active-generation.json`, `runtime\clio-agent-dev\dev-processes.json`, `config\cleanup-residue.json`); a directory that merely shares one of those names is recorded as unrelated residue and does not block the deployment.
 
 ## Hard reset
 

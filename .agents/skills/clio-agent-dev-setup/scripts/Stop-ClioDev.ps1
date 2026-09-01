@@ -47,18 +47,22 @@ function Add-OwnedProcessId {
         return
     }
     $identity = "$($process.ExecutablePath) $($process.CommandLine)"
-    if (-not $identity.Contains($devRootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
-        if ($recordedPids.Contains($ProcessId)) {
+    $action = Resolve-ClioDevProcessAction `
+        -Identity $identity `
+        -OwnedRoot $devRootFull `
+        -Reason $Reason `
+        -CrossConfirmed:($recordedPids.Contains($ProcessId))
+    switch ($action) {
+        "stop" {
             [void]$targetPids.Add($ProcessId)
-            return
         }
-        if ($Reason.StartsWith("recorded ", [System.StringComparison]::OrdinalIgnoreCase)) {
+        "ignore-stale" {
             Write-Warning "Ignoring stale recorded PID $ProcessId ($Reason); its identity is outside the owned root."
-            return
         }
-        throw "Refusing to stop PID $ProcessId ($Reason): it is not owned by $devRootFull."
+        default {
+            throw "Refusing to stop PID $ProcessId ($Reason): it is not owned by $devRootFull."
+        }
     }
-    [void]$targetPids.Add($ProcessId)
 }
 
 if (Test-Path -LiteralPath $statePath) {
@@ -72,15 +76,21 @@ if (Test-Path -LiteralPath $statePath) {
     )) {
         $value = $state.$property
         if ($null -ne $value -and [int]$value -gt 0) {
-            [void]$recordedPids.Add([int]$value)
+            # Act on the record BEFORE remembering it: a recorded PID that
+            # cross-confirms itself would make the stale-record branch
+            # unreachable and force-kill a recycled PID. Recording it after
+            # still lets a later port/generation hit on the same PID confirm it.
             Add-OwnedProcessId -ProcessId ([int]$value) -Reason "recorded $property"
+            [void]$recordedPids.Add([int]$value)
         }
     }
 }
 
 Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | ForEach-Object {
     $identity = "$($_.ExecutablePath) $($_.CommandLine)"
-    if ($identity.Contains($generationRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    # IndexOf, not Contains: the (string, StringComparison) Contains overload is
+    # .NET Core only and throws on Windows PowerShell 5.1.
+    if ($identity.IndexOf($generationRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
         Add-OwnedProcessId -ProcessId ([int]$_.ProcessId) -Reason "active generation process"
     }
 }
