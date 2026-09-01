@@ -134,8 +134,15 @@ export function ClioComposerQueue({
           >
             <QueueList
               className={
+                ordered.length > 4 ? 'h-40' : undefined
+              }
+              viewportProps={
                 ordered.length > 4
-                  ? '[mask-image:linear-gradient(to_bottom,transparent_0,black_0.65rem,black_calc(100%_-_0.65rem),transparent_100%)]'
+                  ? {
+                      'aria-label': `${ordered.length} queued messages`,
+                      role: 'region',
+                      tabIndex: 0,
+                    }
                   : undefined
               }
             >
@@ -179,7 +186,7 @@ export function ClioComposerQueue({
                           value={editing.text}
                         />
                       ) : (
-                        <QueueItemContent title={text}>
+                        <QueueItemContent className="text-foreground/70" title={text}>
                           {text || 'Attachments only'}
                         </QueueItemContent>
                       )}

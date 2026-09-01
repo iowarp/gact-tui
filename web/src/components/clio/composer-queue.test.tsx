@@ -120,6 +120,21 @@ describe('ClioComposerQueue', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Send queued message now');
   });
 
+  it('owns a bounded keyboard-scrollable viewport when the queue overflows', () => {
+    renderQueue({
+      messages: Array.from({ length: 6 }, (_, index) =>
+        queued(`queue_${index}`, `Queued message ${index + 1}`, index),
+      ),
+    });
+
+    const queue = screen.getByLabelText('Queued messages');
+    expect(queue.querySelector('[data-slot="sortable"]')).toHaveClass('h-40');
+    expect(screen.getByRole('region', { name: '6 queued messages' })).toHaveAttribute(
+      'tabindex',
+      '0',
+    );
+  });
+
   it('preserves a local edit when the service rejects a stale revision', async () => {
     const user = userEvent.setup();
     const onUpdate = vi.fn().mockRejectedValue(new Error('revision conflict'));

@@ -315,7 +315,7 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await page.goto(workspaceUrl);
 
   await expect(page.locator('html')).toHaveClass(/dark/);
-  const queue = page.getByLabel('Queued messages');
+  const queue = page.locator('[aria-label="Queued messages"]:visible');
   await expect(queue).toBeVisible();
   await expect(queue.getByText('6 queued messages')).toBeVisible();
   await expect(queue.locator('[data-queue-live-item]')).toHaveCount(6);
@@ -328,6 +328,28 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   ).toHaveCount(6);
   await expect(queue.locator('[data-slot="sortable"]')).toBeVisible();
   await expect(queue.locator('[draggable="true"]')).toHaveCount(0);
+  const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
+  await expect(queueViewport).toBeVisible();
+  const queueScrollRange = await queueViewport.evaluate(
+    (element) => element.scrollHeight - element.clientHeight,
+  );
+  expect(queueScrollRange).toBeGreaterThan(0);
+  await queueViewport.hover();
+  await page.mouse.wheel(0, 500);
+  await expect
+    .poll(() => queueViewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await queueViewport.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await queueViewport.focus();
+  await page.keyboard.press('PageDown');
+  await expect
+    .poll(() => queueViewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await queueViewport.evaluate((element) => {
+    element.scrollTop = 0;
+  });
   await expect(page.getByText('Working', { exact: true })).toBeVisible();
   await expect(page.getByText('Running', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('status', { name: 'Working now' })).toBeVisible();
