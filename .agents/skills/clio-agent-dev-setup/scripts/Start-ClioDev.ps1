@@ -149,6 +149,60 @@ if ($PreserveState) {
             throw "Preserved runtime is incomplete: $requiredRuntimePath"
         }
     }
+
+    Set-DeploymentStage -Name "sync_preserved_committed_heads"
+    $git = (Get-Command git -ErrorAction Stop).Source
+    $backendHead = (& $git -C $backendSource rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $backendHead) {
+        throw "Could not resolve the backend source HEAD at $backendSource."
+    }
+    $frontendHead = (& $git -C $frontendSource rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $frontendHead) {
+        throw "Could not resolve the frontend source HEAD at $frontendSource."
+    }
+    foreach ($runtimeSource in @(
+        [pscustomobject]@{ Name = "backend"; Source = $backendSource; Runtime = $backendRoot; Head = $backendHead },
+        [pscustomobject]@{ Name = "frontend"; Source = $frontendSource; Runtime = $frontendRoot; Head = $frontendHead }
+    )) {
+        $runtimeDirty = @(& $git -C $runtimeSource.Runtime status --porcelain).Count -gt 0
+        if ($runtimeDirty) {
+            throw "Preserved $($runtimeSource.Name) runtime clone is dirty: $($runtimeSource.Runtime)"
+        }
+        & $git -C $runtimeSource.Runtime fetch --force $runtimeSource.Source $runtimeSource.Head
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not fetch $($runtimeSource.Name) commit $($runtimeSource.Head)."
+        }
+        & $git -C $runtimeSource.Runtime checkout --detach $runtimeSource.Head
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not check out $($runtimeSource.Name) commit $($runtimeSource.Head)."
+        }
+        & $git -C $runtimeSource.Runtime submodule update --init --recursive
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not synchronize $($runtimeSource.Name) submodules at $($runtimeSource.Head)."
+        }
+    }
+
+    $sourceHeadsPath = Join-Path $configRoot "source-heads.json"
+    $sourceHeads = if (Test-Path -LiteralPath $sourceHeadsPath -PathType Leaf) {
+        Get-Content -Raw -LiteralPath $sourceHeadsPath | ConvertFrom-Json
+    }
+    else {
+        [pscustomobject]@{}
+    }
+    $backendDirty = @(& $git -C $backendSource status --porcelain).Count -gt 0
+    $frontendDirty = @(& $git -C $frontendSource status --porcelain).Count -gt 0
+    foreach ($entry in @{
+        created_at = [DateTime]::UtcNow.ToString("o")
+        backend_source = $backendSource
+        backend_head = $backendHead
+        backend_source_dirty = $backendDirty
+        frontend_source = $frontendSource
+        frontend_head = $frontendHead
+        frontend_source_dirty = $frontendDirty
+    }.GetEnumerator()) {
+        $sourceHeads | Add-Member -NotePropertyName $entry.Key -NotePropertyValue $entry.Value -Force
+    }
+    $sourceHeads | ConvertTo-Json | Set-Content -LiteralPath $sourceHeadsPath -Encoding utf8
 }
 else {
     Set-DeploymentStage -Name "reset_owned_root"

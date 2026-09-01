@@ -29,6 +29,12 @@ foreach ($name in @("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE")) {
         throw "Start-ClioDev does not export $name for shared model-cache reuse."
     }
 }
+if ($startSource -notmatch 'sync_preserved_committed_heads') {
+    throw "Start-ClioDev must advance preserved runtime clones to the selected committed heads."
+}
+if ($startSource -notmatch 'Preserved \$\(\$runtimeSource\.Name\) runtime clone is dirty') {
+    throw "Start-ClioDev must reject dirty preserved runtime clones before changing heads."
+}
 
 $escapeRejected = $false
 try {
@@ -66,4 +72,5 @@ foreach ($guardedScript in @("Reset-ClioDev.ps1", "Stop-ClioDev.ps1")) {
     unowned_reset_rejected = $true
     unowned_stop_rejected = $true
     shared_model_cache = $true
+    preserved_heads_advanced = $true
 } | ConvertTo-Json
