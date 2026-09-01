@@ -137,7 +137,19 @@ foreach ($processId in $targetPids) {
         continue
     }
 
-    Stop-Process -Id $processId -Force -ErrorAction Stop
+    try {
+        Stop-Process -Id $processId -Force -ErrorAction Stop
+    }
+    catch {
+        # A child may exit after the ownership census but before Stop-Process.
+        # Treat that normal race as an already-completed stop, while preserving
+        # every error for a process that is still present.
+        $stillRunning = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if ($null -ne $stillRunning) {
+            throw
+        }
+        continue
+    }
     Write-Host "Stopped $($process.ProcessName) (PID $processId)."
 }
 

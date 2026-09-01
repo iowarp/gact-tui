@@ -35,6 +35,10 @@ if ($startSource -notmatch 'sync_preserved_committed_heads') {
 if ($startSource -notmatch 'Preserved \$\(\$runtimeSource\.Name\) runtime clone is dirty') {
     throw "Start-ClioDev must reject dirty preserved runtime clones before changing heads."
 }
+$stopSource = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot "Stop-ClioDev.ps1")
+if ($stopSource -notmatch '\$stillRunning\s*=\s*Get-Process') {
+    throw "Stop-ClioDev must tolerate an owned process exiting after its ownership census."
+}
 
 $escapeRejected = $false
 try {
@@ -73,4 +77,5 @@ foreach ($guardedScript in @("Reset-ClioDev.ps1", "Stop-ClioDev.ps1")) {
     unowned_stop_rejected = $true
     shared_model_cache = $true
     preserved_heads_advanced = $true
+    process_exit_race_tolerated = $true
 } | ConvertTo-Json
