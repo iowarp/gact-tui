@@ -61,7 +61,7 @@ export function useWorkspaceData({
       entityWorkspaces,
     ],
   );
-  const replaceSnapshots = useLiveStore((state) => state.replaceSnapshots);
+  const mergeSnapshots = useLiveStore((state) => state.mergeSnapshots);
   const { capabilities, modelConfiguration } = useWorkspaceCapabilities();
 
   const workspaces = useQuery({
@@ -113,14 +113,14 @@ export function useWorkspaceData({
   });
 
   useEffect(() => {
-    if (workspaces.data) replaceSnapshots({ workspaces: recordById(workspaces.data) });
-  }, [replaceSnapshots, workspaces.data]);
+    if (workspaces.data) mergeSnapshots({ workspaces: recordById(workspaces.data) });
+  }, [mergeSnapshots, workspaces.data]);
   useEffect(() => {
-    if (sessions.data) replaceSnapshots({ sessions: recordById(sessions.data) });
-  }, [replaceSnapshots, sessions.data]);
+    if (sessions.data) mergeSnapshots({ sessions: recordById(sessions.data) });
+  }, [mergeSnapshots, sessions.data]);
   useEffect(() => {
     if (!transcript.data) return;
-    replaceSnapshots({
+    mergeSnapshots({
       messages: recordById(transcript.data.messages),
       tools: recordById(transcript.data.tools),
       tasks: recordById(transcript.data.tasks),
@@ -128,7 +128,7 @@ export function useWorkspaceData({
       artifacts: recordById(transcript.data.artifacts),
       surfaces: recordById(transcript.data.surfaces),
     });
-  }, [replaceSnapshots, transcript.data]);
+  }, [mergeSnapshots, transcript.data]);
 
   const sessionCandidate =
     entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);
