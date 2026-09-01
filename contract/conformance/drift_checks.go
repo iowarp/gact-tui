@@ -120,11 +120,14 @@ func probeStatus(c *conformClient, method, path string) (int, error) {
 
 // --- 2–4. SSE replay + event payload shapes ----------------------------------
 
-// driftEvent is one parsed SSE event (envelope per SPEC §7.2).
+// driftEvent is one parsed SSE event (envelope per SPEC §7.2, or the scoped
+// 0.3 envelope of §7.8). ProtocolVersion is the envelope's own
+// `protocol_version` — empty for a 0.2 envelope, which has no such field.
 type driftEvent struct {
-	Type    string
-	Payload map[string]any
-	Raw     string
+	Type            string
+	ProtocolVersion string
+	Payload         map[string]any
+	Raw             string
 }
 
 // isPreambleOrHeartbeat reports whether the event is connection
@@ -204,13 +207,18 @@ func parseDriftEvent(block string) (driftEvent, bool) {
 		return driftEvent{}, false
 	}
 	var envelope struct {
-		Type    string          `json:"type"`
-		Payload json.RawMessage `json:"payload"`
+		Type            string          `json:"type"`
+		ProtocolVersion string          `json:"protocol_version"`
+		Payload         json.RawMessage `json:"payload"`
 	}
 	if err := json.Unmarshal([]byte(dataLine), &envelope); err != nil || envelope.Type == "" {
 		return driftEvent{}, false
 	}
-	ev := driftEvent{Type: envelope.Type, Raw: dataLine}
+	ev := driftEvent{
+		Type:            envelope.Type,
+		ProtocolVersion: envelope.ProtocolVersion,
+		Raw:             dataLine,
+	}
 	// Payload may be a non-object for some vendor events; tolerate.
 	_ = json.Unmarshal(envelope.Payload, &ev.Payload)
 	return ev, true

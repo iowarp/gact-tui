@@ -146,6 +146,33 @@ v0.2 does NOT deprecate anything in v0.1. A v0.1 client talking to a v0.2 backen
 
 **Gold-standard clause**: v0.2 is drafted so that **every** primitive a modern agentic-coder exposes natively has a place on the wire. The first reference backend is `clio-agent-gact` (iowarp/clio-agent, `tui-integration` branch) — any v0.2 primitive CLIO implements is by definition *supported*. Any v0.1 primitive CLIO doesn't yet implement is declared `unsupported` in its capabilities response and tracked as a native CLIO capability request (framed around CLIO's own mission, not "TUI-integration ask") until it lands.
 
+#### 3.2.2 Protocol negotiation — `X-GACT-Version`
+
+0.2 and 0.3 are two dialects served side by side on the same `/v1/` paths
+(§7.7 vs §7.8). Which one a request gets is selected by a request header, never
+by sniffing the response:
+
+- **`X-GACT-Version: <version>`** on any request selects the dialect for that
+  request (and, on `GET /v1/sessions/{sid}/events`, for the SSE stream it
+  opens). Recognised values are `0.2` and `0.3`.
+- **Omitting the header selects `0.2`**, so a 0.1/0.2 client is unaffected.
+  A backend that only speaks 0.2 MUST ignore the header rather than fail.
+- A backend that recognises the header but not the requested value SHOULD
+  answer `406` with the §6.0 error `unsupported_protocol` and
+  `details.supported` listing the versions it serves.
+- **`gact_versions: string[]`**, a top-level field of the `GET /v1/capabilities`
+  response, advertises the set a backend serves, newest first — e.g.
+  `["0.3", "0.2"]`. A client that requires a dialect SHOULD check this before
+  connecting rather than probing. (The `a2ui_versions` field carries the same
+  for A2UI.) A 0.2-only backend omits both fields; a client that finds them
+  absent MUST assume `0.2` only.
+- A2UI uses the same mechanism on its own header, **`X-A2UI-Version`**, whose
+  only recognised value is `0.9.1` (§7.8).
+
+`contract/conformance` negotiates `0.3` on every request and validates the
+observed SSE stream against the vocabulary block for the version each envelope
+declares (§7.7 for 0.2, §7.8 for 0.3).
+
 ### 3.3 `GET /v1/capabilities`
 
 Returns what THIS backend supports. The TUI calls this on startup and uses it to enable/disable UI features.
