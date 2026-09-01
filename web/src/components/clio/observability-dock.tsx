@@ -58,7 +58,7 @@ import { ClioActivityTimeline, type ObservabilityActivityItem } from './observab
 import { ClioEvidenceView } from './observability-evidence';
 import { ClioProcessLanes } from './observability-processes';
 import { ClioStatus } from './status';
-import { getToolOutcome, getToolPresentation, getToolSummary } from './tool-presentation';
+import { getToolPresentation, getToolSummary } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 
 const ClioWorkflowGraph = lazy(() =>
@@ -368,7 +368,6 @@ export function ClioObservabilityView({
           }),
         ),
         ...tools.map((tool): ObservabilityActivityItem => {
-          const outcome = getToolOutcome(tool);
           const eventAt = tool.completed_at ?? tool.started_at;
           const turnContext = toolTurnContext.get(tool.id);
           return {
@@ -376,9 +375,7 @@ export function ClioObservabilityView({
             kind: 'tool',
             label: getToolPresentation(tool).title,
             detail: getToolSummary(tool),
-            state: outcome.value,
-            statusLabel: outcome.label,
-            statusDetail: outcome.detail,
+            state: tool.state,
             at: eventAt ?? turnContext?.at,
             groupId: turnContext?.turnId,
             timing: eventAt ? 'event' : turnContext ? 'turn' : undefined,

@@ -3,12 +3,7 @@ import { ChevronDownIcon, PanelsTopLeftIcon, WrenchIcon } from 'lucide-react';
 import { ClioStatus } from './status';
 import { Tool, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
-import {
-  formatToolDuration,
-  getToolOutcome,
-  getToolPresentation,
-  getToolSummary,
-} from './tool-presentation';
+import { formatToolDuration, getToolPresentation, getToolSummary } from './tool-presentation';
 import { cn } from '@/lib/utils';
 
 export function ClioToolInvocation({
@@ -32,7 +27,6 @@ export function ClioToolInvocation({
   const showSummary = !/^(?:Completed successfully|Running now|Waiting to start)\.?$/iu.test(
     summary,
   );
-  const outcome = getToolOutcome(tool);
   const PresentationIcon = presentation.kind === 'analysis-view' ? PanelsTopLeftIcon : WrenchIcon;
   return (
     <Tool
@@ -57,7 +51,7 @@ export function ClioToolInvocation({
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">{summary}</span>
           ) : null}
         </span>
-        <ClioStatus detail={outcome.detail} label={outcome.label} value={outcome.value} />
+        <ClioStatus value={tool.state} />
         {tool.duration_ms !== undefined ? (
           <span className="font-mono text-xs text-muted-foreground">
             {formatToolDuration(tool.duration_ms)}

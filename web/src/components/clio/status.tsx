@@ -132,6 +132,11 @@ const statusPresentation: Record<
   },
 };
 
+/** The single typed label for a status value, for surfaces that render it as text. */
+export function clioStatusLabel(value: ClioStatusValue): string {
+  return statusPresentation[value].label;
+}
+
 export interface ClioStatusProps {
   value: ClioStatusValue;
   label?: string;

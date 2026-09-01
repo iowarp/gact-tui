@@ -20,8 +20,6 @@ export interface ObservabilityActivityItem {
   label: string;
   detail: string;
   state: RunState | ClioStatusValue;
-  statusLabel?: string;
-  statusDetail?: string;
   at?: string;
   groupId?: string;
   timing?: 'event' | 'turn';
@@ -109,12 +107,7 @@ function ActivityRow({ item }: { item: ObservabilityActivityItem }) {
 
 function ActivityStatus({ item }: { item: ObservabilityActivityItem }) {
   return (
-    <ClioStatus
-      className="mt-0 shrink-0 py-0.5"
-      detail={item.statusDetail}
-      label={item.statusLabel}
-      value={item.state}
-    />
+    <ClioStatus className="mt-0 shrink-0 py-0.5" value={item.state} />
   );
 }
 

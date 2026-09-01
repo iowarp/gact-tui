@@ -11,10 +11,10 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-e
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import type { ConversationIteration } from './conversation-turn-model';
-import { ClioStatus } from './status';
+import { ClioStatus, clioStatusLabel } from './status';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
-import { getToolOutcome, getToolPresentation, getToolSummary } from './tool-presentation';
+import { getToolPresentation, getToolSummary } from './tool-presentation';
 import { ClioToolInvocation } from './tool-invocation';
 import type { SubagentRun } from '@clio/core/v3';
 
@@ -81,11 +81,9 @@ function IterationSummary({
   const primaryTool = iteration.tools[0];
   const tool = primaryTool ? getToolPresentation(primaryTool) : undefined;
   const toolSummary = primaryTool ? compactToolSummary(getToolSummary(primaryTool)) : undefined;
-  const toolOutcome = primaryTool ? getToolOutcome(primaryTool) : undefined;
-  const toolState = iteration.streaming
-    ? 'Running'
-    : primaryTool && primaryTool.state !== 'succeeded'
-      ? toolOutcome?.label
+  const toolState =
+    primaryTool && primaryTool.state !== 'succeeded'
+      ? clioStatusLabel(primaryTool.state)
       : undefined;
   const disclosureLabel = [
     `${open ? 'Collapse' : 'Expand'} activity: ${iteration.summary}`,

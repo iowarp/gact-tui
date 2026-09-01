@@ -1,18 +1,10 @@
 import type { ToolInvocation, ToolState } from '@clio/core/v3';
 import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
 import { reportPresentationOverride } from '@/lib/presentation-overrides';
-import type { ClioStatusValue } from './status';
 
 export interface ToolPresentation {
   title: string;
   kind: 'analysis-view' | 'tool';
-}
-
-export interface ToolOutcomePresentation {
-  value: ClioStatusValue;
-  label?: string;
-  detail?: string;
-  domainStatus?: string;
 }
 
 const CURATED_TOOL_TITLES: Readonly<Record<string, string>> = {
@@ -72,53 +64,6 @@ export function getToolSummary(tool: ToolInvocation): string {
   }
   if (outputSummary) return outputSummary;
   return tool.state === 'succeeded' ? 'Completed successfully.' : 'No result summary was provided.';
-}
-
-/** Separates successful tool transport from the operation outcome reported in its result. */
-export function getToolOutcome(tool: ToolInvocation): ToolOutcomePresentation {
-  if (tool.state !== 'succeeded') return { value: tool.state };
-
-  const output = asRecord(tool.output);
-  const domainStatus = firstString(output, ['status', 'state', 'outcome']);
-  if (!domainStatus) return { value: 'completed', label: 'Completed' };
-
-  const normalized = domainStatus
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/gu, '_');
-  const detail = `Tool execution succeeded; the operation reported ${domainStatus}.`;
-  if (['completed', 'complete', 'success', 'succeeded', 'ok', 'ready'].includes(normalized)) {
-    return { value: 'completed', label: 'Completed', detail, domainStatus };
-  }
-  if (['halted', 'stopped'].includes(normalized)) {
-    return { value: 'interrupted', label: 'Halted', detail, domainStatus };
-  }
-  if (['quarantined', 'quarantine'].includes(normalized)) {
-    return { value: 'interrupted', label: 'Quarantined', detail, domainStatus };
-  }
-  if (['blocked', 'paused', 'partial', 'degraded', 'warning'].includes(normalized)) {
-    return {
-      value: 'degraded',
-      label: sentenceCase(domainStatus),
-      detail,
-      domainStatus,
-    };
-  }
-  if (['failed', 'failure', 'error'].includes(normalized)) {
-    return { value: 'failed', label: 'Failed', detail, domainStatus };
-  }
-  if (['cancelled', 'canceled'].includes(normalized)) {
-    return { value: 'cancelled', label: 'Cancelled', detail, domainStatus };
-  }
-  if (['waiting', 'waiting_user', 'awaiting_input'].includes(normalized)) {
-    return { value: 'waiting_user', label: 'Waiting for you', detail, domainStatus };
-  }
-  return {
-    value: 'degraded',
-    label: sentenceCase(domainStatus),
-    detail,
-    domainStatus,
-  };
 }
 
 export function humanizeToolName(name: string): string {
@@ -358,11 +303,6 @@ function humanizeMetricKey(key: string): string {
 function formatMetric(value: number): string {
   if (Number.isInteger(value)) return String(value);
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function sentenceCase(value: string): string {
-  const label = value.replace(/[_-]+/gu, ' ').trim();
-  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function fileName(path: string): string {
