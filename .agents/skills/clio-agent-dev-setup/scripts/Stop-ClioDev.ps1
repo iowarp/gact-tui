@@ -34,6 +34,38 @@ $targetPids = [System.Collections.Generic.HashSet[int]]::new()
 $recordedPids = [System.Collections.Generic.HashSet[int]]::new()
 $trackedResidue = @()
 
+function Test-ClioDevOwnedProcess {
+    param(
+        [Parameter(Mandatory)]
+        [int]$ProcessId
+    )
+
+    # Windows Store Python may replace a contained venv launcher with a child
+    # whose executable and abbreviated command line no longer contain the
+    # generation path. Treat it as owned only when an ancestor in the live
+    # process chain still carries the exact contained root.
+    $seen = [System.Collections.Generic.HashSet[int]]::new()
+    $candidateId = $ProcessId
+    for ($depth = 0; $depth -lt 16 -and $candidateId -gt 0; $depth++) {
+        if (-not $seen.Add($candidateId)) {
+            return $false
+        }
+        $candidate = Get-CimInstance `
+            Win32_Process `
+            -Filter "ProcessId = $candidateId" `
+            -ErrorAction SilentlyContinue
+        if ($null -eq $candidate) {
+            return $false
+        }
+        $identity = "$($candidate.ExecutablePath) $($candidate.CommandLine)"
+        if ($identity.Contains($devRootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+        $candidateId = [int]$candidate.ParentProcessId
+    }
+    return $false
+}
+
 function Add-OwnedProcessId {
     param(
         [Parameter(Mandatory)]
@@ -54,8 +86,7 @@ function Add-OwnedProcessId {
     if ($null -eq $process) {
         return
     }
-    $identity = "$($process.ExecutablePath) $($process.CommandLine)"
-    if (-not $identity.Contains($devRootFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if (-not (Test-ClioDevOwnedProcess -ProcessId $ProcessId)) {
         if ($Reason.StartsWith("recorded ", [System.StringComparison]::OrdinalIgnoreCase)) {
             Write-Warning "Ignoring stale recorded PID $ProcessId ($Reason); its identity is outside the owned root."
             return
