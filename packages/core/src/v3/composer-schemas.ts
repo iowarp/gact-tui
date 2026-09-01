@@ -186,9 +186,18 @@ export const providerCatalogSchema = z.object({
           modalities: z.array(z.string()),
           reasoning: z.object({ supported: z.boolean(), parameter: z.string() }),
           native_tool_calling: z.boolean(),
-          context_window: z.number().optional(),
-          loaded_context_window: z.number().optional(),
-          output_limit: z.number().optional(),
+          context_window: z
+            .number()
+            .nullish()
+            .transform((value) => value ?? undefined),
+          loaded_context_window: z
+            .number()
+            .nullish()
+            .transform((value) => value ?? undefined),
+          output_limit: z
+            .number()
+            .nullish()
+            .transform((value) => value ?? undefined),
           availability: z.string(),
           evidence: z.object({
             source: z.string(),

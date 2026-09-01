@@ -187,6 +187,8 @@ describe('ComposerRepository', () => {
               reasoning: { supported: true, parameter: 'reasoning_effort' },
               native_tool_calling: true,
               context_window: 131072,
+              loaded_context_window: null,
+              output_limit: null,
               availability: 'available',
               evidence: {
                 source: 'live',
@@ -203,7 +205,21 @@ describe('ComposerRepository', () => {
     const transport = new RecordingTransport([catalog]);
     const repository = new ComposerRepository(transport);
 
-    await expect(repository.providerCatalog(true)).resolves.toEqual(catalog);
+    await expect(repository.providerCatalog(true)).resolves.toEqual({
+      ...catalog,
+      providers: [
+        {
+          ...catalog.providers[0]!,
+          models: [
+            {
+              ...catalog.providers[0]!.models[0]!,
+              loaded_context_window: undefined,
+              output_limit: undefined,
+            },
+          ],
+        },
+      ],
+    });
     expect(transport.requests[0]).toMatchObject({
       method: 'GET',
       path: '/v1/provider-catalog?refresh=true',
