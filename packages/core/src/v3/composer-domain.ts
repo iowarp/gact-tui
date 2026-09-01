@@ -106,6 +106,7 @@ export interface WorkspaceResourceProcessing {
   query_tool?: string;
   state: 'not_started' | 'submitted' | 'processing' | 'complete' | 'failed' | 'cancelled';
   progress: number;
+  derivatives_available?: boolean;
   failure: Record<string, unknown>;
   cancellation: Record<string, unknown>;
   created_at: string;

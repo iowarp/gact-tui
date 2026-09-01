@@ -1,14 +1,7 @@
-import type {
-  ResourceDeliveryRecord,
-  WorkspaceResource,
-} from '@clio/core/v3';
+import type { ResourceDeliveryRecord, WorkspaceResource } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import {
-  BracesIcon,
-  FileIcon,
-  HistoryIcon,
-} from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { BracesIcon, FileIcon, HistoryIcon } from 'lucide-react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,6 +18,12 @@ import {
 import { ClioStatus } from './status';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 
+const PdfResourceViewer = lazy(() =>
+  import('./document-pdf-viewer').then((module) => ({
+    default: module.ClioDocumentPdfViewer,
+  })),
+);
+
 interface WorkspaceResourceViewProps {
   resource: WorkspaceResource;
   workspaceId: string;
@@ -35,7 +34,12 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
   const repository = useRepository();
   const [activeTab, setActiveTab] = useState('preview');
   const preview = useQuery({
-    queryKey: queryKeys.key('workspace-resource-preview', workspaceId, resource.id, resource.revision),
+    queryKey: queryKeys.key(
+      'workspace-resource-preview',
+      workspaceId,
+      resource.id,
+      resource.revision,
+    ),
     queryFn: ({ signal }) => repository.resourcePreview(workspaceId, resource.id, signal),
     enabled: resource.state === 'ready' && isPreviewable(resource.detected_mime),
   });
@@ -59,7 +63,8 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
       resource.revision,
     ),
     queryFn: ({ signal }) => repository.resourceStructure(workspaceId, resource.id, signal),
-    enabled: activeTab === 'structure' && derivatives.data?.processor.state === 'complete',
+    enabled:
+      activeTab === 'structure' && Boolean(derivatives.data?.processor.derivatives_available),
     retry: false,
   });
   const deliveries = useQuery({
@@ -90,11 +95,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
         <ClioStatus value={resourceStateStatus(resource.state)} />
       </header>
 
-      <Tabs
-        className="min-h-0 flex-1 gap-0"
-        onValueChange={setActiveTab}
-        value={activeTab}
-      >
+      <Tabs className="min-h-0 flex-1 gap-0" onValueChange={setActiveTab} value={activeTab}>
         <div className="shrink-0 border-b p-1.5">
           <TabsList className="grid h-9 w-full grid-cols-4">
             <TabsTrigger value="preview">Preview</TabsTrigger>
@@ -104,7 +105,11 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
           </TabsList>
         </div>
         <TabsContent className="m-0 min-h-0 overflow-hidden" value="preview">
-          <ResourcePreview bytes={preview.data} error={preview.error?.message} resource={resource} />
+          <ResourcePreview
+            bytes={preview.data}
+            error={preview.error?.message}
+            resource={resource}
+          />
         </TabsContent>
         <TabsContent className="m-0 min-h-0 overflow-hidden" value="structure">
           <StructuredResourceView
@@ -218,7 +223,17 @@ function NativeMediaPreview({
   if (error) return <ResourceUnavailable detail={error} label="Preview unavailable" />;
   if (!url) return <ResourceLoading className="p-4" label={`Loading ${resource.name}`} />;
   if (resource.detected_mime === 'application/pdf') {
-    return <object aria-label={resource.name} className="size-full" data={url} type="application/pdf" />;
+    return (
+      <div className="size-full overflow-auto p-3">
+        <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${resource.name}`} />}>
+          <PdfResourceViewer
+            bytes={bytes ?? new Uint8Array()}
+            name={resource.name}
+            onSelection={() => undefined}
+          />
+        </Suspense>
+      </div>
+    );
   }
   if (resource.detected_mime.startsWith('video/')) {
     return <video className="size-full bg-black object-contain" controls src={url} />;

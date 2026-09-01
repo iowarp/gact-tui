@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
@@ -44,7 +45,8 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation recovery actions', () => {
-  it('renders workspace resources above human prose without exposing private prompt context', () => {
+  it('renders workspace resources above human prose without exposing private prompt context', async () => {
+    const user = userEvent.setup();
     const onOpenResource = vi.fn();
     const resource = {
       id: 'res_1',
@@ -73,8 +75,9 @@ describe('ClioConversation recovery actions', () => {
         processor_url: 'http://processor.test',
         job_id: 'job_1',
         query_tool: 'workspace_resource_inspect',
-        state: 'complete' as const,
+        state: 'cancelled' as const,
         progress: 100,
+        derivatives_available: true,
         failure: {},
         cancellation: {},
         created_at: '2026-08-22T00:00:00Z',
@@ -116,7 +119,15 @@ describe('ClioConversation recovery actions', () => {
 
     const attachment = screen.getByRole('button', { name: 'Open paper.pdf' });
     expect(attachment).toHaveTextContent('paper.pdf');
-    expect(attachment).toHaveTextContent('Converted');
+    expect(attachment).not.toHaveTextContent('Converted');
+    const status = screen.getByRole('img', { name: 'Attachment status: Ready' });
+    expect(status).toBeInTheDocument();
+    await user.hover(status);
+    expect(
+      await screen.findByText(
+        /reuse a previously converted derivative.*latest refresh was cancelled/i,
+      ),
+    ).toBeVisible();
     expect(screen.getByText('Analyze this filing.')).toBeInTheDocument();
     expect(screen.queryByText(/private runtime context/i)).not.toBeInTheDocument();
     fireEvent.click(attachment);
@@ -148,7 +159,7 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    const message = screen.getByText('Use the newer evidence.').parentElement;
+    const message = screen.getByText('Use the newer evidence.').closest('.border-dashed');
     expect(message).toHaveClass('border-dashed');
     expect(screen.queryByText(/steering|safe boundary/i)).not.toBeInTheDocument();
 
@@ -178,9 +189,9 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    expect(screen.getByText('Inspect the alternate station.').parentElement).toHaveClass(
-      'border-dashed',
-    );
+    expect(
+      screen.getByText('Inspect the alternate station.').closest('.border-dashed'),
+    ).toHaveClass('border-dashed');
     expect(
       screen.queryByRole('button', { name: 'Cancel pending message' }),
     ).not.toBeInTheDocument();

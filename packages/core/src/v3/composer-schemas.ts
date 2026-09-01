@@ -74,6 +74,7 @@ export const workspaceResourceProcessingSchema = z.object({
   query_tool: z.string().default('workspace_resource_inspect'),
   state: z.enum(['not_started', 'submitted', 'processing', 'complete', 'failed', 'cancelled']),
   progress: z.number().int().min(0).max(100),
+  derivatives_available: z.boolean().default(false),
   failure: z.record(z.string(), z.unknown()),
   cancellation: z.record(z.string(), z.unknown()).default({}),
   created_at: z.string(),

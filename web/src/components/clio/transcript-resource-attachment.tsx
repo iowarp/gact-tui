@@ -1,11 +1,12 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
-import { CheckCircle2Icon, CircleAlertIcon, LoaderCircleIcon } from 'lucide-react';
+import { ActivityIcon } from 'lucide-react';
 import {
   Attachment,
   AttachmentInfo,
   AttachmentPreview,
   Attachments,
 } from '@/components/ai-elements/attachments';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -21,30 +22,9 @@ export function TranscriptResourceAttachment({
   resource,
   onOpen,
 }: TranscriptResourceAttachmentProps) {
-  const processing = resource?.processing;
-  const state = processing?.state ?? 'not_started';
   const filename = resource?.name ?? block.name;
   const mediaType = resource?.detected_mime || block.media_type;
-  const status =
-    state === 'complete'
-      ? 'Converted'
-      : state === 'submitted' || state === 'processing'
-        ? processing?.progress
-          ? `Converting ${processing.progress}%`
-          : 'Converting'
-        : state === 'failed'
-          ? 'Original available'
-          : state === 'cancelled'
-            ? 'Conversion cancelled'
-            : 'Original';
-  const StatusIcon =
-    state === 'complete'
-      ? CheckCircle2Icon
-      : state === 'submitted' || state === 'processing'
-        ? LoaderCircleIcon
-        : state === 'failed' || state === 'cancelled'
-          ? CircleAlertIcon
-          : undefined;
+  const availability = resourceAvailability(resource);
 
   const open = () => {
     if (resource) onOpen?.(resource);
@@ -64,20 +44,85 @@ export function TranscriptResourceAttachment({
         }}
         role={resource && onOpen ? 'button' : undefined}
         tabIndex={resource && onOpen ? 0 : undefined}
-        title={`${filename} — ${status}`}
+        title={filename}
       >
         <AttachmentPreview className="size-6 [&_svg]:size-3.5" />
         <AttachmentInfo className="max-w-56 text-xs" showMediaType />
-        <span className="ml-1 inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
-          {StatusIcon ? (
-            <StatusIcon
-              aria-hidden="true"
-              className={`size-3 ${state === 'processing' || state === 'submitted' ? 'animate-spin' : ''}`}
-            />
-          ) : null}
-          {status}
-        </span>
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                aria-label={`Attachment status: ${availability.label}`}
+                className="ml-1 inline-flex shrink-0 items-center"
+                role="img"
+              >
+                <ActivityIcon aria-hidden="true" className={`size-3.5 ${availability.className}`} />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-72">{availability.detail}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </Attachment>
     </Attachments>
   );
+}
+
+function resourceAvailability(resource?: WorkspaceResource): {
+  className: string;
+  detail: string;
+  label: string;
+} {
+  if (!resource) {
+    return {
+      className: 'text-muted-foreground',
+      detail: 'Availability could not be verified for this historical attachment.',
+      label: 'Unknown',
+    };
+  }
+  if (resource.state === 'uploading') {
+    return {
+      className: 'text-amber-600 dark:text-amber-400',
+      detail: 'The attachment is still uploading and is not available to the agent yet.',
+      label: 'Preparing',
+    };
+  }
+  if (resource.state === 'failed' || resource.state === 'quarantined') {
+    return {
+      className: 'text-destructive',
+      detail:
+        resource.failure ||
+        (resource.state === 'quarantined'
+          ? 'The attachment was quarantined and is not available to the agent.'
+          : 'The attachment is not available to the agent.'),
+      label: 'Unavailable',
+    };
+  }
+
+  const processing = resource.processing;
+  if (
+    processing &&
+    (processing.state === 'submitted' || processing.state === 'processing') &&
+    !processing.derivatives_available
+  ) {
+    return {
+      className: 'text-amber-600 dark:text-amber-400',
+      detail: processing.progress
+        ? `The original is retained; structured content is ${processing.progress}% ready for the agent.`
+        : 'The original is retained; structured content is still being prepared for the agent.',
+      label: 'Preparing',
+    };
+  }
+
+  let detail = 'The original attachment is available to the agent.';
+  if (processing?.derivatives_available) {
+    detail =
+      processing.state === 'cancelled'
+        ? 'Ready; the agent can reuse a previously converted derivative. The latest refresh was cancelled.'
+        : processing.state === 'failed'
+          ? 'Ready; the agent can reuse a previously converted derivative. The latest refresh failed.'
+          : processing.state === 'submitted' || processing.state === 'processing'
+            ? 'Ready; the agent can reuse a previously converted derivative while a refresh runs.'
+            : 'Ready; converted content is available to the agent.';
+  }
+  return { className: 'text-emerald-600 dark:text-emerald-400', detail, label: 'Ready' };
 }

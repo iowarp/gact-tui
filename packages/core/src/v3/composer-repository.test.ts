@@ -299,6 +299,7 @@ describe('ComposerRepository', () => {
       job_id: '',
       state: 'submitted',
       progress: 0,
+      derivatives_available: false,
       failure: {},
       cancellation: {},
       query_tool: 'workspace_resource_inspect',
