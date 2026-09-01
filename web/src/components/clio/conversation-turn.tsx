@@ -81,8 +81,9 @@ function IterationSummary({
   const primaryTool = iteration.tools[0];
   const tool = primaryTool ? getToolPresentation(primaryTool) : undefined;
   const toolSummary = primaryTool ? getToolSummary(primaryTool) : undefined;
-  const toolState =
-    primaryTool && primaryTool.state !== 'succeeded'
+  const toolState = iteration.streaming
+    ? clioStatusLabel('running')
+    : primaryTool && primaryTool.state !== 'succeeded'
       ? clioStatusLabel(primaryTool.state)
       : undefined;
   const disclosureLabel = [
