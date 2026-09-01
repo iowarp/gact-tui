@@ -9,13 +9,14 @@ import {
   ConfirmationTitle,
 } from '@/components/ai-elements/confirmation';
 import { CodeBlock, CodeBlockCopyButton } from '@/components/ai-elements/code-block';
+import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
+  Queue,
+  QueueSection,
+  QueueSectionContent,
+  QueueSectionLabel,
+  QueueSectionTrigger,
+} from '@/components/ai-elements/queue';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -25,6 +26,7 @@ import {
   FieldTitle,
 } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 
 type PermissionAction = 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
@@ -47,85 +49,106 @@ export function ClioPendingInteractions({
   onCancelQuestion,
 }: ClioPendingInteractionsProps) {
   if (approvals.length === 0 && questions.length === 0) return null;
+  const responseCount = approvals.length + questions.length;
 
   return (
-    <section
+    <Queue
       aria-label="Agent needs your response"
       aria-live="polite"
-      className="max-h-[45dvh] overflow-y-auto border-t bg-action/5 px-4 py-3 lg:px-6"
+      className="relative z-10 mx-auto -mb-px w-[calc(100%_-_1.5rem)] max-w-[54.5rem] rounded-b-none border-b-0 py-0.5"
+      role="region"
     >
-      <div className="mx-auto grid max-w-4xl gap-3">
-        {approvals.map((approval) => (
-          <Confirmation
-            approval={{ id: approval.id }}
-            className="bg-background"
-            key={approval.id}
-            state="approval-requested"
-          >
-            <ShieldAlertIcon aria-hidden="true" className="size-4 text-action" />
-            <ConfirmationTitle>
-              <span className="block font-medium">{approval.summary}</span>
-              <span className="mt-1 block text-sm text-muted-foreground">
-                {approval.reason ?? `Protected action: ${approval.tool_name}`}
-              </span>
-              <details className="mt-2 text-xs text-muted-foreground">
-                <summary className="cursor-pointer">Technical details</summary>
-                <p className="mt-1 font-mono">{approval.tool_name}</p>
-                {approval.input === undefined ? null : (
-                  <CodeBlock
-                    className="mt-2 max-h-40"
-                    code={JSON.stringify(approval.input, null, 2)}
-                    language="json"
-                  >
-                    <CodeBlockCopyButton aria-label="Copy protected action details" />
-                  </CodeBlock>
-                )}
-              </details>
-            </ConfirmationTitle>
-            <ConfirmationRequest>
-              <ConfirmationActions className="flex-wrap">
-                <ConfirmationAction
-                  disabled={disabled}
-                  onClick={() => void onApproval(approval.id, 'deny')}
-                  variant="destructive"
-                >
-                  Deny
-                </ConfirmationAction>
-                <ConfirmationAction
-                  disabled={disabled}
-                  onClick={() => void onApproval(approval.id, 'allow_workspace')}
-                  variant="outline"
-                >
-                  Allow for workspace
-                </ConfirmationAction>
-                <ConfirmationAction
-                  disabled={disabled}
-                  onClick={() => void onApproval(approval.id, 'allow_session')}
-                  variant="outline"
-                >
-                  Allow for session
-                </ConfirmationAction>
-                <ConfirmationAction
-                  disabled={disabled}
-                  onClick={() => void onApproval(approval.id, 'allow')}
-                >
-                  Allow once
-                </ConfirmationAction>
-              </ConfirmationActions>
-            </ConfirmationRequest>
-          </Confirmation>
-        ))}
-        {questions.map((question) => (
-          <QuestionResponse
-            disabled={disabled}
-            key={question.id}
-            onAnswer={onAnswer}
-            onCancel={onCancelQuestion}
-            question={question}
+      <QueueSection>
+        <QueueSectionTrigger>
+          <QueueSectionLabel
+            count={responseCount}
+            icon={<ShieldAlertIcon aria-hidden="true" className="size-3.5" />}
+            label={responseCount === 1 ? 'response needed' : 'responses needed'}
           />
-        ))}
-      </div>
-    </section>
+        </QueueSectionTrigger>
+        <QueueSectionContent>
+          <ScrollArea className="max-h-[min(45dvh,24rem)]">
+            <div className="flex flex-col gap-2 px-1 pb-1">
+              {approvals.map((approval) => (
+                <Confirmation
+                  approval={{ id: approval.id }}
+                  className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 bg-background/70"
+                  key={approval.id}
+                  state="approval-requested"
+                >
+                  <ShieldAlertIcon aria-hidden="true" className="size-4 text-action" />
+                  <ConfirmationTitle className="min-w-0">
+                    <span
+                      className="block truncate font-medium"
+                      data-slot="pending-interaction-title"
+                      title={approval.summary}
+                    >
+                      {approval.summary}
+                    </span>
+                    <span className="block text-sm text-muted-foreground">
+                      {approval.reason ?? `Protected action: ${approval.tool_name}`}
+                    </span>
+                    <details className="mt-2 text-xs text-muted-foreground">
+                      <summary className="cursor-pointer">Technical details</summary>
+                      <p className="mt-1 font-mono">{approval.tool_name}</p>
+                      {approval.input === undefined ? null : (
+                        <CodeBlock
+                          className="mt-2 max-h-40"
+                          code={JSON.stringify(approval.input, null, 2)}
+                          language="json"
+                        >
+                          <CodeBlockCopyButton aria-label="Copy protected action details" />
+                        </CodeBlock>
+                      )}
+                    </details>
+                  </ConfirmationTitle>
+                  <ConfirmationRequest>
+                    <ConfirmationActions className="col-span-2 mt-1 flex-wrap">
+                      <ConfirmationAction
+                        disabled={disabled}
+                        onClick={() => void onApproval(approval.id, 'deny')}
+                        variant="destructive"
+                      >
+                        Deny
+                      </ConfirmationAction>
+                      <ConfirmationAction
+                        disabled={disabled}
+                        onClick={() => void onApproval(approval.id, 'allow_workspace')}
+                        variant="outline"
+                      >
+                        Allow for workspace
+                      </ConfirmationAction>
+                      <ConfirmationAction
+                        disabled={disabled}
+                        onClick={() => void onApproval(approval.id, 'allow_session')}
+                        variant="outline"
+                      >
+                        Allow for session
+                      </ConfirmationAction>
+                      <ConfirmationAction
+                        disabled={disabled}
+                        onClick={() => void onApproval(approval.id, 'allow')}
+                      >
+                        Allow once
+                      </ConfirmationAction>
+                    </ConfirmationActions>
+                  </ConfirmationRequest>
+                </Confirmation>
+              ))}
+              {questions.map((question) => (
+                <QuestionResponse
+                  disabled={disabled}
+                  key={question.id}
+                  onAnswer={onAnswer}
+                  onCancel={onCancelQuestion}
+                  question={question}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+        </QueueSectionContent>
+      </QueueSection>
+    </Queue>
   );
 }
 
@@ -148,9 +171,15 @@ function QuestionResponse({
 
   return (
     <Frame dense spacing="sm">
-      <FrameHeader className="relative pr-10">
-        <FrameTitle>Agent needs your input</FrameTitle>
-        <FrameDescription>{question.prompt}</FrameDescription>
+      <FrameHeader className="relative flex-row items-center gap-2 pr-10">
+        <ShieldAlertIcon aria-hidden="true" className="size-4 shrink-0 text-action" />
+        <FrameTitle
+          className="min-w-0 flex-1 truncate"
+          data-slot="pending-interaction-title"
+          title={question.prompt}
+        >
+          {question.prompt}
+        </FrameTitle>
         <Button
           aria-label="Cancel question"
           className="absolute right-2 top-1"

@@ -8,7 +8,7 @@ import type {
 } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
 import { CornerDownRightIcon, PlusIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { brand } from '@brand';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
@@ -75,7 +75,9 @@ export interface ClioComposerProps {
   onStop?: () => void;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onRetryModelCatalog?: () => void;
+  onHeightChange?: (height: number) => void;
   activityControl?: ReactNode;
+  pendingInteractions?: ReactNode;
   queuedMessages?: QueuedMessage[];
   resources?: readonly WorkspaceResource[];
   queueBusy?: boolean;
@@ -113,7 +115,9 @@ export function ClioComposer({
   onStop,
   onCommand,
   onRetryModelCatalog,
+  onHeightChange,
   activityControl,
+  pendingInteractions,
   queuedMessages = [],
   resources = [],
   queueBusy,
@@ -143,6 +147,7 @@ export function ClioComposer({
     onValueChange?.(nextValue);
   };
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
   const commandQuery = input.trimStart();
   const commandMatches = useMemo(() => {
@@ -168,14 +173,27 @@ export function ClioComposer({
     return () => window.cancelAnimationFrame(frame);
   }, [focusRequestKey]);
 
+  useLayoutEffect(() => {
+    const element = rootRef.current;
+    if (variant !== 'docked' || !element || !onHeightChange) return;
+    const reportHeight = () => onHeightChange(Math.ceil(element.getBoundingClientRect().height));
+    reportHeight();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(reportHeight);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [onHeightChange, variant]);
+
   return (
     <div
+      data-slot="clio-composer-stack"
       className={cn(
         'relative',
         variant === 'docked'
-          ? 'bg-gradient-to-t from-background via-background/95 to-transparent px-4 pb-3 pt-6 lg:px-6'
+          ? 'pointer-events-none px-4 pb-3 [&>*]:pointer-events-auto lg:px-6'
           : 'w-full',
       )}
+      ref={rootRef}
     >
       {showCommands ? (
         <div className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6">
@@ -214,6 +232,7 @@ export function ClioComposer({
           </PromptInputCommand>
         </div>
       ) : null}
+      {pendingInteractions}
       {queuedMessages.length > 0 &&
       onDeleteQueuedMessage &&
       onPromoteQueuedMessage &&
@@ -232,7 +251,7 @@ export function ClioComposer({
         />
       ) : null}
       <PromptInput
-        className="mx-auto max-w-4xl rounded-2xl border-border/80 bg-card/95 shadow-[0_12px_32px_-18px_rgb(0_0_0/0.8)] backdrop-blur"
+        className="mx-auto max-w-4xl rounded-2xl border-border/30 bg-card/70 shadow-[0_12px_32px_-18px_rgb(0_0_0/0.8)] backdrop-blur-xl [&_[data-slot=input-group]]:border-border/30 [&_[data-slot=input-group]]:bg-card/70 dark:bg-card/60 dark:[&_[data-slot=input-group]]:bg-card/60"
         maxFileSize={250 * 1024 * 1024}
         multiple
         onError={(error) => toast.error('Attachment was not added', { description: error.message })}

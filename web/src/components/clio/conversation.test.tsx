@@ -45,6 +45,24 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation recovery actions', () => {
+  it('reserves a floating composer inset without shrinking the transcript viewport', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        bottomInset={176}
+        messages={[]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    expect(screen.getByRole('log', { name: 'Conversation' })).toHaveStyle({
+      paddingBottom: '176px',
+    });
+  });
+
   it('renders workspace resources above human prose without exposing private prompt context', async () => {
     const user = userEvent.setup();
     const onOpenResource = vi.fn();

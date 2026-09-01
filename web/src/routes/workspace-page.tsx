@@ -51,6 +51,7 @@ export function WorkspacePage() {
     [sessionId],
   );
   const [composerFocusKey, setComposerFocusKey] = useState(0);
+  const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
@@ -299,7 +300,9 @@ export function WorkspacePage() {
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
   const renderComposer = (variant: 'docked' | 'welcome') => (
     <m.div
-      className={variant === 'welcome' ? 'w-full' : 'relative shrink-0'}
+      className={
+        variant === 'welcome' ? 'w-full' : 'pointer-events-none absolute inset-x-0 bottom-0 z-20'
+      }
       key={variant}
       layout
       layoutId={`session-composer:${sessionId}`}
@@ -361,6 +364,24 @@ export function WorkspacePage() {
         model={activeModel}
         modelCatalogStatus={modelCatalogStatus}
         modelOptions={modelOptions}
+        pendingInteractions={
+          <ClioPendingInteractions
+            approvals={visibleApprovals}
+            disabled={
+              respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
+            }
+            onAnswer={async (id, answer) => {
+              await answerQuestion.mutateAsync({ id, answer });
+            }}
+            onApproval={async (id, action) => {
+              await respondPermission.mutateAsync({ id, action });
+            }}
+            onCancelQuestion={async (id) => {
+              await cancelQuestion.mutateAsync(id);
+            }}
+            questions={questions.data ?? []}
+          />
+        }
         onCommand={async (value) => {
           const startedFromWelcome = showConversationWelcome;
           if (startedFromWelcome) setConversationStarted(true);
@@ -374,6 +395,7 @@ export function WorkspacePage() {
         onRetryModelCatalog={() => {
           void providerCatalog.refetch();
         }}
+        onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
         onSubmit={async (value) => {
           const startedFromWelcome = showConversationWelcome;
           if (startedFromWelcome) setConversationStarted(true);
@@ -596,6 +618,7 @@ export function WorkspacePage() {
                   key="conversation"
                 >
                   <WorkspaceLiveConversation
+                    bottomInset={dockedComposerHeight}
                     error={transcriptError}
                     loading={transcript.isPending}
                     onActionCardAction={actionCard.mutateAsync}
@@ -649,22 +672,6 @@ export function WorkspacePage() {
                 <AlertDescription>{(approvals.error ?? questions.error)?.message}</AlertDescription>
               </Alert>
             ) : null}
-            <ClioPendingInteractions
-              approvals={visibleApprovals}
-              disabled={
-                respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
-              }
-              onAnswer={async (id, answer) => {
-                await answerQuestion.mutateAsync({ id, answer });
-              }}
-              onApproval={async (id, action) => {
-                await respondPermission.mutateAsync({ id, action });
-              }}
-              onCancelQuestion={async (id) => {
-                await cancelQuestion.mutateAsync(id);
-              }}
-              questions={questions.data ?? []}
-            />
             <AnimatePresence initial={false}>
               {showConversationWelcome ? null : renderComposer('docked')}
             </AnimatePresence>

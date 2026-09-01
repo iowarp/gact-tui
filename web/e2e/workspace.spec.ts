@@ -60,16 +60,99 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(page.getByText('flat-NDP').first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Change model' })).toContainText('Codex / Luna');
   await expect(page.getByText('D:\\science\\campaigns\\flat-NDP', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Agent needs your response' })).toBeVisible();
+  const pendingResponses = page.getByRole('region', { name: 'Agent needs your response' });
+  await expect(pendingResponses).toBeVisible();
+  const pendingResponsesTrigger = pendingResponses.getByRole('button', {
+    name: '2 responses needed',
+  });
+  await expect(pendingResponsesTrigger).toBeVisible();
   await expect(page.getByRole('button', { name: 'Allow once' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send response' })).toBeDisabled();
   await settleConversationAtLatest(page);
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation).toHaveAttribute('data-minimap-visible', 'true');
   await expect(conversation).toHaveCSS('scrollbar-width', 'none');
+  const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
+  const composerStack = page.locator('[data-slot="clio-composer-stack"]');
+  await expect(composerStack).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+  await expect(composerStack).toHaveCSS('background-image', 'none');
+  await expect(composerStack.locator('..')).toHaveCSS('position', 'absolute');
+  await expect
+    .poll(async () => {
+      const responseSurface = await pendingResponses.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      );
+      const composerSurface = await composerStack
+        .locator('[data-slot="input-group"]')
+        .evaluate((element) => getComputedStyle(element).backgroundColor);
+      return composerSurface === responseSurface;
+    })
+    .toBe(true);
+  const expandedConversationBounds = await conversation.boundingBox();
+  const expandedMinimapBounds = await minimap.boundingBox();
+  const expandedComposerBounds = await composerStack.boundingBox();
+  expect(expandedConversationBounds).not.toBeNull();
+  expect(expandedMinimapBounds).not.toBeNull();
+  expect(expandedComposerBounds).not.toBeNull();
+  expect(expandedComposerBounds?.y ?? 0).toBeLessThan(
+    (expandedConversationBounds?.y ?? 0) + (expandedConversationBounds?.height ?? 0),
+  );
+  expect(
+    Math.abs(
+      (expandedMinimapBounds?.y ?? 0) +
+        (expandedMinimapBounds?.height ?? 0) -
+        ((expandedConversationBounds?.y ?? 0) + (expandedConversationBounds?.height ?? 0)),
+    ),
+  ).toBeLessThanOrEqual(16);
+  await expect
+    .poll(async () => {
+      const composer = await composerStack.boundingBox();
+      const paddingBottom = await conversation.evaluate((element) =>
+        Number.parseFloat(getComputedStyle(element).paddingBottom),
+      );
+      return Math.abs(paddingBottom - (composer?.height ?? 0));
+    })
+    .toBeLessThanOrEqual(2);
+  await pendingResponsesTrigger.click();
+  await expect(
+    pendingResponses.getByText('Read the station evidence table', { exact: true }),
+  ).not.toBeVisible();
+  await expect
+    .poll(async () => (await composerStack.boundingBox())?.height ?? Number.POSITIVE_INFINITY)
+    .toBeLessThan((expandedComposerBounds?.height ?? 0) - 100);
+  await expect
+    .poll(async () =>
+      Math.abs(
+        ((await conversation.boundingBox())?.height ?? 0) -
+          (expandedConversationBounds?.height ?? 0),
+      ),
+    )
+    .toBeLessThanOrEqual(2);
+  await expect
+    .poll(async () =>
+      Math.abs(((await minimap.boundingBox())?.height ?? 0) - (expandedMinimapBounds?.height ?? 0)),
+    )
+    .toBeLessThanOrEqual(2);
+  await pendingResponsesTrigger.click();
+  const approvalTitle = pendingResponses.getByText('Read the station evidence table', {
+    exact: true,
+  });
+  await expect(approvalTitle).toBeVisible();
+  const approvalIcon = pendingResponses.getByRole('alert').locator('svg').first();
+  await expect
+    .poll(async () => {
+      const titleBounds = await approvalTitle.boundingBox();
+      const iconBounds = await approvalIcon.boundingBox();
+      if (!titleBounds || !iconBounds) return false;
+      return (
+        Math.abs(titleBounds.y + titleBounds.height / 2 - (iconBounds.y + iconBounds.height / 2)) <=
+        2
+      );
+    })
+    .toBe(true);
+  await settleConversationAtLatest(page);
   const activeLandmark = page.getByRole('button', { name: 'Jump to assistant message 1000' });
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
-  const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
   await expect(minimap).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(minimap).toHaveCSS('box-shadow', 'none');
   await expect(minimap).toHaveCSS('width', '24px');

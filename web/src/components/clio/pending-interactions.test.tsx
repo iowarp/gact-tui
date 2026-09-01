@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioPendingInteractions } from './pending-interactions';
+
+afterEach(cleanup);
 
 describe('ClioPendingInteractions', () => {
   it('uses the AI Elements confirmation actions for a pending approval', async () => {
@@ -27,6 +29,15 @@ describe('ClioPendingInteractions', () => {
       />,
     );
 
+    const region = screen.getByRole('region', { name: 'Agent needs your response' });
+    const trigger = screen.getByRole('button', { name: '1 response needed' });
+    const title = screen.getByText('Run the analysis command');
+    expect(region).toBeVisible();
+    expect(title).toHaveAttribute('data-slot', 'pending-interaction-title');
+    expect(title.closest('[role="alert"]')).toHaveClass('grid', 'grid-cols-[auto_minmax(0,1fr)]');
+    await user.click(trigger);
+    expect(screen.queryByText('Run the analysis command')).not.toBeInTheDocument();
+    await user.click(trigger);
     expect(screen.getByText('Run the analysis command')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Allow for session' }));
     expect(onApproval).toHaveBeenCalledWith('perm_1', 'allow_session');
@@ -60,6 +71,12 @@ describe('ClioPendingInteractions', () => {
       />,
     );
 
+    expect(screen.getByRole('button', { name: '1 response needed' })).toBeVisible();
+    expect(screen.getByText('Resume the campaign?')).toHaveAttribute(
+      'data-slot',
+      'pending-interaction-title',
+    );
+    expect(screen.queryByText('Agent needs your input')).not.toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: 'Resume' }));
     await user.click(screen.getByRole('button', { name: 'Send response' }));
     expect(onAnswer).toHaveBeenCalledWith('question_1', { selected_options: ['resume'] });

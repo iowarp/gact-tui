@@ -77,6 +77,7 @@ export interface ClioConversationProps {
   cancellablePendingMessageIds?: ReadonlySet<string>;
   cancellingPendingMessageId?: string;
   onCancelPendingSteer?: (messageId: string) => void | Promise<unknown>;
+  bottomInset?: number;
 }
 
 interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
@@ -419,7 +420,13 @@ function conversationMessageRowPropsEqual(
   );
 }
 
-export function ClioConversation({ messages, loading, error, ...entities }: ClioConversationProps) {
+export function ClioConversation({
+  messages,
+  loading,
+  error,
+  bottomInset = 0,
+  ...entities
+}: ClioConversationProps) {
   const { mode: defaultDisplayMode } = useConversationDisplay();
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -642,6 +649,7 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
         onWheel={markUserScrollIntent}
         ref={scrollRef}
         role="log"
+        style={{ paddingBottom: bottomInset }}
         tabIndex={0}
       >
         {messages.length === 0 && loading ? (
@@ -715,9 +723,10 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       {!isAtBottom ? (
         <Button
           aria-label="Scroll to latest message"
-          className="absolute right-3 bottom-3 rounded-full shadow-lg"
+          className="absolute right-3 rounded-full shadow-lg"
           onClick={() => scrollToLatest()}
           size="sm"
+          style={{ bottom: bottomInset + 12 }}
           type="button"
           variant="outline"
         >
