@@ -9,14 +9,12 @@ describe('workspace route state', () => {
     expect(canOpenSessionStream(['0.3'], '')).toBe(false);
   });
 
-  it('explains persisted conversation storage failures without exposing an opaque server error', () => {
+  it('reports the server error without rewriting it from its opaque details', () => {
     const error = new TransportError('Unhandled server error.', 500, 'internal_error', {
       original_error: 'RuntimeError',
       original_message: 'GetBlob operation failed',
     });
 
-    expect(conversationUnavailableMessage(error)).toBe(
-      'Saved conversation storage is unavailable. The live connection remains independent; retry after the agent service recovers its storage.',
-    );
+    expect(conversationUnavailableMessage(error)).toBe('Unhandled server error.');
   });
 });
