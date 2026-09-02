@@ -261,6 +261,15 @@
   background: color-mix(in oklch, var(--muted-foreground) 52%, transparent);
 }
 
+/* Radix uses an inline table wrapper so generic scroll areas can measure
+   horizontal content. Pending interactions are strictly vertical; forcing
+   that wrapper to block layout prevents percentage-width fields from taking
+   the table's intrinsic minimum width. */
+.pending-interactions-viewport > div {
+  display: block !important;
+  min-width: 100%;
+}
+
 .clio-scientific-map-popup .maplibregl-popup-content {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

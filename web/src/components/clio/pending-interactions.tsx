@@ -108,10 +108,7 @@ export function ClioPendingInteractions({
             type="hover"
             viewportProps={{
               'aria-label': `${pending.length} pending responses`,
-              // Radix measures arbitrary horizontal content with a table wrapper.
-              // These interaction cards are strictly vertical; block layout keeps
-              // percentage-width fields from collapsing during table intrinsic sizing.
-              className: 'overscroll-contain pr-1 [&>div]:!block [&>div]:min-w-full',
+              className: 'pending-interactions-viewport overscroll-contain pr-1',
               onKeyDown: handlePendingResponseScroll,
               role: 'region',
               tabIndex: 0,
