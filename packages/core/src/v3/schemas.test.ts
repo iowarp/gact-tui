@@ -116,6 +116,30 @@ describe('forward-compatible wire enums', () => {
     });
   });
 
+  it('keeps a resource attachment readable when the service adds a field', () => {
+    expect(
+      messageBlockSchema.parse({
+        id: 'resource_3',
+        type: 'resource',
+        resource_id: 'res_3',
+        resource_revision: '2',
+        workspace_id: 'ws_1',
+        name: 'stations.csv',
+        media_type: 'text/csv',
+        sha256_v2: 'blake3:cafe',
+        delivery: {
+          representation: 'structured_document',
+          reason: 'converted for a model without native CSV support',
+          evidence_generated_at: '2026-08-27T12:00:00Z',
+        },
+      }),
+    ).toMatchObject({
+      type: 'resource',
+      name: 'stations.csv',
+      delivery: { representation: 'structured_document' },
+    });
+  });
+
   it('uses the shared closed A2UI component vocabulary and limits', () => {
     expect(
       a2uiComponentSchema.parse({
