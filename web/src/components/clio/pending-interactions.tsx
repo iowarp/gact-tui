@@ -114,7 +114,7 @@ export function ClioPendingInteractions({
               tabIndex: 0,
             }}
           >
-            <div className="flex w-full min-w-0 flex-col gap-2 px-1 pb-1">
+            <div className="flex min-w-0 flex-col gap-2 px-1 pb-1">
               {pending.map((interaction) => {
                 const ownerLabel = ownerLabels[interaction.owner_session_id] ?? 'Specialist';
                 const interactionDisabled = disabled || respondingIds.has(interaction.id);
@@ -373,7 +373,7 @@ function QuestionResponse({
   return (
     <Frame
       className={cn(
-        'w-full min-w-0',
+        'min-w-0 self-stretch',
         interaction.kind === 'mcp_task_input' &&
           'border-sky-500/25 bg-sky-500/[0.04] dark:bg-sky-400/[0.05]',
       )}
@@ -427,7 +427,7 @@ function QuestionResponse({
                     </Field>
                   </FieldLabel>
                   {selected ? (
-                    <Field className="gap-1 border-t border-border/60 px-2.5 py-2">
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1 border-t border-border/60 px-2.5 py-2">
                       <FieldLabel
                         className="w-auto text-xs font-normal text-muted-foreground"
                         htmlFor={`${interaction.id}-${value}-comment`}
@@ -436,7 +436,7 @@ function QuestionResponse({
                       </FieldLabel>
                       <Textarea
                         aria-label={`Comment on ${option.label}`}
-                        className="min-h-12 resize-y bg-background/60"
+                        className="min-h-12 w-full resize-y field-sizing-fixed bg-background/60"
                         disabled={disabled}
                         id={`${interaction.id}-${value}-comment`}
                         onChange={(event) =>
@@ -449,7 +449,7 @@ function QuestionResponse({
                         rows={2}
                         value={optionComments[value] ?? ''}
                       />
-                    </Field>
+                    </div>
                   ) : null}
                 </div>
               );
@@ -476,31 +476,32 @@ function QuestionResponse({
                   </Field>
                 </FieldLabel>
                 {selection === freeformValue ? (
-                  <Field className="gap-1 border-t border-border/60 px-2.5 py-2">
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1 border-t border-border/60 px-2.5 py-2">
                     <FieldLabel htmlFor={`${interaction.id}-answer`}>Your response</FieldLabel>
                     <Textarea
+                      className="w-full resize-y field-sizing-fixed"
                       disabled={disabled}
                       id={`${interaction.id}-answer`}
                       onChange={(event) => setAnswer(event.target.value)}
                       placeholder="Type your response"
                       value={answer}
                     />
-                  </Field>
+                  </div>
                 ) : null}
               </div>
             ) : null}
           </RadioGroup>
         ) : (
-          <Field className="min-w-0">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
             <FieldLabel htmlFor={`${interaction.id}-answer`}>Your response</FieldLabel>
             <Textarea
-              className="w-full min-w-0"
+              className="block w-full min-w-0 resize-y field-sizing-fixed"
               id={`${interaction.id}-answer`}
               onChange={(event) => setAnswer(event.target.value)}
               placeholder="Type your response"
               value={answer}
             />
-          </Field>
+          </div>
         )}
         {canAnswer ? (
           <div className="mt-4 flex justify-end">
@@ -547,7 +548,7 @@ function A2UIResponse({
 }) {
   return (
     <Frame
-      className="w-full min-w-0 border-violet-500/25 bg-violet-500/[0.04]"
+      className="min-w-0 self-stretch border-violet-500/25 bg-violet-500/[0.04]"
       data-interaction-kind={interaction.kind}
       dense
       spacing="sm"
