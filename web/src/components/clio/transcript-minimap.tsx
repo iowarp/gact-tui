@@ -299,13 +299,14 @@ function landmarkClass(message: Message): string {
  * whole message.
  */
 function messagePreview(message: Message): string {
-  const preview = collapse(message, 'text') || collapse(message, 'reasoning');
+  const preview =
+    collapse(message.blocks.filter((block) => block.type === 'text')) ||
+    collapse(message.blocks.filter((block) => block.type === 'reasoning'));
   return truncate(preview, TRANSCRIPT_PREVIEW_TRUNCATE_CHARS) || `${message.role} activity`;
 }
 
-function collapse(message: Message, type: 'reasoning' | 'text'): string {
-  return message.blocks
-    .filter((block) => block.type === type)
+function collapse(blocks: readonly { text: string }[]): string {
+  return blocks
     .map((block) => block.text)
     .join(' ')
     .replaceAll(/\s+/gu, ' ')
