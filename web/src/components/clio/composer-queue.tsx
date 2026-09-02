@@ -31,6 +31,7 @@ import {
 } from '@/components/ai-elements/queue';
 import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import { Input } from '@/components/ui/input';
+import { COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX } from '@/lib/runtime-limits';
 import { resourceAvailability, resourcePipelineStages } from './resource-availability';
 import {
   ResourcePipelineStatusLines,
@@ -133,15 +134,15 @@ export function ClioComposerQueue({
             value={ordered}
           >
             <QueueList
-              viewportProps={
-                ordered.length > 4
-                  ? {
-                      'aria-label': `${ordered.length} queued messages`,
-                      role: 'region',
-                      tabIndex: 0,
-                    }
-                  : undefined
-              }
+              viewportProps={{
+                'aria-label': `${ordered.length} queued messages`,
+                role: 'region',
+                // The queue owns its own height: its scroll chain is otherwise
+                // capped only by the composer stack, so a long queue would grow
+                // into the conversation instead of scrolling.
+                style: { maxHeight: COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX },
+                tabIndex: 0,
+              }}
             >
               {ordered.map((message) => {
                 const text = message.parts.find((part) => part.type === 'text')?.text ?? '';

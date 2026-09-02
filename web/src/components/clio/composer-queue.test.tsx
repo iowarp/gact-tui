@@ -2,6 +2,10 @@ import type { QueuedMessage, WorkspaceResource } from '@clio/core/v3';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  COMPOSER_QUEUE_ROW_HEIGHT_PX,
+  COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX,
+} from '@/lib/runtime-limits';
 import { ClioComposerQueue } from './composer-queue';
 
 afterEach(cleanup);
@@ -131,9 +135,30 @@ describe('ClioComposerQueue', () => {
     const viewport = screen.getByRole('region', { name: '6 queued messages' });
     expect(queue).toHaveClass('min-h-0', 'shrink');
     expect(queue.querySelector('[data-slot="sortable"]')).toHaveClass('min-h-0');
-    expect(queue.querySelector('[data-slot="sortable"]')).not.toHaveClass('h-40');
     expect(viewport).toHaveAttribute('tabindex', '0');
     expect(viewport).toHaveClass('overscroll-contain');
+  });
+
+  it('names and focuses the queue viewport at every queue length', () => {
+    renderQueue({ messages: [queued('queue_1', 'Only message', 0)] });
+
+    const viewport = screen.getByRole('region', { name: '1 queued messages' });
+    expect(viewport).toHaveAttribute('tabindex', '0');
+  });
+
+  it('clamps the queue viewport to its own row budget instead of the conversation area', () => {
+    renderQueue({
+      messages: Array.from({ length: 6 }, (_, index) =>
+        queued(`queue_${index}`, `Queued message ${index + 1}`, index),
+      ),
+    });
+
+    // Without an intrinsic bound the scroll chain is capped only by the
+    // composer stack, so a six-row queue never overflows on a roomy viewport
+    // and the queue can never be scrolled.
+    const viewport = screen.getByRole('region', { name: '6 queued messages' });
+    expect(viewport.style.maxHeight).toBe(`${COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX}px`);
+    expect(COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX).toBeLessThan(6 * COMPOSER_QUEUE_ROW_HEIGHT_PX);
   });
 
   it('preserves a local edit when the service rejects a stale revision', async () => {

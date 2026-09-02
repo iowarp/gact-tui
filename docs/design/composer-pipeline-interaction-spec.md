@@ -33,6 +33,13 @@ control group. Queued rows are one line above it, with edit/delete/promote actio
 the drag handle on the right. Attachment tiles use a compact preview with name, media type, size,
 progress, and removal.
 
+The queued-message viewport carries its own height bound rather than inheriting one from the
+conversation area: it shows four compact rows and scrolls beyond that, at every viewport size and
+every queue length. The bound lives in `web/src/lib/runtime-limits.ts` as
+`COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX`, derived from `COMPOSER_QUEUE_ROW_HEIGHT_PX`. The pending
+responses stack above it scrolls the same way and is expanded on arrival, because the agent is
+blocked until one of its controls is used; its collapse toggle only ever gives room back.
+
 ## Model picker
 
 The dialog keeps search and selection separate from configuration. Providers occupy the left

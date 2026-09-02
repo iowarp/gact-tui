@@ -233,3 +233,23 @@ export const VISIBLE_WORKSPACE_LIMIT = 7;
  * Shared so the pagination control reads the same on every table.
  */
 export const DATA_GRID_PAGE_SIZES: number[] = [10, 25, 50, 100];
+
+/**
+ * Rendered height of one compact queued-message row. Unit: pixels.
+ * A 28 px (`min-h-7`) row plus its 4 px vertical padding and the 1 px gap the
+ * list puts between rows. Kept beside the viewport bound below so the two can
+ * only move together.
+ */
+export const COMPOSER_QUEUE_ROW_HEIGHT_PX = 33;
+
+/**
+ * Height of the queued-message viewport before it scrolls. Unit: pixels.
+ * Four rows plus the list's own 4 px vertical padding.
+ *
+ * The queue needs its own bound rather than inheriting one: its scroll chain
+ * is capped only by the composer stack's `max-h-full`, so on a roomy viewport
+ * a long queue simply grows and pushes the conversation up instead of
+ * scrolling. Four rows is the point where the queue still reads as a stack
+ * above the composer rather than a panel of its own.
+ */
+export const COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX = 4 * COMPOSER_QUEUE_ROW_HEIGHT_PX + 4;
