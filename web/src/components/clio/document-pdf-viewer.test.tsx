@@ -107,7 +107,7 @@ describe('ClioDocumentPdfViewer', () => {
     documentPageCount.value = 400;
     pageRenderReady.value = false;
     const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
-      function getBoundingClientRect() {
+      function getBoundingClientRect(this: HTMLElement) {
         const page = this instanceof HTMLElement && this.hasAttribute('data-page');
         return {
           bottom: page ? 2 : 700,
