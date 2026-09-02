@@ -43,7 +43,7 @@ import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { ClioMessageHistoryActions } from './message-history-actions';
 import { DeferredA2UISurface, MessageBlockSequence } from './conversation-message-blocks';
 import { ConversationTurn } from './conversation-turn';
-import { conversationTurnPresentation } from './conversation-turn-model';
+import { useConversationTurn } from './use-conversation-turn';
 import { subagentsForTool } from './subagent-tool-link';
 import type { SubagentOpenTarget } from './subagent-card';
 import { ClioTranscriptMinimap } from './transcript-minimap';
@@ -109,25 +109,8 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
   const cancellablePendingSteer =
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
-  // No React Compiler is configured for this app, so both projections are
-  // memoized by hand: a view-mode toggle or a virtual-row reposition must not
-  // rebuild the turn model for every message on screen.
-  const turn = useMemo(
-    () => conversationTurnPresentation(message, entities.tools, entities.tasks),
-    [message, entities.tools, entities.tasks],
-  );
-  const residualBlocks = turn.residualBlocks;
-  const linkedSubagentIds = useMemo(
-    () =>
-      new Set(
-        turn.iterations.flatMap((iteration) =>
-          iteration.tools.flatMap((tool) =>
-            subagentsForTool(tool, entities.subagents).map((subagent) => subagent.id),
-          ),
-        ),
-      ),
-    [turn.iterations, entities.subagents],
-  );
+  const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
+  const { linkedSubagentIds, residualBlocks } = turn;
   const actions = (
     <MessageActions className="ml-auto shrink-0 opacity-100 sm:pointer-events-none sm:opacity-0 sm:transition-opacity sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
       {cancellablePendingSteer ? (
