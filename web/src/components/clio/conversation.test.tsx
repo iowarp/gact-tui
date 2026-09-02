@@ -568,12 +568,12 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    const taskLine = screen.getByLabelText(
-      'Review station quality: completed. Evidence retained with source identity.',
-    );
+    const taskLine = screen.getByTestId('task-activity-task_quality');
     expect(taskLine).toBeInTheDocument();
     expect(taskLine).toHaveTextContent('Review station quality');
     expect(taskLine).toHaveTextContent('Completed');
+    expect(taskLine).toHaveTextContent('Evidence retained with source identity.');
+    expect(taskLine).not.toHaveTextContent('completed.');
     expect(taskLine.closest('button')).toHaveAccessibleName(/Expand activity/);
     expect(
       screen.queryByRole('button', { name: 'Review station quality' }),

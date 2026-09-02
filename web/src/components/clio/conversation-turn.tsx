@@ -92,7 +92,7 @@ function IterationSummary({
     tool?.title,
     toolSummary,
     toolState,
-    ...iteration.tasks.map((task) => `${task.title}: ${task.state}`),
+    ...iteration.tasks.map((task) => `${task.title}: ${clioStatusLabel(task.state)}`),
     iteration.interrupted ? 'Interrupted' : undefined,
   ]
     .filter(Boolean)
@@ -183,28 +183,40 @@ function IterationDetail({
           </MessageResponse>
         ))}
 
-        {iteration.tools.map((tool) => (
-          <div className="space-y-2" key={tool.id}>
-            <ClioToolInvocation tool={tool} />
-            {subagentsForTool(tool, subagents).map((subagent) => (
-              <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
-            ))}
-          </div>
-        ))}
-
-        {showTasks
-          ? iteration.tasks.map((task) => <TaskActivityLine key={task.id} task={task} />)
-          : null}
+        {/*
+          One ordered lane: a Task carries no owning-tool field, so its position
+          beside a tool is the only record of what it belongs to. Rendering all
+          tools and then all tasks would destroy that correlation.
+        */}
+        {iteration.activity.map((entry) =>
+          entry.kind === 'tool' ? (
+            <div className="space-y-2" data-turn-activity={`tool:${entry.id}`} key={`tool:${entry.id}`}>
+              <ClioToolInvocation tool={entry.tool} />
+              {subagentsForTool(entry.tool, subagents).map((subagent) => (
+                <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
+              ))}
+            </div>
+          ) : showTasks ? (
+            <TaskActivityLine key={`task:${entry.id}`} task={entry.task} />
+          ) : null,
+        )}
         {iteration.interrupted ? <ClioStatus value="interrupted" /> : null}
       </div>
     </article>
   );
 }
+/**
+ * A task line is a plain span, and ARIA prohibits naming a generic element, so
+ * its state and detail are rendered as real content (visible or screen-reader
+ * only) rather than hidden behind an `aria-label` assistive technology is free
+ * to ignore.
+ */
 function TaskActivityLine({ task, className }: { task: Task; className?: string }) {
   return (
     <span
-      aria-label={`${task.title}: ${task.state}${task.detail ? `. ${task.detail}` : ''}`}
       className={cn('flex min-w-0 items-center gap-2 text-xs text-muted-foreground', className)}
+      data-testid={`task-activity-${task.id}`}
+      data-turn-activity={`task:${task.id}`}
       title={task.detail}
     >
       <ListChecksIcon aria-hidden="true" className="size-3.5 shrink-0" />
@@ -213,6 +225,7 @@ function TaskActivityLine({ task, className }: { task: Task; className?: string 
         className="h-auto shrink-0 border-0 bg-transparent px-0 py-0 shadow-none"
         value={task.state}
       />
+      {task.detail ? <span className="sr-only">{task.detail}</span> : null}
     </span>
   );
 }
