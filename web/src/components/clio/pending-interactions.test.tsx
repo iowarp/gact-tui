@@ -37,6 +37,12 @@ describe('ClioPendingInteractions', () => {
     const title = screen.getByText('Run the analysis command');
     expect(title).toHaveAttribute('data-slot', 'pending-interaction-title');
     expect(title.closest('[role="alert"]')).toHaveClass('grid', 'grid-cols-[auto_minmax(0,1fr)]');
+    // Wraps up to a few lines instead of clipping to one at the exact moment
+    // the reader must decide, but stays bounded and keeps the full text
+    // reachable via the title attribute.
+    expect(title).toHaveClass('line-clamp-3');
+    expect(title).not.toHaveClass('truncate');
+    expect(title).toHaveAttribute('title', 'Run the analysis command');
     expect(screen.getByRole('button', { name: 'Allow once' })).toBeVisible();
     await user.click(trigger);
     expect(screen.queryByText('Run the analysis command')).not.toBeInTheDocument();
@@ -142,10 +148,11 @@ describe('ClioPendingInteractions', () => {
     );
 
     expect(screen.getByRole('button', { name: '1 response needed' })).toBeVisible();
-    expect(screen.getByText('Resume the campaign?')).toHaveAttribute(
-      'data-slot',
-      'pending-interaction-title',
-    );
+    const questionTitle = screen.getByText('Resume the campaign?');
+    expect(questionTitle).toHaveAttribute('data-slot', 'pending-interaction-title');
+    expect(questionTitle).toHaveClass('line-clamp-3');
+    expect(questionTitle).not.toHaveClass('truncate');
+    expect(questionTitle).toHaveAttribute('title', 'Resume the campaign?');
     expect(screen.queryByText('Agent needs your input')).not.toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: 'Resume' }));
     await user.click(screen.getByRole('button', { name: 'Send response' }));

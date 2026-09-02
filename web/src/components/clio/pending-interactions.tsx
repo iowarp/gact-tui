@@ -96,7 +96,7 @@ export function ClioPendingInteractions({
                   <ShieldAlertIcon aria-hidden="true" className="size-4 text-action" />
                   <ConfirmationTitle className="min-w-0">
                     <span
-                      className="block truncate font-medium"
+                      className="line-clamp-3 font-medium"
                       data-slot="pending-interaction-title"
                       title={approval.summary}
                     >
@@ -201,7 +201,7 @@ function QuestionResponse({
       <FrameHeader className="relative flex-row items-center gap-2 pr-10">
         <ShieldAlertIcon aria-hidden="true" className="size-4 shrink-0 text-action" />
         <FrameTitle
-          className="min-w-0 flex-1 truncate"
+          className="line-clamp-3 min-w-0 flex-1"
           data-slot="pending-interaction-title"
           title={question.prompt}
         >
