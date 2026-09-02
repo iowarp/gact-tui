@@ -34,16 +34,19 @@ const NotificationPreferencesContext = createContext<NotificationPreferencesCont
 export function NotificationPreferencesProvider({ children }: PropsWithChildren) {
   const [preferences, setPreferences] = useState(readPreferences);
   const update = useCallback((next: Partial<NotificationPreferences>) => {
-    setPreferences((current) => {
-      const value = { ...current, ...next };
-      try {
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-      } catch {
-        // Keep preferences active for this tab when storage is unavailable.
-      }
-      return value;
-    });
+    setPreferences((current) => ({ ...current, ...next }));
   }, []);
+  // Persisting belongs in an effect, not the setState updater above: React
+  // Strict Mode calls a functional updater twice to check it stays pure, so a
+  // side effect (the storage write) living inside it would double-write for
+  // one logical preference change.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences));
+    } catch {
+      // Keep preferences active for this tab when storage is unavailable.
+    }
+  }, [preferences]);
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
       if (event.key !== STORAGE_KEY) return;

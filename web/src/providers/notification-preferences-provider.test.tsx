@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { StrictMode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   NotificationPreferencesProvider,
   useNotificationPreferences,
@@ -47,5 +48,26 @@ describe('notification preferences', () => {
       attentionSound: 'always',
       desktopNotifications: true,
     });
+  });
+
+  it('writes localStorage once per change, not twice under StrictMode updater double-invocation', async () => {
+    const user = userEvent.setup();
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    render(
+      <StrictMode>
+        <NotificationPreferencesProvider>
+          <PreferenceProbe />
+        </NotificationPreferencesProvider>
+      </StrictMode>,
+    );
+    setItemSpy.mockClear();
+
+    await user.click(screen.getByRole('button', { name: 'Always' }));
+
+    // A side effect inside the setState updater runs twice in Strict Mode
+    // (React invokes it once to verify purity), so an updater that writes
+    // storage itself double-writes for one logical preference change.
+    expect(setItemSpy).toHaveBeenCalledTimes(1);
+    setItemSpy.mockRestore();
   });
 });
