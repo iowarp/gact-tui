@@ -161,6 +161,23 @@ describe('WorkspaceResourceView', () => {
     expect(screen.getByText('The document processor stopped before finishing.')).toBeVisible();
   });
 
+  it('does not declare a resource undelivered while the delivery record is still loading', async () => {
+    repository.resourceDeliveries.mockReturnValueOnce(new Promise(() => undefined));
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceResourceView resource={resource} workspaceId="workspace_1" />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Provenance' }));
+
+    expect(await screen.findByText('Resource lineage')).toBeVisible();
+    expect(screen.getByLabelText('Loading model delivery records')).toBeVisible();
+    expect(screen.queryByText('No model delivery has been recorded yet.')).not.toBeInTheDocument();
+  });
+
   it('presents provenance as semantic resource lineage with internal provider evidence collapsed', async () => {
     repository.resourceDeliveries.mockResolvedValueOnce([
       {

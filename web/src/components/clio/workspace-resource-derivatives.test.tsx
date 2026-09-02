@@ -55,13 +55,17 @@ const processing: WorkspaceResourceProcessing = {
 function renderView(
   derivatives: WorkspaceResourceDerivative[] = [derivative],
   processingState: WorkspaceResourceProcessing['state'] = processing.state,
+  options: { pending?: boolean; processing?: WorkspaceResourceProcessing | undefined } = {},
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <WorkspaceResourceDerivativesView
         derivatives={derivatives}
-        processing={{ ...processing, state: processingState }}
+        pending={options.pending}
+        processing={
+          'processing' in options ? options.processing : { ...processing, state: processingState }
+        }
         resourceId="resource_1"
         workspaceId="workspace_1"
       />
@@ -142,6 +146,24 @@ describe('WorkspaceResourceDerivativesView', () => {
     expect(await screen.findByText('# Structured report')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Back to derivatives' }));
     expect(screen.getByRole('button', { name: /report\.md/i })).toBeVisible();
+  });
+
+  it('claims nothing about derivatives while the service is still being asked', () => {
+    renderView([], undefined, { pending: true, processing: undefined });
+
+    expect(screen.getByLabelText('Loading derivatives')).toBeVisible();
+    expect(screen.queryByText('No derivatives')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('No derived representations have been recorded for this resource.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/not started/iu)).not.toBeInTheDocument();
+  });
+
+  it('states an absence once the service has actually answered', async () => {
+    renderView([], undefined, { processing: undefined });
+
+    expect(await screen.findByText('No derivatives')).toBeVisible();
+    expect(screen.queryByLabelText('Loading derivatives')).not.toBeInTheDocument();
   });
 
   it('previews a PDF derivative with the shared viewer, not the native plugin', async () => {

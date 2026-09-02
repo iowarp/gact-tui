@@ -168,6 +168,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
           <WorkspaceResourceDerivativesView
             derivatives={derivatives.data?.derivatives ?? []}
             error={derivatives.error?.message}
+            pending={derivatives.isLoading}
             processing={derivatives.data?.processor}
             resourceId={resource.id}
             workspaceId={workspaceId}
@@ -177,6 +178,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
           <ResourceProvenance
             deliveries={matchingDeliveries}
             error={deliveries.error?.message}
+            pending={deliveries.isLoading}
             processing={derivatives.data?.processor}
             resource={resource}
           />
@@ -440,18 +442,15 @@ function StaleStructureBanner({ processing }: { processing: WorkspaceResourcePro
 function ResourceProvenance({
   deliveries,
   error,
+  pending,
   processing,
   resource,
 }: {
   deliveries: readonly ResourceDeliveryRecord[];
   error?: string;
-  processing?: {
-    processor: string;
-    state: string;
-    progress: number;
-    created_at: string;
-    updated_at: string;
-  };
+  /** The delivery records have not arrived, so no absence can be claimed yet. */
+  pending?: boolean;
+  processing?: WorkspaceResourceProcessing;
   resource: WorkspaceResource;
 }) {
   const steps = 2 + (processing ? 1 : 0) + deliveries.length;
@@ -550,7 +549,8 @@ function ResourceProvenance({
           </TimelineItem>
         ))}
       </Timeline>
-      {!deliveries.length && !error ? (
+      {pending ? <ResourceLoading className="mt-2" label="Loading model delivery records" /> : null}
+      {!pending && !deliveries.length && !error ? (
         <p className="mt-2 text-xs text-muted-foreground">
           No model delivery has been recorded yet.
         </p>

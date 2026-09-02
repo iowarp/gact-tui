@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { processingStateLabel } from './resource-processing-presentation';
 import {
   ImageResourceView,
   ResourceLoading,
@@ -34,6 +35,8 @@ const PdfResourceViewer = lazy(() =>
 interface WorkspaceResourceDerivativesViewProps {
   derivatives: readonly WorkspaceResourceDerivative[];
   error?: string;
+  /** The service has not answered yet, so nothing here is known to be absent. */
+  pending?: boolean;
   processing?: WorkspaceResourceProcessing;
   resourceId: string;
   workspaceId: string;
@@ -43,6 +46,7 @@ interface WorkspaceResourceDerivativesViewProps {
 export function WorkspaceResourceDerivativesView({
   derivatives,
   error,
+  pending,
   processing,
   resourceId,
   workspaceId,
@@ -127,7 +131,7 @@ export function WorkspaceResourceDerivativesView({
         <FileStackIcon aria-hidden="true" className="size-4 text-primary" />
         <span className="text-sm font-medium">Structured processing</span>
         <Badge className="ml-auto" variant="outline">
-          {processing?.state ?? 'not started'}
+          {pending ? 'Checking…' : processingStateLabel(processing?.state)}
         </Badge>
         {processingActive ? (
           <Button
@@ -176,7 +180,8 @@ export function WorkspaceResourceDerivativesView({
             <EyeIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
           </button>
         ))}
-        {!derivatives.length ? (
+        {pending ? <ResourceLoading label="Loading derivatives" /> : null}
+        {!pending && !derivatives.length ? (
           <ResourceUnavailable
             detail="No derived representations have been recorded for this resource."
             label="No derivatives"
