@@ -355,6 +355,57 @@ describe('conversationTurnPresentation', () => {
     ]);
   });
 
+  it('keeps a task block whose record has not arrived in the residual lane', () => {
+    const message: Message = {
+      id: 'assistant_unresolved_task',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        { id: 'thinking_unresolved_task', type: 'reasoning', text: 'Queue the review.' },
+        { id: 'task_unresolved', type: 'task', task_id: 'task_not_yet_streamed' },
+        { id: 'answer_unresolved_task', type: 'text', text: 'Queued.', channel: 'answer' },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools, tasks);
+
+    expect(view.iterations[0]?.tasks).toEqual([]);
+    expect(view.residualBlocks.map((block) => block.id)).toEqual([
+      'task_unresolved',
+      'answer_unresolved_task',
+    ]);
+  });
+
+  it('keeps tools and tasks in one lane in the order the transcript delivered them', () => {
+    const message: Message = {
+      id: 'assistant_interleaved',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        { id: 'thinking_interleaved', type: 'reasoning', text: 'Read, review, then render.' },
+        { id: 'tool_first', type: 'tool', tool_id: 'call_read' },
+        { id: 'task_between', type: 'task', task_id: 'task_quality' },
+        { id: 'tool_last', type: 'tool', tool_id: 'call_render' },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools, tasks);
+
+    expect(view.iterations).toHaveLength(1);
+    expect(view.iterations[0]?.activity.map((entry) => entry.id)).toEqual([
+      'call_read',
+      'task_quality',
+      'call_render',
+    ]);
+    expect(view.iterations[0]?.activity.map((entry) => entry.kind)).toEqual([
+      'tool',
+      'task',
+      'tool',
+    ]);
+  });
+
   it('marks a cancelled partial response as interrupted instead of final', () => {
     const message: Message = {
       id: 'assistant_cancelled',
