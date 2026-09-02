@@ -71,7 +71,9 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await settleConversationAtLatest(page);
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation).toHaveAttribute('data-minimap-visible', 'true');
-  await expect(conversation).toHaveCSS('scrollbar-width', 'none');
+  // The minimap is a landmark index, not a scrollbar — it has no drag and no
+  // proportional thumb — so the native scrollbar stays even while it is shown.
+  await expect(conversation).toHaveCSS('scrollbar-width', 'thin');
   const minimap = page.getByRole('complementary', { name: 'Transcript minimap' });
   const composerStack = page.locator('[data-slot="clio-composer-stack"]');
   await expect(composerStack).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
@@ -221,11 +223,20 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await expect(canvas).toBeVisible();
   const observabilityTab = canvas.getByRole('tab', { name: 'Observability' });
-  const observabilityClose = observabilityTab.locator('[data-slot="canvas-tab-close"]');
-  await expect(observabilityClose).toHaveCSS('opacity', '0');
+  // The X on a tab is a pointer affordance only. A tablist may own nothing but
+  // tabs and a tab's children are presentational, so an interactive close
+  // control is a critical violation on either side of the trigger; assistive
+  // tech closes the tab through the Delete shortcut announced with it. It stays
+  // faintly visible at rest because touch has no hover to reveal it.
+  const observabilityClose = observabilityTab
+    .locator('..')
+    .locator('[data-slot="canvas-tab-close"]');
+  await expect(observabilityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
+  await expect(observabilityClose).toHaveAttribute('aria-hidden', 'true');
+  await expect(canvas.getByRole('button', { name: /^Close / })).toHaveCount(0);
+  await expect(observabilityClose).toHaveCSS('opacity', '0.7');
   await observabilityTab.hover();
   await expect(observabilityClose).toHaveCSS('opacity', '1');
-  await expect(canvas.getByRole('button', { name: /^Close / })).toHaveCount(0);
   await page.getByRole('button', { name: 'Maximize canvas' }).click();
   await expect(canvas).toHaveCSS('position', 'fixed');
   const canvasBounds = await canvas.boundingBox();
@@ -258,6 +269,11 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
 
   await expect(page.locator('html')).toHaveClass(/light/);
   await expect(page.getByRole('button', { name: 'Open workspace canvas' })).toBeVisible();
+  // Capture a settled transcript. Without this the shot races the scroll to the
+  // latest turn, so the last messages land a few pixels off and the "Latest"
+  // affordance is present in some runs and gone in others — a baseline that
+  // matches about half the time.
+  await settleConversationAtLatest(page);
   await expect(page).toHaveScreenshot('workspace-mobile-light-reduced.png', {
     animations: 'disabled',
   });
@@ -300,10 +316,10 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await expect(outline.locator('[data-streamdown="strong"]')).toContainText('evidence ledger');
   await expect(outline.getByText(/\*\*evidence ledger\*\*/)).toHaveCount(0);
   await firstOutlineItem.hover();
-  const fullFirstMessage = page.getByRole('region', { name: 'Full user message 1' });
-  await expect(fullFirstMessage).toContainText('Sanitized evidence ledger entry 1.');
+  const firstMessagePreview = page.getByRole('region', { name: 'user message 1 preview' });
+  await expect(firstMessagePreview).toContainText('Sanitized evidence ledger entry 1.');
   await firstOutlineItem.click();
-  await expect(fullFirstMessage).toHaveCount(0);
+  await expect(firstMessagePreview).toHaveCount(0);
   await expect(outline).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
@@ -348,6 +364,10 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
 
   await expect(page.locator('html')).toHaveClass(/dark/);
   const queue = page.locator('[aria-label="Queued messages"]:visible');
+  // The welcome and conversation branches cross-fade through AnimatePresence and
+  // each carries its own composer, so two queue panels are on screen until that
+  // exit finishes. Settle on one before driving it.
+  await expect(queue).toHaveCount(1);
   await expect(queue).toBeVisible();
   await expect(queue.getByText('6 queued messages')).toBeVisible();
   await expect(queue.locator('[data-queue-live-item]')).toHaveCount(6);
@@ -382,13 +402,27 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   await queueViewport.evaluate((element) => {
     element.scrollTop = 0;
   });
-  await expect(page.getByText('Working', { exact: true })).toBeVisible();
+  // "Working" is rendered twice on purpose: the dock's visible status badge and
+  // the persistent sr-only live region that mirrors it so a status change is
+  // announced. Scope to the dock button, which the live region sits outside of.
+  const observabilityDock = page.getByRole('button', {
+    name: 'Open observability in workspace canvas',
+  });
+  await expect(observabilityDock.getByText('Working', { exact: true })).toBeVisible();
   await expect(page.getByText('Running', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('status', { name: 'Working now' })).toBeVisible();
+  // The session row carries one indicator and attention outranks activity, so
+  // this running session shows what it is waiting for rather than a spinner.
+  await expect(page.getByRole('status', { name: /^Needs your response:/ })).toBeVisible();
+  await expect(page.getByRole('status', { name: 'Working now' })).toHaveCount(0);
 
   const fourthHandle = queue
     .getByRole('button', { name: 'Reorder queued message', exact: true })
     .nth(3);
+  // The queue viewport is bounded and this row sits below its fold. A clipped
+  // element still reports its layout box, so measuring without scrolling first
+  // yields a point that belongs to whatever is painted there — the composer —
+  // and the drag lands on that instead of on the handle.
+  await fourthHandle.scrollIntoViewIfNeeded();
   const fourthHandleBounds = await fourthHandle.boundingBox();
   expect(fourthHandleBounds).not.toBeNull();
   await page.mouse.move(
@@ -415,14 +449,24 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
 test('scrolls pending responses and queued messages independently at a narrow viewport', async ({
   page,
 }) => {
-  await page.setViewportSize({ height: 922, width: 848 });
+  // Short as well as narrow. The queue carries its own 136 px bound and scrolls
+  // at any height, but the pending-responses list deliberately has none — it is
+  // `min-h-0 shrink` and scrolls only once the composer stack runs out of room,
+  // so a tall window leaves both surfaces fitting and nothing to scroll. This is
+  // the window where they compete, which is the only place independence means
+  // anything.
+  await page.setViewportSize({ height: 720, width: 848 });
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
   expect(seeded.ok()).toBe(true);
   await page.goto(workspaceUrl);
 
   const pendingResponses = page.getByRole('region', { name: 'Agent needs your response' });
-  const responseViewport = pendingResponses.getByRole('region', { name: '2 pending responses' });
   const queue = page.locator('[aria-label="Queued messages"]:visible');
+  // Both panels belong to the composer, which the welcome-to-conversation
+  // cross-fade briefly mounts twice. Settle on one of each before measuring.
+  await expect(pendingResponses).toHaveCount(1);
+  await expect(queue).toHaveCount(1);
+  const responseViewport = pendingResponses.getByRole('region', { name: '2 pending responses' });
   const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
 
   for (const viewport of [responseViewport, queueViewport]) {
@@ -440,6 +484,31 @@ test('scrolls pending responses and queued messages independently at a narrow vi
     await page.keyboard.press('PageDown');
     await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   }
+
+  // Independently: a wheel over the queue stays in the queue rather than
+  // chaining into the responses stacked above it. Read the responses' offset
+  // only once it has stopped moving — the keyboard scroll above animates, and
+  // sampling mid-flight would compare against a position it was leaving.
+  let previousResponseScroll = -1;
+  await expect
+    .poll(async () => {
+      const current = await responseViewport.evaluate((element) => element.scrollTop);
+      const settled = current === previousResponseScroll;
+      previousResponseScroll = current;
+      return settled;
+    })
+    .toBe(true);
+  await queueViewport.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await queueViewport.hover();
+  await page.mouse.wheel(0, 2_000);
+  await expect
+    .poll(() => queueViewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  expect(await responseViewport.evaluate((element) => element.scrollTop)).toBe(
+    previousResponseScroll,
+  );
 });
 
 test('batches a 100-delta stream over a virtualized 1,000-message transcript', async ({ page }) => {

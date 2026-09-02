@@ -104,30 +104,33 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('No session artifacts')).toBeVisible();
   });
 
-  it('places each close action beside the tab it closes, not inside it', async () => {
+  it('closes a tab by pointer or by the shortcut it announces, and owns nothing but tabs', async () => {
     const user = userEvent.setup();
-    renderWorkbench();
+    const { container } = renderWorkbench();
 
     await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
     await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
 
     const observabilityTab = screen.getByRole('tab', { name: 'Observability' });
     const artifactsTab = screen.getByRole('tab', { name: 'Artifacts' });
-    const observabilityClose = screen.getByRole('button', { name: 'Close Observability' });
-    const artifactsClose = screen.getByRole('button', { name: 'Close Artifacts' });
+    const closeControls = container.querySelectorAll('[data-slot="canvas-tab-close"]');
 
-    // A real <button>, not a descendant of the tab: role="tab" treats descendants as
-    // presentational (stripped from the accessibility tree), and a <button>'s content model
-    // forbids interactive descendants — either way, a nested control cannot carry its own
-    // accessible name to assistive tech. Reachability, not a synthesized pointerDown: a real
-    // accessible name, never hit-test-blocked off hover (touch has no hover to gate on), and
-    // the tab itself keeps its own unpolluted name.
-    expect(observabilityClose.tagName).toBe('BUTTON');
-    expect(observabilityClose.closest('[role="tab"]')).toBeNull();
-    expect(observabilityClose).toHaveAttribute('title', 'Close Observability');
-    expect(artifactsClose).toHaveAttribute('title', 'Close Artifacts');
-    expect(observabilityClose).not.toHaveClass('pointer-events-none');
+    // A tablist may own nothing but tabs, and a tab's own children are presentational, so an
+    // interactive close control is a critical violation on either side of the trigger:
+    // aria-required-children as a sibling, nested-interactive as a child. The X is therefore a
+    // pointer affordance held out of the accessibility tree, and the announced Delete shortcut
+    // is what assistive tech uses. The tab keeps its own unpolluted name either way.
+    expect(closeControls).toHaveLength(2);
+    for (const control of closeControls) {
+      expect(control).toHaveAttribute('aria-hidden', 'true');
+      expect(control).not.toHaveAttribute('tabindex');
+      expect(control).not.toHaveClass('pointer-events-none');
+    }
+    expect(screen.queryByRole('button', { name: /^Close / })).not.toBeInTheDocument();
     expect(observabilityTab).toHaveAccessibleName('Observability');
+    expect(observabilityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
+    expect(closeControls[0]).toHaveAttribute('title', 'Close Observability');
+    expect(closeControls[1]).toHaveAttribute('title', 'Close Artifacts');
 
     act(() => artifactsTab.focus());
     await user.keyboard('{ArrowLeft}');
@@ -135,9 +138,15 @@ describe('ClioWorkbench canvas', () => {
     await user.keyboard('{ArrowRight}');
     expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
 
-    await user.click(observabilityClose);
+    // The keyboard route the tab advertises closes it...
+    act(() => artifactsTab.focus());
+    await user.keyboard('{Delete}');
+    expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
+
+    // ...and the pointer affordance closes the one it sits on.
+    await user.click(screen.getByRole('tab', { name: 'Observability' }));
+    await user.click(container.querySelector('[data-slot="canvas-tab-close"]') as HTMLElement);
     expect(screen.queryByRole('tab', { name: 'Observability' })).not.toBeInTheDocument();
-    expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
   });
 
   it('replaces the artifact picker tab with the selected artifact view', async () => {

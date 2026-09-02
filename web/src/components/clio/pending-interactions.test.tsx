@@ -241,6 +241,11 @@ describe('ClioPendingInteractions', () => {
     const responses = screen.getByRole('region', { name: 'Agent needs your response' });
     const viewport = screen.getByRole('region', { name: '2 pending responses' });
     expect(responses).toHaveClass('min-h-0', 'shrink');
+    // The panel floats on the composer and reads as one surface with it only
+    // while the Queue's translucent fill survives. Any background of its own
+    // replaces these through tailwind-merge, which is how that continuity was
+    // lost once already.
+    expect(responses).toHaveClass('bg-card/70', 'dark:bg-card/60');
     expect(viewport).toHaveAttribute('tabindex', '0');
     expect(viewport).toHaveClass('overscroll-contain');
     expect(viewport.closest('[data-slot="scroll-area"]')).toHaveClass('min-h-0');

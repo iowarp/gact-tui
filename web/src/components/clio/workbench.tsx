@@ -641,23 +641,28 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                         <span className="truncate">{tab.label}</span>
                       </TabsTrigger>
                       {/*
-                        Always hit-testable (a real button, opacity is the only affordance gate —
-                        never pointer-events) and always at least faintly visible, since touch has
-                        no hover to reveal it on: hover/focus only strengthen it from there. Native
-                        Enter/Space and click both just work because this is an actual <button>.
+                        A pointer affordance, deliberately outside the accessibility tree. A
+                        tablist may own nothing but tabs and a tab's own children are
+                        presentational, so a real <button> is a critical violation on either side
+                        of the trigger: aria-required-children as a sibling, nested-interactive as
+                        a child. Assistive tech closes the tab through the aria-keyshortcuts
+                        "Delete" announced with the tab and handled above — so this control must
+                        also stay unfocusable, which is why it is a span and not a disabled-looking
+                        button. Always at least faintly visible, since touch has no hover to reveal
+                        it on; hover and keyboard focus within the tab only strengthen it.
                       */}
-                      <Button
-                        aria-label={`Close ${tab.label}`}
-                        className="absolute top-1/2 right-1 size-6 -translate-y-1/2 rounded-md text-muted-foreground opacity-70 transition-opacity group-hover/canvas-tab:opacity-100 group-focus-within/canvas-tab:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100"
+                      <span
+                        aria-hidden="true"
+                        className="absolute top-1/2 right-1 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity group-hover/canvas-tab:opacity-100 group-focus-within/canvas-tab:opacity-100 hover:bg-muted hover:text-foreground"
                         data-slot="canvas-tab-close"
-                        onClick={() => closeTab(tab.id)}
-                        size="icon-xs"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          closeTab(tab.id);
+                        }}
                         title={`Close ${tab.label}`}
-                        type="button"
-                        variant="ghost"
                       >
                         <XIcon aria-hidden="true" className="size-3.5" />
-                      </Button>
+                      </span>
                     </div>
                   );
                 })}
