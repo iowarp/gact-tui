@@ -189,7 +189,7 @@ describe('WorkspaceResourceView', () => {
         message_id: 'message_1',
         provider_id: 'provider_internal',
         model_id: 'model-visible',
-        representation: 'markdown',
+        representation: 'structured_document',
         evidence_source: 'structured-derivative',
         evidence_generated_at: '2026-08-31T00:01:00Z',
         reason: 'Selected for the current request',
@@ -228,7 +228,41 @@ describe('WorkspaceResourceView', () => {
     const deliveredItem = screen
       .getByText('Delivered to model')
       .closest('[data-slot="timeline-item"]') as HTMLElement;
-    expect(within(deliveredItem).getByText('markdown')).toBeVisible();
+    // The service's own token is wire vocabulary, never the sentence a person reads.
+    expect(within(deliveredItem).getByText('Structured document')).toBeVisible();
+    expect(within(deliveredItem).queryByText('structured_document')).not.toBeInTheDocument();
+    expect(screen.getByText('Complete')).toBeVisible();
     expect(screen.queryByText(/·/u)).not.toBeInTheDocument();
+  });
+
+  it('names a representation it does not recognise as unknown, keeping the token', async () => {
+    repository.resourceDeliveries.mockResolvedValueOnce([
+      {
+        id: 'delivery_2',
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_1',
+        resource_revision: 1,
+        resource_sha256: 'abc',
+        message_id: 'message_1',
+        provider_id: 'provider_internal',
+        model_id: 'model-visible',
+        representation: 'holographic',
+        evidence_source: '',
+        evidence_generated_at: '2026-08-31T00:01:00Z',
+        reason: '',
+        delivered_at: '2026-08-31T00:02:00Z',
+      },
+    ]);
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceResourceView resource={resource} workspaceId="workspace_1" />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Provenance' }));
+
+    expect(await screen.findByText('Unknown (holographic)')).toBeVisible();
   });
 });

@@ -556,8 +556,15 @@ function readHiddenProviders(): Set<string> {
 }
 
 function persistHiddenProviders(providerIds: Set<string>): void {
-  window.localStorage.setItem(
-    HIDDEN_PROVIDERS_STORAGE_KEY,
-    JSON.stringify([...providerIds].sort()),
-  );
+  try {
+    window.localStorage.setItem(
+      HIDDEN_PROVIDERS_STORAGE_KEY,
+      JSON.stringify([...providerIds].sort()),
+    );
+  } catch {
+    // Storage can be full or blocked outright (private windows, a locked-down
+    // profile). Hiding a provider is a convenience for this tab; losing it
+    // across reloads is not worth taking the picker down with an exception,
+    // and the reader is guarded the same way.
+  }
 }

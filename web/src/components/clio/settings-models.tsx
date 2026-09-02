@@ -26,6 +26,7 @@ import { providerDisplayName, providerSummary } from '@/lib/provider-presentatio
 import {
   modelSettingsUpdate,
   presetIsActive,
+  providerSupportsRuntimeSizing,
   REASONING_EFFORTS,
   resolveActivePreset,
   seedModelSettings,
@@ -128,9 +129,7 @@ function ModelsSettingsContent({
     (provider) => provider.id === selectedPreset?.id || provider.id === selectedPreset?.provider,
   );
   const selectedAvailability = providerAvailability(selectedProvider, selectedPreset);
-  const supportsRuntimeControls = Boolean(
-    selectedPreset && ['vllm', 'lm_studio', 'ollama'].includes(selectedPreset.provider),
-  );
+  const supportsRuntimeControls = providerSupportsRuntimeSizing(selectedPreset);
   const providerReadyForApply = Boolean(
     selectedPreset &&
       (selectedPreset.is_authenticated ||

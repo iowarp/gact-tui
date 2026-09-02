@@ -284,6 +284,31 @@ describe('ClioModelPicker', () => {
       screen.queryByRole('button', { name: 'Show 1 hidden provider' }),
     ).not.toBeInTheDocument();
   });
+
+  it('still hides a provider when the browser refuses to store the choice', async () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={options}
+          provider="codex"
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByRole('button', { name: /Local vLLM/ }));
+    await user.click(screen.getByRole('button', { name: 'Hide Local vLLM' }));
+
+    expect(screen.queryByText('Local vLLM')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show 1 hidden provider' })).toBeVisible();
+    setItem.mockRestore();
+  });
 });
 
 function setWideViewport(matches: boolean): void {

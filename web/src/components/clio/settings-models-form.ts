@@ -22,6 +22,24 @@ export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high';
 export const REASONING_EFFORTS: readonly ReasoningEffort[] = ['off', 'low', 'medium', 'high'];
 
 /**
+ * Providers whose model runtime this panel can size — the ones that serve a
+ * model on the connected agent's own hardware, where parallel slots and a
+ * context window are a local capacity decision rather than a hosted service's.
+ *
+ * This is a capability, and the service is the only thing that actually knows
+ * it. Until a preset reports it, the list lives here so at least it is named,
+ * documented, and in one place instead of inline in the render; a new local
+ * runtime added to the backend has to be added here too, which is the reason
+ * this should move to the preset.
+ */
+const RUNTIME_SIZED_PROVIDERS: readonly string[] = ['vllm', 'lm_studio', 'ollama'];
+
+/** Whether the parallel-slot and context-length controls apply to this preset. */
+export function providerSupportsRuntimeSizing(preset?: LanguageModelPreset): boolean {
+  return Boolean(preset && RUNTIME_SIZED_PROVIDERS.includes(preset.provider));
+}
+
+/**
  * The form's fields. Numbers are held as the text the person typed so an empty
  * field stays distinguishable from a real zero.
  */

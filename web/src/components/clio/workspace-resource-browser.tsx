@@ -17,7 +17,16 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FileUpIcon, PanelRightOpenIcon } from 'lucide-react';
-import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent,
+} from 'react';
+import { formatResourceSize } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 const WorkspaceResourceView = lazy(() =>
@@ -48,8 +57,8 @@ export function WorkspaceResourceBrowser({
   const [wide, setWide] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
   const split = defaultSplit || wide;
-  const selected = resources.find((resource) => resource.id === selectedId) ??
-    (split ? resources[0] : undefined);
+  const selected =
+    resources.find((resource) => resource.id === selectedId) ?? (split ? resources[0] : undefined);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -105,7 +114,7 @@ export function WorkspaceResourceBrowser({
               <AttachmentPreview className="size-10" />
               <AttachmentInfo showMediaType />
               <div className="shrink-0 text-right text-[11px] text-muted-foreground">
-                <p>{formatBytes(resource.received_size)}</p>
+                <p>{formatResourceSize(resource.received_size)}</p>
                 <p>{resource.state === 'uploading' ? `${progress}%` : resource.state}</p>
               </div>
               <Button
@@ -173,14 +182,7 @@ function LoadingResources() {
 }
 
 function PreviewLoading() {
-  return <div className="grid h-full place-items-center text-sm text-muted-foreground">Loading…</div>;
+  return (
+    <div className="grid h-full place-items-center text-sm text-muted-foreground">Loading…</div>
+  );
 }
-
-function formatBytes(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return value === 0 ? '0 B' : 'Unavailable';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const exponent = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
-  const amount = value / 1024 ** exponent;
-  return `${amount >= 10 || exponent === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[exponent]}`;
-}
-

@@ -30,10 +30,17 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { useRepository } from '@/hooks/use-repository';
+import { formatResourceSize } from '@/lib/format';
+import { isTextApplication, isTextMediaType } from '@/lib/media-types';
 import { queryKeys } from '@/lib/query-keys';
 import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { processingFailureText, processingRefreshFailed } from './resource-processing-presentation';
+import {
+  deliveryRepresentationLabel,
+  processingFailureText,
+  processingRefreshFailed,
+  processingStateLabel,
+} from './resource-processing-presentation';
 import {
   ImageResourceView,
   ResourceLoading,
@@ -118,7 +125,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
             <span className="truncate">
               {resource.detected_mime || resource.claimed_mime || 'Type unavailable'}
             </span>
-            <span className="shrink-0">{formatBytes(resource.received_size)}</span>
+            <span className="shrink-0">{formatResourceSize(resource.received_size)}</span>
           </p>
         </div>
         <ClioStatus value={resourceStateStatus(resource.state)} />
@@ -209,7 +216,8 @@ function ResourcePreview({
             <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
           </div>
           <p className="text-xs text-muted-foreground">
-            {formatBytes(resource.received_size)} of {formatBytes(resource.declared_size)}
+            {formatResourceSize(resource.received_size)} of{' '}
+            {formatResourceSize(resource.declared_size)}
           </p>
         </div>
       </div>
@@ -235,7 +243,7 @@ function ResourcePreview({
       </div>
     );
   }
-  if (resource.detected_mime.startsWith('text/') || isTextApplication(resource.detected_mime)) {
+  if (isTextMediaType(resource.detected_mime)) {
     return (
       <TextResourceView
         content={bytes ? new TextDecoder().decode(bytes) : undefined}
@@ -478,7 +486,7 @@ function ResourceProvenance({
           </TimelineHeader>
           <TimelineContent className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <span>{resource.name}</span>
-            <span>{formatBytes(resource.received_size)}</span>
+            <span>{formatResourceSize(resource.received_size)}</span>
           </TimelineContent>
         </TimelineItem>
         <TimelineItem step={2}>
@@ -513,7 +521,7 @@ function ResourceProvenance({
             <TimelineContent>
               {processing.state === 'processing'
                 ? `Processing ${Math.round(processing.progress)}%`
-                : processing.state}
+                : processingStateLabel(processing.state)}
             </TimelineContent>
           </TimelineItem>
         ) : null}
@@ -533,7 +541,7 @@ function ResourceProvenance({
             <TimelineContent>
               <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span>{delivery.model_id}</span>
-                <span>{delivery.representation}</span>
+                <span>{deliveryRepresentationLabel(delivery.representation)}</span>
               </p>
               {delivery.reason ? <p className="mt-1">{delivery.reason}</p> : null}
               <details className="mt-2 text-[10px]">
@@ -584,10 +592,6 @@ function isPreviewable(mediaType: string): boolean {
   );
 }
 
-function isTextApplication(mediaType: string): boolean {
-  return ['application/json', 'application/xml', 'application/javascript'].includes(mediaType);
-}
-
 function resourceStateStatus(
   state: WorkspaceResource['state'],
 ): 'healthy' | 'running' | 'unavailable' | 'failed' {
@@ -595,12 +599,4 @@ function resourceStateStatus(
   if (state === 'uploading') return 'running';
   if (state === 'quarantined') return 'unavailable';
   return 'failed';
-}
-
-function formatBytes(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return value === 0 ? '0 B' : 'Unavailable';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const exponent = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
-  const amount = value / 1024 ** exponent;
-  return `${amount >= 10 || exponent === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[exponent]}`;
 }

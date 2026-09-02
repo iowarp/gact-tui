@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRepository } from '@/hooks/use-repository';
+import { formatResourceSize } from '@/lib/format';
+import { isTextMediaType } from '@/lib/media-types';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { processingStateLabel } from './resource-processing-presentation';
@@ -174,7 +176,9 @@ export function WorkspaceResourceDerivativesView({
               <span className="mt-0.5 flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
                 <span>{derivative.kind || 'Derivative'}</span>
                 <span>{derivative.media_type || 'Type unavailable'}</span>
-                {derivative.size === undefined ? null : <span>{formatBytes(derivative.size)}</span>}
+                {derivative.size === undefined ? null : (
+                  <span>{formatResourceSize(derivative.size)}</span>
+                )}
               </span>
             </span>
             <EyeIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
@@ -219,7 +223,7 @@ function DerivativePreview({
     return <ResourceUnavailable detail={content.error.message} label="Derivative unavailable" />;
   }
   if (!content.data) return <ResourceLoading className="p-4" label="Loading derivative" />;
-  if (mediaType.startsWith('text/') || isTextApplication(mediaType)) {
+  if (isTextMediaType(mediaType)) {
     return (
       <TextResourceView
         content={new TextDecoder().decode(content.data)}
@@ -252,16 +256,4 @@ function DerivativePreview({
       label="Metadata-only derivative"
     />
   );
-}
-
-function isTextApplication(mediaType: string): boolean {
-  return ['application/json', 'application/xml', 'application/javascript'].includes(mediaType);
-}
-
-function formatBytes(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return value === 0 ? '0 B' : 'Unavailable';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const exponent = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
-  const amount = value / 1024 ** exponent;
-  return `${amount >= 10 || exponent === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[exponent]}`;
 }

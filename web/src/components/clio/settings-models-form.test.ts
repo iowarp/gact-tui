@@ -1,6 +1,10 @@
 import type { LanguageModelConfiguration, LanguageModelPreset } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { modelSettingsUpdate, seedModelSettings } from './settings-models-form';
+import {
+  modelSettingsUpdate,
+  providerSupportsRuntimeSizing,
+  seedModelSettings,
+} from './settings-models-form';
 
 const preset: LanguageModelPreset = {
   id: 'lm_studio',
@@ -167,5 +171,15 @@ describe('modelSettingsUpdate', () => {
       api_base: 'http://127.0.0.1:1234/v1',
       model: 'qwen3-coder',
     });
+  });
+});
+
+describe('providerSupportsRuntimeSizing', () => {
+  it('offers runtime sizing only for a model served on the connected agent', () => {
+    expect(providerSupportsRuntimeSizing({ ...preset, provider: 'lm_studio' })).toBe(true);
+    expect(providerSupportsRuntimeSizing({ ...preset, provider: 'vllm' })).toBe(true);
+    expect(providerSupportsRuntimeSizing({ ...preset, provider: 'ollama' })).toBe(true);
+    expect(providerSupportsRuntimeSizing({ ...preset, provider: 'codex' })).toBe(false);
+    expect(providerSupportsRuntimeSizing(undefined)).toBe(false);
   });
 });
