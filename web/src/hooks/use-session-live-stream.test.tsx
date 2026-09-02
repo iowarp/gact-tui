@@ -171,6 +171,17 @@ describe('useSessionLiveStream resume recovery', () => {
     expect(keys).toContainEqual(['pending-steers', 'http://127.0.0.1:8790', 'sess_1']);
   });
 
+  it('refreshes the catalog the picker reads when the service refreshes it', () => {
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'provider_catalog.refreshed',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).toContainEqual(['provider-catalog', 'http://127.0.0.1:8790']);
+  });
+
   it('refreshes the queue when an automatic promotion fails', () => {
     expect(
       queryInvalidationKeysForEvent({
