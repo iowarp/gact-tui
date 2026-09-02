@@ -62,7 +62,10 @@ export function ClioPendingInteractions({
       className="relative z-10 mx-auto -mb-px min-h-0 w-[calc(100%_-_1.5rem)] max-w-[54.5rem] shrink rounded-b-none border-b-0 bg-card py-0.5 dark:bg-card"
       role="region"
     >
-      <QueueSection className="flex min-h-0 flex-col" defaultOpen={false}>
+      {/* Open by default: the agent is blocked until one of these controls is used,
+          so they must be mounted and reachable without a preceding expand. The
+          trigger still collapses the stack when the reader wants the room back. */}
+      <QueueSection className="flex min-h-0 flex-col">
         <QueueSectionTrigger>
           <QueueSectionLabel
             count={responseCount}

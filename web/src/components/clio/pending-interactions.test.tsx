@@ -32,17 +32,54 @@ describe('ClioPendingInteractions', () => {
     const region = screen.getByRole('region', { name: 'Agent needs your response' });
     const trigger = screen.getByRole('button', { name: '1 response needed' });
     expect(region).toBeVisible();
-    expect(screen.queryByText('Run the analysis command')).not.toBeInTheDocument();
-    await user.click(trigger);
+    // The agent is blocked on this answer, so the controls are reachable without
+    // first expanding anything.
     const title = screen.getByText('Run the analysis command');
     expect(title).toHaveAttribute('data-slot', 'pending-interaction-title');
     expect(title.closest('[role="alert"]')).toHaveClass('grid', 'grid-cols-[auto_minmax(0,1fr)]');
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeVisible();
     await user.click(trigger);
     expect(screen.queryByText('Run the analysis command')).not.toBeInTheDocument();
     await user.click(trigger);
     expect(screen.getByText('Run the analysis command')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Allow for session' }));
     expect(onApproval).toHaveBeenCalledWith('perm_1', 'allow_session');
+  });
+
+  it('mounts every response control before the reader touches the collapse toggle', () => {
+    render(
+      <ClioPendingInteractions
+        approvals={[
+          {
+            id: 'perm_1',
+            session_id: 'sess_1',
+            tool_name: 'shell.exec',
+            summary: 'Run the analysis command',
+            status: 'pending',
+            created_at: '2026-08-22T00:00:00Z',
+          },
+        ]}
+        onAnswer={async () => undefined}
+        onApproval={async () => undefined}
+        onCancelQuestion={async () => undefined}
+        questions={[
+          {
+            id: 'question_1',
+            session_id: 'sess_1',
+            prompt: 'Resume the campaign?',
+            status: 'pending',
+            kind: 'choice',
+            options: [{ label: 'Resume', value: 'resume' }],
+            created_at: '2026-08-22T00:00:00Z',
+            updated_at: '2026-08-22T00:00:00Z',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('region', { name: '2 pending responses' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Send response' })).toBeDisabled();
   });
 
   it('answers an approval from a session this workspace has not listed yet', async () => {
@@ -69,7 +106,7 @@ describe('ClioPendingInteractions', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: '1 response needed' }));
+    expect(screen.getByRole('button', { name: '1 response needed' })).toBeVisible();
     expect(screen.getByText('Run the child analysis command')).toBeVisible();
     expect(screen.getByText('Session not listed yet')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Allow once' }));
@@ -105,7 +142,6 @@ describe('ClioPendingInteractions', () => {
     );
 
     expect(screen.getByRole('button', { name: '1 response needed' })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: '1 response needed' }));
     expect(screen.getByText('Resume the campaign?')).toHaveAttribute(
       'data-slot',
       'pending-interaction-title',
@@ -144,7 +180,6 @@ describe('ClioPendingInteractions', () => {
       />,
     );
 
-    await user.click(screen.getByRole('button', { name: '1 response needed' }));
     await user.click(screen.getByRole('radio', { name: 'Station table' }));
     const stationComment = screen.getByRole('textbox', { name: 'Comment on Station table' });
     await user.type(stationComment, 'Keep the sortable columns visible.');
@@ -198,7 +233,6 @@ describe('ClioPendingInteractions', () => {
     );
 
     const responses = screen.getByRole('region', { name: 'Agent needs your response' });
-    await user.click(screen.getByRole('button', { name: '2 responses needed' }));
     const viewport = screen.getByRole('region', { name: '2 pending responses' });
     expect(responses).toHaveClass('min-h-0', 'shrink');
     expect(viewport).toHaveAttribute('tabindex', '0');
