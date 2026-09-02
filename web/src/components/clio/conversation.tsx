@@ -200,7 +200,9 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
       className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-4 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
       data-index={index}
       id={`message-${message.id}`}
-      ref={virtualized ? measureElement : undefined}
+      // Measured on both branches: the virtualizer owns the active-index
+      // derivation even when it is not positioning the rows.
+      ref={measureElement}
       style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
       tabIndex={-1}
     >
@@ -483,9 +485,13 @@ export function ClioConversation({
   const lastVirtualRow = virtualRows.at(-1);
   const virtualRangeKey = `${firstVirtualRow?.index ?? -1}:${firstVirtualRow?.start ?? -1}:${lastVirtualRow?.index ?? -1}:${lastVirtualRow?.end ?? -1}`;
 
+  // The virtualizer is the only source of the active transcript index, on both
+  // branches. It measures every mounted row, so an index it reports may well be
+  // one the minimap rail has not mounted — reading the rail's own DOM back could
+  // only ever name a landmark that is already on screen.
   useLayoutEffect(() => {
     const element = scrollRef.current;
-    if (!virtualized || !element) return;
+    if (!element) return;
     if (pinnedToBottom.current) {
       const latestIndex = messages.length - 1;
       setActiveMessageIndex((current) => (current === latestIndex ? current : latestIndex));
@@ -498,7 +504,7 @@ export function ClioConversation({
     setActiveMessageIndex((current) =>
       current === firstVisible.index ? current : firstVisible.index,
     );
-  }, [messages.length, virtualized, virtualizer, virtualRangeKey]);
+  }, [messages.length, virtualizer, virtualRangeKey]);
 
   const updateBottomState = useCallback(() => {
     const element = scrollRef.current;
@@ -508,17 +514,13 @@ export function ClioConversation({
       pinnedToBottom.current = next;
     }
     setIsAtBottom(next);
-    if (virtualized) {
-      if (next) {
-        setActiveMessageIndex(messages.length - 1);
-        return;
-      }
-      const firstVisible = virtualizer
-        .getVirtualItems()
-        .find((item) => item.end >= element.scrollTop);
-      if (firstVisible) setActiveMessageIndex(firstVisible.index);
+    if (next) {
+      setActiveMessageIndex(messages.length - 1);
+      return;
     }
-  }, [messages.length, virtualized, virtualizer]);
+    const firstVisible = virtualizer.getVirtualItems().find((item) => item.end >= element.scrollTop);
+    if (firstVisible) setActiveMessageIndex(firstVisible.index);
+  }, [messages.length, virtualizer]);
 
   const markUserScrollIntent = useCallback(() => {
     lastUserScrollIntentAt.current = performance.now();
@@ -559,9 +561,11 @@ export function ClioConversation({
       width = nextWidth;
       setConversationViewportWidth(nextWidth);
       const keepLatestVisible = pinnedToBottom.current;
-      // Mounted rows already have their own ResizeObserver through measureElement.
-      // Clearing the full cache here replaces stable row heights with the 180px
-      // estimate; rows whose height does not change then leave visible gaps.
+      // Only mounted rows carry a live ResizeObserver, so every off-screen row
+      // still holds the height it had at the previous width. Keeping those
+      // stale heights makes the transcript jump when the reader scrolls back
+      // up; re-estimating and re-measuring costs a frame and stays honest.
+      virtualizer.measure();
       window.cancelAnimationFrame(frame);
       if (keepLatestVisible) {
         frame = window.requestAnimationFrame(() => scrollToLatest('instant'));
@@ -572,7 +576,7 @@ export function ClioConversation({
       observer.disconnect();
       window.cancelAnimationFrame(frame);
     };
-  }, [scrollToLatest]);
+  }, [scrollToLatest, virtualizer]);
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
@@ -623,21 +627,15 @@ export function ClioConversation({
         <ClioTranscriptMinimap
           activeIndex={activeMessageIndex}
           messages={messages}
-          onActiveIndexChange={setActiveMessageIndex}
           onJump={jumpToMessage}
-          scrollTargetRef={scrollRef}
-          useScrollspy={!virtualized}
           visible={minimapVisible}
         />
       ) : null}
       <div
         aria-label="Conversation"
-        className={cn(
-          'h-full overflow-y-auto overscroll-contain',
-          minimapVisible
-            ? '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
-            : 'clio-scrollbar',
-        )}
+        // The minimap is a landmark index, not a scrollbar: it has no drag or
+        // proportional thumb, so the native scrollbar stays in both states.
+        className="clio-scrollbar h-full overflow-y-auto overscroll-contain"
         data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
           if (
@@ -697,7 +695,7 @@ export function ClioConversation({
                   displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
                   index={index}
                   key={message.id}
-                  measureElement={virtualized ? virtualizer.measureElement : undefined}
+                  measureElement={virtualizer.measureElement}
                   message={message}
                   onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                   recent={index >= messages.length - 2}

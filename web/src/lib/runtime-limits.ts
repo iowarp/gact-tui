@@ -201,6 +201,15 @@ export const DIAGRAM_LABEL_TRUNCATE_CHARS = 160;
 export const SUBAGENT_TASK_TRUNCATE_CHARS = 260;
 
 /**
+ * Characters of a message kept for a transcript minimap preview.
+ * Unit: characters. The rail's hover card and the outline list both render a
+ * short projection of a message that can itself be arbitrarily long, so the
+ * string is cut before it reaches the markdown renderer rather than hidden with
+ * CSS afterwards. Wide enough to fill the three lines the hover card shows.
+ */
+export const TRANSCRIPT_PREVIEW_TRUNCATE_CHARS = 320;
+
+/**
  * Maximum length of a subagent's returned result on its card. Unit: characters.
  * Longer than the assignment because the result is the part a reader scans.
  */
@@ -241,6 +250,15 @@ export const IMMUTABLE_QUERY = { staleTime: Number.POSITIVE_INFINITY } as const;
  * character; above roughly 250 ms the results feel detached from the typing.
  */
 export const SEARCH_DEBOUNCE_MS = 180;
+
+/**
+ * Minimum gap between two attention notices raised for the same session.
+ * Unit: milliseconds. A session that raises several kinds of attention at once
+ * (an approval and a question arriving together) should announce itself once;
+ * below roughly a second the notices stack on top of each other, and much above
+ * it a genuinely new request goes unannounced.
+ */
+export const ATTENTION_NOTICE_THROTTLE_MS = 2_000;
 
 /**
  * Workspaces listed in the sidebar before the "show all" control appears.

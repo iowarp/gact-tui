@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -6,23 +6,9 @@ import { ConversationDisplayProvider } from '@/providers/conversation-display-pr
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ClioConversation } from './conversation';
 
-const virtualizerMocks = vi.hoisted(() => ({ measure: vi.fn(), scrollToIndex: vi.fn() }));
-// Counts turn-model builds without replacing the real projection, so the
-// memoization assertion below observes production behaviour.
-const turnModelMocks = vi.hoisted(() => ({ presentation: vi.fn() }));
-
-vi.mock('./conversation-turn-model', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./conversation-turn-model')>();
-  return {
-    ...actual,
-    conversationTurnPresentation: (
-      ...args: Parameters<typeof actual.conversationTurnPresentation>
-    ) => {
-      turnModelMocks.presentation(...args);
-      return actual.conversationTurnPresentation(...args);
-    },
-  };
-});
+// Scroll, virtualization, and minimap behaviour live in
+// `conversation-viewport.test.tsx`; this file covers message content.
+const virtualizerMocks = vi.hoisted(() => ({ scrollToIndex: vi.fn() }));
 
 vi.mock('@tanstack/react-virtual', () => ({
   defaultRangeExtractor: () => [],
@@ -30,13 +16,14 @@ vi.mock('@tanstack/react-virtual', () => ({
     getTotalSize: () => count * 180,
     getVirtualItems: () =>
       Array.from({ length: count }, (_, index) => ({
+        end: (index + 1) * 180,
         index,
         key: index,
         size: 180,
         start: index * 180,
       })),
     measureElement: () => undefined,
-    measure: virtualizerMocks.measure,
+    measure: () => undefined,
     scrollToIndex: virtualizerMocks.scrollToIndex,
   }),
 }));
@@ -51,9 +38,7 @@ afterEach(() => {
   window.localStorage.clear();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
-  virtualizerMocks.measure.mockClear();
   virtualizerMocks.scrollToIndex.mockClear();
-  turnModelMocks.presentation.mockClear();
   window.history.replaceState(null, '', window.location.pathname);
 });
 
@@ -66,73 +51,6 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation recovery actions', () => {
-  it('preserves measured transcript row heights when the viewport width changes', () => {
-    let onResize: ResizeObserverCallback | undefined;
-    class ResizeObserverMock implements ResizeObserver {
-      constructor(callback: ResizeObserverCallback) {
-        onResize = callback;
-      }
-
-      disconnect() {}
-      observe() {}
-      unobserve() {}
-    }
-    vi.stubGlobal('ResizeObserver', ResizeObserverMock);
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-      bottom: 800,
-      height: 800,
-      left: 0,
-      right: 800,
-      top: 0,
-      width: 800,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    });
-    const messages = Array.from({ length: 80 }, (_, index) => ({
-      id: `message_${index}`,
-      session_id: 'session_1',
-      role: 'user' as const,
-      created_at: '2026-08-22T00:00:00Z',
-      blocks: [],
-    }));
-
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={messages}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{}}
-      />,
-    );
-
-    act(() => {
-      onResize?.([{ contentRect: { width: 640 } } as ResizeObserverEntry], {} as ResizeObserver);
-    });
-
-    expect(virtualizerMocks.measure).not.toHaveBeenCalled();
-  });
-
-  it('reserves a floating composer inset without shrinking the transcript viewport', () => {
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        bottomInset={176}
-        messages={[]}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{}}
-      />,
-    );
-
-    expect(screen.getByRole('log', { name: 'Conversation' })).toHaveStyle({
-      paddingBottom: '176px',
-    });
-  });
-
   it('renders a workspace resource at its wire position without exposing private prompt context', async () => {
     const user = userEvent.setup();
     const onOpenResource = vi.fn();
@@ -413,40 +331,6 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByText('Conversation unavailable')).toBeVisible();
     expect(screen.getByText('The agent could not return this transcript.')).toBeVisible();
     expect(screen.queryByText('This session has no messages')).not.toBeInTheDocument();
-  });
-
-  it('focuses an authoritative memory-search result by message id', async () => {
-    window.history.replaceState(null, '', '#message-message_2');
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_1',
-            session_id: 'session_1',
-            role: 'user',
-            created_at: '2026-08-22T00:00:00Z',
-            blocks: [],
-          },
-          {
-            id: 'message_2',
-            session_id: 'session_1',
-            role: 'assistant',
-            created_at: '2026-08-22T00:01:00Z',
-            blocks: [],
-          },
-        ]}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{}}
-      />,
-    );
-
-    await waitFor(() =>
-      expect(virtualizerMocks.scrollToIndex).toHaveBeenCalledWith(1, { align: 'center' }),
-    );
-    await waitFor(() => expect(document.activeElement).toHaveAttribute('id', 'message-message_2'));
   });
 
   it('uses the shared message action for recoverable assistant responses', () => {
@@ -730,46 +614,6 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByRole('region', { name: 'Full agent activity' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('radio', { name: 'Chain view' }));
     expect(screen.queryByRole('region', { name: 'Full agent activity' })).not.toBeInTheDocument();
-  });
-
-  it('does not rebuild the turn projection when only the view mode changes', () => {
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_memo',
-            session_id: 'session_1',
-            role: 'assistant',
-            created_at: '2026-08-22T00:00:00Z',
-            blocks: [
-              { id: 'reason_memo', type: 'reasoning', text: 'Inspecting the evidence.' },
-              { id: 'tool_memo', type: 'tool', tool_id: 'tool_read' },
-            ],
-          },
-        ]}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{
-          tool_read: {
-            id: 'tool_read',
-            session_id: 'session_1',
-            name: 'fs_read_file',
-            title: 'Read evidence file',
-            state: 'succeeded',
-          },
-        }}
-      />,
-    );
-
-    const buildsAfterMount = turnModelMocks.presentation.mock.calls.length;
-    expect(buildsAfterMount).toBeGreaterThan(0);
-
-    fireEvent.click(screen.getByRole('radio', { name: 'Full activity view' }));
-    fireEvent.click(screen.getByRole('radio', { name: 'Chain view' }));
-
-    expect(turnModelMocks.presentation.mock.calls.length).toBe(buildsAfterMount);
   });
 
   it('distinguishes a deliberately removed interactive surface from unavailable data', () => {

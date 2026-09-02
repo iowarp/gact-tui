@@ -1,31 +1,41 @@
 import type { Message } from '@clio/core/v3';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ListTreeIcon } from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
-import { MarkdownText } from '@/components/ai-elements/markdown';
+import { lazy, Suspense, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Scrollspy } from '@/components/reui/scrollspy';
+import { truncate } from '@/lib/format';
+import { TRANSCRIPT_PREVIEW_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
+
+// Same lazy split the transcript itself uses: a minimap must not pull the
+// markdown renderer into the first paint just to draw landmarks.
+const MarkdownText = lazy(() =>
+  import('@/components/ai-elements/markdown').then((module) => ({ default: module.MarkdownText })),
+);
+
+function PreviewMarkdown({ className, children }: { className?: string; children: string }) {
+  return (
+    <Suspense fallback={<p className={className}>{children}</p>}>
+      <MarkdownText className={className} controls={false} mode="static">
+        {children}
+      </MarkdownText>
+    </Suspense>
+  );
+}
 
 interface ClioTranscriptMinimapProps {
   activeIndex: number;
   messages: readonly Message[];
-  onActiveIndexChange: (index: number) => void;
   onJump: (index: number) => void;
-  scrollTargetRef: React.RefObject<HTMLDivElement | null>;
-  useScrollspy: boolean;
   visible: boolean;
 }
 
 export function ClioTranscriptMinimap({
   activeIndex,
   messages,
-  onActiveIndexChange,
   onJump,
-  scrollTargetRef,
-  useScrollspy,
   visible,
 }: ClioTranscriptMinimapProps) {
   if (!visible) {
@@ -55,16 +65,7 @@ export function ClioTranscriptMinimap({
       </Popover>
     );
   }
-  return (
-    <MinimapRail
-      activeIndex={activeIndex}
-      messages={messages}
-      onActiveIndexChange={onActiveIndexChange}
-      onJump={onJump}
-      scrollTargetRef={scrollTargetRef}
-      useScrollspy={useScrollspy}
-    />
-  );
+  return <MinimapRail activeIndex={activeIndex} messages={messages} onJump={onJump} />;
 }
 
 function TranscriptOutlineList({
@@ -165,39 +166,26 @@ function TranscriptOutlineItem({
           aria-hidden="true"
           className="pointer-events-none overflow-hidden px-2 py-1.5 [grid-area:1/1]"
         >
-          <MarkdownText
-            className="overflow-hidden text-left text-sm text-ellipsis whitespace-nowrap! [&_*]:m-0 [&_br]:hidden [&_pre]:inline [&>*]:inline"
-            controls={false}
-            mode="static"
-          >
+          <PreviewMarkdown className="overflow-hidden text-left text-sm text-ellipsis whitespace-nowrap! [&_*]:m-0 [&_br]:hidden [&_pre]:inline [&>*]:inline">
             {preview}
-          </MarkdownText>
+          </PreviewMarkdown>
         </div>
       </div>
       <HoverCardContent
         align="start"
-        aria-label={`Full ${message.role} message ${index + 1}`}
+        aria-label={`${message.role} message ${index + 1} preview`}
         className="max-h-80 w-96 max-w-[calc(100vw-2rem)] overflow-y-auto"
         role="region"
         side="right"
       >
         <p className="mb-2 text-xs font-medium capitalize text-muted-foreground">{message.role}</p>
-        <MarkdownText className="text-sm leading-5" controls={false} mode="static">
-          {preview}
-        </MarkdownText>
+        <PreviewMarkdown className="text-sm leading-5">{preview}</PreviewMarkdown>
       </HoverCardContent>
     </HoverCard>
   );
 }
 
-function MinimapRail({
-  activeIndex,
-  messages,
-  onActiveIndexChange,
-  onJump,
-  scrollTargetRef,
-  useScrollspy,
-}: Omit<ClioTranscriptMinimapProps, 'visible'>) {
+function MinimapRail({ activeIndex, messages, onJump }: Omit<ClioTranscriptMinimapProps, 'visible'>) {
   const railRef = useRef<HTMLDivElement>(null);
   const lastRevealedActiveIndexRef = useRef<number | null>(null);
   // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
@@ -231,7 +219,6 @@ function MinimapRail({
                   aria-label={`Jump to ${message.role} message ${row.index + 1}`}
                   aria-current={row.index === activeIndex ? 'location' : undefined}
                   className="group absolute left-0 flex h-[11px] w-full items-center outline-none"
-                  data-scrollspy-anchor={useScrollspy ? `message-${message.id}` : undefined}
                   onClick={() => onJump(row.index)}
                   style={{ transform: `translateY(${row.start}px)` }}
                   type="button"
@@ -248,17 +235,19 @@ function MinimapRail({
                   />
                 </button>
               </HoverCardTrigger>
-              <HoverCardContent align="start" className="w-72" side="right">
+              <HoverCardContent
+                align="start"
+                aria-label={`${message.role} message ${row.index + 1} preview`}
+                className="w-72"
+                role="region"
+                side="right"
+              >
                 <p className="text-xs font-medium capitalize text-muted-foreground">
                   {message.role}
                 </p>
-                <MarkdownText
-                  className="mt-1 line-clamp-3 text-sm"
-                  controls={false}
-                  mode="static"
-                >
+                <PreviewMarkdown className="mt-1 line-clamp-3 text-sm">
                   {messagePreview(message)}
-                </MarkdownText>
+                </PreviewMarkdown>
               </HoverCardContent>
             </HoverCard>
           );
@@ -276,25 +265,7 @@ function MinimapRail({
         ref={railRef}
         tabIndex={0}
       >
-        {useScrollspy ? (
-          <Scrollspy
-            className="h-full w-full"
-            history={false}
-            navigate={false}
-            onUpdate={(sectionId) => {
-              const messageId = sectionId.replace(/^message-/, '');
-              const index = messages.findIndex((message) => message.id === messageId);
-              if (index >= 0) onActiveIndexChange(index);
-            }}
-            smooth={false}
-            targetRef={scrollTargetRef}
-            refreshKey={`${messages.length}:${rows[0]?.index ?? -1}:${rows.at(-1)?.index ?? -1}`}
-          >
-            {content}
-          </Scrollspy>
-        ) : (
-          content
-        )}
+        {content}
       </div>
     </aside>
   );
@@ -315,12 +286,24 @@ function landmarkClass(message: Message): string {
   return message.role === 'user' ? 'w-3 bg-primary' : 'w-2.5 bg-muted-foreground';
 }
 
+/**
+ * The landmark preview projects a message down to one short line, so it follows
+ * a fallback chain rather than a merge: visible text first, reasoning only when
+ * the message has no text at all. Joining both would present the agent's
+ * thinking as message content. The string is cut here, before it reaches a
+ * markdown renderer, because CSS ellipsis still pays to parse and lay out the
+ * whole message.
+ */
 function messagePreview(message: Message): string {
-  const text = message.blocks
-    .filter((block) => block.type === 'text' || block.type === 'reasoning')
+  const preview = collapse(message, 'text') || collapse(message, 'reasoning');
+  return truncate(preview, TRANSCRIPT_PREVIEW_TRUNCATE_CHARS) || `${message.role} activity`;
+}
+
+function collapse(message: Message, type: 'reasoning' | 'text'): string {
+  return message.blocks
+    .filter((block) => block.type === type)
     .map((block) => block.text)
     .join(' ')
-    .replaceAll(/\s+/g, ' ')
+    .replaceAll(/\s+/gu, ' ')
     .trim();
-  return text || `${message.role} activity`;
 }
