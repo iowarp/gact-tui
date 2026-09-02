@@ -97,16 +97,33 @@ describe('session navigation state', () => {
     expect(screen.getByTitle(/^Last interaction /u)).toBeVisible();
   });
 
-  it('prioritizes a response blocker over the working loop', () => {
+  it('prioritizes a response blocker and separates its hover-card semantics', async () => {
+    const user = userEvent.setup();
     renderRow({ ...session, state: 'running' }, session.last_interaction_at, {
       sessionId: session.id,
       permissionIds: ['perm_1'],
-      questionIds: [],
-      total: 1,
+      questionIds: ['question_1'],
+      total: 2,
     });
 
-    expect(screen.getByRole('status', { name: 'Needs your response: 1 permission' })).toBeVisible();
+    expect(
+      screen.getByRole('status', { name: 'Needs your response: 1 permission and 1 question' }),
+    ).toBeVisible();
     expect(screen.queryByRole('status', { name: 'Working now' })).not.toBeInTheDocument();
+
+    await user.hover(screen.getByRole('link', { name: /Evidence review/u }));
+
+    expect(await screen.findByText('Response needed')).toBeVisible();
+    expect(screen.getByText('Approval')).toBeVisible();
+    expect(screen.getByText('Question')).toBeVisible();
+    expect(
+      screen.queryByRole('status', { name: 'Work continues in the background' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Needs your response · 1 permission and 1 question · Work continues in the background',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it('does not pin the hover preview after mouse navigation', async () => {

@@ -1,5 +1,5 @@
 import type { Session } from '@clio/core/v3';
-import { BellRingIcon, ShieldQuestionIcon } from 'lucide-react';
+import { BellRingIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -15,12 +15,9 @@ import {
 } from '@/components/ui/popover';
 import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { playAttentionSound } from '@/lib/attention-sound';
-import {
-  type SessionAttention,
-  sessionAttentionIds,
-  sessionAttentionLabel,
-} from '@/lib/session-attention';
+import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
 import { useNotificationPreferences } from '@/providers/notification-preferences-provider';
+import { SessionAttentionIndicators } from './session-attention-indicators';
 
 interface AttentionProps {
   activeSessionId: string;
@@ -69,8 +66,8 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
         </PopoverTrigger>
         <PopoverContent align="end" className="w-80" side="bottom">
           <PopoverHeader>
-            <PopoverTitle>Needs your response</PopoverTitle>
-            <PopoverDescription>{label}</PopoverDescription>
+            <PopoverTitle>Response needed</PopoverTitle>
+            <PopoverDescription>Open a session to continue.</PopoverDescription>
           </PopoverHeader>
           <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
             {entries.map(({ session, attention }) => (
@@ -84,12 +81,9 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
                   onClick={() => setOpen(false)}
                   to={`/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`}
                 >
-                  <ShieldQuestionIcon aria-hidden="true" data-icon="inline-start" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{session.title}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {sessionAttentionLabel(attention)}
-                    </span>
+                    <SessionAttentionIndicators attention={attention} />
                   </span>
                 </Link>
               </Button>
@@ -107,30 +101,30 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
 
   useEffect(() => {
     const currentIds = new Set<string>();
-    const newEntries: Array<{ session: Session; attention: SessionAttention }> = [];
+    const newSessions: Session[] = [];
     for (const session of sessions) {
       const attention = attentions[session.id];
       if (!attention?.total) continue;
       const ids = sessionAttentionIds(attention);
       ids.forEach((id) => currentIds.add(id));
       if (ids.some((id) => !notifiedAttentionIds.has(id))) {
-        newEntries.push({ session, attention });
+        newSessions.push(session);
       }
     }
     currentIds.forEach((id) => notifiedAttentionIds.add(id));
-    if (newEntries.length === 0) return;
+    if (newSessions.length === 0) return;
 
     const appFocused = document.visibilityState === 'visible' && document.hasFocus();
     let shouldPlaySound = false;
-    for (const { session, attention } of newEntries) {
+    for (const session of newSessions) {
       const path = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
       const now = Date.now();
       const shouldInterrupt = now - (lastAttentionNoticeAt.get(session.id) ?? 0) > 2_000;
       lastAttentionNoticeAt.set(session.id, now);
       shouldPlaySound ||= shouldInterrupt;
-      toast.warning(`${session.title} needs your response`, {
+      toast.warning('Response needed', {
         id: `clio-attention:${session.id}`,
-        description: sessionAttentionLabel(attention),
+        description: session.title,
         action: {
           label: session.id === activeSessionId ? 'View' : 'Open',
           onClick: () => navigate(path),
@@ -143,8 +137,8 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
         typeof Notification !== 'undefined' &&
         Notification.permission === 'granted'
       ) {
-        const notification = new Notification(`${session.title} needs your response`, {
-          body: sessionAttentionLabel(attention),
+        const notification = new Notification('Response needed', {
+          body: session.title,
           tag: `clio-attention:${session.id}`,
         });
         notification.addEventListener('click', () => {

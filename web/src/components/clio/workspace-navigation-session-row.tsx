@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioRelativeTime } from './relative-time';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
+import { SessionAttentionIndicators } from './session-attention-indicators';
 import { sessionModeLabel } from './session-behavior-options';
 
 interface SessionNavigationRowProps {
@@ -177,7 +178,7 @@ export function SessionNavigationRow({
             )}
           </Link>
         </HoverCardTrigger>
-        <HoverCardContent align="start" className="w-72 p-3" side="right" sideOffset={52}>
+        <HoverCardContent align="start" className="w-80 p-3" side="right" sideOffset={52}>
           <div className="flex min-w-0 items-start gap-2">
             <div className="min-w-0 flex-1">
               <button
@@ -191,13 +192,18 @@ export function SessionNavigationRow({
                   className="size-3 shrink-0 opacity-0 transition-opacity group-hover/name:opacity-100 group-focus/name:opacity-100"
                 />
               </button>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {needsAttention && attention
-                  ? `Needs your response · ${sessionAttentionLabel(attention)}${running ? ' · Work continues in the background' : ''}`
-                  : running
-                    ? 'Working now'
-                    : sessionStateLabel(session.state)}
-              </p>
+              {needsAttention && attention ? (
+                <div className="mt-1">
+                  <SessionAttentionIndicators
+                    attention={attention}
+                    showResponseLabel
+                  />
+                </div>
+              ) : (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {running ? 'Working now' : sessionStateLabel(session.state)}
+                </p>
+              )}
             </div>
             <Button
               aria-label={`${session.pinned ? 'Unpin' : 'Pin'} ${session.title}`}
