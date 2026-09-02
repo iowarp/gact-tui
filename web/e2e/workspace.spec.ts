@@ -220,6 +220,12 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
   await expect(canvas).toBeVisible();
+  const observabilityTab = canvas.getByRole('tab', { name: 'Observability' });
+  const observabilityClose = observabilityTab.locator('[data-slot="canvas-tab-close"]');
+  await expect(observabilityClose).toHaveCSS('opacity', '0');
+  await observabilityTab.hover();
+  await expect(observabilityClose).toHaveCSS('opacity', '1');
+  await expect(canvas.getByRole('button', { name: /^Close / })).toHaveCount(0);
   await page.getByRole('button', { name: 'Maximize canvas' }).click();
   await expect(canvas).toHaveCSS('position', 'fixed');
   const canvasBounds = await canvas.boundingBox();

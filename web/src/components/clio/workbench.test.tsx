@@ -101,6 +101,34 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('No session artifacts')).toBeVisible();
   });
 
+  it('places each close action on the tab it closes', async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
+
+    const observabilityTab = screen.getByRole('tab', { name: 'Observability' });
+    const artifactsTab = screen.getByRole('tab', { name: 'Artifacts' });
+    const observabilityClose = observabilityTab.querySelector('[data-slot="canvas-tab-close"]');
+    const artifactsClose = artifactsTab.querySelector('[data-slot="canvas-tab-close"]');
+
+    expect(observabilityClose).not.toBeNull();
+    expect(artifactsClose).not.toBeNull();
+    expect(observabilityClose).toHaveAttribute('title', 'Close Observability');
+    expect(artifactsClose).toHaveAttribute('title', 'Close Artifacts');
+
+    act(() => artifactsTab.focus());
+    await user.keyboard('{ArrowLeft}');
+    expect(observabilityTab).toHaveAttribute('aria-selected', 'true');
+    await user.keyboard('{ArrowRight}');
+    expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
+
+    fireEvent.pointerDown(observabilityClose!);
+    expect(screen.queryByRole('tab', { name: 'Observability' })).not.toBeInTheDocument();
+    expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('replaces the artifact picker tab with the selected artifact view', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -203,7 +231,9 @@ describe('ClioWorkbench canvas', () => {
     const user = userEvent.setup();
     renderWorkbench();
 
-    await user.click(screen.getByRole('button', { name: 'Close Observability' }));
+    const observabilityTab = screen.getByRole('tab', { name: 'Observability' });
+    act(() => observabilityTab.focus());
+    await user.keyboard('{Delete}');
     expect(screen.queryByRole('tab', { name: 'Observability' })).not.toBeInTheDocument();
     expect(screen.getByText('Canvas is empty')).toBeVisible();
 

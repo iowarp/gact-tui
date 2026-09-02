@@ -280,7 +280,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         setActiveTabId(next[Math.max(0, index - 1)]?.id ?? '');
       }
     };
-    const activeTab = tabs.find((tab) => tab.id === activeTabId);
     const canvasVisible = useWorkspaceCanvasVisibility();
 
     const openCanvasResource = useCallback(
@@ -606,36 +605,48 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               ref={tabStripRef}
             >
               <TabsList className="h-10 w-max justify-start gap-1 rounded-lg bg-transparent p-1">
-                {tabs.map((tab) => (
-                  <TabsTrigger
-                    className={cn(
-                      'h-8 min-w-24 max-w-56 shrink-0 justify-start rounded-lg border-transparent bg-transparent px-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
-                      tab.id === activeTabId
-                        ? 'text-foreground'
-                        : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
-                    )}
-                    key={tab.id}
-                    ref={tab.id === activeTabId ? activeTabRef : undefined}
-                    value={tab.id}
-                  >
-                    <TabIcon kind={tab.kind} />
-                    <span className="truncate">{tab.label}</span>
-                  </TabsTrigger>
-                ))}
+                {tabs.map((tab) => {
+                  const active = tab.id === activeTabId;
+                  return (
+                    <TabsTrigger
+                      aria-keyshortcuts="Delete"
+                      className={cn(
+                        'group/canvas-tab h-8 min-w-24 max-w-56 shrink-0 justify-start rounded-lg border-transparent bg-transparent py-0.5 pr-8 pl-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
+                        active
+                          ? 'text-foreground'
+                          : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
+                      )}
+                      key={tab.id}
+                      ref={active ? activeTabRef : undefined}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Delete') return;
+                        event.preventDefault();
+                        closeTab(tab.id);
+                      }}
+                      onPointerDownCapture={(event) => {
+                        if (!(event.target instanceof Element)) return;
+                        if (!event.target.closest('[data-slot="canvas-tab-close"]')) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        closeTab(tab.id);
+                      }}
+                      value={tab.id}
+                    >
+                      <TabIcon kind={tab.kind} />
+                      <span className="truncate">{tab.label}</span>
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute top-1/2 right-1 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-[color,background-color,opacity] group-hover/canvas-tab:pointer-events-auto group-hover/canvas-tab:opacity-100 group-focus-visible/canvas-tab:pointer-events-auto group-focus-visible/canvas-tab:opacity-100 hover:bg-muted hover:text-foreground"
+                        data-slot="canvas-tab-close"
+                        title={`Close ${tab.label}`}
+                      >
+                        <XIcon className="size-3.5" />
+                      </span>
+                    </TabsTrigger>
+                  );
+                })}
               </TabsList>
             </div>
-            {activeTab ? (
-              <Button
-                aria-label={`Close ${activeTab.label}`}
-                className="size-8 shrink-0 rounded-lg opacity-70 hover:opacity-100 focus-visible:opacity-100"
-                onClick={() => closeTab(activeTab.id)}
-                size="icon-sm"
-                title={`Close ${activeTab.label}`}
-                variant="ghost"
-              >
-                <XIcon aria-hidden="true" />
-              </Button>
-            ) : null}
             <CanvasLauncher onOpen={openCanvasResource} />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
