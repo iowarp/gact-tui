@@ -16,6 +16,7 @@ export * from './prompt-repository.js';
 export * from './provider-repository.js';
 export * from './artifact-preview-repository.js';
 export * from './composer-conflicts.js';
+export * from './composer-decoding.js';
 export * from './composer-domain.js';
 export * from './composer-schemas.js';
 export * from './composer-repository.js';

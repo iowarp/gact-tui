@@ -5,30 +5,37 @@ import type {
   MessageDelivery,
   MessageSubmissionInput,
   PendingSteer,
+  PendingSteerCancellation,
   ProviderCatalog,
   QueuedMessage,
+  QueuedMessagePromotion,
   ResourceDeliveryRecord,
   WorkspaceResource,
   WorkspaceResourceDerivatives,
   WorkspaceResourceProcessing,
   WorkspaceResourceSearchResult,
   WorkspaceResourceStructure,
+  WorkspaceResourceStructureNode,
   ComposerModelRef,
 } from './composer-domain.js';
 import {
   messageAcceptanceSchema,
+  pendingSteerCancellationSchema,
   pendingSteerSchema,
   providerCatalogSchema,
+  queuedMessagePromotionSchema,
   queuedMessageSchema,
   resourceDeliveryRecordSchema,
   workspaceResourceSchema,
   workspaceResourceDerivativesSchema,
   workspaceResourceProcessingSchema,
   workspaceResourceSearchResultSchema,
+  workspaceResourceStructureNodeSchema,
   workspaceResourceStructureSchema,
 } from './composer-schemas.js';
 import { ArtifactPreviewRepository } from './artifact-preview-repository.js';
 import { QueuedMessageReorderConflictError } from './composer-conflicts.js';
+import { decodeComposerRows } from './composer-decoding.js';
 import { TransportError } from './transport.js';
 
 export interface CreateQueuedMessageInput {
@@ -60,7 +67,11 @@ export class ComposerRepository extends ArtifactPreviewRepository {
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/pending-steers`,
       decode: (value) =>
-        pendingSteerSchema.array().parse((value as { pending_steers?: unknown }).pending_steers),
+        decodeComposerRows(
+          'pending_steers',
+          pendingSteerSchema,
+          (value as { pending_steers?: unknown }).pending_steers,
+        ),
       signal,
     });
     return result;
@@ -70,11 +81,11 @@ export class ComposerRepository extends ArtifactPreviewRepository {
     sessionId: string,
     messageId: string,
     signal?: AbortSignal,
-  ): Promise<{ message_id: string; session_id: string }> {
+  ): Promise<PendingSteerCancellation> {
     return this.transport.request({
       method: 'DELETE',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/pending-steers/${encodeURIComponent(messageId)}`,
-      decode: (value) => value as { message_id: string; session_id: string },
+      decode: (value) => pendingSteerCancellationSchema.parse(value),
       signal,
     });
   }
@@ -84,7 +95,11 @@ export class ComposerRepository extends ArtifactPreviewRepository {
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/queued-messages`,
       decode: (value) =>
-        queuedMessageSchema.array().parse((value as { queued_messages?: unknown }).queued_messages),
+        decodeComposerRows(
+          'queued_messages',
+          queuedMessageSchema,
+          (value as { queued_messages?: unknown }).queued_messages,
+        ),
       signal,
     });
   }
@@ -180,24 +195,26 @@ export class ComposerRepository extends ArtifactPreviewRepository {
     });
   }
 
+  /**
+   * Promote one queued message into the live turn.
+   *
+   * The response is schema-validated whole rather than field-cast: `String()`
+   * over a missing `queued_message_id` manufactures the literal `"undefined"`,
+   * which then travels as a real id into invalidation keys and error text. A
+   * renamed or absent field must be a typed decode failure the caller can see.
+   */
   public promoteQueuedMessage(
     sessionId: string,
     messageId: string,
     revision: number,
     delivery: MessageDelivery,
     signal?: AbortSignal,
-  ): Promise<{ queued_message_id: string; acceptance: MessageAcceptance }> {
+  ): Promise<QueuedMessagePromotion> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/queued-messages/${encodeURIComponent(messageId)}/promote`,
       body: { revision, delivery },
-      decode: (value) => {
-        const row = value as { queued_message_id?: unknown; acceptance?: unknown };
-        return {
-          queued_message_id: String(row.queued_message_id),
-          acceptance: messageAcceptanceSchema.parse(row.acceptance),
-        };
-      },
+      decode: (value) => queuedMessagePromotionSchema.parse(value),
       signal,
     });
   }
@@ -207,7 +224,11 @@ export class ComposerRepository extends ArtifactPreviewRepository {
       method: 'GET',
       path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/resources`,
       decode: (value) =>
-        workspaceResourceSchema.array().parse((value as { resources?: unknown }).resources),
+        decodeComposerRows(
+          'resources',
+          workspaceResourceSchema,
+          (value as { resources?: unknown }).resources,
+        ),
       signal,
     });
   }
@@ -339,11 +360,11 @@ export class ComposerRepository extends ArtifactPreviewRepository {
     collection: string,
     index: number,
     signal?: AbortSignal,
-  ): Promise<{ collection: string; index: number; node: unknown }> {
+  ): Promise<WorkspaceResourceStructureNode> {
     return this.transport.request({
       method: 'GET',
       path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/resources/${encodeURIComponent(resourceId)}/structure/${encodeURIComponent(collection)}/${index}`,
-      decode: (value) => value as { collection: string; index: number; node: unknown },
+      decode: (value) => workspaceResourceStructureNodeSchema.parse(value),
       signal,
     });
   }
@@ -396,7 +417,11 @@ export class ComposerRepository extends ArtifactPreviewRepository {
       method: 'GET',
       path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/resource-deliveries`,
       decode: (value) =>
-        resourceDeliveryRecordSchema.array().parse((value as { records?: unknown }).records),
+        decodeComposerRows(
+          'resource_deliveries',
+          resourceDeliveryRecordSchema,
+          (value as { records?: unknown }).records,
+        ),
       signal,
     });
   }

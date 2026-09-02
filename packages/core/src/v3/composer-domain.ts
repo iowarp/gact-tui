@@ -71,6 +71,20 @@ export interface PendingSteer {
   cancelled_at: string;
 }
 
+/** The service's confirmation that one accepted-but-undelivered steer is gone. */
+export interface PendingSteerCancellation {
+  message_id: string;
+  session_id: string;
+}
+
+/** The service's answer to promoting a queued message into the live turn. */
+export interface QueuedMessagePromotion {
+  queued_message_id: string;
+  acceptance: MessageAcceptance;
+  /** The status the underlying message submission answered with. */
+  status_code?: number;
+}
+
 export interface QueuedMessage {
   id: string;
   session_id: string;
@@ -148,6 +162,12 @@ export interface WorkspaceResourceStructure {
   resource_id: string;
   revision: number;
   collections: Record<string, number>;
+}
+
+export interface WorkspaceResourceStructureNode {
+  collection: string;
+  index: number;
+  node: unknown;
 }
 
 export interface WorkspaceResourceSearchResult {

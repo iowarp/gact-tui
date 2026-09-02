@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { ComposerRepository } from './composer-repository.js';
 import { QueuedMessageReorderConflictError } from './composer-conflicts.js';
+import { clearComposerRowDegradations, composerRowDegradations } from './composer-decoding.js';
 import type { QueuedMessage } from './composer-domain.js';
 import { RecordingTransport } from './recording-transport.test-helper.js';
 import { TransportError } from './transport.js';
@@ -453,5 +454,146 @@ describe('ComposerRepository', () => {
       },
       { method: 'GET', path: '/v1/workspaces/workspace_1/resource-deliveries' },
     ]);
+  });
+});
+
+describe('ComposerRepository decode hygiene', () => {
+  beforeEach(() => clearComposerRowDegradations());
+
+  it('refuses a promotion the service did not name a queued message in', async () => {
+    const transport = new RecordingTransport([
+      {
+        acceptance: {
+          message_id: 'message_1',
+          accepted_at: '2026-08-31T12:00:00Z',
+          delivery: 'start',
+          state: 'started',
+          effective_model: model,
+          behavior,
+          idempotent_replay: false,
+        },
+      },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(
+      repository.promoteQueuedMessage('session_1', 'queued_1', 1, 'start'),
+    ).rejects.toThrow();
+  });
+
+  it('carries the promotion the service did answer with', async () => {
+    const transport = new RecordingTransport([
+      {
+        queued_message_id: 'queued_1',
+        status_code: 202,
+        acceptance: {
+          message_id: 'message_1',
+          accepted_at: '2026-08-31T12:00:00Z',
+          delivery: 'start',
+          state: 'started',
+          effective_model: model,
+          behavior,
+          idempotent_replay: false,
+        },
+      },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(
+      repository.promoteQueuedMessage('session_1', 'queued_1', 1, 'start'),
+    ).resolves.toMatchObject({ queued_message_id: 'queued_1', status_code: 202 });
+  });
+
+  it('refuses a steer cancellation and a structure node the service reshaped', async () => {
+    const transport = new RecordingTransport([
+      { session_id: 'session_1' },
+      { collection: 'tables', node: { data: [] } },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(repository.cancelPendingSteer('session_1', 'message_1')).rejects.toThrow();
+    await expect(
+      repository.resourceStructureNode('workspace_1', 'resource_1', 'tables', 0),
+    ).rejects.toThrow();
+  });
+
+  it('degrades one unreadable queued row instead of the whole queue', async () => {
+    const readable = {
+      id: 'queued_1',
+      session_id: 'session_1',
+      revision: 1,
+      position: 0,
+      parts: [{ type: 'text', text: 'Keep me.' }],
+      metadata: {},
+      client_message_id: 'queued_1',
+      idempotency_key: 'queued_1',
+      behavior,
+      model,
+      created_at: '2026-08-31T12:00:00Z',
+      updated_at: '2026-08-31T12:00:00Z',
+    };
+    const transport = new RecordingTransport([
+      { queued_messages: [{ id: 'queued_0', session_id: 'session_1' }, readable] },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(repository.queuedMessages('session_1')).resolves.toMatchObject([
+      { id: 'queued_1' },
+    ]);
+    expect(composerRowDegradations()).toMatchObject([
+      { collection: 'queued_messages', code: 'row_decode_failed', index: 0, id: 'queued_0' },
+    ]);
+  });
+
+  it('degrades one unreadable resource, steer, and delivery row in place', async () => {
+    const steer = {
+      message_id: 'message_1',
+      session_id: 'session_1',
+      accepted_at: '2026-08-31T12:00:00Z',
+      behavior,
+      model,
+    };
+    const resource = {
+      id: 'resource_1',
+      workspace_id: 'workspace_1',
+      name: 'observations.csv',
+      declared_size: 2048,
+      created_at: '2026-08-31T12:00:00Z',
+      updated_at: '2026-08-31T12:00:00Z',
+    };
+    const transport = new RecordingTransport([
+      { pending_steers: [steer, { session_id: 'session_1' }] },
+      { resources: [{ id: 'resource_0' }, resource] },
+      { records: [{ id: 'rdl_0' }] },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    // A steer that has not been claimed, consumed, or cancelled decodes with
+    // those stamps at the service's own empty default.
+    await expect(repository.pendingSteers('session_1')).resolves.toMatchObject([
+      { message_id: 'message_1', state: 'pending', claimed_at: '', cancelled_at: '' },
+    ]);
+    // An uploading resource likewise carries every detection field empty.
+    await expect(repository.resources('workspace_1')).resolves.toMatchObject([
+      { id: 'resource_1', state: 'uploading', detected_mime: '', completed_at: '', revision: 1 },
+    ]);
+    await expect(repository.resourceDeliveries('workspace_1')).resolves.toEqual([]);
+
+    expect(composerRowDegradations().map(({ collection, index }) => ({ collection, index }))).toEqual(
+      [
+        { collection: 'pending_steers', index: 1 },
+        { collection: 'resources', index: 0 },
+        { collection: 'resource_deliveries', index: 0 },
+      ],
+    );
+  });
+
+  it('still fails the whole read when the service serves no list at all', async () => {
+    const transport = new RecordingTransport([{ queued_messages: null }]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(repository.queuedMessages('session_1')).rejects.toThrow(
+      /Expected an array of queued_messages/u,
+    );
   });
 });
