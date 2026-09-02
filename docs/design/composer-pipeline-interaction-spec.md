@@ -13,7 +13,7 @@ preserved for reconciliation.
 | Attachments | AI Elements `Attachments` | Workspace custody, upload progress, resource identity |
 | Queued messages | AI Elements `Queue` | Persistence, revisions, promotion, conflict recovery |
 | Model picker | AI Elements `ModelSelector`, ReUI Cascader two-column composition | Live catalog normalization and provider configuration link |
-| Transcript minimap | ReUI `Scrollspy`, TanStack Virtual, shadcn `HoverCard` | Semantic landmark types and virtualized transcript jumps |
+| Transcript minimap | TanStack Virtual, shadcn `HoverCard` | Semantic landmark types and virtualized transcript jumps |
 
 No CLIO component recreates the interaction machinery supplied by those foundations. Domain
 adapters translate GACT state into their public props and events.
@@ -51,10 +51,14 @@ provider-then-model flow with an explicit Back action rather than horizontally c
 ## Transcript minimap
 
 The minimap occupies a narrow conversation gutter and uses 8–12 px strokes for user, assistant,
-activity, approval/question, error, A2UI, and artifact landmarks. ReUI Scrollspy observes mounted
-sections with URL history disabled. TanStack Virtual owns the normalized index and every jump.
-Hover and keyboard focus open the same shadcn HoverCard preview. A narrow conversation replaces the
-rail with one outline button. Reduced motion uses immediate jumps and opacity-only feedback.
+activity, approval/question, error, A2UI, and artifact landmarks. TanStack Virtual owns the
+normalized index, the active landmark, and every jump: the transcript's own virtualizer reports
+which message is in view, so the active landmark can be one the rail has not mounted. Reading it
+back from mounted DOM anchors instead could only ever name a landmark already on screen, so no
+scroll-spy observer takes part. Hover and keyboard focus open the same shadcn HoverCard preview,
+showing a bounded projection of the message rather than its full text. A narrow conversation
+replaces the rail with one outline button. Reduced motion uses immediate jumps and opacity-only
+feedback.
 
 ## Required visible walkthroughs
 
