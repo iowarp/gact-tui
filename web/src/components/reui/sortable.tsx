@@ -426,47 +426,4 @@ function SortableItemHandle({
   )
 }
 
-export interface SortableOverlayProps extends Omit<
-  React.ComponentProps<typeof DragOverlay>,
-  "children"
-> {
-  children?: ReactNode | ((params: { value: UniqueIdentifier }) => ReactNode)
-}
-
-function SortableOverlay({
-  children,
-  className,
-  ...props
-}: SortableOverlayProps) {
-  const { activeId, modifiers } = useContext(SortableInternalContext)
-  const mounted = useSyncExternalStore(
-    subscribeToNothing,
-    getIsMounted,
-    getIsMountedOnServer
-  )
-
-  const content =
-    activeId && children
-      ? typeof children === "function"
-        ? children({ value: activeId })
-        : children
-      : null
-
-  if (!mounted) return null
-
-  return createPortal(
-    <DragOverlay
-      dropAnimation={dropAnimationConfig}
-      modifiers={modifiers}
-      className={cn("z-50", activeId && "cursor-grabbing", className)}
-      {...props}
-    >
-      <IsOverlayContext.Provider value={true}>
-        {content}
-      </IsOverlayContext.Provider>
-    </DragOverlay>,
-    document.body
-  )
-}
-
-export { Sortable, SortableItem, SortableItemHandle, SortableOverlay }
+export { Sortable, SortableItem, SortableItemHandle }

@@ -5,7 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { ChevronDownIcon, PaperclipIcon } from 'lucide-react';
+import { ChevronDownIcon } from 'lucide-react';
 import { m, type HTMLMotionProps } from 'motion/react';
 import type { ComponentProps, ReactNode } from 'react';
 
@@ -68,25 +68,6 @@ export const QueueItemAction = ({ className, tooltip, ...props }: QueueItemActio
     </TooltipProvider>
   );
 };
-
-export type QueueItemAttachmentProps = ComponentProps<'span'>;
-
-export const QueueItemAttachment = ({ className, ...props }: QueueItemAttachmentProps) => (
-  <span
-    className={cn(
-      'flex max-w-28 shrink-0 items-center gap-1 truncate rounded border bg-muted px-1.5 py-0.5 text-xs',
-      className,
-    )}
-    {...props}
-  />
-);
-
-export const QueueItemFile = ({ children, ...props }: QueueItemAttachmentProps) => (
-  <QueueItemAttachment {...props}>
-    <PaperclipIcon aria-hidden="true" className="size-3 shrink-0" />
-    <span className="truncate">{children}</span>
-  </QueueItemAttachment>
-);
 
 export type QueueListProps = ComponentProps<typeof ScrollArea>;
 

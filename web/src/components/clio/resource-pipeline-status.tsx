@@ -70,9 +70,9 @@ function ResourceStageLine({ stage }: { stage: ResourcePipelineStage }) {
     >
       {icon}
       <span className="font-medium">{stage.name}</span>
-      <span className="text-muted-foreground">
-        {stage.label}
-        {stage.detail ? ` · ${stage.detail}` : ''}
+      <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-muted-foreground">
+        <span>{stage.label}</span>
+        {stage.detail ? <span className="min-w-0">{stage.detail}</span> : null}
       </span>
     </div>
   );

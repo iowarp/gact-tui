@@ -1,6 +1,7 @@
 import { queryKeys } from '@/lib/query-keys';
 import { invalidateQueriesInBackground } from '@/lib/query-invalidation';
 import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
+import { SendIdentities, sendFingerprint } from '@/lib/send-identity';
 import type {
   ComposerMessagePart,
   MessageBehavior,
@@ -94,11 +95,13 @@ export function useSessionMutations({
     ]);
   };
 
+  const sendIdentities = useRef(new SendIdentities());
   const send = useMutation({
     mutationFn: async (value: SessionSendInput) => {
       const provider = value.provider ?? activeProvider;
       const model = value.model ?? activeModel;
       if (!provider || !model) throw new Error('Choose an available provider and model.');
+      const identity = sendIdentities.current.forSend(sendFingerprint(value));
 
       const uploaded = value.files?.length
         ? await uploadWorkspaceResources({
@@ -116,27 +119,26 @@ export function useSessionMutations({
       ];
       if (parts.length === 0) throw new Error('Write a message or attach a resource.');
 
-      const clientMessageId = crypto.randomUUID();
-      const idempotencyKey = crypto.randomUUID();
       const route = { model_id: model, provider_id: provider };
       if (value.delivery === 'queued') {
         return repository.createQueuedMessage(sessionId, {
           behavior: value.behavior,
-          client_message_id: clientMessageId,
-          idempotency_key: idempotencyKey,
+          client_message_id: identity.clientMessageId,
+          idempotency_key: identity.idempotencyKey,
           model: route,
           parts,
         });
       }
       return repository.submitMessage(sessionId, {
         behavior: value.behavior,
-        client_message_id: clientMessageId,
+        client_message_id: identity.clientMessageId,
         delivery: value.delivery,
-        idempotency_key: idempotencyKey,
+        idempotency_key: identity.idempotencyKey,
         model: route,
         parts,
       });
     },
+    onSuccess: () => sendIdentities.current.accepted(),
     onSettled: invalidateComposerState,
   });
 

@@ -32,7 +32,10 @@ import { ClioModelPicker } from './model-picker';
 import { Button } from '@/components/ui/button';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
-import { ClioComposerAttachments } from './composer-attachments';
+import {
+  ClioComposerAttachments,
+  type ResourceUploadFailure,
+} from './composer-attachments';
 import { ClioComposerQueue } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
@@ -143,6 +146,10 @@ export function ClioComposer({
   // though the service had asked for it.
   const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
+  const [uploadFailure, setUploadFailure] = useState<ResourceUploadFailure>();
+  // The attachment in flight when a submit is rejected; the progress state is
+  // cleared on the way out, so the name is kept separately.
+  const uploadingFilenameRef = useRef<string>(undefined);
   const nextDeliveryRef = useRef<MessageDelivery | 'queued'>('start');
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
@@ -321,6 +328,8 @@ export function ClioComposer({
               return;
             }
             restoreFocusAfterSubmitRef.current = true;
+            setUploadFailure(undefined);
+            uploadingFilenameRef.current = undefined;
             try {
               await onSubmit({
                 behavior,
@@ -330,10 +339,17 @@ export function ClioComposer({
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
                 effort: behavior.reasoning_effort,
-                onUploadProgress: setUploadProgress,
+                onUploadProgress: (progress) => {
+                  uploadingFilenameRef.current = progress.filename;
+                  setUploadProgress(progress);
+                },
               });
             } catch (error) {
               setUploadProgress(undefined);
+              setUploadFailure({
+                filename: uploadingFilenameRef.current,
+                message: error instanceof Error ? error.message : 'The service rejected it.',
+              });
               toast.error(
                 state === 'running' ? 'Message was not accepted' : 'Message was not sent',
                 {
@@ -355,7 +371,10 @@ export function ClioComposer({
             {activityControl}
           </PromptInputHeader>
         ) : null}
-        <ClioComposerAttachments uploadProgress={uploadProgress} />
+        <ClioComposerAttachments
+          uploadFailure={uploadFailure}
+          uploadProgress={uploadProgress}
+        />
         {uploadProgress ? (
           <div className="px-3 pt-1 text-xs text-muted-foreground" role="status">
             Uploading {uploadProgress.filename}{' '}

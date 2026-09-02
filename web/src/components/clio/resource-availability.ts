@@ -172,11 +172,13 @@ export function summarizeResourcePipelineStages(
   conversion: ResourcePipelineStage,
 ): ResourcePipelineStages {
   const stages = [upload, conversion];
-  if (stages.some((stage) => stage.kind === 'active')) {
-    return { conversion, overall: 'active', overallLabel: 'Processing', upload };
-  }
+  // Failure dominates: a stage that failed means the attachment is not usable,
+  // whatever another stage is still doing.
   if (stages.some((stage) => stage.kind === 'failed')) {
     return { conversion, overall: 'failed', overallLabel: 'Unavailable', upload };
+  }
+  if (stages.some((stage) => stage.kind === 'active')) {
+    return { conversion, overall: 'active', overallLabel: 'Processing', upload };
   }
   if (stages.some((stage) => stage.kind === 'waiting')) {
     return { conversion, overall: 'waiting', overallLabel: 'Waiting', upload };

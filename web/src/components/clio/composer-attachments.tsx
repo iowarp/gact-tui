@@ -36,10 +36,18 @@ const LocalPdfViewer = lazy(() =>
 
 const MAX_TEXT_PREVIEW_BYTES = 1024 * 1024;
 
+/** A rejected upload, reported against the attachment it was carrying. */
+export interface ResourceUploadFailure {
+  filename?: string;
+  message: string;
+}
+
 /** Compact AI Elements attachment tray backed by PromptInput file state. */
 export function ClioComposerAttachments({
+  uploadFailure,
   uploadProgress,
 }: {
+  uploadFailure?: ResourceUploadFailure;
   uploadProgress?: ResourceUploadProgress;
 }) {
   const attachments = usePromptInputAttachments();
@@ -51,7 +59,7 @@ export function ClioComposerAttachments({
       <Attachments className="ml-0 w-full justify-start px-2.5 pb-1.5 pt-2" variant="inline">
         {attachments.files.map((file) => {
           const filename = file.filename ?? 'Attachment';
-          const stages = localAttachmentStages(file, uploadProgress);
+          const stages = localAttachmentStages(file, uploadProgress, uploadFailure);
           return (
             <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
               <AttachmentHoverCardTrigger asChild>
@@ -106,7 +114,16 @@ export function ClioComposerAttachments({
 function localAttachmentStages(
   file: FileUIPart,
   uploadProgress?: ResourceUploadProgress,
+  uploadFailure?: ResourceUploadFailure,
 ): ResourcePipelineStages {
+  if (uploadFailure && uploadFailure.filename === file.filename) {
+    // Without this a rejected upload keeps reading as a healthy "Ready locally"
+    // attachment, which is the opposite of what happened.
+    return summarizeResourcePipelineStages(
+      { detail: uploadFailure.message, kind: 'failed', label: 'Failed', name: 'Upload' },
+      { kind: 'waiting', label: 'Waiting for upload', name: 'Conversion' },
+    );
+  }
   const progress = uploadProgress?.filename === file.filename ? uploadProgress : undefined;
   const upload =
     progress && progress.loaded < progress.total

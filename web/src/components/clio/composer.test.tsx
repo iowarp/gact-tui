@@ -188,13 +188,25 @@ describe('ClioComposer service commands', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('Uploading field-map.png 100%')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Open field-map.png' })).toBeVisible();
+    const attachment = screen.getByRole('button', { name: 'Open field-map.png' });
+    expect(attachment).toBeVisible();
+    // A rejected upload must not keep reading as a healthy local attachment.
+    expect(
+      within(attachment).getByRole('img', { name: 'Attachment status: Unavailable' }),
+    ).toBeVisible();
+    await user.hover(attachment);
+    expect(await screen.findByRole('status', { name: 'Upload status: Failed' })).toBeVisible();
+    expect(
+      screen.getByText('The selected model cannot receive this image resource.'),
+    ).toBeVisible();
     expect(input).toHaveValue('Describe the image.');
 
     await user.click(screen.getByRole('button', { name: /^Submit$/ }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
     expect(screen.queryByText('Uploading field-map.png 100%')).not.toBeInTheDocument();
+    // The accepted retry clears the tray, so no stale failure is left behind.
+    expect(screen.queryByRole('button', { name: 'Open field-map.png' })).not.toBeInTheDocument();
   });
 
   it('focuses only after an explicit focus request changes', async () => {
@@ -282,6 +294,18 @@ describe('ClioComposer service commands', () => {
     expect(onCommand).not.toHaveBeenCalled();
     expect(onSubmit).not.toHaveBeenCalled();
     expect(input).toHaveValue('/not-a-service-command');
+  });
+
+  it('reveals the inline attachment remove control to a keyboard as well as a pointer', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['pixels'], 'field-map.png', { type: 'image/png' }),
+    );
+
+    const remove = screen.getByRole('button', { name: 'Remove' });
+    expect(remove).toHaveClass('group-hover:opacity-100', 'group-focus-within:opacity-100');
   });
 
   it('names an effort the service reported that this build has no setting for', () => {
