@@ -82,7 +82,11 @@ describe('ConversationTurn correlated work placement', () => {
           iteration(
             activityLane([
               { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Read evidence file') },
-              { kind: 'task', id: 'task_review', task: task('task_review', 'Review station quality') },
+              {
+                kind: 'task',
+                id: 'task_review',
+                task: task('task_review', 'Review station quality'),
+              },
               { kind: 'tool', id: 'call_render', tool: tool('call_render', 'Render the map') },
             ]),
           ),

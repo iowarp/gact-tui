@@ -190,7 +190,11 @@ function IterationDetail({
         */}
         {iteration.activity.map((entry) =>
           entry.kind === 'tool' ? (
-            <div className="space-y-2" data-turn-activity={`tool:${entry.id}`} key={`tool:${entry.id}`}>
+            <div
+              className="space-y-2"
+              data-turn-activity={`tool:${entry.id}`}
+              key={`tool:${entry.id}`}
+            >
               <ClioToolInvocation tool={entry.tool} />
               {subagentsForTool(entry.tool, subagents).map((subagent) => (
                 <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />

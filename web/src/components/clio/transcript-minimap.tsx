@@ -185,7 +185,11 @@ function TranscriptOutlineItem({
   );
 }
 
-function MinimapRail({ activeIndex, messages, onJump }: Omit<ClioTranscriptMinimapProps, 'visible'>) {
+function MinimapRail({
+  activeIndex,
+  messages,
+  onJump,
+}: Omit<ClioTranscriptMinimapProps, 'visible'>) {
   const railRef = useRef<HTMLDivElement>(null);
   const lastRevealedActiveIndexRef = useRef<number | null>(null);
   // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.

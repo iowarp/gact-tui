@@ -71,12 +71,7 @@ describe('ClioTranscriptMinimap', () => {
     const user = userEvent.setup();
     const onJump = vi.fn();
     render(
-      <ClioTranscriptMinimap
-        activeIndex={0}
-        messages={messages}
-        onJump={onJump}
-        visible={false}
-      />,
+      <ClioTranscriptMinimap activeIndex={0} messages={messages} onJump={onJump} visible={false} />,
     );
 
     await user.click(screen.getByRole('button', { name: 'Open transcript outline' }));
@@ -97,7 +92,9 @@ describe('ClioTranscriptMinimap', () => {
     );
     await user.click(outlineItem);
     expect(onJump).toHaveBeenCalledWith(0);
-    expect(screen.queryByRole('region', { name: 'user message 1 preview' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'user message 1 preview' }),
+    ).not.toBeInTheDocument();
   });
 
   it('offers one landmark per message without repeating transcript prose in the rail', async () => {
@@ -133,9 +130,7 @@ describe('ClioTranscriptMinimap', () => {
 
   it('reveals an edge landmark without forcing it to the center', () => {
     vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(10);
-    render(
-      <ClioTranscriptMinimap activeIndex={1} messages={messages} onJump={vi.fn()} visible />,
-    );
+    render(<ClioTranscriptMinimap activeIndex={1} messages={messages} onJump={vi.fn()} visible />);
 
     expect(virtual.scrollToIndex).toHaveBeenCalledWith(1, { align: 'end' });
   });
@@ -209,9 +204,7 @@ describe('ClioTranscriptMinimap', () => {
             session_id: 'session_1',
             role: 'assistant',
             created_at: '2026-08-31T12:00:01Z',
-            blocks: [
-              { id: 'reasoning_only', type: 'reasoning', text: 'Still deliberating here.' },
-            ],
+            blocks: [{ id: 'reasoning_only', type: 'reasoning', text: 'Still deliberating here.' }],
           },
         ]}
         onJump={vi.fn()}

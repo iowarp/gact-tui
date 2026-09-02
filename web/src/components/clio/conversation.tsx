@@ -501,7 +501,9 @@ export function ClioConversation({
       setActiveMessageIndex(messages.length - 1);
       return;
     }
-    const firstVisible = virtualizer.getVirtualItems().find((item) => item.end >= element.scrollTop);
+    const firstVisible = virtualizer
+      .getVirtualItems()
+      .find((item) => item.end >= element.scrollTop);
     if (firstVisible) setActiveMessageIndex(firstVisible.index);
   }, [messages.length, virtualizer]);
 

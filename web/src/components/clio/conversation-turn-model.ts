@@ -71,8 +71,12 @@ function fallbackIterations(
 
   const flush = (terminal = false, interrupted = false) => {
     if (!hasIterationContent(current)) return;
-    current.tools = current.activity.flatMap((entry) => (entry.kind === 'tool' ? [entry.tool] : []));
-    current.tasks = current.activity.flatMap((entry) => (entry.kind === 'task' ? [entry.task] : []));
+    current.tools = current.activity.flatMap((entry) =>
+      entry.kind === 'tool' ? [entry.tool] : [],
+    );
+    current.tasks = current.activity.flatMap((entry) =>
+      entry.kind === 'task' ? [entry.task] : [],
+    );
     current.terminal = terminal;
     current.interrupted = interrupted;
     current.summary = iterationSummary(
