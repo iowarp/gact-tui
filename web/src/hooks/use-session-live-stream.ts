@@ -79,7 +79,6 @@ export function useSessionLiveStream({
     const consume = async () => {
       setStreamState('connecting');
       while (!controller.signal.aborted) {
-        let receivedFrame = false;
         try {
           const cursor = latestCursor(useLiveStore.getState().entities.cursor, initialCursor);
           for await (const frame of repository.stream(
@@ -87,7 +86,6 @@ export function useSessionLiveStream({
             cursor,
             controller.signal,
           )) {
-            receivedFrame = true;
             reconnectDelay = STREAM_RECONNECT_BASE_MS;
             setStreamState('live');
             batcher.push(frame);
@@ -103,7 +101,11 @@ export function useSessionLiveStream({
               }),
             );
           }
-          if (!controller.signal.aborted && !receivedFrame) setStreamState('reconnecting');
+          // The iterator ended without the consumer aborting it — whether or
+          // not a frame ever arrived, the connection is gone (server close,
+          // idle timeout, network drop). Reporting 'live' here would be a
+          // status lie; the next loop iteration's first frame flips it back.
+          if (!controller.signal.aborted) setStreamState('reconnecting');
         } catch (error) {
           if (controller.signal.aborted) break;
           setStreamState('reconnecting');
@@ -260,11 +262,13 @@ export function queryInvalidationKeysForEvent({
 }: QueryInvalidationEvent): QueryKey[] {
   const keys: QueryKey[] = [];
   if (isPendingInteractionEvent(eventName)) {
-    // Approvals are read unscoped (a descendant session can raise one), so the
-    // invalidation must be the endpoint-level prefix that query is keyed under.
+    // Approvals and questions are both read unscoped now (a descendant
+    // session can raise either), so the invalidation must be the
+    // endpoint-level prefix each query is actually keyed under, not a
+    // per-session key that would never match the shared cache entry.
     keys.push(
       queryKeys.pendingApprovals(endpoint),
-      queryKeys.pendingQuestions(endpoint, sessionId),
+      queryKeys.key('pending-questions', endpoint),
     );
   }
   if (isProcessEvent(eventName)) {

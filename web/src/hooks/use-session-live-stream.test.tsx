@@ -154,6 +154,28 @@ describe('useSessionLiveStream resume recovery', () => {
     expect(uploaded).toEqual([['workspace-resources', 'http://127.0.0.1:8790', 'ws_1']]);
   });
 
+  it('reports reconnecting when the stream ends without an abort, even after a frame arrived', async () => {
+    mocks.repository.stream.mockImplementation(async function* (
+      _scope: unknown,
+      _cursor: unknown,
+      _signal: AbortSignal,
+    ) {
+      // Yields one frame, then the generator returns normally — simulating
+      // the server closing the stream (idle timeout, restart) rather than
+      // the consumer aborting it.
+      yield { eventName: 'message.completed' };
+    });
+
+    const { unmount } = renderHook(() =>
+      useSessionLiveStream({ enabled: true, sessionId: 'sess_1', workspaceId: 'ws_1' }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.storeState.setStreamState).toHaveBeenCalledWith('reconnecting'),
+    );
+    unmount();
+  });
+
   it('invalidates the approvals query the workspace actually reads', async () => {
     const { QueryClient } = await vi.importActual<typeof import('@tanstack/react-query')>(
       '@tanstack/react-query',
@@ -174,6 +196,31 @@ describe('useSessionLiveStream resume recovery', () => {
     );
 
     expect(matched).toContainEqual(['pending-approvals', 'http://127.0.0.1:8790', 'all-active']);
+  });
+
+  it('invalidates the unscoped questions query the workspace actually reads', async () => {
+    const { QueryClient } = await vi.importActual<typeof import('@tanstack/react-query')>(
+      '@tanstack/react-query',
+    );
+    const client = new QueryClient();
+    // This is the ACTUAL cache key use-workspace-data.ts reads questions
+    // under now that they are fetched unscoped, mirroring pending-approvals'
+    // 'all-active' key rather than a per-session one.
+    client.setQueryData(['pending-questions', 'http://127.0.0.1:8790', 'all-active'], []);
+
+    const matched = queryInvalidationKeysForEvent({
+      endpoint: 'http://127.0.0.1:8790',
+      eventName: 'user_question.created',
+      sessionId: 'sess_1',
+      workspaceId: 'ws_1',
+    }).flatMap((queryKey) =>
+      client
+        .getQueryCache()
+        .findAll({ queryKey })
+        .map((query) => query.queryKey),
+    );
+
+    expect(matched).toContainEqual(['pending-questions', 'http://127.0.0.1:8790', 'all-active']);
   });
 
   it('continues consuming frames while cache invalidation is unresolved', async () => {
