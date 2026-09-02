@@ -27,7 +27,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Lifecycle supervisor (Wave 0c) + the gact_http command (post-tag bridge)
 rand = "0.8"
-ureq = { version = "2.10", default-features = false }
+# default-features = false drops ureq's own default TLS backend, so "tls"
+# (rustls) is what keeps https reachable: without it every https endpoint the UI
+# accepts fails inside the bridge with an opaque transport error.
+ureq = { version = "2.10", default-features = false, features = ["tls"] }
 hex = "0.4"
 libc = "0.2"
 base64 = "0.22"

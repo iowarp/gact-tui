@@ -113,6 +113,27 @@ export const MANAGED_BACKEND_READY_TIMEOUT_MS = 90_000;
  */
 export const UPDATE_CHECK_TIMEOUT_MS = 15_000;
 
+/**
+ * Whole-request budget the desktop bridge applies to an ordinary API call.
+ * Unit: milliseconds. Only the native transport enforces one — the browser
+ * leaves the wait to `fetch` — and it mirrors `DEFAULT_TIMEOUT_MS` in
+ * `desktop/src-tauri/src/gact_http.rs`, which applies it when a request names
+ * no budget of its own.
+ */
+export const GACT_HTTP_TIMEOUT_MS = 30_000;
+
+/**
+ * Budget the desktop bridge applies to a transfer of bytes — a resource upload
+ * chunk on the way out, artifact or document bytes on the way in.
+ * Unit: milliseconds. Far above the ordinary budget because these move
+ * megabytes over a link whose speed the client cannot know, and the ordinary
+ * budget turns a large but healthy upload into a failed one.
+ *
+ * A request that is slow for a reason the transport cannot see — a synchronous
+ * server-side conversion — carries its own `timeoutMs` instead.
+ */
+export const GACT_HTTP_TRANSFER_TIMEOUT_MS = 600_000;
+
 // ## Retention
 // How much history a surface holds or asks for.
 

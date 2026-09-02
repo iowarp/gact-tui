@@ -11,6 +11,16 @@ import type {
 import { readBytesPath } from './artifact-custody.js';
 import { BlueprintRepository } from './blueprint-repository.js';
 
+/**
+ * Budget for a document rendition. Unit: milliseconds.
+ *
+ * The service converts the document to PDF while this request is open, so the
+ * wait is a document-processor conversion, not a read; a long report takes
+ * minutes. It lives here rather than with the client's other tunables because
+ * only this one call has that shape.
+ */
+const DOCUMENT_RENDITION_TIMEOUT_MS = 600_000;
+
 const optionalString = z
   .string()
   .nullish()
@@ -214,6 +224,7 @@ export class DocumentRepository extends BlueprintRepository {
           })
           .parse(value),
       signal,
+      timeoutMs: DOCUMENT_RENDITION_TIMEOUT_MS,
     });
   }
 

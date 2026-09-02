@@ -102,12 +102,17 @@ pub fn run() {
             // release generation, or executable. Tauri resolves a stable,
             // bundle-scoped cache directory for the current OS user; every
             // managed child inherits these Hugging Face cache variables.
-            if let Ok(app_cache_dir) = app.path().app_cache_dir() {
-                if let Err(error) = sidecar_setup::install_model_cache_env(&app_cache_dir) {
-                    supervisor_boot_log::boot_log_line(&format!(
-                        "warning: could not prepare shared model cache: {error}"
-                    ));
+            match app.path().app_cache_dir() {
+                Ok(app_cache_dir) => {
+                    if let Err(error) = sidecar_setup::install_model_cache_env(&app_cache_dir) {
+                        supervisor_boot_log::boot_log_line(&format!(
+                            "warning: could not prepare shared model cache: {error}"
+                        ));
+                    }
                 }
+                Err(error) => supervisor_boot_log::boot_log_line(&format!(
+                    "warning: no platform cache directory, so model downloads are not shared: {error}"
+                )),
             }
 
             // Make the BUNDLED clio runtime (if this build is the bundled

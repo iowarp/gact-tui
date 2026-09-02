@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TauriClioTransport, type TauriBridge } from './tauri-transport';
+import { GACT_HTTP_TIMEOUT_MS, GACT_HTTP_TRANSFER_TIMEOUT_MS } from '@/lib/runtime-limits';
 
 class FakeBridge implements TauriBridge {
   public calls: Array<{ command: string; args?: Record<string, unknown> }> = [];
@@ -102,6 +103,24 @@ class BinaryBridge extends FakeBridge {
   }
 }
 
+class FailingBridge extends FakeBridge {
+  public constructor(private readonly failure: string) {
+    super();
+  }
+
+  public override async invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+    if (command === 'gact_http') {
+      this.calls.push({ command, args });
+      throw new Error(this.failure);
+    }
+    return super.invoke(command, args);
+  }
+}
+
+function timeoutOf(bridge: FakeBridge): number | undefined {
+  return (bridge.calls[0]?.args?.req as { timeout_ms?: number } | undefined)?.timeout_ms;
+}
+
 describe('TauriClioTransport', () => {
   it('routes negotiated REST through the Rust bridge', async () => {
     const bridge = new FakeBridge();
@@ -175,6 +194,87 @@ describe('TauriClioTransport', () => {
         decode: (value) => value,
       }),
     ).resolves.toEqual(new Uint8Array([137, 80, 78, 71, 0, 255]));
+  });
+
+  it('gives an ordinary call the ordinary budget', async () => {
+    const bridge = new FakeBridge();
+    const transport = new TauriClioTransport({ endpoint: 'http://127.0.0.1:8787', bridge });
+
+    await transport.request({ method: 'GET', path: '/v1/capabilities', decode: (value) => value });
+
+    expect(timeoutOf(bridge)).toBe(GACT_HTTP_TIMEOUT_MS);
+  });
+
+  it('gives a byte transfer in either direction the transfer budget', async () => {
+    const uploadBridge = new FakeBridge();
+    await new TauriClioTransport({
+      endpoint: 'http://127.0.0.1:8787',
+      bridge: uploadBridge,
+    }).request({
+      method: 'PATCH',
+      path: '/v1/workspaces/ws_1/resources/res_1/content',
+      rawBody: new Uint8Array([1, 2, 3]),
+      decode: () => undefined,
+    });
+    expect(timeoutOf(uploadBridge)).toBe(GACT_HTTP_TRANSFER_TIMEOUT_MS);
+
+    const downloadBridge = new BinaryBridge();
+    await new TauriClioTransport({
+      endpoint: 'http://127.0.0.1:8787',
+      bridge: downloadBridge,
+    }).request({
+      method: 'GET',
+      path: '/v1/artifacts/plot/bytes',
+      responseType: 'bytes',
+      decode: (value) => value,
+    });
+    expect(timeoutOf(downloadBridge)).toBe(GACT_HTTP_TRANSFER_TIMEOUT_MS);
+  });
+
+  it("lets a request that knows its own shape name its budget", async () => {
+    const bridge = new FakeBridge();
+    const transport = new TauriClioTransport({ endpoint: 'http://127.0.0.1:8787', bridge });
+
+    await transport.request({
+      method: 'POST',
+      path: '/v1/artifacts/art_1/renditions',
+      body: { format: 'pdf' },
+      timeoutMs: 600_000,
+      decode: (value) => value,
+    });
+
+    expect(timeoutOf(bridge)).toBe(600_000);
+  });
+
+  it('distinguishes a bridge refusal from a dead connection', async () => {
+    const oversized = new TauriClioTransport({
+      endpoint: 'http://127.0.0.1:8787',
+      bridge: new FailingBridge(
+        'gact_http_response_too_large: response exceeds the 67108864-byte bridge limit',
+      ),
+    });
+
+    await expect(
+      oversized.request({ method: 'GET', path: '/v1/huge', decode: (value) => value }),
+    ).rejects.toMatchObject({ code: 'native_response_too_large' });
+
+    const unreachable = new TauriClioTransport({
+      endpoint: 'http://127.0.0.1:8787',
+      bridge: new FailingBridge('gact_http_transport_error: connection refused'),
+    });
+
+    await expect(
+      unreachable.request({ method: 'GET', path: '/v1/capabilities', decode: (value) => value }),
+    ).rejects.toMatchObject({ code: 'native_transport_failed' });
+
+    const unknown = new TauriClioTransport({
+      endpoint: 'http://127.0.0.1:8787',
+      bridge: new FailingBridge('the webview went away'),
+    });
+
+    await expect(
+      unknown.request({ method: 'GET', path: '/v1/capabilities', decode: (value) => value }),
+    ).rejects.toMatchObject({ code: 'native_transport_failed' });
   });
 
   it('turns the keyed Rust SSE event into the shared transport frame', async () => {

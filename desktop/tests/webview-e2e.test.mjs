@@ -117,6 +117,20 @@ const enabled = missing.length === 0;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/**
+ * Windows has no process group to signal: killing tauri-driver terminates that
+ * one process and leaves msedgedriver and the app it spawned running, still
+ * holding the WebDriver port, so the next run's driver cannot bind it. taskkill
+ * /T is the only way to take the tree down.
+ */
+function killWindowsTree(pid) {
+  return new Promise((resolveKill) => {
+    const killer = spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
+    killer.once('exit', () => resolveKill());
+    killer.once('error', () => resolveKill());
+  });
+}
+
 async function terminateDriverTree(driver) {
   if (driver.exitCode !== null || driver.signalCode !== null) return;
   const exited = new Promise((resolveExit) => driver.once('exit', () => resolveExit(true)));
@@ -134,7 +148,11 @@ async function terminateDriverTree(driver) {
   signal('SIGTERM');
   if (await Promise.race([exited, sleep(3_000).then(() => false)])) return;
   signal('SIGKILL');
-  await Promise.race([exited, sleep(3_000).then(() => false)]);
+  if (await Promise.race([exited, sleep(3_000).then(() => false)])) return;
+  if (process.platform === 'win32' && driver.pid) {
+    await killWindowsTree(driver.pid);
+    await Promise.race([exited, sleep(3_000).then(() => false)]);
+  }
   driver.unref();
 }
 
@@ -541,9 +559,16 @@ async function waitForVisiblePermissionCard(sid, timeoutMs) {
   }
 }
 
+// The name has to be true under both flag combos: TAURI_E2E_CHAT_ONLY=1 skips
+// the permission phase below, so only booting the stack and driving the chat
+// shell is asserted every run. The subtests name what each one actually covers.
+//
+// The timeout must clear the sum of the internal budgets (~226s of waits and
+// sleeps on the permission path), or the harness kills a run that is still
+// inside a wait it was given -- reporting a timeout instead of the failure.
 test(
-  'real WebView: permission card renders + clears through the Tauri stack',
-  { skip: !enabled ? `missing ${missing.join(', ')}` : false, timeout: 210_000 },
+  'real WebView: the desktop stack boots and drives the chat shell over the native bridge',
+  { skip: !enabled ? `missing ${missing.join(', ')}` : false, timeout: 260_000 },
   async (t) => {
     const seeded = CHAT_ONLY ? { agentId: '', sessionId: '' } : await seedPermissionProbeSession();
     let driver;

@@ -7,6 +7,7 @@ import {
   type TransportFrame,
   type TransportRequest,
 } from '@clio/core/v3';
+import { GACT_HTTP_TIMEOUT_MS, GACT_HTTP_TRANSFER_TIMEOUT_MS } from '@/lib/runtime-limits';
 
 interface RustHttpResponse {
   status: number;
@@ -20,6 +21,19 @@ interface RustHttpRequestBody {
   body?: string;
   body_encoding?: 'text' | 'base64';
 }
+
+/**
+ * Leading token of every error the Rust bridge returns, mapped to the reason the
+ * frontend shows. Defined in `desktop/src-tauri/src/gact_http.rs`; a request the
+ * server answered and a connection that never opened must not read alike.
+ */
+const NATIVE_ERROR_REASONS: Record<string, string> = {
+  gact_http_response_too_large: 'native_response_too_large',
+  gact_http_response_unreadable: 'native_response_unreadable',
+  gact_http_request_body_invalid: 'native_request_invalid',
+  gact_http_unsupported_method: 'native_request_invalid',
+  gact_http_transport_error: 'native_transport_failed',
+};
 
 interface SseBridgeMessage {
   kind: 'open' | 'event' | 'error' | 'closed';
@@ -99,15 +113,17 @@ export class TauriClioTransport implements ClioTransport {
             ...this.headers('application/json'),
             ...request.headers,
           },
+          timeout_ms: requestTimeoutMs(request),
           ...requestBody,
         },
       });
     } catch (error) {
       if (request.signal?.aborted) throw abortError();
+      const message = error instanceof Error ? error.message : String(error ?? '');
       throw new TransportError(
-        error instanceof Error ? error.message : 'Native request failed',
+        message || 'Native request failed',
         undefined,
-        'native_transport_failed',
+        nativeErrorReason(message),
       );
     }
     if (request.signal?.aborted) throw abortError();
@@ -228,6 +244,24 @@ export class TauriClioTransport implements ClioTransport {
     if (cursor) headers['Last-Event-ID'] = cursor;
     return headers;
   }
+}
+
+/**
+ * Budget for one bridged request.
+ *
+ * A caller that knows its own shape names it. Otherwise the class the transport
+ * can actually see decides: bytes in either direction are a transfer, and
+ * everything else is an ordinary call.
+ */
+function requestTimeoutMs(request: TransportRequest<unknown>): number {
+  if (request.timeoutMs !== undefined) return request.timeoutMs;
+  const transfersBytes = request.rawBody !== undefined || request.responseType === 'bytes';
+  return transfersBytes ? GACT_HTTP_TRANSFER_TIMEOUT_MS : GACT_HTTP_TIMEOUT_MS;
+}
+
+function nativeErrorReason(message: string): string {
+  const token = message.split(':', 1)[0]?.trim() ?? '';
+  return NATIVE_ERROR_REASONS[token] ?? 'native_transport_failed';
 }
 
 function encodeRequestBody(request: TransportRequest<unknown>): RustHttpRequestBody {
