@@ -301,7 +301,7 @@ describe('ClioPendingInteractions', () => {
     // lost once already.
     expect(responses).toHaveClass('bg-card/70', 'dark:bg-card/60');
     expect(viewport).toHaveAttribute('tabindex', '0');
-    expect(viewport).toHaveClass('overscroll-contain');
+    expect(viewport).toHaveClass('overscroll-contain', '[&>div]:!block', '[&>div]:min-w-full');
     expect(viewport.closest('[data-slot="scroll-area"]')).toHaveClass(
       'h-[min(22rem,40dvh)]',
       'min-h-0',
