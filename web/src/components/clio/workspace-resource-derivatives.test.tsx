@@ -1,8 +1,9 @@
 import type { WorkspaceResourceDerivative, WorkspaceResourceProcessing } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { queryKeys } from '@/lib/query-keys';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 
 const repository = {
@@ -12,6 +13,12 @@ const repository = {
 };
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: ENDPOINT } }),
+}));
+
+const ENDPOINT = 'http://127.0.0.1:8790';
+const OTHER_ENDPOINT = 'http://127.0.0.1:8791';
 
 afterEach(() => {
   cleanup();
@@ -47,7 +54,7 @@ function renderView(
   processingState: WorkspaceResourceProcessing['state'] = processing.state,
 ) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  render(
     <QueryClientProvider client={client}>
       <WorkspaceResourceDerivativesView
         derivatives={derivatives}
@@ -57,7 +64,69 @@ function renderView(
       />
     </QueryClientProvider>,
   );
+  return client;
 }
+
+/**
+ * Seed the cache with the keys the reading surfaces actually register, so an
+ * invalidation that does not prefix-match one of them shows up as a query that
+ * is still fresh after the mutation.
+ */
+function seedReadQueries(client: QueryClient) {
+  const keys = {
+    derivatives: queryKeys.workspaceResourceDerivatives(ENDPOINT, 'workspace_1', 'resource_1', 1),
+    otherEndpointDerivatives: queryKeys.workspaceResourceDerivatives(
+      OTHER_ENDPOINT,
+      'workspace_1',
+      'resource_1',
+      1,
+    ),
+    resources: queryKeys.workspaceResources(ENDPOINT, 'workspace_1'),
+    structure: queryKeys.workspaceResourceStructure(ENDPOINT, 'workspace_1', 'resource_1', 1),
+    structureNode: queryKeys.workspaceResourceStructureNode(
+      ENDPOINT,
+      'workspace_1',
+      'resource_1',
+      'texts',
+      0,
+    ),
+  } as const;
+  for (const key of Object.values(keys)) client.setQueryData(key, { seeded: true });
+  return {
+    isStale: (key: readonly unknown[]) =>
+      client.getQueryState([...key])?.isInvalidated === true,
+    keys,
+  };
+}
+
+describe('WorkspaceResourceDerivativesView invalidation', () => {
+  it('refreshes every read a reprocess invalidates, on this endpoint only', async () => {
+    repository.reprocessResource.mockResolvedValue({ ...processing, state: 'submitted' });
+    const user = userEvent.setup();
+    const client = renderView([]);
+    const cache = seedReadQueries(client);
+
+    await user.click(screen.getByRole('button', { name: 'Reprocess resource' }));
+
+    await waitFor(() => expect(cache.isStale(cache.keys.derivatives)).toBe(true));
+    expect(cache.isStale(cache.keys.structure)).toBe(true);
+    // The structured node view is served from the previous run without this.
+    expect(cache.isStale(cache.keys.structureNode)).toBe(true);
+    expect(cache.isStale(cache.keys.otherEndpointDerivatives)).toBe(false);
+  });
+
+  it('refreshes the workspace resource list when a conversion is cancelled', async () => {
+    repository.cancelResourceProcessing.mockResolvedValue({ ...processing, state: 'cancelled' });
+    const user = userEvent.setup();
+    const client = renderView([], 'processing');
+    const cache = seedReadQueries(client);
+
+    await user.click(screen.getByRole('button', { name: 'Cancel conversion' }));
+
+    await waitFor(() => expect(cache.isStale(cache.keys.derivatives)).toBe(true));
+    expect(cache.isStale(cache.keys.resources)).toBe(true);
+  });
+});
 
 describe('WorkspaceResourceDerivativesView', () => {
   it('opens a bounded derivative preview in place and returns to the list', async () => {

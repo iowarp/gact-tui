@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   ImageResourceView,
   ResourceLoading,
@@ -41,6 +42,8 @@ export function WorkspaceResourceDerivativesView({
 }: WorkspaceResourceDerivativesViewProps) {
   const repository = useRepository();
   const queryClient = useQueryClient();
+  const { settings } = useConnectionSettings();
+  const endpoint = settings.endpoint;
   const [selectedId, setSelectedId] = useState<string>();
   const selected = derivatives.find((derivative) => derivative.id === selectedId);
   const reprocess = useMutation({
@@ -49,10 +52,15 @@ export function WorkspaceResourceDerivativesView({
       setSelectedId(undefined);
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: queryKeys.key('workspace-resource-derivatives', workspaceId, resourceId),
+          queryKey: queryKeys.workspaceResourceDerivatives(endpoint, workspaceId, resourceId),
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.key('workspace-resource-structure', workspaceId, resourceId),
+          queryKey: queryKeys.workspaceResourceStructure(endpoint, workspaceId, resourceId),
+        }),
+        // A new run republishes the collections, so the node the structure view
+        // is showing came from the previous one.
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workspaceResourceStructureNode(endpoint, workspaceId, resourceId),
         }),
       ]);
       toast.success('Document processing started');
@@ -64,10 +72,10 @@ export function WorkspaceResourceDerivativesView({
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: queryKeys.key('workspace-resource-derivatives', workspaceId, resourceId),
+          queryKey: queryKeys.workspaceResourceDerivatives(endpoint, workspaceId, resourceId),
         }),
         queryClient.invalidateQueries({
-          queryKey: queryKeys.key('workspace-resources', workspaceId),
+          queryKey: queryKeys.workspaceResources(endpoint, workspaceId),
         }),
       ]);
       toast.success('Document conversion cancelled');
@@ -182,9 +190,10 @@ function DerivativePreview({
   workspaceId: string;
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const content = useQuery({
-    queryKey: queryKeys.key(
-      'workspace-resource-derivative-content',
+    queryKey: queryKeys.workspaceResourceDerivativeContent(
+      settings.endpoint,
       workspaceId,
       resourceId,
       derivative.id,

@@ -50,6 +50,9 @@ afterEach(() => {
 });
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
+}));
 vi.mock('./document-pdf-viewer', () => ({
   ClioDocumentPdfViewer: ({ name }: { name: string }) => <div>Rendered PDF {name}</div>,
 }));

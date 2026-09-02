@@ -19,6 +19,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
+import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   ImageResourceView,
   ResourceLoading,
@@ -42,10 +44,12 @@ interface WorkspaceResourceViewProps {
 /** Renders one workspace-owned upload and its structured processing provenance. */
 export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResourceViewProps) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const endpoint = settings.endpoint;
   const [activeTab, setActiveTab] = useState('preview');
   const preview = useQuery({
-    queryKey: queryKeys.key(
-      'workspace-resource-preview',
+    queryKey: queryKeys.workspaceResourcePreview(
+      endpoint,
       workspaceId,
       resource.id,
       resource.revision,
@@ -54,8 +58,8 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
     enabled: resource.state === 'ready' && isPreviewable(resource.detected_mime),
   });
   const derivatives = useQuery({
-    queryKey: queryKeys.key(
-      'workspace-resource-derivatives',
+    queryKey: queryKeys.workspaceResourceDerivatives(
+      endpoint,
       workspaceId,
       resource.id,
       resource.revision,
@@ -63,11 +67,13 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
     queryFn: ({ signal }) => repository.resourceDerivatives(workspaceId, resource.id, signal),
     enabled: resource.state === 'ready',
     refetchInterval: (query) =>
-      ['submitted', 'processing'].includes(query.state.data?.processor.state ?? '') ? 1_500 : false,
+      ['submitted', 'processing'].includes(query.state.data?.processor.state ?? '')
+        ? ACTIVE_SESSION_POLL_MS
+        : false,
   });
   const structure = useQuery({
-    queryKey: queryKeys.key(
-      'workspace-resource-structure',
+    queryKey: queryKeys.workspaceResourceStructure(
+      endpoint,
       workspaceId,
       resource.id,
       resource.revision,
@@ -78,7 +84,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
     retry: false,
   });
   const deliveries = useQuery({
-    queryKey: queryKeys.key('workspace-resource-deliveries', workspaceId),
+    queryKey: queryKeys.workspaceResourceDeliveries(endpoint, workspaceId),
     queryFn: ({ signal }) => repository.resourceDeliveries(workspaceId, signal),
     enabled: activeTab === 'provenance',
   });
@@ -290,6 +296,7 @@ function StructuredResourceView({
   workspaceId: string;
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const [selection, setSelection] = useState<{ collection: string; index: number }>();
   const firstCollection = Object.keys(structure ?? {})[0];
   const activeSelection =
@@ -299,8 +306,8 @@ function StructuredResourceView({
         ? { collection: firstCollection, index: 0 }
         : undefined;
   const node = useQuery({
-    queryKey: queryKeys.key(
-      'workspace-resource-structure-node',
+    queryKey: queryKeys.workspaceResourceStructureNode(
+      settings.endpoint,
       workspaceId,
       resource.id,
       activeSelection?.collection,

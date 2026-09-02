@@ -126,6 +126,61 @@ export const queryKeys = {
     ['workspace-files', endpoint, workspaceId] as const,
   workspaceResources: (endpoint: string, workspaceId: string) =>
     ['workspace-resources', endpoint, workspaceId] as const,
+  workspaceResourceDeliveries: (endpoint: string, workspaceId: string) =>
+    ['workspace-resource-deliveries', endpoint, workspaceId] as const,
+  // The revision-less form is the prefix an invalidation uses: it matches every
+  // revision of one resource, which is exactly what a reprocess invalidates.
+  workspaceResourceDerivatives: (
+    endpoint: string,
+    workspaceId: string,
+    resourceId: string,
+    revision?: number,
+  ) =>
+    revision === undefined
+      ? (['workspace-resource-derivatives', endpoint, workspaceId, resourceId] as const)
+      : (['workspace-resource-derivatives', endpoint, workspaceId, resourceId, revision] as const),
+  workspaceResourceDerivativeContent: (
+    endpoint: string,
+    workspaceId: string,
+    resourceId: string,
+    derivativeId: string,
+  ) =>
+    ['workspace-resource-derivative-content', endpoint, workspaceId, resourceId, derivativeId] as const,
+  workspaceResourcePreview: (
+    endpoint: string,
+    workspaceId: string,
+    resourceId: string,
+    revision?: number,
+  ) =>
+    revision === undefined
+      ? (['workspace-resource-preview', endpoint, workspaceId, resourceId] as const)
+      : (['workspace-resource-preview', endpoint, workspaceId, resourceId, revision] as const),
+  workspaceResourceStructure: (
+    endpoint: string,
+    workspaceId: string,
+    resourceId: string,
+    revision?: number,
+  ) =>
+    revision === undefined
+      ? (['workspace-resource-structure', endpoint, workspaceId, resourceId] as const)
+      : (['workspace-resource-structure', endpoint, workspaceId, resourceId, revision] as const),
+  workspaceResourceStructureNode: (
+    endpoint: string,
+    workspaceId: string,
+    resourceId: string,
+    collection?: string,
+    index?: number,
+  ) =>
+    collection === undefined
+      ? (['workspace-resource-structure-node', endpoint, workspaceId, resourceId] as const)
+      : ([
+          'workspace-resource-structure-node',
+          endpoint,
+          workspaceId,
+          resourceId,
+          collection,
+          index,
+        ] as const),
   workspaces: (endpoint: string, scope?: string) =>
     scope ? (['workspaces', endpoint, scope] as const) : (['workspaces', endpoint] as const),
 } as const;
