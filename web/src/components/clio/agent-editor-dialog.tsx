@@ -124,6 +124,12 @@ export function AgentEditorDialog({
     catalogModelsByProvider,
     presets: modelConfiguration.data?.presets ?? [],
   });
+  const modelCatalogStatus =
+    modelConfiguration.isFetching || modelCatalogs.some((catalog) => catalog.isFetching)
+      ? 'loading'
+      : modelConfiguration.isError || modelCatalogs.some((catalog) => catalog.isError)
+        ? 'error'
+        : 'ready';
   const selectedChoice = modelOptions.find(
     (choice) => choice.providerId === effectiveProvider && choice.id === effectiveModel,
   );
@@ -201,6 +207,7 @@ export function AgentEditorDialog({
               <Field>
                 <FieldLabel>Preferred model</FieldLabel>
                 <ClioModelPicker
+                  catalogStatus={modelCatalogStatus}
                   model={effectiveModel}
                   onChange={(choice) => {
                     setDraft((current) => ({
@@ -209,6 +216,10 @@ export function AgentEditorDialog({
                       model: choice.id,
                     }));
                     setCustomSource(false);
+                  }}
+                  onRetryCatalog={() => {
+                    void modelConfiguration.refetch();
+                    for (const catalog of modelCatalogs) void catalog.refetch();
                   }}
                   options={modelOptions}
                   provider={effectiveProvider}

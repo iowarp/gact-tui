@@ -67,7 +67,12 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByText('1 display fallback')).toBeInTheDocument();
-    expect(screen.getByText('Working')).toBeInTheDocument();
+    // "Working" renders both in the visible status badge and in the persistent sr-only live
+    // region (which always mirrors it so status transitions are announced) — assert the badge.
+    const workingBadge = screen
+      .getAllByText('Working')
+      .find((element) => element.closest('[data-slot="badge"]'));
+    expect(workingBadge).toBeDefined();
     warn.mockRestore();
   });
 
@@ -96,6 +101,84 @@ describe('ClioObservabilityView', () => {
 
     expect(onOpenCanvas).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows a session waiting on permission with its own typed status, not the running spinner', () => {
+    render(
+      <ClioObservabilityDock
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[]}
+        processes={[]}
+        runs={[]}
+        sessionId="sess_waiting"
+        sessionState="waiting_permission"
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    const badge = document.querySelector('[data-slot="badge"]');
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent('Up to date');
+    expect(badge).toHaveClass('border-action/30');
+    expect(badge).not.toHaveClass('border-info/30');
+    expect(badge?.querySelector('svg')).not.toHaveClass('motion-safe:animate-spin');
+  });
+
+  it('keeps the live status region mounted, and outside the button, across a status change', () => {
+    const { rerender } = render(
+      <ClioObservabilityDock
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[]}
+        processes={[]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    const liveRegion = document.querySelector('[aria-live="polite"]');
+    expect(liveRegion).not.toBeNull();
+    expect(liveRegion).toHaveTextContent('Up to date');
+    const button = screen.getByRole('button', { name: 'Open observability in workspace canvas' });
+    expect(button.contains(liveRegion)).toBe(false);
+
+    rerender(
+      <ClioObservabilityDock
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[
+          {
+            id: 'msg_1',
+            session_id: 'sess_1',
+            role: 'assistant',
+            created_at: '2026-08-27T12:00:00Z',
+            blocks: [{ id: 'block_1', type: 'text', text: 'Working on it' }],
+          },
+        ]}
+        processes={[]}
+        runs={[]}
+        sessionState="running"
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    const liveRegionAfter = document.querySelector('[aria-live="polite"]');
+    expect(liveRegionAfter).not.toBeNull();
+    expect(liveRegionAfter).toBe(liveRegion);
+    expect(liveRegionAfter).toHaveTextContent('Working');
   });
 
   it('opens a child lane centrally and uses shift-click for a durable canvas tab', async () => {
@@ -209,6 +292,7 @@ describe('ClioObservabilityView', () => {
   it('shows real process spans and groups session evidence without raw payloads', async () => {
     const user = userEvent.setup();
     const openDiff = vi.fn();
+    const openResource = vi.fn();
     renderObservability(
       <ClioObservabilityView
         artifacts={[
@@ -253,6 +337,23 @@ describe('ClioObservabilityView', () => {
         ]}
         messages={[
           {
+            id: 'message_resource',
+            session_id: 'sess_1',
+            role: 'user',
+            created_at: '2026-08-21T23:59:59Z',
+            blocks: [
+              {
+                id: 'resource_1',
+                type: 'resource',
+                resource_id: 'resource_pdf',
+                resource_revision: '1',
+                workspace_id: 'ws_1',
+                name: 'paper.pdf',
+                media_type: 'application/pdf',
+              },
+            ],
+          },
+          {
             id: 'message_1',
             session_id: 'sess_1',
             role: 'assistant',
@@ -269,6 +370,7 @@ describe('ClioObservabilityView', () => {
           },
         ]}
         onOpenDiff={openDiff}
+        onOpenResource={openResource}
         onOpenSubagent={() => undefined}
         processes={[
           {
@@ -291,6 +393,27 @@ describe('ClioObservabilityView', () => {
           },
         ]}
         runs={[]}
+        resources={[
+          {
+            id: 'resource_pdf',
+            workspace_id: 'ws_1',
+            client_upload_id: 'upload_1',
+            revision: 1,
+            name: 'paper.pdf',
+            claimed_mime: 'application/pdf',
+            detected_mime: 'application/pdf',
+            detection_source: 'signature',
+            declared_size: 4096,
+            received_size: 4096,
+            sha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+            state: 'ready',
+            failure: '',
+            created_at: '2026-08-21T23:59:58Z',
+            updated_at: '2026-08-21T23:59:59Z',
+            completed_at: '2026-08-21T23:59:59Z',
+            mime_mismatch: false,
+          },
+        ]}
         subagents={[]}
         tasks={[]}
         tools={[]}
@@ -317,7 +440,17 @@ describe('ClioObservabilityView', () => {
     );
     expect(screen.getByText('ndp #1, Metadata source URL')).toBeVisible();
     expect(screen.getByText('OpenStreetMap Nominatim')).toHaveAttribute('title', 'osm_nominatim');
+    expect(screen.getByText('paper.pdf')).toBeVisible();
+    // Resource detail renders as separate sibling elements (type/revision/size/sha), never a
+    // single middot-joined string.
+    expect(screen.getByText('Revision 1')).toBeVisible();
+    expect(screen.getByText('application/pdf')).toBeVisible();
+    expect(screen.getByText(/SHA-256 0123456789ab/u)).toBeVisible();
     expect(screen.queryByText(/workflow_state/u)).not.toBeInTheDocument();
+    expect(screen.queryByText(/·/u)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Open source paper.pdf' }));
+    expect(openResource).toHaveBeenCalledWith(expect.objectContaining({ id: 'resource_pdf' }));
 
     await user.click(
       screen.getByRole('button', { name: 'Review diff for src/analysis.py in canvas' }),

@@ -7,6 +7,7 @@ import type {
   Message,
   ProvenanceProviderSummary,
   SessionDiff,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import {
   BoxIcon,
@@ -55,9 +56,11 @@ export interface ClioEvidenceViewProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
+  onOpenResource?: (resource: WorkspaceResource) => void;
   provenanceProvider?: ProvenanceProviderSummary;
   artifactProvenanceProvider?: ArtifactProvenanceProviderSummary;
   provenanceDegradation?: ExecutionProvenanceDegradation;
+  resources?: readonly WorkspaceResource[];
 }
 
 export function ClioEvidenceView(props: ClioEvidenceViewProps) {
@@ -66,7 +69,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
       .filter((block) => block.type === 'plan')
       .map((block) => ({ ...block, messageId: message.id })),
   );
-  const sources = sessionSources(props.messages, props.processes);
+  const sources = sessionSources(props.messages, props.processes, props.resources ?? []);
   const hasEvidence =
     props.diffs.length ||
     props.artifacts.length ||
@@ -150,7 +153,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
           value="sources"
           count={sources.length}
         >
-          <SourceEvidence sources={sources} />
+          <SourceEvidence onOpenResource={props.onOpenResource} sources={sources} />
         </EvidenceSection>
         <EvidenceSection
           icon={BoxIcon}
@@ -279,24 +282,55 @@ function DiffEvidence({
   ));
 }
 
+/** One labelled fact rendered as its own sibling element — never middot-joined into a string. */
+interface EvidenceSourceDetailPart {
+  id: string;
+  text: string;
+  title?: string;
+}
+
 interface EvidenceSource {
   id: string;
   label: string;
-  value: string;
   link: boolean;
+  /** The link href for a citation, or the raw value for a workflow-derived source. */
+  value?: string;
+  /** Structured detail for a resource source, rendered as separate spans. */
+  detailParts?: readonly EvidenceSourceDetailPart[];
+  /** Identity used to collapse duplicates — never the rendered text, so a formatting change
+   *  can't change what dedups. */
+  dedupeKey: string;
+  resource?: WorkspaceResource;
 }
 
-function SourceEvidence({ sources }: { sources: readonly EvidenceSource[] }) {
+function SourceEvidence({
+  sources,
+  onOpenResource,
+}: {
+  sources: readonly EvidenceSource[];
+  onOpenResource?: (resource: WorkspaceResource) => void;
+}) {
   if (!sources.length) return <EmptyEvidence label="No source references were recorded." />;
   return (
     <div className="grid gap-2">
       {sources.map((source) => (
-        <ClioInteractiveRow key={source.id}>
+        <ClioInteractiveRow
+          aria-label={source.resource && onOpenResource ? `Open source ${source.label}` : undefined}
+          className={source.resource && onOpenResource ? 'cursor-pointer' : undefined}
+          key={source.id}
+          onClick={
+            source.resource && onOpenResource
+              ? () => onOpenResource(source.resource as WorkspaceResource)
+              : undefined
+          }
+          role={source.resource && onOpenResource ? 'button' : undefined}
+          tabIndex={source.resource && onOpenResource ? 0 : undefined}
+        >
           <div className="flex items-start gap-3">
             <WaypointsIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">{source.label}</p>
-              {source.link ? (
+              {source.link && source.value ? (
                 <a
                   aria-label={`${source.label}: ${source.value}`}
                   className="mt-1 flex items-center gap-1 break-all text-xs text-primary hover:underline"
@@ -307,14 +341,24 @@ function SourceEvidence({ sources }: { sources: readonly EvidenceSource[] }) {
                   {source.value}
                   <ExternalLinkIcon aria-hidden="true" className="size-3 shrink-0" />
                 </a>
+              ) : source.detailParts ? (
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  {source.detailParts.map((part) => (
+                    <span key={part.id} title={part.title}>
+                      {part.text}
+                    </span>
+                  ))}
+                </div>
               ) : (
                 <p
                   className="mt-1 break-all text-xs text-muted-foreground"
                   title={
-                    sourceDisplayValue(source.value) === source.value ? undefined : source.value
+                    source.value === undefined || sourceDisplayValue(source.value) === source.value
+                      ? undefined
+                      : source.value
                   }
                 >
-                  {sourceDisplayValue(source.value)}
+                  {source.value === undefined ? '' : sourceDisplayValue(source.value)}
                 </p>
               )}
             </div>
@@ -413,26 +457,81 @@ function EvidenceCounts(props: {
 function sessionSources(
   messages: readonly Message[],
   processes: readonly AsyncProcess[],
+  resources: readonly WorkspaceResource[],
 ): EvidenceSource[] {
+  const resourcesById = new Map(resources.map((resource) => [resource.id, resource]));
   const sources: EvidenceSource[] = messages.flatMap((message) =>
-    message.blocks
-      .filter((block) => block.type === 'citation')
-      .map((block) => ({
-        id: `citation:${message.id}:${block.id}`,
-        label: block.label,
-        value: block.uri,
-        link: isWebLink(block.uri),
-      })),
+    message.blocks.flatMap((block): EvidenceSource[] => {
+      if (block.type === 'citation') {
+        return [
+          {
+            id: `citation:${message.id}:${block.id}`,
+            label: block.label,
+            value: block.uri,
+            link: isWebLink(block.uri),
+            dedupeKey: `citation:${block.uri}`,
+          },
+        ];
+      }
+      if (block.type !== 'resource') return [];
+      const resource = resourcesById.get(block.resource_id);
+      return [
+        {
+          id: `resource:${block.workspace_id}:${block.resource_id}:${block.resource_revision}`,
+          label: resource?.name ?? block.name,
+          link: false,
+          detailParts: resourceEvidenceDetail(resource, block.media_type, block.resource_revision),
+          // Keyed on resource identity, never the rendered string: two distinct resources can
+          // render identical detail text, and a formatting change must not change what collapses.
+          dedupeKey: `resource:${block.resource_id}:${block.resource_revision}`,
+          resource,
+        },
+      ];
+    }),
   );
   for (const process of processes) {
     collectWorkflowSources(process.result?.workflow_state, process.title, sources);
   }
   const seen = new Set<string>();
   return sources.filter((source) => {
-    if (seen.has(source.value)) return false;
-    seen.add(source.value);
+    if (seen.has(source.dedupeKey)) return false;
+    seen.add(source.dedupeKey);
     return true;
   });
+}
+
+/**
+ * Builds the resource detail parts for one source, favoring what was actually DELIVERED
+ * (the message block's own media type and revision) over the live workspace resource, which
+ * may have since changed. The live resource only fills in fields the block never carries
+ * (size, SHA-256) and, when its revision has moved on, that is called out explicitly rather
+ * than silently replacing the delivered revision.
+ */
+function resourceEvidenceDetail(
+  resource: WorkspaceResource | undefined,
+  deliveredMediaType: string,
+  deliveredRevision: string,
+): EvidenceSourceDetailPart[] {
+  const mediaType = deliveredMediaType || resource?.detected_mime || resource?.claimed_mime;
+  const parts: EvidenceSourceDetailPart[] = [
+    { id: 'type', text: mediaType || 'Unknown type' },
+    { id: 'revision', text: `Revision ${deliveredRevision}` },
+  ];
+  if (resource && String(resource.revision) !== deliveredRevision) {
+    parts.push({
+      id: 'current-revision',
+      text: `Current revision ${resource.revision}`,
+      title:
+        'The workspace resource has since changed; this reference delivered an earlier revision to the model.',
+    });
+  }
+  if (resource?.received_size !== undefined) {
+    parts.push({ id: 'size', text: formatBytes(resource.received_size) });
+  }
+  if (resource?.sha256) {
+    parts.push({ id: 'sha', text: `SHA-256 ${resource.sha256.slice(0, 12)}…` });
+  }
+  return parts;
 }
 
 function collectWorkflowSources(
@@ -462,6 +561,7 @@ function collectWorkflowSources(
         label: `${owner}, ${evidenceFieldLabel(key)}`,
         value: child,
         link: isWebLink(child),
+        dedupeKey: `workflow:${child}`,
       });
     } else {
       collectWorkflowSources(child, owner, sources, nextPath, depth + 1);

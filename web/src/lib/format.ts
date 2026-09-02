@@ -31,6 +31,16 @@ export function formatBytes(bytes: number): string {
 }
 
 /**
+ * Formats the size of a stored resource, where a size that is not a real byte
+ * count means the service could not report one — a distinct thing from zero
+ * bytes, and worth saying rather than rendering as a number.
+ */
+export function formatResourceSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return 'Unavailable';
+  return formatBytes(bytes);
+}
+
+/**
  * How a duration is written out.
  *
  * - `unit`: spelled-out units for reading surfaces — `840 ms`, `9 s`,

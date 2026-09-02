@@ -113,6 +113,40 @@ describe('live store snapshot merges', () => {
     expect(sessions.sess_2?.state).toBe('queued');
   });
 
+  it('keeps a stream-owned row whose entity id contains colons', () => {
+    const id = 'sess_1:mcp:geo';
+    useLiveStore.getState().applyFrames([
+      {
+        cursor: '12',
+        eventName: 'infrastructure.dependency.changed',
+        receivedAt: '2026-08-27T12:00:00Z',
+        data: {
+          protocol_version: '0.3',
+          type: 'infrastructure.dependency.changed',
+          occurred_at: '2026-08-27T12:00:00Z',
+          scope: { connection_id: 'local', workspace_id: 'ws_1', session_id: 'sess_1' },
+          entity_id: id,
+          entity_revision: 6,
+          payload: {
+            id,
+            session_id: 'sess_1',
+            category: 'mcp',
+            namespace: 'geo',
+            title: 'Geospatial tools',
+            phase: 'connect',
+            state: 'ready',
+            attempt: 1,
+            max_attempts: 3,
+          },
+        },
+      },
+    ]);
+
+    useLiveStore.getState().mergeSnapshots({ infrastructure: {} });
+
+    expect(useLiveStore.getState().entities.infrastructure[id]?.state).toBe('ready');
+  });
+
   it('drops a row the snapshot no longer lists when the stream never wrote it', () => {
     useLiveStore.getState().mergeSnapshots({ sessions: { sess_2: restSession('sess_2', 'queued') } });
     useLiveStore.getState().mergeSnapshots({ sessions: { sess_3: restSession('sess_3', 'queued') } });

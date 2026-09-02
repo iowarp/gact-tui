@@ -438,9 +438,20 @@ function DocumentPreview({
   if (!manifest) return fallback;
   if (manifest.profile === 'pdf') {
     return content ? (
-      <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading PDF viewer…</p>}>
-        <ClioDocumentPdfViewer bytes={content} name={manifest.name} onSelection={onPdfSelection} />
-      </Suspense>
+      // The viewer owns its own scroll region so it can mount only the pages in
+      // view, which needs a bounded box to scroll inside — the same one the
+      // editor branch above uses.
+      <div className="h-[70vh] min-h-[540px] w-full">
+        <Suspense
+          fallback={<p className="p-4 text-sm text-muted-foreground">Loading PDF viewer…</p>}
+        >
+          <ClioDocumentPdfViewer
+            bytes={content}
+            name={manifest.name}
+            onSelection={onPdfSelection}
+          />
+        </Suspense>
+      </div>
     ) : (
       <p className="p-4 text-sm text-muted-foreground">Loading immutable PDF…</p>
     );

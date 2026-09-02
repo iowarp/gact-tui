@@ -68,22 +68,50 @@ describe('ClioRepository interaction contracts', () => {
   });
 
   it('sends the selected model through the canonical GACT message envelope', async () => {
-    const transport = new RecordingTransport([{ message_id: 'message_1', run_id: 'run_1' }]);
+    const transport = new RecordingTransport([
+      {
+        message_id: 'message_1',
+        accepted_at: '2026-08-31T12:00:00Z',
+        delivery: 'start',
+        state: 'started',
+        effective_model: { provider_id: 'claude_code', model_id: 'sonnet' },
+        behavior: {
+          reasoning_effort: 'high',
+          execution_mode: 'execute',
+          confirmation_policy: 'ask',
+        },
+        idempotent_replay: false,
+      },
+    ]);
     const repository = new ClioRepository(transport);
 
-    await repository.sendMessage('sess 1', 'Use Sonnet.', {
-      provider_id: 'claude_code',
-      model_id: 'sonnet',
-      effort: 'high',
+    await repository.submitMessage('sess 1', {
+      behavior: {
+        confirmation_policy: 'ask',
+        execution_mode: 'execute',
+        reasoning_effort: 'high',
+      },
+      client_message_id: 'client-message-1',
+      delivery: 'start',
+      idempotency_key: 'message-key-1',
+      model: { provider_id: 'claude_code', model_id: 'sonnet' },
+      parts: [{ type: 'text', text: 'Use Sonnet.' }],
     });
 
     expect(transport.requests[0]).toMatchObject({
       method: 'POST',
       path: '/v1/sessions/sess%201/messages',
       body: {
-        text: 'Use Sonnet.',
+        behavior: {
+          confirmation_policy: 'ask',
+          execution_mode: 'execute',
+          reasoning_effort: 'high',
+        },
+        client_message_id: 'client-message-1',
+        delivery: 'start',
+        idempotency_key: 'message-key-1',
         model: { provider_id: 'claude_code', model_id: 'sonnet' },
-        metadata: { effort: 'high' },
+        parts: [{ type: 'text', text: 'Use Sonnet.' }],
       },
     });
   });

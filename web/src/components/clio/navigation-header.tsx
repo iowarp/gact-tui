@@ -8,6 +8,7 @@ import {
   SearchIcon,
   UploadIcon,
 } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DropdownMenu,
@@ -35,6 +36,7 @@ interface NavigationHeaderProps {
   onNewWorkspace: () => void;
   onImportSession: () => void;
   onOpenArchived: () => void;
+  attentionControl?: ReactNode;
 }
 
 export function NavigationHeader({
@@ -47,6 +49,7 @@ export function NavigationHeader({
   onNewWorkspace,
   onImportSession,
   onOpenArchived,
+  attentionControl,
 }: NavigationHeaderProps) {
   const logoSource =
     brand.logoImage ??
@@ -144,6 +147,7 @@ export function NavigationHeader({
             </kbd>
           </SidebarMenuButton>
         </SidebarMenuItem>
+        {attentionControl}
         <SidebarMenuItem className="shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

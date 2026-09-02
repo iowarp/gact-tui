@@ -634,6 +634,20 @@ sets below are weaker evidence than the group above:
 | `compaction` | `gact/routes/compaction.py:60` |
 | `action_card` | `gact/action_cards.py` (generic in-transcript notification/action primitive; `spotter-ai` is the first emitter) |
 
+**GACT 0.3 message blocks.** The 0.3 stream carries a narrower, closed *block*
+vocabulary rather than the flat Part above, and one of its kinds has no Part
+counterpart:
+
+| block `type` | Emitter | Notes |
+|---|---|---|
+| `resource` | `gact/protocol/v3/message.py:167` (`part_to_v3_block`) | The 0.3 projection of a `resource_ref` part — a **workspace resource** (§6 attachment custody) attached to a message, not an MCP resource. |
+
+> **Name collision, deliberate.** The `resource` *Part* at §4.5.4 is the
+> Embedded MCP resource (`server_id` + `uri` + `mime_type`). The `resource`
+> *block* here is the workspace-attachment projection and shares none of those
+> fields. A reader keys off which vocabulary it is decoding — 0.2 parts or 0.3
+> blocks — before it keys off `type`.
+
 #### 4.5.2 Field groups
 
 Fields cluster by concern. A part uses the groups its kind needs and leaves
@@ -653,6 +667,32 @@ the rest at their defaults.
 | diff | `path`, `unified_diff`, `new_content`, `status`, `edit_mode`, `lines_added`, `lines_removed` |
 | compaction | `summary`, `auto`, `compacted_message_ids` |
 | action card | `source` (emitter identity, open string, e.g. `"spotter-ai"`), `severity` (open string; MVP `"info"\|"warning"\|"critical"`), `title`, `body` (markdown), `status` (reuses the shared `status` slot; open string, MVP always `"active"`, future `"resolved"`), `actions` (list of `{id, label, enabled, behavior}`, `behavior` an open discriminated union on `kind` — `"focus_session"` `{handle_id}`, `"stub"` `{reason}`; unknown `kind`s and unknown `severity` values MUST render safely as disabled/neutral, per §8.3) |
+| workspace resource (0.3 block only) | `resource_id`, `resource_revision`, `workspace_id`, `name`, `media_type`, `delivery?` |
+
+The workspace-resource group in full, as the reference backend emits it
+(`gact/protocol/v3/message.py:167`) and as the client decodes it
+(`packages/core/src/v3/message-schemas.ts`):
+
+| Field | Type | Presence |
+|---|---|---|
+| `id` | string | always (the block's own id) |
+| `type` | `"resource"` | always |
+| `resource_id` | string | always |
+| `resource_revision` | **string** | always — stringified at projection; the REST resource's own `revision` is an integer, and the two are not interchangeable |
+| `workspace_id` | string | always (from `metadata.workspace_id`; `""` when the part carried none) |
+| `name` | string | always (`"Attachment"` when the part carried none) |
+| `media_type` | string | always (`"application/octet-stream"` when the part carried none) |
+| `delivery` | object | **optional** — omitted entirely unless the part's `metadata.delivery.representation` is one of the six known values |
+| `delivery.representation` | `"native"` \| `"bounded_tools"` \| `"structured_document"` \| `"sandbox"` \| `"retrieval"` \| `"metadata_only"` | required inside `delivery` |
+| `delivery.evidence_source` | string | optional — **dropped when empty**, never sent as `""` |
+| `delivery.reason` | string | optional — dropped when empty |
+
+The block also carries the four shared block fields (`agent_id`, `sequence`,
+`stream_source`, `channel`), all optional. It carries no size and no digest:
+those live on the resource record itself (`GET
+/v1/workspaces/{workspace_id}/resources/{resource_id}`), which is where a
+surface reads them. Per §8.3 a decoder MUST tolerate a field this table does
+not list rather than degrade the block.
 
 #### 4.5.3 Corrections against v0.2
 
@@ -2614,12 +2654,31 @@ a2ui.surface.upserted implemented
 approval.resolved implemented
 approval.upserted implemented
 infrastructure.dependency.changed implemented
+message.accepted implemented
 message.block.completed implemented
 message.block.delta implemented
 message.block.upserted implemented
+message.cancelled implemented
 message.completed implemented
 message.upserted implemented
+pending_steer.cancelled implemented
+provider_catalog.refreshed implemented
 question.upserted implemented
+queued_message.created implemented
+queued_message.deleted implemented
+queued_message.promoted implemented
+queued_message.promotion_failed implemented
+queued_message.reordered implemented
+queued_message.updated implemented
+resource.created implemented
+resource.deleted implemented
+resource.delivery_resolved implemented
+resource.processing_cancelled implemented
+resource.processing_completed implemented
+resource.processing_failed implemented
+resource.processing_started implemented
+resource.ready implemented
+resource.upload_progress implemented
 session.upserted implemented
 stream.gap implemented
 stream.live implemented

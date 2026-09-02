@@ -4,9 +4,13 @@ param(
     [int]$BackendPort = 8787,
     [ValidateRange(1, 65535)]
     [int]$WebPort = 5174,
+    [ValidateRange(1, 65535)]
+    [int]$DocumentProcessorPort = 8089,
+    [ValidateRange(1, 65535)]
+    [int]$CtePort = 9413,
     [string]$ExpectedProvider = "codex",
     [string]$ExpectedModel = "gpt-5.6-luna",
-    [string]$ExpectedTransport = "sdk",
+    [string]$ExpectedTransport = "app_server",
     [string]$DevRoot = "D:\Libraries\Documents\projects\clio_develop_workspace",
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
@@ -32,6 +36,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "ClioDevHttp.ps1")
 $devRootFull = [System.IO.Path]::GetFullPath($DevRoot)
 $configRoot = Join-Path $devRootFull "config"
 $activeGenerationPath = Join-Path $configRoot "active-generation.json"
@@ -48,6 +53,7 @@ if ([string]::IsNullOrWhiteSpace($SpotterConfigPath)) {
 }
 $backendUrl = "http://127.0.0.1:$BackendPort"
 $webUrl = "http://127.0.0.1:$WebPort"
+$documentProcessorUrl = "http://127.0.0.1:$DocumentProcessorPort"
 
 function Get-OneListenerPid {
     param(
@@ -67,11 +73,34 @@ function Get-OneListenerPid {
 
 $backendPid = Get-OneListenerPid -Port $BackendPort
 $webPid = Get-OneListenerPid -Port $WebPort
+$documentProcessorPid = Get-OneListenerPid -Port $DocumentProcessorPort
 $health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec 10
+$documentProcessorResponse = Invoke-ClioDevWebRequest `
+    -Uri "$documentProcessorUrl/readyz" `
+    -TimeoutSec 10
+$documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
 $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 10
 $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
 $sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 10
 $webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 10
+$gactHeaders = @{
+    Origin = $webUrl
+    "X-GACT-Version" = "0.3"
+}
+$gactResponse = Invoke-WebRequest `
+    -Uri "$backendUrl/v1/capabilities" `
+    -Headers $gactHeaders `
+    -TimeoutSec 10
+$gactCapabilities = $gactResponse.Content | ConvertFrom-Json
+$corsPreflight = Invoke-WebRequest `
+    -Uri "$backendUrl/v1/capabilities" `
+    -Method Options `
+    -Headers @{
+        Origin = $webUrl
+        "Access-Control-Request-Method" = "GET"
+        "Access-Control-Request-Headers" = "x-gact-version"
+    } `
+    -TimeoutSec 10
 $spotterImplRoot = [System.IO.Path]::GetFullPath($SpotterImplDir)
 $spotterConfigFull = [System.IO.Path]::GetFullPath($SpotterConfigPath)
 
@@ -81,8 +110,8 @@ if ($health.overall_status -ne "ready") {
 
 $integrations = @($health.integrations)
 $arc = $integrations | Where-Object { $_.name -eq "arc" }
-if ($null -eq $arc -or $arc.status -ne "ready" -or $arc.endpoint -notmatch ":9413$") {
-    throw "ARC is not a ready clio-core/CTE service on port 9413."
+if ($null -eq $arc -or $arc.status -ne "ready" -or $arc.endpoint -notmatch ":$CtePort$") {
+    throw "ARC is not a ready clio-core/CTE service on port $CtePort."
 }
 
 if ($provider.provider -ne $ExpectedProvider) {
@@ -91,8 +120,54 @@ if ($provider.provider -ne $ExpectedProvider) {
 if ($provider.model -ne $ExpectedModel) {
     throw "Model mismatch: expected '$ExpectedModel', got '$($provider.model)'."
 }
-if ($provider.transport -ne $ExpectedTransport) {
+if (-not [string]::IsNullOrWhiteSpace($ExpectedTransport) -and $provider.transport -ne $ExpectedTransport) {
     throw "Transport mismatch: expected '$ExpectedTransport', got '$($provider.transport)'."
+}
+
+$corsOrigin = [string]$gactResponse.Headers["Access-Control-Allow-Origin"]
+if ($corsOrigin -ne $webUrl) {
+    throw "GACT browser CORS mismatch: expected '$webUrl', got '$corsOrigin'."
+}
+$preflightOrigin = [string]$corsPreflight.Headers["Access-Control-Allow-Origin"]
+if ($preflightOrigin -ne $webUrl) {
+    throw "GACT browser preflight rejected '$webUrl'."
+}
+if ($gactCapabilities.contract_version -ne "0.3") {
+    throw "GACT negotiation mismatch: expected '0.3', got '$($gactCapabilities.contract_version)'."
+}
+$campaignCapabilities = $gactCapabilities.capabilities
+foreach ($capabilityName in @(
+    "x_clio_message_delivery",
+    "x_clio_pending_steers",
+    "x_clio_queued_messages"
+)) {
+    if ($campaignCapabilities.$capabilityName -ne $true) {
+        throw "GACT 0.3 capability '$capabilityName' is not enabled."
+    }
+}
+if ($campaignCapabilities.x_clio_resources.enabled -ne $true) {
+    throw "GACT 0.3 resource custody is not enabled."
+}
+$structuredProcessing = $campaignCapabilities.x_clio_resources.structured_document_processing
+if (
+    $structuredProcessing.supported -ne $true -or
+    $structuredProcessing.state -ne "configured"
+) {
+    throw "GACT 0.3 structured document processing is not configured."
+}
+$configuredDocumentProcessor = @(
+    $structuredProcessing.converters |
+        Where-Object {
+            $_.id -eq "clio-web-search-docling" -and
+            $_.configured -eq $true -and
+            $_.endpoint -eq $documentProcessorUrl
+        }
+) | Select-Object -First 1
+if ($null -eq $configuredDocumentProcessor) {
+    throw "CLIO does not advertise the contained document processor at $documentProcessorUrl."
+}
+if ($documentProcessorHealth.checks.docling -ne "ready") {
+    throw "The contained document processor's Docling worker is '$($documentProcessorHealth.checks.docling)', not ready."
 }
 
 $blueprints = @($catalog.agent_blueprints)
@@ -264,10 +339,9 @@ try {
 }
 finally {
     if ($arcProbeSessionId) {
-        $cleanupResponse = Invoke-WebRequest `
+        $cleanupResponse = Invoke-ClioDevWebRequest `
             -Method Delete `
             -Uri "$backendUrl/v1/sessions/$arcProbeSessionId" `
-            -SkipHttpErrorCheck `
             -TimeoutSec 15
         if ($cleanupResponse.StatusCode -notin @(200, 204)) {
             throw "ARC probe cleanup failed with HTTP $($cleanupResponse.StatusCode)."
@@ -297,6 +371,9 @@ foreach ($item in $degraded) {
     backend_pid = $backendPid
     web_url = $webUrl
     web_pid = $webPid
+    document_processor_url = $documentProcessorUrl
+    document_processor_pid = $documentProcessorPid
+    document_processor = $configuredDocumentProcessor.id
     provider = $provider.provider
     model = $provider.model
     transport = $provider.transport

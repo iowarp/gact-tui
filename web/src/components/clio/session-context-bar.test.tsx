@@ -49,4 +49,23 @@ describe('ClioSessionContextBar', () => {
     expect(onOpenBlueprint).toHaveBeenCalledWith(blueprint);
     expect(screen.queryByText('Default agent')).not.toBeInTheDocument();
   });
+
+  it('does not invent an agent identity when the service reports none', () => {
+    render(
+      <ClioSessionContextBar
+        actionsPending={false}
+        onCompact={vi.fn()}
+        onFork={vi.fn()}
+        onOpenBlueprint={vi.fn()}
+        onReturnToParent={vi.fn()}
+        onShare={vi.fn()}
+        onUndo={vi.fn()}
+        session={session}
+      />,
+    );
+
+    expect(screen.queryByText(/default agent/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/standard agent/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+  });
 });

@@ -70,13 +70,22 @@ export class BrowserClioTransport implements ClioTransport {
   }
 
   public async request<T>(request: TransportRequest<T>): Promise<T> {
+    const headers = this.headers('application/json');
+    for (const [name, value] of Object.entries(request.headers ?? {})) {
+      headers.set(name, value);
+    }
+    const rawBody = request.rawBody
+      ? Uint8Array.from(request.rawBody).buffer
+      : undefined;
     let response: Response;
     try {
       response = await this.fetcher(endpointUrl(this.endpoint, request.path), {
         method: request.method,
         signal: request.signal,
-        headers: this.headers('application/json'),
-        body: request.body === undefined ? undefined : JSON.stringify(request.body),
+        headers,
+        body:
+          rawBody ??
+          (request.body === undefined ? undefined : JSON.stringify(request.body)),
       });
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') throw error;

@@ -12,6 +12,7 @@ import {
   BoxesIcon,
   FileTextIcon,
   FolderIcon,
+  PaperclipIcon,
   PlusIcon,
   SearchIcon,
 } from 'lucide-react';
@@ -64,7 +65,7 @@ const WorkspaceFileView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.WorkspaceFileView })),
 );
 
-export type CanvasResourceKind = 'session' | 'files' | 'artifacts' | 'blueprints';
+export type CanvasResourceKind = 'session' | 'files' | 'resources' | 'artifacts' | 'blueprints';
 
 interface FileBrowserProps {
   workspaceId: string;
@@ -119,6 +120,9 @@ export function CanvasLauncher({ onOpen }: { onOpen: (kind: CanvasResourceKind) 
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onOpen('files')}>
           <FolderIcon aria-hidden="true" /> File explorer
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onOpen('resources')}>
+          <PaperclipIcon aria-hidden="true" /> Workspace resources
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => onOpen('artifacts')}>
           <BoxIcon aria-hidden="true" /> Session artifacts

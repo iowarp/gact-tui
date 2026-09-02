@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes, formatDuration, truncate } from './format';
+import { formatBytes, formatDuration, formatResourceSize, truncate } from './format';
 
 describe('formatBytes', () => {
   it('reads decimal units so the number matches the KB/MB/GB label it renders', () => {
@@ -60,5 +60,19 @@ describe('truncate', () => {
 
   it('does not leave whitespace stranded before the ellipsis', () => {
     expect(truncate('abcdefgh ijkl', 10)).toBe('abcdefgh…');
+  });
+});
+
+describe('formatResourceSize', () => {
+  it('reads a workspace resource size through the one shared byte formatter', () => {
+    expect(formatResourceSize(0)).toBe('0 B');
+    expect(formatResourceSize(4)).toBe('4 B');
+    expect(formatResourceSize(1_500_000)).toBe('1.5 MB');
+  });
+
+  it('says a size is unavailable rather than rendering a number that is not one', () => {
+    expect(formatResourceSize(-1)).toBe('Unavailable');
+    expect(formatResourceSize(Number.NaN)).toBe('Unavailable');
+    expect(formatResourceSize(Number.POSITIVE_INFINITY)).toBe('Unavailable');
   });
 });

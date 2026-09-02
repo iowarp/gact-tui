@@ -15,6 +15,7 @@ import type {
   ToolInvocation,
   ProvenanceProviderSummary,
   ArtifactProvenanceProviderSummary,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import {
   ActivityIcon,
@@ -58,7 +59,7 @@ import { ClioInteractiveRow } from './interactive-row';
 import { ClioActivityTimeline, type ObservabilityActivityItem } from './observability-activity';
 import { ClioEvidenceView } from './observability-evidence';
 import { ClioProcessLanes } from './observability-processes';
-import { ClioStatus } from './status';
+import { ClioStatus, type ClioStatusValue } from './status';
 import { getToolPresentation, getToolSummary } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -107,6 +108,7 @@ export interface ClioObservabilityDockProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
+  onOpenResource?: (resource: WorkspaceResource) => void;
   sessionState?: RunState;
   sessionId?: string;
   executionProvenance?: ExecutionProvenanceResult;
@@ -116,6 +118,7 @@ export interface ClioObservabilityDockProps {
   provenancePending?: boolean;
   provenanceDegradation?: ExecutionProvenanceDegradation;
   onProvenanceProviderChange?: (provider: string) => void;
+  resources?: readonly WorkspaceResource[];
 }
 
 function isActiveWork(state: string): boolean {
@@ -139,6 +142,12 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     isActiveWork(process.live_state),
   );
   const sessionActive = props.sessionState === 'queued' || props.sessionState === 'running';
+  const sessionNeedsAttention =
+    props.sessionState === 'waiting_permission' ||
+    props.sessionState === 'waiting_user' ||
+    props.sessionState === 'failed';
+  const showDockStatusBadge = Boolean(activeActivityCount || sessionActive || sessionNeedsAttention);
+  const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
   const hasAssistantActivity = props.messages.some(
     (message) => message.role === 'assistant' && message.blocks.length > 0,
   );
@@ -189,15 +198,6 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
           <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         )}
         <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
-        {activeActivityCount || sessionActive || activityCount ? (
-          <ClioStatus
-            className="hidden py-0.5 sm:inline-flex"
-            label={dockStatus}
-            value={
-              activeActivityCount || sessionActive ? (props.sessionState ?? 'running') : 'completed'
-            }
-          />
-        ) : null}
         {presentationOverrideCount ? (
           <ClioStatus
             className="hidden py-0.5 sm:inline-flex"
@@ -205,8 +205,16 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
             value="degraded"
           />
         ) : null}
+        {showDockStatusBadge ? (
+          <ClioStatus className="shrink-0 py-0.5" label={dockStatus} value={dockStatusValue} />
+        ) : null}
         <PanelRightOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
       </Button>
+      {/* Always mounted (not conditionally toggled) so it exists before its text changes, and
+          outside the Button so its content never factors into the Button's accessible name. */}
+      <span aria-live="polite" className="sr-only">
+        {dockStatus}
+      </span>
       {props.subagents.length ? (
         <Popover onOpenChange={setChildAgentsOpen} open={childAgentsOpen}>
           <PopoverTrigger asChild>
@@ -337,6 +345,7 @@ export function ClioObservabilityView({
   onOpenArtifact,
   onOpenDiff,
   onOpenFile,
+  onOpenResource,
   onOpenSubagent,
   executionProvenance,
   provenanceProviders,
@@ -345,6 +354,7 @@ export function ClioObservabilityView({
   provenancePending,
   provenanceDegradation,
   onProvenanceProviderChange,
+  resources,
 }: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const hasMediumNavigation = useContainerQuery(surfaceRef, 320);
@@ -482,12 +492,14 @@ export function ClioObservabilityView({
               onOpenArtifact={onOpenArtifact}
               onOpenDiff={onOpenDiff}
               onOpenFile={onOpenFile}
+              onOpenResource={onOpenResource}
               processes={processes}
               artifactProvenanceProvider={artifactProvenanceProvider}
               provenanceDegradation={provenanceDegradation}
               provenanceProvider={provenanceProviders?.find(
                 (provider) => provider.name === provenanceProvider,
               )}
+              resources={resources}
             />
           </TabsContent>
           <TabsContent className="m-0 grid gap-4 p-4" value="context">

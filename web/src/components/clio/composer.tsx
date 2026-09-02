@@ -1,17 +1,19 @@
-import type { CommandDefinition, RunState } from '@clio/core/v3';
-import {
-  ChevronDownIcon,
-  CornerDownRightIcon,
-  PaperclipIcon,
-  SlidersHorizontalIcon,
-} from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type {
+  CommandDefinition,
+  MessageBehavior,
+  MessageDelivery,
+  QueuedMessage,
+  RunState,
+  WorkspaceResource,
+} from '@clio/core/v3';
+import type { FileUIPart } from 'ai';
+import { CornerDownRightIcon, PlusIcon } from 'lucide-react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { brand } from '@brand';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import {
   PromptInput,
-  PromptInputActionAddAttachments,
   PromptInputButton,
   PromptInputCommand,
   PromptInputCommandEmpty,
@@ -20,26 +22,30 @@ import {
   PromptInputCommandList,
   PromptInputFooter,
   PromptInputHeader,
-  PromptInputSelect,
-  PromptInputSelectContent,
-  PromptInputSelectItem,
-  PromptInputSelectTrigger,
-  PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  usePromptInputAttachments,
 } from '@/components/ai-elements/prompt-input';
 import { ClioStatus } from './status';
 import { ClioModelPicker } from './model-picker';
+import { Button } from '@/components/ui/button';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
+import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
+import { ClioComposerQueue } from './composer-queue';
+import { ClioComposerBehaviorControls } from './composer-behavior-controls';
+import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
 
 export interface ClioComposerProps {
   state: RunState;
   attachments: boolean;
   provider?: string;
   model?: string;
+  modelCatalogStatus?: 'error' | 'loading' | 'ready';
   effort?: string;
+  executionMode?: MessageBehavior['execution_mode'];
+  confirmationPolicy?: MessageBehavior['confirmation_policy'];
   modelOptions?: Array<{
     providerId: string;
     providerName: string;
@@ -48,19 +54,38 @@ export interface ClioComposerProps {
     description?: string;
     available: boolean;
     availabilityDetail?: string;
+    configurationUrl?: string;
+    endpoint?: string;
+    freshness?: string;
+    health?: string;
+    modalities?: readonly string[];
   }>;
   disabled?: boolean;
   commands?: CommandDefinition[];
   onSubmit: (value: {
     text: string;
+    files: FileUIPart[];
     provider?: string;
     model?: string;
     effort?: string;
+    delivery: MessageDelivery | 'queued';
+    behavior: MessageBehavior;
+    onUploadProgress: (progress: ResourceUploadProgress) => void;
   }) => Promise<void>;
   onStop?: () => void;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
+  onRetryModelCatalog?: () => void;
+  onHeightChange?: (height: number) => void;
   activityControl?: ReactNode;
-  behaviorControl?: ReactNode;
+  pendingInteractions?: ReactNode;
+  queuedMessages?: QueuedMessage[];
+  resources?: readonly WorkspaceResource[];
+  queueBusy?: boolean;
+  onDeleteQueuedMessage?: (message: QueuedMessage) => Promise<void>;
+  onPromoteQueuedMessage?: (message: QueuedMessage, delivery: MessageDelivery) => Promise<void>;
+  onOpenResource?: (resource: WorkspaceResource) => void;
+  onReorderQueuedMessages?: (messages: QueuedMessage[]) => Promise<void>;
+  onUpdateQueuedMessage?: (message: QueuedMessage, text: string) => Promise<void>;
   value?: string;
   onValueChange?: (value: string) => void;
   focusRequestKey?: number;
@@ -79,15 +104,28 @@ export function ClioComposer({
   attachments,
   provider,
   model,
+  modelCatalogStatus = 'ready',
   effort,
+  executionMode = 'execute',
+  confirmationPolicy = 'ask',
   modelOptions = [],
   disabled,
   commands = [],
   onSubmit,
   onStop,
   onCommand,
+  onRetryModelCatalog,
+  onHeightChange,
   activityControl,
-  behaviorControl,
+  pendingInteractions,
+  queuedMessages = [],
+  resources = [],
+  queueBusy,
+  onDeleteQueuedMessage,
+  onPromoteQueuedMessage,
+  onOpenResource,
+  onReorderQueuedMessages,
+  onUpdateQueuedMessage,
   value,
   onValueChange,
   focusRequestKey,
@@ -95,7 +133,21 @@ export function ClioComposer({
 }: ClioComposerProps) {
   const [selectedProvider, setSelectedProvider] = useState(provider);
   const [selectedModel, setSelectedModel] = useState(model);
-  const [selectedEffort, setSelectedEffort] = useState(effort);
+  const [behavior, setBehavior] = useState<MessageBehavior>({
+    confirmation_policy: confirmationPolicy,
+    execution_mode: executionMode,
+    reasoning_effort: knownReasoningEffort(effort) ?? DEFAULT_REASONING_EFFORT,
+  });
+  // Kept apart from `behavior`, which must always carry a value the message
+  // contract accepts. The control names this rather than showing the default as
+  // though the service had asked for it.
+  const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
+  const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
+  const [uploadFailure, setUploadFailure] = useState<ResourceUploadFailure>();
+  // The attachment in flight when a submit is rejected; the progress state is
+  // cleared on the way out, so the name is kept separately.
+  const uploadingFilenameRef = useRef<string>(undefined);
+  const nextDeliveryRef = useRef<MessageDelivery | 'queued'>('start');
   const [internalInput, setInternalInput] = useState('');
   const input = value ?? internalInput;
   const setInput = (nextValue: string) => {
@@ -103,7 +155,9 @@ export function ClioComposer({
     onValueChange?.(nextValue);
   };
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
+  const restoreFocusAfterSubmitRef = useRef(false);
   const commandQuery = input.trimStart();
   const commandMatches = useMemo(() => {
     if (!commandQuery.startsWith('/') || commandQuery.includes(' ')) return [];
@@ -115,6 +169,10 @@ export function ClioComposer({
     );
   }, [commandQuery, commands]);
   const showCommands = commandQuery.startsWith('/') && !commandQuery.includes(' ');
+  const selectedOption = modelOptions.find(
+    (option) =>
+      option.providerId === selectedProvider && option.id === selectedModel && option.available,
+  );
 
   useEffect(() => {
     const previousKey = handledFocusRequestKeyRef.current;
@@ -124,14 +182,47 @@ export function ClioComposer({
     return () => window.cancelAnimationFrame(frame);
   }, [focusRequestKey]);
 
+  useEffect(() => {
+    if (disabled || !restoreFocusAfterSubmitRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      const element = inputRef.current;
+      if (!element || element.disabled) return;
+      restoreFocusAfterSubmitRef.current = false;
+      element.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [disabled]);
+
+  const restoreInputFocusWhenReady = () => {
+    window.requestAnimationFrame(() => {
+      const element = inputRef.current;
+      if (!element || element.disabled) return;
+      restoreFocusAfterSubmitRef.current = false;
+      element.focus({ preventScroll: true });
+    });
+  };
+
+  useLayoutEffect(() => {
+    const element = rootRef.current;
+    if (variant !== 'docked' || !element || !onHeightChange) return;
+    const reportHeight = () => onHeightChange(Math.ceil(element.getBoundingClientRect().height));
+    reportHeight();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(reportHeight);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [onHeightChange, variant]);
+
   return (
     <div
+      data-slot="clio-composer-stack"
       className={cn(
         'relative',
         variant === 'docked'
-          ? 'bg-gradient-to-t from-background via-background/95 to-transparent px-4 pb-3 pt-6 lg:px-6'
+          ? 'pointer-events-none flex max-h-full min-h-0 flex-col overflow-hidden px-4 pb-3 [&>*]:pointer-events-auto lg:px-6'
           : 'w-full',
       )}
+      ref={rootRef}
     >
       {showCommands ? (
         <div className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6">
@@ -170,11 +261,32 @@ export function ClioComposer({
           </PromptInputCommand>
         </div>
       ) : null}
+      {pendingInteractions}
+      {queuedMessages.length > 0 &&
+      onDeleteQueuedMessage &&
+      onPromoteQueuedMessage &&
+      onReorderQueuedMessages &&
+      onUpdateQueuedMessage ? (
+        <ClioComposerQueue
+          busy={queueBusy}
+          messages={queuedMessages}
+          onDelete={onDeleteQueuedMessage}
+          onOpenResource={onOpenResource}
+          onPromote={onPromoteQueuedMessage}
+          onReorder={onReorderQueuedMessages}
+          onUpdate={onUpdateQueuedMessage}
+          promoteDelivery={state === 'running' ? 'steer' : 'start'}
+          resources={resources}
+        />
+      ) : null}
       <PromptInput
-        className="mx-auto max-w-4xl rounded-2xl border-border/80 bg-card/95 shadow-[0_12px_32px_-18px_rgb(0_0_0/0.8)] backdrop-blur"
-        onSubmit={async ({ text }) => {
+        className="mx-auto max-w-4xl shrink-0 rounded-2xl border-border/30 bg-card/70 shadow-[0_12px_32px_-18px_rgb(0_0_0/0.8)] backdrop-blur-xl [&_[data-slot=input-group]]:border-border/30 [&_[data-slot=input-group]]:bg-card/70 dark:bg-card/60 dark:[&_[data-slot=input-group]]:bg-card/60"
+        maxFileSize={250 * 1024 * 1024}
+        multiple
+        onError={(error) => toast.error('Attachment was not added', { description: error.message })}
+        onSubmit={async ({ files, text }) => {
           const trimmed = text.trim();
-          if (trimmed) {
+          if (trimmed || files.length > 0) {
             if (trimmed.startsWith('/')) {
               const [enteredId = '', ...parts] = trimmed.split(/\s+/);
               const command = commands.find(
@@ -196,26 +308,57 @@ export function ClioComposer({
                 toast.error('Commands are unavailable for this session');
                 return;
               }
-              await onCommand({ commandId: command.id, input: parts.join(' ') });
-              setInput('');
+              restoreFocusAfterSubmitRef.current = true;
+              try {
+                await onCommand({ commandId: command.id, input: parts.join(' ') });
+                setInput('');
+              } catch (error) {
+                // PromptInput swallows a rejected submit so the draft survives;
+                // without this the refusal would never reach the person.
+                toast.error(`${command.title} was not run`, {
+                  description: error instanceof Error ? error.message : 'The service rejected it.',
+                });
+                throw error;
+              } finally {
+                restoreInputFocusWhenReady();
+              }
               return;
             }
+            restoreFocusAfterSubmitRef.current = true;
+            setUploadFailure(undefined);
+            uploadingFilenameRef.current = undefined;
             try {
               await onSubmit({
+                behavior,
+                delivery: state === 'running' ? nextDeliveryRef.current : 'start',
+                files,
                 text: trimmed,
-                provider: selectedProvider,
-                model: selectedModel,
-                effort: selectedEffort,
+                provider: selectedOption?.providerId,
+                model: selectedOption?.id,
+                effort: behavior.reasoning_effort,
+                onUploadProgress: (progress) => {
+                  uploadingFilenameRef.current = progress.filename;
+                  setUploadProgress(progress);
+                },
               });
             } catch (error) {
+              setUploadProgress(undefined);
+              setUploadFailure({
+                filename: uploadingFilenameRef.current,
+                message: error instanceof Error ? error.message : 'The service rejected it.',
+              });
               toast.error(
-                state === 'running' ? 'Direction was not queued' : 'Message was not sent',
+                state === 'running' ? 'Message was not accepted' : 'Message was not sent',
                 {
                   description: error instanceof Error ? error.message : 'The service rejected it.',
                 },
               );
               throw error;
+            } finally {
+              setUploadProgress(undefined);
+              restoreInputFocusWhenReady();
             }
+            nextDeliveryRef.current = state === 'running' ? 'queued' : 'start';
             setInput('');
           }
         }}
@@ -225,76 +368,89 @@ export function ClioComposer({
             {activityControl}
           </PromptInputHeader>
         ) : null}
+        <ClioComposerAttachments uploadFailure={uploadFailure} uploadProgress={uploadProgress} />
+        {uploadProgress ? (
+          <div className="px-3 pt-1 text-xs text-muted-foreground" role="status">
+            Uploading {uploadProgress.filename}{' '}
+            {uploadProgress.total > 0
+              ? `${Math.round((uploadProgress.loaded / uploadProgress.total) * 100)}%`
+              : ''}
+          </div>
+        ) : null}
         <PromptInputTextarea
           disabled={disabled}
           onChange={(event) => setInput(event.currentTarget.value)}
           placeholder={`Ask ${brand.name} to investigate, build, explain, or act…`}
           ref={inputRef}
           value={input}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+            nextDeliveryRef.current =
+              state === 'running' ? (event.ctrlKey || event.metaKey ? 'steer' : 'queued') : 'start';
+            if (state === 'running') {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
         />
         <PromptInputFooter className="flex-wrap">
           <PromptInputTools className="min-w-0 flex-1 flex-wrap">
-            {attachments ? (
-              <PromptInputActionAddAttachments aria-label="Attach files">
-                <PaperclipIcon aria-hidden="true" />
-              </PromptInputActionAddAttachments>
-            ) : null}
-            <ClioModelPicker
-              model={selectedModel}
-              onChange={(option) => {
-                setSelectedProvider(option.providerId);
-                setSelectedModel(option.id);
-              }}
-              options={modelOptions}
-              provider={selectedProvider}
-              trigger={
-                <PromptInputButton aria-label="Choose model" className="max-w-44 !text-foreground">
-                  {selectedProvider ? (
-                    <ModelSelectorLogo provider={providerLogoId(selectedProvider)} />
-                  ) : null}
-                  <span className="truncate">{selectedModel ?? 'Choose model'}</span>
-                  <ChevronDownIcon aria-hidden="true" className="size-3.5" />
-                </PromptInputButton>
+            {attachments ? <ComposerAddAttachmentButton /> : null}
+            <ClioComposerBehaviorControls
+              behavior={behavior}
+              disabled={disabled}
+              modelControl={
+                <ClioModelPicker
+                  catalogStatus={modelCatalogStatus}
+                  model={selectedOption?.id}
+                  onChange={(option) => {
+                    setSelectedProvider(option.providerId);
+                    setSelectedModel(option.id);
+                  }}
+                  onRetryCatalog={onRetryModelCatalog}
+                  options={modelOptions}
+                  provider={selectedOption?.providerId}
+                  trigger={
+                    <Button
+                      aria-label="Change model"
+                      className="max-w-48 text-foreground"
+                      size="sm"
+                      title="Change model"
+                      type="button"
+                      variant="outline"
+                    >
+                      {selectedOption ? (
+                        <ModelSelectorLogo provider={providerLogoId(selectedOption.providerId)} />
+                      ) : null}
+                      <span className="truncate">
+                        {selectedOption
+                          ? `${compactProviderName(selectedOption.providerId)} / ${compactModelName(selectedOption.providerId, selectedOption.id, selectedOption.label)}`
+                          : 'Choose model'}
+                      </span>
+                    </Button>
+                  }
+                />
               }
+              onChange={setBehavior}
+              unrecognizedEffort={unrecognizedEffort}
             />
-            <PromptInputSelect onValueChange={setSelectedEffort} value={selectedEffort ?? 'medium'}>
-              <PromptInputSelectTrigger
-                aria-label="Effort"
-                className="hidden w-auto !text-foreground sm:flex"
-              >
-                <SlidersHorizontalIcon aria-hidden="true" className="size-3.5" />
-                <PromptInputSelectValue placeholder="Effort" />
-              </PromptInputSelectTrigger>
-              <PromptInputSelectContent>
-                {['off', 'low', 'medium', 'high'].map((value) => (
-                  <PromptInputSelectItem className="capitalize" key={value} value={value}>
-                    {value}
-                  </PromptInputSelectItem>
-                ))}
-              </PromptInputSelectContent>
-            </PromptInputSelect>
-            {behaviorControl}
           </PromptInputTools>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             {state === 'running' ? (
-              <>
-                <ClioStatus
-                  className="hidden sm:flex"
-                  detail="New input joins the active turn at the next safe boundary"
-                  label="Working"
-                  value="running"
-                />
-                <PromptInputButton
-                  aria-label="Steer current work"
-                  className="gap-1.5 border-action/40 text-action hover:bg-action/10 hover:text-action"
-                  disabled={disabled || !input.trim()}
-                  type="submit"
-                  variant="outline"
-                >
-                  <CornerDownRightIcon aria-hidden="true" />
-                  <span className="hidden sm:inline">Steer</span>
-                </PromptInputButton>
-              </>
+              <PromptInputButton
+                aria-label="Steer current work"
+                className="gap-1.5 border-action/40 text-action hover:bg-action/10 hover:text-action"
+                disabled={disabled || !input.trim()}
+                onClick={() => {
+                  nextDeliveryRef.current = 'steer';
+                }}
+                title="Join the active turn at the next safe boundary"
+                type="submit"
+                variant="outline"
+              >
+                <CornerDownRightIcon aria-hidden="true" />
+                <span className="hidden sm:inline">Steer</span>
+              </PromptInputButton>
             ) : state === 'waiting_permission' || state === 'waiting_user' ? (
               <ClioStatus value={state} />
             ) : null}
@@ -308,4 +464,54 @@ export function ClioComposer({
       </PromptInput>
     </div>
   );
+}
+
+function ComposerAddAttachmentButton() {
+  const attachments = usePromptInputAttachments();
+  return (
+    <PromptInputButton
+      aria-label="Add files"
+      onClick={attachments.openFileDialog}
+      title="Add files"
+    >
+      <PlusIcon aria-hidden="true" />
+    </PromptInputButton>
+  );
+}
+
+const DEFAULT_REASONING_EFFORT: MessageBehavior['reasoning_effort'] = 'medium';
+
+/** The reported effort, or nothing when this build has no setting for it. */
+function knownReasoningEffort(value?: string): MessageBehavior['reasoning_effort'] | undefined {
+  if (
+    value === 'off' ||
+    value === 'low' ||
+    value === 'medium' ||
+    value === 'high' ||
+    value === 'xhigh'
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function compactProviderName(provider?: string): string {
+  const names: Record<string, string> = {
+    argonne_local_vllm: 'vLLM',
+    claude_code: 'Claude',
+    codex: 'Codex',
+    lm_studio: 'LM Studio',
+  };
+  if (!provider) return 'Provider';
+  return names[provider] ?? provider.replaceAll('_', ' ');
+}
+
+function compactModelName(provider: string, modelId: string, label: string): string {
+  if (provider === 'codex') {
+    const familyName = modelId.match(/(?:^|[-_.])(luna|sol|terra)$/i)?.[1];
+    if (familyName)
+      return `${familyName.charAt(0).toUpperCase()}${familyName.slice(1).toLowerCase()}`;
+  }
+  if (provider === 'claude_code' && /sonnet/i.test(modelId)) return 'Sonnet';
+  return label;
 }

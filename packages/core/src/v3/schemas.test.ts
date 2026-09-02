@@ -86,6 +86,58 @@ describe('forward-compatible wire enums', () => {
       text: 'Grounded thought',
       source: 'provider',
     });
+    expect(
+      messageBlockSchema.parse({
+        id: 'resource_1',
+        type: 'resource',
+        resource_id: 'res_1',
+        resource_revision: '1',
+        workspace_id: 'ws_1',
+        name: 'paper.pdf',
+        media_type: 'application/pdf',
+        delivery: {
+          representation: 'native',
+          evidence_source: 'live_handshake',
+          reason: 'selected model accepts this resource natively',
+        },
+      }),
+    ).toMatchObject({
+      type: 'resource',
+      name: 'paper.pdf',
+      delivery: { representation: 'native', evidence_source: 'live_handshake' },
+    });
+    expect(
+      messageBlockSchema.parse({ id: 'resource_2', type: 'resource', resource_id: 'res_2' }),
+    ).toEqual({
+      id: 'resource_2',
+      type: 'unknown',
+      original_type: 'resource',
+      raw: { id: 'resource_2', type: 'resource', resource_id: 'res_2' },
+    });
+  });
+
+  it('keeps a resource attachment readable when the service adds a field', () => {
+    expect(
+      messageBlockSchema.parse({
+        id: 'resource_3',
+        type: 'resource',
+        resource_id: 'res_3',
+        resource_revision: '2',
+        workspace_id: 'ws_1',
+        name: 'stations.csv',
+        media_type: 'text/csv',
+        sha256_v2: 'blake3:cafe',
+        delivery: {
+          representation: 'structured_document',
+          reason: 'converted for a model without native CSV support',
+          evidence_generated_at: '2026-08-27T12:00:00Z',
+        },
+      }),
+    ).toMatchObject({
+      type: 'resource',
+      name: 'stations.csv',
+      delivery: { representation: 'structured_document' },
+    });
   });
 
   it('uses the shared closed A2UI component vocabulary and limits', () => {

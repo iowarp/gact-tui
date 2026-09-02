@@ -1,0 +1,19 @@
+attempt 1: TimeoutError: The operation was aborted due to timeout
+    at node:internal/deps/undici/undici:15157:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async wd (file:///home/runner/work/gact-tui/gact-tui/desktop/tests/webview-e2e.test.mjs:195:15)
+    at async newSession (file:///home/runner/work/gact-tui/gact-tui/desktop/tests/webview-e2e.test.mjs:268:13)
+    at async startSessionWithRecovery (file:///home/runner/work/gact-tui/gact-tui/desktop/tests/webview-e2e.test.mjs:177:19)
+    at async TestContext.<anonymous> (file:///home/runner/work/gact-tui/gact-tui/desktop/tests/webview-e2e.test.mjs:474:26)
+    at async Test.run (node:internal/test_runner/test:1054:7)
+    at async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+
+attempt 2: TimeoutError: The operation was aborted due to timeout
+    at node:internal/deps/undici/undici:15157:13
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async wd (file:///home/runner/work/gact-tui/gact-tui/desktop/tests/webview-e2e.test.mjs:195:15)
+    at async newSession (file:///home/runner/work/gact-tui/gact-tui/desktop/tests/webview-e2e.test.mjs:268:13)
+    at async startSessionWithRecovery (file:///home/runner/work/gact-tui/gact-tui/desktop/tests/webview-e2e.test.mjs:177:19)
+    at async TestContext.<anonymous> (file:///home/runner/work/gact-tui/gact-tui/desktop/tests/webview-e2e.test.mjs:474:26)
+    at async Test.run (node:internal/test_runner/test:1054:7)
+    at async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)

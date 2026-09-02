@@ -38,6 +38,7 @@ export type ClioQueryNamespace =
   | 'prompt'
   | 'prompts'
   | 'provider-models'
+  | 'provider-catalog'
   | 'provenance-providers'
   | 'providers'
   | 'relay-status'
@@ -50,11 +51,20 @@ export type ClioQueryNamespace =
   | 'session-diffs'
   | 'session-observability'
   | 'sessions'
+  | 'pending-steers'
+  | 'queued-messages'
   | 'tools'
   | 'transcript'
   | 'workspace-file'
   | 'workspace-file-bytes'
   | 'workspace-files'
+  | 'workspace-resources'
+  | 'workspace-resource-derivatives'
+  | 'workspace-resource-derivative-content'
+  | 'workspace-resource-deliveries'
+  | 'workspace-resource-preview'
+  | 'workspace-resource-structure'
+  | 'workspace-resource-structure-node'
   | 'workspace-memory-search'
   | 'workspaces';
 
@@ -81,6 +91,11 @@ export const queryKeys = {
     providerId
       ? (['provider-models', endpoint, providerId] as const)
       : (['provider-models', endpoint] as const),
+  providerCatalog: (endpoint: string) => ['provider-catalog', endpoint] as const,
+  pendingSteers: (endpoint: string, sessionId: string) =>
+    ['pending-steers', endpoint, sessionId] as const,
+  queuedMessages: (endpoint: string, sessionId: string) =>
+    ['queued-messages', endpoint, sessionId] as const,
   provenanceProviders: (endpoint: string) => ['provenance-providers', endpoint] as const,
   executionProvenance: (endpoint: string, sessionId: string, provider: string) =>
     ['execution-provenance', endpoint, sessionId, provider] as const,
@@ -109,6 +124,83 @@ export const queryKeys = {
     ['workspace-file-bytes', endpoint, workspaceId, path] as const,
   workspaceFiles: (endpoint: string, workspaceId: string) =>
     ['workspace-files', endpoint, workspaceId] as const,
+  workspaceResources: (endpoint: string, workspaceId: string) =>
+    ['workspace-resources', endpoint, workspaceId] as const,
+  workspaceResourceDeliveries: (endpoint: string, workspaceId: string) =>
+    ['workspace-resource-deliveries', endpoint, workspaceId] as const,
+  // Each shorter form is the prefix an invalidation uses: without a revision it
+  // matches every revision of one resource (what a reprocess changes), and
+  // without a resource it matches every resource in one workspace (what a
+  // workspace-scoped stream event changes).
+  workspaceResourceDerivatives: (
+    endpoint: string,
+    workspaceId: string,
+    resourceId?: string,
+    revision?: number,
+  ) =>
+    resourceId === undefined
+      ? (['workspace-resource-derivatives', endpoint, workspaceId] as const)
+      : revision === undefined
+        ? (['workspace-resource-derivatives', endpoint, workspaceId, resourceId] as const)
+        : ([
+            'workspace-resource-derivatives',
+            endpoint,
+            workspaceId,
+            resourceId,
+            revision,
+          ] as const),
+  workspaceResourceDerivativeContent: (
+    endpoint: string,
+    workspaceId: string,
+    resourceId: string,
+    derivativeId: string,
+  ) =>
+    [
+      'workspace-resource-derivative-content',
+      endpoint,
+      workspaceId,
+      resourceId,
+      derivativeId,
+    ] as const,
+  workspaceResourcePreview: (
+    endpoint: string,
+    workspaceId: string,
+    resourceId: string,
+    revision?: number,
+  ) =>
+    revision === undefined
+      ? (['workspace-resource-preview', endpoint, workspaceId, resourceId] as const)
+      : (['workspace-resource-preview', endpoint, workspaceId, resourceId, revision] as const),
+  workspaceResourceStructure: (
+    endpoint: string,
+    workspaceId: string,
+    resourceId?: string,
+    revision?: number,
+  ) =>
+    resourceId === undefined
+      ? (['workspace-resource-structure', endpoint, workspaceId] as const)
+      : revision === undefined
+        ? (['workspace-resource-structure', endpoint, workspaceId, resourceId] as const)
+        : (['workspace-resource-structure', endpoint, workspaceId, resourceId, revision] as const),
+  workspaceResourceStructureNode: (
+    endpoint: string,
+    workspaceId: string,
+    resourceId?: string,
+    collection?: string,
+    index?: number,
+  ) =>
+    resourceId === undefined
+      ? (['workspace-resource-structure-node', endpoint, workspaceId] as const)
+      : collection === undefined
+        ? (['workspace-resource-structure-node', endpoint, workspaceId, resourceId] as const)
+        : ([
+            'workspace-resource-structure-node',
+            endpoint,
+            workspaceId,
+            resourceId,
+            collection,
+            index,
+          ] as const),
   workspaces: (endpoint: string, scope?: string) =>
     scope ? (['workspaces', endpoint, scope] as const) : (['workspaces', endpoint] as const),
 } as const;

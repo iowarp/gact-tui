@@ -9,7 +9,14 @@ export class RecordingTransport implements ClioTransport {
     this.requests.push(request as TransportRequest<unknown>);
     const response = this.responses.shift();
     if (response instanceof Error) return Promise.reject(response);
-    return Promise.resolve(request.decode(response));
+    // A refused decode must REJECT, never throw synchronously out of the call:
+    // the real transport decodes inside its own async chain, and a helper that
+    // throws early hides every decode failure from `.rejects` assertions.
+    try {
+      return Promise.resolve(request.decode(response));
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
   public async *stream(

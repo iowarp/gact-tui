@@ -56,7 +56,7 @@ import {
   readTextPath,
 } from './artifact-custody.js';
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
-import { ArtifactPreviewRepository } from './artifact-preview-repository.js';
+import { ComposerRepository } from './composer-repository.js';
 
 /**
  * Artifact records requested per page while walking a session's registry.
@@ -73,7 +73,7 @@ const ARTIFACT_PAGE_SIZE = 200;
  */
 const MAX_ARTIFACT_PAGES = 100;
 
-export class ClioRepository extends ArtifactPreviewRepository {
+export class ClioRepository extends ComposerRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }
@@ -645,6 +645,37 @@ export class ClioRepository extends ArtifactPreviewRepository {
     return result.questions;
   }
 
+  /**
+   * Reads questions from the unscoped `/v1/questions` endpoint, optionally
+   * filtered to one session. Mirrors `permissions`/`pendingApprovals`: the
+   * endpoint itself accepts an optional `session_id`, so omitting it reads
+   * every session's questions, including sessions this view has not
+   * otherwise fetched — the same shape a descendant session's approval
+   * already relies on.
+   */
+  public async allQuestions(
+    signal?: AbortSignal,
+    filters?: { sessionId?: string; status?: UserQuestion['status'] },
+  ): Promise<UserQuestion[]> {
+    const query = new URLSearchParams();
+    if (filters?.sessionId) query.set('session_id', filters.sessionId);
+    if (filters?.status) query.set('status', filters.status);
+    const result = await this.transport.request({
+      method: 'GET',
+      path: `/v1/questions${query.size ? `?${query.toString()}` : ''}`,
+      decode: (value) => questionListSchema.parse(value),
+      signal,
+    });
+    return result.questions;
+  }
+
+  public async pendingQuestions(
+    sessionId?: string,
+    signal?: AbortSignal,
+  ): Promise<UserQuestion[]> {
+    return this.allQuestions(signal, { sessionId, status: 'pending' });
+  }
+
   public answerQuestion(
     sessionId: string,
     questionId: string,
@@ -689,40 +720,6 @@ export class ClioRepository extends ArtifactPreviewRepository {
       artifacts: result.artifacts,
       surfaces: result.surfaces,
     };
-  }
-
-  public sendMessage(
-    sessionId: string,
-    text: string,
-    options?: { provider_id?: string; model_id?: string; effort?: string; queue?: boolean },
-    signal?: AbortSignal,
-  ): Promise<{ message_id: string; run_id?: string }> {
-    const model =
-      options?.provider_id || options?.model_id
-        ? {
-            provider_id: options.provider_id ?? '',
-            model_id: options.model_id ?? '',
-          }
-        : undefined;
-    const metadata =
-      options?.effort || options?.queue !== undefined
-        ? {
-            ...(options.effort ? { effort: options.effort } : {}),
-            ...(options.queue !== undefined ? { queue: options.queue } : {}),
-          }
-        : undefined;
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
-      body: {
-        text,
-        ...(model ? { model } : {}),
-        ...(metadata ? { metadata } : {}),
-      },
-      decode: (value) =>
-        z.object({ message_id: z.string(), run_id: z.string().optional() }).parse(value),
-      signal,
-    });
   }
 
   public retryTurn(

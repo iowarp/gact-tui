@@ -5,6 +5,7 @@ import type {
   SessionDiff,
   SubagentRun,
   WorkspaceFileEntry,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import {
   ActivityIcon,
@@ -16,6 +17,7 @@ import {
   Layers3Icon,
   Maximize2Icon,
   Minimize2Icon,
+  PaperclipIcon,
   XIcon,
 } from 'lucide-react';
 import {
@@ -46,6 +48,7 @@ import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
 import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-context';
+import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import {
   ArtifactBrowser,
   BlueprintBrowser,
@@ -62,12 +65,18 @@ const ArtifactView = lazy(() =>
 const BlueprintFileEditor = lazy(() =>
   loadResourceViewers().then((module) => ({ default: module.BlueprintFileEditor })),
 );
+const WorkspaceResourceView = lazy(() =>
+  import('./workspace-resource-view').then((module) => ({
+    default: module.WorkspaceResourceView,
+  })),
+);
 
 type WorkbenchTab =
   | { id: 'session'; kind: 'session'; label: 'Observability' }
   | { id: 'files'; kind: 'files'; label: 'Files'; path?: string }
   | { id: 'artifacts'; kind: 'artifacts'; label: 'Artifacts' }
   | { id: 'blueprints'; kind: 'blueprints'; label: 'Blueprints' }
+  | { id: 'resources'; kind: 'resources'; label: 'Resources' }
   | { id: string; kind: 'workspace-file'; label: string; path: string; workspaceId: string }
   | {
       id: string;
@@ -91,6 +100,13 @@ type WorkbenchTab =
       kind: 'artifact';
       label: string;
       artifact: ArtifactEntity;
+      workspaceId: string;
+    }
+  | {
+      id: string;
+      kind: 'resource';
+      label: string;
+      resource: WorkspaceResource;
       workspaceId: string;
     }
   | {
@@ -119,6 +135,9 @@ export interface ClioWorkbenchProps {
   artifactsPending?: boolean;
   artifactsError?: string;
   artifactsTruncated?: 'page_cap_reached' | 'cursor_cycle_detected';
+  resources?: readonly WorkspaceResource[];
+  resourcesPending?: boolean;
+  resourcesError?: string;
   blueprints: readonly AgentBlueprint[];
   blueprintsPending?: boolean;
   blueprintsError?: string;
@@ -136,6 +155,7 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'workspace-file'; path: string }
   | { kind: 'diff'; diff: SessionDiff }
   | { kind: 'artifact'; artifact: ArtifactEntity }
+  | { kind: 'resource'; resource: WorkspaceResource }
   | { kind: 'blueprint'; blueprint: AgentBlueprintReference }
   | { kind: 'subagent'; subagent: SubagentRun }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
@@ -157,12 +177,18 @@ const blueprintBrowserTab: WorkbenchTab = {
   kind: 'blueprints',
   label: 'Blueprints',
 };
+const resourceBrowserTab: WorkbenchTab = {
+  id: 'resources',
+  kind: 'resources',
+  label: 'Resources',
+};
 
 const canvasResourceTabs = {
   session: sessionTab,
   files: fileBrowserTab,
   artifacts: artifactBrowserTab,
   blueprints: blueprintBrowserTab,
+  resources: resourceBrowserTab,
 } satisfies Record<CanvasResourceKind, WorkbenchTab>;
 
 const workbenchTabIcons = {
@@ -170,10 +196,12 @@ const workbenchTabIcons = {
   files: FolderIcon,
   artifacts: BoxIcon,
   blueprints: BoxesIcon,
+  resources: PaperclipIcon,
   'workspace-file': FileCode2Icon,
   diff: FileDiffIcon,
   'blueprint-file': FileCode2Icon,
   artifact: BoxIcon,
+  resource: PaperclipIcon,
   blueprint: BoxesIcon,
   subagent: BoxesIcon,
 } satisfies Record<
@@ -193,6 +221,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       artifactsPending,
       artifactsError,
       artifactsTruncated,
+      resources = [],
+      resourcesPending,
+      resourcesError,
       blueprints,
       blueprintsPending,
       blueprintsError,
@@ -210,7 +241,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const [tabs, setTabs] = useState<WorkbenchTab[]>([sessionTab]);
     const [activeTabId, setActiveTabId] = useState<string>(sessionTab.id);
     const [maximized, setMaximized] = useState(false);
-    const activeTabRef = useRef<HTMLButtonElement>(null);
+    const activeTabRef = useRef<HTMLDivElement>(null);
     const tabStripRef = useRef<HTMLDivElement>(null);
 
     useLayoutEffect(() => {
@@ -249,7 +280,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         setActiveTabId(next[Math.max(0, index - 1)]?.id ?? '');
       }
     };
-    const activeTab = tabs.find((tab) => tab.id === activeTabId);
     const canvasVisible = useWorkspaceCanvasVisibility();
 
     const openCanvasResource = useCallback(
@@ -289,6 +319,15 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               label: request.artifact.name,
               artifact: request.artifact,
               workspaceId: request.artifact.workspace_id ?? workspaceId,
+            });
+            return;
+          case 'resource':
+            openTab({
+              id: `resource:${request.resource.id}`,
+              kind: 'resource',
+              label: request.resource.name,
+              resource: request.resource,
+              workspaceId: request.resource.workspace_id || workspaceId,
             });
             return;
           case 'blueprint':
@@ -378,6 +417,25 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   workspaceId: artifact.workspace_id ?? workspaceId,
                 })
               }
+              workspaceId={workspaceId}
+            />
+          );
+        case 'resources':
+          return (
+            <WorkspaceResourceBrowser
+              defaultSplit={maximized}
+              error={resourcesError}
+              onOpenResource={(resource) =>
+                openTab({
+                  id: `resource:${resource.id}`,
+                  kind: 'resource',
+                  label: resource.name,
+                  resource,
+                  workspaceId: resource.workspace_id || workspaceId,
+                })
+              }
+              pending={resourcesPending}
+              resources={resources}
               workspaceId={workspaceId}
             />
           );
@@ -473,6 +531,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               />
             </Suspense>
           );
+        case 'resource':
+          return (
+            <Suspense fallback={<CanvasLoading label="Loading resource" />}>
+              <WorkspaceResourceView resource={tab.resource} workspaceId={tab.workspaceId} />
+            </Suspense>
+          );
         case 'blueprint':
           return (
             <BlueprintView
@@ -541,36 +605,69 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               ref={tabStripRef}
             >
               <TabsList className="h-10 w-max justify-start gap-1 rounded-lg bg-transparent p-1">
-                {tabs.map((tab) => (
-                  <TabsTrigger
-                    className={cn(
-                      'h-8 min-w-24 max-w-56 shrink-0 justify-start rounded-lg border-transparent bg-transparent px-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
-                      tab.id === activeTabId
-                        ? 'text-foreground'
-                        : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
-                    )}
-                    key={tab.id}
-                    ref={tab.id === activeTabId ? activeTabRef : undefined}
-                    value={tab.id}
-                  >
-                    <TabIcon kind={tab.kind} />
-                    <span className="truncate">{tab.label}</span>
-                  </TabsTrigger>
-                ))}
+                {tabs.map((tab) => {
+                  const active = tab.id === activeTabId;
+                  return (
+                    // The close button below is a SIBLING, not a child, of TabsTrigger: Radix's
+                    // Tabs.Trigger renders a real <button role="tab">, whose content model
+                    // forbids interactive descendants and whose ARIA role treats descendants as
+                    // presentational (stripped from the accessibility tree) — nesting a control
+                    // in it, real <button> or otherwise, cannot carry its own accessible name to
+                    // assistive tech, and adds a stray tab stop inside the tablist's roving-
+                    // tabindex model. Wrapping keeps both as ordinary flex siblings; Radix finds
+                    // TabsTrigger by DOM query regardless of this wrapper, so roving tabindex
+                    // between tabs is unaffected.
+                    <div
+                      className="group/canvas-tab relative flex min-w-24 max-w-56 shrink-0"
+                      key={tab.id}
+                      ref={active ? activeTabRef : undefined}
+                    >
+                      <TabsTrigger
+                        aria-keyshortcuts="Delete"
+                        className={cn(
+                          'h-8 w-full justify-start rounded-lg border-transparent bg-transparent py-0.5 pr-8 pl-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
+                          active
+                            ? 'text-foreground'
+                            : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
+                        )}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Delete') return;
+                          event.preventDefault();
+                          closeTab(tab.id);
+                        }}
+                        value={tab.id}
+                      >
+                        <TabIcon kind={tab.kind} />
+                        <span className="truncate">{tab.label}</span>
+                      </TabsTrigger>
+                      {/*
+                        A pointer affordance, deliberately outside the accessibility tree. A
+                        tablist may own nothing but tabs and a tab's own children are
+                        presentational, so a real <button> is a critical violation on either side
+                        of the trigger: aria-required-children as a sibling, nested-interactive as
+                        a child. Assistive tech closes the tab through the aria-keyshortcuts
+                        "Delete" announced with the tab and handled above — so this control must
+                        also stay unfocusable, which is why it is a span and not a disabled-looking
+                        button. Always at least faintly visible, since touch has no hover to reveal
+                        it on; hover and keyboard focus within the tab only strengthen it.
+                      */}
+                      <span
+                        aria-hidden="true"
+                        className="absolute top-1/2 right-1 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity group-hover/canvas-tab:opacity-100 group-focus-within/canvas-tab:opacity-100 hover:bg-muted hover:text-foreground"
+                        data-slot="canvas-tab-close"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          closeTab(tab.id);
+                        }}
+                        title={`Close ${tab.label}`}
+                      >
+                        <XIcon aria-hidden="true" className="size-3.5" />
+                      </span>
+                    </div>
+                  );
+                })}
               </TabsList>
             </div>
-            {activeTab ? (
-              <Button
-                aria-label={`Close ${activeTab.label}`}
-                className="size-8 shrink-0 rounded-lg opacity-70 hover:opacity-100 focus-visible:opacity-100"
-                onClick={() => closeTab(activeTab.id)}
-                size="icon-sm"
-                title={`Close ${activeTab.label}`}
-                variant="ghost"
-              >
-                <XIcon aria-hidden="true" />
-              </Button>
-            ) : null}
             <CanvasLauncher onOpen={openCanvasResource} />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
@@ -600,7 +697,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 </EmptyMedia>
                 <EmptyTitle>Canvas is empty</EmptyTitle>
                 <EmptyDescription>
-                  Use the add button to open observability, files, artifacts, or blueprints.
+                  Use the add button to open observability, files, resources, artifacts, or
+                  blueprints.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

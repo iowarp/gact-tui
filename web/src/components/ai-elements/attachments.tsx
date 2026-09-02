@@ -330,7 +330,8 @@ export const AttachmentRemove = ({
         ],
         variant === 'inline' && [
           'size-5 rounded p-0',
-          'opacity-0 transition-opacity group-hover:opacity-100',
+          // Focus reveals it too, or the control is unreachable by keyboard.
+          'opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100',
           '[&>svg]:size-2.5',
         ],
         variant === 'list' && ['size-8 shrink-0 rounded p-0', '[&>svg]:size-4'],

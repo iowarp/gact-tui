@@ -1,4 +1,4 @@
-import { BrainIcon, ChevronDownIcon, WrenchIcon } from 'lucide-react';
+import { BrainIcon, ChevronDownIcon, ListChecksIcon, WrenchIcon } from 'lucide-react';
 import { useState } from 'react';
 import {
   ChainOfThought,
@@ -10,13 +10,13 @@ import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import type { SubagentRun, Task } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus, clioStatusLabel } from './status';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
 import { getToolPresentation, getToolSummary } from './tool-presentation';
 import { ClioToolInvocation } from './tool-invocation';
-import type { SubagentRun } from '@clio/core/v3';
 
 interface ConversationTurnProps {
   iterations: readonly ConversationIteration[];
@@ -42,6 +42,7 @@ export function ConversationTurn({
               iteration={iteration}
               key={iteration.id}
               onOpenSubagent={onOpenSubagent}
+              showTasks
               subagents={subagents}
             />
           ))}
@@ -91,6 +92,7 @@ function IterationSummary({
     tool?.title,
     toolSummary,
     toolState,
+    ...iteration.tasks.map((task) => `${task.title}: ${clioStatusLabel(task.state)}`),
     iteration.interrupted ? 'Interrupted' : undefined,
   ]
     .filter(Boolean)
@@ -118,6 +120,9 @@ function IterationSummary({
                   ) : null}
                 </span>
               ) : null}
+              {iteration.tasks.map((task) => (
+                <TaskActivityLine className="mt-1" key={task.id} task={task} />
+              ))}
               {iteration.interrupted && !open ? (
                 <ClioStatus className="mt-1" value="interrupted" />
               ) : null}
@@ -133,6 +138,7 @@ function IterationSummary({
           <IterationDetail
             iteration={iteration}
             onOpenSubagent={onOpenSubagent}
+            showTasks={false}
             subagents={subagents}
           />
         </CollapsibleContent>
@@ -145,10 +151,12 @@ function IterationDetail({
   iteration,
   onOpenSubagent,
   subagents,
+  showTasks = true,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
+  showTasks?: boolean;
 }) {
   return (
     <article>
@@ -175,17 +183,52 @@ function IterationDetail({
           </MessageResponse>
         ))}
 
-        {iteration.tools.map((tool) => (
-          <div className="space-y-2" key={tool.id}>
-            <ClioToolInvocation tool={tool} />
-            {subagentsForTool(tool, subagents).map((subagent) => (
-              <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
-            ))}
-          </div>
-        ))}
-
+        {/*
+          One ordered lane: a Task carries no owning-tool field, so its position
+          beside a tool is the only record of what it belongs to. Rendering all
+          tools and then all tasks would destroy that correlation.
+        */}
+        {iteration.activity.map((entry) =>
+          entry.kind === 'tool' ? (
+            <div
+              className="space-y-2"
+              data-turn-activity={`tool:${entry.id}`}
+              key={`tool:${entry.id}`}
+            >
+              <ClioToolInvocation tool={entry.tool} />
+              {subagentsForTool(entry.tool, subagents).map((subagent) => (
+                <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
+              ))}
+            </div>
+          ) : showTasks ? (
+            <TaskActivityLine key={`task:${entry.id}`} task={entry.task} />
+          ) : null,
+        )}
         {iteration.interrupted ? <ClioStatus value="interrupted" /> : null}
       </div>
     </article>
+  );
+}
+/**
+ * A task line is a plain span, and ARIA prohibits naming a generic element, so
+ * its state and detail are rendered as real content (visible or screen-reader
+ * only) rather than hidden behind an `aria-label` assistive technology is free
+ * to ignore.
+ */
+function TaskActivityLine({ task, className }: { task: Task; className?: string }) {
+  return (
+    <span
+      className={cn('flex min-w-0 items-center gap-2 text-xs text-muted-foreground', className)}
+      data-turn-activity={`task:${task.id}`}
+      title={task.detail}
+    >
+      <ListChecksIcon aria-hidden="true" className="size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate text-foreground/85">{task.title}</span>
+      <ClioStatus
+        className="h-auto shrink-0 border-0 bg-transparent px-0 py-0 shadow-none"
+        value={task.state}
+      />
+      {task.detail ? <span className="sr-only">{task.detail}</span> : null}
+    </span>
   );
 }

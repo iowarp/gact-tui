@@ -8,17 +8,21 @@ Decide what to do with a process the stop sweep found.
 
 .DESCRIPTION
 Returns one of:
-  stop         - the process identity lives under the owned root, or an
-                 independent signal cross-confirms a recorded PID.
+  stop         - the process identity lives under the owned root.
   ignore-stale - the ONLY evidence is a PID recorded in dev-processes.json and
                  the running process's identity is outside the owned root, i.e.
                  the record is stale and the PID has been recycled.
   refuse       - an unowned process reached the sweep some other way; the caller
                  must fail loudly rather than kill it.
 
-The identity check comes FIRST and CrossConfirmed must describe evidence other
-than the record being acted on: a recorded PID that confirms itself would make
-the stale branch unreachable and force-kill recycled PIDs.
+Identity is the only thing that can authorize a kill. CrossConfirmed describes a
+second, independent sighting of the same PID (a live port or generation hit on a
+PID that was also recorded); it can only CONFIRM an identity that already places
+the process under the owned root, never substitute for one. A cross-confirmed
+process whose identity is outside the root is not a stale record -- the PID is
+genuinely the listener we found -- so it is refused loudly rather than ignored,
+and never killed: the recorded PID may be a node-wide daemon this tooling merely
+adopted, and force-killing it takes down every other consumer on the box.
 #>
 function Resolve-ClioDevProcessAction {
     [CmdletBinding()]
@@ -34,13 +38,14 @@ function Resolve-ClioDevProcessAction {
         [switch]$CrossConfirmed
     )
 
-    # IndexOf, not Contains: the (string, StringComparison) Contains overload is
-    # .NET Core only and throws on Windows PowerShell 5.1.
+    # IndexOf with an explicit StringComparison, not Contains: the
+    # (string, StringComparison) Contains overload is .NET Core only and throws
+    # on Windows PowerShell 5.1, which is the shell this skill runs under.
     if ($Identity.IndexOf($OwnedRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
         return "stop"
     }
     if ($CrossConfirmed) {
-        return "stop"
+        return "refuse"
     }
     if ($Reason.StartsWith("recorded ", [System.StringComparison]::OrdinalIgnoreCase)) {
         return "ignore-stale"
@@ -93,7 +98,18 @@ function Clear-ClioDevReadOnlyAttributes {
         return
     }
 
-    foreach ($item in @(Get-ChildItem -LiteralPath $Path -Recurse -Force -ErrorAction SilentlyContinue)) {
+    # -Attributes !ReparsePoint bounds the walk: a junction or symlink inside the
+    # tree (a pnpm store link, a venv, a user's own shortcut) otherwise sends the
+    # recursion through its target, clearing read-only flags on files that are
+    # not in this tree at all -- and, if it points at an ancestor, forever.
+    foreach ($item in @(
+        Get-ChildItem `
+            -LiteralPath $Path `
+            -Recurse `
+            -Force `
+            -Attributes !ReparsePoint `
+            -ErrorAction SilentlyContinue
+    )) {
         if (-not $item.PSIsContainer -and $item.IsReadOnly) {
             $item.IsReadOnly = $false
         }
@@ -127,9 +143,23 @@ function Remove-ClioDevCleanupResidue {
             try {
                 Clear-ClioDevReadOnlyAttributes -Path $target.FullName
                 if ($target.PSIsContainer) {
+                    # Same reparse-point bound as Clear-ClioDevReadOnlyAttributes,
+                    # and here it also protects the link itself: writing Normal
+                    # over a reparse point's attributes destroys the link.
+                    Get-ChildItem `
+                        -LiteralPath $target.FullName `
+                        -Recurse `
+                        -Force `
+                        -Attributes !ReparsePoint `
+                        -ErrorAction SilentlyContinue |
+                        ForEach-Object {
+                            $_.Attributes = [System.IO.FileAttributes]::Normal
+                        }
+                    $target.Attributes = [System.IO.FileAttributes]::Normal
                     [System.IO.Directory]::Delete($target.FullName, $true)
                 }
                 else {
+                    $target.Attributes = [System.IO.FileAttributes]::Normal
                     [System.IO.File]::Delete($target.FullName)
                 }
             }

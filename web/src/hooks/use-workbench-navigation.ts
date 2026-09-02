@@ -1,4 +1,4 @@
-import type { Artifact, Session, SessionDiff, SubagentRun } from '@clio/core/v3';
+import type { Artifact, Session, SessionDiff, SubagentRun, WorkspaceResource } from '@clio/core/v3';
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
@@ -56,6 +56,10 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     (path: string) => revealWorkbench({ kind: 'workspace-file', path }),
     [revealWorkbench],
   );
+  const openWorkspaceResource = useCallback(
+    (resource: WorkspaceResource) => revealWorkbench({ kind: 'resource', resource }),
+    [revealWorkbench],
+  );
   const openDiff = useCallback(
     (diff: SessionDiff) => revealWorkbench({ kind: 'diff', diff }),
     [revealWorkbench],
@@ -70,6 +74,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     openDiff,
     openSubagent,
     openWorkspaceFile,
+    openWorkspaceResource,
     revealWorkbench,
   };
 }

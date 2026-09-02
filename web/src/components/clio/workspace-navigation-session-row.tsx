@@ -1,6 +1,7 @@
 import type { AgentBlueprintReference, Session } from '@clio/core/v3';
 import {
   ArchiveIcon,
+  BellRingIcon,
   DownloadIcon,
   LoaderCircleIcon,
   MoreHorizontalIcon,
@@ -22,9 +23,12 @@ import {
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { sessionInteractionAt } from '@/lib/recent-sessions';
 import { isSessionRunning } from '@/lib/session-state';
+import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-attention';
+import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioRelativeTime } from './relative-time';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
+import { SessionAttentionIndicators } from './session-attention-indicators';
 import { sessionModeLabel } from './session-behavior-options';
 
 interface SessionNavigationRowProps {
@@ -39,6 +43,7 @@ interface SessionNavigationRowProps {
   onDownloadSession: (sessionId: string, title: string) => Promise<void>;
   onAction: (action: () => Promise<void>, success: string) => void;
   onVisit: (session: Session) => void;
+  attention?: SessionAttention;
 }
 
 export function SessionNavigationRow({
@@ -53,10 +58,15 @@ export function SessionNavigationRow({
   onDownloadSession,
   onAction,
   onVisit,
+  attention,
 }: SessionNavigationRowProps) {
   const running = isSessionRunning(session.state);
+  const needsAttention = Boolean(attention?.total);
   const unseen =
-    !running && session.id !== activeSessionId && seenRevision !== sessionInteractionAt(session);
+    !running &&
+    !needsAttention &&
+    session.id !== activeSessionId &&
+    seenRevision !== sessionInteractionAt(session);
   return (
     <ClioInteractiveRow
       actions={
@@ -120,8 +130,12 @@ export function SessionNavigationRow({
           </DropdownMenuContent>
         </DropdownMenu>
       }
-      className="h-8 min-h-8 gap-1.5 px-2 py-0"
-      running={running}
+      className={cn(
+        'h-8 min-h-8 gap-1.5 px-2 py-0',
+        needsAttention &&
+          'bg-warning/10 text-sidebar-foreground hover:bg-warning/15 focus-within:bg-warning/15',
+      )}
+      running={running && !needsAttention}
       selected={session.id === activeSessionId}
     >
       <HoverCard closeDelay={100} openDelay={260}>
@@ -135,11 +149,26 @@ export function SessionNavigationRow({
           >
             {session.pinned ? <PinIcon aria-hidden="true" className="mr-1 inline size-3" /> : null}
             <span className="min-w-0 flex-1 truncate">{session.title || 'Untitled session'}</span>
-            {running ? (
-              <Badge className="h-5 gap-1 px-1.5 text-[10px]" variant="secondary">
-                <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
-                Working
-              </Badge>
+            {needsAttention && attention ? (
+              <span
+                aria-label={`Needs your response: ${sessionAttentionLabel(attention)}`}
+                aria-live="polite"
+                className="inline-flex size-5 shrink-0 items-center justify-center text-action"
+                role="status"
+                title={`Needs your response: ${sessionAttentionLabel(attention)}`}
+              >
+                <BellRingIcon aria-hidden="true" className="size-3.5" />
+              </span>
+            ) : running ? (
+              <span
+                aria-label="Working now"
+                aria-live="polite"
+                className="inline-flex size-5 shrink-0 items-center justify-center text-info"
+                role="status"
+                title="Working now"
+              >
+                <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
+              </span>
             ) : unseen ? (
               <Badge className="h-5 px-1.5 text-[10px]" variant="default">
                 New
@@ -149,7 +178,7 @@ export function SessionNavigationRow({
             )}
           </Link>
         </HoverCardTrigger>
-        <HoverCardContent align="start" className="w-72 p-3" side="right" sideOffset={52}>
+        <HoverCardContent align="start" className="w-80 p-3" side="right" sideOffset={52}>
           <div className="flex min-w-0 items-start gap-2">
             <div className="min-w-0 flex-1">
               <button
@@ -163,9 +192,18 @@ export function SessionNavigationRow({
                   className="size-3 shrink-0 opacity-0 transition-opacity group-hover/name:opacity-100 group-focus/name:opacity-100"
                 />
               </button>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {running ? 'Working now' : sessionStateLabel(session.state)}
-              </p>
+              {needsAttention && attention ? (
+                <div className="mt-1">
+                  <SessionAttentionIndicators
+                    attention={attention}
+                    showResponseLabel
+                  />
+                </div>
+              ) : (
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {running ? 'Working now' : sessionStateLabel(session.state)}
+                </p>
+              )}
             </div>
             <Button
               aria-label={`${session.pinned ? 'Unpin' : 'Pin'} ${session.title}`}
@@ -184,7 +222,9 @@ export function SessionNavigationRow({
           </div>
           <div className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 border-t pt-3 text-xs">
             <span className="text-muted-foreground">Agent</span>
-            <span className="truncate">{blueprint?.display_name || 'Standard agent'}</span>
+            <span className="truncate">
+              {blueprint?.display_name || session.agent_id || 'Agent unavailable'}
+            </span>
             <span className="text-muted-foreground">Model</span>
             <span className="truncate">{session.model_id || 'Inherited workspace default'}</span>
             <span className="text-muted-foreground">Last interaction</span>

@@ -2,11 +2,16 @@
 param(
     [string]$BackendRepo = "D:\Libraries\Documents\projects\.codex-campaign-clio-agent",
     [string]$FrontendRepo = "D:\Libraries\Documents\projects\gact-tui-node-revamp",
+    [string]$DocumentProcessorRepo = "D:\Libraries\Documents\projects\clio-web-search",
     [string]$DevRoot = "D:\Libraries\Documents\projects\clio_develop_workspace",
     [ValidateRange(1, 65535)]
     [int]$BackendPort = 8787,
     [ValidateRange(1, 65535)]
     [int]$WebPort = 5174,
+    [ValidateRange(1, 65535)]
+    [int]$DocumentProcessorPort = 8089,
+    [ValidateRange(1, 65535)]
+    [int]$CtePort = 9413,
     [string]$Provider = "codex",
     [string]$Model = "gpt-5.6-luna",
     [string]$PythonVersion = "3.12",
@@ -20,12 +25,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "ClioDevHttp.ps1")
 $deploymentStartedAt = [DateTimeOffset]::Now
 $deploymentStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $deploymentStages = [System.Collections.Generic.List[object]]::new()
 $deploymentStageName = $null
 $deploymentStageStartedMs = 0L
 $deploymentTimingWritten = $false
+$startupProcessesOwned = $false
 $skillRoot = Split-Path -Parent $PSScriptRoot
 $stopScript = Join-Path $PSScriptRoot "Stop-ClioDev.ps1"
 $resetScript = Join-Path $PSScriptRoot "Reset-ClioDev.ps1"
@@ -33,6 +40,7 @@ $containmentScript = Join-Path $PSScriptRoot "Test-ClioDevContainment.ps1"
 $preflightScript = Join-Path $PSScriptRoot "Test-ClioDevPreflight.ps1"
 $backendSource = [System.IO.Path]::GetFullPath($BackendRepo)
 $frontendSource = [System.IO.Path]::GetFullPath($FrontendRepo)
+$documentProcessorSource = [System.IO.Path]::GetFullPath($DocumentProcessorRepo)
 $devRootFull = [System.IO.Path]::GetFullPath($DevRoot)
 $configRoot = Join-Path $devRootFull "config"
 $activeGenerationPath = Join-Path $configRoot "active-generation.json"
@@ -57,12 +65,26 @@ else {
 $worktreeRoot = Join-Path $generationRoot "worktrees"
 $backendRoot = Join-Path $worktreeRoot "clio-agent"
 $frontendRoot = Join-Path $worktreeRoot "gact-tui"
-$runtimeRoot = Join-Path $generationRoot "runtime\clio-agent"
+$documentProcessorRoot = Join-Path $worktreeRoot "clio-web-search"
+$runtimeRoot = Join-Path $generationRoot "runtime\clio-agent-dev"
+$documentProcessorDataRoot = Join-Path $generationRoot "runtime\clio-web-search"
 $logRoot = Join-Path $generationRoot "logs"
 $webRoot = Join-Path $frontendRoot "web"
 $workspaceRoot = Join-Path $generationRoot "workspaces"
 $tempRoot = Join-Path $generationRoot "temp"
 $cacheRoot = Join-Path $generationRoot "cache"
+# The Hugging Face model cache is the one piece of state that must OUTLIVE the
+# disposable root: it holds multi-gigabyte model downloads that a stop or reset
+# would otherwise delete, forcing every reinstall to re-download them. It is an
+# accelerator, never truth, so it lives beside the user's other machine-local
+# caches and is exempt from the containment audit. Reset-ClioDev.ps1 removes it
+# only when explicitly asked with -IncludeModelCache.
+if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    throw "LOCALAPPDATA is not set, so the shared model cache has no machine-local home."
+}
+$sharedModelCacheRoot = [System.IO.Path]::GetFullPath(
+    (Join-Path $env:LOCALAPPDATA "clio-dev\cache\huggingface")
+)
 $toolRoot = Join-Path $generationRoot "tools"
 $timingPath = Join-Path $configRoot "deploy-timing.json"
 
@@ -120,6 +142,20 @@ function Write-DeploymentTiming {
 
 trap {
     $failure = $_
+    if ($script:startupProcessesOwned) {
+        try {
+            & $stopScript `
+                -DevRoot $devRootFull `
+                -BackendPort $BackendPort `
+                -WebPort $WebPort `
+                -DocumentProcessorPort $DocumentProcessorPort `
+                -CtePort $CtePort `
+                -PreserveState
+        }
+        catch {
+            Write-Warning "Could not completely clean the failed startup: $($_.Exception.Message)"
+        }
+    }
     Write-DeploymentTiming -Status "failed" -ErrorMessage $failure.Exception.Message
     Write-Error -ErrorRecord $failure
     exit 1
@@ -136,7 +172,7 @@ if (-not $SpotterConfigPath) {
 $spotterImplRoot = [System.IO.Path]::GetFullPath($SpotterImplDir)
 $spotterConfigFull = [System.IO.Path]::GetFullPath($SpotterConfigPath)
 
-foreach ($requiredPath in @($backendSource, $frontendSource, $skillRoot)) {
+foreach ($requiredPath in @($backendSource, $frontendSource, $documentProcessorSource, $skillRoot)) {
     if (-not (Test-Path -LiteralPath $requiredPath)) {
         throw "Required path does not exist: $requiredPath"
     }
@@ -148,13 +184,94 @@ if ($reuseActiveGeneration) {
         -DevRoot $devRootFull `
         -BackendPort $BackendPort `
         -WebPort $WebPort `
+        -DocumentProcessorPort $DocumentProcessorPort `
+        -CtePort $CtePort `
         -PreserveState
 
-    foreach ($requiredRuntimePath in @($backendRoot, $frontendRoot, $webRoot)) {
+    foreach ($requiredRuntimePath in @(
+        $backendRoot,
+        $frontendRoot,
+        $documentProcessorRoot,
+        $webRoot
+    )) {
         if (-not (Test-Path -LiteralPath $requiredRuntimePath)) {
             throw "Preserved runtime is incomplete: $requiredRuntimePath"
         }
     }
+
+    Set-DeploymentStage -Name "sync_preserved_committed_heads"
+    $sourceSyncTemp = Join-Path $tempRoot "source-sync"
+    New-Item -ItemType Directory -Force -Path $sourceSyncTemp | Out-Null
+    [Environment]::SetEnvironmentVariable("TEMP", $sourceSyncTemp, "Process")
+    [Environment]::SetEnvironmentVariable("TMP", $sourceSyncTemp, "Process")
+    $git = (Get-Command git -ErrorAction Stop).Source
+    $backendHead = (& $git -C $backendSource rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $backendHead) {
+        throw "Could not resolve the backend source HEAD at $backendSource."
+    }
+    $frontendHead = (& $git -C $frontendSource rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $frontendHead) {
+        throw "Could not resolve the frontend source HEAD at $frontendSource."
+    }
+    $documentProcessorHead = (& $git -C $documentProcessorSource rev-parse HEAD).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $documentProcessorHead) {
+        throw "Could not resolve the document processor source HEAD at $documentProcessorSource."
+    }
+    foreach ($runtimeSource in @(
+        [pscustomobject]@{ Name = "backend"; Source = $backendSource; Runtime = $backendRoot; Head = $backendHead },
+        [pscustomobject]@{ Name = "frontend"; Source = $frontendSource; Runtime = $frontendRoot; Head = $frontendHead },
+        [pscustomobject]@{
+            Name = "document processor"
+            Source = $documentProcessorSource
+            Runtime = $documentProcessorRoot
+            Head = $documentProcessorHead
+        }
+    )) {
+        $runtimeDirty = @(& $git -C $runtimeSource.Runtime status --porcelain).Count -gt 0
+        if ($runtimeDirty) {
+            throw "Preserved $($runtimeSource.Name) runtime clone is dirty: $($runtimeSource.Runtime)"
+        }
+        & $git -C $runtimeSource.Runtime fetch --force $runtimeSource.Source $runtimeSource.Head
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not fetch $($runtimeSource.Name) commit $($runtimeSource.Head)."
+        }
+        & $git -C $runtimeSource.Runtime checkout --detach $runtimeSource.Head
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not check out $($runtimeSource.Name) commit $($runtimeSource.Head)."
+        }
+        & $git -C $runtimeSource.Runtime submodule update --init --recursive
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not synchronize $($runtimeSource.Name) submodules at $($runtimeSource.Head)."
+        }
+    }
+
+    $sourceHeadsPath = Join-Path $configRoot "source-heads.json"
+    $sourceHeads = if (Test-Path -LiteralPath $sourceHeadsPath -PathType Leaf) {
+        Get-Content -Raw -LiteralPath $sourceHeadsPath | ConvertFrom-Json
+    }
+    else {
+        [pscustomobject]@{}
+    }
+    $backendDirty = @(& $git -C $backendSource status --porcelain).Count -gt 0
+    $frontendDirty = @(& $git -C $frontendSource status --porcelain).Count -gt 0
+    $documentProcessorDirty = @(
+        & $git -C $documentProcessorSource status --porcelain
+    ).Count -gt 0
+    foreach ($entry in @{
+        created_at = [DateTime]::UtcNow.ToString("o")
+        backend_source = $backendSource
+        backend_head = $backendHead
+        backend_source_dirty = $backendDirty
+        frontend_source = $frontendSource
+        frontend_head = $frontendHead
+        frontend_source_dirty = $frontendDirty
+        document_processor_source = $documentProcessorSource
+        document_processor_head = $documentProcessorHead
+        document_processor_source_dirty = $documentProcessorDirty
+    }.GetEnumerator()) {
+        $sourceHeads | Add-Member -NotePropertyName $entry.Key -NotePropertyValue $entry.Value -Force
+    }
+    $sourceHeads | ConvertTo-Json | Set-Content -LiteralPath $sourceHeadsPath -Encoding utf8
 }
 else {
     Set-DeploymentStage -Name "reset_owned_root"
@@ -162,6 +279,8 @@ else {
         -DevRoot $devRootFull `
         -BackendPort $BackendPort `
         -WebPort $WebPort `
+        -DocumentProcessorPort $DocumentProcessorPort `
+        -CtePort $CtePort `
         -RecreateRoot `
         -Confirm:$false
 
@@ -191,6 +310,10 @@ else {
         if ($LASTEXITCODE -ne 0 -or -not $frontendHead) {
             throw "Could not resolve the frontend source HEAD at $frontendSource."
         }
+        $documentProcessorHead = (& $git -C $documentProcessorSource rev-parse HEAD).Trim()
+        if ($LASTEXITCODE -ne 0 -or -not $documentProcessorHead) {
+            throw "Could not resolve the document processor source HEAD at $documentProcessorSource."
+        }
 
         & $git clone --no-local --no-checkout $backendSource $backendRoot
         if ($LASTEXITCODE -ne 0) {
@@ -218,12 +341,29 @@ else {
             throw "Could not initialize frontend submodules at $frontendHead."
         }
 
+        & $git clone --no-local --no-checkout $documentProcessorSource $documentProcessorRoot
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not clone the document processor source into the owned development root."
+        }
+        & $git -C $documentProcessorRoot checkout --detach $documentProcessorHead
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not check out document processor commit $documentProcessorHead."
+        }
+        & $git -C $documentProcessorRoot submodule update --init --recursive
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not initialize document processor submodules at $documentProcessorHead."
+        }
+
         $backendDirty = @(& $git -C $backendSource status --porcelain).Count -gt 0
         $frontendDirty = @(& $git -C $frontendSource status --porcelain).Count -gt 0
-        if ($backendDirty -or $frontendDirty) {
+        $documentProcessorDirty = @(
+            & $git -C $documentProcessorSource status --porcelain
+        ).Count -gt 0
+        if ($backendDirty -or $frontendDirty -or $documentProcessorDirty) {
             Write-Warning (
                 "Runtime clones use committed HEADs only. Uncommitted source changes were ignored: " +
-                "backend_dirty=$backendDirty, frontend_dirty=$frontendDirty."
+                "backend_dirty=$backendDirty, frontend_dirty=$frontendDirty, " +
+                "document_processor_dirty=$documentProcessorDirty."
             )
         }
         New-Item -ItemType Directory -Force -Path $configRoot | Out-Null
@@ -235,6 +375,9 @@ else {
             frontend_source = $frontendSource
             frontend_head = $frontendHead
             frontend_source_dirty = $frontendDirty
+            document_processor_source = $documentProcessorSource
+            document_processor_head = $documentProcessorHead
+            document_processor_source_dirty = $documentProcessorDirty
         } | ConvertTo-Json | Set-Content `
             -LiteralPath (Join-Path $configRoot "source-heads.json") `
             -Encoding utf8
@@ -249,7 +392,9 @@ Set-DeploymentStage -Name "containment"
 $containedPaths = @(
     $backendRoot,
     $frontendRoot,
+    $documentProcessorRoot,
     $runtimeRoot,
+    $documentProcessorDataRoot,
     $workspaceRoot,
     $logRoot,
     $tempRoot,
@@ -259,6 +404,9 @@ $containedPaths = @(
     $spotterImplRoot,
     $spotterConfigFull
 )
+# $sharedModelCacheRoot is deliberately absent: it is machine-local by design
+# (see its definition above) and the audit rejects any expected path outside the
+# owned root.
 & $containmentScript -DevRoot $devRootFull -ExpectedPaths $containedPaths
 
 $containedEnvironment = @{
@@ -278,14 +426,18 @@ $containedEnvironment = @{
     PLAYWRIGHT_BROWSERS_PATH = Join-Path $cacheRoot "playwright"
     CARGO_HOME = Join-Path $toolRoot "cargo"
     CARGO_TARGET_DIR = Join-Path $cacheRoot "cargo-target"
-    HF_HOME = Join-Path $cacheRoot "huggingface"
+    HF_HOME = $sharedModelCacheRoot
+    HF_HUB_CACHE = Join-Path $sharedModelCacheRoot "hub"
+    HF_XET_CACHE = Join-Path $sharedModelCacheRoot "xet"
 }
 New-Item -ItemType Directory -Force -Path @(
     $runtimeRoot,
+    $documentProcessorDataRoot,
     $logRoot,
     $workspaceRoot,
     $tempRoot,
     $cacheRoot,
+    $sharedModelCacheRoot,
     $toolRoot,
     $configRoot
 ) | Out-Null
@@ -316,6 +468,24 @@ if ($LASTEXITCODE -ne 0) {
     throw "The synchronized backend environment is missing CTE, process-lifecycle, or current schema imports."
 }
 
+Set-DeploymentStage -Name "document_processor_dependencies"
+& $uv sync `
+    --frozen `
+    --no-dev `
+    --python $PythonVersion `
+    --project $documentProcessorRoot
+if ($LASTEXITCODE -ne 0) {
+    throw "The document processor environment could not be synchronized from its pinned uv.lock."
+}
+& $uv run `
+    --frozen `
+    --no-sync `
+    --project $documentProcessorRoot `
+    python -c "from clio_web_search.main import app; from docling.document_converter import DocumentConverter"
+if ($LASTEXITCODE -ne 0) {
+    throw "The synchronized document processor environment is missing its service or Docling imports."
+}
+
 Set-DeploymentStage -Name "runtime_tools"
 $uvToolRoot = $containedEnvironment.UV_TOOL_DIR
 $uvToolBin = $containedEnvironment.UV_TOOL_BIN_DIR
@@ -338,8 +508,81 @@ $spotterConfig = @(
 $spotterConfig | Set-Content -LiteralPath $spotterConfigFull -Encoding utf8
 $backendStdout = Join-Path $logRoot "clio-agent-$BackendPort.stdout.log"
 $backendStderr = Join-Path $logRoot "clio-agent-$BackendPort.stderr.log"
+$documentProcessorStdout = Join-Path $logRoot "clio-web-search-$DocumentProcessorPort.stdout.log"
+$documentProcessorStderr = Join-Path $logRoot "clio-web-search-$DocumentProcessorPort.stderr.log"
 $webStdout = Join-Path $logRoot "gact-web-$WebPort.stdout.log"
 $webStderr = Join-Path $logRoot "gact-web-$WebPort.stderr.log"
+
+Set-DeploymentStage -Name "document_processor_start"
+$documentProcessorEnvironment = @{
+    CLIO_WEB_SEARCH_HOST = "127.0.0.1"
+    CLIO_WEB_SEARCH_PORT = "$DocumentProcessorPort"
+    CLIO_WEB_SEARCH_DATA_DIR = $documentProcessorDataRoot
+}
+$originalDocumentProcessorEnvironment = @{}
+foreach ($name in $documentProcessorEnvironment.Keys) {
+    $originalDocumentProcessorEnvironment[$name] = [Environment]::GetEnvironmentVariable(
+        $name,
+        "Process"
+    )
+    [Environment]::SetEnvironmentVariable(
+        $name,
+        $documentProcessorEnvironment[$name],
+        "Process"
+    )
+}
+try {
+    $documentProcessorLauncher = Join-Path `
+        $documentProcessorRoot `
+        ".venv\Scripts\clio-web-search.exe"
+    if (-not (Test-Path -LiteralPath $documentProcessorLauncher -PathType Leaf)) {
+        throw "The synchronized document processor launcher is missing: $documentProcessorLauncher"
+    }
+    $documentProcessorProcess = Start-Process `
+        -FilePath $documentProcessorLauncher `
+        -WorkingDirectory $documentProcessorRoot `
+        -RedirectStandardOutput $documentProcessorStdout `
+        -RedirectStandardError $documentProcessorStderr `
+        -WindowStyle Hidden `
+        -PassThru
+    $script:startupProcessesOwned = $true
+}
+finally {
+    foreach ($name in $originalDocumentProcessorEnvironment.Keys) {
+        [Environment]::SetEnvironmentVariable(
+            $name,
+            $originalDocumentProcessorEnvironment[$name],
+            "Process"
+        )
+    }
+}
+
+Set-DeploymentStage -Name "document_processor_readiness"
+$documentProcessorReadyUri = "http://127.0.0.1:$DocumentProcessorPort/readyz"
+$documentProcessorDeadline = [DateTime]::UtcNow.AddSeconds(600)
+do {
+    if ($documentProcessorProcess.HasExited) {
+        throw "The document processor exited during startup. See $documentProcessorStderr"
+    }
+    try {
+        $documentProcessorResponse = Invoke-ClioDevWebRequest `
+            -Uri $documentProcessorReadyUri `
+            -TimeoutSec 5
+        $documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
+    }
+    catch {
+        $documentProcessorHealth = $null
+    }
+    if ($null -ne $documentProcessorHealth -and $documentProcessorHealth.checks.docling -eq "ready") {
+        break
+    }
+    Start-Sleep -Milliseconds 500
+} while ([DateTime]::UtcNow -lt $documentProcessorDeadline)
+
+if ($null -eq $documentProcessorHealth -or $documentProcessorHealth.checks.docling -ne "ready") {
+    Stop-Process -Id $documentProcessorProcess.Id -Force -ErrorAction SilentlyContinue
+    throw "The document processor's Docling worker did not become ready within 600 seconds."
+}
 
 $runtimeEnvironment = @{
     CLIO_USER_DIR = $runtimeRoot
@@ -356,12 +599,14 @@ $runtimeEnvironment = @{
     CLIO_LM_PROVIDER = $Provider
     CLIO_LM_MODEL = $Model
     CLIO_WORKSPACE_ROOT = $workspaceRoot
+    CLIO_GACT_CORS_ORIGINS = "http://127.0.0.1:$WebPort,http://localhost:$WebPort"
+    CLIO_DOCUMENT_PROCESSOR_URL = "http://127.0.0.1:$DocumentProcessorPort"
     PATH = "$uvToolBin;$([Environment]::GetEnvironmentVariable('PATH', 'Process'))"
     SPOTTER_IMPL_DIR = $spotterImplRoot
     SPOTTER_CLIO_CONFIG = $spotterConfigFull
 }
 if ($Provider -eq "codex") {
-    $runtimeEnvironment.CLIO_CODEX_TRANSPORT = "sdk"
+    $runtimeEnvironment.CLIO_CODEX_TRANSPORT = "app_server"
 }
 elseif ($Provider -eq "claude_code") {
     $runtimeEnvironment.CLIO_CLAUDE_CODE_TRANSPORT = "sdk"
@@ -414,6 +659,71 @@ if ($null -eq $health -or $health.overall_status -ne "ready") {
     throw "CLIO backend did not become ready within 120 seconds."
 }
 
+# The committed CLIO config file deliberately outranks environment variables.
+# A preserved runtime may therefore boot with a stale file-backed provider even
+# though CLIO_LM_PROVIDER/CLIO_LM_MODEL name the requested qualification route.
+# Reconcile through the supported runtime API so app.state.agent, the provider
+# profile store, the catalog, and the UI all observe one effective selection.
+Set-DeploymentStage -Name "provider_reconciliation"
+$providerUri = "http://127.0.0.1:$BackendPort/v1/providers/lm"
+$providerInfo = Invoke-RestMethod -Uri $providerUri -TimeoutSec 20
+$expectedTransport = if ($Provider -eq "codex") {
+    "app_server"
+}
+elseif ($Provider -eq "claude_code") {
+    "sdk"
+}
+else {
+    ""
+}
+$providerNeedsApply = (
+    -not $providerInfo.configured -or
+    $providerInfo.provider -ne $Provider -or
+    $providerInfo.model -ne $Model -or
+    ($expectedTransport -and $providerInfo.transport -ne $expectedTransport)
+)
+if ($providerNeedsApply) {
+    $preset = @($providerInfo.presets | Where-Object { $_.id -eq $Provider }) |
+        Select-Object -First 1
+    $apiBase = if ($null -ne $preset -and -not [string]::IsNullOrWhiteSpace([string]$preset.api_base)) {
+        [string]$preset.api_base
+    }
+    else {
+        [string]$providerInfo.api_base
+    }
+    $providerRequest = @{
+        provider = $Provider
+        api_base = $apiBase
+        model = $Model
+    }
+    if ($expectedTransport) {
+        $providerRequest.transport = $expectedTransport
+    }
+    $providerInfo = Invoke-RestMethod `
+        -Uri $providerUri `
+        -Method Put `
+        -ContentType "application/json" `
+        -Body ($providerRequest | ConvertTo-Json) `
+        -TimeoutSec 300
+    if ($providerInfo.state -eq "configuring") {
+        $providerInfo = Invoke-RestMethod `
+            -Uri "$providerUri/wait?timeout=300" `
+            -TimeoutSec 320
+    }
+}
+if ($providerInfo.state -eq "error") {
+    throw "Provider reconciliation failed: $($providerInfo.error) $($providerInfo.status_message)"
+}
+if (-not $providerInfo.configured) {
+    throw "Provider reconciliation did not produce a configured agent."
+}
+if ($providerInfo.provider -ne $Provider -or $providerInfo.model -ne $Model) {
+    throw "Provider reconciliation mismatch: expected '$Provider/$Model', got '$($providerInfo.provider)/$($providerInfo.model)'."
+}
+if ($expectedTransport -and $providerInfo.transport -ne $expectedTransport) {
+    throw "Provider reconciliation transport mismatch: expected '$expectedTransport', got '$($providerInfo.transport)'."
+}
+
 Set-DeploymentStage -Name "frontend_dependencies"
 $pnpm = (Get-Command pnpm -ErrorAction Stop).Source
 & $pnpm `
@@ -458,7 +768,17 @@ do {
 } while ([DateTime]::UtcNow -lt $webDeadline)
 
 if ($null -eq $webResponse -or $webResponse.StatusCode -ne 200) {
-    & $stopScript -DevRoot $devRootFull -BackendPort $BackendPort -WebPort $WebPort
+    # -PreserveState, exactly as the failure trap above passes it. Without it a
+    # 60-second Vite timeout is a recursive delete of the whole development root:
+    # the generation, its clones, its logs and every session in it, destroyed to
+    # report that one dev server was slow to answer.
+    & $stopScript `
+        -DevRoot $devRootFull `
+        -BackendPort $BackendPort `
+        -WebPort $WebPort `
+        -DocumentProcessorPort $DocumentProcessorPort `
+        -CtePort $CtePort `
+        -PreserveState
     throw "CLIO web did not become ready within 60 seconds."
 }
 
@@ -471,31 +791,74 @@ $webListenerPid = @(
     Get-NetTCPConnection -State Listen -LocalPort $WebPort -ErrorAction Stop |
         Select-Object -ExpandProperty OwningProcess -Unique
 )
-$cteListenerPid = @(
-    Get-NetTCPConnection -State Listen -LocalPort 9413 -ErrorAction Stop |
+$documentProcessorListenerPid = @(
+    Get-NetTCPConnection -State Listen -LocalPort $DocumentProcessorPort -ErrorAction Stop |
         Select-Object -ExpandProperty OwningProcess -Unique
 )
-if ($backendListenerPid.Count -ne 1 -or $webListenerPid.Count -ne 1 -or $cteListenerPid.Count -ne 1) {
-    throw "Could not record exactly one backend, web, and CTE listener."
+$cteListenerPid = @(
+    Get-NetTCPConnection -State Listen -LocalPort $CtePort -ErrorAction Stop |
+        Select-Object -ExpandProperty OwningProcess -Unique
+)
+if (
+    $backendListenerPid.Count -ne 1 -or
+    $webListenerPid.Count -ne 1 -or
+    $documentProcessorListenerPid.Count -ne 1 -or
+    $cteListenerPid.Count -ne 1
+) {
+    throw "Could not record exactly one backend, web, document processor, and CTE listener."
+}
+# The backend, web and document-processor PIDs belong to processes this script
+# started. The CTE listener is ADOPTED from a bare port query: whatever answers
+# on $CtePort gets recorded, and the recorded PID is what the stop sweep acts on.
+# A node-wide clio-core daemon started outside this root therefore used to be
+# recorded as ours and force-killed on the next stop, taking down every other
+# consumer on the machine. Record who actually owns it, so the stop sweep can
+# leave an external daemon running.
+$cteProcess = Get-CimInstance `
+    Win32_Process `
+    -Filter "ProcessId = $([int]$cteListenerPid[0])" `
+    -ErrorAction SilentlyContinue
+$cteExecutable = [string]$cteProcess.ExecutablePath
+$cteExternal = -not (
+    $cteExecutable.StartsWith("$devRootFull\", [System.StringComparison]::OrdinalIgnoreCase)
+)
+if ($cteExternal) {
+    Write-Warning (
+        "The CTE/ARC listener on port $CtePort (PID $($cteListenerPid[0]), " +
+        "$(if ($cteExecutable) { $cteExecutable } else { 'executable path unavailable' })) " +
+        "was not started from $devRootFull. It is recorded as external and will never be stopped " +
+        "by this tooling."
+    )
 }
 @{
     backend_pid = [int]$backendListenerPid[0]
     web_pid = [int]$webListenerPid[0]
+    document_processor_pid = [int]$documentProcessorListenerPid[0]
     cte_pid = [int]$cteListenerPid[0]
+    cte_external = $cteExternal
+    cte_executable = $cteExecutable
     backend_launcher_pid = $backendProcess.Id
     web_launcher_pid = $webProcess.Id
+    document_processor_launcher_pid = $documentProcessorProcess.Id
     backend_port = $BackendPort
     web_port = $WebPort
+    document_processor_port = $DocumentProcessorPort
+    cte_port = $CtePort
     python_version = $PythonVersion
     started_at = [DateTime]::UtcNow.ToString("o")
-} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtimeRoot "dev-processes.json")
+} | ConvertTo-Json | Set-Content `
+    -LiteralPath (Join-Path $runtimeRoot "dev-processes.json") `
+    -Encoding utf8
 
 Set-DeploymentStage -Name "live_preflight"
 & $preflightScript `
     -BackendPort $BackendPort `
     -WebPort $WebPort `
+    -DocumentProcessorPort $DocumentProcessorPort `
+    -CtePort $CtePort `
     -ExpectedProvider $Provider `
     -ExpectedModel $Model `
+    -ExpectedTransport $expectedTransport `
     -SpotterImplDir $spotterImplRoot `
     -SpotterConfigPath $spotterConfigFull
 [pscustomobject]@{

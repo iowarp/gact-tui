@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Message, ToolInvocation } from '@clio/core/v3';
+import type { Message, Task, ToolInvocation } from '@clio/core/v3';
 import { conversationTurnPresentation } from './conversation-turn-model';
 
 const tools: Record<string, ToolInvocation> = {
@@ -19,7 +19,39 @@ const tools: Record<string, ToolInvocation> = {
   },
 };
 
+const tasks: Record<string, Task> = {
+  task_quality: {
+    id: 'task_quality',
+    session_id: 'session_1',
+    title: 'Review station quality',
+    state: 'completed',
+    detail: 'Evidence retained with source identity.',
+  },
+};
+
 describe('conversationTurnPresentation', () => {
+  it('keeps a task returned after a tool inside the same causal activity iteration', () => {
+    const message: Message = {
+      id: 'assistant_task',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        { id: 'thinking_task', type: 'reasoning', text: 'Review the station evidence.' },
+        { id: 'tool_task', type: 'tool', tool_id: 'call_read' },
+        { id: 'task_block', type: 'task', task_id: 'task_quality' },
+        { id: 'artifact', type: 'artifact', artifact_id: 'artifact_1' },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools, tasks);
+
+    expect(view.iterations).toHaveLength(1);
+    expect(view.iterations[0]?.tools.map((tool) => tool.id)).toEqual(['call_read']);
+    expect(view.iterations[0]?.tasks.map((task) => task.id)).toEqual(['task_quality']);
+    expect(view.residualBlocks.map((block) => block.id)).toEqual(['artifact']);
+  });
+
   it('groups provider thinking, next thought, and a tool into ordered iterations', () => {
     const message: Message = {
       id: 'assistant_1',
@@ -94,9 +126,7 @@ describe('conversationTurnPresentation', () => {
 
     expect(view.iterations).toHaveLength(1);
     expect(view.iterations[0]?.thinking.map((part) => part.id)).toEqual(['thinking_mixed']);
-    expect(view.iterations[0]?.nextThoughts).toEqual([
-      'Continue from the observed reasoning.',
-    ]);
+    expect(view.iterations[0]?.nextThoughts).toEqual(['Continue from the observed reasoning.']);
   });
 
   it('uses only canonical transcript parts and retains UI and final-answer blocks', () => {
@@ -322,6 +352,57 @@ describe('conversationTurnPresentation', () => {
     expect(view.residualBlocks.map((block) => block.id)).toEqual([
       'tool_unresolved',
       'answer_unresolved',
+    ]);
+  });
+
+  it('keeps a task block whose record has not arrived in the residual lane', () => {
+    const message: Message = {
+      id: 'assistant_unresolved_task',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        { id: 'thinking_unresolved_task', type: 'reasoning', text: 'Queue the review.' },
+        { id: 'task_unresolved', type: 'task', task_id: 'task_not_yet_streamed' },
+        { id: 'answer_unresolved_task', type: 'text', text: 'Queued.', channel: 'answer' },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools, tasks);
+
+    expect(view.iterations[0]?.tasks).toEqual([]);
+    expect(view.residualBlocks.map((block) => block.id)).toEqual([
+      'task_unresolved',
+      'answer_unresolved_task',
+    ]);
+  });
+
+  it('keeps tools and tasks in one lane in the order the transcript delivered them', () => {
+    const message: Message = {
+      id: 'assistant_interleaved',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        { id: 'thinking_interleaved', type: 'reasoning', text: 'Read, review, then render.' },
+        { id: 'tool_first', type: 'tool', tool_id: 'call_read' },
+        { id: 'task_between', type: 'task', task_id: 'task_quality' },
+        { id: 'tool_last', type: 'tool', tool_id: 'call_render' },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools, tasks);
+
+    expect(view.iterations).toHaveLength(1);
+    expect(view.iterations[0]?.activity.map((entry) => entry.id)).toEqual([
+      'call_read',
+      'task_quality',
+      'call_render',
+    ]);
+    expect(view.iterations[0]?.activity.map((entry) => entry.kind)).toEqual([
+      'tool',
+      'task',
+      'tool',
     ]);
   });
 

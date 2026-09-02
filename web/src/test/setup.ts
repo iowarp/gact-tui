@@ -1,5 +1,22 @@
 import '@testing-library/jest-dom/vitest';
 
+if (!URL.createObjectURL) {
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: (blob: Blob): string =>
+      `blob:test-${'name' in blob && typeof blob.name === 'string' ? blob.name : blob.size}`,
+    writable: true,
+  });
+}
+
+if (!URL.revokeObjectURL) {
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: () => undefined,
+    writable: true,
+  });
+}
+
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 if (!globalThis.ResizeObserver) {

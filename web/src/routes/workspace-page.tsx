@@ -12,7 +12,6 @@ import { ClioConversationWelcome } from '@/components/clio/conversation-welcome'
 import { ClioNavigation } from '@/components/clio/navigation';
 import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { ClioPendingInteractions } from '@/components/clio/pending-interactions';
-import { ClioSessionBehaviorMenu } from '@/components/clio/session-behavior-menu';
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
 import { WorkspaceLoading, WorkspaceUnavailable } from '@/components/clio/workspace-route-surfaces';
@@ -37,6 +36,7 @@ import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { buildSessionAttentionMap } from '@/lib/session-attention';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -52,6 +52,7 @@ export function WorkspacePage() {
     [sessionId],
   );
   const [composerFocusKey, setComposerFocusKey] = useState(0);
+  const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
@@ -73,9 +74,10 @@ export function WorkspacePage() {
     entities,
     executionProvenance,
     interactionSessionIds,
-    modelConfiguration,
     modelOptions,
+    modelCatalogStatus,
     parentSession,
+    providerCatalog,
     processes,
     questions,
     runs,
@@ -92,8 +94,17 @@ export function WorkspacePage() {
     transcriptError,
     visibleApprovals,
     workspaceFiles,
+    workspaceResources,
     workspaces,
   } = useWorkspaceData({ contextTargetId, sessionId, workspaceId });
+  const navigationSessions = useMemo(
+    () => allSessions.data ?? sessions.data ?? [],
+    [allSessions.data, sessions.data],
+  );
+  const sessionAttentions = useMemo(
+    () => buildSessionAttentionMap(navigationSessions, approvals.data ?? [], questions.data ?? []),
+    [approvals.data, navigationSessions, questions.data],
+  );
   const messageCount = useSessionMessageCount(sessionId);
   const conversationStarted = messageCount > 0 || startedSessionId === sessionId;
   const setConversationStarted = useCallback(
@@ -112,23 +123,36 @@ export function WorkspacePage() {
     openDiff,
     openSubagent,
     openWorkspaceFile,
+    openWorkspaceResource,
     revealWorkbench,
   } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
+  const workspaceResourceEntities = useMemo(
+    () =>
+      Object.fromEntries(
+        (workspaceResources.data ?? []).map((resource) => [resource.id, resource]),
+      ),
+    [workspaceResources.data],
+  );
   const handleA2UILocalAction = useA2UILocalActions(entities.artifacts, sessionId, openArtifact);
 
   const {
     actionCard,
     answerQuestion,
     cancel,
+    cancelPendingSteer,
     cancelQuestion,
+    deleteQueuedMessage,
+    pendingSteers,
+    promoteQueuedMessage,
+    queuedMessages,
+    reorderQueuedMessages,
     respondPermission,
     retry,
     send,
-    updateSessionBehavior,
+    updateQueuedMessage,
   } = useSessionMutations({
     activeModel,
     activeProvider,
-    modelConfiguration: modelConfiguration.data,
     session,
     sessionId,
     workspaceId,
@@ -271,11 +295,26 @@ export function WorkspacePage() {
     );
   }
 
-  const state: RunState = send.isPending ? 'queued' : (session?.state ?? 'interrupted');
+  const state: RunState =
+    session.state === 'running' ? 'running' : send.isPending ? 'queued' : session.state;
+  const pendingMessageIds = new Set(
+    (pendingSteers.data ?? [])
+      .filter((steer) => steer.state === 'pending' || steer.state === 'claimed')
+      .map((steer) => steer.message_id),
+  );
+  const cancellablePendingMessageIds = new Set(
+    (pendingSteers.data ?? [])
+      .filter((steer) => steer.state === 'pending')
+      .map((steer) => steer.message_id),
+  );
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
   const renderComposer = (variant: 'docked' | 'welcome') => (
     <m.div
-      className={variant === 'welcome' ? 'w-full' : 'relative shrink-0'}
+      className={
+        variant === 'welcome'
+          ? 'w-full'
+          : 'pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end'
+      }
       key={variant}
       layout
       layoutId={`session-composer:${sessionId}`}
@@ -296,9 +335,11 @@ export function WorkspacePage() {
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
                 onOpenFile={openWorkspaceFile}
+                onOpenResource={openWorkspaceResource}
                 onOpenSubagent={openSubagent}
                 onProvenanceProviderChange={executionProvenance.setProvider}
                 processes={processes}
+                resources={workspaceResources.data ?? []}
                 provenanceDegradation={executionProvenance.degradation}
                 provenancePending={
                   executionProvenance.providers.isPending || executionProvenance.execution.isPending
@@ -316,23 +357,44 @@ export function WorkspacePage() {
             </div>
           ) : undefined
         }
-        attachments={capabilities.data?.capabilities.attachments === true}
-        behaviorControl={
-          <ClioSessionBehaviorMenu
-            disabled={updateSessionBehavior.isPending}
-            onChange={async (patch) => {
-              await updateSessionBehavior.mutateAsync(patch);
-            }}
-            session={session}
-          />
-        }
+        attachments={workspaceRouteState.canUploadWorkspaceResources(
+          capabilities.data?.capabilities,
+        )}
         commands={commands}
+        confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
         disabled={!session || send.isPending || cancel.isPending || isPending}
         effort={activeEffort}
+        executionMode={
+          session.mode === 'plan'
+            ? 'plan'
+            : session.mode === 'architect'
+              ? 'deep_research'
+              : 'execute'
+        }
         focusRequestKey={composerFocusKey}
         key={`composer:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
         model={activeModel}
+        modelCatalogStatus={modelCatalogStatus}
         modelOptions={modelOptions}
+        pendingInteractions={
+          <ClioPendingInteractions
+            approvals={visibleApprovals}
+            disabled={
+              respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
+            }
+            listedSessionIds={interactionSessionIds}
+            onAnswer={async (id, answer) => {
+              await answerQuestion.mutateAsync({ id, answer });
+            }}
+            onApproval={async (id, action) => {
+              await respondPermission.mutateAsync({ id, action });
+            }}
+            onCancelQuestion={async (id) => {
+              await cancelQuestion.mutateAsync(id);
+            }}
+            questions={questions.data ?? []}
+          />
+        }
         onCommand={async (value) => {
           const startedFromWelcome = showConversationWelcome;
           if (startedFromWelcome) setConversationStarted(true);
@@ -343,6 +405,10 @@ export function WorkspacePage() {
             throw error;
           }
         }}
+        onRetryModelCatalog={() => {
+          void providerCatalog.refetch();
+        }}
+        onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
         onSubmit={async (value) => {
           const startedFromWelcome = showConversationWelcome;
           if (startedFromWelcome) setConversationStarted(true);
@@ -354,8 +420,27 @@ export function WorkspacePage() {
           }
         }}
         onStop={() => cancel.mutate()}
+        onOpenResource={openWorkspaceResource}
+        onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
+        onPromoteQueuedMessage={(message, delivery) =>
+          promoteQueuedMessage.mutateAsync({ delivery, message }).then(() => undefined)
+        }
+        onReorderQueuedMessages={(messages) =>
+          reorderQueuedMessages.mutateAsync(messages).then(() => undefined)
+        }
+        onUpdateQueuedMessage={(message, text) =>
+          updateQueuedMessage.mutateAsync({ message, text }).then(() => undefined)
+        }
         onValueChange={setComposerDraft}
         provider={activeProvider}
+        queuedMessages={queuedMessages.data ?? []}
+        resources={workspaceResources.data ?? []}
+        queueBusy={
+          deleteQueuedMessage.isPending ||
+          promoteQueuedMessage.isPending ||
+          reorderQueuedMessages.isPending ||
+          updateQueuedMessage.isPending
+        }
         state={state}
         value={composerDraft}
         variant={variant}
@@ -371,10 +456,11 @@ export function WorkspacePage() {
             activeSessionId={sessionId}
             activeWorkspaceId={workspaceId}
             actions={navigationActions}
+            attentions={sessionAttentions}
             blueprints={agentBlueprints.data ?? []}
             endpoint={settings.endpoint}
             onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
-            sessions={allSessions.data ?? sessions.data ?? []}
+            sessions={navigationSessions}
             workspaces={workspaces.data ?? []}
           />
         }
@@ -386,8 +472,7 @@ export function WorkspacePage() {
               sessionHistory.compact.isPending ||
               sessionHistory.undo.isPending ||
               sessionHistory.rewind.isPending ||
-              sessionHistory.share.isPending ||
-              updateSessionBehavior.isPending
+              sessionHistory.share.isPending
             }
             onCompact={async () => {
               await sessionHistory.compact.mutateAsync();
@@ -424,6 +509,9 @@ export function WorkspacePage() {
             files={workspaceFiles.data ?? []}
             filesError={workspaceFiles.error?.message}
             filesPending={workspaceFiles.isPending}
+            resources={workspaceResources.data ?? []}
+            resourcesError={workspaceResources.error?.message}
+            resourcesPending={workspaceResources.isPending}
             onApplyDiff={(targetSessionId, targetWorkspaceId, path) =>
               diffActions.apply.mutateAsync({
                 sessionId: targetSessionId,
@@ -466,6 +554,7 @@ export function WorkspacePage() {
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
                 onOpenFile={openWorkspaceFile}
+                onOpenResource={openWorkspaceResource}
                 onOpenSubagent={openSubagent}
                 onCompactContext={() => sessionContext.compact.mutateAsync()}
                 onContextTargetChange={setContextTargetId}
@@ -474,6 +563,7 @@ export function WorkspacePage() {
                   sessionContext.preferences.mutateAsync(input)
                 }
                 processes={processes}
+                resources={workspaceResources.data ?? []}
                 provenanceDegradation={executionProvenance.degradation}
                 provenancePending={
                   executionProvenance.providers.isPending || executionProvenance.execution.isPending
@@ -550,12 +640,14 @@ export function WorkspacePage() {
                   key="conversation"
                 >
                   <WorkspaceLiveConversation
+                    bottomInset={dockedComposerHeight}
                     error={transcriptError}
                     loading={transcript.isPending}
                     onActionCardAction={actionCard.mutateAsync}
                     onA2UILocalAction={handleA2UILocalAction}
                     onOpenArtifact={openArtifact}
                     onOpenFile={openWorkspaceFile}
+                    onOpenResource={openWorkspaceResource}
                     forkingMessageId={
                       sessionHistory.fork.isPending && sessionHistory.fork.variables
                         ? sessionHistory.fork.variables
@@ -565,10 +657,17 @@ export function WorkspacePage() {
                     onOpenSubagent={openSubagent}
                     onRewindToMessage={sessionHistory.rewind.mutateAsync}
                     onRetryMessage={retry.mutateAsync}
+                    cancellablePendingMessageIds={cancellablePendingMessageIds}
+                    cancellingPendingMessageId={
+                      cancelPendingSteer.isPending ? cancelPendingSteer.variables : undefined
+                    }
+                    onCancelPendingSteer={cancelPendingSteer.mutateAsync}
+                    pendingMessageIds={pendingMessageIds}
                     rewindingMessageId={
                       sessionHistory.rewind.isPending ? sessionHistory.rewind.variables : undefined
                     }
                     retryingMessageId={retry.isPending ? retry.variables : undefined}
+                    resources={workspaceResourceEntities}
                     sessionId={sessionId}
                   />
                 </m.div>
@@ -595,23 +694,6 @@ export function WorkspacePage() {
                 <AlertDescription>{(approvals.error ?? questions.error)?.message}</AlertDescription>
               </Alert>
             ) : null}
-            <ClioPendingInteractions
-              approvals={visibleApprovals}
-              listedSessionIds={interactionSessionIds}
-              disabled={
-                respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
-              }
-              onAnswer={async (id, answer) => {
-                await answerQuestion.mutateAsync({ id, answer });
-              }}
-              onApproval={async (id, action) => {
-                await respondPermission.mutateAsync({ id, action });
-              }}
-              onCancelQuestion={async (id) => {
-                await cancelQuestion.mutateAsync(id);
-              }}
-              questions={questions.data ?? []}
-            />
             <AnimatePresence initial={false}>
               {showConversationWelcome ? null : renderComposer('docked')}
             </AnimatePresence>

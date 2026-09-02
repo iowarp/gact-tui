@@ -6,7 +6,7 @@
 use serde::Serialize;
 use std::collections::HashMap;
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub(crate) struct GactHttpResponse {
     pub(crate) status: u16,
     pub(crate) status_text: String,

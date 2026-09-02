@@ -34,6 +34,9 @@ import { ConversationProcessSequence } from './conversation-process-sequence';
 import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
+import { TranscriptResourceAttachments } from './transcript-resource-attachment';
+
+type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
 export function DeferredA2UISurface({
   onLocalAction,
@@ -102,10 +105,12 @@ function MessageBlockView({
   subagents,
   artifacts,
   surfaces,
+  resources,
   onActionCardAction,
   onA2UILocalAction,
   onOpenArtifact,
   onOpenFile,
+  onOpenResource,
   onOpenSubagent,
   reasoningDefaultOpen,
 }: MessageBlockViewProps) {
@@ -250,6 +255,16 @@ function MessageBlockView({
           {block.detail ? <span>{block.detail}</span> : null}
         </div>
       );
+    case 'resource':
+      // Reached only for a lone resource block; a run of adjacent ones is
+      // grouped into a single grid by MessageBlockSequence below.
+      return (
+        <TranscriptResourceAttachments
+          blocks={[block]}
+          onOpen={onOpenResource}
+          resources={resources}
+        />
+      );
     case 'unknown':
       return (
         <Alert>
@@ -274,6 +289,27 @@ export function MessageBlockSequence({
   while (index < blocks.length) {
     const block = blocks[index];
     if (!block) break;
+
+    if (block.type === 'resource') {
+      const resourceBlocks: ResourceBlock[] = [];
+      const firstBlockId = block.id;
+      while (index < blocks.length) {
+        const candidate = blocks[index];
+        if (candidate?.type !== 'resource') break;
+        resourceBlocks.push(candidate);
+        index += 1;
+      }
+      rendered.push(
+        <TranscriptResourceAttachments
+          blocks={resourceBlocks}
+          key={`resource-attachments-${firstBlockId}`}
+          onOpen={props.onOpenResource}
+          resources={props.resources}
+        />,
+      );
+      continue;
+    }
+
     if (block.type !== 'artifact' || !props.artifacts[block.artifact_id]) {
       rendered.push(<MessageBlockView block={block} key={block.id} {...props} />);
       index += 1;

@@ -109,7 +109,11 @@ export function ClioAppShell({
   statusStrip,
 }: ClioAppShellProps) {
   const desktopNavigation = useMediaQuery('(min-width: 768px)');
-  const desktopWorkbench = useMediaQuery('(min-width: 768px)');
+  // The split workbench needs enough room for both its 400 px conversation
+  // panel and 320 px canvas after the desktop navigation rail is accounted for.
+  // Compact desktop widths use the existing Sheet so the canvas cannot be
+  // laid out beyond the visible viewport.
+  const desktopWorkbench = useMediaQuery('(min-width: 1024px)');
   const workbenchNeedsNavigationRail = useMediaQuery('(min-width: 820px) and (max-width: 1279px)');
   const [workbenchPreference, setWorkbenchPreference] = useState<boolean>();
   const [dismissedRevealKey, setDismissedRevealKey] = useState<string>();

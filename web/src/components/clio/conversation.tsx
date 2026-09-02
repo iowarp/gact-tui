@@ -6,6 +6,7 @@ import type {
   SubagentRun,
   Task as DomainTask,
   ToolInvocation,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import {
@@ -19,12 +20,14 @@ import {
   LoaderCircleIcon,
   RotateCcwIcon,
   UserIcon,
+  XIcon,
 } from 'lucide-react';
 import { m } from 'motion/react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ConversationEmptyState } from '@/components/ai-elements/conversation';
 import { copyText } from '@/lib/clipboard';
+import { cn } from '@/lib/utils';
 import {
   Message,
   MessageAction,
@@ -40,9 +43,10 @@ import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { ClioMessageHistoryActions } from './message-history-actions';
 import { DeferredA2UISurface, MessageBlockSequence } from './conversation-message-blocks';
 import { ConversationTurn } from './conversation-turn';
-import { conversationTurnPresentation } from './conversation-turn-model';
+import { useConversationTurn } from './use-conversation-turn';
 import { subagentsForTool } from './subagent-tool-link';
 import type { SubagentOpenTarget } from './subagent-card';
+import { ClioTranscriptMinimap } from './transcript-minimap';
 
 const VIRTUALIZATION_THRESHOLD = 80;
 
@@ -55,6 +59,7 @@ export interface ClioConversationProps {
   subagents: Record<string, SubagentRun>;
   artifacts: Record<string, Artifact>;
   surfaces: Record<string, A2UISurface>;
+  resources?: Record<string, WorkspaceResource>;
   onActionCardAction?: (action: ActionCardAction) => void | Promise<unknown>;
   onA2UILocalAction?: (action: A2uiClientAction) => string | void | Promise<string | void>;
   onForkFromMessage?: (messageId: string) => void | Promise<unknown>;
@@ -65,7 +70,13 @@ export interface ClioConversationProps {
   retryingMessageId?: string;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenFile?: (path: string) => void;
+  onOpenResource?: (resource: WorkspaceResource) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  pendingMessageIds?: ReadonlySet<string>;
+  cancellablePendingMessageIds?: ReadonlySet<string>;
+  cancellingPendingMessageId?: string;
+  onCancelPendingSteer?: (messageId: string) => void | Promise<unknown>;
+  bottomInset?: number;
 }
 
 interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
@@ -95,24 +106,37 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     (message.blocks.length === 0 ||
       message.blocks.some((block) => block.type === 'error' && block.recoverable));
   const retrying = entities.retryingMessageId === message.id;
-  const turn = useMemo(
-    () => conversationTurnPresentation(message, entities.tools),
-    [entities.tools, message],
-  );
-  const residualBlocks = turn.residualBlocks;
-  const linkedSubagentIds = useMemo(
-    () =>
-      new Set(
-        turn.iterations.flatMap((iteration) =>
-          iteration.tools.flatMap((tool) =>
-            subagentsForTool(tool, entities.subagents).map((subagent) => subagent.id),
-          ),
-        ),
-      ),
-    [entities.subagents, turn.iterations],
-  );
+  const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
+  const cancellablePendingSteer =
+    pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
+  const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
+  const { linkedSubagentIds, residualBlocks } = turn;
   const actions = (
     <MessageActions className="ml-auto shrink-0 opacity-100 sm:pointer-events-none sm:opacity-0 sm:transition-opacity sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
+      {cancellablePendingSteer ? (
+        <MessageAction
+          disabled={
+            entities.cancellingPendingMessageId === message.id || !entities.onCancelPendingSteer
+          }
+          label={
+            entities.cancellingPendingMessageId === message.id
+              ? 'Cancelling pending message'
+              : 'Cancel pending message'
+          }
+          onClick={() => void entities.onCancelPendingSteer?.(message.id)}
+          tooltip={
+            entities.cancellingPendingMessageId === message.id
+              ? 'Cancelling pending message'
+              : 'Cancel before delivery'
+          }
+        >
+          {entities.cancellingPendingMessageId === message.id ? (
+            <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
+          ) : (
+            <XIcon aria-hidden="true" className="size-3.5" />
+          )}
+        </MessageAction>
+      ) : null}
       {canRetry ? (
         <MessageAction
           disabled={retrying || !entities.onRetryMessage}
@@ -159,7 +183,9 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
       className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-4 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
       data-index={index}
       id={`message-${message.id}`}
-      ref={virtualized ? measureElement : undefined}
+      // Measured on both branches: the virtualizer owns the active-index
+      // derivation even when it is not positioning the rows.
+      ref={measureElement}
       style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
       tabIndex={-1}
     >
@@ -223,7 +249,12 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
             ) : null}
             {actions}
           </div>
-          <MessageContent>
+          <MessageContent
+            className={cn(
+              pendingSteer &&
+                'rounded-xl border border-dashed border-primary/60 bg-primary/[0.025] transition-[border-color,background-color] duration-150',
+            )}
+          >
             {message.blocks.length === 0 && message.role === 'assistant' ? (
               <Alert variant="destructive">
                 <AlertTriangleIcon aria-hidden="true" />
@@ -264,6 +295,7 @@ interface MessageEntityRefs {
   surfaces: Set<string>;
   tasks: Set<string>;
   tools: Set<string>;
+  resources: Set<string>;
 }
 
 const messageEntityRefsCache = new WeakMap<DomainMessage, MessageEntityRefs>();
@@ -277,6 +309,7 @@ function messageEntityRefs(message: DomainMessage): MessageEntityRefs {
     surfaces: new Set(),
     tasks: new Set(),
     tools: new Set(),
+    resources: new Set(),
   };
   for (const block of message.blocks) {
     if (block.type === 'artifact') refs.artifacts.add(block.artifact_id);
@@ -284,6 +317,7 @@ function messageEntityRefs(message: DomainMessage): MessageEntityRefs {
     else if (block.type === 'a2ui') refs.surfaces.add(block.surface_id);
     else if (block.type === 'task') refs.tasks.add(block.task_id);
     else if (block.type === 'tool') refs.tools.add(block.tool_id);
+    else if (block.type === 'resource') refs.resources.add(block.resource_id);
   }
   messageEntityRefsCache.set(message, refs);
   return refs;
@@ -333,14 +367,21 @@ function conversationMessageRowPropsEqual(
     left.forkingMessageId !== right.forkingMessageId ||
     left.rewindingMessageId !== right.rewindingMessageId ||
     left.retryingMessageId !== right.retryingMessageId ||
+    left.cancellingPendingMessageId !== right.cancellingPendingMessageId ||
     left.onActionCardAction !== right.onActionCardAction ||
     left.onA2UILocalAction !== right.onA2UILocalAction ||
     left.onForkFromMessage !== right.onForkFromMessage ||
     left.onRewindToMessage !== right.onRewindToMessage ||
     left.onRetryMessage !== right.onRetryMessage ||
+    left.onCancelPendingSteer !== right.onCancelPendingSteer ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
-    left.onOpenSubagent !== right.onOpenSubagent
+    left.onOpenResource !== right.onOpenResource ||
+    left.onOpenSubagent !== right.onOpenSubagent ||
+    left.pendingMessageIds?.has(left.message.id) !==
+      right.pendingMessageIds?.has(right.message.id) ||
+    left.cancellablePendingMessageIds?.has(left.message.id) !==
+      right.cancellablePendingMessageIds?.has(right.message.id)
   ) {
     return false;
   }
@@ -353,11 +394,18 @@ function conversationMessageRowPropsEqual(
     referencedRowsEqual(left.surfaces, right.surfaces, refs.surfaces) &&
     referencedRowsEqual(left.tasks, right.tasks, refs.tasks) &&
     referencedRowsEqual(left.tools, right.tools, refs.tools) &&
+    referencedRowsEqual(left.resources ?? {}, right.resources ?? {}, refs.resources) &&
     linkedSubagentsEqual(left, right, refs.tools)
   );
 }
 
-export function ClioConversation({ messages, loading, error, ...entities }: ClioConversationProps) {
+export function ClioConversation({
+  messages,
+  loading,
+  error,
+  bottomInset = 0,
+  ...entities
+}: ClioConversationProps) {
   const { mode: defaultDisplayMode } = useConversationDisplay();
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -365,6 +413,8 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
   const pinnedToBottom = useRef(true);
   const lastUserScrollIntentAt = useRef(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [activeMessageIndex, setActiveMessageIndex] = useState(0);
+  const [conversationViewportWidth, setConversationViewportWidth] = useState(0);
   const [turnDisplayModes, setTurnDisplayModes] = useState<Record<string, ConversationDisplayMode>>(
     {},
   );
@@ -393,6 +443,7 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
     ),
   );
   const virtualized = messages.length >= VIRTUALIZATION_THRESHOLD;
+  const minimapVisible = conversationViewportWidth >= 760;
   // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -412,6 +463,31 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       [activeStreamingIndex],
     ),
   });
+  const virtualRows = virtualizer.getVirtualItems();
+  const firstVirtualRow = virtualRows[0];
+  const lastVirtualRow = virtualRows.at(-1);
+  const virtualRangeKey = `${firstVirtualRow?.index ?? -1}:${firstVirtualRow?.start ?? -1}:${lastVirtualRow?.index ?? -1}:${lastVirtualRow?.end ?? -1}`;
+
+  // The virtualizer is the only source of the active transcript index, on both
+  // branches. It measures every mounted row, so an index it reports may well be
+  // one the minimap rail has not mounted — reading the rail's own DOM back could
+  // only ever name a landmark that is already on screen.
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    if (pinnedToBottom.current) {
+      const latestIndex = messages.length - 1;
+      setActiveMessageIndex((current) => (current === latestIndex ? current : latestIndex));
+      return;
+    }
+    const firstVisible = virtualizer
+      .getVirtualItems()
+      .find((item) => item.end >= element.scrollTop);
+    if (!firstVisible) return;
+    setActiveMessageIndex((current) =>
+      current === firstVisible.index ? current : firstVisible.index,
+    );
+  }, [messages.length, virtualizer, virtualRangeKey]);
 
   const updateBottomState = useCallback(() => {
     const element = scrollRef.current;
@@ -421,7 +497,15 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       pinnedToBottom.current = next;
     }
     setIsAtBottom(next);
-  }, []);
+    if (next) {
+      setActiveMessageIndex(messages.length - 1);
+      return;
+    }
+    const firstVisible = virtualizer
+      .getVirtualItems()
+      .find((item) => item.end >= element.scrollTop);
+    if (firstVisible) setActiveMessageIndex(firstVisible.index);
+  }, [messages.length, virtualizer]);
 
   const markUserScrollIntent = useCallback(() => {
     lastUserScrollIntentAt.current = performance.now();
@@ -434,18 +518,39 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
     pinnedToBottom.current = true;
     setIsAtBottom(true);
   }, []);
+  const jumpToMessage = useCallback(
+    (index: number) => {
+      const message = messages[index];
+      if (!message) return;
+      markUserScrollIntent();
+      pinnedToBottom.current = index === messages.length - 1;
+      setActiveMessageIndex(index);
+      if (virtualized) virtualizer.scrollToIndex(index, { align: 'auto' });
+      else document.getElementById(`message-${message.id}`)?.scrollIntoView({ block: 'nearest' });
+      window.requestAnimationFrame(() => {
+        document.getElementById(`message-${message.id}`)?.focus({ preventScroll: true });
+      });
+    },
+    [markUserScrollIntent, messages, virtualized, virtualizer],
+  );
 
   useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element || typeof ResizeObserver === 'undefined') return;
     let width = Math.round(element.getBoundingClientRect().width);
+    setConversationViewportWidth(width);
     let frame = 0;
     const observer = new ResizeObserver(([entry]) => {
       const nextWidth = Math.round(entry?.contentRect.width ?? 0);
       if (!nextWidth || nextWidth === width) return;
       width = nextWidth;
+      setConversationViewportWidth(nextWidth);
       const keepLatestVisible = pinnedToBottom.current;
-      if (virtualized) virtualizer.measure();
+      // Only mounted rows carry a live ResizeObserver, so every off-screen row
+      // still holds the height it had at the previous width. Keeping those
+      // stale heights makes the transcript jump when the reader scrolls back
+      // up; re-estimating and re-measuring costs a frame and stays honest.
+      virtualizer.measure();
       window.cancelAnimationFrame(frame);
       if (keepLatestVisible) {
         frame = window.requestAnimationFrame(() => scrollToLatest('instant'));
@@ -456,13 +561,15 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       observer.disconnect();
       window.cancelAnimationFrame(frame);
     };
-  }, [scrollToLatest, virtualized, virtualizer]);
+  }, [scrollToLatest, virtualizer]);
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
     initialScrollComplete.current = true;
-    if (virtualized) virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
-    else scrollToLatest('instant');
+    if (virtualized) {
+      setActiveMessageIndex(messages.length - 1);
+      virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
+    } else scrollToLatest('instant');
   }, [messages.length, scrollToLatest, virtualized, virtualizer]);
 
   useEffect(() => {
@@ -493,11 +600,28 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
     return () => window.cancelAnimationFrame(frame);
   }, [messages, scrollToLatest]);
 
+  useLayoutEffect(() => {
+    if (!pinnedToBottom.current || messages.length === 0) return;
+    const frame = window.requestAnimationFrame(() => scrollToLatest('instant'));
+    return () => window.cancelAnimationFrame(frame);
+  }, [bottomInset, messages.length, scrollToLatest]);
+
   return (
     <div className="relative h-full min-h-0">
+      {messages.length > 0 ? (
+        <ClioTranscriptMinimap
+          activeIndex={activeMessageIndex}
+          messages={messages}
+          onJump={jumpToMessage}
+          visible={minimapVisible}
+        />
+      ) : null}
       <div
         aria-label="Conversation"
+        // The minimap is a landmark index, not a scrollbar: it has no drag or
+        // proportional thumb, so the native scrollbar stays in both states.
         className="clio-scrollbar h-full overflow-y-auto overscroll-contain"
+        data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
           if (
             ['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' '].includes(event.key)
@@ -510,6 +634,7 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
         onWheel={markUserScrollIntent}
         ref={scrollRef}
         role="log"
+        style={{ paddingBottom: bottomInset }}
         tabIndex={0}
       >
         {messages.length === 0 && loading ? (
@@ -541,7 +666,7 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
             style={virtualized ? { height: virtualizer.getTotalSize() } : undefined}
           >
             {(virtualized
-              ? virtualizer.getVirtualItems().map((virtualRow) => ({
+              ? virtualRows.map((virtualRow) => ({
                   index: virtualRow.index,
                   start: virtualRow.start,
                 }))
@@ -555,7 +680,7 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
                   displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
                   index={index}
                   key={message.id}
-                  measureElement={virtualized ? virtualizer.measureElement : undefined}
+                  measureElement={virtualizer.measureElement}
                   message={message}
                   onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                   recent={index >= messages.length - 2}
@@ -583,9 +708,10 @@ export function ClioConversation({ messages, loading, error, ...entities }: Clio
       {!isAtBottom ? (
         <Button
           aria-label="Scroll to latest message"
-          className="absolute right-3 bottom-3 rounded-full shadow-lg"
+          className="absolute right-3 rounded-full shadow-lg"
           onClick={() => scrollToLatest()}
           size="sm"
+          style={{ bottom: bottomInset + 12 }}
           type="button"
           variant="outline"
         >

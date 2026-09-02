@@ -17,6 +17,8 @@ D:\Libraries\Documents\projects\clio_develop_workspace
 
 An explicit installation uses one `generations/<timestamp-pid>` directory inside that root. That generation is the installed development stack: runtime source clones, Python environment, Node dependencies, contained caches and tools, logs, run workspaces, and the single node-wide CTE/ARC core. `config/active-generation.json` names it. Ordinary restarts and qualification retries reuse that generation; they never clone another frontend/backend or provision another core. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
 
+One directory is deliberately outside that root: the Hugging Face model cache at `%LOCALAPPDATA%\clio-dev\cache\huggingface`, exported as `HF_HOME`/`HF_HUB_CACHE`/`HF_XET_CACHE`. It holds multi-gigabyte downloads that no stop, reset, or reinstall should destroy, so it is exempt from the containment audit and removed only by `Reset-ClioDev.ps1 -IncludeModelCache`.
+
 Never create or reuse `D:\tmp`, `D:\relay-local`, `D:\ws`, `D:\clio-workspace`, a source-repository `.venv` or `node_modules`, a `PYTHONPATH` overlay, or another checkout's environment. A `.venv` and `node_modules` inside the disposable runtime clones under the owned root are expected. The containment audit fails on any of the four legacy roots that carries this tooling's own generation state (`config\active-generation.json`, `runtime\clio-agent-dev\dev-processes.json`, `config\cleanup-residue.json`); a directory that merely shares one of those names is recorded as unrelated residue and does not block the deployment.
 
 ## Hard reset
@@ -29,7 +31,9 @@ Run from this skill directory:
 
 Reset is an explicit uninstall. It stops the active generation's recorded processes, every process whose executable or command line belongs to that generation, and listeners on the configured CLIO ports. It then attempts to delete the whole owned root. It never renames, moves, or quarantines a broken tree. Do not use reset to retry a demo, clear a session, repair an MCP, or restart after an application-code change.
 
-Use `-RecreateRoot` only when the next operation needs an empty root immediately. Do not add deletion targets outside the owned root.
+Use `-RecreateRoot` only when the next operation needs an empty root immediately. Do not add deletion targets outside the owned root; `-IncludeModelCache` is the one explicit exception, and it costs a full model re-download.
+
+A CTE/ARC daemon that was already listening on the CTE port when setup ran is adopted, not owned: it is recorded with `cte_external`, reported, and never stopped by this tooling. Stopping it is a manual decision, because it may be serving consumers outside this development root.
 
 ## Install or restart
 

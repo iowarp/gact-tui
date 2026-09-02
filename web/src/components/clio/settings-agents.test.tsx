@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentSettings } from './settings-agents';
 
 const agent = {
@@ -84,6 +85,23 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
 }));
 
+beforeEach(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: (query: string): MediaQueryList => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+      matches: true,
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    }),
+    writable: true,
+  });
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -108,9 +126,11 @@ describe('AgentSettings', () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
-      <QueryClientProvider client={queryClient}>
-        <AgentSettings />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <AgentSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     await user.click(
@@ -160,15 +180,19 @@ describe('AgentSettings', () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
-      <QueryClientProvider client={queryClient}>
-        <AgentSettings />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <AgentSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
 
     await user.click(await screen.findByRole('button', { name: 'New agent' }));
     expect(screen.queryByRole('textbox', { name: 'Provider identifier' })).not.toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: 'Preferred model' }));
+    await user.click(await screen.findByRole('button', { name: /Claude/ }));
     expect(await screen.findByRole('option', { name: /Claude Sonnet/ })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /OpenAI Codex/ }));
     expect(screen.getByRole('option', { name: /GPT-5.6-Luna/ })).toBeVisible();
   });
 

@@ -3,6 +3,7 @@ import { brand } from '@brand';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   AccessibilityIcon,
+  BellRingIcon,
   BotIcon,
   BoxesIcon,
   CableIcon,
@@ -25,6 +26,8 @@ import {
   SunIcon,
   StretchHorizontalIcon,
   Trash2Icon,
+  Volume2Icon,
+  VolumeXIcon,
   WrenchIcon,
   HeartPulseIcon,
   BrainCircuitIcon,
@@ -33,6 +36,7 @@ import {
 import { useTheme } from 'next-themes';
 import { useEffect, type ComponentType, type SVGProps } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { ClioStatus } from '@/components/clio/status';
 import { ClioSettingsSection } from '@/components/clio/settings-section';
 import { BlueprintSettings } from '@/components/clio/settings-catalogs';
@@ -75,10 +79,16 @@ import {
   FieldTitle,
 } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import {
+  type AttentionSoundMode,
+  useNotificationPreferences,
+} from '@/providers/notification-preferences-provider';
+import { playAttentionSound } from '@/lib/attention-sound';
 import {
   type ConversationWidth,
   type MotionPreference,
@@ -110,6 +120,7 @@ const sections: Array<{ id: string; label: string; icon: Icon }> = [
   { id: 'permissions', label: 'Permissions', icon: ShieldCheckIcon },
   { id: 'memory', label: 'Memory', icon: BrainCircuitIcon },
   { id: 'system', label: 'System', icon: HeartPulseIcon },
+  { id: 'notifications', label: 'Notifications', icon: BellRingIcon },
   { id: 'appearance', label: 'Appearance', icon: PaletteIcon },
   { id: 'desktop', label: 'Desktop', icon: MonitorCogIcon },
   { id: 'about', label: 'About', icon: InfoIcon },
@@ -473,6 +484,122 @@ function AppearanceSettings() {
   );
 }
 
+function NotificationSettings() {
+  const { attentionSound, desktopNotifications, setAttentionSound, setDesktopNotifications } =
+    useNotificationPreferences();
+
+  const updateDesktopNotifications = async (enabled: boolean) => {
+    if (!enabled) {
+      setDesktopNotifications(false);
+      return;
+    }
+    if (typeof Notification === 'undefined') {
+      toast.error('Desktop notifications are not available in this browser');
+      return;
+    }
+    const permission =
+      Notification.permission === 'default'
+        ? await Notification.requestPermission()
+        : Notification.permission;
+    if (permission !== 'granted') {
+      toast.error('Desktop notifications were not enabled', {
+        description: 'Allow notifications for this app in your browser or operating system.',
+      });
+      return;
+    }
+    setDesktopNotifications(true);
+  };
+
+  return (
+    <div className="grid gap-6">
+      <SectionHeading
+        description="Choose how CLIO alerts you when a session is blocked on your approval or answer. The sidebar attention marker remains visible regardless of these preferences."
+        title="Notifications"
+      />
+      <ClioSettingsSection
+        description="Play a short two-note chime when a new permission or question needs your response."
+        title="Attention sound"
+      >
+        <RadioGroup
+          className="grid gap-3 sm:grid-cols-3"
+          onValueChange={(value) => setAttentionSound(value as AttentionSoundMode)}
+          value={attentionSound}
+        >
+          {[
+            {
+              value: 'background',
+              label: 'In background',
+              description: 'Sound only while this app is not focused.',
+              icon: Volume2Icon,
+            },
+            {
+              value: 'always',
+              label: 'Always',
+              description: 'Sound for every newly blocked session.',
+              icon: BellRingIcon,
+            },
+            {
+              value: 'off',
+              label: 'Off',
+              description: 'Keep visual attention signals only.',
+              icon: VolumeXIcon,
+            },
+          ].map(({ value, label, description, icon: SoundIcon }) => (
+            <FieldLabel htmlFor={`attention-sound-${value}`} key={value}>
+              <Field className="h-full">
+                <span className="flex items-start gap-3">
+                  <SoundIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary" />
+                  <FieldContent>
+                    <FieldTitle>{label}</FieldTitle>
+                    <FieldDescription>{description}</FieldDescription>
+                  </FieldContent>
+                  <RadioGroupItem id={`attention-sound-${value}`} value={value} />
+                </span>
+              </Field>
+            </FieldLabel>
+          ))}
+        </RadioGroup>
+        <Button
+          className="mt-3 w-fit"
+          onClick={() => {
+            void playAttentionSound().then((played) => {
+              if (!played) toast.error('This browser could not play the attention sound');
+            });
+          }}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <Volume2Icon aria-hidden="true" /> Play test sound
+        </Button>
+      </ClioSettingsSection>
+      <ClioSettingsSection
+        description="Show an operating-system notification when a new response is needed while this app is in the background."
+        title="Desktop notification"
+      >
+        <FieldLabel htmlFor="desktop-attention-notifications">
+          <Field>
+            <span className="flex items-center gap-3">
+              <BellRingIcon aria-hidden="true" className="size-5 shrink-0 text-primary" />
+              <FieldContent>
+                <FieldTitle>Notify while in background</FieldTitle>
+                <FieldDescription>
+                  Your browser or operating system may ask for notification permission.
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                checked={desktopNotifications}
+                id="desktop-attention-notifications"
+                onCheckedChange={(enabled) => void updateDesktopNotifications(enabled)}
+              />
+            </span>
+          </Field>
+        </FieldLabel>
+      </ClioSettingsSection>
+    </div>
+  );
+}
+
 function SettingsSection({
   section,
   sessionId,
@@ -495,6 +622,7 @@ function SettingsSection({
   if (section === 'permissions') return <PermissionsSettings workspaceId={workspaceId} />;
   if (section === 'memory') return <MemorySettings initialSessionId={sessionId} />;
   if (section === 'system') return <SystemSettings />;
+  if (section === 'notifications') return <NotificationSettings />;
   if (section === 'desktop') return <DesktopSettings />;
   if (section === 'about') return <AboutSettings />;
   return <AppearanceSettings />;

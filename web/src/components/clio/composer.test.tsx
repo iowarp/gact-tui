@@ -1,10 +1,32 @@
 import type { CommandDefinition } from '@clio/core/v3';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ClioComposer } from './composer';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'sonner';
+import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
+import { ClioComposer, type ClioComposerProps } from './composer';
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 afterEach(cleanup);
+
+beforeEach(() => {
+  vi.mocked(toast.error).mockClear();
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    value: (query: string): MediaQueryList => ({
+      addEventListener: vi.fn(),
+      addListener: vi.fn(),
+      dispatchEvent: vi.fn(() => false),
+      matches: true,
+      media: query,
+      onchange: null,
+      removeEventListener: vi.fn(),
+      removeListener: vi.fn(),
+    }),
+    writable: true,
+  });
+});
 
 const commands: CommandDefinition[] = [
   {
@@ -35,33 +57,158 @@ const commands: CommandDefinition[] = [
 ];
 
 function renderComposer({
+  attachments = false,
+  effort = 'medium',
   onCommand = vi.fn(async () => undefined),
   onStop = vi.fn(),
   onSubmit = vi.fn(async () => undefined),
   state = 'completed',
 }: {
+  attachments?: boolean;
+  effort?: string;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onStop?: () => void;
-  onSubmit?: (value: { text: string }) => Promise<void>;
+  onSubmit?: ClioComposerProps['onSubmit'];
   state?: 'completed' | 'running';
 } = {}) {
   render(
-    <ClioComposer
-      attachments={false}
-      commands={commands}
-      effort="medium"
-      model="gpt-5.6-luna"
-      onCommand={onCommand}
-      onStop={onStop}
-      onSubmit={onSubmit}
-      provider="codex"
-      state={state}
-    />,
+    <PromptInputProvider>
+      <ClioComposer
+        attachments={attachments}
+        commands={commands}
+        effort={effort}
+        model="gpt-5.6-luna"
+        onCommand={onCommand}
+        onStop={onStop}
+        onSubmit={onSubmit}
+        provider="codex"
+        state={state}
+      />
+    </PromptInputProvider>,
   );
   return { onCommand, onStop, onSubmit };
 }
 
 describe('ClioComposer service commands', () => {
+  it('adds and submits every file selected in one picker interaction', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    renderComposer({ attachments: true, onSubmit });
+
+    const files = [
+      new File(['# First'], 'first.md', { type: 'text/markdown' }),
+      new File(['print("second")'], 'second.py', { type: 'text/x-python' }),
+    ];
+    const picker = screen.getByLabelText('Upload files');
+
+    expect(picker).toHaveAttribute('multiple');
+    await user.upload(picker, files);
+
+    expect(screen.getByRole('button', { name: 'Open first.md' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Open second.py' })).toBeVisible();
+
+    await user.type(screen.getByRole('textbox'), 'Inspect both files.{Enter}');
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          files: [
+            expect.objectContaining({ filename: 'first.md', mediaType: 'text/markdown' }),
+            expect.objectContaining({ filename: 'second.py', mediaType: 'text/x-python' }),
+          ],
+          text: 'Inspect both files.',
+        }),
+      ),
+    );
+  });
+
+  it('opens the AI Elements attachment picker from a direct composer action', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+    const picker = screen.getByLabelText('Upload files');
+    const open = vi.spyOn(picker, 'click');
+
+    await user.click(screen.getByRole('button', { name: 'Add files' }));
+    expect(open).toHaveBeenCalledOnce();
+  });
+
+  it('renders an image thumbnail and opens the full attachment preview', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+    const picker = screen.getByLabelText('Upload files');
+    const image = new File(['pixels'], 'field-map.png', { type: 'image/png' });
+
+    await user.upload(picker, image);
+
+    const thumbnail = screen.getByRole('img', { name: 'field-map.png' });
+    expect(thumbnail).toBeVisible();
+    expect(thumbnail).toHaveAttribute('src', 'blob:test-field-map.png');
+
+    const openAttachment = screen.getByRole('button', { name: 'Open field-map.png' });
+    expect(
+      within(openAttachment).getByRole('img', { name: 'Attachment status: Waiting' }),
+    ).toBeVisible();
+    await user.hover(openAttachment);
+    expect(
+      await screen.findByRole('status', { name: 'Upload status: Ready locally' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('status', { name: 'Conversion status: Starts after submission' }),
+    ).toBeVisible();
+
+    await user.click(openAttachment);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'field-map.png' })).toBeVisible();
+    expect(within(dialog).getByRole('img', { name: 'field-map.png' })).toHaveAttribute(
+      'src',
+      'blob:test-field-map.png',
+    );
+  });
+
+  it('keeps a rejected attachment retryable without a stale uploading state', async () => {
+    const user = userEvent.setup();
+    let attempt = 0;
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(async (value) => {
+      value.onUploadProgress({ filename: 'field-map.png', loaded: 6, total: 6 });
+      attempt += 1;
+      if (attempt === 1) {
+        throw new Error('The selected model cannot receive this image resource.');
+      }
+    });
+    renderComposer({ attachments: true, onSubmit });
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['pixels'], 'field-map.png', { type: 'image/png' }),
+    );
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, 'Describe the image.{Enter}');
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Uploading field-map.png 100%')).not.toBeInTheDocument();
+    const attachment = screen.getByRole('button', { name: 'Open field-map.png' });
+    expect(attachment).toBeVisible();
+    // A rejected upload must not keep reading as a healthy local attachment.
+    expect(
+      within(attachment).getByRole('img', { name: 'Attachment status: Unavailable' }),
+    ).toBeVisible();
+    await user.hover(attachment);
+    expect(await screen.findByRole('status', { name: 'Upload status: Failed' })).toBeVisible();
+    expect(
+      screen.getByText('The selected model cannot receive this image resource.'),
+    ).toBeVisible();
+    expect(input).toHaveValue('Describe the image.');
+
+    await user.click(screen.getByRole('button', { name: /^Submit$/ }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText('Uploading field-map.png 100%')).not.toBeInTheDocument();
+    // The accepted retry clears the tray, so no stale failure is left behind.
+    expect(screen.queryByRole('button', { name: 'Open field-map.png' })).not.toBeInTheDocument();
+  });
+
   it('focuses only after an explicit focus request changes', async () => {
     const props = {
       attachments: false,
@@ -78,6 +225,44 @@ describe('ClioComposer service commands', () => {
 
     rerender(<ClioComposer {...props} focusRequestKey={1} />);
     await waitFor(() => expect(input).toHaveFocus());
+  });
+
+  it('restores the textarea focus after the sending block clears', async () => {
+    const user = userEvent.setup();
+    let resolveSubmit!: () => void;
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSubmit = resolve;
+        }),
+    );
+    const props = {
+      attachments: false,
+      effort: 'medium',
+      model: 'gpt-5.6-luna',
+      onSubmit,
+      provider: 'codex',
+      state: 'completed' as const,
+    };
+    const view = render(<ClioComposer {...props} />);
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, 'Send this message.{Enter}');
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+
+    input.blur();
+    view.rerender(<ClioComposer {...props} disabled />);
+    expect(input).toBeDisabled();
+    expect(input).not.toHaveFocus();
+
+    await act(async () => {
+      resolveSubmit();
+      await Promise.resolve();
+    });
+    view.rerender(<ClioComposer {...props} disabled={false} />);
+
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input).toHaveValue('');
   });
 
   it('discovers sourced commands and dispatches the canonical command with arguments', async () => {
@@ -111,6 +296,43 @@ describe('ClioComposer service commands', () => {
     expect(input).toHaveValue('/not-a-service-command');
   });
 
+  it('reveals the inline attachment remove control to a keyboard as well as a pointer', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['pixels'], 'field-map.png', { type: 'image/png' }),
+    );
+
+    const remove = screen.getByRole('button', { name: 'Remove' });
+    expect(remove).toHaveClass('group-hover:opacity-100', 'group-focus-within:opacity-100');
+  });
+
+  it('names an effort the service reported that this build has no setting for', () => {
+    renderComposer({ effort: 'ultra' });
+
+    const control = screen.getByRole('button', { name: /^Reasoning effort:/ });
+    expect(control).toHaveAccessibleName('Reasoning effort: Unknown (ultra)');
+    expect(control).not.toHaveTextContent('medium');
+  });
+
+  it('reports a rejected service command instead of swallowing it', async () => {
+    const user = userEvent.setup();
+    const onCommand = vi.fn().mockRejectedValue(new Error('The command service is unreachable.'));
+    renderComposer({ onCommand });
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, '/review results/stations.csv{Enter}');
+
+    await waitFor(() =>
+      expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Review evidence was not run', {
+        description: 'The command service is unreachable.',
+      }),
+    );
+    // A rejected command leaves the typed command in place to retry.
+    expect(input).toHaveValue('/review results/stations.csv');
+  });
+
   it('explains unavailable service commands without dispatching them', async () => {
     const user = userEvent.setup();
     const { onCommand } = renderComposer();
@@ -132,6 +354,7 @@ describe('ClioComposer service commands', () => {
     expect(input).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Stop' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Steer current work' })).toBeDisabled();
+    expect(screen.queryByText('Working')).not.toBeInTheDocument();
 
     await user.type(input, 'Prioritize the provenance gap.');
     await user.click(screen.getByRole('button', { name: 'Steer current work' }));
@@ -140,5 +363,87 @@ describe('ClioComposer service commands', () => {
       expect.objectContaining({ text: 'Prioritize the provenance gap.' }),
     );
     expect(onStop).not.toHaveBeenCalled();
+  });
+
+  it('queues Enter and steers Ctrl+Enter while work is running', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderComposer({ state: 'running' });
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, 'Review the second station.{Enter}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          delivery: 'queued',
+          text: 'Review the second station.',
+        }),
+      ),
+    );
+
+    await user.type(input, 'Stop using the stale catalog.{Control>}{Enter}{/Control}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          delivery: 'steer',
+          text: 'Stop using the stale catalog.',
+        }),
+      ),
+    );
+  });
+
+  it('starts normally from either Enter shortcut while idle', async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderComposer();
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, 'Start the analysis.{Enter}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ delivery: 'start', text: 'Start the analysis.' }),
+      ),
+    );
+
+    await user.type(input, 'Start another turn.{Control>}{Enter}{/Control}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ delivery: 'start', text: 'Start another turn.' }),
+      ),
+    );
+  });
+
+  it('resets a queued running-turn intent when the session becomes idle', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    const renderState = (state: 'completed' | 'running') => (
+      <PromptInputProvider>
+        <ClioComposer
+          attachments={false}
+          effort="medium"
+          model="gpt-5.6-luna"
+          onSubmit={onSubmit}
+          provider="codex"
+          state={state}
+        />
+      </PromptInputProvider>
+    );
+    const view = render(renderState('running'));
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, 'Queue this while running.{Enter}');
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ delivery: 'queued', text: 'Queue this while running.' }),
+      ),
+    );
+
+    view.rerender(renderState('completed'));
+    await user.type(screen.getByRole('textbox'), 'Start this after completion.');
+    await user.click(screen.getByRole('button', { name: /^Submit$/ }));
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenLastCalledWith(
+        expect.objectContaining({ delivery: 'start', text: 'Start this after completion.' }),
+      ),
+    );
   });
 });

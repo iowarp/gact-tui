@@ -21,7 +21,19 @@ export function canOpenSessionStream(
   return Boolean(sessionId && gactVersions?.includes(PROTOCOL_VERSION));
 }
 
+/** Enables the composer picker only for the workspace-owned GACT 0.3 resource contract. */
+export function canUploadWorkspaceResources(
+  capabilities: Record<string, unknown> | undefined,
+): boolean {
+  const resources = capabilities?.x_clio_resources;
+  return isRecord(resources) && resources.enabled === true;
+}
+
 /** Surfaces the service's own failure text; `details` stays display-only metadata. */
 export function conversationUnavailableMessage(error: unknown): string | undefined {
   return error instanceof Error ? error.message : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

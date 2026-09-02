@@ -6,6 +6,8 @@ param(
     [ValidateRange(1, 65535)]
     [int]$WebPort = 5174,
     [ValidateRange(1, 65535)]
+    [int]$DocumentProcessorPort = 8089,
+    [ValidateRange(1, 65535)]
     [int]$CtePort = 9413,
     [switch]$PreserveState
 )
@@ -20,7 +22,8 @@ if (-not $devRootFull.Equals($expectedRoot, [System.StringComparison]::OrdinalIg
     throw "Refusing to stop or delete '$devRootFull'. The owned CLIO development root is '$expectedRoot'."
 }
 $activeGenerationPath = Join-Path $devRootFull "config\active-generation.json"
-if (Test-Path -LiteralPath $activeGenerationPath -PathType Leaf) {
+$generationManifestPresent = Test-Path -LiteralPath $activeGenerationPath -PathType Leaf
+if ($generationManifestPresent) {
     $activeGeneration = Get-Content -Raw -LiteralPath $activeGenerationPath | ConvertFrom-Json
     $generationRoot = [System.IO.Path]::GetFullPath([string]$activeGeneration.generation_root)
     $runtimeRoot = [System.IO.Path]::GetFullPath([string]$activeGeneration.runtime_root)
@@ -32,6 +35,7 @@ else {
 $statePath = Join-Path $runtimeRoot "dev-processes.json"
 $targetPids = [System.Collections.Generic.HashSet[int]]::new()
 $recordedPids = [System.Collections.Generic.HashSet[int]]::new()
+$externalPids = [System.Collections.Generic.HashSet[int]]::new()
 $trackedResidue = @()
 
 function Add-OwnedProcessId {
@@ -41,6 +45,26 @@ function Add-OwnedProcessId {
         [Parameter(Mandatory)]
         [string]$Reason
     )
+
+    # Stop-ClioDev is also invoked in-process by Start-ClioDev and Reset-ClioDev.
+    # A missing or stale generation manifest may broaden generationRoot to the
+    # owned development root, which appears in this process's own command line.
+    # The cleanup routine must never terminate its caller.
+    if ($ProcessId -eq $PID) {
+        return
+    }
+
+    # A PID Start-ClioDev recorded as external is a daemon this tooling adopted,
+    # not one it launched; it is never a stop target however it reaches the
+    # sweep. (An ancestry walk is the tempting way to widen ownership here --
+    # Windows Store Python can hand a contained venv launcher a child whose own
+    # executable and command line no longer name the generation. It is also how a
+    # sweep starts killing by parentage rather than identity, so ownership stays
+    # a property of the process in front of us.)
+    if ($externalPids.Contains($ProcessId)) {
+        Write-Warning "Leaving externally owned PID $ProcessId ($Reason) running; it was not started from $devRootFull."
+        return
+    }
 
     $process = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction SilentlyContinue
     if ($null -eq $process) {
@@ -65,15 +89,28 @@ function Add-OwnedProcessId {
     }
 }
 
+$recordedPidProperties = @(
+    "backend_pid",
+    "web_pid",
+    "document_processor_pid",
+    "cte_pid",
+    "backend_launcher_pid",
+    "web_launcher_pid",
+    "document_processor_launcher_pid"
+)
 if (Test-Path -LiteralPath $statePath) {
     $state = Get-Content -Raw -LiteralPath $statePath | ConvertFrom-Json
-    foreach ($property in @(
-        "backend_pid",
-        "web_pid",
-        "cte_pid",
-        "backend_launcher_pid",
-        "web_launcher_pid"
-    )) {
+    # Adopted listeners are recorded with a companion `<name>_external` flag when
+    # Start-ClioDev found them running from outside the owned root. Collect them
+    # BEFORE any sweep so no later signal -- record, port or generation hit --
+    # can turn one into a kill target.
+    foreach ($property in $recordedPidProperties) {
+        $value = $state.$property
+        if ($null -ne $value -and [int]$value -gt 0 -and $state."${property}_external" -eq $true) {
+            [void]$externalPids.Add([int]$value)
+        }
+    }
+    foreach ($property in $recordedPidProperties) {
         $value = $state.$property
         if ($null -ne $value -and [int]$value -gt 0) {
             # Act on the record BEFORE remembering it: a recorded PID that
@@ -87,15 +124,37 @@ if (Test-Path -LiteralPath $statePath) {
 }
 
 Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | ForEach-Object {
-    $identity = "$($_.ExecutablePath) $($_.CommandLine)"
-    # IndexOf, not Contains: the (string, StringComparison) Contains overload is
-    # .NET Core only and throws on Windows PowerShell 5.1.
-    if ($identity.IndexOf($generationRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
-        Add-OwnedProcessId -ProcessId ([int]$_.ProcessId) -Reason "active generation process"
+    $executablePath = [string]$_.ExecutablePath
+    $identity = "$executablePath $($_.CommandLine)"
+    # IndexOf with an explicit StringComparison, not Contains: the
+    # (string, StringComparison) Contains overload is .NET Core only and throws
+    # on Windows PowerShell 5.1, which is the shell this skill runs under.
+    if ($identity.IndexOf($generationRoot, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+        return
     }
+    # With a generation manifest, generationRoot names one generation directory
+    # and a command-line mention is strong evidence. Without one it degrades to
+    # the whole development root, which every editor, sibling shell and co-tree
+    # agent that ever opened a file in it carries in ITS command line -- and only
+    # $PID is guarded. In that case the executable must live under the root, and
+    # a mere mention is reported instead of killed.
+    $executableOwned = $executablePath.IndexOf(
+        $generationRoot,
+        [System.StringComparison]::OrdinalIgnoreCase
+    ) -ge 0
+    if (-not $generationManifestPresent -and -not $executableOwned) {
+        if ([int]$_.ProcessId -ne $PID) {
+            Write-Warning (
+                "Reporting PID $($_.ProcessId) ($($_.Name)): its command line mentions $generationRoot " +
+                "but its executable does not, and no generation manifest scopes the sweep."
+            )
+        }
+        return
+    }
+    Add-OwnedProcessId -ProcessId ([int]$_.ProcessId) -Reason "active generation process"
 }
 
-foreach ($port in @($BackendPort, $WebPort, $CtePort)) {
+foreach ($port in @($BackendPort, $WebPort, $DocumentProcessorPort, $CtePort)) {
     Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue |
         ForEach-Object {
             Add-OwnedProcessId -ProcessId ([int]$_.OwningProcess) -Reason "listener on port $port"
@@ -108,20 +167,38 @@ foreach ($processId in $targetPids) {
         continue
     }
 
-    Stop-Process -Id $processId -Force -ErrorAction Stop
+    try {
+        Stop-Process -Id $processId -Force -ErrorAction Stop
+    }
+    catch {
+        # A child may exit after the ownership census but before Stop-Process.
+        # Treat that normal race as an already-completed stop, while preserving
+        # every error for a process that is still present.
+        $stillRunning = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if ($null -ne $stillRunning) {
+            throw
+        }
+        continue
+    }
     Write-Host "Stopped $($process.ProcessName) (PID $processId)."
 }
 
-foreach ($port in @($BackendPort, $WebPort, $CtePort)) {
+foreach ($port in @($BackendPort, $WebPort, $DocumentProcessorPort, $CtePort)) {
     $releaseDeadline = [DateTime]::UtcNow.AddSeconds(10)
     do {
-        $remaining = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue
-        if (-not $remaining) {
+        $remaining = @(
+            Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue |
+                Where-Object { -not $externalPids.Contains([int]$_.OwningProcess) }
+        )
+        if ($remaining.Count -eq 0) {
             break
         }
         Start-Sleep -Milliseconds 200
     } while ([DateTime]::UtcNow -lt $releaseDeadline)
-    if ($remaining) {
+    # An external listener never had to release: this tooling deliberately left
+    # it running, so waiting for its port is waiting for something that must not
+    # happen.
+    if ($remaining.Count -gt 0) {
         throw "Port $port did not release within 10 seconds after the scoped stop."
     }
 }
@@ -161,4 +238,5 @@ if (-not $PreserveState -and (Test-Path -LiteralPath $devRootFull)) {
     state_preserved = [bool]$PreserveState
     active_generation = $generationRoot
     tracked_residue = $trackedResidue
+    external_pids_left_running = @($externalPids)
 } | ConvertTo-Json -Depth 3

@@ -20,11 +20,13 @@ import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
+import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 import { NavigationHeader } from './navigation-header';
 import { NavigationInfrastructure } from './navigation-infrastructure';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
+import type { SessionAttention } from '@/lib/session-attention';
 
 export interface ClioNavigationProps {
   endpoint: string;
@@ -35,6 +37,7 @@ export interface ClioNavigationProps {
   actions: ResourceActions;
   blueprints: readonly AgentBlueprint[];
   onOpenWorkspaceFiles?: () => void;
+  attentions: Readonly<Record<string, SessionAttention>>;
 }
 
 export function ClioNavigation({
@@ -46,6 +49,7 @@ export function ClioNavigation({
   actions,
   blueprints,
   onOpenWorkspaceFiles,
+  attentions,
 }: ClioNavigationProps) {
   const location = useLocation();
   const { settings, recents } = useConnectionSettings();
@@ -108,10 +112,22 @@ export function ClioNavigation({
 
   return (
     <>
+      <ClioAttentionNotifier
+        activeSessionId={activeSessionId}
+        attentions={attentions}
+        sessions={sessions}
+      />
       <Sidebar collapsible="icon" contained>
         <nav aria-label="Workspace navigation" className="flex h-full min-w-0 flex-1 flex-col">
           <NavigationHeader
             activeLabel={settings.label}
+            attentionControl={
+              <ClioAttentionCenter
+                activeSessionId={activeSessionId}
+                attentions={attentions}
+                sessions={sessions}
+              />
+            }
             currentPath={location.pathname}
             endpoint={endpoint}
             onConnect={switchService}
@@ -124,6 +140,7 @@ export function ClioNavigation({
           <SidebarContent>
             <WorkspaceNavigation
               actions={actions}
+              attentions={attentions}
               activeSessionId={activeSessionId}
               activeWorkspaceId={activeWorkspaceId}
               blueprints={blueprints}

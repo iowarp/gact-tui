@@ -75,6 +75,27 @@ export const STREAM_RECONNECT_BASE_MS = 250;
  */
 export const STREAM_RECONNECT_MAX_MS = 8_000;
 
+/**
+ * First wait between reads of a workspace resource that is still `uploading`
+ * after its bytes were delivered, doubled on each further read up to the
+ * ceiling below. Unit: milliseconds. The service finishes hashing and type
+ * detection out of band, so this is the gap between "bytes delivered" and
+ * "registered", not a network retry.
+ */
+export const RESOURCE_READY_POLL_BASE_MS = 150;
+
+/** Ceiling for the resource-readiness backoff. Unit: milliseconds. */
+export const RESOURCE_READY_POLL_MAX_MS = 2_000;
+
+/**
+ * Reads of a still-`uploading` resource before the upload reports that custody
+ * has not registered it. Unit: attempts. With the backoff above this waits a
+ * little over 20 seconds, then hands the decision back to the person rather
+ * than blocking a send indefinitely; the bytes are already in custody, so a
+ * retry resumes rather than restarts.
+ */
+export const RESOURCE_READY_POLL_ATTEMPTS = 12;
+
 // ## Timeouts
 // Bounds on how long the client waits before calling an operation failed.
 
@@ -91,6 +112,27 @@ export const MANAGED_BACKEND_READY_TIMEOUT_MS = 90_000;
  * slow or unreachable update feed cannot hang the Settings panel.
  */
 export const UPDATE_CHECK_TIMEOUT_MS = 15_000;
+
+/**
+ * Whole-request budget the desktop bridge applies to an ordinary API call.
+ * Unit: milliseconds. Only the native transport enforces one — the browser
+ * leaves the wait to `fetch` — and it mirrors `DEFAULT_TIMEOUT_MS` in
+ * `desktop/src-tauri/src/gact_http.rs`, which applies it when a request names
+ * no budget of its own.
+ */
+export const GACT_HTTP_TIMEOUT_MS = 30_000;
+
+/**
+ * Budget the desktop bridge applies to a transfer of bytes — a resource upload
+ * chunk on the way out, artifact or document bytes on the way in.
+ * Unit: milliseconds. Far above the ordinary budget because these move
+ * megabytes over a link whose speed the client cannot know, and the ordinary
+ * budget turns a large but healthy upload into a failed one.
+ *
+ * A request that is slow for a reason the transport cannot see — a synchronous
+ * server-side conversion — carries its own `timeoutMs` instead.
+ */
+export const GACT_HTTP_TRANSFER_TIMEOUT_MS = 600_000;
 
 // ## Retention
 // How much history a surface holds or asks for.
@@ -150,6 +192,31 @@ export const JSON_TABLE_ROW_LIMIT = 5_000;
  */
 export const MAX_DIAGRAM_SOURCE_CHARS = 16_384;
 
+/**
+ * Pages kept mounted on each side of the PDF viewer's visible window.
+ * Unit: pages. Each mounted page is a canvas plus a text and an annotation
+ * layer, so this is the direct trade between scroll smoothness and the tab's
+ * memory: a page of a letter-size document at full width costs a few megabytes,
+ * and a long document has hundreds of them. Two pages of overscan cover a fast
+ * flick without holding a document-sized bitmap.
+ */
+export const PDF_PAGE_OVERSCAN = 2;
+
+/**
+ * Height-to-width ratio used to reserve space for a PDF page the viewer has not
+ * rendered yet. Unit: ratio. ISO 216 (A4, and close enough to US Letter) so the
+ * scrollbar is roughly right on the first paint; the viewer replaces it with the
+ * height of the first page it actually renders.
+ */
+export const PDF_PAGE_ESTIMATED_ASPECT_RATIO = 1.4142;
+
+/**
+ * Vertical gap between two pages in the viewer's continuous scroll. Unit:
+ * pixels. Must match the `gap-3` the page list is laid out with, because the
+ * windowing spacers stand in for whole page boxes including their gap.
+ */
+export const PDF_PAGE_GAP_PX = 12;
+
 // ## Truncation
 // Where generated prose is cut for a compact surface. All of these are applied
 // through `truncate` in `@/lib/format`, which appends the ellipsis within the
@@ -180,6 +247,15 @@ export const DIAGRAM_LABEL_TRUNCATE_CHARS = 160;
 export const SUBAGENT_TASK_TRUNCATE_CHARS = 260;
 
 /**
+ * Characters of a message kept for a transcript minimap preview.
+ * Unit: characters. The rail's hover card and the outline list both render a
+ * short projection of a message that can itself be arbitrarily long, so the
+ * string is cut before it reaches the markdown renderer rather than hidden with
+ * CSS afterwards. Wide enough to fill the three lines the hover card shows.
+ */
+export const TRANSCRIPT_PREVIEW_TRUNCATE_CHARS = 320;
+
+/**
  * Maximum length of a subagent's returned result on its card. Unit: characters.
  * Longer than the assignment because the result is the part a reader scans.
  */
@@ -195,6 +271,16 @@ export const SUBAGENT_RESULT_TRUNCATE_CHARS = 300;
  * current data, long enough to absorb a burst of remounts.
  */
 export const QUERY_STALE_TIME_MS = 10_000;
+
+/**
+ * How long the discovered provider/model catalog is served without a background
+ * refetch. Unit: milliseconds. Much longer than the default stale time because
+ * the catalog is the product of a provider handshake, not a cheap read, and it
+ * is invalidated outright by `provider_catalog.refreshed` whenever a refresh
+ * actually changes it — so this only bounds how long a change made outside the
+ * stream goes unnoticed.
+ */
+export const PROVIDER_CATALOG_STALE_TIME_MS = 30_000;
 
 /**
  * Automatic retries for a failed read. Unit: attempts after the first.
@@ -222,6 +308,15 @@ export const IMMUTABLE_QUERY = { staleTime: Number.POSITIVE_INFINITY } as const;
 export const SEARCH_DEBOUNCE_MS = 180;
 
 /**
+ * Minimum gap between two attention notices raised for the same session.
+ * Unit: milliseconds. A session that raises several kinds of attention at once
+ * (an approval and a question arriving together) should announce itself once;
+ * below roughly a second the notices stack on top of each other, and much above
+ * it a genuinely new request goes unannounced.
+ */
+export const ATTENTION_NOTICE_THROTTLE_MS = 2_000;
+
+/**
  * Workspaces listed in the sidebar before the "show all" control appears.
  * Unit: workspaces. When the active workspace is outside this window it takes
  * the last visible slot, so one fewer of the ordered workspaces is shown.
@@ -233,3 +328,23 @@ export const VISIBLE_WORKSPACE_LIMIT = 7;
  * Shared so the pagination control reads the same on every table.
  */
 export const DATA_GRID_PAGE_SIZES: number[] = [10, 25, 50, 100];
+
+/**
+ * Rendered height of one compact queued-message row. Unit: pixels.
+ * A 28 px (`min-h-7`) row plus its 4 px vertical padding and the 1 px gap the
+ * list puts between rows. Kept beside the viewport bound below so the two can
+ * only move together.
+ */
+export const COMPOSER_QUEUE_ROW_HEIGHT_PX = 33;
+
+/**
+ * Height of the queued-message viewport before it scrolls. Unit: pixels.
+ * Four rows plus the list's own 4 px vertical padding.
+ *
+ * The queue needs its own bound rather than inheriting one: its scroll chain
+ * is capped only by the composer stack's `max-h-full`, so on a roomy viewport
+ * a long queue simply grows and pushes the conversation up instead of
+ * scrolling. Four rows is the point where the queue still reads as a stack
+ * above the composer rather than a panel of its own.
+ */
+export const COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX = 4 * COMPOSER_QUEUE_ROW_HEIGHT_PX + 4;
