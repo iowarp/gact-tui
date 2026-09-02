@@ -49,6 +49,7 @@ import {
 } from './resource-viewers';
 import { ClioStatus } from './status';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
+import { WorkspaceResourceRemoveAction } from './workspace-resource-remove';
 
 const PdfResourceViewer = lazy(() =>
   import('./document-pdf-viewer').then((module) => ({
@@ -129,6 +130,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
           </p>
         </div>
         <ClioStatus value={resourceStateStatus(resource.state)} />
+        <WorkspaceResourceRemoveAction resource={resource} workspaceId={workspaceId} />
       </header>
 
       <Tabs className="min-h-0 flex-1 gap-0" onValueChange={setActiveTab} value={activeTab}>

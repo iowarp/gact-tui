@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceResourceView } from './workspace-resource-view';
 
 const repository = vi.hoisted(() => ({
+  deleteResource: vi.fn().mockResolvedValue(undefined),
   resourceDeliveries: vi.fn().mockResolvedValue([]),
   resourceDerivatives: vi.fn().mockResolvedValue({
     derivatives: [],
@@ -95,6 +96,24 @@ describe('WorkspaceResourceView', () => {
     // into a second copy the branch never reads is pure memory.
     expect(objectUrls).not.toHaveBeenCalled();
     objectUrls.mockRestore();
+  });
+
+  it('offers removal from the resource header, so a stuck resource is not permanent', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceResourceView
+          resource={{ ...resource, state: 'quarantined', failure: 'Rejected by the scanner.' }}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Remove paper.pdf' }));
+    await user.click(screen.getByRole('button', { name: 'Remove resource' }));
+
+    expect(repository.deleteResource).toHaveBeenCalledWith('workspace_1', 'resource_1');
   });
 
   it('loads the first structured node instead of leaving a disabled query skeleton', async () => {
