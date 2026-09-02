@@ -136,8 +136,12 @@ export function ClioComposer({
   const [behavior, setBehavior] = useState<MessageBehavior>({
     confirmation_policy: confirmationPolicy,
     execution_mode: executionMode,
-    reasoning_effort: toReasoningEffort(effort),
+    reasoning_effort: knownReasoningEffort(effort) ?? DEFAULT_REASONING_EFFORT,
   });
+  // Kept apart from `behavior`, which must always carry a value the message
+  // contract accepts. The control names this rather than showing the default as
+  // though the service had asked for it.
+  const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
   const nextDeliveryRef = useRef<MessageDelivery | 'queued'>('start');
   const [internalInput, setInternalInput] = useState('');
@@ -415,6 +419,7 @@ export function ClioComposer({
                 />
               }
               onChange={setBehavior}
+              unrecognizedEffort={unrecognizedEffort}
             />
           </PromptInputTools>
           <div className="ml-auto flex shrink-0 items-center gap-2">
@@ -461,9 +466,20 @@ function ComposerAddAttachmentButton() {
   );
 }
 
-function toReasoningEffort(value?: string): MessageBehavior['reasoning_effort'] {
-  if (value === 'off' || value === 'low' || value === 'high' || value === 'xhigh') return value;
-  return 'medium';
+const DEFAULT_REASONING_EFFORT: MessageBehavior['reasoning_effort'] = 'medium';
+
+/** The reported effort, or nothing when this build has no setting for it. */
+function knownReasoningEffort(value?: string): MessageBehavior['reasoning_effort'] | undefined {
+  if (
+    value === 'off' ||
+    value === 'low' ||
+    value === 'medium' ||
+    value === 'high' ||
+    value === 'xhigh'
+  ) {
+    return value;
+  }
+  return undefined;
 }
 
 function compactProviderName(provider?: string): string {

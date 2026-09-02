@@ -58,12 +58,14 @@ const commands: CommandDefinition[] = [
 
 function renderComposer({
   attachments = false,
+  effort = 'medium',
   onCommand = vi.fn(async () => undefined),
   onStop = vi.fn(),
   onSubmit = vi.fn(async () => undefined),
   state = 'completed',
 }: {
   attachments?: boolean;
+  effort?: string;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onStop?: () => void;
   onSubmit?: ClioComposerProps['onSubmit'];
@@ -74,7 +76,7 @@ function renderComposer({
       <ClioComposer
         attachments={attachments}
         commands={commands}
-        effort="medium"
+        effort={effort}
         model="gpt-5.6-luna"
         onCommand={onCommand}
         onStop={onStop}
@@ -280,6 +282,14 @@ describe('ClioComposer service commands', () => {
     expect(onCommand).not.toHaveBeenCalled();
     expect(onSubmit).not.toHaveBeenCalled();
     expect(input).toHaveValue('/not-a-service-command');
+  });
+
+  it('names an effort the service reported that this build has no setting for', () => {
+    renderComposer({ effort: 'ultra' });
+
+    const control = screen.getByRole('button', { name: /^Reasoning effort:/ });
+    expect(control).toHaveAccessibleName('Reasoning effort: Unknown (ultra)');
+    expect(control).not.toHaveTextContent('medium');
   });
 
   it('reports a rejected service command instead of swallowing it', async () => {
