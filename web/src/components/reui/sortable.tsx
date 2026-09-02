@@ -382,7 +382,10 @@ function SortableItem({
         {...attributes}
         className={cn(
           isSortableDragging && "z-50 opacity-50",
-          disabled && "opacity-50",
+          // Disabled rows stay readable: 0.5 composites full-foreground text on
+          // the composer's dark surface to 3.37:1 (axe color-contrast, WCAG AA
+          // needs 4.5:1). 0.7 keeps a visible dimming at ~6:1.
+          disabled && "opacity-70",
           className
         )}
         {...props}
