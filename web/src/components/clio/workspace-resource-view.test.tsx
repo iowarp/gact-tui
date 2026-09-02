@@ -121,6 +121,46 @@ describe('WorkspaceResourceView', () => {
     );
   });
 
+  it('reads an existing derivative after a failed refresh, and says the refresh failed', async () => {
+    repository.resourceDerivatives.mockResolvedValueOnce({
+      derivatives: [],
+      processor: {
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_1',
+        resource_revision: 1,
+        source_sha256: 'abc',
+        processor: 'docling',
+        processor_url: 'http://processor.test',
+        job_id: 'job_2',
+        state: 'failed',
+        progress: 40,
+        derivatives_available: true,
+        failure: { message: 'The document processor stopped before finishing.' },
+        cancellation: {},
+        created_at: '2026-08-31T00:00:00Z',
+        updated_at: '2026-08-31T00:05:00Z',
+      },
+      resource_id: 'resource_1',
+      revision: 1,
+    });
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceResourceView resource={resource} workspaceId="workspace_1" />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Structure' }));
+
+    // The derivative that already exists is readable; refusing to render it
+    // contradicts the availability text that calls the resource ready.
+    expect(await screen.findByText('Document structure')).toBeVisible();
+    expect(await screen.findByText(/First parsed section/u)).toBeVisible();
+    // And the failed refresh is stated rather than passed off as current.
+    expect(screen.getByText('The document processor stopped before finishing.')).toBeVisible();
+  });
+
   it('presents provenance as semantic resource lineage with internal provider evidence collapsed', async () => {
     repository.resourceDeliveries.mockResolvedValueOnce([
       {

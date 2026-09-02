@@ -1,6 +1,17 @@
-import type { ResourceDeliveryRecord, WorkspaceResource } from '@clio/core/v3';
+import type {
+  ResourceDeliveryRecord,
+  WorkspaceResource,
+  WorkspaceResourceProcessing,
+} from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { BracesIcon, FileIcon, FileInputIcon, ScanSearchIcon, SendIcon } from 'lucide-react';
+import {
+  BracesIcon,
+  FileIcon,
+  FileInputIcon,
+  ScanSearchIcon,
+  SendIcon,
+  TriangleAlertIcon,
+} from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import {
   Timeline,
@@ -12,6 +23,7 @@ import {
   TimelineSeparator,
   TimelineTitle,
 } from '@/components/reui/timeline';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -21,6 +33,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { processingFailureText, processingRefreshFailed } from './resource-processing-presentation';
 import {
   ImageResourceView,
   ResourceLoading,
@@ -291,7 +304,7 @@ function StructuredResourceView({
 }: {
   error?: string;
   loading?: boolean;
-  processing?: { state: string; progress: number; failure: Record<string, unknown> };
+  processing?: WorkspaceResourceProcessing;
   resource: WorkspaceResource;
   structure?: Record<string, number>;
   workspaceId: string;
@@ -324,7 +337,10 @@ function StructuredResourceView({
       ),
     enabled: Boolean(activeSelection),
   });
-  if (processing?.state !== 'complete') {
+  // A derivative that already exists is readable whatever the latest run did,
+  // which is exactly what the attachment's own availability text promises. Only
+  // the absence of any derivative makes this view unavailable.
+  if (!processing?.derivatives_available) {
     return (
       <div className="grid h-full place-items-center p-4">
         <div className="max-w-sm space-y-3 text-center">
@@ -333,7 +349,9 @@ function StructuredResourceView({
           <p className="text-xs text-muted-foreground">
             {processing?.state === 'processing' || processing?.state === 'submitted'
               ? `Processing ${Math.round(processing.progress)}%`
-              : error || 'Use Reprocess in Derivatives when a document processor is available.'}
+              : processingFailureText(processing) ||
+                error ||
+                'Use Reprocess in Derivatives when a document processor is available.'}
           </p>
         </div>
       </div>
@@ -354,44 +372,68 @@ function StructuredResourceView({
     );
   }
   return (
-    <div className="grid h-full min-h-0 grid-cols-[minmax(9rem,0.32fr)_1fr]">
-      <ScrollArea className="border-r p-2">
-        <div className="mb-2 px-2">
-          <p className="text-xs font-medium">Document structure</p>
-          <p className="text-[10px] leading-4 text-muted-foreground">
-            Parsed collections and their first available node.
-          </p>
-        </div>
-        <div className="grid gap-1">
-          {Object.entries(structure ?? {}).map(([collection, count]) => (
-            <Button
-              className="h-auto justify-between px-2 py-1.5"
-              key={collection}
-              onClick={() => setSelection({ collection, index: 0 })}
-              variant={activeSelection?.collection === collection ? 'secondary' : 'ghost'}
-            >
-              <span className="truncate">{collection}</span>
-              <Badge variant="outline">{count}</Badge>
-            </Button>
-          ))}
-        </div>
-      </ScrollArea>
-      <ScrollArea className="p-3">
-        {activeSelection && node.isPending ? (
-          <ResourceLoading label="Loading structured node" />
-        ) : null}
-        {node.error ? (
-          <ResourceUnavailable detail={node.error.message} label="Structured node unavailable" />
-        ) : null}
-        {node.data ? (
-          <pre className="whitespace-pre-wrap break-words font-mono text-xs">
-            {JSON.stringify(node.data.node, null, 2)}
-          </pre>
-        ) : !node.isPending && !node.error ? (
-          <p className="text-sm text-muted-foreground">Choose a structured collection.</p>
-        ) : null}
-      </ScrollArea>
+    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
+      <StaleStructureBanner processing={processing} />
+      <div className="grid min-h-0 grid-cols-[minmax(9rem,0.32fr)_1fr]">
+        <ScrollArea className="border-r p-2">
+          <div className="mb-2 px-2">
+            <p className="text-xs font-medium">Document structure</p>
+            <p className="text-[10px] leading-4 text-muted-foreground">
+              Parsed collections and their first available node.
+            </p>
+          </div>
+          <div className="grid gap-1">
+            {Object.entries(structure ?? {}).map(([collection, count]) => (
+              <Button
+                className="h-auto justify-between px-2 py-1.5"
+                key={collection}
+                onClick={() => setSelection({ collection, index: 0 })}
+                variant={activeSelection?.collection === collection ? 'secondary' : 'ghost'}
+              >
+                <span className="truncate">{collection}</span>
+                <Badge variant="outline">{count}</Badge>
+              </Button>
+            ))}
+          </div>
+        </ScrollArea>
+        <ScrollArea className="p-3">
+          {activeSelection && node.isPending ? (
+            <ResourceLoading label="Loading structured node" />
+          ) : null}
+          {node.error ? (
+            <ResourceUnavailable detail={node.error.message} label="Structured node unavailable" />
+          ) : null}
+          {node.data ? (
+            <pre className="whitespace-pre-wrap break-words font-mono text-xs">
+              {JSON.stringify(node.data.node, null, 2)}
+            </pre>
+          ) : !node.isPending && !node.error ? (
+            <p className="text-sm text-muted-foreground">Choose a structured collection.</p>
+          ) : null}
+        </ScrollArea>
+      </div>
     </div>
+  );
+}
+
+/**
+ * States that the structure on screen came from an earlier run, when the latest
+ * one failed or was cancelled.
+ */
+function StaleStructureBanner({ processing }: { processing: WorkspaceResourceProcessing }) {
+  if (!processingRefreshFailed(processing)) return null;
+  const outcome = processing.state === 'cancelled' ? 'was cancelled' : 'failed';
+  return (
+    <Alert className="rounded-none border-x-0 border-t-0" role="status">
+      <TriangleAlertIcon aria-hidden="true" />
+      <AlertTitle>Showing the last completed conversion</AlertTitle>
+      <AlertDescription>
+        <span>{`The most recent conversion ${outcome}, so this structure is from the run before it.`}</span>
+        {processingFailureText(processing) ? (
+          <span>{processingFailureText(processing)}</span>
+        ) : null}
+      </AlertDescription>
+    </Alert>
   );
 }
 
