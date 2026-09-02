@@ -215,7 +215,6 @@ function TaskActivityLine({ task, className }: { task: Task; className?: string 
   return (
     <span
       className={cn('flex min-w-0 items-center gap-2 text-xs text-muted-foreground', className)}
-      data-testid={`task-activity-${task.id}`}
       data-turn-activity={`task:${task.id}`}
       title={task.detail}
     >

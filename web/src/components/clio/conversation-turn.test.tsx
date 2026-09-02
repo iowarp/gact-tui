@@ -147,7 +147,8 @@ describe('ConversationTurn announced state', () => {
       />,
     );
 
-    const line = screen.getByTestId('task-activity-task_detail');
+    const line = document.querySelector('[data-turn-activity="task:task_detail"]');
+    expect(line).not.toBeNull();
     expect(line).not.toHaveAttribute('aria-label');
     expect(line).toHaveTextContent('Review station quality');
     expect(line).toHaveTextContent('Completed');

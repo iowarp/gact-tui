@@ -564,7 +564,8 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    const taskLine = screen.getByTestId('task-activity-task_quality');
+    const taskLine = document.querySelector('[data-turn-activity="task:task_quality"]');
+    expect(taskLine).not.toBeNull();
     expect(taskLine).toBeInTheDocument();
     expect(taskLine).toHaveTextContent('Review station quality');
     expect(taskLine).toHaveTextContent('Completed');
