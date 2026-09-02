@@ -9,7 +9,8 @@ param(
     [int]$DocumentProcessorPort = 8089,
     [ValidateRange(1, 65535)]
     [int]$CtePort = 9413,
-    [switch]$RecreateRoot
+    [switch]$RecreateRoot,
+    [switch]$IncludeModelCache
 )
 
 $ErrorActionPreference = "Stop"
@@ -54,6 +55,24 @@ if ($RecreateRoot) {
     New-Item -ItemType Directory -Force -Path $devRootFull | Out-Null
 }
 
+# The Hugging Face model cache lives outside the disposable root on purpose (see
+# Start-ClioDev.ps1), so an uninstall leaves multi-gigabyte model downloads
+# intact. Removing it is a separate, explicit decision.
+$modelCacheRoot = if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    $null
+}
+else {
+    [System.IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA "clio-dev\cache\huggingface"))
+}
+$modelCacheRemoved = $false
+if ($IncludeModelCache -and $modelCacheRoot -and (Test-Path -LiteralPath $modelCacheRoot)) {
+    if ($PSCmdlet.ShouldProcess($modelCacheRoot, "delete the shared Hugging Face model cache")) {
+        Clear-ClioDevReadOnlyAttributes -Path $modelCacheRoot
+        [System.IO.Directory]::Delete($modelCacheRoot, $true)
+        $modelCacheRemoved = $true
+    }
+}
+
 if ($trackedResidue.Count -gt 0) {
     $configRoot = Join-Path $devRootFull "config"
     New-Item -ItemType Directory -Force -Path $configRoot | Out-Null
@@ -72,4 +91,6 @@ if ($trackedResidue.Count -gt 0) {
     root = $devRootFull
     recreated = [bool]$RecreateRoot
     tracked_residue = $trackedResidue
+    model_cache_root = $modelCacheRoot
+    model_cache_removed = $modelCacheRemoved
 } | ConvertTo-Json

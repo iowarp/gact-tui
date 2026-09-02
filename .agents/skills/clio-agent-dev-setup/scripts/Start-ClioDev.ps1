@@ -10,6 +10,8 @@ param(
     [int]$WebPort = 5174,
     [ValidateRange(1, 65535)]
     [int]$DocumentProcessorPort = 8089,
+    [ValidateRange(1, 65535)]
+    [int]$CtePort = 9413,
     [string]$Provider = "codex",
     [string]$Model = "gpt-5.6-luna",
     [string]$PythonVersion = "3.12",
@@ -23,6 +25,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "ClioDevHttp.ps1")
 $deploymentStartedAt = [DateTimeOffset]::Now
 $deploymentStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $deploymentStages = [System.Collections.Generic.List[object]]::new()
@@ -70,7 +73,18 @@ $webRoot = Join-Path $frontendRoot "web"
 $workspaceRoot = Join-Path $generationRoot "workspaces"
 $tempRoot = Join-Path $generationRoot "temp"
 $cacheRoot = Join-Path $generationRoot "cache"
-$sharedModelCacheRoot = Join-Path $devRootFull "cache\huggingface"
+# The Hugging Face model cache is the one piece of state that must OUTLIVE the
+# disposable root: it holds multi-gigabyte model downloads that a stop or reset
+# would otherwise delete, forcing every reinstall to re-download them. It is an
+# accelerator, never truth, so it lives beside the user's other machine-local
+# caches and is exempt from the containment audit. Reset-ClioDev.ps1 removes it
+# only when explicitly asked with -IncludeModelCache.
+if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    throw "LOCALAPPDATA is not set, so the shared model cache has no machine-local home."
+}
+$sharedModelCacheRoot = [System.IO.Path]::GetFullPath(
+    (Join-Path $env:LOCALAPPDATA "clio-dev\cache\huggingface")
+)
 $toolRoot = Join-Path $generationRoot "tools"
 $timingPath = Join-Path $configRoot "deploy-timing.json"
 
@@ -135,6 +149,7 @@ trap {
                 -BackendPort $BackendPort `
                 -WebPort $WebPort `
                 -DocumentProcessorPort $DocumentProcessorPort `
+                -CtePort $CtePort `
                 -PreserveState
         }
         catch {
@@ -170,6 +185,7 @@ if ($reuseActiveGeneration) {
         -BackendPort $BackendPort `
         -WebPort $WebPort `
         -DocumentProcessorPort $DocumentProcessorPort `
+        -CtePort $CtePort `
         -PreserveState
 
     foreach ($requiredRuntimePath in @(
@@ -264,6 +280,7 @@ else {
         -BackendPort $BackendPort `
         -WebPort $WebPort `
         -DocumentProcessorPort $DocumentProcessorPort `
+        -CtePort $CtePort `
         -RecreateRoot `
         -Confirm:$false
 
@@ -382,12 +399,14 @@ $containedPaths = @(
     $logRoot,
     $tempRoot,
     $cacheRoot,
-    $sharedModelCacheRoot,
     $toolRoot,
     $configRoot,
     $spotterImplRoot,
     $spotterConfigFull
 )
+# $sharedModelCacheRoot is deliberately absent: it is machine-local by design
+# (see its definition above) and the audit rejects any expected path outside the
+# owned root.
 & $containmentScript -DevRoot $devRootFull -ExpectedPaths $containedPaths
 
 $containedEnvironment = @{
@@ -546,9 +565,8 @@ do {
         throw "The document processor exited during startup. See $documentProcessorStderr"
     }
     try {
-        $documentProcessorResponse = Invoke-WebRequest `
+        $documentProcessorResponse = Invoke-ClioDevWebRequest `
             -Uri $documentProcessorReadyUri `
-            -SkipHttpErrorCheck `
             -TimeoutSec 5
         $documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
     }
@@ -750,11 +768,17 @@ do {
 } while ([DateTime]::UtcNow -lt $webDeadline)
 
 if ($null -eq $webResponse -or $webResponse.StatusCode -ne 200) {
+    # -PreserveState, exactly as the failure trap above passes it. Without it a
+    # 60-second Vite timeout is a recursive delete of the whole development root:
+    # the generation, its clones, its logs and every session in it, destroyed to
+    # report that one dev server was slow to answer.
     & $stopScript `
         -DevRoot $devRootFull `
         -BackendPort $BackendPort `
         -WebPort $WebPort `
-        -DocumentProcessorPort $DocumentProcessorPort
+        -DocumentProcessorPort $DocumentProcessorPort `
+        -CtePort $CtePort `
+        -PreserveState
     throw "CLIO web did not become ready within 60 seconds."
 }
 
@@ -772,7 +796,7 @@ $documentProcessorListenerPid = @(
         Select-Object -ExpandProperty OwningProcess -Unique
 )
 $cteListenerPid = @(
-    Get-NetTCPConnection -State Listen -LocalPort 9413 -ErrorAction Stop |
+    Get-NetTCPConnection -State Listen -LocalPort $CtePort -ErrorAction Stop |
         Select-Object -ExpandProperty OwningProcess -Unique
 )
 if (
@@ -783,26 +807,55 @@ if (
 ) {
     throw "Could not record exactly one backend, web, document processor, and CTE listener."
 }
+# The backend, web and document-processor PIDs belong to processes this script
+# started. The CTE listener is ADOPTED from a bare port query: whatever answers
+# on $CtePort gets recorded, and the recorded PID is what the stop sweep acts on.
+# A node-wide clio-core daemon started outside this root therefore used to be
+# recorded as ours and force-killed on the next stop, taking down every other
+# consumer on the machine. Record who actually owns it, so the stop sweep can
+# leave an external daemon running.
+$cteProcess = Get-CimInstance `
+    Win32_Process `
+    -Filter "ProcessId = $([int]$cteListenerPid[0])" `
+    -ErrorAction SilentlyContinue
+$cteExecutable = [string]$cteProcess.ExecutablePath
+$cteExternal = -not (
+    $cteExecutable.StartsWith("$devRootFull\", [System.StringComparison]::OrdinalIgnoreCase)
+)
+if ($cteExternal) {
+    Write-Warning (
+        "The CTE/ARC listener on port $CtePort (PID $($cteListenerPid[0]), " +
+        "$(if ($cteExecutable) { $cteExecutable } else { 'executable path unavailable' })) " +
+        "was not started from $devRootFull. It is recorded as external and will never be stopped " +
+        "by this tooling."
+    )
+}
 @{
     backend_pid = [int]$backendListenerPid[0]
     web_pid = [int]$webListenerPid[0]
     document_processor_pid = [int]$documentProcessorListenerPid[0]
     cte_pid = [int]$cteListenerPid[0]
+    cte_external = $cteExternal
+    cte_executable = $cteExecutable
     backend_launcher_pid = $backendProcess.Id
     web_launcher_pid = $webProcess.Id
     document_processor_launcher_pid = $documentProcessorProcess.Id
     backend_port = $BackendPort
     web_port = $WebPort
     document_processor_port = $DocumentProcessorPort
+    cte_port = $CtePort
     python_version = $PythonVersion
     started_at = [DateTime]::UtcNow.ToString("o")
-} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $runtimeRoot "dev-processes.json")
+} | ConvertTo-Json | Set-Content `
+    -LiteralPath (Join-Path $runtimeRoot "dev-processes.json") `
+    -Encoding utf8
 
 Set-DeploymentStage -Name "live_preflight"
 & $preflightScript `
     -BackendPort $BackendPort `
     -WebPort $WebPort `
     -DocumentProcessorPort $DocumentProcessorPort `
+    -CtePort $CtePort `
     -ExpectedProvider $Provider `
     -ExpectedModel $Model `
     -ExpectedTransport $expectedTransport `

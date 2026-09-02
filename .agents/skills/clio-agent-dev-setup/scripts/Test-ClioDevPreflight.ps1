@@ -6,6 +6,8 @@ param(
     [int]$WebPort = 5174,
     [ValidateRange(1, 65535)]
     [int]$DocumentProcessorPort = 8089,
+    [ValidateRange(1, 65535)]
+    [int]$CtePort = 9413,
     [string]$ExpectedProvider = "codex",
     [string]$ExpectedModel = "gpt-5.6-luna",
     [string]$ExpectedTransport = "app_server",
@@ -34,6 +36,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "ClioDevHttp.ps1")
 $devRootFull = [System.IO.Path]::GetFullPath($DevRoot)
 $configRoot = Join-Path $devRootFull "config"
 $activeGenerationPath = Join-Path $configRoot "active-generation.json"
@@ -72,9 +75,8 @@ $backendPid = Get-OneListenerPid -Port $BackendPort
 $webPid = Get-OneListenerPid -Port $WebPort
 $documentProcessorPid = Get-OneListenerPid -Port $DocumentProcessorPort
 $health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec 10
-$documentProcessorResponse = Invoke-WebRequest `
+$documentProcessorResponse = Invoke-ClioDevWebRequest `
     -Uri "$documentProcessorUrl/readyz" `
-    -SkipHttpErrorCheck `
     -TimeoutSec 10
 $documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
 $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 10
@@ -108,8 +110,8 @@ if ($health.overall_status -ne "ready") {
 
 $integrations = @($health.integrations)
 $arc = $integrations | Where-Object { $_.name -eq "arc" }
-if ($null -eq $arc -or $arc.status -ne "ready" -or $arc.endpoint -notmatch ":9413$") {
-    throw "ARC is not a ready clio-core/CTE service on port 9413."
+if ($null -eq $arc -or $arc.status -ne "ready" -or $arc.endpoint -notmatch ":$CtePort$") {
+    throw "ARC is not a ready clio-core/CTE service on port $CtePort."
 }
 
 if ($provider.provider -ne $ExpectedProvider) {
@@ -337,10 +339,9 @@ try {
 }
 finally {
     if ($arcProbeSessionId) {
-        $cleanupResponse = Invoke-WebRequest `
+        $cleanupResponse = Invoke-ClioDevWebRequest `
             -Method Delete `
             -Uri "$backendUrl/v1/sessions/$arcProbeSessionId" `
-            -SkipHttpErrorCheck `
             -TimeoutSec 15
         if ($cleanupResponse.StatusCode -notin @(200, 204)) {
             throw "ARC probe cleanup failed with HTTP $($cleanupResponse.StatusCode)."

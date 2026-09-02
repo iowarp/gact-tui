@@ -19,16 +19,26 @@ foreach ($file in Get-ChildItem -LiteralPath $scriptsRoot -Filter "*.ps1") {
 }
 
 . (Join-Path $scriptsRoot "ClioDevCleanup.ps1")
+. (Join-Path $scriptsRoot "ClioDevHttp.ps1")
 
-# The stop sweep's identity guard. The stale-record case is the one that used to
-# be unreachable: a recorded PID confirmed itself, so a recycled PID belonging to
-# an unrelated process was force-killed.
+# The stop sweep's identity guard. Identity is the only evidence that authorizes
+# a kill: cross-confirmation may confirm an owned identity, never replace one.
+# The case that matters is a node-wide daemon adopted from a bare port query and
+# recorded as cte_pid -- the port sweep then finds the same PID, cross-confirms
+# the record, and used to force-kill a process running from outside the root.
 $ownedRoot = "D:\Libraries\Documents\projects\clio_develop_workspace"
+$externalDaemon = "C:\Program Files\clio-core\clio-core-daemon.exe --port 9413"
 $processActionCases = @(
     @{
         identity = "C:\python.exe -m clio_agent --root $ownedRoot\generations\g1"
         crossConfirmed = $false
         reason = "recorded backend_pid"
+        expected = "stop"
+    },
+    @{
+        identity = "C:\python.exe -m clio_agent --root $ownedRoot\generations\g1"
+        crossConfirmed = $true
+        reason = "listener on port 8787"
         expected = "stop"
     },
     @{
@@ -38,10 +48,16 @@ $processActionCases = @(
         expected = "ignore-stale"
     },
     @{
-        identity = "C:\Windows\System32\notepad.exe notepad"
+        identity = $externalDaemon
         crossConfirmed = $true
-        reason = "listener on port 8787"
-        expected = "stop"
+        reason = "listener on port 9413"
+        expected = "refuse"
+    },
+    @{
+        identity = $externalDaemon
+        crossConfirmed = $true
+        reason = "recorded cte_pid"
+        expected = "refuse"
     },
     @{
         identity = "C:\Windows\System32\notepad.exe notepad"
@@ -60,6 +76,13 @@ foreach ($case in $processActionCases) {
         throw ("Resolve-ClioDevProcessAction('{0}', crossConfirmed={1}, reason='{2}') = '{3}', expected '{4}'." -f
             $case.identity, $case.crossConfirmed, $case.reason, $action, $case.expected)
     }
+}
+
+# ...and the short-circuit that produced it must be gone from the source, not
+# merely unreachable for the identities above.
+$cleanupSource = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot "ClioDevCleanup.ps1")
+if ($cleanupSource -match 'if\s*\(\$CrossConfirmed\)\s*\{\s*return\s+"stop"') {
+    throw "Resolve-ClioDevProcessAction must never return 'stop' on cross-confirmation alone."
 }
 
 # Legacy-root ownership: a bare directory is not CLIO residue; one carrying this
@@ -102,8 +125,11 @@ finally {
 & (Join-Path $scriptsRoot "Test-ClioDevContainment.ps1") | Out-Null
 
 $startSource = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot "Start-ClioDev.ps1")
-if ($startSource -notmatch '\$sharedModelCacheRoot\s*=\s*Join-Path\s+\$devRootFull\s+"cache\\huggingface"') {
-    throw "Start-ClioDev must keep one Hugging Face model cache per contained CLIO root."
+if ($startSource -match '\$sharedModelCacheRoot\s*=[^\r\n]*\$devRootFull') {
+    throw "The Hugging Face model cache must not live inside the disposable root; stop and reset delete it."
+}
+if ($startSource -notmatch '\$sharedModelCacheRoot\s*=[\s\S]{0,200}?\$env:LOCALAPPDATA') {
+    throw "Start-ClioDev must place the shared model cache under LOCALAPPDATA, outside the disposable root."
 }
 foreach ($name in @("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE")) {
     if ($startSource -notmatch "\b$name\s*=") {
@@ -113,12 +139,103 @@ foreach ($name in @("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE")) {
 if ($startSource -notmatch 'sync_preserved_committed_heads') {
     throw "Start-ClioDev must advance preserved runtime clones to the selected committed heads."
 }
-if ($startSource -notmatch 'Preserved \$\(\$runtimeSource\.Name\) runtime clone is dirty') {
-    throw "Start-ClioDev must reject dirty preserved runtime clones before changing heads."
+
+# Every stop this script performs is a restart step, never an uninstall. The
+# readiness-failure path is the one that lost -PreserveState: a 60-second Vite
+# timeout deleted the whole development root, generation and sessions included.
+$stopCalls = @([regex]::Matches($startSource, '&\s+\$stopScript(?:[^\r\n]*`\r?\n)*[^\r\n]*'))
+if ($stopCalls.Count -lt 3) {
+    throw "Expected Start-ClioDev to invoke the stop script on the trap, restart, and readiness-failure paths; found $($stopCalls.Count)."
+}
+foreach ($call in $stopCalls) {
+    if ($call.Value -notmatch '-PreserveState') {
+        throw "Start-ClioDev invokes the stop script without -PreserveState, which deletes the development root: $($call.Value)"
+    }
+}
+if ($startSource -notmatch 'if\s*\(\$null\s+-eq\s+\$webResponse[\s\S]*?-PreserveState[\s\S]*?throw\s+"CLIO web did not become ready') {
+    throw "The web-readiness failure path must stop with -PreserveState instead of deleting the development root."
+}
+
+# The CTE listener is adopted from a port query, so it is recorded with who owns
+# it and the stop sweep leaves an external daemon running.
+if ($startSource -notmatch 'cte_external\s*=') {
+    throw "Start-ClioDev must record whether the adopted CTE listener runs from outside the owned root."
 }
 $stopSource = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot "Stop-ClioDev.ps1")
 if ($stopSource -notmatch '\$stillRunning\s*=\s*Get-Process') {
     throw "Stop-ClioDev must tolerate an owned process exiting after its ownership census."
+}
+if ($stopSource -notmatch '\$externalPids\.Contains\(\$ProcessId\)') {
+    throw "Stop-ClioDev must refuse to stop a PID recorded as externally owned."
+}
+if ($stopSource -notmatch 'if\s*\(-not\s+\$generationManifestPresent\s+-and\s+-not\s+\$executableOwned\)') {
+    throw "Without a generation manifest the sweep must require an owned EXECUTABLE, not a command-line mention."
+}
+if ($stopSource -match 'function\s+Test-ClioDevOwnedProcess') {
+    throw "Stop-ClioDev must not carry the dead ancestry-walk helper."
+}
+
+# One shell contract for the whole skill: -SkipHttpErrorCheck is PowerShell 7
+# only, and under 5.1 it fails to bind before the request is ever made.
+foreach ($file in Get-ChildItem -LiteralPath $scriptsRoot -Filter "*.ps1") {
+    # Comment lines are exempt: the helper that replaced the parameter has to be
+    # allowed to say which parameter it replaced.
+    $offending = @(
+        Get-Content -LiteralPath $file.FullName |
+            Where-Object { $_ -match '-SkipHttpErrorCheck' -and $_ -notmatch '^\s*#' }
+    )
+    if ($offending.Count -gt 0) {
+        throw "$($file.Name) uses the PowerShell 7-only -SkipHttpErrorCheck; use Invoke-ClioDevWebRequest."
+    }
+}
+# ...and the replacement has to actually do the job the parameter did: a served
+# 503 is data the readiness poll reads, while a refused connection still throws.
+$listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+$listener.Start()
+$servedPort = ([System.Net.IPEndPoint]$listener.Server.LocalEndPoint).Port
+$responder = [PowerShell]::Create()
+[void]$responder.AddScript({
+    param($Listener)
+
+    $client = $Listener.AcceptTcpClient()
+    $stream = $client.GetStream()
+    $buffer = New-Object byte[] 4096
+    [void]$stream.Read($buffer, 0, $buffer.Length)
+    $body = '{"checks":{"docling":"loading"}}'
+    $response = "HTTP/1.1 503 Service Unavailable`r`n" +
+        "Content-Type: application/json`r`n" +
+        "Content-Length: $($body.Length)`r`n" +
+        "Connection: close`r`n`r`n$body"
+    $bytes = [System.Text.Encoding]::ASCII.GetBytes($response)
+    $stream.Write($bytes, 0, $bytes.Length)
+    $stream.Flush()
+    $client.Close()
+}).AddArgument($listener)
+$responderHandle = $responder.BeginInvoke()
+try {
+    $servedProbe = Invoke-ClioDevWebRequest -Uri "http://127.0.0.1:$servedPort/readyz" -TimeoutSec 10
+    if ($servedProbe.StatusCode -ne 503) {
+        throw "A served 503 must be reported as a status, got '$($servedProbe.StatusCode)'."
+    }
+    if (($servedProbe.Content | ConvertFrom-Json).checks.docling -ne "loading") {
+        throw "A served error response must carry its body through to the caller."
+    }
+}
+finally {
+    [void]$responder.EndInvoke($responderHandle)
+    $responder.Dispose()
+    $listener.Stop()
+}
+
+$refusedProbeThrew = $false
+try {
+    Invoke-ClioDevWebRequest -Uri "http://127.0.0.1:$servedPort/readyz" -TimeoutSec 2 | Out-Null
+}
+catch {
+    $refusedProbeThrew = $true
+}
+if (-not $refusedProbeThrew) {
+    throw "A refused connection must throw rather than be reported as an HTTP status."
 }
 
 $escapeRejected = $false
@@ -156,9 +273,14 @@ foreach ($guardedScript in @("Reset-ClioDev.ps1", "Stop-ClioDev.ps1")) {
     containment_escape_rejected = $true
     unowned_reset_rejected = $true
     unowned_stop_rejected = $true
-    shared_model_cache = $true
+    shared_model_cache_outside_disposable_root = $true
     preserved_heads_advanced = $true
     process_exit_race_tolerated = $true
     process_action_cases = $processActionCases.Count
+    cross_confirmation_cannot_authorize_a_kill = $true
+    external_listener_never_stopped = $true
+    unscoped_sweep_requires_owned_executable = $true
+    stop_calls_preserve_state = $stopCalls.Count
+    http_error_status_is_data = $true
     legacy_root_ownership_checked = $true
 } | ConvertTo-Json
