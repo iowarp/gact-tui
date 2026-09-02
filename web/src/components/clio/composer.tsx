@@ -149,6 +149,7 @@ export function ClioComposer({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
+  const restoreFocusAfterSubmitRef = useRef(false);
   const commandQuery = input.trimStart();
   const commandMatches = useMemo(() => {
     if (!commandQuery.startsWith('/') || commandQuery.includes(' ')) return [];
@@ -172,6 +173,26 @@ export function ClioComposer({
     const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
     return () => window.cancelAnimationFrame(frame);
   }, [focusRequestKey]);
+
+  useEffect(() => {
+    if (disabled || !restoreFocusAfterSubmitRef.current) return;
+    const frame = window.requestAnimationFrame(() => {
+      const element = inputRef.current;
+      if (!element || element.disabled) return;
+      restoreFocusAfterSubmitRef.current = false;
+      element.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [disabled]);
+
+  const restoreInputFocusWhenReady = () => {
+    window.requestAnimationFrame(() => {
+      const element = inputRef.current;
+      if (!element || element.disabled) return;
+      restoreFocusAfterSubmitRef.current = false;
+      element.focus({ preventScroll: true });
+    });
+  };
 
   useLayoutEffect(() => {
     const element = rootRef.current;
@@ -279,10 +300,16 @@ export function ClioComposer({
                 toast.error('Commands are unavailable for this session');
                 return;
               }
-              await onCommand({ commandId: command.id, input: parts.join(' ') });
-              setInput('');
+              restoreFocusAfterSubmitRef.current = true;
+              try {
+                await onCommand({ commandId: command.id, input: parts.join(' ') });
+                setInput('');
+              } finally {
+                restoreInputFocusWhenReady();
+              }
               return;
             }
+            restoreFocusAfterSubmitRef.current = true;
             try {
               await onSubmit({
                 behavior,
@@ -303,9 +330,11 @@ export function ClioComposer({
                 },
               );
               throw error;
+            } finally {
+              setUploadProgress(undefined);
+              restoreInputFocusWhenReady();
             }
             nextDeliveryRef.current = state === 'running' ? 'queued' : 'start';
-            setUploadProgress(undefined);
             setInput('');
           }
         }}

@@ -1,5 +1,5 @@
 import type { CommandDefinition } from '@clio/core/v3';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
@@ -207,6 +207,44 @@ describe('ClioComposer service commands', () => {
 
     rerender(<ClioComposer {...props} focusRequestKey={1} />);
     await waitFor(() => expect(input).toHaveFocus());
+  });
+
+  it('restores the textarea focus after the sending block clears', async () => {
+    const user = userEvent.setup();
+    let resolveSubmit!: () => void;
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSubmit = resolve;
+        }),
+    );
+    const props = {
+      attachments: false,
+      effort: 'medium',
+      model: 'gpt-5.6-luna',
+      onSubmit,
+      provider: 'codex',
+      state: 'completed' as const,
+    };
+    const view = render(<ClioComposer {...props} />);
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, 'Send this message.{Enter}');
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+
+    input.blur();
+    view.rerender(<ClioComposer {...props} disabled />);
+    expect(input).toBeDisabled();
+    expect(input).not.toHaveFocus();
+
+    await act(async () => {
+      resolveSubmit();
+      await Promise.resolve();
+    });
+    view.rerender(<ClioComposer {...props} disabled={false} />);
+
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input).toHaveValue('');
   });
 
   it('discovers sourced commands and dispatches the canonical command with arguments', async () => {
