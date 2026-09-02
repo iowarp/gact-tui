@@ -1,21 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { queryKeys } from '@/lib/query-keys';
 import { ModelsSettings } from './settings-models';
 
-const repository = vi.hoisted(() => ({
-  providers: vi.fn().mockResolvedValue([
-    {
-      id: 'codex',
-      name: 'Codex',
-      auth_methods: [],
-      is_authenticated: true,
-      metadata: {},
-    },
-  ]),
-  languageModelConfiguration: vi.fn().mockResolvedValue({
+const { configuration, repository } = vi.hoisted(() => {
+  const configuration = {
     configured: true,
     provider: 'codex',
     api_base: '',
@@ -33,36 +25,52 @@ const repository = vi.hoisted(() => ({
         supports_vision: true,
       },
     ],
-  }),
-  providerModels: vi.fn().mockResolvedValue({
-    provider_id: 'codex',
-    models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-    source: 'codex_app_server',
-  }),
-  refreshProviderModels: vi.fn().mockResolvedValue([
-    {
-      provider: 'codex',
-      discovered: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-      source: 'codex_app_server',
-      default_model: 'gpt-5.6-luna',
-      generated_at: '2026-08-23T05:00:00Z',
-      added: [],
-      removed: [],
-      unchanged: ['gpt-5.6-luna'],
-      rejected: [],
-    },
-  ]),
-  providerHandshake: vi.fn().mockResolvedValue({
-    models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-    source: 'codex_app_server',
-    connectivity: 'ok',
-    auth: 'not_required',
-    latency_ms: 18.4,
-    generated_at: '2026-08-23T05:00:00Z',
-  }),
-  authenticateProvider: vi.fn(),
-  updateLanguageModelConfiguration: vi.fn(),
-}));
+  };
+  return { configuration, repository: makeRepository(configuration) };
+
+  function makeRepository(active: typeof configuration) {
+    return {
+      providers: vi.fn().mockResolvedValue([
+        {
+          id: 'codex',
+          name: 'Codex',
+          auth_methods: [],
+          is_authenticated: true,
+          metadata: {},
+        },
+      ]),
+      languageModelConfiguration: vi.fn().mockResolvedValue(active),
+      providerModels: vi.fn().mockResolvedValue({
+        provider_id: 'codex',
+        models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
+        source: 'codex_app_server',
+      }),
+      refreshProviderModels: vi.fn().mockResolvedValue([
+        {
+          provider: 'codex',
+          discovered: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
+          source: 'codex_app_server',
+          default_model: 'gpt-5.6-luna',
+          generated_at: '2026-08-23T05:00:00Z',
+          added: [],
+          removed: [],
+          unchanged: ['gpt-5.6-luna'],
+          rejected: [],
+        },
+      ]),
+      providerHandshake: vi.fn().mockResolvedValue({
+        models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
+        source: 'codex_app_server',
+        connectivity: 'ok',
+        auth: 'not_required',
+        latency_ms: 18.4,
+        generated_at: '2026-08-23T05:00:00Z',
+      }),
+      authenticateProvider: vi.fn(),
+      updateLanguageModelConfiguration: vi.fn(),
+    };
+  }
+});
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -72,6 +80,11 @@ vi.mock('@/providers/connection-provider', () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  repository.providerModels.mockResolvedValue({
+    provider_id: 'codex',
+    models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
+    source: 'codex_app_server',
+  });
 });
 
 describe('ModelsSettings', () => {
@@ -137,6 +150,85 @@ describe('ModelsSettings', () => {
     expect(screen.getByText(/1 available model, 0 added, 0 removed/)).toBeVisible();
     expect(screen.getByText(/Checked .* by the connected agent/)).toBeVisible();
     expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
+  });
+
+  it('never writes a maximum token cap the service did not report', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Apply provider and model' }));
+
+    await waitFor(() => expect(repository.updateLanguageModelConfiguration).toHaveBeenCalled());
+    const [payload] = repository.updateLanguageModelConfiguration.mock.calls[0];
+    expect(payload).not.toHaveProperty('max_tokens');
+    expect(screen.getByRole('spinbutton', { name: 'Maximum output tokens' })).toHaveValue(null);
+  });
+
+  it('applies a model choice without rewriting the runtime sizing or reasoning level', async () => {
+    repository.providerModels.mockResolvedValue({
+      provider_id: 'codex',
+      models: [
+        { id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' },
+        { id: 'gpt-5.6-nova', name: 'gpt-5.6-nova' },
+      ],
+      source: 'codex_app_server',
+    });
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('combobox', { name: 'Model' }));
+    await user.click(await screen.findByRole('option', { name: 'gpt-5.6-nova' }));
+    await user.click(screen.getByRole('button', { name: 'Apply provider and model' }));
+
+    await waitFor(() => expect(repository.updateLanguageModelConfiguration).toHaveBeenCalled());
+    expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith({
+      provider: 'codex',
+      api_base: '',
+      model: 'gpt-5.6-nova',
+    });
+  });
+
+  it('adopts a configuration the service changed, until the person edits the panel', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    const maxTokens = await screen.findByRole('spinbutton', { name: 'Maximum output tokens' });
+    expect(maxTokens).toHaveValue(null);
+
+    const configurationKey = queryKeys.key('language-model-configuration', 'http://127.0.0.1:8787');
+    await act(async () => {
+      queryClient.setQueryData(configurationKey, { ...configuration, max_tokens: 12_000 });
+    });
+    expect(maxTokens).toHaveValue(12_000);
+
+    await user.clear(maxTokens);
+    await user.type(maxTokens, '6000');
+    await act(async () => {
+      queryClient.setQueryData(configurationKey, { ...configuration, max_tokens: 20_000 });
+    });
+    // A refetch must not throw away what the person is in the middle of setting.
+    expect(maxTokens).toHaveValue(6_000);
   });
 
   it('checks provider connectivity without changing the selected model', async () => {

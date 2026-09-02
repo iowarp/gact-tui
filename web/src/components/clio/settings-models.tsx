@@ -1,7 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
 import type {
   LanguageModelConfiguration,
-  LanguageModelPreset,
   ProviderDefinition,
   ProviderHandshake,
   ProviderModelRefreshResult,
@@ -24,21 +23,18 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { Input } from '@/components/ui/input';
 import { providerAvailability } from '@/lib/provider-availability';
 import { providerDisplayName, providerSummary } from '@/lib/provider-presentation';
+import {
+  modelSettingsUpdate,
+  presetIsActive,
+  REASONING_EFFORTS,
+  resolveActivePreset,
+  seedModelSettings,
+  type ModelSettingsValues,
+  type ReasoningEffort,
+} from './settings-models-form';
 import { ClioSettingsSection } from './settings-section';
 import { SettingsSectionHeading } from './settings-section-heading';
 import { ClioStatus } from './status';
-
-function resolveActivePreset(
-  configuration: LanguageModelConfiguration,
-): LanguageModelPreset | undefined {
-  return (
-    configuration.presets.find(
-      (preset) =>
-        preset.provider === configuration.provider &&
-        (!preset.api_base || preset.api_base === configuration.api_base),
-    ) ?? configuration.presets.find((preset) => preset.id === configuration.provider)
-  );
-}
 
 export function ModelsSettings() {
   const repository = useRepository();
@@ -86,39 +82,48 @@ function ModelsSettingsContent({
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const [searchParams] = useSearchParams();
-  const activePreset = resolveActivePreset(configuration);
   const requestedProvider = searchParams.get('provider');
   const requestedPreset = configuration.presets.find(
     (preset) => preset.id === requestedProvider || preset.provider === requestedProvider,
   );
-  const initialPreset = requestedPreset ?? activePreset;
-  const initialPresetIsActive = Boolean(
-    initialPreset &&
-      (initialPreset.id === activePreset?.id ||
-        (!activePreset && initialPreset.id === configuration.provider)),
-  );
+  const initialPreset = requestedPreset ?? resolveActivePreset(configuration);
   const [presetId, setPresetId] = useState(initialPreset?.id ?? configuration.provider);
-  const [modelId, setModelId] = useState(
-    initialPresetIsActive ? configuration.model : (initialPreset?.suggested_model ?? ''),
+  const [seeded, setSeeded] = useState(() =>
+    seedModelSettings({
+      configuration,
+      preset: initialPreset,
+      presetIsActive: presetIsActive(configuration, initialPreset),
+    }),
   );
-  const [apiBase, setApiBase] = useState(
-    initialPresetIsActive ? configuration.api_base : (initialPreset?.api_base ?? ''),
-  );
-  const [apiKey, setApiKey] = useState('');
-  const [parallel, setParallel] = useState(0);
-  const [contextLength, setContextLength] = useState(0);
-  const [maxTokens, setMaxTokens] = useState(configuration.max_tokens ?? 32000);
-  const [temperature, setTemperature] = useState(configuration.temperature ?? 0);
-  const initialEffort = ['off', 'low', 'medium', 'high'].includes(
-    configuration.thinking_level ?? '',
-  )
-    ? (configuration.thinking_level as 'off' | 'low' | 'medium' | 'high')
-    : 'medium';
-  const [effort, setEffort] = useState(initialEffort);
+  const [values, setValues] = useState(seeded);
+  const [edited, setEdited] = useState(false);
+  const [seenConfiguration, setSeenConfiguration] = useState(configuration);
   const [refreshResult, setRefreshResult] = useState<ProviderModelRefreshResult>();
   const [handshakeResult, setHandshakeResult] = useState<ProviderHandshake>();
   const [authInstructions, setAuthInstructions] = useState('');
   const selectedPreset = configuration.presets.find((preset) => preset.id === presetId);
+
+  // The service is the source of truth for this panel, so a configuration it
+  // reports while the panel is open replaces what the panel is showing — unless
+  // the person is part-way through setting something, which a refetch must
+  // never throw away.
+  if (configuration !== seenConfiguration) {
+    setSeenConfiguration(configuration);
+    if (!edited) {
+      const reseeded = seedModelSettings({
+        configuration,
+        preset: selectedPreset,
+        presetIsActive: presetIsActive(configuration, selectedPreset),
+      });
+      setSeeded(reseeded);
+      setValues(reseeded);
+    }
+  }
+
+  const edit = (patch: Partial<ModelSettingsValues>) => {
+    setEdited(true);
+    setValues((current) => ({ ...current, ...patch }));
+  };
   const selectedProvider = providers.find(
     (provider) => provider.id === selectedPreset?.id || provider.id === selectedPreset?.provider,
   );
@@ -129,7 +134,7 @@ function ModelsSettingsContent({
   const providerReadyForApply = Boolean(
     selectedPreset &&
       (selectedPreset.is_authenticated ||
-        (selectedPreset.requires_api_key && apiKey) ||
+        (selectedPreset.requires_api_key && values.apiKey) ||
         selectedPreset.auth_method === 'none'),
   );
   const models = useQuery({
@@ -140,28 +145,22 @@ function ModelsSettingsContent({
   const modelOptions = useMemo(() => {
     const catalog = models.data?.models ?? [];
     if (catalog.length) return catalog;
-    return [...new Set([modelId, selectedPreset?.suggested_model].filter(Boolean))].map((id) => ({
-      id: id as string,
-      name: id as string,
-    }));
-  }, [modelId, models.data?.models, selectedPreset?.suggested_model]);
+    return [...new Set([values.modelId, selectedPreset?.suggested_model].filter(Boolean))].map(
+      (id) => ({ id: id as string, name: id as string }),
+    );
+  }, [models.data?.models, selectedPreset?.suggested_model, values.modelId]);
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!selectedPreset || !modelId) throw new Error('Choose a provider and model first.');
-      return repository.updateLanguageModelConfiguration({
-        provider: selectedPreset.provider,
-        api_base: apiBase,
-        model: modelId,
-        ...(apiKey ? { api_key: apiKey } : {}),
-        thinking_level: effort,
-        parallel,
-        context_length: contextLength,
-        max_tokens: maxTokens,
-        temperature,
-      });
+      if (!selectedPreset || !values.modelId) throw new Error('Choose a provider and model first.');
+      return repository.updateLanguageModelConfiguration(
+        modelSettingsUpdate({ preset: selectedPreset, seeded, values }),
+      );
     },
     onSuccess: async (next) => {
+      // What was applied is now the service's own state, so the panel goes back
+      // to following it.
+      setEdited(false);
       queryClient.setQueryData(
         queryKeys.key('language-model-configuration', settings.endpoint),
         next,
@@ -198,7 +197,7 @@ function ModelsSettingsContent({
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
       return repository.providerHandshake(presetId, {
-        apiBase,
+        apiBase: values.apiBase,
         refresh: true,
       });
     },
@@ -224,7 +223,7 @@ function ModelsSettingsContent({
           <>
             <div className="flex flex-wrap items-center gap-3">
               <Button
-                disabled={!providerReadyForApply || !modelId || save.isPending}
+                disabled={!providerReadyForApply || !values.modelId || save.isPending}
                 onClick={() => save.mutate()}
               >
                 {save.isPending ? 'Applying…' : 'Apply provider and model'}
@@ -294,14 +293,12 @@ function ModelsSettingsContent({
               onValueChange={(value) => {
                 setPresetId(value);
                 const preset = configuration.presets.find((item) => item.id === value);
-                const presetIsActive = Boolean(
-                  preset &&
-                    (preset.id === activePreset?.id ||
-                      (!activePreset && preset.id === configuration.provider)),
-                );
-                setModelId(presetIsActive ? configuration.model : (preset?.suggested_model ?? ''));
-                setApiBase(presetIsActive ? configuration.api_base : (preset?.api_base ?? ''));
-                setApiKey('');
+                const active = presetIsActive(configuration, preset);
+                edit({
+                  apiBase: active ? configuration.api_base : (preset?.api_base ?? ''),
+                  apiKey: '',
+                  modelId: active ? configuration.model : (preset?.suggested_model ?? ''),
+                });
                 setRefreshResult(undefined);
                 setHandshakeResult(undefined);
                 setAuthInstructions('');
@@ -334,8 +331,8 @@ function ModelsSettingsContent({
             <FieldLabel htmlFor="model-choice">Model</FieldLabel>
             <Select
               disabled={!presetId || models.isFetching}
-              onValueChange={setModelId}
-              value={modelId}
+              onValueChange={(value) => edit({ modelId: value })}
+              value={values.modelId}
             >
               <SelectTrigger id="model-choice">
                 <SelectValue placeholder="Choose a model" />
@@ -358,19 +355,25 @@ function ModelsSettingsContent({
           </Field>
           <Field>
             <FieldLabel htmlFor="model-effort">Reasoning effort</FieldLabel>
-            <Select onValueChange={(value) => setEffort(value as typeof effort)} value={effort}>
+            <Select
+              onValueChange={(value) => edit({ effort: value as ReasoningEffort })}
+              value={values.effort || undefined}
+            >
               <SelectTrigger id="model-effort">
-                <SelectValue />
+                <SelectValue placeholder="Provider default" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="off">Off</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
+                {REASONING_EFFORTS.map((level) => (
+                  <SelectItem key={level} value={level}>
+                    {reasoningEffortLabel(level)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <FieldDescription>
-              This becomes the reasoning depth used for new work with this model.
+              {values.effort
+                ? 'This becomes the reasoning depth used for new work with this model.'
+                : 'No reasoning depth is recorded for this model, so the provider uses its own until one is set here.'}
             </FieldDescription>
           </Field>
           <Field>
@@ -378,9 +381,9 @@ function ModelsSettingsContent({
             <Input
               autoComplete="url"
               id="provider-api-base"
-              onChange={(event) => setApiBase(event.target.value)}
+              onChange={(event) => edit({ apiBase: event.target.value })}
               placeholder="http://127.0.0.1:8000/v1"
-              value={apiBase}
+              value={values.apiBase}
             />
             <FieldDescription>
               {selectedPreset?.provider === 'vllm'
@@ -394,14 +397,14 @@ function ModelsSettingsContent({
               <Input
                 autoComplete="off"
                 id="provider-api-key"
-                onChange={(event) => setApiKey(event.target.value)}
+                onChange={(event) => edit({ apiKey: event.target.value })}
                 placeholder={
                   selectedPreset.is_authenticated
                     ? 'Leave blank to keep the configured credential'
                     : 'Enter a provider API key'
                 }
                 type="password"
-                value={apiKey}
+                value={values.apiKey}
               />
               <FieldDescription>
                 Credentials are sent to the connected CLIO backend and are never read back into the
@@ -416,12 +419,15 @@ function ModelsSettingsContent({
                 <Input
                   id="provider-parallel"
                   min={0}
-                  onChange={(event) => setParallel(Number(event.target.value) || 0)}
+                  onChange={(event) => edit({ parallel: event.target.value })}
+                  placeholder="Runtime default"
                   type="number"
-                  value={parallel}
+                  value={values.parallel}
                 />
                 <FieldDescription>
-                  Zero uses CLIO's safe default. Increase only when the local runtime has capacity.
+                  The service does not report this back, so it starts empty and an empty field
+                  leaves the runtime sizing untouched. Set it only when the local runtime has
+                  capacity to spare.
                 </FieldDescription>
               </Field>
               <Field>
@@ -429,12 +435,13 @@ function ModelsSettingsContent({
                 <Input
                   id="provider-context-length"
                   min={0}
-                  onChange={(event) => setContextLength(Number(event.target.value) || 0)}
+                  onChange={(event) => edit({ contextLength: event.target.value })}
+                  placeholder="Runtime default"
                   type="number"
-                  value={contextLength}
+                  value={values.contextLength}
                 />
                 <FieldDescription>
-                  Zero keeps the runtime-discovered or deployment default context window.
+                  Empty keeps the runtime-discovered or deployment default context window.
                 </FieldDescription>
               </Field>
             </>
@@ -444,10 +451,14 @@ function ModelsSettingsContent({
             <Input
               id="provider-max-tokens"
               min={1}
-              onChange={(event) => setMaxTokens(Math.max(1, Number(event.target.value) || 1))}
+              onChange={(event) => edit({ maxTokens: event.target.value })}
+              placeholder="Provider default"
               type="number"
-              value={maxTokens}
+              value={values.maxTokens}
             />
+            <FieldDescription>
+              Empty means no cap is recorded for this model and the provider applies its own.
+            </FieldDescription>
           </Field>
           <Field>
             <FieldLabel htmlFor="provider-temperature">Temperature</FieldLabel>
@@ -455,10 +466,11 @@ function ModelsSettingsContent({
               id="provider-temperature"
               max={2}
               min={0}
-              onChange={(event) => setTemperature(Number(event.target.value) || 0)}
+              onChange={(event) => edit({ temperature: event.target.value })}
+              placeholder="Provider default"
               step={0.1}
               type="number"
-              value={temperature}
+              value={values.temperature}
             />
             <FieldDescription>
               Applying these settings also makes this provider and model the backend default for new
@@ -543,6 +555,17 @@ function HandshakeResult({ result }: { result: ProviderHandshake }) {
 
 function readableState(value: string) {
   return value.replaceAll('_', ' ');
+}
+
+const REASONING_EFFORT_LABELS: Record<ReasoningEffort, string> = {
+  off: 'Off',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+};
+
+function reasoningEffortLabel(level: ReasoningEffort): string {
+  return REASONING_EFFORT_LABELS[level];
 }
 
 function RefreshResult({ result }: { result: ProviderModelRefreshResult }) {
