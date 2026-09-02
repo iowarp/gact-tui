@@ -217,7 +217,13 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await page.mouse.move(600, 30);
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
-  await expect(page).toHaveScreenshot('workspace-desktop-dark.png', { animations: 'disabled' });
+  // maxDiffPixels absorbs sub-row anti-aliasing jitter at the latest-anchored
+  // transcript's top edge (~400px observed); a real layout regression moves
+  // orders of magnitude more.
+  await expect(page).toHaveScreenshot('workspace-desktop-dark.png', {
+    animations: 'disabled',
+    maxDiffPixels: 1500,
+  });
 
   await page.getByRole('button', { name: 'Open workspace canvas' }).click();
   const canvas = page.getByRole('complementary', { name: 'Workspace canvas' });
@@ -276,6 +282,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await settleConversationAtLatest(page);
   await expect(page).toHaveScreenshot('workspace-mobile-light-reduced.png', {
     animations: 'disabled',
+    maxDiffPixels: 1500,
   });
 
   await page.getByRole('button', { name: 'Open transcript outline' }).click();
