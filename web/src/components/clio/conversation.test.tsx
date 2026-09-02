@@ -7,6 +7,22 @@ import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ClioConversation } from './conversation';
 
 const virtualizerMocks = vi.hoisted(() => ({ measure: vi.fn(), scrollToIndex: vi.fn() }));
+// Counts turn-model builds without replacing the real projection, so the
+// memoization assertion below observes production behaviour.
+const turnModelMocks = vi.hoisted(() => ({ presentation: vi.fn() }));
+
+vi.mock('./conversation-turn-model', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./conversation-turn-model')>();
+  return {
+    ...actual,
+    conversationTurnPresentation: (
+      ...args: Parameters<typeof actual.conversationTurnPresentation>
+    ) => {
+      turnModelMocks.presentation(...args);
+      return actual.conversationTurnPresentation(...args);
+    },
+  };
+});
 
 vi.mock('@tanstack/react-virtual', () => ({
   defaultRangeExtractor: () => [],
@@ -37,6 +53,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   virtualizerMocks.measure.mockClear();
   virtualizerMocks.scrollToIndex.mockClear();
+  turnModelMocks.presentation.mockClear();
   window.history.replaceState(null, '', window.location.pathname);
 });
 
@@ -713,6 +730,46 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByRole('region', { name: 'Full agent activity' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('radio', { name: 'Chain view' }));
     expect(screen.queryByRole('region', { name: 'Full agent activity' })).not.toBeInTheDocument();
+  });
+
+  it('does not rebuild the turn projection when only the view mode changes', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_memo',
+            session_id: 'session_1',
+            role: 'assistant',
+            created_at: '2026-08-22T00:00:00Z',
+            blocks: [
+              { id: 'reason_memo', type: 'reasoning', text: 'Inspecting the evidence.' },
+              { id: 'tool_memo', type: 'tool', tool_id: 'tool_read' },
+            ],
+          },
+        ]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{
+          tool_read: {
+            id: 'tool_read',
+            session_id: 'session_1',
+            name: 'fs_read_file',
+            title: 'Read evidence file',
+            state: 'succeeded',
+          },
+        }}
+      />,
+    );
+
+    const buildsAfterMount = turnModelMocks.presentation.mock.calls.length;
+    expect(buildsAfterMount).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Full activity view' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Chain view' }));
+
+    expect(turnModelMocks.presentation.mock.calls.length).toBe(buildsAfterMount);
   });
 
   it('distinguishes a deliberately removed interactive surface from unavailable data', () => {

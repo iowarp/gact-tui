@@ -109,14 +109,24 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
   const cancellablePendingSteer =
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
-  const turn = conversationTurnPresentation(message, entities.tools, entities.tasks);
+  // No React Compiler is configured for this app, so both projections are
+  // memoized by hand: a view-mode toggle or a virtual-row reposition must not
+  // rebuild the turn model for every message on screen.
+  const turn = useMemo(
+    () => conversationTurnPresentation(message, entities.tools, entities.tasks),
+    [message, entities.tools, entities.tasks],
+  );
   const residualBlocks = turn.residualBlocks;
-  const linkedSubagentIds = new Set(
-    turn.iterations.flatMap((iteration) =>
-      iteration.tools.flatMap((tool) =>
-        subagentsForTool(tool, entities.subagents).map((subagent) => subagent.id),
+  const linkedSubagentIds = useMemo(
+    () =>
+      new Set(
+        turn.iterations.flatMap((iteration) =>
+          iteration.tools.flatMap((tool) =>
+            subagentsForTool(tool, entities.subagents).map((subagent) => subagent.id),
+          ),
+        ),
       ),
-    ),
+    [turn.iterations, entities.subagents],
   );
   const actions = (
     <MessageActions className="ml-auto shrink-0 opacity-100 sm:pointer-events-none sm:opacity-0 sm:transition-opacity sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
