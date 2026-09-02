@@ -16,6 +16,9 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: ENDPOINT } }),
 }));
+vi.mock('./document-pdf-viewer', () => ({
+  ClioDocumentPdfViewer: ({ name }: { name: string }) => <div>Rendered PDF {name}</div>,
+}));
 
 const ENDPOINT = 'http://127.0.0.1:8790';
 const OTHER_ENDPOINT = 'http://127.0.0.1:8791';
@@ -139,6 +142,26 @@ describe('WorkspaceResourceDerivativesView', () => {
     expect(await screen.findByText('# Structured report')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Back to derivatives' }));
     expect(screen.getByRole('button', { name: /report\.md/i })).toBeVisible();
+  });
+
+  it('previews a PDF derivative with the shared viewer, not the native plugin', async () => {
+    repository.resourceDerivativeContent.mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
+    const user = userEvent.setup();
+    renderView([
+      {
+        id: 'derivative_pdf',
+        name: 'report.pdf',
+        media_type: 'application/pdf',
+        kind: 'pdf',
+        size: 4,
+      },
+    ]);
+
+    await user.click(screen.getByRole('button', { name: /report\.pdf/i }));
+
+    expect(await screen.findByText('Rendered PDF report.pdf')).toBeVisible();
+    // The native plugin renders a blank pane on WebKitGTK with no fallback.
+    expect(document.querySelector('object[type="application/pdf"]')).not.toBeInTheDocument();
   });
 
   it('starts reprocessing from the real resource action', async () => {

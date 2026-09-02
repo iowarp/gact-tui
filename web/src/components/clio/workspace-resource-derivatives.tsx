@@ -8,12 +8,11 @@ import {
   FileStackIcon,
   RefreshCwIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useObjectUrl } from '@/hooks/use-object-url';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -23,6 +22,14 @@ import {
   ResourceUnavailable,
   TextResourceView,
 } from './resource-viewers';
+
+// The native PDF plugin renders a blank pane on WebKitGTK with no fallback, so
+// every PDF in the product goes through the same PDF.js viewer.
+const PdfResourceViewer = lazy(() =>
+  import('./document-pdf-viewer').then((module) => ({
+    default: module.ClioDocumentPdfViewer,
+  })),
+);
 
 interface WorkspaceResourceDerivativesViewProps {
   derivatives: readonly WorkspaceResourceDerivative[];
@@ -225,12 +232,13 @@ function DerivativePreview({
     );
   }
   if (mediaType === 'application/pdf') {
+    const name = derivative.name || derivative.id;
     return (
-      <PdfDerivativePreview
-        bytes={content.data}
-        mediaType={mediaType}
-        name={derivative.name || derivative.id}
-      />
+      <div className="size-full overflow-hidden p-3">
+        <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${name}`} />}>
+          <PdfResourceViewer bytes={content.data} name={name} onSelection={() => undefined} />
+        </Suspense>
+      </div>
     );
   }
   return (
@@ -239,20 +247,6 @@ function DerivativePreview({
       label="Metadata-only derivative"
     />
   );
-}
-
-function PdfDerivativePreview({
-  bytes,
-  mediaType,
-  name,
-}: {
-  bytes: Uint8Array;
-  mediaType: string;
-  name: string;
-}) {
-  const objectUrl = useObjectUrl(bytes, mediaType);
-  if (!objectUrl) return <ResourceLoading className="p-4" label={`Loading ${name}`} />;
-  return <object aria-label={name} className="size-full" data={objectUrl} type={mediaType} />;
 }
 
 function isTextApplication(mediaType: string): boolean {
