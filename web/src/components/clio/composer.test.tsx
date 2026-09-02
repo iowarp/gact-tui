@@ -2,12 +2,16 @@ import type { CommandDefinition } from '@clio/core/v3';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toast } from 'sonner';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import { ClioComposer, type ClioComposerProps } from './composer';
+
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 afterEach(cleanup);
 
 beforeEach(() => {
+  vi.mocked(toast.error).mockClear();
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
     value: (query: string): MediaQueryList => ({
@@ -276,6 +280,23 @@ describe('ClioComposer service commands', () => {
     expect(onCommand).not.toHaveBeenCalled();
     expect(onSubmit).not.toHaveBeenCalled();
     expect(input).toHaveValue('/not-a-service-command');
+  });
+
+  it('reports a rejected service command instead of swallowing it', async () => {
+    const user = userEvent.setup();
+    const onCommand = vi.fn().mockRejectedValue(new Error('The command service is unreachable.'));
+    renderComposer({ onCommand });
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, '/review results/stations.csv{Enter}');
+
+    await waitFor(() =>
+      expect(vi.mocked(toast.error)).toHaveBeenCalledWith('Review evidence was not run', {
+        description: 'The command service is unreachable.',
+      }),
+    );
+    // A rejected command leaves the typed command in place to retry.
+    expect(input).toHaveValue('/review results/stations.csv');
   });
 
   it('explains unavailable service commands without dispatching them', async () => {

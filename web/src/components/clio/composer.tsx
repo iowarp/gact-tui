@@ -304,6 +304,13 @@ export function ClioComposer({
               try {
                 await onCommand({ commandId: command.id, input: parts.join(' ') });
                 setInput('');
+              } catch (error) {
+                // PromptInput swallows a rejected submit so the draft survives;
+                // without this the refusal would never reach the person.
+                toast.error(`${command.title} was not run`, {
+                  description: error instanceof Error ? error.message : 'The service rejected it.',
+                });
+                throw error;
               } finally {
                 restoreInputFocusWhenReady();
               }
