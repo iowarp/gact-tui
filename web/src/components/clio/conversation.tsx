@@ -47,7 +47,6 @@ import { conversationTurnPresentation } from './conversation-turn-model';
 import { subagentsForTool } from './subagent-tool-link';
 import type { SubagentOpenTarget } from './subagent-card';
 import { ClioTranscriptMinimap } from './transcript-minimap';
-import { TranscriptResourceAttachment } from './transcript-resource-attachment';
 
 const VIRTUALIZATION_THRESHOLD = 80;
 
@@ -286,22 +285,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                 />
               </>
             ) : (
-              <>
-                {message.blocks.map((block) =>
-                  block.type === 'resource' ? (
-                    <TranscriptResourceAttachment
-                      block={block}
-                      key={block.id}
-                      onOpen={entities.onOpenResource}
-                      resource={entities.resources?.[block.resource_id]}
-                    />
-                  ) : null,
-                )}
-                <MessageBlockSequence
-                  blocks={message.blocks.filter((block) => block.type !== 'resource')}
-                  {...entities}
-                />
-              </>
+              <MessageBlockSequence blocks={message.blocks} {...entities} />
             )}
           </MessageContent>
         </Message>

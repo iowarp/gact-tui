@@ -116,7 +116,7 @@ describe('ClioConversation recovery actions', () => {
     });
   });
 
-  it('renders workspace resources above human prose without exposing private prompt context', async () => {
+  it('renders a workspace resource at its wire position without exposing private prompt context', async () => {
     const user = userEvent.setup();
     const onOpenResource = vi.fn();
     const resource = {
@@ -203,6 +203,101 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.queryByText(/private runtime context/i)).not.toBeInTheDocument();
     fireEvent.click(attachment);
     expect(onOpenResource).toHaveBeenCalledWith(resource);
+  });
+
+  it('renders a resource block carried by an assistant turn that already has iterations', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_assistant_resource',
+            session_id: 'session_1',
+            role: 'assistant',
+            created_at: '2026-08-22T00:00:00Z',
+            blocks: [
+              { id: 'reason_resource', type: 'reasoning', text: 'Registering the export.' },
+              { id: 'tool_resource', type: 'tool', tool_id: 'tool_write' },
+              {
+                id: 'resource_assistant',
+                type: 'resource',
+                resource_id: 'res_out',
+                resource_revision: '1',
+                workspace_id: 'workspace_1',
+                name: 'summary.csv',
+                media_type: 'text/csv',
+              },
+            ],
+          },
+        ]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{
+          tool_write: {
+            id: 'tool_write',
+            session_id: 'session_1',
+            name: 'workspace_resource_write',
+            title: 'Write the summary',
+            state: 'succeeded',
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('summary.csv')).toBeInTheDocument();
+  });
+
+  it('keeps resource blocks in wire order and groups adjacent ones into one grid', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_ordered',
+            session_id: 'session_1',
+            role: 'user',
+            created_at: '2026-08-22T00:00:00Z',
+            blocks: [
+              { id: 'text_before', type: 'text', text: 'Before the attachments.' },
+              {
+                id: 'resource_one',
+                type: 'resource',
+                resource_id: 'res_one',
+                resource_revision: '1',
+                workspace_id: 'workspace_1',
+                name: 'first.csv',
+                media_type: 'text/csv',
+              },
+              {
+                id: 'resource_two',
+                type: 'resource',
+                resource_id: 'res_two',
+                resource_revision: '1',
+                workspace_id: 'workspace_1',
+                name: 'second.csv',
+                media_type: 'text/csv',
+              },
+              { id: 'text_after', type: 'text', text: 'After the attachments.' },
+            ],
+          },
+        ]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    const grids = screen.getAllByRole('group', { name: /message attachment/i });
+    expect(grids).toHaveLength(1);
+    expect(grids[0]).toHaveTextContent('first.csv');
+    expect(grids[0]).toHaveTextContent('second.csv');
+
+    const before = screen.getByText('Before the attachments.');
+    const after = screen.getByText('After the attachments.');
+    expect(before.compareDocumentPosition(grids[0]!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(grids[0]!.compareDocumentPosition(after)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('renders an accepted steer as the real human message and permits cancellation before claim', () => {
