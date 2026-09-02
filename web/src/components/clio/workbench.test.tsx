@@ -120,6 +120,10 @@ describe('ClioWorkbench canvas', () => {
     expect(artifactsClose).not.toBeNull();
     expect(observabilityClose).toHaveAttribute('title', 'Close Observability');
     expect(artifactsClose).toHaveAttribute('title', 'Close Artifacts');
+    // Reachability, not just a synthesized pointerDown: a real accessible name, and never
+    // hit-test-blocked off hover (touch has no hover to gate visibility on).
+    expect(observabilityClose).toHaveAccessibleName('Close Observability');
+    expect(observabilityClose).not.toHaveClass('pointer-events-none');
 
     act(() => artifactsTab.focus());
     await user.keyboard('{ArrowLeft}');
@@ -127,7 +131,7 @@ describe('ClioWorkbench canvas', () => {
     await user.keyboard('{ArrowRight}');
     expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
 
-    fireEvent.pointerDown(observabilityClose!);
+    await user.click(observabilityClose!);
     expect(screen.queryByRole('tab', { name: 'Observability' })).not.toBeInTheDocument();
     expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
   });

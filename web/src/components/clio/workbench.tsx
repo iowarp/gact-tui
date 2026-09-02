@@ -609,6 +609,10 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   const active = tab.id === activeTabId;
                   return (
                     <TabsTrigger
+                      // The close control below carries its own accessible name; without this,
+                      // that name would fold into this tab's name-from-content computation
+                      // (e.g. "Observability Close Observability").
+                      aria-label={tab.label}
                       aria-keyshortcuts="Delete"
                       className={cn(
                         'group/canvas-tab h-8 min-w-24 max-w-56 shrink-0 justify-start rounded-lg border-transparent bg-transparent py-0.5 pr-8 pl-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
@@ -623,25 +627,42 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                         event.preventDefault();
                         closeTab(tab.id);
                       }}
-                      onPointerDownCapture={(event) => {
-                        if (!(event.target instanceof Element)) return;
-                        if (!event.target.closest('[data-slot="canvas-tab-close"]')) return;
-                        event.preventDefault();
-                        event.stopPropagation();
-                        closeTab(tab.id);
-                      }}
                       value={tab.id}
                     >
                       <TabIcon kind={tab.kind} />
-                      <span className="truncate">{tab.label}</span>
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute top-1/2 right-1 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-md opacity-0 transition-[color,background-color,opacity] group-hover/canvas-tab:pointer-events-auto group-hover/canvas-tab:opacity-100 group-focus-visible/canvas-tab:pointer-events-auto group-focus-visible/canvas-tab:opacity-100 hover:bg-muted hover:text-foreground"
-                        data-slot="canvas-tab-close"
-                        title={`Close ${tab.label}`}
-                      >
-                        <XIcon className="size-3.5" />
+                      <span aria-hidden="true" className="truncate">
+                        {tab.label}
                       </span>
+                      {/* A real accessible control, not a decorative span: visible on hover or
+                          focus-within, but hit-testable (and reachable on touch) at all times —
+                          opacity gates the affordance, never pointer-events. asChild renders it
+                          as a span rather than a nested <button>, since TabsTrigger already is one. */}
+                      <Button
+                        aria-label={`Close ${tab.label}`}
+                        asChild
+                        className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition-opacity group-hover/canvas-tab:opacity-100 group-focus-within/canvas-tab:opacity-100 focus-visible:opacity-100"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          closeTab(tab.id);
+                        }}
+                        size="icon-xs"
+                        title={`Close ${tab.label}`}
+                        variant="ghost"
+                      >
+                        <span
+                          data-slot="canvas-tab-close"
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter' && event.key !== ' ') return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            closeTab(tab.id);
+                          }}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <XIcon aria-hidden="true" className="size-3.5" />
+                        </span>
+                      </Button>
                     </TabsTrigger>
                   );
                 })}
