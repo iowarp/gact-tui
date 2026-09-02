@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { recordById } from '@/lib/entities';
 import { queryKeys } from '@/lib/query-keys';
 import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
+import { streamNoticeForFrame } from '@/lib/streaming/stream-notices';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
@@ -100,6 +102,8 @@ export function useSessionLiveStream({
                 workspaceId,
               }),
             );
+            const notice = streamNoticeForFrame(frame);
+            if (notice) toast.error(notice.title, { id: notice.id, description: notice.description });
           }
           // The iterator ended without the consumer aborting it — whether or
           // not a frame ever arrived, the connection is gone (server close,
@@ -210,7 +214,10 @@ function isPendingSteerEvent(eventName: string): boolean {
     eventName === 'message.accepted' ||
     eventName === 'message.cancelled' ||
     eventName.startsWith('pending_steer.') ||
-    eventName === 'message.upserted'
+    eventName === 'message.upserted' ||
+    // A promotion submits the queued message, which becomes a pending steer
+    // whenever the turn it joins is already running.
+    eventName === 'queued_message.promoted'
   );
 }
 
@@ -233,7 +240,14 @@ function resourceInvalidationKeys(
   endpoint: string,
   workspaceId: string,
 ): QueryKey[] {
-  if (eventName === 'resource.processing_completed' || eventName === 'resource.processing_failed') {
+  // A conversion that ended — completed, failed, or cancelled — settles the
+  // derivatives and the structure alike; a cancellation leaves exactly the same
+  // reads stale as a failure does.
+  if (
+    eventName === 'resource.processing_completed' ||
+    eventName === 'resource.processing_failed' ||
+    eventName === 'resource.processing_cancelled'
+  ) {
     return [
       queryKeys.workspaceResourceDerivatives(endpoint, workspaceId),
       queryKeys.workspaceResourceStructure(endpoint, workspaceId),

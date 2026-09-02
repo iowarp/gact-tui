@@ -6,7 +6,7 @@ import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
-import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
+import { ACTIVE_SESSION_POLL_MS, PROVIDER_CATALOG_STALE_TIME_MS } from '@/lib/runtime-limits';
 import { sessionArtifactEntities } from '@/lib/session-artifacts';
 import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
@@ -258,7 +258,7 @@ export function useWorkspaceData({
   const providerCatalog = useQuery({
     queryKey: queryKeys.providerCatalog(settings.endpoint),
     queryFn: ({ signal }) => repository.providerCatalog(false, signal),
-    staleTime: 30_000,
+    staleTime: PROVIDER_CATALOG_STALE_TIME_MS,
   });
   const modelOptions = buildModelOptions({
     activeCatalogProvider,

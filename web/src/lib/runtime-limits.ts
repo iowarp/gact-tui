@@ -252,6 +252,16 @@ export const SUBAGENT_RESULT_TRUNCATE_CHARS = 300;
 export const QUERY_STALE_TIME_MS = 10_000;
 
 /**
+ * How long the discovered provider/model catalog is served without a background
+ * refetch. Unit: milliseconds. Much longer than the default stale time because
+ * the catalog is the product of a provider handshake, not a cheap read, and it
+ * is invalidated outright by `provider_catalog.refreshed` whenever a refresh
+ * actually changes it — so this only bounds how long a change made outside the
+ * stream goes unnoticed.
+ */
+export const PROVIDER_CATALOG_STALE_TIME_MS = 30_000;
+
+/**
  * Automatic retries for a failed read. Unit: attempts after the first.
  * One retry covers a dropped connection without masking a real backend failure
  * behind a long retry ladder.

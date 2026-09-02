@@ -22,11 +22,13 @@ const mocks = vi.hoisted(() => {
     repository,
     resume: undefined as (() => void) | undefined,
     storeState,
+    toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() },
     useLiveStore,
   };
 });
 
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => mocks.queryClient }));
+vi.mock('sonner', () => ({ toast: mocks.toast }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
@@ -56,6 +58,7 @@ describe('useSessionLiveStream resume recovery', () => {
     mocks.queryClient.invalidateQueries.mockResolvedValue(undefined);
     mocks.resume = undefined;
     mocks.storeState.setStreamState.mockReset();
+    mocks.toast.error.mockReset();
     mocks.repository.stream.mockImplementation(async function* (
       _scope: unknown,
       _cursor: unknown,
@@ -152,6 +155,87 @@ describe('useSessionLiveStream resume recovery', () => {
     // derivatives, structure and deliveries.
     const uploaded = forEvent('resource.updated');
     expect(uploaded).toEqual([['workspace-resources', 'http://127.0.0.1:8790', 'ws_1']]);
+  });
+
+  it('refreshes the steer list a queued-message promotion creates', () => {
+    const keys = queryInvalidationKeysForEvent({
+      endpoint: 'http://127.0.0.1:8790',
+      eventName: 'queued_message.promoted',
+      sessionId: 'sess_1',
+      workspaceId: 'ws_1',
+    });
+
+    // A promotion is a submission: it leaves the queue AND, when the turn is
+    // mid-flight, appears as a pending steer.
+    expect(keys).toContainEqual(['queued-messages', 'http://127.0.0.1:8790', 'sess_1']);
+    expect(keys).toContainEqual(['pending-steers', 'http://127.0.0.1:8790', 'sess_1']);
+  });
+
+  it('refreshes the queue when an automatic promotion fails', () => {
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'queued_message.promotion_failed',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).toContainEqual(['queued-messages', 'http://127.0.0.1:8790', 'sess_1']);
+  });
+
+  it('refreshes the same reads for a cancelled conversion as for a failed one', () => {
+    const forEvent = (eventName: string) =>
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName,
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      });
+
+    expect(forEvent('resource.processing_cancelled')).toEqual(
+      forEvent('resource.processing_failed'),
+    );
+  });
+
+  it('raises a visible notice when the queue stalls on a failed promotion', async () => {
+    mocks.repository.stream.mockImplementation(async function* (
+      _scope: unknown,
+      _cursor: unknown,
+      signal: AbortSignal,
+    ) {
+      yield {
+        cursor: '77',
+        eventName: 'queued_message.promotion_failed',
+        receivedAt: '2026-08-31T12:00:00Z',
+        data: {
+          protocol_version: '0.3',
+          type: 'queued_message.promotion_failed',
+          occurred_at: '2026-08-31T12:00:00Z',
+          scope: { connection_id: 'active', workspace_id: 'ws_1', session_id: 'sess_1' },
+          entity_id: 'queued_1',
+          entity_revision: 77,
+          payload: {
+            queued_message_id: 'queued_1',
+            error: 'queue_auto_promotion_failed',
+            recoverable: true,
+          },
+        },
+      };
+      await new Promise<void>((resolve) => {
+        if (signal.aborted) resolve();
+        else signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+    });
+
+    const { unmount } = renderHook(() =>
+      useSessionLiveStream({ enabled: true, sessionId: 'sess_1', workspaceId: 'ws_1' }),
+    );
+
+    await waitFor(() => expect(mocks.toast.error).toHaveBeenCalled());
+    expect(mocks.toast.error).toHaveBeenCalledWith(
+      expect.stringContaining('queued message'),
+      expect.objectContaining({ id: 'queued_message.promotion_failed:queued_1' }),
+    );
+    unmount();
   });
 
   it('reports reconnecting when the stream ends without an abort, even after a frame arrived', async () => {
