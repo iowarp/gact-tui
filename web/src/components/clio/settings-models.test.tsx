@@ -217,17 +217,24 @@ describe('ModelsSettings', () => {
     expect(maxTokens).toHaveValue(null);
 
     const configurationKey = queryKeys.key('language-model-configuration', 'http://127.0.0.1:8787');
-    await act(async () => {
+    act(() => {
       queryClient.setQueryData(configurationKey, { ...configuration, max_tokens: 12_000 });
     });
-    expect(maxTokens).toHaveValue(12_000);
+    await waitFor(() => expect(maxTokens).toHaveValue(12_000));
 
     await user.clear(maxTokens);
     await user.type(maxTokens, '6000');
-    await act(async () => {
-      queryClient.setQueryData(configurationKey, { ...configuration, max_tokens: 20_000 });
+    act(() => {
+      queryClient.setQueryData(configurationKey, {
+        ...configuration,
+        max_tokens: 20_000,
+        thinking_level: 'high',
+      });
     });
-    // A refetch must not throw away what the person is in the middle of setting.
+    // The section heading reads the service configuration directly, so it
+    // arriving there is the proof that the panel saw it and deliberately kept
+    // what the person is in the middle of setting.
+    expect(await screen.findByText('New sessions start with high reasoning.')).toBeVisible();
     expect(maxTokens).toHaveValue(6_000);
   });
 
