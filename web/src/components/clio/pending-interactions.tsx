@@ -24,7 +24,6 @@ import {
   QueueSectionTrigger,
 } from '@/components/ai-elements/queue';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -104,7 +103,7 @@ export function ClioPendingInteractions({
         </QueueSectionTrigger>
         <QueueSectionContent className="flex min-h-0 flex-col">
           <ScrollArea
-            className="h-[min(22rem,40dvh)] min-h-0 shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50"
+            className="h-[min(22rem,40dvh)] min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50"
             scrollHideDelay={500}
             type="hover"
             viewportProps={{
@@ -115,7 +114,7 @@ export function ClioPendingInteractions({
               tabIndex: 0,
             }}
           >
-            <div className="flex flex-col gap-2 px-1 pb-1">
+            <div className="flex w-full min-w-0 flex-col gap-2 px-1 pb-1">
               {pending.map((interaction) => {
                 const ownerLabel = ownerLabels[interaction.owner_session_id] ?? 'Specialist';
                 const interactionDisabled = disabled || respondingIds.has(interaction.id);
@@ -198,18 +197,6 @@ function OwnerContext({ children }: { children: ReactNode }) {
   );
 }
 
-function KindBadge({ kind }: { kind: PendingInteraction['kind'] }) {
-  const label =
-    kind === 'permission'
-      ? 'Approval'
-      : kind === 'mcp_task_input'
-        ? 'Task input'
-        : kind === 'a2ui'
-          ? 'Interactive view'
-          : 'Question';
-  return <Badge variant="outline">{label}</Badge>;
-}
-
 function PermissionResponse({
   disabled,
   interaction,
@@ -225,18 +212,16 @@ function PermissionResponse({
   const toolName = toolCall?.tool_name ?? interaction.source.tool_name;
   const allowed = interaction.actions ? new Set(interaction.actions) : undefined;
   const show = (action: string) => !allowed || allowed.has(action);
+  const showOwner = interaction.owner_session_id !== interaction.attended_session_id;
   return (
     <Confirmation
       approval={{ id: interaction.id }}
       className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 border-action/20 bg-background/70"
+      data-interaction-kind={interaction.kind}
       state="approval-requested"
     >
-      <ShieldQuestionIcon aria-hidden="true" className="size-4 text-action" />
+      <ShieldQuestionIcon aria-hidden="true" className="mt-0.5 size-4 text-action" />
       <ConfirmationTitle className="min-w-0">
-        <span className="mb-1 flex flex-wrap items-center gap-2">
-          <KindBadge kind={interaction.kind} />
-          <OwnerContext>{ownerLabel}</OwnerContext>
-        </span>
         <span
           className="block line-clamp-3 font-medium"
           data-slot="pending-interaction-title"
@@ -244,6 +229,7 @@ function PermissionResponse({
         >
           {interaction.title}
         </span>
+        {showOwner ? <OwnerContext>{ownerLabel}</OwnerContext> : null}
         {interaction.prompt ? (
           <span className="block text-sm text-muted-foreground">{interaction.prompt}</span>
         ) : null}
@@ -327,14 +313,11 @@ function InteractionFrameHeader({
       : interaction.kind === 'a2ui'
         ? BoxesIcon
         : MessageCircleQuestionIcon;
+  const showOwner = interaction.owner_session_id !== interaction.attended_session_id;
   return (
     <FrameHeader className="relative flex-row items-start gap-2 pr-10">
       <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-action" />
       <div className="min-w-0 flex-1">
-        <span className="mb-1 flex flex-wrap items-center gap-2">
-          <KindBadge kind={interaction.kind} />
-          <OwnerContext>{ownerLabel}</OwnerContext>
-        </span>
         <FrameTitle
           className="truncate"
           data-slot="pending-interaction-title"
@@ -342,6 +325,7 @@ function InteractionFrameHeader({
         >
           {interaction.prompt ?? interaction.title}
         </FrameTitle>
+        {showOwner ? <OwnerContext>{ownerLabel}</OwnerContext> : null}
       </div>
       {onCancel ? (
         <Button
@@ -389,9 +373,11 @@ function QuestionResponse({
   return (
     <Frame
       className={cn(
+        'w-full min-w-0',
         interaction.kind === 'mcp_task_input' &&
           'border-sky-500/25 bg-sky-500/[0.04] dark:bg-sky-400/[0.05]',
       )}
+      data-interaction-kind={interaction.kind}
       dense
       spacing="sm"
     >
@@ -405,7 +391,7 @@ function QuestionResponse({
         }
         ownerLabel={ownerLabel}
       />
-      <FramePanel>
+      <FramePanel className="min-w-0 overflow-hidden">
         {!canAnswer ? (
           <p className="text-sm text-muted-foreground">Input controls are not available yet.</p>
         ) : usesOptions ? (
@@ -505,9 +491,10 @@ function QuestionResponse({
             ) : null}
           </RadioGroup>
         ) : (
-          <Field>
+          <Field className="min-w-0">
             <FieldLabel htmlFor={`${interaction.id}-answer`}>Your response</FieldLabel>
             <Textarea
+              className="w-full min-w-0"
               id={`${interaction.id}-answer`}
               onChange={(event) => setAnswer(event.target.value)}
               placeholder="Type your response"
@@ -559,7 +546,12 @@ function A2UIResponse({
   surface?: A2UISurface;
 }) {
   return (
-    <Frame className="border-violet-500/25 bg-violet-500/[0.04]" dense spacing="sm">
+    <Frame
+      className="w-full min-w-0 border-violet-500/25 bg-violet-500/[0.04]"
+      data-interaction-kind={interaction.kind}
+      dense
+      spacing="sm"
+    >
       <InteractionFrameHeader interaction={interaction} ownerLabel={ownerLabel} />
       <FramePanel className={cn('p-2', disabled && 'pointer-events-none opacity-60')}>
         {surface ? (

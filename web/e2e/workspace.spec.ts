@@ -456,12 +456,9 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
 test('scrolls pending responses and queued messages independently at a narrow viewport', async ({
   page,
 }) => {
-  // Short as well as narrow. The queue carries its own 136 px bound and scrolls
-  // at any height, but the pending-responses list deliberately has none — it is
-  // `min-h-0 shrink` and scrolls only once the composer stack runs out of room,
-  // so a tall window leaves both surfaces fitting and nothing to scroll. This is
-  // the window where they compete, which is the only place independence means
-  // anything.
+  // Short as well as narrow. The queue has its own 136 px bound and the
+  // pending-response stack has a responsive viewport bound, so both must keep
+  // wheel and keyboard scrolling local when they compete for composer space.
   await page.setViewportSize({ height: 720, width: 848 });
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
   expect(seeded.ok()).toBe(true);

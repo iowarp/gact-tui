@@ -113,7 +113,7 @@ describe('ClioPendingInteractions', () => {
     expect(title).not.toHaveClass('truncate');
     expect(title).toHaveAttribute('title', 'Run the analysis command');
     expect(screen.getByText('Evidence specialist')).toBeVisible();
-    expect(screen.getByText('Approval')).toBeVisible();
+    expect(screen.queryByText('Approval')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Allow once' })).toBeVisible();
     await user.click(trigger);
     expect(screen.queryByText('Run the analysis command')).not.toBeInTheDocument();
@@ -251,10 +251,9 @@ describe('ClioPendingInteractions', () => {
       { surfaces: { surface_1: surface } },
     );
 
-    expect(screen.getByText('Question', { selector: '[data-slot="badge"]' })).toBeVisible();
-    expect(screen.getByText('Approval')).toBeVisible();
-    expect(screen.getByText('Task input')).toBeVisible();
-    expect(screen.getByText('Interactive view')).toBeVisible();
+    for (const kind of ['question', 'permission', 'mcp_task_input', 'a2ui']) {
+      expect(document.querySelector(`[data-interaction-kind="${kind}"]`)).toBeVisible();
+    }
     expect(screen.getAllByText('Evidence specialist')).toHaveLength(4);
     expect(screen.getByRole('button', { name: 'Submit selection' })).toBeVisible();
     expect(repository.a2uiAction).not.toHaveBeenCalled();
