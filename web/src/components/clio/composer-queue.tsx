@@ -4,6 +4,7 @@ import type {
   QueuedMessage,
   WorkspaceResource,
 } from '@clio/core/v3';
+import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { CheckIcon, GripVerticalIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -108,6 +109,13 @@ export function ClioComposerQueue({
       setOrderOverride(undefined);
     } catch (error) {
       setOrderOverride(undefined);
+      if (error instanceof QueuedMessageReorderConflictError) {
+        toast.error('Queued messages changed on the service', {
+          description:
+            'The new order was not applied. The latest order from the service is shown here.',
+        });
+        return;
+      }
       toast.error('Unable to reorder queued messages', {
         description: error instanceof Error ? error.message : undefined,
       });

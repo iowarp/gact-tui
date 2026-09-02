@@ -200,8 +200,7 @@ describe('ClioPendingInteractions', () => {
     });
   });
 
-  it('exposes an independently keyboard-scrollable response viewport', async () => {
-    const user = userEvent.setup();
+  it('exposes an independently keyboard-scrollable response viewport', () => {
     render(
       <ClioPendingInteractions
         approvals={[

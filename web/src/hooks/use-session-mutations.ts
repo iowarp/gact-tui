@@ -7,6 +7,7 @@ import type {
   QueuedMessage,
   Session,
 } from '@clio/core/v3';
+import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -152,6 +153,15 @@ export function useSessionMutations({
       repository.reorderQueuedMessages(sessionId, messages),
     onSuccess: (messages) => {
       queryClient.setQueryData(queryKeys.queuedMessages(settings.endpoint, sessionId), messages);
+    },
+    onError: (error) => {
+      // A refused reorder still tells us what the service holds. Show that
+      // rather than leaving the surface on an order the service rejected.
+      if (!(error instanceof QueuedMessageReorderConflictError)) return;
+      queryClient.setQueryData(
+        queryKeys.queuedMessages(settings.endpoint, sessionId),
+        error.queuedMessages,
+      );
     },
     onSettled: invalidateComposerState,
   });

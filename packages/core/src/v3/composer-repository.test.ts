@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ComposerRepository } from './composer-repository.js';
+import { QueuedMessageReorderConflictError } from './composer-conflicts.js';
 import type { QueuedMessage } from './composer-domain.js';
 import { RecordingTransport } from './recording-transport.test-helper.js';
 import { TransportError } from './transport.js';
@@ -100,34 +101,7 @@ describe('ComposerRepository', () => {
     });
   });
 
-  it('reconciles a reorder when the service already consumed the queued message', async () => {
-    const queued = (id: string): QueuedMessage => ({
-      id,
-      session_id: 'session_1',
-      revision: 1,
-      position: 0,
-      parts: [{ type: 'text', text: id }],
-      metadata: {},
-      client_message_id: id,
-      idempotency_key: id,
-      behavior,
-      model,
-      created_at: '2026-08-31T12:00:00Z',
-      updated_at: '2026-08-31T12:00:00Z',
-    });
-    const transport = new RecordingTransport([
-      new TransportError('queued message reorder set does not match server state', 409),
-      { queued_messages: [] },
-    ]);
-    const repository = new ComposerRepository(transport);
-
-    await expect(
-      repository.reorderQueuedMessages('session_1', [queued('queued_1')]),
-    ).resolves.toEqual([]);
-    expect(transport.requests.map((request) => request.method)).toEqual(['POST', 'GET']);
-  });
-
-  it('reapplies the requested relative order to the latest server queue', async () => {
+  it('surfaces a reorder conflict with the latest server order instead of resubmitting', async () => {
     const queued = (id: string, revision: number, position: number): QueuedMessage => ({
       id,
       session_id: 'session_1',
@@ -144,28 +118,60 @@ describe('ComposerRepository', () => {
     });
     const staleFirst = queued('queued_1', 1, 0);
     const staleSecond = queued('queued_2', 1, 1);
+    // A concurrent writer added a row and bumped both revisions between the
+    // read the drag started from and the reorder POST.
     const serverOnly = queued('queued_server', 2, 0);
     const latestFirst = queued('queued_1', 3, 1);
     const latestSecond = queued('queued_2', 4, 2);
-    const reorderedSecond = queued('queued_2', 5, 1);
-    const reorderedFirst = queued('queued_1', 4, 2);
     const transport = new RecordingTransport([
       new TransportError('queued message revision conflict', 409),
       { queued_messages: [serverOnly, latestFirst, latestSecond] },
-      { queued_messages: [serverOnly, reorderedSecond, reorderedFirst] },
     ]);
     const repository = new ComposerRepository(transport);
 
-    await expect(
-      repository.reorderQueuedMessages('session_1', [staleSecond, staleFirst]),
-    ).resolves.toEqual([serverOnly, reorderedSecond, reorderedFirst]);
-    expect(transport.requests[2]).toMatchObject({
-      method: 'POST',
-      body: {
-        ordered_ids: ['queued_server', 'queued_2', 'queued_1'],
-        revisions: { queued_1: 3, queued_2: 4, queued_server: 2 },
-      },
+    const conflict = await repository
+      .reorderQueuedMessages('session_1', [staleSecond, staleFirst])
+      .then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+
+    expect(conflict).toBeInstanceOf(QueuedMessageReorderConflictError);
+    expect(conflict).toMatchObject({
+      reason: 'queued_messages_changed',
+      queuedMessages: [serverOnly, latestFirst, latestSecond],
     });
+    // The stale order is never replayed over the concurrent writer's change.
+    expect(transport.requests.map((request) => request.method)).toEqual(['POST', 'GET']);
+  });
+
+  it('reports a reorder conflict even when the server order already matches the drag', async () => {
+    const queued = (id: string, revision: number, position: number): QueuedMessage => ({
+      id,
+      session_id: 'session_1',
+      revision,
+      position,
+      parts: [{ type: 'text', text: id }],
+      metadata: {},
+      client_message_id: id,
+      idempotency_key: id,
+      behavior,
+      model,
+      created_at: '2026-08-31T12:00:00Z',
+      updated_at: '2026-08-31T12:00:00Z',
+    });
+    const transport = new RecordingTransport([
+      new TransportError('queued message reorder set does not match server state', 409),
+      { queued_messages: [] },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    // The drag targeted a message the service had already consumed. Resolving
+    // here would report a successful reorder that never happened.
+    await expect(
+      repository.reorderQueuedMessages('session_1', [queued('queued_1', 1, 0)]),
+    ).rejects.toBeInstanceOf(QueuedMessageReorderConflictError);
+    expect(transport.requests.map((request) => request.method)).toEqual(['POST', 'GET']);
   });
 
   it('uploads original bytes with resumable offset headers', async () => {
