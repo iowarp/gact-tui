@@ -82,7 +82,7 @@ function TranscriptResourceAttachmentItem({
   const filename = resource?.name ?? block.name;
   const mediaType = resource?.detected_mime || block.media_type;
   const availability = resourceAvailability(resource, block.delivery);
-  const stages = resourcePipelineStages(resource, availability.label);
+  const stages = resourcePipelineStages(resource, availability);
 
   const open = () => {
     if (resource) onOpen?.(resource);

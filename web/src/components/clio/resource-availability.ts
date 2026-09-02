@@ -1,26 +1,67 @@
-import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
+import type {
+  MessageBlock,
+  ResourceDeliveryRepresentation,
+  WorkspaceResource,
+} from '@clio/core/v3';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
+/**
+ * Whether an attachment is usable by the agent right now.
+ *
+ * `state` is the decision; `label` and `detail` are only how it reads. Anything
+ * that branches on availability branches on the state, so a reworded label can
+ * never change behaviour.
+ */
+export type ResourceAvailabilityState =
+  | 'needs_processing'
+  | 'preparing'
+  | 'ready'
+  | 'unavailable'
+  | 'unknown';
+
 export interface ResourceAvailability {
-  className: string;
   detail: string;
   label: string;
+  state: ResourceAvailabilityState;
 }
 
 export interface ResourcePipelineStage {
   detail?: string;
-  kind: 'active' | 'complete' | 'failed' | 'waiting';
+  kind: 'active' | 'complete' | 'failed' | 'unknown' | 'waiting';
   label: string;
   name: 'Conversion' | 'Upload';
 }
 
 export interface ResourcePipelineStages {
   conversion: ResourcePipelineStage;
-  overall: 'active' | 'complete' | 'failed' | 'waiting';
+  overall: 'active' | 'complete' | 'failed' | 'unknown' | 'waiting';
   overallLabel: string;
   upload: ResourcePipelineStage;
 }
+
+const AVAILABILITY_LABELS: Record<ResourceAvailabilityState, string> = {
+  needs_processing: 'Needs processing',
+  preparing: 'Preparing',
+  ready: 'Ready',
+  unavailable: 'Unavailable',
+  unknown: 'Unknown',
+};
+
+/**
+ * Whether each representation the service can report means the agent can
+ * actually read the attachment. Total over the union on purpose: a new
+ * representation has to be answered here rather than falling through to a
+ * media-type guess.
+ */
+const REPRESENTATION_READABILITY: Record<ResourceDeliveryRepresentation, boolean> = {
+  native: true,
+  bounded_tools: true,
+  structured_document: true,
+  sandbox: true,
+  retrieval: true,
+  metadata_only: false,
+};
 
 /** Describe whether a workspace resource is currently usable by the agent. */
 export function resourceAvailability(
@@ -28,40 +69,35 @@ export function resourceAvailability(
   delivery?: ResourceBlock['delivery'],
 ): ResourceAvailability {
   if (!resource) {
-    return {
-      className: 'text-muted-foreground',
-      detail: 'Availability could not be verified for this historical attachment.',
-      label: 'Unknown',
-    };
+    return availability(
+      'unknown',
+      'Availability could not be verified for this historical attachment.',
+    );
   }
   if (resource.state === 'uploading') {
-    return {
-      className: 'text-amber-600 dark:text-amber-400',
-      detail: 'The attachment is still uploading and is not available to the agent yet.',
-      label: 'Preparing',
-    };
+    return availability(
+      'preparing',
+      'The attachment is still uploading and is not available to the agent yet.',
+    );
   }
   if (resource.state === 'failed' || resource.state === 'quarantined') {
-    return {
-      className: 'text-destructive',
-      detail:
-        resource.failure ||
+    return availability(
+      'unavailable',
+      resource.failure ||
         (resource.state === 'quarantined'
           ? 'The attachment was quarantined and is not available to the agent.'
           : 'The attachment is not available to the agent.'),
-      label: 'Unavailable',
-    };
+    );
   }
 
   if (delivery?.representation === 'native') {
     const evidence = delivery.evidence_source
       ? ` Capability evidence: ${delivery.evidence_source.replaceAll('_', ' ')}.`
       : '';
-    return {
-      className: 'text-emerald-600 dark:text-emerald-400',
-      detail: `Ready; the selected model received the original attachment natively.${evidence}`,
-      label: 'Ready',
-    };
+    return availability(
+      'ready',
+      `Ready; the selected model received the original attachment natively.${evidence}`,
+    );
   }
 
   const processing = resource.processing;
@@ -70,42 +106,35 @@ export function resourceAvailability(
     (processing.state === 'submitted' || processing.state === 'processing') &&
     !processing.derivatives_available
   ) {
-    return {
-      className: 'text-amber-600 dark:text-amber-400',
-      detail: processing.progress
+    return availability(
+      'preparing',
+      processing.progress
         ? `The original is retained; structured content is ${processing.progress}% ready for the agent.`
         : 'The original is retained; structured content is still being prepared for the agent.',
-      label: 'Preparing',
-    };
+    );
   }
 
   if (processing?.state === 'failed' && !processing.derivatives_available) {
-    return {
-      className: 'text-destructive',
-      detail:
-        typeof processing.failure.message === 'string'
-          ? processing.failure.message
-          : 'Structured conversion failed, so this attachment is not currently readable by the agent.',
-      label: 'Unavailable',
-    };
+    return availability(
+      'unavailable',
+      typeof processing.failure.message === 'string'
+        ? processing.failure.message
+        : 'Structured conversion failed, so this attachment is not currently readable by the agent.',
+    );
   }
 
   if (processing?.state === 'cancelled' && !processing.derivatives_available) {
-    return {
-      className: 'text-destructive',
-      detail:
-        'Structured conversion was cancelled before a usable derivative was created. The original remains available for preview.',
-      label: 'Unavailable',
-    };
+    return availability(
+      'unavailable',
+      'Structured conversion was cancelled before a usable derivative was created. The original remains available for preview.',
+    );
   }
 
-  if (!isDirectlyReadable(mediaType(resource)) && !processing?.derivatives_available) {
-    return {
-      className: 'text-amber-600 dark:text-amber-400',
-      detail:
-        'The original is retained and can be previewed, but no agent-readable conversion is available yet.',
-      label: 'Needs processing',
-    };
+  if (!agentReadable(resource, delivery) && !processing?.derivatives_available) {
+    return availability(
+      'needs_processing',
+      'The original is retained and can be previewed, but no agent-readable conversion is available yet.',
+    );
   }
 
   let detail = 'The original attachment is available to the agent.';
@@ -119,13 +148,13 @@ export function resourceAvailability(
             ? 'Ready; the agent can reuse a previously converted derivative while a refresh runs.'
             : 'Ready; converted content is available to the agent.';
   }
-  return { className: 'text-emerald-600 dark:text-emerald-400', detail, label: 'Ready' };
+  return availability('ready', detail);
 }
 
 /** Resolve the two user-visible stages shared by submitted and queued attachments. */
 export function resourcePipelineStages(
   resource: WorkspaceResource | undefined,
-  availabilityLabel = resourceAvailability(resource).label,
+  availabilityOf: ResourceAvailability = resourceAvailability(resource),
 ): ResourcePipelineStages {
   const upload: ResourcePipelineStage =
     resource?.state === 'uploading'
@@ -134,7 +163,9 @@ export function resourcePipelineStages(
         ? { kind: 'complete', label: 'Complete', name: 'Upload' }
         : resource?.state === 'failed' || resource?.state === 'quarantined'
           ? { detail: resource.failure, kind: 'failed', label: 'Failed', name: 'Upload' }
-          : { kind: 'waiting', label: 'Status unavailable', name: 'Upload' };
+          : // No resource record, or a state this build does not recognise. That
+            // is not the same as waiting for something.
+            { kind: 'unknown', label: 'Status unavailable', name: 'Upload' };
 
   const processing = resource?.processing;
   let conversion: ResourcePipelineStage;
@@ -157,8 +188,10 @@ export function resourcePipelineStages(
       label: processing.state === 'cancelled' ? 'Cancelled' : 'Failed',
       name: 'Conversion',
     };
-  } else if (availabilityLabel === 'Ready') {
+  } else if (availabilityOf.state === 'ready') {
     conversion = { kind: 'complete', label: 'Not required', name: 'Conversion' };
+  } else if (availabilityOf.state === 'unknown') {
+    conversion = { kind: 'unknown', label: 'Status unavailable', name: 'Conversion' };
   } else {
     conversion = { kind: 'waiting', label: 'Waiting', name: 'Conversion' };
   }
@@ -177,6 +210,11 @@ export function summarizeResourcePipelineStages(
   if (stages.some((stage) => stage.kind === 'failed')) {
     return { conversion, overall: 'failed', overallLabel: 'Unavailable', upload };
   }
+  // An unknown stage outranks the ones that are merely in motion: reporting
+  // progress for a pipeline whose other half cannot be read is a claim.
+  if (stages.some((stage) => stage.kind === 'unknown')) {
+    return { conversion, overall: 'unknown', overallLabel: 'Status unknown', upload };
+  }
   if (stages.some((stage) => stage.kind === 'active')) {
     return { conversion, overall: 'active', overallLabel: 'Processing', upload };
   }
@@ -184,6 +222,24 @@ export function summarizeResourcePipelineStages(
     return { conversion, overall: 'waiting', overallLabel: 'Waiting', upload };
   }
   return { conversion, overall: 'complete', overallLabel: 'Ready', upload };
+}
+
+function availability(state: ResourceAvailabilityState, detail: string): ResourceAvailability {
+  return { detail, label: AVAILABILITY_LABELS[state], state };
+}
+
+/**
+ * Whether the agent can read this attachment as it stands.
+ *
+ * The service's delivery decision is the answer where one exists — it is the
+ * record of how the attachment actually reached a model, and it already
+ * accounts for everything the client cannot see. The media-type check below is
+ * the fallback for an attachment with no delivery record yet, which is every
+ * attachment in the composer before a send.
+ */
+function agentReadable(resource: WorkspaceResource, delivery: ResourceBlock['delivery']): boolean {
+  if (delivery) return REPRESENTATION_READABILITY[delivery.representation];
+  return isDirectlyReadable(mediaType(resource));
 }
 
 function mediaType(resource: WorkspaceResource): string {

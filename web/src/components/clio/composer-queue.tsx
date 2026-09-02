@@ -302,7 +302,7 @@ function QueuedResourceAttachment({
   const filename = resource?.name ?? resourceRef.name;
   const mediaType = resource?.detected_mime || resource?.claimed_mime || '';
   const availability = resourceAvailability(resource);
-  const stages = resourcePipelineStages(resource, availability.label);
+  const stages = resourcePipelineStages(resource, availability);
   const activate = () => {
     if (resource) onOpen?.(resource);
   };

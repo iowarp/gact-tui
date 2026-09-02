@@ -1,6 +1,7 @@
 import {
   ActivityIcon,
   CircleCheckIcon,
+  CircleHelpIcon,
   Clock3Icon,
   LoaderCircleIcon,
   TriangleAlertIcon,
@@ -24,6 +25,9 @@ export function ResourcePipelineSummaryIcon({ stages }: { stages: ResourcePipeli
         <Clock3Icon aria-hidden="true" className="size-3 text-amber-600 dark:text-amber-400" />
       ) : stages.overall === 'failed' ? (
         <TriangleAlertIcon aria-hidden="true" className="size-3 text-destructive" />
+      ) : stages.overall === 'unknown' ? (
+        // Not amber: nothing is in motion, the state simply cannot be read.
+        <CircleHelpIcon aria-hidden="true" className="size-3 text-muted-foreground" />
       ) : (
         <ActivityIcon
           aria-hidden="true"
@@ -58,6 +62,8 @@ function ResourceStageLine({ stage }: { stage: ResourcePipelineStage }) {
       />
     ) : stage.kind === 'failed' ? (
       <TriangleAlertIcon aria-hidden="true" className="size-3.5 text-destructive" />
+    ) : stage.kind === 'unknown' ? (
+      <CircleHelpIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
     ) : (
       <Clock3Icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
     );
