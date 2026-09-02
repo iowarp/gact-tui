@@ -8,6 +8,7 @@ import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
 import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
 import { sessionArtifactEntities } from '@/lib/session-artifacts';
+import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
@@ -75,10 +76,7 @@ export function useWorkspaceData({
     enabled: Boolean(workspaceId),
     refetchInterval: (query) => {
       const current = query.state.data?.find((item) => item.id === sessionId);
-      return current &&
-        ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(current.state)
-        ? ACTIVE_SESSION_POLL_MS
-        : false;
+      return current && isSessionActive(current.state) ? ACTIVE_SESSION_POLL_MS : false;
     },
   });
   const allSessions = useQuery({
@@ -107,10 +105,16 @@ export function useWorkspaceData({
     enabled: Boolean(sessionId),
     refetchInterval: ACTIVE_SESSION_POLL_MS,
   });
+  // Read unscoped (`/v1/questions?status=pending`, no `session_id`), mirroring
+  // pendingApprovals just above: a background session's question must reach
+  // this attention feed too, not only the currently active session's. Like
+  // approvals, that means polling rather than relying on the live stream,
+  // which only opens for the active session.
   const questions = useQuery({
-    queryKey: queryKeys.key('pending-questions', settings.endpoint, sessionId),
-    queryFn: ({ signal }) => repository.questions(sessionId, signal, 'pending'),
+    queryKey: queryKeys.key('pending-questions', settings.endpoint, 'all-active'),
+    queryFn: ({ signal }) => repository.pendingQuestions(undefined, signal),
     enabled: Boolean(sessionId),
+    refetchInterval: ACTIVE_SESSION_POLL_MS,
   });
 
   useEffect(() => {
