@@ -55,14 +55,14 @@ function isEntityMapKey(key: string): boolean {
  * Entity ids the live stream has written. The stream owns those rows until a
  * gap reconcile clears the revision watermark, so a REST snapshot taken before
  * them must not roll them back or drop them.
+ *
+ * The watermark is keyed by entity id alone (SPEC §7.8), so the keys ARE the
+ * ids — no splitting. An earlier composite `type:id` key made this parse the
+ * first colon back out, which mangled every id that legitimately contains one
+ * (`sess_1:mcp:geo`).
  */
 function streamOwnedIds(revisions: Record<string, number>): Set<string> {
-  const owned = new Set<string>();
-  for (const key of Object.keys(revisions)) {
-    const separator = key.indexOf(':');
-    if (separator > 0) owned.add(key.slice(separator + 1));
-  }
-  return owned;
+  return new Set(Object.keys(revisions));
 }
 
 function mergeEntityMap(

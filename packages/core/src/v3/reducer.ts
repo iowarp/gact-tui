@@ -68,28 +68,27 @@ function recordMissingEntity(
   return { ...base, gaps: [...base.gaps, gap].slice(-MAX_GAP_HISTORY) };
 }
 
-function revisionKey(type: string, entityId: string): string {
-  return `${type}:${entityId}`;
-}
-
-function shouldApplyRevision(
-  state: EntityState,
-  type: string,
-  entityId?: string,
-  revision?: number,
-): boolean {
+/**
+ * SPEC §7.8 orders `entity_revision` per ENTITY. The key is therefore the
+ * entity id alone: keying it by `(type, entity)` would give every event type a
+ * private counter on the same entity, so a replayed `message.completed` at an
+ * older revision would still land over the `message.upserted` that superseded
+ * it. Entity ids are unique across families on the wire, so no fallback
+ * discriminator is needed — a collision would be a backend defect, not a shape
+ * this guard should paper over.
+ */
+function shouldApplyRevision(state: EntityState, entityId?: string, revision?: number): boolean {
   if (!entityId || revision === undefined) return true;
-  return revision > (state.revisions[revisionKey(type, entityId)] ?? -1);
+  return revision > (state.revisions[entityId] ?? -1);
 }
 
 function recordRevision(
   state: EntityState,
-  type: string,
   entityId?: string,
   revision?: number,
 ): Record<string, number> {
   if (!entityId || revision === undefined) return state.revisions;
-  return { ...state.revisions, [revisionKey(type, entityId)]: revision };
+  return { ...state.revisions, [entityId]: revision };
 }
 
 function appendDelta(message: Message, blockId: string, delta: string): Message {
@@ -133,16 +132,11 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     cursor: timelineCursor ? frame.cursor : state.cursor,
     processed_cursors: cursors,
   };
-  if (!shouldApplyRevision(base, envelope.type, envelope.entity_id, envelope.entity_revision)) {
+  if (!shouldApplyRevision(base, envelope.entity_id, envelope.entity_revision)) {
     return base;
   }
 
-  const revisions = recordRevision(
-    base,
-    envelope.type,
-    envelope.entity_id,
-    envelope.entity_revision,
-  );
+  const revisions = recordRevision(base, envelope.entity_id, envelope.entity_revision);
 
   switch (envelope.type) {
     case 'workspace.upserted': {
@@ -394,6 +388,10 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     case 'stream.live':
       return { ...base, revisions, stream: 'live' };
     default:
-      return { ...base, revisions };
+      // The store projects nothing for this type, so the frame applied nothing
+      // and must not bank a revision — same invariant `recordMissingEntity`
+      // documents. Banking here would let a composer event this reducer does
+      // not model shadow a later, genuinely applied frame for the same entity.
+      return base;
   }
 }

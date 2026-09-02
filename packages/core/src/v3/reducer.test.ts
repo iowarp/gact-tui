@@ -333,4 +333,94 @@ describe('GACT 0.3 reducer', () => {
       observed_active: true,
     });
   });
+
+  it('guards revisions per entity, not per event type on that entity', () => {
+    const upserted = frame(
+      '200',
+      'message.upserted',
+      {
+        id: 'msg_1',
+        session_id: 'sess_1',
+        role: 'assistant',
+        created_at: '2026-08-22T12:00:00Z',
+        blocks: [],
+      },
+      { entityId: 'msg_1', revision: 5 },
+    );
+    // The same entity at an older revision: a replayed completion the service
+    // already superseded. §7.8 orders by entity, so the event type it arrives
+    // under cannot buy it a second, private revision counter.
+    const staleCompletion = frame(
+      '201',
+      'message.completed',
+      { message_id: 'msg_1', completed_at: '2026-08-22T11:00:00Z', stop_reason: 'stale' },
+      { entityId: 'msg_1', revision: 3 },
+    );
+
+    const state = [upserted, staleCompletion].reduce(reduceTransportFrame, createEntityState());
+
+    expect(state.messages.msg_1?.completed_at).toBeUndefined();
+    expect(state.messages.msg_1?.stop_reason).toBeUndefined();
+    expect(state.revisions).toEqual({ msg_1: 5 });
+  });
+
+  it('carries interleaved queued-message revisions without banking either', () => {
+    const updated = frame(
+      '210',
+      'queued_message.updated',
+      { queued_message: { id: 'qm_1', revision: 5 } },
+      { entityId: 'qm_1', revision: 5 },
+    );
+    const reordered = frame(
+      '211',
+      'queued_message.reordered',
+      { queued_messages: [{ id: 'qm_1', revision: 3 }] },
+      { entityId: 'qm_1', revision: 3 },
+    );
+
+    const state = [updated, reordered].reduce(reduceTransportFrame, createEntityState());
+
+    // Neither event projects an entity this store holds, so neither may claim a
+    // revision — the authoritative re-read the surface schedules is the answer.
+    expect(state.revisions).toEqual({});
+    expect(state.processed_cursors).toEqual(['210', '211']);
+  });
+
+  it('lets a redelivered frame apply after an unreduced frame carried a later revision', () => {
+    // `entity_revision` is the service's own event sequence, so a composer
+    // event this store projects nothing for can sit between two message frames
+    // and carry a higher number than either.
+    const upserted = frame(
+      '220',
+      'message.upserted',
+      {
+        id: 'msg_1',
+        session_id: 'sess_1',
+        role: 'assistant',
+        created_at: '2026-08-22T12:00:00Z',
+        blocks: [],
+      },
+      { entityId: 'msg_1', revision: 2 },
+    );
+    const unreduced = frame(
+      '221',
+      'message.cancelled',
+      { message_id: 'msg_1', session_id: 'sess_1' },
+      { entityId: 'msg_1', revision: 9 },
+    );
+    const completion = frame(
+      '222',
+      'message.completed',
+      { message_id: 'msg_1', completed_at: '2026-08-22T12:00:05Z', stop_reason: 'end_turn' },
+      { entityId: 'msg_1', revision: 5 },
+    );
+
+    const state = [upserted, unreduced, completion].reduce(
+      reduceTransportFrame,
+      createEntityState(),
+    );
+
+    expect(state.messages.msg_1?.stop_reason).toBe('end_turn');
+    expect(state.revisions).toEqual({ msg_1: 5 });
+  });
 });
