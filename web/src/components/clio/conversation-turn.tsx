@@ -1,4 +1,4 @@
-import { BrainIcon, ChevronDownIcon, WrenchIcon } from 'lucide-react';
+import { BrainIcon, ChevronDownIcon, ListChecksIcon, WrenchIcon } from 'lucide-react';
 import { useState } from 'react';
 import {
   ChainOfThought,
@@ -15,7 +15,8 @@ import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
 import { getToolOutcome, getToolPresentation, getToolSummary } from './tool-presentation';
 import { ClioToolInvocation } from './tool-invocation';
-import type { SubagentRun } from '@clio/core/v3';
+import type { SubagentRun, Task } from '@clio/core/v3';
+import { ClioStatus } from './status';
 
 interface ConversationTurnProps {
   iterations: readonly ConversationIteration[];
@@ -41,6 +42,7 @@ export function ConversationTurn({
               iteration={iteration}
               key={iteration.id}
               onOpenSubagent={onOpenSubagent}
+              showTasks
               subagents={subagents}
             />
           ))}
@@ -91,6 +93,7 @@ function IterationSummary({
     tool?.title,
     toolSummary,
     toolState,
+    ...iteration.tasks.map((task) => `${task.title}: ${task.state}`),
   ]
     .filter(Boolean)
     .map((segment) => String(segment).trim().replace(/[.]+$/u, ''))
@@ -117,6 +120,9 @@ function IterationSummary({
                   ) : null}
                 </span>
               ) : null}
+              {iteration.tasks.map((task) => (
+                <TaskActivityLine className="mt-1" key={task.id} task={task} />
+              ))}
             </span>
             <ChevronDownIcon
               aria-hidden="true"
@@ -129,6 +135,7 @@ function IterationSummary({
           <IterationDetail
             iteration={iteration}
             onOpenSubagent={onOpenSubagent}
+            showTasks={false}
             subagents={subagents}
           />
         </CollapsibleContent>
@@ -141,10 +148,12 @@ function IterationDetail({
   iteration,
   onOpenSubagent,
   subagents,
+  showTasks = true,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
+  showTasks?: boolean;
 }) {
   return (
     <article>
@@ -179,8 +188,29 @@ function IterationDetail({
             ))}
           </div>
         ))}
+
+        {showTasks
+          ? iteration.tasks.map((task) => <TaskActivityLine key={task.id} task={task} />)
+          : null}
       </div>
     </article>
+  );
+}
+
+function TaskActivityLine({ task, className }: { task: Task; className?: string }) {
+  return (
+    <span
+      aria-label={`${task.title}: ${task.state}${task.detail ? `. ${task.detail}` : ''}`}
+      className={cn('flex min-w-0 items-center gap-2 text-xs text-muted-foreground', className)}
+      title={task.detail}
+    >
+      <ListChecksIcon aria-hidden="true" className="size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate text-foreground/85">{task.title}</span>
+      <ClioStatus
+        className="h-auto shrink-0 border-0 bg-transparent px-0 py-0 shadow-none"
+        value={task.state}
+      />
+    </span>
   );
 }
 

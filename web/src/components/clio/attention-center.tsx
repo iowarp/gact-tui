@@ -29,6 +29,7 @@ interface AttentionProps {
 }
 
 const notifiedAttentionIds = new Set<string>();
+const lastAttentionNoticeAt = new Map<string, number>();
 
 export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: AttentionProps) {
   const [open, setOpen] = useState(false);
@@ -120,9 +121,15 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
     if (newEntries.length === 0) return;
 
     const appFocused = document.visibilityState === 'visible' && document.hasFocus();
+    let shouldPlaySound = false;
     for (const { session, attention } of newEntries) {
       const path = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
+      const now = Date.now();
+      const shouldInterrupt = now - (lastAttentionNoticeAt.get(session.id) ?? 0) > 2_000;
+      lastAttentionNoticeAt.set(session.id, now);
+      shouldPlaySound ||= shouldInterrupt;
       toast.warning(`${session.title} needs your response`, {
+        id: `clio-attention:${session.id}`,
         description: sessionAttentionLabel(attention),
         action: {
           label: session.id === activeSessionId ? 'View' : 'Open',
@@ -131,6 +138,7 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
       });
       if (
         desktopNotifications &&
+        shouldInterrupt &&
         !appFocused &&
         typeof Notification !== 'undefined' &&
         Notification.permission === 'granted'
@@ -146,7 +154,10 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
         });
       }
     }
-    if (attentionSound === 'always' || (attentionSound === 'background' && !appFocused)) {
+    if (
+      shouldPlaySound &&
+      (attentionSound === 'always' || (attentionSound === 'background' && !appFocused))
+    ) {
       void playAttentionSound();
     }
   }, [activeSessionId, attentionSound, attentions, desktopNotifications, navigate, sessions]);

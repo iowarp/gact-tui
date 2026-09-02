@@ -110,7 +110,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
   const pendingSteer = message.role === 'user' && entities.pendingMessageIds?.has(message.id);
   const cancellablePendingSteer =
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
-  const turn = conversationTurnPresentation(message, entities.tools);
+  const turn = conversationTurnPresentation(message, entities.tools, entities.tasks);
   const residualBlocks = turn.residualBlocks;
   const linkedSubagentIds = new Set(
     turn.iterations.flatMap((iteration) =>

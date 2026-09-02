@@ -528,6 +528,58 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByRole('radio', { name: 'Full activity view' })).toBeInTheDocument();
   });
 
+  it('renders a tool-returned task as a quiet status line inside Activity', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_task',
+            session_id: 'session_1',
+            role: 'assistant',
+            created_at: '2026-08-22T00:00:00Z',
+            blocks: [
+              { id: 'reason_task', type: 'reasoning', text: 'Review the station evidence.' },
+              { id: 'tool_task', type: 'tool', tool_id: 'tool_read' },
+              { id: 'task_block', type: 'task', task_id: 'task_quality' },
+            ],
+          },
+        ]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{
+          task_quality: {
+            id: 'task_quality',
+            session_id: 'session_1',
+            title: 'Review station quality',
+            state: 'completed',
+            detail: 'Evidence retained with source identity.',
+          },
+        }}
+        tools={{
+          tool_read: {
+            id: 'tool_read',
+            session_id: 'session_1',
+            name: 'ndp_search_datasets',
+            title: 'Search EarthScope catalog',
+            state: 'succeeded',
+          },
+        }}
+      />,
+    );
+
+    const taskLine = screen.getByLabelText(
+      'Review station quality: completed. Evidence retained with source identity.',
+    );
+    expect(taskLine).toBeInTheDocument();
+    expect(taskLine).toHaveTextContent('Review station quality');
+    expect(taskLine).toHaveTextContent('Completed');
+    expect(taskLine.closest('button')).toHaveAccessibleName(/Expand activity/);
+    expect(
+      screen.queryByRole('button', { name: 'Review station quality' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('opens a compact chain as the full causal turn and can condense it again', () => {
     renderConversation(
       <ClioConversation
