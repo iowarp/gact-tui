@@ -128,11 +128,12 @@ describe('ClioComposerQueue', () => {
     });
 
     const queue = screen.getByLabelText('Queued messages');
-    expect(queue.querySelector('[data-slot="sortable"]')).toHaveClass('h-40');
-    expect(screen.getByRole('region', { name: '6 queued messages' })).toHaveAttribute(
-      'tabindex',
-      '0',
-    );
+    const viewport = screen.getByRole('region', { name: '6 queued messages' });
+    expect(queue).toHaveClass('min-h-0', 'shrink');
+    expect(queue.querySelector('[data-slot="sortable"]')).toHaveClass('min-h-0');
+    expect(queue.querySelector('[data-slot="sortable"]')).not.toHaveClass('h-40');
+    expect(viewport).toHaveAttribute('tabindex', '0');
+    expect(viewport).toHaveClass('overscroll-contain');
   });
 
   it('preserves a local edit when the service rejects a stale revision', async () => {

@@ -190,7 +190,7 @@ export function ClioComposer({
       className={cn(
         'relative',
         variant === 'docked'
-          ? 'pointer-events-none px-4 pb-3 [&>*]:pointer-events-auto lg:px-6'
+          ? 'pointer-events-none flex max-h-full min-h-0 flex-col overflow-hidden px-4 pb-3 [&>*]:pointer-events-auto lg:px-6'
           : 'w-full',
       )}
       ref={rootRef}
@@ -251,7 +251,7 @@ export function ClioComposer({
         />
       ) : null}
       <PromptInput
-        className="mx-auto max-w-4xl rounded-2xl border-border/30 bg-card/70 shadow-[0_12px_32px_-18px_rgb(0_0_0/0.8)] backdrop-blur-xl [&_[data-slot=input-group]]:border-border/30 [&_[data-slot=input-group]]:bg-card/70 dark:bg-card/60 dark:[&_[data-slot=input-group]]:bg-card/60"
+        className="mx-auto max-w-4xl shrink-0 rounded-2xl border-border/30 bg-card/70 shadow-[0_12px_32px_-18px_rgb(0_0_0/0.8)] backdrop-blur-xl [&_[data-slot=input-group]]:border-border/30 [&_[data-slot=input-group]]:bg-card/70 dark:bg-card/60 dark:[&_[data-slot=input-group]]:bg-card/60"
         maxFileSize={250 * 1024 * 1024}
         multiple
         onError={(error) => toast.error('Attachment was not added', { description: error.message })}

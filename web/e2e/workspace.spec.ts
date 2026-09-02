@@ -380,6 +380,36 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
   ).toEqual([]);
 });
 
+test('scrolls pending responses and queued messages independently at a narrow viewport', async ({
+  page,
+}) => {
+  await page.setViewportSize({ height: 922, width: 848 });
+  const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
+  expect(seeded.ok()).toBe(true);
+  await page.goto(workspaceUrl);
+
+  const pendingResponses = page.getByRole('region', { name: 'Agent needs your response' });
+  const responseViewport = pendingResponses.getByRole('region', { name: '2 pending responses' });
+  const queue = page.locator('[aria-label="Queued messages"]:visible');
+  const queueViewport = queue.getByRole('region', { name: '6 queued messages' });
+
+  for (const viewport of [responseViewport, queueViewport]) {
+    await expect(viewport).toBeVisible();
+    expect(
+      await viewport.evaluate((element) => element.scrollHeight - element.clientHeight),
+    ).toBeGreaterThan(0);
+    await viewport.hover();
+    await page.mouse.wheel(0, 500);
+    await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+    await viewport.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await viewport.focus();
+    await page.keyboard.press('PageDown');
+    await expect.poll(() => viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  }
+});
+
 test('batches a 100-delta stream over a virtualized 1,000-message transcript', async ({ page }) => {
   await page.addInitScript(() => {
     window.__clioLongTasks = [];

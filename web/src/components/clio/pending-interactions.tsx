@@ -55,10 +55,10 @@ export function ClioPendingInteractions({
     <Queue
       aria-label="Agent needs your response"
       aria-live="polite"
-      className="relative z-10 mx-auto -mb-px w-[calc(100%_-_1.5rem)] max-w-[54.5rem] rounded-b-none border-b-0 py-0.5"
+      className="relative z-10 mx-auto -mb-px min-h-0 w-[calc(100%_-_1.5rem)] max-w-[54.5rem] shrink rounded-b-none border-b-0 py-0.5"
       role="region"
     >
-      <QueueSection>
+      <QueueSection className="flex min-h-0 flex-col">
         <QueueSectionTrigger>
           <QueueSectionLabel
             count={responseCount}
@@ -66,8 +66,18 @@ export function ClioPendingInteractions({
             label={responseCount === 1 ? 'response needed' : 'responses needed'}
           />
         </QueueSectionTrigger>
-        <QueueSectionContent>
-          <ScrollArea className="max-h-[min(45dvh,24rem)]">
+        <QueueSectionContent className="flex min-h-0 flex-col">
+          <ScrollArea
+            className="min-h-0 shrink"
+            scrollHideDelay={500}
+            type="hover"
+            viewportProps={{
+              'aria-label': `${responseCount} pending responses`,
+              className: 'overscroll-contain',
+              role: 'region',
+              tabIndex: 0,
+            }}
+          >
             <div className="flex flex-col gap-2 px-1 pb-1">
               {approvals.map((approval) => (
                 <Confirmation

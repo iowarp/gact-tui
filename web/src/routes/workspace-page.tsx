@@ -301,7 +301,9 @@ export function WorkspacePage() {
   const renderComposer = (variant: 'docked' | 'welcome') => (
     <m.div
       className={
-        variant === 'welcome' ? 'w-full' : 'pointer-events-none absolute inset-x-0 bottom-0 z-20'
+        variant === 'welcome'
+          ? 'w-full'
+          : 'pointer-events-none absolute inset-0 z-20 flex min-h-0 flex-col justify-end'
       }
       key={variant}
       layout

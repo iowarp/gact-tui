@@ -81,4 +81,43 @@ describe('ClioPendingInteractions', () => {
     await user.click(screen.getByRole('button', { name: 'Send response' }));
     expect(onAnswer).toHaveBeenCalledWith('question_1', { selected_options: ['resume'] });
   });
+
+  it('exposes an independently keyboard-scrollable response viewport', () => {
+    render(
+      <ClioPendingInteractions
+        approvals={[
+          {
+            id: 'perm_1',
+            session_id: 'sess_1',
+            tool_name: 'shell.exec',
+            summary: 'Run the analysis command',
+            status: 'pending',
+            created_at: '2026-08-22T00:00:00Z',
+          },
+        ]}
+        onAnswer={async () => undefined}
+        onApproval={async () => undefined}
+        onCancelQuestion={async () => undefined}
+        questions={[
+          {
+            id: 'question_1',
+            session_id: 'sess_1',
+            prompt: 'Resume the campaign?',
+            status: 'pending',
+            kind: 'choice',
+            options: [{ label: 'Resume', value: 'resume' }],
+            created_at: '2026-08-22T00:00:00Z',
+            updated_at: '2026-08-22T00:00:00Z',
+          },
+        ]}
+      />,
+    );
+
+    const responses = screen.getByRole('region', { name: 'Agent needs your response' });
+    const viewport = screen.getByRole('region', { name: '2 pending responses' });
+    expect(responses).toHaveClass('min-h-0', 'shrink');
+    expect(viewport).toHaveAttribute('tabindex', '0');
+    expect(viewport).toHaveClass('overscroll-contain');
+    expect(viewport.closest('[data-slot="scroll-area"]')).toHaveClass('min-h-0');
+  });
 });

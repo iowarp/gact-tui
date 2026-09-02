@@ -90,8 +90,17 @@ export const QueueItemFile = ({ children, ...props }: QueueItemAttachmentProps) 
 
 export type QueueListProps = ComponentProps<typeof ScrollArea>;
 
-export const QueueList = ({ children, className, ...props }: QueueListProps) => (
-  <ScrollArea className={cn('max-h-40', className)} {...props}>
+export const QueueList = ({ children, className, viewportProps, ...props }: QueueListProps) => (
+  <ScrollArea
+    className={cn('min-h-0', className)}
+    scrollHideDelay={500}
+    type="hover"
+    viewportProps={{
+      ...viewportProps,
+      className: cn('overscroll-contain', viewportProps?.className),
+    }}
+    {...props}
+  >
     <ul className="space-y-px py-0.5 pr-1">{children}</ul>
   </ScrollArea>
 );

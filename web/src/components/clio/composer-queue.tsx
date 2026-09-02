@@ -116,13 +116,13 @@ export function ClioComposerQueue({
   return (
     <Queue
       aria-label="Queued messages"
-      className="relative z-10 mx-auto -mb-px w-[calc(100%_-_1.5rem)] max-w-[54.5rem] rounded-b-none border-b-0 py-0.5"
+      className="relative z-10 mx-auto -mb-px min-h-0 w-[calc(100%_-_1.5rem)] max-w-[54.5rem] shrink rounded-b-none border-b-0 py-0.5"
     >
-      <QueueSection>
+      <QueueSection className="flex min-h-0 flex-col">
         <QueueSectionTrigger>
           <QueueSectionLabel count={ordered.length} label="queued messages" />
         </QueueSectionTrigger>
-        <QueueSectionContent>
+        <QueueSectionContent className="flex min-h-0 flex-col">
           <Sortable
             asChild
             getItemValue={(message) => message.id}
@@ -133,9 +133,6 @@ export function ClioComposerQueue({
             value={ordered}
           >
             <QueueList
-              className={
-                ordered.length > 4 ? 'h-40' : undefined
-              }
               viewportProps={
                 ordered.length > 4
                   ? {
@@ -186,7 +183,7 @@ export function ClioComposerQueue({
                           value={editing.text}
                         />
                       ) : (
-                        <QueueItemContent className="text-foreground/70" title={text}>
+                        <QueueItemContent className="text-foreground" title={text}>
                           {text || 'Attachments only'}
                         </QueueItemContent>
                       )}

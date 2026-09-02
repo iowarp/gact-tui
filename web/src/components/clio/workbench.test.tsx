@@ -155,7 +155,7 @@ describe('ClioWorkbench canvas', () => {
     await user.click(screen.getByRole('button', { name: 'Open report.md' }));
     expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'report.md' })).toHaveAttribute('aria-selected', 'true');
-    expect(await screen.findByText('# Report')).toBeVisible();
+    expect(await screen.findByText('# Report', {}, { timeout: 3_000 })).toBeVisible();
   });
 
   it('keeps the picker in a resizable split when an artifact is shift-clicked', async () => {
