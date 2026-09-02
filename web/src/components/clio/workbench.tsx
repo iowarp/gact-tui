@@ -241,7 +241,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     const [tabs, setTabs] = useState<WorkbenchTab[]>([sessionTab]);
     const [activeTabId, setActiveTabId] = useState<string>(sessionTab.id);
     const [maximized, setMaximized] = useState(false);
-    const activeTabRef = useRef<HTMLButtonElement>(null);
+    const activeTabRef = useRef<HTMLDivElement>(null);
     const tabStripRef = useRef<HTMLDivElement>(null);
 
     useLayoutEffect(() => {
@@ -608,62 +608,57 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 {tabs.map((tab) => {
                   const active = tab.id === activeTabId;
                   return (
-                    <TabsTrigger
-                      // The close control below carries its own accessible name; without this,
-                      // that name would fold into this tab's name-from-content computation
-                      // (e.g. "Observability Close Observability").
-                      aria-label={tab.label}
-                      aria-keyshortcuts="Delete"
-                      className={cn(
-                        'group/canvas-tab h-8 min-w-24 max-w-56 shrink-0 justify-start rounded-lg border-transparent bg-transparent py-0.5 pr-8 pl-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
-                        active
-                          ? 'text-foreground'
-                          : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
-                      )}
+                    // The close button below is a SIBLING, not a child, of TabsTrigger: Radix's
+                    // Tabs.Trigger renders a real <button role="tab">, whose content model
+                    // forbids interactive descendants and whose ARIA role treats descendants as
+                    // presentational (stripped from the accessibility tree) — nesting a control
+                    // in it, real <button> or otherwise, cannot carry its own accessible name to
+                    // assistive tech, and adds a stray tab stop inside the tablist's roving-
+                    // tabindex model. Wrapping keeps both as ordinary flex siblings; Radix finds
+                    // TabsTrigger by DOM query regardless of this wrapper, so roving tabindex
+                    // between tabs is unaffected.
+                    <div
+                      className="group/canvas-tab relative flex min-w-24 max-w-56 shrink-0"
                       key={tab.id}
                       ref={active ? activeTabRef : undefined}
-                      onKeyDown={(event) => {
-                        if (event.key !== 'Delete') return;
-                        event.preventDefault();
-                        closeTab(tab.id);
-                      }}
-                      value={tab.id}
                     >
-                      <TabIcon kind={tab.kind} />
-                      <span aria-hidden="true" className="truncate">
-                        {tab.label}
-                      </span>
-                      {/* A real accessible control, not a decorative span: visible on hover or
-                          focus-within, but hit-testable (and reachable on touch) at all times —
-                          opacity gates the affordance, never pointer-events. asChild renders it
-                          as a span rather than a nested <button>, since TabsTrigger already is one. */}
-                      <Button
-                        aria-label={`Close ${tab.label}`}
-                        asChild
-                        className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition-opacity group-hover/canvas-tab:opacity-100 group-focus-within/canvas-tab:opacity-100 focus-visible:opacity-100"
-                        onClick={(event) => {
-                          event.stopPropagation();
+                      <TabsTrigger
+                        aria-keyshortcuts="Delete"
+                        className={cn(
+                          'h-8 w-full justify-start rounded-lg border-transparent bg-transparent py-0.5 pr-8 pl-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
+                          active
+                            ? 'text-foreground'
+                            : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
+                        )}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Delete') return;
+                          event.preventDefault();
                           closeTab(tab.id);
                         }}
+                        value={tab.id}
+                      >
+                        <TabIcon kind={tab.kind} />
+                        <span className="truncate">{tab.label}</span>
+                      </TabsTrigger>
+                      {/*
+                        Always hit-testable (a real button, opacity is the only affordance gate —
+                        never pointer-events) and always at least faintly visible, since touch has
+                        no hover to reveal it on: hover/focus only strengthen it from there. Native
+                        Enter/Space and click both just work because this is an actual <button>.
+                      */}
+                      <Button
+                        aria-label={`Close ${tab.label}`}
+                        className="absolute top-1/2 right-1 size-6 -translate-y-1/2 rounded-md text-muted-foreground opacity-70 transition-opacity group-hover/canvas-tab:opacity-100 group-focus-within/canvas-tab:opacity-100 hover:bg-muted hover:text-foreground focus-visible:opacity-100"
+                        data-slot="canvas-tab-close"
+                        onClick={() => closeTab(tab.id)}
                         size="icon-xs"
                         title={`Close ${tab.label}`}
+                        type="button"
                         variant="ghost"
                       >
-                        <span
-                          data-slot="canvas-tab-close"
-                          onKeyDown={(event) => {
-                            if (event.key !== 'Enter' && event.key !== ' ') return;
-                            event.preventDefault();
-                            event.stopPropagation();
-                            closeTab(tab.id);
-                          }}
-                          role="button"
-                          tabIndex={0}
-                        >
-                          <XIcon aria-hidden="true" className="size-3.5" />
-                        </span>
+                        <XIcon aria-hidden="true" className="size-3.5" />
                       </Button>
-                    </TabsTrigger>
+                    </div>
                   );
                 })}
               </TabsList>

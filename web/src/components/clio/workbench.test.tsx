@@ -104,7 +104,7 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('No session artifacts')).toBeVisible();
   });
 
-  it('places each close action on the tab it closes', async () => {
+  it('places each close action beside the tab it closes, not inside it', async () => {
     const user = userEvent.setup();
     renderWorkbench();
 
@@ -113,17 +113,21 @@ describe('ClioWorkbench canvas', () => {
 
     const observabilityTab = screen.getByRole('tab', { name: 'Observability' });
     const artifactsTab = screen.getByRole('tab', { name: 'Artifacts' });
-    const observabilityClose = observabilityTab.querySelector('[data-slot="canvas-tab-close"]');
-    const artifactsClose = artifactsTab.querySelector('[data-slot="canvas-tab-close"]');
+    const observabilityClose = screen.getByRole('button', { name: 'Close Observability' });
+    const artifactsClose = screen.getByRole('button', { name: 'Close Artifacts' });
 
-    expect(observabilityClose).not.toBeNull();
-    expect(artifactsClose).not.toBeNull();
+    // A real <button>, not a descendant of the tab: role="tab" treats descendants as
+    // presentational (stripped from the accessibility tree), and a <button>'s content model
+    // forbids interactive descendants — either way, a nested control cannot carry its own
+    // accessible name to assistive tech. Reachability, not a synthesized pointerDown: a real
+    // accessible name, never hit-test-blocked off hover (touch has no hover to gate on), and
+    // the tab itself keeps its own unpolluted name.
+    expect(observabilityClose.tagName).toBe('BUTTON');
+    expect(observabilityClose.closest('[role="tab"]')).toBeNull();
     expect(observabilityClose).toHaveAttribute('title', 'Close Observability');
     expect(artifactsClose).toHaveAttribute('title', 'Close Artifacts');
-    // Reachability, not just a synthesized pointerDown: a real accessible name, and never
-    // hit-test-blocked off hover (touch has no hover to gate visibility on).
-    expect(observabilityClose).toHaveAccessibleName('Close Observability');
     expect(observabilityClose).not.toHaveClass('pointer-events-none');
+    expect(observabilityTab).toHaveAccessibleName('Observability');
 
     act(() => artifactsTab.focus());
     await user.keyboard('{ArrowLeft}');
@@ -131,7 +135,7 @@ describe('ClioWorkbench canvas', () => {
     await user.keyboard('{ArrowRight}');
     expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
 
-    await user.click(observabilityClose!);
+    await user.click(observabilityClose);
     expect(screen.queryByRole('tab', { name: 'Observability' })).not.toBeInTheDocument();
     expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
   });
