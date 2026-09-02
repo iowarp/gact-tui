@@ -252,7 +252,13 @@ function MinimapRail({
                 <p className="text-xs font-medium capitalize text-muted-foreground">
                   {message.role}
                 </p>
-                <p className="mt-1 line-clamp-3 text-sm">{messagePreview(message)}</p>
+                <MarkdownText
+                  className="mt-1 line-clamp-3 text-sm"
+                  controls={false}
+                  mode="static"
+                >
+                  {messagePreview(message)}
+                </MarkdownText>
               </HoverCardContent>
             </HoverCard>
           );

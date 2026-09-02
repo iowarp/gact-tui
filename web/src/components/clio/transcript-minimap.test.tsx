@@ -128,6 +128,12 @@ describe('ClioTranscriptMinimap', () => {
       'group-hover:w-5',
       'group-focus-visible:w-5',
     );
+    expect(screen.queryByText(/Compare the three stations/)).not.toBeInTheDocument();
+    await user.hover(inactiveLandmark);
+    expect(
+      await screen.findByText('three stations', { selector: '[data-streamdown="strong"]' }),
+    ).toBeVisible();
+    expect(screen.queryByText(/\*\*three stations\*\*/)).not.toBeInTheDocument();
     expect(activeLandmark).not.toHaveClass('ring-2', 'rounded-sm');
     const scrollArea = screen.getByLabelText('Browse transcript landmarks');
     expect(scrollArea).toHaveClass('overscroll-y-contain');
@@ -135,7 +141,6 @@ describe('ClioTranscriptMinimap', () => {
     expect(parentWheel).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
     expect(onJump).toHaveBeenCalledWith(1);
-    expect(screen.queryByText(/Compare the three stations/)).not.toBeInTheDocument();
     expect(scrollToIndex).not.toHaveBeenCalled();
   });
 

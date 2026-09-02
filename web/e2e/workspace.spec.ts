@@ -198,9 +198,15 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
     );
     await page.mouse.wheel(0, -50_000);
   }
-  await expect(
-    minimap.getByRole('button', { exact: true, name: 'Jump to user message 1' }),
-  ).toBeVisible();
+  const firstRailLandmark = minimap.getByRole('button', {
+    exact: true,
+    name: 'Jump to user message 1',
+  });
+  await expect(firstRailLandmark).toBeVisible();
+  await firstRailLandmark.hover();
+  const railPreview = page.locator('[data-slot="hover-card-content"]');
+  await expect(railPreview.locator('[data-streamdown="strong"]')).toContainText('evidence ledger');
+  await expect(railPreview.getByText(/\*\*evidence ledger\*\*/)).toHaveCount(0);
   await expect
     .poll(() => conversation.evaluate((element) => element.scrollTop))
     .toBe(conversationScrollTop);
