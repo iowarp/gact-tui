@@ -28,6 +28,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 type PermissionAction = 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
 
@@ -175,9 +176,11 @@ function QuestionResponse({
 }) {
   const [answer, setAnswer] = useState('');
   const [selection, setSelection] = useState('');
+  const [optionComments, setOptionComments] = useState<Record<string, string>>({});
   const options = question.options ?? [];
   const usesOptions = options.length > 0 && question.kind !== 'freeform';
   const canSubmit = usesOptions ? Boolean(selection) : Boolean(answer.trim());
+  const selectedComment = optionComments[selection]?.trim() ?? '';
 
   return (
     <Frame dense spacing="sm">
@@ -203,25 +206,63 @@ function QuestionResponse({
       </FrameHeader>
       <FramePanel>
         {usesOptions ? (
-          <RadioGroup onValueChange={setSelection} value={selection}>
+          <RadioGroup disabled={disabled} onValueChange={setSelection} value={selection}>
             {options.map((option) => {
               const value = option.value || option.label;
+              const selected = selection === value;
               return (
-                <FieldLabel htmlFor={`${question.id}-${value}`} key={value}>
-                  <Field orientation="horizontal">
-                    <RadioGroupItem
-                      aria-label={option.label}
-                      id={`${question.id}-${value}`}
-                      value={value}
-                    />
-                    <FieldContent>
-                      <FieldTitle>{option.label}</FieldTitle>
-                      {option.description ? (
-                        <FieldDescription>{option.description}</FieldDescription>
-                      ) : null}
-                    </FieldContent>
-                  </Field>
-                </FieldLabel>
+                <div
+                  className={cn(
+                    'rounded-lg border transition-colors hover:bg-muted/50',
+                    selected &&
+                      'border-primary/30 bg-primary/5 dark:border-primary/20 dark:bg-primary/10',
+                  )}
+                  key={value}
+                >
+                  <FieldLabel
+                    className="has-[>[data-slot=field]]:rounded-none has-[>[data-slot=field]]:border-0 has-[>[data-slot=field]]:hover:bg-transparent has-data-checked:bg-transparent dark:has-data-checked:bg-transparent"
+                    htmlFor={`${question.id}-${value}`}
+                  >
+                    <Field orientation="horizontal">
+                      <RadioGroupItem
+                        aria-label={option.label}
+                        id={`${question.id}-${value}`}
+                        value={value}
+                      />
+                      <FieldContent>
+                        <FieldTitle>{option.label}</FieldTitle>
+                        {option.description ? (
+                          <FieldDescription>{option.description}</FieldDescription>
+                        ) : null}
+                      </FieldContent>
+                    </Field>
+                  </FieldLabel>
+                  {selected ? (
+                    <Field className="gap-1 border-t border-border/60 px-2.5 py-2">
+                      <FieldLabel
+                        className="w-auto text-xs font-normal text-muted-foreground"
+                        htmlFor={`${question.id}-${value}-comment`}
+                      >
+                        Comment on {option.label} (optional)
+                      </FieldLabel>
+                      <Textarea
+                        aria-label={`Comment on ${option.label}`}
+                        className="min-h-12 resize-y bg-background/60"
+                        disabled={disabled}
+                        id={`${question.id}-${value}-comment`}
+                        onChange={(event) =>
+                          setOptionComments((current) => ({
+                            ...current,
+                            [value]: event.target.value,
+                          }))
+                        }
+                        placeholder="Add context for the agent"
+                        rows={2}
+                        value={optionComments[value] ?? ''}
+                      />
+                    </Field>
+                  ) : null}
+                </div>
               );
             })}
           </RadioGroup>
@@ -242,7 +283,12 @@ function QuestionResponse({
             onClick={() =>
               void onAnswer(
                 question.id,
-                usesOptions ? { selected_options: [selection] } : { answer: answer.trim() },
+                usesOptions
+                  ? {
+                      selected_options: [selection],
+                      ...(selectedComment ? { answer: selectedComment } : {}),
+                    }
+                  : { answer: answer.trim() },
               )
             }
           >

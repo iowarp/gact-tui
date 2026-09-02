@@ -82,6 +82,54 @@ describe('ClioPendingInteractions', () => {
     expect(onAnswer).toHaveBeenCalledWith('question_1', { selected_options: ['resume'] });
   });
 
+  it('submits an optional comment with the selected question option', async () => {
+    const user = userEvent.setup();
+    const onAnswer = vi.fn(async () => undefined);
+
+    render(
+      <ClioPendingInteractions
+        approvals={[]}
+        onAnswer={onAnswer}
+        onApproval={async () => undefined}
+        onCancelQuestion={async () => undefined}
+        questions={[
+          {
+            id: 'question_1',
+            session_id: 'sess_1',
+            prompt: 'Which evidence view should remain primary?',
+            status: 'pending',
+            kind: 'choice',
+            options: [
+              { label: 'Station table', value: 'table' },
+              { label: 'Displacement plot', value: 'plot' },
+            ],
+            created_at: '2026-08-22T00:00:00Z',
+            updated_at: '2026-08-22T00:00:00Z',
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole('radio', { name: 'Station table' }));
+    const stationComment = screen.getByRole('textbox', { name: 'Comment on Station table' });
+    await user.type(stationComment, 'Keep the sortable columns visible.');
+
+    await user.click(screen.getByRole('radio', { name: 'Displacement plot' }));
+    expect(
+      screen.queryByRole('textbox', { name: 'Comment on Station table' }),
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Station table' }));
+    expect(screen.getByRole('textbox', { name: 'Comment on Station table' })).toHaveValue(
+      'Keep the sortable columns visible.',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Send response' }));
+    expect(onAnswer).toHaveBeenCalledWith('question_1', {
+      answer: 'Keep the sortable columns visible.',
+      selected_options: ['table'],
+    });
+  });
+
   it('exposes an independently keyboard-scrollable response viewport', () => {
     render(
       <ClioPendingInteractions
