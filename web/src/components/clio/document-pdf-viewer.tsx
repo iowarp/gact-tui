@@ -195,7 +195,15 @@ export function ClioDocumentPdfViewer({
           </Toggle>
         </div>
       </div>
-      <div className="min-h-0 overflow-auto" onScroll={readScroll} ref={scrollRef}>
+      {/* The page window follows this element's scroll position, so the viewer
+          owns its scroll region rather than riding whichever ancestor happens
+          to scroll — every host has to give it a bounded box. */}
+      <div
+        className="min-h-0 overflow-auto"
+        data-pdf-scroller=""
+        onScroll={readScroll}
+        ref={scrollRef}
+      >
         <Document
           error={
             <ClioStatus

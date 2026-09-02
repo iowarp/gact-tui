@@ -72,6 +72,13 @@ describe('ClioDocumentPdfViewer', () => {
     expect(screen.getAllByText(/^PDF page \d+$/u)).toHaveLength(3);
     expect(screen.queryByText('PDF page 200')).not.toBeInTheDocument();
     expect(screen.queryByText('PDF page 400')).not.toBeInTheDocument();
+    // The window follows this element's scroll position, so the viewer has to
+    // own a scroll region rather than riding whatever ancestor happens to
+    // scroll — every host has to give it a bounded box.
+    const spacer = document.querySelector<HTMLElement>('[data-pdf-spacer="leading"]');
+    const scroller = document.querySelector<HTMLElement>('[data-pdf-scroller]');
+    expect(scroller?.className).toContain('overflow-auto');
+    expect(scroller?.contains(spacer as Node)).toBe(true);
     // The unmounted pages still hold their space, so the scrollbar keeps
     // reporting the whole document.
     const trailing = document.querySelector<HTMLElement>('[data-pdf-spacer="trailing"]');
