@@ -35,6 +35,7 @@ import {
   visibleWorkspaceSessions,
 } from '@/lib/recent-sessions';
 import { isSessionRunning } from '@/lib/session-state';
+import type { SessionAttention } from '@/lib/session-attention';
 import {
   workspaceLabels,
   workspaceLabelText,
@@ -58,6 +59,7 @@ interface WorkspaceNavigationProps {
   onDownloadSession: (sessionId: string, title: string) => Promise<void>;
   onOpenWorkspaceFiles?: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
+  attentions: Readonly<Record<string, SessionAttention>>;
 }
 
 function WorkspaceLabelFields({
@@ -93,6 +95,7 @@ export function WorkspaceNavigation({
   onDownloadSession,
   onOpenWorkspaceFiles,
   onAction,
+  attentions,
 }: WorkspaceNavigationProps) {
   const labels = useMemo(() => workspaceLabels(workspaces), [workspaces]);
   const [showAllWorkspaces, setShowAllWorkspaces] = useState(false);
@@ -153,6 +156,7 @@ export function WorkspaceNavigation({
           return (
             <WorkspaceTreeItem
               actions={actions}
+              attentions={attentions}
               activeSessionId={activeSessionId}
               activeWorkspaceId={activeWorkspaceId}
               blueprints={blueprints}
@@ -226,6 +230,7 @@ interface WorkspaceTreeItemProps {
   onOpenWorkspaceFiles?: () => void;
   onAction: (action: () => Promise<void>, success: string) => void;
   onVisitSession: (session: Session) => void;
+  attentions: Readonly<Record<string, SessionAttention>>;
 }
 
 function WorkspaceTreeItem({
@@ -249,6 +254,7 @@ function WorkspaceTreeItem({
   onOpenWorkspaceFiles,
   onAction,
   onVisitSession,
+  attentions,
 }: WorkspaceTreeItemProps) {
   const visibleSessions = visibleWorkspaceSessions(
     sessions,
@@ -300,6 +306,7 @@ function WorkspaceTreeItem({
             <SessionNavigationRow
               actions={actions}
               activeSessionId={activeSessionId}
+              attention={attentions[session.id]}
               blueprint={resolveActiveBlueprint(session, blueprints)}
               key={session.id}
               onAction={onAction}

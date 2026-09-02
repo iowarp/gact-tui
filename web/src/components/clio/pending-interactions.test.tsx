@@ -31,8 +31,10 @@ describe('ClioPendingInteractions', () => {
 
     const region = screen.getByRole('region', { name: 'Agent needs your response' });
     const trigger = screen.getByRole('button', { name: '1 response needed' });
-    const title = screen.getByText('Run the analysis command');
     expect(region).toBeVisible();
+    expect(screen.queryByText('Run the analysis command')).not.toBeInTheDocument();
+    await user.click(trigger);
+    const title = screen.getByText('Run the analysis command');
     expect(title).toHaveAttribute('data-slot', 'pending-interaction-title');
     expect(title.closest('[role="alert"]')).toHaveClass('grid', 'grid-cols-[auto_minmax(0,1fr)]');
     await user.click(trigger);
@@ -72,6 +74,7 @@ describe('ClioPendingInteractions', () => {
     );
 
     expect(screen.getByRole('button', { name: '1 response needed' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '1 response needed' }));
     expect(screen.getByText('Resume the campaign?')).toHaveAttribute(
       'data-slot',
       'pending-interaction-title',
@@ -110,6 +113,7 @@ describe('ClioPendingInteractions', () => {
       />,
     );
 
+    await user.click(screen.getByRole('button', { name: '1 response needed' }));
     await user.click(screen.getByRole('radio', { name: 'Station table' }));
     const stationComment = screen.getByRole('textbox', { name: 'Comment on Station table' });
     await user.type(stationComment, 'Keep the sortable columns visible.');
@@ -130,7 +134,8 @@ describe('ClioPendingInteractions', () => {
     });
   });
 
-  it('exposes an independently keyboard-scrollable response viewport', () => {
+  it('exposes an independently keyboard-scrollable response viewport', async () => {
+    const user = userEvent.setup();
     render(
       <ClioPendingInteractions
         approvals={[
@@ -162,6 +167,7 @@ describe('ClioPendingInteractions', () => {
     );
 
     const responses = screen.getByRole('region', { name: 'Agent needs your response' });
+    await user.click(screen.getByRole('button', { name: '2 responses needed' }));
     const viewport = screen.getByRole('region', { name: '2 pending responses' });
     expect(responses).toHaveClass('min-h-0', 'shrink');
     expect(viewport).toHaveAttribute('tabindex', '0');

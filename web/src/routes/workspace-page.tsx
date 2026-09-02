@@ -36,6 +36,7 @@ import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { buildSessionAttentionMap } from '@/lib/session-attention';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -95,6 +96,14 @@ export function WorkspacePage() {
     workspaceResources,
     workspaces,
   } = useWorkspaceData({ contextTargetId, sessionId, workspaceId });
+  const navigationSessions = useMemo(
+    () => allSessions.data ?? sessions.data ?? [],
+    [allSessions.data, sessions.data],
+  );
+  const sessionAttentions = useMemo(
+    () => buildSessionAttentionMap(navigationSessions, approvals.data ?? [], questions.data ?? []),
+    [approvals.data, navigationSessions, questions.data],
+  );
   const messageCount = useSessionMessageCount(sessionId);
   const conversationStarted = messageCount > 0 || startedSessionId === sessionId;
   const setConversationStarted = useCallback(
@@ -445,10 +454,11 @@ export function WorkspacePage() {
             activeSessionId={sessionId}
             activeWorkspaceId={workspaceId}
             actions={navigationActions}
+            attentions={sessionAttentions}
             blueprints={agentBlueprints.data ?? []}
             endpoint={settings.endpoint}
             onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
-            sessions={allSessions.data ?? sessions.data ?? []}
+            sessions={navigationSessions}
             workspaces={workspaces.data ?? []}
           />
         }

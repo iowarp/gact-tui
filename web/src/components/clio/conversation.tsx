@@ -617,6 +617,12 @@ export function ClioConversation({
     return () => window.cancelAnimationFrame(frame);
   }, [messages, scrollToLatest]);
 
+  useLayoutEffect(() => {
+    if (!pinnedToBottom.current || messages.length === 0) return;
+    const frame = window.requestAnimationFrame(() => scrollToLatest('instant'));
+    return () => window.cancelAnimationFrame(frame);
+  }, [bottomInset, messages.length, scrollToLatest]);
+
   return (
     <div className="relative h-full min-h-0">
       {messages.length > 0 ? (

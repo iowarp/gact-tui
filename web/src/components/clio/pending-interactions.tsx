@@ -56,10 +56,10 @@ export function ClioPendingInteractions({
     <Queue
       aria-label="Agent needs your response"
       aria-live="polite"
-      className="relative z-10 mx-auto -mb-px min-h-0 w-[calc(100%_-_1.5rem)] max-w-[54.5rem] shrink rounded-b-none border-b-0 py-0.5"
+      className="relative z-10 mx-auto -mb-px min-h-0 w-[calc(100%_-_1.5rem)] max-w-[54.5rem] shrink rounded-b-none border-b-0 bg-card py-0.5 dark:bg-card"
       role="region"
     >
-      <QueueSection className="flex min-h-0 flex-col">
+      <QueueSection className="flex min-h-0 flex-col" defaultOpen={false}>
         <QueueSectionTrigger>
           <QueueSectionLabel
             count={responseCount}

@@ -6,6 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { ConnectionProvider } from './connection-provider';
 import { AppearanceProvider } from './appearance-provider';
 import { ConversationDisplayProvider } from './conversation-display-provider';
+import { NotificationPreferencesProvider } from './notification-preferences-provider';
 
 export function AppProviders({ children }: PropsWithChildren) {
   const [queryClient] = useState(
@@ -23,11 +24,13 @@ export function AppProviders({ children }: PropsWithChildren) {
       <QueryClientProvider client={queryClient}>
         <ConnectionProvider>
           <AppearanceProvider>
-            <ConversationDisplayProvider>
-              <ClioMotionProvider>
-                <TooltipProvider delayDuration={450}>{children}</TooltipProvider>
-              </ClioMotionProvider>
-            </ConversationDisplayProvider>
+            <NotificationPreferencesProvider>
+              <ConversationDisplayProvider>
+                <ClioMotionProvider>
+                  <TooltipProvider delayDuration={450}>{children}</TooltipProvider>
+                </ClioMotionProvider>
+              </ConversationDisplayProvider>
+            </NotificationPreferencesProvider>
           </AppearanceProvider>
         </ConnectionProvider>
       </QueryClientProvider>

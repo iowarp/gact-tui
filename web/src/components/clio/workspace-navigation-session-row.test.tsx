@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import type { ResourceActions } from './resource-dialogs';
 import { SessionNavigationRow } from './workspace-navigation-session-row';
+import type { SessionAttention } from '@/lib/session-attention';
 
 const actions: ResourceActions = {
   createWorkspace: vi.fn(),
@@ -39,12 +40,13 @@ const session: Session = {
   archived: false,
 };
 
-function renderRow(row: Session, seenRevision?: string) {
+function renderRow(row: Session, seenRevision?: string, attention?: SessionAttention) {
   return render(
     <MemoryRouter>
       <SessionNavigationRow
         actions={actions}
         activeSessionId="sess_active"
+        attention={attention}
         onAction={vi.fn()}
         onDelete={vi.fn()}
         onDownloadSession={vi.fn().mockResolvedValue(undefined)}
@@ -93,6 +95,18 @@ describe('session navigation state', () => {
     expect(screen.queryByRole('status', { name: 'Working now' })).not.toBeInTheDocument();
     expect(screen.queryByText('New')).not.toBeInTheDocument();
     expect(screen.getByTitle(/^Last interaction /u)).toBeVisible();
+  });
+
+  it('prioritizes a response blocker over the working loop', () => {
+    renderRow({ ...session, state: 'running' }, session.last_interaction_at, {
+      sessionId: session.id,
+      permissionIds: ['perm_1'],
+      questionIds: [],
+      total: 1,
+    });
+
+    expect(screen.getByRole('status', { name: 'Needs your response: 1 permission' })).toBeVisible();
+    expect(screen.queryByRole('status', { name: 'Working now' })).not.toBeInTheDocument();
   });
 
   it('does not pin the hover preview after mouse navigation', async () => {

@@ -1,6 +1,7 @@
 import type { AgentBlueprintReference, Session } from '@clio/core/v3';
 import {
   ArchiveIcon,
+  BellRingIcon,
   DownloadIcon,
   LoaderCircleIcon,
   MoreHorizontalIcon,
@@ -22,6 +23,8 @@ import {
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { sessionInteractionAt } from '@/lib/recent-sessions';
 import { isSessionRunning } from '@/lib/session-state';
+import { type SessionAttention, sessionAttentionLabel } from '@/lib/session-attention';
+import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioRelativeTime } from './relative-time';
 import type { ResourceActions, ResourceTarget } from './resource-dialogs';
@@ -39,6 +42,7 @@ interface SessionNavigationRowProps {
   onDownloadSession: (sessionId: string, title: string) => Promise<void>;
   onAction: (action: () => Promise<void>, success: string) => void;
   onVisit: (session: Session) => void;
+  attention?: SessionAttention;
 }
 
 export function SessionNavigationRow({
@@ -53,10 +57,15 @@ export function SessionNavigationRow({
   onDownloadSession,
   onAction,
   onVisit,
+  attention,
 }: SessionNavigationRowProps) {
   const running = isSessionRunning(session.state);
+  const needsAttention = Boolean(attention?.total);
   const unseen =
-    !running && session.id !== activeSessionId && seenRevision !== sessionInteractionAt(session);
+    !running &&
+    !needsAttention &&
+    session.id !== activeSessionId &&
+    seenRevision !== sessionInteractionAt(session);
   return (
     <ClioInteractiveRow
       actions={
@@ -120,8 +129,12 @@ export function SessionNavigationRow({
           </DropdownMenuContent>
         </DropdownMenu>
       }
-      className="h-8 min-h-8 gap-1.5 px-2 py-0"
-      running={running}
+      className={cn(
+        'h-8 min-h-8 gap-1.5 px-2 py-0',
+        needsAttention &&
+          'bg-warning/10 text-sidebar-foreground hover:bg-warning/15 focus-within:bg-warning/15',
+      )}
+      running={running && !needsAttention}
       selected={session.id === activeSessionId}
     >
       <HoverCard closeDelay={100} openDelay={260}>
@@ -135,7 +148,17 @@ export function SessionNavigationRow({
           >
             {session.pinned ? <PinIcon aria-hidden="true" className="mr-1 inline size-3" /> : null}
             <span className="min-w-0 flex-1 truncate">{session.title || 'Untitled session'}</span>
-            {running ? (
+            {needsAttention && attention ? (
+              <span
+                aria-label={`Needs your response: ${sessionAttentionLabel(attention)}`}
+                aria-live="polite"
+                className="inline-flex size-5 shrink-0 items-center justify-center text-action"
+                role="status"
+                title={`Needs your response: ${sessionAttentionLabel(attention)}`}
+              >
+                <BellRingIcon aria-hidden="true" className="size-3.5" />
+              </span>
+            ) : running ? (
               <span
                 aria-label="Working now"
                 aria-live="polite"
@@ -169,7 +192,11 @@ export function SessionNavigationRow({
                 />
               </button>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {running ? 'Working now' : sessionStateLabel(session.state)}
+                {needsAttention && attention
+                  ? `Needs your response · ${sessionAttentionLabel(attention)}${running ? ' · Work continues in the background' : ''}`
+                  : running
+                    ? 'Working now'
+                    : sessionStateLabel(session.state)}
               </p>
             </div>
             <Button
