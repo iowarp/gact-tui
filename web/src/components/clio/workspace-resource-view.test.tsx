@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { WorkspaceResource } from '@clio/core/v3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -152,5 +152,21 @@ describe('WorkspaceResourceView', () => {
     expect(await screen.findByText('Delivered to model')).toBeVisible();
     expect(screen.getByText(/model-visible/u)).toBeVisible();
     expect(screen.getByText('provider_internal')).not.toBeVisible();
+
+    // Every timeline fact renders as its own sibling element — never a single middot-joined
+    // string — so each can be found and styled independently.
+    const uploadedItem = screen
+      .getByText('Uploaded')
+      .closest('[data-slot="timeline-item"]') as HTMLElement;
+    expect(within(uploadedItem).getByText('4 B')).toBeVisible();
+    const verifiedItem = screen
+      .getByText('Verified and registered')
+      .closest('[data-slot="timeline-item"]') as HTMLElement;
+    expect(within(verifiedItem).getByText('Revision 1')).toBeVisible();
+    const deliveredItem = screen
+      .getByText('Delivered to model')
+      .closest('[data-slot="timeline-item"]') as HTMLElement;
+    expect(within(deliveredItem).getByText('markdown')).toBeVisible();
+    expect(screen.queryByText(/·/u)).not.toBeInTheDocument();
   });
 });

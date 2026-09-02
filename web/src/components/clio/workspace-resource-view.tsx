@@ -434,8 +434,9 @@ function ResourceProvenance({
               Uploaded
             </TimelineTitle>
           </TimelineHeader>
-          <TimelineContent>
-            {resource.name} · {formatBytes(resource.received_size)}
+          <TimelineContent className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span>{resource.name}</span>
+            <span>{formatBytes(resource.received_size)}</span>
           </TimelineContent>
         </TimelineItem>
         <TimelineItem step={2}>
@@ -450,8 +451,9 @@ function ResourceProvenance({
               Verified and registered
             </TimelineTitle>
           </TimelineHeader>
-          <TimelineContent>
-            Revision {resource.revision} · {resource.detected_mime || 'Type unavailable'}
+          <TimelineContent className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span>Revision {resource.revision}</span>
+            <span>{resource.detected_mime || 'Type unavailable'}</span>
           </TimelineContent>
         </TimelineItem>
         {processing ? (
@@ -487,8 +489,9 @@ function ResourceProvenance({
               </TimelineTitle>
             </TimelineHeader>
             <TimelineContent>
-              <p>
-                {delivery.model_id} · {delivery.representation}
+              <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <span>{delivery.model_id}</span>
+                <span>{delivery.representation}</span>
               </p>
               {delivery.reason ? <p className="mt-1">{delivery.reason}</p> : null}
               <details className="mt-2 text-[10px]">

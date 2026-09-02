@@ -282,11 +282,24 @@ function DiffEvidence({
   ));
 }
 
+/** One labelled fact rendered as its own sibling element — never middot-joined into a string. */
+interface EvidenceSourceDetailPart {
+  id: string;
+  text: string;
+  title?: string;
+}
+
 interface EvidenceSource {
   id: string;
   label: string;
-  value: string;
   link: boolean;
+  /** The link href for a citation, or the raw value for a workflow-derived source. */
+  value?: string;
+  /** Structured detail for a resource source, rendered as separate spans. */
+  detailParts?: readonly EvidenceSourceDetailPart[];
+  /** Identity used to collapse duplicates — never the rendered text, so a formatting change
+   *  can't change what dedups. */
+  dedupeKey: string;
   resource?: WorkspaceResource;
 }
 
@@ -317,7 +330,7 @@ function SourceEvidence({
             <WaypointsIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">{source.label}</p>
-              {source.link ? (
+              {source.link && source.value ? (
                 <a
                   aria-label={`${source.label}: ${source.value}`}
                   className="mt-1 flex items-center gap-1 break-all text-xs text-primary hover:underline"
@@ -328,14 +341,24 @@ function SourceEvidence({
                   {source.value}
                   <ExternalLinkIcon aria-hidden="true" className="size-3 shrink-0" />
                 </a>
+              ) : source.detailParts ? (
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  {source.detailParts.map((part) => (
+                    <span key={part.id} title={part.title}>
+                      {part.text}
+                    </span>
+                  ))}
+                </div>
               ) : (
                 <p
                   className="mt-1 break-all text-xs text-muted-foreground"
                   title={
-                    sourceDisplayValue(source.value) === source.value ? undefined : source.value
+                    source.value === undefined || sourceDisplayValue(source.value) === source.value
+                      ? undefined
+                      : source.value
                   }
                 >
-                  {sourceDisplayValue(source.value)}
+                  {source.value === undefined ? '' : sourceDisplayValue(source.value)}
                 </p>
               )}
             </div>
@@ -446,6 +469,7 @@ function sessionSources(
             label: block.label,
             value: block.uri,
             link: isWebLink(block.uri),
+            dedupeKey: `citation:${block.uri}`,
           },
         ];
       }
@@ -455,8 +479,11 @@ function sessionSources(
         {
           id: `resource:${block.workspace_id}:${block.resource_id}:${block.resource_revision}`,
           label: resource?.name ?? block.name,
-          value: resourceEvidenceDetail(resource, block.media_type, block.resource_revision),
           link: false,
+          detailParts: resourceEvidenceDetail(resource, block.media_type, block.resource_revision),
+          // Keyed on resource identity, never the rendered string: two distinct resources can
+          // render identical detail text, and a formatting change must not change what collapses.
+          dedupeKey: `resource:${block.resource_id}:${block.resource_revision}`,
           resource,
         },
       ];
@@ -467,24 +494,44 @@ function sessionSources(
   }
   const seen = new Set<string>();
   return sources.filter((source) => {
-    if (seen.has(source.value)) return false;
-    seen.add(source.value);
+    if (seen.has(source.dedupeKey)) return false;
+    seen.add(source.dedupeKey);
     return true;
   });
 }
 
+/**
+ * Builds the resource detail parts for one source, favoring what was actually DELIVERED
+ * (the message block's own media type and revision) over the live workspace resource, which
+ * may have since changed. The live resource only fills in fields the block never carries
+ * (size, SHA-256) and, when its revision has moved on, that is called out explicitly rather
+ * than silently replacing the delivered revision.
+ */
 function resourceEvidenceDetail(
   resource: WorkspaceResource | undefined,
-  fallbackMediaType: string,
-  fallbackRevision: string,
-): string {
-  const mediaType = resource?.detected_mime || resource?.claimed_mime || fallbackMediaType;
-  const revision = resource?.revision ?? fallbackRevision;
-  const size = resource?.received_size;
-  const digest = resource?.sha256 ? ` · SHA-256 ${resource.sha256.slice(0, 12)}…` : '';
-  return `${mediaType || 'Unknown type'} · revision ${revision}${
-    size === undefined ? '' : ` · ${formatBytes(size)}`
-  }${digest}`;
+  deliveredMediaType: string,
+  deliveredRevision: string,
+): EvidenceSourceDetailPart[] {
+  const mediaType = deliveredMediaType || resource?.detected_mime || resource?.claimed_mime;
+  const parts: EvidenceSourceDetailPart[] = [
+    { id: 'type', text: mediaType || 'Unknown type' },
+    { id: 'revision', text: `Revision ${deliveredRevision}` },
+  ];
+  if (resource && String(resource.revision) !== deliveredRevision) {
+    parts.push({
+      id: 'current-revision',
+      text: `Current revision ${resource.revision}`,
+      title:
+        'The workspace resource has since changed; this reference delivered an earlier revision to the model.',
+    });
+  }
+  if (resource?.received_size !== undefined) {
+    parts.push({ id: 'size', text: formatBytes(resource.received_size) });
+  }
+  if (resource?.sha256) {
+    parts.push({ id: 'sha', text: `SHA-256 ${resource.sha256.slice(0, 12)}…` });
+  }
+  return parts;
 }
 
 function collectWorkflowSources(
@@ -514,6 +561,7 @@ function collectWorkflowSources(
         label: `${owner}, ${evidenceFieldLabel(key)}`,
         value: child,
         link: isWebLink(child),
+        dedupeKey: `workflow:${child}`,
       });
     } else {
       collectWorkflowSources(child, owner, sources, nextPath, depth + 1);
