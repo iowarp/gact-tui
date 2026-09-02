@@ -1,5 +1,9 @@
 export interface TransportRequest<T> {
-  method: 'GET' | 'HEAD' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  // No HEAD: nothing in this client issues one, and a method the repositories
+  // never use is a shape every transport has to keep answering for. The Tauri
+  // bridge still maps a "HEAD" arm in `desktop/src-tauri/src/gact_http.rs`;
+  // that arm goes with the next pass over the Rust side.
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
   body?: unknown;
   rawBody?: Uint8Array;

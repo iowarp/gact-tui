@@ -14,8 +14,6 @@ import {
 } from '@/components/reui/cascader/cascader-lib';
 import type { CascaderLoadState, CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { Combobox as ComboboxPrimitive } from '@base-ui/react';
-import { mergeProps } from '@base-ui/react/merge-props';
-import { useRender } from '@base-ui/react/use-render';
 
 import { cn } from '@/lib/utils';
 import { Spinner } from '@/components/ui/spinner';
@@ -76,17 +74,6 @@ const ROW_TEXT_CLASS = 'text-sm';
 const ROW_SHELL_CLASS = `${ROW_THEME_CLASS} relative flex w-full cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 ${ROW_INSET_CLASS}`;
 
 const ROW_CLASS = `${ROW_SHELL_CLASS} ${ROW_GAP_CLASS} ${ROW_TEXT_CLASS}`;
-
-const CASCADER_ACTION_INSET_CLASS = `${ROW_INSET_CLASS} ${ROW_FLUSH_CLASS}`;
-
-/** A footer COMMAND: the row theme, so it cannot drift from the list, plus the
- *  hover and `focus-visible` fills a plain button never gets. Fills, never a
- *  ring: a ring under rows that all paint with a fill read as a different
- *  widget bolted on. `focus-visible`, not `focus`, so a pointer press does not
- *  leave a command painted as if it were still hovered. Disabled keys off
- *  `aria-disabled`, not `:disabled`, to keep it FOCUSABLE: a footer whose only
- *  row is disabled has no tab stop. */
-export const CASCADER_ACTION_CLASS = `${ROW_SHELL_CLASS} ${ROW_TEXT_CLASS} ${ROW_FLUSH_CLASS} hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground cursor-pointer gap-2 transition-colors aria-disabled:pointer-events-none aria-disabled:opacity-50`;
 
 // The box around the affordances that are not the row. 20px around a 16px icon,
 // the outer 2px cancelled at the call site; 24px would set the row height.
@@ -911,106 +898,4 @@ function CascaderItems({ children }: CascaderItemsProps) {
     </>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/*                          Group / Label / Separator                         */
-/* -------------------------------------------------------------------------- */
-
-// Whether a `CascaderLabel` has a group to name: Base UI's `Combobox.GroupLabel`
-// THROWS when there is none, and a heading is useful outside a group.
-const CascaderGroupContext = React.createContext(false);
-
-// A heading over a run of rows. All eight styles are spelled out because the
-// type is not uniform (sera is uppercase), and the inset is the row's own.
-const CASCADER_LABEL_CLASS = `text-muted-foreground text-xs py-1.5 ${CASCADER_ACTION_INSET_CLASS} block truncate`;
-
-// A rule between two runs. The inline margin is not the combobox separator's:
-// that cancels the container's padding with a per-style number, wrong in a
-// footer and 4px too much in lyra. `--cascader-list-pad` reaches the edge.
-const CASCADER_SEPARATOR_CLASS =
-  'h-px bg-border my-1 mx-[calc(var(--cascader-list-pad,4px)*-1)]! shrink-0';
-
-export interface CascaderGroupProps extends Omit<ComboboxPrimitive.Group.Props, 'className'> {
-  /** Base UI also accepts a state callback here; the group has no state. */
-  className?: string;
-}
-
-/** A run of related rows, named by the `CascaderLabel` inside it: the group is
- *  `role="group"` and Base UI points its `aria-labelledby` at the label, where a
- *  heading alone inside a listbox is dropped from the accessibility tree.
- *  Grouping is composition, not data: `CascaderItems` renders one flat run per
- *  level, so its indices line up with `listRef`. */
-function CascaderGroup({ className, ...props }: CascaderGroupProps) {
-  return (
-    <CascaderGroupContext.Provider value={true}>
-      <ComboboxPrimitive.Group
-        data-slot="cascader-group"
-        className={cn('flex flex-col', className)}
-        {...props}
-      />
-    </CascaderGroupContext.Provider>
-  );
-}
-
-export interface CascaderLabelProps
-  extends Omit<ComboboxPrimitive.GroupLabel.Props, 'className' | 'style'> {
-  /** No state callback; outside a group this is not a Base UI part at all. */
-  className?: string;
-  style?: React.CSSProperties;
-}
-
-/** Inside a group: the real thing, with the id association Base UI wires up. */
-function CascaderGroupLabel({ className, ...props }: CascaderLabelProps) {
-  return (
-    <ComboboxPrimitive.GroupLabel
-      data-slot="cascader-label"
-      className={cn(CASCADER_LABEL_CLASS, className)}
-      {...props}
-    />
-  );
-}
-
-// Outside a group: the same heading as a plain element. A separate component
-// rather than a branch, so the hook count cannot change when a label moves in.
-function CascaderPlainLabel({ className, ...props }: CascaderLabelProps) {
-  const defaultProps = {
-    'data-slot': 'cascader-label',
-    className: cn(CASCADER_LABEL_CLASS, className),
-  };
-
-  return useRender({
-    defaultTagName: 'div',
-    render: props.render,
-    props: mergeProps<'div'>(defaultProps, props),
-  });
-}
-
-/** A heading. Inside `CascaderGroup` it is the group's accessible name; outside
- *  one (the footer flyout is a menu, not a listbox) it is decoration only. */
-function CascaderLabel(props: CascaderLabelProps) {
-  const grouped = React.useContext(CascaderGroupContext);
-  return grouped ? <CascaderGroupLabel {...props} /> : <CascaderPlainLabel {...props} />;
-}
-
-export interface CascaderSeparatorProps
-  extends Omit<ComboboxPrimitive.Separator.Props, 'className'> {
-  /** Base UI also accepts a state callback here; only the orientation varies. */
-  className?: string;
-}
-
-/** Decorative on purpose: Base UI's separator is `role="separator"`, which a
- *  `listbox` may not own, and a run that needs separating for a screen reader
- *  needs a `CascaderGroup`, not a line. A consumer can pass the role back. */
-function CascaderSeparator({ className, ...props }: CascaderSeparatorProps) {
-  return (
-    <ComboboxPrimitive.Separator
-      data-slot="cascader-separator"
-      role="presentation"
-      aria-hidden="true"
-      className={cn(CASCADER_SEPARATOR_CLASS, className)}
-      {...props}
-    />
-  );
-}
-
-export { CascaderGroup, CascaderItem, CascaderItems, CascaderLabel, CascaderSeparator };
+export { CascaderItem, CascaderItems };

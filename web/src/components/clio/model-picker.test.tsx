@@ -285,6 +285,38 @@ describe('ClioModelPicker', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('windows a provider whose model list runs past the virtualization threshold', async () => {
+    const user = userEvent.setup();
+    const many = Array.from({ length: 150 }, (_, index) => ({
+      providerId: 'local-vllm',
+      providerName: 'Local vLLM',
+      id: `model-${index}`,
+      label: `Model ${index}`,
+      available: true,
+      endpoint: 'http://127.0.0.1:8000/v1',
+      health: 'ready',
+    }));
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={many}
+          provider="local-vllm"
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+
+    // The spacer stands in for every row, so the list still scrolls its full
+    // height while only a window of rows is mounted.
+    const spacer = document.querySelector<HTMLElement>('[data-slot="cascader-virtual-spacer"]');
+    expect(spacer).not.toBeNull();
+    expect(Number.parseFloat(spacer?.style.height ?? '0')).toBeGreaterThan(150 * 20);
+    expect(document.querySelectorAll('[data-slot="cascader-item"]').length).toBeLessThan(150);
+  });
+
   it('still hides a provider when the browser refuses to store the choice', async () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('Quota exceeded', 'QuotaExceededError');

@@ -24,7 +24,6 @@ export const CASCADER_LABELS: CascaderLabels = {
   retry: 'Retry',
   empty: 'No results found.',
   selectedCount: (count) => `${count} selected`,
-  breadcrumbLabel: 'Breadcrumb',
   chipsLabel: 'Selected items',
   removeChip: (label) => `Remove ${label}`,
   pathSeparator: '/',

@@ -15,8 +15,11 @@ import {
 } from '@/components/reui/cascader/cascader';
 import { CascaderColumns } from '@/components/reui/cascader/cascader-columns';
 import { CascaderFooter } from '@/components/reui/cascader/cascader-footer';
-import { CascaderItems } from '@/components/reui/cascader/cascader-item';
 import { CascaderInput, CascaderNav } from '@/components/reui/cascader/cascader-nav';
+import {
+  CascaderVirtualColumn,
+  CascaderVirtualItems,
+} from '@/components/reui/cascader/cascader-virtual';
 import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { IconTile } from '@/components/reui/icon-tile';
@@ -291,15 +294,21 @@ export function ClioModelPicker({
                   ) : null}
                 </div>
               </CascaderNav>
+              {/* A live provider can report hundreds of models, and every row
+                  carries an icon, a description and a health indicator. Both
+                  layouts render through the windowed items, which fall back to
+                  the plain rows below the cascader's own threshold. */}
               {showColumns ? (
                 <CascaderColumns
                   className="w-full flex-1"
                   columnWidth="min(32rem, calc((100vw - 3rem) / 2))"
                   maxHeight="100%"
-                />
+                >
+                  {(column) => <CascaderVirtualColumn column={column} key={column.depth} />}
+                </CascaderColumns>
               ) : (
                 <CascaderList className="w-full flex-1" maxHeight="100%">
-                  <CascaderItems />
+                  <CascaderVirtualItems />
                 </CascaderList>
               )}
               {activeGroup?.detail ? (

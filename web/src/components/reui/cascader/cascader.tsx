@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useCascaderLoader, useCascaderLoadState } from '@/components/reui/cascader/cascader-async';
+import { useCascaderLoader } from '@/components/reui/cascader/cascader-async';
 import type {
   CascaderGetChildren,
   CascaderOnSearch,
@@ -34,13 +34,10 @@ import {
   CASCADER_ROOT_KEY,
   CASCADER_ROWS_CLASS,
   CASCADER_SCROLL_CLASS,
-  collapseCascaderPath,
   createCascaderMoreNode,
   filterCascaderLevel,
-  findAmbiguousCascaderLabels,
   findCascaderDataIssues,
   flattenCascaderTree,
-  getCascaderCheckedValues,
   getCascaderChildren,
   getCascaderCount,
   getCascaderIndeterminateFrom,
@@ -56,9 +53,7 @@ import {
   searchCascaderDeep,
   warnCascaderOnce,
 } from '@/components/reui/cascader/cascader-lib';
-import type { CascaderCheckedStrategy } from '@/components/reui/cascader/cascader-lib';
 import type {
-  CascaderActionItem,
   CascaderChangeDetails,
   CascaderChangeReason,
   CascaderFlatNode,
@@ -71,18 +66,14 @@ import type {
   CascaderSelectable,
 } from '@/components/reui/cascader/cascader-types';
 import { Combobox as ComboboxPrimitive } from '@base-ui/react';
+
 import { Slot } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronDownIcon, XIcon } from 'lucide-react';
 
 /** Stable `filteredItems` for a level swap; a fixed identity cannot loop. */
 const EMPTY: CascaderNode<never>[] = [];
-
-/** Stable empty array for the `actions` prop, so a cascader with no footer
- * does not republish the actions context on every render. */
-const EMPTY_ACTIONS: CascaderActionItem[] = [];
 
 // Word joiner. A polite region reads only MUTATIONS, so alternate it.
 const ANNOUNCE_MARKER = '\u2060';
@@ -174,16 +165,8 @@ function shallowEqualRecords(a: object, b: object): boolean {
   return true;
 }
 
-function shallowEqualItemLists(a: readonly object[], b: readonly object[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i] && !shallowEqualRecords(a[i], b[i])) return false;
-  }
-  return true;
-}
-
 // Reuses the previous value while the next merely says the same thing: an
-// inline `labels`/`actions` otherwise republishes the actions context, and
+// inline `labels` otherwise republishes the actions context, and
 // with it every row. Adjust-state-during-render, not a ref.
 function useShallowStable<V>(value: V, equal: (a: V & object, b: V & object) => boolean): V {
   const [stable, setStable] = React.useState(value);
@@ -238,8 +221,8 @@ export interface CascaderSelection<T = unknown> {
   clear: () => void;
 }
 
-/** Headless access to the selection, for a trigger that is not
- * `CascaderValue`. Pass the payload explicitly to get `node.data` typed. */
+/** Headless access to the selection, for a trigger of the consumer's own.
+ * Pass the payload explicitly to get `node.data` typed. */
 export function useCascaderSelection<T = unknown>(): CascaderSelection<T> {
   const { multiple, setSelection } = useCascaderActions<T>();
   const { index, selectedValues } = useCascaderState<T>();
@@ -327,13 +310,6 @@ export interface CascaderBaseProps<T = unknown> {
    * the checkbox is the selection CONTROL rather than a decoration.
    */
   indicator?: boolean;
-
-  /**
-   * Footer ACTIONS: commands pinned below the list, never rows in it, and never
-   * touching the data tree. A childless `<CascaderFooter />` draws these; an
-   * action with `items` opens a side-anchored flyout rather than firing.
-   */
-  actions?: CascaderActionItem[];
 
   /**
    * Parent/child cascading. Multi-select only, off by default, and it needs
@@ -659,7 +635,6 @@ function Cascader<T>({
   multiple = false,
   selectable = 'leaf',
   indicator = true,
-  actions,
   cascade = false,
   max,
   mode = 'drill',
@@ -1189,26 +1164,6 @@ function Cascader<T>({
   // setting that answers no in advance; a predicate is opaque, so the check
   // gutter is reserved uniformly rather than per row.
   const branchesSelectable = selectable !== 'leaf';
-
-  // Open flyouts, by key. A ref, not state: `handleOpenChange` needs the
-  // answer as of the Escape being handled, and opening a footer menu must not
-  // re-render the root.
-  const openFlyoutsRef = React.useRef<Set<string>>(new Set());
-
-  const setFlyoutOpen = React.useCallback((key: string, open: boolean) => {
-    if (open) openFlyoutsRef.current.add(key);
-    else openFlyoutsRef.current.delete(key);
-  }, []);
-
-  const hasOpenFlyout = React.useCallback(() => openFlyoutsRef.current.size > 0, []);
-
-  // Shallow-stabilized like `labels`: an inline array republished the context.
-  const stableActions = useShallowStable(actions, shallowEqualItemLists);
-
-  const resolvedActions = React.useMemo<CascaderActionItem[]>(
-    () => stableActions ?? EMPTY_ACTIONS,
-    [stableActions],
-  );
 
   // A Set, not an `includes` scan: `isSelected` runs once per rendered row.
   const selectedSet = React.useMemo(() => new Set(selectedValues), [selectedValues]);
@@ -1821,14 +1776,6 @@ function Cascader<T>({
     (nextOpen: boolean, details: ComboboxPrimitive.Root.ChangeEventDetails) => {
       if (details.isCanceled) return;
 
-      // Escape closes ONE popup at a time. `Combobox` builds no `FloatingTree`,
-      // so one Escape reaches the flyout and the cascader; the flyout clears
-      // its registration in an effect, so the set holds for exactly this event.
-      if (!nextOpen && details.reason === 'escape-key' && hasOpenFlyout()) {
-        details.cancel();
-        return;
-      }
-
       // Captured for the wrapped `onOpenChange`, which runs synchronously
       // inside `setOpen`, so a ref written just before the call is exact.
       openReasonRef.current = details.reason ?? 'none';
@@ -1854,7 +1801,7 @@ function Cascader<T>({
         );
       }
     },
-    [setOpen, setQuery, revealSelected, value, index, setPathWithReason, hasOpenFlyout],
+    [setOpen, setQuery, revealSelected, value, index, setPathWithReason],
   );
 
   /* -------------------------------- context ------------------------------- */
@@ -1881,7 +1828,6 @@ function Cascader<T>({
       branchesSelectable,
       indicator,
       expandTrigger,
-      actions: resolvedActions,
       searchScope,
       maxHeight,
       inline: !!inline,
@@ -1906,8 +1852,6 @@ function Cascader<T>({
       popLevel,
       goToDepth,
       toggleExpanded,
-      setFlyoutOpen,
-      hasOpenFlyout,
       setQuery,
       setSelection,
       commit,
@@ -1928,7 +1872,6 @@ function Cascader<T>({
       branchesSelectable,
       indicator,
       expandTrigger,
-      resolvedActions,
       searchScope,
       maxHeight,
       inline,
@@ -1953,8 +1896,6 @@ function Cascader<T>({
       popLevel,
       goToDepth,
       toggleExpanded,
-      setFlyoutOpen,
-      hasOpenFlyout,
       setQuery,
       setSelection,
       commit,
@@ -2047,434 +1988,6 @@ function Cascader<T>({
         </CascaderHighlightContext.Provider>
       </CascaderStateContext.Provider>
     </CascaderActionsContext.Provider>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                                   Trigger                                  */
-/* -------------------------------------------------------------------------- */
-
-/** `Trigger.Props` stops short of `ref`, so it is intersected in, as the
- * shadcn combobox wrapper also does: a form library needs a ref here, and
- * `onBlur`, the "touched" signal, lands here too. */
-export interface CascaderTriggerProps
-  extends ComboboxPrimitive.Trigger.Props,
-    Pick<React.ComponentPropsWithRef<'button'>, 'ref'> {
-  /** Hides the trailing chevron, for a trigger that supplies its own. */
-  showIcon?: boolean;
-}
-
-function CascaderTrigger({
-  className,
-  children,
-  showIcon = true,
-  ref,
-  ...props
-}: CascaderTriggerProps) {
-  const { invalid } = useCascaderActions();
-
-  // `ref` is the one prop `mergeProps` does not merge, so chain it by hand.
-  const triggerRef = React.useRef<HTMLButtonElement | null>(null);
-  const setTrigger = React.useCallback(
-    (node: HTMLButtonElement | null) => {
-      triggerRef.current = node;
-      if (typeof ref === 'function') ref(node);
-      else if (ref) ref.current = node;
-    },
-    [ref],
-  );
-
-  /** 18 of 19 audited examples shipped an unnamed combobox: the trigger's
-   * contents are the field's VALUE, so a screen reader never hears its NAME.
-   * Checked in the DOM, since the name may arrive as a `<label for>`. */
-  React.useEffect(() => {
-    if (process.env.NODE_ENV === 'production') return;
-    const element = triggerRef.current;
-    if (!element) return;
-    const named =
-      element.hasAttribute('aria-label') ||
-      element.hasAttribute('aria-labelledby') ||
-      element.closest('label') !== null ||
-      (element.id !== '' &&
-        element.ownerDocument.querySelector(`label[for="${CSS.escape(element.id)}"]`) !== null);
-    if (named) return;
-    warnCascaderOnce(
-      'trigger-unnamed',
-      "`CascaderTrigger` has no accessible name. Its contents are the field's VALUE - they change with the selection - so a screen reader hears what is picked but never what the field is for. Pass `aria-label` or `aria-labelledby`, or reference the trigger's `id` from a `<label>`.",
-    );
-  });
-
-  return (
-    <ComboboxPrimitive.Trigger
-      ref={setTrigger}
-      data-slot="cascader-trigger"
-      /* Conditional spread: an explicit `undefined` would DELETE whatever a
-         `Field` wrapper had already put here. */
-      {...(invalid ? { 'aria-invalid': true, 'data-invalid': '' } : null)}
-      className={cn(TRIGGER_ICON_FALLBACK_CLASS, className)}
-      {...props}
-    >
-      {children}
-      {showIcon ? (
-        <ChevronDownIcon className={`${TRIGGER_ICON_CLASS} pointer-events-none shrink-0`} />
-      ) : null}
-    </ComboboxPrimitive.Trigger>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                              Resolved theme                                */
-/* -------------------------------------------------------------------------- */
-
-/* The eight registry styles each state a combobox surface differently, so the
- * classes below spell every one out with `style-<name>:` variants. Nothing
- * depends on ReUI's theme CSS; `build-registry` flattens one in on install. */
-
-/** Icon size for a combobox surface: 14px in mira and sera, 16px elsewhere. */
-const TRIGGER_ICON_CLASS = 'text-muted-foreground size-4';
-
-/** The same ladder, applied only to trigger children that carry no size. */
-const TRIGGER_ICON_FALLBACK_CLASS = "[&_svg:not([class*='size-'])]:size-4";
-
-/** The chips field: a form-control surface, so it carries the invalid states. */
-const CHIPS_CLASS =
-  'flex flex-wrap items-center border bg-clip-padding dark:bg-input/30 border-input focus-within:border-ring focus-within:ring-ring/50 has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40 has-aria-invalid:border-destructive dark:has-aria-invalid:border-destructive/50 bg-transparent px-2.5 text-sm focus-within:ring-3 has-aria-invalid:ring-3 min-h-8 gap-1 rounded-lg py-1 transition-colors has-data-[slot=combobox-chip]:px-1';
-
-const CHIP_CLASS =
-  'text-foreground flex w-fit items-center justify-center gap-1 font-medium whitespace-nowrap bg-muted rounded-sm px-1.5 text-xs has-data-[slot=combobox-chip-remove]:pr-0 h-[calc(--spacing(5.25))]';
-
-const CHIP_REMOVE_CLASS = 'opacity-50 hover:opacity-100 -ml-1';
-
-/** The floating panel's surface. The shared popup's `InputGroup` sizing is
- * left out (mirrored in `cascader-nav.tsx`), as are its `max-h-72` and
- * `min-w-*`: `CascaderContent` sets both from the positioner's variables. */
-const CONTENT_SURFACE_CLASS =
-  'bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 overflow-hidden ring-1 duration-100 ring-foreground/10 shadow-md rounded-lg data-[side=inline-start]:slide-in-from-right-2 data-[side=inline-end]:slide-in-from-left-2';
-
-const EMPTY_CLASS =
-  'text-muted-foreground hidden w-full justify-center py-2 text-center group-data-empty/combobox-content:flex text-sm';
-
-/* -------------------------------------------------------------------------- */
-/*                                    Chips                                   */
-/* -------------------------------------------------------------------------- */
-
-/** Ref for the chips container: they replace the trigger, so the popup has to
- * be anchored to them. Hand it to `CascaderContent`'s `anchor`. */
-export function useCascaderAnchor() {
-  return React.useRef<HTMLDivElement | null>(null);
-}
-
-export interface CascaderChipsProps
-  extends Omit<ComboboxPrimitive.Chips.Props, 'children'>,
-    Pick<React.ComponentPropsWithRef<'div'>, 'ref'> {
-  /** Shown in place of the chips when nothing is selected. */
-  placeholder?: React.ReactNode;
-  /**
-   * How a `cascade` selection is condensed into chips. DISPLAY ONLY: the
-   * stored value stays the full closure, which keeps a row's checked state an
-   * O(1) lookup. `"all"` (default) is one chip per value, `"parent"` collapses
-   * a fully selected branch, `"child"` chips only the deepest frontier.
-   * Removing a condensed chip removes its whole closure and reconciles.
-   */
-  strategy?: CascaderCheckedStrategy;
-  /** Replaces the chip list, receiving the resolved selection IN SELECTION
-   * ORDER. Keep that order: Base UI removes a chip by sibling position. */
-  children?: React.ReactNode | ((nodes: CascaderNode[]) => React.ReactNode);
-}
-
-/**
- * The multi-select trigger surface: one removable chip per selection, where
- * `CascaderValue` would collapse to "3 selected". A component rather than a
- * recipe because of three easy misses: the popup anchored to the chips, an
- * accessible name on every remove button, and labels that disambiguate when
- * two branches use the same one.
- *
- * ```tsx
- * const anchor = useCascaderAnchor()
- * <Cascader multiple items={items}>
- *   <CascaderChips ref={anchor} placeholder="Select attributes" />
- *   <CascaderContent anchor={anchor}>...</CascaderContent>
- * </Cascader>
- * ```
- */
-function CascaderChips({
-  className,
-  children,
-  placeholder,
-  strategy = 'all',
-  ...props
-}: CascaderChipsProps) {
-  const { labels, multiple, invalid, resolveNode, index, isSelectable, setSelection } =
-    useCascaderActions();
-  const { selectedValues } = useCascaderState();
-
-  React.useEffect(() => {
-    if (process.env.NODE_ENV === 'production') return;
-    if (multiple) return;
-    warnCascaderOnce(
-      'chips-without-multiple',
-      '`CascaderChips` renders one chip per selection and there is only ever one without `multiple`. Use `CascaderValue` for a single-select trigger.',
-    );
-  }, [multiple]);
-
-  // DERIVED display: the selection stays the full closure, the chips condense.
-  const displayedValues =
-    strategy === 'all' ? selectedValues : getCascaderCheckedValues(index, selectedValues, strategy);
-
-  // Not memoised: one entry per SELECTION, not per row, so the pass is short.
-  const nodes = displayedValues.map(resolveNode);
-  const ambiguous = findAmbiguousCascaderLabels(nodes);
-
-  // Removal for a CONDENSED chip: Base UI's `ChipRemove` maps a press onto the
-  // STORED array, which is wrong once the chips are fewer, so this removes the
-  // chip's whole subtree closure instead.
-  const removeClosure = (node: CascaderNode) => {
-    setSelection(
-      applyCascadeSelection(index, selectedValues, node.value, false, isSelectable),
-      'deselect',
-    );
-  };
-
-  const content = typeof children === 'function' ? children(nodes) : children;
-
-  return (
-    <ComboboxPrimitive.Chips
-      data-slot="cascader-chips"
-      /* An unnamed `role="toolbar"` announces as just "toolbar". */
-      aria-label={labels.chipsLabel}
-      /* Conditional spread: the error treatment is keyed on
-         `has-aria-invalid:`, so the attribute must be absent, not empty. */
-      {...(invalid ? { 'aria-invalid': true, 'data-invalid': '' } : null)}
-      className={cn(CHIPS_CLASS, className)}
-      {...props}
-    >
-      {content ??
-        (nodes.length === 0 ? (
-          <span data-slot="cascader-chips-placeholder" className="text-muted-foreground truncate">
-            {placeholder}
-          </span>
-        ) : (
-          nodes.map((node) => (
-            <CascaderChip
-              key={node.value}
-              node={node}
-              showPath={ambiguous.has(node.value)}
-              /* Only a condensed chip needs the remover; the default shape
-                 keeps Base UI's positional removal. */
-              {...(strategy !== 'all' ? { onRemove: () => removeClosure(node) } : null)}
-            />
-          ))
-        ))}
-    </ComboboxPrimitive.Chips>
-  );
-}
-
-export interface CascaderChipProps extends Omit<ComboboxPrimitive.Chip.Props, 'children'> {
-  node: CascaderNode;
-  /** Prefix the label with its ancestor trail. */
-  showPath?: boolean;
-  /** Trail segments to show, the node itself included. */
-  maxSegments?: number;
-  /** Hides the remove button, for a read-only chip. */
-  showRemove?: boolean;
-  /** Replaces Base UI's positional removal for this chip (remove button and
-   * Backspace/Delete). Supplied for a `strategy`-condensed chip, whose
-   * position no longer maps onto the stored array. */
-  onRemove?: () => void;
-  /** Replaces the chip's label. The remove button is still rendered. */
-  children?: React.ReactNode;
-}
-
-/** Base UI hands its chip handlers events carrying the veto hook. */
-type CascaderChipKeyEvent = Parameters<NonNullable<ComboboxPrimitive.Chip.Props['onKeyDown']>>[0];
-
-type CascaderChipRemoveClickEvent = Parameters<
-  NonNullable<ComboboxPrimitive.ChipRemove.Props['onClick']>
->[0];
-
-/** One chip. Removal goes through Base UI's `ChipRemove`, which reports the
- * shortened selection to the root, so it lands in the same `setSelection` as
- * every other deselection and `cascade` applies to it. */
-function CascaderChip({
-  className,
-  node,
-  showPath = false,
-  maxSegments = 2,
-  showRemove = true,
-  onRemove,
-  children,
-  ...props
-}: CascaderChipProps) {
-  const { labels, index } = useCascaderActions();
-
-  const chain = showPath ? getCascaderPath(index, node.value) : [];
-  const segments = collapseCascaderPath(chain, {
-    maxSegments,
-    collapse: 'start',
-  });
-
-  const label = segments.length
-    ? segments
-        .map((segment) => (segment.type === 'node' ? segment.node.label : '…'))
-        .join(` ${labels.pathSeparator} `)
-    : node.label;
-
-  return (
-    <ComboboxPrimitive.Chip
-      data-slot="cascader-chip"
-      /* Keyboard half of `onRemove`: Base UI's chip removes ITSELF by position
-         on Backspace/Delete, the arithmetic a condensed chip must not use. The
-         veto runs first, so the closure removal replaces it. */
-      {...(onRemove
-        ? {
-            onKeyDown: (event: CascaderChipKeyEvent) => {
-              if (event.key !== 'Backspace' && event.key !== 'Delete') return;
-              event.preventBaseUIHandler();
-              onRemove();
-            },
-          }
-        : null)}
-      className={cn(
-        CHIP_CLASS,
-        'has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-disabled:opacity-50',
-        className,
-      )}
-      {...props}
-    >
-      {children ?? <span className="truncate">{label}</span>}
-      {showRemove ? (
-        <ComboboxPrimitive.ChipRemove
-          data-slot="cascader-chip-remove"
-          /* Named after what the chip DISPLAYS, not the bare node label, or
-             two disambiguated chips both announce "Remove Created at". */
-          aria-label={labels.removeChip(label)}
-          /* The pointer half of `onRemove`, same veto, same reason. */
-          {...(onRemove
-            ? {
-                onClick: (event: CascaderChipRemoveClickEvent) => {
-                  event.preventBaseUIHandler();
-                  onRemove();
-                },
-              }
-            : null)}
-          className={CHIP_REMOVE_CLASS}
-        >
-          <XIcon className="pointer-events-none" />
-        </ComboboxPrimitive.ChipRemove>
-      ) : null}
-    </ComboboxPrimitive.Chip>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/*                                   Content                                  */
-/* -------------------------------------------------------------------------- */
-
-export interface CascaderContentProps
-  extends ComboboxPrimitive.Popup.Props,
-    /** Positioner surface forwarded as-is, so an unusual anchor does not force
-     * a rebuild of the content stack. No `trackAnchor`: Base UI 1.5.0 has
-     * none. */
-    Pick<
-      ComboboxPrimitive.Positioner.Props,
-      | 'side'
-      | 'align'
-      | 'sideOffset'
-      | 'alignOffset'
-      | 'anchor'
-      | 'collisionBoundary'
-      | 'collisionPadding'
-      | 'sticky'
-      | 'positionMethod'
-    >,
-    /** Where the portal mounts, for a shadow root or a scoped stacking context. */
-    Pick<ComboboxPrimitive.Portal.Props, 'container'> {}
-
-/** Portal + Positioner + floating panel. Unlike shadcn's `ComboboxContent` it
- * does NOT clamp the popup to the anchor width (a cascader panel is routinely
- * wider), but it keeps `group/combobox-content`, which `CascaderEmpty` needs. */
-function CascaderContent({
-  className,
-  side = 'bottom',
-  sideOffset = 6,
-  align = 'start',
-  alignOffset = 0,
-  anchor,
-  collisionBoundary,
-  collisionPadding,
-  sticky,
-  positionMethod,
-  container,
-  ref,
-  ...props
-}: CascaderContentProps) {
-  const { labels } = useCascaderActions();
-  const popupRef = React.useRef<HTMLDivElement | null>(null);
-
-  // `initialFocus` needs the popup element, and `ref` is the one prop
-  // `mergeProps` does NOT merge, so it is chained by hand rather than spread.
-  const setPopup = React.useCallback(
-    (node: HTMLDivElement | null) => {
-      popupRef.current = node;
-      if (typeof ref === 'function') ref(node);
-      else if (ref) ref.current = node;
-    },
-    [ref],
-  );
-
-  /**
-   * Focus goes to the search field, where the level keys and
-   * `aria-activedescendant` live. Base UI's own default agrees but is COMPUTED
-   * FROM THE FIRST RENDER, when the field has not mounted, and collapses to
-   * "do not move focus": measured, a KEYBOARD open left focus on the trigger
-   * and cost two Tabs to reach the footer where a pointer open cost one.
-   *
-   * `initialFocus` rather than an effect, because anything scheduled alongside
-   * Base UI's focus manager is a race; the field is resolved INSIDE the
-   * callback, which runs after the layout effects. Touch is handed back to
-   * Base UI on purpose - focusing the popup keeps the Android keyboard shut.
-   */
-  const initialFocus = React.useCallback((openType: string) => {
-    const popup = popupRef.current;
-    if (!popup) return true;
-    if (openType === 'touch') return popup;
-    return popup.querySelector<HTMLElement>('[data-slot="cascader-input"]') ?? true;
-  }, []);
-
-  return (
-    // Conditional spreads throughout: `mergeProps` iterates own keys, so an
-    // explicit `undefined` reads as "deleted" rather than "not supplied".
-    <ComboboxPrimitive.Portal {...(container !== undefined ? { container } : null)}>
-      <ComboboxPrimitive.Positioner
-        side={side}
-        sideOffset={sideOffset}
-        align={align}
-        alignOffset={alignOffset}
-        anchor={anchor}
-        {...(collisionBoundary !== undefined ? { collisionBoundary } : null)}
-        {...(collisionPadding !== undefined ? { collisionPadding } : null)}
-        {...(sticky !== undefined ? { sticky } : null)}
-        {...(positionMethod !== undefined ? { positionMethod } : null)}
-        className="isolate z-50"
-      >
-        <ComboboxPrimitive.Popup
-          ref={setPopup}
-          data-slot="cascader-content"
-          /* Marks a menu surface for the docs design-system picker. An
-             attribute, not a class, so the panel's look stays self-contained. */
-          data-menu-target=""
-          /* The input inside makes this a `role="dialog"`, unnamed by default. */
-          aria-label={labels.panelLabel}
-          initialFocus={initialFocus}
-          className={cn(
-            CONTENT_SURFACE_CLASS,
-            'group/combobox-content relative flex max-h-(--available-height) max-w-(--available-width) min-w-(--anchor-width) origin-(--transform-origin) flex-col',
-            className,
-          )}
-          {...props}
-        />
-      </ComboboxPrimitive.Positioner>
-    </ComboboxPrimitive.Portal>
   );
 }
 
@@ -2619,81 +2132,6 @@ function CascaderList({ className, style, maxHeight: maxHeightProp, ...props }: 
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/*                              Empty / Loading                               */
-/* -------------------------------------------------------------------------- */
-
-export interface CascaderEmptyProps extends ComboboxPrimitive.Empty.Props {
-  /** @deprecated Ignored: the loading surface no longer draws skeletons. They
-   * promised a shape the level might not have and cost a second layout; the
-   * progress lives on the branch row instead. Kept so call sites compile. */
-  skeletonRows?: number;
-}
-
-/** The empty, loading and error surface, in ONE element that never unmounts.
- * `Combobox.Empty` renders whenever `filteredItems.length === 0`, as true of a
- * fetching level as of an empty one, so swapping siblings would announce "No
- * results found." over every async level. Swap the CHILDREN. */
-function CascaderEmpty({
-  className,
-  children,
-  // Accepted and ignored; destructured so it is never spread onto the DOM.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  skeletonRows,
-  ...props
-}: CascaderEmptyProps) {
-  const { labels, retryLevel } = useCascaderActions();
-  const { query, path, searchState } = useCascaderState();
-  // The level whose emptiness is on screen; tree always shows the root.
-  const levelKey = path.length ? path[path.length - 1] : CASCADER_ROOT_KEY;
-  const loadState = useCascaderLoadState(levelKey);
-  const state = query.trim() ? (searchState ?? loadState) : loadState;
-
-  let body: React.ReactNode = children ?? labels.empty;
-
-  if (state?.error) {
-    body = (
-      <span data-slot="cascader-error" className="flex flex-col items-center gap-1.5">
-        <span>{labels.error}</span>
-        <button
-          type="button"
-          data-slot="cascader-retry"
-          /* A real button because this lives OUTSIDE the listbox; a focusable
-             element inside a `role="option"` is `nested-interactive`. */
-          onClick={() => retryLevel(levelKey)}
-          className="text-foreground hover:bg-accent focus-visible:ring-ring/50 rounded-md px-2 py-0.5 font-medium outline-hidden transition-colors focus-visible:ring-2"
-        >
-          {labels.retry}
-        </button>
-      </span>
-    );
-  } else if (state?.loading) {
-    body = (
-      <span data-slot="cascader-loading" className="flex w-full items-center justify-center">
-        {labels.loading}
-      </span>
-    );
-  }
-
-  return (
-    <ComboboxPrimitive.Empty
-      data-slot="cascader-empty"
-      data-state={state?.error ? 'error' : state?.loading ? 'loading' : 'empty'}
-      className={cn(EMPTY_CLASS, className)}
-      /* The ONE place an explicit `undefined` is right: it DELETES Base UI's
-         live region, which is wanted. `CascaderStatus` is the single one, and
-         leaving this one spoke "No results found." on every level swap, which
-         renders one deliberately empty frame to reset the highlight. */
-      role={undefined}
-      aria-live={undefined}
-      aria-atomic={undefined}
-      {...props}
-    >
-      {body}
-    </ComboboxPrimitive.Empty>
-  );
-}
-
 export interface CascaderStatusProps extends ComboboxPrimitive.Status.Props {
   asChild?: boolean;
 }
@@ -2723,17 +2161,7 @@ function CascaderStatus({ className, children, asChild = false, ...props }: Casc
   );
 }
 
-export {
-  Cascader,
-  CascaderTrigger,
-  CascaderChip,
-  CascaderChips,
-  CascaderContent,
-  CascaderPanel,
-  CascaderList,
-  CascaderEmpty,
-  CascaderStatus,
-};
+export { Cascader, CascaderPanel, CascaderList, CascaderStatus };
 
 /** Re-exported from `cascader-context.tsx`: existing import paths keep
  * working, and the row component avoids an import cycle through this file. */

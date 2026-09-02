@@ -1,9 +1,7 @@
 import type {
-  CascaderCollapse,
   CascaderFlatNode,
   CascaderIndex,
   CascaderNode,
-  CascaderPathSegment,
   CascaderSelectable,
 } from '@/components/reui/cascader/cascader-types';
 
@@ -536,39 +534,6 @@ export function flattenCascaderTree<T>(
   return rows;
 }
 
-/** Shortens a path; the ellipsis segment still carries the hidden nodes. */
-export function collapseCascaderPath<T>(
-  path: readonly CascaderNode<T>[],
-  options: { maxSegments?: number; collapse?: CascaderCollapse } = {},
-): CascaderPathSegment<T>[] {
-  const { maxSegments = 3, collapse = 'middle' } = options;
-
-  const asNodes = (nodes: readonly CascaderNode<T>[]): CascaderPathSegment<T>[] =>
-    nodes.map((node) => ({ type: 'node' as const, node }));
-
-  if (collapse === 'none' || maxSegments <= 0 || path.length <= maxSegments) {
-    return asNodes(path);
-  }
-
-  if (collapse === 'start') {
-    const tail = path.slice(path.length - maxSegments);
-    return [
-      { type: 'ellipsis', hidden: path.slice(0, path.length - maxSegments) },
-      ...asNodes(tail),
-    ];
-  }
-
-  // "middle": keep the root for orientation and as much of the tail as fits.
-  const head = path.slice(0, 1);
-  const tailCount = maxSegments - 1;
-  const tail = path.slice(path.length - tailCount);
-  const hidden = path.slice(1, path.length - tailCount);
-
-  if (hidden.length === 0) return asNodes(path);
-
-  return [...asNodes(head), { type: 'ellipsis', hidden }, ...asNodes(tail)];
-}
-
 /* -------------------------------------------------------------------------- */
 /*                              Cascade selection                             */
 /* -------------------------------------------------------------------------- */
@@ -688,63 +653,6 @@ export function getCascaderIndeterminateFrom(
   return partial;
 }
 
-/** The one-call form; the root uses the two halves above and its own counts. */
-export function getCascaderIndeterminate<T>(
-  index: CascaderIndex<T>,
-  selected: readonly string[],
-): Set<string> {
-  return getCascaderIndeterminateFrom(getCascaderSelectedDescendants(index, selected), selected);
-}
-
-/** How `getCascaderCheckedValues` condenses a full-closure selection. */
-export type CascaderCheckedStrategy = 'all' | 'parent' | 'child';
-
-/**
- * The cascade selection under a reporting strategy. DERIVED OUTPUT ONLY: the
- * STORED value stays the full closure, which keeps a checked state an O(1)
- * lookup. `"all"` is the closure; `"parent"` drops a value whose parent is
- * selected; `"child"` drops one with a selected child.
- */
-export function getCascaderCheckedValues<T>(
-  index: CascaderIndex<T>,
-  selected: readonly string[],
-  strategy: CascaderCheckedStrategy,
-): readonly string[] {
-  if (strategy === 'all') return selected;
-
-  const set = new Set(selected);
-  if (strategy === 'parent') {
-    return selected.filter((value) => {
-      const parent = index.parentOf.get(value);
-      return parent == null || !set.has(parent);
-    });
-  }
-
-  return selected.filter((value) => {
-    const children = index.childrenOf.get(value);
-    if (!children?.length) return true;
-    return !children.some((child) => set.has(child.value));
-  });
-}
-
-/** Values in `nodes` whose label collides, so the chip must show its path. */
-export function findAmbiguousCascaderLabels<T>(nodes: readonly CascaderNode<T>[]): Set<string> {
-  const firstByLabel = new Map<string, string>();
-  const ambiguous = new Set<string>();
-
-  for (const node of nodes) {
-    const first = firstByLabel.get(node.label);
-    if (first === undefined) {
-      firstByLabel.set(node.label, node.value);
-      continue;
-    }
-    ambiguous.add(node.value);
-    ambiguous.add(first);
-  }
-
-  return ambiguous;
-}
-
 /* -------------------------------------------------------------------------- */
 /*                              Development only                              */
 /* -------------------------------------------------------------------------- */
@@ -758,11 +666,6 @@ export function warnCascaderOnce(key: string, message: string): void {
   if (CASCADER_WARNED.has(key)) return;
   CASCADER_WARNED.add(key);
   console.warn(`[Cascader] ${message}`);
-}
-
-/** Empties the ledger. Tests only; a warning is meant to be seen once. */
-export function resetCascaderWarnings(): void {
-  CASCADER_WARNED.clear();
 }
 
 /** What a dev-time scan of the consumer's `items` found wrong with it. */

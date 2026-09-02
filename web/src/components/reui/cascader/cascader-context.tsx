@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import type {
-  CascaderActionItem,
   CascaderChangeReason,
   CascaderFlatNode,
   CascaderIndex,
@@ -115,7 +114,6 @@ export interface CascaderActionsContextValue<T = unknown> {
   /** Draws the SINGLE-SELECT check and its gutter. Ignored in multi-select. */
   indicator: boolean;
   expandTrigger?: 'click' | 'hover';
-  actions: CascaderActionItem[];
   searchScope: CascaderSearchScope;
   maxHeight?: number | string;
   inline: boolean;
@@ -164,14 +162,6 @@ export interface CascaderActionsContextValue<T = unknown> {
   popLevel: () => void;
   goToDepth: (depth: number) => void;
   toggleExpanded: (value: string) => void;
-  /**
-   * Registers a footer submenu as open or closed. `Combobox` has no
-   * `FloatingTree`, so one Escape would dismiss the flyout AND the cascader;
-   * the root's `onOpenChange` guard cancels the close while any is open, from a
-   * ref so it reads as of that event without re-rendering the root.
-   */
-  setFlyoutOpen: (key: string, open: boolean) => void;
-  hasOpenFlyout: () => boolean;
   setQuery: (next: string) => void;
   /**
    * Replaces the selection. `onValueChange` diffs it against the current one

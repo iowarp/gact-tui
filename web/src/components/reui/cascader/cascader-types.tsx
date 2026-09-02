@@ -26,23 +26,6 @@ export interface CascaderNode<T = unknown> {
   data?: T;
 }
 
-/**
- * One footer ACTION. Deliberately not a `CascaderNode`, so a command can never
- * be passed where an option is expected and join the ring, filter or selection.
- */
-export interface CascaderActionItem {
-  /** Stable key. Falls back to the label when it is a string, then the index. */
-  value?: string;
-  label: React.ReactNode;
-  icon?: React.ReactNode;
-  disabled?: boolean;
-  /** Ignored when `items` is present - a flyout opens instead. */
-  onSelect?: () => void;
-  /** Turns the row into a submenu trigger. One level deep on purpose. */
-  items?: CascaderActionItem[];
-  /** Consecutive entries sharing a heading are drawn under one. */
-  group?: string;
-}
 
 /** Panel layout. See the docs for the keyboard map of each. */
 export type CascaderMode = 'drill' | 'columns' | 'tree';
@@ -56,10 +39,6 @@ export type CascaderSearchScope = 'level' | 'deep';
  * never satisfy it.
  */
 export type CascaderSelectable<T = unknown> = 'leaf' | 'any' | ((node: CascaderNode<T>) => boolean);
-
-export type CascaderCollapse = 'middle' | 'start' | 'none';
-
-export type CascaderValueDisplay = 'path' | 'leaf' | 'count';
 
 export type CascaderChangeReason = 'select' | 'deselect' | 'clear';
 
@@ -98,11 +77,6 @@ export interface CascaderFlatNode<T = unknown> {
   /** One-based index among siblings. */
   posInSet: number;
 }
-
-/** One segment of a rendered path, after collapsing. */
-export type CascaderPathSegment<T = unknown> =
-  | { type: 'node'; node: CascaderNode<T> }
-  | { type: 'ellipsis'; hidden: CascaderNode<T>[] };
 
 /**
  * Async load state for one node's children. Deliberately WITHOUT a `status`
@@ -159,9 +133,8 @@ export interface CascaderLabels {
   error: string;
   retry: string;
   empty: string;
-  /** Rendered by `CascaderValue` when `display="count"`. */
+  /** Names the selected descendants a collapsed branch row stands for. */
   selectedCount: (count: number) => string;
-  breadcrumbLabel: string;
   chipsLabel: string;
   removeChip: (label: string) => string;
   /** Trail separator. Not every locale writes one with a slash. */
