@@ -2,7 +2,6 @@ import type { ToolInvocation } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import {
   formatToolDuration,
-  getToolOutcome,
   getToolPresentation,
   getToolSummary,
   humanizeToolName,
@@ -51,6 +50,25 @@ describe('tool presentation', () => {
     ).toEqual({ title: 'wait(tasks)', kind: 'tool' });
   });
 
+  it('never uses the raw wire identifier as the primary label', () => {
+    expect(
+      getToolPresentation({
+        id: 'tool-untitled',
+        session_id: 'session-1',
+        name: 'fs_read_file',
+        state: 'succeeded',
+      }),
+    ).toEqual({ title: 'Read file', kind: 'tool' });
+    expect(
+      getToolPresentation({
+        id: 'tool-untitled-shell',
+        session_id: 'session-1',
+        name: 'shell_bash',
+        state: 'running',
+      }),
+    ).toEqual({ title: 'Run command', kind: 'tool' });
+  });
+
   it('uses audited fallbacks for namespaced identifiers', () => {
     expect(humanizeToolName('fs_read_file')).toBe('Read file');
     expect(humanizeToolName('fs_propose_edit')).toBe('Propose file change');
@@ -97,7 +115,21 @@ describe('tool presentation', () => {
     expect(formatToolDuration(12_500)).toBe('12.5 s');
   });
 
-  it('separates successful transport from halted domain outcomes', () => {
+  it('reports no summary when the text would only restate the tool state', () => {
+    const bare = (state: ToolInvocation['state']): ToolInvocation => ({
+      id: `tool-bare-${state}`,
+      session_id: 'session-1',
+      name: 'phenotype_measure_cohort',
+      title: 'Measure cohort',
+      state,
+    });
+
+    expect(getToolSummary(bare('pending'))).toBeUndefined();
+    expect(getToolSummary(bare('running'))).toBeUndefined();
+    expect(getToolSummary(bare('succeeded'))).toBeUndefined();
+  });
+
+  it('reports a halted domain outcome in the summary without restating the tool state', () => {
     const halted = {
       id: 'tool-halted',
       session_id: 'session-1',
@@ -109,11 +141,6 @@ describe('tool presentation', () => {
         runs: [],
       },
     };
-    expect(getToolOutcome(halted)).toMatchObject({
-      value: 'interrupted',
-      label: 'Halted',
-      domainStatus: 'halted',
-    });
     expect(getToolSummary(halted)).toBe('CAMPAIGN HALTED — quarantined by SPOTTER AI.');
   });
 
@@ -129,7 +156,6 @@ describe('tool presentation', () => {
         summary: { run_count: 2, mean_biomass_avg: 120.475401 },
       },
     };
-    expect(getToolOutcome(completed)).toMatchObject({ value: 'completed', label: 'Completed' });
     expect(getToolSummary(completed)).toBe('2 runs completed, mean biomass 120.48.');
   });
 });

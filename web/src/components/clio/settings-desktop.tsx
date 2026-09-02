@@ -19,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { formatBytes } from '@/lib/format';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   checkForDesktopUpdate,
@@ -256,12 +257,6 @@ function UpdateAvailable({
       </AlertDescription>
     </Alert>
   );
-}
-
-function formatBytes(value: number): string {
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatReleaseDate(value: string): string {

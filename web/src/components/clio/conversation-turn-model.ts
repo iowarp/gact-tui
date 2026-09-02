@@ -1,4 +1,6 @@
 import type { Message, MessageBlock, Task, ToolInvocation } from '@clio/core/v3';
+import { truncate } from '@/lib/format';
+import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 
 export interface ConversationIteration {
   id: string;
@@ -73,7 +75,7 @@ function fallbackIterations(
       current.thinking.push({
         id: block.id,
         label: reasoningLabel(block.provider_source),
-        text: readableThinking(block.text),
+        text: block.text,
         streaming: Boolean(block.streaming),
       });
       current.streaming ||= Boolean(block.streaming);
@@ -89,13 +91,16 @@ function fallbackIterations(
     }
     if (block.type === 'tool') {
       const tool = tools[block.tool_id];
-      if (tool && !current.tools.some((candidate) => candidate.id === tool.id)) {
+      // An unresolved invocation contributes nothing here; the block stays in the
+      // residual lane so its typed unavailable state renders at its own position.
+      if (!tool) continue;
+      if (!current.tools.some((candidate) => candidate.id === tool.id)) {
         current.tools.push(tool);
       }
       if (block.thought && current.nextThoughts.length === 0) {
         current.nextThoughts.push(block.thought);
       }
-      current.streaming ||= ['pending', 'running'].includes(tool?.state ?? '');
+      current.streaming ||= ['pending', 'running'].includes(tool.state);
       consumed.add(block.id);
       continue;
     }
@@ -117,10 +122,6 @@ function fallbackIterations(
     messageInterrupted(message),
   );
   return { consumed, iterations };
-}
-
-function readableThinking(value: string): string {
-  return value.replace(/\*{4}(?=\S)/gu, '**\n\n**');
 }
 
 function emptyIteration(message: Message, index: number): ConversationIteration {
@@ -184,5 +185,5 @@ function compactSentence(value: string): string {
   const line = value.replace(/\s+/gu, ' ').trim();
   const sentenceEnd = line.search(/(?<=[.!?])\s/u);
   const sentence = (sentenceEnd >= 0 ? line.slice(0, sentenceEnd + 1) : line).trim();
-  return sentence.length > 180 ? `${sentence.slice(0, 177).trimEnd()}…` : sentence;
+  return truncate(sentence, SUMMARY_TRUNCATE_CHARS);
 }

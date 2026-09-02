@@ -58,8 +58,21 @@ describe('forward-compatible wire enums', () => {
     ).toBe('unknown');
   });
 
-  it('rejects malformed known blocks instead of disguising them as future blocks', () => {
-    expect(() => messageBlockSchema.parse({ id: 'block_1', type: 'text' })).toThrow();
+  it('degrades a malformed known block without disguising what the service sent', () => {
+    expect(messageBlockSchema.parse({ id: 'block_1', type: 'text' })).toEqual({
+      id: 'block_1',
+      type: 'unknown',
+      original_type: 'text',
+      raw: { id: 'block_1', type: 'text' },
+    });
+    expect(
+      messageBlockSchema.parse({
+        id: 'block_4',
+        type: 'text',
+        text: 'Grounded answer',
+        citation_ids: ['cite_1'],
+      }),
+    ).toEqual({ id: 'block_4', type: 'text', text: 'Grounded answer' });
     expect(
       messageBlockSchema.parse({
         id: 'block_2',
@@ -93,9 +106,14 @@ describe('forward-compatible wire enums', () => {
       name: 'paper.pdf',
       delivery: { representation: 'native', evidence_source: 'live_handshake' },
     });
-    expect(() =>
+    expect(
       messageBlockSchema.parse({ id: 'resource_2', type: 'resource', resource_id: 'res_2' }),
-    ).toThrow();
+    ).toEqual({
+      id: 'resource_2',
+      type: 'unknown',
+      original_type: 'resource',
+      raw: { id: 'resource_2', type: 'resource', resource_id: 'res_2' },
+    });
   });
 
   it('uses the shared closed A2UI component vocabulary and limits', () => {

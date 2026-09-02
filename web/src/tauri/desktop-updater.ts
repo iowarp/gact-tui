@@ -1,4 +1,5 @@
 import type { DownloadEvent, Update } from '@tauri-apps/plugin-updater';
+import { UPDATE_CHECK_TIMEOUT_MS } from '@/lib/runtime-limits';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 
 export interface DesktopUpdateInfo {
@@ -24,7 +25,7 @@ export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null>
     availableUpdate = null;
   }
   const { check } = await import('@tauri-apps/plugin-updater');
-  availableUpdate = await check({ timeout: 15_000 });
+  availableUpdate = await check({ timeout: UPDATE_CHECK_TIMEOUT_MS });
   return availableUpdate
     ? {
         currentVersion: availableUpdate.currentVersion,

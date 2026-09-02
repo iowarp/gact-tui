@@ -1,8 +1,46 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioSubagentCard } from './subagent-card';
 
+afterEach(cleanup);
+
 describe('ClioSubagentCard', () => {
+  it('reports an unrecognized child state as unknown instead of completed', () => {
+    render(
+      <ClioSubagentCard
+        subagent={{
+          id: 'task_relay',
+          session_id: 'session_1',
+          agent_id: 'relay',
+          title: 'relay #1',
+          state: 'unknown',
+          task: 'Run the remote job.',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Unknown')).toBeVisible();
+    expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+  });
+
+  it('keeps an interrupted child interrupted instead of relabeling it failed', () => {
+    render(
+      <ClioSubagentCard
+        subagent={{
+          id: 'task_stopped',
+          session_id: 'session_1',
+          agent_id: 'geospatial',
+          title: 'geospatial #2',
+          state: 'interrupted',
+          task: 'Ground the requested region.',
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Interrupted')).toBeVisible();
+    expect(screen.queryByText('Failed')).not.toBeInTheDocument();
+  });
+
   it('treats an event-order gap as connecting instead of a failed child', () => {
     render(<ClioSubagentCard />);
 

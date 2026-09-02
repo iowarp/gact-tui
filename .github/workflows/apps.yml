@@ -14,6 +14,8 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
+      - 'scripts/**'
+      - 'tsconfig.base.json'
       - '.github/workflows/apps.yml'
   pull_request:
     paths:
@@ -26,6 +28,11 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
+      # `pnpm lint` runs the frontend ratchet scripts under scripts/, and
+      # packages/core extends tsconfig.base.json — an edit to either must run
+      # the job that enforces them.
+      - 'scripts/**'
+      - 'tsconfig.base.json'
       - '.github/workflows/apps.yml'
   workflow_dispatch:
 
@@ -49,6 +56,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
+      # The Tauri crate embeds gen/brand-backend.json via include_str! and the
+      # release pipelines build from the committed copy, so drift between the
+      # descriptor and brand.config.json ships silently. Regenerate and fail on
+      # any difference.
+      - name: Brand backend descriptor matches brand.config.json
+        run: |
+          pnpm --filter @clio/desktop gen-brand-backend
+          git diff --exit-code -- desktop/src-tauri/gen/brand-backend.json
       - name: Lint and frontend ratchets
         run: pnpm lint
       - name: Typecheck
@@ -283,6 +298,10 @@ jobs:
           printf '#!/bin/sh\nexit 0\n' > "$runtime/bin/backend-stub"
           chmod +x "$runtime/bin/backend-stub"
           printf '{"schema":1,"exec":["bin/backend-stub"]}\n' > "$runtime/runtime.json"
+      # `tauri build` (the bare script) does NOT run the generator, so without
+      # this the installer embeds whatever descriptor happens to be committed.
+      - name: Generate brand backend descriptor
+        run: pnpm --filter @clio/desktop gen-brand-backend
       - name: Build web
         run: pnpm build
       - name: Build unsigned installer

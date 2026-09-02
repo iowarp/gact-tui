@@ -71,8 +71,18 @@ RUN apt-get update \
 RUN git config --global url."https://github.com/".insteadOf "git@github.com:"
 
 RUN python -m venv "$VIRTUAL_ENV" \
-    && pip install --upgrade pip \
-    && pip install "clio-agent @ git+https://github.com/iowarp/clio-agent.git@${CLIO_REF}"
+    && pip install --upgrade pip uv
+
+# Install clio-agent from its own uv.lock so git-sourced dependencies that are
+# not published to an index (the pinned clio-schemas) resolve exactly as
+# clio-agent's CI installs them. A plain VCS pip install reads only the index
+# requirement and cannot see clio-agent's [tool.uv.sources] pins.
+RUN git clone https://github.com/iowarp/clio-agent.git /build/clio-agent \
+    && git -C /build/clio-agent checkout "${CLIO_REF}" \
+    && git -C /build/clio-agent submodule update --init --recursive --depth 1 \
+    && cd /build/clio-agent \
+    && UV_PROJECT_ENVIRONMENT="$VIRTUAL_ENV" uv sync --frozen --no-dev --no-editable \
+    && rm -rf /build/clio-agent
 
 # --- stage 3: runtime (python + nginx, no build tools) ----------------------
 FROM python:3.12-slim AS runtime

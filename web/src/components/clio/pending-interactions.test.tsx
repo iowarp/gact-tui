@@ -45,6 +45,37 @@ describe('ClioPendingInteractions', () => {
     expect(onApproval).toHaveBeenCalledWith('perm_1', 'allow_session');
   });
 
+  it('answers an approval from a session this workspace has not listed yet', async () => {
+    const user = userEvent.setup();
+    const onApproval = vi.fn(async () => undefined);
+
+    render(
+      <ClioPendingInteractions
+        approvals={[
+          {
+            id: 'perm_child',
+            session_id: 'sess_grandchild',
+            tool_name: 'shell.exec',
+            summary: 'Run the child analysis command',
+            status: 'pending',
+            created_at: '2026-08-22T00:00:00Z',
+          },
+        ]}
+        listedSessionIds={new Set(['sess_1'])}
+        onAnswer={async () => undefined}
+        onApproval={onApproval}
+        onCancelQuestion={async () => undefined}
+        questions={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '1 response needed' }));
+    expect(screen.getByText('Run the child analysis command')).toBeVisible();
+    expect(screen.getByText('Session not listed yet')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Allow once' }));
+    expect(onApproval).toHaveBeenCalledWith('perm_child', 'allow');
+  });
+
   it('submits the selected server-provided question option', async () => {
     const user = userEvent.setup();
     const onAnswer = vi.fn(async () => undefined);

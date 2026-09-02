@@ -122,7 +122,7 @@ function MessageBlockView({
     case 'subagent':
       return (
         <ConversationProcessSequence
-          blocks={[block]}
+          block={block}
           onOpenSubagent={onOpenSubagent}
           reasoningDefaultOpen={reasoningDefaultOpen}
           subagents={subagents}

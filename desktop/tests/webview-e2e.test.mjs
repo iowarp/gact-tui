@@ -441,6 +441,81 @@ async function waitForPermissionOrSendFailure(sid, timeoutMs) {
   }
 }
 
+/**
+ * Read the endpoint handoff as the app itself sees it: the supervisor handle
+ * the WebView polls (`get_backend`), whether the page is really the native
+ * Tauri stack, and whether any session from that backend has been rendered.
+ */
+async function readEndpointHandoff(sid) {
+  const j = await execute(
+    sid,
+    'return new Promise((resolve) => {' +
+      '  const internals = window.__TAURI_INTERNALS__;' +
+      '  const links = Array.from(document.querySelectorAll(\'a[href*="/sessions/"]\'))' +
+      "    .map((a) => a.getAttribute('href') || '')" +
+      '    .slice(0, 5);' +
+      '  const base = {' +
+      '    isTauri: window.isTauri === true,' +
+      "    hasTauriInternals: typeof internals !== 'undefined'," +
+      '    sessionLinks: links' +
+      '  };' +
+      "  if (!internals || typeof internals.invoke !== 'function') {" +
+      "    resolve({ ...base, error: 'window.__TAURI_INTERNALS__.invoke is unavailable' });" +
+      '    return;' +
+      '  }' +
+      "  internals.invoke('get_backend').then((handle) => resolve({" +
+      '    ...base,' +
+      "    url: (handle && handle.url) || ''," +
+      "    status: (handle && handle.status && handle.status.kind) || ''," +
+      '    tokenLength: handle && handle.bearer_token ? handle.bearer_token.length : 0' +
+      '  })).catch((error) => resolve({ ...base, error: String(error) }));' +
+      '});',
+  );
+  return j.value ?? {};
+}
+
+const trimSlash = (value) => String(value ?? '').replace(/\/$/, '');
+
+/**
+ * The facts the native proof exists for, independent of the permission phase:
+ * the page is the real Tauri stack, the supervisor handed the app the backend
+ * URL the job seeded, and the app used that handle to reach a session on it.
+ */
+async function assertEndpointHandoff(sid, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let handoff;
+  for (;;) {
+    handoff = await readEndpointHandoff(sid);
+    if (!handoff.error && handoff.status === 'ready' && (handoff.sessionLinks ?? []).length > 0) {
+      break;
+    }
+    if (Date.now() > deadline) break;
+    await sleep(500);
+  }
+
+  assert.equal(handoff.error, undefined, `get_backend failed: ${JSON.stringify(handoff)}`);
+  assert.equal(handoff.isTauri, true, `not the native Tauri stack: ${JSON.stringify(handoff)}`);
+  assert.equal(
+    handoff.hasTauriInternals,
+    true,
+    `Tauri IPC internals missing: ${JSON.stringify(handoff)}`,
+  );
+  assert.equal(handoff.status, 'ready', `backend handle not ready: ${JSON.stringify(handoff)}`);
+  assert.equal(
+    trimSlash(handoff.url),
+    trimSlash(BACKEND_URL),
+    `app was handed ${handoff.url}, expected ${BACKEND_URL}`,
+  );
+  // Session links can only exist if the app consumed the handle's URL AND its
+  // bearer token (empty on the attach path, which the server's localhost trust
+  // scheme accepts) to fetch from that backend through the Rust transport.
+  assert.ok(
+    (handoff.sessionLinks ?? []).length > 0,
+    `no session from the handed-off backend is reachable: ${JSON.stringify(handoff)}`,
+  );
+  return handoff;
+}
+
 async function waitForVisiblePermissionCard(sid, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
@@ -469,7 +544,7 @@ async function waitForVisiblePermissionCard(sid, timeoutMs) {
 test(
   'real WebView: permission card renders + clears through the Tauri stack',
   { skip: !enabled ? `missing ${missing.join(', ')}` : false, timeout: 210_000 },
-  async () => {
+  async (t) => {
     const seeded = CHAT_ONLY ? { agentId: '', sessionId: '' } : await seedPermissionProbeSession();
     let driver;
     let sid;
@@ -490,67 +565,86 @@ test(
       await sleep(1_000);
       await screenshot(sid, 'desktop-webview-chat');
 
-      if (CHAT_ONLY) return;
-
-      // A permission-triggering prompt makes CLIO emit permission.requested,
-      // delivered over the SSE bridge. Rather than relying on the default
-      // orchestrator to have shell access,
-      // seed a disposable shell-capable validation agent/session through the
-      // real backend and select that session in the native WebView.
-      const seededRow = await waitFor(sid, `a[href$="/sessions/${seeded.sessionId}"]`, 15_000);
-      await click(sid, seededRow);
-      await sleep(800);
-
-      const composer = await waitFor(sid, COMPOSER_SELECTOR, 8_000);
-      await click(sid, composer);
-      await typeInto(
-        sid,
-        composer,
-        'Run this shell command exactly: rm -rf /tmp/gact-desktop-permission-probe-do-not-exist',
-      );
-      const send = await waitFor(sid, SUBMIT_SELECTOR, 4_000);
-      await execute(
-        sid,
-        `const send = document.querySelector('${SUBMIT_SELECTOR}');` +
-          "if (!send) throw new Error('missing composer-send');" +
-          "if (send.disabled) throw new Error('composer-send disabled: ' + JSON.stringify({" +
-          `  value: document.querySelector('${COMPOSER_SELECTOR}')?.value || '',` +
-          "  text: document.body?.innerText?.slice(0, 300) || ''" +
-          '}));' +
-          'send.click();' +
-          'return true;',
-      );
-
-      // The permission card must render in the REAL WebView — proving the
-      // Rust SSE bridge delivers permission.requested end-to-end.
-      const card = await waitForPermissionOrSendFailure(sid, 60_000).catch(async (err) => {
-        await screenshot(sid, 'desktop-webview-after-send');
-        throw err;
+      // Always asserted, CHAT_ONLY or not: the endpoint handoff this job
+      // exists to prove.
+      await t.test('chat shell paints and consumes the endpoint handoff', async () => {
+        await assertEndpointHandoff(sid, 20_000);
       });
-      assert.ok(card, 'permission card should render');
-      await waitForVisiblePermissionCard(sid, 5_000);
-      await sleep(250);
-      await screenshot(sid, 'desktop-webview-permission');
 
-      // A decision must clear it.
-      await execute(
-        sid,
-        `const section = document.querySelector('${RESPONSE_SELECTOR}');` +
-          "const deny = Array.from(section?.querySelectorAll('button') || []).find((button) => button.textContent?.trim() === 'Deny');" +
-          "if (!deny) throw new Error('missing Deny action');" +
-          'deny.click();' +
-          'return true;',
+      // The permission phase needs a backend that emits permission.requested
+      // and accepts POST /v1/agents; the CI fixture does neither, which is why
+      // TAURI_E2E_CHAT_ONLY=1 exists. Skip it by name so the narrowed scope is
+      // visible in the run output instead of hiding behind a passing test whose
+      // name claims the coverage.
+      await t.test(
+        'permission card renders and clears through the Rust SSE bridge',
+        {
+          skip: CHAT_ONLY
+            ? 'TAURI_E2E_CHAT_ONLY=1 — needs a backend that emits permission.requested'
+            : false,
+        },
+        async () => {
+          // A permission-triggering prompt makes CLIO emit permission.requested,
+          // delivered over the SSE bridge. Rather than relying on the default
+          // orchestrator to have shell access,
+          // seed a disposable shell-capable validation agent/session through the
+          // real backend and select that session in the native WebView.
+          const seededRow = await waitFor(sid, `a[href$="/sessions/${seeded.sessionId}"]`, 15_000);
+          await click(sid, seededRow);
+          await sleep(800);
+
+          const composer = await waitFor(sid, COMPOSER_SELECTOR, 8_000);
+          await click(sid, composer);
+          await typeInto(
+            sid,
+            composer,
+            'Run this shell command exactly: rm -rf /tmp/gact-desktop-permission-probe-do-not-exist',
+          );
+          await waitFor(sid, SUBMIT_SELECTOR, 4_000);
+          await execute(
+            sid,
+            `const send = document.querySelector('${SUBMIT_SELECTOR}');` +
+              "if (!send) throw new Error('missing composer-send');" +
+              "if (send.disabled) throw new Error('composer-send disabled: ' + JSON.stringify({" +
+              `  value: document.querySelector('${COMPOSER_SELECTOR}')?.value || '',` +
+              "  text: document.body?.innerText?.slice(0, 300) || ''" +
+              '}));' +
+              'send.click();' +
+              'return true;',
+          );
+
+          // The permission card must render in the REAL WebView — proving the
+          // Rust SSE bridge delivers permission.requested end-to-end.
+          const card = await waitForPermissionOrSendFailure(sid, 60_000).catch(async (err) => {
+            await screenshot(sid, 'desktop-webview-after-send');
+            throw err;
+          });
+          assert.ok(card, 'permission card should render');
+          await waitForVisiblePermissionCard(sid, 5_000);
+          await sleep(250);
+          await screenshot(sid, 'desktop-webview-permission');
+
+          // A decision must clear it.
+          await execute(
+            sid,
+            `const section = document.querySelector('${RESPONSE_SELECTOR}');` +
+              "const deny = Array.from(section?.querySelectorAll('button') || []).find((button) => button.textContent?.trim() === 'Deny');" +
+              "if (!deny) throw new Error('missing Deny action');" +
+              'deny.click();' +
+              'return true;',
+          );
+          const deadline = Date.now() + 15_000;
+          let cleared = false;
+          while (Date.now() < deadline) {
+            if (!(await findMaybe(sid, RESPONSE_SELECTOR))) {
+              cleared = true;
+              break;
+            }
+            await sleep(500);
+          }
+          assert.ok(cleared, 'permission card should clear after a decision');
+        },
       );
-      const deadline = Date.now() + 15_000;
-      let cleared = false;
-      while (Date.now() < deadline) {
-        if (!(await findMaybe(sid, RESPONSE_SELECTOR))) {
-          cleared = true;
-          break;
-        }
-        await sleep(500);
-      }
-      assert.ok(cleared, 'permission card should clear after a decision');
     } finally {
       if (sid) {
         try {

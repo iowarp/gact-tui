@@ -14,10 +14,17 @@ THEME     ?= dark
 PREFIX    ?= $(HOME)/.local
 BINDIR    ?= $(PREFIX)/bin
 CLIO_GACT_BIN ?= $(HOME)/.local/share/clio/gact
-TUI_BUILD_REVISION ?= $(shell git describe --always --dirty --abbrev=12 2>/dev/null || echo unknown)
+# The build stamp is the COMMIT, never a tag description: cli_version.go
+# truncates BuildRevision to 12 chars and verify-dev-install matches it against
+# `git rev-parse --short=12 HEAD`, so a `git describe` string here renders as
+# "revision: v0.9.9-176-g" and can never match on a clone that has tags.
+TUI_BUILD_REVISION ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 TUI_BUILD_TIME     ?= $(shell git show -s --format=%cI HEAD 2>/dev/null || echo unknown)
 TUI_BUILD_DIRTY    ?= $(shell test -n "$$(git status --porcelain --untracked-files=no 2>/dev/null)" && echo true || echo false)
-TUI_VERSION        ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+# `--match 'v[0-9]*'` pins the semantic version to the TUI's own tag namespace:
+# the repo also cuts `clio-desktop-v*` tags, which must never become the TUI's
+# reported version (tui/internal/version/version.go documents this same form).
+TUI_VERSION        ?= $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null || echo dev)
 TUI_VERSION_PKG    := github.com/JaimeCernuda/gact-tui/tui/internal/version
 TUI_LDFLAGS        ?= -X $(TUI_VERSION_PKG).BuildRevision=$(TUI_BUILD_REVISION) -X $(TUI_VERSION_PKG).BuildTime=$(TUI_BUILD_TIME) -X $(TUI_VERSION_PKG).BuildDirty=$(TUI_BUILD_DIRTY) -X $(TUI_VERSION_PKG).Release=$(TUI_VERSION)
 
@@ -84,7 +91,7 @@ intro-logo-anim: ## Regenerate tui/internal/intro/intro-{static,anim}.ansi from 
 		echo "chafa + imagemagick required"; exit 1; \
 	fi
 	@if [ -z "$(INTRO_SRC)" ] || [ ! -f "$(INTRO_SRC)" ]; then \
-		echo "INTRO_SRC='$(INTRO_SRC)': source gif not in repo -- see apps/branding for the brand mechanism; pass INTRO_SRC=path/to/logo.gif"; exit 1; \
+		echo "INTRO_SRC='$(INTRO_SRC)': source gif not in repo -- see branding/ for the brand mechanism; pass INTRO_SRC=path/to/logo.gif"; exit 1; \
 	fi
 	@rm -rf /tmp/gact-intro-frames && mkdir -p /tmp/gact-intro-frames
 	convert $(INTRO_SRC) -coalesce /tmp/gact-intro-frames/f%02d.png

@@ -27,6 +27,46 @@ describe('ClioRepository interaction contracts', () => {
     });
   });
 
+  it('contains an unreadable block inside its message instead of failing the transcript', async () => {
+    const transport = new RecordingTransport([
+      {
+        cursor: '43',
+        messages: [
+          {
+            id: 'msg_1',
+            session_id: 'sess_1',
+            role: 'assistant',
+            created_at: '2026-08-22T12:00:00Z',
+            blocks: [
+              { id: 'block_1', type: 'text', text: 'Grounded answer', citation_ids: ['cite_1'] },
+              { id: 'block_2', type: 'text' },
+              { id: 'block_3', type: 'holograph', frames: 4 },
+            ],
+          },
+        ],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    const transcript = await repository.transcript('sess_1');
+
+    expect(transcript.messages[0]?.blocks).toEqual([
+      { id: 'block_1', type: 'text', text: 'Grounded answer' },
+      {
+        id: 'block_2',
+        type: 'unknown',
+        original_type: 'text',
+        raw: { id: 'block_2', type: 'text' },
+      },
+      {
+        id: 'block_3',
+        type: 'unknown',
+        original_type: 'holograph',
+        raw: { id: 'block_3', type: 'holograph', frames: 4 },
+      },
+    ]);
+  });
+
   it('sends the selected model through the canonical GACT message envelope', async () => {
     const transport = new RecordingTransport([
       {
@@ -626,6 +666,27 @@ describe('ClioRepository interaction contracts', () => {
       live_state: 'failed',
       result: undefined,
     });
+  });
+
+  it('keeps an unrecognized async-process live state unknown instead of terminally interrupted', async () => {
+    const transport = new RecordingTransport([
+      {
+        processes: [
+          {
+            kind: 'agent',
+            id: 'task_watcher',
+            title: 'Spotter watcher',
+            live_state: 'waiting',
+            status: 'running',
+          },
+        ],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    const processes = await repository.asyncProcesses('sess 1');
+
+    expect(processes[0]).toMatchObject({ id: 'task_watcher', live_state: 'unknown' });
   });
 
   it('normalizes the server permission ledger without flattening away the input', async () => {

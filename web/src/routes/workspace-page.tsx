@@ -73,6 +73,7 @@ export function WorkspacePage() {
     contextTargetOptions,
     entities,
     executionProvenance,
+    interactionSessionIds,
     modelOptions,
     modelCatalogStatus,
     parentSession,
@@ -381,6 +382,7 @@ export function WorkspacePage() {
             disabled={
               respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
             }
+            listedSessionIds={interactionSessionIds}
             onAnswer={async (id, answer) => {
               await answerQuestion.mutateAsync({ id, answer });
             }}
@@ -535,11 +537,19 @@ export function WorkspacePage() {
                 context={context}
                 contextError={sessionContext.state.error?.message}
                 contextFiles={contextObservability.contextFiles.data ?? []}
+                contextFilesError={contextObservability.contextFiles.error?.message}
+                contextFilesPending={contextObservability.contextFiles.isPending}
                 contextFrames={contextObservability.contextFrames.data ?? []}
+                contextFramesError={contextObservability.contextFrames.error?.message}
+                contextFramesPending={contextObservability.contextFrames.isPending}
                 contextPreferencesPending={sessionContext.preferences.isPending}
                 contextTargets={contextTargetOptions}
                 compactContextPending={sessionContext.compact.isPending}
                 diffs={sessionObservability.diffs.data ?? []}
+                diffsError={sessionObservability.diffs.error?.message}
+                diffsPending={sessionObservability.diffs.isPending}
+                processesError={sessionObservability.processes.error?.message}
+                processesPending={sessionObservability.processes.isPending}
                 executionProvenance={executionProvenance.execution.data}
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}

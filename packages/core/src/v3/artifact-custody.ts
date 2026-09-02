@@ -1,11 +1,5 @@
 import { z } from 'zod';
-import type { Artifact } from './domain.js';
 import { TransportError, type ClioTransport } from './transport.js';
-
-export function historicalArtifactWorkspacePath(artifact: Artifact): string | undefined {
-  if (!artifact.workspace_id || !artifact.name) return undefined;
-  return `/v1/workspaces/${encodeURIComponent(artifact.workspace_id)}/files/read?path=${encodeURIComponent(artifact.name)}`;
-}
 
 export function readTextPath(
   transport: ClioTransport,
@@ -38,21 +32,23 @@ export function readBytesPath(
   });
 }
 
-/** Follows only the server-authorized workspace route for a non-CAS artifact. */
+/**
+ * Follows only the server-authorized workspace route for a non-CAS artifact.
+ *
+ * The typed `custody_not_cas` redirect is the sole sanctioned non-CAS route
+ * (SPEC §6.26); every other failure, `not_found` included, stays a typed error
+ * the caller must surface rather than a substituted payload.
+ */
 export async function readArtifactWithCustodyFallback<T>(
   artifactId: string,
   fetchPath: string | undefined,
   readPath: (path: string, signal?: AbortSignal) => Promise<T>,
   signal?: AbortSignal,
-  historicalWorkspacePath?: string,
 ): Promise<T> {
   const requestPath = fetchPath || `/v1/artifacts/${encodeURIComponent(artifactId)}/bytes`;
   try {
     return await readPath(requestPath, signal);
   } catch (error) {
-    if (error instanceof TransportError && error.code === 'not_found' && historicalWorkspacePath) {
-      return readPath(historicalWorkspacePath, signal);
-    }
     if (!(error instanceof TransportError) || error.code !== 'custody_not_cas') throw error;
     const details = error.details;
     if (!details || typeof details !== 'object') throw error;

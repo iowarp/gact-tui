@@ -1,7 +1,7 @@
 # Tauri-native brand injection points
 
 The **webview** (the `@clio/web` frontend) is fully brand-driven at build time via
-`GACT_BRAND` (see `apps/branding/README.md`): window title once loaded, splash, connect,
+`GACT_BRAND` (see `branding/README.md`): window title once loaded, splash, connect,
 copy, accent, favicon. Nothing CLIO-specific is hardcoded in the SolidJS app.
 
 Tauri's **native** layer, however, reads a static `tauri.conf.json` at compile time.
@@ -69,7 +69,7 @@ Two supported paths:
 
 2. **Per-brand icon set.** Drop the brand's icon PNG/ICO/ICNS into a brand-specific
    `icons/` dir and point `bundle.icon` at it from the overlay. (Tauri requires real
-   raster assets here; the SVG mark in `apps/branding/<brand>/logo.svg` is the source
+   raster assets here; the SVG mark in `branding/<brand>/logo.svg` is the source
    to regenerate them with `pnpm tauri icon <path-to-1024.png>`.)
 
 ## clio-agent build hook (the reference brand)

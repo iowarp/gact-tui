@@ -1,4 +1,11 @@
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
+import {
+  A2UI_MAP_POINT_CATEGORY_MAX_CHARS,
+  A2UI_MAP_POINT_DETAIL_MAX_CHARS,
+  A2UI_MAP_POINT_ID_MAX_CHARS,
+  A2UI_MAP_POINT_LABEL_MAX_CHARS,
+  A2UI_MAP_POINTS_MAX,
+} from '@clio/core/v3';
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { MapIcon, MapPinIcon } from 'lucide-react';
 import { lazy, Suspense, useRef, useState } from 'react';
@@ -27,12 +34,12 @@ const ClioScientificMapView = lazy(() =>
 
 const pointSchema = z
   .object({
-    id: z.string().min(1).max(128),
-    label: z.string().min(1).max(240),
+    id: z.string().min(1).max(A2UI_MAP_POINT_ID_MAX_CHARS),
+    label: z.string().min(1).max(A2UI_MAP_POINT_LABEL_MAX_CHARS),
     latitude: z.number().min(-90).max(90),
     longitude: z.number().min(-180).max(180),
-    detail: z.string().max(2_000).optional(),
-    category: z.string().max(120).optional(),
+    detail: z.string().max(A2UI_MAP_POINT_DETAIL_MAX_CHARS).optional(),
+    category: z.string().max(A2UI_MAP_POINT_CATEGORY_MAX_CHARS).optional(),
   })
   .strict();
 
@@ -158,7 +165,7 @@ export const ClioMapCatalogComponent = createComponentImplementation(
     schema: z
       .object({
         title: CommonSchemas.DynamicString.optional(),
-        points: z.array(pointSchema).min(1).max(500),
+        points: z.array(pointSchema).min(1).max(A2UI_MAP_POINTS_MAX),
         selected: z.string().optional(),
         action: CommonSchemas.Action.optional(),
         actionLabel: CommonSchemas.DynamicString.optional(),

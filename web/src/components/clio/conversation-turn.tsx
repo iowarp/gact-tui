@@ -10,13 +10,13 @@ import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import type { SubagentRun, Task } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
+import { ClioStatus, clioStatusLabel } from './status';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
-import { getToolOutcome, getToolPresentation, getToolSummary } from './tool-presentation';
+import { getToolPresentation, getToolSummary } from './tool-presentation';
 import { ClioToolInvocation } from './tool-invocation';
-import type { SubagentRun, Task } from '@clio/core/v3';
-import { ClioStatus } from './status';
 
 interface ConversationTurnProps {
   iterations: readonly ConversationIteration[];
@@ -81,12 +81,11 @@ function IterationSummary({
   const open = iteration.streaming || manualOpen;
   const primaryTool = iteration.tools[0];
   const tool = primaryTool ? getToolPresentation(primaryTool) : undefined;
-  const toolSummary = primaryTool ? compactToolSummary(getToolSummary(primaryTool)) : undefined;
-  const toolOutcome = primaryTool ? getToolOutcome(primaryTool) : undefined;
+  const toolSummary = primaryTool ? getToolSummary(primaryTool) : undefined;
   const toolState = iteration.streaming
-    ? 'Running'
+    ? clioStatusLabel('running')
     : primaryTool && primaryTool.state !== 'succeeded'
-      ? toolOutcome?.label
+      ? clioStatusLabel(primaryTool.state)
       : undefined;
   const disclosureLabel = [
     `${open ? 'Collapse' : 'Expand'} activity: ${iteration.summary}`,
@@ -94,6 +93,7 @@ function IterationSummary({
     toolSummary,
     toolState,
     ...iteration.tasks.map((task) => `${task.title}: ${task.state}`),
+    iteration.interrupted ? 'Interrupted' : undefined,
   ]
     .filter(Boolean)
     .map((segment) => String(segment).trim().replace(/[.]+$/u, ''))
@@ -123,6 +123,9 @@ function IterationSummary({
               {iteration.tasks.map((task) => (
                 <TaskActivityLine className="mt-1" key={task.id} task={task} />
               ))}
+              {iteration.interrupted && !open ? (
+                <ClioStatus className="mt-1" value="interrupted" />
+              ) : null}
             </span>
             <ChevronDownIcon
               aria-hidden="true"
@@ -192,11 +195,11 @@ function IterationDetail({
         {showTasks
           ? iteration.tasks.map((task) => <TaskActivityLine key={task.id} task={task} />)
           : null}
+        {iteration.interrupted ? <ClioStatus value="interrupted" /> : null}
       </div>
     </article>
   );
 }
-
 function TaskActivityLine({ task, className }: { task: Task; className?: string }) {
   return (
     <span
@@ -212,15 +215,4 @@ function TaskActivityLine({ task, className }: { task: Task; className?: string 
       />
     </span>
   );
-}
-
-function compactToolSummary(summary: string): string | undefined {
-  if (
-    /^(?:Completed(?: successfully)?|Succeeded|Running(?: now)?|Waiting to start)\.?$/iu.test(
-      summary,
-    )
-  ) {
-    return undefined;
-  }
-  return summary;
 }

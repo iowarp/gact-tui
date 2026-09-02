@@ -1,26 +1,7 @@
 import { z } from 'zod';
 import type { AsyncProcess, ContextFile, ContextFrame, SessionDiff } from './domain.js';
 import { ExecutionProvenanceRepository } from './execution-provenance-repository.js';
-
-const runStateSchema = z.string().transform((value): AsyncProcess['live_state'] => {
-  if (value === 'working') return 'running';
-  if (value === 'input_required') return 'waiting_user';
-  if (
-    [
-      'queued',
-      'running',
-      'waiting_permission',
-      'waiting_user',
-      'completed',
-      'failed',
-      'cancelled',
-      'interrupted',
-    ].includes(value)
-  ) {
-    return value as AsyncProcess['live_state'];
-  }
-  return 'interrupted';
-});
+import { operationalRunStateSchema } from './schemas.js';
 
 const sessionDiffSchema = z.object({
   path: z.string(),
@@ -79,7 +60,7 @@ const asyncProcessSchema = z
     kind: z.enum(['agent', 'mcp-task']),
     id: z.string(),
     title: z.string(),
-    live_state: runStateSchema,
+    live_state: operationalRunStateSchema,
     status: z.string(),
     parent_session_id: z.string().optional(),
     child_session_id: z.string().optional(),

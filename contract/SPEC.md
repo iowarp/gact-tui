@@ -146,6 +146,33 @@ v0.2 does NOT deprecate anything in v0.1. A v0.1 client talking to a v0.2 backen
 
 **Gold-standard clause**: v0.2 is drafted so that **every** primitive a modern agentic-coder exposes natively has a place on the wire. The first reference backend is `clio-agent-gact` (iowarp/clio-agent, `tui-integration` branch) — any v0.2 primitive CLIO implements is by definition *supported*. Any v0.1 primitive CLIO doesn't yet implement is declared `unsupported` in its capabilities response and tracked as a native CLIO capability request (framed around CLIO's own mission, not "TUI-integration ask") until it lands.
 
+#### 3.2.2 Protocol negotiation — `X-GACT-Version`
+
+0.2 and 0.3 are two dialects served side by side on the same `/v1/` paths
+(§7.7 vs §7.8). Which one a request gets is selected by a request header, never
+by sniffing the response:
+
+- **`X-GACT-Version: <version>`** on any request selects the dialect for that
+  request (and, on `GET /v1/sessions/{sid}/events`, for the SSE stream it
+  opens). Recognised values are `0.2` and `0.3`.
+- **Omitting the header selects `0.2`**, so a 0.1/0.2 client is unaffected.
+  A backend that only speaks 0.2 MUST ignore the header rather than fail.
+- A backend that recognises the header but not the requested value SHOULD
+  answer `406` with the §6.0 error `unsupported_protocol` and
+  `details.supported` listing the versions it serves.
+- **`gact_versions: string[]`**, a top-level field of the `GET /v1/capabilities`
+  response, advertises the set a backend serves, newest first — e.g.
+  `["0.3", "0.2"]`. A client that requires a dialect SHOULD check this before
+  connecting rather than probing. (The `a2ui_versions` field carries the same
+  for A2UI.) A 0.2-only backend omits both fields; a client that finds them
+  absent MUST assume `0.2` only.
+- A2UI uses the same mechanism on its own header, **`X-A2UI-Version`**, whose
+  only recognised value is `0.9.1` (§7.8).
+
+`contract/conformance` negotiates `0.3` on every request and validates the
+observed SSE stream against the vocabulary block for the version each envelope
+declares (§7.7 for 0.2, §7.8 for 0.3).
+
 ### 3.3 `GET /v1/capabilities`
 
 Returns what THIS backend supports. The TUI calls this on startup and uses it to enable/disable UI features.
@@ -2263,7 +2290,7 @@ offers an alternative, it is noted.
 | `turn.failed` | not emitted as a plain bus event | `semantic.event` with `status: "failed"` (§7.6) |
 | `session.agent_routed` (v0.2) | **not emitted** | `routing_decision` part (§4.5) + `agent.invocation.*` semantic events (§7.6) |
 | `user_question.expired` | **not emitted by clio** (expiry is inert — §15.7.7) — but **the emulator emits it** (`emulator/internal/server/handlers_user_questions.go`) and the web keeps a live listener | — |
-| `context.frame.created` / `context.frame.completed` | **not emitted by any backend today**; `apps/core/src/wire/events.ts` still carries typed envelopes for both, but no active SSE listener subscribes to them anywhere in the app (the `wire/Live*` dispatch stack that would have consumed them was deleted as a zero-consumer island, gact-tui#365) | frame data rides REST §6.9 + the `semantic.event` spine (§7.6) |
+| `context.frame.created` / `context.frame.completed` | **not emitted by any backend today**, and no client carries typed envelopes for them any more — the `apps/core/src/wire/events.ts` declarations went with the `wire/Live*` dispatch stack that was deleted as a zero-consumer island (gact-tui#365) | frame data rides REST §6.9 + the `semantic.event` spine (§7.6) |
 | `memory.cache.updated` (v0.2) | **not emitted** | poll `/v1/memory/stats` |
 | `integration.status_changed` (v0.2) | **not emitted** | poll `/v1/health` |
 

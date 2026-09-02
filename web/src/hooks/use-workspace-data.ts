@@ -6,6 +6,7 @@ import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
+import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
 import { sessionArtifactEntities } from '@/lib/session-artifacts';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -61,7 +62,7 @@ export function useWorkspaceData({
       entityWorkspaces,
     ],
   );
-  const replaceSnapshots = useLiveStore((state) => state.replaceSnapshots);
+  const mergeSnapshots = useLiveStore((state) => state.mergeSnapshots);
   const { capabilities, modelConfiguration } = useWorkspaceCapabilities();
 
   const workspaces = useQuery({
@@ -76,7 +77,7 @@ export function useWorkspaceData({
       const current = query.state.data?.find((item) => item.id === sessionId);
       return current &&
         ['queued', 'running', 'waiting_permission', 'waiting_user'].includes(current.state)
-        ? 1_500
+        ? ACTIVE_SESSION_POLL_MS
         : false;
     },
   });
@@ -104,7 +105,7 @@ export function useWorkspaceData({
     queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
     queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
     enabled: Boolean(sessionId),
-    refetchInterval: 1_500,
+    refetchInterval: ACTIVE_SESSION_POLL_MS,
   });
   const questions = useQuery({
     queryKey: queryKeys.key('pending-questions', settings.endpoint, sessionId),
@@ -113,14 +114,14 @@ export function useWorkspaceData({
   });
 
   useEffect(() => {
-    if (workspaces.data) replaceSnapshots({ workspaces: recordById(workspaces.data) });
-  }, [replaceSnapshots, workspaces.data]);
+    if (workspaces.data) mergeSnapshots({ workspaces: recordById(workspaces.data) });
+  }, [mergeSnapshots, workspaces.data]);
   useEffect(() => {
-    if (sessions.data) replaceSnapshots({ sessions: recordById(sessions.data) });
-  }, [replaceSnapshots, sessions.data]);
+    if (sessions.data) mergeSnapshots({ sessions: recordById(sessions.data) });
+  }, [mergeSnapshots, sessions.data]);
   useEffect(() => {
     if (!transcript.data) return;
-    replaceSnapshots({
+    mergeSnapshots({
       messages: recordById(transcript.data.messages),
       tools: recordById(transcript.data.tools),
       tasks: recordById(transcript.data.tasks),
@@ -128,7 +129,7 @@ export function useWorkspaceData({
       artifacts: recordById(transcript.data.artifacts),
       surfaces: recordById(transcript.data.surfaces),
     });
-  }, [replaceSnapshots, transcript.data]);
+  }, [mergeSnapshots, transcript.data]);
 
   const sessionCandidate =
     entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);
@@ -221,11 +222,9 @@ export function useWorkspaceData({
     }
     return related;
   }, [allSessions.data, entities.subagents, sessionId]);
-  const visibleApprovals = useMemo(
-    () =>
-      (approvals.data ?? []).filter((approval) => interactionSessionIds.has(approval.session_id)),
-    [approvals.data, interactionSessionIds],
-  );
+  // Every pending approval is rendered. A blocked descendant this view has not
+  // discovered yet is labelled by the interaction surface, never hidden.
+  const visibleApprovals = approvals.data ?? [];
   const runs = Object.values(entities.runs).filter((run) => run.session_id === sessionId);
   const context = sessionContext.state.data ?? entities.context[contextTargetId];
   const activeProvider =
@@ -286,6 +285,7 @@ export function useWorkspaceData({
     contextTargetOptions,
     entities,
     executionProvenance,
+    interactionSessionIds,
     modelConfiguration,
     modelCatalogStatus,
     modelOptions,

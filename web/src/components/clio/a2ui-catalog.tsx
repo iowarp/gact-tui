@@ -1,4 +1,5 @@
 import { Catalog, CommonSchemas } from '@a2ui/web_core/v0_9';
+import { A2UI_WORKFLOW_EDGES_MAX, A2UI_WORKFLOW_NODES_MAX } from '@clio/core/v3';
 import {
   A2uiSurface,
   Button as A2UIButton,
@@ -38,6 +39,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { truncate } from '@/lib/format';
+import { DIAGRAM_LABEL_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import {
   a2uiAccessibilityDescription,
   a2uiAccessibilityLabel,
@@ -346,11 +349,11 @@ const workflowEdge = z
   .strict();
 
 function mermaidLabel(value: string): string {
-  return value
+  const line = value
     .replace(/["<>\r\n]/gu, ' ')
     .replace(/\s+/gu, ' ')
-    .trim()
-    .slice(0, 160);
+    .trim();
+  return truncate(line, DIAGRAM_LABEL_TRUNCATE_CHARS);
 }
 
 function workflowSource(
@@ -388,8 +391,8 @@ const Workflow = createComponentImplementation(
     name: 'clio.workflow.v1',
     schema: z
       .object({
-        nodes: z.array(workflowNode).min(1).max(128),
-        edges: z.array(workflowEdge).max(256),
+        nodes: z.array(workflowNode).min(1).max(A2UI_WORKFLOW_NODES_MAX),
+        edges: z.array(workflowEdge).max(A2UI_WORKFLOW_EDGES_MAX),
         selected: z.string().optional(),
         action: CommonSchemas.Action.optional(),
         accessibility,

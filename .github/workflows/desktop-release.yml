@@ -54,6 +54,14 @@ jobs:
       - name: Install JS deps
         run: pnpm install --frozen-lockfile
 
+      # tauri-action's only pre-build hook is tauri.conf.json's
+      # beforeBuildCommand, which does not run the generator. Regenerate the
+      # embedded brand descriptor here so the signed installer and the
+      # auto-update artifacts match brand.config.json rather than whatever is
+      # committed.
+      - name: Generate brand backend descriptor
+        run: pnpm --filter @clio/desktop gen-brand-backend
+
       # The desktop shell bundles the GACT sidecar (clio-agent runtime); fetch it
       # before building so the bundled installer is self-contained.
       - name: Fetch sidecar

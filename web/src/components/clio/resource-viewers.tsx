@@ -49,15 +49,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ZoomPan } from '@/components/mermaidcn/zoom-pan';
 import { useRepository } from '@/hooks/use-repository';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { useObjectUrl } from '@/hooks/use-object-url';
+import { formatBytes } from '@/lib/format';
+import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { ClioCsvView } from './csv-view';
 import { ArtifactProvenance } from './artifact-provenance';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
 import { ClioJsonResourceView } from './json-resource-view';
 import { ClioDocumentWorkspace } from './document-workspace';
-
-const maxInlinePreviewBytes = 8_000_000;
 
 export function WorkspaceFileView({
   workspaceId,
@@ -85,9 +86,10 @@ function WorkspaceTextView({
   size?: number;
 }) {
   const repository = useRepository();
-  const canLoad = size === undefined || size <= maxInlinePreviewBytes;
+  const { settings } = useConnectionSettings();
+  const canLoad = size === undefined || size <= INLINE_PREVIEW_MAX_BYTES;
   const content = useQuery({
-    queryKey: queryKeys.key('workspace-file', workspaceId, path),
+    queryKey: queryKeys.workspaceFile(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFile(workspaceId, path, signal),
     enabled: canLoad,
   });
@@ -97,8 +99,9 @@ function WorkspaceTextView({
 
 function WorkspaceImageView({ workspaceId, path }: { workspaceId: string; path: string }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const content = useQuery({
-    queryKey: queryKeys.key('workspace-file-bytes', workspaceId, path),
+    queryKey: queryKeys.workspaceFileBytes(settings.endpoint, workspaceId, path),
     queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
   });
   return (
@@ -124,6 +127,7 @@ export function BlueprintFileEditor({
   path: string;
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const { resolvedTheme } = useTheme();
   const queryKey = ['blueprint-file', blueprintId, workspaceId, sessionId, path] as const;
@@ -162,7 +166,13 @@ export function BlueprintFileEditor({
       });
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: queryKeys.key('blueprint-files', blueprintId, workspaceId, sessionId),
+          queryKey: queryKeys.key(
+            'blueprint-files',
+            settings.endpoint,
+            blueprintId,
+            workspaceId,
+            sessionId,
+          ),
         }),
         queryClient.invalidateQueries({ queryKey: queryKeys.key('agent-blueprints') }),
       ]);
@@ -261,6 +271,7 @@ export function ArtifactView({
   onOpenArtifact?: (artifact: Artifact) => void;
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const canPreviewText = isTextArtifact(artifact.media_type, artifact.name);
   const canPreviewImage = isImageArtifact(artifact.media_type, artifact.name);
   const fallbackFile = useMemo(
@@ -269,9 +280,9 @@ export function ArtifactView({
   );
   const fallbackPath = fallbackFile?.path;
   const previewSize = artifact.size ?? fallbackFile?.size;
-  const canLoadInline = previewSize !== undefined && previewSize <= maxInlinePreviewBytes;
+  const canLoadInline = previewSize !== undefined && previewSize <= INLINE_PREVIEW_MAX_BYTES;
   const text = useQuery({
-    queryKey: queryKeys.key('artifact-text', artifact.id, fallbackPath),
+    queryKey: queryKeys.key('artifact-text', settings.endpoint, artifact.id, fallbackPath),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactTextFor(artifact, signal);
@@ -283,7 +294,7 @@ export function ArtifactView({
     enabled: canPreviewText && canLoadInline,
   });
   const image = useQuery({
-    queryKey: queryKeys.key('artifact-image', artifact.id, fallbackPath),
+    queryKey: queryKeys.key('artifact-image', settings.endpoint, artifact.id, fallbackPath),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactBytesFor(artifact, signal);
@@ -678,7 +689,7 @@ function LargeResourceNotice({ name, size }: { name: string; size?: number }) {
       detail={
         size === undefined
           ? `The service did not report a size, so ${brand.name} did not download this file into the browser. Use a bounded analysis or visualization action to inspect it.`
-          : `${formatBytes(size)} exceeds the ${formatBytes(maxInlinePreviewBytes)} inline-read budget. ${brand.name} left the source untouched; use a bounded analysis or visualization action to inspect it.`
+          : `${formatBytes(size)} exceeds the ${formatBytes(INLINE_PREVIEW_MAX_BYTES)} inline-read budget. ${brand.name} left the source untouched; use a bounded analysis or visualization action to inspect it.`
       }
       icon={FileCode2Icon}
       label={
@@ -697,11 +708,4 @@ function imageMediaType(path: string): string {
   if (extension === 'webp') return 'image/webp';
   if (extension === 'avif') return 'image/avif';
   return 'image/png';
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1_000) return `${bytes} B`;
-  if (bytes < 1_000_000) return `${(bytes / 1_000).toFixed(1)} KB`;
-  if (bytes < 1_000_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
-  return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
 }

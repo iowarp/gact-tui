@@ -1,6 +1,14 @@
 import type { SubagentRun, ToolInvocation } from '@clio/core/v3';
+import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
+import { reportPresentationOverride } from '@/lib/presentation-overrides';
 
-/** Resolve child-agent records created by a spawn tool without relying on display order. */
+/**
+ * Resolve child-agent records created by a spawn tool without relying on display order.
+ *
+ * The service supplies no spawn edge on SubagentRun (clio-agent#1279), so the placement is
+ * derived from the tool's own output and reported as a presentation override. A child that
+ * cannot be correlated keeps its own residual position instead of being attached to a guess.
+ */
 export function subagentsForTool(
   tool: ToolInvocation | undefined,
   subagents: Record<string, SubagentRun>,
@@ -8,11 +16,22 @@ export function subagentsForTool(
   if (!tool || !isAgentSpawnTool(tool.name)) return [];
   const ids = taskIds(tool.output);
   if (ids.size === 0) return [];
-  return Object.values(subagents).filter(
+  const correlated = Object.values(subagents).filter(
     (subagent) =>
       ids.has(subagent.id) ||
       Boolean(subagent.child_session_id && ids.has(subagent.child_session_id)),
   );
+  for (const subagent of correlated) {
+    reportPresentationOverride({
+      kind: 'child-tool-correlation',
+      entityId: subagent.id,
+      sessionId: subagent.session_id,
+      serverValue: undefined,
+      rendered: tool.id,
+      issue: PRESENTATION_OVERRIDE_REGISTRY['child-tool-correlation'].issue,
+    });
+  }
+  return correlated;
 }
 
 function isAgentSpawnTool(name: string): boolean {

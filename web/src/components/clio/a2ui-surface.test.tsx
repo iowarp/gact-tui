@@ -77,6 +77,28 @@ describe('ClioA2UISurface actions', () => {
     expect(screen.queryByText('Analysis view')).not.toBeInTheDocument();
   });
 
+  it('does not paint a disconnected surface with the success status', () => {
+    const surface = actionSurface('artifact.open', {});
+    surface.state = 'disconnected';
+
+    renderSurface(surface);
+
+    const badge = screen.getByText('disconnected').closest('[data-slot="badge"]');
+    expect(badge).not.toBeNull();
+    expect(badge!.className).not.toContain('text-success');
+  });
+
+  it('marks a surface waiting on a user action as needing attention', () => {
+    const surface = actionSurface('artifact.open', {});
+    surface.state = 'pending_action';
+
+    renderSurface(surface);
+
+    const badge = screen.getByText('pending action').closest('[data-slot="badge"]');
+    expect(badge).not.toBeNull();
+    expect(badge!.className).toContain('text-action');
+  });
+
   it('contains an invalid historical surface without throwing through React', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const surface = actionSurface('artifact.open', {});

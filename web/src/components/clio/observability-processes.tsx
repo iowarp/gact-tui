@@ -33,6 +33,7 @@ import {
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { SubagentOpenTarget } from './subagent-card';
 import { humanizeProtocolValue } from './presentation-labels';
@@ -486,8 +487,7 @@ function executionSpans({
     : messages
         .filter(
           (message) =>
-            message.role === 'assistant' &&
-            message.blocks.some((block) => block.type !== 'text'),
+            message.role === 'assistant' && message.blocks.some((block) => block.type !== 'text'),
         )
         .map((message): ProcessSpan | undefined => {
           const at = parseTimestamp(message.completed_at ?? message.created_at);
@@ -652,14 +652,6 @@ function formatAxisTime(timestamp: number, range: TimeRange): string {
 
 function formatWindow(range: TimeRange): string {
   return `${formatClock(range.start)} to ${formatClock(range.end)}`;
-}
-
-function formatDuration(milliseconds: number): string {
-  if (milliseconds < 1_000) return `${Math.max(Math.round(milliseconds), 0)} ms`;
-  if (milliseconds < 60_000) return `${Math.round(milliseconds / 1_000)} s`;
-  const minutes = Math.floor(milliseconds / 60_000);
-  const seconds = Math.round((milliseconds % 60_000) / 1_000);
-  return seconds ? `${minutes}m ${seconds}s` : `${minutes} min`;
 }
 
 export function ProcessSummary({ processes }: { processes: readonly AsyncProcess[] }) {

@@ -9,6 +9,9 @@ const repository = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
+}));
 
 import { ClioA2UIArtifact } from './a2ui-artifact';
 
@@ -63,6 +66,14 @@ describe('ClioA2UIArtifact', () => {
       expect.objectContaining({ id: 'artifact_plot' }),
       expect.any(AbortSignal),
     );
+  });
+
+  it('claims no session provenance the protocol never supplied', async () => {
+    renderArtifact();
+
+    await screen.findByRole('img', { name: 'MTA1_position_timeseries.png' });
+    expect(screen.queryByText('Output')).not.toBeInTheDocument();
+    expect(screen.queryByText('Input')).not.toBeInTheDocument();
   });
 
   it('makes the whole artifact card the action target', async () => {

@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { OPERATIONS_POLL_MS } from '@/lib/runtime-limits';
 import type { RelayConnectionInput, RelayStatus } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CableIcon, KeyRoundIcon, PencilIcon, RefreshCwIcon, UnplugIcon } from 'lucide-react';
@@ -50,7 +51,7 @@ export function RelaySettings() {
   const relay = useQuery({
     queryKey: queryKeys.key('relay-status', settings.endpoint),
     queryFn: ({ signal }) => repository.relayStatus(signal),
-    refetchInterval: 30_000,
+    refetchInterval: OPERATIONS_POLL_MS,
   });
   const refreshSurfaces = async () => {
     await Promise.all([

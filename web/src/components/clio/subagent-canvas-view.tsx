@@ -1,7 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
 import {
   createEntityState,
-  reduceTransportFrame,
   type Artifact,
   type EntityState,
   type Message,
@@ -16,8 +15,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useRepository } from '@/hooks/use-repository';
 import { recordById } from '@/lib/entities';
+import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
+import { reduceFramesContained } from '@/lib/streaming/frame-reduction';
+import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { MAX_RETAINED_FRAME_GAPS } from '@/store/live-store';
 import { ClioConversation } from './conversation';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioStatus } from './status';
@@ -64,46 +67,51 @@ export function ClioSubagentCanvasView({
   useEffect(() => {
     if (!childSessionId || !transcript.data) return;
     const controller = new AbortController();
-    const batcher = new FrameBatcher<TransportFrame>((frames) => {
+    const snapshot = transcript.data;
+    let cursor = snapshot.cursor;
+    const updateEntities = (project: (base: EntityState) => EntityState) => {
       setLiveState((current) => {
-        const base = current.snapshot === transcript.data ? current.entities : snapshotEntities;
-        return {
-          snapshot: transcript.data,
-          entities: frames.reduce((state, frame) => reduceTransportFrame(state, frame), base),
-        };
+        const base = current.snapshot === snapshot ? current.entities : snapshotEntities;
+        return { snapshot, entities: project(base) };
+      });
+    };
+    const batcher = new FrameBatcher<TransportFrame>((frames) => {
+      updateEntities((base) => {
+        // Contained per frame: one unreadable frame becomes a typed gap instead
+        // of discarding its batch and throwing into the workspace error boundary.
+        const { entities, gaps } = reduceFramesContained(base, frames);
+        return gaps.length
+          ? { ...entities, gaps: [...entities.gaps, ...gaps].slice(-MAX_RETAINED_FRAME_GAPS) }
+          : entities;
       });
     });
 
     void (async () => {
-      try {
-        for await (const frame of repository.stream(
-          {
-            connection_id: 'active',
-            workspace_id: workspaceId,
-            session_id: childSessionId,
-          },
-          undefined,
-          controller.signal,
-        )) {
-          setLiveState((current) => {
-            const base = current.snapshot === transcript.data ? current.entities : snapshotEntities;
-            return {
-              snapshot: transcript.data,
-              entities: base.stream === 'live' ? base : { ...base, stream: 'live' },
-            };
-          });
-          batcher.push(frame);
+      let reconnectDelay = STREAM_RECONNECT_BASE_MS;
+      while (!controller.signal.aborted) {
+        try {
+          for await (const frame of repository.stream(
+            {
+              connection_id: 'active',
+              workspace_id: workspaceId,
+              session_id: childSessionId,
+            },
+            cursor,
+            controller.signal,
+          )) {
+            reconnectDelay = STREAM_RECONNECT_BASE_MS;
+            if (frame.cursor) cursor = frame.cursor;
+            updateEntities((base) => (base.stream === 'live' ? base : { ...base, stream: 'live' }));
+            batcher.push(frame);
+          }
+        } catch (error) {
+          if (controller.signal.aborted) break;
+          if (error instanceof Error && error.name === 'AbortError') break;
         }
-      } catch {
-        if (!controller.signal.aborted) {
-          setLiveState((current) => {
-            const base = current.snapshot === transcript.data ? current.entities : snapshotEntities;
-            return {
-              snapshot: transcript.data,
-              entities: { ...base, stream: 'reconnecting' },
-            };
-          });
-        }
+        if (controller.signal.aborted) break;
+        updateEntities((base) => ({ ...base, stream: 'reconnecting' }));
+        await abortableDelay(controller, reconnectDelay);
+        reconnectDelay = nextReconnectDelay(reconnectDelay);
       }
     })();
 

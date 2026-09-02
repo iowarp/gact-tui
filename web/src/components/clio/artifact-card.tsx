@@ -24,12 +24,17 @@ import { MessageResponse } from '@/components/ai-elements/message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useRepository } from '@/hooks/use-repository';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { useObjectUrl } from '@/hooks/use-object-url';
+import { formatBytes } from '@/lib/format';
+import {
+  IMMUTABLE_QUERY,
+  INLINE_PREVIEW_MAX_BYTES,
+  TEXT_PREVIEW_MAX_BYTES,
+  TEXT_PREVIEW_RENDER_CHARS,
+} from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
-
-const cardPreviewBudget = 8_000_000;
-const textCardPreviewBudget = 256_000;
 
 export interface ClioArtifactCardProps {
   artifact: ArtifactEntity;
@@ -77,10 +82,16 @@ function ClioArtifactAttachment({
   onOpen?: ClioArtifactAttachmentsProps['onOpen'];
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const image = isImageArtifact(artifact);
-  const withinBudget = artifact.size !== undefined && artifact.size <= cardPreviewBudget;
+  const withinBudget = artifact.size !== undefined && artifact.size <= INLINE_PREVIEW_MAX_BYTES;
   const imageBytes = useQuery({
-    queryKey: queryKeys.key('artifact-attachment-image', artifact.id, artifact.fetch_path),
+    queryKey: queryKeys.key(
+      'artifact-attachment-image',
+      settings.endpoint,
+      artifact.id,
+      artifact.fetch_path,
+    ),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactBytesFor(artifact, signal);
@@ -93,7 +104,7 @@ function ClioArtifactAttachment({
       }
     },
     enabled: image && withinBudget,
-    staleTime: Number.POSITIVE_INFINITY,
+    ...IMMUTABLE_QUERY,
   });
   const imageUrl = useObjectUrl(
     imageBytes.data,
@@ -186,13 +197,19 @@ export function ClioArtifactCard({
   preview = true,
 }: ClioArtifactCardProps) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const image = isImageArtifact(artifact);
   const text = isTextArtifact(artifact);
   const tabular = isTabularArtifact(artifact);
-  const withinBudget = artifact.size !== undefined && artifact.size <= cardPreviewBudget;
-  const textWithinBudget = artifact.size !== undefined && artifact.size <= textCardPreviewBudget;
+  const withinBudget = artifact.size !== undefined && artifact.size <= INLINE_PREVIEW_MAX_BYTES;
+  const textWithinBudget = artifact.size !== undefined && artifact.size <= TEXT_PREVIEW_MAX_BYTES;
   const imageBytes = useQuery({
-    queryKey: queryKeys.key('artifact-card-image', artifact.id, artifact.fetch_path),
+    queryKey: queryKeys.key(
+      'artifact-card-image',
+      settings.endpoint,
+      artifact.id,
+      artifact.fetch_path,
+    ),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactBytesFor(artifact, signal);
@@ -205,14 +222,19 @@ export function ClioArtifactCard({
       }
     },
     enabled: preview && image && withinBudget,
-    staleTime: Number.POSITIVE_INFINITY,
+    ...IMMUTABLE_QUERY,
   });
   const imageUrl = useObjectUrl(
     imageBytes.data,
     artifact.media_type || imageMediaType(artifact.name),
   );
   const textPreview = useQuery({
-    queryKey: queryKeys.key('artifact-card-text', artifact.id, artifact.fetch_path),
+    queryKey: queryKeys.key(
+      'artifact-card-text',
+      settings.endpoint,
+      artifact.id,
+      artifact.fetch_path,
+    ),
     queryFn: async ({ signal }) => {
       try {
         return await repository.readArtifactTextFor(artifact, signal);
@@ -225,7 +247,7 @@ export function ClioArtifactCard({
       }
     },
     enabled: preview && text && !tabular && textWithinBudget,
-    staleTime: Number.POSITIVE_INFINITY,
+    ...IMMUTABLE_QUERY,
   });
   const attachment: AttachmentData = {
     type: 'file',
@@ -278,11 +300,11 @@ export function ClioArtifactCard({
             <div className="relative max-h-44 overflow-hidden border-t bg-muted/15 px-4 py-3">
               {isMarkdownArtifact(artifact) ? (
                 <MessageResponse className="text-sm leading-6">
-                  {textPreview.data.slice(0, 4_000)}
+                  {textPreview.data.slice(0, TEXT_PREVIEW_RENDER_CHARS)}
                 </MessageResponse>
               ) : (
                 <pre className="overflow-hidden whitespace-pre-wrap font-mono text-xs leading-5 text-muted-foreground">
-                  {textPreview.data.slice(0, 4_000)}
+                  {textPreview.data.slice(0, TEXT_PREVIEW_RENDER_CHARS)}
                 </pre>
               )}
               <div
@@ -318,7 +340,7 @@ export function ClioArtifactCard({
             <p className="px-4 py-2 text-xs text-muted-foreground">
               {artifact.size === undefined
                 ? 'Preview withheld because the service did not report a size for this image.'
-                : `Preview withheld because this image exceeds the ${formatBytes(cardPreviewBudget)} card budget. Open it for the full view.`}
+                : `Preview withheld because this image exceeds the ${formatBytes(INLINE_PREVIEW_MAX_BYTES)} card budget. Open it for the full view.`}
             </p>
           ) : null}
           {text && !tabular && textPreview.isPending && textWithinBudget ? (
@@ -386,16 +408,4 @@ function imageMediaType(path: string): string {
   if (extension === 'webp') return 'image/webp';
   if (extension === 'avif') return 'image/avif';
   return 'image/png';
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} bytes`;
-  const units = ['KB', 'MB', 'GB'];
-  let value = bytes / 1024;
-  let index = 0;
-  while (value >= 1024 && index < units.length - 1) {
-    value /= 1024;
-    index += 1;
-  }
-  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[index]}`;
 }

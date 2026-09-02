@@ -147,7 +147,7 @@ function resolveBackend(raw) {
 // branding ROOT is the embedding project's responsibility: the agentic system
 // that ships gact-tui defines the brand used to compile it via its
 // brand.config.local.json (e.g. clio-agent points brandingRoot at its own
-// branding/). The standalone gact shell uses the tracked apps/brand.config.json
+// branding/). The standalone gact shell uses the tracked root brand.config.json
 // (profile "gact", brandingRoot "branding").
 const brandPath = resolve(brandingRoot, profile, 'brand.json');
 let raw;

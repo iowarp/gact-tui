@@ -33,11 +33,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { PREVIEW_ROW_LIMIT } from '@/lib/runtime-limits';
 
 type PlotValue = string | number | null;
 export type PlotRow = Record<string, PlotValue>;
 
-const MAX_VISIBLE_ROWS = 1_000;
 const COLORS = [
   'var(--chart-1)',
   'var(--chart-2)',
@@ -114,7 +114,7 @@ export function ClioTimeSeriesPlot({
     },
     [],
   );
-  const visibleRows = rows.slice(0, MAX_VISIBLE_ROWS).map((row) => ({
+  const visibleRows = rows.slice(0, PREVIEW_ROW_LIMIT).map((row) => ({
     ...row,
     ...Object.fromEntries(yKeys.map((key) => [key, numeric(row[key])])),
   }));

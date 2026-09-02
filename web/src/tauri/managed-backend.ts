@@ -1,3 +1,5 @@
+import { MANAGED_BACKEND_POLL_MS, MANAGED_BACKEND_READY_TIMEOUT_MS } from '@/lib/runtime-limits';
+
 export type ManagedBackendStatus =
   | { kind: 'starting' }
   | { kind: 'ready' }
@@ -27,8 +29,8 @@ export async function getManagedBackend(): Promise<ManagedBackendHandle> {
 export async function waitForManagedBackend(
   options: ManagedBackendOptions = {},
 ): Promise<ManagedBackendHandle> {
-  const pollIntervalMs = options.pollIntervalMs ?? 150;
-  const timeoutMs = options.timeoutMs ?? 90_000;
+  const pollIntervalMs = options.pollIntervalMs ?? MANAGED_BACKEND_POLL_MS;
+  const timeoutMs = options.timeoutMs ?? MANAGED_BACKEND_READY_TIMEOUT_MS;
   const deadline = Date.now() + timeoutMs;
   let installStarted = false;
 

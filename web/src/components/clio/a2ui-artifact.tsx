@@ -28,12 +28,12 @@ export function ClioA2UIArtifact({
   size,
   uri,
 }: ClioA2UIArtifactProps) {
+  // The protocol component carries no session relation, so none is claimed here.
   const artifact: ArtifactEntity = {
     id: artifactIdFromUri(uri),
     media_type: mediaType,
     name,
     session_id: '',
-    session_relation: 'produced',
     size,
     uri,
   };

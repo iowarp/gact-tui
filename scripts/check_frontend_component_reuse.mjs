@@ -17,9 +17,17 @@ const requiredImports = {
     './conversation-process-sequence',
   ],
   'web/src/components/clio/conversation-process-sequence.tsx': [
+    '@/components/ai-elements/message',
+    '@/components/ai-elements/reasoning',
+    '@/components/ai-elements/task',
+    './subagent-card',
+    './tool-invocation',
+  ],
+  // Chain mode moved to ConversationTurn; the ChainOfThought composition is required there.
+  'web/src/components/clio/conversation-turn.tsx': [
     '@/components/ai-elements/chain-of-thought',
     '@/components/ai-elements/message',
-    '@/components/ai-elements/task',
+    '@/components/ai-elements/reasoning',
     './subagent-card',
     './tool-invocation',
   ],

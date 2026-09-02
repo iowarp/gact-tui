@@ -23,7 +23,7 @@
 //! the frontend so the AddRemote wizard can render an actionable
 //! message (e.g. "install OpenSSH client").
 
-use std::{process::Child, sync::Mutex, time::Duration};
+use std::{process::Child, sync::Mutex};
 
 use crate::net_util::pick_free_port;
 use crate::ssh_command::{build_ssh_forward_command, ssh_available};
@@ -95,9 +95,6 @@ impl Default for TunnelManager {
         Self::new()
     }
 }
-
-#[allow(dead_code)]
-const POLL_INTERVAL: Duration = Duration::from_millis(250);
 
 #[cfg(test)]
 #[path = "ssh_tests.rs"]

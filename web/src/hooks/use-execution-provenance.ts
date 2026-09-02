@@ -6,6 +6,7 @@ import type {
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { queryKeys } from '@/lib/query-keys';
+import { EXECUTION_PROVENANCE_LIMIT } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useRepository } from './use-repository';
 
@@ -30,31 +31,28 @@ export function useExecutionProvenance(sessionId: string) {
     queryFn: ({ signal }) =>
       repository.executionProvenance(
         sessionId,
-        { provider, includeChildren: true, limit: 10_000 },
+        { provider, includeChildren: true, limit: EXECUTION_PROVENANCE_LIMIT },
         signal,
       ),
     enabled: canQuery,
   });
-  const degradation = useMemo(
-    () => {
-      if (providers.isPending) return undefined;
-      return executionProvenanceDegradation({
-        execution: execution.data,
-        executionError: execution.error,
-        provider,
-        providerSummary,
-        providersError: providers.error,
-      });
-    },
-    [
-      execution.data,
-      execution.error,
+  const degradation = useMemo(() => {
+    if (providers.isPending) return undefined;
+    return executionProvenanceDegradation({
+      execution: execution.data,
+      executionError: execution.error,
       provider,
       providerSummary,
-      providers.error,
-      providers.isPending,
-    ],
-  );
+      providersError: providers.error,
+    });
+  }, [
+    execution.data,
+    execution.error,
+    provider,
+    providerSummary,
+    providers.error,
+    providers.isPending,
+  ]);
 
   return {
     degradation,

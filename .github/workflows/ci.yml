@@ -85,7 +85,13 @@ jobs:
   install-smoke:
     runs-on: ubuntu-latest
     steps:
+      # Full history + tags. A shallow, tag-less clone makes `git describe`
+      # fall back to a bare object name, which is how a `git describe`-derived
+      # TUI_BUILD_REVISION stayed green here while failing verify-dev-install
+      # on every real (tagged) clone.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:

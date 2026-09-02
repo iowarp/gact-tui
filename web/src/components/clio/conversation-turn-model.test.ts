@@ -152,7 +152,7 @@ describe('conversationTurnPresentation', () => {
     const view = conversationTurnPresentation(message, tools);
 
     expect(view.iterations[0]?.thinking[0]?.text).toBe(
-      '**Use the file reader.**\n\n**Then inspect the result.**',
+      '**Use the file reader.****Then inspect the result.**',
     );
     expect(view.iterations[0]?.thinking[0]?.label).toBe('Thinking');
     expect(view.iterations[0]?.tools.map((tool) => tool.id)).toEqual(['call_read']);
@@ -331,6 +331,28 @@ describe('conversationTurnPresentation', () => {
 
     expect(view.iterations[0]?.summary).toBe('Compare the three grounded observations.');
     expect(view.iterations[0]?.thinking[0]?.label).toBe('Thinking');
+  });
+
+  it('keeps a tool block whose invocation has not arrived in the residual lane', () => {
+    const message: Message = {
+      id: 'assistant_unresolved_tool',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        { id: 'thinking_unresolved', type: 'reasoning', text: 'Read the evidence file.' },
+        { id: 'tool_unresolved', type: 'tool', tool_id: 'call_not_yet_streamed' },
+        { id: 'answer_unresolved', type: 'text', text: 'Done.', channel: 'answer' },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+
+    expect(view.iterations[0]?.tools).toEqual([]);
+    expect(view.residualBlocks.map((block) => block.id)).toEqual([
+      'tool_unresolved',
+      'answer_unresolved',
+    ]);
   });
 
   it('marks a cancelled partial response as interrupted instead of final', () => {

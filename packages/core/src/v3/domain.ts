@@ -12,7 +12,7 @@ export interface TransportGap {
   cursor: string;
   event_name: string;
   entity_id?: string;
-  code: 'frame_decode_failed' | 'event_name_mismatch';
+  code: 'frame_decode_failed' | 'event_name_mismatch' | 'entity_not_resident';
   reason: string;
   received_at: string;
 }
@@ -774,6 +774,8 @@ export interface EntityState {
   infrastructure: Record<string, InfrastructureDependency>;
   revisions: Record<string, number>;
   processed_cursors: string[];
+  /** Frames the reducer could not apply, each carrying its typed reason. */
+  gaps: TransportGap[];
 }
 export type {
   CommandDefinition,

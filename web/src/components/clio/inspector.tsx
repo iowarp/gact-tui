@@ -44,6 +44,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { copyText } from '@/lib/clipboard';
+import { formatBytes, formatDuration } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -351,19 +352,6 @@ function Unavailable({
       </EmptyHeader>
     </Empty>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1_000) return `${bytes} B`;
-  if (bytes < 1_000_000) return `${(bytes / 1_000).toFixed(1)} KB`;
-  if (bytes < 1_000_000_000) return `${(bytes / 1_000_000).toFixed(1)} MB`;
-  return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
-}
-
-function formatDuration(milliseconds: number): string {
-  if (milliseconds < 1_000) return `${milliseconds} ms`;
-  if (milliseconds < 60_000) return `${Math.round(milliseconds / 1_000)} s`;
-  return `${Math.round(milliseconds / 60_000)} min`;
 }
 
 function formatTimestamp(value: string): string {

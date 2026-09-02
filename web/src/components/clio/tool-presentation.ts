@@ -1,18 +1,12 @@
 import type { ToolInvocation, ToolState } from '@clio/core/v3';
+import { formatDuration, truncate } from '@/lib/format';
 import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
 import { reportPresentationOverride } from '@/lib/presentation-overrides';
-import type { ClioStatusValue } from './status';
+import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 
 export interface ToolPresentation {
   title: string;
   kind: 'analysis-view' | 'tool';
-}
-
-export interface ToolOutcomePresentation {
-  value: ClioStatusValue;
-  label?: string;
-  detail?: string;
-  domainStatus?: string;
 }
 
 const CURATED_TOOL_TITLES: Readonly<Record<string, string>> = {
@@ -51,17 +45,17 @@ export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
   }
   const providedTitle = tool.title?.trim();
   return {
-    title: providedTitle || tool.name,
+    title: providedTitle || humanizeToolName(tool.name),
     kind: 'tool',
   };
 }
 
-export function getToolSummary(tool: ToolInvocation): string {
-  if (tool.error) return truncate(normalize(tool.error), 180);
+/** The summary is undefined whenever it would only restate the labeled tool state. */
+export function getToolSummary(tool: ToolInvocation): string | undefined {
+  if (tool.error) return truncate(normalize(tool.error), SUMMARY_TRUNCATE_CHARS);
   const intent = toolIntent(tool);
-  if (tool.state === 'pending')
-    return intent ? `${intent.present} is queued.` : 'Waiting to start.';
-  if (tool.state === 'running') return intent ? `${intent.progressive}…` : 'Running now.';
+  if (tool.state === 'pending') return intent ? `${intent.present} is queued.` : undefined;
+  if (tool.state === 'running') return intent ? `${intent.progressive}…` : undefined;
   if (tool.state === 'denied') return 'The requested action was denied.';
   if (tool.state === 'cancelled') return 'The action was cancelled.';
   const outputSummary = summarizeOutput(tool.output);
@@ -71,54 +65,7 @@ export function getToolSummary(tool: ToolInvocation): string {
       : `${intent.past}.`;
   }
   if (outputSummary) return outputSummary;
-  return tool.state === 'succeeded' ? 'Completed successfully.' : 'No result summary was provided.';
-}
-
-/** Separates successful tool transport from the operation outcome reported in its result. */
-export function getToolOutcome(tool: ToolInvocation): ToolOutcomePresentation {
-  if (tool.state !== 'succeeded') return { value: tool.state };
-
-  const output = asRecord(tool.output);
-  const domainStatus = firstString(output, ['status', 'state', 'outcome']);
-  if (!domainStatus) return { value: 'completed', label: 'Completed' };
-
-  const normalized = domainStatus
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/gu, '_');
-  const detail = `Tool execution succeeded; the operation reported ${domainStatus}.`;
-  if (['completed', 'complete', 'success', 'succeeded', 'ok', 'ready'].includes(normalized)) {
-    return { value: 'completed', label: 'Completed', detail, domainStatus };
-  }
-  if (['halted', 'stopped'].includes(normalized)) {
-    return { value: 'interrupted', label: 'Halted', detail, domainStatus };
-  }
-  if (['quarantined', 'quarantine'].includes(normalized)) {
-    return { value: 'interrupted', label: 'Quarantined', detail, domainStatus };
-  }
-  if (['blocked', 'paused', 'partial', 'degraded', 'warning'].includes(normalized)) {
-    return {
-      value: 'degraded',
-      label: sentenceCase(domainStatus),
-      detail,
-      domainStatus,
-    };
-  }
-  if (['failed', 'failure', 'error'].includes(normalized)) {
-    return { value: 'failed', label: 'Failed', detail, domainStatus };
-  }
-  if (['cancelled', 'canceled'].includes(normalized)) {
-    return { value: 'cancelled', label: 'Cancelled', detail, domainStatus };
-  }
-  if (['waiting', 'waiting_user', 'awaiting_input'].includes(normalized)) {
-    return { value: 'waiting_user', label: 'Waiting for you', detail, domainStatus };
-  }
-  return {
-    value: 'degraded',
-    label: sentenceCase(domainStatus),
-    detail,
-    domainStatus,
-  };
+  return tool.state === 'succeeded' ? undefined : 'No result summary was provided.';
 }
 
 export function humanizeToolName(name: string): string {
@@ -232,11 +179,7 @@ function toolIntent(tool: ToolInvocation): ToolIntent | undefined {
 }
 
 export function formatToolDuration(durationMs: number): string {
-  if (durationMs < 1_000) return `${Math.round(durationMs)} ms`;
-  if (durationMs < 60_000) return `${(durationMs / 1_000).toFixed(1).replace(/\.0$/u, '')} s`;
-  const minutes = Math.floor(durationMs / 60_000);
-  const seconds = Math.round((durationMs % 60_000) / 1_000);
-  return seconds ? `${minutes} min ${seconds} s` : `${minutes} min`;
+  return formatDuration(durationMs, 'tenths');
 }
 
 function verbIntent(
@@ -264,17 +207,17 @@ function summarizeOutput(value: unknown): string | undefined {
         // Preserve non-JSON tool output as a bounded human-readable excerpt.
       }
     }
-    return truncate(normalized, 180);
+    return truncate(normalized, SUMMARY_TRUNCATE_CHARS);
   }
   const output = asRecord(value);
   if (!output) return undefined;
   for (const key of ['message', 'detail', 'result']) {
     if (typeof output[key] === 'string' && output[key]) {
-      return truncate(normalize(output[key]), 180);
+      return truncate(normalize(output[key]), SUMMARY_TRUNCATE_CHARS);
     }
   }
   if (typeof output.summary === 'string' && output.summary) {
-    return truncate(normalize(output.summary), 180);
+    return truncate(normalize(output.summary), SUMMARY_TRUNCATE_CHARS);
   }
 
   const structured = summarizeStructuredOutput(output);
@@ -282,7 +225,7 @@ function summarizeOutput(value: unknown): string | undefined {
 
   for (const key of ['path', 'status']) {
     if (typeof output[key] === 'string' && output[key]) {
-      return truncate(normalize(output[key]), 180);
+      return truncate(normalize(output[key]), SUMMARY_TRUNCATE_CHARS);
     }
   }
   const count = ['count', 'total', 'matches', 'items'].find(
@@ -360,11 +303,6 @@ function formatMetric(value: number): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function sentenceCase(value: string): string {
-  const label = value.replace(/[_-]+/gu, ' ').trim();
-  return label.charAt(0).toUpperCase() + label.slice(1);
-}
-
 function fileName(path: string): string {
   return (
     path
@@ -376,8 +314,4 @@ function fileName(path: string): string {
 
 function normalize(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
-}
-
-function truncate(value: string, length: number): string {
-  return value.length <= length ? value : `${value.slice(0, length - 1)}…`;
 }

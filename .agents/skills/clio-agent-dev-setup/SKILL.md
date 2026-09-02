@@ -15,9 +15,9 @@ All generated CLIO development state belongs under exactly:
 D:\Libraries\Documents\projects\clio_develop_workspace
 ```
 
-Each launch uses a unique `generations/<timestamp-pid>` directory inside that root. This includes exact-head clones of `clio-agent`, `gact-tui`, and `clio-web-search`, their isolated environments, transient uv/pnpm/npm caches, temporary files, child-agent caches, CTE/ARC state, tools, logs, run workspaces, screenshots, and qualification output. Large Hugging Face/Docling model assets are the deliberate exception: keep one reusable cache at `cache/huggingface` under the contained CLIO root, never one copy per generation or source checkout. `config/active-generation.json` names the one active generation. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
+An explicit installation uses one `generations/<timestamp-pid>` directory inside that root. That generation is the installed development stack: runtime source clones, Python environment, Node dependencies, contained caches and tools, logs, run workspaces, and the single node-wide CTE/ARC core. `config/active-generation.json` names it. Ordinary restarts and qualification retries reuse that generation; they never clone another frontend/backend or provision another core. Source repositories outside this root are read-only inputs. Durable code and documentation leave the root only through an intentional commit in their owning repository.
 
-Never create or reuse `D:\tmp`, `D:\relay-local`, `D:\ws`, `D:\clio-workspace`, a source-repository `.venv` or `node_modules`, a `PYTHONPATH` overlay, or another checkout's environment. A `.venv` and `node_modules` inside the disposable runtime clones under the owned root are expected. The containment audit treats the four legacy roots as failures.
+Never create or reuse `D:\tmp`, `D:\relay-local`, `D:\ws`, `D:\clio-workspace`, a source-repository `.venv` or `node_modules`, a `PYTHONPATH` overlay, or another checkout's environment. A `.venv` and `node_modules` inside the disposable runtime clones under the owned root are expected. The containment audit fails on any of the four legacy roots that carries this tooling's own generation state (`config\active-generation.json`, `runtime\clio-agent-dev\dev-processes.json`, `config\cleanup-residue.json`); a directory that merely shares one of those names is recorded as unrelated residue and does not block the deployment.
 
 ## Hard reset
 
@@ -27,26 +27,28 @@ Run from this skill directory:
 .\scripts\Reset-ClioDev.ps1 -Confirm:$false
 ```
 
-Reset stops the active generation's recorded processes, every process whose executable or command line belongs to that generation, and listeners on the configured CLIO ports. It then attempts to delete the whole owned root. It never renames, moves, or quarantines a broken tree. If Windows retains an ACL-locked inactive path after all owned processes and ports are gone, reset records its exact path in `config\cleanup-residue.json` and starts a unique clean generation beside it. Report that residue at handoff; do not promote it into a blocker for unrelated work.
+Reset is an explicit uninstall. It stops the active generation's recorded processes, every process whose executable or command line belongs to that generation, and listeners on the configured CLIO ports. It then attempts to delete the whole owned root. It never renames, moves, or quarantines a broken tree. Do not use reset to retry a demo, clear a session, repair an MCP, or restart after an application-code change.
 
 Use `-RecreateRoot` only when the next operation needs an empty root immediately. Do not add deletion targets outside the owned root.
 
-## Start or restart
+## Install or restart
 
 ```powershell
 .\scripts\Start-ClioDev.ps1
 ```
 
-Clean startup is the default. It:
+With an active generation, this is a restart of that same installed stack. With no active generation, it performs the initial install. Use `-FreshInstall` only for an intentional uninstall/reinstall or committed source/dependency transition that cannot be applied to the existing generation.
+
+A fresh installation:
 
 1. deletes and recreates the owned root;
-2. clones the exact committed backend, frontend, and document-processor heads into `worktrees` inside it;
+2. clones the exact committed backend and frontend heads into `worktrees` inside it;
 3. initializes pinned submodules;
-4. reproduces the backend and document processor from their frozen `uv.lock` files with Python 3.12, adding `--extra claude-code` only when the explicitly selected provider is Claude Code, and uses the backend's pinned official SDK dependency for Codex;
+4. reproduces the backend with `uv sync --frozen --python 3.12` inside the runtime clone, adding `--extra claude-code` only when the explicitly selected provider is Claude Code, and uses the repository's pinned official SDK dependency for Codex;
 5. installs the frontend with `pnpm install --frozen-lockfile` inside the runtime clone;
-6. redirects temp, caches, tool installs, child-process state, logs, workspaces, and CTE data into the owned root, with one root-scoped Hugging Face/Docling cache reused by every contained generation;
+6. redirects temp, caches, tool installs, child-process state, logs, workspaces, and CTE data into the owned root;
 7. installs the bundled marketplace launcher in the contained tool directory;
-8. starts one document processor, one backend, and one UI;
+8. starts one backend and one UI; and
 9. records wall-clock duration for every startup stage in `config\deploy-timing.json`; and
 10. runs mandatory preflight.
 
@@ -54,14 +56,27 @@ Defaults:
 
 - source backend: `D:\Libraries\Documents\projects\.codex-campaign-clio-agent`
 - source frontend: `D:\Libraries\Documents\projects\gact-tui-node-revamp`
-- source document processor: `D:\Libraries\Documents\projects\clio-web-search`
-- backend/UI/document processor: `http://127.0.0.1:8787`, `http://127.0.0.1:5174`, and `http://127.0.0.1:8089`
+- backend/UI: `http://127.0.0.1:8787` and `http://127.0.0.1:5174`
 - provider/model: Codex SDK and `gpt-5.6-luna`
 - ARC: CTE only, 8 GB cold tier, 1 GB RAM bound
 
 Override source paths, ports, provider, model, or CTE capacity only when the task identifies another exact head or contract. Commit intended source changes before qualification; runtime clones deliberately exclude dirty or uncommitted filesystem state.
 
-`-PreserveState` is only for a short restart of the same known run at the same cloned heads. It must not be used after dependency, branch, provider, marketplace, schema, MCP, ARC/CTE, or startup failures. Those require a hard reset.
+`-PreserveState` remains accepted for compatibility but is no longer required: reuse is the default whenever `active-generation.json` exists. `-FreshInstall` and `-PreserveState` are mutually exclusive.
+
+Provider, marketplace, schema, MCP, ARC/CTE, and startup failures are defects in the active installation. Diagnose and repair them in place unless there is direct evidence that the installation itself is irrecoverably corrupt. A failed session does not authorize a new generation.
+
+## Qualification retry
+
+A qualification retry is product data lifecycle, not deployment lifecycle:
+
+1. Keep the active UI, backend, and node-wide core running.
+2. Delete only the disposable session through `DELETE /v1/sessions/{id}`.
+3. Delete or clean only its explicitly designated disposable workspace through the workspace API when the case requires a fresh workspace.
+4. Create the replacement session on the same backend and installed blueprint.
+5. Preserve failed sessions when the user needs to inspect them; never replace the generation to hide or clear them.
+
+Do not run `Reset-ClioDev.ps1`, create a generation, clone repositories, synchronize Python/Node dependencies, or provision a CTE store for a session retry.
 
 ## Mandatory preflight
 
@@ -81,8 +96,7 @@ Containment fails when generated paths escape the owned root or a legacy runtime
 - SPOTTER's implementation or native-provider configuration is missing;
 - an ARC sentinel cannot be written, read, and deleted through CTE;
 - a CLIO port has zero or multiple owners; or
-- the UI is unreachable; or
-- the contained document processor is unreachable or the backend does not advertise it as a configured converter.
+- the UI is unreachable.
 
 The default preflight deliberately does not warm MCP namespaces. A selected session must exercise its blueprint-declared dependencies through the product readiness path so cold-start failures, retries, and progress remain visible. `Test-ClioDevPreflight.ps1 -RequiredMcpNamespaces ...` remains an opt-in diagnostic for a specific session; it is not part of ordinary startup or acceptance evidence.
 
@@ -103,8 +117,6 @@ Never add domain-specific namespace warming to generic dev setup. The installed 
 
 Warnings remain warnings only when the service reports an explicit degraded capability. Never reinterpret a sparse CTE file's logical size as allocated disk usage; capacity and disk diagnostics must use physical allocation evidence.
 
-The packaged desktop follows the same ownership rule through Tauri's platform app-cache directory. On Windows this resolves beneath the current user's local application data; macOS and Linux use their platform equivalents. The desktop supervisor exports `HF_HOME`, `HF_HUB_CACHE`, and `HF_XET_CACHE` before launching managed children, so model assets survive upgrades without living beside the executable or inside a workspace.
-
 ## Engineering judgment
 
 Classify findings by consequence before acting:
@@ -118,7 +130,7 @@ A failed committed test is a correctness problem and must be investigated. A sta
 
 ## Browser check before a run
 
-Open `http://127.0.0.1:5174/` through the visible connection flow. Do not mutate browser storage directly.
+Open `http://127.0.0.1:5174/?intent=connect` through the visible connection flow. Do not mutate browser storage directly.
 
 1. Select `http://127.0.0.1:8787`.
 2. Confirm the service reports ready.
@@ -137,13 +149,13 @@ Default stop removes the complete development root after stopping its processes:
 .\scripts\Stop-ClioDev.ps1
 ```
 
-Use `-PreserveState` only while actively diagnosing the same run. After capturing the minimal evidence required by the task, run the default stop and verify:
+During an active qualification campaign, preserve the installed generation and its inspectable sessions. When the user explicitly ends the campaign or requests an uninstall, run the default stop and verify:
 
 ```powershell
 .\scripts\Test-ClioDevContainment.ps1
 ```
 
-Do not accumulate failed sessions, copied repositories, alternate environments, renamed cleanup trees, stale CAE/child-agent caches, or superseded demo outputs. Reproduction comes from committed heads and lockfiles, not preservation of generated state.
+Do not accumulate inactive generations, copied repositories, alternate environments, renamed cleanup trees, stale CAE/child-agent caches, or superseded demo outputs. Preserve only sessions the user still needs to inspect. Reproduction comes from committed heads and lockfiles, not repeated full-stack deployment.
 
 ## Non-negotiable behavior
 

@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatBytes } from '@/lib/format';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioArtifactCard } from './artifact-card';
 import { ClioStatus } from './status';
@@ -555,12 +556,6 @@ function sourceDisplayValue(value: string): string {
 
 function isWebLink(value: string): boolean {
   return /^https?:\/\//iu.test(value);
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1_024) return `${bytes} B`;
-  if (bytes < 1_048_576) return `${Math.round(bytes / 1_024)} KB`;
-  return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }
 
 function EmptyEvidence({ label }: { label: string }) {

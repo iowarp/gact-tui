@@ -48,6 +48,7 @@ import {
 } from '@/components/ui/select';
 import { useContainerQuery } from '@/hooks/use-container-query';
 import type { ClioContextTarget } from '@/lib/context-targets';
+import { formatDuration } from '@/lib/format';
 import {
   getPresentationOverrideCount,
   subscribePresentationOverrides,
@@ -59,7 +60,7 @@ import { ClioActivityTimeline, type ObservabilityActivityItem } from './observab
 import { ClioEvidenceView } from './observability-evidence';
 import { ClioProcessLanes } from './observability-processes';
 import { ClioStatus } from './status';
-import { getToolOutcome, getToolPresentation, getToolSummary } from './tool-presentation';
+import { getToolPresentation, getToolSummary } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 
 const ClioWorkflowGraph = lazy(() =>
@@ -84,6 +85,14 @@ export interface ClioObservabilityDockProps {
   subagents: readonly SubagentRun[];
   context?: ContextSnapshot;
   contextError?: string;
+  contextFilesError?: string;
+  contextFilesPending?: boolean;
+  contextFramesError?: string;
+  contextFramesPending?: boolean;
+  diffsError?: string;
+  diffsPending?: boolean;
+  processesError?: string;
+  processesPending?: boolean;
   contextTargets?: readonly ClioContextTarget[];
   selectedContextTargetId?: string;
   compactContextPending?: boolean;
@@ -120,7 +129,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
   const [childAgentsOpen, setChildAgentsOpen] = useState(false);
   const presentationOverrideCount = useSyncExternalStore(
     subscribePresentationOverrides,
-    () => getPresentationOverrideCount(props.sessionId),
+    () => (props.sessionId ? getPresentationOverrideCount(props.sessionId) : 0),
     () => 0,
   );
   const activityCount = props.processes.length || props.subagents.length;
@@ -311,7 +320,15 @@ export function ClioObservabilityView({
   subagents,
   context,
   contextError,
+  contextFilesError,
+  contextFilesPending,
+  contextFramesError,
+  contextFramesPending,
   contextTargets,
+  diffsError,
+  diffsPending,
+  processesError,
+  processesPending,
   selectedContextTargetId,
   compactContextPending,
   contextPreferencesPending,
@@ -355,7 +372,6 @@ export function ClioObservabilityView({
           }),
         ),
         ...tools.map((tool): ObservabilityActivityItem => {
-          const outcome = getToolOutcome(tool);
           const eventAt = tool.completed_at ?? tool.started_at;
           const turnContext = toolTurnContext.get(tool.id);
           return {
@@ -363,9 +379,7 @@ export function ClioObservabilityView({
             kind: 'tool',
             label: getToolPresentation(tool).title,
             detail: getToolSummary(tool),
-            state: outcome.value,
-            statusLabel: outcome.label,
-            statusDetail: outcome.detail,
+            state: tool.state,
             at: eventAt ?? turnContext?.at,
             groupId: turnContext?.turnId,
             timing: eventAt ? 'event' : turnContext ? 'turn' : undefined,
@@ -408,6 +422,11 @@ export function ClioObservabilityView({
         </TabsList>
         <ScrollArea className="min-h-0 min-w-0 flex-1">
           <TabsContent className="m-0 grid gap-2 p-3" value="work">
+            <SectionState
+              error={processesError}
+              label="Background work"
+              pending={processesPending}
+            />
             <ClioProcessLanes
               messages={messages}
               onOpenSubagent={onOpenSubagent}
@@ -451,7 +470,13 @@ export function ClioObservabilityView({
           <TabsContent className="m-0 p-4" value="activity">
             <ClioActivityTimeline items={activity} messages={messages} />
           </TabsContent>
-          <TabsContent className="m-0 p-4" value="evidence">
+          <TabsContent className="m-0 grid gap-2 p-4" value="evidence">
+            <SectionState error={diffsError} label="File changes" pending={diffsPending} />
+            <SectionState
+              error={contextFilesError}
+              label="Attached context"
+              pending={contextFilesPending}
+            />
             <ClioEvidenceView
               artifacts={artifacts}
               contextFiles={contextFiles}
@@ -471,6 +496,16 @@ export function ClioObservabilityView({
             />
           </TabsContent>
           <TabsContent className="m-0 grid gap-4 p-4" value="context">
+            <SectionState
+              error={contextFilesError}
+              label="Attached context"
+              pending={contextFilesPending}
+            />
+            <SectionState
+              error={contextFramesError}
+              label="Context frames"
+              pending={contextFramesPending}
+            />
             <ClioContextCanvasPanel
               compactPending={compactContextPending}
               context={context}
@@ -528,7 +563,10 @@ function ProvenanceSourceBar({
             <SelectContent>
               {providers.map((item) => (
                 <SelectItem key={item.name} value={item.name}>
-                  {item.name} — {item.status}
+                  <span>
+                    <span>{item.name}</span>
+                    <span className="text-muted-foreground">{item.status}</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -568,6 +606,22 @@ function providerStatus(
   if (!queryable || status === 'unavailable' || status === 'disabled') return 'unavailable';
   if (status === 'degraded' || status === 'partial') return 'degraded';
   return 'healthy';
+}
+
+/** States an observability section the service could not deliver, or has not delivered yet. */
+function SectionState({
+  error,
+  label,
+  pending,
+}: {
+  error?: string;
+  label: string;
+  pending?: boolean;
+}) {
+  if (error)
+    return <ClioStatus detail={error} label={`${label} unavailable`} value="unavailable" />;
+  if (pending) return <ClioStatus label={`Loading ${label.toLowerCase()}`} value="connecting" />;
+  return null;
 }
 
 function ObservabilityLoading({ label }: { label: string }) {
@@ -613,10 +667,4 @@ function toolActivityContext(
 
 function childAgentProcessDetail(placement: string | undefined): string {
   return placement?.trim() || 'Child agent';
-}
-
-function formatDuration(milliseconds: number): string {
-  if (milliseconds < 1_000) return `${milliseconds} ms`;
-  if (milliseconds < 60_000) return `${Math.round(milliseconds / 1_000)} s`;
-  return `${Math.round(milliseconds / 60_000)} min`;
 }

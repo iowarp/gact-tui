@@ -130,6 +130,49 @@ describe('GACT 0.3 reducer', () => {
     expect(final.cursor).toBe('21');
   });
 
+  it('records a typed gap for a frame whose entity is not resident yet', () => {
+    const orphan = frame(
+      '30',
+      'message.block.completed',
+      { message_id: 'msg_missing', block_id: 'part_1', text: 'Final answer' },
+      { entityId: 'part_1', revision: 30 },
+    );
+    const created = frame('31', 'message.upserted', {
+      id: 'msg_missing',
+      session_id: 'sess_1',
+      role: 'assistant',
+      created_at: '2026-08-22T12:00:00Z',
+      blocks: [{ id: 'part_1', type: 'text', text: 'Final', streaming: true }],
+    });
+    const redelivered = frame(
+      '32',
+      'message.block.completed',
+      { message_id: 'msg_missing', block_id: 'part_1', text: 'Final answer' },
+      { entityId: 'part_1', revision: 30 },
+    );
+
+    const dropped = reduceTransportFrame(createEntityState(), orphan);
+
+    expect(dropped.gaps).toEqual([
+      {
+        cursor: '30',
+        event_name: 'message.block.completed',
+        entity_id: 'part_1',
+        code: 'entity_not_resident',
+        reason: 'Message msg_missing is not resident for its completed block',
+        received_at: '2026-08-22T12:00:00Z',
+      },
+    ]);
+    expect(dropped.revisions).toEqual({});
+
+    const recovered = [created, redelivered].reduce(reduceTransportFrame, dropped);
+
+    expect(recovered.messages.msg_missing?.blocks).toEqual([
+      { id: 'part_1', type: 'text', text: 'Final answer', streaming: false },
+    ]);
+    expect(recovered.gaps).toHaveLength(1);
+  });
+
   it('applies both id-zero connection preamble frames', () => {
     const live = frame('0', 'stream.live', {});
     const session = frame('0', 'session.upserted', {

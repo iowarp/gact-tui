@@ -132,6 +132,13 @@ const statusPresentation: Record<
   },
 };
 
+/** The single typed label for a status value, for surfaces that render it as text. */
+// The label table and the badge that renders it stay one owner.
+// oxlint-disable-next-line react/only-export-components
+export function clioStatusLabel(value: ClioStatusValue): string {
+  return statusPresentation[value].label;
+}
+
 export interface ClioStatusProps {
   value: ClioStatusValue;
   label?: string;

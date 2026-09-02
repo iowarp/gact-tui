@@ -51,6 +51,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { openDocumentWorkingCopy } from '@/tauri/documents';
 import { ClioOnlyOfficeEditor } from './onlyoffice-editor';
 import { ClioStatus } from './status';
@@ -68,6 +69,7 @@ export function ClioDocumentWorkspace({
   fallbackPreview: ReactNode;
 }) {
   const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const queryClient = useQueryClient();
   const previewRef = useRef<HTMLDivElement>(null);
   const [overrideManifest, setOverrideManifest] = useState<DocumentManifest>();
@@ -78,22 +80,22 @@ export function ClioDocumentWorkspace({
   const [workingCopy, setWorkingCopy] = useState<DocumentWorkingCopy>();
   const [editor, setEditor] = useState<DocumentEditorSession>();
   const manifest = useQuery({
-    queryKey: queryKeys.key('document-manifest', artifact.id),
+    queryKey: queryKeys.key('document-manifest', settings.endpoint, artifact.id),
     queryFn: ({ signal }) => repository.documentManifest(artifact.id, signal),
   });
   const effectiveManifest = overrideManifest ?? manifest.data;
   const content = useQuery({
-    queryKey: queryKeys.key('document-content', effectiveManifest?.artifact_id),
+    queryKey: queryKeys.key('document-content', settings.endpoint, effectiveManifest?.artifact_id),
     queryFn: ({ signal }) => repository.documentContent(effectiveManifest!.artifact_id, signal),
     enabled: Boolean(effectiveManifest && directProfiles.has(effectiveManifest.profile)),
   });
   const reviews = useQuery({
-    queryKey: queryKeys.key('artifact-reviews', artifact.id),
+    queryKey: queryKeys.key('artifact-reviews', settings.endpoint, artifact.id),
     queryFn: ({ signal }) => repository.artifactReviews(artifact.id, signal),
     enabled: Boolean(manifest.data),
   });
   const editorHealth = useQuery({
-    queryKey: queryKeys.key('document-editor-health'),
+    queryKey: queryKeys.key('document-editor-health', settings.endpoint),
     queryFn: ({ signal }) => repository.documentEditorHealth(signal),
     enabled: Boolean(manifest.data?.embedded_editors.length),
   });
@@ -120,7 +122,7 @@ export function ClioDocumentWorkspace({
       window.getSelection()?.removeAllRanges();
       setStatus('Review sent to the agent against this exact immutable revision.');
       await queryClient.invalidateQueries({
-        queryKey: queryKeys.key('artifact-reviews', artifact.id),
+        queryKey: queryKeys.key('artifact-reviews', settings.endpoint, artifact.id),
       });
     },
   });

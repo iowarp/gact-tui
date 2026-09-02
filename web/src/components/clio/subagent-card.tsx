@@ -1,6 +1,8 @@
 import type { SubagentRun } from '@clio/core/v3';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { SubAgentDispatch, type SubAgentState } from '@/components/theokit/sub-agent-dispatch';
+import { formatDuration, truncate } from '@/lib/format';
+import { SUBAGENT_RESULT_TRUNCATE_CHARS, SUBAGENT_TASK_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { getChildAgentAssignment } from './child-agent-presentation';
 
 export interface ClioSubagentCardProps {
@@ -57,10 +59,13 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
         run={{
           id: subagent.id,
           agent: subagent.title,
-          task: compactText(assignment.label, 260),
+          task: compactText(assignment.label, SUBAGENT_TASK_TRUNCATE_CHARS),
           state: toTheoState(subagent.state),
-          duration: formatDuration(subagent.duration_ms),
-          result: subagent.result ? compactText(subagent.result, 300) : undefined,
+          duration:
+            subagent.duration_ms === undefined ? undefined : formatDuration(subagent.duration_ms),
+          result: subagent.result
+            ? compactText(subagent.result, SUBAGENT_RESULT_TRUNCATE_CHARS)
+            : undefined,
         }}
         tabIndex={subagent.child_session_id && onOpen ? 0 : undefined}
         title={
@@ -74,23 +79,32 @@ export function ClioSubagentCard({ subagent, onOpen }: ClioSubagentCardProps) {
 }
 
 function toTheoState(state: SubagentRun['state']): SubAgentState {
-  if (state === 'queued') return 'spawning';
-  if (state === 'running' || state === 'waiting_permission' || state === 'waiting_user') {
-    return 'running';
+  switch (state) {
+    case 'queued':
+      return 'spawning';
+    case 'running':
+    case 'waiting_permission':
+    case 'waiting_user':
+      return 'running';
+    case 'completed':
+      return 'completed';
+    case 'failed':
+      return 'failed';
+    case 'cancelled':
+      return 'cancelled';
+    case 'interrupted':
+      return 'interrupted';
+    case 'unknown':
+      return 'unknown';
+    default: {
+      const unhandled: never = state;
+      void unhandled;
+      return 'unknown';
+    }
   }
-  if (state === 'failed' || state === 'interrupted') return 'failed';
-  if (state === 'cancelled') return 'cancelled';
-  return 'completed';
 }
 
+/** Collapses wrapped prose to a single line, then cuts it to the card's budget. */
 function compactText(value: string, limit: number): string {
-  const normalized = value.replace(/\s+/gu, ' ').trim();
-  return normalized.length > limit ? `${normalized.slice(0, limit - 1).trimEnd()}…` : normalized;
-}
-
-function formatDuration(milliseconds?: number): string | undefined {
-  if (milliseconds === undefined) return undefined;
-  if (milliseconds < 1_000) return `${Math.round(milliseconds)} ms`;
-  if (milliseconds < 60_000) return `${Math.round(milliseconds / 1_000)} s`;
-  return `${Math.floor(milliseconds / 60_000)}m ${Math.round((milliseconds % 60_000) / 1_000)}s`;
+  return truncate(value.replace(/\s+/gu, ' ').trim(), limit);
 }

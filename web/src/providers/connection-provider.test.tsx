@@ -26,8 +26,18 @@ function ConnectionState() {
   const context = useConnectionSettings();
   const { credentialsReady, credentialError, recents, settings } = context;
   const [resolvedToken, setResolvedToken] = useState('not-resolved');
+  const [connectCount, setConnectCount] = useState(0);
   return (
     <div>
+      <output aria-label="connect count">{connectCount}</output>
+      <button
+        onClick={() =>
+          void context.connect(settings).then(() => setConnectCount((count) => count + 1))
+        }
+        type="button"
+      >
+        Connect active endpoint
+      </button>
       <output aria-label="credential state">
         {credentialsReady ? 'ready' : 'loading'}
         {credentialError ? `: ${credentialError}` : ''}
@@ -181,6 +191,35 @@ describe('connection provider credentials', () => {
       expect(screen.getByLabelText('resolved token')).toHaveTextContent('none');
     });
     expect(mocks.read).not.toHaveBeenCalled();
+  });
+
+  it('never records the ephemeral managed endpoint in saved connections', async () => {
+    const saved = [{ endpoint: 'http://agent.local', label: 'Lab agent' }];
+    localStorage.setItem('clio.recent-connections', JSON.stringify(saved));
+    mocks.inTauri.mockReturnValue(true);
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:52341',
+      bearer_token: 'supervisor-token',
+      status: { kind: 'ready' },
+    });
+    mocks.store.mockResolvedValue(undefined);
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText('managed connection')).toHaveTextContent('managed'),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect active endpoint' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect active endpoint' }));
+    await waitFor(() => expect(screen.getByLabelText('connect count')).toHaveTextContent('2'));
+
+    expect(screen.getByLabelText('recent count')).toHaveTextContent('1');
+    expect(JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')).toEqual(saved);
+    expect(mocks.store).not.toHaveBeenCalled();
   });
 
   it('publishes credential-store failures instead of silently retrying without a token', async () => {

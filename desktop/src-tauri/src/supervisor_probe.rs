@@ -13,6 +13,10 @@ use std::{
 const CAPABILITIES_TIMEOUT: Duration = Duration::from_secs(30);
 /// Health-poll cadence while waiting for capabilities.
 const POLL_INTERVAL: Duration = Duration::from_millis(200);
+/// Per-request timeout for one capabilities probe. Short because the sidecar
+/// is local: a request that has not answered by now is a stalled attempt, and
+/// the next poll is cheaper than waiting on it.
+const PROBE_REQUEST_TIMEOUT: Duration = Duration::from_millis(800);
 
 pub(crate) fn probe_capabilities(url: &str, token: &str) -> Result<(), String> {
     let endpoint = format!("{url}/v1/capabilities");
@@ -22,7 +26,7 @@ pub(crate) fn probe_capabilities(url: &str, token: &str) -> Result<(), String> {
     while start.elapsed() < CAPABILITIES_TIMEOUT {
         match ureq::get(&endpoint)
             .set("Authorization", &auth)
-            .timeout(Duration::from_millis(800))
+            .timeout(PROBE_REQUEST_TIMEOUT)
             .call()
         {
             Ok(resp) if resp.status() == 200 => return Ok(()),

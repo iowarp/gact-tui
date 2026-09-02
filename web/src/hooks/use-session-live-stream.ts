@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useQueryClient, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import { recordById } from '@/lib/entities';
 import { queryKeys } from '@/lib/query-keys';
+import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
+import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { listenForDesktopResume } from '@/tauri/desktop-lifecycle';
@@ -40,7 +42,7 @@ export function useSessionLiveStream({
     let lastReconnectAt = Number.NEGATIVE_INFINITY;
     const reconnect = () => {
       const now = performance.now();
-      if (now - lastReconnectAt < 250) return;
+      if (now - lastReconnectAt < STREAM_RECONNECT_BASE_MS) return;
       lastReconnectAt = now;
       setReconnectEpoch((value) => value + 1);
     };
@@ -73,7 +75,7 @@ export function useSessionLiveStream({
     const controller = new AbortController();
     const batcher = new FrameBatcher(applyFrames);
     const invalidations = new QueryInvalidationBatcher(queryClient);
-    let reconnectDelay = 250;
+    let reconnectDelay = STREAM_RECONNECT_BASE_MS;
     const consume = async () => {
       setStreamState('connecting');
       while (!controller.signal.aborted) {
@@ -86,7 +88,7 @@ export function useSessionLiveStream({
             controller.signal,
           )) {
             receivedFrame = true;
-            reconnectDelay = 250;
+            reconnectDelay = STREAM_RECONNECT_BASE_MS;
             setStreamState('live');
             batcher.push(frame);
             if (frame.eventName === 'message.completed') {
@@ -108,7 +110,7 @@ export function useSessionLiveStream({
           if (error instanceof Error && error.name === 'AbortError') break;
         }
         await abortableDelay(controller, reconnectDelay);
-        reconnectDelay = Math.min(8_000, reconnectDelay * 2);
+        reconnectDelay = nextReconnectDelay(reconnectDelay);
       }
     };
     void consume();
@@ -234,8 +236,10 @@ export function queryInvalidationKeysForEvent({
 }: QueryInvalidationEvent): QueryKey[] {
   const keys: QueryKey[] = [];
   if (isPendingInteractionEvent(eventName)) {
+    // Approvals are read unscoped (a descendant session can raise one), so the
+    // invalidation must be the endpoint-level prefix that query is keyed under.
     keys.push(
-      queryKeys.pendingApprovals(endpoint, sessionId),
+      queryKeys.pendingApprovals(endpoint),
       queryKeys.pendingQuestions(endpoint, sessionId),
     );
   }
@@ -309,20 +313,6 @@ class QueryInvalidationBatcher {
     this.stopped = true;
     this.pending.clear();
   }
-}
-
-function abortableDelay(controller: AbortController, milliseconds: number): Promise<void> {
-  return new Promise((resolve) => {
-    const timeout = window.setTimeout(resolve, milliseconds);
-    controller.signal.addEventListener(
-      'abort',
-      () => {
-        window.clearTimeout(timeout);
-        resolve();
-      },
-      { once: true },
-    );
-  });
 }
 
 function latestCursor(

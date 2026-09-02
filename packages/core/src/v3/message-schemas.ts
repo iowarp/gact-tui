@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import {
-  messageBlockGeneratedSchema,
-  messageBlockTypes,
-} from '../generated/clio-schemas/message-block.schema.js';
+import { messageBlockGeneratedSchema } from '../generated/clio-schemas/message-block.schema.js';
 import type { MessageBlock } from './domain.js';
 import { forwardCompatibleEnum } from './schema-utils.js';
 
@@ -16,9 +13,31 @@ function omitGeneratedNulls(value: unknown): unknown {
   );
 }
 
-const knownMessageBlockSchema = messageBlockGeneratedSchema.transform(
-  (value) => omitGeneratedNulls(value) as MessageBlock,
-);
+function toMessageBlock(value: unknown): MessageBlock {
+  return omitGeneratedNulls(value) as MessageBlock;
+}
+
+/**
+ * Drops additive top-level fields that the pinned schema does not list, so a
+ * known block from a newer backend still decodes as itself.
+ */
+function omitAdditiveFields(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null) return value;
+  const parsed = messageBlockGeneratedSchema.safeParse(value);
+  if (parsed.success) return value;
+  const additive = new Set(
+    parsed.error.issues.flatMap((issue) =>
+      issue.code === z.ZodIssueCode.unrecognized_keys && issue.path.length === 0 ? issue.keys : [],
+    ),
+  );
+  if (additive.size === 0) return value;
+  return Object.fromEntries(Object.entries(value).filter(([key]) => !additive.has(key)));
+}
+
+const knownMessageBlockSchema = messageBlockGeneratedSchema.transform(toMessageBlock);
+const additiveKnownMessageBlockSchema = z
+  .preprocess(omitAdditiveFields, messageBlockGeneratedSchema)
+  .transform(toMessageBlock);
 const resourceDeliverySchema = z
   .object({
     representation: z.enum([
@@ -49,8 +68,6 @@ const resourceMessageBlockSchema = z
     channel: z.string().optional(),
   })
   .strict();
-const knownMessageBlockTypes = new Set<string>([...messageBlockTypes, 'resource']);
-
 const unknownMessageBlockSchema = z
   .object({
     id: z.string(),
@@ -61,15 +78,6 @@ const unknownMessageBlockSchema = z
     channel: z.string().optional(),
   })
   .passthrough()
-  .superRefine((value, context) => {
-    if (knownMessageBlockTypes.has(value.type)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `Known message block ${value.type} does not satisfy the shared schema`,
-        path: ['type'],
-      });
-    }
-  })
   .transform((value) => ({
     id: value.id,
     type: 'unknown' as const,
@@ -81,9 +89,15 @@ const unknownMessageBlockSchema = z
     ...(value.stream_source ? { stream_source: value.stream_source } : {}),
   }));
 
+/**
+ * Decodes a block strictly, then tolerantly, then degrades it: a block this
+ * version cannot read is contained as a typed `unknown` block carrying its
+ * original type and payload, never raised into a failure of its message.
+ */
 export const messageBlockSchema = z.union([
   resourceMessageBlockSchema,
   knownMessageBlockSchema,
+  additiveKnownMessageBlockSchema,
   unknownMessageBlockSchema,
 ]);
 

@@ -38,15 +38,23 @@ for (const site of callSites) {
   if (!registryKinds.has(site.kind)) failures.push(`${relativePath}: unregistered kind ${site.kind}`);
   if (!site.issueBound) failures.push(`${relativePath}: ${site.kind} does not bind its registry issue`);
 }
-if (callSites.length > 2) {
-  failures.push(`presentation override baseline exceeded: ${callSites.length} call sites (maximum 2)`);
+// Raised from 2 to 3 for child-tool-correlation (clio-agent#1279): the child-to-tool
+// causal placement had no server edge and was shipping unregistered. It ratchets back
+// down when that issue lands a typed spawn edge.
+const MAX_CALL_SITES = 3;
+if (callSites.length > MAX_CALL_SITES) {
+  failures.push(
+    `presentation override baseline exceeded: ${callSites.length} call sites (maximum ${MAX_CALL_SITES})`,
+  );
 }
 
 if (failures.length) {
   for (const failure of failures) console.error(failure);
   process.exitCode = 1;
 } else {
-  console.log(`Presentation override ratchet passed (${callSites.length}/2 call sites).`);
+  console.log(
+    `Presentation override ratchet passed (${callSites.length}/${MAX_CALL_SITES} call sites).`,
+  );
 }
 
 function sourceFiles(directory) {

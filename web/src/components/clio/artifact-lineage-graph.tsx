@@ -13,6 +13,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { FileBoxIcon, TriangleAlertIcon, WrenchIcon } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
+import { formatBytes } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 interface LineageNodeData extends Record<string, unknown> {
@@ -281,11 +282,4 @@ function stringField(node: ArtifactLineageNode, key: string): string {
 function numberField(node: ArtifactLineageNode, key: string): number | undefined {
   const value = node[key];
   return typeof value === 'number' ? value : undefined;
-}
-
-function formatBytes(value: number): string {
-  if (value < 1000) return `${value} B`;
-  if (value < 1_000_000) return `${(value / 1000).toFixed(1)} KB`;
-  if (value < 1_000_000_000) return `${(value / 1_000_000).toFixed(1)} MB`;
-  return `${(value / 1_000_000_000).toFixed(1)} GB`;
 }

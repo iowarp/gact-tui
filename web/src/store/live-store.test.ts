@@ -29,6 +29,98 @@ function workspaceFrame(
   };
 }
 
+function streamedFrame(
+  cursor: string,
+  type: 'message.upserted' | 'session.upserted',
+  entityId: string,
+  payload: Record<string, unknown>,
+): TransportFrame {
+  return {
+    cursor,
+    eventName: type,
+    receivedAt: '2026-08-27T12:00:00Z',
+    data: {
+      protocol_version: '0.3',
+      type,
+      occurred_at: '2026-08-27T12:00:00Z',
+      scope: { connection_id: 'local', workspace_id: 'ws_1', session_id: 'sess_1' },
+      entity_id: entityId,
+      entity_revision: 4,
+      payload,
+    },
+  };
+}
+
+function restMessage(id: string) {
+  return {
+    id,
+    session_id: 'sess_1',
+    role: 'assistant' as const,
+    created_at: '2026-08-27T12:00:00Z',
+    blocks: [],
+  };
+}
+
+function restSession(id: string, state: 'running' | 'completed' | 'queued') {
+  return {
+    id,
+    workspace_id: 'ws_1',
+    title: id,
+    state,
+    created_at: '2026-08-27T12:00:00Z',
+    updated_at: '2026-08-27T12:00:00Z',
+    mode: 'edit' as const,
+    edit_mode: 'diff' as const,
+    routing_mode: 'auto' as const,
+    approval_mode: 'ask' as const,
+    pinned: false,
+    archived: false,
+  };
+}
+
+describe('live store snapshot merges', () => {
+  beforeEach(() => useLiveStore.getState().reset());
+
+  it('keeps an in-flight streamed message a lagging transcript snapshot omits', () => {
+    useLiveStore
+      .getState()
+      .applyFrames([streamedFrame('10', 'message.upserted', 'msg_b', restMessage('msg_b'))]);
+
+    useLiveStore.getState().mergeSnapshots({ messages: { msg_a: restMessage('msg_a') } });
+
+    expect(Object.keys(useLiveStore.getState().entities.messages).sort()).toEqual([
+      'msg_a',
+      'msg_b',
+    ]);
+  });
+
+  it('refuses to rewind a stream-owned session to a stale poll snapshot', () => {
+    useLiveStore
+      .getState()
+      .applyFrames([
+        streamedFrame('11', 'session.upserted', 'sess_1', restSession('sess_1', 'completed')),
+      ]);
+
+    useLiveStore.getState().mergeSnapshots({
+      sessions: {
+        sess_1: restSession('sess_1', 'running'),
+        sess_2: restSession('sess_2', 'queued'),
+      },
+    });
+
+    const sessions = useLiveStore.getState().entities.sessions;
+    expect(sessions.sess_1?.state).toBe('completed');
+    expect(sessions.sess_2?.state).toBe('queued');
+  });
+
+  it('drops a row the snapshot no longer lists when the stream never wrote it', () => {
+    useLiveStore.getState().mergeSnapshots({ sessions: { sess_2: restSession('sess_2', 'queued') } });
+    useLiveStore.getState().mergeSnapshots({ sessions: { sess_3: restSession('sess_3', 'queued') } });
+
+    expect(Object.keys(useLiveStore.getState().entities.sessions)).toEqual(['sess_3']);
+  });
+});
+
 describe('live store reconciliation', () => {
   beforeEach(() => useLiveStore.getState().reset());
 

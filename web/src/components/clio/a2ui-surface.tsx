@@ -13,7 +13,7 @@ import { Component, useCallback, useMemo, useState, type ErrorInfo, type ReactNo
 import { useRepository } from '@/hooks/use-repository';
 import { findLastSurfaceAction } from '@/lib/a2ui-state';
 import { A2uiSurface, clioA2UICatalog } from './a2ui-catalog';
-import { ClioStatus } from './status';
+import { ClioStatus, type ClioStatusValue } from './status';
 
 function SurfaceFailure({ error }: { error: Error }) {
   return (
@@ -63,6 +63,33 @@ class SurfaceBoundary extends Component<SurfaceBoundaryProps, SurfaceBoundarySta
 }
 
 const LOCAL_ACTIONS = new Set(['artifact.open', 'data.select', 'workflow.focus']);
+
+/** Every declared surface state keeps its own honest status; none defaults to success. */
+function surfaceStatusValue(state: DomainSurface['state']): ClioStatusValue {
+  switch (state) {
+    case 'ready':
+      return 'healthy';
+    case 'creating':
+    case 'updating':
+      return 'running';
+    case 'pending_action':
+      return 'waiting_user';
+    case 'cancelled':
+      return 'cancelled';
+    case 'disconnected':
+      return 'offline';
+    case 'failed':
+      return 'failed';
+    case 'deleted':
+    case 'unknown':
+      return 'unavailable';
+    default: {
+      const unhandled: never = state;
+      void unhandled;
+      return 'unavailable';
+    }
+  }
+}
 
 function validateSurfaceComponents(messages: unknown[]): A2uiMessage[] {
   return messages.map((message, messageIndex) => {
@@ -182,15 +209,7 @@ function ClioA2UISurfaceContent({
                   ? 'Applying local action'
                   : surface.state.replaceAll('_', ' ')
             }
-            value={
-              isPending || localActionPending
-                ? 'running'
-                : surface.state === 'updating'
-                  ? 'running'
-                  : surface.state === 'unknown'
-                    ? 'unavailable'
-                    : 'healthy'
-            }
+            value={isPending || localActionPending ? 'running' : surfaceStatusValue(surface.state)}
           />
         </div>
       ) : null}
