@@ -441,8 +441,13 @@ describe('ClioObservabilityView', () => {
     expect(screen.getByText('ndp #1, Metadata source URL')).toBeVisible();
     expect(screen.getByText('OpenStreetMap Nominatim')).toHaveAttribute('title', 'osm_nominatim');
     expect(screen.getByText('paper.pdf')).toBeVisible();
+    // Resource detail renders as separate sibling elements (type/revision/size/sha), never a
+    // single middot-joined string.
+    expect(screen.getByText('Revision 1')).toBeVisible();
+    expect(screen.getByText('application/pdf')).toBeVisible();
     expect(screen.getByText(/SHA-256 0123456789ab/u)).toBeVisible();
     expect(screen.queryByText(/workflow_state/u)).not.toBeInTheDocument();
+    expect(screen.queryByText(/·/u)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Open source paper.pdf' }));
     expect(openResource).toHaveBeenCalledWith(expect.objectContaining({ id: 'resource_pdf' }));
