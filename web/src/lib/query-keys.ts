@@ -128,17 +128,27 @@ export const queryKeys = {
     ['workspace-resources', endpoint, workspaceId] as const,
   workspaceResourceDeliveries: (endpoint: string, workspaceId: string) =>
     ['workspace-resource-deliveries', endpoint, workspaceId] as const,
-  // The revision-less form is the prefix an invalidation uses: it matches every
-  // revision of one resource, which is exactly what a reprocess invalidates.
+  // Each shorter form is the prefix an invalidation uses: without a revision it
+  // matches every revision of one resource (what a reprocess changes), and
+  // without a resource it matches every resource in one workspace (what a
+  // workspace-scoped stream event changes).
   workspaceResourceDerivatives: (
     endpoint: string,
     workspaceId: string,
-    resourceId: string,
+    resourceId?: string,
     revision?: number,
   ) =>
-    revision === undefined
-      ? (['workspace-resource-derivatives', endpoint, workspaceId, resourceId] as const)
-      : (['workspace-resource-derivatives', endpoint, workspaceId, resourceId, revision] as const),
+    resourceId === undefined
+      ? (['workspace-resource-derivatives', endpoint, workspaceId] as const)
+      : revision === undefined
+        ? (['workspace-resource-derivatives', endpoint, workspaceId, resourceId] as const)
+        : ([
+            'workspace-resource-derivatives',
+            endpoint,
+            workspaceId,
+            resourceId,
+            revision,
+          ] as const),
   workspaceResourceDerivativeContent: (
     endpoint: string,
     workspaceId: string,
@@ -158,29 +168,33 @@ export const queryKeys = {
   workspaceResourceStructure: (
     endpoint: string,
     workspaceId: string,
-    resourceId: string,
+    resourceId?: string,
     revision?: number,
   ) =>
-    revision === undefined
-      ? (['workspace-resource-structure', endpoint, workspaceId, resourceId] as const)
-      : (['workspace-resource-structure', endpoint, workspaceId, resourceId, revision] as const),
+    resourceId === undefined
+      ? (['workspace-resource-structure', endpoint, workspaceId] as const)
+      : revision === undefined
+        ? (['workspace-resource-structure', endpoint, workspaceId, resourceId] as const)
+        : (['workspace-resource-structure', endpoint, workspaceId, resourceId, revision] as const),
   workspaceResourceStructureNode: (
     endpoint: string,
     workspaceId: string,
-    resourceId: string,
+    resourceId?: string,
     collection?: string,
     index?: number,
   ) =>
-    collection === undefined
-      ? (['workspace-resource-structure-node', endpoint, workspaceId, resourceId] as const)
-      : ([
-          'workspace-resource-structure-node',
-          endpoint,
-          workspaceId,
-          resourceId,
-          collection,
-          index,
-        ] as const),
+    resourceId === undefined
+      ? (['workspace-resource-structure-node', endpoint, workspaceId] as const)
+      : collection === undefined
+        ? (['workspace-resource-structure-node', endpoint, workspaceId, resourceId] as const)
+        : ([
+            'workspace-resource-structure-node',
+            endpoint,
+            workspaceId,
+            resourceId,
+            collection,
+            index,
+          ] as const),
   workspaces: (endpoint: string, scope?: string) =>
     scope ? (['workspaces', endpoint, scope] as const) : (['workspaces', endpoint] as const),
 } as const;

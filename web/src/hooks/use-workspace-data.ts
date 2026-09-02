@@ -171,7 +171,7 @@ export function useWorkspaceData({
       (query.state.data ?? []).some((resource) =>
         ['submitted', 'processing'].includes(resource.processing?.state ?? ''),
       )
-        ? 1_500
+        ? ACTIVE_SESSION_POLL_MS
         : false,
   });
   const agentBlueprints = useQuery({

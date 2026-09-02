@@ -118,6 +118,42 @@ describe('useSessionLiveStream resume recovery', () => {
     expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790', 'ws_1']);
   });
 
+  it('refreshes the reads each resource event actually changes', () => {
+    const forEvent = (eventName: string) =>
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName,
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      });
+
+    const completed = forEvent('resource.processing_completed');
+    expect(completed).toContainEqual([
+      'workspace-resource-derivatives',
+      'http://127.0.0.1:8790',
+      'ws_1',
+    ]);
+    expect(completed).toContainEqual([
+      'workspace-resource-structure',
+      'http://127.0.0.1:8790',
+      'ws_1',
+    ]);
+    expect(forEvent('resource.processing_failed')).toContainEqual([
+      'workspace-resource-derivatives',
+      'http://127.0.0.1:8790',
+      'ws_1',
+    ]);
+    expect(forEvent('resource.delivery_resolved')).toContainEqual([
+      'workspace-resource-deliveries',
+      'http://127.0.0.1:8790',
+      'ws_1',
+    ]);
+    // The mapping stays per event: an upload progress tick does not refetch
+    // derivatives, structure and deliveries.
+    const uploaded = forEvent('resource.updated');
+    expect(uploaded).toEqual([['workspace-resources', 'http://127.0.0.1:8790', 'ws_1']]);
+  });
+
   it('invalidates the approvals query the workspace actually reads', async () => {
     const { QueryClient } = await vi.importActual<typeof import('@tanstack/react-query')>(
       '@tanstack/react-query',

@@ -1,5 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
 import { invalidateQueriesInBackground } from '@/lib/query-invalidation';
+import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
 import type {
   ComposerMessagePart,
   MessageBehavior,
@@ -80,7 +81,7 @@ export function useSessionMutations({
     enabled: Boolean(sessionId),
     queryFn: ({ signal }) => repository.pendingSteers(sessionId, signal),
     queryKey: queryKeys.pendingSteers(settings.endpoint, sessionId),
-    refetchInterval: session?.state === 'running' ? 1_500 : false,
+    refetchInterval: session?.state === 'running' ? ACTIVE_SESSION_POLL_MS : false,
   });
 
   const invalidateComposerState = () => {

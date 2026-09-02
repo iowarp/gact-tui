@@ -220,6 +220,33 @@ function isResourceEvent(eventName: string): boolean {
   return eventName.startsWith('resource.');
 }
 
+/**
+ * The extra reads one resource event changes, beyond the workspace list.
+ *
+ * Kept per event rather than blanket: an upload progress tick must not refetch
+ * derivatives, structure and deliveries for the whole workspace.
+ */
+function resourceInvalidationKeys(
+  eventName: string,
+  endpoint: string,
+  workspaceId: string,
+): QueryKey[] {
+  if (
+    eventName === 'resource.processing_completed' ||
+    eventName === 'resource.processing_failed'
+  ) {
+    return [
+      queryKeys.workspaceResourceDerivatives(endpoint, workspaceId),
+      queryKeys.workspaceResourceStructure(endpoint, workspaceId),
+      queryKeys.workspaceResourceStructureNode(endpoint, workspaceId),
+    ];
+  }
+  if (eventName === 'resource.delivery_resolved') {
+    return [queryKeys.workspaceResourceDeliveries(endpoint, workspaceId)];
+  }
+  return [];
+}
+
 interface QueryInvalidationEvent {
   endpoint: string;
   eventName: string;
@@ -267,7 +294,10 @@ export function queryInvalidationKeysForEvent({
     keys.push(queryKeys.queuedMessages(endpoint, sessionId));
   }
   if (isResourceEvent(eventName)) {
-    keys.push(queryKeys.workspaceResources(endpoint, workspaceId));
+    keys.push(
+      queryKeys.workspaceResources(endpoint, workspaceId),
+      ...resourceInvalidationKeys(eventName, endpoint, workspaceId),
+    );
   }
   if (eventName === 'message.completed') {
     keys.push(
