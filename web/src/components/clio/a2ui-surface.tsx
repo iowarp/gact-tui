@@ -115,11 +115,18 @@ export type A2UILocalActionHandler = (
   action: A2uiClientAction,
 ) => string | void | Promise<string | void>;
 
+export type A2UIRemoteActionHandler = (message: {
+  version: string;
+  action: A2uiClientAction;
+}) => Promise<void>;
+
 function ClioA2UISurfaceContent({
   onLocalAction,
+  onRemoteAction,
   surface,
 }: {
   onLocalAction?: A2UILocalActionHandler;
+  onRemoteAction?: A2UIRemoteActionHandler;
   surface: DomainSurface;
 }) {
   const repository = useRepository();
@@ -127,16 +134,18 @@ function ClioA2UISurfaceContent({
   const [localActionStatus, setLocalActionStatus] = useState<string>();
   const [localActionError, setLocalActionError] = useState<string>();
   const { error, isPending, mutateAsync } = useMutation({
-    mutationFn: (clientAction: A2uiClientAction) =>
-      repository.a2uiAction(
-        surface.session_id,
-        { version: `v${A2UI_VERSION}`, action: clientAction },
-        {
-          run_id: surface.run_id,
-          message_id: surface.message_id,
-          part_id: surface.part_id,
-        },
-      ),
+    mutationFn: async (clientAction: A2uiClientAction) => {
+      const message = { version: `v${A2UI_VERSION}`, action: clientAction };
+      if (onRemoteAction) {
+        await onRemoteAction(message);
+        return;
+      }
+      await repository.a2uiAction(surface.session_id, message, {
+        run_id: surface.run_id,
+        message_id: surface.message_id,
+        part_id: surface.part_id,
+      });
+    },
   });
   const handleAction = useCallback(
     async (clientAction: A2uiClientAction) => {
@@ -243,14 +252,20 @@ function ClioA2UISurfaceContent({
 
 export function ClioA2UISurface({
   onLocalAction,
+  onRemoteAction,
   surface,
 }: {
   onLocalAction?: A2UILocalActionHandler;
+  onRemoteAction?: A2UIRemoteActionHandler;
   surface: DomainSurface;
 }) {
   return (
     <SurfaceBoundary key={`${surface.id}:${surface.revision}`}>
-      <ClioA2UISurfaceContent onLocalAction={onLocalAction} surface={surface} />
+      <ClioA2UISurfaceContent
+        onLocalAction={onLocalAction}
+        onRemoteAction={onRemoteAction}
+        surface={surface}
+      />
     </SurfaceBoundary>
   );
 }

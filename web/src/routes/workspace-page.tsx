@@ -63,9 +63,9 @@ export function WorkspacePage() {
     activeEffort,
     activeModel,
     activeProvider,
+    attentionInteractions,
     agentBlueprints,
     allSessions,
-    approvals,
     artifacts,
     capabilities,
     context,
@@ -73,13 +73,15 @@ export function WorkspacePage() {
     contextTargetOptions,
     entities,
     executionProvenance,
-    interactionSessionIds,
+    interactions,
+    interactionsError,
+    interactionRootSessionId,
+    interactionSurfaces,
     modelOptions,
     modelCatalogStatus,
     parentSession,
     providerCatalog,
     processes,
-    questions,
     runs,
     session,
     sessionArtifacts,
@@ -92,7 +94,7 @@ export function WorkspacePage() {
     tools,
     transcript,
     transcriptError,
-    visibleApprovals,
+    supportsUnifiedInteractions,
     workspaceFiles,
     workspaceResources,
     workspaces,
@@ -102,8 +104,20 @@ export function WorkspacePage() {
     [allSessions.data, sessions.data],
   );
   const sessionAttentions = useMemo(
-    () => buildSessionAttentionMap(navigationSessions, approvals.data ?? [], questions.data ?? []),
-    [approvals.data, navigationSessions, questions.data],
+    () => buildSessionAttentionMap(navigationSessions, attentionInteractions),
+    [attentionInteractions, navigationSessions],
+  );
+  const interactionOwnerLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        interactions.map((interaction) => {
+          const owner = navigationSessions.find(
+            (candidate) => candidate.id === interaction.owner_session_id,
+          );
+          return [interaction.owner_session_id, owner?.title ?? 'Specialist'];
+        }),
+      ),
+    [interactions, navigationSessions],
   );
   const messageCount = useSessionMessageCount(sessionId);
   const conversationStarted = messageCount > 0 || startedSessionId === sessionId;
@@ -137,16 +151,14 @@ export function WorkspacePage() {
 
   const {
     actionCard,
-    answerQuestion,
     cancel,
     cancelPendingSteer,
-    cancelQuestion,
     deleteQueuedMessage,
     pendingSteers,
     promoteQueuedMessage,
     queuedMessages,
     reorderQueuedMessages,
-    respondPermission,
+    respondInteraction,
     retry,
     send,
     updateQueuedMessage,
@@ -156,6 +168,8 @@ export function WorkspacePage() {
     session,
     sessionId,
     workspaceId,
+    interactionRootSessionId,
+    supportsUnifiedInteractions,
   });
   const refreshNavigation = useCallback(
     async (targetWorkspaceId = workspaceId) => {
@@ -360,6 +374,9 @@ export function WorkspacePage() {
         attachments={workspaceRouteState.canUploadWorkspaceResources(
           capabilities.data?.capabilities,
         )}
+        contextReferences={workspaceRouteState.canUseContextReferences(
+          capabilities.data?.capabilities,
+        )}
         commands={commands}
         confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
         disabled={!session || send.isPending || cancel.isPending || isPending}
@@ -378,21 +395,14 @@ export function WorkspacePage() {
         modelOptions={modelOptions}
         pendingInteractions={
           <ClioPendingInteractions
-            approvals={visibleApprovals}
-            disabled={
-              respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
-            }
-            listedSessionIds={interactionSessionIds}
-            onAnswer={async (id, answer) => {
-              await answerQuestion.mutateAsync({ id, answer });
+            disabled={respondInteraction.isPending}
+            interactions={interactions}
+            onA2UILocalAction={handleA2UILocalAction}
+            onResponse={async (interaction, response) => {
+              await respondInteraction.mutateAsync({ interaction, response });
             }}
-            onApproval={async (id, action) => {
-              await respondPermission.mutateAsync({ id, action });
-            }}
-            onCancelQuestion={async (id) => {
-              await cancelQuestion.mutateAsync(id);
-            }}
-            questions={questions.data ?? []}
+            ownerLabels={interactionOwnerLabels}
+            surfaces={interactionSurfaces}
           />
         }
         onCommand={async (value) => {
@@ -444,6 +454,7 @@ export function WorkspacePage() {
         state={state}
         value={composerDraft}
         variant={variant}
+        workspaceId={workspaceId}
       />
     </m.div>
   );
@@ -687,11 +698,13 @@ export function WorkspacePage() {
                 <AlertDescription>{retry.error.message}</AlertDescription>
               </Alert>
             ) : null}
-            {approvals.error || questions.error ? (
+            {interactionsError || respondInteraction.error ? (
               <Alert className="mx-4 mb-3" variant="destructive">
                 <AlertTriangleIcon aria-hidden="true" />
                 <AlertTitle>Responses unavailable</AlertTitle>
-                <AlertDescription>{(approvals.error ?? questions.error)?.message}</AlertDescription>
+                <AlertDescription>
+                  {(interactionsError ?? respondInteraction.error)?.message}
+                </AlertDescription>
               </Alert>
             ) : null}
             <AnimatePresence initial={false}>

@@ -10,7 +10,7 @@ param(
     [int]$CtePort = 9413,
     [string]$ExpectedProvider = "codex",
     [string]$ExpectedModel = "gpt-5.6-luna",
-    [string]$ExpectedTransport = "app_server",
+    [string]$ExpectedTransport = "sdk",
     [string]$DevRoot = "D:\Libraries\Documents\projects\clio_develop_workspace",
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
@@ -132,8 +132,9 @@ $preflightOrigin = [string]$corsPreflight.Headers["Access-Control-Allow-Origin"]
 if ($preflightOrigin -ne $webUrl) {
     throw "GACT browser preflight rejected '$webUrl'."
 }
-if ($gactCapabilities.contract_version -ne "0.3") {
-    throw "GACT negotiation mismatch: expected '0.3', got '$($gactCapabilities.contract_version)'."
+if (@($gactCapabilities.gact_versions) -notcontains "0.3") {
+    $offeredVersions = @($gactCapabilities.gact_versions) -join ", "
+    throw "GACT negotiation mismatch: expected '0.3' in offered versions, got '$offeredVersions'."
 }
 $campaignCapabilities = $gactCapabilities.capabilities
 foreach ($capabilityName in @(
@@ -145,18 +146,14 @@ foreach ($capabilityName in @(
         throw "GACT 0.3 capability '$capabilityName' is not enabled."
     }
 }
-if ($campaignCapabilities.x_clio_resources.enabled -ne $true) {
+if (
+    $null -eq $campaignCapabilities.x_clio_resources -or
+    [int64]$campaignCapabilities.x_clio_resources.max_bytes -le 0
+) {
     throw "GACT 0.3 resource custody is not enabled."
 }
-$structuredProcessing = $campaignCapabilities.x_clio_resources.structured_document_processing
-if (
-    $structuredProcessing.supported -ne $true -or
-    $structuredProcessing.state -ne "configured"
-) {
-    throw "GACT 0.3 structured document processing is not configured."
-}
 $configuredDocumentProcessor = @(
-    $structuredProcessing.converters |
+    $campaignCapabilities.x_clio_resources.converters |
         Where-Object {
             $_.id -eq "clio-web-search-docling" -and
             $_.configured -eq $true -and

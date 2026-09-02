@@ -1,4 +1,5 @@
 import type { CommandDefinition } from '@clio/core/v3';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,11 +7,21 @@ import { toast } from 'sonner';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import { ClioComposer, type ClioComposerProps } from './composer';
 
+const repositoryMocks = vi.hoisted(() => ({
+  workspaceReferences: vi.fn(),
+}));
+
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repositoryMocks }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://clio.test' } }),
+}));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 afterEach(cleanup);
 
 beforeEach(() => {
+  repositoryMocks.workspaceReferences.mockReset();
+  repositoryMocks.workspaceReferences.mockResolvedValue([]);
   vi.mocked(toast.error).mockClear();
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
@@ -58,38 +69,158 @@ const commands: CommandDefinition[] = [
 
 function renderComposer({
   attachments = false,
+  contextReferences = false,
   effort = 'medium',
   onCommand = vi.fn(async () => undefined),
   onStop = vi.fn(),
   onSubmit = vi.fn(async () => undefined),
   state = 'completed',
+  workspaceId,
 }: {
   attachments?: boolean;
+  contextReferences?: boolean;
   effort?: string;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onStop?: () => void;
   onSubmit?: ClioComposerProps['onSubmit'];
   state?: 'completed' | 'running';
+  workspaceId?: string;
 } = {}) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   render(
-    <PromptInputProvider>
-      <ClioComposer
-        attachments={attachments}
-        commands={commands}
-        effort={effort}
-        model="gpt-5.6-luna"
-        onCommand={onCommand}
-        onStop={onStop}
-        onSubmit={onSubmit}
-        provider="codex"
-        state={state}
-      />
-    </PromptInputProvider>,
+    <QueryClientProvider client={queryClient}>
+      <PromptInputProvider>
+        <ClioComposer
+          attachments={attachments}
+          commands={commands}
+          contextReferences={contextReferences}
+          effort={effort}
+          model="gpt-5.6-luna"
+          onCommand={onCommand}
+          onStop={onStop}
+          onSubmit={onSubmit}
+          provider="codex"
+          state={state}
+          workspaceId={workspaceId}
+        />
+      </PromptInputProvider>
+    </QueryClientProvider>,
   );
   return { onCommand, onStop, onSubmit };
 }
 
 describe('ClioComposer service commands', () => {
+  it('turns an @ selection into a structured reference and keeps it out of text', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([
+      {
+        kind: 'artifact',
+        id: 'artifact_plot',
+        label: 'Displacement plot',
+        detail: 'Displacement plot v3 (image)',
+        media_type: 'image/png',
+        revision: 'v3',
+        navigation: { artifact_id: 'artifact_plot' },
+      },
+    ]);
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    renderComposer({ contextReferences: true, onSubmit, workspaceId: 'workspace_1' });
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, '@plot');
+    await user.click(await screen.findByText('Displacement plot'));
+
+    expect(screen.getByRole('listitem')).toHaveTextContent('Displacement plot');
+    await user.type(input, 'needs a clearer legend{Enter}');
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: 'needs a clearer legend',
+          references: [
+            {
+              type: 'context_ref',
+              ref_kind: 'artifact',
+              ref_id: 'artifact_plot',
+              label: 'Displacement plot',
+              revision: 'v3',
+            },
+          ],
+        }),
+      ),
+    );
+  });
+
+  it('opens categorized reference search from the composer plus menu', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([
+      {
+        kind: 'session',
+        id: 'session_prior',
+        label: 'Prior evidence review',
+        detail: 'Session · completed · 18 messages',
+        media_type: 'application/vnd.clio.session-summary+json',
+        revision: '2026-09-02T12:00:00Z',
+        navigation: { session_id: 'session_prior' },
+      },
+    ]);
+    const user = userEvent.setup();
+    renderComposer({ contextReferences: true, workspaceId: 'workspace_1' });
+
+    await user.click(screen.getByRole('button', { name: 'Add context' }));
+    await user.click(screen.getByText('Reference existing context'));
+
+    expect(await screen.findByText('Conversations')).toBeVisible();
+    expect(screen.getByText('Prior evidence review')).toBeVisible();
+  });
+
+  it('allows a structured reference to steer without text', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([
+      {
+        kind: 'workspace_file',
+        id: 'data/observations.csv',
+        label: 'observations.csv',
+        detail: 'data/observations.csv (42 bytes)',
+        media_type: 'text/csv',
+        revision: 'stat:1:42',
+        navigation: { path: 'data/observations.csv' },
+      },
+    ]);
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    renderComposer({
+      contextReferences: true,
+      onSubmit,
+      state: 'running',
+      workspaceId: 'workspace_1',
+    });
+
+    await user.type(screen.getByRole('textbox'), '@observations');
+    await user.click(await screen.findByText('observations.csv'));
+    const steer = screen.getByRole('button', { name: 'Steer current work' });
+    expect(steer).toBeEnabled();
+    await user.click(steer);
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          delivery: 'steer',
+          references: [
+            {
+              type: 'context_ref',
+              ref_kind: 'workspace_file',
+              ref_id: 'data/observations.csv',
+              label: 'observations.csv',
+              revision: 'stat:1:42',
+            },
+          ],
+          text: '',
+        }),
+      ),
+    );
+  });
+
   it('adds and submits every file selected in one picker interaction', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => undefined);

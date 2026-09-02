@@ -4,6 +4,7 @@ import type {
   AsyncProcess,
   ContextFile,
   ExecutionProvenanceDegradation,
+  ExecutionProvenanceResult,
   Message,
   ProvenanceProviderSummary,
   SessionDiff,
@@ -53,6 +54,7 @@ export interface ClioEvidenceViewProps {
   diffs: readonly SessionDiff[];
   messages: readonly Message[];
   processes: readonly AsyncProcess[];
+  executionProvenance?: ExecutionProvenanceResult;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
@@ -69,7 +71,12 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
       .filter((block) => block.type === 'plan')
       .map((block) => ({ ...block, messageId: message.id })),
   );
-  const sources = sessionSources(props.messages, props.processes, props.resources ?? []);
+  const sources = sessionSources(
+    props.messages,
+    props.processes,
+    props.resources ?? [],
+    props.executionProvenance,
+  );
   const hasEvidence =
     props.diffs.length ||
     props.artifacts.length ||
@@ -161,7 +168,11 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
           value="artifacts"
           count={props.artifacts.length}
         >
-          <ArtifactEvidence artifacts={props.artifacts} onOpenArtifact={props.onOpenArtifact} />
+          <ArtifactEvidence
+            artifacts={props.artifacts}
+            executionProvenance={props.executionProvenance}
+            onOpenArtifact={props.onOpenArtifact}
+          />
         </EvidenceSection>
         <EvidenceSection icon={ListTreeIcon} label="Plans" value="plans" count={plans.length}>
           {plans.length ? (
@@ -301,6 +312,8 @@ interface EvidenceSource {
    *  can't change what dedups. */
   dedupeKey: string;
   resource?: WorkspaceResource;
+  ownerLabel?: string;
+  relation?: string;
 }
 
 function SourceEvidence({
@@ -330,6 +343,12 @@ function SourceEvidence({
             <WaypointsIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">{source.label}</p>
+              {source.ownerLabel ? (
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {source.relation ? `${friendlyStatus(source.relation)} by ` : ''}
+                  {source.ownerLabel}
+                </p>
+              ) : null}
               {source.link && source.value ? (
                 <a
                   aria-label={`${source.label}: ${source.value}`}
@@ -371,17 +390,29 @@ function SourceEvidence({
 
 function ArtifactEvidence({
   artifacts,
+  executionProvenance,
   onOpenArtifact,
 }: {
   artifacts: readonly Artifact[];
+  executionProvenance?: ExecutionProvenanceResult;
   onOpenArtifact?: (artifact: Artifact) => void;
 }) {
   if (!artifacts.length) return <EmptyEvidence label="No artifacts were produced." />;
   return (
     <div className="grid gap-2">
-      {artifacts.map((artifact) => (
-        <ClioArtifactCard artifact={artifact} key={artifact.id} onOpen={onOpenArtifact} />
-      ))}
+      {artifacts.map((artifact) => {
+        const attribution = artifactAttribution(artifact, executionProvenance);
+        return (
+          <div className="grid gap-1" key={artifact.id}>
+            <ClioArtifactCard artifact={artifact} onOpen={onOpenArtifact} />
+            {attribution ? (
+              <p className="px-1 text-[11px] text-muted-foreground">
+                {friendlyStatus(attribution.relation)} by {attribution.owner}
+              </p>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -458,6 +489,7 @@ function sessionSources(
   messages: readonly Message[],
   processes: readonly AsyncProcess[],
   resources: readonly WorkspaceResource[],
+  executionProvenance?: ExecutionProvenanceResult,
 ): EvidenceSource[] {
   const resourcesById = new Map(resources.map((resource) => [resource.id, resource]));
   const sources: EvidenceSource[] = messages.flatMap((message) =>
@@ -489,8 +521,12 @@ function sessionSources(
       ];
     }),
   );
-  for (const process of processes) {
-    collectWorkflowSources(process.result?.workflow_state, process.title, sources);
+  if (executionProvenance?.session_lineage) {
+    sources.push(...provenanceSources(executionProvenance));
+  } else {
+    for (const process of processes) {
+      collectWorkflowSources(process.result?.workflow_state, process.title, sources);
+    }
   }
   const seen = new Set<string>();
   return sources.filter((source) => {
@@ -498,6 +534,89 @@ function sessionSources(
     seen.add(source.dedupeKey);
     return true;
   });
+}
+
+function provenanceSources(provenance: ExecutionProvenanceResult): EvidenceSource[] {
+  const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
+  const lineageBySession = new Map(
+    provenance.session_lineage?.map((owner) => [owner.session_id, owner]) ?? [],
+  );
+  const sources: EvidenceSource[] = [];
+  for (const node of provenance.nodes) {
+    const relation = provenance.edges.find(
+      (edge) => edge.target === node.id && ['used', 'generated'].includes(edge.kind),
+    );
+    if (!relation) continue;
+    const isTypedSource =
+      node.kind === 'resource' || (node.kind === 'artifact' && relation.kind === 'used');
+    if (!isTypedSource) continue;
+    const ownerNode = nodeById.get(relation.source);
+    const ownerSessionId =
+      stringAttribute(ownerNode?.attributes, 'owner_session_id') ||
+      ownerNode?.session_id ||
+      stringAttribute(node.attributes, 'owner_session_id') ||
+      node.session_id;
+    const owner = lineageBySession.get(ownerSessionId);
+    const value =
+      firstStringAttribute(node.attributes, [
+        'uri',
+        'url',
+        'resource_id',
+        'artifact_id',
+        'sha256',
+      ]) || node.id;
+    sources.push({
+      id: `provenance:${node.id}`,
+      label: node.label || value,
+      value,
+      link: isWebLink(value),
+      dedupeKey: `provenance:${node.id}`,
+      ownerLabel: ownerNode?.label || owner?.label || ownerSessionId,
+      relation: relation.kind,
+    });
+  }
+  return sources;
+}
+
+function artifactAttribution(
+  artifact: Artifact,
+  provenance?: ExecutionProvenanceResult,
+): { owner: string; relation: string } | undefined {
+  if (!provenance?.session_lineage) return undefined;
+  const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
+  const artifactNode = nodeById.get(`artifact:${artifact.id}`);
+  if (!artifactNode) return undefined;
+  const relation = provenance.edges.find(
+    (edge) => edge.target === artifactNode.id && ['used', 'generated'].includes(edge.kind),
+  );
+  if (!relation) return undefined;
+  const ownerNode = nodeById.get(relation.source);
+  const ownerSessionId =
+    stringAttribute(ownerNode?.attributes, 'owner_session_id') ||
+    ownerNode?.session_id ||
+    artifactNode?.session_id ||
+    artifact.session_id;
+  const owner = provenance.session_lineage.find((row) => row.session_id === ownerSessionId);
+  return {
+    owner: ownerNode?.label || owner?.label || ownerSessionId,
+    relation: relation.kind,
+  };
+}
+
+function stringAttribute(attributes: Record<string, unknown> | undefined, key: string): string {
+  const value = attributes?.[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function firstStringAttribute(
+  attributes: Record<string, unknown>,
+  keys: readonly string[],
+): string {
+  for (const key of keys) {
+    const value = stringAttribute(attributes, key);
+    if (value) return value;
+  }
+  return '';
 }
 
 /**

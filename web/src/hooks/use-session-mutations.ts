@@ -6,6 +6,8 @@ import type {
   ComposerMessagePart,
   MessageBehavior,
   MessageDelivery,
+  PendingInteraction,
+  PendingInteractionResponse,
   QueuedMessage,
   Session,
 } from '@clio/core/v3';
@@ -22,6 +24,7 @@ import {
   uploadWorkspaceResources,
   type ResourceUploadProgress,
 } from '@/lib/upload-workspace-resources';
+import { respondToLegacyInteraction } from '@/lib/pending-interaction-contract';
 
 interface UseSessionMutationsInput {
   activeModel?: string;
@@ -29,10 +32,13 @@ interface UseSessionMutationsInput {
   session?: Session;
   sessionId: string;
   workspaceId: string;
+  interactionRootSessionId?: string;
+  supportsUnifiedInteractions?: boolean;
 }
 
 export interface SessionSendInput {
   text: string;
+  references?: ComposerMessagePart[];
   files?: FileUIPart[];
   provider?: string;
   model?: string;
@@ -56,6 +62,8 @@ export function useSessionMutations({
   session,
   sessionId,
   workspaceId,
+  interactionRootSessionId = sessionId,
+  supportsUnifiedInteractions = false,
 }: UseSessionMutationsInput) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -115,6 +123,7 @@ export function useSessionMutations({
       const text = value.text.trim();
       const parts: ComposerMessagePart[] = [
         ...(text ? [{ text, type: 'text' as const }] : []),
+        ...(value.references ?? []),
         ...uploaded.parts,
       ];
       if (parts.length === 0) throw new Error('Write a message or attach a resource.');
@@ -288,6 +297,55 @@ export function useSessionMutations({
     },
   });
 
+  const respondInteraction = useMutation({
+    mutationFn: ({
+      interaction,
+      response,
+    }: {
+      interaction: PendingInteraction;
+      response: PendingInteractionResponse;
+    }) => {
+      if (supportsUnifiedInteractions) {
+        return repository.respondInteraction(interactionRootSessionId, interaction.id, response);
+      }
+      return respondToLegacyInteraction(interaction, response, {
+        answerQuestion: (ownerSessionId, questionId, answer) =>
+          repository.answerQuestion(ownerSessionId, questionId, answer),
+        cancelQuestion: (ownerSessionId, questionId) =>
+          repository.cancelQuestion(ownerSessionId, questionId),
+        respondPermission: (permissionId, action) =>
+          repository.respondPermission(permissionId, action),
+        a2uiAction: (ownerSessionId, message) => repository.a2uiAction(ownerSessionId, message),
+      });
+    },
+    onSettled: async (_result, _error, { interaction }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pendingInteractions(settings.endpoint, interactionRootSessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pendingApprovals(settings.endpoint),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pendingQuestions(settings.endpoint, interaction.owner_session_id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sessions(settings.endpoint, workspaceId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sessions(settings.endpoint, 'all'),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.transcript(
+            settings.endpoint,
+            interaction.owner_session_id,
+            'pending-a2ui',
+          ),
+        }),
+      ]);
+    },
+  });
+
   const actionCard = useMutation({
     mutationFn: async (action: ActionCardInput) => {
       if (action.behavior.kind !== 'focus_session' || !action.behavior.handle_id) {
@@ -311,6 +369,7 @@ export function useSessionMutations({
     promoteQueuedMessage,
     queuedMessages,
     reorderQueuedMessages,
+    respondInteraction,
     respondPermission,
     retry,
     send,

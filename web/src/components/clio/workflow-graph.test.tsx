@@ -42,6 +42,47 @@ describe('buildWorkflowGraph', () => {
       expect.objectContaining({ source: 'session-root', target: 'task_ndp' }),
     ]);
   });
+
+  it('connects nested children through their authoritative task path', () => {
+    const graph = buildWorkflowGraph(
+      [
+        {
+          kind: 'agent',
+          id: 'task_parent',
+          title: 'Evidence researcher',
+          live_state: 'running',
+          status: 'running',
+          owner_session_id: 'session_child',
+          parent_session_id: 'session_root',
+          child_session_id: 'session_child',
+          task_path: ['task_parent'],
+          metadata: {},
+        },
+        {
+          kind: 'agent',
+          id: 'task_leaf',
+          title: 'Evidence critic',
+          live_state: 'completed',
+          status: 'completed',
+          owner_session_id: 'session_leaf',
+          parent_session_id: 'session_child',
+          child_session_id: 'session_leaf',
+          task_path: ['task_parent', 'task_leaf'],
+          metadata: {},
+        },
+      ],
+      [],
+      'TB',
+    );
+
+    expect(graph.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ source: 'session-root', target: 'task_parent' }),
+        expect.objectContaining({ source: 'task_parent', target: 'task_leaf' }),
+      ]),
+    );
+    expect(graph.nodes.find((node) => node.id === 'task_leaf')?.ariaLabel).toContain('Depth 2');
+  });
 });
 
 describe('buildExecutionProvenanceGraph', () => {
@@ -71,9 +112,7 @@ describe('buildExecutionProvenanceGraph', () => {
             attributes: {},
           },
         ],
-        edges: [
-          { id: 'edge_1', source: 'tool_1', target: 'artifact_missing', kind: 'generated' },
-        ],
+        edges: [{ id: 'edge_1', source: 'tool_1', target: 'artifact_missing', kind: 'generated' }],
       },
       'LR',
     );
@@ -93,5 +132,124 @@ describe('buildExecutionProvenanceGraph', () => {
         }),
       ]),
     );
+  });
+
+  it('preserves child owner and task navigation identity on projected nodes', () => {
+    const graph = buildExecutionProvenanceGraph(
+      {
+        schema_version: 'clio.execution_provenance.v1',
+        provider: 'native',
+        session_id: 'session_root',
+        root_session_id: 'session_root',
+        complete: true,
+        truncated: false,
+        provider_health: {},
+        campaigns: [],
+        workflows: [],
+        agents: [],
+        session_lineage: [
+          {
+            session_id: 'session_leaf',
+            parent_session_id: 'session_root',
+            task_id: 'task_leaf',
+            agent_id: 'critic',
+            label: 'Evidence critic',
+            depth: 2,
+            task_path: ['task_parent', 'task_leaf'],
+          },
+        ],
+        spans: [],
+        nodes: [
+          {
+            id: 'artifact:review',
+            kind: 'artifact',
+            label: 'Review artifact',
+            status: 'available',
+            session_id: 'session_leaf',
+            agent_id: 'critic',
+            start_time: null,
+            end_time: null,
+            attributes: {
+              owner_session_id: 'session_leaf',
+              task_id: 'task_leaf',
+              depth: 2,
+            },
+          },
+        ],
+        edges: [],
+      },
+      'LR',
+    );
+
+    expect(graph.nodes[0]?.data).toMatchObject({
+      ownerSessionId: 'session_leaf',
+      taskId: 'task_leaf',
+      depth: 2,
+      detail: 'artifact, Evidence critic, depth 2',
+    });
+  });
+
+  it('renders CLIO typed causal relationships without renaming them in the browser', () => {
+    const node = (id: string, kind: string) => ({
+      id,
+      kind,
+      label: id,
+      status: 'completed',
+      session_id: 'session_root',
+      agent_id: '',
+      start_time: null,
+      end_time: null,
+      attributes: {},
+    });
+    const graph = buildExecutionProvenanceGraph(
+      {
+        schema_version: 'clio.execution_provenance.v1',
+        provider: 'native',
+        session_id: 'session_root',
+        complete: true,
+        truncated: false,
+        provider_health: {},
+        campaigns: [],
+        workflows: [],
+        agents: [],
+        spans: [],
+        nodes: [
+          node('session:root', 'session'),
+          node('task:child', 'task'),
+          node('resource:input', 'resource'),
+          node('artifact:output', 'artifact'),
+          node('interaction:question', 'interaction'),
+        ],
+        edges: [
+          {
+            id: 'delegated',
+            source: 'session:root',
+            target: 'task:child',
+            kind: 'delegated',
+          },
+          { id: 'used', source: 'task:child', target: 'resource:input', kind: 'used' },
+          {
+            id: 'generated',
+            source: 'task:child',
+            target: 'artifact:output',
+            kind: 'generated',
+          },
+          {
+            id: 'responded',
+            source: 'task:child',
+            target: 'interaction:question',
+            kind: 'responded_to',
+          },
+        ],
+      },
+      'LR',
+    );
+
+    expect(graph.edges.map((edge) => edge.label)).toEqual([
+      'delegated',
+      'used',
+      'generated',
+      'responded_to',
+    ]);
   });
 });

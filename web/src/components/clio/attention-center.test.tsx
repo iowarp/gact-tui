@@ -25,12 +25,13 @@ const baseSession: Session = {
   pinned: false,
   archived: false,
 };
-
 function waitingAttention(sessionId: string): SessionAttention {
   return {
     sessionId,
     permissionIds: [],
     questionIds: [`state:${sessionId}:waiting_user`],
+    mcpTaskInputIds: [],
+    a2uiIds: [],
     total: 1,
   };
 }

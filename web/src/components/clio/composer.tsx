@@ -1,5 +1,6 @@
 import type {
   CommandDefinition,
+  ComposerMessagePart,
   MessageBehavior,
   MessageDelivery,
   QueuedMessage,
@@ -7,7 +8,7 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
-import { CornerDownRightIcon, PlusIcon } from 'lucide-react';
+import { AtSignIcon, CornerDownRightIcon, PaperclipIcon, PlusIcon } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { brand } from '@brand';
@@ -20,6 +21,10 @@ import {
   PromptInputCommandGroup,
   PromptInputCommandItem,
   PromptInputCommandList,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuItem,
+  PromptInputActionMenuTrigger,
   PromptInputFooter,
   PromptInputHeader,
   PromptInputSubmit,
@@ -36,6 +41,8 @@ import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-
 import { ClioComposerQueue } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
+import { ClioComposerReferenceChips, ClioComposerReferenceMenu } from './composer-references';
+import { referenceIdentity } from './composer-reference-domain';
 
 export interface ClioComposerProps {
   state: RunState;
@@ -61,10 +68,13 @@ export interface ClioComposerProps {
     modalities?: readonly string[];
   }>;
   disabled?: boolean;
+  contextReferences?: boolean;
+  workspaceId?: string;
   commands?: CommandDefinition[];
   onSubmit: (value: {
     text: string;
     files: FileUIPart[];
+    references: Exclude<ComposerMessagePart, { type: 'text' }>[];
     provider?: string;
     model?: string;
     effort?: string;
@@ -110,6 +120,8 @@ export function ClioComposer({
   confirmationPolicy = 'ask',
   modelOptions = [],
   disabled,
+  contextReferences = false,
+  workspaceId = '',
   commands = [],
   onSubmit,
   onStop,
@@ -143,6 +155,11 @@ export function ClioComposer({
   // though the service had asked for it.
   const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
+  const [selectedReferences, setSelectedReferences] = useState<
+    Exclude<ComposerMessagePart, { type: 'text' }>[]
+  >([]);
+  const [referencePickerOpen, setReferencePickerOpen] = useState(false);
+  const [referenceSearchQuery, setReferenceSearchQuery] = useState('');
   const [uploadFailure, setUploadFailure] = useState<ResourceUploadFailure>();
   // The attachment in flight when a submit is rejected; the progress state is
   // cleared on the way out, so the name is kept separately.
@@ -169,6 +186,11 @@ export function ClioComposer({
     );
   }, [commandQuery, commands]);
   const showCommands = commandQuery.startsWith('/') && !commandQuery.includes(' ');
+  const referenceToken = input.match(/(?:^|\s)@([^\s]*)$/);
+  const referenceQuery = referenceToken?.[1] ?? '';
+  const effectiveReferenceQuery = referencePickerOpen ? referenceSearchQuery : referenceQuery;
+  const showReferences =
+    contextReferences && Boolean(workspaceId) && (referencePickerOpen || Boolean(referenceToken));
   const selectedOption = modelOptions.find(
     (option) =>
       option.providerId === selectedProvider && option.id === selectedModel && option.available,
@@ -261,6 +283,31 @@ export function ClioComposer({
           </PromptInputCommand>
         </div>
       ) : null}
+      {showReferences && !showCommands ? (
+        <div className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6">
+          <ClioComposerReferenceMenu
+            onSelect={(part) => {
+              setSelectedReferences((current) =>
+                current.some(
+                  (candidate) => referenceIdentity(candidate) === referenceIdentity(part),
+                )
+                  ? current
+                  : [...current, part],
+              );
+              if (referenceToken) {
+                setInput(`${input.slice(0, referenceToken.index).trimEnd()} `);
+              }
+              setReferencePickerOpen(false);
+              setReferenceSearchQuery('');
+              window.requestAnimationFrame(() => inputRef.current?.focus());
+            }}
+            onQueryChange={setReferenceSearchQuery}
+            query={effectiveReferenceQuery}
+            searchInput={referencePickerOpen}
+            workspaceId={workspaceId}
+          />
+        </div>
+      ) : null}
       {pendingInteractions}
       {queuedMessages.length > 0 &&
       onDeleteQueuedMessage &&
@@ -286,7 +333,7 @@ export function ClioComposer({
         onError={(error) => toast.error('Attachment was not added', { description: error.message })}
         onSubmit={async ({ files, text }) => {
           const trimmed = text.trim();
-          if (trimmed || files.length > 0) {
+          if (trimmed || files.length > 0 || selectedReferences.length > 0) {
             if (trimmed.startsWith('/')) {
               const [enteredId = '', ...parts] = trimmed.split(/\s+/);
               const command = commands.find(
@@ -332,6 +379,7 @@ export function ClioComposer({
                 behavior,
                 delivery: state === 'running' ? nextDeliveryRef.current : 'start',
                 files,
+                references: selectedReferences,
                 text: trimmed,
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
@@ -360,6 +408,7 @@ export function ClioComposer({
             }
             nextDeliveryRef.current = state === 'running' ? 'queued' : 'start';
             setInput('');
+            setSelectedReferences([]);
           }
         }}
       >
@@ -369,6 +418,16 @@ export function ClioComposer({
           </PromptInputHeader>
         ) : null}
         <ClioComposerAttachments uploadFailure={uploadFailure} uploadProgress={uploadProgress} />
+        <ClioComposerReferenceChips
+          onRemove={(part) =>
+            setSelectedReferences((current) =>
+              current.filter(
+                (candidate) => referenceIdentity(candidate) !== referenceIdentity(part),
+              ),
+            )
+          }
+          parts={selectedReferences}
+        />
         {uploadProgress ? (
           <div className="px-3 pt-1 text-xs text-muted-foreground" role="status">
             Uploading {uploadProgress.filename}{' '}
@@ -395,7 +454,16 @@ export function ClioComposer({
         />
         <PromptInputFooter className="flex-wrap">
           <PromptInputTools className="min-w-0 flex-1 flex-wrap">
-            {attachments ? <ComposerAddAttachmentButton /> : null}
+            {attachments || contextReferences ? (
+              <ComposerAddContextButton
+                attachments={attachments}
+                contextReferences={contextReferences}
+                onOpenReferences={() => {
+                  setReferenceSearchQuery('');
+                  setReferencePickerOpen(true);
+                }}
+              />
+            ) : null}
             <ClioComposerBehaviorControls
               behavior={behavior}
               disabled={disabled}
@@ -440,7 +508,7 @@ export function ClioComposer({
               <PromptInputButton
                 aria-label="Steer current work"
                 className="gap-1.5 border-action/40 text-action hover:bg-action/10 hover:text-action"
-                disabled={disabled || !input.trim()}
+                disabled={disabled || (!input.trim() && selectedReferences.length === 0)}
                 onClick={() => {
                   nextDeliveryRef.current = 'steer';
                 }}
@@ -466,16 +534,45 @@ export function ClioComposer({
   );
 }
 
-function ComposerAddAttachmentButton() {
+function ComposerAddContextButton({
+  attachments: attachmentEnabled,
+  contextReferences,
+  onOpenReferences,
+}: {
+  attachments: boolean;
+  contextReferences: boolean;
+  onOpenReferences: () => void;
+}) {
   const attachments = usePromptInputAttachments();
+  if (!contextReferences) {
+    return (
+      <PromptInputButton
+        aria-label="Add files"
+        onClick={attachments.openFileDialog}
+        title="Add files"
+      >
+        <PlusIcon aria-hidden="true" />
+      </PromptInputButton>
+    );
+  }
   return (
-    <PromptInputButton
-      aria-label="Add files"
-      onClick={attachments.openFileDialog}
-      title="Add files"
-    >
-      <PlusIcon aria-hidden="true" />
-    </PromptInputButton>
+    <PromptInputActionMenu>
+      <PromptInputActionMenuTrigger aria-label="Add context" title="Add context">
+        <PlusIcon aria-hidden="true" />
+      </PromptInputActionMenuTrigger>
+      <PromptInputActionMenuContent>
+        {attachmentEnabled ? (
+          <PromptInputActionMenuItem onSelect={attachments.openFileDialog}>
+            <PaperclipIcon aria-hidden="true" />
+            Attach new file
+          </PromptInputActionMenuItem>
+        ) : null}
+        <PromptInputActionMenuItem onSelect={onOpenReferences}>
+          <AtSignIcon aria-hidden="true" />
+          Reference existing context
+        </PromptInputActionMenuItem>
+      </PromptInputActionMenuContent>
+    </PromptInputActionMenu>
   );
 }
 

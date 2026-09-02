@@ -2,7 +2,6 @@ import type { MessageBlock, SubagentRun, Task, ToolInvocation } from '@clio/core
 import { ListChecksIcon } from 'lucide-react';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
-import { Task as AITask, TaskContent, TaskItem, TaskTrigger } from '@/components/ai-elements/task';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
@@ -82,16 +81,20 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   if (block.type === 'task') {
     const task = entities.tasks[block.task_id];
     return (
-      <AITask className="mb-0 rounded-lg border bg-card/60" defaultOpen={false}>
-        <TaskTrigger title={task?.title ?? 'Task unavailable'} />
-        <TaskContent>
-          <TaskItem className="flex flex-wrap items-start gap-2">
-            <ListChecksIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            <ClioStatus value={task?.state ?? 'unavailable'} />
-            <span className="min-w-0 flex-1">{task?.detail || 'No task detail was reported.'}</span>
-          </TaskItem>
-        </TaskContent>
-      </AITask>
+      <span
+        aria-label={`${task?.title ?? 'Task unavailable'}: ${task?.state ?? 'unavailable'}${task?.detail ? `. ${task.detail}` : ''}`}
+        className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"
+        title={task?.detail}
+      >
+        <ListChecksIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate text-foreground/85">
+          {task?.title ?? 'Task unavailable'}
+        </span>
+        <ClioStatus
+          className="h-auto shrink-0 border-0 bg-transparent px-0 py-0 shadow-none"
+          value={task?.state ?? 'unavailable'}
+        />
+      </span>
     );
   }
   return (

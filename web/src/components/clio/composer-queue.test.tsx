@@ -167,6 +167,32 @@ describe('ClioComposerQueue', () => {
     );
   });
 
+  it('keeps structured context references visible while a message is queued', () => {
+    const message = queued('queue_references', '', 0);
+    message.parts.push(
+      {
+        type: 'context_ref',
+        ref_kind: 'artifact',
+        ref_id: 'artifact_plot',
+        label: 'Displacement plot',
+        revision: 'v3',
+      },
+      {
+        type: 'context_ref',
+        ref_kind: 'session',
+        ref_id: 'session_prior',
+        label: 'Prior evidence review',
+        revision: '2026-09-02T12:00:00Z',
+      },
+    );
+
+    renderQueue({ messages: [message] });
+
+    expect(screen.getByText('Context only')).toBeVisible();
+    expect(screen.getByTitle('artifact · Displacement plot')).toBeVisible();
+    expect(screen.getByTitle('session · Prior evidence review')).toBeVisible();
+  });
+
   it('shows compact queued attachment progress, hover semantics, preview, and overflow', async () => {
     const user = userEvent.setup();
     const message = queued('queue_resources', 'Review these files', 0);

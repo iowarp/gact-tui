@@ -26,8 +26,30 @@ export interface MessageBehavior {
   confirmation_policy: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
 }
 
+export type ContextReferenceKind = 'workspace_file' | 'artifact' | 'session' | 'agent_run';
+export type WorkspaceReferenceKind = ContextReferenceKind | 'resource';
+
+export interface ContextReferencePart {
+  type: 'context_ref';
+  ref_kind: ContextReferenceKind;
+  ref_id: string;
+  label: string;
+  revision?: string;
+}
+
+export interface WorkspaceReference {
+  kind: WorkspaceReferenceKind;
+  id: string;
+  label: string;
+  detail: string;
+  media_type: string;
+  revision: string;
+  navigation: Record<string, unknown>;
+}
+
 export type ComposerMessagePart =
   | { type: 'text'; text: string }
+  | ContextReferencePart
   | {
       type: 'resource_ref';
       resource_id: string;

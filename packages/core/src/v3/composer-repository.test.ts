@@ -15,6 +15,31 @@ const behavior = {
 const model = { provider_id: 'codex', model_id: 'gpt-5.6-luna' };
 
 describe('ComposerRepository', () => {
+  it('searches categorized workspace references without flattening their identity', async () => {
+    const reference = {
+      kind: 'artifact',
+      id: 'artifact_1',
+      label: 'Displacement plot',
+      detail: 'Displacement plot v3 (image)',
+      media_type: 'image/png',
+      revision: 'v3',
+      navigation: { artifact_id: 'artifact_1' },
+    };
+    const transport = new RecordingTransport([{ references: [reference] }]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(
+      repository.workspaceReferences('workspace 1', {
+        q: 'plot',
+        kinds: ['artifact', 'session'],
+      }),
+    ).resolves.toEqual([reference]);
+    expect(transport.requests[0]).toMatchObject({
+      method: 'GET',
+      path: '/v1/workspaces/workspace%201/references?q=plot&kinds=artifact&kinds=session',
+    });
+  });
+
   it('submits an explicit delivery intent with immutable resource references', async () => {
     const transport = new RecordingTransport([
       {

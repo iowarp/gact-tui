@@ -29,6 +29,14 @@ export function canUploadWorkspaceResources(
   return isRecord(resources) && resources.enabled === true;
 }
 
+/** Enables structured same-workspace references only when the service advertises them. */
+export function canUseContextReferences(
+  capabilities: Record<string, unknown> | undefined,
+): boolean {
+  const references = capabilities?.x_clio_context_references;
+  return isRecord(references) && references.enabled === true;
+}
+
 /** Surfaces the service's own failure text; `details` stays display-only metadata. */
 export function conversationUnavailableMessage(error: unknown): string | undefined {
   return error instanceof Error ? error.message : undefined;

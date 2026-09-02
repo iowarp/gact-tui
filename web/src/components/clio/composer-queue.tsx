@@ -6,7 +6,15 @@ import type {
 } from '@clio/core/v3';
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import { CheckIcon, GripVerticalIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from 'lucide-react';
+import {
+  AtSignIcon,
+  CheckIcon,
+  GripVerticalIcon,
+  PencilIcon,
+  SendIcon,
+  Trash2Icon,
+  XIcon,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -155,6 +163,9 @@ export function ClioComposerQueue({
               {ordered.map((message) => {
                 const text = message.parts.find((part) => part.type === 'text')?.text ?? '';
                 const resources = message.parts.filter((part) => part.type === 'resource_ref');
+                const contextReferences = message.parts.filter(
+                  (part) => part.type === 'context_ref',
+                );
                 const isEditing = editing?.id === message.id;
                 return (
                   <SortableItem
@@ -193,9 +204,35 @@ export function ClioComposerQueue({
                         />
                       ) : (
                         <QueueItemContent className="text-foreground" title={text}>
-                          {text || 'Attachments only'}
+                          {text ||
+                            (contextReferences.length > 0 ? 'Context only' : 'Attachments only')}
                         </QueueItemContent>
                       )}
+                      {contextReferences.length > 0 ? (
+                        <div className="flex min-w-0 max-w-48 shrink items-center gap-1">
+                          {contextReferences.slice(0, 2).map((reference) => (
+                            <span
+                              className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md border border-border px-1.5 text-xs"
+                              key={`${reference.ref_kind}:${reference.ref_id}:${reference.revision ?? ''}`}
+                              title={`${reference.ref_kind.replaceAll('_', ' ')} · ${reference.label}`}
+                            >
+                              <AtSignIcon
+                                aria-hidden="true"
+                                className="size-3 shrink-0 text-primary"
+                              />
+                              <span className="truncate">{reference.label}</span>
+                            </span>
+                          ))}
+                          {contextReferences.length > 2 ? (
+                            <span
+                              aria-label={`${contextReferences.length - 2} more references`}
+                              className="text-xs text-muted-foreground"
+                            >
+                              +{contextReferences.length - 2}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {resources.length > 0 ? (
                         <Attachments className="shrink-0 flex-nowrap gap-1" variant="inline">
                           {resources.slice(0, 2).map((resourceRef) => (

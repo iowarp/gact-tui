@@ -120,10 +120,21 @@ describe('ClioTranscriptMinimap', () => {
     ).toBeVisible();
 
     const scrollArea = screen.getByLabelText('Browse transcript landmarks');
+    expect(scrollArea).toHaveClass('outline-none', 'overscroll-y-contain');
     fireEvent.wheel(scrollArea, { deltaY: 100 });
     expect(parentWheel).not.toHaveBeenCalled();
-
-    await user.click(activeLandmark);
+    Object.defineProperties(scrollArea, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, value: 1_100 },
+    });
+    scrollArea.scrollTop = 900;
+    fireEvent.keyDown(scrollArea, { key: 'Home' });
+    expect(scrollArea.scrollTop).toBe(0);
+    fireEvent.keyDown(scrollArea, { key: 'PageDown' });
+    expect(scrollArea.scrollTop).toBe(176);
+    fireEvent.keyDown(scrollArea, { key: 'End' });
+    expect(scrollArea.scrollTop).toBe(900);
+    await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
     expect(onJump).toHaveBeenCalledWith(1);
     expect(virtual.scrollToIndex).not.toHaveBeenCalled();
   });

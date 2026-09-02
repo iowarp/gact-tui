@@ -10,6 +10,7 @@ import {
   messageSchema,
   operationalRunSchema,
   permissionLedgerItemSchema,
+  pendingInteractionSchema,
   promptDefinitionSchema,
   providerDefinitionSchema,
   providerModelSchema,
@@ -181,6 +182,9 @@ export const permissionListSchema = z.object({
   permissions: z.array(permissionLedgerItemSchema).default([]),
 });
 export const questionListSchema = z.object({ questions: z.array(userQuestionSchema).default([]) });
+export const pendingInteractionListSchema = z.object({
+  interactions: z.array(pendingInteractionSchema).default([]),
+});
 export const operationalRunListSchema = z.object({
   runs: z.array(operationalRunSchema).default([]),
 });

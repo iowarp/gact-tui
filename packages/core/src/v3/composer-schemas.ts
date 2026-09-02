@@ -15,6 +15,13 @@ export const messageBehaviorSchema = z.object({
 export const composerMessagePartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
   z.object({
+    type: z.literal('context_ref'),
+    ref_kind: z.enum(['workspace_file', 'artifact', 'session', 'agent_run']),
+    ref_id: z.string(),
+    label: z.string(),
+    revision: z.string().optional(),
+  }),
+  z.object({
     type: z.literal('resource_ref'),
     resource_id: z.string(),
     resource_revision: z.string(),
@@ -22,6 +29,16 @@ export const composerMessagePartSchema = z.discriminatedUnion('type', [
     delivery_preference: z.string().optional(),
   }),
 ]);
+
+export const workspaceReferenceSchema = z.object({
+  kind: z.enum(['workspace_file', 'resource', 'artifact', 'session', 'agent_run']),
+  id: z.string(),
+  label: z.string(),
+  detail: z.string(),
+  media_type: z.string(),
+  revision: z.string(),
+  navigation: z.record(z.string(), z.unknown()),
+});
 
 export const messageAcceptanceSchema = z.object({
   message_id: z.string(),

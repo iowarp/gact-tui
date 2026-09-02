@@ -240,6 +240,7 @@ export interface UserQuestion {
   status: WireValue<'pending' | 'answered' | 'cancelled' | 'expired'>;
   kind: WireValue<'freeform' | 'choice' | 'confirmation'>;
   options?: Array<{ label: string; value: string; description?: string }>;
+  allow_freeform?: boolean;
   answer?: string;
   selected_options?: string[];
   created_at: string;
@@ -445,9 +446,12 @@ export interface AsyncProcess {
   title: string;
   live_state: RunState;
   status: string;
+  root_session_id?: string;
+  owner_session_id?: string;
   parent_session_id?: string;
   child_session_id?: string;
   parent_turn_id?: string;
+  task_path?: string[];
   handle_id?: string;
   host?: string;
   placement?: string;

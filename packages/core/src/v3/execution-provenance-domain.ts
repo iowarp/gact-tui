@@ -48,10 +48,17 @@ export interface ExecutionProvenanceSpan {
   parent_id: string;
   kind: string;
   session_id: string;
+  root_session_id?: string;
+  owner_session_id?: string;
   workflow_id: string;
   campaign_id: string;
   agent_id: string;
   source_agent_id: string;
+  task_id?: string;
+  task_path?: string[];
+  invocation_id?: string;
+  tool_name?: string;
+  surface_id?: string;
   label: string;
   event_type: string;
   status: string;
@@ -81,6 +88,22 @@ export interface ExecutionProvenanceEdge {
   source: string;
   target: string;
   kind: string;
+  event_id?: string;
+  [key: string]: unknown;
+}
+
+/** Authoritative root-to-child ownership supplied by CLIO's child-work projection. */
+export interface ExecutionSessionLineage {
+  session_id: string;
+  parent_session_id: string;
+  task_id: string;
+  agent_id: string;
+  label: string;
+  depth: number;
+  task_path: string[];
+  status?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ExecutionProvenanceEntity {
@@ -91,6 +114,8 @@ export interface ExecutionProvenanceResult {
   schema_version: string;
   provider: string;
   session_id: string;
+  root_session_id?: string;
+  session_lineage?: ExecutionSessionLineage[];
   complete: boolean;
   truncated: boolean;
   provider_health: ProvenanceProviderHealth;

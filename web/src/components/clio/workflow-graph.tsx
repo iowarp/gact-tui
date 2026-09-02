@@ -36,9 +36,14 @@ interface ExecutionNodeData extends Record<string, unknown> {
   missing?: boolean;
   width: number;
   direction: 'LR' | 'TB';
+  ownerSessionId?: string;
+  taskId?: string;
+  depth?: number;
+  openSubagent?: (target: SubagentOpenTarget) => void;
 }
 
 type WorkflowNode = Node<WorkflowNodeData, 'clio-workflow'>;
+type ExecutionNode = Node<ExecutionNodeData, 'clio-execution'>;
 
 const nodeTypes = { 'clio-workflow': WorkflowNodeCard };
 const executionNodeTypes = { 'clio-execution': ExecutionNodeCard };
@@ -128,15 +133,40 @@ export function ClioWorkflowGraph({
 /** Provider-neutral execution graph rendered directly from CLIO's normalized provenance model. */
 export function ClioExecutionProvenanceGraph({
   provenance,
+  subagents = [],
+  onOpenSubagent,
 }: {
   provenance: ExecutionProvenanceResult;
+  subagents?: readonly SubagentRun[];
+  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const horizontal = useContainerQuery(containerRef, 560);
-  const graph = useMemo(
-    () => buildExecutionProvenanceGraph(provenance, horizontal ? 'LR' : 'TB'),
-    [horizontal, provenance],
-  );
+  const graph = useMemo(() => {
+    const next = buildExecutionProvenanceGraph(provenance, horizontal ? 'LR' : 'TB');
+    return {
+      ...next,
+      nodes: next.nodes.map((node) => {
+        const subagent = subagents.find(
+          (candidate) =>
+            Boolean(node.data.taskId && candidate.id === node.data.taskId) ||
+            Boolean(
+              node.data.ownerSessionId && candidate.child_session_id === node.data.ownerSessionId,
+            ),
+        );
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            openSubagent:
+              subagent && onOpenSubagent
+                ? (target: SubagentOpenTarget) => onOpenSubagent(subagent, target)
+                : undefined,
+          },
+        };
+      }),
+    };
+  }, [horizontal, onOpenSubagent, provenance, subagents]);
   const height = Math.min(760, Math.max(300, graph.nodes.length * (horizontal ? 42 : 72)));
 
   return (
@@ -193,19 +223,32 @@ export function buildExecutionProvenanceGraph(
   const serviceNodes = new Map(provenance.nodes.map((node) => [node.id, node]));
   const referencedIds = new Set(provenance.edges.flatMap((edge) => [edge.source, edge.target]));
   const missingIds = [...referencedIds].filter((id) => !serviceNodes.has(id));
-  const nodes: Node<ExecutionNodeData, 'clio-execution'>[] = [
+  const lineageBySession = new Map(
+    provenance.session_lineage?.map((owner) => [owner.session_id, owner]) ?? [],
+  );
+  const nodes: ExecutionNode[] = [
     ...provenance.nodes.map((node) => {
       const width = executionNodeWidth(node.label);
+      const ownerSessionId =
+        stringAttribute(node.attributes, 'owner_session_id') || node.session_id;
+      const owner = lineageBySession.get(ownerSessionId);
+      const taskId = stringAttribute(node.attributes, 'task_id') || owner?.task_id;
+      const depth = numberAttribute(node.attributes, 'depth') ?? owner?.depth;
       return {
         id: node.id,
         type: 'clio-execution' as const,
         position: { x: 0, y: 0 },
         data: {
           label: node.label,
-          detail: [node.kind, node.agent_id].filter(Boolean).join(', '),
+          detail: [node.kind, owner?.label || node.agent_id, depth ? `depth ${depth}` : undefined]
+            .filter(Boolean)
+            .join(', '),
           status: node.status,
           width,
           direction,
+          ownerSessionId,
+          taskId,
+          depth,
         },
         ariaLabel: `${node.label}, ${node.kind}, ${node.status}`,
         style: { width },
@@ -262,7 +305,7 @@ function layoutExecutionGraph(
   };
 }
 
-function ExecutionNodeCard({ data }: NodeProps<Node<ExecutionNodeData, 'clio-execution'>>) {
+function ExecutionNodeCard({ data }: NodeProps<ExecutionNode>) {
   const status = statusValue(data.status);
   return (
     <div
@@ -276,12 +319,47 @@ function ExecutionNodeCard({ data }: NodeProps<Node<ExecutionNodeData, 'clio-exe
         position={data.direction === 'LR' ? Position.Left : Position.Top}
         type="target"
       />
-      <p className="truncate text-sm font-medium" title={data.label}>
-        {data.label}
-      </p>
-      <p className="mt-0.5 truncate text-[10px] text-muted-foreground" title={data.detail}>
-        {data.detail}
-      </p>
+      {data.openSubagent ? (
+        <>
+          <Button
+            aria-label={`Open ${data.label} conversation`}
+            className="nodrag nopan h-auto w-full justify-start px-0 py-0 text-left"
+            onClick={(event) => data.openSubagent?.(event.shiftKey ? 'canvas' : 'conversation')}
+            type="button"
+            variant="ghost"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium" title={data.label}>
+                {data.label}
+              </span>
+              <span
+                className="mt-0.5 block truncate text-[10px] text-muted-foreground"
+                title={data.detail}
+              >
+                {data.detail}
+              </span>
+            </span>
+          </Button>
+          <Button
+            className="nodrag nopan mt-1 h-5 w-full justify-start px-1.5 text-[10px]"
+            onClick={() => data.openSubagent?.('canvas')}
+            size="xs"
+            type="button"
+            variant="ghost"
+          >
+            Open in canvas →
+          </Button>
+        </>
+      ) : (
+        <>
+          <p className="truncate text-sm font-medium" title={data.label}>
+            {data.label}
+          </p>
+          <p className="mt-0.5 truncate text-[10px] text-muted-foreground" title={data.detail}>
+            {data.detail}
+          </p>
+        </>
+      )}
       <ClioStatus className="mt-2 py-0.5" label={data.status || undefined} value={status} />
       <Handle
         className="!size-0 !border-0 !bg-transparent"
@@ -345,11 +423,13 @@ export function buildWorkflowGraph(
         (candidate) =>
           candidate.id === process.id ||
           Boolean(
-            process.child_session_id && candidate.child_session_id === process.child_session_id,
+            (process.owner_session_id || process.child_session_id) &&
+              candidate.child_session_id === (process.owner_session_id || process.child_session_id),
           ),
       );
+      const depth = process.task_path?.length || process.depth;
       const detail = [
-        process.depth === undefined ? undefined : `Depth ${process.depth}`,
+        depth === undefined ? undefined : `Depth ${depth}`,
         formatElapsed(process.created_at, process.updated_at),
       ]
         .filter(Boolean)
@@ -368,14 +448,39 @@ export function buildWorkflowGraph(
       };
     }),
   ];
-  const edges: Edge[] = agents.map((process) => ({
-    id: `session-root:${process.id}`,
-    source: 'session-root',
-    target: process.id,
-    type: 'smoothstep',
-  }));
+  const processByTask = new Map(agents.map((process) => [process.id, process]));
+  const processByChildSession = new Map(
+    agents
+      .filter((process) => process.owner_session_id || process.child_session_id)
+      .map((process) => [process.owner_session_id ?? process.child_session_id!, process]),
+  );
+  const edges: Edge[] = agents.map((process) => {
+    const parentTaskId = process.task_path?.at(-2);
+    const parentProcess =
+      (parentTaskId ? processByTask.get(parentTaskId) : undefined) ??
+      (process.parent_session_id
+        ? processByChildSession.get(process.parent_session_id)
+        : undefined);
+    const source = parentProcess?.id ?? 'session-root';
+    return {
+      id: `${source}:${process.id}`,
+      source,
+      target: process.id,
+      type: 'smoothstep',
+    };
+  });
 
   return layoutGraph(nodes, edges, direction);
+}
+
+function stringAttribute(attributes: Record<string, unknown>, key: string): string {
+  const value = attributes[key];
+  return typeof value === 'string' ? value : '';
+}
+
+function numberAttribute(attributes: Record<string, unknown>, key: string): number | undefined {
+  const value = attributes[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 function layoutGraph(

@@ -1,4 +1,5 @@
 export * from './domain.js';
+export * from './interaction-domain.js';
 export * from './blueprint-domain.js';
 export * from './memory-domain.js';
 export * from './prompt-domain.js';
@@ -20,6 +21,7 @@ export * from './composer-decoding.js';
 export * from './composer-domain.js';
 export * from './composer-schemas.js';
 export * from './composer-repository.js';
+export * from './interaction-repository.js';
 export * from './search-repository.js';
 export * from './context-repository.js';
 export * from './administration-repository.js';
