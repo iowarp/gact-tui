@@ -175,6 +175,28 @@ describe('ClioComposer service commands', () => {
     expect(screen.getByText('Prior evidence review')).toBeVisible();
   });
 
+  it('bounds reference options returned by an older unbounded server', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue(
+      Array.from({ length: 125 }, (_, index) => ({
+        kind: 'workspace_file' as const,
+        id: `data/file-${index}.txt`,
+        label: `file-${index}.txt`,
+        detail: `data/file-${index}.txt (42 bytes)`,
+        media_type: 'text/plain',
+        revision: `stat:${index}:42`,
+        navigation: { path: `data/file-${index}.txt` },
+      })),
+    );
+    const user = userEvent.setup();
+    renderComposer({ contextReferences: true, workspaceId: 'workspace_1' });
+
+    await user.type(screen.getByRole('textbox'), '@');
+
+    await screen.findByText('file-0.txt');
+    expect(screen.getAllByRole('option')).toHaveLength(100);
+    expect(screen.queryByText('file-124.txt')).not.toBeInTheDocument();
+  });
+
   it('allows a structured reference to steer without text', async () => {
     repositoryMocks.workspaceReferences.mockResolvedValue([
       {

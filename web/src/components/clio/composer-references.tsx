@@ -64,7 +64,9 @@ export function ClioComposerReferenceMenu({
     queryFn: ({ signal }) => repository.workspaceReferences(workspaceId, { q: query }, signal),
     staleTime: 15_000,
   });
-  const rows = references.data ?? [];
+  // Older servers may return an unbounded workspace inventory. Keep the
+  // command palette responsive even when connected to one of them.
+  const rows = (references.data ?? []).slice(0, 100);
 
   return (
     <PromptInputCommand
