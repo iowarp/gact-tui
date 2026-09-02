@@ -6,6 +6,7 @@ import { ClioDocumentPdfViewer } from './document-pdf-viewer';
 afterEach(cleanup);
 
 const documentPageCount = vi.hoisted(() => ({ value: 3 }));
+const pageRenderReady = vi.hoisted(() => ({ value: true }));
 
 vi.mock('react-pdf', async () => {
   const React = await import('react');
@@ -21,12 +22,24 @@ vi.mock('react-pdf', async () => {
       React.useEffect(() => onLoadSuccess({ numPages: documentPageCount.value }), [onLoadSuccess]);
       return <div>{children}</div>;
     },
-    Page: ({ pageNumber }: { pageNumber: number }) => <div>PDF page {pageNumber}</div>,
+    Page: ({
+      onRenderSuccess,
+      pageNumber,
+    }: {
+      onRenderSuccess?: () => void;
+      pageNumber: number;
+    }) => {
+      React.useEffect(() => {
+        if (pageRenderReady.value) onRenderSuccess?.();
+      }, [onRenderSuccess]);
+      return <div>PDF page {pageNumber}</div>;
+    },
   };
 });
 
 afterEach(() => {
   documentPageCount.value = 3;
+  pageRenderReady.value = true;
 });
 
 describe('ClioDocumentPdfViewer', () => {
@@ -88,6 +101,40 @@ describe('ClioDocumentPdfViewer', () => {
         document.querySelector<HTMLElement>('[data-pdf-spacer="leading"]')?.style.height ?? '0',
       ),
     ).toBe(0);
+  });
+
+  it('does not measure a loading page placeholder as rendered page geometry', async () => {
+    documentPageCount.value = 400;
+    pageRenderReady.value = false;
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function getBoundingClientRect() {
+        const page = this instanceof HTMLElement && this.hasAttribute('data-page');
+        return {
+          bottom: page ? 2 : 700,
+          height: page ? 2 : 700,
+          left: 0,
+          right: 320,
+          top: 0,
+          width: 320,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        };
+      },
+    );
+
+    render(
+      <ClioDocumentPdfViewer
+        bytes={new Uint8Array([37, 80, 68, 70])}
+        name="thesis.pdf"
+        onSelection={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText('PDF page 1')).toBeVisible();
+    const trailing = document.querySelector<HTMLElement>('[data-pdf-spacer="trailing"]');
+    expect(Number.parseFloat(trailing?.style.height ?? '0')).toBeGreaterThan(100_000);
+    rect.mockRestore();
   });
 
   it('groups the tightened zoom controls', async () => {
