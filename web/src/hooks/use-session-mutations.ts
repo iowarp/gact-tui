@@ -10,6 +10,7 @@ import type {
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SessionBehaviorPatch } from '@/components/clio/session-behavior-options';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -60,6 +61,16 @@ export function useSessionMutations({
   const { settings } = useConnectionSettings();
   const replaceSnapshots = useLiveStore((state) => state.replaceSnapshots);
 
+  // Uploads outlive a single request: they chunk bytes and then wait for the
+  // service to register the resource. Leaving the session must end that wait
+  // rather than leave it polling against a session nobody is looking at.
+  const uploads = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    uploads.current = controller;
+    return () => controller.abort();
+  }, [sessionId]);
+
   const queuedMessages = useQuery({
     enabled: Boolean(sessionId),
     queryFn: ({ signal }) => repository.queuedMessages(sessionId, signal),
@@ -93,6 +104,7 @@ export function useSessionMutations({
             files: value.files,
             onProgress: value.onUploadProgress,
             repository,
+            signal: uploads.current?.signal,
             workspaceId,
           })
         : { parts: [] as ComposerMessagePart[], resources: [] };

@@ -75,6 +75,27 @@ export const STREAM_RECONNECT_BASE_MS = 250;
  */
 export const STREAM_RECONNECT_MAX_MS = 8_000;
 
+/**
+ * First wait between reads of a workspace resource that is still `uploading`
+ * after its bytes were delivered, doubled on each further read up to the
+ * ceiling below. Unit: milliseconds. The service finishes hashing and type
+ * detection out of band, so this is the gap between "bytes delivered" and
+ * "registered", not a network retry.
+ */
+export const RESOURCE_READY_POLL_BASE_MS = 150;
+
+/** Ceiling for the resource-readiness backoff. Unit: milliseconds. */
+export const RESOURCE_READY_POLL_MAX_MS = 2_000;
+
+/**
+ * Reads of a still-`uploading` resource before the upload reports that custody
+ * has not registered it. Unit: attempts. With the backoff above this waits a
+ * little over 20 seconds, then hands the decision back to the person rather
+ * than blocking a send indefinitely; the bytes are already in custody, so a
+ * retry resumes rather than restarts.
+ */
+export const RESOURCE_READY_POLL_ATTEMPTS = 12;
+
 // ## Timeouts
 // Bounds on how long the client waits before calling an operation failed.
 

@@ -53,14 +53,120 @@ describe('uploadWorkspaceResources', () => {
       expect.objectContaining({
         clientUploadId: expect.stringMatching(/^browser-[0-9a-f]{64}$/),
       }),
+      undefined,
     );
     expect(appendResourceBytes).toHaveBeenCalledWith(
       'workspace_1',
       'resource_1',
       6,
       new Uint8Array(await content.slice(6).arrayBuffer()),
+      undefined,
     );
+    // The partial upload is left in custody so the next attempt resumes from
+    // the bytes the service already holds.
     expect(deleteResource).not.toHaveBeenCalled();
+    expect(createResource).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it('refuses an idempotent replay whose custody record holds none of the bytes', async () => {
+    const content = new Blob(['hello world!'], { type: 'text/markdown' });
+    const url = 'blob:test-unsafe-replay';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, blob: async () => content }));
+    const repository = {
+      appendResourceBytes: vi.fn(),
+      createResource: vi
+        .fn()
+        .mockResolvedValue(resource({ received_size: 0, sha256: 'abc', state: 'ready' })),
+      resource: vi.fn(),
+    } as unknown as ComposerRepository;
+
+    await expect(
+      uploadWorkspaceResources({
+        files: [{ type: 'file', filename: 'notes.md', mediaType: 'text/markdown', url }],
+        repository,
+        workspaceId: 'workspace_1',
+      }),
+    ).rejects.toThrow(/0 of 12 bytes/);
+    vi.unstubAllGlobals();
+  });
+
+  it('waits out a transient uploading state instead of calling it a custody refusal', async () => {
+    const content = new Blob(['hello world!'], { type: 'text/markdown' });
+    const url = 'blob:test-transient';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, blob: async () => content }));
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce(resource({ received_size: content.size, state: 'uploading' }))
+      .mockResolvedValueOnce(
+        resource({ received_size: content.size, sha256: 'abc', state: 'ready' }),
+      );
+    const repository = {
+      appendResourceBytes: vi.fn().mockResolvedValue(undefined),
+      createResource: vi.fn().mockResolvedValue(resource({ received_size: 0 })),
+      resource: read,
+    } as unknown as ComposerRepository;
+
+    await expect(
+      uploadWorkspaceResources({
+        files: [{ type: 'file', filename: 'notes.md', mediaType: 'text/markdown', url }],
+        repository,
+        workspaceId: 'workspace_1',
+      }),
+    ).resolves.toMatchObject({ resources: [{ state: 'ready' }] });
+    expect(read).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
+  });
+
+  it('reports the service failure text when custody terminally refuses the upload', async () => {
+    const content = new Blob(['hello world!'], { type: 'text/markdown' });
+    const url = 'blob:test-quarantined';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, blob: async () => content }));
+    const repository = {
+      appendResourceBytes: vi.fn().mockResolvedValue(undefined),
+      createResource: vi.fn().mockResolvedValue(resource({ received_size: 0 })),
+      resource: vi.fn().mockResolvedValue(
+        resource({
+          failure: 'Signature scan flagged this file.',
+          received_size: content.size,
+          state: 'quarantined',
+        }),
+      ),
+    } as unknown as ComposerRepository;
+
+    await expect(
+      uploadWorkspaceResources({
+        files: [{ type: 'file', filename: 'notes.md', mediaType: 'text/markdown', url }],
+        repository,
+        workspaceId: 'workspace_1',
+      }),
+    ).rejects.toThrow('Signature scan flagged this file.');
+    vi.unstubAllGlobals();
+  });
+
+  it('stops the readiness wait when the caller navigates away', async () => {
+    const content = new Blob(['hello world!'], { type: 'text/markdown' });
+    const url = 'blob:test-aborted';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, blob: async () => content }));
+    const controller = new AbortController();
+    const repository = {
+      appendResourceBytes: vi.fn().mockResolvedValue(undefined),
+      createResource: vi.fn().mockResolvedValue(resource({ received_size: 0 })),
+      resource: vi.fn().mockImplementation(async () => {
+        controller.abort();
+        return resource({ received_size: content.size, state: 'uploading' });
+      }),
+    } as unknown as ComposerRepository;
+
+    await expect(
+      uploadWorkspaceResources({
+        files: [{ type: 'file', filename: 'notes.md', mediaType: 'text/markdown', url }],
+        repository,
+        signal: controller.signal,
+        workspaceId: 'workspace_1',
+      }),
+    ).rejects.toThrow(/cancelled/i);
+    expect(repository.resource).toHaveBeenCalledTimes(1);
     vi.unstubAllGlobals();
   });
 
