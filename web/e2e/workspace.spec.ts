@@ -320,6 +320,26 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await expect(page.getByRole('dialog', { name: 'Sidebar' })).toHaveCount(0);
 });
 
+test('renders the discovered catalog and the steer the service is holding', async ({ page }) => {
+  await page.goto(workspaceUrl);
+
+  // The service holds one accepted-but-undelivered steer on a transcript
+  // message, so that message offers to cancel it before delivery.
+  await expect(page.getByRole('button', { name: 'Cancel pending message' })).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Change model' }).click();
+  const picker = page.getByRole('dialog', { name: 'Choose a model' });
+  await expect(picker).toBeVisible();
+  // Both live providers reach the picker: the one that answered with models,
+  // and the one that answered with a failure and none.
+  await expect(picker.getByText('LM Studio', { exact: true })).toBeVisible();
+  await expect(picker.getByText('Argonne ALCF', { exact: true })).toBeVisible();
+  await picker.getByText('LM Studio', { exact: true }).click();
+  await expect(picker.getByText('qwen3-30b', { exact: true })).toBeVisible();
+  await expect(picker.getByText('qwen3-vl-8b', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+});
+
 test('renders a ghost queue stack and reconciles a live server update', async ({ page }) => {
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
   expect(seeded.ok()).toBe(true);
