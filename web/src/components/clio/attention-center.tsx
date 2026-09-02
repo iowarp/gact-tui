@@ -1,6 +1,6 @@
 import type { Session } from '@clio/core/v3';
 import { BellRingIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -15,8 +15,12 @@ import {
 } from '@/components/ui/popover';
 import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { playAttentionSound } from '@/lib/attention-sound';
+import { ATTENTION_NOTICE_THROTTLE_MS } from '@/lib/runtime-limits';
 import { type SessionAttention, sessionAttentionIds } from '@/lib/session-attention';
-import { useNotificationPreferences } from '@/providers/notification-preferences-provider';
+import {
+  type AttentionSoundMode,
+  useNotificationPreferences,
+} from '@/providers/notification-preferences-provider';
 import { SessionAttentionIndicators } from './session-attention-indicators';
 
 interface AttentionProps {
@@ -98,18 +102,36 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
 export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }: AttentionProps) {
   const navigate = useNavigate();
   const { attentionSound, desktopNotifications } = useNotificationPreferences();
+  const reportedSoundFailureFor = useRef<AttentionSoundMode | null>(null);
 
   useEffect(() => {
     const currentIds = new Set<string>();
+    const currentSessionIds = new Set<string>();
     const newSessions: Session[] = [];
     for (const session of sessions) {
+      // Matches the bell/center's own filter: an archived session's
+      // attention is never shown there, so the notifier must not raise it
+      // either.
+      if (session.archived) continue;
       const attention = attentions[session.id];
       if (!attention?.total) continue;
+      currentSessionIds.add(session.id);
       const ids = sessionAttentionIds(attention);
       ids.forEach((id) => currentIds.add(id));
       if (ids.some((id) => !notifiedAttentionIds.has(id))) {
         newSessions.push(session);
       }
+    }
+    // Prune both maps to what is CURRENTLY holding attention. Left add-only,
+    // an id notified once is never forgotten: a question that is answered
+    // and then a LATER question that raises the same synthetic marker
+    // (`state:{sessionId}:waiting_user`) would never alert again, and the
+    // maps would grow forever.
+    for (const id of notifiedAttentionIds) {
+      if (!currentIds.has(id)) notifiedAttentionIds.delete(id);
+    }
+    for (const sessionId of lastAttentionNoticeAt.keys()) {
+      if (!currentSessionIds.has(sessionId)) lastAttentionNoticeAt.delete(sessionId);
     }
     currentIds.forEach((id) => notifiedAttentionIds.add(id));
     if (newSessions.length === 0) return;
@@ -119,17 +141,22 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
     for (const session of newSessions) {
       const path = `/workspaces/${encodeURIComponent(session.workspace_id)}/sessions/${encodeURIComponent(session.id)}`;
       const now = Date.now();
-      const shouldInterrupt = now - (lastAttentionNoticeAt.get(session.id) ?? 0) > 2_000;
+      const shouldInterrupt =
+        now - (lastAttentionNoticeAt.get(session.id) ?? 0) > ATTENTION_NOTICE_THROTTLE_MS;
       lastAttentionNoticeAt.set(session.id, now);
       shouldPlaySound ||= shouldInterrupt;
-      toast.warning('Response needed', {
-        id: `clio-attention:${session.id}`,
-        description: session.title,
-        action: {
-          label: session.id === activeSessionId ? 'View' : 'Open',
-          onClick: () => navigate(path),
-        },
-      });
+      // The session already open shows this same attention inline (the
+      // pending-interactions surface); toasting on top of it is redundant.
+      if (session.id !== activeSessionId) {
+        toast.warning('Response needed', {
+          id: `clio-attention:${session.id}`,
+          description: session.title,
+          action: {
+            label: 'Open',
+            onClick: () => navigate(path),
+          },
+        });
+      }
       if (
         desktopNotifications &&
         shouldInterrupt &&
@@ -152,7 +179,16 @@ export function ClioAttentionNotifier({ activeSessionId, attentions, sessions }:
       shouldPlaySound &&
       (attentionSound === 'always' || (attentionSound === 'background' && !appFocused))
     ) {
-      void playAttentionSound();
+      void playAttentionSound().then((played) => {
+        // Surface a blocked chime at least once per preference change
+        // instead of leaving a permanently-muted sound invisible. The ref
+        // resets the report the moment the preference itself changes.
+        if (played || reportedSoundFailureFor.current === attentionSound) return;
+        reportedSoundFailureFor.current = attentionSound;
+        toast.warning('Attention sound is muted', {
+          description: 'The browser blocked the chime. Interact with the page once to allow it.',
+        });
+      });
     }
   }, [activeSessionId, attentionSound, attentions, desktopNotifications, navigate, sessions]);
 
