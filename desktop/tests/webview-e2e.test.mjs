@@ -81,6 +81,11 @@ const WORKSPACE_ID = process.env['CLIO_DESKTOP_WORKSPACE_ID'] ?? 'ws_default';
 const PORT = 4444;
 const BASE = `http://127.0.0.1:${PORT}`;
 const WD_REQUEST_TIMEOUT_MS = 30_000;
+// Session creation launches the app and waits for the first WebView attach —
+// a cold debug WebKitGTK boot of the full web bundle can exceed the generic
+// request budget on a 2-core runner (proven by CI: driver ready, app stderr
+// visible, POST /session aborted at exactly 30s). It gets its own budget.
+const NEW_SESSION_TIMEOUT_MS = 90_000;
 const API_REQUEST_TIMEOUT_MS = 15_000;
 const EL = 'element-6066-11e4-a52e-4f735466cecf';
 const SHELL_SELECTOR =
@@ -88,7 +93,7 @@ const SHELL_SELECTOR =
 const COMPOSER_SELECTOR = 'textarea[name="message"]';
 const SUBMIT_SELECTOR = 'button[aria-label="Submit"]';
 const RESPONSE_SELECTOR = 'section[aria-label="Agent needs your response"]';
-const DRIVER_START_ATTEMPTS = 1;
+const DRIVER_START_ATTEMPTS = 2;
 const DRIVER_READY_TIMEOUT_MS = 10_000;
 
 // The native app's supervisor attaches through CLIO_GACT_URL / CLIO_PORT.
@@ -209,12 +214,12 @@ async function startSessionWithRecovery() {
   throw new Error(`native WebView session creation failed after ${DRIVER_START_ATTEMPTS} attempts`);
 }
 
-async function wd(method, path, body) {
+async function wd(method, path, body, { timeoutMs = WD_REQUEST_TIMEOUT_MS } = {}) {
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(WD_REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -286,7 +291,7 @@ async function newSession() {
       firstMatch: [{}],
     },
   };
-  const j = await wd('POST', '/session', caps);
+  const j = await wd('POST', '/session', caps, { timeoutMs: NEW_SESSION_TIMEOUT_MS });
   return j.value.sessionId ?? j.sessionId;
 }
 
@@ -568,7 +573,9 @@ async function waitForVisiblePermissionCard(sid, timeoutMs) {
 // inside a wait it was given -- reporting a timeout instead of the failure.
 test(
   'real WebView: the desktop stack boots and drives the chat shell over the native bridge',
-  { skip: !enabled ? `missing ${missing.join(', ')}` : false, timeout: 260_000 },
+  // Budget: 2 session attempts (driver ready 10s + session 90s each) + the
+  // 30s shell wait + interactions + teardown, with headroom.
+  { skip: !enabled ? `missing ${missing.join(', ')}` : false, timeout: 340_000 },
   async (t) => {
     const seeded = CHAT_ONLY ? { agentId: '', sessionId: '' } : await seedPermissionProbeSession();
     let driver;
