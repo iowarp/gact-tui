@@ -32,10 +32,7 @@ import { ClioModelPicker } from './model-picker';
 import { Button } from '@/components/ui/button';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
-import {
-  ClioComposerAttachments,
-  type ResourceUploadFailure,
-} from './composer-attachments';
+import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
@@ -371,10 +368,7 @@ export function ClioComposer({
             {activityControl}
           </PromptInputHeader>
         ) : null}
-        <ClioComposerAttachments
-          uploadFailure={uploadFailure}
-          uploadProgress={uploadProgress}
-        />
+        <ClioComposerAttachments uploadFailure={uploadFailure} uploadProgress={uploadProgress} />
         {uploadProgress ? (
           <div className="px-3 pt-1 text-xs text-muted-foreground" role="status">
             Uploading {uploadProgress.filename}{' '}

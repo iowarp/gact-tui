@@ -231,10 +231,7 @@ function resourceInvalidationKeys(
   endpoint: string,
   workspaceId: string,
 ): QueryKey[] {
-  if (
-    eventName === 'resource.processing_completed' ||
-    eventName === 'resource.processing_failed'
-  ) {
+  if (eventName === 'resource.processing_completed' || eventName === 'resource.processing_failed') {
     return [
       queryKeys.workspaceResourceDerivatives(endpoint, workspaceId),
       queryKeys.workspaceResourceStructure(endpoint, workspaceId),

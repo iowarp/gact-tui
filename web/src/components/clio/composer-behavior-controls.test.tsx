@@ -35,7 +35,9 @@ describe('ClioComposerBehaviorControls', () => {
 
     expect(screen.getByRole('button', { name: 'Reasoning effort: Extra high' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Execution mode: Deep research' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Confirmation policy: SPOTTER review' })).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Confirmation policy: SPOTTER review' }),
+    ).toBeVisible();
   });
 
   it('names an unrecognized reasoning effort instead of showing a value nobody chose', () => {

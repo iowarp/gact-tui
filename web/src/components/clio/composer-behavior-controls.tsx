@@ -81,8 +81,8 @@ export function ClioComposerBehaviorControls({
           <DropdownMenuLabel>Reasoning effort</DropdownMenuLabel>
           {unknownEffort ? (
             <p className="px-2 pb-1.5 text-xs text-muted-foreground">
-              The service reported “{unknownEffort}”, which this build has no setting for.
-              Choose one to send with this message.
+              The service reported “{unknownEffort}”, which this build has no setting for. Choose
+              one to send with this message.
             </p>
           ) : null}
           <DropdownMenuRadioGroup

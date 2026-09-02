@@ -155,7 +155,13 @@ export const queryKeys = {
     resourceId: string,
     derivativeId: string,
   ) =>
-    ['workspace-resource-derivative-content', endpoint, workspaceId, resourceId, derivativeId] as const,
+    [
+      'workspace-resource-derivative-content',
+      endpoint,
+      workspaceId,
+      resourceId,
+      derivativeId,
+    ] as const,
   workspaceResourcePreview: (
     endpoint: string,
     workspaceId: string,

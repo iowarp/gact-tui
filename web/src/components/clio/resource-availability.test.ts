@@ -22,7 +22,10 @@ describe('summarizeResourcePipelineStages', () => {
       summarizeResourcePipelineStages(upload('failed', 'Failed'), conversion('active', 'Retrying')),
     ).toMatchObject({ overall: 'failed', overallLabel: 'Unavailable' });
     expect(
-      summarizeResourcePipelineStages(upload('active', 'In progress'), conversion('failed', 'Failed')),
+      summarizeResourcePipelineStages(
+        upload('active', 'In progress'),
+        conversion('failed', 'Failed'),
+      ),
     ).toMatchObject({ overall: 'failed', overallLabel: 'Unavailable' });
   });
 

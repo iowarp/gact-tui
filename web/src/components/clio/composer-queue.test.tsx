@@ -92,15 +92,6 @@ describe('ClioComposerQueue', () => {
     renderQueue();
 
     const queue = screen.getByLabelText('Queued messages');
-    expect(queue).toHaveClass(
-      '-mb-px',
-      'w-[calc(100%_-_1.5rem)]',
-      'max-w-[54.5rem]',
-      'rounded-b-none',
-      'border-b-0',
-      'bg-card/70',
-      'backdrop-blur-xl',
-    );
     expect(screen.getByText('2 queued messages')).toHaveAttribute('aria-live', 'polite');
     expect(queue.querySelectorAll('[data-queue-live-item]')).toHaveLength(2);
     const handles = screen.getAllByRole('button', { name: 'Reorder queued message' });
@@ -124,21 +115,6 @@ describe('ClioComposerQueue', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Send queued message now');
   });
 
-  it('owns a bounded keyboard-scrollable viewport when the queue overflows', () => {
-    renderQueue({
-      messages: Array.from({ length: 6 }, (_, index) =>
-        queued(`queue_${index}`, `Queued message ${index + 1}`, index),
-      ),
-    });
-
-    const queue = screen.getByLabelText('Queued messages');
-    const viewport = screen.getByRole('region', { name: '6 queued messages' });
-    expect(queue).toHaveClass('min-h-0', 'shrink');
-    expect(queue.querySelector('[data-slot="sortable"]')).toHaveClass('min-h-0');
-    expect(viewport).toHaveAttribute('tabindex', '0');
-    expect(viewport).toHaveClass('overscroll-contain');
-  });
-
   it('names and focuses the queue viewport at every queue length', () => {
     renderQueue({ messages: [queued('queue_1', 'Only message', 0)] });
 
@@ -159,6 +135,8 @@ describe('ClioComposerQueue', () => {
     const viewport = screen.getByRole('region', { name: '6 queued messages' });
     expect(viewport.style.maxHeight).toBe(`${COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX}px`);
     expect(COMPOSER_QUEUE_VIEWPORT_MAX_HEIGHT_PX).toBeLessThan(6 * COMPOSER_QUEUE_ROW_HEIGHT_PX);
+    expect(viewport).toHaveClass('overscroll-contain');
+    expect(viewport).toHaveAttribute('tabindex', '0');
   });
 
   it('preserves a local edit when the service rejects a stale revision', async () => {

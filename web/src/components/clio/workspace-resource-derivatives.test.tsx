@@ -93,8 +93,7 @@ function seedReadQueries(client: QueryClient) {
   } as const;
   for (const key of Object.values(keys)) client.setQueryData(key, { seeded: true });
   return {
-    isStale: (key: readonly unknown[]) =>
-      client.getQueryState([...key])?.isInvalidated === true,
+    isStale: (key: readonly unknown[]) => client.getQueryState([...key])?.isInvalidated === true,
     keys,
   };
 }
