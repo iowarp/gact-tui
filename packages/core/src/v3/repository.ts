@@ -645,6 +645,37 @@ export class ClioRepository extends ComposerRepository {
     return result.questions;
   }
 
+  /**
+   * Reads questions from the unscoped `/v1/questions` endpoint, optionally
+   * filtered to one session. Mirrors `permissions`/`pendingApprovals`: the
+   * endpoint itself accepts an optional `session_id`, so omitting it reads
+   * every session's questions, including sessions this view has not
+   * otherwise fetched — the same shape a descendant session's approval
+   * already relies on.
+   */
+  public async allQuestions(
+    signal?: AbortSignal,
+    filters?: { sessionId?: string; status?: UserQuestion['status'] },
+  ): Promise<UserQuestion[]> {
+    const query = new URLSearchParams();
+    if (filters?.sessionId) query.set('session_id', filters.sessionId);
+    if (filters?.status) query.set('status', filters.status);
+    const result = await this.transport.request({
+      method: 'GET',
+      path: `/v1/questions${query.size ? `?${query.toString()}` : ''}`,
+      decode: (value) => questionListSchema.parse(value),
+      signal,
+    });
+    return result.questions;
+  }
+
+  public async pendingQuestions(
+    sessionId?: string,
+    signal?: AbortSignal,
+  ): Promise<UserQuestion[]> {
+    return this.allQuestions(signal, { sessionId, status: 'pending' });
+  }
+
   public answerQuestion(
     sessionId: string,
     questionId: string,
