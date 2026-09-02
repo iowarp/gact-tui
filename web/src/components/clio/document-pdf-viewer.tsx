@@ -6,13 +6,15 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group';
 import { Toggle } from '@/components/ui/toggle';
+import { PDF_PAGE_GAP_PX } from '@/lib/runtime-limits';
+import { estimatedPdfPageHeight, pdfPageNumbers, pdfPageWindow } from './document-pdf-window';
 import { ClioStatus } from './status';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -30,11 +32,17 @@ export function ClioDocumentPdfViewer({
   onSelection: (anchor: DocumentAnchor) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [pageCount, setPageCount] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
   const [hostWidth, setHostWidth] = useState(640);
   const [scale, setScale] = useState(1);
   const [paged, setPaged] = useState(false);
+  const [scroll, setScroll] = useState({ top: 0, viewport: 0 });
+  const [measured, setMeasured] = useState<{ geometry: string; height: number }>();
+  // pdf.js transfers a typed array it is handed to its worker thread, which
+  // detaches the caller's buffer — and these bytes are the cached resource
+  // preview other surfaces read. One copy per document, never per render.
   const file = useMemo(() => ({ data: new Uint8Array(bytes) }), [bytes]);
 
   useEffect(() => {
@@ -48,6 +56,47 @@ export function ClioDocumentPdfViewer({
     observer.observe(host);
     return () => observer.disconnect();
   }, []);
+
+  const readScroll = useCallback(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    setScroll((current) =>
+      current.top === container.scrollTop && current.viewport === container.clientHeight
+        ? current
+        : { top: container.scrollTop, viewport: container.clientHeight },
+    );
+  }, []);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    readScroll();
+    const observer = new ResizeObserver(readScroll);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [readScroll]);
+
+  // A rendered page is the only honest page height. The estimate stands in
+  // until one exists, and a measurement taken at a different width or zoom is
+  // discarded rather than trusted at the new geometry.
+  const geometry = `${hostWidth}:${scale}`;
+  const measurePage = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (!element) return;
+      const height = element.getBoundingClientRect().height;
+      if (height > 0) setMeasured({ geometry, height: height + PDF_PAGE_GAP_PX });
+    },
+    [geometry],
+  );
+  const pageHeightPx =
+    measured?.geometry === geometry ? measured.height : estimatedPdfPageHeight(hostWidth * scale);
+  const pageWindow = pdfPageWindow({
+    pageCount,
+    pageHeightPx,
+    scrollTop: scroll.top,
+    viewportHeight: scroll.viewport,
+  });
+  const windowedPages = pdfPageNumbers(pageWindow);
 
   const captureSelection = () => {
     const selection = window.getSelection();
@@ -79,8 +128,8 @@ export function ClioDocumentPdfViewer({
   };
 
   return (
-    <div className="grid min-h-0 gap-3" ref={hostRef}>
-      <div className="sticky top-0 z-10 flex min-h-10 flex-wrap items-center gap-1.5 border-b bg-background/95 px-2 py-1 backdrop-blur">
+    <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-3" ref={hostRef}>
+      <div className="z-10 flex min-h-10 flex-wrap items-center gap-1.5 border-b bg-background/95 px-2 py-1 backdrop-blur">
         {paged ? (
           <ButtonGroup aria-label="PDF page navigation">
             <Button
@@ -146,38 +195,86 @@ export function ClioDocumentPdfViewer({
           </Toggle>
         </div>
       </div>
-      <Document
-        error={
-          <ClioStatus detail={`Could not render ${name}.`} label="PDF unavailable" value="failed" />
-        }
-        file={file}
-        loading={<p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>}
-        onLoadSuccess={({ numPages }) => {
-          setPageCount(numPages);
-          setPageNumber((page) => Math.min(page, numPages));
-        }}
-      >
-        <div className={paged ? '' : 'grid gap-3'}>
-          {(paged ? [pageNumber] : Array.from({ length: pageCount }, (_, index) => index + 1)).map(
-            (visiblePage) => (
+      <div className="min-h-0 overflow-auto" onScroll={readScroll} ref={scrollRef}>
+        <Document
+          error={
+            <ClioStatus
+              detail={`Could not render ${name}.`}
+              label="PDF unavailable"
+              value="failed"
+            />
+          }
+          file={file}
+          loading={<p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>}
+          onLoadSuccess={({ numPages }) => {
+            setPageCount(numPages);
+            setPageNumber((page) => Math.min(page, numPages));
+          }}
+        >
+          {paged ? (
+            <PdfPage
+              onMouseUp={captureSelection}
+              pageNumber={pageNumber}
+              scale={scale}
+              width={hostWidth}
+            />
+          ) : (
+            <div className="grid gap-3">
               <div
-                className="mx-auto w-fit overflow-hidden rounded-lg border bg-white shadow-sm"
-                data-page={visiblePage - 1}
-                key={visiblePage}
-                onMouseUp={captureSelection}
-              >
-                <Page
+                aria-hidden="true"
+                data-pdf-spacer="leading"
+                style={{ height: `${pageWindow.leadingSpacerPx}px` }}
+              />
+              {windowedPages.map((visiblePage) => (
+                <PdfPage
+                  key={visiblePage}
+                  onMouseUp={captureSelection}
                   pageNumber={visiblePage}
-                  renderAnnotationLayer
-                  renderTextLayer
+                  ref={visiblePage === pageWindow.first ? measurePage : undefined}
                   scale={scale}
                   width={hostWidth}
                 />
-              </div>
-            ),
+              ))}
+              <div
+                aria-hidden="true"
+                data-pdf-spacer="trailing"
+                style={{ height: `${pageWindow.trailingSpacerPx}px` }}
+              />
+            </div>
           )}
-        </div>
-      </Document>
+        </Document>
+      </div>
+    </div>
+  );
+}
+
+function PdfPage({
+  onMouseUp,
+  pageNumber,
+  ref,
+  scale,
+  width,
+}: {
+  onMouseUp: () => void;
+  pageNumber: number;
+  ref?: (element: HTMLDivElement | null) => void;
+  scale: number;
+  width: number;
+}) {
+  return (
+    <div
+      className="mx-auto w-fit overflow-hidden rounded-lg border bg-white shadow-sm"
+      data-page={pageNumber - 1}
+      onMouseUp={onMouseUp}
+      ref={ref}
+    >
+      <Page
+        pageNumber={pageNumber}
+        renderAnnotationLayer
+        renderTextLayer
+        scale={scale}
+        width={width}
+      />
     </div>
   );
 }

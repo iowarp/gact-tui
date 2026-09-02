@@ -79,6 +79,7 @@ const resource: WorkspaceResource = {
 
 describe('WorkspaceResourceView', () => {
   it('uses the shared PDF.js viewer instead of the unreliable native object plugin', async () => {
+    const objectUrls = vi.spyOn(URL, 'createObjectURL');
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -90,6 +91,10 @@ describe('WorkspaceResourceView', () => {
 
     expect(await screen.findByText('Rendered PDF paper.pdf')).toBeVisible();
     expect(document.querySelector('object[type="application/pdf"]')).not.toBeInTheDocument();
+    // The PDF viewer reads the bytes directly, so blobbing the whole document
+    // into a second copy the branch never reads is pure memory.
+    expect(objectUrls).not.toHaveBeenCalled();
+    objectUrls.mockRestore();
   });
 
   it('loads the first structured node instead of leaving a disabled query skeleton', async () => {

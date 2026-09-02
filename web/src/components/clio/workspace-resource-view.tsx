@@ -239,6 +239,20 @@ function ResourcePreview({
       />
     );
   }
+  if (resource.detected_mime === 'application/pdf') {
+    // Ahead of the object-URL branch below: the PDF viewer reads the bytes
+    // directly, and a blob copy of a whole document is a second copy nothing
+    // reads.
+    if (error) return <ResourceUnavailable detail={error} label="Preview unavailable" />;
+    if (!bytes) return <ResourceLoading className="p-4" label={`Loading ${resource.name}`} />;
+    return (
+      <div className="size-full overflow-hidden p-3">
+        <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${resource.name}`} />}>
+          <PdfResourceViewer bytes={bytes} name={resource.name} onSelection={() => undefined} />
+        </Suspense>
+      </div>
+    );
+  }
   return <NativeMediaPreview bytes={bytes} error={error} resource={resource} />;
 }
 
@@ -254,19 +268,6 @@ function NativeMediaPreview({
   const url = useObjectUrl(bytes, resource.detected_mime);
   if (error) return <ResourceUnavailable detail={error} label="Preview unavailable" />;
   if (!url) return <ResourceLoading className="p-4" label={`Loading ${resource.name}`} />;
-  if (resource.detected_mime === 'application/pdf') {
-    return (
-      <div className="size-full overflow-auto p-3">
-        <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${resource.name}`} />}>
-          <PdfResourceViewer
-            bytes={bytes ?? new Uint8Array()}
-            name={resource.name}
-            onSelection={() => undefined}
-          />
-        </Suspense>
-      </div>
-    );
-  }
   if (resource.detected_mime.startsWith('video/')) {
     return <video className="size-full bg-black object-contain" controls src={url} />;
   }

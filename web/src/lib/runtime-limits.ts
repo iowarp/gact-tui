@@ -171,6 +171,31 @@ export const JSON_TABLE_ROW_LIMIT = 5_000;
  */
 export const MAX_DIAGRAM_SOURCE_CHARS = 16_384;
 
+/**
+ * Pages kept mounted on each side of the PDF viewer's visible window.
+ * Unit: pages. Each mounted page is a canvas plus a text and an annotation
+ * layer, so this is the direct trade between scroll smoothness and the tab's
+ * memory: a page of a letter-size document at full width costs a few megabytes,
+ * and a long document has hundreds of them. Two pages of overscan cover a fast
+ * flick without holding a document-sized bitmap.
+ */
+export const PDF_PAGE_OVERSCAN = 2;
+
+/**
+ * Height-to-width ratio used to reserve space for a PDF page the viewer has not
+ * rendered yet. Unit: ratio. ISO 216 (A4, and close enough to US Letter) so the
+ * scrollbar is roughly right on the first paint; the viewer replaces it with the
+ * height of the first page it actually renders.
+ */
+export const PDF_PAGE_ESTIMATED_ASPECT_RATIO = 1.4142;
+
+/**
+ * Vertical gap between two pages in the viewer's continuous scroll. Unit:
+ * pixels. Must match the `gap-3` the page list is laid out with, because the
+ * windowing spacers stand in for whole page boxes including their gap.
+ */
+export const PDF_PAGE_GAP_PX = 12;
+
 // ## Truncation
 // Where generated prose is cut for a compact surface. All of these are applied
 // through `truncate` in `@/lib/format`, which appends the ellipsis within the
