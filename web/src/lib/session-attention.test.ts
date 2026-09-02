@@ -66,4 +66,32 @@ describe('session attention', () => {
     const fallback = buildSessionAttentionMap([waiting], [], []);
     expect(fallback[waiting.id]?.questionIds).toEqual([`state:${waiting.id}:waiting_user`]);
   });
+
+  it('counts every child still blocked at a shared root instead of only the first one seen', () => {
+    const parent: Session = { ...baseSession };
+    const child1: Session = {
+      ...baseSession,
+      id: 'sess_child_1',
+      title: 'Child task 1',
+      parent_session_id: parent.id,
+      state: 'waiting_permission',
+    };
+    const child2: Session = {
+      ...baseSession,
+      id: 'sess_child_2',
+      title: 'Child task 2',
+      parent_session_id: parent.id,
+      state: 'waiting_permission',
+    };
+
+    const attentions = buildSessionAttentionMap([parent, child1, child2], [], []);
+
+    expect(attentions[parent.id]?.permissionIds).toEqual(
+      expect.arrayContaining([
+        `state:${child1.id}:waiting_permission`,
+        `state:${child2.id}:waiting_permission`,
+      ]),
+    );
+    expect(attentions[parent.id]?.total).toBe(2);
+  });
 });

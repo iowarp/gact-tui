@@ -32,13 +32,24 @@ export function buildSessionAttentionMap(
   for (const approval of approvals) pending(approval.session_id).permissionIds.add(approval.id);
   for (const question of questions) pending(question.session_id).questionIds.add(question.id);
 
+  // Snapshot the REAL pending counts per root before adding any synthetic
+  // `session.state` markers below. The loop below mutates `pendingBySession`
+  // as it adds markers, so reading it live (as this used to) meant one
+  // child's synthetic marker could suppress a sibling's — the count would
+  // then depend on iteration order instead of on what is actually pending.
+  const realPermissionCounts = new Map(
+    [...pendingBySession.entries()].map(([rootId, value]) => [rootId, value.permissionIds.size]),
+  );
+  const realQuestionCounts = new Map(
+    [...pendingBySession.entries()].map(([rootId, value]) => [rootId, value.questionIds.size]),
+  );
+
   for (const session of sessions) {
     const rootId = rootSessionId(session.id, sessionsById);
-    const current = pendingBySession.get(rootId);
-    if (session.state === 'waiting_permission' && !current?.permissionIds.size) {
+    if (session.state === 'waiting_permission' && !realPermissionCounts.get(rootId)) {
       pending(session.id).permissionIds.add(`state:${session.id}:waiting_permission`);
     }
-    if (session.state === 'waiting_user' && !current?.questionIds.size) {
+    if (session.state === 'waiting_user' && !realQuestionCounts.get(rootId)) {
       pending(session.id).questionIds.add(`state:${session.id}:waiting_user`);
     }
   }
