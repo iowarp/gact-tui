@@ -24,7 +24,9 @@ export const QueueItem = ({ className, ...props }: QueueItemProps) => (
 export type QueueItemContentProps = ComponentProps<'span'>;
 
 export const QueueItemContent = ({ className, ...props }: QueueItemContentProps) => (
-  <span className={cn('min-w-0 grow truncate text-muted-foreground', className)} {...props} />
+  // Primary row text: full foreground, not muted — the queue sits on the
+  // composer's darkest surface, where muted-foreground fails WCAG AA (3.37:1).
+  <span className={cn('min-w-0 grow truncate text-foreground/90', className)} {...props} />
 );
 
 export type QueueItemActionsProps = ComponentProps<'div'>;
@@ -102,7 +104,7 @@ export const QueueSectionTrigger = ({
   <CollapsibleTrigger asChild>
     <button
       className={cn(
-        'group flex h-6 w-full items-center justify-between rounded-md px-1.5 text-left text-xs font-medium text-muted-foreground/90 transition-colors hover:text-foreground focus-visible:bg-muted/35',
+        'group flex h-6 w-full items-center justify-between rounded-md px-1.5 text-left text-xs font-medium text-foreground/75 transition-colors hover:text-foreground focus-visible:bg-muted/35',
         className,
       )}
       type="button"
