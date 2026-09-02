@@ -2,12 +2,16 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { queryKeys } from '@/lib/query-keys';
 
 const mocks = vi.hoisted(() => ({
   repository: {
+    answerQuestion: vi.fn(async () => ({})),
+    cancelQuestion: vi.fn(async () => ({})),
     createQueuedMessage: vi.fn(),
     pendingSteers: vi.fn(async () => []),
     queuedMessages: vi.fn(async () => []),
+    respondPermission: vi.fn(async () => undefined),
     submitMessage: vi.fn(),
   },
   replaceSnapshots: vi.fn(),
@@ -58,6 +62,23 @@ function renderMutations() {
   );
 }
 
+function renderMutationsWithClient(client: QueryClient) {
+  return renderHook(
+    () =>
+      useSessionMutations({
+        activeModel: 'gpt-5.6-luna',
+        activeProvider: 'codex',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      ),
+    },
+  );
+}
+
 describe('useSessionMutations send identity', () => {
   it('reuses one idempotency key while the same draft is being retried', async () => {
     mocks.repository.submitMessage.mockRejectedValue(new Error('connection interrupted'));
@@ -95,5 +116,71 @@ describe('useSessionMutations send identity', () => {
     expect(keys[1]).toBe(keys[2]);
     // The accepted send releases the identity; the next one is a new message.
     expect(keys[3]).not.toBe(keys[2]);
+  });
+});
+
+describe('useSessionMutations pending-question invalidation', () => {
+  // The read now lives at the unscoped, endpoint-level key use-workspace-data.ts
+  // registers it under (queryKeys.key('pending-questions', endpoint, 'all-active')),
+  // mirroring pending-approvals. Prove the mutation invalidates THAT actual
+  // query — a per-session key would never match it, and a poll interval is
+  // not an acceptable substitute for a person seeing the bell clear at once.
+  const readKey = queryKeys.key('pending-questions', 'http://127.0.0.1:8790', 'all-active');
+
+  function clientWithReadPopulated() {
+    const client = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+    client.setQueryData(readKey, []);
+    return client;
+  }
+
+  it('invalidates the unscoped pending-questions read when a question is answered', async () => {
+    const client = clientWithReadPopulated();
+    const { result } = renderMutationsWithClient(client);
+
+    await result.current.answerQuestion.mutateAsync({
+      id: 'question_1',
+      answer: { answer: 'yes' },
+    });
+
+    await waitFor(() =>
+      expect(client.getQueryCache().find({ queryKey: readKey })?.state.isInvalidated).toBe(true),
+    );
+  });
+
+  it('invalidates the unscoped pending-questions read when a question is cancelled', async () => {
+    const client = clientWithReadPopulated();
+    const { result } = renderMutationsWithClient(client);
+
+    await result.current.cancelQuestion.mutateAsync('question_1');
+
+    await waitFor(() =>
+      expect(client.getQueryCache().find({ queryKey: readKey })?.state.isInvalidated).toBe(true),
+    );
+  });
+
+  // Confirms the sibling approval mutation did NOT drift the same way: it
+  // already invalidates the endpoint-level prefix, which still matches the
+  // unchanged 'all-active' approvals read key use-workspace-data.ts uses.
+  it('still invalidates the real unscoped pending-approvals read on a permission response', async () => {
+    const approvalsReadKey = queryKeys.key(
+      'pending-approvals',
+      'http://127.0.0.1:8790',
+      'all-active',
+    );
+    const client = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+    client.setQueryData(approvalsReadKey, []);
+    const { result } = renderMutationsWithClient(client);
+
+    await result.current.respondPermission.mutateAsync({ id: 'perm_1', action: 'allow' });
+
+    await waitFor(() =>
+      expect(
+        client.getQueryCache().find({ queryKey: approvalsReadKey })?.state.isInvalidated,
+      ).toBe(true),
+    );
   });
 });

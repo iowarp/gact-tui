@@ -261,8 +261,11 @@ export function useSessionMutations({
     }) => repository.answerQuestion(sessionId, id, answer),
     onSuccess: async () => {
       await Promise.all([
+        // Pending questions are read unscoped now (mirroring pending-approvals),
+        // so the invalidation must be the endpoint-level prefix that query is
+        // actually keyed under, not a per-session key that would never match it.
         queryClient.invalidateQueries({
-          queryKey: queryKeys.key('pending-questions', settings.endpoint, sessionId),
+          queryKey: queryKeys.key('pending-questions', settings.endpoint),
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.key('sessions', settings.endpoint, workspaceId),
@@ -276,7 +279,7 @@ export function useSessionMutations({
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
-          queryKey: queryKeys.key('pending-questions', settings.endpoint, sessionId),
+          queryKey: queryKeys.key('pending-questions', settings.endpoint),
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.key('sessions', settings.endpoint, workspaceId),
