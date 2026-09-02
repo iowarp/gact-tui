@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { WorkspaceResource } from '@clio/core/v3';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceResourceView } from './workspace-resource-view';
 
 const repository = vi.hoisted(() => ({
@@ -29,11 +30,24 @@ const repository = vi.hoisted(() => ({
   }),
   resourcePreview: vi.fn().mockResolvedValue(new Uint8Array([37, 80, 68, 70])),
   resourceStructure: vi.fn().mockResolvedValue({
-    collections: {},
+    collections: { texts: 2 },
+    resource_id: 'resource_1',
+    revision: 1,
+  }),
+  resourceStructureNode: vi.fn().mockResolvedValue({
+    collection: 'texts',
+    index: 0,
+    node: { text: 'First parsed section' },
     resource_id: 'resource_1',
     revision: 1,
   }),
 }));
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+  repository.resourceDeliveries.mockResolvedValue([]);
+});
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('./document-pdf-viewer', () => ({
@@ -73,5 +87,67 @@ describe('WorkspaceResourceView', () => {
 
     expect(await screen.findByText('Rendered PDF paper.pdf')).toBeVisible();
     expect(document.querySelector('object[type="application/pdf"]')).not.toBeInTheDocument();
+  });
+
+  it('loads the first structured node instead of leaving a disabled query skeleton', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceResourceView resource={resource} workspaceId="workspace_1" />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Structure' }));
+
+    expect(await screen.findByText('Document structure')).toBeVisible();
+    expect(await screen.findByText(/First parsed section/u)).toBeVisible();
+    expect(repository.resourceStructureNode).toHaveBeenCalledWith(
+      'workspace_1',
+      'resource_1',
+      'texts',
+      0,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('presents provenance as semantic resource lineage with internal provider evidence collapsed', async () => {
+    repository.resourceDeliveries.mockResolvedValueOnce([
+      {
+        id: 'delivery_1',
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_1',
+        resource_revision: 1,
+        resource_sha256: 'abc',
+        message_id: 'message_1',
+        provider_id: 'provider_internal',
+        model_id: 'model-visible',
+        representation: 'markdown',
+        evidence_source: 'structured-derivative',
+        evidence_generated_at: '2026-08-31T00:01:00Z',
+        reason: 'Selected for the current request',
+        delivered_at: '2026-08-31T00:02:00Z',
+      },
+    ]);
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceResourceView resource={resource} workspaceId="workspace_1" />
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Provenance' }));
+
+    expect(await screen.findByText('Resource lineage')).toBeVisible();
+    expect(screen.getByText('Uploaded')).toBeVisible();
+    expect(screen.getByText('Verified and registered')).toBeVisible();
+    expect(await screen.findByText('Delivered to model')).toBeVisible();
+    expect(screen.getByText(/model-visible/u)).toBeVisible();
+    expect(screen.getByText('provider_internal')).not.toBeVisible();
   });
 });

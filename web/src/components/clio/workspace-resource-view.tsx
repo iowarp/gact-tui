@@ -1,7 +1,17 @@
 import type { ResourceDeliveryRecord, WorkspaceResource } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import { BracesIcon, FileIcon, HistoryIcon } from 'lucide-react';
+import { BracesIcon, FileIcon, FileInputIcon, ScanSearchIcon, SendIcon } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
+import {
+  Timeline,
+  TimelineContent,
+  TimelineDate,
+  TimelineHeader,
+  TimelineIndicator,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineTitle,
+} from '@/components/reui/timeline';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -98,10 +108,24 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
       <Tabs className="min-h-0 flex-1 gap-0" onValueChange={setActiveTab} value={activeTab}>
         <div className="shrink-0 border-b p-1.5">
           <TabsList className="grid h-9 w-full grid-cols-4">
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-            <TabsTrigger value="structure">Structure</TabsTrigger>
-            <TabsTrigger value="derivatives">Derivatives</TabsTrigger>
-            <TabsTrigger value="provenance">Provenance</TabsTrigger>
+            <TabsTrigger title="Read the original uploaded file" value="preview">
+              Preview
+            </TabsTrigger>
+            <TabsTrigger
+              title="Browse sections, tables, and other parsed document nodes"
+              value="structure"
+            >
+              Structure
+            </TabsTrigger>
+            <TabsTrigger
+              title="Inspect converted representations created from the original"
+              value="derivatives"
+            >
+              Derivatives
+            </TabsTrigger>
+            <TabsTrigger title="Trace upload, processing, and model delivery" value="provenance">
+              Provenance
+            </TabsTrigger>
           </TabsList>
         </div>
         <TabsContent className="m-0 min-h-0 overflow-hidden" value="preview">
@@ -114,6 +138,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
         <TabsContent className="m-0 min-h-0 overflow-hidden" value="structure">
           <StructuredResourceView
             error={structure.error?.message}
+            loading={structure.isPending && derivatives.data?.processor.derivatives_available}
             processing={derivatives.data?.processor}
             resource={resource}
             structure={structure.data?.collections}
@@ -133,6 +158,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
           <ResourceProvenance
             deliveries={matchingDeliveries}
             error={deliveries.error?.message}
+            processing={derivatives.data?.processor}
             resource={resource}
           />
         </TabsContent>
@@ -250,12 +276,14 @@ function NativeMediaPreview({
 
 function StructuredResourceView({
   error,
+  loading,
   processing,
   resource,
   structure,
   workspaceId,
 }: {
   error?: string;
+  loading?: boolean;
   processing?: { state: string; progress: number; failure: Record<string, unknown> };
   resource: WorkspaceResource;
   structure?: Record<string, number>;
@@ -263,23 +291,30 @@ function StructuredResourceView({
 }) {
   const repository = useRepository();
   const [selection, setSelection] = useState<{ collection: string; index: number }>();
+  const firstCollection = Object.keys(structure ?? {})[0];
+  const activeSelection =
+    selection && selection.collection in (structure ?? {})
+      ? selection
+      : firstCollection
+        ? { collection: firstCollection, index: 0 }
+        : undefined;
   const node = useQuery({
     queryKey: queryKeys.key(
       'workspace-resource-structure-node',
       workspaceId,
       resource.id,
-      selection?.collection,
-      selection?.index,
+      activeSelection?.collection,
+      activeSelection?.index,
     ),
     queryFn: ({ signal }) =>
       repository.resourceStructureNode(
         workspaceId,
         resource.id,
-        selection?.collection ?? '',
-        selection?.index ?? 0,
+        activeSelection?.collection ?? '',
+        activeSelection?.index ?? 0,
         signal,
       ),
-    enabled: Boolean(selection),
+    enabled: Boolean(activeSelection),
   });
   if (processing?.state !== 'complete') {
     return (
@@ -296,16 +331,36 @@ function StructuredResourceView({
       </div>
     );
   }
+  if (loading) {
+    return <ResourceLoading className="p-4" label="Loading document structure" />;
+  }
+  if (error) {
+    return <ResourceUnavailable detail={error} label="Document structure unavailable" />;
+  }
+  if (!Object.keys(structure ?? {}).length) {
+    return (
+      <ResourceUnavailable
+        detail="The processor completed without publishing any structured collections for this document."
+        label="No document structure"
+      />
+    );
+  }
   return (
     <div className="grid h-full min-h-0 grid-cols-[minmax(9rem,0.32fr)_1fr]">
       <ScrollArea className="border-r p-2">
+        <div className="mb-2 px-2">
+          <p className="text-xs font-medium">Document structure</p>
+          <p className="text-[10px] leading-4 text-muted-foreground">
+            Parsed collections and their first available node.
+          </p>
+        </div>
         <div className="grid gap-1">
           {Object.entries(structure ?? {}).map(([collection, count]) => (
             <Button
               className="h-auto justify-between px-2 py-1.5"
               key={collection}
               onClick={() => setSelection({ collection, index: 0 })}
-              variant={selection?.collection === collection ? 'secondary' : 'ghost'}
+              variant={activeSelection?.collection === collection ? 'secondary' : 'ghost'}
             >
               <span className="truncate">{collection}</span>
               <Badge variant="outline">{count}</Badge>
@@ -314,7 +369,9 @@ function StructuredResourceView({
         </div>
       </ScrollArea>
       <ScrollArea className="p-3">
-        {node.isPending ? <ResourceLoading label="Loading structured node" /> : null}
+        {activeSelection && node.isPending ? (
+          <ResourceLoading label="Loading structured node" />
+        ) : null}
         {node.error ? (
           <ResourceUnavailable detail={node.error.message} label="Structured node unavailable" />
         ) : null}
@@ -333,52 +390,134 @@ function StructuredResourceView({
 function ResourceProvenance({
   deliveries,
   error,
+  processing,
   resource,
 }: {
   deliveries: readonly ResourceDeliveryRecord[];
   error?: string;
+  processing?: {
+    processor: string;
+    state: string;
+    progress: number;
+    created_at: string;
+    updated_at: string;
+  };
   resource: WorkspaceResource;
 }) {
+  const steps = 2 + (processing ? 1 : 0) + deliveries.length;
   return (
     <ScrollArea className="h-full p-3">
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
-        <dt className="text-muted-foreground">Revision</dt>
-        <dd>{resource.revision}</dd>
-        <dt className="text-muted-foreground">SHA-256</dt>
-        <dd className="break-all font-mono">{resource.sha256 || 'Unavailable'}</dd>
-        <dt className="text-muted-foreground">Detected as</dt>
-        <dd>{resource.detected_mime || 'Unavailable'}</dd>
-        <dt className="text-muted-foreground">Detection</dt>
-        <dd>{resource.detection_source || 'Unavailable'}</dd>
-      </dl>
-      <div className="my-4 border-t" />
-      <div className="mb-2 flex items-center gap-2">
-        <HistoryIcon aria-hidden="true" className="size-4 text-primary" />
-        <h3 className="text-sm font-medium">Provider deliveries</h3>
-      </div>
+      <header className="mb-4">
+        <h3 className="text-sm font-medium">Resource lineage</h3>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          How the original upload became structured evidence and reached a model.
+        </p>
+      </header>
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
-      <div className="grid gap-2">
-        {deliveries.map((delivery) => (
-          <div className="rounded-lg border p-3 text-xs" key={delivery.id}>
-            <p className="font-medium">
-              {delivery.provider_id} / {delivery.model_id}
-            </p>
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
-              <span>{delivery.representation}</span>
-              <time dateTime={delivery.delivered_at}>
-                {new Date(delivery.delivered_at).toLocaleString()}
-              </time>
-            </div>
-          </div>
-        ))}
-        {!deliveries.length && !error ? (
-          <p className="text-xs text-muted-foreground">
-            This resource has not been delivered to a model.
-          </p>
+      <Timeline defaultValue={steps}>
+        <TimelineItem step={1}>
+          <TimelineIndicator />
+          <TimelineSeparator />
+          <TimelineDate dateTime={resource.created_at}>
+            {formatTime(resource.created_at)}
+          </TimelineDate>
+          <TimelineHeader>
+            <TimelineTitle className="flex items-center gap-2">
+              <FileInputIcon aria-hidden="true" className="size-4 text-primary" />
+              Uploaded
+            </TimelineTitle>
+          </TimelineHeader>
+          <TimelineContent>
+            {resource.name} · {formatBytes(resource.received_size)}
+          </TimelineContent>
+        </TimelineItem>
+        <TimelineItem step={2}>
+          <TimelineIndicator />
+          <TimelineSeparator />
+          <TimelineDate dateTime={resource.completed_at || resource.updated_at}>
+            {formatTime(resource.completed_at || resource.updated_at)}
+          </TimelineDate>
+          <TimelineHeader>
+            <TimelineTitle className="flex items-center gap-2">
+              <ScanSearchIcon aria-hidden="true" className="size-4 text-primary" />
+              Verified and registered
+            </TimelineTitle>
+          </TimelineHeader>
+          <TimelineContent>
+            Revision {resource.revision} · {resource.detected_mime || 'Type unavailable'}
+          </TimelineContent>
+        </TimelineItem>
+        {processing ? (
+          <TimelineItem step={3}>
+            <TimelineIndicator />
+            <TimelineSeparator />
+            <TimelineDate dateTime={processing.updated_at}>
+              {formatTime(processing.updated_at)}
+            </TimelineDate>
+            <TimelineHeader>
+              <TimelineTitle>
+                Structured by {processing.processor || 'document processor'}
+              </TimelineTitle>
+            </TimelineHeader>
+            <TimelineContent>
+              {processing.state === 'processing'
+                ? `Processing ${Math.round(processing.progress)}%`
+                : processing.state}
+            </TimelineContent>
+          </TimelineItem>
         ) : null}
-      </div>
+        {deliveries.map((delivery, index) => (
+          <TimelineItem key={delivery.id} step={3 + (processing ? 1 : 0) + index}>
+            <TimelineIndicator />
+            <TimelineSeparator />
+            <TimelineDate dateTime={delivery.delivered_at}>
+              {formatTime(delivery.delivered_at)}
+            </TimelineDate>
+            <TimelineHeader>
+              <TimelineTitle className="flex items-center gap-2">
+                <SendIcon aria-hidden="true" className="size-4 text-primary" />
+                Delivered to model
+              </TimelineTitle>
+            </TimelineHeader>
+            <TimelineContent>
+              <p>
+                {delivery.model_id} · {delivery.representation}
+              </p>
+              {delivery.reason ? <p className="mt-1">{delivery.reason}</p> : null}
+              <details className="mt-2 text-[10px]">
+                <summary className="w-fit cursor-pointer font-medium">Internal evidence</summary>
+                <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
+                  <dt>Provider</dt>
+                  <dd>{delivery.provider_id}</dd>
+                  <dt>Evidence</dt>
+                  <dd>{delivery.evidence_source || 'Unavailable'}</dd>
+                </dl>
+              </details>
+            </TimelineContent>
+          </TimelineItem>
+        ))}
+      </Timeline>
+      {!deliveries.length && !error ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          No model delivery has been recorded yet.
+        </p>
+      ) : null}
+      <details className="mt-4 rounded-lg border p-3 text-xs">
+        <summary className="cursor-pointer font-medium">Integrity and custody</summary>
+        <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+          <dt className="text-muted-foreground">SHA-256</dt>
+          <dd className="break-all font-mono">{resource.sha256 || 'Unavailable'}</dd>
+          <dt className="text-muted-foreground">Detection</dt>
+          <dd>{resource.detection_source || 'Unavailable'}</dd>
+        </dl>
+      </details>
     </ScrollArea>
   );
+}
+
+function formatTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 function isPreviewable(mediaType: string): boolean {
