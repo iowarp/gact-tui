@@ -220,6 +220,42 @@ describe('ClioModelPicker', () => {
     );
   });
 
+  it('shows a provider that reported no models at all, with why and where to fix it', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={[
+            ...options,
+            {
+              providerId: 'alcf',
+              providerName: 'ALCF Metis',
+              kind: 'provider' as const,
+              id: '',
+              label: 'ALCF Metis',
+              available: false,
+              availabilityDetail: 'Stored Globus token could not be refreshed.',
+              configurationUrl: '/settings/providers?provider=alcf',
+              health: 'unavailable',
+            },
+          ]}
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByRole('button', { name: /ALCF Metis/ }));
+
+    expect(screen.getByText('Stored Globus token could not be refreshed.')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Configure ALCF Metis provider' })).toHaveAttribute(
+      'href',
+      '/settings/providers?provider=alcf',
+    );
+    expect(screen.getByLabelText('ALCF Metis provider status: Unavailable')).toBeVisible();
+  });
+
   it('persists hidden providers and offers a reveal control', async () => {
     const user = userEvent.setup();
     render(

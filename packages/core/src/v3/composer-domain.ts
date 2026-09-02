@@ -186,7 +186,14 @@ export interface ProviderCatalogModel {
   context_window?: number;
   loaded_context_window?: number;
   output_limit?: number;
-  availability: 'available' | 'candidate' | 'unavailable' | string;
+  /**
+   * What the service reports about this model's usability — `available`,
+   * `candidate`, or `unavailable` today. Deliberately an open string: the wire
+   * field is one, a union ending in `| string` collapses to `string` anyway,
+   * and the raw token is what an honest "unknown" presentation needs to show.
+   * Read it through a label map, never straight into user-facing copy.
+   */
+  availability: string;
   evidence: {
     source: string;
     generated_at: string;

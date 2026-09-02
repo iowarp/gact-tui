@@ -487,7 +487,11 @@ function toProviderGroup(group: {
   name: string;
   choices: ClioModelOption[];
 }): ProviderGroup {
-  const availableChoices = group.choices.filter((choice) => choice.available);
+  // A provider row stands for the provider itself, so it can never become a
+  // model someone picks.
+  const availableChoices = group.choices.filter(
+    (choice) => choice.available && choice.kind !== 'provider',
+  );
   const reportedHealth = group.choices.find((choice) => choice.health)?.health?.toLowerCase();
   const health: ProviderHealth = availableChoices.length
     ? reportedHealth === 'degraded' || reportedHealth === 'error'
