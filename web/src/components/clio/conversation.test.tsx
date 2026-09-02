@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -6,7 +6,7 @@ import { ConversationDisplayProvider } from '@/providers/conversation-display-pr
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ClioConversation } from './conversation';
 
-const virtualizerMocks = vi.hoisted(() => ({ scrollToIndex: vi.fn() }));
+const virtualizerMocks = vi.hoisted(() => ({ measure: vi.fn(), scrollToIndex: vi.fn() }));
 
 vi.mock('@tanstack/react-virtual', () => ({
   defaultRangeExtractor: () => [],
@@ -20,6 +20,7 @@ vi.mock('@tanstack/react-virtual', () => ({
         start: index * 180,
       })),
     measureElement: () => undefined,
+    measure: virtualizerMocks.measure,
     scrollToIndex: virtualizerMocks.scrollToIndex,
   }),
 }));
@@ -32,6 +33,9 @@ Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  virtualizerMocks.measure.mockClear();
   virtualizerMocks.scrollToIndex.mockClear();
   window.history.replaceState(null, '', window.location.pathname);
 });
@@ -45,6 +49,55 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation recovery actions', () => {
+  it('preserves measured transcript row heights when the viewport width changes', () => {
+    let onResize: ResizeObserverCallback | undefined;
+    class ResizeObserverMock implements ResizeObserver {
+      constructor(callback: ResizeObserverCallback) {
+        onResize = callback;
+      }
+
+      disconnect() {}
+      observe() {}
+      unobserve() {}
+    }
+    vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      bottom: 800,
+      height: 800,
+      left: 0,
+      right: 800,
+      top: 0,
+      width: 800,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const messages = Array.from({ length: 80 }, (_, index) => ({
+      id: `message_${index}`,
+      session_id: 'session_1',
+      role: 'user' as const,
+      created_at: '2026-08-22T00:00:00Z',
+      blocks: [],
+    }));
+
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={messages}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    act(() => {
+      onResize?.([{ contentRect: { width: 640 } } as ResizeObserverEntry], {} as ResizeObserver);
+    });
+
+    expect(virtualizerMocks.measure).not.toHaveBeenCalled();
+  });
+
   it('reserves a floating composer inset without shrinking the transcript viewport', () => {
     renderConversation(
       <ClioConversation

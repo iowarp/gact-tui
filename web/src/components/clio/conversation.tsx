@@ -565,7 +565,9 @@ export function ClioConversation({
       width = nextWidth;
       setConversationViewportWidth(nextWidth);
       const keepLatestVisible = pinnedToBottom.current;
-      if (virtualized) virtualizer.measure();
+      // Mounted rows already have their own ResizeObserver through measureElement.
+      // Clearing the full cache here replaces stable row heights with the 180px
+      // estimate; rows whose height does not change then leave visible gaps.
       window.cancelAnimationFrame(frame);
       if (keepLatestVisible) {
         frame = window.requestAnimationFrame(() => scrollToLatest('instant'));
@@ -576,7 +578,7 @@ export function ClioConversation({
       observer.disconnect();
       window.cancelAnimationFrame(frame);
     };
-  }, [scrollToLatest, virtualized, virtualizer]);
+  }, [scrollToLatest]);
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
