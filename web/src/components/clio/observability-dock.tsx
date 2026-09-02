@@ -59,7 +59,7 @@ import { ClioInteractiveRow } from './interactive-row';
 import { ClioActivityTimeline, type ObservabilityActivityItem } from './observability-activity';
 import { ClioEvidenceView } from './observability-evidence';
 import { ClioProcessLanes } from './observability-processes';
-import { ClioStatus } from './status';
+import { ClioStatus, type ClioStatusValue } from './status';
 import { getToolPresentation, getToolSummary } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -142,6 +142,12 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     isActiveWork(process.live_state),
   );
   const sessionActive = props.sessionState === 'queued' || props.sessionState === 'running';
+  const sessionNeedsAttention =
+    props.sessionState === 'waiting_permission' ||
+    props.sessionState === 'waiting_user' ||
+    props.sessionState === 'failed';
+  const showDockStatusBadge = Boolean(activeActivityCount || sessionActive || sessionNeedsAttention);
+  const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
   const hasAssistantActivity = props.messages.some(
     (message) => message.role === 'assistant' && message.blocks.length > 0,
   );
@@ -199,15 +205,16 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
             value="degraded"
           />
         ) : null}
-        {activeActivityCount || sessionActive ? (
-          <ClioStatus className="shrink-0 py-0.5" label={dockStatus} value="running" />
-        ) : (
-          <span aria-live="polite" className="sr-only">
-            {dockStatus}
-          </span>
-        )}
+        {showDockStatusBadge ? (
+          <ClioStatus className="shrink-0 py-0.5" label={dockStatus} value={dockStatusValue} />
+        ) : null}
         <PanelRightOpenIcon aria-hidden="true" className="size-3.5 shrink-0" />
       </Button>
+      {/* Always mounted (not conditionally toggled) so it exists before its text changes, and
+          outside the Button so its content never factors into the Button's accessible name. */}
+      <span aria-live="polite" className="sr-only">
+        {dockStatus}
+      </span>
       {props.subagents.length ? (
         <Popover onOpenChange={setChildAgentsOpen} open={childAgentsOpen}>
           <PopoverTrigger asChild>
