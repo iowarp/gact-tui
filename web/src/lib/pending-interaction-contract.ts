@@ -8,6 +8,17 @@ import type {
 
 export type PermissionAction = 'allow' | 'deny' | 'allow_session' | 'allow_workspace';
 
+const PERMISSION_ACTIONS: ReadonlySet<string> = new Set<PermissionAction>([
+  'allow',
+  'deny',
+  'allow_session',
+  'allow_workspace',
+]);
+
+function isPermissionAction(value: string | undefined): value is PermissionAction {
+  return value !== undefined && PERMISSION_ACTIONS.has(value);
+}
+
 /** Keeps the normalized endpoint opt-in so older backends retain their legacy paths. */
 export function hasUnifiedInteractionCapability(
   capabilities?: Readonly<Record<string, unknown>>,
@@ -112,9 +123,16 @@ export async function respondToLegacyInteraction(
   },
 ): Promise<unknown> {
   if (interaction.kind === 'permission') {
+    // The legacy endpoint genuinely only accepts these four values; a caller
+    // that got here with anything else (an unrecognized server-offered action
+    // this client never renders a clickable control for) is a real bug, not
+    // a case an unchecked cast should paper over.
+    if (!isPermissionAction(response.action)) {
+      throw new Error(`Unsupported permission action: ${response.action ?? '(none)'}`);
+    }
     return legacy.respondPermission(
       interaction.payload?.permission_id ?? interaction.id,
-      response.action as PermissionAction,
+      response.action,
     );
   }
   if (interaction.kind === 'a2ui') {

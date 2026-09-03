@@ -132,6 +132,23 @@ describe('ClioPendingInteractions', () => {
     expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'allow_session' });
   });
 
+  it('shows an unrecognized server-offered action as disabled, never hides it', () => {
+    const interaction = pending('permission', {
+      id: 'permission:future',
+      title: 'Run the future command',
+      actions: ['allow', 'allow_forever'],
+    });
+    renderPending([interaction]);
+
+    expect(screen.getByRole('button', { name: 'Allow once' })).toBeEnabled();
+    const unknownAction = screen.getByRole('button', { name: 'allow_forever' });
+    expect(unknownAction).toBeDisabled();
+    expect(unknownAction).toHaveAttribute(
+      'title',
+      'This client cannot offer "allow_forever" yet.',
+    );
+  });
+
   it('names the read that failed while it still renders what it could read', () => {
     renderPending([pending('permission', { id: 'permission:p1', title: 'Run the command' })], {
       error: new Error('capabilities unavailable'),

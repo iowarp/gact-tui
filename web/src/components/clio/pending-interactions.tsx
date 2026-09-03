@@ -39,6 +39,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
 import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
@@ -295,6 +296,12 @@ function PermissionResponse({
   const toolName = toolCall?.tool_name ?? interaction.source.tool_name;
   const allowed = interaction.actions ? new Set(interaction.actions) : undefined;
   const show = (action: string) => !allowed || allowed.has(action);
+  // A future server can offer an action this client does not yet render a
+  // control for. It is shown, disabled, with its own label — never silently
+  // dropped, which would leave the reader unable to tell it was ever offered.
+  const unrecognizedActions = (interaction.actions ?? []).filter(
+    (action) => !KNOWN_PERMISSION_ACTIONS.has(action),
+  );
   return (
     <Confirmation
       approval={{ id: interaction.id }}
@@ -373,11 +380,31 @@ function PermissionResponse({
               Allow once
             </ConfirmationAction>
           ) : null}
+          {unrecognizedActions.map((action) => (
+            <ConfirmationAction
+              disabled
+              key={action}
+              title={`This client cannot offer "${action}" yet.`}
+              variant="outline"
+            >
+              {action}
+            </ConfirmationAction>
+          ))}
         </ConfirmationActions>
       </ConfirmationRequest>
     </Confirmation>
   );
 }
+
+// Kept as literal values of PermissionAction (not the type itself): membership
+// is checked against arbitrary server-offered strings, which may legitimately
+// be outside that union — that is exactly the "unrecognized" case this guards.
+const KNOWN_PERMISSION_ACTIONS: ReadonlySet<string> = new Set<PermissionAction>([
+  'deny',
+  'allow_workspace',
+  'allow_session',
+  'allow',
+]);
 
 function InteractionFrameHeader({
   interaction,

@@ -139,4 +139,29 @@ describe('pending interaction legacy compatibility', () => {
       selected_options: ['one'],
     });
   });
+
+  it('rejects an unsupported permission action instead of casting it through', async () => {
+    const interaction: PendingInteraction = {
+      id: 'permission:p1',
+      kind: 'permission',
+      owner_session_id: child.id,
+      attended_session_id: root.id,
+      status: 'pending',
+      title: 'Run the command',
+      source: { protocol: 'native' },
+      created_at: '2026-09-02T00:00:00Z',
+      payload: { permission_id: 'perm_1' },
+    };
+    const legacy = {
+      answerQuestion: vi.fn(async () => undefined),
+      cancelQuestion: vi.fn(async () => undefined),
+      respondPermission: vi.fn(async () => undefined),
+      a2uiAction: vi.fn(async () => undefined),
+    };
+
+    await expect(
+      respondToLegacyInteraction(interaction, { action: 'allow_forever' }, legacy),
+    ).rejects.toThrow('Unsupported permission action: allow_forever');
+    expect(legacy.respondPermission).not.toHaveBeenCalled();
+  });
 });
