@@ -22,6 +22,8 @@ import {
   TimelineTitle,
 } from '@/components/reui/timeline';
 import { Button } from '@/components/ui/button';
+import { truncate } from '@/lib/format';
+import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, type ClioStatusValue } from './status';
@@ -56,6 +58,22 @@ interface ActivityGroup {
   mainTurn: boolean;
   depth: number;
   items: ObservabilityActivityItem[];
+}
+
+/**
+ * What a background process actually reported, for the one row that stands for it.
+ *
+ * A row that says only "MCP task" restates the glyph beside it and hides the
+ * reason a failed conversion failed. What the record carries wins; the kind is
+ * the typed fallback for a record that reported nothing.
+ */
+// One owner for the process detail shared by the projected and unprojected timelines.
+// oxlint-disable-next-line react/only-export-components
+export function asyncProcessDetail(process: AsyncProcess): string {
+  const reported = process.error_reason?.trim() || process.result?.answer_excerpt?.trim();
+  if (reported) return truncate(reported, SUMMARY_TRUNCATE_CHARS);
+  if (process.kind === 'agent') return process.placement?.trim() || 'Child agent';
+  return process.host?.trim() ? `Background task, ${process.host.trim()}` : 'Background task';
 }
 
 const HIGH_SIGNAL_CHILD_KINDS = new Set([
@@ -134,7 +152,7 @@ export function childProjectionActivityItems(
       id: `mcp-task:${process.id}`,
       kind: 'process',
       label: process.title,
-      detail: 'MCP task',
+      detail: asyncProcessDetail(process),
       state: process.live_state,
       at: process.updated_at ?? process.created_at,
       timing: process.updated_at || process.created_at ? 'event' : undefined,

@@ -57,6 +57,7 @@ import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import { ClioInteractiveRow } from './interactive-row';
 import {
+  asyncProcessDetail,
   childProjectionActivityItems,
   ClioActivityTimeline,
   type ObservabilityActivityItem,
@@ -422,10 +423,7 @@ export function ClioObservabilityView({
               id: process.id,
               kind: 'process',
               label: process.title,
-              detail:
-                process.kind === 'agent'
-                  ? childAgentProcessDetail(process.placement)
-                  : `Background task${process.host ? `, ${process.host}` : ''}`,
+              detail: asyncProcessDetail(process),
               state: process.live_state,
               at: process.updated_at ?? process.created_at,
               groupId: process.parent_turn_id,
@@ -707,10 +705,6 @@ function toolActivityContext(
     }
   }
   return context;
-}
-
-function childAgentProcessDetail(placement: string | undefined): string {
-  return placement?.trim() || 'Child agent';
 }
 
 function findSubagent(

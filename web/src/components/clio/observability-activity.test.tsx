@@ -206,7 +206,7 @@ describe('child work activity projection', () => {
           id: 'mcp-task:mcp_review_task',
           kind: 'process',
           label: 'Review station quality',
-          detail: 'MCP task',
+          detail: 'Background task',
           ownerSessionId: 'session_leaf',
           depth: 2,
         }),
@@ -222,6 +222,20 @@ describe('child work activity projection', () => {
     );
     expect(items.some((item) => item.label.includes('Private reasoning'))).toBe(false);
     expect(items.find((item) => item.id === 'task_child:branch-open')?.groupId).toBe('turn_root');
+  });
+
+  it('reports what an MCP task recorded rather than restating that it is one', () => {
+    const failed: AsyncProcess = {
+      ...processes[2]!,
+      live_state: 'failed',
+      status: 'failed',
+      error_reason: 'The converter refused the source revision.',
+    };
+    const items = childProjectionActivityItems(provenance, [processes[0]!, processes[1]!, failed]);
+
+    expect(items.find((item) => item.id === 'mcp-task:mcp_review_task')?.detail).toBe(
+      'The converter refused the source revision.',
+    );
   });
 
   it('renders a navigable nested branch at its delegation point', () => {
