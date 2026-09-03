@@ -182,7 +182,8 @@ export function ClioComposerReferenceMenu({
         </PromptInputCommandEmpty>
         {groups.map((group) => {
           const matches = rows.filter((row) => group.kinds.includes(row.kind));
-          if (!matches.length) return null;
+          const alwaysVisible = group.label === 'Artifacts' || group.label === 'Local files';
+          if (!matches.length && !alwaysVisible) return null;
           const open = isSearching || openGroups[group.label];
           return (
             <PromptInputCommandGroup className="p-0" key={group.label}>
@@ -207,7 +208,11 @@ export function ClioComposerReferenceMenu({
                       />
                       <span>{group.label}</span>
                     </span>
-                    <span className="text-muted-foreground">{matches.length}</span>
+                    <span className="text-muted-foreground">
+                      {group.label === 'Local files' && localFiles.isFetching
+                        ? '…'
+                        : matches.length}
+                    </span>
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>

@@ -43,8 +43,15 @@ describe('composer reference presentation', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByText('Sources')).toBeVisible();
-    expect(screen.queryByText('Artifacts')).not.toBeInTheDocument();
+    const artifacts = await screen.findByRole('button', { name: 'Collapse Artifacts' });
+    const localFiles = screen.getByRole('button', { name: 'Collapse Local files' });
+    const sources = await screen.findByRole('button', { name: 'Collapse Sources' });
+    expect(artifacts.compareDocumentPosition(localFiles) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(localFiles.compareDocumentPosition(sources) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     await user.click(screen.getByRole('option', { name: /10K-NVDA\.pdf/ }));
     expect(onSelect).toHaveBeenCalledWith(reference);
   });
