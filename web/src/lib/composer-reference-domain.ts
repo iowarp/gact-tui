@@ -2,6 +2,18 @@ import type { ComposerMessagePart, WorkspaceReference } from '@clio/core/v3';
 
 export type ReferencePart = Exclude<ComposerMessagePart, { type: 'text' }>;
 
+/**
+ * One reference the person put in a draft, and where it sits in the draft text.
+ *
+ * The offset is a plain-text character offset, so the inline editor can place
+ * the token back at the same point in the prose after any re-render, and the
+ * draft's owner can hold the selection across a composer remount.
+ */
+export interface InlineReferenceSelection {
+  offset: number;
+  reference: WorkspaceReference;
+}
+
 export function referenceIdentity(part: ReferencePart): string {
   return part.type === 'resource_ref'
     ? `resource:${part.resource_id}:${part.resource_revision}`

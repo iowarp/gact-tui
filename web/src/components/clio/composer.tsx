@@ -51,11 +51,12 @@ import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
 import type { WorkspaceResourceUploadResult } from '@/lib/upload-workspace-resources';
 import { ClioComposerReferenceMenu } from './composer-references';
-import { toMessagePart, workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
 import {
-  ComposerInlineReferenceEditor,
+  toMessagePart,
+  workspaceReferenceIdentity,
   type InlineReferenceSelection,
-} from './composer-inline-reference-editor';
+} from '@/lib/composer-reference-domain';
+import { ComposerInlineReferenceEditor } from './composer-inline-reference-editor';
 
 function focusComposerEditor(editor: HTMLDivElement | null): void {
   if (!editor || editor.getAttribute('aria-disabled') === 'true') return;
@@ -128,6 +129,14 @@ export interface ClioComposerProps {
   onUpdateQueuedMessage?: (message: QueuedMessage, text: string) => Promise<void>;
   value?: string;
   onValueChange?: (value: string) => void;
+  /**
+   * The references the draft carries. Controlled alongside `value` by whoever
+   * owns the draft: the composer is remounted whenever the session, model or
+   * layout branch changes, so state kept inside it would be destroyed while the
+   * text beside it survived.
+   */
+  references?: readonly InlineReferenceSelection[];
+  onReferencesChange?: (references: readonly InlineReferenceSelection[]) => void;
   focusRequestKey?: number;
   variant?: 'docked' | 'welcome';
 }
@@ -172,6 +181,8 @@ export function ClioComposer({
   onUpdateQueuedMessage,
   value,
   onValueChange,
+  references,
+  onReferencesChange,
   focusRequestKey,
   variant = 'docked',
 }: ClioComposerProps) {
@@ -187,7 +198,17 @@ export function ClioComposer({
   // though the service had asked for it.
   const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
-  const [selectedReferences, setSelectedReferences] = useState<InlineReferenceSelection[]>([]);
+  const [internalReferences, setInternalReferences] = useState<readonly InlineReferenceSelection[]>(
+    [],
+  );
+  const selectedReferences = references ?? internalReferences;
+  const setSelectedReferences = useCallback(
+    (next: readonly InlineReferenceSelection[]) => {
+      if (references === undefined) setInternalReferences(next);
+      onReferencesChange?.(next);
+    },
+    [onReferencesChange, references],
+  );
   const [referenceOptions, setReferenceOptions] = useState<readonly WorkspaceReference[]>([]);
   const [activeReferenceId, setActiveReferenceId] = useState<string>();
   const [referencePickerOpen, setReferencePickerOpen] = useState(false);
@@ -274,15 +295,13 @@ export function ClioComposer({
       const base = tokenStart >= 0 ? input.slice(0, tokenStart) : input;
       const prefix = base && !/\s$/.test(base) ? `${base} ` : base;
       const nextInput = `${prefix} `;
-      setSelectedReferences((current) =>
-        current.some(
-          (candidate) =>
-            workspaceReferenceIdentity(candidate.reference) ===
-            workspaceReferenceIdentity(reference),
-        )
-          ? current
-          : [...current, { offset: prefix.length, reference }],
+      const alreadySelected = selectedReferences.some(
+        (candidate) =>
+          workspaceReferenceIdentity(candidate.reference) === workspaceReferenceIdentity(reference),
       );
+      if (!alreadySelected) {
+        setSelectedReferences([...selectedReferences, { offset: prefix.length, reference }]);
+      }
       setInput(nextInput);
       setReferencePickerOpen(false);
       setReferenceSearchQuery('');
@@ -290,7 +309,7 @@ export function ClioComposer({
       setActiveReferenceId(undefined);
       window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
     },
-    [input, referenceToken, setInput],
+    [input, referenceToken, selectedReferences, setInput, setSelectedReferences],
   );
 
   useLayoutEffect(() => {

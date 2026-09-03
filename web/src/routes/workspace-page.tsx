@@ -33,6 +33,7 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
 import { useSessionMessageCount } from '@/hooks/use-session-message-count';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
+import { useComposerDraft } from '@/hooks/use-composer-draft';
 import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
@@ -48,12 +49,7 @@ export function WorkspacePage() {
   const navigateToAvailableSession = useAvailableSessionNavigation();
   const repository = useRepository();
   const queryClient = useQueryClient();
-  const [composerDraftState, setComposerDraftState] = useState({ sessionId, value: '' });
-  const composerDraft = composerDraftState.sessionId === sessionId ? composerDraftState.value : '';
-  const setComposerDraft = useCallback(
-    (value: string) => setComposerDraftState({ sessionId, value }),
-    [sessionId],
-  );
+  const composerDraft = useComposerDraft(sessionId);
   const [composerFocusKey, setComposerFocusKey] = useState(0);
   const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
@@ -499,7 +495,8 @@ export function WorkspacePage() {
         onUpdateQueuedMessage={(message, text) =>
           updateQueuedMessage.mutateAsync({ message, text }).then(() => undefined)
         }
-        onValueChange={setComposerDraft}
+        onReferencesChange={composerDraft.onReferencesChange}
+        onValueChange={composerDraft.onValueChange}
         provider={activeProvider}
         queuedMessages={queuedMessages.data ?? []}
         resources={workspaceResources.data ?? []}
@@ -510,7 +507,8 @@ export function WorkspacePage() {
           updateQueuedMessage.isPending
         }
         state={state}
-        value={composerDraft}
+        references={composerDraft.references}
+        value={composerDraft.value}
         variant={variant}
         workspaceId={workspaceId}
       />
@@ -692,7 +690,7 @@ export function WorkspacePage() {
                     <ClioConversationWelcome
                       disabled={!session || send.isPending || cancel.isPending || isPending}
                       onSelectPrompt={(prompt) => {
-                        setComposerDraft(prompt);
+                        composerDraft.onValueChange(prompt);
                         setComposerFocusKey((current) => current + 1);
                       }}
                     >

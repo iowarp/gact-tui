@@ -10,12 +10,11 @@ import {
 } from 'react';
 import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
 import { cn } from '@/lib/utils';
-import { referenceKindLabel, workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
-
-export interface InlineReferenceSelection {
-  offset: number;
-  reference: WorkspaceReference;
-}
+import {
+  referenceKindLabel,
+  workspaceReferenceIdentity,
+  type InlineReferenceSelection,
+} from '@/lib/composer-reference-domain';
 
 interface ComposerInlineReferenceEditorProps {
   className?: string;
