@@ -16,7 +16,7 @@ import { useMemo, useRef } from 'react';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { useContainerQuery } from '@/hooks/use-container-query';
-import { formatDuration } from '@/lib/format';
+import { formatDuration, formatNestingDepth } from '@/lib/format';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -240,7 +240,11 @@ export function buildExecutionProvenanceGraph(
         position: { x: 0, y: 0 },
         data: {
           label: node.label,
-          detail: [node.kind, owner?.label || node.agent_id, depth ? `depth ${depth}` : undefined]
+          detail: [
+            node.kind,
+            owner?.label || node.agent_id,
+            depth === undefined ? undefined : formatNestingDepth(depth),
+          ]
             .filter(Boolean)
             .join(', '),
           status: node.status,

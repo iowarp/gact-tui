@@ -220,3 +220,55 @@ describe('ClioEvidenceView resource sources', () => {
     expect(screen.getAllByText('paper.pdf')).toHaveLength(1);
   });
 });
+
+describe('ClioEvidenceView session_lineage fallback', () => {
+  it('still shows workflow-state sources when session_lineage is legally empty', () => {
+    // An empty array is CLIO's legal "this session delegated to nothing" answer,
+    // not a missing read — it must not suppress the plain workflow-state sources
+    // every process already carries.
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        executionProvenance={{
+          schema_version: 'clio.execution_provenance.v1',
+          provider: 'native',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          complete: true,
+          truncated: false,
+          provider_health: {},
+          campaigns: [],
+          workflows: [],
+          agents: [],
+          session_lineage: [],
+          spans: [],
+          nodes: [],
+          edges: [],
+        }}
+        messages={[]}
+        processes={[
+          {
+            kind: 'agent',
+            id: 'task_1',
+            title: 'ndp #1',
+            live_state: 'completed',
+            status: 'completed',
+            result: {
+              workflow_state: {
+                acquisition: {
+                  metadata_source_url: 'https://example.test/data.csv',
+                },
+              },
+            },
+            metadata: {},
+          },
+        ]}
+        resources={[]}
+      />,
+    );
+
+    expect(screen.getByText('ndp #1, Metadata source URL')).toBeVisible();
+  });
+});

@@ -521,7 +521,10 @@ function sessionSources(
       ];
     }),
   );
-  if (executionProvenance?.session_lineage) {
+  // An empty session_lineage ([]) is a legal "no children" answer, not a
+  // missing provenance read — it must still fall back to workflow-state
+  // sources, or a leaf session with no delegated children loses them all.
+  if (executionProvenance?.session_lineage?.length) {
     sources.push(...provenanceSources(executionProvenance));
   } else {
     for (const process of processes) {
@@ -571,7 +574,7 @@ function provenanceSources(provenance: ExecutionProvenanceResult): EvidenceSourc
       value,
       link: isWebLink(value),
       dedupeKey: `provenance:${node.id}`,
-      ownerLabel: ownerNode?.label || owner?.label || ownerSessionId,
+      ownerLabel: ownerNode?.label || owner?.label || 'Unknown session',
       relation: relation.kind,
     });
   }
@@ -598,7 +601,7 @@ function artifactAttribution(
     artifact.session_id;
   const owner = provenance.session_lineage.find((row) => row.session_id === ownerSessionId);
   return {
-    owner: ownerNode?.label || owner?.label || ownerSessionId,
+    owner: ownerNode?.label || owner?.label || 'Unknown session',
     relation: relation.kind,
   };
 }

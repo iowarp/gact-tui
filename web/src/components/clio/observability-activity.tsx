@@ -22,12 +22,13 @@ import {
   TimelineTitle,
 } from '@/components/reui/timeline';
 import { Button } from '@/components/ui/button';
-import { truncate } from '@/lib/format';
+import { formatNestingDepth, truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
-import { ClioStatus, type ClioStatusValue } from './status';
+import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
+import { humanizeToolName } from './tool-presentation';
 
 export interface ObservabilityActivityItem {
   id: string;
@@ -103,12 +104,20 @@ export function childProjectionActivityItems(
   const items: ObservabilityActivityItem[] = [];
 
   for (const owner of lineage) {
-    if (!owner.depth || !owner.task_id) continue;
+    // depth 0 is the root of a delegation chain, a legal value the old `||`
+    // check silently dropped alongside a genuinely missing depth.
+    if (owner.depth === undefined || !owner.task_id) continue;
     const process = processByTask.get(owner.task_id);
     const state = activityState(process?.live_state ?? owner.status ?? 'running');
+    const closedAt = process?.updated_at ?? owner.updated_at;
+    // The close row is what carries a terminal outcome off the open row's
+    // permanent "running" animation. When no close row will actually be
+    // emitted, the open row must carry the true terminal state itself —
+    // otherwise a failed or cancelled child reads as quietly "completed".
+    const closeRowWillFollow = isTerminalState(state) && Boolean(closedAt);
     const common = {
       kind: 'process' as const,
-      label: process?.title || owner.label || owner.task_id,
+      label: process?.title || owner.label || 'Untitled task',
       rootSessionId,
       ownerSessionId: owner.session_id,
       ownerLabel: owner.label,
@@ -120,17 +129,14 @@ export function childProjectionActivityItems(
     items.push({
       ...common,
       id: `${owner.task_id}:branch-open`,
-      detail: owner.agent_id ? `Delegated to ${owner.agent_id}` : 'Delegated child work',
-      // A historical delegation event must not retain a permanent running animation after the
-      // child has settled; the separate branch-close event carries the terminal outcome.
-      state: isTerminalState(state) ? 'completed' : state,
+      detail: owner.label ? `Delegated to ${owner.label}` : 'Delegated child work',
+      state: closeRowWillFollow ? 'completed' : state,
       at: process?.created_at ?? owner.created_at,
       groupId: process?.parent_turn_id,
       timing: process?.created_at || owner.created_at ? 'event' : undefined,
       lifecycle: 'open',
     });
-    const closedAt = process?.updated_at ?? owner.updated_at;
-    if (isTerminalState(state) && closedAt) {
+    if (closeRowWillFollow) {
       items.push({
         ...common,
         id: `${owner.task_id}:branch-close`,
@@ -296,7 +302,7 @@ function ActivityRow({ baseDepth, item }: { baseDepth: number; item: Observabili
           <PanelRightOpenIcon aria-hidden="true" />
         </Button>
       }
-      aria-label={`${item.label}, ${item.state}${item.depth ? `, depth ${item.depth}` : ''}`}
+      aria-label={activityRowAriaLabel(item)}
       className="min-h-0 px-0 py-0"
       onClick={(event) => item.onOpen?.(event.shiftKey ? 'canvas' : 'conversation')}
       role="button"
@@ -309,6 +315,11 @@ function ActivityRow({ baseDepth, item }: { baseDepth: number; item: Observabili
 
 function ActivityStatus({ item }: { item: ObservabilityActivityItem }) {
   return <ClioStatus className="mt-0 shrink-0 py-0.5" value={item.state} />;
+}
+
+function activityRowAriaLabel(item: ObservabilityActivityItem): string {
+  const depthDetail = formatNestingDepth(item.depth ?? 0);
+  return `${item.label}, ${clioStatusLabel(item.state)}${depthDetail ? `, ${depthDetail}` : ''}`;
 }
 
 function groupActivity(
@@ -378,7 +389,9 @@ function projectedKind(kind: string): ObservabilityActivityItem['kind'] {
 function projectedActivityDetail(kind: string, toolName?: string, ownerLabel?: string): string {
   const detail =
     kind === 'tool'
-      ? toolName || 'Tool activity'
+      ? toolName
+        ? humanizeToolName(toolName)
+        : 'Tool activity'
       : kind === 'artifact'
         ? 'Produced artifact'
         : kind === 'resource'

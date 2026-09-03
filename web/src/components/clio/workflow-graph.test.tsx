@@ -185,7 +185,7 @@ describe('buildExecutionProvenanceGraph', () => {
       ownerSessionId: 'session_leaf',
       taskId: 'task_leaf',
       depth: 2,
-      detail: 'artifact, Evidence critic, depth 2',
+      detail: 'artifact, Evidence critic, 2 levels deep',
     });
   });
 

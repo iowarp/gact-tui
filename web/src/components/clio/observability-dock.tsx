@@ -416,7 +416,10 @@ export function ClioObservabilityView({
           depth: owner?.depth ?? process?.task_path?.length,
         };
       }),
-      ...(projected
+      // An empty session_lineage ([]) is a legal "no children" answer, not a
+      // missing read — it must still fall back to the plain processes list, or
+      // every process the Gantt shows below renders zero rows here.
+      ...(projected && projected.length > 0
         ? childProjectionActivityItems(executionProvenance, processes, knownToolIds)
         : processes.map(
             (process): ObservabilityActivityItem => ({

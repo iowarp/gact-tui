@@ -255,7 +255,7 @@ describe('child work activity projection', () => {
     ];
     render(<ClioActivityTimeline items={[{ ...branch!, onOpen }]} messages={messages} />);
 
-    const row = screen.getByRole('button', { name: 'Evidence researcher, running, depth 1' });
+    const row = screen.getByRole('button', { name: 'Evidence researcher, Running, 1 level deep' });
     expect(row.closest('[data-slot="timeline-item"]')).toHaveStyle({ marginInlineStart: '0px' });
     expect(row).toHaveStyle({ marginInlineStart: '14px' });
     fireEvent.click(row);
@@ -274,5 +274,80 @@ describe('child work activity projection', () => {
 
     const row = screen.getAllByText('Evidence leaf')[0];
     expect(row.closest('[data-slot="timeline-item"]')).toHaveStyle({ marginInlineStart: '28px' });
+  });
+
+  it('keeps a depth-0 owner instead of treating a legal depth as missing', () => {
+    const rootOwnerProvenance: ExecutionProvenanceResult = {
+      ...provenance,
+      session_lineage: [
+        {
+          session_id: 'session_root',
+          parent_session_id: '',
+          task_id: 'task_root',
+          agent_id: 'main',
+          label: 'Investigation',
+          depth: 0,
+          task_path: [],
+          status: 'running',
+        },
+      ],
+    };
+
+    const items = childProjectionActivityItems(rootOwnerProvenance, []);
+
+    expect(items.find((item) => item.id === 'task_root:branch-open')).toBeDefined();
+  });
+
+  it('carries the true terminal state on the open row when no close row will exist', () => {
+    const failedWithNoCloseSignal: ExecutionProvenanceResult = {
+      ...provenance,
+      session_lineage: [
+        {
+          session_id: 'session_child',
+          parent_session_id: 'session_root',
+          task_id: 'task_child',
+          agent_id: 'researcher',
+          label: 'Evidence researcher',
+          depth: 1,
+          task_path: ['task_child'],
+          status: 'failed',
+          // No updated_at and no matching process: no close row will be emitted.
+        },
+      ],
+    };
+
+    const items = childProjectionActivityItems(failedWithNoCloseSignal, []);
+
+    expect(items.find((item) => item.id === 'task_child:branch-open')?.state).toBe('failed');
+    expect(items.some((item) => item.id === 'task_child:branch-close')).toBe(false);
+  });
+
+  it('names a delegate by its session label, never its raw agent id', () => {
+    const items = childProjectionActivityItems(provenance, processes);
+
+    expect(items.find((item) => item.id === 'task_child:branch-open')?.detail).toBe(
+      'Delegated to Evidence researcher',
+    );
+  });
+
+  it('falls back to a typed label instead of the raw task id', () => {
+    const untitledOwnerProvenance: ExecutionProvenanceResult = {
+      ...provenance,
+      session_lineage: [
+        {
+          session_id: 'session_child',
+          parent_session_id: 'session_root',
+          task_id: 'task_child',
+          agent_id: 'researcher',
+          label: '',
+          depth: 1,
+          task_path: ['task_child'],
+        },
+      ],
+    };
+
+    const items = childProjectionActivityItems(untitledOwnerProvenance, []);
+
+    expect(items.find((item) => item.id === 'task_child:branch-open')?.label).toBe('Untitled task');
   });
 });

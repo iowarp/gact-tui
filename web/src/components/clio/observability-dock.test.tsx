@@ -1,3 +1,4 @@
+import type { AsyncProcess, ExecutionProvenanceResult } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -742,6 +743,52 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByText(/Partial flowcept provenance/u)).toBeVisible();
+  });
+
+  it('still shows process activity when session_lineage is legally empty', async () => {
+    // [] means "delegated to nothing", not a missing read — must still fall back.
+    const user = userEvent.setup();
+    const provenance: ExecutionProvenanceResult = {
+      schema_version: 'clio.execution_provenance.v1',
+      provider: 'native',
+      session_id: 'session_root',
+      complete: true,
+      truncated: false,
+      provider_health: {},
+      campaigns: [],
+      workflows: [],
+      agents: [],
+      session_lineage: [],
+      spans: [],
+      nodes: [],
+      edges: [],
+    };
+    const process: AsyncProcess = {
+      kind: 'agent',
+      id: 'task_1',
+      title: 'ndp #1',
+      live_state: 'completed',
+      status: 'completed',
+      metadata: {},
+    };
+    renderObservability(
+      <ClioObservabilityView
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        executionProvenance={provenance}
+        messages={[]}
+        processes={[process]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Timeline' }));
+    expect(screen.getByText('ndp #1')).toBeVisible();
   });
 });
 

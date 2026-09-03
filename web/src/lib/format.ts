@@ -80,3 +80,13 @@ export function formatDuration(milliseconds: number, style: DurationStyle = 'uni
 export function truncate(value: string, limit: number): string {
   return value.length <= limit ? value : `${value.slice(0, limit - 1).trimEnd()}…`;
 }
+
+/**
+ * Phrases a child work item's nesting depth in the session hierarchy as prose
+ * rather than the bare internal term "depth N", which reads as jargon outside
+ * a debugger. Returns undefined at the root, where nesting has nothing to say.
+ */
+export function formatNestingDepth(depth: number): string | undefined {
+  if (depth <= 0) return undefined;
+  return `${depth} level${depth === 1 ? '' : 's'} deep`;
+}
