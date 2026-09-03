@@ -110,6 +110,34 @@ describe('resourceAvailability', () => {
   it('carries no presentation class of its own', () => {
     expect(resourceAvailability(workspaceResource())).not.toHaveProperty('className');
   });
+
+  it('reports the conversion stage without claiming partial agent availability', () => {
+    const resource = workspaceResource({
+      processing: {
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_1',
+        resource_revision: 1,
+        source_sha256: 'abc',
+        processor: 'docling',
+        processor_url: 'http://processor.test',
+        job_id: 'job_1',
+        state: 'processing',
+        progress: 40,
+        progress_kind: 'stage',
+        stage: 'docling',
+        derivatives_available: false,
+        failure: {},
+        cancellation: {},
+        created_at: '2026-08-31T00:00:00Z',
+        updated_at: '2026-08-31T00:00:01Z',
+      },
+    });
+
+    expect(resourceAvailability(resource)).toMatchObject({
+      detail: 'Converting.',
+      state: 'preparing',
+    });
+  });
 });
 
 describe('resourcePipelineStages', () => {

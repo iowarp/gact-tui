@@ -108,7 +108,9 @@ export function resourceAvailability(
   ) {
     return availability(
       'preparing',
-      `The original is retained; structured content is ${conversionActivityLabel(processing.stage).toLowerCase()} for the agent.`,
+      processing.state === 'submitted'
+        ? 'Conversion queued.'
+        : `${conversionActivityLabel(processing.stage)}.`,
     );
   }
 
