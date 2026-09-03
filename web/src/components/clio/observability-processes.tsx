@@ -389,6 +389,18 @@ function ProcessLaneRow({
   );
 }
 
+/**
+ * What to call a process on a timeline row.
+ *
+ * Never its id. A task token is an opaque correlation handle, not a name: it
+ * tells the reader nothing about what is running, and the row is the only place
+ * they can find out. The token stays on the span as `data-execution-span-id`
+ * for anyone matching a row to a trace.
+ */
+function processLabel(process: AsyncProcess): string {
+  return process.title.trim() || (process.kind === 'agent' ? 'Agent task' : 'MCP task');
+}
+
 interface ProcessSpan {
   id: string;
   label: string;
@@ -453,7 +465,7 @@ function executionSpans({
       );
       return {
         id: process.id,
-        label: process.title || process.id,
+        label: processLabel(process),
         branch: process.id,
         owner: process.id,
         kind: process.kind,
