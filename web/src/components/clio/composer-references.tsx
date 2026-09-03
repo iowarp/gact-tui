@@ -30,43 +30,33 @@ import { workspaceReferenceIdentity } from './composer-reference-domain';
 
 type ReferenceIcon = ComponentType<SVGProps<SVGSVGElement>>;
 
-const groups: Array<{
-  kind: WorkspaceReference['kind'];
-  label: string;
-  icon: ReferenceIcon;
-}> = [
-  { kind: 'workspace_file', label: 'Local files', icon: FileTextIcon },
-  { kind: 'resource', label: 'Resources', icon: DatabaseIcon },
-  { kind: 'artifact', label: 'Artifacts', icon: PackageIcon },
-  { kind: 'evidence_source', label: 'Sources', icon: WaypointsIcon },
-  { kind: 'context_frame', label: 'Context records', icon: BracesIcon },
-  { kind: 'diff', label: 'Changed files', icon: FileDiffIcon },
-  { kind: 'plan', label: 'Plans', icon: ListTreeIcon },
-  { kind: 'session', label: 'Conversations', icon: MessageSquareIcon },
-  { kind: 'agent_run', label: 'Agents and runs', icon: BotIcon },
-];
-
-const iconByKind = Object.fromEntries(groups.map((group) => [group.kind, group.icon])) as Record<
+const presentationByKind: Record<
   WorkspaceReference['kind'],
-  ReferenceIcon
->;
-
-const labelByKind = Object.fromEntries(groups.map((group) => [group.kind, group.label])) as Record<
-  WorkspaceReference['kind'],
-  string
->;
-
-const itemLabelByKind: Record<WorkspaceReference['kind'], string> = {
-  workspace_file: 'local file',
-  resource: 'resource',
-  artifact: 'artifact',
-  evidence_source: 'source',
-  context_frame: 'context record',
-  diff: 'changed file',
-  plan: 'plan',
-  session: 'conversation',
-  agent_run: 'agent run',
+  { icon: ReferenceIcon; label: string; itemLabel: string }
+> = {
+  workspace_file: { icon: FileTextIcon, label: 'Local file', itemLabel: 'local file' },
+  resource: { icon: DatabaseIcon, label: 'Source', itemLabel: 'source' },
+  artifact: { icon: PackageIcon, label: 'Artifact', itemLabel: 'artifact' },
+  evidence_source: { icon: WaypointsIcon, label: 'Source', itemLabel: 'source' },
+  context_frame: { icon: BracesIcon, label: 'Context record', itemLabel: 'context record' },
+  diff: { icon: FileDiffIcon, label: 'Changed file', itemLabel: 'changed file' },
+  plan: { icon: ListTreeIcon, label: 'Plan', itemLabel: 'plan' },
+  session: { icon: MessageSquareIcon, label: 'Conversation', itemLabel: 'conversation' },
+  agent_run: { icon: BotIcon, label: 'Agent run', itemLabel: 'agent run' },
 };
+
+const groups: Array<{ kinds: WorkspaceReference['kind'][]; label: string }> = [
+  { kinds: ['workspace_file'], label: 'Local files' },
+  // Uploaded files and tool-observed evidence have different wire identities, but both are
+  // user-facing sources. Artifacts remain reserved for generated or registered outputs.
+  { kinds: ['resource', 'evidence_source'], label: 'Sources' },
+  { kinds: ['artifact'], label: 'Artifacts' },
+  { kinds: ['context_frame'], label: 'Context records' },
+  { kinds: ['diff'], label: 'Changed files' },
+  { kinds: ['plan'], label: 'Plans' },
+  { kinds: ['session'], label: 'Conversations' },
+  { kinds: ['agent_run'], label: 'Agents and runs' },
+];
 
 export function ClioComposerReferenceMenu({
   onSelect,
@@ -126,27 +116,29 @@ export function ClioComposerReferenceMenu({
               : 'No workspace context matches.'}
         </PromptInputCommandEmpty>
         {groups.map((group) => {
-          const matches = rows.filter((row) => row.kind === group.kind);
+          const matches = rows.filter((row) => group.kinds.includes(row.kind));
           if (!matches.length) return null;
-          const Icon = group.icon;
           return (
-            <PromptInputCommandGroup heading={group.label} key={group.kind}>
-              {matches.map((reference) => (
-                <PromptInputCommandItem
-                  aria-label={`${reference.label} ${reference.detail}`}
-                  key={`${reference.kind}:${reference.id}:${reference.revision}`}
-                  onSelect={() => onSelect(reference)}
-                  value={workspaceReferenceIdentity(reference)}
-                >
-                  <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">{reference.label}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {reference.detail}
+            <PromptInputCommandGroup heading={group.label} key={group.label}>
+              {matches.map((reference) => {
+                const Icon = presentationByKind[reference.kind].icon;
+                return (
+                  <PromptInputCommandItem
+                    aria-label={`${reference.label} ${reference.detail}`}
+                    key={`${reference.kind}:${reference.id}:${reference.revision}`}
+                    onSelect={() => onSelect(reference)}
+                    value={workspaceReferenceIdentity(reference)}
+                  >
+                    <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{reference.label}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {reference.detail}
+                      </span>
                     </span>
-                  </span>
-                </PromptInputCommandItem>
-              ))}
+                  </PromptInputCommandItem>
+                );
+              })}
             </PromptInputCommandGroup>
           );
         })}
@@ -174,9 +166,10 @@ export function ClioComposerReferenceChips({
     >
       {references.map((reference) => {
         const identity = workspaceReferenceIdentity(reference);
-        const Icon = iconByKind[reference.kind] ?? AtSignIcon;
-        const kindLabel = labelByKind[reference.kind] ?? 'Reference';
-        const itemLabel = itemLabelByKind[reference.kind] ?? 'reference';
+        const presentation = presentationByKind[reference.kind];
+        const Icon = presentation?.icon ?? AtSignIcon;
+        const kindLabel = presentation?.label ?? 'Reference';
+        const itemLabel = presentation?.itemLabel ?? 'reference';
         return (
           <span
             className="group/reference inline-flex min-w-0 max-w-64 items-center gap-1 text-sm"

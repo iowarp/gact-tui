@@ -49,6 +49,7 @@ import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
 import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-context';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
+import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
 import {
   ArtifactBrowser,
   BlueprintBrowser,
@@ -686,7 +687,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
           </div>
           {tabs.map((tab) => (
             <TabsContent className="m-0 min-h-0 overflow-hidden" key={tab.id} value={tab.id}>
-              {canvasVisible ? renderTabContent(tab) : null}
+              {canvasVisible ? (
+                <WorkbenchTabErrorBoundary label={tab.label} onClose={() => closeTab(tab.id)}>
+                  {renderTabContent(tab)}
+                </WorkbenchTabErrorBoundary>
+              ) : null}
             </TabsContent>
           ))}
           {tabs.length === 0 ? (

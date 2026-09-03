@@ -5,6 +5,7 @@ import { AlertTriangleIcon } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioComposer } from '@/components/clio/composer';
@@ -37,7 +38,7 @@ import { useAvailableSessionNavigation } from '@/hooks/use-available-session-nav
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
-import { artifactDetailEntity } from '@/lib/session-artifacts';
+import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -150,54 +151,32 @@ export function WorkspacePage() {
   );
   const openComposerReference = useCallback(
     async (reference: WorkspaceReference) => {
-      const targetWorkspaceId = stringNavigation(reference, 'workspace_id') || workspaceId;
-      if (reference.kind === 'workspace_file') {
-        openWorkspaceFile(stringNavigation(reference, 'path') || reference.id);
-        return;
+      try {
+        await navigateComposerReference({
+          artifacts,
+          diffs: sessionObservability.diffs.data ?? [],
+          openArtifact,
+          openDiff,
+          openExternal: (uri) => window.open(uri, '_blank', 'noopener,noreferrer'),
+          openSession: (targetWorkspaceId, targetSessionId) =>
+            void navigate(
+              `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(targetSessionId)}`,
+            ),
+          openWorkspaceFile,
+          openWorkspaceResource,
+          reference,
+          repository,
+          resources: workspaceResourceEntities,
+          revealSession: () => revealWorkbench({ kind: 'session' }),
+          sessionId,
+          workspaceId,
+        });
+      } catch (error) {
+        console.error('Could not open composer reference', reference, error);
+        toast.error(`Could not open ${reference.label}`, {
+          description: 'The workspace is still available. Refresh the reference and try again.',
+        });
       }
-      if (reference.kind === 'resource') {
-        const resource = workspaceResourceEntities[reference.id];
-        if (resource) openWorkspaceResource(resource);
-        return;
-      }
-      if (reference.kind === 'artifact') {
-        const existing = artifacts.find((artifact) => artifact.id === reference.id);
-        openArtifact(
-          existing ??
-            artifactDetailEntity(await repository.artifactDetail(reference.id), sessionId),
-        );
-        return;
-      }
-      if (reference.kind === 'diff') {
-        const path = stringNavigation(reference, 'path');
-        const diff = (sessionObservability.diffs.data ?? []).find(
-          (candidate) => candidate.path === path,
-        );
-        if (diff) openDiff(diff);
-        else if (path) openWorkspaceFile(path);
-        return;
-      }
-      if (reference.kind === 'evidence_source') {
-        const resourceId = stringNavigation(reference, 'resource_id');
-        const resource = workspaceResourceEntities[resourceId];
-        if (resource) {
-          openWorkspaceResource(resource);
-          return;
-        }
-        const uri = stringNavigation(reference, 'uri');
-        if (/^https?:\/\//iu.test(uri)) {
-          window.open(uri, '_blank', 'noopener,noreferrer');
-          return;
-        }
-      }
-      const targetSessionId = stringNavigation(reference, 'session_id');
-      if (targetSessionId && targetSessionId !== sessionId) {
-        void navigate(
-          `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(targetSessionId)}`,
-        );
-        return;
-      }
-      revealWorkbench({ kind: 'session' });
     },
     [
       artifacts,
@@ -786,9 +765,4 @@ export function WorkspacePage() {
       </ClioAppShell>
     </>
   );
-}
-
-function stringNavigation(reference: WorkspaceReference, key: string): string {
-  const value = reference.navigation[key];
-  return typeof value === 'string' ? value : '';
 }
