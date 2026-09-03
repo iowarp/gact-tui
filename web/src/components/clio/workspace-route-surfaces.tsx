@@ -48,7 +48,9 @@ export function WorkspaceLoading({
     <main className="grid min-h-dvh place-items-center bg-background p-6">
       <div className="grid justify-items-center gap-3 text-center">
         <ClioStatus label={label} value="connecting" />
-        <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
+        {description ? (
+          <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
+        ) : null}
       </div>
     </main>
   );

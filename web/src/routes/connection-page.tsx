@@ -16,7 +16,6 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
-import { ConnectionWorkspaceHome } from '@/components/clio/connection-workspace-home';
 import { WorkspaceLoading } from '@/components/clio/workspace-route-surfaces';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -153,33 +152,7 @@ export function ConnectionPage() {
     shouldConnectAutomatically &&
     (!credentialsReady || mutation.status === 'idle' || mutation.isPending)
   ) {
-    return (
-      <WorkspaceLoading
-        description="Restoring the saved service connection. No conversation will be selected automatically."
-        label="Connecting to your workspace"
-      />
-    );
-  }
-
-  if (mutation.isSuccess && mutation.data.sessions.length > 0) {
-    return (
-      <ConnectionWorkspaceHome
-        endpoint={mutation.data.next.endpoint}
-        label={mutation.data.next.label}
-        onChangeConnection={() => {
-          navigate('/?intent=connect');
-          mutation.reset();
-        }}
-        onOpenSession={(workspaceId, sessionId) => {
-          rememberWorkspaceRoute(mutation.data.next.endpoint, workspaceId, sessionId);
-          navigate(
-            `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(sessionId)}`,
-          );
-        }}
-        sessions={mutation.data.sessions}
-        workspaces={mutation.data.workspaces}
-      />
-    );
+    return <WorkspaceLoading description="" label="Connecting…" />;
   }
 
   return (
@@ -249,7 +222,7 @@ export function ConnectionPage() {
             />
           </div>
 
-          {mutation.isSuccess ? (
+          {mutation.isSuccess && mutation.data.sessions.length === 0 ? (
             <ConnectionEmptyService
               error={setup.error?.message}
               onCreate={(input) => setup.mutateAsync(input).then(() => undefined)}
