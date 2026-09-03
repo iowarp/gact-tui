@@ -40,6 +40,14 @@ import {
   sessionIdFromRoute,
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
+import {
+  groupSessionServices,
+  sessionAgentName,
+  serviceDescription,
+  serviceStatus,
+  serviceTitle,
+  serviceToolCount,
+} from '@/lib/mcp-service-presentation';
 
 export function InfrastructurePage() {
   const location = useLocation();
@@ -68,7 +76,7 @@ export function InfrastructurePage() {
       workspaceId || 'infrastructure',
       sessionId || 'service',
     ),
-    queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal, sessionId),
+    queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal, { sessionId }),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const error = health.error ?? relay.error ?? servers.error;
@@ -78,11 +86,8 @@ export function InfrastructurePage() {
     ).length ?? 0;
   const webSearch = servers.data?.find(isWebSearchServer);
   const webSearchReady = webSearch?.status === 'ready';
-  const sessionServers = servers.data?.filter((server) => server.session_id === sessionId) ?? [];
-  const sharedServers = servers.data?.filter((server) => server.session_id !== sessionId) ?? [];
-  const sessionAgentName = sessionServers.find(
-    (server) => server.agent_blueprint_name,
-  )?.agent_blueprint_name;
+  const grouping = groupSessionServices(servers.data, sessionId);
+  const agentName = sessionAgentName(grouping.sessionServers);
   const relayConnect = useMutation({
     mutationFn: (input: Parameters<typeof repository.configureRelay>[0]) =>
       repository.configureRelay(input),
@@ -185,22 +190,38 @@ export function InfrastructurePage() {
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
-            ) : servers.data?.length ? (
+            ) : grouping.allServers.length ? (
               <div className="divide-y">
-                {sessionServers.length ? (
-                  <ServiceGroup
-                    description="This session"
-                    servers={sessionServers}
-                    title={sessionAgentName || 'Session tools'}
-                  />
+                {grouping.sessionIgnored ? (
+                  <p className="px-4 py-2.5 text-xs text-muted-foreground" role="status">
+                    This service did not report which session each tool belongs to, so they are not
+                    grouped.
+                  </p>
                 ) : null}
-                {sharedServers.length ? (
-                  <ServiceGroup
-                    description="Built in or added to the agent service"
-                    servers={sharedServers}
-                    title="Shared tools"
-                  />
-                ) : null}
+                {grouping.grouped ? (
+                  <>
+                    {grouping.sessionServers.length ? (
+                      <ServiceGroup
+                        description="This session"
+                        servers={grouping.sessionServers}
+                        title={agentName || 'Session tools'}
+                      />
+                    ) : null}
+                    {grouping.sharedServers.length ? (
+                      <ServiceGroup
+                        description="Built in or added to the agent service"
+                        servers={grouping.sharedServers}
+                        title="Shared tools"
+                      />
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="divide-y">
+                    {grouping.allServers.map((server) => (
+                      <ServiceRow key={server.id} server={server} />
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="p-5 text-sm text-muted-foreground">
@@ -210,10 +231,8 @@ export function InfrastructurePage() {
           </FramePanel>
           <FrameFooter className="flex-row flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">
-              {servers.data?.filter((server) => server.status === 'ready').length ?? 0} active
-              {servers.data?.some((server) => server.status === 'available')
-                ? ` · ${servers.data.filter((server) => server.status === 'available').length} start on use`
-                : ''}
+              {grouping.allServers.filter((server) => server.status === 'ready').length} of{' '}
+              {grouping.allServers.length} ready
             </p>
             <Button asChild size="sm" variant="outline">
               <Link to="/settings/tools">
@@ -335,11 +354,8 @@ function SetupCard({
 }
 
 function ServiceRow({ server }: { server: McpServerDefinition }) {
-  const ready = server.status === 'ready';
-  const available = server.status === 'available';
-  const toolCount = server.tools_count
-    ? ` · ${server.tools_count} ${server.tools_count === 1 ? 'tool' : 'tools'}`
-    : '';
+  const status = serviceStatus(server);
+  const toolCount = serviceToolCount(server);
   return (
     <div className="flex min-w-0 items-center gap-3 px-4 py-3">
       <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
@@ -352,22 +368,10 @@ function ServiceRow({ server }: { server: McpServerDefinition }) {
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {serviceDescription(server)}
-          {toolCount}
+          {toolCount ? ` · ${toolCount}` : ''}
         </p>
       </div>
-      <ClioStatus
-        detail={server.error}
-        label={
-          ready
-            ? server.session_id
-              ? 'Connected'
-              : 'Ready'
-            : available
-              ? 'Starts on use'
-              : undefined
-        }
-        value={ready ? 'healthy' : available ? 'pending' : 'degraded'}
-      />
+      <ClioStatus detail={server.error} label={status.label} value={status.value} />
     </div>
   );
 }
@@ -532,44 +536,10 @@ function foundationTitle(name: string): string {
   return names[name] || name.replaceAll('_', ' ').replace(/^./u, (value) => value.toUpperCase());
 }
 
-function serviceTitle(server: McpServerDefinition): string {
-  const names: Record<string, string> = {
-    fs: 'Files',
-    filesystem: 'Files',
-    shell: 'Commands',
-    'clio-web-search': 'CLIO Web Search',
-  };
-  if (names[server.id] || names[server.name]) return names[server.id] || names[server.name]!;
-  const fromSpec = server.spec.title ?? server.spec.display_name;
-  if (typeof fromSpec === 'string' && fromSpec.trim()) return fromSpec;
-  return server.name || server.id;
-}
-
 function serviceOwnership(server: McpServerDefinition): string {
   if (server.transport === 'in_process') return 'Built-in MCP';
   if (server.source === 'agent_blueprint') return 'Blueprint MCP';
   return 'External MCP';
-}
-
-function serviceDescription(server: McpServerDefinition): string {
-  const descriptions: Record<string, string> = {
-    fs: 'Read and edit files allowed by this workspace',
-    filesystem: 'Read and edit files allowed by this workspace',
-    shell: 'Run commands inside the workspace’s permitted folders',
-    ndp: 'EarthScope station and product data',
-    geo: 'Geospatial lookup and analysis',
-    pandas: 'Tabular data analysis',
-    plot: 'Scientific plotting',
-    'clio-web-search': 'Search the web and convert scientific documents',
-  };
-  if (isWebSearchServer(server)) return descriptions['clio-web-search'];
-  return (
-    descriptions[server.id] ||
-    descriptions[server.name] ||
-    (server.transport === 'in_process'
-      ? 'Provided by the connected agent'
-      : 'Adds tools from a connected service')
-  );
 }
 
 function ServiceIcon({ server }: { server: McpServerDefinition }) {

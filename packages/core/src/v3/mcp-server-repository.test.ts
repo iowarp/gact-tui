@@ -46,7 +46,7 @@ describe('MCP server repository', () => {
     ]);
     const repository = new ClioRepository(transport);
 
-    await repository.mcpServers('ws science', undefined, 'sess/earth');
+    await repository.mcpServers('ws science', undefined, { sessionId: 'sess/earth' });
     await repository.mcpServer('science/tools');
     await repository.installMcpServer({
       name: 'Science tools',

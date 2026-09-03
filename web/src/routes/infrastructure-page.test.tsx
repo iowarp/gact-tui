@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -73,7 +73,7 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-function renderPage() {
+function renderPage(from = '/workspaces/ws_factorio/sessions/sess_demo') {
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
@@ -85,7 +85,7 @@ function renderPage() {
             pathname: '/infrastructure',
             state: {
               endpoint: 'http://127.0.0.1:8788',
-              from: '/workspaces/ws_factorio/sessions/sess_demo',
+              from,
             },
           },
         ]}
@@ -109,13 +109,117 @@ describe('InfrastructurePage', () => {
     expect(await screen.findByText('Files')).toBeVisible();
     expect(await screen.findByText('Commands')).toBeVisible();
     expect(await screen.findByText('EarthScope Skills')).toBeVisible();
-    expect(await screen.findByText('EarthScope station and product data')).toBeVisible();
     expect(await screen.findByText('Starts on use')).toBeVisible();
+    expect(repository.mcpServers).toHaveBeenCalledWith('ws_factorio', expect.any(AbortSignal), {
+      sessionId: 'sess_demo',
+    });
+  });
+
+  it('groups only the servers this session actually owns', async () => {
+    renderPage();
+
+    // `fs` and `shell` carry no session_id at all. Comparing `undefined` against
+    // an absent session once put every shared service under the session's own
+    // heading — the exact inversion of what the grouping is for.
+    const shared = (await screen.findByText('Shared tools')).closest('section');
+    expect(shared).not.toBeNull();
+    expect(within(shared!).getByText('Files')).toBeVisible();
+    expect(within(shared!).getByText('Commands')).toBeVisible();
+
+    const session = screen.getByText('EarthScope Skills').closest('section');
+    expect(within(session!).getByText('Ndp')).toBeVisible();
+    expect(within(session!).queryByText('Files')).not.toBeInTheDocument();
+  });
+
+  it('lists services ungrouped when no session is in view', async () => {
+    renderPage('/workspaces/ws_factorio');
+
+    expect(await screen.findByText('Files')).toBeVisible();
+    expect(screen.queryByText('Shared tools')).not.toBeInTheDocument();
+    expect(screen.queryByText('Session tools')).not.toBeInTheDocument();
     expect(repository.mcpServers).toHaveBeenCalledWith(
-      'ws_factorio',
+      undefined,
       expect.any(AbortSignal),
-      'sess_demo',
+      // No session in the return route means none is asked for, so nothing the
+      // service answers with can be attributed to one.
+      { sessionId: undefined },
     );
+  });
+
+  it('says so when the service ignored the session it was asked about', async () => {
+    repository.mcpServers.mockResolvedValue([
+      {
+        id: 'mcp_fs',
+        name: 'fs',
+        status: 'ready',
+        transport: 'in_process',
+        tools_count: 3,
+        tools: [],
+        spec: {},
+      },
+    ]);
+
+    renderPage();
+
+    expect(
+      await screen.findByText(
+        'This service did not report which session each tool belongs to, so they are not grouped.',
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText('Shared tools')).not.toBeInTheDocument();
+  });
+
+  it('describes and names a service from what the service itself reported', async () => {
+    repository.mcpServers.mockResolvedValue([
+      {
+        id: 'session_mcp_sess_demo_ndp',
+        name: 'ndp',
+        status: 'ready',
+        transport: 'stdio',
+        tools_count: 4,
+        tools: [],
+        session_id: 'sess_demo',
+        spec: { title: 'Station catalog', description: 'Answers about seismic stations' },
+      },
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText('Station catalog')).toBeVisible();
+    expect(screen.getByText(/Answers about seismic stations/u)).toBeVisible();
+    // The client used to carry demo copy for a fixed set of server names. A
+    // service the client has never heard of must not be described from a
+    // hardcoded table, and one that describes itself must not be overridden.
+    expect(screen.queryByText(/EarthScope station and product data/u)).not.toBeInTheDocument();
+  });
+
+  it('shows a failed service its own status word rather than a generic degrade', async () => {
+    repository.mcpServers.mockResolvedValue([
+      {
+        id: 'mcp_broken',
+        name: 'broken',
+        status: 'start_failed',
+        transport: 'stdio',
+        tools_count: 0,
+        tools: [],
+        error: 'The command exited with status 127.',
+        spec: {},
+      },
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText('Start failed')).toBeVisible();
+    expect(screen.queryByText('Degraded')).not.toBeInTheDocument();
+  });
+
+  it('counts every listed service in the footer, including one with no tools', async () => {
+    renderPage();
+
+    expect(await screen.findByText('2 of 3 ready')).toBeVisible();
+    // A ready service that exposes zero tools is a real, reportable state; the
+    // falsy check that hid it made "no tools" indistinguishable from "unknown".
+    expect(screen.getByText(/0 tools/u)).toBeVisible();
   });
 
   it('connects a running Web Search service as a structured MCP', async () => {

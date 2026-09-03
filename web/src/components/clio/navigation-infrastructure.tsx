@@ -25,7 +25,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { workspaceIdFromRoute } from '@/lib/workspace-route-memory';
-import { humanizeToolName } from './tool-presentation';
+import { serviceTitle } from '@/lib/mcp-service-presentation';
 
 type InfrastructureState = 'checking' | 'healthy' | 'degraded' | 'failed' | 'unavailable';
 
@@ -286,18 +286,6 @@ function stateLabel(state: InfrastructureState): string {
     failed: 'Failed',
     unavailable: 'Unavailable',
   }[state];
-}
-
-function serviceTitle(server: McpServerDefinition): string {
-  const configuredTitle = server.spec.title ?? server.spec.display_name;
-  if (typeof configuredTitle === 'string' && configuredTitle.trim()) return configuredTitle;
-  const names: Record<string, string> = {
-    fs: 'Files',
-    filesystem: 'Files',
-    shell: 'Commands',
-    'clio-web-search': 'CLIO Web Search',
-  };
-  return names[server.id] || names[server.name] || humanizeToolName(server.name || server.id);
 }
 
 function aggregateInfrastructureState(items: readonly InfrastructureItem[]): InfrastructureItem {

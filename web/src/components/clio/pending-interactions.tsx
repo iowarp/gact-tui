@@ -2,7 +2,6 @@ import type { A2UISurface, PendingInteraction, PendingInteractionResponse } from
 import {
   AlertTriangleIcon,
   BoxesIcon,
-  BotIcon,
   ClipboardPenLineIcon,
   LoaderCircleIcon,
   MessageCircleQuestionIcon,
@@ -10,7 +9,7 @@ import {
   ShieldQuestionIcon,
   XIcon,
 } from 'lucide-react';
-import { useCallback, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Confirmation,
   ConfirmationAction,
@@ -27,7 +26,6 @@ import {
   QueueSectionTrigger,
 } from '@/components/ai-elements/queue';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -43,7 +41,11 @@ import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
 import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
-import { ClioStatus } from './status';
+import {
+  OwnerAttribution,
+  PendingSurfaceNotices,
+  ResponseErrorNotice,
+} from './pending-interaction-notices';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
@@ -151,23 +153,7 @@ export function ClioPendingInteractions({
             }}
           >
             <div className="flex min-w-0 flex-col gap-2 px-1 pb-1">
-              {error ? (
-                <Alert variant="destructive">
-                  <AlertTriangleIcon aria-hidden="true" />
-                  <AlertTitle>Some responses could not be read</AlertTitle>
-                  <AlertDescription>{error.message}</AlertDescription>
-                </Alert>
-              ) : null}
-              {capabilityError ? (
-                <Alert>
-                  <AlertTriangleIcon aria-hidden="true" />
-                  <AlertTitle>Using compatibility response routes</AlertTitle>
-                  <AlertDescription>
-                    Permissions and questions remain available, but the service capability check
-                    failed: {capabilityError.message}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
+              <PendingSurfaceNotices capabilityError={capabilityError} error={error} />
               {pending.map((interaction) => {
                 // Undefined (never 'Specialist') means the workspace has not listed
                 // this owner session yet, or listed it without a usable title — the
@@ -234,57 +220,6 @@ export function ClioPendingInteractions({
         </QueueSectionContent>
       </QueueSection>
     </Queue>
-  );
-}
-
-function OwnerContext({ children }: { children: ReactNode }) {
-  return (
-    <span
-      className="flex min-w-0 items-center gap-1 truncate text-xs font-normal text-muted-foreground"
-      data-slot="pending-interaction-owner"
-    >
-      <BotIcon aria-hidden="true" className="size-3 shrink-0" />
-      <span className="truncate">{children}</span>
-    </span>
-  );
-}
-
-/**
- * Attribution for an interaction whose owner differs from the viewed session.
- * A known owner gets its label; an owner this workspace has not listed (or
- * listed without a usable title) gets the typed unavailable state instead of
- * an invented role.
- */
-function OwnerAttribution({
-  interaction,
-  ownerLabel,
-  show,
-}: {
-  interaction: PendingInteraction;
-  ownerLabel?: string;
-  show: boolean;
-}) {
-  if (!show) return null;
-  if (ownerLabel) return <OwnerContext>{ownerLabel}</OwnerContext>;
-  return (
-    <ClioStatus
-      className="mt-1"
-      detail={`Requested by session ${interaction.owner_session_id}`}
-      label="Session not listed yet"
-      value="unavailable"
-    />
-  );
-}
-
-/** The server's authoritative rejection for THIS card's last attempt, never a list-wide read failure. */
-function ResponseErrorNotice({ error }: { error?: Error }) {
-  if (!error) return null;
-  return (
-    <Alert className="mt-2" variant="destructive">
-      <AlertTriangleIcon aria-hidden="true" />
-      <AlertTitle>Response unavailable</AlertTitle>
-      <AlertDescription>{error.message}</AlertDescription>
-    </Alert>
   );
 }
 
