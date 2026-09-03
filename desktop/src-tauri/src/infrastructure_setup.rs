@@ -9,8 +9,26 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::{Command, Output};
 
+// CLIO Web Search deployment contract.
+//
+// `web/src/lib/web-search-service.ts` is the authoritative site for every value
+// below — image tag, container name, volume, and both published ports — because
+// the client builds the copyable `docker run` and the MCP client's clio-kit pin
+// from the same set. Nothing shares constants across the Rust/TypeScript
+// boundary at build time, so these are a deliberate mirror: change a value here
+// only together with its counterpart there.
+//
+// A drift is not cosmetic. This host would start a container on a port the
+// client does not call, or from an image whose API the pinned MCP client cannot
+// speak to, and the setup flow would report success either way.
 const WEB_SEARCH_IMAGE: &str = "ghcr.io/iowarp/clio-web-search:0.3.0";
 const WEB_SEARCH_CONTAINER: &str = "clio-web-search";
+const WEB_SEARCH_VOLUME_MOUNT: &str = "clio-web-search-data:/var/lib/clio-web-search";
+const WEB_SEARCH_HTTP_PORT: u16 = 8089;
+const WEB_SEARCH_HTTP_CONTAINER_PORT: u16 = 8080;
+const WEB_SEARCH_CACHE_PORT: u16 = 8090;
+const WEB_SEARCH_CACHE_CONTAINER_PORT: u16 = 6379;
+const WEB_SEARCH_CONTACT_EMAIL_ENV: &str = "CLIO_WEB_SEARCH_CONTACT_EMAIL";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SshProfile {
@@ -105,8 +123,10 @@ pub fn infrastructure_deploy_web_search(
         } else {
             "0.0.0.0"
         };
-        let http_publish = format!("{bind_address}:8089:8080");
-        let valkey_publish = format!("{bind_address}:8090:6379");
+        let http_publish =
+            format!("{bind_address}:{WEB_SEARCH_HTTP_PORT}:{WEB_SEARCH_HTTP_CONTAINER_PORT}");
+        let valkey_publish =
+            format!("{bind_address}:{WEB_SEARCH_CACHE_PORT}:{WEB_SEARCH_CACHE_CONTAINER_PORT}");
         let mut args = vec![
             "docker".to_string(),
             "run".to_string(),
@@ -120,7 +140,7 @@ pub fn infrastructure_deploy_web_search(
             "--publish".to_string(),
             valkey_publish,
             "--volume".to_string(),
-            "clio-web-search-data:/var/lib/clio-web-search".to_string(),
+            WEB_SEARCH_VOLUME_MOUNT.to_string(),
         ];
         if let Some(email) = request
             .contact_email
@@ -129,7 +149,7 @@ pub fn infrastructure_deploy_web_search(
         {
             args.extend([
                 "--env".to_string(),
-                format!("CLIO_WEB_SEARCH_CONTACT_EMAIL={email}"),
+                format!("{WEB_SEARCH_CONTACT_EMAIL_ENV}={email}"),
             ]);
         }
         args.push(WEB_SEARCH_IMAGE.to_string());

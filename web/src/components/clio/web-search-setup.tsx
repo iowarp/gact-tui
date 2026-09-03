@@ -1,3 +1,9 @@
+import {
+  WEB_SEARCH_DEFAULT_LOCAL_URL,
+  webSearchDeploymentCommand,
+  webSearchMcpArgs,
+  webSearchUrlForHost,
+} from '@/lib/web-search-service';
 import { queryKeys } from '@/lib/query-keys';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { deployWebSearch, sshProfiles, type SshProfile } from '@/tauri/infrastructure-setup';
@@ -38,8 +44,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 
 type SetupTarget = 'local' | 'ssh' | 'existing';
 
-const WEB_MCP_VERSION = '2.10.5';
-const DEFAULT_LOCAL_URL = 'http://127.0.0.1:8089';
+
 
 export function WebSearchSetup({
   onOpenChange,
@@ -54,7 +59,7 @@ export function WebSearchSetup({
   const { settings } = useConnectionSettings();
   const [target, setTarget] = useState<SetupTarget>('local');
   const [profileName, setProfileName] = useState('');
-  const [serviceUrl, setServiceUrl] = useState(DEFAULT_LOCAL_URL);
+  const [serviceUrl, setServiceUrl] = useState(WEB_SEARCH_DEFAULT_LOCAL_URL);
   const [contactEmail, setContactEmail] = useState('');
   const [deploymentReady, setDeploymentReady] = useState(false);
   const profiles = useQuery({
@@ -65,13 +70,13 @@ export function WebSearchSetup({
   const selectTarget = (value: SetupTarget) => {
     setTarget(value);
     setDeploymentReady(false);
-    if (value === 'local') setServiceUrl(DEFAULT_LOCAL_URL);
+    if (value === 'local') setServiceUrl(WEB_SEARCH_DEFAULT_LOCAL_URL);
     if (value === 'ssh' || value === 'existing') setServiceUrl('');
   };
   const selectProfile = (value: string) => {
     setProfileName(value);
     const profile = profiles.data?.find((candidate) => candidate.name === value);
-    if (profile?.hostname) setServiceUrl(`http://${profile.hostname}:8089`);
+    if (profile?.hostname) setServiceUrl(webSearchUrlForHost(profile.hostname));
   };
 
   const refreshMcp = async () => {
@@ -87,15 +92,7 @@ export function WebSearchSetup({
         name: 'CLIO Web Search',
         transport: 'stdio',
         command: 'uvx',
-        args: [
-          '--from',
-          `clio-kit==${WEB_MCP_VERSION}`,
-          'clio-kit',
-          'mcp-server',
-          'web',
-          '--remote-url',
-          serviceUrl.trim(),
-        ],
+        args: webSearchMcpArgs(serviceUrl.trim()),
       }),
     onSuccess: async () => {
       await refreshMcp();
@@ -131,7 +128,7 @@ export function WebSearchSetup({
       deploy.reset();
       setTarget('local');
       setProfileName('');
-      setServiceUrl(DEFAULT_LOCAL_URL);
+      setServiceUrl(WEB_SEARCH_DEFAULT_LOCAL_URL);
       setContactEmail('');
       setDeploymentReady(false);
     }
@@ -302,7 +299,7 @@ export function WebSearchSetup({
             <Input
               id="web-search-service-url"
               onChange={(event) => setServiceUrl(event.target.value)}
-              placeholder="http://127.0.0.1:8089"
+              placeholder={WEB_SEARCH_DEFAULT_LOCAL_URL}
               type="url"
               value={serviceUrl}
             />
@@ -385,10 +382,11 @@ function profileLabel(profile: SshProfile): string {
 }
 
 function deploymentCommand(target: SetupTarget, profileName: string, contactEmail: string): string {
-  const prefix = target === 'ssh' && profileName ? `ssh ${profileName} ` : '';
-  const bindAddress = target === 'ssh' ? '0.0.0.0' : '127.0.0.1';
-  const email = contactEmail ? ` --env CLIO_WEB_SEARCH_CONTACT_EMAIL=${contactEmail}` : '';
-  return `${prefix}docker run --detach --name clio-web-search --restart unless-stopped --publish ${bindAddress}:8089:8080 --publish ${bindAddress}:8090:6379${email} --volume clio-web-search-data:/var/lib/clio-web-search ghcr.io/iowarp/clio-web-search:0.3.0`;
+  return webSearchDeploymentCommand({
+    bindAddress: target === 'ssh' ? '0.0.0.0' : '127.0.0.1',
+    contactEmail,
+    sshProfile: target === 'ssh' && profileName ? profileName : undefined,
+  });
 }
 
 async function copyText(value: string) {
