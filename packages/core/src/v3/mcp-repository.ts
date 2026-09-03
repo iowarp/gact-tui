@@ -9,8 +9,13 @@ export class McpRepository extends DocumentRepository {
   public async mcpServers(
     workspaceId?: string,
     signal?: AbortSignal,
+    sessionId?: string,
   ): Promise<McpServerDefinition[]> {
-    const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+    const params = [
+      workspaceId ? `workspace_id=${encodeURIComponent(workspaceId)}` : '',
+      sessionId ? `session_id=${encodeURIComponent(sessionId)}` : '',
+    ].filter(Boolean);
+    const query = params.length ? `?${params.join('&')}` : '';
     const result = await this.transport.request({
       method: 'GET',
       path: `/v1/mcp/servers${query}`,

@@ -534,6 +534,8 @@ export const mcpServerDefinitionSchema = z.object({
   source: z.string().optional(),
   enabled: z.boolean().optional(),
   agent_blueprint_id: z.string().optional(),
+  agent_blueprint_name: z.string().optional(),
+  session_id: z.string().optional(),
   spec: z.record(z.string(), z.unknown()).default({}),
 });
 

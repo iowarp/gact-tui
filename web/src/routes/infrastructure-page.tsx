@@ -35,7 +35,11 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { returnRouteFromState, workspaceIdFromRoute } from '@/lib/workspace-route-memory';
+import {
+  returnRouteFromState,
+  sessionIdFromRoute,
+  workspaceIdFromRoute,
+} from '@/lib/workspace-route-memory';
 
 export function InfrastructurePage() {
   const location = useLocation();
@@ -44,6 +48,7 @@ export function InfrastructurePage() {
   const { settings } = useConnectionSettings();
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
+  const sessionId = sessionIdFromRoute(workspaceRoute);
   const [relayOpen, setRelayOpen] = useState(false);
   const [webSearchOpen, setWebSearchOpen] = useState(false);
   const health = useQuery({
@@ -57,8 +62,13 @@ export function InfrastructurePage() {
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const servers = useQuery({
-    queryKey: queryKeys.key('mcp-servers', settings.endpoint, workspaceId || 'infrastructure'),
-    queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal),
+    queryKey: queryKeys.key(
+      'mcp-servers',
+      settings.endpoint,
+      workspaceId || 'infrastructure',
+      sessionId || 'service',
+    ),
+    queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal, sessionId),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const error = health.error ?? relay.error ?? servers.error;
@@ -68,6 +78,11 @@ export function InfrastructurePage() {
     ).length ?? 0;
   const webSearch = servers.data?.find(isWebSearchServer);
   const webSearchReady = webSearch?.status === 'ready';
+  const sessionServers = servers.data?.filter((server) => server.session_id === sessionId) ?? [];
+  const sharedServers = servers.data?.filter((server) => server.session_id !== sessionId) ?? [];
+  const sessionAgentName = sessionServers.find(
+    (server) => server.agent_blueprint_name,
+  )?.agent_blueprint_name;
   const relayConnect = useMutation({
     mutationFn: (input: Parameters<typeof repository.configureRelay>[0]) =>
       repository.configureRelay(input),
@@ -172,9 +187,20 @@ export function InfrastructurePage() {
               </div>
             ) : servers.data?.length ? (
               <div className="divide-y">
-                {servers.data.map((server) => (
-                  <ServiceRow key={server.id} server={server} />
-                ))}
+                {sessionServers.length ? (
+                  <ServiceGroup
+                    description="This session"
+                    servers={sessionServers}
+                    title={sessionAgentName || 'Session tools'}
+                  />
+                ) : null}
+                {sharedServers.length ? (
+                  <ServiceGroup
+                    description="Built in or added to the agent service"
+                    servers={sharedServers}
+                    title="Shared tools"
+                  />
+                ) : null}
               </div>
             ) : (
               <p className="p-5 text-sm text-muted-foreground">
@@ -184,8 +210,10 @@ export function InfrastructurePage() {
           </FramePanel>
           <FrameFooter className="flex-row flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">
-              {servers.data?.filter((server) => server.status === 'ready').length ?? 0} of{' '}
-              {servers.data?.length ?? 0} ready
+              {servers.data?.filter((server) => server.status === 'ready').length ?? 0} active
+              {servers.data?.some((server) => server.status === 'available')
+                ? ` · ${servers.data.filter((server) => server.status === 'available').length} start on use`
+                : ''}
             </p>
             <Button asChild size="sm" variant="outline">
               <Link to="/settings/tools">
@@ -308,6 +336,10 @@ function SetupCard({
 
 function ServiceRow({ server }: { server: McpServerDefinition }) {
   const ready = server.status === 'ready';
+  const available = server.status === 'available';
+  const toolCount = server.tools_count
+    ? ` · ${server.tools_count} ${server.tools_count === 1 ? 'tool' : 'tools'}`
+    : '';
   return (
     <div className="flex min-w-0 items-center gap-3 px-4 py-3">
       <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
@@ -319,16 +351,48 @@ function ServiceRow({ server }: { server: McpServerDefinition }) {
           <Badge variant="outline">{serviceOwnership(server)}</Badge>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {serviceDescription(server)} · {server.tools_count}{' '}
-          {server.tools_count === 1 ? 'tool' : 'tools'}
+          {serviceDescription(server)}
+          {toolCount}
         </p>
       </div>
       <ClioStatus
         detail={server.error}
-        label={ready ? 'Ready' : server.status.replaceAll('_', ' ')}
-        value={ready ? 'healthy' : 'degraded'}
+        label={
+          ready
+            ? server.session_id
+              ? 'Connected'
+              : 'Ready'
+            : available
+              ? 'Starts on use'
+              : undefined
+        }
+        value={ready ? 'healthy' : available ? 'pending' : 'degraded'}
       />
     </div>
+  );
+}
+
+function ServiceGroup({
+  description,
+  servers,
+  title,
+}: {
+  description: string;
+  servers: McpServerDefinition[];
+  title: string;
+}) {
+  return (
+    <section>
+      <div className="border-b bg-muted/30 px-4 py-2.5">
+        <p className="text-sm font-medium">{title}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
+      </div>
+      <div className="divide-y">
+        {servers.map((server) => (
+          <ServiceRow key={server.id} server={server} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -492,6 +556,10 @@ function serviceDescription(server: McpServerDefinition): string {
     fs: 'Read and edit files allowed by this workspace',
     filesystem: 'Read and edit files allowed by this workspace',
     shell: 'Run commands inside the workspace’s permitted folders',
+    ndp: 'EarthScope station and product data',
+    geo: 'Geospatial lookup and analysis',
+    pandas: 'Tabular data analysis',
+    plot: 'Scientific plotting',
     'clio-web-search': 'Search the web and convert scientific documents',
   };
   if (isWebSearchServer(server)) return descriptions['clio-web-search'];

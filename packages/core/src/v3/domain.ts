@@ -550,6 +550,8 @@ export interface McpServerDefinition {
   source?: string;
   enabled?: boolean;
   agent_blueprint_id?: string;
+  agent_blueprint_name?: string;
+  session_id?: string;
   spec: Record<string, unknown>;
 }
 

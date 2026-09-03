@@ -46,7 +46,7 @@ describe('MCP server repository', () => {
     ]);
     const repository = new ClioRepository(transport);
 
-    await repository.mcpServers('ws science');
+    await repository.mcpServers('ws science', undefined, 'sess/earth');
     await repository.mcpServer('science/tools');
     await repository.installMcpServer({
       name: 'Science tools',
@@ -67,7 +67,10 @@ describe('MCP server repository', () => {
     await repository.deleteMcpServer('science/tools');
 
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
-      { method: 'GET', path: '/v1/mcp/servers?workspace_id=ws%20science' },
+      {
+        method: 'GET',
+        path: '/v1/mcp/servers?workspace_id=ws%20science&session_id=sess%2Fearth',
+      },
       { method: 'GET', path: '/v1/mcp/servers/science%2Ftools' },
       { method: 'POST', path: '/v1/mcp/servers' },
       { method: 'POST', path: '/v1/mcp/servers' },
