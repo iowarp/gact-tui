@@ -381,7 +381,9 @@ function SortableItem({
         style={style}
         {...attributes}
         className={cn(
-          isSortableDragging && "z-50 opacity-50",
+          // Keep the drag affordance above the WCAG AA contrast floor too;
+          // the queue is still part of the readable interface while it moves.
+          isSortableDragging && "z-50 opacity-70",
           // Disabled rows stay readable: 0.5 composites full-foreground text on
           // the composer's dark surface to 3.37:1 (axe color-contrast, WCAG AA
           // needs 4.5:1). 0.7 keeps a visible dimming at ~6:1.
