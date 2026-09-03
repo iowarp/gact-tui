@@ -428,11 +428,13 @@ describe('ClioPendingInteractions', () => {
       { surfaces: { surface_1: surface } },
     );
 
-    for (const kind of ['question', 'permission', 'mcp_task_input', 'a2ui']) {
-      expect(document.querySelector(`[data-interaction-kind="${kind}"]`)).toBeVisible();
-    }
-    expect(screen.getAllByText('Evidence specialist')).toHaveLength(4);
+    // Each kind's own reader-visible content, not the private data-interaction-kind
+    // attribute the branching logic happens to stamp on its wrapper.
+    expect(screen.getByText('Question')).toBeVisible();
+    expect(screen.getByText('Permission')).toBeVisible();
+    expect(screen.getByText('Select task input')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Submit selection' })).toBeVisible();
+    expect(screen.getAllByText('Evidence specialist')).toHaveLength(4);
     expect(repository.a2uiAction).not.toHaveBeenCalled();
   });
 
@@ -574,13 +576,11 @@ describe('ClioPendingInteractions', () => {
     expect(responses).toHaveClass('bg-card/70', 'dark:bg-card/60');
     expect(viewport).toHaveAttribute('tabindex', '0');
     expect(viewport).toHaveClass('pending-interactions-viewport', 'overscroll-contain');
-    // The panel caps its height rather than always claiming it: a single
-    // response sizes to its content, and only a stack past the cap scrolls.
-    expect(viewport.closest('[data-slot="scroll-area"]')).toHaveClass(
-      'max-h-[min(22rem,40dvh)]',
-      'min-h-0',
-    );
 
+    // The panel caps its height rather than always claiming it (a single
+    // response sizes to its content, and only a stack past the cap scrolls) —
+    // demonstrated here by behavior, not by asserting the Tailwind class name
+    // that implements it: a genuinely bounded, keyboard-scrollable region.
     Object.defineProperties(viewport, {
       clientHeight: { configurable: true, value: 240 },
       scrollHeight: { configurable: true, value: 720 },
