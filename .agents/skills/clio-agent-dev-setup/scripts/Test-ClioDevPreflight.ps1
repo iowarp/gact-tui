@@ -84,7 +84,10 @@ $documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
 # but do not tear down an otherwise healthy stack at the generic HTTP default.
 $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 30
 $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
-$sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 10
+# Source discovery reads the installed marketplace and can cross a cold disk on
+# the first request. Keep this bounded without applying the generic 10-second
+# HTTP timeout to a valid cold-start path.
+$sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 30
 $webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 10
 $gactHeaders = @{
     Origin = $webUrl
