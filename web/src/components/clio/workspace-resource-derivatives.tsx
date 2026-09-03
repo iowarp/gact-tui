@@ -102,11 +102,19 @@ export function WorkspaceResourceDerivativesView({
   });
   const processingActive = processing?.state === 'submitted' || processing?.state === 'processing';
   const hasActivity = Boolean(processing?.events?.length || processing?.message);
+  const hasProblem =
+    processing?.state === 'failed' ||
+    (processing?.events ?? []).some((event) => event.level === 'warning' || event.level === 'error');
+  // Existing derivatives replace a clean event log — once you have the
+  // output, the informational trail that produced it is noise. A failure or
+  // a warning-or-error row is never noise: a reprocess can fail (or log one)
+  // on a resource that already has derivatives from an earlier run, and that
+  // must still be visible, not hidden behind derivatives this attempt did
+  // not produce.
   const showActivity =
     !pending &&
-    derivatives.length === 0 &&
     Boolean(processing) &&
-    (processingActive || hasActivity || processing?.state === 'failed');
+    (processingActive || hasProblem || (derivatives.length === 0 && hasActivity));
 
   if (error) return <ResourceUnavailable detail={error} label="Derivatives unavailable" />;
   if (selected) {

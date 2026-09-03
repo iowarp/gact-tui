@@ -242,6 +242,44 @@ describe('WorkspaceResourceDerivativesView', () => {
     expect(screen.queryByRole('region', { name: 'Conversion activity' })).not.toBeInTheDocument();
   });
 
+  it('still shows a failed reprocess beside derivatives an earlier run already produced', () => {
+    renderView([derivative], 'failed', {
+      processing: {
+        ...processing,
+        state: 'failed',
+        message: 'The converter rejected the source revision.',
+        events: [],
+      },
+    });
+
+    expect(screen.getByRole('button', { name: /report\.md/i })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Conversion activity' })).toBeVisible();
+    expect(screen.getByText('The converter rejected the source revision.')).toBeVisible();
+  });
+
+  it('still shows a warning row logged after derivatives already exist', () => {
+    renderView([derivative], 'complete', {
+      processing: {
+        ...processing,
+        events: [
+          {
+            sequence: 15,
+            created_at: '2026-09-02T19:49:15Z',
+            level: 'warning',
+            progress: 100,
+            progress_kind: 'stage',
+            stage: 'complete',
+            message: 'Fallback font used for a later page',
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByRole('button', { name: /report\.md/i })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'Conversion activity' })).toBeVisible();
+    expect(screen.getByText('Fallback font used for a later page')).toBeVisible();
+  });
+
   it('previews a PDF derivative with the shared viewer, not the native plugin', async () => {
     repository.resourceDerivativeContent.mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
     const user = userEvent.setup();
