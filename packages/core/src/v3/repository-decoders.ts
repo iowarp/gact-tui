@@ -9,8 +9,8 @@ import {
   mcpServerDefinitionSchema,
   messageSchema,
   operationalRunSchema,
+  pendingInteractionOrDegradedSchema,
   permissionLedgerItemSchema,
-  pendingInteractionSchema,
   promptDefinitionSchema,
   providerDefinitionSchema,
   providerModelSchema,
@@ -183,7 +183,7 @@ export const permissionListSchema = z.object({
 });
 export const questionListSchema = z.object({ questions: z.array(userQuestionSchema).default([]) });
 export const pendingInteractionListSchema = z.object({
-  interactions: z.array(pendingInteractionSchema).default([]),
+  interactions: z.array(pendingInteractionOrDegradedSchema).default([]),
 });
 export const operationalRunListSchema = z.object({
   runs: z.array(operationalRunSchema).default([]),

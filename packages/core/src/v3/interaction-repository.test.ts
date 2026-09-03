@@ -76,6 +76,45 @@ describe('ClioRepository normalized interaction contract', () => {
     });
   });
 
+  it('contains one unreadable interaction per item, never failing the whole read', async () => {
+    const transport = new RecordingTransport([
+      {
+        interactions: [
+          {
+            id: 'question:q1',
+            kind: 'question',
+            owner_session_id: 'sess_child',
+            attended_session_id: 'sess_root',
+            status: 'pending',
+            title: 'Question from agent',
+            source: { protocol: 'native' },
+            created_at: '2026-09-02T00:00:00Z',
+            actions: ['answer', 'cancel'],
+          },
+          // Missing the required `title`, `source`, and `created_at` fields —
+          // a record no known schema variant can parse.
+          {
+            id: 'permission:malformed',
+            kind: 'permission',
+            owner_session_id: 'sess_child',
+          },
+        ],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    const interactions = await repository.pendingInteractions('root session', true);
+
+    expect(interactions).toHaveLength(2);
+    expect(interactions[0]).toMatchObject({ id: 'question:q1', kind: 'question' });
+    expect(interactions[1]).toMatchObject({
+      id: 'permission:malformed',
+      kind: 'unknown',
+      owner_session_id: 'sess_child',
+      status: 'pending',
+    });
+  });
+
   it('posts an exact response body to the attended root and encoded interaction id', async () => {
     const transport = new RecordingTransport([{ interaction_id: 'question:q1' }]);
     const repository = new ClioRepository(transport);

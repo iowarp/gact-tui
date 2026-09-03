@@ -464,6 +464,41 @@ describe('ComposerRepository', () => {
     ]);
   });
 
+  it('contains an unrecognized processing-event level as unknown instead of failing the read', async () => {
+    const transport = new RecordingTransport([
+      {
+        resource_id: 'resource_1',
+        revision: 2,
+        derivatives: [],
+        processor: {
+          workspace_id: 'workspace_1',
+          resource_id: 'resource_1',
+          resource_revision: 2,
+          state: 'processing',
+          progress: 40,
+          events: [
+            {
+              sequence: 1,
+              created_at: '2026-08-31T12:00:30Z',
+              // A future backend's severity this client predates.
+              level: 'critical',
+              message: 'Escalated during layout analysis',
+            },
+          ],
+          created_at: '2026-08-31T12:00:00Z',
+          updated_at: '2026-08-31T12:00:30Z',
+        },
+      },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(
+      repository.resourceDerivatives('workspace_1', 'resource_1'),
+    ).resolves.toMatchObject({
+      processor: { events: [{ level: 'unknown', message: 'Escalated during layout analysis' }] },
+    });
+  });
+
   it('searches, reprocesses, and exposes immutable resource delivery provenance', async () => {
     const processing = {
       workspace_id: 'workspace_1',

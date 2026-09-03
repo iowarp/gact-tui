@@ -1,3 +1,5 @@
+import type { WireValue } from './domain.js';
+
 export type MessageDelivery = 'start' | 'steer' | 'auto';
 
 export type ResourceDeliveryRepresentation =
@@ -186,7 +188,7 @@ export interface WorkspaceResourceProcessing {
 export interface WorkspaceResourceProcessingEvent {
   sequence: number;
   created_at: string;
-  level: 'info' | 'warning' | 'error';
+  level: WireValue<'info' | 'warning' | 'error'>;
   progress: number;
   progress_kind: 'unknown' | 'stage' | 'measured';
   stage: string;

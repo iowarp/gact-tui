@@ -133,7 +133,7 @@ export const queuedMessagePromotionSchema = z.object({
 export const workspaceResourceProcessingEventSchema = z.object({
   sequence: z.number().int().nonnegative(),
   created_at: z.string(),
-  level: z.enum(['info', 'warning', 'error']).default('info'),
+  level: forwardCompatibleEnum(['info', 'warning', 'error']).default('info'),
   progress: z.number().int().min(0).max(100).default(0),
   progress_kind: z.enum(['unknown', 'stage', 'measured']).default('unknown'),
   stage: z.string().default(''),
