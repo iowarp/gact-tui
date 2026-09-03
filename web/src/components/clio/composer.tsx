@@ -286,7 +286,10 @@ export function ClioComposer({
       className={cn(
         'relative',
         variant === 'docked'
-          ? 'pointer-events-none flex max-h-full min-h-0 flex-col overflow-hidden px-4 pb-3 [&>*]:pointer-events-auto lg:px-6'
+          ? cn(
+              'pointer-events-none flex max-h-full min-h-0 flex-col px-4 pb-3 [&>*]:pointer-events-auto lg:px-6',
+              showCommands || showReferences ? 'overflow-visible' : 'overflow-hidden',
+            )
           : 'w-full',
       )}
       ref={rootRef}

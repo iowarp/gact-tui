@@ -156,6 +156,29 @@ describe('ClioComposer service commands', () => {
     );
   });
 
+  it('does not clip the reference palette above the docked composer', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([
+      {
+        kind: 'workspace_file',
+        id: 'README.md',
+        label: 'README.md',
+        detail: 'README.md (400 bytes)',
+        media_type: 'text/markdown',
+        revision: 'stat:1:400',
+        navigation: { path: 'README.md' },
+      },
+    ]);
+    const user = userEvent.setup();
+    renderComposer({ contextReferences: true, workspaceId: 'workspace_1' });
+
+    await user.type(screen.getByRole('textbox'), '@');
+    await screen.findByRole('option', { name: /README.md/ });
+
+    const stack = screen.getByRole('textbox').closest('[data-slot="clio-composer-stack"]');
+    expect(stack).toHaveClass('overflow-visible');
+    expect(stack).not.toHaveClass('overflow-hidden');
+  });
+
   it('uses arrow keys and Enter to select a reference instead of submitting literal @ text', async () => {
     repositoryMocks.workspaceReferences.mockResolvedValue([
       {
