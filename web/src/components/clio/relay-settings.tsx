@@ -87,10 +87,10 @@ export function RelaySettings() {
     <div className="grid gap-6">
       <header>
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Settings</p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight">Remote work</h1>
+        <h1 className="mt-2 text-4xl font-semibold tracking-tight">Remote computers</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Connect this agent to the service that dispatches work to other machines and brings its
-          progress, results, and artifacts back into the workspace.
+          CLIO Relay keeps long-running work, progress, and artifacts connected to this workspace.
+          Use this page to connect a Relay that is already running.
         </p>
       </header>
 
@@ -98,17 +98,14 @@ export function RelaySettings() {
         <FrameHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <FrameTitle>Connection</FrameTitle>
+              <FrameTitle>CLIO Relay</FrameTitle>
               <FrameDescription>{relayConnectionDescription(value)}</FrameDescription>
             </div>
             <RelayState pending={relay.isPending} value={value} />
           </div>
         </FrameHeader>
         <FramePanel className="grid gap-3">
-          <StatusRow
-            label="Remote work"
-            value={value?.configured ? 'Connected' : 'Not connected'}
-          />
+          <StatusRow label="Relay" value={value?.configured ? 'Connected' : 'Not connected'} />
           <StatusRow
             label="Reachability"
             value={
@@ -157,7 +154,7 @@ export function RelaySettings() {
               ) : (
                 <CableIcon aria-hidden="true" />
               )}
-              {value?.configured ? 'Edit connection' : 'Connect remote work'}
+              {value?.configured ? 'Edit connection' : 'Connect existing Relay'}
             </Button>
           </div>
         </FrameFooter>
@@ -199,7 +196,7 @@ export function RelaySettings() {
   );
 }
 
-function RelayConnectionDialog({
+export function RelayConnectionDialog({
   error,
   onOpenChange,
   onSubmit,
@@ -234,16 +231,25 @@ function RelayConnectionDialog({
         <form className="contents" onSubmit={submit}>
           <DialogHeader>
             <DialogTitle>
-              {value?.configured ? 'Edit remote work' : 'Connect remote work'}
+              {value?.configured ? 'Edit Relay connection' : 'Connect an existing CLIO Relay'}
             </DialogTitle>
             <DialogDescription>
-              These details apply to the connected agent until that service restarts. The access
-              credential stays in the agent process and is never shown again.
+              This connects a Relay that is already running. It does not deploy Relay or configure a
+              remote computer over SSH.
             </DialogDescription>
           </DialogHeader>
+          <Alert>
+            <CableIcon aria-hidden="true" />
+            <AlertTitle>Connect to Relay, then add computers there</AlertTitle>
+            <AlertDescription>
+              These addresses belong to CLIO Relay. Relay can reach a computer through its direct
+              connection point or an SSH fallback; those computer details are configured in Relay,
+              not in this form.
+            </AlertDescription>
+          </Alert>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="relay-mcp-url">Control service address</FieldLabel>
+              <FieldLabel htmlFor="relay-mcp-url">MCP address</FieldLabel>
               <Input
                 autoComplete="url"
                 id="relay-mcp-url"
@@ -253,10 +259,12 @@ function RelayConnectionDialog({
                 type="url"
                 value={mcpUrl}
               />
-              <FieldDescription>Used to submit and observe remote jobs.</FieldDescription>
+              <FieldDescription>
+                The agent uses this MCP endpoint to submit work and follow its state.
+              </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="relay-http-url">Jobs and artifacts address</FieldLabel>
+              <FieldLabel htmlFor="relay-http-url">Results address</FieldLabel>
               <Input
                 autoComplete="url"
                 id="relay-http-url"
@@ -267,7 +275,7 @@ function RelayConnectionDialog({
                 value={httpUrl}
               />
               <FieldDescription>
-                Used to retrieve progress, outputs, and artifacts.
+                Used to retrieve progress, output, and artifacts from the same Relay.
               </FieldDescription>
             </Field>
             <Field>

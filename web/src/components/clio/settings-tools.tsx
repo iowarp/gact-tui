@@ -267,16 +267,16 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
   return (
     <div className="grid gap-6">
       <SettingsSectionHeading
-        description="Inspect the tools, resources, and reusable prompts available to agents, and manage service-owned connections without exposing transport identifiers as product language."
-        title="Tools and integrations"
+        description="MCP services give agents tools, data, and reusable prompts. Built-in services ship with the agent; external services are connections you can manage."
+        title="MCP tools"
       />
       <Frame spacing="lg">
         <FrameHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <FrameTitle>Tool providers</FrameTitle>
+            <FrameTitle>Connected MCP services</FrameTitle>
             <FrameDescription className="mt-1">
-              Built-in and blueprint providers remain owned by their source. Connections added here
-              last for the current service process.
+              The selected workspace includes its blueprint MCPs alongside the agent’s built-in and
+              external services.
             </FrameDescription>
           </div>
           <div className="flex w-full flex-col gap-3 sm:flex-row md:w-auto md:items-end">
@@ -298,7 +298,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
               </Field>
             ) : null}
             <Button onClick={() => setInstallOpen(true)} size="sm">
-              <PackagePlusIcon aria-hidden="true" /> Connect provider
+              <PackagePlusIcon aria-hidden="true" /> Connect MCP
             </Button>
           </div>
         </FrameHeader>
@@ -357,11 +357,11 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
             </ClioInteractiveRow>
           ))}
           {!servers.isPending && !servers.data?.length ? (
-            <p className="p-5 text-sm text-muted-foreground">No tool providers were reported.</p>
+            <p className="p-5 text-sm text-muted-foreground">No MCP services were reported.</p>
           ) : null}
           {servers.error ? (
             <Alert className="sm:col-span-2" variant="destructive">
-              <AlertTitle>Tool providers unavailable</AlertTitle>
+              <AlertTitle>MCP services unavailable</AlertTitle>
               <AlertDescription>{servers.error.message}</AlertDescription>
             </Alert>
           ) : null}
@@ -408,9 +408,10 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
       >
         <DialogContent className="grid max-h-[min(720px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Connect a tool provider</DialogTitle>
+            <DialogTitle>Connect an MCP service</DialogTitle>
             <DialogDescription>
-              The service probes the provider before making its tools available to agents.
+              Connect a service that already exposes MCP. The agent checks it before making its
+              tools available.
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 overflow-y-auto pr-1">
@@ -511,7 +512,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
               Cancel
             </Button>
             <Button disabled={!canInstall} onClick={() => install.mutate()}>
-              {install.isPending ? 'Connecting…' : 'Connect provider'}
+              {install.isPending ? 'Connecting…' : 'Connect MCP'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -523,9 +524,9 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
       >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{detailServer ? serverTitle(detailServer) : 'Tool provider'}</DialogTitle>
+            <DialogTitle>{detailServer ? serverTitle(detailServer) : 'MCP service'}</DialogTitle>
             <DialogDescription>
-              Tools, resources, and prompts reported by this provider.
+              Tools, resources, and prompts reported by this MCP service.
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap items-center gap-2">

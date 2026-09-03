@@ -1,20 +1,26 @@
 import { queryKeys } from '@/lib/query-keys';
 import { INFRASTRUCTURE_POLL_MS } from '@/lib/runtime-limits';
 import type { McpServerDefinition, ServiceIntegrationHealth } from '@clio/core/v3';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRightIcon,
+  BookOpenCheckIcon,
   CableIcon,
   ChevronLeftIcon,
   Globe2Icon,
+  HardDriveIcon,
   NetworkIcon,
   PlusIcon,
   ServerIcon,
-  Settings2Icon,
+  TerminalSquareIcon,
   WrenchIcon,
 } from 'lucide-react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { ClioStatus, type ClioStatusValue } from '@/components/clio/status';
+import { RelayConnectionDialog } from '@/components/clio/relay-settings';
+import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import {
   Frame,
   FrameDescription,
@@ -24,16 +30,22 @@ import {
   FrameTitle,
 } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { returnRouteFromState } from '@/lib/workspace-route-memory';
+import { returnRouteFromState, workspaceIdFromRoute } from '@/lib/workspace-route-memory';
 
 export function InfrastructurePage() {
   const location = useLocation();
   const repository = useRepository();
+  const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
+  const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
+  const workspaceId = workspaceIdFromRoute(workspaceRoute);
+  const [relayOpen, setRelayOpen] = useState(false);
+  const [webSearchOpen, setWebSearchOpen] = useState(false);
   const health = useQuery({
     queryKey: queryKeys.key('service-health', settings.endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
@@ -45,8 +57,8 @@ export function InfrastructurePage() {
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const servers = useQuery({
-    queryKey: queryKeys.key('mcp-servers', settings.endpoint, 'infrastructure'),
-    queryFn: ({ signal }) => repository.mcpServers(undefined, signal),
+    queryKey: queryKeys.key('mcp-servers', settings.endpoint, workspaceId || 'infrastructure'),
+    queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const error = health.error ?? relay.error ?? servers.error;
@@ -54,23 +66,40 @@ export function InfrastructurePage() {
     health.data?.integrations.filter(
       (integration) => integrationStatus(integration.status) !== 'healthy',
     ).length ?? 0;
+  const webSearch = servers.data?.find(isWebSearchServer);
+  const webSearchReady = webSearch?.status === 'ready';
+  const relayConnect = useMutation({
+    mutationFn: (input: Parameters<typeof repository.configureRelay>[0]) =>
+      repository.configureRelay(input),
+    onSuccess: async () => {
+      setRelayOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('relay-status', settings.endpoint),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('service-health', settings.endpoint),
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
+      ]);
+      toast.success('CLIO Relay connected');
+    },
+    onError: (connectionError) => toast.error(connectionError.message),
+  });
 
   return (
     <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
-              Connected systems
-            </p>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight">Infrastructure</h1>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Set up</p>
+            <h1 className="mt-2 text-4xl font-semibold tracking-tight">Agent capabilities</h1>
             <p className="mt-2 max-w-2xl text-muted-foreground">
-              See the services that extend this agent, what they provide, and where attention is
-              needed.
+              Add research tools or remote computers, then see what this agent can use.
             </p>
           </div>
           <Button asChild variant="outline">
-            <Link to={returnRouteFromState(location.state, settings.endpoint)}>
+            <Link to={workspaceRoute}>
               <ChevronLeftIcon aria-hidden="true" /> Workspace
             </Link>
           </Button>
@@ -91,27 +120,22 @@ export function InfrastructurePage() {
           </Alert>
         ) : null}
 
-        <section aria-label="Infrastructure overview" className="mt-8 grid gap-4 md:grid-cols-3">
-          <OverviewCard
-            description={agentServiceDescription(health.data, foundationIssues)}
-            icon={ServerIcon}
-            label="Agent service"
-            pending={health.isPending}
-            status={health.data?.healthy && !foundationIssues ? 'healthy' : 'degraded'}
-            statusLabel={
-              health.data?.healthy
-                ? foundationIssues
-                  ? 'Running with warnings'
-                  : 'Running'
-                : 'Needs attention'
-            }
-            to="#foundations"
+        <section aria-label="Add capabilities" className="mt-8 grid gap-4 md:grid-cols-2">
+          <SetupCard
+            action={webSearchReady ? 'View MCP' : webSearch ? 'Retry setup' : 'Set up web search'}
+            description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
+            icon={BookOpenCheckIcon}
+            onAction={() => setWebSearchOpen(true)}
+            status={webSearchReady ? 'healthy' : webSearch ? 'degraded' : 'unavailable'}
+            statusLabel={webSearchReady ? 'Ready' : webSearch ? 'Needs attention' : 'Not set up'}
+            title="Research and documents"
+            to={webSearchReady ? '/settings/tools' : undefined}
           />
-          <OverviewCard
-            description={relayDescription(relay.data)}
+          <SetupCard
+            action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}
+            description="Run and follow work on lab computers or clusters through CLIO Relay."
             icon={NetworkIcon}
-            label="Remote execution"
-            pending={relay.isPending}
+            onAction={() => setRelayOpen(true)}
             status={
               relay.data?.reachable
                 ? 'healthy'
@@ -121,199 +145,163 @@ export function InfrastructurePage() {
             }
             statusLabel={
               relay.data?.reachable
-                ? 'Connected'
+                ? 'Ready'
                 : relay.data?.configured
                   ? 'Needs attention'
-                  : 'Not connected'
+                  : 'Not set up'
             }
-            to="/settings/relays"
-          />
-          <OverviewCard
-            description={`${servers.data?.filter((server) => server.status === 'ready').length ?? 0} of ${servers.data?.length ?? 0} connected services are ready.`}
-            icon={WrenchIcon}
-            label="Tools and data"
-            pending={servers.isPending}
-            status={
-              !servers.data?.length
-                ? 'unavailable'
-                : servers.data.every((server) => server.status === 'ready')
-                  ? 'healthy'
-                  : 'degraded'
-            }
-            statusLabel={
-              !servers.data?.length
-                ? 'None connected'
-                : servers.data.every((server) => server.status === 'ready')
-                  ? 'Ready'
-                  : 'Needs attention'
-            }
-            to="/settings/tools"
+            title="Remote computers"
           />
         </section>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-          <Frame spacing="sm">
-            <FrameHeader>
-              <FrameTitle className="flex items-center gap-2">
-                <NetworkIcon aria-hidden="true" className="size-4 text-primary" /> Remote work
-              </FrameTitle>
-              <FrameDescription>
-                Dispatch and observe work through the configured relay service.
-              </FrameDescription>
-            </FrameHeader>
-            <FramePanel>
+        <Frame className="mt-6" spacing="sm">
+          <FrameHeader>
+            <FrameTitle className="flex items-center gap-2">
+              <WrenchIcon aria-hidden="true" className="size-4 text-primary" /> Agent tools (MCP)
+            </FrameTitle>
+            <FrameDescription>
+              MCP services give agents specific tools. Built-in tools ship with the agent; external
+              MCPs add scientific data, search, or applications.
+            </FrameDescription>
+          </FrameHeader>
+          <FramePanel className="p-0">
+            {servers.isPending ? (
+              <div className="grid gap-2 p-4">
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : servers.data?.length ? (
+              <div className="divide-y">
+                {servers.data.map((server) => (
+                  <ServiceRow key={server.id} server={server} />
+                ))}
+              </div>
+            ) : (
+              <p className="p-5 text-sm text-muted-foreground">
+                No MCP services are connected yet.
+              </p>
+            )}
+          </FramePanel>
+          <FrameFooter className="flex-row flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              {servers.data?.filter((server) => server.status === 'ready').length ?? 0} of{' '}
+              {servers.data?.length ?? 0} ready
+            </p>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/settings/tools">
+                <PlusIcon aria-hidden="true" /> Manage MCP services
+              </Link>
+            </Button>
+          </FrameFooter>
+        </Frame>
+
+        <Frame className="mt-6 scroll-mt-6" id="foundations" spacing="sm">
+          <FrameHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <FrameTitle>Agent service</FrameTitle>
+                <FrameDescription>
+                  {agentServiceDescription(health.data, foundationIssues)}
+                </FrameDescription>
+              </div>
               <ClioStatus
-                detail={relayDescription(relay.data)}
                 label={
-                  relay.data?.reachable
-                    ? 'Relay connected'
-                    : relay.data?.configured
-                      ? 'Relay needs attention'
-                      : 'Relay not connected'
+                  health.isPending
+                    ? 'Checking'
+                    : health.data?.healthy && !foundationIssues
+                      ? 'Running'
+                      : 'Needs attention'
                 }
                 value={
-                  relay.data?.reachable
-                    ? 'healthy'
-                    : relay.data?.configured
-                      ? 'degraded'
-                      : 'unavailable'
+                  health.isPending
+                    ? 'connecting'
+                    : health.data?.healthy && !foundationIssues
+                      ? 'healthy'
+                      : 'degraded'
                 }
               />
-              {relay.data?.host ? (
-                <p
-                  className="mt-3 truncate font-mono text-xs text-muted-foreground"
-                  title={relay.data.host}
-                >
-                  {relay.data.host}
+            </div>
+          </FrameHeader>
+          <FramePanel>
+            <details>
+              <summary className="cursor-pointer text-sm font-medium">Supporting services</summary>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Runtime components used by the agent itself. Most users do not need to change these.
+              </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {(health.data?.integrations ?? []).map((integration) => (
+                  <FoundationRow integration={integration} key={integration.name} />
+                ))}
+              </div>
+              {!health.data?.integrations.length ? (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  No supporting-service details were reported.
                 </p>
               ) : null}
-              {relay.data?.detail || relay.data?.reason ? (
-                <details className="mt-3 text-xs text-muted-foreground">
-                  <summary className="cursor-pointer">Technical details</summary>
-                  <p className="mt-2 break-words font-mono">
-                    {relay.data.detail || relay.data.reason}
-                  </p>
-                </details>
-              ) : null}
-            </FramePanel>
-            <FrameFooter className="items-end">
-              <Button asChild size="sm" variant="outline">
-                <Link to="/settings/relays">
-                  <Settings2Icon aria-hidden="true" /> Configure remote work
-                </Link>
-              </Button>
-            </FrameFooter>
-          </Frame>
+            </details>
+          </FramePanel>
+        </Frame>
 
-          <Frame spacing="sm">
-            <FrameHeader>
-              <FrameTitle className="flex items-center gap-2">
-                <Globe2Icon aria-hidden="true" className="size-4 text-primary" /> Tools, search, and
-                data services
-              </FrameTitle>
-              <FrameDescription>
-                Connected services available to this agent and their live readiness.
-              </FrameDescription>
-            </FrameHeader>
-            <FramePanel className="p-0">
-              {servers.isPending ? (
-                <div className="grid gap-2 p-4">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : servers.data?.length ? (
-                <div className="divide-y">
-                  {servers.data.map((server) => (
-                    <ServiceRow key={server.id} server={server} />
-                  ))}
-                </div>
-              ) : (
-                <p className="p-5 text-sm text-muted-foreground">
-                  No tool, search, or data services are connected yet.
-                </p>
-              )}
-            </FramePanel>
-            <FrameFooter className="items-end">
-              <Button asChild size="sm">
-                <Link to="/settings/tools">
-                  <PlusIcon aria-hidden="true" /> Add or manage services
-                </Link>
-              </Button>
-            </FrameFooter>
-          </Frame>
-        </section>
-
-        {health.data?.integrations.length ? (
-          <Frame className="mt-6 scroll-mt-6" id="foundations" spacing="sm">
-            <FrameHeader>
-              <FrameTitle>Agent foundations</FrameTitle>
-              <FrameDescription>
-                Runtime services reported by the connected agent. Technical details remain inside
-                each item.
-              </FrameDescription>
-            </FrameHeader>
-            <FramePanel className="grid gap-2 sm:grid-cols-2">
-              {health.data.integrations.map((integration) => (
-                <FoundationRow integration={integration} key={integration.name} />
-              ))}
-            </FramePanel>
-          </Frame>
+        <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
+        {relayOpen ? (
+          <RelayConnectionDialog
+            error={relayConnect.error?.message}
+            onOpenChange={setRelayOpen}
+            onSubmit={(input) => relayConnect.mutate(input)}
+            open
+            pending={relayConnect.isPending}
+            value={relay.data}
+          />
         ) : null}
       </div>
     </main>
   );
 }
 
-function OverviewCard({
+function SetupCard({
+  action,
   description,
   icon: Icon,
-  label,
-  pending,
+  onAction,
   status,
   statusLabel,
+  title,
   to,
 }: {
+  action: string;
   description: string;
   icon: typeof CableIcon;
-  label: string;
-  pending: boolean;
+  onAction: () => void;
   status: ClioStatusValue;
   statusLabel: string;
-  to: string;
+  title: string;
+  to?: string;
 }) {
   return (
-    <Frame spacing="xs" variant="ghost">
-      <FramePanel className="p-0">
-        <Link
-          aria-label={`${label}: ${pending ? 'Checking' : statusLabel}. ${description}`}
-          className="group block h-full rounded-[inherit] p-4 outline-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/50"
-          onClick={() => {
-            if (!to.startsWith('#')) return;
-            window.requestAnimationFrame(() =>
-              document.getElementById(to.slice(1))?.scrollIntoView({ block: 'start' }),
-            );
-          }}
-          to={to}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
-              <Icon aria-hidden="true" className="size-4" />
-            </span>
-            <ClioStatus
-              label={pending ? 'Checking' : statusLabel}
-              value={pending ? 'connecting' : status}
-            />
-          </div>
-          <div className="mt-4 flex items-center gap-2">
-            <h2 className="font-medium">{label}</h2>
-            <ArrowRightIcon
-              aria-hidden="true"
-              className="size-3.5 text-muted-foreground transition-transform group-hover:translate-x-0.5"
-            />
-          </div>
-          <p className="mt-1 line-clamp-3 text-sm leading-5 text-muted-foreground">{description}</p>
-        </Link>
+    <Frame spacing="sm">
+      <FramePanel>
+        <div className="flex items-start justify-between gap-3">
+          <span className="grid size-9 place-items-center rounded-xl bg-primary/10 text-primary">
+            <Icon aria-hidden="true" className="size-4" />
+          </span>
+          <ClioStatus label={statusLabel} value={status} />
+        </div>
+        <h2 className="mt-4 font-medium">{title}</h2>
+        <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>
       </FramePanel>
+      <FrameFooter className="items-end">
+        {to ? (
+          <Button asChild size="sm" variant="outline">
+            <Link to={to}>
+              {action} <ArrowRightIcon aria-hidden="true" />
+            </Link>
+          </Button>
+        ) : (
+          <Button onClick={onAction} size="sm" variant="outline">
+            {action} <ArrowRightIcon aria-hidden="true" />
+          </Button>
+        )}
+      </FrameFooter>
     </Frame>
   );
 }
@@ -323,12 +311,16 @@ function ServiceRow({ server }: { server: McpServerDefinition }) {
   return (
     <div className="flex min-w-0 items-center gap-3 px-4 py-3">
       <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-        <CableIcon aria-hidden="true" className="size-4" />
+        <ServiceIcon server={server} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{serviceTitle(server)}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {server.tools_count} {server.tools_count === 1 ? 'capability' : 'capabilities'}
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate text-sm font-medium">{serviceTitle(server)}</p>
+          <Badge variant="outline">{serviceOwnership(server)}</Badge>
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {serviceDescription(server)} · {server.tools_count}{' '}
+          {server.tools_count === 1 ? 'tool' : 'tools'}
         </p>
       </div>
       <ClioStatus
@@ -478,10 +470,10 @@ function foundationTitle(name: string): string {
 
 function serviceTitle(server: McpServerDefinition): string {
   const names: Record<string, string> = {
-    fs: 'Workspace files',
-    filesystem: 'Workspace files',
-    shell: 'Command execution',
-    'clio-web-search': 'Web search',
+    fs: 'Files',
+    filesystem: 'Files',
+    shell: 'Commands',
+    'clio-web-search': 'CLIO Web Search',
   };
   if (names[server.id] || names[server.name]) return names[server.id] || names[server.name]!;
   const fromSpec = server.spec.title ?? server.spec.display_name;
@@ -489,22 +481,41 @@ function serviceTitle(server: McpServerDefinition): string {
   return server.name || server.id;
 }
 
-function relayDescription(
-  relay:
-    | {
-        configured: boolean;
-        reachable?: boolean;
-        detail?: string;
-        reason?: string;
-      }
-    | undefined,
-): string {
-  if (!relay) return 'Checking remote execution availability.';
-  if (relay.reachable) return 'Remote execution is connected and ready.';
-  if (!relay.configured) return 'No remote execution service is connected.';
-  const raw = `${relay.detail || ''} ${relay.reason || ''}`.toLowerCase();
-  if (raw.includes('incomplete') || raw.includes('not_configured')) {
-    return 'Remote execution is partially configured, but its tools are not ready.';
+function serviceOwnership(server: McpServerDefinition): string {
+  if (server.transport === 'in_process') return 'Built-in MCP';
+  if (server.source === 'agent_blueprint') return 'Blueprint MCP';
+  return 'External MCP';
+}
+
+function serviceDescription(server: McpServerDefinition): string {
+  const descriptions: Record<string, string> = {
+    fs: 'Read and edit files allowed by this workspace',
+    filesystem: 'Read and edit files allowed by this workspace',
+    shell: 'Run commands inside the workspace’s permitted folders',
+    'clio-web-search': 'Search the web and convert scientific documents',
+  };
+  if (isWebSearchServer(server)) return descriptions['clio-web-search'];
+  return (
+    descriptions[server.id] ||
+    descriptions[server.name] ||
+    (server.transport === 'in_process'
+      ? 'Provided by the connected agent'
+      : 'Adds tools from a connected service')
+  );
+}
+
+function ServiceIcon({ server }: { server: McpServerDefinition }) {
+  if (['fs', 'filesystem'].includes(server.id) || ['fs', 'filesystem'].includes(server.name)) {
+    return <HardDriveIcon aria-hidden="true" className="size-4" />;
   }
-  return 'Remote execution is configured but currently unavailable.';
+  if (server.id === 'shell' || server.name === 'shell') {
+    return <TerminalSquareIcon aria-hidden="true" className="size-4" />;
+  }
+  if (isWebSearchServer(server)) return <Globe2Icon aria-hidden="true" className="size-4" />;
+  return <CableIcon aria-hidden="true" className="size-4" />;
+}
+
+function isWebSearchServer(server: McpServerDefinition): boolean {
+  const identity = `${server.id} ${server.name}`.toLowerCase();
+  return identity.includes('web-search') || identity.includes('web search') || identity === 'web';
 }

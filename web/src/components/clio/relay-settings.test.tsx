@@ -46,12 +46,12 @@ function renderSettings() {
   );
 }
 
-describe('remote work settings', () => {
+describe('remote computer settings', () => {
   it('requires an explicit credential entry before connecting', async () => {
     const user = userEvent.setup();
     renderSettings();
 
-    await user.click(await screen.findByRole('button', { name: 'Connect remote work' }));
+    await user.click(await screen.findByRole('button', { name: 'Connect existing Relay' }));
     const connect = screen.getByRole('button', { name: /^Connect$/u });
     expect(connect).toBeDisabled();
     expect(screen.queryByLabelText('Access credential')).not.toBeInTheDocument();
@@ -61,9 +61,9 @@ describe('remote work settings', () => {
     expect(credential).toHaveAttribute('autocomplete', 'new-password');
     expect(credential).toHaveValue('');
 
-    await user.type(screen.getByLabelText('Control service address'), 'https://relay.example/mcp');
-    await user.clear(screen.getByLabelText('Jobs and artifacts address'));
-    await user.type(screen.getByLabelText('Jobs and artifacts address'), 'https://relay.example');
+    await user.type(screen.getByLabelText('MCP address'), 'https://relay.example/mcp');
+    await user.clear(screen.getByLabelText('Results address'));
+    await user.type(screen.getByLabelText('Results address'), 'https://relay.example');
     await user.type(credential, 'test-credential');
     expect(connect).toBeEnabled();
     await user.click(connect);
