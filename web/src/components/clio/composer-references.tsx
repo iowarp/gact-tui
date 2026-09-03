@@ -133,7 +133,10 @@ export function ClioComposerReferenceMenu({
   // Older servers may return an unbounded workspace inventory. Keep the
   // command palette responsive even when connected to one of them.
   const rows = useMemo(() => {
-    const combined = [...(references.data ?? []), ...(localFiles.data ?? [])];
+    // React Query retains the collapsed inventory in its cache after the user
+    // starts typing. Do not mix those stale unfiltered files into live search
+    // results; a query must reflect only the bounded server search.
+    const combined = [...(references.data ?? []), ...(!isSearching ? (localFiles.data ?? []) : [])];
     const identities = new Set<string>();
     return combined
       .filter((reference) => {
@@ -143,7 +146,7 @@ export function ClioComposerReferenceMenu({
         return true;
       })
       .slice(0, 100);
-  }, [localFiles.data, references.data]);
+  }, [isSearching, localFiles.data, references.data]);
 
   const visibleRows = useMemo(
     () =>
