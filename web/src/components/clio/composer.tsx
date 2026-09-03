@@ -50,6 +50,7 @@ import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-
 import { ClioComposerQueue } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
+import type { WorkspaceResourceUploadResult } from '@/lib/upload-workspace-resources';
 import { ClioComposerReferenceChips, ClioComposerReferenceMenu } from './composer-references';
 import { toMessagePart, workspaceReferenceIdentity } from './composer-reference-domain';
 
@@ -91,6 +92,10 @@ export interface ClioComposerProps {
     behavior: MessageBehavior;
     onUploadProgress: (progress: ResourceUploadProgress) => void;
   }) => Promise<void>;
+  onPrepareFiles?: (
+    files: readonly FileUIPart[],
+    onProgress?: (progress: ResourceUploadProgress) => void,
+  ) => Promise<WorkspaceResourceUploadResult>;
   onStop?: () => void;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onRetryModelCatalog?: () => void;
@@ -134,6 +139,7 @@ export function ClioComposer({
   workspaceId = '',
   commands = [],
   onSubmit,
+  onPrepareFiles,
   onStop,
   onCommand,
   onRetryModelCatalog,
@@ -454,7 +460,12 @@ export function ClioComposer({
             {activityControl}
           </PromptInputHeader>
         ) : null}
-        <ClioComposerAttachments uploadFailure={uploadFailure} uploadProgress={uploadProgress} />
+        <ClioComposerAttachments
+          onPrepareFiles={onPrepareFiles}
+          resources={resources}
+          uploadFailure={uploadFailure}
+          uploadProgress={uploadProgress}
+        />
         <ClioComposerReferenceChips
           onOpen={onOpenReference}
           onRemove={(reference) =>

@@ -1,5 +1,6 @@
+import type { WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -18,8 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
+import type {
+  ResourceUploadProgress,
+  WorkspaceResourceUploadResult,
+} from '@/lib/upload-workspace-resources';
 import {
+  resourcePipelineStages,
   summarizeResourcePipelineStages,
   type ResourcePipelineStages,
 } from './resource-availability';
@@ -44,14 +49,63 @@ export interface ResourceUploadFailure {
 
 /** Compact AI Elements attachment tray backed by PromptInput file state. */
 export function ClioComposerAttachments({
+  onPrepareFiles,
+  resources = [],
   uploadFailure,
   uploadProgress,
 }: {
+  onPrepareFiles?: (
+    files: readonly FileUIPart[],
+    onProgress?: (progress: ResourceUploadProgress) => void,
+  ) => Promise<WorkspaceResourceUploadResult>;
+  resources?: readonly WorkspaceResource[];
   uploadFailure?: ResourceUploadFailure;
   uploadProgress?: ResourceUploadProgress;
 }) {
   const attachments = usePromptInputAttachments();
   const [preview, setPreview] = useState<(FileUIPart & { id: string }) | undefined>();
+  const preparingAttachmentIds = useRef(new Set<string>());
+  const [attachmentProgress, setAttachmentProgress] = useState<
+    Record<string, ResourceUploadProgress>
+  >({});
+  const [attachmentFailures, setAttachmentFailures] = useState<
+    Record<string, ResourceUploadFailure>
+  >({});
+  const [preparedResources, setPreparedResources] = useState<Record<string, WorkspaceResource>>({});
+
+  useEffect(() => {
+    if (!onPrepareFiles) return;
+    for (const file of attachments.files) {
+      if (preparingAttachmentIds.current.has(file.id) || preparedResources[file.id]) continue;
+      preparingAttachmentIds.current.add(file.id);
+      setAttachmentFailures((current) => {
+        if (!(file.id in current)) return current;
+        const next = { ...current };
+        delete next[file.id];
+        return next;
+      });
+      void onPrepareFiles([file], (progress) => {
+        setAttachmentProgress((current) => ({ ...current, [file.id]: progress }));
+      })
+        .then((result) => {
+          const resource = result.resources[0];
+          if (resource) {
+            setPreparedResources((current) => ({ ...current, [file.id]: resource }));
+          }
+        })
+        .catch((error: unknown) => {
+          setAttachmentFailures((current) => ({
+            ...current,
+            [file.id]: {
+              filename: file.filename,
+              message: error instanceof Error ? error.message : 'The upload failed.',
+            },
+          }));
+        })
+        .finally(() => preparingAttachmentIds.current.delete(file.id));
+    }
+  }, [attachments.files, onPrepareFiles, preparedResources]);
+
   if (attachments.files.length === 0) return null;
 
   return (
@@ -59,7 +113,16 @@ export function ClioComposerAttachments({
       <Attachments className="ml-0 w-full justify-start px-2.5 pb-1.5 pt-2" variant="inline">
         {attachments.files.map((file) => {
           const filename = file.filename ?? 'Attachment';
-          const stages = localAttachmentStages(file, uploadProgress, uploadFailure);
+          const prepared = preparedResources[file.id];
+          const resource = resources.find((candidate) => candidate.id === prepared?.id) ?? prepared;
+          const stages = resource
+            ? resourcePipelineStages(resource)
+            : localAttachmentStages(
+                file,
+                attachmentProgress[file.id] ?? uploadProgress,
+                attachmentFailures[file.id] ?? uploadFailure,
+                Boolean(onPrepareFiles),
+              );
           return (
             <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
               <AttachmentHoverCardTrigger asChild>
@@ -115,6 +178,7 @@ function localAttachmentStages(
   file: FileUIPart,
   uploadProgress?: ResourceUploadProgress,
   uploadFailure?: ResourceUploadFailure,
+  preparing = false,
 ): ResourcePipelineStages {
   if (uploadFailure && uploadFailure.filename === file.filename) {
     // Without this a rejected upload keeps reading as a healthy "Ready locally"
@@ -137,13 +201,13 @@ function localAttachmentStages(
           name: 'Upload' as const,
         }
       : {
-          kind: 'complete' as const,
-          label: progress ? 'Complete' : 'Ready locally',
+          kind: preparing ? ('active' as const) : ('complete' as const),
+          label: progress ? 'Complete' : preparing ? 'Starting' : 'Ready locally',
           name: 'Upload' as const,
         };
   const conversion = {
     kind: 'waiting' as const,
-    label: progress ? 'Waiting for workspace' : 'Starts after submission',
+    label: 'Waiting for upload',
     name: 'Conversion' as const,
   };
   return summarizeResourcePipelineStages(upload, conversion);

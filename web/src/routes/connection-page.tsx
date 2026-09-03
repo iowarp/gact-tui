@@ -36,8 +36,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createRepository, DEFAULT_ENDPOINT, normalizeEndpoint } from '@/lib/connection';
+import {
+  connectionSessionRoute,
+  connectionSessionTargetForRoute,
+  latestConnectionSessionTarget,
+} from '@/lib/connection-target';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
+import { lastWorkspaceRoute, rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 export function ConnectionPage() {
@@ -81,8 +86,16 @@ export function ConnectionPage() {
         repository.workspaces(),
         repository.allSessions(),
       ]);
+      const target =
+        connectionSessionTargetForRoute(lastWorkspaceRoute(next.endpoint), workspaces, sessions) ??
+        latestConnectionSessionTarget(workspaces, sessions);
       await connect(next);
-      return { next, capabilities, sessions, workspaces };
+      return { next, capabilities, sessions, target, workspaces };
+    },
+    onSuccess: ({ next, target }) => {
+      if (!target) return;
+      rememberWorkspaceRoute(next.endpoint, target.workspace.id, target.session.id);
+      void navigate(connectionSessionRoute(target), { replace: true });
     },
   });
   const setup = useMutation({

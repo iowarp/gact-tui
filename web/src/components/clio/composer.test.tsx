@@ -1,4 +1,4 @@
-import type { CommandDefinition } from '@clio/core/v3';
+import type { CommandDefinition, WorkspaceResource } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -73,6 +73,7 @@ function renderComposer({
   effort = 'medium',
   onCommand = vi.fn(async () => undefined),
   onOpenReference,
+  onPrepareFiles,
   onStop = vi.fn(),
   onSubmit = vi.fn(async () => undefined),
   state = 'completed',
@@ -83,6 +84,7 @@ function renderComposer({
   effort?: string;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onOpenReference?: ClioComposerProps['onOpenReference'];
+  onPrepareFiles?: ClioComposerProps['onPrepareFiles'];
   onStop?: () => void;
   onSubmit?: ClioComposerProps['onSubmit'];
   state?: 'completed' | 'running';
@@ -102,6 +104,7 @@ function renderComposer({
           model="gpt-5.6-luna"
           onCommand={onCommand}
           onOpenReference={onOpenReference}
+          onPrepareFiles={onPrepareFiles}
           onStop={onStop}
           onSubmit={onSubmit}
           provider="codex"
@@ -410,7 +413,7 @@ describe('ClioComposer service commands', () => {
       await screen.findByRole('status', { name: 'Upload status: Ready locally' }),
     ).toBeVisible();
     expect(
-      screen.getByRole('status', { name: 'Conversion status: Starts after submission' }),
+      screen.getByRole('status', { name: 'Conversion status: Waiting for upload' }),
     ).toBeVisible();
 
     await user.click(openAttachment);
@@ -422,6 +425,79 @@ describe('ClioComposer service commands', () => {
       'src',
       'blob:test-field-map.png',
     );
+  });
+
+  it('uploads a selected file before submission so conversion can start immediately', async () => {
+    const user = userEvent.setup();
+    const uploaded: WorkspaceResource = {
+      id: 'resource_pdf',
+      workspace_id: 'workspace_1',
+      client_upload_id: 'browser-pdf',
+      revision: 1,
+      name: 'paper.pdf',
+      claimed_mime: 'application/pdf',
+      detected_mime: 'application/pdf',
+      detection_source: 'magic',
+      declared_size: 12,
+      received_size: 12,
+      sha256: 'abc',
+      state: 'ready',
+      failure: '',
+      created_at: '2026-09-02T00:00:00Z',
+      updated_at: '2026-09-02T00:00:00Z',
+      completed_at: '2026-09-02T00:00:00Z',
+      mime_mismatch: false,
+      processing: {
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_pdf',
+        resource_revision: 1,
+        source_sha256: 'abc',
+        processor: 'docling',
+        processor_url: 'http://processor.test',
+        job_id: 'remote_job',
+        state: 'submitted',
+        progress: 0,
+        failure: {},
+        cancellation: {},
+        created_at: '2026-09-02T00:00:00Z',
+        updated_at: '2026-09-02T00:00:00Z',
+      },
+    };
+    const onPrepareFiles = vi.fn<NonNullable<ClioComposerProps['onPrepareFiles']>>(
+      async (_files, onProgress) => {
+        onProgress?.({ filename: 'paper.pdf', loaded: 12, total: 12 });
+        return {
+          parts: [
+            {
+              type: 'resource_ref',
+              resource_id: uploaded.id,
+              resource_revision: '1',
+              name: uploaded.name,
+            },
+          ],
+          resources: [uploaded],
+        };
+      },
+    );
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(async () => undefined);
+    renderComposer({
+      attachments: true,
+      onPrepareFiles,
+      onSubmit,
+      workspaceId: 'workspace_1',
+    });
+
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['%PDF-content'], 'paper.pdf', { type: 'application/pdf' }),
+    );
+
+    await waitFor(() => expect(onPrepareFiles).toHaveBeenCalledOnce());
+    expect(onSubmit).not.toHaveBeenCalled();
+    const attachment = screen.getByRole('button', { name: 'Open paper.pdf' });
+    await user.hover(attachment);
+    expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Conversion status: Queued' })).toBeVisible();
   });
 
   it('keeps a rejected attachment retryable without a stale uploading state', async () => {

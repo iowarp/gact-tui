@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
 
 const mocks = vi.hoisted(() => ({
+  uploadWorkspaceResources: vi.fn(),
   repository: {
     answerQuestion: vi.fn(async () => ({})),
     cancelQuestion: vi.fn(async () => ({})),
@@ -29,6 +30,9 @@ vi.mock('@/store/live-store', () => ({
 }));
 vi.mock('./use-repository', () => ({ useRepository: () => mocks.repository }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
+vi.mock('@/lib/upload-workspace-resources', () => ({
+  uploadWorkspaceResources: mocks.uploadWorkspaceResources,
+}));
 
 import { useSessionMutations, type SessionSendInput } from './use-session-mutations';
 
@@ -119,6 +123,60 @@ describe('useSessionMutations send identity', () => {
   });
 });
 
+describe('useSessionMutations attachment preparation', () => {
+  it('reuses the immediate upload when the message is submitted', async () => {
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_resource' });
+    mocks.uploadWorkspaceResources.mockResolvedValue({
+      parts: [
+        {
+          type: 'resource_ref',
+          resource_id: 'resource_pdf',
+          resource_revision: '1',
+          name: 'paper.pdf',
+        },
+      ],
+      resources: [
+        {
+          id: 'resource_pdf',
+          workspace_id: 'ws_1',
+          name: 'paper.pdf',
+          revision: 1,
+        },
+      ],
+    });
+    const file = {
+      type: 'file' as const,
+      filename: 'paper.pdf',
+      mediaType: 'application/pdf',
+      url: 'blob:paper-pdf',
+    };
+    const { result } = renderMutations();
+
+    await result.current.prepareFiles([file]);
+    await result.current.send.mutateAsync({
+      ...draft,
+      files: [file],
+      text: 'Read the title.',
+    });
+
+    expect(mocks.uploadWorkspaceResources).toHaveBeenCalledOnce();
+    expect(mocks.repository.submitMessage).toHaveBeenCalledWith(
+      'sess_1',
+      expect.objectContaining({
+        parts: [
+          { type: 'text', text: 'Read the title.' },
+          {
+            type: 'resource_ref',
+            resource_id: 'resource_pdf',
+            resource_revision: '1',
+            name: 'paper.pdf',
+          },
+        ],
+      }),
+    );
+  });
+});
+
 describe('useSessionMutations pending-question invalidation', () => {
   // The read now lives at the unscoped, endpoint-level key use-workspace-data.ts
   // registers it under (queryKeys.key('pending-questions', endpoint, 'all-active')),
@@ -178,9 +236,9 @@ describe('useSessionMutations pending-question invalidation', () => {
     await result.current.respondPermission.mutateAsync({ id: 'perm_1', action: 'allow' });
 
     await waitFor(() =>
-      expect(
-        client.getQueryCache().find({ queryKey: approvalsReadKey })?.state.isInvalidated,
-      ).toBe(true),
+      expect(client.getQueryCache().find({ queryKey: approvalsReadKey })?.state.isInvalidated).toBe(
+        true,
+      ),
     );
   });
 });

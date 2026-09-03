@@ -223,6 +223,7 @@ export function WorkspacePage() {
     deleteQueuedMessage,
     pendingSteers,
     promoteQueuedMessage,
+    prepareFiles,
     queuedMessages,
     reorderQueuedMessages,
     respondInteraction,
@@ -485,6 +486,7 @@ export function WorkspacePage() {
         onRetryModelCatalog={() => {
           void providerCatalog.refetch();
         }}
+        onPrepareFiles={prepareFiles}
         onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
         onSubmit={async (value) => {
           const startedFromWelcome = showConversationWelcome;

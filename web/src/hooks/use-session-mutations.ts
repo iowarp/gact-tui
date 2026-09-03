@@ -10,11 +10,12 @@ import type {
   PendingInteractionResponse,
   QueuedMessage,
   Session,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SessionBehaviorPatch } from '@/components/clio/session-behavior-options';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -23,6 +24,7 @@ import { useRepository } from './use-repository';
 import {
   uploadWorkspaceResources,
   type ResourceUploadProgress,
+  type WorkspaceResourceUploadResult,
 } from '@/lib/upload-workspace-resources';
 import { respondToLegacyInteraction } from '@/lib/pending-interaction-contract';
 
@@ -74,12 +76,21 @@ export function useSessionMutations({
   // Uploads outlive a single request: they chunk bytes and then wait for the
   // service to register the resource. Leaving the session must end that wait
   // rather than leave it polling against a session nobody is looking at.
-  const uploads = useRef<AbortController | null>(null);
+  const uploadScope = useMemo(
+    () => ({ controller: new AbortController(), sessionId }),
+    [sessionId],
+  );
+  const preparedUploads = useRef(new Map<string, Promise<WorkspaceResourceUploadResult>>());
   useEffect(() => {
-    const controller = new AbortController();
-    uploads.current = controller;
-    return () => controller.abort();
-  }, [sessionId]);
+    const cache = preparedUploads.current;
+    const cachePrefix = `${uploadScope.sessionId}\u0000`;
+    return () => {
+      uploadScope.controller.abort();
+      for (const key of cache.keys()) {
+        if (key.startsWith(cachePrefix)) cache.delete(key);
+      }
+    };
+  }, [uploadScope]);
 
   const queuedMessages = useQuery({
     enabled: Boolean(sessionId),
@@ -103,6 +114,53 @@ export function useSessionMutations({
     ]);
   };
 
+  const prepareFiles = useCallback(
+    async (
+      files: readonly FileUIPart[],
+      onProgress?: (progress: ResourceUploadProgress) => void,
+    ): Promise<WorkspaceResourceUploadResult> => {
+      const uploadsForFiles = files.map((file) => {
+        const cacheKey = `${uploadScope.sessionId}\u0000${file.url}`;
+        let pending = preparedUploads.current.get(cacheKey);
+        if (!pending) {
+          pending = uploadWorkspaceResources({
+            files: [file],
+            onProgress,
+            repository,
+            signal: uploadScope.controller.signal,
+            workspaceId,
+          })
+            .then((result) => {
+              queryClient.setQueryData<WorkspaceResource[]>(
+                queryKeys.workspaceResources(settings.endpoint, workspaceId),
+                (current = []) => {
+                  const byId = new Map(current.map((resource) => [resource.id, resource]));
+                  for (const resource of result.resources) byId.set(resource.id, resource);
+                  return [...byId.values()];
+                },
+              );
+              void queryClient.invalidateQueries({
+                queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),
+              });
+              return result;
+            })
+            .catch((error: unknown) => {
+              preparedUploads.current.delete(cacheKey);
+              throw error;
+            });
+          preparedUploads.current.set(cacheKey, pending);
+        }
+        return pending;
+      });
+      const results = await Promise.all(uploadsForFiles);
+      return {
+        parts: results.flatMap((result) => result.parts),
+        resources: results.flatMap((result) => result.resources),
+      };
+    },
+    [queryClient, repository, settings.endpoint, uploadScope, workspaceId],
+  );
+
   const sendIdentities = useRef(new SendIdentities());
   const send = useMutation({
     mutationFn: async (value: SessionSendInput) => {
@@ -112,13 +170,7 @@ export function useSessionMutations({
       const identity = sendIdentities.current.forSend(sendFingerprint(value));
 
       const uploaded = value.files?.length
-        ? await uploadWorkspaceResources({
-            files: value.files,
-            onProgress: value.onUploadProgress,
-            repository,
-            signal: uploads.current?.signal,
-            workspaceId,
-          })
+        ? await prepareFiles(value.files, value.onUploadProgress)
         : { parts: [] as ComposerMessagePart[], resources: [] };
       const text = value.text.trim();
       const parts: ComposerMessagePart[] = [
@@ -367,6 +419,7 @@ export function useSessionMutations({
     deleteQueuedMessage,
     pendingSteers,
     promoteQueuedMessage,
+    prepareFiles,
     queuedMessages,
     reorderQueuedMessages,
     respondInteraction,
