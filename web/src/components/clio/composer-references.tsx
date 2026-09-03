@@ -27,7 +27,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
-import { workspaceReferenceIdentity } from './composer-reference-domain';
+import { workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
 
 type ReferenceIcon = ComponentType<SVGProps<SVGSVGElement>>;
 

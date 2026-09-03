@@ -1,3 +1,6 @@
+import type { ComposerMessagePart } from '@clio/core/v3';
+import { referenceIdentity } from './composer-reference-domain';
+
 /** The identity one logical send carries, across every attempt to deliver it. */
 export interface SendIdentity {
   clientMessageId: string;
@@ -33,25 +36,28 @@ export class SendIdentities {
 
 /**
  * What makes two attempts the same send: the same text, delivered the same way,
- * carrying the same attachments. Attachment URLs are stable object URLs for the
- * life of a tray entry, so editing the draft or swapping a file mints a new
- * identity.
+ * carrying the same references and attachments. Attachment URLs are stable
+ * object URLs for the life of a tray entry, so editing the draft or swapping a
+ * file mints a new identity.
+ *
+ * A reference is folded through `referenceIdentity`, which reads both shapes
+ * the composer produces. Reading only the `context_ref` fields collapsed every
+ * `resource_ref` to the same tuple, so two reference-only sends carrying
+ * different uploads shared one idempotency key and the service treated the
+ * second as a replay of the first.
  */
 export function sendFingerprint(value: {
   delivery: string;
   files?: readonly { url: string }[];
-  references?: readonly { type: string; ref_kind?: string; ref_id?: string; revision?: string }[];
+  references?: readonly ComposerMessagePart[];
   text: string;
 }): string {
   return JSON.stringify([
     value.delivery,
     value.text.trim(),
-    (value.references ?? []).map((reference) => [
-      reference.type,
-      reference.ref_kind,
-      reference.ref_id,
-      reference.revision,
-    ]),
+    (value.references ?? []).map((reference) =>
+      reference.type === 'text' ? `text:${reference.text}` : referenceIdentity(reference),
+    ),
     (value.files ?? []).map((file) => file.url),
   ]);
 }
