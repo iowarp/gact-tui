@@ -12,7 +12,15 @@ import {
   PackageIcon,
   WaypointsIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type SVGProps,
+} from 'react';
 import {
   PromptInputCommand,
   PromptInputCommandEmpty,
@@ -82,7 +90,10 @@ function conciseDetail(reference: WorkspaceReference): string {
 export function ClioComposerReferenceMenu({
   onSelect,
   onReferencesChange,
+  onActiveOptionChange,
   onActiveReferenceChange,
+  onDismiss,
+  onRestoreFocus,
   activeReferenceId,
   onQueryChange,
   query,
@@ -90,8 +101,14 @@ export function ClioComposerReferenceMenu({
   workspaceId,
 }: {
   activeReferenceId?: string;
+  /** The DOM id of the highlighted option, for the composer's aria-activedescendant. */
+  onActiveOptionChange: (optionId: string | undefined) => void;
   onActiveReferenceChange: (identity: string) => void;
+  /** Escape, or a click outside this surface. */
+  onDismiss: () => void;
   onReferencesChange: (references: readonly WorkspaceReference[]) => void;
+  /** Hand focus back to the composer when this surface has no input of its own. */
+  onRestoreFocus: () => void;
   onSelect: (reference: WorkspaceReference) => void;
   onQueryChange: (query: string) => void;
   query: string;
@@ -100,9 +117,22 @@ export function ClioComposerReferenceMenu({
 }) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const optionElements = useRef(new Map<string, HTMLElement>());
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(groups.map((group) => [group.label, group.defaultOpen])),
   );
+  /**
+   * Whichever control drives this surface keeps the keyboard: its own search
+   * box when it has one, the composer's editor when the person typed `@`.
+   * Expanding a group moves focus to the group button, so it is handed back
+   * afterwards or the arrow keys stop reaching the list.
+   */
+  const restoreFocus = useCallback(() => {
+    if (searchInput && searchRef.current) searchRef.current.focus();
+    else onRestoreFocus();
+  }, [onRestoreFocus, searchInput]);
   const debouncedQuery = useDebouncedValue(query.trim(), 100);
   const isSearching = Boolean(query.trim());
   const requestedKinds = debouncedQuery ? [] : nonFileKinds;
@@ -159,11 +189,39 @@ export function ClioComposerReferenceMenu({
 
   useEffect(() => onReferencesChange(visibleRows), [onReferencesChange, visibleRows]);
 
+  // cmdk mints the option ids, so the highlighted option's real id is read back
+  // off the element rather than assumed.
+  useEffect(() => {
+    onActiveOptionChange(
+      activeReferenceId ? optionElements.current.get(activeReferenceId)?.id : undefined,
+    );
+  }, [activeReferenceId, onActiveOptionChange, visibleRows]);
+
+  // The popover is not a focus trap and has no backdrop, so a click anywhere
+  // else has to close it. `pointerdown` rather than `click` so a click that
+  // lands on a control outside dismisses before that control reacts.
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && rootRef.current?.contains(target)) return;
+      onDismiss();
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [onDismiss]);
+
   return (
     <PromptInputCommand
       aria-label="Reference workspace context"
       className="rounded-xl border bg-popover text-popover-foreground shadow-xl"
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        onDismiss();
+      }}
       onValueChange={onActiveReferenceChange}
+      ref={rootRef}
       shouldFilter={false}
       value={activeReferenceId}
     >
@@ -172,6 +230,7 @@ export function ClioComposerReferenceMenu({
           autoFocus
           onValueChange={onQueryChange}
           placeholder="Search evidence, files, conversations, and agent runs…"
+          ref={searchRef}
           value={query}
         />
       ) : null}
@@ -191,9 +250,10 @@ export function ClioComposerReferenceMenu({
           return (
             <PromptInputCommandGroup className="p-0" key={group.label}>
               <Collapsible
-                onOpenChange={(nextOpen) =>
-                  setOpenGroups((current) => ({ ...current, [group.label]: nextOpen }))
-                }
+                onOpenChange={(nextOpen) => {
+                  setOpenGroups((current) => ({ ...current, [group.label]: nextOpen }));
+                  window.requestAnimationFrame(restoreFocus);
+                }}
                 open={open}
               >
                 <CollapsibleTrigger asChild>
@@ -228,6 +288,11 @@ export function ClioComposerReferenceMenu({
                         className="h-7 px-2 py-0"
                         key={`${reference.kind}:${reference.id}:${reference.revision}`}
                         onSelect={() => onSelect(reference)}
+                        ref={(element) => {
+                          const identity = workspaceReferenceIdentity(reference);
+                          if (element) optionElements.current.set(identity, element);
+                          else optionElements.current.delete(identity);
+                        }}
                         value={workspaceReferenceIdentity(reference)}
                       >
                         <Icon aria-hidden="true" className="shrink-0 text-muted-foreground" />

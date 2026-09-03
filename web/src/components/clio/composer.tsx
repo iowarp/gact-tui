@@ -13,6 +13,7 @@ import { AtSignIcon, CornerDownRightIcon, PaperclipIcon, PlusIcon } from 'lucide
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -51,11 +52,8 @@ import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
 import type { WorkspaceResourceUploadResult } from '@/lib/upload-workspace-resources';
 import { ClioComposerReferenceMenu } from './composer-references';
-import {
-  toMessagePart,
-  workspaceReferenceIdentity,
-  type InlineReferenceSelection,
-} from '@/lib/composer-reference-domain';
+import { useComposerReferenceController } from './composer-reference-controller';
+import { toMessagePart, type InlineReferenceSelection } from '@/lib/composer-reference-domain';
 import { ComposerInlineReferenceEditor } from './composer-inline-reference-editor';
 
 function focusComposerEditor(editor: HTMLDivElement | null): void {
@@ -209,10 +207,6 @@ export function ClioComposer({
     },
     [onReferencesChange, references],
   );
-  const [referenceOptions, setReferenceOptions] = useState<readonly WorkspaceReference[]>([]);
-  const [activeReferenceId, setActiveReferenceId] = useState<string>();
-  const [referencePickerOpen, setReferencePickerOpen] = useState(false);
-  const [referenceSearchQuery, setReferenceSearchQuery] = useState('');
   const [uploadFailure, setUploadFailure] = useState<ResourceUploadFailure>();
   // The attachment in flight when a submit is rejected; the progress state is
   // cleared on the way out, so the name is kept separately.
@@ -231,6 +225,10 @@ export function ClioComposer({
   const rootRef = useRef<HTMLDivElement>(null);
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
   const restoreFocusAfterSubmitRef = useRef(false);
+  const focusEditorSoon = useCallback(() => {
+    window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
+  }, []);
+
   const commandQuery = input.trimStart();
   const commandMatches = useMemo(() => {
     if (!commandQuery.startsWith('/') || commandQuery.includes(' ')) return [];
@@ -242,20 +240,19 @@ export function ClioComposer({
     );
   }, [commandQuery, commands]);
   const showCommands = commandQuery.startsWith('/') && !commandQuery.includes(' ');
-  const referenceToken = input.match(/(?:^|\s)@([^\s]*)$/);
-  const referenceQuery = referenceToken?.[1] ?? '';
-  const effectiveReferenceQuery = referencePickerOpen ? referenceSearchQuery : referenceQuery;
-  const showReferences =
-    contextReferences && Boolean(workspaceId) && (referencePickerOpen || Boolean(referenceToken));
-  const effectiveActiveReferenceId =
-    activeReferenceId &&
-    referenceOptions.some(
-      (reference) => workspaceReferenceIdentity(reference) === activeReferenceId,
-    )
-      ? activeReferenceId
-      : referenceOptions[0]
-        ? workspaceReferenceIdentity(referenceOptions[0])
-        : undefined;
+  const commandPopoverId = `${useId()}-composer-commands`;
+  const composerReferences = useComposerReferenceController({
+    contextReferences,
+    editorRef: inputRef,
+    focusEditor: focusEditorSoon,
+    input,
+    selectedReferences,
+    setInput,
+    setSelectedReferences,
+    workspaceId,
+  });
+  const showReferences = composerReferences.open;
+  const popoverOpen = showCommands || showReferences;
   const selectedOption = modelOptions.find(
     (option) =>
       option.providerId === selectedProvider && option.id === selectedModel && option.available,
@@ -289,29 +286,6 @@ export function ClioComposer({
     });
   };
 
-  const selectReference = useCallback(
-    (reference: WorkspaceReference) => {
-      const tokenStart = referenceToken ? input.lastIndexOf('@') : -1;
-      const base = tokenStart >= 0 ? input.slice(0, tokenStart) : input;
-      const prefix = base && !/\s$/.test(base) ? `${base} ` : base;
-      const nextInput = `${prefix} `;
-      const alreadySelected = selectedReferences.some(
-        (candidate) =>
-          workspaceReferenceIdentity(candidate.reference) === workspaceReferenceIdentity(reference),
-      );
-      if (!alreadySelected) {
-        setSelectedReferences([...selectedReferences, { offset: prefix.length, reference }]);
-      }
-      setInput(nextInput);
-      setReferencePickerOpen(false);
-      setReferenceSearchQuery('');
-      setReferenceOptions([]);
-      setActiveReferenceId(undefined);
-      window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
-    },
-    [input, referenceToken, selectedReferences, setInput, setSelectedReferences],
-  );
-
   useLayoutEffect(() => {
     const element = rootRef.current;
     if (variant !== 'docked' || !element || !onHeightChange) return;
@@ -338,7 +312,10 @@ export function ClioComposer({
       ref={rootRef}
     >
       {showCommands ? (
-        <div className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6">
+        <div
+          className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6"
+          id={commandPopoverId}
+        >
           <PromptInputCommand className="rounded-xl border bg-popover text-popover-foreground shadow-xl">
             <PromptInputCommandList className="max-h-64">
               <PromptInputCommandEmpty>No service command matches.</PromptInputCommandEmpty>
@@ -375,15 +352,21 @@ export function ClioComposer({
         </div>
       ) : null}
       {showReferences && !showCommands ? (
-        <div className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6">
+        <div
+          className="absolute inset-x-4 bottom-full z-20 mx-auto max-w-4xl pb-2 lg:inset-x-6"
+          id={composerReferences.popoverId}
+        >
           <ClioComposerReferenceMenu
-            activeReferenceId={effectiveActiveReferenceId}
-            onActiveReferenceChange={setActiveReferenceId}
-            onReferencesChange={setReferenceOptions}
-            onSelect={selectReference}
-            onQueryChange={setReferenceSearchQuery}
-            query={effectiveReferenceQuery}
-            searchInput={referencePickerOpen}
+            activeReferenceId={composerReferences.activeReferenceId}
+            onActiveOptionChange={composerReferences.onActiveOptionChange}
+            onActiveReferenceChange={composerReferences.onActiveReferenceChange}
+            onDismiss={composerReferences.dismiss}
+            onReferencesChange={composerReferences.onOptionsChange}
+            onRestoreFocus={focusEditorSoon}
+            onSelect={composerReferences.select}
+            onQueryChange={composerReferences.onQueryChange}
+            query={composerReferences.query}
+            searchInput={composerReferences.pickerOpen}
             workspaceId={workspaceId}
           />
         </div>
@@ -512,47 +495,20 @@ export function ClioComposer({
           </div>
         ) : null}
         <ComposerInlineReferenceEditor
+          activeOptionId={composerReferences.activeOptionId}
           disabled={disabled}
+          expanded={popoverOpen}
+          onCaretChange={composerReferences.onCaretChange}
           onChange={setInput}
           onOpenReference={onOpenReference}
           onReferencesChange={setSelectedReferences}
           placeholder={`Ask ${brand.name} to investigate, build, explain, or act…`}
+          popoverId={showCommands ? commandPopoverId : composerReferences.popoverId}
           ref={inputRef}
           references={selectedReferences}
           value={input}
           onKeyDown={(event) => {
-            if (showReferences && referenceOptions.length > 0) {
-              const activeIndex = referenceOptions.findIndex(
-                (reference) => workspaceReferenceIdentity(reference) === effectiveActiveReferenceId,
-              );
-              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                event.preventDefault();
-                const direction = event.key === 'ArrowDown' ? 1 : -1;
-                const nextIndex =
-                  (Math.max(activeIndex, 0) + direction + referenceOptions.length) %
-                  referenceOptions.length;
-                setActiveReferenceId(workspaceReferenceIdentity(referenceOptions[nextIndex]!));
-                return;
-              }
-              if (
-                (event.key === 'Enter' || event.key === 'Tab') &&
-                !event.shiftKey &&
-                !event.nativeEvent.isComposing
-              ) {
-                event.preventDefault();
-                selectReference(referenceOptions[Math.max(activeIndex, 0)]!);
-                return;
-              }
-            }
-            if (showReferences && event.key === 'Escape') {
-              event.preventDefault();
-              setReferencePickerOpen(false);
-              setReferenceSearchQuery('');
-              if (referenceToken) {
-                setInput(input.slice(0, referenceToken.index ?? input.length).trimEnd());
-              }
-              return;
-            }
+            if (composerReferences.handleKeyDown(event)) return;
             if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
             event.preventDefault();
             const form = event.currentTarget.closest('form');
@@ -569,10 +525,7 @@ export function ClioComposer({
               <ComposerAddContextButton
                 attachments={attachments}
                 contextReferences={contextReferences}
-                onOpenReferences={() => {
-                  setReferenceSearchQuery('');
-                  setReferencePickerOpen(true);
-                }}
+                onOpenReferences={composerReferences.openPicker}
               />
             ) : null}
             <ClioComposerBehaviorControls
