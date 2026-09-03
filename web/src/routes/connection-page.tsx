@@ -19,6 +19,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
 import { ClioStatus } from '@/components/clio/status';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
+import { reportConnectionOutcome } from '@/lib/connection-outcomes';
 import { WorkspaceLoading } from '@/components/clio/workspace-route-surfaces';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -130,20 +131,37 @@ export function ConnectionPage() {
       if (!target && workspace) {
         // Older services do not expose message_count. Fall back to their latest
         // valid session instead of manufacturing a blank conversation on every load.
-        target = sessions.some((session) => session.message_count === undefined)
-          ? recent
-          : {
-              workspace,
-              session: await repository.createSession({
-                workspace_id: workspace.id,
-                title: 'New conversation',
-              }),
-            };
+        if (sessions.some((session) => session.message_count === undefined)) {
+          target = recent;
+        } else {
+          const session = await repository.createSession({
+            workspace_id: workspace.id,
+            title: 'New conversation',
+          });
+          target = { workspace, session };
+          reportConnectionOutcome({
+            code: 'session_minted',
+            endpoint: next.endpoint,
+            reason:
+              'Every existing conversation in this workspace had content, so a new one was created to land in.',
+            sessionId: session.id,
+            workspaceId: workspace.id,
+          });
+        }
       }
-      if (!target && sessions.length > 0) {
-        throw new ConnectionTargetError(
-          'The service returned conversations without a workspace that can be opened.',
-        );
+      if (!target) {
+        // The connection itself succeeded — there is simply nothing openable on
+        // the far side. The setup surface below is the way out of that; falling
+        // back to the connect form would strand the person on a button that has
+        // already done its job.
+        reportConnectionOutcome({
+          code: 'target_unresolved',
+          endpoint: next.endpoint,
+          reason: workspace
+            ? 'The workspace held no conversation that could be opened.'
+            : 'The service exposed no workspace that could be opened.',
+          workspaceId: workspace?.id,
+        });
       }
       if (target) {
         rememberWorkspaceRoute(next.endpoint, target.workspace.id, target.session.id);
@@ -295,7 +313,7 @@ export function ConnectionPage() {
             {mutation.isPending ? <ClioStatus value="connecting" /> : null}
           </div>
 
-          {mutation.isSuccess && mutation.data.sessions.length === 0 ? (
+          {mutation.isSuccess && !mutation.data.target ? (
             <ConnectionEmptyService
               error={setup.error?.message}
               onCreate={(input) => setup.mutateAsync(input).then(() => undefined)}
@@ -502,13 +520,4 @@ export function ConnectionPage() {
       </section>
     </main>
   );
-}
-
-class ConnectionTargetError extends Error {
-  readonly code = 'connection_target_unavailable';
-
-  constructor(message: string) {
-    super(message);
-    this.name = 'ConnectionTargetError';
-  }
 }

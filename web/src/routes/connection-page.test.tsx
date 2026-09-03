@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -36,10 +36,12 @@ vi.mock('@/providers/connection-provider', () => ({
 }));
 
 import { ConnectionPage } from './connection-page';
+import { clearConnectionOutcomes, connectionOutcomes } from '@/lib/connection-outcomes';
 
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  clearConnectionOutcomes();
   mocks.recents = [];
   mocks.resolveConnection.mockResolvedValue({
     endpoint: 'http://127.0.0.1:8788',
@@ -66,7 +68,7 @@ beforeEach(() => {
     },
   ]);
   mocks.repository.createSession.mockResolvedValue({
-    id: 'sess_created',
+    id: 'sess_new',
     workspace_id: 'ws_default',
     title: 'New conversation',
     message_count: 0,
@@ -201,7 +203,7 @@ it('creates the reusable empty base-agent session when every conversation has co
   });
 });
 
-it('surfaces a typed target failure instead of reporting connection success without navigation', async () => {
+it('offers setup instead of the bare form when a connection resolves no target', async () => {
   mocks.repository.workspaces.mockResolvedValue([]);
   mocks.repository.allSessions.mockResolvedValue([
     {
@@ -228,9 +230,57 @@ it('surfaces a typed target failure instead of reporting connection success with
 
   await user.click(screen.getByRole('button', { name: 'Connect' }));
 
-  expect(await screen.findByText('Connection unavailable')).toBeVisible();
-  expect(
-    screen.getByText('The service returned conversations without a workspace that can be opened.'),
-  ).toBeVisible();
+  // The connection succeeded; there is simply nothing openable on the far side.
+  // Re-rendering the connect form strands the person on a button that already
+  // worked, so the branch is keyed on whether a target resolved — not on
+  // whether the service happens to have zero sessions.
+  expect(await screen.findByText('This service is ready')).toBeVisible();
+  expect(screen.getByLabelText('Conversation name')).toBeVisible();
   expect(mocks.connect).toHaveBeenCalledOnce();
+});
+
+it('says when it created the conversation the auto-connect landed in', async () => {
+  // A remembered service is what makes the page connect without being asked.
+  mocks.recents = [{ endpoint: 'http://127.0.0.1:8788', label: 'Contained' }];
+  mocks.repository.allSessions.mockResolvedValue([
+    {
+      id: 'sess_existing',
+      workspace_id: 'ws_default',
+      title: 'Completed review',
+      archived: false,
+      parent_session_id: '',
+      last_interaction_at: '2026-09-02T12:00:00Z',
+      updated_at: '2026-09-02T12:00:00Z',
+      created_at: '2026-09-02T11:00:00Z',
+      message_count: 4,
+    },
+  ]);
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+          <Route
+            element={<div>Minted session</div>}
+            path="/workspaces/:workspaceId/sessions/:sessionId"
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(await screen.findByText('Minted session')).toBeVisible();
+  // Auto-connect creates a session on the service without being asked. That is
+  // a write, and it is recorded with its own reason rather than happening
+  // invisibly behind a redirect.
+  await waitFor(() =>
+    expect(connectionOutcomes().at(-1)).toMatchObject({
+      code: 'session_minted',
+      sessionId: 'sess_new',
+      workspaceId: 'ws_default',
+    }),
+  );
 });
