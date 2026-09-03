@@ -212,6 +212,12 @@ describe('ClioPendingInteractions', () => {
     });
     const onResponse = renderPending([interaction]);
 
+    const title = screen.getByText('Which evidence view should remain primary?');
+    expect(title).toHaveAttribute('data-slot', 'pending-interaction-title');
+    expect(title).toHaveClass('line-clamp-3');
+    expect(title).not.toHaveClass('truncate');
+    expect(title).toHaveAttribute('title', 'Which evidence view should remain primary?');
+
     await user.click(screen.getByRole('radio', { name: 'Station table' }));
     await user.type(
       screen.getByRole('textbox', { name: 'Comment on Station table' }),
