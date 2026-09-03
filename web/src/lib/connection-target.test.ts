@@ -48,11 +48,20 @@ describe('latestConnectionSessionTarget', () => {
       active_blueprint_id: 'factorio-flat',
       message_count: 0,
     };
+    const preflight = {
+      ...session('preflight', 'ws valid', '2026-08-23T23:30:00Z'),
+      title: '__CLIO dev ARC preflight__',
+      message_count: 0,
+    };
     const empty = { ...session('empty', 'ws valid', '2026-08-23T21:00:00Z'), message_count: 0 };
 
     expect(
-      emptyConnectionSessionTarget(workspace('ws valid'), [populated, specialist, empty])?.session
-        .id,
+      emptyConnectionSessionTarget(workspace('ws valid'), [
+        populated,
+        specialist,
+        preflight,
+        empty,
+      ])?.session.id,
     ).toBe('empty');
   });
 

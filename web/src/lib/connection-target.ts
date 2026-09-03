@@ -6,6 +6,19 @@ export interface ConnectionSessionTarget {
   workspace: Workspace;
 }
 
+const INTERNAL_SESSION_TITLE_PREFIX = '__CLIO dev ';
+
+/** Internal qualification sessions must never become a user's entry composer. */
+function isReusableEntrySession(session: Session): boolean {
+  return (
+    isPrimarySession(session) &&
+    !session.archived &&
+    session.message_count === 0 &&
+    !session.active_blueprint_id &&
+    !session.title.startsWith(INTERNAL_SESSION_TITLE_PREFIX)
+  );
+}
+
 /** Resolve the newest reusable empty base-agent session in one workspace. */
 export function emptyConnectionSessionTarget(
   workspace: Workspace,
@@ -15,10 +28,7 @@ export function emptyConnectionSessionTarget(
     .filter(
       (candidate) =>
         candidate.workspace_id === workspace.id &&
-        isPrimarySession(candidate) &&
-        !candidate.archived &&
-        candidate.message_count === 0 &&
-        !candidate.active_blueprint_id,
+        isReusableEntrySession(candidate),
     )
     .toSorted((left, right) => right.created_at.localeCompare(left.created_at))[0];
   return session ? { session, workspace } : undefined;
