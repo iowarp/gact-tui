@@ -416,6 +416,9 @@ describe('ComposerRepository', () => {
       job_id: '',
       state: 'submitted',
       progress: 0,
+      progress_kind: 'unknown',
+      stage: '',
+      message: '',
       derivatives_available: false,
       failure: {},
       cancellation: {},
@@ -604,13 +607,13 @@ describe('ComposerRepository decode hygiene', () => {
     ]);
     await expect(repository.resourceDeliveries('workspace_1')).resolves.toEqual([]);
 
-    expect(composerRowDegradations().map(({ collection, index }) => ({ collection, index }))).toEqual(
-      [
-        { collection: 'pending_steers', index: 1 },
-        { collection: 'resources', index: 0 },
-        { collection: 'resource_deliveries', index: 0 },
-      ],
-    );
+    expect(
+      composerRowDegradations().map(({ collection, index }) => ({ collection, index })),
+    ).toEqual([
+      { collection: 'pending_steers', index: 1 },
+      { collection: 'resources', index: 0 },
+      { collection: 'resource_deliveries', index: 0 },
+    ]);
   });
 
   it('still fails the whole read when the service serves no list at all', async () => {
