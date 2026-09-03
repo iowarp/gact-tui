@@ -90,7 +90,7 @@ const API_REQUEST_TIMEOUT_MS = 15_000;
 const EL = 'element-6066-11e4-a52e-4f735466cecf';
 const SHELL_SELECTOR =
   'section[aria-label="Session workspace"], nav[aria-label="Workspace navigation"]';
-const COMPOSER_SELECTOR = 'textarea[name="message"]';
+const COMPOSER_SELECTOR = 'div[role="textbox"][contenteditable="true"][aria-label^="Ask "]';
 const SUBMIT_SELECTOR = 'button[aria-label="Submit"]';
 const RESPONSE_SELECTOR = 'section[aria-label="Agent needs your response"]';
 const DRIVER_START_ATTEMPTS = 2;
@@ -430,7 +430,7 @@ async function sendDiagnostics(sid) {
       "const toasts = Array.from(document.querySelectorAll('.toast')).map((n) => n.textContent?.trim() || '');" +
       'return {' +
       "  text: document.body?.innerText?.slice(0, 1200) || ''," +
-      "  composerValue: ta?.value || ''," +
+      "  composerValue: ta?.textContent || ''," +
       '  sendDisabled: !!send?.disabled,' +
       "  active: document.activeElement?.getAttribute('aria-label') || document.activeElement?.tagName || null," +
       '  toasts,' +
@@ -638,7 +638,7 @@ test(
             `const send = document.querySelector('${SUBMIT_SELECTOR}');` +
               "if (!send) throw new Error('missing composer-send');" +
               "if (send.disabled) throw new Error('composer-send disabled: ' + JSON.stringify({" +
-              `  value: document.querySelector('${COMPOSER_SELECTOR}')?.value || '',` +
+              `  value: document.querySelector('${COMPOSER_SELECTOR}')?.textContent || '',` +
               "  text: document.body?.innerText?.slice(0, 300) || ''" +
               '}));' +
               'send.click();' +
