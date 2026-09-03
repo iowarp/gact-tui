@@ -90,7 +90,15 @@ const API_REQUEST_TIMEOUT_MS = 15_000;
 const EL = 'element-6066-11e4-a52e-4f735466cecf';
 const SHELL_SELECTOR =
   'section[aria-label="Session workspace"], nav[aria-label="Workspace navigation"]';
-const COMPOSER_SELECTOR = 'div[role="textbox"][contenteditable="true"][aria-label^="Ask "]';
+// The composer is a contenteditable rich editor, not a textarea: reference
+// tokens are real DOM nodes inside it. Its role is `combobox` while the mention
+// popover contract is attached and `textbox` on builds without it, so the probe
+// accepts either rather than pinning the a11y contract from the desktop side.
+const COMPOSER_SELECTOR =
+  'div[contenteditable="true"][role="combobox"], div[contenteditable="true"][role="textbox"]';
+// The editor mirrors its plain-text value into a hidden input so form
+// submission and any `.value` read have one authoritative source.
+const COMPOSER_VALUE_SELECTOR = 'input[name="message"]';
 const SUBMIT_SELECTOR = 'button[aria-label="Submit"]';
 const RESPONSE_SELECTOR = 'section[aria-label="Agent needs your response"]';
 const DRIVER_START_ATTEMPTS = 2;
@@ -334,19 +342,28 @@ async function typeInto(sid, el, text) {
   const typed = await waitForComposerText(sid, text, 2_500).catch(() => false);
   if (typed) return;
 
-  // WebKit WebDriver can focus the textarea while failing to deliver
-  // element/value as user input. Fall back to a DOM edit that explicitly
-  // dispatches the events Solid's controlled composer listens for.
+  // WebKit WebDriver can focus the editor while failing to deliver
+  // element/value as user input. Fall back to a DOM edit. The composer is a
+  // contenteditable, so there is no value setter to drive through the
+  // HTMLTextAreaElement prototype descriptor: writing its text content and
+  // dispatching a bubbling `input` is exactly what the editor's own React
+  // `onInput` handler reads, and that handler is what mirrors the text into the
+  // hidden input and back into React state.
   await execute(
     sid,
     'const el = arguments[0], v = arguments[1];' +
       'el.focus();' +
-      "const d = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');" +
-      'if (d && d.set) { d.set.call(el, v); } else { el.value = v; }' +
-      "el.dispatchEvent(new Event('input', { bubbles: true, composed: true }));" +
+      'el.textContent = v;' +
+      'const selection = window.getSelection();' +
+      'if (selection) {' +
+      '  const range = document.createRange();' +
+      '  range.selectNodeContents(el);' +
+      '  range.collapse(false);' +
+      '  selection.removeAllRanges();' +
+      '  selection.addRange(range);' +
+      '}' +
       "el.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, data: v, inputType: 'insertText' }));" +
-      "el.dispatchEvent(new Event('change', { bubbles: true, composed: true }));" +
-      'return el.value;',
+      'return el.textContent;',
     [{ [EL]: el }, text],
   );
   await waitForComposerText(sid, text, 5_000);
@@ -357,10 +374,10 @@ async function waitForComposerText(sid, expected, timeoutMs) {
   for (;;) {
     const j = await execute(
       sid,
-      `const ta = document.querySelector('${COMPOSER_SELECTOR}');` +
+      `const mirror = document.querySelector('${COMPOSER_VALUE_SELECTOR}');` +
         `const send = document.querySelector('${SUBMIT_SELECTOR}');` +
         'return {' +
-        "  value: ta?.value || ''," +
+        "  value: mirror?.value || ''," +
         '  sendDisabled: !!send?.disabled,' +
         "  active: document.activeElement?.getAttribute('aria-label') || document.activeElement?.tagName || null" +
         '};',
@@ -425,12 +442,12 @@ async function waitForPaintedShell(sid) {
 async function sendDiagnostics(sid) {
   const j = await execute(
     sid,
-    `const ta = document.querySelector('${COMPOSER_SELECTOR}');` +
+    `const mirror = document.querySelector('${COMPOSER_VALUE_SELECTOR}');` +
       `const send = document.querySelector('${SUBMIT_SELECTOR}');` +
       "const toasts = Array.from(document.querySelectorAll('.toast')).map((n) => n.textContent?.trim() || '');" +
       'return {' +
       "  text: document.body?.innerText?.slice(0, 1200) || ''," +
-      "  composerValue: ta?.textContent || ''," +
+      "  composerValue: mirror?.value || ''," +
       '  sendDisabled: !!send?.disabled,' +
       "  active: document.activeElement?.getAttribute('aria-label') || document.activeElement?.tagName || null," +
       '  toasts,' +
@@ -638,7 +655,7 @@ test(
             `const send = document.querySelector('${SUBMIT_SELECTOR}');` +
               "if (!send) throw new Error('missing composer-send');" +
               "if (send.disabled) throw new Error('composer-send disabled: ' + JSON.stringify({" +
-              `  value: document.querySelector('${COMPOSER_SELECTOR}')?.textContent || '',` +
+              `  value: document.querySelector('${COMPOSER_VALUE_SELECTOR}')?.value || '',` +
               "  text: document.body?.innerText?.slice(0, 300) || ''" +
               '}));' +
               'send.click();' +
