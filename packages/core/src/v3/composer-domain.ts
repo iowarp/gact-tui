@@ -26,7 +26,15 @@ export interface MessageBehavior {
   confirmation_policy: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
 }
 
-export type ContextReferenceKind = 'workspace_file' | 'artifact' | 'session' | 'agent_run';
+export type ContextReferenceKind =
+  | 'workspace_file'
+  | 'artifact'
+  | 'session'
+  | 'agent_run'
+  | 'evidence_source'
+  | 'context_frame'
+  | 'diff'
+  | 'plan';
 export type WorkspaceReferenceKind = ContextReferenceKind | 'resource';
 
 export interface ContextReferencePart {

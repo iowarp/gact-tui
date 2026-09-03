@@ -1,9 +1,10 @@
-import type { A2UISurface, Artifact, MessageBlock } from '@clio/core/v3';
+import type { A2UISurface, Artifact, MessageBlock, WorkspaceReference } from '@clio/core/v3';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import {
   AlertTriangleIcon,
   ExternalLinkIcon,
   FileCode2Icon,
+  FileTextIcon,
   PanelsTopLeftIcon,
   RouteIcon,
 } from 'lucide-react';
@@ -111,6 +112,7 @@ function MessageBlockView({
   onOpenArtifact,
   onOpenFile,
   onOpenResource,
+  onOpenReference,
   onOpenSubagent,
   reasoningDefaultOpen,
 }: MessageBlockViewProps) {
@@ -265,6 +267,30 @@ function MessageBlockView({
           resources={resources}
         />
       );
+    case 'context_reference': {
+      const reference: WorkspaceReference = {
+        kind: block.ref_kind,
+        id: block.ref_id,
+        label: block.label,
+        detail: block.label,
+        media_type: block.media_type,
+        revision: block.revision,
+        navigation: block.navigation,
+      };
+      return (
+        <button
+          aria-label={`Open referenced ${block.ref_kind.replaceAll('_', ' ')} ${block.label}`}
+          className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          disabled={!onOpenReference}
+          onClick={() => onOpenReference?.(reference)}
+          title={`${block.ref_kind.replaceAll('_', ' ')} · ${block.revision}`}
+          type="button"
+        >
+          <FileTextIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <span className="truncate">{block.label}</span>
+        </button>
+      );
+    }
     case 'unknown':
       return (
         <Alert>

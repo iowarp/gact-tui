@@ -114,6 +114,23 @@ describe('forward-compatible wire enums', () => {
       original_type: 'resource',
       raw: { id: 'resource_2', type: 'resource', resource_id: 'res_2' },
     });
+    expect(
+      messageBlockSchema.parse({
+        id: 'reference_1',
+        type: 'context_reference',
+        ref_kind: 'artifact',
+        ref_id: 'artifact_1',
+        label: 'Review notes.md',
+        revision: 'v2',
+        media_type: 'text/markdown',
+        navigation: { artifact_id: 'artifact_1' },
+      }),
+    ).toMatchObject({
+      type: 'context_reference',
+      ref_kind: 'artifact',
+      label: 'Review notes.md',
+      navigation: { artifact_id: 'artifact_1' },
+    });
   });
 
   it('keeps a resource attachment readable when the service adds a field', () => {

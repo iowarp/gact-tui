@@ -6,6 +6,7 @@ import type {
   SubagentRun,
   Task as DomainTask,
   ToolInvocation,
+  WorkspaceReference,
   WorkspaceResource,
 } from '@clio/core/v3';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
@@ -71,6 +72,7 @@ export interface ClioConversationProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenFile?: (path: string) => void;
   onOpenResource?: (resource: WorkspaceResource) => void;
+  onOpenReference?: (reference: WorkspaceReference) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   pendingMessageIds?: ReadonlySet<string>;
   cancellablePendingMessageIds?: ReadonlySet<string>;

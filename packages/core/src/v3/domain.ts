@@ -1,4 +1,4 @@
-import type { ResourceDeliveryDecision } from './composer-domain.js';
+import type { ContextReferenceKind, ResourceDeliveryDecision } from './composer-domain.js';
 import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
@@ -656,6 +656,16 @@ export type MessageBlock = MessageBlockContext &
         name: string;
         media_type: string;
         delivery?: ResourceDeliveryDecision;
+      }
+    | {
+        id: string;
+        type: 'context_reference';
+        ref_kind: ContextReferenceKind;
+        ref_id: string;
+        label: string;
+        revision: string;
+        media_type: string;
+        navigation: Record<string, unknown>;
       }
     | {
         id: string;

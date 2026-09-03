@@ -12,6 +12,10 @@ export function referenceLabel(part: ReferencePart): string {
   return part.type === 'resource_ref' ? part.name : part.label;
 }
 
+export function workspaceReferenceIdentity(reference: WorkspaceReference): string {
+  return `${reference.kind}:${reference.id}:${reference.revision}`;
+}
+
 export function toMessagePart(reference: WorkspaceReference): ReferencePart {
   if (reference.kind === 'resource') {
     return {

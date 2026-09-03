@@ -51,6 +51,54 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation recovery actions', () => {
+  it('keeps a structured context reference visible and clickable in the sent message', async () => {
+    const user = userEvent.setup();
+    const onOpenReference = vi.fn();
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_reference',
+            session_id: 'session_1',
+            role: 'user',
+            created_at: '2026-09-02T00:00:00Z',
+            blocks: [
+              {
+                id: 'reference_part',
+                type: 'context_reference',
+                ref_kind: 'workspace_file',
+                ref_id: 'README.md',
+                label: 'README.md',
+                revision: 'sha256:abc',
+                media_type: 'text/markdown',
+                navigation: { workspace_id: 'workspace_1', path: 'README.md' },
+              },
+              { id: 'text_part', type: 'text', text: 'Use this as context.' },
+            ],
+          },
+        ]}
+        onOpenReference={onOpenReference}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open referenced workspace file README.md' }),
+    );
+    expect(onOpenReference).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'workspace_file',
+        id: 'README.md',
+        navigation: { workspace_id: 'workspace_1', path: 'README.md' },
+      }),
+    );
+    expect(screen.getByText('Use this as context.')).toBeInTheDocument();
+  });
+
   it('renders a workspace resource at its wire position without exposing private prompt context', async () => {
     const user = userEvent.setup();
     const onOpenResource = vi.fn();

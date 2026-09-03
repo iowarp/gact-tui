@@ -1,5 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
-import type { RunState } from '@clio/core/v3';
+import type { RunState, WorkspaceReference } from '@clio/core/v3';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
@@ -37,6 +37,7 @@ import { useAvailableSessionNavigation } from '@/hooks/use-available-session-nav
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
+import { artifactDetailEntity } from '@/lib/session-artifacts';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -146,6 +147,72 @@ export function WorkspacePage() {
         (workspaceResources.data ?? []).map((resource) => [resource.id, resource]),
       ),
     [workspaceResources.data],
+  );
+  const openComposerReference = useCallback(
+    async (reference: WorkspaceReference) => {
+      const targetWorkspaceId = stringNavigation(reference, 'workspace_id') || workspaceId;
+      if (reference.kind === 'workspace_file') {
+        openWorkspaceFile(stringNavigation(reference, 'path') || reference.id);
+        return;
+      }
+      if (reference.kind === 'resource') {
+        const resource = workspaceResourceEntities[reference.id];
+        if (resource) openWorkspaceResource(resource);
+        return;
+      }
+      if (reference.kind === 'artifact') {
+        const existing = artifacts.find((artifact) => artifact.id === reference.id);
+        openArtifact(
+          existing ??
+            artifactDetailEntity(await repository.artifactDetail(reference.id), sessionId),
+        );
+        return;
+      }
+      if (reference.kind === 'diff') {
+        const path = stringNavigation(reference, 'path');
+        const diff = (sessionObservability.diffs.data ?? []).find(
+          (candidate) => candidate.path === path,
+        );
+        if (diff) openDiff(diff);
+        else if (path) openWorkspaceFile(path);
+        return;
+      }
+      if (reference.kind === 'evidence_source') {
+        const resourceId = stringNavigation(reference, 'resource_id');
+        const resource = workspaceResourceEntities[resourceId];
+        if (resource) {
+          openWorkspaceResource(resource);
+          return;
+        }
+        const uri = stringNavigation(reference, 'uri');
+        if (/^https?:\/\//iu.test(uri)) {
+          window.open(uri, '_blank', 'noopener,noreferrer');
+          return;
+        }
+      }
+      const targetSessionId = stringNavigation(reference, 'session_id');
+      if (targetSessionId && targetSessionId !== sessionId) {
+        void navigate(
+          `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(targetSessionId)}`,
+        );
+        return;
+      }
+      revealWorkbench({ kind: 'session' });
+    },
+    [
+      artifacts,
+      navigate,
+      openArtifact,
+      openDiff,
+      openWorkspaceFile,
+      openWorkspaceResource,
+      repository,
+      revealWorkbench,
+      sessionId,
+      sessionObservability.diffs.data,
+      workspaceId,
+      workspaceResourceEntities,
+    ],
   );
   const handleA2UILocalAction = useA2UILocalActions(entities.artifacts, sessionId, openArtifact);
 
@@ -431,6 +498,7 @@ export function WorkspacePage() {
         }}
         onStop={() => cancel.mutate()}
         onOpenResource={openWorkspaceResource}
+        onOpenReference={(reference) => void openComposerReference(reference)}
         onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
         onPromoteQueuedMessage={(message, delivery) =>
           promoteQueuedMessage.mutateAsync({ delivery, message }).then(() => undefined)
@@ -659,6 +727,7 @@ export function WorkspacePage() {
                     onOpenArtifact={openArtifact}
                     onOpenFile={openWorkspaceFile}
                     onOpenResource={openWorkspaceResource}
+                    onOpenReference={(reference) => void openComposerReference(reference)}
                     forkingMessageId={
                       sessionHistory.fork.isPending && sessionHistory.fork.variables
                         ? sessionHistory.fork.variables
@@ -715,4 +784,9 @@ export function WorkspacePage() {
       </ClioAppShell>
     </>
   );
+}
+
+function stringNavigation(reference: WorkspaceReference, key: string): string {
+  const value = reference.navigation[key];
+  return typeof value === 'string' ? value : '';
 }

@@ -72,6 +72,7 @@ function renderComposer({
   contextReferences = false,
   effort = 'medium',
   onCommand = vi.fn(async () => undefined),
+  onOpenReference,
   onStop = vi.fn(),
   onSubmit = vi.fn(async () => undefined),
   state = 'completed',
@@ -81,6 +82,7 @@ function renderComposer({
   contextReferences?: boolean;
   effort?: string;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
+  onOpenReference?: ClioComposerProps['onOpenReference'];
   onStop?: () => void;
   onSubmit?: ClioComposerProps['onSubmit'];
   state?: 'completed' | 'running';
@@ -99,6 +101,7 @@ function renderComposer({
           effort={effort}
           model="gpt-5.6-luna"
           onCommand={onCommand}
+          onOpenReference={onOpenReference}
           onStop={onStop}
           onSubmit={onSubmit}
           provider="codex"
@@ -130,7 +133,7 @@ describe('ClioComposer service commands', () => {
     const input = screen.getByRole('textbox');
 
     await user.type(input, '@plot');
-    await user.click(await screen.findByText('Displacement plot'));
+    await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
 
     expect(screen.getByRole('listitem')).toHaveTextContent('Displacement plot');
     await user.type(input, 'needs a clearer legend{Enter}');
@@ -151,6 +154,84 @@ describe('ClioComposer service commands', () => {
         }),
       ),
     );
+  });
+
+  it('uses arrow keys and Enter to select a reference instead of submitting literal @ text', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([
+      {
+        kind: 'workspace_file',
+        id: 'README.md',
+        label: 'README.md',
+        detail: 'README.md (400 bytes)',
+        media_type: 'text/markdown',
+        revision: 'stat:1:400',
+        navigation: { path: 'README.md' },
+      },
+      {
+        kind: 'artifact',
+        id: 'artifact_notes',
+        label: 'Review notes.md',
+        detail: 'Review notes.md v2 (document)',
+        media_type: 'text/markdown',
+        revision: 'v2',
+        navigation: { artifact_id: 'artifact_notes' },
+      },
+    ]);
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    renderComposer({ contextReferences: true, onSubmit, workspaceId: 'workspace_1' });
+    const input = screen.getByRole('textbox');
+
+    await user.type(input, '@');
+    await screen.findByRole('option', { name: /README.md/ });
+    await user.keyboard('{ArrowDown}{Enter}');
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(input).not.toHaveValue('@');
+    expect(screen.getByRole('button', { name: 'Open artifact Review notes.md' })).toBeVisible();
+
+    await user.type(input, 'Make the conclusion clearer.{Enter}');
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Make the conclusion clearer.',
+        references: [
+          {
+            type: 'context_ref',
+            ref_kind: 'artifact',
+            ref_id: 'artifact_notes',
+            label: 'Review notes.md',
+            revision: 'v2',
+          },
+        ],
+      }),
+    );
+  });
+
+  it('opens a selected reference from its typed token', async () => {
+    const reference = {
+      kind: 'workspace_file' as const,
+      id: 'README.md',
+      label: 'README.md',
+      detail: 'README.md (400 bytes)',
+      media_type: 'text/markdown',
+      revision: 'stat:1:400',
+      navigation: { path: 'README.md' },
+    };
+    repositoryMocks.workspaceReferences.mockResolvedValue([reference]);
+    const user = userEvent.setup();
+    const onOpenReference = vi.fn();
+    renderComposer({
+      contextReferences: true,
+      onOpenReference,
+      workspaceId: 'workspace_1',
+    });
+
+    await user.type(screen.getByRole('textbox'), '@README');
+    await user.click(await screen.findByRole('option', { name: /README.md/ }));
+    await user.click(screen.getByRole('button', { name: 'Open local file README.md' }));
+
+    expect(onOpenReference).toHaveBeenCalledWith(reference);
   });
 
   it('opens categorized reference search from the composer plus menu', async () => {
@@ -219,7 +300,7 @@ describe('ClioComposer service commands', () => {
     });
 
     await user.type(screen.getByRole('textbox'), '@observations');
-    await user.click(await screen.findByText('observations.csv'));
+    await user.click(await screen.findByRole('option', { name: /observations.csv/ }));
     const steer = screen.getByRole('button', { name: 'Steer current work' });
     expect(steer).toBeEnabled();
     await user.click(steer);

@@ -1,5 +1,16 @@
 import { z } from 'zod';
 
+export const contextReferenceKindSchema = z.enum([
+  'workspace_file',
+  'artifact',
+  'session',
+  'agent_run',
+  'evidence_source',
+  'context_frame',
+  'diff',
+  'plan',
+]);
+
 export const composerModelRefSchema = z.object({
   provider_id: z.string(),
   model_id: z.string(),
@@ -16,7 +27,7 @@ export const composerMessagePartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
   z.object({
     type: z.literal('context_ref'),
-    ref_kind: z.enum(['workspace_file', 'artifact', 'session', 'agent_run']),
+    ref_kind: contextReferenceKindSchema,
     ref_id: z.string(),
     label: z.string(),
     revision: z.string().optional(),
@@ -31,7 +42,17 @@ export const composerMessagePartSchema = z.discriminatedUnion('type', [
 ]);
 
 export const workspaceReferenceSchema = z.object({
-  kind: z.enum(['workspace_file', 'resource', 'artifact', 'session', 'agent_run']),
+  kind: z.enum([
+    'workspace_file',
+    'resource',
+    'artifact',
+    'session',
+    'agent_run',
+    'evidence_source',
+    'context_frame',
+    'diff',
+    'plan',
+  ]),
   id: z.string(),
   label: z.string(),
   detail: z.string(),
