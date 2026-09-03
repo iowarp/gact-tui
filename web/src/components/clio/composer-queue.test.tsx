@@ -189,8 +189,15 @@ describe('ClioComposerQueue', () => {
     renderQueue({ messages: [message] });
 
     expect(screen.getByText('Context only')).toBeVisible();
-    expect(screen.getByTitle('artifact · Displacement plot')).toBeVisible();
-    expect(screen.getByTitle('session · Prior evidence review')).toBeVisible();
+    // The kind is carried by the icon and named in plain words, never as a
+    // glyph-separated field list.
+    const artifactChip = screen.getByTitle('Displacement plot (artifact)');
+    const sessionChip = screen.getByTitle('Prior evidence review (conversation)');
+    expect(artifactChip).toBeVisible();
+    expect(sessionChip).toBeVisible();
+    expect(artifactChip.querySelector('svg')).toHaveClass('lucide-package');
+    expect(sessionChip.querySelector('svg')).toHaveClass('lucide-message-square');
+    expect(screen.queryByText('·')).not.toBeInTheDocument();
   });
 
   it('shows compact queued attachment progress, hover semantics, preview, and overflow', async () => {

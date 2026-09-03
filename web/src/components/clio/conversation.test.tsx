@@ -86,13 +86,21 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    await user.click(
-      screen.getByRole('button', { name: 'Open referenced workspace file README.md' }),
-    );
+    const reference = screen.getByRole('button', { name: 'Open referenced local file README.md' });
+    // The kind is named the way a reader would name it, and the addressing
+    // revision is not shown as prose anywhere on the card.
+    expect(reference).toHaveAttribute('title', 'local file');
+    expect(reference).toHaveAttribute('data-reference-revision', 'sha256:abc');
+    expect(reference).not.toHaveTextContent('sha256:abc');
+    expect(reference).not.toHaveTextContent('·');
+    expect(reference.querySelector('svg')).toHaveClass('lucide-file-text');
+
+    await user.click(reference);
     expect(onOpenReference).toHaveBeenCalledWith(
       expect.objectContaining({
         kind: 'workspace_file',
         id: 'README.md',
+        detail: '',
         navigation: { workspace_id: 'workspace_1', path: 'README.md' },
       }),
     );

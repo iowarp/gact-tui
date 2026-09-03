@@ -6,17 +6,11 @@ import type {
 } from '@clio/core/v3';
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import {
-  AtSignIcon,
-  CheckIcon,
-  GripVerticalIcon,
-  PencilIcon,
-  SendIcon,
-  Trash2Icon,
-  XIcon,
-} from 'lucide-react';
+import { CheckIcon, GripVerticalIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { referenceKindLabel } from '@/lib/composer-reference-domain';
+import { referenceKindIcon } from './composer-reference-presentation';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -210,19 +204,22 @@ export function ClioComposerQueue({
                       )}
                       {contextReferences.length > 0 ? (
                         <div className="flex min-w-0 max-w-48 shrink items-center gap-1">
-                          {contextReferences.slice(0, 2).map((reference) => (
-                            <span
-                              className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md border border-border px-1.5 text-xs"
-                              key={`${reference.ref_kind}:${reference.ref_id}:${reference.revision ?? ''}`}
-                              title={`${reference.ref_kind.replaceAll('_', ' ')} · ${reference.label}`}
-                            >
-                              <AtSignIcon
-                                aria-hidden="true"
-                                className="size-3 shrink-0 text-primary"
-                              />
-                              <span className="truncate">{reference.label}</span>
-                            </span>
-                          ))}
+                          {contextReferences.slice(0, 2).map((reference) => {
+                            const ReferenceIcon = referenceKindIcon(reference.ref_kind);
+                            return (
+                              <span
+                                className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md border border-border px-1.5 text-xs"
+                                key={`${reference.ref_kind}:${reference.ref_id}:${reference.revision ?? ''}`}
+                                title={`${reference.label} (${referenceKindLabel(reference.ref_kind)})`}
+                              >
+                                <ReferenceIcon
+                                  aria-hidden="true"
+                                  className="size-3 shrink-0 text-primary"
+                                />
+                                <span className="truncate">{reference.label}</span>
+                              </span>
+                            );
+                          })}
                           {contextReferences.length > 2 ? (
                             <span
                               aria-label={`${contextReferences.length - 2} more references`}

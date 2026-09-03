@@ -4,7 +4,6 @@ import {
   AlertTriangleIcon,
   ExternalLinkIcon,
   FileCode2Icon,
-  FileTextIcon,
   PanelsTopLeftIcon,
   RouteIcon,
 } from 'lucide-react';
@@ -32,6 +31,8 @@ import { ClioA2UISurface } from './a2ui-surface';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import type { ClioConversationProps } from './conversation';
 import { ConversationProcessSequence } from './conversation-process-sequence';
+import { referenceKindLabel } from '@/lib/composer-reference-domain';
+import { referenceKindIcon } from './composer-reference-presentation';
 import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
@@ -272,21 +273,29 @@ function MessageBlockView({
         kind: block.ref_kind,
         id: block.ref_id,
         label: block.label,
-        detail: block.label,
+        // The transcript block carries no description of its own. Repeating the
+        // label here would invent one, and every surface downstream would read
+        // it as something the service said.
+        detail: '',
         media_type: block.media_type,
         revision: block.revision,
         navigation: block.navigation,
       };
+      const kind = referenceKindLabel(block.ref_kind);
+      const ReferenceIcon = referenceKindIcon(block.ref_kind);
       return (
         <button
-          aria-label={`Open referenced ${block.ref_kind.replaceAll('_', ' ')} ${block.label}`}
+          aria-label={`Open referenced ${kind} ${block.label}`}
           className="inline-flex max-w-full items-center gap-1.5 rounded-sm text-sm font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          // The revision is an addressing token, not something to read. It stays
+          // available for support and correlation without being shown.
+          data-reference-revision={block.revision}
           disabled={!onOpenReference}
           onClick={() => onOpenReference?.(reference)}
-          title={`${block.ref_kind.replaceAll('_', ' ')} · ${block.revision}`}
+          title={kind}
           type="button"
         >
-          <FileTextIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          <ReferenceIcon aria-hidden="true" className="size-3.5 shrink-0" />
           <span className="truncate">{block.label}</span>
         </button>
       );
