@@ -1,6 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
 import { INFRASTRUCTURE_POLL_MS } from '@/lib/runtime-limits';
-import type { McpServerDefinition, ServiceIntegrationHealth } from '@clio/core/v3';
+import type { McpServerDefinition, RelayStatus, ServiceIntegrationHealth } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRightIcon,
@@ -19,6 +19,7 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus, type ClioStatusValue } from '@/components/clio/status';
+import { humanizeProtocolValue } from '@/components/clio/presentation-labels';
 import { RelayConnectionDialog } from '@/components/clio/relay-settings';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import {
@@ -154,6 +155,7 @@ export function InfrastructurePage() {
           <SetupCard
             action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}
             description="Run and follow work on lab computers or clusters through CLIO Relay."
+            detail={relay.data?.reachable ? undefined : relayDegradationDetail(relay.data)}
             icon={NetworkIcon}
             onAction={() => setRelayOpen(true)}
             status={
@@ -308,6 +310,7 @@ export function InfrastructurePage() {
 function SetupCard({
   action,
   description,
+  detail,
   icon: Icon,
   onAction,
   status,
@@ -317,6 +320,11 @@ function SetupCard({
 }: {
   action: string;
   description: string;
+  /**
+   * The service's own account of why it is not ready. A status word is a
+   * severity; this is the part that tells the reader what to do about it.
+   */
+  detail?: string;
   icon: typeof CableIcon;
   onAction: () => void;
   status: ClioStatusValue;
@@ -335,6 +343,11 @@ function SetupCard({
         </div>
         <h2 className="mt-4 font-medium">{title}</h2>
         <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>
+        {detail ? (
+          <p className="mt-2 text-sm leading-5 text-warning-foreground" role="status">
+            {detail}
+          </p>
+        ) : null}
       </FramePanel>
       <FrameFooter className="items-end">
         {to ? (
@@ -534,6 +547,20 @@ function foundationTitle(name: string): string {
     child_parentage: 'Background process ownership',
   };
   return names[name] || name.replaceAll('_', ' ').replace(/^./u, (value) => value.toUpperCase());
+}
+
+/**
+ * Why the relay is not reachable, as the relay put it.
+ *
+ * Prose detail first, then the typed reason humanized. Both come from the
+ * service; neither is inferred here. A configured relay that reports nothing at
+ * all yields nothing rather than a manufactured explanation.
+ */
+function relayDegradationDetail(status: RelayStatus | undefined): string | undefined {
+  if (!status?.configured) return undefined;
+  if (status.detail?.trim()) return status.detail;
+  if (!status.reason?.trim()) return undefined;
+  return humanizeProtocolValue(status.reason);
 }
 
 function serviceOwnership(server: McpServerDefinition): string {
