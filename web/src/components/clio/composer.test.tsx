@@ -19,6 +19,11 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 afterEach(cleanup);
 
+/** The composer's editor: a combobox because it drives the reference popover. */
+function composerEditor(): HTMLElement {
+  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+}
+
 beforeEach(() => {
   repositoryMocks.workspaceReferences.mockReset();
   repositoryMocks.workspaceReferences.mockResolvedValue([]);
@@ -135,7 +140,7 @@ describe('ClioComposer service commands', () => {
     expect(screen.getByRole('button', { name: 'Open first.md' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Open second.py' })).toBeVisible();
 
-    await user.type(screen.getByRole('textbox'), 'Inspect both files.{Enter}');
+    await user.type(composerEditor(), 'Inspect both files.{Enter}');
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
@@ -283,7 +288,7 @@ describe('ClioComposer service commands', () => {
       screen.getByLabelText('Upload files'),
       new File(['pixels'], 'field-map.png', { type: 'image/png' }),
     );
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, 'Describe the image.{Enter}');
 
@@ -320,7 +325,7 @@ describe('ClioComposer service commands', () => {
       state: 'completed' as const,
     };
     const { rerender } = render(<ClioComposer {...props} focusRequestKey={0} />);
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     expect(input).not.toHaveFocus();
 
@@ -346,7 +351,7 @@ describe('ClioComposer service commands', () => {
       state: 'completed' as const,
     };
     const view = render(<ClioComposer {...props} />);
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, 'Send this message.{Enter}');
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
@@ -369,7 +374,7 @@ describe('ClioComposer service commands', () => {
   it('discovers sourced commands and dispatches the canonical command with arguments', async () => {
     const user = userEvent.setup();
     const { onCommand, onSubmit } = renderComposer();
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, '/rev');
     await user.click(screen.getByText('Review evidence'));
@@ -388,7 +393,7 @@ describe('ClioComposer service commands', () => {
   it('does not turn unknown slash commands into chat messages', async () => {
     const user = userEvent.setup();
     const { onCommand, onSubmit } = renderComposer();
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, '/not-a-service-command{Enter}');
 
@@ -421,7 +426,7 @@ describe('ClioComposer service commands', () => {
     const user = userEvent.setup();
     const onCommand = vi.fn().mockRejectedValue(new Error('The command service is unreachable.'));
     renderComposer({ onCommand });
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, '/review results/stations.csv{Enter}');
 
@@ -437,7 +442,7 @@ describe('ClioComposer service commands', () => {
   it('explains unavailable service commands without dispatching them', async () => {
     const user = userEvent.setup();
     const { onCommand } = renderComposer();
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, '/admin');
     expect(screen.getByText('Requires administrator access.')).toBeVisible();
@@ -450,7 +455,7 @@ describe('ClioComposer service commands', () => {
   it('keeps steering and stopping as distinct actions while work is running', async () => {
     const user = userEvent.setup();
     const { onStop, onSubmit } = renderComposer({ state: 'running' });
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     expect(input).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Stop' })).toBeVisible();
@@ -469,7 +474,7 @@ describe('ClioComposer service commands', () => {
   it('queues Enter and steers Ctrl+Enter while work is running', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderComposer({ state: 'running' });
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, 'Review the second station.{Enter}');
     await waitFor(() =>
@@ -495,7 +500,7 @@ describe('ClioComposer service commands', () => {
   it('starts normally from either Enter shortcut while idle', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderComposer();
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, 'Start the analysis.{Enter}');
     await waitFor(() =>
@@ -528,7 +533,7 @@ describe('ClioComposer service commands', () => {
       </PromptInputProvider>
     );
     const view = render(renderState('running'));
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, 'Queue this while running.{Enter}');
     await waitFor(() =>
@@ -538,7 +543,7 @@ describe('ClioComposer service commands', () => {
     );
 
     view.rerender(renderState('completed'));
-    await user.type(screen.getByRole('textbox'), 'Start this after completion.');
+    await user.type(composerEditor(), 'Start this after completion.');
     await user.click(screen.getByRole('button', { name: /^Submit$/ }));
 
     await waitFor(() =>

@@ -32,9 +32,12 @@ describe('composer reference presentation', () => {
       <QueryClientProvider client={new QueryClient()}>
         <ClioComposerReferenceMenu
           activeReferenceId=""
+          onActiveOptionChange={vi.fn()}
           onActiveReferenceChange={vi.fn()}
+          onDismiss={vi.fn()}
           onQueryChange={vi.fn()}
           onReferencesChange={vi.fn()}
+          onRestoreFocus={vi.fn()}
           onSelect={onSelect}
           query="NVDA"
           searchInput

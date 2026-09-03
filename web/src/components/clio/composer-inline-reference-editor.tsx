@@ -15,15 +15,36 @@ import {
   workspaceReferenceIdentity,
   type InlineReferenceSelection,
 } from '@/lib/composer-reference-domain';
+import { collectPlainText, editorCaretOffset } from './composer-editor-model';
 
 interface ComposerInlineReferenceEditorProps {
+  /**
+   * DOM id of the option the popover has highlighted. The editor keeps focus
+   * while the person arrows through the list, so this is what tells a screen
+   * reader which suggestion Enter would take.
+   */
+  activeOptionId?: string;
   className?: string;
   disabled?: boolean;
+  /** Whether a suggestion popover this editor controls is showing. */
+  expanded: boolean;
+  /**
+   * Where the caret sits in the plain text, reported whenever it moves. The
+   * picker takes focus away from the editor, so the insertion point has to be
+   * remembered before that happens rather than read back afterwards.
+   */
+  onCaretChange?: (offset: number | undefined) => void;
   onChange: (value: string) => void;
   onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
   onOpenReference?: (reference: WorkspaceReference) => void;
   onReferencesChange: (references: InlineReferenceSelection[]) => void;
   placeholder: string;
+  /**
+   * DOM id of the popup this editor controls. `combobox` requires
+   * `aria-controls`, so the id is stable whether or not the popup is mounted;
+   * assistive technology only follows it while `aria-expanded` is true.
+   */
+  popoverId: string;
   references: readonly InlineReferenceSelection[];
   value: string;
 }
@@ -94,30 +115,10 @@ function readModel(
     references.map((selection) => [workspaceReferenceIdentity(selection.reference), selection]),
   );
   const nextReferences: InlineReferenceSelection[] = [];
-  let value = '';
-
-  const visit = (node: Node): void => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      value += node.textContent ?? '';
-      return;
-    }
-    if (!(node instanceof HTMLElement)) return;
-    const identity = node.dataset.referenceToken;
-    if (identity) {
-      const selection = byIdentity.get(identity);
-      if (selection) nextReferences.push({ ...selection, offset: value.length });
-      return;
-    }
-    if (node.tagName === 'BR') {
-      value += '\n';
-      return;
-    }
-    const startedAt = value.length;
-    for (const child of node.childNodes) visit(child);
-    if (node.tagName === 'DIV' && value.length > startedAt && !value.endsWith('\n')) value += '\n';
-  };
-
-  for (const child of root.childNodes) visit(child);
+  const value = collectPlainText(root.childNodes, (identity, offset) => {
+    const selection = byIdentity.get(identity);
+    if (selection) nextReferences.push({ ...selection, offset });
+  });
   return { references: nextReferences, value };
 }
 
@@ -153,13 +154,17 @@ export const ComposerInlineReferenceEditor = forwardRef<
   ComposerInlineReferenceEditorProps
 >(function ComposerInlineReferenceEditor(
   {
+    activeOptionId,
     className,
     disabled = false,
+    expanded,
+    onCaretChange,
     onChange,
     onKeyDown,
     onOpenReference,
     onReferencesChange,
     placeholder,
+    popoverId,
     references,
     value,
   },
@@ -185,12 +190,21 @@ export const ComposerInlineReferenceEditor = forwardRef<
 
   const syncModel = (root: HTMLDivElement) => {
     const next = readModel(root, references);
+    // Clearing the editor by hand leaves a stray <br> behind, which defeats
+    // `:empty` and takes the placeholder with it. An empty model has an empty
+    // DOM, so the placeholder returns whenever the draft is actually empty.
+    if (!next.value && !next.references.length && root.childNodes.length) root.replaceChildren();
     renderedSignature.current = modelSignature(next.value, next.references);
     onChange(next.value);
     if (!sameReferences(next.references, references)) onReferencesChange(next.references);
   };
 
-  const handleInput = (event: FormEvent<HTMLDivElement>) => syncModel(event.currentTarget);
+  const reportCaret = (root: HTMLDivElement) => onCaretChange?.(editorCaretOffset(root));
+
+  const handleInput = (event: FormEvent<HTMLDivElement>) => {
+    syncModel(event.currentTarget);
+    reportCaret(event.currentTarget);
+  };
 
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
     if (!(event.target instanceof Element)) return;
@@ -244,12 +258,14 @@ export const ComposerInlineReferenceEditor = forwardRef<
     <>
       <input name="message" type="hidden" value={value} />
       <div
+        aria-activedescendant={expanded ? activeOptionId : undefined}
+        aria-autocomplete="list"
+        aria-controls={popoverId}
         aria-disabled={disabled}
+        aria-expanded={expanded}
         aria-label={placeholder}
-        aria-multiline="true"
-        aria-placeholder={placeholder}
         className={cn(
-          'field-sizing-content max-h-48 min-h-16 w-full flex-1 overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3 py-2 text-sm outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
+          'max-h-48 min-h-16 w-full flex-1 overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3 py-2 text-sm outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)]',
           disabled && 'cursor-not-allowed opacity-50',
           className,
         )}
@@ -259,9 +275,11 @@ export const ComposerInlineReferenceEditor = forwardRef<
         onClick={handleClick}
         onInput={handleInput}
         onKeyDown={onKeyDown}
+        onKeyUp={(event) => reportCaret(event.currentTarget)}
+        onMouseUp={(event) => reportCaret(event.currentTarget)}
         onPaste={handlePaste}
         ref={setRef}
-        role="textbox"
+        role="combobox"
         suppressContentEditableWarning
         tabIndex={disabled ? -1 : 0}
       />

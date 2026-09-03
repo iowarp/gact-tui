@@ -19,6 +19,11 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 afterEach(cleanup);
 
+/** The composer's editor: a combobox because it drives the reference popover. */
+function composerEditor(): HTMLElement {
+  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+}
+
 beforeEach(() => {
   repositoryMocks.workspaceReferences.mockReset();
   repositoryMocks.workspaceReferences.mockResolvedValue([]);
@@ -93,7 +98,7 @@ describe('composer reference selection', () => {
     repositoryMocks.workspaceReferences.mockResolvedValue([artifactReference]);
     const user = userEvent.setup();
     const { onSubmit } = renderComposer();
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
@@ -126,11 +131,11 @@ describe('composer reference selection', () => {
     const user = userEvent.setup();
     renderComposer();
 
-    await user.type(screen.getByRole('textbox'), '@');
+    await user.type(composerEditor(), '@');
     await user.click(await screen.findByRole('button', { name: 'Expand Local files' }));
     await screen.findByRole('option', { name: /README.md/ });
 
-    const stack = screen.getByRole('textbox').closest('[data-slot="clio-composer-stack"]');
+    const stack = composerEditor().closest('[data-slot="clio-composer-stack"]');
     expect(stack).toHaveClass('overflow-visible');
     expect(stack).not.toHaveClass('overflow-hidden');
   });
@@ -150,7 +155,7 @@ describe('composer reference selection', () => {
     ]);
     const user = userEvent.setup();
     const { onSubmit } = renderComposer();
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, '@');
     await screen.findByRole('option', { name: /Review notes.md/ });
@@ -218,7 +223,7 @@ describe('composer reference selection', () => {
     }
     render(<DraftOwner />);
 
-    await user.type(screen.getByRole('textbox'), '@plot');
+    await user.type(composerEditor(), '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
     expect(
       await screen.findByRole('button', { name: 'Open artifact Displacement plot' }),
@@ -237,7 +242,7 @@ describe('composer reference selection', () => {
     const onOpenReference = vi.fn();
     renderComposer({ onOpenReference });
 
-    await user.type(screen.getByRole('textbox'), '@README');
+    await user.type(composerEditor(), '@README');
     await user.click(await screen.findByRole('option', { name: /README.md/ }));
     await user.click(screen.getByRole('button', { name: 'Open local file README.md' }));
 
@@ -282,7 +287,7 @@ describe('composer reference selection', () => {
     const user = userEvent.setup();
     renderComposer();
 
-    await user.type(screen.getByRole('textbox'), '@');
+    await user.type(composerEditor(), '@');
 
     await user.click(await screen.findByRole('button', { name: 'Expand Local files' }));
     await screen.findByText('file-0.txt');
@@ -305,7 +310,7 @@ describe('composer reference selection', () => {
     const user = userEvent.setup();
     const { onSubmit } = renderComposer({ state: 'running' });
 
-    await user.type(screen.getByRole('textbox'), '@observations');
+    await user.type(composerEditor(), '@observations');
     await user.click(await screen.findByRole('option', { name: /observations.csv/ }));
     const steer = screen.getByRole('button', { name: 'Steer current work' });
     expect(steer).toBeEnabled();
