@@ -126,6 +126,16 @@ export const queuedMessagePromotionSchema = z.object({
   status_code: z.number().int().optional(),
 });
 
+export const workspaceResourceProcessingEventSchema = z.object({
+  sequence: z.number().int().nonnegative(),
+  created_at: z.string(),
+  level: z.enum(['info', 'warning', 'error']).default('info'),
+  progress: z.number().int().min(0).max(100).default(0),
+  progress_kind: z.enum(['unknown', 'stage', 'measured']).default('unknown'),
+  stage: z.string().default(''),
+  message: z.string(),
+});
+
 export const workspaceResourceProcessingSchema = z.object({
   workspace_id: z.string(),
   resource_id: z.string(),
@@ -142,6 +152,7 @@ export const workspaceResourceProcessingSchema = z.object({
   progress_kind: z.enum(['unknown', 'stage', 'measured']).default('unknown'),
   stage: z.string().default(''),
   message: z.string().default(''),
+  events: z.array(workspaceResourceProcessingEventSchema).default([]),
   derivatives_available: z.boolean().default(false),
   failure: z.record(z.string(), z.unknown()).default({}),
   cancellation: z.record(z.string(), z.unknown()).default({}),

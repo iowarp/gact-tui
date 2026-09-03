@@ -167,11 +167,22 @@ export interface WorkspaceResourceProcessing {
   progress_kind?: 'unknown' | 'stage' | 'measured';
   stage?: string;
   message?: string;
+  events?: WorkspaceResourceProcessingEvent[];
   derivatives_available?: boolean;
   failure: Record<string, unknown>;
   cancellation: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+export interface WorkspaceResourceProcessingEvent {
+  sequence: number;
+  created_at: string;
+  level: 'info' | 'warning' | 'error';
+  progress: number;
+  progress_kind: 'unknown' | 'stage' | 'measured';
+  stage: string;
+  message: string;
 }
 
 export interface WorkspaceResourceDerivative {

@@ -166,6 +166,68 @@ describe('WorkspaceResourceDerivativesView', () => {
     expect(screen.queryByLabelText('Loading derivatives')).not.toBeInTheDocument();
   });
 
+  it('shows real converter activity without presenting stage markers as percentages', () => {
+    renderView([], 'processing', {
+      processing: {
+        ...processing,
+        state: 'processing',
+        progress: 40,
+        progress_kind: 'stage',
+        stage: 'docling',
+        message: 'Docling is still processing',
+        events: [
+          {
+            sequence: 12,
+            created_at: '2026-09-02T19:49:12Z',
+            level: 'info',
+            progress: 40,
+            progress_kind: 'stage',
+            stage: 'docling',
+            message: 'Reading page layout',
+          },
+          {
+            sequence: 13,
+            created_at: '2026-09-02T19:49:13Z',
+            level: 'warning',
+            progress: 40,
+            progress_kind: 'stage',
+            stage: 'docling',
+            message: 'Fallback font used',
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByRole('region', { name: 'Conversion activity' })).toBeVisible();
+    expect(screen.getByText('Reading page layout')).toBeVisible();
+    expect(screen.getByText('Fallback font used')).toBeVisible();
+    expect(screen.getByLabelText('Warning')).toBeVisible();
+    expect(screen.queryByText('40%')).not.toBeInTheDocument();
+    expect(screen.queryByText('No derivatives')).not.toBeInTheDocument();
+  });
+
+  it('replaces conversion activity with derivative files once output exists', () => {
+    renderView([derivative], 'complete', {
+      processing: {
+        ...processing,
+        events: [
+          {
+            sequence: 14,
+            created_at: '2026-09-02T19:49:14Z',
+            level: 'info',
+            progress: 100,
+            progress_kind: 'stage',
+            stage: 'complete',
+            message: 'Conversion complete',
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByRole('button', { name: /report\.md/i })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Conversion activity' })).not.toBeInTheDocument();
+  });
+
   it('previews a PDF derivative with the shared viewer, not the native plugin', async () => {
     repository.resourceDerivativeContent.mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
     const user = userEvent.setup();

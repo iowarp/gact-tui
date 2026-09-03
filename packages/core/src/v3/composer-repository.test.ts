@@ -338,6 +338,17 @@ describe('ComposerRepository', () => {
       job_id: 'job_1',
       state: 'complete',
       progress: 100,
+      events: [
+        {
+          sequence: 7,
+          created_at: '2026-08-31T12:00:30Z',
+          level: 'info',
+          progress: 40,
+          progress_kind: 'stage',
+          stage: 'docling',
+          message: 'Reading page layout',
+        },
+      ],
       failure: {},
       cancellation: {},
       created_at: '2026-08-31T12:00:00Z',
@@ -375,7 +386,10 @@ describe('ComposerRepository', () => {
     await expect(
       repository.resourceDerivatives('workspace_1', 'resource_1'),
     ).resolves.toMatchObject({
-      processor: { state: 'complete' },
+      processor: {
+        state: 'complete',
+        events: [{ sequence: 7, message: 'Reading page layout', progress_kind: 'stage' }],
+      },
       derivatives: [{ id: 'markdown', media_type: 'text/markdown' }],
     });
     await expect(repository.resourceStructure('workspace_1', 'resource_1')).resolves.toMatchObject({
@@ -460,7 +474,7 @@ describe('ComposerRepository', () => {
       matches: [{ line: 7 }],
     });
     await expect(repository.reprocessResource('workspace_1', 'resource_1')).resolves.toEqual(
-      processing,
+      { ...processing, events: [] },
     );
     await expect(
       repository.cancelResourceProcessing('workspace_1', 'resource_1'),
