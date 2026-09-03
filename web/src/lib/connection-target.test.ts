@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   connectionSessionRoute,
   connectionSessionTargetForRoute,
+  emptyConnectionSessionTarget,
   latestConnectionSessionTarget,
 } from './connection-target';
 
@@ -37,6 +38,24 @@ const session = (
 });
 
 describe('latestConnectionSessionTarget', () => {
+  it('reuses only an empty primary base-agent session for the entry composer', () => {
+    const populated = {
+      ...session('populated', 'ws valid', '2026-08-23T22:00:00Z'),
+      message_count: 2,
+    };
+    const specialist = {
+      ...session('specialist', 'ws valid', '2026-08-23T23:00:00Z'),
+      active_blueprint_id: 'factorio-flat',
+      message_count: 0,
+    };
+    const empty = { ...session('empty', 'ws valid', '2026-08-23T21:00:00Z'), message_count: 0 };
+
+    expect(
+      emptyConnectionSessionTarget(workspace('ws valid'), [populated, specialist, empty])?.session
+        .id,
+    ).toBe('empty');
+  });
+
   it('uses interaction time and excludes sessions that do not belong to the connection', () => {
     const target = latestConnectionSessionTarget(
       [workspace('ws valid')],

@@ -315,6 +315,7 @@ export const sessionSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   last_interaction_at: z.string().optional(),
+  message_count: z.number().int().nonnegative().optional(),
   provider_id: z.string().optional(),
   model_id: z.string().optional(),
   effort: z.string().optional(),

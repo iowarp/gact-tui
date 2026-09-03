@@ -6,6 +6,24 @@ export interface ConnectionSessionTarget {
   workspace: Workspace;
 }
 
+/** Resolve the newest reusable empty base-agent session in one workspace. */
+export function emptyConnectionSessionTarget(
+  workspace: Workspace,
+  sessions: readonly Session[],
+): ConnectionSessionTarget | undefined {
+  const session = sessions
+    .filter(
+      (candidate) =>
+        candidate.workspace_id === workspace.id &&
+        isPrimarySession(candidate) &&
+        !candidate.archived &&
+        candidate.message_count === 0 &&
+        !candidate.active_blueprint_id,
+    )
+    .toSorted((left, right) => right.created_at.localeCompare(left.created_at))[0];
+  return session ? { session, workspace } : undefined;
+}
+
 /** Resolve the most recently interacted-with valid session owned by one connection. */
 export function latestConnectionSessionTarget(
   workspaces: readonly Workspace[],

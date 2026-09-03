@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   repository: {
     allSessions: vi.fn(),
     capabilities: vi.fn(),
+    createSession: vi.fn(),
     workspaces: vi.fn(),
   },
   resolveConnection: vi.fn(),
@@ -51,8 +52,15 @@ beforeEach(() => {
       parent_session_id: '',
       last_interaction_at: '',
       updated_at: '2026-09-02T12:00:00Z',
+      message_count: 0,
     },
   ]);
+  mocks.repository.createSession.mockResolvedValue({
+    id: 'sess_created',
+    workspace_id: 'ws_default',
+    title: 'New conversation',
+    message_count: 0,
+  });
 });
 
 afterEach(cleanup);
@@ -80,4 +88,46 @@ it('opens an existing workspace session after a successful connection', async ()
 
   expect(await screen.findByText('Connected workspace session')).toBeVisible();
   expect(mocks.connect).toHaveBeenCalledOnce();
+  expect(mocks.repository.createSession).not.toHaveBeenCalled();
+});
+
+it('creates the reusable empty base-agent session when every conversation has content', async () => {
+  mocks.repository.allSessions.mockResolvedValue([
+    {
+      id: 'sess_existing',
+      workspace_id: 'ws_default',
+      title: 'Completed review',
+      archived: false,
+      parent_session_id: '',
+      last_interaction_at: '2026-09-02T12:00:00Z',
+      updated_at: '2026-09-02T12:00:00Z',
+      created_at: '2026-09-02T11:00:00Z',
+      message_count: 4,
+    },
+  ]);
+  const user = userEvent.setup();
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/?intent=connect']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+          <Route
+            element={<div>Empty base-agent session</div>}
+            path="/workspaces/:workspaceId/sessions/:sessionId"
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Open workspace' }));
+
+  expect(await screen.findByText('Empty base-agent session')).toBeVisible();
+  expect(mocks.repository.createSession).toHaveBeenCalledWith({
+    workspace_id: 'ws_default',
+    title: 'New conversation',
+  });
 });

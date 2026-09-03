@@ -87,6 +87,7 @@ export interface Session {
   created_at: string;
   updated_at: string;
   last_interaction_at?: string;
+  message_count?: number;
   provider_id?: string;
   model_id?: string;
   effort?: string;

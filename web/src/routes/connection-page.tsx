@@ -39,6 +39,7 @@ import { createRepository, DEFAULT_ENDPOINT, normalizeEndpoint } from '@/lib/con
 import {
   connectionSessionRoute,
   connectionSessionTargetForRoute,
+  emptyConnectionSessionTarget,
   latestConnectionSessionTarget,
 } from '@/lib/connection-target';
 import { inTauri } from '@/lib/transport/tauri-runtime';
@@ -86,10 +87,28 @@ export function ConnectionPage() {
         repository.workspaces(),
         repository.allSessions(),
       ]);
-      const target =
-        connectionSessionTargetForRoute(lastWorkspaceRoute(next.endpoint), workspaces, sessions) ??
-        latestConnectionSessionTarget(workspaces, sessions);
+      const remembered = connectionSessionTargetForRoute(
+        lastWorkspaceRoute(next.endpoint),
+        workspaces,
+        sessions,
+      );
+      const recent = latestConnectionSessionTarget(workspaces, sessions);
+      const workspace = remembered?.workspace ?? recent?.workspace ?? workspaces[0];
+      let target = workspace ? emptyConnectionSessionTarget(workspace, sessions) : undefined;
       await connect(next);
+      if (!target && workspace) {
+        // Older services do not expose message_count. Fall back to their latest
+        // valid session instead of manufacturing a blank conversation on every load.
+        target = sessions.some((session) => session.message_count === undefined)
+          ? recent
+          : {
+              workspace,
+              session: await repository.createSession({
+                workspace_id: workspace.id,
+                title: 'New conversation',
+              }),
+            };
+      }
       return { next, capabilities, sessions, target, workspaces };
     },
     onSuccess: ({ next, target }) => {
