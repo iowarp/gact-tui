@@ -57,3 +57,60 @@ export function editorCaretOffset(root: HTMLElement | null): number | undefined 
   measured.setEnd(range.startContainer, range.startOffset);
   return collectPlainText(measured.cloneContents().childNodes).length;
 }
+
+/**
+ * Focus the editor at one of its plain-text offsets.
+ *
+ * Reference tokens have zero width in the text model. When a token and a text
+ * boundary share the requested offset, the caret lands after every token at
+ * that boundary. That is the useful side for a newly inserted token and keeps
+ * the next typed character beside the reference rather than in front of it.
+ */
+export function focusEditorAtOffset(root: HTMLDivElement | null, offset?: number): void {
+  if (!root || root.getAttribute('aria-disabled') === 'true') return;
+  root.focus({ preventScroll: true });
+  const selection = window.getSelection();
+  if (!selection) return;
+
+  const range = document.createRange();
+  if (offset === undefined) {
+    range.selectNodeContents(root);
+    range.collapse(false);
+  } else {
+    const target = Math.max(0, Math.min(offset, collectPlainText(root.childNodes).length));
+    let consumed = 0;
+    let boundary: { container: Node; offset: number } = {
+      container: root,
+      offset: 0,
+    };
+
+    for (let index = 0; index < root.childNodes.length; index += 1) {
+      const node = root.childNodes[index]!;
+      if (node instanceof HTMLElement && node.dataset.referenceToken) {
+        if (consumed === target) boundary = { container: root, offset: index + 1 };
+        continue;
+      }
+
+      const text = collectPlainText([node]);
+      const next = consumed + text.length;
+      if (target < next || (target === consumed && text.length > 0)) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          boundary = { container: node, offset: target - consumed };
+        } else {
+          // `writeModel` emits direct text nodes, but a browser may briefly wrap
+          // manually entered lines. A range over that wrapper is the safe
+          // fallback until the next controlled render normalises it.
+          boundary = { container: root, offset: index };
+        }
+        break;
+      }
+      consumed = next;
+      boundary = { container: root, offset: index + 1 };
+    }
+
+    range.setStart(boundary.container, boundary.offset);
+    range.collapse(true);
+  }
+  selection.removeAllRanges();
+  selection.addRange(range);
+}

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import { ClioComposer, type ClioComposerProps } from './composer';
+import { editorCaretOffset } from './composer-editor-model';
 
 const repositoryMocks = vi.hoisted(() => ({
   workspaceReferences: vi.fn(),
@@ -20,6 +21,18 @@ afterEach(cleanup);
 /** The composer's editor: a combobox because it drives the reference popover. */
 function composerEditor(): HTMLElement {
   return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+}
+
+function placeCaret(editor: HTMLElement, offset: number): void {
+  const textNode = editor.firstChild;
+  expect(textNode).not.toBeNull();
+  const range = document.createRange();
+  range.setStart(textNode as Node, offset);
+  range.collapse(true);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  fireEvent.mouseUp(editor);
 }
 
 beforeEach(() => {
@@ -226,17 +239,9 @@ describe('composer reference placement', () => {
     const editor = composerEditor();
 
     await user.type(editor, 'before after');
-    const textNode = editor.firstChild;
-    expect(textNode).not.toBeNull();
-    const range = document.createRange();
-    range.setStart(textNode as Node, 'before'.length);
-    range.collapse(true);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    // jsdom cannot place a caret from a coordinate, so the range above stands in
-    // for the click and the mouseup is what the editor actually reports on.
-    fireEvent.mouseUp(editor);
+    placeCaret(editor, 'before'.length);
+    // jsdom cannot place a caret from a coordinate, so `placeCaret` stands in
+    // for the click and fires the mouseup the editor actually reports on.
 
     await openPicker(user);
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
@@ -245,6 +250,43 @@ describe('composer reference placement', () => {
     const token = chip.closest('[data-reference-token]');
     expect(token?.previousSibling?.textContent).toBe('before ');
     expect(token?.nextSibling?.textContent).toBe(' after');
+    expect(document.querySelector('input[name="message"]')).toHaveValue('before  after');
+    await waitFor(() => expect(editor).toHaveFocus());
+    expect(editorCaretOffset(editor)).toBe('before '.length);
+  });
+
+  it('opens and replaces the mention under the caret in the middle of a draft', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([artifactReference]);
+    const user = userEvent.setup();
+    renderComposer();
+    const editor = composerEditor();
+
+    await user.type(editor, 'before @plot after');
+    expect(editor).toHaveAttribute('aria-expanded', 'false');
+
+    placeCaret(editor, 'before @plot'.length);
+    await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
+
+    const chip = await screen.findByRole('button', { name: 'Open artifact Displacement plot' });
+    const token = chip.closest('[data-reference-token]');
+    expect(token?.previousSibling?.textContent).toBe('before ');
+    expect(token?.nextSibling?.textContent).toBe(' after');
+    expect(document.querySelector('input[name="message"]')).toHaveValue('before  after');
+  });
+
+  it('keeps the caret where an inline reference is removed', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([artifactReference]);
+    const user = userEvent.setup();
+    renderComposer();
+    const editor = composerEditor();
+
+    await user.type(editor, 'before @plot after');
+    placeCaret(editor, 'before @plot'.length);
+    await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
+    await user.click(screen.getByRole('button', { name: 'Remove Displacement plot' }));
+
+    await waitFor(() => expect(editor).toHaveFocus());
+    expect(editorCaretOffset(editor)).toBe('before '.length);
     expect(document.querySelector('input[name="message"]')).toHaveValue('before  after');
   });
 

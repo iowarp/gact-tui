@@ -85,7 +85,7 @@ export function childProjectionActivityItems(
   const items: ObservabilityActivityItem[] = [];
 
   for (const owner of lineage) {
-    if (!owner.depth || !owner.task_id) continue;
+    if (owner.depth === undefined || !owner.task_id) continue;
     const process = processByTask.get(owner.task_id);
     const state = activityState(process?.live_state ?? owner.status ?? 'running');
     const common = {
@@ -105,7 +105,7 @@ export function childProjectionActivityItems(
       detail: owner.agent_id ? `Delegated to ${owner.agent_id}` : 'Delegated child work',
       // A historical delegation event must not retain a permanent running animation after the
       // child has settled; the separate branch-close event carries the terminal outcome.
-      state: isTerminalState(state) ? 'completed' : state,
+      state,
       at: process?.created_at ?? owner.created_at,
       groupId: process?.parent_turn_id,
       timing: process?.created_at || owner.created_at ? 'event' : undefined,
@@ -216,7 +216,7 @@ export function ClioActivityTimeline({
             <TimelineTitle>
               {group.mainTurn
                 ? 'Main agent'
-                : group.depth
+                : group.depth > 0
                   ? (group.items[0]?.ownerLabel ?? 'Child work')
                   : 'Activity'}
             </TimelineTitle>
@@ -278,7 +278,7 @@ function ActivityRow({ baseDepth, item }: { baseDepth: number; item: Observabili
           <PanelRightOpenIcon aria-hidden="true" />
         </Button>
       }
-      aria-label={`${item.label}, ${item.state}${item.depth ? `, depth ${item.depth}` : ''}`}
+      aria-label={`${item.label}, ${item.state}${item.depth !== undefined ? `, depth ${item.depth}` : ''}`}
       className="min-h-0 px-0 py-0"
       onClick={(event) => item.onOpen?.(event.shiftKey ? 'canvas' : 'conversation')}
       role="button"

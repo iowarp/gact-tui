@@ -73,6 +73,7 @@ export function WorkspacePage() {
     entities,
     executionProvenance,
     interactions,
+    interactionCapabilityError,
     interactionsError,
     interactionRootSessionId,
     interactionSurfaces,
@@ -753,6 +754,16 @@ export function WorkspacePage() {
                 <AlertTriangleIcon aria-hidden="true" />
                 <AlertTitle>Retry unavailable</AlertTitle>
                 <AlertDescription>{retry.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+            {interactionCapabilityError ? (
+              <Alert className="mx-4 mb-3">
+                <AlertTriangleIcon aria-hidden="true" />
+                <AlertTitle>Using compatibility response routes</AlertTitle>
+                <AlertDescription>
+                  Permissions and questions remain available, but the service capability check
+                  failed: {interactionCapabilityError.message}
+                </AlertDescription>
               </Alert>
             ) : null}
             {interactionsError || respondInteraction.error ? (

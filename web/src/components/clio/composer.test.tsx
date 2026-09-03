@@ -1,6 +1,6 @@
 import type { CommandDefinition, WorkspaceResource } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
@@ -165,6 +165,39 @@ describe('ClioComposer service commands', () => {
     expect(open).toHaveBeenCalledOnce();
   });
 
+  it('adds files pasted into the inline editor through the attachment provider', async () => {
+    renderComposer({ attachments: true });
+    const image = new File(['pixels'], 'pasted-map.png', { type: 'image/png' });
+
+    fireEvent.paste(composerEditor(), {
+      clipboardData: {
+        files: [image],
+        getData: () => '',
+        items: [{ getAsFile: () => image, kind: 'file' }],
+      },
+    });
+
+    expect(await screen.findByRole('button', { name: 'Open pasted-map.png' })).toBeVisible();
+  });
+
+  it('pastes rich clipboard content as plain text', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    const editor = composerEditor();
+    await user.click(editor);
+
+    fireEvent.paste(editor, {
+      clipboardData: {
+        files: [],
+        getData: (type: string) => (type === 'text/plain' ? 'plain text' : '<b>plain text</b>'),
+        items: [],
+      },
+    });
+
+    expect(document.querySelector('input[name="message"]')).toHaveValue('plain text');
+    expect(editor.querySelector('b')).toBeNull();
+  });
+
   it('renders an image thumbnail and opens the full attachment preview', async () => {
     const user = userEvent.setup();
     renderComposer({ attachments: true });
@@ -271,6 +304,35 @@ describe('ClioComposer service commands', () => {
     await user.hover(attachment);
     expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
     expect(screen.getByRole('status', { name: 'Conversion status: Queued' })).toBeVisible();
+  });
+
+  it('cancels an in-flight preparation when its attachment is removed', async () => {
+    const user = userEvent.setup();
+    let preparationSignal: AbortSignal | undefined;
+    const onPrepareFiles = vi.fn<NonNullable<ClioComposerProps['onPrepareFiles']>>(
+      async (_files, _onProgress, signal) => {
+        preparationSignal = signal;
+        await new Promise<void>((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })),
+            { once: true },
+          );
+        });
+        return { parts: [], resources: [] };
+      },
+    );
+    renderComposer({ attachments: true, onPrepareFiles, onSubmit: vi.fn() });
+
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['pixels'], 'field-map.png', { type: 'image/png' }),
+    );
+    await waitFor(() => expect(onPrepareFiles).toHaveBeenCalledOnce());
+    await user.click(screen.getByRole('button', { name: 'Remove field-map.png' }));
+
+    expect(preparationSignal?.aborted).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Open field-map.png' })).not.toBeInTheDocument();
   });
 
   it('keeps a rejected attachment retryable without a stale uploading state', async () => {
@@ -410,7 +472,7 @@ describe('ClioComposer service commands', () => {
       new File(['pixels'], 'field-map.png', { type: 'image/png' }),
     );
 
-    const remove = screen.getByRole('button', { name: 'Remove' });
+    const remove = screen.getByRole('button', { name: 'Remove field-map.png' });
     expect(remove).toHaveClass('group-hover:opacity-100', 'group-focus-within:opacity-100');
   });
 

@@ -150,7 +150,9 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     props.sessionState === 'waiting_permission' ||
     props.sessionState === 'waiting_user' ||
     props.sessionState === 'failed';
-  const showDockStatusBadge = Boolean(activeActivityCount || sessionActive || sessionNeedsAttention);
+  const showDockStatusBadge = Boolean(
+    activeActivityCount || sessionActive || sessionNeedsAttention,
+  );
   const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
   const hasAssistantActivity = props.messages.some(
     (message) => message.role === 'assistant' && message.blocks.length > 0,
@@ -367,6 +369,7 @@ export function ClioObservabilityView({
   const toolTurnContext = useMemo(() => toolActivityContext(messages), [messages]);
   const activity = useMemo<ObservabilityActivityItem[]>(() => {
     const projected = executionProvenance?.session_lineage;
+    const hasProjectedLineage = Boolean(projected?.length);
     const lineageBySession = new Map(projected?.map((owner) => [owner.session_id, owner]) ?? []);
     const processByOwner = new Map(
       processes
@@ -415,7 +418,7 @@ export function ClioObservabilityView({
           depth: owner?.depth ?? process?.task_path?.length,
         };
       }),
-      ...(projected
+      ...(executionProvenance && hasProjectedLineage
         ? childProjectionActivityItems(executionProvenance, processes, knownToolIds)
         : processes.map(
             (process): ObservabilityActivityItem => ({

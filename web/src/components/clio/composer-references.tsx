@@ -21,6 +21,7 @@ import {
   type ComponentType,
   type SVGProps,
 } from 'react';
+import { flushSync } from 'react-dom';
 import {
   PromptInputCommand,
   PromptInputCommandEmpty,
@@ -287,6 +288,16 @@ export function ClioComposerReferenceMenu({
                         aria-label={`${reference.label} ${detail}`}
                         className="h-7 px-2 py-0"
                         key={`${reference.kind}:${reference.id}:${reference.revision}`}
+                        onPointerDown={(event) => {
+                          if (event.pointerType === 'touch' || event.button !== 0) return;
+                          event.preventDefault();
+                          // The command item can disappear as soon as the
+                          // selection closes the popover. Commit the inline
+                          // token before the rest of the pointer sequence so a
+                          // concurrent render cannot strand the click on a
+                          // detached option.
+                          flushSync(() => onSelect(reference));
+                        }}
                         onSelect={() => onSelect(reference)}
                         ref={(element) => {
                           const identity = workspaceReferenceIdentity(reference);

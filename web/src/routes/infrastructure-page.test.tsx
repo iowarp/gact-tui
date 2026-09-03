@@ -119,6 +119,17 @@ describe('InfrastructurePage', () => {
   });
 
   it('connects a running Web Search service as a structured MCP', async () => {
+    repository.mcpServers.mockResolvedValue([
+      {
+        id: 'unrelated_web_search',
+        name: 'CLIO Web Search',
+        status: 'failed',
+        transport: 'stdio',
+        tools_count: 0,
+        tools: [],
+        spec: { command: 'someone-elses-server' },
+      },
+    ]);
     const user = userEvent.setup();
     renderPage();
 
@@ -145,5 +156,6 @@ describe('InfrastructurePage', () => {
         ],
       }),
     );
+    expect(repository.deleteMcpServer).not.toHaveBeenCalled();
   });
 });

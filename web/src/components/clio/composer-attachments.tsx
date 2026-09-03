@@ -57,6 +57,7 @@ export function ClioComposerAttachments({
   onPrepareFiles?: (
     files: readonly FileUIPart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
+    signal?: AbortSignal,
   ) => Promise<WorkspaceResourceUploadResult>;
   resources?: readonly WorkspaceResource[];
   uploadFailure?: ResourceUploadFailure;
@@ -65,6 +66,7 @@ export function ClioComposerAttachments({
   const attachments = usePromptInputAttachments();
   const [preview, setPreview] = useState<(FileUIPart & { id: string }) | undefined>();
   const preparingAttachmentIds = useRef(new Set<string>());
+  const preparationControllers = useRef(new Map<string, AbortController>());
   const [attachmentProgress, setAttachmentProgress] = useState<
     Record<string, ResourceUploadProgress>
   >({});
@@ -74,26 +76,52 @@ export function ClioComposerAttachments({
   const [preparedResources, setPreparedResources] = useState<Record<string, WorkspaceResource>>({});
 
   useEffect(() => {
+    const attachedIds = new Set(attachments.files.map((file) => file.id));
+    for (const [id, controller] of preparationControllers.current) {
+      if (attachedIds.has(id)) continue;
+      controller.abort();
+      preparationControllers.current.delete(id);
+    }
+  }, [attachments.files]);
+
+  useEffect(
+    () => () => {
+      for (const controller of preparationControllers.current.values()) controller.abort();
+      preparationControllers.current.clear();
+    },
+    [],
+  );
+
+  useEffect(() => {
     if (!onPrepareFiles) return;
     for (const file of attachments.files) {
       if (preparingAttachmentIds.current.has(file.id) || preparedResources[file.id]) continue;
       preparingAttachmentIds.current.add(file.id);
+      const controller = new AbortController();
+      preparationControllers.current.set(file.id, controller);
       setAttachmentFailures((current) => {
         if (!(file.id in current)) return current;
         const next = { ...current };
         delete next[file.id];
         return next;
       });
-      void onPrepareFiles([file], (progress) => {
-        setAttachmentProgress((current) => ({ ...current, [file.id]: progress }));
-      })
+      void onPrepareFiles(
+        [file],
+        (progress) => {
+          if (!controller.signal.aborted) {
+            setAttachmentProgress((current) => ({ ...current, [file.id]: progress }));
+          }
+        },
+        controller.signal,
+      )
         .then((result) => {
           const resource = result.resources[0];
-          if (resource) {
+          if (resource && !controller.signal.aborted) {
             setPreparedResources((current) => ({ ...current, [file.id]: resource }));
           }
         })
         .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
           setAttachmentFailures((current) => ({
             ...current,
             [file.id]: {
@@ -102,7 +130,12 @@ export function ClioComposerAttachments({
             },
           }));
         })
-        .finally(() => preparingAttachmentIds.current.delete(file.id));
+        .finally(() => {
+          preparingAttachmentIds.current.delete(file.id);
+          if (preparationControllers.current.get(file.id) === controller) {
+            preparationControllers.current.delete(file.id);
+          }
+        });
     }
   }, [attachments.files, onPrepareFiles, preparedResources]);
 
@@ -129,7 +162,11 @@ export function ClioComposerAttachments({
                 <Attachment
                   className="h-8 max-w-52 gap-0 p-0"
                   data={file}
-                  onRemove={() => attachments.remove(file.id)}
+                  onRemove={() => {
+                    preparationControllers.current.get(file.id)?.abort();
+                    preparationControllers.current.delete(file.id);
+                    attachments.remove(file.id);
+                  }}
                 >
                   <button
                     aria-label={`Open ${filename}`}
@@ -141,7 +178,7 @@ export function ClioComposerAttachments({
                     <AttachmentInfo className="max-w-28 text-xs" />
                     <ResourcePipelineSummaryIcon stages={stages} />
                   </button>
-                  <AttachmentRemove />
+                  <AttachmentRemove aria-label={`Remove ${filename}`} />
                 </Attachment>
               </AttachmentHoverCardTrigger>
               <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">

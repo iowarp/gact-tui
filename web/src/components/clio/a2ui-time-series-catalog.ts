@@ -5,9 +5,14 @@ import { createElement, lazy, Suspense } from 'react';
 import { z } from 'zod';
 import type { PlotRow } from './time-series-plot';
 
-const LazyTimeSeries = lazy(() =>
-  import('./a2ui-time-series').then((module) => ({ default: module.ClioA2UITimeSeries })),
-);
+// Begin loading the plotting chunk with the catalog. Keeping it as a separate
+// chunk avoids folding Recharts into this adapter while preventing an already
+// visible scientific surface from sitting behind a scheduler-dependent lazy
+// import.
+const timeSeriesModule = import('./a2ui-time-series').then((module) => ({
+  default: module.ClioA2UITimeSeries,
+}));
+const LazyTimeSeries = lazy(() => timeSeriesModule);
 const plotValue = z.union([z.string(), z.number(), z.null()]);
 const schema = z
   .object({
@@ -24,7 +29,7 @@ const schema = z
     message: 'Provide exactly one of series or dataUri',
   });
 
-/** Protocol adapter that defers the plotting implementation until the surface is visible. */
+/** Protocol adapter for a bounded, accessible scientific time-series plot. */
 export const ClioTimeSeriesCatalogComponent = createComponentImplementation(
   { name: 'clio.time-series.v1', schema },
   ({ props }) =>

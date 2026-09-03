@@ -82,12 +82,8 @@ export function WebSearchSetup({
     ]);
   };
   const connect = useMutation({
-    mutationFn: async () => {
-      const existing = (await repository.mcpServers()).filter(
-        (server) => server.name === 'CLIO Web Search' && server.status !== 'ready',
-      );
-      await Promise.all(existing.map((server) => repository.deleteMcpServer(server.id)));
-      return repository.installMcpServer({
+    mutationFn: () =>
+      repository.installMcpServer({
         name: 'CLIO Web Search',
         transport: 'stdio',
         command: 'uvx',
@@ -100,8 +96,7 @@ export function WebSearchSetup({
           '--remote-url',
           serviceUrl.trim(),
         ],
-      });
-    },
+      }),
     onSuccess: async () => {
       await refreshMcp();
       toast.success('Web search is ready for agents');

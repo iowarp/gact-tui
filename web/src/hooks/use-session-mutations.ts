@@ -118,6 +118,7 @@ export function useSessionMutations({
     async (
       files: readonly FileUIPart[],
       onProgress?: (progress: ResourceUploadProgress) => void,
+      signal?: AbortSignal,
     ): Promise<WorkspaceResourceUploadResult> => {
       const uploadsForFiles = files.map((file) => {
         const cacheKey = `${sessionId}\u0000${file.url}`;
@@ -127,11 +128,14 @@ export function useSessionMutations({
           if (!controller || controller.signal.aborted) {
             throw new Error('The attachment upload is no longer active for this session.');
           }
+          const uploadSignal = signal
+            ? AbortSignal.any([controller.signal, signal])
+            : controller.signal;
           pending = uploadWorkspaceResources({
             files: [file],
             onProgress,
             repository,
-            signal: controller.signal,
+            signal: uploadSignal,
             workspaceId,
           })
             .then((result) => {

@@ -521,7 +521,7 @@ function sessionSources(
       ];
     }),
   );
-  if (executionProvenance?.session_lineage) {
+  if (executionProvenance?.session_lineage?.length) {
     sources.push(...provenanceSources(executionProvenance));
   } else {
     for (const process of processes) {
@@ -582,7 +582,7 @@ function artifactAttribution(
   artifact: Artifact,
   provenance?: ExecutionProvenanceResult,
 ): { owner: string; relation: string } | undefined {
-  if (!provenance?.session_lineage) return undefined;
+  if (!provenance?.session_lineage?.length) return undefined;
   const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
   const artifactNode = nodeById.get(`artifact:${artifact.id}`);
   if (!artifactNode) return undefined;

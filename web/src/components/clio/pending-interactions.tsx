@@ -116,7 +116,8 @@ export function ClioPendingInteractions({
           >
             <div className="flex min-w-0 flex-col gap-2 px-1 pb-1">
               {pending.map((interaction) => {
-                const ownerLabel = ownerLabels[interaction.owner_session_id] ?? 'Specialist';
+                const ownerLabel =
+                  ownerLabels[interaction.owner_session_id] ?? 'Session unavailable';
                 const interactionDisabled = disabled || respondingIds.has(interaction.id);
                 if (interaction.kind === 'permission') {
                   return (
@@ -169,6 +170,10 @@ export function ClioPendingInteractions({
 
 function handlePendingResponseScroll(event: KeyboardEvent<HTMLDivElement>) {
   if (event.altKey || event.ctrlKey || event.metaKey) return;
+  // Inputs inside the scroll viewport own their editing keys. In particular,
+  // Arrow/Home/End must move the caret in a free-form answer instead of
+  // unexpectedly scrolling the response stack.
+  if (event.target !== event.currentTarget) return;
   const viewport = event.currentTarget;
   const page = Math.max(viewport.clientHeight - 24, 40);
   const destinations: Partial<Record<string, number>> = {
@@ -182,7 +187,10 @@ function handlePendingResponseScroll(event: KeyboardEvent<HTMLDivElement>) {
   const destination = destinations[event.key];
   if (destination === undefined) return;
   event.preventDefault();
-  viewport.scrollTop = Math.max(0, Math.min(destination, viewport.scrollHeight - viewport.clientHeight));
+  viewport.scrollTop = Math.max(
+    0,
+    Math.min(destination, viewport.scrollHeight - viewport.clientHeight),
+  );
 }
 
 function OwnerContext({ children }: { children: ReactNode }) {

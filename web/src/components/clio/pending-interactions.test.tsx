@@ -159,6 +159,20 @@ describe('ClioPendingInteractions', () => {
     });
   });
 
+  it('reports an unavailable owner honestly instead of inventing a specialist', () => {
+    const interaction = pending('question', {
+      id: 'question:unlisted-owner',
+      owner_session_id: 'sess_not_listed',
+      prompt: 'Choose a boundary.',
+      title: 'Choose a boundary.',
+    });
+
+    renderPending([interaction]);
+
+    expect(screen.getByText('Session unavailable')).toBeVisible();
+    expect(screen.queryByText('Specialist')).not.toBeInTheDocument();
+  });
+
   it('allows choices and a free-form answer in the same child question', async () => {
     const user = userEvent.setup();
     const interaction = pending('question', {
@@ -289,7 +303,11 @@ describe('ClioPendingInteractions', () => {
   it('exposes a bounded independently keyboard-scrollable response viewport', () => {
     renderPending([
       pending('permission', { id: 'permission:p1' }),
-      pending('question', { id: 'question:q1', actions: [] }),
+      pending('question', {
+        id: 'question:q1',
+        actions: ['answer'],
+        payload: { allow_freeform: true },
+      }),
     ]);
 
     const responses = screen.getByRole('region', { name: 'Agent needs your response' });
@@ -319,5 +337,11 @@ describe('ClioPendingInteractions', () => {
     expect(viewport.scrollTop).toBe(216);
     fireEvent.keyDown(viewport, { key: 'End' });
     expect(viewport.scrollTop).toBe(480);
+
+    const answer = screen.getAllByRole('textbox')[0]!;
+    answer.focus();
+    viewport.scrollTop = 240;
+    fireEvent.keyDown(answer, { key: 'Home' });
+    expect(viewport.scrollTop).toBe(240);
   });
 });

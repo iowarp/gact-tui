@@ -158,4 +158,27 @@ describe('ConversationTurn announced state', () => {
     expect(line).toHaveTextContent('Completed');
     expect(line).toHaveTextContent('Evidence retained with source identity.');
   });
+
+  it('does not leave a task with no detail as an unexplained status row', () => {
+    render(
+      <ConversationTurn
+        iterations={[
+          iteration(
+            activityLane([
+              {
+                kind: 'task',
+                id: 'task_without_detail',
+                task: task('task_without_detail', 'Review station quality'),
+              },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    const line = document.querySelector('[data-turn-activity="task:task_without_detail"]');
+    expect(line).toHaveTextContent('No detail reported');
+  });
 });

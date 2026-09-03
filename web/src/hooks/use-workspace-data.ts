@@ -118,7 +118,10 @@ export function useWorkspaceData({
   const supportsUnifiedInteractions = hasUnifiedInteractionCapability(
     capabilities.data?.capabilities,
   );
-  const useLegacyInteractions = capabilities.data !== undefined && !supportsUnifiedInteractions;
+  // Legacy permission and question reads are the safe compatibility path while
+  // capability negotiation is pending or failed. Never hide human blockers
+  // merely because the optimization that selects the aggregate route failed.
+  const useLegacyInteractions = !supportsUnifiedInteractions;
   const approvals = useQuery({
     queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
     queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
@@ -376,6 +379,7 @@ export function useWorkspaceData({
     contextTargetOptions,
     entities,
     executionProvenance,
+    interactionCapabilityError: capabilities.error ?? undefined,
     interactionSessionIds,
     interactions,
     interactionsError:

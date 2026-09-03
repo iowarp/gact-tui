@@ -261,4 +261,39 @@ describe('child work activity projection', () => {
     const row = screen.getAllByText('Evidence leaf')[0];
     expect(row.closest('[data-slot="timeline-item"]')).toHaveStyle({ marginInlineStart: '28px' });
   });
+
+  it('preserves failed and depth-zero projected work without relabeling it completed', () => {
+    const failedProcess: AsyncProcess = {
+      ...processes[0]!,
+      id: 'task_failed',
+      live_state: 'failed',
+      status: 'failed',
+      owner_session_id: 'session_depth_zero',
+      child_session_id: 'session_depth_zero',
+      task_path: [],
+      depth: 0,
+    };
+    const failedProvenance: ExecutionProvenanceResult = {
+      ...provenance,
+      session_lineage: [
+        {
+          session_id: 'session_depth_zero',
+          parent_session_id: 'session_root',
+          task_id: 'task_failed',
+          agent_id: 'reviewer',
+          label: 'Independent reviewer',
+          depth: 0,
+          task_path: [],
+        },
+      ],
+      spans: [],
+    };
+
+    const open = childProjectionActivityItems(failedProvenance, [failedProcess]).find(
+      (item) => item.id === 'task_failed:branch-open',
+    );
+    expect(open).toEqual(
+      expect.objectContaining({ depth: 0, ownerSessionId: 'session_depth_zero', state: 'failed' }),
+    );
+  });
 });

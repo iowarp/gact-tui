@@ -240,7 +240,11 @@ export function buildExecutionProvenanceGraph(
         position: { x: 0, y: 0 },
         data: {
           label: node.label,
-          detail: [node.kind, owner?.label || node.agent_id, depth ? `depth ${depth}` : undefined]
+          detail: [
+            node.kind,
+            owner?.label || node.agent_id,
+            depth === undefined ? undefined : `depth ${depth}`,
+          ]
             .filter(Boolean)
             .join(', '),
           status: node.status,
@@ -427,7 +431,7 @@ export function buildWorkflowGraph(
               candidate.child_session_id === (process.owner_session_id || process.child_session_id),
           ),
       );
-      const depth = process.task_path?.length || process.depth;
+      const depth = process.task_path?.length ?? process.depth;
       const detail = [
         depth === undefined ? undefined : `Depth ${depth}`,
         formatElapsed(process.created_at, process.updated_at),

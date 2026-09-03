@@ -227,9 +227,7 @@ fn validate_ssh_profile(value: &str) -> Result<(), String> {
     if value.is_empty()
         || value.len() > 128
         || value.starts_with('-')
-        || !value
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || "._-@".contains(character))
+        || !value.chars().all(is_safe_remote_argument_character)
     {
         return Err("The SSH profile name is not valid.".to_string());
     }
@@ -242,17 +240,20 @@ fn validate_optional_email(value: Option<&str>) -> Result<(), String> {
     };
     if value.len() > 254
         || !value.contains('@')
-        || value.chars().any(char::is_control)
-        || value.chars().any(char::is_whitespace)
+        || !value.chars().all(is_safe_remote_argument_character)
     {
         return Err("The contact email is not valid.".to_string());
     }
     Ok(())
 }
 
+fn is_safe_remote_argument_character(character: char) -> bool {
+    character.is_ascii_alphanumeric() || "._-@".contains(character)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{parse_ssh_profiles, validate_ssh_profile};
+    use super::{parse_ssh_profiles, validate_optional_email, validate_ssh_profile};
 
     #[test]
     fn parses_concrete_profiles_and_ignores_patterns() {
@@ -282,5 +283,15 @@ mod tests {
         assert!(validate_ssh_profile("-oProxyCommand=bad").is_err());
         assert!(validate_ssh_profile("host;bad").is_err());
         assert!(validate_ssh_profile("two hosts").is_err());
+    }
+
+    #[test]
+    fn restricts_contact_email_to_the_safe_remote_argument_charset() {
+        assert!(validate_optional_email(Some("scientist@example.org")).is_ok());
+        assert!(validate_optional_email(None).is_ok());
+        assert!(validate_optional_email(Some("a@example.org;touch-pwned")).is_err());
+        assert!(validate_optional_email(Some("a@example.org|whoami")).is_err());
+        assert!(validate_optional_email(Some("a@example.org$(whoami)")).is_err());
+        assert!(validate_optional_email(Some("a+tag@example.org")).is_err());
     }
 }
