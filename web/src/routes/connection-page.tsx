@@ -16,6 +16,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
+import { ConnectionWorkspaceHome } from '@/components/clio/connection-workspace-home';
 import { WorkspaceLoading } from '@/components/clio/workspace-route-surfaces';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -37,12 +38,7 @@ import {
 } from '@/components/ui/select';
 import { createRepository, DEFAULT_ENDPOINT, normalizeEndpoint } from '@/lib/connection';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import {
-  connectionSessionRoute,
-  connectionSessionTargetForRoute,
-  latestConnectionSessionTarget,
-} from '@/lib/connection-target';
-import { lastWorkspaceRoute, rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
+import { rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 export function ConnectionPage() {
@@ -65,7 +61,7 @@ export function ConnectionPage() {
   const serviceName = serviceNameDraft ?? settings.label ?? '';
   const autoConnectStarted = useRef(false);
   const connectionIntent = searchParams.get('intent');
-  const shouldResumeAutomatically =
+  const shouldConnectAutomatically =
     (recents.length > 0 || managedConnectionReady) && connectionIntent !== 'connect';
 
   const mutation = useMutation({
@@ -86,17 +82,8 @@ export function ConnectionPage() {
         repository.workspaces(),
         repository.allSessions(),
       ]);
-      const target =
-        connectionSessionTargetForRoute(lastWorkspaceRoute(next.endpoint), workspaces, sessions) ??
-        latestConnectionSessionTarget(workspaces, sessions);
       await connect(next);
-      return { next, capabilities, workspaces, target };
-    },
-    onSuccess: ({ next, target }) => {
-      if (target) {
-        rememberWorkspaceRoute(next.endpoint, target.workspace.id, target.session.id);
-        navigate(connectionSessionRoute(target));
-      }
+      return { next, capabilities, sessions, workspaces };
     },
   });
   const setup = useMutation({
@@ -163,16 +150,34 @@ export function ConnectionPage() {
     (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null);
 
   if (
-    shouldResumeAutomatically &&
-    (!credentialsReady ||
-      mutation.status === 'idle' ||
-      mutation.isPending ||
-      Boolean(mutation.data?.target))
+    shouldConnectAutomatically &&
+    (!credentialsReady || mutation.status === 'idle' || mutation.isPending)
   ) {
     return (
       <WorkspaceLoading
-        description="Reopening the last conversation on this service. Your destination will not change while the connection is restored."
-        label="Reopening your workspace"
+        description="Restoring the saved service connection. No conversation will be selected automatically."
+        label="Connecting to your workspace"
+      />
+    );
+  }
+
+  if (mutation.isSuccess && mutation.data.sessions.length > 0) {
+    return (
+      <ConnectionWorkspaceHome
+        endpoint={mutation.data.next.endpoint}
+        label={mutation.data.next.label}
+        onChangeConnection={() => {
+          navigate('/?intent=connect');
+          mutation.reset();
+        }}
+        onOpenSession={(workspaceId, sessionId) => {
+          rememberWorkspaceRoute(mutation.data.next.endpoint, workspaceId, sessionId);
+          navigate(
+            `/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(sessionId)}`,
+          );
+        }}
+        sessions={mutation.data.sessions}
+        workspaces={mutation.data.workspaces}
       />
     );
   }
@@ -244,7 +249,7 @@ export function ConnectionPage() {
             />
           </div>
 
-          {mutation.isSuccess && !mutation.data.target ? (
+          {mutation.isSuccess ? (
             <ConnectionEmptyService
               error={setup.error?.message}
               onCreate={(input) => setup.mutateAsync(input).then(() => undefined)}
