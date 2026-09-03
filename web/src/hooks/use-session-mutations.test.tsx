@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
 
@@ -41,6 +41,17 @@ function wrapper({ children }: { children: ReactNode }) {
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+function strictWrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  return (
+    <StrictMode>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </StrictMode>
+  );
 }
 
 const behavior = {
@@ -124,6 +135,31 @@ describe('useSessionMutations send identity', () => {
 });
 
 describe('useSessionMutations attachment preparation', () => {
+  it('keeps the upload signal active after the StrictMode effect replay', async () => {
+    mocks.uploadWorkspaceResources.mockResolvedValue({ parts: [], resources: [] });
+    const file = {
+      type: 'file' as const,
+      filename: 'paper.pdf',
+      mediaType: 'application/pdf',
+      url: 'blob:strict-paper-pdf',
+    };
+    const { result } = renderHook(
+      () =>
+        useSessionMutations({
+          activeModel: 'gpt-5.6-luna',
+          activeProvider: 'codex',
+          sessionId: 'sess_1',
+          workspaceId: 'ws_1',
+        }),
+      { wrapper: strictWrapper },
+    );
+
+    await result.current.prepareFiles([file]);
+
+    const uploadOptions = mocks.uploadWorkspaceResources.mock.calls[0]?.[0];
+    expect(uploadOptions.signal.aborted).toBe(false);
+  });
+
   it('reuses the immediate upload when the message is submitted', async () => {
     mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_resource' });
     mocks.uploadWorkspaceResources.mockResolvedValue({

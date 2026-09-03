@@ -15,7 +15,7 @@ import type {
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SessionBehaviorPatch } from '@/components/clio/session-behavior-options';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -76,21 +76,21 @@ export function useSessionMutations({
   // Uploads outlive a single request: they chunk bytes and then wait for the
   // service to register the resource. Leaving the session must end that wait
   // rather than leave it polling against a session nobody is looking at.
-  const uploadScope = useMemo(
-    () => ({ controller: new AbortController(), sessionId }),
-    [sessionId],
-  );
+  const uploadController = useRef<AbortController | null>(null);
   const preparedUploads = useRef(new Map<string, Promise<WorkspaceResourceUploadResult>>());
   useEffect(() => {
+    const controller = new AbortController();
+    uploadController.current = controller;
     const cache = preparedUploads.current;
-    const cachePrefix = `${uploadScope.sessionId}\u0000`;
+    const cachePrefix = `${sessionId}\u0000`;
     return () => {
-      uploadScope.controller.abort();
+      controller.abort();
+      if (uploadController.current === controller) uploadController.current = null;
       for (const key of cache.keys()) {
         if (key.startsWith(cachePrefix)) cache.delete(key);
       }
     };
-  }, [uploadScope]);
+  }, [sessionId]);
 
   const queuedMessages = useQuery({
     enabled: Boolean(sessionId),
@@ -120,14 +120,18 @@ export function useSessionMutations({
       onProgress?: (progress: ResourceUploadProgress) => void,
     ): Promise<WorkspaceResourceUploadResult> => {
       const uploadsForFiles = files.map((file) => {
-        const cacheKey = `${uploadScope.sessionId}\u0000${file.url}`;
+        const cacheKey = `${sessionId}\u0000${file.url}`;
         let pending = preparedUploads.current.get(cacheKey);
         if (!pending) {
+          const controller = uploadController.current;
+          if (!controller || controller.signal.aborted) {
+            throw new Error('The attachment upload is no longer active for this session.');
+          }
           pending = uploadWorkspaceResources({
             files: [file],
             onProgress,
             repository,
-            signal: uploadScope.controller.signal,
+            signal: controller.signal,
             workspaceId,
           })
             .then((result) => {
@@ -158,7 +162,7 @@ export function useSessionMutations({
         resources: results.flatMap((result) => result.resources),
       };
     },
-    [queryClient, repository, settings.endpoint, uploadScope, workspaceId],
+    [queryClient, repository, sessionId, settings.endpoint, workspaceId],
   );
 
   const sendIdentities = useRef(new SendIdentities());
