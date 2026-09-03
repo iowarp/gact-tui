@@ -79,7 +79,10 @@ $documentProcessorResponse = Invoke-ClioDevWebRequest `
     -Uri "$documentProcessorUrl/readyz" `
     -TimeoutSec 10
 $documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
-$provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 10
+# SDK-native provider discovery may need to initialize the provider subprocess
+# even after the service health endpoint is ready. Keep the preflight bounded,
+# but do not tear down an otherwise healthy stack at the generic HTTP default.
+$provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 30
 $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
 $sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 10
 $webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 10
