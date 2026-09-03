@@ -206,6 +206,20 @@ describe('WorkspaceResourceDerivativesView', () => {
     expect(screen.queryByText('No derivatives')).not.toBeInTheDocument();
   });
 
+  it('does not describe a terminal conversion as still waiting when no events were retained', () => {
+    renderView([], 'failed', {
+      processing: {
+        ...processing,
+        state: 'failed',
+        message: undefined,
+        events: [],
+      },
+    });
+
+    expect(screen.getByText('No conversion activity was reported.')).toBeVisible();
+    expect(screen.queryByText('Waiting for converter activity.')).not.toBeInTheDocument();
+  });
+
   it('replaces conversion activity with derivative files once output exists', () => {
     renderView([derivative], 'complete', {
       processing: {

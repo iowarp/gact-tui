@@ -211,6 +211,7 @@ export function WorkspaceResourceDerivativesView({
 function ConversionActivity({ processing }: { processing: WorkspaceResourceProcessing }) {
   const events = [...(processing.events ?? [])].reverse();
   const fallback = processing.message?.trim() ?? '';
+  const waiting = processing.state === 'submitted' || processing.state === 'processing';
 
   return (
     <section aria-label="Conversion activity" className="overflow-hidden rounded-lg border">
@@ -230,7 +231,10 @@ function ConversionActivity({ processing }: { processing: WorkspaceResourceProce
         </ol>
       ) : (
         <p className="px-3 py-3 text-sm text-muted-foreground">
-          {fallback || 'Waiting for converter activity.'}
+          {fallback ||
+            (waiting
+              ? 'Waiting for converter activity.'
+              : 'No conversion activity was reported.')}
         </p>
       )}
     </section>
