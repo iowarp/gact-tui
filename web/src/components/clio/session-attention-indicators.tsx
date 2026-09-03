@@ -1,5 +1,6 @@
 import {
   BoxesIcon,
+  CircleHelpIcon,
   ClipboardPenLineIcon,
   MessageCircleQuestionIcon,
   ShieldQuestionIcon,
@@ -21,6 +22,7 @@ export function SessionAttentionIndicators({
   const questionCount = attention.questionIds.length;
   const taskInputCount = attention.mcpTaskInputIds.length;
   const a2uiCount = attention.a2uiIds.length;
+  const unknownCount = attention.unknownIds.length;
   const indicators = (
     <>
       {permissionCount ? (
@@ -45,6 +47,15 @@ export function SessionAttentionIndicators({
         <Badge variant="outline">
           <BoxesIcon aria-hidden="true" data-icon="inline-start" />
           {a2uiCount === 1 ? 'Interactive view' : `${a2uiCount} interactive views`}
+        </Badge>
+      ) : null}
+      {unknownCount ? (
+        <Badge
+          title="This version of the app has no surface for this request. Update to respond to it."
+          variant="outline"
+        >
+          <CircleHelpIcon aria-hidden="true" data-icon="inline-start" />
+          {unknownCount === 1 ? 'Unrecognized request' : `${unknownCount} unrecognized requests`}
         </Badge>
       ) : null}
     </>

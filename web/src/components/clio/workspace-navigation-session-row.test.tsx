@@ -105,6 +105,7 @@ describe('session navigation state', () => {
       questionIds: ['question_1'],
       mcpTaskInputIds: [],
       a2uiIds: [],
+      unknownIds: [],
       total: 2,
     });
 

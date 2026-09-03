@@ -1,6 +1,6 @@
 import type { CommandDefinition, WorkspaceResource } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
@@ -315,6 +315,24 @@ describe('ClioComposer service commands', () => {
     expect(screen.queryByRole('button', { name: 'Open field-map.png' })).not.toBeInTheDocument();
   });
 
+  it('brings the placeholder back when the draft is cleared by hand', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    const editor = composerEditor();
+
+    await user.type(editor, 'Half a thought');
+    expect(editor).not.toBeEmptyDOMElement();
+
+    // Clearing a contenteditable by hand leaves a stray <br> behind, which
+    // defeats the :empty rule the placeholder is drawn with.
+    editor.innerHTML = '<br>';
+    fireEvent.input(editor);
+
+    expect(editor).toBeEmptyDOMElement();
+    expect(editor).toHaveAttribute('data-placeholder', expect.stringContaining('investigate'));
+    expect(document.querySelector('input[name="message"]')).toHaveValue('');
+  });
+
   it('focuses only after an explicit focus request changes', async () => {
     const props = {
       attachments: false,
@@ -333,7 +351,7 @@ describe('ClioComposer service commands', () => {
     await waitFor(() => expect(input).toHaveFocus());
   });
 
-  it('restores the textarea focus after the sending block clears', async () => {
+  it('restores the composer focus after the sending block clears', async () => {
     const user = userEvent.setup();
     let resolveSubmit!: () => void;
     const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(

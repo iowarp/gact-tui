@@ -57,7 +57,7 @@ import {
 } from '@/lib/connection';
 import {
   connectionSessionRoute,
-  connectionSessionTargetForRoute,
+  connectionWorkspaceForRoute,
   emptyConnectionSessionTarget,
   latestConnectionSessionTarget,
 } from '@/lib/connection-target';
@@ -120,13 +120,14 @@ export function ConnectionPage() {
         repository.workspaces(),
         repository.allSessions(),
       ]);
-      const remembered = connectionSessionTargetForRoute(
+      // Only the workspace is remembered here: the flow below opens a blank
+      // conversation rather than the one that happened to be open last.
+      const rememberedWorkspace = connectionWorkspaceForRoute(
         lastWorkspaceRoute(next.endpoint),
         workspaces,
-        sessions,
       );
       const recent = latestConnectionSessionTarget(workspaces, sessions);
-      const workspace = remembered?.workspace ?? recent?.workspace ?? workspaces[0];
+      const workspace = rememberedWorkspace ?? recent?.workspace ?? workspaces[0];
       let target = workspace ? emptyConnectionSessionTarget(workspace, sessions) : undefined;
       await connect(next);
       if (!target && workspace) {

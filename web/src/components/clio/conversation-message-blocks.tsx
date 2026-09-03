@@ -7,7 +7,7 @@ import {
   PanelsTopLeftIcon,
   RouteIcon,
 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -282,7 +282,6 @@ function MessageBlockView({
         navigation: block.navigation,
       };
       const kind = referenceKindLabel(block.ref_kind);
-      const ReferenceIcon = referenceKindIcon(block.ref_kind);
       return (
         <button
           aria-label={`Open referenced ${kind} ${block.label}`}
@@ -295,7 +294,10 @@ function MessageBlockView({
           title={kind}
           type="button"
         >
-          <ReferenceIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          {createElement(referenceKindIcon(block.ref_kind), {
+            'aria-hidden': 'true',
+            className: 'size-3.5 shrink-0',
+          })}
           <span className="truncate">{block.label}</span>
         </button>
       );

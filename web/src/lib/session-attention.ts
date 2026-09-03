@@ -6,6 +6,12 @@ export interface SessionAttention {
   questionIds: readonly string[];
   mcpTaskInputIds: readonly string[];
   a2uiIds: readonly string[];
+  /**
+   * Requests of a kind this build has no surface for. They still block the
+   * session, so they are counted — but counting them as questions told the
+   * person to answer something this app cannot even show them.
+   */
+  unknownIds: readonly string[];
   total: number;
 }
 
@@ -14,6 +20,7 @@ interface MutableSessionAttention {
   questionIds: Set<string>;
   mcpTaskInputIds: Set<string>;
   a2uiIds: Set<string>;
+  unknownIds: Set<string>;
 }
 
 /** Builds durable attention state using the server's attended-session projection. */
@@ -32,6 +39,7 @@ export function buildSessionAttentionMap(
       questionIds: new Set(),
       mcpTaskInputIds: new Set(),
       a2uiIds: new Set(),
+      unknownIds: new Set(),
     };
     pendingBySession.set(rootId, created);
     return created;
@@ -54,7 +62,10 @@ export function buildSessionAttentionMap(
   const realUserInputCounts = new Map(
     [...pendingBySession.entries()].map(([rootId, value]) => [
       rootId,
-      value.questionIds.size + value.mcpTaskInputIds.size + value.a2uiIds.size,
+      value.questionIds.size +
+        value.mcpTaskInputIds.size +
+        value.a2uiIds.size +
+        value.unknownIds.size,
     ]),
   );
 
@@ -74,6 +85,7 @@ export function buildSessionAttentionMap(
       const questionIds = [...value.questionIds];
       const mcpTaskInputIds = [...value.mcpTaskInputIds];
       const a2uiIds = [...value.a2uiIds];
+      const unknownIds = [...value.unknownIds];
       return [
         sessionId,
         {
@@ -82,8 +94,13 @@ export function buildSessionAttentionMap(
           questionIds,
           mcpTaskInputIds,
           a2uiIds,
+          unknownIds,
           total:
-            permissionIds.length + questionIds.length + mcpTaskInputIds.length + a2uiIds.length,
+            permissionIds.length +
+            questionIds.length +
+            mcpTaskInputIds.length +
+            a2uiIds.length +
+            unknownIds.length,
         },
       ];
     }),
@@ -96,6 +113,7 @@ export function sessionAttentionLabel(attention: SessionAttention): string {
     countLabel(attention.questionIds.length, 'question'),
     countLabel(attention.mcpTaskInputIds.length, 'task input', 'task inputs'),
     countLabel(attention.a2uiIds.length, 'interactive view'),
+    countLabel(attention.unknownIds.length, 'unrecognized request'),
   ].filter(Boolean);
   if (labels.length <= 1) return labels[0] ?? 'response';
   return `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}`;
@@ -107,6 +125,7 @@ export function sessionAttentionIds(attention: SessionAttention): readonly strin
     ...attention.questionIds,
     ...attention.mcpTaskInputIds,
     ...attention.a2uiIds,
+    ...attention.unknownIds,
   ];
 }
 
@@ -117,7 +136,8 @@ function interactionIdsForKind(
   if (kind === 'permission') return attention.permissionIds;
   if (kind === 'mcp_task_input') return attention.mcpTaskInputIds;
   if (kind === 'a2ui') return attention.a2uiIds;
-  return attention.questionIds;
+  if (kind === 'question') return attention.questionIds;
+  return attention.unknownIds;
 }
 
 function rootSessionId(sessionId: string, sessionsById: ReadonlyMap<string, Session>): string {

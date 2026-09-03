@@ -26,9 +26,7 @@ export function emptyConnectionSessionTarget(
 ): ConnectionSessionTarget | undefined {
   const session = sessions
     .filter(
-      (candidate) =>
-        candidate.workspace_id === workspace.id &&
-        isReusableEntrySession(candidate),
+      (candidate) => candidate.workspace_id === workspace.id && isReusableEntrySession(candidate),
     )
     .toSorted((left, right) => right.created_at.localeCompare(left.created_at))[0];
   return session ? { session, workspace } : undefined;
@@ -51,22 +49,45 @@ export function latestConnectionSessionTarget(
     )[0];
 }
 
+/** The workspace and session ids a remembered route names, if it is one. */
+function parseWorkspaceRoute(
+  route: string,
+): { sessionId: string; workspaceId: string } | undefined {
+  const match = /^\/workspaces\/([^/]+)\/sessions\/([^/?#]+)$/u.exec(route);
+  if (!match?.[1] || !match[2]) return undefined;
+  try {
+    return { sessionId: decodeURIComponent(match[2]), workspaceId: decodeURIComponent(match[1]) };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The workspace a remembered route names, when it still exists.
+ *
+ * Reconnecting opens a fresh conversation rather than the one that was open
+ * last, so the connection page needs the workspace the person was working in
+ * and nothing else. Requiring their last session to still exist would drop them
+ * back to global recency for no reason — a workspace outlives any one
+ * conversation in it.
+ */
+export function connectionWorkspaceForRoute(
+  route: string,
+  workspaces: readonly Workspace[],
+): Workspace | undefined {
+  const parsed = parseWorkspaceRoute(route);
+  return parsed ? workspaces.find((candidate) => candidate.id === parsed.workspaceId) : undefined;
+}
+
 /** Resolve a remembered workspace route only when both entities still exist. */
 export function connectionSessionTargetForRoute(
   route: string,
   workspaces: readonly Workspace[],
   sessions: readonly Session[],
 ): ConnectionSessionTarget | undefined {
-  const match = /^\/workspaces\/([^/]+)\/sessions\/([^/?#]+)$/u.exec(route);
-  if (!match?.[1] || !match[2]) return undefined;
-  let workspaceId: string;
-  let sessionId: string;
-  try {
-    workspaceId = decodeURIComponent(match[1]);
-    sessionId = decodeURIComponent(match[2]);
-  } catch {
-    return undefined;
-  }
+  const parsed = parseWorkspaceRoute(route);
+  if (!parsed) return undefined;
+  const { sessionId, workspaceId } = parsed;
   const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
   const session = sessions.find(
     (candidate) =>

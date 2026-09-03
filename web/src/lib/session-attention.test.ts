@@ -51,9 +51,32 @@ describe('session attention', () => {
       questionIds: [],
       mcpTaskInputIds: [],
       a2uiIds: [],
+      unknownIds: [],
       total: 1,
     });
     expect(attentions[child.id]).toBeUndefined();
+  });
+
+  it('counts a request kind this build has no surface for on its own, not as a question', () => {
+    const attentions = buildSessionAttentionMap(
+      [baseSession],
+      [
+        interaction('question', 'question:q1'),
+        // A newer service asked for something this build cannot render. The
+        // contract reads it as `unknown`; calling it a question would tell the
+        // person to answer a prompt that is never shown.
+        interaction('unknown' as PendingInteraction['kind'], 'future:f1'),
+      ],
+    );
+
+    expect(attentions[baseSession.id]).toMatchObject({
+      questionIds: ['question:q1'],
+      unknownIds: ['future:f1'],
+      total: 2,
+    });
+    expect(sessionAttentionLabel(attentions[baseSession.id]!)).toBe(
+      '1 question and 1 unrecognized request',
+    );
   });
 
   it('projects every interaction kind and ignores resolved rows', () => {

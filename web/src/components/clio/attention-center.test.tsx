@@ -32,6 +32,7 @@ function waitingAttention(sessionId: string): SessionAttention {
     questionIds: [`state:${sessionId}:waiting_user`],
     mcpTaskInputIds: [],
     a2uiIds: [],
+    unknownIds: [],
     total: 1,
   };
 }
@@ -143,9 +144,9 @@ describe('ClioAttentionNotifier', () => {
     );
 
     await waitFor(() =>
-      expect(vi.mocked(toast.warning).mock.calls.some(([title]) => title !== 'Response needed')).toBe(
-        true,
-      ),
+      expect(
+        vi.mocked(toast.warning).mock.calls.some(([title]) => title !== 'Response needed'),
+      ).toBe(true),
     );
   });
 });

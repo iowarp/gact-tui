@@ -30,7 +30,10 @@ export function collectPlainText(
       return;
     }
     if (node.tagName === 'BR') {
-      value += '\n';
+      // A trailing <br> is how a browser keeps an empty line rendered, not a
+      // newline the person typed. Counting it made a cleared editor read as
+      // "\n" — non-empty, so the placeholder never came back.
+      if (node.nextSibling) value += '\n';
       return;
     }
     const startedAt = value.length;
