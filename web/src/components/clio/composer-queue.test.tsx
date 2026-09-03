@@ -234,7 +234,7 @@ describe('ClioComposerQueue', () => {
 
     await user.hover(attachment);
     expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
-    expect(screen.getByText(/structured content is in progress/i)).toBeVisible();
+    expect(screen.getByText(/^In progress\.$/i)).toBeVisible();
     const conversionStatus = screen.getByRole('status', {
       name: 'Conversion status: In progress',
     });
