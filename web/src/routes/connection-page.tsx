@@ -2,18 +2,21 @@ import { brand } from '@brand';
 import { PROTOCOL_VERSION } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
 import {
+  ArrowLeftIcon,
   ArrowRightIcon,
   BrainCircuitIcon,
   ChartNoAxesCombinedIcon,
-  ChevronDownIcon,
   FolderClockIcon,
+  KeyRoundIcon,
   MoreHorizontalIcon,
+  PlusIcon,
   ShieldCheckIcon,
   Trash2Icon,
   TriangleAlertIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
 import { ClioStatus } from '@/components/clio/status';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { WorkspaceLoading } from '@/components/clio/workspace-route-surfaces';
@@ -23,19 +26,35 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { createRepository, DEFAULT_ENDPOINT, normalizeEndpoint } from '@/lib/connection';
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field';
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  connectionAvailability,
+  useConnectionAvailabilities,
+} from '@/hooks/use-connection-availability';
+import {
+  createRepository,
+  DEFAULT_ENDPOINT,
+  normalizeEndpoint,
+  type ConnectionSettings,
+} from '@/lib/connection';
 import {
   connectionSessionRoute,
   connectionSessionTargetForRoute,
@@ -59,22 +78,36 @@ export function ConnectionPage() {
     connect,
     forget,
   } = useConnectionSettings();
-  const [endpointDraft, setEndpoint] = useState<string>();
-  const [serviceNameDraft, setServiceName] = useState<string>();
+  const initialSavedConnection =
+    recents.find((recent) => recent.endpoint === settings.endpoint) ?? recents[0];
+  const [connectionMode, setConnectionMode] = useState<'saved' | 'new'>(() =>
+    initialSavedConnection ? 'saved' : 'new',
+  );
+  const [selectedEndpoint, setSelectedEndpoint] = useState(
+    initialSavedConnection?.endpoint ?? settings.endpoint,
+  );
+  const [endpointDraft, setEndpointDraft] = useState(
+    initialSavedConnection ? DEFAULT_ENDPOINT : settings.endpoint,
+  );
+  const [serviceNameDraft, setServiceNameDraft] = useState(
+    initialSavedConnection ? '' : (settings.label ?? ''),
+  );
   const [token, setToken] = useState('');
-  const endpoint = endpointDraft ?? settings.endpoint;
-  const serviceName = serviceNameDraft ?? settings.label ?? '';
+  const selectedConnection = recents.find((recent) => recent.endpoint === selectedEndpoint);
+  const availabilities = useConnectionAvailabilities(recents);
+  const selectedAvailability = selectedConnection
+    ? connectionAvailability(availabilities, selectedConnection.endpoint)
+    : undefined;
   const autoConnectStarted = useRef(false);
   const connectionIntent = searchParams.get('intent');
   const shouldConnectAutomatically =
     (recents.length > 0 || managedConnectionReady) && connectionIntent !== 'connect';
 
   const mutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (candidate: ConnectionSettings) => {
       const next = await resolveConnection({
-        endpoint: normalizeEndpoint(endpoint),
-        token: token || undefined,
-        label: serviceName.trim() || undefined,
+        ...candidate,
+        endpoint: normalizeEndpoint(candidate.endpoint),
       });
       const repository = createRepository(next);
       const capabilities = await repository.capabilities();
@@ -155,25 +188,32 @@ export function ConnectionPage() {
       autoConnectStarted.current ||
       !credentialsReady ||
       (recents.length === 0 && !managedConnectionReady) ||
-      endpoint !== settings.endpoint ||
       connectionIntent === 'connect'
     )
       return;
     autoConnectStarted.current = true;
-    mutation.mutate();
+    mutation.mutate(settings);
   }, [
     connectionIntent,
     credentialsReady,
-    endpoint,
     managedConnectionReady,
     mutation,
     recents.length,
+    settings,
     settings.endpoint,
   ]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    mutation.mutate();
+    const candidate =
+      connectionMode === 'saved' && selectedConnection
+        ? selectedConnection
+        : {
+            endpoint: endpointDraft,
+            token: token || undefined,
+            label: serviceNameDraft.trim() || undefined,
+          };
+    mutation.mutate(candidate);
   };
 
   const logoSource =
@@ -239,19 +279,25 @@ export function ConnectionPage() {
         </div>
 
         <div className="rounded-2xl border border-border/80 bg-card/85 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl sm:p-8">
-          <div className="mb-7 flex items-start justify-between gap-4">
+          <div className="mb-6 flex items-start justify-between gap-4">
             <div>
-              <p className="font-heading text-xl font-semibold">Open {brand.name}</p>
+              <p className="font-heading text-xl font-semibold">
+                {connectionMode === 'saved' ? `Open ${brand.name}` : 'Add an agent service'}
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Choose a saved connection or enter a new address.
+                {connectionMode === 'saved'
+                  ? 'Choose a service to continue.'
+                  : 'Name the service and enter its address.'}
               </p>
             </div>
-            <ClioStatus
-              value={mutation.isPending ? 'connecting' : mutation.isSuccess ? 'live' : 'offline'}
-              label={
-                mutation.isPending ? undefined : mutation.isSuccess ? 'Connected' : 'Not connected'
-              }
-            />
+            {mutation.isPending ? (
+              <ClioStatus value="connecting" />
+            ) : connectionMode === 'saved' && selectedConnection && selectedAvailability ? (
+              <ConnectionAvailabilityIndicator
+                availability={selectedAvailability}
+                endpoint={selectedConnection.endpoint}
+              />
+            ) : null}
           </div>
 
           {mutation.isSuccess && mutation.data.sessions.length === 0 ? (
@@ -263,128 +309,169 @@ export function ConnectionPage() {
             />
           ) : (
             <form className="grid gap-5" onSubmit={submit}>
-              <div className="grid gap-2">
-                <Label htmlFor="service-name">Service name</Label>
-                <Input
-                  autoComplete="off"
-                  className="h-11"
-                  id="service-name"
-                  onChange={(event) => setServiceName(event.target.value)}
-                  placeholder="For example, Homelab"
-                  value={serviceName}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="endpoint">Connection address</Label>
-                {recents.length > 0 ? (
-                  <div className="flex gap-2">
-                    <Select
-                      onValueChange={(value) => {
-                        const saved = recents.find((recent) => recent.endpoint === value);
-                        setEndpoint(value);
-                        setServiceName(saved?.label ?? '');
-                        setToken('');
-                      }}
-                      value={recents.some((recent) => recent.endpoint === endpoint) ? endpoint : ''}
-                    >
-                      <SelectTrigger aria-label="Saved connections" className="h-11 min-w-0 flex-1">
-                        <FolderClockIcon
-                          aria-hidden="true"
-                          className="size-4 text-muted-foreground"
-                        />
-                        <SelectValue placeholder="Choose a saved connection" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {recents.map((recent) => (
-                          <SelectItem key={recent.endpoint} value={recent.endpoint}>
-                            <span className="truncate">{recent.label || recent.endpoint}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-label="Manage saved connections"
-                          className="size-11"
-                          size="icon"
-                          type="button"
-                          variant="outline"
+              {connectionMode === 'saved' ? (
+                <FieldSet>
+                  <FieldLegend variant="label">Saved services</FieldLegend>
+                  <div className="grid max-h-72 gap-2 overflow-y-auto pr-1">
+                    {recents.map((recent) => {
+                      const availability = connectionAvailability(availabilities, recent.endpoint);
+                      const selected = recent.endpoint === selectedEndpoint;
+                      const unavailable = availability.state === 'unavailable';
+                      return (
+                        <div
+                          className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center overflow-hidden rounded-xl border bg-background transition-colors data-[selected=true]:border-primary/45 data-[selected=true]:bg-primary/5"
+                          data-selected={selected}
+                          key={recent.endpoint}
                         >
-                          <MoreHorizontalIcon aria-hidden="true" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-72">
-                        <DropdownMenuLabel>Saved connections</DropdownMenuLabel>
-                        {recents.map((recent) => (
-                          <DropdownMenuItem
-                            className="justify-between gap-3"
-                            key={recent.endpoint}
-                            onSelect={() => {
-                              void forget(recent.endpoint);
-                              if (endpoint === recent.endpoint) {
-                                setEndpoint(
-                                  recents.find(
-                                    (candidate) => candidate.endpoint !== recent.endpoint,
-                                  )?.endpoint ?? DEFAULT_ENDPOINT,
-                                );
-                                setServiceName(
-                                  recents.find(
-                                    (candidate) => candidate.endpoint !== recent.endpoint,
-                                  )?.label ?? '',
-                                );
-                              }
-                            }}
-                            variant="destructive"
+                          <button
+                            aria-pressed={selected}
+                            className="flex min-w-0 items-center gap-3 px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-45"
+                            disabled={unavailable}
+                            onClick={() => setSelectedEndpoint(recent.endpoint)}
+                            type="button"
                           >
-                            <span className="truncate text-xs">
-                              Forget {recent.label || recent.endpoint}
+                            <FolderClockIcon
+                              aria-hidden="true"
+                              className="shrink-0 text-muted-foreground"
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">
+                                {recent.label || new URL(recent.endpoint).host}
+                              </span>
+                              <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                                {recent.endpoint}
+                              </span>
                             </span>
-                            <Trash2Icon aria-hidden="true" className="size-4" />
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          </button>
+                          <ConnectionAvailabilityIndicator
+                            availability={availability}
+                            compact
+                            endpoint={recent.endpoint}
+                          />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-label={`Service actions for ${recent.label || recent.endpoint}`}
+                                className="mr-1"
+                                size="icon-sm"
+                                type="button"
+                                variant="ghost"
+                              >
+                                <MoreHorizontalIcon aria-hidden="true" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="min-w-52">
+                              <DropdownMenuItem
+                                onSelect={() => {
+                                  const next = recents.find(
+                                    (candidate) => candidate.endpoint !== recent.endpoint,
+                                  );
+                                  void forget(recent.endpoint);
+                                  if (selectedEndpoint === recent.endpoint) {
+                                    if (next) setSelectedEndpoint(next.endpoint);
+                                    else setConnectionMode('new');
+                                  }
+                                }}
+                                variant="destructive"
+                              >
+                                <Trash2Icon aria-hidden="true" /> Forget on this device
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      );
+                    })}
                   </div>
-                ) : null}
-                <div className="relative">
-                  <Input
-                    autoComplete="url"
-                    className="h-11 font-mono text-sm"
-                    id="endpoint"
-                    onChange={(event) => setEndpoint(event.target.value)}
-                    placeholder={DEFAULT_ENDPOINT}
-                    required
-                    value={endpoint}
-                  />
-                </div>
-              </div>
-              <details className="group rounded-lg border bg-muted/15 px-3 py-2">
-                <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium">
-                  Advanced settings
-                  <ChevronDownIcon
-                    aria-hidden="true"
-                    className="size-4 text-muted-foreground transition-transform group-open:rotate-180"
-                  />
-                </summary>
-                <div className="mt-4 grid gap-2 border-t pt-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="token">Access token</Label>
-                    <span className="text-xs text-muted-foreground">
-                      {inTauri() ? 'Saved securely on this device' : 'Kept in memory only'}
-                    </span>
-                  </div>
-                  <Input
-                    autoComplete="off"
-                    className="h-11 font-mono"
-                    id="token"
-                    onChange={(event) => setToken(event.target.value)}
-                    placeholder="Optional"
-                    type="password"
-                    value={token}
-                  />
-                </div>
-              </details>
+                  <Button
+                    className="justify-start"
+                    onClick={() => {
+                      setConnectionMode('new');
+                      setEndpointDraft(DEFAULT_ENDPOINT);
+                      setServiceNameDraft('');
+                      setToken('');
+                      mutation.reset();
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    <PlusIcon aria-hidden="true" data-icon="inline-start" /> Add a service
+                  </Button>
+                </FieldSet>
+              ) : (
+                <FieldGroup>
+                  {recents.length > 0 ? (
+                    <Button
+                      className="w-fit px-0"
+                      onClick={() => {
+                        setConnectionMode('saved');
+                        mutation.reset();
+                      }}
+                      type="button"
+                      variant="link"
+                    >
+                      <ArrowLeftIcon aria-hidden="true" data-icon="inline-start" /> Saved services
+                    </Button>
+                  ) : null}
+                  <Field>
+                    <FieldLabel htmlFor="service-name">Service name</FieldLabel>
+                    <Input
+                      autoComplete="off"
+                      className="h-11"
+                      id="service-name"
+                      onChange={(event) => setServiceNameDraft(event.target.value)}
+                      placeholder="For example, Homelab"
+                      value={serviceNameDraft}
+                    />
+                    <FieldDescription>Shown in your service picker.</FieldDescription>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="endpoint">Connection address</FieldLabel>
+                    <Input
+                      autoComplete="url"
+                      className="h-11 font-mono text-sm"
+                      id="endpoint"
+                      onChange={(event) => setEndpointDraft(event.target.value)}
+                      placeholder={DEFAULT_ENDPOINT}
+                      required
+                      value={endpointDraft}
+                    />
+                  </Field>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button className="h-11 justify-between" type="button" variant="outline">
+                        <span className="flex items-center gap-2">
+                          <KeyRoundIcon aria-hidden="true" /> Access token
+                        </span>
+                        <span className="text-xs font-normal text-muted-foreground">
+                          {token ? 'Added' : 'Optional'}
+                        </span>
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-80 p-4">
+                      <PopoverHeader>
+                        <PopoverTitle>Access token</PopoverTitle>
+                        <PopoverDescription>
+                          {inTauri() ? 'Saved securely on this device.' : 'Kept in memory only.'}
+                        </PopoverDescription>
+                      </PopoverHeader>
+                      <Field className="mt-2">
+                        <FieldLabel className="sr-only" htmlFor="token">
+                          Access token
+                        </FieldLabel>
+                        <Input
+                          autoComplete="off"
+                          className="h-10 font-mono"
+                          id="token"
+                          onChange={(event) => setToken(event.target.value)}
+                          placeholder="Paste token"
+                          type="password"
+                          value={token}
+                        />
+                      </Field>
+                    </PopoverContent>
+                  </Popover>
+                </FieldGroup>
+              )}
 
               {mutation.error ? (
                 <Alert variant="destructive">
@@ -404,11 +491,21 @@ export function ConnectionPage() {
 
               <Button
                 className="h-11 justify-between bg-action text-white hover:bg-action/90"
-                disabled={mutation.isPending}
+                disabled={
+                  mutation.isPending ||
+                  (connectionMode === 'saved' &&
+                    (!selectedConnection || selectedAvailability?.state === 'unavailable'))
+                }
                 type="submit"
               >
-                <span>{mutation.isPending ? 'Connecting…' : 'Open workspace'}</span>
-                <ArrowRightIcon aria-hidden="true" className="size-4" />
+                <span>
+                  {mutation.isPending
+                    ? 'Connecting…'
+                    : connectionMode === 'saved'
+                      ? 'Open workspace'
+                      : 'Connect'}
+                </span>
+                <ArrowRightIcon aria-hidden="true" data-icon="inline-end" />
               </Button>
             </form>
           )}

@@ -1,6 +1,6 @@
 import type { AgentBlueprint, Session, Workspace } from '@clio/core/v3';
 import { ActivityIcon, Settings2Icon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -17,6 +17,7 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
+import { useConnectionAvailabilities } from '@/hooks/use-connection-availability';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useMenuAction } from '@/tauri/menu-actions';
 import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
@@ -53,6 +54,14 @@ export function ClioNavigation({
 }: ClioNavigationProps) {
   const location = useLocation();
   const { settings, recents } = useConnectionSettings();
+  const knownConnections = useMemo(
+    () =>
+      recents.some((connection) => connection.endpoint === endpoint)
+        ? recents
+        : [{ endpoint, label: settings.label }, ...recents],
+    [endpoint, recents, settings.label],
+  );
+  const connectionAvailabilities = useConnectionAvailabilities(knownConnections);
   const switchConnection = useSwitchConnection();
   const [createKind, setCreateKind] = useState<'workspace' | 'session' | null>(null);
   const [createWorkspaceId, setCreateWorkspaceId] = useState(activeWorkspaceId);
@@ -129,6 +138,7 @@ export function ClioNavigation({
               />
             }
             currentPath={location.pathname}
+            connectionAvailabilities={connectionAvailabilities}
             endpoint={endpoint}
             onConnect={switchService}
             onImportSession={() => importInputRef.current?.click()}

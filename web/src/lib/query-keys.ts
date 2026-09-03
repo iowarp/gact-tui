@@ -17,6 +17,7 @@ export type ClioQueryNamespace =
   | 'blueprint-files'
   | 'capabilities'
   | 'commands'
+  | 'connection-availability'
   | 'document-content'
   | 'document-editor-health'
   | 'document-manifest'
