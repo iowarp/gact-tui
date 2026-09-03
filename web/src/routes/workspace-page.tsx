@@ -39,6 +39,7 @@ import { useContextTargetSelection } from '@/hooks/use-context-target-selection'
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
+import { referenceKindLabel } from '@/lib/composer-reference-domain';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -152,7 +153,7 @@ export function WorkspacePage() {
   const openComposerReference = useCallback(
     async (reference: WorkspaceReference) => {
       try {
-        await navigateComposerReference({
+        const outcome = await navigateComposerReference({
           artifacts,
           diffs: sessionObservability.diffs.data ?? [],
           openArtifact,
@@ -171,10 +172,18 @@ export function WorkspacePage() {
           sessionId,
           workspaceId,
         });
+        if (outcome.status === 'unresolved') {
+          toast.error(`Could not open ${referenceKindLabel(reference.kind)} reference`, {
+            description: outcome.reason,
+          });
+        }
       } catch (error) {
         console.error('Could not open composer reference', reference, error);
-        toast.error(`Could not open ${reference.label}`, {
-          description: 'The workspace is still available. Refresh the reference and try again.',
+        toast.error(`Could not open ${referenceKindLabel(reference.kind)} reference`, {
+          description:
+            error instanceof Error
+              ? error.message
+              : 'The workspace is still available. Refresh the reference and try again.',
         });
       }
     },

@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
 import { cn } from '@/lib/utils';
-import { workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
+import { referenceKindLabel, workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
 
 export interface InlineReferenceSelection {
   offset: number;
@@ -38,17 +38,6 @@ function modelSignature(value: string, references: readonly InlineReferenceSelec
 
 function appendToken(root: HTMLDivElement, selection: InlineReferenceSelection): void {
   const identity = workspaceReferenceIdentity(selection.reference);
-  const kindLabel: Record<WorkspaceReference['kind'], string> = {
-    agent_run: 'agent run',
-    artifact: 'artifact',
-    context_frame: 'context record',
-    diff: 'changed file',
-    evidence_source: 'source',
-    plan: 'plan',
-    resource: 'source',
-    session: 'conversation',
-    workspace_file: 'local file',
-  };
   const token = document.createElement('span');
   token.className =
     'mx-0.5 inline-flex max-w-64 items-center gap-1 align-baseline rounded-md bg-secondary px-1.5 py-0.5 text-sm text-secondary-foreground';
@@ -61,7 +50,7 @@ function appendToken(root: HTMLDivElement, selection: InlineReferenceSelection):
   open.dataset.referenceOpen = identity;
   open.setAttribute(
     'aria-label',
-    `Open ${kindLabel[selection.reference.kind]} ${selection.reference.label}`,
+    `Open ${referenceKindLabel(selection.reference.kind)} ${selection.reference.label}`,
   );
   open.title = selection.reference.detail;
   open.type = 'button';
