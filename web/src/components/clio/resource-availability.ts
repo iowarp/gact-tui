@@ -106,12 +106,15 @@ export function resourceAvailability(
     (processing.state === 'submitted' || processing.state === 'processing') &&
     !processing.derivatives_available
   ) {
-    return availability(
-      'preparing',
+    // The custody sentence belongs on every state where the file is not yet
+    // agent-readable, this one included: a conversion in flight is exactly when
+    // the person most needs telling that what they handed over is still intact
+    // and still theirs to look at.
+    const activity =
       processing.state === 'submitted'
         ? 'Conversion queued.'
-        : `${conversionActivityLabel(processing.stage)}.`,
-    );
+        : `${conversionActivityLabel(processing.stage)}.`;
+    return availability('preparing', `${activity} The original is retained and can be previewed.`);
   }
 
   if (processing?.state === 'failed' && !processing.derivatives_available) {

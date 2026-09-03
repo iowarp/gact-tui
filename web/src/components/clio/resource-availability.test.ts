@@ -134,7 +134,32 @@ describe('resourceAvailability', () => {
     });
 
     expect(resourceAvailability(resource)).toMatchObject({
-      detail: 'Converting.',
+      // Every other not-yet-readable state says what happened to the file the
+      // person handed over. While a conversion runs is exactly when that
+      // reassurance is worth the most, and it was the one state that omitted it.
+      detail: 'Converting. The original is retained and can be previewed.',
+      state: 'preparing',
+    });
+  });
+
+  it('keeps the custody sentence on a queued conversion too', () => {
+    const resource = workspaceResource({
+      processing: {
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_1',
+        resource_revision: 1,
+        state: 'submitted',
+        progress_kind: 'stage',
+        derivatives_available: false,
+        failure: {},
+        cancellation: {},
+        created_at: '2026-08-31T00:00:00Z',
+        updated_at: '2026-08-31T00:00:01Z',
+      },
+    });
+
+    expect(resourceAvailability(resource)).toMatchObject({
+      detail: 'Conversion queued. The original is retained and can be previewed.',
       state: 'preparing',
     });
   });

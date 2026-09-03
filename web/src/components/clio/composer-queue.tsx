@@ -223,7 +223,11 @@ export function ClioComposerQueue({
                           {contextReferences.length > 2 ? (
                             <span
                               aria-label={`${contextReferences.length - 2} more references`}
-                              className="text-xs text-muted-foreground"
+                              // Matches the chips it summarises rather than
+                              // dropping to muted: against the queue's
+                              // translucent surface muted computes 4.11:1,
+                              // under the 4.5:1 floor for text this size.
+                              className="text-xs text-foreground/70"
                             >
                               +{contextReferences.length - 2}
                             </span>
