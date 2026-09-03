@@ -279,7 +279,7 @@ describe('ClioComposer service commands', () => {
     renderComposer({ contextReferences: true, workspaceId: 'workspace_1' });
 
     await user.click(screen.getByRole('button', { name: 'Add context' }));
-    await user.click(screen.getByText('Reference existing context'));
+    await user.click(screen.getByRole('menuitem', { name: 'Reference existing context' }));
 
     expect(await screen.findByText('Conversations')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Expand Conversations' }));

@@ -654,14 +654,22 @@ function ComposerAddContextButton({
       </PromptInputActionMenuTrigger>
       <PromptInputActionMenuContent>
         {attachmentEnabled ? (
-          <PromptInputActionMenuItem onSelect={attachments.openFileDialog}>
+          <PromptInputActionMenuItem
+            aria-label="Attach a new file"
+            onSelect={attachments.openFileDialog}
+            title="Attach a new file"
+          >
             <PaperclipIcon aria-hidden="true" />
-            Attach new file
+            Attach
           </PromptInputActionMenuItem>
         ) : null}
-        <PromptInputActionMenuItem onSelect={onOpenReferences}>
+        <PromptInputActionMenuItem
+          aria-label="Reference existing context"
+          onSelect={onOpenReferences}
+          title="Reference existing context"
+        >
           <AtSignIcon aria-hidden="true" />
-          Reference existing context
+          Reference
         </PromptInputActionMenuItem>
       </PromptInputActionMenuContent>
     </PromptInputActionMenu>
