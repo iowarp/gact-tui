@@ -382,8 +382,11 @@ export function useSessionMutations({
         queryClient.invalidateQueries({
           queryKey: queryKeys.pendingApprovals(settings.endpoint),
         }),
+        // Pending questions are read unscoped (`?status=pending`, no session_id) at
+        // the 'all-active' key, same as pending-approvals — the per-session key
+        // this used to invalidate never matches that query, so it never refetches.
         queryClient.invalidateQueries({
-          queryKey: queryKeys.pendingQuestions(settings.endpoint, interaction.owner_session_id),
+          queryKey: queryKeys.key('pending-questions', settings.endpoint),
         }),
         queryClient.invalidateQueries({
           queryKey: queryKeys.sessions(settings.endpoint, workspaceId),

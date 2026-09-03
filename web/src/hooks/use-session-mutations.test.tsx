@@ -1,3 +1,4 @@
+import type { PendingInteraction } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { StrictMode, type ReactNode } from 'react';
@@ -299,6 +300,36 @@ describe('useSessionMutations pending-question invalidation', () => {
       expect(client.getQueryCache().find({ queryKey: approvalsReadKey })?.state.isInvalidated).toBe(
         true,
       ),
+    );
+  });
+
+  // respondInteraction is the mutation the pending-interactions surface actually
+  // calls (ClioPendingInteractions -> workspace-page's onResponse), unlike the
+  // answerQuestion/cancelQuestion mutations above which nothing in the app wires
+  // up. Its own onSettled invalidation drifted the same way theirs once did.
+  it('invalidates the unscoped pending-questions read when respondInteraction answers a question', async () => {
+    const client = clientWithReadPopulated();
+    const { result } = renderMutationsWithClient(client);
+    const interaction: PendingInteraction = {
+      id: 'question:q1',
+      kind: 'question',
+      owner_session_id: 'sess_child',
+      attended_session_id: 'sess_1',
+      status: 'pending',
+      title: 'Question from agent',
+      source: { protocol: 'native' },
+      created_at: '2026-09-02T00:00:00Z',
+      payload: { question_id: 'q1' },
+      actions: ['answer', 'cancel'],
+    };
+
+    await result.current.respondInteraction.mutateAsync({
+      interaction,
+      response: { action: 'answer', answer: 'yes' },
+    });
+
+    await waitFor(() =>
+      expect(client.getQueryCache().find({ queryKey: readKey })?.state.isInvalidated).toBe(true),
     );
   });
 });
