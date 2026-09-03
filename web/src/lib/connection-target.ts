@@ -6,6 +6,25 @@ export interface ConnectionSessionTarget {
   workspace: Workspace;
 }
 
+/**
+ * HEURISTIC — the one place this client guesses at a session's purpose.
+ *
+ * There is no field on `Session` that says a session is an internal
+ * qualification run, so this sniffs the title for the prefix the harness
+ * happens to write. That is wrong in both directions: a person who titles a
+ * conversation "__CLIO dev notes" is silently denied it as an entry session,
+ * and an internal session created under any other title is handed to them.
+ *
+ * TODO(server): the real fix is a typed marker on the session — an `internal:
+ * boolean` (or an `origin` of `'qualification'`) on `Session` in
+ * `packages/core/src/v3/domain.ts` and its schema, set by whatever creates
+ * these runs. When that lands, `isReusableEntrySession` reads the field and
+ * this constant and its comment are deleted outright; nothing else in the
+ * client depends on the prefix.
+ *
+ * Keep every use of it inside this module. A title heuristic that spreads is a
+ * vocabulary the whole client then has to keep agreeing on.
+ */
 const INTERNAL_SESSION_TITLE_PREFIX = '__CLIO dev ';
 
 /** Internal qualification sessions must never become a user's entry composer. */
