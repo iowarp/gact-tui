@@ -4,9 +4,14 @@ import { useMemo } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
-
-const CONNECTION_PROBE_TIMEOUT_MS = 3_500;
-const CONNECTION_PROBE_RETRIES = 2;
+import {
+  CONNECTION_PROBE_POLL_MS,
+  CONNECTION_PROBE_RETRIES,
+  CONNECTION_PROBE_RETRY_BASE_MS,
+  CONNECTION_PROBE_RETRY_MAX_MS,
+  CONNECTION_PROBE_STALE_TIME_MS,
+  CONNECTION_PROBE_TIMEOUT_MS,
+} from '@/lib/runtime-limits';
 
 export type ConnectionAvailabilityState = 'checking' | 'healthy' | 'degraded' | 'unavailable';
 
@@ -44,11 +49,12 @@ export function useConnectionAvailabilities(
         const resolved = await resolveConnection(connection);
         return probeConnection(resolved, signal);
       },
-      refetchInterval: 30_000,
+      refetchInterval: CONNECTION_PROBE_POLL_MS,
       refetchOnMount: 'always' as const,
       retry: CONNECTION_PROBE_RETRIES,
-      retryDelay: (attempt: number) => Math.min(250 * 2 ** attempt, 1_000),
-      staleTime: 5_000,
+      retryDelay: (attempt: number) =>
+        Math.min(CONNECTION_PROBE_RETRY_BASE_MS * 2 ** attempt, CONNECTION_PROBE_RETRY_MAX_MS),
+      staleTime: CONNECTION_PROBE_STALE_TIME_MS,
     })),
   });
 

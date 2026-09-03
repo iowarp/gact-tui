@@ -54,6 +54,14 @@ export const RUNS_POLL_MS = 5_000;
  */
 export const MANAGED_BACKEND_POLL_MS = 150;
 
+/**
+ * Re-probe cadence for each remembered service on the connection picker.
+ * Unit: milliseconds. One request per saved connection per interval, against
+ * services the person is not connected to, so it sits at the slow end: it
+ * exists to notice a service coming back, not to track it.
+ */
+export const CONNECTION_PROBE_POLL_MS = 30_000;
+
 // ## Streaming and reconnect backoff
 // The client reconnects a dropped SSE stream with exponential backoff between
 // these two bounds.
@@ -112,6 +120,15 @@ export const MANAGED_BACKEND_READY_TIMEOUT_MS = 90_000;
  * slow or unreachable update feed cannot hang the Settings panel.
  */
 export const UPDATE_CHECK_TIMEOUT_MS = 15_000;
+
+/**
+ * How long one availability probe waits for a remembered service before it is
+ * called unreachable. Unit: milliseconds. Much tighter than an ordinary request
+ * budget because the picker probes every saved connection at once and a service
+ * that is down is the expected case — the row should settle quickly rather than
+ * sit on "Checking" for the length of a real request.
+ */
+export const CONNECTION_PROBE_TIMEOUT_MS = 3_500;
 
 /**
  * Whole-request budget the desktop bridge applies to an ordinary API call.
@@ -288,6 +305,27 @@ export const PROVIDER_CATALOG_STALE_TIME_MS = 30_000;
  * behind a long retry ladder.
  */
 export const QUERY_RETRY_COUNT = 1;
+
+/**
+ * Retries for one service availability probe. Unit: attempts after the first.
+ * One more than an ordinary read because a probe's own timeout is short enough
+ * that a briefly busy service can miss it; the label should say "Unavailable"
+ * only after the service has genuinely failed to answer.
+ */
+export const CONNECTION_PROBE_RETRIES = 2;
+
+/** First delay between availability-probe retries. Unit: milliseconds. */
+export const CONNECTION_PROBE_RETRY_BASE_MS = 250;
+
+/** Ceiling for the availability-probe retry backoff. Unit: milliseconds. */
+export const CONNECTION_PROBE_RETRY_MAX_MS = 1_000;
+
+/**
+ * How long a probe result is served before the picker re-probes on demand.
+ * Unit: milliseconds. Short: this backs a status label the person is reading
+ * while deciding which service to open.
+ */
+export const CONNECTION_PROBE_STALE_TIME_MS = 5_000;
 
 /**
  * Query options for content addressed by an immutable identity — registered
