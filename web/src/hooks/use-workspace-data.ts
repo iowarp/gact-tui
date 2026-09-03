@@ -118,7 +118,12 @@ export function useWorkspaceData({
   const supportsUnifiedInteractions = hasUnifiedInteractionCapability(
     capabilities.data?.capabilities,
   );
-  const useLegacyInteractions = capabilities.data !== undefined && !supportsUnifiedInteractions;
+  // Capability detection may only ADD the normalized read; it may never subtract
+  // the legacy ledgers. Gating these on a resolved capability read made a failing
+  // or still-pending `/v1/capabilities` blank the whole interaction surface — a
+  // blocked agent with nothing on screen to unblock it. Unresolved means legacy,
+  // which is what every backend answered before the capability existed.
+  const useLegacyInteractions = !supportsUnifiedInteractions;
   const approvals = useQuery({
     queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
     queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
@@ -378,8 +383,16 @@ export function useWorkspaceData({
     executionProvenance,
     interactionSessionIds,
     interactions,
+    // `capabilities` belongs in this aggregate: it decides which interaction read
+    // runs, so its failure is an interaction failure the composer must show. It
+    // otherwise only reached the full-page unavailable state, which is skipped
+    // once a session is on screen.
     interactionsError:
-      normalizedInteractions.error ?? approvals.error ?? questions.error ?? undefined,
+      normalizedInteractions.error ??
+      approvals.error ??
+      questions.error ??
+      capabilities.error ??
+      undefined,
     interactionRootSessionId: attendedSessionId,
     interactionSurfaces,
     supportsUnifiedInteractions,

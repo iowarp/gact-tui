@@ -70,7 +70,9 @@ function actionSurface(): A2UISurface {
 function renderPending(
   interactions: PendingInteraction[],
   options: {
+    error?: Error;
     onResponse?: ReturnType<typeof vi.fn>;
+    ownerLabels?: Record<string, string>;
     surfaces?: Record<string, A2UISurface>;
   } = {},
 ) {
@@ -79,9 +81,10 @@ function renderPending(
   render(
     <QueryClientProvider client={client}>
       <ClioPendingInteractions
+        error={options.error}
         interactions={interactions}
         onResponse={onResponse}
-        ownerLabels={{ sess_child: 'Evidence specialist' }}
+        ownerLabels={options.ownerLabels ?? { sess_child: 'Evidence specialist' }}
         surfaces={options.surfaces}
       />
     </QueryClientProvider>,
@@ -121,6 +124,23 @@ describe('ClioPendingInteractions', () => {
     expect(screen.getByText('Run the analysis command')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Allow for session' }));
     expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'allow_session' });
+  });
+
+  it('names the read that failed while it still renders what it could read', () => {
+    renderPending([pending('permission', { id: 'permission:p1', title: 'Run the command' })], {
+      error: new Error('capabilities unavailable'),
+    });
+
+    expect(screen.getByText('Run the command')).toBeVisible();
+    expect(screen.getByText('Some responses could not be read')).toBeVisible();
+    expect(screen.getByText('capabilities unavailable')).toBeVisible();
+  });
+
+  it('still reports a failed read when it has nothing left to render', () => {
+    renderPending([], { error: new Error('capabilities unavailable') });
+
+    expect(screen.getByText('Some responses could not be read')).toBeVisible();
+    expect(screen.getByText('capabilities unavailable')).toBeVisible();
   });
 
   it('preserves per-option comments in the exact normalized question response', async () => {

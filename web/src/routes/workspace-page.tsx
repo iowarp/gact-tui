@@ -448,6 +448,7 @@ export function WorkspacePage() {
         pendingInteractions={
           <ClioPendingInteractions
             disabled={respondInteraction.isPending}
+            error={interactionsError ?? undefined}
             interactions={interactions}
             onA2UILocalAction={handleA2UILocalAction}
             onResponse={async (interaction, response) => {
@@ -755,13 +756,15 @@ export function WorkspacePage() {
                 <AlertDescription>{retry.error.message}</AlertDescription>
               </Alert>
             ) : null}
-            {interactionsError || respondInteraction.error ? (
+            {/* The read failure belongs to the interaction stack itself, which
+                renders it beside the rows it could still list. Only the response
+                this reader just sent is reported here, so one never masks the
+                other. */}
+            {respondInteraction.error ? (
               <Alert className="mx-4 mb-3" variant="destructive">
                 <AlertTriangleIcon aria-hidden="true" />
-                <AlertTitle>Responses unavailable</AlertTitle>
-                <AlertDescription>
-                  {(interactionsError ?? respondInteraction.error)?.message}
-                </AlertDescription>
+                <AlertTitle>Response unavailable</AlertTitle>
+                <AlertDescription>{respondInteraction.error.message}</AlertDescription>
               </Alert>
             ) : null}
             <AnimatePresence initial={false}>

@@ -1,5 +1,6 @@
 import type { A2UISurface, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import {
+  AlertTriangleIcon,
   BoxesIcon,
   BotIcon,
   ClipboardPenLineIcon,
@@ -24,6 +25,7 @@ import {
   QueueSectionTrigger,
 } from '@/components/ai-elements/queue';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Field,
@@ -43,6 +45,8 @@ export interface ClioPendingInteractionsProps {
   surfaces?: Readonly<Record<string, A2UISurface>>;
   ownerLabels?: Readonly<Record<string, string>>;
   disabled?: boolean;
+  /** The read that could not be completed, surfaced here rather than swallowed. */
+  error?: Error;
   onA2UILocalAction?: A2UILocalActionHandler;
   onResponse: (
     interaction: PendingInteraction,
@@ -56,6 +60,7 @@ export function ClioPendingInteractions({
   surfaces = {},
   ownerLabels = {},
   disabled,
+  error,
   onA2UILocalAction,
   onResponse,
 }: ClioPendingInteractionsProps) {
@@ -76,7 +81,9 @@ export function ClioPendingInteractions({
     },
     [onResponse],
   );
-  if (pending.length === 0) return null;
+  // A failed read still owns this surface: the reader is told which responses
+  // could not be listed instead of being shown an empty, silently-degraded stack.
+  if (pending.length === 0 && !error) return null;
 
   return (
     <Queue
@@ -115,6 +122,13 @@ export function ClioPendingInteractions({
             }}
           >
             <div className="flex min-w-0 flex-col gap-2 px-1 pb-1">
+              {error ? (
+                <Alert variant="destructive">
+                  <AlertTriangleIcon aria-hidden="true" />
+                  <AlertTitle>Some responses could not be read</AlertTitle>
+                  <AlertDescription>{error.message}</AlertDescription>
+                </Alert>
+              ) : null}
               {pending.map((interaction) => {
                 const ownerLabel = ownerLabels[interaction.owner_session_id] ?? 'Specialist';
                 const interactionDisabled = disabled || respondingIds.has(interaction.id);
