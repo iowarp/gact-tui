@@ -759,10 +759,30 @@ function A2UISurfaceBody({
   return (
     <ClioA2UISurface
       onLocalAction={onLocalAction}
-      onRemoteAction={(message) => onResponse(interaction, { message })}
+      onRemoteAction={(message) =>
+        onResponse(interaction, { correlation: surfaceCorrelation(interaction, rawSurface), message })
+      }
       surface={rawSurface}
     />
   );
+}
+
+/**
+ * The A2UI message identity a response answers, for the server's own
+ * correlation — dropped entirely on this path before, unlike the surface's
+ * own direct action mutation (a2ui-surface.tsx), which always sent it. The
+ * surface's own run/message/part ids are authoritative; the interaction's
+ * invocation_id is the only signal left once those are unavailable.
+ */
+function surfaceCorrelation(
+  interaction: PendingInteraction,
+  surface: A2UISurface,
+): { run_id?: string; message_id?: string; part_id?: string } {
+  return {
+    run_id: surface.run_id,
+    message_id: surface.message_id,
+    part_id: surface.part_id ?? interaction.source.invocation_id,
+  };
 }
 
 function respondFromControl(response: Promise<void>): void {

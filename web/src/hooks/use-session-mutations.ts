@@ -371,7 +371,8 @@ export function useSessionMutations({
           repository.cancelQuestion(ownerSessionId, questionId),
         respondPermission: (permissionId, action) =>
           repository.respondPermission(permissionId, action),
-        a2uiAction: (ownerSessionId, message) => repository.a2uiAction(ownerSessionId, message),
+        a2uiAction: (ownerSessionId, message, correlation) =>
+          repository.a2uiAction(ownerSessionId, message, correlation),
       });
     },
     onSettled: async (_result, _error, { interaction }) => {

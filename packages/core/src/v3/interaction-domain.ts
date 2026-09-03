@@ -42,6 +42,13 @@ export interface PendingInteraction {
   actions?: string[];
 }
 
+/** The A2UI message identity a response is answering, for the server's own correlation. */
+export interface PendingInteractionCorrelation {
+  run_id?: string;
+  message_id?: string;
+  part_id?: string;
+}
+
 /** Forward-compatible body accepted by the unified interaction response route. */
 export interface PendingInteractionResponse {
   action?: string;
@@ -49,4 +56,5 @@ export interface PendingInteractionResponse {
   selected_options?: string[];
   metadata?: Record<string, unknown>;
   message?: unknown;
+  correlation?: PendingInteractionCorrelation;
 }

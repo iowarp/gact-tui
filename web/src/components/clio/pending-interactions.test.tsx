@@ -38,6 +38,9 @@ function actionSurface(): A2UISurface {
   return {
     id: 'surface_1',
     session_id: 'sess_child',
+    run_id: 'run_1',
+    message_id: 'message_1',
+    part_id: 'part_1',
     catalog_id: CLIO_A2UI_CATALOG_ID,
     protocol_version: '0.9.1',
     revision: 1,
@@ -448,6 +451,9 @@ describe('ClioPendingInteractions', () => {
     await user.click(screen.getByRole('button', { name: 'Submit selection' }));
 
     expect(onResponse).toHaveBeenCalledWith(interaction, {
+      // The message identity being answered, for the server's own correlation
+      // — dropped entirely on this path before repository.a2uiAction gained it.
+      correlation: { run_id: 'run_1', message_id: 'message_1', part_id: 'part_1' },
       message: {
         version: 'v0.9.1',
         action: expect.objectContaining({
@@ -458,6 +464,26 @@ describe('ClioPendingInteractions', () => {
       },
     });
     expect(repository.a2uiAction).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the interaction's invocation_id when the surface has no part_id", async () => {
+    const user = userEvent.setup();
+    const surface: A2UISurface = { ...actionSurface(), part_id: undefined };
+    const interaction = pending('a2ui', {
+      id: 'a2ui:sess_child:surface_1',
+      source: { protocol: 'native', surface_id: 'surface_1', invocation_id: 'invocation_1' },
+      actions: ['form.submit'],
+    });
+    const onResponse = renderPending([interaction], { surfaces: { surface_1: surface } });
+
+    await user.click(screen.getByRole('button', { name: 'Submit selection' }));
+
+    expect(onResponse).toHaveBeenCalledWith(
+      interaction,
+      expect.objectContaining({
+        correlation: { run_id: 'run_1', message_id: 'message_1', part_id: 'invocation_1' },
+      }),
+    );
   });
 
   it("dims a disabled A2UI surface only to this repo's WCAG AA contrast floor", () => {

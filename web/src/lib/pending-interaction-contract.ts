@@ -1,6 +1,7 @@
 import type {
   ApprovalRequest,
   PendingInteraction,
+  PendingInteractionCorrelation,
   PendingInteractionResponse,
   Session,
   UserQuestion,
@@ -119,7 +120,11 @@ export async function respondToLegacyInteraction(
     ) => Promise<unknown>;
     cancelQuestion: (sessionId: string, questionId: string) => Promise<unknown>;
     respondPermission: (permissionId: string, action: PermissionAction) => Promise<unknown>;
-    a2uiAction: (sessionId: string, message: unknown) => Promise<unknown>;
+    a2uiAction: (
+      sessionId: string,
+      message: unknown,
+      correlation?: PendingInteractionCorrelation,
+    ) => Promise<unknown>;
   },
 ): Promise<unknown> {
   if (interaction.kind === 'permission') {
@@ -136,7 +141,7 @@ export async function respondToLegacyInteraction(
     );
   }
   if (interaction.kind === 'a2ui') {
-    return legacy.a2uiAction(interaction.owner_session_id, response.message);
+    return legacy.a2uiAction(interaction.owner_session_id, response.message, response.correlation);
   }
   const questionId = interaction.payload?.question_id ?? interaction.id;
   if (response.action === 'cancel') {
