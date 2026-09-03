@@ -518,6 +518,9 @@ $documentProcessorEnvironment = @{
     CLIO_WEB_SEARCH_HOST = "127.0.0.1"
     CLIO_WEB_SEARCH_PORT = "$DocumentProcessorPort"
     CLIO_WEB_SEARCH_DATA_DIR = $documentProcessorDataRoot
+    # Docling enables torch.compile by default. Portable Windows development
+    # runs must not require an MSVC C++ toolchain merely to perform inference.
+    DOCLING_INFERENCE_COMPILE_TORCH_MODELS = "false"
 }
 $originalDocumentProcessorEnvironment = @{}
 foreach ($name in $documentProcessorEnvironment.Keys) {
@@ -541,6 +544,7 @@ try {
     $documentProcessorProcess = Start-Process `
         -FilePath $documentProcessorLauncher `
         -WorkingDirectory $documentProcessorRoot `
+        -Environment $documentProcessorEnvironment `
         -RedirectStandardOutput $documentProcessorStdout `
         -RedirectStandardError $documentProcessorStderr `
         -WindowStyle Hidden `

@@ -288,6 +288,10 @@ export function ClioComposerReferenceMenu({
                         aria-label={`${reference.label} ${detail}`}
                         className="h-7 px-2 py-0"
                         key={`${reference.kind}:${reference.id}:${reference.revision}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          onSelect(reference);
+                        }}
                         onPointerDown={(event) => {
                           if (event.pointerType === 'touch' || event.button !== 0) return;
                           event.preventDefault();

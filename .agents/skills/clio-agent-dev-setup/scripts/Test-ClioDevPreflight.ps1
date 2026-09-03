@@ -79,34 +79,57 @@ $documentProcessorResponse = Invoke-ClioDevWebRequest `
     -Uri "$documentProcessorUrl/readyz" `
     -TimeoutSec 10
 $documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
-# SDK-native provider discovery may need to initialize the provider subprocess
-# even after the service health endpoint is ready. Keep the preflight bounded,
-# but do not tear down an otherwise healthy stack at the generic HTTP default.
-$provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 30
+# SDK-native provider discovery performs real modality probes and may need to
+# initialize the provider subprocess even after the service health endpoint is
+# ready. Keep that evidence-producing request bounded independently of generic
+# health checks.
+try {
+    $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 120
+}
+catch {
+    throw "Provider preflight failed for $backendUrl/v1/providers/lm: $($_.Exception.Message)"
+}
 $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
 # Source discovery reads the installed marketplace and can cross a cold disk on
 # the first request. Keep this bounded without applying the generic 10-second
 # HTTP timeout to a valid cold-start path.
 $sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 30
-$webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 10
+try {
+    # The first full application request may still be compiling the Vite graph
+    # after the lightweight startup readiness request has succeeded.
+    $webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 30
+}
+catch {
+    throw "Web root preflight failed for $webUrl/: $($_.Exception.Message)"
+}
 $gactHeaders = @{
     Origin = $webUrl
     "X-GACT-Version" = "0.3"
 }
-$gactResponse = Invoke-WebRequest `
-    -Uri "$backendUrl/v1/capabilities" `
-    -Headers $gactHeaders `
-    -TimeoutSec 10
+try {
+    $gactResponse = Invoke-WebRequest `
+        -Uri "$backendUrl/v1/capabilities" `
+        -Headers $gactHeaders `
+        -TimeoutSec 30
+}
+catch {
+    throw "GACT capability preflight failed for $backendUrl/v1/capabilities: $($_.Exception.Message)"
+}
 $gactCapabilities = $gactResponse.Content | ConvertFrom-Json
-$corsPreflight = Invoke-WebRequest `
-    -Uri "$backendUrl/v1/capabilities" `
-    -Method Options `
-    -Headers @{
-        Origin = $webUrl
-        "Access-Control-Request-Method" = "GET"
-        "Access-Control-Request-Headers" = "x-gact-version"
-    } `
-    -TimeoutSec 10
+try {
+    $corsPreflight = Invoke-WebRequest `
+        -Uri "$backendUrl/v1/capabilities" `
+        -Method Options `
+        -Headers @{
+            Origin = $webUrl
+            "Access-Control-Request-Method" = "GET"
+            "Access-Control-Request-Headers" = "x-gact-version"
+        } `
+        -TimeoutSec 30
+}
+catch {
+    throw "GACT CORS preflight failed for $backendUrl/v1/capabilities: $($_.Exception.Message)"
+}
 $spotterImplRoot = [System.IO.Path]::GetFullPath($SpotterImplDir)
 $spotterConfigFull = [System.IO.Path]::GetFullPath($SpotterConfigPath)
 
@@ -277,6 +300,10 @@ $arcProbeScope = "clio-dev-preflight"
 $arcProbeSentinel = "arc-probe-$([Guid]::NewGuid().ToString('N'))"
 $arcProbeSessionId = $null
 try {
+    # A cold SDK-native provider may still be finishing its first agent
+    # initialization after the health route is ready. Keep this one
+    # disposable-session probe bounded without applying a long timeout to
+    # ordinary health checks.
     $arcProbeSession = Invoke-RestMethod `
         -Method Post `
         -Uri "$backendUrl/v1/sessions" `
@@ -287,7 +314,7 @@ try {
             approval_mode = "bypass"
             metadata = @{ preflight = $true }
         } | ConvertTo-Json -Depth 4) `
-        -TimeoutSec 15
+        -TimeoutSec 60
     $arcProbeSessionId = [string]$arcProbeSession.id
     if (-not $arcProbeSessionId) {
         throw "ARC probe could not create its disposable session."

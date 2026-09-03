@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -124,6 +124,20 @@ describe('composer reference selection', () => {
         }),
       ),
     );
+  });
+
+  it('accepts a direct browser click that omits pointer events', async () => {
+    repositoryMocks.workspaceReferences.mockResolvedValue([artifactReference]);
+    const user = userEvent.setup();
+    renderComposer();
+
+    await user.type(composerEditor(), '@plot');
+    fireEvent.click(await screen.findByRole('option', { name: /Displacement plot/ }));
+
+    expect(
+      await screen.findByRole('button', { name: 'Open artifact Displacement plot' }),
+    ).toBeVisible();
+    expect(composerEditor()).toHaveTextContent('@Displacement plot');
   });
 
   it('does not clip the reference palette above the docked composer', async () => {
