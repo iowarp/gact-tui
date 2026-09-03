@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ClioComposerReferenceChips, ClioComposerReferenceMenu } from './composer-references';
+import { ClioComposerReferenceMenu } from './composer-references';
 
 const reference: WorkspaceReference = {
   kind: 'resource',
@@ -47,16 +47,5 @@ describe('composer reference presentation', () => {
     expect(screen.queryByText('Artifacts')).not.toBeInTheDocument();
     await user.click(screen.getByRole('option', { name: /10K-NVDA\.pdf/ }));
     expect(onSelect).toHaveBeenCalledWith(reference);
-  });
-
-  it('names an uploaded reference as a source when opening it', async () => {
-    const user = userEvent.setup();
-    const onOpen = vi.fn();
-    render(
-      <ClioComposerReferenceChips onOpen={onOpen} onRemove={vi.fn()} references={[reference]} />,
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Open source 10K-NVDA.pdf' }));
-    expect(onOpen).toHaveBeenCalledWith(reference);
   });
 });

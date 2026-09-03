@@ -132,6 +132,30 @@ describe('useSessionMutations send identity', () => {
     // The accepted send releases the identity; the next one is a new message.
     expect(keys[3]).not.toBe(keys[2]);
   });
+
+  it('mints a fresh identity when only the structured reference changes', async () => {
+    mocks.repository.submitMessage.mockRejectedValue(new Error('connection interrupted'));
+    const { result } = renderMutations();
+    const reference = (refId: string) => ({
+      type: 'context_ref' as const,
+      ref_kind: 'artifact' as const,
+      ref_id: refId,
+      label: 'Review notes',
+      revision: 'v1',
+    });
+
+    await result.current.send
+      .mutateAsync({ ...draft, references: [reference('artifact_a')] })
+      .catch(() => undefined);
+    await result.current.send
+      .mutateAsync({ ...draft, references: [reference('artifact_b')] })
+      .catch(() => undefined);
+
+    const keys = mocks.repository.submitMessage.mock.calls.map(
+      (call) => call[1].idempotency_key as string,
+    );
+    expect(keys[0]).not.toBe(keys[1]);
+  });
 });
 
 describe('useSessionMutations attachment preparation', () => {

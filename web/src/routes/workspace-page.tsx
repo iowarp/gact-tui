@@ -436,7 +436,7 @@ export function WorkspacePage() {
               : 'execute'
         }
         focusRequestKey={composerFocusKey}
-        key={`composer:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
+        key={`composer:${sessionId}:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
         model={activeModel}
         modelCatalogStatus={modelCatalogStatus}
         modelOptions={modelOptions}

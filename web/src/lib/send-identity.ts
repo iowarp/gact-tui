@@ -40,11 +40,18 @@ export class SendIdentities {
 export function sendFingerprint(value: {
   delivery: string;
   files?: readonly { url: string }[];
+  references?: readonly { type: string; ref_kind?: string; ref_id?: string; revision?: string }[];
   text: string;
 }): string {
   return JSON.stringify([
     value.delivery,
     value.text.trim(),
+    (value.references ?? []).map((reference) => [
+      reference.type,
+      reference.ref_kind,
+      reference.ref_id,
+      reference.revision,
+    ]),
     (value.files ?? []).map((file) => file.url),
   ]);
 }

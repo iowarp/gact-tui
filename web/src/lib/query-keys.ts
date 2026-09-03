@@ -132,8 +132,8 @@ export const queryKeys = {
     ['workspace-files', endpoint, workspaceId] as const,
   workspaceResources: (endpoint: string, workspaceId: string) =>
     ['workspace-resources', endpoint, workspaceId] as const,
-  workspaceReferences: (endpoint: string, workspaceId: string, query: string) =>
-    ['workspace-references', endpoint, workspaceId, query] as const,
+  workspaceReferences: (endpoint: string, workspaceId: string, query: string, kinds: string = '') =>
+    ['workspace-references', endpoint, workspaceId, query, kinds] as const,
   workspaceResourceDeliveries: (endpoint: string, workspaceId: string) =>
     ['workspace-resource-deliveries', endpoint, workspaceId] as const,
   // Each shorter form is the prefix an invalidation uses: without a revision it

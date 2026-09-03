@@ -138,7 +138,9 @@ describe('ClioComposer service commands', () => {
     await user.type(input, '@plot');
     await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
 
-    expect(screen.getByRole('listitem')).toHaveTextContent('Displacement plot');
+    expect(
+      await screen.findByRole('button', { name: 'Open artifact Displacement plot' }),
+    ).toBeVisible();
     await user.type(input, 'needs a clearer legend{Enter}');
 
     await waitFor(() =>
@@ -175,6 +177,7 @@ describe('ClioComposer service commands', () => {
     renderComposer({ contextReferences: true, workspaceId: 'workspace_1' });
 
     await user.type(screen.getByRole('textbox'), '@');
+    await user.click(await screen.findByRole('button', { name: 'Expand Local files' }));
     await screen.findByRole('option', { name: /README.md/ });
 
     const stack = screen.getByRole('textbox').closest('[data-slot="clio-composer-stack"]');
@@ -209,11 +212,11 @@ describe('ClioComposer service commands', () => {
     const input = screen.getByRole('textbox');
 
     await user.type(input, '@');
-    await screen.findByRole('option', { name: /README.md/ });
+    await screen.findByRole('option', { name: /Review notes.md/ });
     await user.keyboard('{ArrowDown}{Enter}');
 
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(input).not.toHaveValue('@');
+    expect(document.querySelector('input[name="message"]')).toHaveValue(' ');
     expect(screen.getByRole('button', { name: 'Open artifact Review notes.md' })).toBeVisible();
 
     await user.type(input, 'Make the conclusion clearer.{Enter}');
@@ -279,6 +282,7 @@ describe('ClioComposer service commands', () => {
     await user.click(screen.getByText('Reference existing context'));
 
     expect(await screen.findByText('Conversations')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Expand Conversations' }));
     expect(screen.getByText('Prior evidence review')).toBeVisible();
   });
 
@@ -299,6 +303,7 @@ describe('ClioComposer service commands', () => {
 
     await user.type(screen.getByRole('textbox'), '@');
 
+    await user.click(await screen.findByRole('button', { name: 'Expand Local files' }));
     await screen.findByText('file-0.txt');
     expect(screen.getAllByRole('option')).toHaveLength(100);
     expect(screen.queryByText('file-124.txt')).not.toBeInTheDocument();
@@ -532,7 +537,7 @@ describe('ClioComposer service commands', () => {
     expect(
       screen.getByText('The selected model cannot receive this image resource.'),
     ).toBeVisible();
-    expect(input).toHaveValue('Describe the image.');
+    expect(input).toHaveTextContent('Describe the image.');
 
     await user.click(screen.getByRole('button', { name: /^Submit$/ }));
 
@@ -585,7 +590,7 @@ describe('ClioComposer service commands', () => {
 
     input.blur();
     view.rerender(<ClioComposer {...props} disabled />);
-    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute('aria-disabled', 'true');
     expect(input).not.toHaveFocus();
 
     await act(async () => {
@@ -595,7 +600,7 @@ describe('ClioComposer service commands', () => {
     view.rerender(<ClioComposer {...props} disabled={false} />);
 
     await waitFor(() => expect(input).toHaveFocus());
-    expect(input).toHaveValue('');
+    expect(input).toHaveTextContent('');
   });
 
   it('discovers sourced commands and dispatches the canonical command with arguments', async () => {
@@ -605,7 +610,7 @@ describe('ClioComposer service commands', () => {
 
     await user.type(input, '/rev');
     await user.click(screen.getByText('Review evidence'));
-    expect(input).toHaveValue('/review ');
+    expect(document.querySelector('input[name="message"]')).toHaveValue('/review ');
 
     await user.type(input, 'results/stations.csv{Enter}');
 
@@ -614,7 +619,7 @@ describe('ClioComposer service commands', () => {
       input: 'results/stations.csv',
     });
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(input).toHaveValue('');
+    expect(input).toHaveTextContent('');
   });
 
   it('does not turn unknown slash commands into chat messages', async () => {
@@ -626,7 +631,7 @@ describe('ClioComposer service commands', () => {
 
     expect(onCommand).not.toHaveBeenCalled();
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(input).toHaveValue('/not-a-service-command');
+    expect(input).toHaveTextContent('/not-a-service-command');
   });
 
   it('reveals the inline attachment remove control to a keyboard as well as a pointer', async () => {
@@ -663,7 +668,7 @@ describe('ClioComposer service commands', () => {
       }),
     );
     // A rejected command leaves the typed command in place to retry.
-    expect(input).toHaveValue('/review results/stations.csv');
+    expect(input).toHaveTextContent('/review results/stations.csv');
   });
 
   it('explains unavailable service commands without dispatching them', async () => {
@@ -676,7 +681,7 @@ describe('ClioComposer service commands', () => {
     await user.keyboard('{Enter}');
 
     expect(onCommand).not.toHaveBeenCalled();
-    expect(input).toHaveValue('/admin');
+    expect(input).toHaveTextContent('/admin');
   });
 
   it('keeps steering and stopping as distinct actions while work is running', async () => {

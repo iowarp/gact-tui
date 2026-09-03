@@ -37,7 +37,6 @@ import {
   PromptInputFooter,
   PromptInputHeader,
   PromptInputSubmit,
-  PromptInputTextarea,
   PromptInputTools,
   usePromptInputAttachments,
 } from '@/components/ai-elements/prompt-input';
@@ -51,8 +50,24 @@ import { ClioComposerQueue } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
 import type { WorkspaceResourceUploadResult } from '@/lib/upload-workspace-resources';
-import { ClioComposerReferenceChips, ClioComposerReferenceMenu } from './composer-references';
+import { ClioComposerReferenceMenu } from './composer-references';
 import { toMessagePart, workspaceReferenceIdentity } from './composer-reference-domain';
+import {
+  ComposerInlineReferenceEditor,
+  type InlineReferenceSelection,
+} from './composer-inline-reference-editor';
+
+function focusComposerEditor(editor: HTMLDivElement | null): void {
+  if (!editor || editor.getAttribute('aria-disabled') === 'true') return;
+  editor.focus({ preventScroll: true });
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
 
 export interface ClioComposerProps {
   state: RunState;
@@ -172,7 +187,7 @@ export function ClioComposer({
   // though the service had asked for it.
   const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
-  const [selectedReferences, setSelectedReferences] = useState<WorkspaceReference[]>([]);
+  const [selectedReferences, setSelectedReferences] = useState<InlineReferenceSelection[]>([]);
   const [referenceOptions, setReferenceOptions] = useState<readonly WorkspaceReference[]>([]);
   const [activeReferenceId, setActiveReferenceId] = useState<string>();
   const [referencePickerOpen, setReferencePickerOpen] = useState(false);
@@ -191,7 +206,7 @@ export function ClioComposer({
     },
     [onValueChange, value],
   );
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
   const restoreFocusAfterSubmitRef = useRef(false);
@@ -229,7 +244,7 @@ export function ClioComposer({
     const previousKey = handledFocusRequestKeyRef.current;
     handledFocusRequestKeyRef.current = focusRequestKey;
     if (focusRequestKey === undefined || focusRequestKey === previousKey) return;
-    const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
+    const frame = window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
     return () => window.cancelAnimationFrame(frame);
   }, [focusRequestKey]);
 
@@ -237,9 +252,9 @@ export function ClioComposer({
     if (disabled || !restoreFocusAfterSubmitRef.current) return;
     const frame = window.requestAnimationFrame(() => {
       const element = inputRef.current;
-      if (!element || element.disabled) return;
+      if (!element || element.getAttribute('aria-disabled') === 'true') return;
       restoreFocusAfterSubmitRef.current = false;
-      element.focus({ preventScroll: true });
+      focusComposerEditor(element);
     });
     return () => window.cancelAnimationFrame(frame);
   }, [disabled]);
@@ -247,30 +262,33 @@ export function ClioComposer({
   const restoreInputFocusWhenReady = () => {
     window.requestAnimationFrame(() => {
       const element = inputRef.current;
-      if (!element || element.disabled) return;
+      if (!element || element.getAttribute('aria-disabled') === 'true') return;
       restoreFocusAfterSubmitRef.current = false;
-      element.focus({ preventScroll: true });
+      focusComposerEditor(element);
     });
   };
 
   const selectReference = useCallback(
     (reference: WorkspaceReference) => {
+      const tokenStart = referenceToken ? input.lastIndexOf('@') : -1;
+      const base = tokenStart >= 0 ? input.slice(0, tokenStart) : input;
+      const prefix = base && !/\s$/.test(base) ? `${base} ` : base;
+      const nextInput = `${prefix} `;
       setSelectedReferences((current) =>
         current.some(
           (candidate) =>
-            workspaceReferenceIdentity(candidate) === workspaceReferenceIdentity(reference),
+            workspaceReferenceIdentity(candidate.reference) ===
+            workspaceReferenceIdentity(reference),
         )
           ? current
-          : [...current, reference],
+          : [...current, { offset: prefix.length, reference }],
       );
-      if (referenceToken) {
-        setInput(`${input.slice(0, referenceToken.index ?? input.length).trimEnd()} `);
-      }
+      setInput(nextInput);
       setReferencePickerOpen(false);
       setReferenceSearchQuery('');
       setReferenceOptions([]);
       setActiveReferenceId(undefined);
-      window.requestAnimationFrame(() => inputRef.current?.focus());
+      window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
     },
     [input, referenceToken, setInput],
   );
@@ -313,7 +331,7 @@ export function ClioComposer({
                     key={command.id}
                     onSelect={() => {
                       setInput(`${command.id} `);
-                      window.requestAnimationFrame(() => inputRef.current?.focus());
+                      window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
                     }}
                     value={`${command.id} ${command.title} ${command.aliases.join(' ')}`}
                   >
@@ -422,7 +440,7 @@ export function ClioComposer({
                 behavior,
                 delivery: state === 'running' ? nextDeliveryRef.current : 'start',
                 files,
-                references: selectedReferences.map(toMessagePart),
+                references: selectedReferences.map(({ reference }) => toMessagePart(reference)),
                 text: trimmed,
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
@@ -466,18 +484,6 @@ export function ClioComposer({
           uploadFailure={uploadFailure}
           uploadProgress={uploadProgress}
         />
-        <ClioComposerReferenceChips
-          onOpen={onOpenReference}
-          onRemove={(reference) =>
-            setSelectedReferences((current) =>
-              current.filter(
-                (candidate) =>
-                  workspaceReferenceIdentity(candidate) !== workspaceReferenceIdentity(reference),
-              ),
-            )
-          }
-          references={selectedReferences}
-        />
         {uploadProgress ? (
           <div className="px-3 pt-1 text-xs text-muted-foreground" role="status">
             Uploading {uploadProgress.filename}{' '}
@@ -486,11 +492,14 @@ export function ClioComposer({
               : ''}
           </div>
         ) : null}
-        <PromptInputTextarea
+        <ComposerInlineReferenceEditor
           disabled={disabled}
-          onChange={(event) => setInput(event.currentTarget.value)}
+          onChange={setInput}
+          onOpenReference={onOpenReference}
+          onReferencesChange={setSelectedReferences}
           placeholder={`Ask ${brand.name} to investigate, build, explain, or act…`}
           ref={inputRef}
+          references={selectedReferences}
           value={input}
           onKeyDown={(event) => {
             if (showReferences && referenceOptions.length > 0) {
@@ -526,12 +535,13 @@ export function ClioComposer({
               return;
             }
             if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
+            event.preventDefault();
+            const form = event.currentTarget.closest('form');
+            const submit = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+            if (submit?.disabled) return;
             nextDeliveryRef.current =
               state === 'running' ? (event.ctrlKey || event.metaKey ? 'steer' : 'queued') : 'start';
-            if (state === 'running') {
-              event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
-            }
+            form?.requestSubmit();
           }}
         />
         <PromptInputFooter className="flex-wrap">
