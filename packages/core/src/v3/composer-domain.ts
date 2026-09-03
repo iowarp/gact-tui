@@ -164,6 +164,9 @@ export interface WorkspaceResourceProcessing {
   query_tool?: string;
   state: 'not_started' | 'submitted' | 'processing' | 'complete' | 'failed' | 'cancelled';
   progress: number;
+  progress_kind?: 'unknown' | 'stage' | 'measured';
+  stage?: string;
+  message?: string;
   derivatives_available?: boolean;
   failure: Record<string, unknown>;
   cancellation: Record<string, unknown>;

@@ -113,6 +113,62 @@ describe('resourceAvailability', () => {
 });
 
 describe('resourcePipelineStages', () => {
+  it('names stage-based conversion honestly instead of displaying a milestone as percent', () => {
+    const stages = resourcePipelineStages(
+      workspaceResource({
+        processing: {
+          workspace_id: 'workspace_1',
+          resource_id: 'resource_1',
+          resource_revision: 1,
+          source_sha256: 'abc',
+          processor: 'docling',
+          processor_url: 'http://processor.test',
+          job_id: 'job_1',
+          state: 'processing',
+          progress: 40,
+          progress_kind: 'stage',
+          stage: 'docling',
+          derivatives_available: false,
+          failure: {},
+          cancellation: {},
+          created_at: '2026-08-31T00:00:00Z',
+          updated_at: '2026-08-31T00:00:01Z',
+        },
+      }),
+    );
+
+    expect(stages.conversion).toMatchObject({
+      detail: undefined,
+      kind: 'active',
+      label: 'Converting',
+    });
+  });
+
+  it('shows a percentage only when a converter declares measured progress', () => {
+    const resource = workspaceResource({
+      processing: {
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_1',
+        resource_revision: 1,
+        source_sha256: 'abc',
+        processor: 'measured-converter',
+        processor_url: 'http://processor.test',
+        job_id: 'job_1',
+        state: 'processing',
+        progress: 42,
+        progress_kind: 'measured',
+        stage: 'conversion',
+        derivatives_available: false,
+        failure: {},
+        cancellation: {},
+        created_at: '2026-08-31T00:00:00Z',
+        updated_at: '2026-08-31T00:00:01Z',
+      },
+    });
+
+    expect(resourcePipelineStages(resource).conversion.detail).toBe('42%');
+  });
+
   it('keys the conversion stage off the availability state, not its wording', () => {
     const resource = workspaceResource({ detected_mime: 'text/csv' });
 

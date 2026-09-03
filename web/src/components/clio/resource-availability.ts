@@ -108,9 +108,7 @@ export function resourceAvailability(
   ) {
     return availability(
       'preparing',
-      processing.progress
-        ? `The original is retained; structured content is ${processing.progress}% ready for the agent.`
-        : 'The original is retained; structured content is still being prepared for the agent.',
+      `The original is retained; structured content is ${conversionActivityLabel(processing.stage).toLowerCase()} for the agent.`,
     );
   }
 
@@ -175,9 +173,12 @@ export function resourcePipelineStages(
     conversion = { kind: 'complete', label: 'Complete', name: 'Conversion' };
   } else if (processing?.state === 'processing') {
     conversion = {
-      detail: processing.progress ? `${processing.progress}%` : undefined,
+      detail:
+        processing.progress_kind === 'measured' && processing.progress > 0
+          ? `${processing.progress}%`
+          : undefined,
       kind: 'active',
-      label: 'In progress',
+      label: conversionActivityLabel(processing.stage),
       name: 'Conversion',
     };
   } else if (processing?.state === 'submitted') {
@@ -226,6 +227,24 @@ export function summarizeResourcePipelineStages(
 
 function availability(state: ResourceAvailabilityState, detail: string): ResourceAvailability {
   return { detail, label: AVAILABILITY_LABELS[state], state };
+}
+
+/** Human wording for processor phases; unknown converters remain generic. */
+function conversionActivityLabel(stage?: string): string {
+  switch (stage?.trim().toLowerCase()) {
+    case 'starting':
+    case 'initialization':
+      return 'Starting';
+    case 'docling':
+    case 'conversion':
+      return 'Converting';
+    case 'export':
+      return 'Preparing output';
+    case 'grobid':
+      return 'Enriching metadata';
+    default:
+      return 'In progress';
+  }
 }
 
 /**

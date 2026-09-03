@@ -139,6 +139,9 @@ export const workspaceResourceProcessingSchema = z.object({
     .enum(['not_started', 'submitted', 'processing', 'complete', 'failed', 'cancelled'])
     .default('not_started'),
   progress: z.number().int().min(0).max(100).default(0),
+  progress_kind: z.enum(['unknown', 'stage', 'measured']).default('unknown'),
+  stage: z.string().default(''),
+  message: z.string().default(''),
   derivatives_available: z.boolean().default(false),
   failure: z.record(z.string(), z.unknown()).default({}),
   cancellation: z.record(z.string(), z.unknown()).default({}),
