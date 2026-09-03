@@ -105,7 +105,7 @@ it('separates saved services from new connection fields and exposes the endpoint
   expect(screen.getByPlaceholderText('Paste token')).toBeVisible();
 });
 
-it('greys out an unavailable saved service and prevents opening it', async () => {
+it('reports a passive probe failure without locking the real connection attempt', async () => {
   mocks.recents = [{ endpoint: 'http://127.0.0.1:9999', label: 'Offline lab' }];
   mocks.repository.capabilities.mockRejectedValue(new Error('Connection refused'));
   const queryClient = new QueryClient({
@@ -122,8 +122,14 @@ it('greys out an unavailable saved service and prevents opening it', async () =>
   );
 
   expect((await screen.findAllByText('Unavailable')).length).toBeGreaterThan(0);
-  expect(screen.getByRole('button', { pressed: true })).toBeDisabled();
-  expect(screen.getByRole('button', { name: 'Open workspace' })).toBeDisabled();
+  expect(screen.getByRole('button', { pressed: true })).toBeEnabled();
+  const open = screen.getByRole('button', { name: 'Open workspace' });
+  expect(open).toBeEnabled();
+
+  await userEvent.setup().click(open);
+
+  expect(await screen.findByText('Connection unavailable')).toBeVisible();
+  expect(mocks.repository.capabilities.mock.calls.length).toBeGreaterThan(3);
 });
 
 afterEach(cleanup);
@@ -193,4 +199,38 @@ it('creates the reusable empty base-agent session when every conversation has co
     workspace_id: 'ws_default',
     title: 'New conversation',
   });
+});
+
+it('surfaces a typed target failure instead of reporting connection success without navigation', async () => {
+  mocks.repository.workspaces.mockResolvedValue([]);
+  mocks.repository.allSessions.mockResolvedValue([
+    {
+      id: 'sess_orphaned',
+      workspace_id: 'ws_missing',
+      title: 'Orphaned conversation',
+      archived: false,
+      message_count: 2,
+    },
+  ]);
+  const user = userEvent.setup();
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/?intent=connect']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Connect' }));
+
+  expect(await screen.findByText('Connection unavailable')).toBeVisible();
+  expect(
+    screen.getByText('The service returned conversations without a workspace that can be opened.'),
+  ).toBeVisible();
+  expect(mocks.connect).toHaveBeenCalledOnce();
 });

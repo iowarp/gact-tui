@@ -54,6 +54,19 @@ beforeEach(() => {
       tools: [],
       spec: {},
     },
+    {
+      id: 'session_mcp_sess_demo_ndp',
+      name: 'ndp',
+      status: 'available',
+      transport: 'stdio',
+      tools_count: 0,
+      tools: [],
+      source: 'agent_blueprint',
+      agent_blueprint_id: 'earthscope-single-agent',
+      agent_blueprint_name: 'EarthScope Skills',
+      session_id: 'sess_demo',
+      spec: {},
+    },
   ]);
   repository.installMcpServer.mockResolvedValue({ id: 'mcp_ext_web' });
 });
@@ -95,10 +108,28 @@ describe('InfrastructurePage', () => {
     expect(await screen.findAllByText('Built-in MCP')).toHaveLength(2);
     expect(await screen.findByText('Files')).toBeVisible();
     expect(await screen.findByText('Commands')).toBeVisible();
-    expect(repository.mcpServers).toHaveBeenCalledWith('ws_factorio', expect.any(AbortSignal));
+    expect(await screen.findByText('EarthScope Skills')).toBeVisible();
+    expect(await screen.findByText('EarthScope station and product data')).toBeVisible();
+    expect(await screen.findByText('Starts on use')).toBeVisible();
+    expect(repository.mcpServers).toHaveBeenCalledWith(
+      'ws_factorio',
+      expect.any(AbortSignal),
+      'sess_demo',
+    );
   });
 
   it('connects a running Web Search service as a structured MCP', async () => {
+    repository.mcpServers.mockResolvedValue([
+      {
+        id: 'unrelated_web_search',
+        name: 'CLIO Web Search',
+        status: 'failed',
+        transport: 'stdio',
+        tools_count: 0,
+        tools: [],
+        spec: { command: 'someone-elses-server' },
+      },
+    ]);
     const user = userEvent.setup();
     renderPage();
 
@@ -125,5 +156,6 @@ describe('InfrastructurePage', () => {
         ],
       }),
     );
+    expect(repository.deleteMcpServer).not.toHaveBeenCalled();
   });
 });

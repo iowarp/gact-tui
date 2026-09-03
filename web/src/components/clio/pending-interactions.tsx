@@ -54,6 +54,13 @@ export interface ClioPendingInteractionsProps {
   disabled?: boolean;
   /** The read that could not be completed, surfaced here rather than swallowed. */
   error?: Error;
+  /**
+   * The capability negotiation that failed, if it did. Responses still work
+   * over the legacy routes, so this is a note on the same surface rather than
+   * a second alert elsewhere on the page — the reader learns why the surface
+   * is degraded exactly where the degraded surface is.
+   */
+  capabilityError?: Error;
   onA2UILocalAction?: A2UILocalActionHandler;
   onResponse: (
     interaction: PendingInteraction,
@@ -71,6 +78,7 @@ export function ClioPendingInteractions({
   viewedSessionId,
   disabled,
   error,
+  capabilityError,
   onA2UILocalAction,
   onResponse,
   onRefetchSurfaces,
@@ -104,7 +112,7 @@ export function ClioPendingInteractions({
   );
   // A failed read still owns this surface: the reader is told which responses
   // could not be listed instead of being shown an empty, silently-degraded stack.
-  if (pending.length === 0 && !error) return null;
+  if (pending.length === 0 && !error && !capabilityError) return null;
 
   return (
     <Queue
@@ -148,6 +156,16 @@ export function ClioPendingInteractions({
                   <AlertTriangleIcon aria-hidden="true" />
                   <AlertTitle>Some responses could not be read</AlertTitle>
                   <AlertDescription>{error.message}</AlertDescription>
+                </Alert>
+              ) : null}
+              {capabilityError ? (
+                <Alert>
+                  <AlertTriangleIcon aria-hidden="true" />
+                  <AlertTitle>Using compatibility response routes</AlertTitle>
+                  <AlertDescription>
+                    Permissions and questions remain available, but the service capability check
+                    failed: {capabilityError.message}
+                  </AlertDescription>
                 </Alert>
               ) : null}
               {pending.map((interaction) => {

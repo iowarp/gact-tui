@@ -73,6 +73,7 @@ export function WorkspacePage() {
     entities,
     executionProvenance,
     interactions,
+    interactionCapabilityError,
     interactionsError,
     interactionRootSessionId,
     interactionSessionIds,
@@ -454,6 +455,7 @@ export function WorkspacePage() {
         modelOptions={modelOptions}
         pendingInteractions={
           <ClioPendingInteractions
+            capabilityError={interactionCapabilityError ?? undefined}
             error={interactionsError ?? undefined}
             interactions={interactions}
             onA2UILocalAction={handleA2UILocalAction}

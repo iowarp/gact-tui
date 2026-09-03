@@ -439,7 +439,7 @@ function executionSpans({
         process.owner_session_id ?? process.child_session_id!,
         {
           id: process.id,
-          depth: process.task_path?.length || process.depth || (process.kind === 'agent' ? 1 : 0),
+          depth: process.task_path?.length ?? process.depth ?? (process.kind === 'agent' ? 1 : 0),
         },
       ]),
   );
@@ -468,7 +468,7 @@ function executionSpans({
         status: process.live_state,
         timing: 'exact',
         subagentId: process.id,
-        depth: process.task_path?.length || process.depth || (process.kind === 'agent' ? 1 : 0),
+        depth: process.task_path?.length ?? process.depth ?? (process.kind === 'agent' ? 1 : 0),
       };
     })
     .filter((span): span is ProcessSpan => span !== undefined);

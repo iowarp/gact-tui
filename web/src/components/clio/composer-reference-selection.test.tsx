@@ -126,6 +126,35 @@ describe('composer reference selection', () => {
     );
   });
 
+  it('adds one token when the same reference is selected twice', async () => {
+    // A single activation can reach `select` more than once — a pointer path and
+    // cmdk's own click path can both fire for one press. The guard that treats a
+    // reference already in the draft as nothing-to-add is what keeps that safe,
+    // so it is asserted directly rather than left to whichever path wins a race.
+    repositoryMocks.workspaceReferences.mockResolvedValue([artifactReference]);
+    const user = userEvent.setup();
+    const { onSubmit } = renderComposer();
+    const input = composerEditor();
+
+    await user.type(input, '@plot');
+    await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
+    await user.type(input, ' @plot');
+    await user.click(await screen.findByRole('option', { name: /Displacement plot/ }));
+
+    expect(screen.getAllByRole('button', { name: 'Open artifact Displacement plot' })).toHaveLength(
+      1,
+    );
+    await user.type(input, '{Enter}');
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          references: [expect.objectContaining({ ref_id: 'artifact_plot' })],
+        }),
+      ),
+    );
+  });
+
   it('does not clip the reference palette above the docked composer', async () => {
     repositoryMocks.workspaceReferences.mockResolvedValue([readmeReference]);
     const user = userEvent.setup();

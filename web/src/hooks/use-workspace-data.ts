@@ -401,19 +401,22 @@ export function useWorkspaceData({
     executionProvenance,
     interactionSessionIds,
     interactions,
-    // `capabilities` belongs in this aggregate: it decides which interaction read
-    // runs, so its failure is an interaction failure the composer must show. It
-    // otherwise only reached the full-page unavailable state, which is skipped
-    // once a session is on screen. The per-root fan-out errors join it too —
-    // a blocked background session the reader cannot see is still an
+    // Reads that actually failed to list responses. The per-root fan-out errors
+    // join it — a blocked background session the reader cannot see is still an
     // interaction the reader was not told about.
     interactionsError:
       normalizedInteractions.error ??
       approvals.error ??
       questions.error ??
-      capabilities.error ??
       attentionInteractionsError ??
       undefined,
+    // `capabilities` failing is a degradation, not a failed response read: the
+    // legacy ledgers above still run and still answer, so every pending
+    // response was listed. It is reported on its own channel so the composer
+    // can say the route is degraded without claiming responses are missing —
+    // and so it never reaches only the full-page unavailable state, which is
+    // skipped once a session is on screen.
+    interactionCapabilityError: capabilities.error ?? undefined,
     interactionRootSessionId: attendedSessionId,
     // True when the attended session's true root could not be confirmed from
     // locally known sessions (an unknown ancestor, or a hierarchy cycle) —

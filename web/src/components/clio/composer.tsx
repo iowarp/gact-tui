@@ -55,18 +55,9 @@ import { ClioComposerReferenceMenu } from './composer-references';
 import { useComposerReferenceController } from './composer-reference-controller';
 import { toMessagePart, type InlineReferenceSelection } from '@/lib/composer-reference-domain';
 import { ComposerInlineReferenceEditor } from './composer-inline-reference-editor';
+import { focusEditorAtOffset } from './composer-editor-model';
 
-function focusComposerEditor(editor: HTMLDivElement | null): void {
-  if (!editor || editor.getAttribute('aria-disabled') === 'true') return;
-  editor.focus({ preventScroll: true });
-  const selection = window.getSelection();
-  if (!selection) return;
-  const range = document.createRange();
-  range.selectNodeContents(editor);
-  range.collapse(false);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
+const focusComposerEditor = focusEditorAtOffset;
 
 export interface ClioComposerProps {
   state: RunState;
@@ -109,6 +100,7 @@ export interface ClioComposerProps {
   onPrepareFiles?: (
     files: readonly FileUIPart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
+    signal?: AbortSignal,
   ) => Promise<WorkspaceResourceUploadResult>;
   onStop?: () => void;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
@@ -225,8 +217,8 @@ export function ClioComposer({
   const rootRef = useRef<HTMLDivElement>(null);
   const handledFocusRequestKeyRef = useRef(focusRequestKey);
   const restoreFocusAfterSubmitRef = useRef(false);
-  const focusEditorSoon = useCallback(() => {
-    window.requestAnimationFrame(() => focusComposerEditor(inputRef.current));
+  const focusEditorSoon = useCallback((offset?: number) => {
+    window.requestAnimationFrame(() => focusComposerEditor(inputRef.current, offset));
   }, []);
 
   const commandQuery = input.trimStart();
@@ -362,7 +354,7 @@ export function ClioComposer({
             onActiveReferenceChange={composerReferences.onActiveReferenceChange}
             onDismiss={composerReferences.dismiss}
             onReferencesChange={composerReferences.onOptionsChange}
-            onRestoreFocus={focusEditorSoon}
+            onRestoreFocus={composerReferences.restoreEditorFocus}
             onSelect={composerReferences.select}
             onQueryChange={composerReferences.onQueryChange}
             query={composerReferences.query}

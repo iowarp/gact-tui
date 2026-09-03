@@ -95,9 +95,6 @@ export function ConnectionPage() {
   const [token, setToken] = useState('');
   const selectedConnection = recents.find((recent) => recent.endpoint === selectedEndpoint);
   const availabilities = useConnectionAvailabilities(recents);
-  const selectedAvailability = selectedConnection
-    ? connectionAvailability(availabilities, selectedConnection.endpoint)
-    : undefined;
   const autoConnectStarted = useRef(false);
   const connectionIntent = searchParams.get('intent');
   const shouldConnectAutomatically =
@@ -143,12 +140,16 @@ export function ConnectionPage() {
               }),
             };
       }
+      if (!target && sessions.length > 0) {
+        throw new ConnectionTargetError(
+          'The service returned conversations without a workspace that can be opened.',
+        );
+      }
+      if (target) {
+        rememberWorkspaceRoute(next.endpoint, target.workspace.id, target.session.id);
+        await navigate(connectionSessionRoute(target), { replace: true });
+      }
       return { next, capabilities, sessions, target, workspaces };
-    },
-    onSuccess: ({ next, target }) => {
-      if (!target) return;
-      rememberWorkspaceRoute(next.endpoint, target.workspace.id, target.session.id);
-      void navigate(connectionSessionRoute(target), { replace: true });
     },
   });
   const setup = useMutation({
@@ -310,7 +311,6 @@ export function ConnectionPage() {
                     {recents.map((recent) => {
                       const availability = connectionAvailability(availabilities, recent.endpoint);
                       const selected = recent.endpoint === selectedEndpoint;
-                      const unavailable = availability.state === 'unavailable';
                       return (
                         <div
                           className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center overflow-hidden rounded-xl border bg-background transition-colors data-[selected=true]:border-primary/45 data-[selected=true]:bg-primary/5"
@@ -320,7 +320,6 @@ export function ConnectionPage() {
                           <button
                             aria-pressed={selected}
                             className="flex min-w-0 items-center gap-3 px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-45"
-                            disabled={unavailable}
                             onClick={() => setSelectedEndpoint(recent.endpoint)}
                             type="button"
                           >
@@ -485,11 +484,7 @@ export function ConnectionPage() {
 
               <Button
                 className="h-11 justify-between bg-action text-white hover:bg-action/90"
-                disabled={
-                  mutation.isPending ||
-                  (connectionMode === 'saved' &&
-                    (!selectedConnection || selectedAvailability?.state === 'unavailable'))
-                }
+                disabled={mutation.isPending || (connectionMode === 'saved' && !selectedConnection)}
                 type="submit"
               >
                 <span>
@@ -507,4 +502,13 @@ export function ConnectionPage() {
       </section>
     </main>
   );
+}
+
+class ConnectionTargetError extends Error {
+  readonly code = 'connection_target_unavailable';
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConnectionTargetError';
+  }
 }

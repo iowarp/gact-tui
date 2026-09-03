@@ -185,6 +185,25 @@ describe('useSessionMutations attachment preparation', () => {
     expect(uploadOptions.signal.aborted).toBe(false);
   });
 
+  it('combines per-attachment cancellation with the session upload lifetime', async () => {
+    mocks.uploadWorkspaceResources.mockResolvedValue({ parts: [], resources: [] });
+    const file = {
+      type: 'file' as const,
+      filename: 'paper.pdf',
+      mediaType: 'application/pdf',
+      url: 'blob:cancel-paper-pdf',
+    };
+    const attachmentController = new AbortController();
+    const { result } = renderMutations();
+
+    await result.current.prepareFiles([file], undefined, attachmentController.signal);
+    const uploadOptions = mocks.uploadWorkspaceResources.mock.calls[0]?.[0];
+    expect(uploadOptions.signal.aborted).toBe(false);
+
+    attachmentController.abort();
+    expect(uploadOptions.signal.aborted).toBe(true);
+  });
+
   it('reuses the immediate upload when the message is submitted', async () => {
     mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_resource' });
     mocks.uploadWorkspaceResources.mockResolvedValue({

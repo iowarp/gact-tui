@@ -1,6 +1,7 @@
 import type { WorkspaceReference } from '@clio/core/v3';
 import {
   forwardRef,
+  useEffect,
   useLayoutEffect,
   useRef,
   type ClipboardEvent,
@@ -16,7 +17,7 @@ import {
   workspaceReferenceIdentity,
   type InlineReferenceSelection,
 } from '@/lib/composer-reference-domain';
-import { collectPlainText, editorCaretOffset } from './composer-editor-model';
+import { collectPlainText, editorCaretOffset, focusEditorAtOffset } from './composer-editor-model';
 
 interface ComposerInlineReferenceEditorProps {
   /**
@@ -139,18 +140,6 @@ function sameReferences(
   );
 }
 
-function focusEditorAtEnd(editor: HTMLDivElement | null): void {
-  if (!editor || editor.getAttribute('aria-disabled') === 'true') return;
-  editor.focus({ preventScroll: true });
-  const selection = window.getSelection();
-  if (!selection) return;
-  const range = document.createRange();
-  range.selectNodeContents(editor);
-  range.collapse(false);
-  selection.removeAllRanges();
-  selection.addRange(range);
-}
-
 export const ComposerInlineReferenceEditor = forwardRef<
   HTMLDivElement,
   ComposerInlineReferenceEditorProps
@@ -183,6 +172,24 @@ export const ComposerInlineReferenceEditor = forwardRef<
     writeModel(root, value, references);
     renderedSignature.current = signature;
   }, [references, value]);
+
+  useEffect(() => {
+    const reportSelection = () => {
+      const offset = editorCaretOffset(localRef.current);
+      // Moving into the picker must not erase the editor's last useful caret.
+      // That remembered offset is where a reference chosen from the + menu is
+      // inserted after the picker takes focus.
+      //
+      // The controller stores this in state, not a ref, because the mention
+      // under the caret is derived during render — the popover has to open and
+      // close as the caret crosses a mention it did not edit. That costs a
+      // render per caret move inside the editor, which is bounded by the
+      // composer subtree and only while a draft is being edited.
+      if (offset !== undefined) onCaretChange?.(offset);
+    };
+    document.addEventListener('selectionchange', reportSelection);
+    return () => document.removeEventListener('selectionchange', reportSelection);
+  }, [onCaretChange]);
 
   const setRef = (element: HTMLDivElement | null) => {
     localRef.current = element;
@@ -222,7 +229,10 @@ export const ComposerInlineReferenceEditor = forwardRef<
       onReferencesChange(
         references.filter(({ reference }) => workspaceReferenceIdentity(reference) !== identity),
       );
-      window.requestAnimationFrame(() => focusEditorAtEnd(localRef.current));
+      window.requestAnimationFrame(() => {
+        focusEditorAtOffset(localRef.current, selected.offset);
+        onCaretChange?.(selected.offset);
+      });
       return;
     }
     onOpenReference?.(selected.reference);
@@ -254,6 +264,7 @@ export const ComposerInlineReferenceEditor = forwardRef<
     selection.removeAllRanges();
     selection.addRange(range);
     syncModel(event.currentTarget);
+    reportCaret(event.currentTarget);
   };
 
   return (

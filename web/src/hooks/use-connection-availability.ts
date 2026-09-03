@@ -6,6 +6,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 
 const CONNECTION_PROBE_TIMEOUT_MS = 3_500;
+const CONNECTION_PROBE_RETRIES = 2;
 
 export type ConnectionAvailabilityState = 'checking' | 'healthy' | 'degraded' | 'unavailable';
 
@@ -45,7 +46,8 @@ export function useConnectionAvailabilities(
       },
       refetchInterval: 30_000,
       refetchOnMount: 'always' as const,
-      retry: false,
+      retry: CONNECTION_PROBE_RETRIES,
+      retryDelay: (attempt: number) => Math.min(250 * 2 ** attempt, 1_000),
       staleTime: 5_000,
     })),
   });
@@ -55,14 +57,14 @@ export function useConnectionAvailabilities(
       Object.fromEntries(
         connections.map((connection, index) => [
           connection.endpoint,
-          queries[index]?.data ?? CHECKING_CONNECTION,
+          queries[index]?.data ?? availabilityFromError(queries[index]?.error),
         ]),
       ),
     [connections, queries],
   );
 }
 
-async function probeConnection(
+export async function probeConnection(
   settings: ConnectionSettings,
   signal: AbortSignal,
 ): Promise<ConnectionAvailability> {
@@ -91,23 +93,40 @@ async function probeConnection(
             label: 'Limited',
             detail: health.overall_status || 'Service is available with limitations.',
           };
-    } catch {
+    } catch (error) {
+      rethrowCancelledProbe(error, signal, controller.signal);
       // A compatible capabilities response already proves the service is reachable.
-      return { state: 'healthy', label: 'Ready', detail: 'Service is available.' };
+      return {
+        state: 'degraded',
+        label: 'Limited',
+        detail: 'The service responded, but its health status could not be verified.',
+      };
     }
   } catch (error) {
-    return {
-      state: 'unavailable',
-      label: 'Unavailable',
-      detail:
-        controller.signal.aborted && !signal.aborted
-          ? 'The service did not respond in time.'
-          : error instanceof Error
-            ? error.message
-            : 'The service could not be reached.',
-    };
+    rethrowCancelledProbe(error, signal, controller.signal);
+    throw error;
   } finally {
     globalThis.clearTimeout(timeout);
     signal.removeEventListener('abort', forwardAbort);
   }
+}
+
+function rethrowCancelledProbe(
+  error: unknown,
+  requestSignal: AbortSignal,
+  probeSignal: AbortSignal,
+): void {
+  if (requestSignal.aborted) throw error;
+  if (probeSignal.aborted) throw new Error('The service did not respond in time.');
+}
+
+function availabilityFromError(error: unknown): ConnectionAvailability {
+  if (!error || (error instanceof Error && error.name === 'AbortError')) {
+    return CHECKING_CONNECTION;
+  }
+  return {
+    state: 'unavailable',
+    label: 'Unavailable',
+    detail: error instanceof Error ? error.message : 'The service could not be reached.',
+  };
 }

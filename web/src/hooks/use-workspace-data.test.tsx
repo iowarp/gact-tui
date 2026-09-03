@@ -123,14 +123,18 @@ describe('useWorkspaceData interaction reads', () => {
     expect(mocks.repository.pendingInteractions).not.toHaveBeenCalled();
   });
 
-  it('reports a failed capability read through the interactions error', async () => {
+  it('reports a failed capability read as a degradation, not a failed response read', async () => {
     mocks.repository.capabilities.mockRejectedValue(new Error('capabilities unavailable'));
 
     const { result } = renderWorkspaceData();
 
     await waitFor(() =>
-      expect(result.current.interactionsError?.message).toBe('capabilities unavailable'),
+      expect(result.current.interactionCapabilityError?.message).toBe('capabilities unavailable'),
     );
+    // The legacy ledgers still answer, so the responses were read. Reporting
+    // this as `interactionsError` told the reader their pending responses could
+    // not be read when in fact every one of them was listed and answerable.
+    expect(result.current.interactionsError).toBeUndefined();
   });
 
   it('reads the legacy ledgers before the capability read resolves', async () => {
