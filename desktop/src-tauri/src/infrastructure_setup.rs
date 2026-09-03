@@ -238,9 +238,20 @@ fn validate_optional_email(value: Option<&str>) -> Result<(), String> {
     let Some(value) = value.filter(|value| !value.is_empty()) else {
         return Ok(());
     };
+    let Some((local, domain)) = value.split_once('@') else {
+        return Err("The contact email is not valid.".to_string());
+    };
+    // The local part additionally admits `+`, which plus-addressing depends on
+    // and which no shell treats as a metacharacter. The domain keeps the
+    // narrower charset: `+` is not legal in a hostname, so nothing is lost by
+    // refusing it there and the argument stays as tight as it can be.
     if value.len() > 254
-        || !value.contains('@')
-        || !value.chars().all(is_safe_remote_argument_character)
+        || local.is_empty()
+        || domain.is_empty()
+        || !local
+            .chars()
+            .all(|character| character == '+' || is_safe_remote_argument_character(character))
+        || !domain.chars().all(is_safe_remote_argument_character)
     {
         return Err("The contact email is not valid.".to_string());
     }
@@ -292,6 +303,14 @@ mod tests {
         assert!(validate_optional_email(Some("a@example.org;touch-pwned")).is_err());
         assert!(validate_optional_email(Some("a@example.org|whoami")).is_err());
         assert!(validate_optional_email(Some("a@example.org$(whoami)")).is_err());
-        assert!(validate_optional_email(Some("a+tag@example.org")).is_err());
+        // Plus-addressing is RFC-legal and in wide use; refusing it turned away
+        // a real address. `+` is not a shell metacharacter, so admitting it in
+        // the local part costs the argument nothing.
+        assert!(validate_optional_email(Some("a+tag@example.org")).is_ok());
+        // The domain stays on the tighter charset: `+` is not legal there, and
+        // the local part is the only half the widening was for.
+        assert!(validate_optional_email(Some("a@exam+ple.org")).is_err());
+        // An SSH profile name is a different argument and keeps its own charset.
+        assert!(validate_ssh_profile("ares+login").is_err());
     }
 }
