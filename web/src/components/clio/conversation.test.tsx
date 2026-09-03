@@ -1,10 +1,15 @@
+import type { Message } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { AppearanceProvider } from '@/providers/appearance-provider';
-import { ClioConversation } from './conversation';
+import {
+  ClioConversation,
+  conversationMessageRowPropsEqual,
+  type ConversationMessageRowProps,
+} from './conversation';
 
 // Scroll, virtualization, and minimap behaviour live in
 // `conversation-viewport.test.tsx`; this file covers message content.
@@ -705,5 +710,46 @@ describe('ClioConversation recovery actions', () => {
 
     expect(screen.getByText('Interactive surface removed')).toBeInTheDocument();
     expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
+  });
+});
+
+function baseRowProps(): ConversationMessageRowProps {
+  const message: Message = {
+    id: 'message_1',
+    session_id: 'session_1',
+    role: 'user',
+    created_at: '2026-09-02T00:00:00Z',
+    blocks: [],
+  };
+  return {
+    artifacts: {},
+    displayMode: 'full',
+    index: 0,
+    message,
+    onDisplayModeChange: () => undefined,
+    recent: false,
+    subagents: {},
+    surfaces: {},
+    tasks: {},
+    tools: {},
+  };
+}
+
+describe('conversationMessageRowPropsEqual', () => {
+  it('treats a fresh onOpenReference as a real prop change, not a skippable re-render', () => {
+    // Every OTHER prop, message included, is the exact same reference on both
+    // sides — the only thing that changed between renders is the callback.
+    const base = baseRowProps();
+    const left = { ...base, onOpenReference: () => undefined };
+    const right = { ...base, onOpenReference: () => undefined };
+
+    expect(conversationMessageRowPropsEqual(left, right)).toBe(false);
+  });
+
+  it('still skips the re-render when every compared prop, onOpenReference included, is stable', () => {
+    const onOpenReference = () => undefined;
+    const shared = { ...baseRowProps(), onOpenReference };
+
+    expect(conversationMessageRowPropsEqual(shared, { ...shared })).toBe(true);
   });
 });

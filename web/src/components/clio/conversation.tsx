@@ -81,7 +81,7 @@ export interface ClioConversationProps {
   bottomInset?: number;
 }
 
-interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
+export interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
   displayMode: ConversationDisplayMode;
   message: DomainMessage;
   index: number;
@@ -354,7 +354,11 @@ function linkedSubagentsEqual(
   return true;
 }
 
-function conversationMessageRowPropsEqual(
+// The memo boundary's equality check is exported for a direct regression test:
+// every callback prop the row closes over must be enumerated here, or a fresh
+// callback the app passed down is silently discarded for a stale one.
+// oxlint-disable-next-line react/only-export-components
+export function conversationMessageRowPropsEqual(
   left: ConversationMessageRowProps,
   right: ConversationMessageRowProps,
 ): boolean {
@@ -378,6 +382,7 @@ function conversationMessageRowPropsEqual(
     left.onCancelPendingSteer !== right.onCancelPendingSteer ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
+    left.onOpenReference !== right.onOpenReference ||
     left.onOpenResource !== right.onOpenResource ||
     left.onOpenSubagent !== right.onOpenSubagent ||
     left.pendingMessageIds?.has(left.message.id) !==
