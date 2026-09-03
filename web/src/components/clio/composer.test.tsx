@@ -315,6 +315,23 @@ describe('ClioComposer service commands', () => {
     expect(screen.queryByRole('button', { name: 'Open field-map.png' })).not.toBeInTheDocument();
   });
 
+  it('keeps the selectors the desktop WebView probe drives the composer with', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    // desktop/tests/webview-e2e.test.mjs cannot run in this suite — it needs a
+    // built Tauri app and a native WebDriver — so its two selectors are held
+    // against the real component here instead of drifting silently.
+    const probed = document.querySelector(
+      'div[contenteditable="true"][role="combobox"], div[contenteditable="true"][role="textbox"]',
+    );
+    expect(probed).toBe(composerEditor());
+
+    await user.type(composerEditor(), 'Run this shell command');
+    const mirror = document.querySelector('input[name="message"]');
+    expect(mirror).toHaveValue('Run this shell command');
+  });
+
   it('brings the placeholder back when the draft is cleared by hand', async () => {
     const user = userEvent.setup();
     renderComposer();
