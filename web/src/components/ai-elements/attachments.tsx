@@ -14,7 +14,7 @@ import {
   XIcon,
 } from 'lucide-react';
 import type { ComponentProps, HTMLAttributes, ReactNode } from 'react';
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 // ============================================================================
 // Types
@@ -357,10 +357,38 @@ export type AttachmentHoverCardProps = ComponentProps<typeof HoverCard>;
 export const AttachmentHoverCard = ({
   openDelay = 0,
   closeDelay = 0,
+  defaultOpen = false,
+  onOpenChange,
+  open,
   ...props
-}: AttachmentHoverCardProps) => (
-  <HoverCard closeDelay={closeDelay} openDelay={openDelay} {...props} />
-);
+}: AttachmentHoverCardProps) => {
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const resolvedOpen = open ?? internalOpen;
+  const setOpen = useCallback(
+    (nextOpen: boolean) => {
+      if (open === undefined) setInternalOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+    },
+    [onOpenChange, open],
+  );
+
+  useEffect(() => {
+    if (!resolvedOpen) return;
+    const closeForScroll = () => setOpen(false);
+    window.addEventListener('scroll', closeForScroll, true);
+    return () => window.removeEventListener('scroll', closeForScroll, true);
+  }, [resolvedOpen, setOpen]);
+
+  return (
+    <HoverCard
+      closeDelay={closeDelay}
+      onOpenChange={setOpen}
+      open={resolvedOpen}
+      openDelay={openDelay}
+      {...props}
+    />
+  );
+};
 
 export type AttachmentHoverCardTriggerProps = ComponentProps<typeof HoverCardTrigger>;
 
