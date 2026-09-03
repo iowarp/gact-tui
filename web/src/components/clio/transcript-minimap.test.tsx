@@ -134,6 +134,10 @@ describe('ClioTranscriptMinimap', () => {
     expect(scrollArea.scrollTop).toBe(176);
     fireEvent.keyDown(scrollArea, { key: 'End' });
     expect(scrollArea.scrollTop).toBe(900);
+    // A key pressed on a landmark belongs to that landmark, not to the rail:
+    // the rail scrolls only for presses that land on the rail itself.
+    expect(fireEvent.keyDown(activeLandmark, { bubbles: true, key: 'Home' })).toBe(true);
+    expect(scrollArea.scrollTop).toBe(900);
     await user.click(screen.getByRole('button', { name: 'Jump to assistant message 2' }));
     expect(onJump).toHaveBeenCalledWith(1);
     expect(virtual.scrollToIndex).not.toHaveBeenCalled();

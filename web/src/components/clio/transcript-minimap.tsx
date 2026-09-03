@@ -1,11 +1,12 @@
 import type { Message } from '@clio/core/v3';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ListTreeIcon } from 'lucide-react';
-import { lazy, Suspense, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { lazy, Suspense, useLayoutEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { truncate } from '@/lib/format';
+import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { TRANSCRIPT_PREVIEW_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 
@@ -265,7 +266,7 @@ function MinimapRail({
         aria-label="Browse transcript landmarks"
         className="h-full overflow-y-auto overscroll-y-contain px-0.5 outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         data-slot="transcript-minimap-scroll-area"
-        onKeyDown={handleMinimapScroll}
+        onKeyDown={handleScrollableRegionKeys}
         onWheel={(event) => event.stopPropagation()}
         ref={railRef}
         tabIndex={0}
@@ -274,24 +275,6 @@ function MinimapRail({
       </div>
     </aside>
   );
-}
-
-function handleMinimapScroll(event: KeyboardEvent<HTMLDivElement>) {
-  if (event.altKey || event.ctrlKey || event.metaKey) return;
-  const rail = event.currentTarget;
-  const page = Math.max(rail.clientHeight - 24, 40);
-  const destinations: Partial<Record<string, number>> = {
-    ArrowDown: rail.scrollTop + 40,
-    ArrowUp: rail.scrollTop - 40,
-    End: rail.scrollHeight,
-    Home: 0,
-    PageDown: rail.scrollTop + page,
-    PageUp: rail.scrollTop - page,
-  };
-  const destination = destinations[event.key];
-  if (destination === undefined) return;
-  event.preventDefault();
-  rail.scrollTop = Math.max(0, Math.min(destination, rail.scrollHeight - rail.clientHeight));
 }
 
 function landmarkClass(message: Message): string {

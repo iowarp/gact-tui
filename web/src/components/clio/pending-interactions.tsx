@@ -8,7 +8,7 @@ import {
   ShieldQuestionIcon,
   XIcon,
 } from 'lucide-react';
-import { useCallback, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
   Confirmation,
   ConfirmationAction,
@@ -37,6 +37,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
 import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
 
@@ -116,7 +117,7 @@ export function ClioPendingInteractions({
             viewportProps={{
               'aria-label': `${pending.length} pending responses`,
               className: 'pending-interactions-viewport overscroll-contain pr-1',
-              onKeyDown: handlePendingResponseScroll,
+              onKeyDown: handleScrollableRegionKeys,
               role: 'region',
               tabIndex: 0,
             }}
@@ -179,24 +180,6 @@ export function ClioPendingInteractions({
       </QueueSection>
     </Queue>
   );
-}
-
-function handlePendingResponseScroll(event: KeyboardEvent<HTMLDivElement>) {
-  if (event.altKey || event.ctrlKey || event.metaKey) return;
-  const viewport = event.currentTarget;
-  const page = Math.max(viewport.clientHeight - 24, 40);
-  const destinations: Partial<Record<string, number>> = {
-    ArrowDown: viewport.scrollTop + 40,
-    ArrowUp: viewport.scrollTop - 40,
-    End: viewport.scrollHeight,
-    Home: 0,
-    PageDown: viewport.scrollTop + page,
-    PageUp: viewport.scrollTop - page,
-  };
-  const destination = destinations[event.key];
-  if (destination === undefined) return;
-  event.preventDefault();
-  viewport.scrollTop = Math.max(0, Math.min(destination, viewport.scrollHeight - viewport.clientHeight));
 }
 
 function OwnerContext({ children }: { children: ReactNode }) {

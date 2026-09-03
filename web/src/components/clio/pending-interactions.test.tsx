@@ -340,4 +340,32 @@ describe('ClioPendingInteractions', () => {
     fireEvent.keyDown(viewport, { key: 'End' });
     expect(viewport.scrollTop).toBe(480);
   });
+
+  it('leaves caret keys to the answer field they were typed into', async () => {
+    const user = userEvent.setup();
+    renderPending([
+      pending('question', {
+        id: 'question:q1',
+        prompt: 'Which boundary should I use?',
+        actions: ['answer'],
+      }),
+    ]);
+
+    const answer = screen.getByRole('textbox', { name: 'Your response' });
+    await user.type(answer, 'first line');
+    const viewport = screen.getByRole('region', { name: '1 pending responses' });
+    Object.defineProperties(viewport, {
+      clientHeight: { configurable: true, value: 240 },
+      scrollHeight: { configurable: true, value: 720 },
+    });
+    viewport.scrollTop = 120;
+
+    for (const key of ['Home', 'End', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown']) {
+      const handled = fireEvent.keyDown(answer, { bubbles: true, key });
+      // `fireEvent` returns false only when a handler called preventDefault, so
+      // this asserts the caret key reached the field rather than the viewport.
+      expect(handled, `${key} was hijacked by the scroll viewport`).toBe(true);
+    }
+    expect(viewport.scrollTop).toBe(120);
+  });
 });
