@@ -40,11 +40,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
 import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
+import { ClioStatus } from './status';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
   surfaces?: Readonly<Record<string, A2UISurface>>;
   ownerLabels?: Readonly<Record<string, string>>;
+  /** The session currently on screen; every other owner gets attributed. */
+  viewedSessionId: string;
   disabled?: boolean;
   /** The read that could not be completed, surfaced here rather than swallowed. */
   error?: Error;
@@ -60,6 +63,7 @@ export function ClioPendingInteractions({
   interactions,
   surfaces = {},
   ownerLabels = {},
+  viewedSessionId,
   disabled,
   error,
   onA2UILocalAction,
@@ -131,7 +135,11 @@ export function ClioPendingInteractions({
                 </Alert>
               ) : null}
               {pending.map((interaction) => {
-                const ownerLabel = ownerLabels[interaction.owner_session_id] ?? 'Specialist';
+                // Undefined (never 'Specialist') means the workspace has not listed
+                // this owner session yet, or listed it without a usable title — the
+                // typed unavailable presentation says so instead of inventing a role.
+                const ownerLabel = ownerLabels[interaction.owner_session_id];
+                const showOwner = interaction.owner_session_id !== viewedSessionId;
                 const interactionDisabled = disabled || respondingIds.has(interaction.id);
                 if (interaction.kind === 'permission') {
                   return (
@@ -141,6 +149,7 @@ export function ClioPendingInteractions({
                       key={interaction.id}
                       onResponse={handleResponse}
                       ownerLabel={ownerLabel}
+                      showOwner={showOwner}
                     />
                   );
                 }
@@ -158,6 +167,7 @@ export function ClioPendingInteractions({
                       onLocalAction={onA2UILocalAction}
                       onResponse={handleResponse}
                       ownerLabel={ownerLabel}
+                      showOwner={showOwner}
                       surface={
                         surface?.session_id === interaction.owner_session_id ? surface : undefined
                       }
@@ -171,6 +181,7 @@ export function ClioPendingInteractions({
                     key={interaction.id}
                     onResponse={handleResponse}
                     ownerLabel={ownerLabel}
+                    showOwner={showOwner}
                   />
                 );
               })}
@@ -194,22 +205,50 @@ function OwnerContext({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Attribution for an interaction whose owner differs from the viewed session.
+ * A known owner gets its label; an owner this workspace has not listed (or
+ * listed without a usable title) gets the typed unavailable state instead of
+ * an invented role.
+ */
+function OwnerAttribution({
+  interaction,
+  ownerLabel,
+  show,
+}: {
+  interaction: PendingInteraction;
+  ownerLabel?: string;
+  show: boolean;
+}) {
+  if (!show) return null;
+  if (ownerLabel) return <OwnerContext>{ownerLabel}</OwnerContext>;
+  return (
+    <ClioStatus
+      className="mt-1"
+      detail={`Requested by session ${interaction.owner_session_id}`}
+      label="Session not listed yet"
+      value="unavailable"
+    />
+  );
+}
+
 function PermissionResponse({
   disabled,
   interaction,
   onResponse,
   ownerLabel,
+  showOwner,
 }: {
   disabled?: boolean;
   interaction: PendingInteraction;
   onResponse: ClioPendingInteractionsProps['onResponse'];
-  ownerLabel: string;
+  ownerLabel?: string;
+  showOwner: boolean;
 }) {
   const toolCall = interaction.payload?.tool_call;
   const toolName = toolCall?.tool_name ?? interaction.source.tool_name;
   const allowed = interaction.actions ? new Set(interaction.actions) : undefined;
   const show = (action: string) => !allowed || allowed.has(action);
-  const showOwner = interaction.owner_session_id !== interaction.attended_session_id;
   return (
     <Confirmation
       approval={{ id: interaction.id }}
@@ -226,7 +265,7 @@ function PermissionResponse({
         >
           {interaction.title}
         </span>
-        {showOwner ? <OwnerContext>{ownerLabel}</OwnerContext> : null}
+        <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show={showOwner} />
         {interaction.prompt ? (
           <span className="block text-sm text-muted-foreground">{interaction.prompt}</span>
         ) : null}
@@ -296,11 +335,13 @@ function PermissionResponse({
 function InteractionFrameHeader({
   interaction,
   ownerLabel,
+  showOwner,
   onCancel,
   disabled,
 }: {
   interaction: PendingInteraction;
-  ownerLabel: string;
+  ownerLabel?: string;
+  showOwner: boolean;
   onCancel?: () => void;
   disabled?: boolean;
 }) {
@@ -310,19 +351,18 @@ function InteractionFrameHeader({
       : interaction.kind === 'a2ui'
         ? BoxesIcon
         : MessageCircleQuestionIcon;
-  const showOwner = interaction.owner_session_id !== interaction.attended_session_id;
   return (
     <FrameHeader className="relative flex-row items-start gap-2 pr-10">
       <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-action" />
       <div className="min-w-0 flex-1">
         <FrameTitle
-          className="truncate"
+          className="line-clamp-3"
           data-slot="pending-interaction-title"
           title={interaction.prompt ?? interaction.title}
         >
           {interaction.prompt ?? interaction.title}
         </FrameTitle>
-        {showOwner ? <OwnerContext>{ownerLabel}</OwnerContext> : null}
+        <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show={showOwner} />
       </div>
       {onCancel ? (
         <Button
@@ -345,11 +385,13 @@ function QuestionResponse({
   disabled,
   onResponse,
   ownerLabel,
+  showOwner,
 }: {
   interaction: PendingInteraction;
   disabled?: boolean;
   onResponse: ClioPendingInteractionsProps['onResponse'];
-  ownerLabel: string;
+  ownerLabel?: string;
+  showOwner: boolean;
 }) {
   const [answer, setAnswer] = useState('');
   const [selection, setSelection] = useState('');
@@ -387,6 +429,7 @@ function QuestionResponse({
             : undefined
         }
         ownerLabel={ownerLabel}
+        showOwner={showOwner}
       />
       <FramePanel className="min-w-0 overflow-hidden">
         {!canAnswer ? (
@@ -534,13 +577,15 @@ function A2UIResponse({
   onLocalAction,
   onResponse,
   ownerLabel,
+  showOwner,
   surface,
 }: {
   disabled?: boolean;
   interaction: PendingInteraction;
   onLocalAction?: A2UILocalActionHandler;
   onResponse: ClioPendingInteractionsProps['onResponse'];
-  ownerLabel: string;
+  ownerLabel?: string;
+  showOwner: boolean;
   surface?: A2UISurface;
 }) {
   return (
@@ -550,7 +595,11 @@ function A2UIResponse({
       dense
       spacing="sm"
     >
-      <InteractionFrameHeader interaction={interaction} ownerLabel={ownerLabel} />
+      <InteractionFrameHeader
+        interaction={interaction}
+        ownerLabel={ownerLabel}
+        showOwner={showOwner}
+      />
       <FramePanel className={cn('p-2', disabled && 'pointer-events-none opacity-60')}>
         {surface ? (
           <ClioA2UISurface

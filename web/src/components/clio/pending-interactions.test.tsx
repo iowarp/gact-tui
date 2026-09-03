@@ -74,6 +74,7 @@ function renderPending(
     onResponse?: ReturnType<typeof vi.fn>;
     ownerLabels?: Record<string, string>;
     surfaces?: Record<string, A2UISurface>;
+    viewedSessionId?: string;
   } = {},
 ) {
   const onResponse = options.onResponse ?? vi.fn(async () => undefined);
@@ -86,6 +87,7 @@ function renderPending(
         onResponse={onResponse}
         ownerLabels={options.ownerLabels ?? { sess_child: 'Evidence specialist' }}
         surfaces={options.surfaces}
+        viewedSessionId={options.viewedSessionId ?? 'sess_root'}
       />
     </QueryClientProvider>,
   );
@@ -141,6 +143,56 @@ describe('ClioPendingInteractions', () => {
 
     expect(screen.getByText('Some responses could not be read')).toBeVisible();
     expect(screen.getByText('capabilities unavailable')).toBeVisible();
+  });
+
+  it('answers an approval from a session this workspace has not listed yet', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('permission', {
+      id: 'permission:perm_child',
+      owner_session_id: 'sess_grandchild',
+      title: 'Run the child analysis command',
+      actions: ['allow'],
+    });
+    const onResponse = renderPending([interaction], { ownerLabels: {} });
+
+    expect(screen.getByText('Run the child analysis command')).toBeVisible();
+    expect(screen.getByText('Session not listed yet')).toBeVisible();
+    expect(screen.queryByText('Specialist')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Allow once' }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'allow' });
+  });
+
+  it('attributes a foreign session even when it attends its own interactions', () => {
+    renderPending(
+      [
+        pending('permission', {
+          id: 'permission:foreign',
+          owner_session_id: 'sess_foreign',
+          attended_session_id: 'sess_foreign',
+          title: 'Write the summary file',
+        }),
+      ],
+      { ownerLabels: { sess_foreign: 'Background review' }, viewedSessionId: 'sess_root' },
+    );
+
+    expect(screen.getByText('Background review')).toBeVisible();
+  });
+
+  it('leaves an interaction owned by the viewed session unattributed', () => {
+    renderPending(
+      [
+        pending('permission', {
+          id: 'permission:own',
+          owner_session_id: 'sess_root',
+          attended_session_id: 'sess_root',
+          title: 'Write the summary file',
+        }),
+      ],
+      { ownerLabels: { sess_root: 'Investigation' }, viewedSessionId: 'sess_root' },
+    );
+
+    expect(screen.queryByText('Investigation')).not.toBeInTheDocument();
+    expect(screen.queryByText('Session not listed yet')).not.toBeInTheDocument();
   });
 
   it('preserves per-option comments in the exact normalized question response', async () => {

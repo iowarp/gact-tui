@@ -75,6 +75,7 @@ export function WorkspacePage() {
     interactions,
     interactionsError,
     interactionRootSessionId,
+    interactionSessionIds,
     interactionSurfaces,
     modelOptions,
     modelCatalogStatus,
@@ -106,17 +107,22 @@ export function WorkspacePage() {
     () => buildSessionAttentionMap(navigationSessions, attentionInteractions),
     [attentionInteractions, navigationSessions],
   );
+  // Omit an owner this view has not discovered through the session hierarchy
+  // walk, or one it discovered without a usable title — either way the
+  // interaction surface renders a typed "not listed" state instead of an
+  // invented role rather than inventing a role for it here.
   const interactionOwnerLabels = useMemo(
     () =>
       Object.fromEntries(
-        interactions.map((interaction) => {
+        interactions.flatMap((interaction) => {
+          if (!interactionSessionIds.has(interaction.owner_session_id)) return [];
           const owner = navigationSessions.find(
             (candidate) => candidate.id === interaction.owner_session_id,
           );
-          return [interaction.owner_session_id, owner?.title ?? 'Specialist'];
+          return owner?.title ? [[interaction.owner_session_id, owner.title] as const] : [];
         }),
       ),
-    [interactions, navigationSessions],
+    [interactionSessionIds, interactions, navigationSessions],
   );
   const messageCount = useSessionMessageCount(sessionId);
   const conversationStarted = messageCount > 0 || startedSessionId === sessionId;
@@ -456,6 +462,7 @@ export function WorkspacePage() {
             }}
             ownerLabels={interactionOwnerLabels}
             surfaces={interactionSurfaces}
+            viewedSessionId={sessionId}
           />
         }
         onCommand={async (value) => {
