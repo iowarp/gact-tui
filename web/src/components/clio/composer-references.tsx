@@ -1,26 +1,8 @@
 import type { WorkspaceReference } from '@clio/core/v3';
+import { onComposerRowDegraded } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
-import {
-  BotIcon,
-  BracesIcon,
-  ChevronRightIcon,
-  DatabaseIcon,
-  FileDiffIcon,
-  FileTextIcon,
-  ListTreeIcon,
-  MessageSquareIcon,
-  PackageIcon,
-  WaypointsIcon,
-} from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-  type SVGProps,
-} from 'react';
+import { ChevronRightIcon } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PromptInputCommand,
   PromptInputCommandEmpty,
@@ -34,22 +16,15 @@ import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { queryKeys } from '@/lib/query-keys';
+import {
+  QUERY_STALE_TIME_MS,
+  REFERENCE_POPOVER_MAX_HEIGHT,
+  REFERENCE_ROW_LIMIT,
+  SEARCH_DEBOUNCE_MS,
+} from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
-
-type ReferenceIcon = ComponentType<SVGProps<SVGSVGElement>>;
-
-const presentationByKind: Record<WorkspaceReference['kind'], { icon: ReferenceIcon }> = {
-  workspace_file: { icon: FileTextIcon },
-  resource: { icon: DatabaseIcon },
-  artifact: { icon: PackageIcon },
-  evidence_source: { icon: WaypointsIcon },
-  context_frame: { icon: BracesIcon },
-  diff: { icon: FileDiffIcon },
-  plan: { icon: ListTreeIcon },
-  session: { icon: MessageSquareIcon },
-  agent_run: { icon: BotIcon },
-};
+import { referenceKindIcon } from './composer-reference-presentation';
 
 const groups: Array<{
   defaultOpen: boolean;
@@ -133,7 +108,7 @@ export function ClioComposerReferenceMenu({
     if (searchInput && searchRef.current) searchRef.current.focus();
     else onRestoreFocus();
   }, [onRestoreFocus, searchInput]);
-  const debouncedQuery = useDebouncedValue(query.trim(), 100);
+  const debouncedQuery = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
   const isSearching = Boolean(query.trim());
   const requestedKinds = debouncedQuery ? [] : nonFileKinds;
   const requestedKindsKey = requestedKinds.join(',');
@@ -151,32 +126,52 @@ export function ClioComposerReferenceMenu({
         { q: debouncedQuery, kinds: requestedKinds },
         signal,
       ),
-    staleTime: 15_000,
+    staleTime: QUERY_STALE_TIME_MS,
   });
   const localFiles = useQuery({
     enabled: Boolean(workspaceId) && !isSearching && openGroups['Local files'],
     queryKey: queryKeys.workspaceReferences(settings.endpoint, workspaceId, '', 'workspace_file'),
     queryFn: ({ signal }) =>
       repository.workspaceReferences(workspaceId, { kinds: ['workspace_file'] }, signal),
-    staleTime: 15_000,
+    staleTime: QUERY_STALE_TIME_MS,
   });
   // Older servers may return an unbounded workspace inventory. Keep the
   // command palette responsive even when connected to one of them.
-  const rows = useMemo(() => {
+  const listing = useMemo(() => {
     // React Query retains the collapsed inventory in its cache after the user
     // starts typing. Do not mix those stale unfiltered files into live search
     // results; a query must reflect only the bounded server search.
     const combined = [...(references.data ?? []), ...(!isSearching ? (localFiles.data ?? []) : [])];
     const identities = new Set<string>();
-    return combined
-      .filter((reference) => {
-        const identity = workspaceReferenceIdentity(reference);
-        if (identities.has(identity)) return false;
-        identities.add(identity);
-        return true;
-      })
-      .slice(0, 100);
+    const deduplicated = combined.filter((reference) => {
+      const identity = workspaceReferenceIdentity(reference);
+      if (identities.has(identity)) return false;
+      identities.add(identity);
+      return true;
+    });
+    // A kind this build has no group for cannot be offered — selecting it would
+    // put a `ref_kind` on the wire that neither side agreed on. It is counted so
+    // the footer can say the listing is short rather than hiding the gap.
+    const supported = deduplicated.filter((reference) =>
+      groups.some((group) => group.kinds.includes(reference.kind)),
+    );
+    return {
+      rows: supported.slice(0, REFERENCE_ROW_LIMIT),
+      unsupported: deduplicated.length - supported.length,
+    };
   }, [isSearching, localFiles.data, references.data]);
+  const rows = listing.rows;
+
+  // Rows the contract refused are reported through the shared degradation
+  // catalog rather than returned, so the popover counts them while it is open.
+  const [unreadable, setUnreadable] = useState(0);
+  useEffect(
+    () =>
+      onComposerRowDegraded((degradation) => {
+        if (degradation.collection === 'workspace_references') setUnreadable((count) => count + 1);
+      }),
+    [],
+  );
 
   const visibleRows = useMemo(
     () =>
@@ -234,7 +229,10 @@ export function ClioComposerReferenceMenu({
           value={query}
         />
       ) : null}
-      <PromptInputCommandList className="max-h-[min(38rem,calc(100vh-10rem))] overscroll-contain">
+      <PromptInputCommandList
+        className="overscroll-contain"
+        style={{ maxHeight: REFERENCE_POPOVER_MAX_HEIGHT }}
+      >
         <PromptInputCommandEmpty>
           {references.isError || localFiles.isError
             ? 'References are unavailable from the connected service.'
@@ -272,7 +270,7 @@ export function ClioComposerReferenceMenu({
                       <span>{group.label}</span>
                     </span>
                     <span className="text-muted-foreground">
-                      {group.label === 'Local files' && localFiles.isFetching
+                      {group.label === 'Local files' && !localFiles.isFetched
                         ? '…'
                         : matches.length}
                     </span>
@@ -280,7 +278,7 @@ export function ClioComposerReferenceMenu({
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   {matches.map((reference) => {
-                    const Icon = presentationByKind[reference.kind].icon;
+                    const Icon = referenceKindIcon(reference.kind);
                     const detail = conciseDetail(reference);
                     return (
                       <PromptInputCommandItem
@@ -311,6 +309,27 @@ export function ClioComposerReferenceMenu({
           );
         })}
       </PromptInputCommandList>
+      {unreadable + listing.unsupported > 0 ? (
+        <div
+          className="flex flex-col gap-0.5 border-t px-2 py-1.5 text-xs text-muted-foreground"
+          role="status"
+        >
+          {unreadable > 0 ? (
+            <span>
+              {unreadable === 1
+                ? '1 reference could not be read from this workspace.'
+                : `${unreadable} references could not be read from this workspace.`}
+            </span>
+          ) : null}
+          {listing.unsupported > 0 ? (
+            <span>
+              {listing.unsupported === 1
+                ? '1 reference needs a newer version of this app.'
+                : `${listing.unsupported} references need a newer version of this app.`}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </PromptInputCommand>
   );
 }

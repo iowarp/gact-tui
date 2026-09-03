@@ -40,6 +40,51 @@ describe('ComposerRepository', () => {
     });
   });
 
+  it('keeps the readable workspace references when the service serves one this client cannot read', async () => {
+    clearComposerRowDegradations();
+    const readable = {
+      kind: 'artifact',
+      id: 'artifact_1',
+      label: 'Displacement plot',
+      detail: 'Displacement plot v3 (image)',
+      media_type: 'image/png',
+      revision: 'v3',
+      navigation: { artifact_id: 'artifact_1' },
+    };
+    const transport = new RecordingTransport([
+      { references: [readable, { kind: 'artifact', id: 'artifact_2' }] },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(repository.workspaceReferences('workspace 1')).resolves.toEqual([readable]);
+    expect(composerRowDegradations()).toMatchObject([
+      { collection: 'workspace_references', code: 'row_decode_failed', index: 1, id: 'artifact_2' },
+    ]);
+  });
+
+  it('reads a reference kind this build has no handling for as unknown', async () => {
+    const transport = new RecordingTransport([
+      {
+        references: [
+          {
+            kind: 'holographic_trace',
+            id: 'trace_1',
+            label: 'Trace 1',
+            detail: 'A kind from a newer service',
+            media_type: 'application/json',
+            revision: '1',
+            navigation: {},
+          },
+        ],
+      },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(repository.workspaceReferences('workspace 1')).resolves.toMatchObject([
+      { id: 'trace_1', kind: 'unknown' },
+    ]);
+  });
+
   it('submits an explicit delivery intent with immutable resource references', async () => {
     const transport = new RecordingTransport([
       {
@@ -473,9 +518,10 @@ describe('ComposerRepository', () => {
     ).resolves.toMatchObject({
       matches: [{ line: 7 }],
     });
-    await expect(repository.reprocessResource('workspace_1', 'resource_1')).resolves.toEqual(
-      { ...processing, events: [] },
-    );
+    await expect(repository.reprocessResource('workspace_1', 'resource_1')).resolves.toEqual({
+      ...processing,
+      events: [],
+    });
     await expect(
       repository.cancelResourceProcessing('workspace_1', 'resource_1'),
     ).resolves.toMatchObject({ state: 'cancelled' });

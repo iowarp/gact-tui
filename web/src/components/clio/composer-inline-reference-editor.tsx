@@ -9,6 +9,7 @@ import {
   type MouseEvent,
 } from 'react';
 import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
+import { REFERENCE_TOKEN_MAX_WIDTH } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import {
   referenceKindLabel,
@@ -60,7 +61,8 @@ function appendToken(root: HTMLDivElement, selection: InlineReferenceSelection):
   const identity = workspaceReferenceIdentity(selection.reference);
   const token = document.createElement('span');
   token.className =
-    'mx-0.5 inline-flex max-w-64 items-center gap-1 align-baseline rounded-md bg-secondary px-1.5 py-0.5 text-sm text-secondary-foreground';
+    'mx-0.5 inline-flex items-center gap-1 align-baseline rounded-md bg-secondary px-1.5 py-0.5 text-sm text-secondary-foreground';
+  token.style.maxWidth = REFERENCE_TOKEN_MAX_WIDTH;
   token.contentEditable = 'false';
   token.dataset.referenceToken = identity;
 

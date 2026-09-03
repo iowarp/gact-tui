@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { forwardCompatibleEnum } from './schema-utils.js';
 
 export const contextReferenceKindSchema = z.enum([
   'workspace_file',
@@ -42,7 +43,10 @@ export const composerMessagePartSchema = z.discriminatedUnion('type', [
 ]);
 
 export const workspaceReferenceSchema = z.object({
-  kind: z.enum([
+  // A workspace the service has taught new kinds of context about must still
+  // list the kinds this build knows. An unrecognised kind decodes as `unknown`
+  // and is reported to the person rather than taking the whole listing down.
+  kind: forwardCompatibleEnum([
     'workspace_file',
     'resource',
     'artifact',

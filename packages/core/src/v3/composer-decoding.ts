@@ -24,7 +24,8 @@ export type ComposerRowCollection =
   | 'pending_steers'
   | 'queued_messages'
   | 'resources'
-  | 'resource_deliveries';
+  | 'resource_deliveries'
+  | 'workspace_references';
 
 export interface ComposerRowDegradation {
   /** Which list the row was read from. */

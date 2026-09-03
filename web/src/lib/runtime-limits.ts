@@ -308,6 +308,30 @@ export const IMMUTABLE_QUERY = { staleTime: Number.POSITIVE_INFINITY } as const;
 export const SEARCH_DEBOUNCE_MS = 180;
 
 /**
+ * Reference rows the composer's popover keeps from one workspace listing.
+ * Unit: rows. A server that predates the bounded reference search can answer
+ * with a whole workspace inventory, and every row is a mounted command item, so
+ * this is what keeps the palette responsive against one of them. The person
+ * narrows the list by typing rather than by scrolling past a thousand rows.
+ */
+export const REFERENCE_ROW_LIMIT = 100;
+
+/**
+ * Tallest the composer's reference popover grows before its list scrolls.
+ * Unit: CSS length. It opens upwards from the composer, so it is bounded by the
+ * viewport as well as by a fixed ceiling: the smaller of a comfortable reading
+ * height and whatever the window leaves above the composer.
+ */
+export const REFERENCE_POPOVER_MAX_HEIGHT = 'min(38rem, calc(100vh - 10rem))';
+
+/**
+ * Widest an inline reference token grows in the composer before its label is
+ * truncated. Unit: CSS length. Long enough for a recognisable file name, short
+ * enough that two or three tokens still share a line with the prose.
+ */
+export const REFERENCE_TOKEN_MAX_WIDTH = '16rem';
+
+/**
  * Minimum gap between two attention notices raised for the same session.
  * Unit: milliseconds. A session that raises several kinds of attention at once
  * (an approval and a question arriving together) should announce itself once;

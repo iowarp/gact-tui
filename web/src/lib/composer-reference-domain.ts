@@ -54,6 +54,12 @@ export function referenceKindLabel(kind: string): string {
 }
 
 export function toMessagePart(reference: WorkspaceReference): ReferencePart {
+  if (reference.kind === 'unknown') {
+    // Unreachable from the composer, which never offers a reference whose kind
+    // this build has no wire mapping for. Explicit so a future caller gets a
+    // refusal instead of an invalid ref_kind on the wire.
+    throw new Error('This version cannot send a reference of an unrecognized kind.');
+  }
   if (reference.kind === 'resource') {
     return {
       type: 'resource_ref',

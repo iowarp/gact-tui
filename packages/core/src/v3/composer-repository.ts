@@ -63,7 +63,11 @@ export class ComposerRepository extends ArtifactPreviewRepository {
       method: 'GET',
       path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/references${suffix}`,
       decode: (value) =>
-        workspaceReferenceSchema.array().parse((value as { references?: unknown }).references),
+        decodeComposerRows(
+          'workspace_references',
+          workspaceReferenceSchema,
+          (value as { references?: unknown }).references,
+        ),
       signal,
     });
     return result;

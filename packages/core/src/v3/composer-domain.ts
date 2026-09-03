@@ -35,7 +35,15 @@ export type ContextReferenceKind =
   | 'context_frame'
   | 'diff'
   | 'plan';
-export type WorkspaceReferenceKind = ContextReferenceKind | 'resource';
+/**
+ * What a workspace reference can be about.
+ *
+ * `unknown` is the forward-compatible reading of a kind a newer service serves
+ * and this build has no handling for. It is a real value a surface has to
+ * account for, not a placeholder: such a reference can be counted and named,
+ * but never opened and never sent.
+ */
+export type WorkspaceReferenceKind = ContextReferenceKind | 'resource' | 'unknown';
 
 export interface ContextReferencePart {
   type: 'context_ref';
