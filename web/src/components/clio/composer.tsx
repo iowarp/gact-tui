@@ -51,7 +51,7 @@ import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
 import type { WorkspaceResourceUploadResult } from '@/lib/upload-workspace-resources';
 import { ClioComposerReferenceMenu } from './composer-references';
-import { toMessagePart, workspaceReferenceIdentity } from './composer-reference-domain';
+import { toMessagePart, workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
 import {
   ComposerInlineReferenceEditor,
   type InlineReferenceSelection,

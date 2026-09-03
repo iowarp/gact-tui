@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
 import { cn } from '@/lib/utils';
-import { workspaceReferenceIdentity } from './composer-reference-domain';
+import { workspaceReferenceIdentity } from '@/lib/composer-reference-domain';
 
 export interface InlineReferenceSelection {
   offset: number;
