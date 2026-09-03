@@ -290,14 +290,7 @@ export function ConnectionPage() {
                   : 'Name the service and enter its address.'}
               </p>
             </div>
-            {mutation.isPending ? (
-              <ClioStatus value="connecting" />
-            ) : connectionMode === 'saved' && selectedConnection && selectedAvailability ? (
-              <ConnectionAvailabilityIndicator
-                availability={selectedAvailability}
-                endpoint={selectedConnection.endpoint}
-              />
-            ) : null}
+            {mutation.isPending ? <ClioStatus value="connecting" /> : null}
           </div>
 
           {mutation.isSuccess && mutation.data.sessions.length === 0 ? (

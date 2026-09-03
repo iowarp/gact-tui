@@ -26,7 +26,7 @@ export function ConnectionAvailabilityIndicator({
       <HoverCardTrigger asChild>
         <span
           className={cn('inline-flex rounded-md outline-none focus-visible:ring-2', className)}
-          tabIndex={0}
+          tabIndex={compact ? -1 : 0}
         >
           <ClioStatus
             className={cn(compact && 'border-0 bg-transparent px-1 py-0 shadow-none')}

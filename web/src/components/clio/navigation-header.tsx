@@ -105,7 +105,7 @@ export function NavigationHeader({
                 />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-80">
+            <DropdownMenuContent align="start" className="w-96">
               <DropdownMenuLabel>
                 <span className="block">Agent services</span>
                 <span className="block truncate font-mono text-[11px] font-normal text-muted-foreground">
@@ -136,7 +136,10 @@ export function NavigationHeader({
                       <span className="block truncate text-sm">
                         {connectionPlaceLabel(recent.endpoint, recent.label)}
                       </span>
-                      <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                      <span
+                        className="block truncate font-mono text-[11px] text-muted-foreground"
+                        title={recent.endpoint}
+                      >
                         {recent.endpoint}
                       </span>
                     </span>
