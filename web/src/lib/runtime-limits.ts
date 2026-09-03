@@ -296,6 +296,21 @@ export const QUERY_RETRY_COUNT = 1;
  */
 export const IMMUTABLE_QUERY = { staleTime: Number.POSITIVE_INFINITY } as const;
 
+/**
+ * Most other root sessions this workspace fans a per-root pending-interactions
+ * read out to, so a busy workspace with many background sessions cannot open
+ * one request per session on every render. Unit: root sessions.
+ */
+export const PENDING_INTERACTIONS_FANOUT_CAP = 20;
+
+/**
+ * How long a background root's pending-interactions read is served without a
+ * refetch. Unit: milliseconds. These feed only the attention indicator, not a
+ * surface the reader is actively acting on, so they can go slightly stale
+ * without a background refetch storm across every root session at once.
+ */
+export const PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS = 5_000;
+
 // ## Interaction
 // Values a person feels directly: input latency and how much of a list a
 // surface shows before it asks to expand.

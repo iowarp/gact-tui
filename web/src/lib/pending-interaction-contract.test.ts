@@ -55,7 +55,10 @@ describe('pending interaction legacy compatibility', () => {
       updated_at: '2026-09-02T00:00:00Z',
     } satisfies UserQuestion;
 
-    expect(interactionRootSessionId(child.id, [root, child])).toBe(root.id);
+    expect(interactionRootSessionId(child.id, [root, child])).toEqual({
+      id: root.id,
+      resolved: true,
+    });
     expect(legacyPendingInteractions([root, child], [approval], [question])).toMatchObject([
       {
         id: 'perm_1',
@@ -70,6 +73,40 @@ describe('pending interaction legacy compatibility', () => {
         attended_session_id: root.id,
       },
     ]);
+  });
+
+  it('marks the root unresolved when an ancestor is known only by id', () => {
+    // "grandchild"'s parent (a middle session) is not in the locally known
+    // list at all — the walk can reach no further than "grandchild" itself,
+    // and must not silently report that as a confirmed root.
+    const grandchild: Session = {
+      ...root,
+      id: 'sess_grandchild',
+      parent_session_id: 'sess_missing_middle',
+      title: 'Grandchild task',
+    };
+
+    expect(interactionRootSessionId(grandchild.id, [root, grandchild])).toEqual({
+      id: grandchild.id,
+      resolved: false,
+    });
+  });
+
+  it('marks the root unresolved rather than looping on a cyclic hierarchy', () => {
+    const cyclicA: Session = { ...root, id: 'sess_a', parent_session_id: 'sess_b' };
+    const cyclicB: Session = { ...root, id: 'sess_b', parent_session_id: 'sess_a' };
+
+    expect(interactionRootSessionId(cyclicA.id, [cyclicA, cyclicB])).toEqual({
+      id: cyclicA.id,
+      resolved: false,
+    });
+  });
+
+  it('resolves a genuine root (no parent) as resolved, not a walk failure', () => {
+    expect(interactionRootSessionId(root.id, [root, child])).toEqual({
+      id: root.id,
+      resolved: true,
+    });
   });
 
   it('routes normalized question payloads to the exact legacy child destination', async () => {

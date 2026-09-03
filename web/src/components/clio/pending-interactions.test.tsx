@@ -70,7 +70,9 @@ function actionSurface(): A2UISurface {
 function renderPending(
   interactions: PendingInteraction[],
   options: {
+    disabled?: boolean;
     error?: Error;
+    onRefetchSurfaces?: ReturnType<typeof vi.fn>;
     onResponse?: ReturnType<typeof vi.fn>;
     ownerLabels?: Record<string, string>;
     surfaces?: Record<string, A2UISurface>;
@@ -82,8 +84,10 @@ function renderPending(
   render(
     <QueryClientProvider client={client}>
       <ClioPendingInteractions
+        disabled={options.disabled}
         error={options.error}
         interactions={interactions}
+        onRefetchSurfaces={options.onRefetchSurfaces}
         onResponse={onResponse}
         ownerLabels={options.ownerLabels ?? { sess_child: 'Evidence specialist' }}
         surfaces={options.surfaces}
@@ -309,6 +313,81 @@ describe('ClioPendingInteractions', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Allow once' })).toBeEnabled());
   });
 
+  it('leaves an untouched card interactive while a sibling response is in flight', async () => {
+    const user = userEvent.setup();
+    let releaseResponse: (() => void) | undefined;
+    const onResponse = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseResponse = resolve;
+        }),
+    );
+    renderPending(
+      [
+        pending('permission', {
+          id: 'permission:responding',
+          title: 'Run the responding command',
+          actions: ['allow'],
+        }),
+        pending('permission', {
+          id: 'permission:idle',
+          title: 'Run the idle command',
+          actions: ['allow'],
+        }),
+      ],
+      { onResponse },
+    );
+
+    await user.click(screen.getAllByRole('button', { name: 'Allow once' })[0]!);
+
+    // The card actually in flight disables; the untouched sibling never does —
+    // a shared `disabled` fed by the mutation's own isPending would freeze both.
+    expect(screen.getAllByRole('button', { name: 'Allow once' })[0]).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: 'Allow once' })[1]).toBeEnabled();
+    releaseResponse?.();
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: 'Allow once' })[0]).toBeEnabled(),
+    );
+  });
+
+  it('attributes a failed response to only the card that failed, beside the list error', async () => {
+    const user = userEvent.setup();
+    const onResponse = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('The workspace rejected the response.'))
+      .mockResolvedValue(undefined);
+    renderPending(
+      [
+        pending('permission', {
+          id: 'permission:failing',
+          title: 'Run the failing command',
+          actions: ['allow'],
+        }),
+        pending('permission', {
+          id: 'permission:other',
+          title: 'Run the other command',
+          actions: ['allow'],
+        }),
+      ],
+      { error: new Error('capabilities unavailable'), onResponse },
+    );
+
+    await user.click(screen.getAllByRole('button', { name: 'Allow once' })[0]!);
+
+    await waitFor(() =>
+      expect(screen.getByText('The workspace rejected the response.')).toBeVisible(),
+    );
+    // The list-level read failure is still reported, unmasked and undisturbed.
+    expect(screen.getByText('capabilities unavailable')).toBeVisible();
+    // The sibling card carries no error of its own.
+    expect(
+      screen
+        .getByText('Run the other command')
+        .closest('[role="alert"]')
+        ?.textContent?.includes('Response unavailable'),
+    ).toBe(false);
+  });
+
   it('renders question, permission, task input, and child-owned A2UI as distinct kinds', () => {
     const surface = actionSurface();
     renderPending(
@@ -364,6 +443,78 @@ describe('ClioPendingInteractions', () => {
     expect(repository.a2uiAction).not.toHaveBeenCalled();
   });
 
+  it("dims a disabled A2UI surface only to this repo's WCAG AA contrast floor", () => {
+    const surface = actionSurface();
+    const interaction = pending('a2ui', {
+      id: 'a2ui:sess_child:surface_1',
+      source: { protocol: 'native', surface_id: 'surface_1' },
+      actions: ['form.submit'],
+    });
+    renderPending([interaction], { disabled: true, surfaces: { surface_1: surface } });
+
+    const panel = screen
+      .getByRole('button', { name: 'Submit selection' })
+      .closest('[data-slot="frame-panel"]');
+    expect(panel).toHaveClass('opacity-70');
+    expect(panel).not.toHaveClass('opacity-60');
+  });
+
+  it('names a missing surface reference as terminal, not "loading"', () => {
+    const interaction = pending('a2ui', {
+      id: 'a2ui:sess_child:no_surface',
+      source: { protocol: 'native' },
+      actions: [],
+    });
+    renderPending([interaction]);
+
+    expect(screen.getByText('This interactive view has no surface to open.')).toBeVisible();
+    expect(screen.queryByText('Interactive view is loading.')).not.toBeInTheDocument();
+  });
+
+  it('rejects a surface addressed to a different session instead of reading it as loading', () => {
+    const foreignSurface: A2UISurface = { ...actionSurface(), session_id: 'sess_other' };
+    const interaction = pending('a2ui', {
+      id: 'a2ui:sess_child:surface_1',
+      source: { protocol: 'native', surface_id: 'surface_1' },
+      actions: [],
+    });
+    renderPending([interaction], { surfaces: { surface_1: foreignSurface } });
+
+    expect(
+      screen.getByText('This interactive view was rejected: it was addressed to a different session.'),
+    ).toBeVisible();
+    expect(screen.queryByText('Interactive view is loading.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit selection' })).not.toBeInTheDocument();
+  });
+
+  it('offers a retry for a surface still waiting on its read', async () => {
+    const user = userEvent.setup();
+    const onRefetchSurfaces = vi.fn();
+    const interaction = pending('a2ui', {
+      id: 'a2ui:sess_child:surface_1',
+      source: { protocol: 'native', surface_id: 'surface_1' },
+      actions: [],
+    });
+    renderPending([interaction], { onRefetchSurfaces });
+
+    expect(screen.getByText('Interactive view is loading.')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(onRefetchSurfaces).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets an A2UI card with a cancel action be cleared even while its surface never resolves', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('a2ui', {
+      id: 'a2ui:sess_child:surface_1',
+      source: { protocol: 'native', surface_id: 'surface_1' },
+      actions: ['cancel'],
+    });
+    const onResponse = renderPending([interaction]);
+
+    await user.click(screen.getByRole('button', { name: 'Cancel question' }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, { action: 'cancel' });
+  });
+
   it('exposes a bounded independently keyboard-scrollable response viewport', () => {
     renderPending([
       pending('permission', { id: 'permission:p1' }),
@@ -380,11 +531,12 @@ describe('ClioPendingInteractions', () => {
     expect(responses).toHaveClass('bg-card/70', 'dark:bg-card/60');
     expect(viewport).toHaveAttribute('tabindex', '0');
     expect(viewport).toHaveClass('pending-interactions-viewport', 'overscroll-contain');
+    // The panel caps its height rather than always claiming it: a single
+    // response sizes to its content, and only a stack past the cap scrolls.
     expect(viewport.closest('[data-slot="scroll-area"]')).toHaveClass(
-      'h-[min(22rem,40dvh)]',
+      'max-h-[min(22rem,40dvh)]',
       'min-h-0',
     );
-    expect(viewport).toHaveStyle({ overflowY: 'scroll' });
 
     Object.defineProperties(viewport, {
       clientHeight: { configurable: true, value: 240 },

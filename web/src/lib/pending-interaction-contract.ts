@@ -15,18 +15,36 @@ export function hasUnifiedInteractionCapability(
   return capabilities?.x_clio_interactions === true;
 }
 
+/** A locally-known root session id, or one this client could only walk partway to. */
+export interface InteractionRootResolution {
+  id: string;
+  /**
+   * False when the walk stopped because a session's `parent_session_id` points
+   * at an ancestor this client has not listed (or the hierarchy cycles) — `id`
+   * is the highest node reachable from local data, not provably the true root.
+   * True for a genuine root (no parent) or the starting session itself.
+   */
+  resolved: boolean;
+}
+
 /** Resolves the attended root from the locally known session hierarchy. */
-export function interactionRootSessionId(sessionId: string, sessions: readonly Session[]): string {
+export function interactionRootSessionId(
+  sessionId: string,
+  sessions: readonly Session[],
+): InteractionRootResolution {
   const sessionsById = new Map(sessions.map((session) => [session.id, session]));
   let currentId = sessionId;
   const visited = new Set<string>();
   while (!visited.has(currentId)) {
     visited.add(currentId);
     const parentId = sessionsById.get(currentId)?.parent_session_id;
-    if (!parentId || !sessionsById.has(parentId)) return currentId;
+    if (!parentId) return { id: currentId, resolved: true };
+    if (!sessionsById.has(parentId)) return { id: currentId, resolved: false };
     currentId = parentId;
   }
-  return sessionId;
+  // A cycle in the locally known hierarchy is a data-integrity problem, not a
+  // resolved root; the starting session is returned as the best-effort id.
+  return { id: sessionId, resolved: false };
 }
 
 /** Adapts the legacy question and permission ledgers to the normalized UI projection. */
@@ -41,7 +59,7 @@ export function legacyPendingInteractions(
         id: approval.id,
         kind: 'permission',
         owner_session_id: approval.session_id,
-        attended_session_id: interactionRootSessionId(approval.session_id, sessions),
+        attended_session_id: interactionRootSessionId(approval.session_id, sessions).id,
         status: 'pending',
         title: approval.summary,
         prompt: approval.reason,
@@ -59,7 +77,7 @@ export function legacyPendingInteractions(
         id: question.id,
         kind: 'question',
         owner_session_id: question.session_id,
-        attended_session_id: interactionRootSessionId(question.session_id, sessions),
+        attended_session_id: interactionRootSessionId(question.session_id, sessions).id,
         status: question.status,
         title: 'Question from agent',
         prompt: question.prompt,

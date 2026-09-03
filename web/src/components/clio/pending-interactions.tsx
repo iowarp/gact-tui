@@ -4,7 +4,9 @@ import {
   BoxesIcon,
   BotIcon,
   ClipboardPenLineIcon,
+  LoaderCircleIcon,
   MessageCircleQuestionIcon,
+  RotateCcwIcon,
   ShieldQuestionIcon,
   XIcon,
 } from 'lucide-react';
@@ -56,6 +58,8 @@ export interface ClioPendingInteractionsProps {
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
   ) => Promise<void>;
+  /** Retries the surface read for an A2UI card still waiting on its surface. */
+  onRefetchSurfaces?: () => void;
 }
 
 /** Renders the attended task's pending interaction stack immediately above the composer. */
@@ -68,17 +72,28 @@ export function ClioPendingInteractions({
   error,
   onA2UILocalAction,
   onResponse,
+  onRefetchSurfaces,
 }: ClioPendingInteractionsProps) {
   const responseInFlight = useRef(new Set<string>());
   const [respondingIds, setRespondingIds] = useState<ReadonlySet<string>>(new Set());
+  // Keyed per interaction, never a single shared field: a card that failed to
+  // answer must not have its error read as belonging to whichever card the
+  // reader tries next, and a failure on one card must never disable or blank
+  // out every other card's own error.
+  const [responseErrors, setResponseErrors] = useState<ReadonlyMap<string, Error>>(new Map());
   const pending = interactions.filter((interaction) => interaction.status === 'pending');
   const handleResponse = useCallback(
     async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
       if (responseInFlight.current.has(interaction.id)) return;
       responseInFlight.current.add(interaction.id);
       setRespondingIds(new Set(responseInFlight.current));
+      setResponseErrors((current) => dropEntry(current, interaction.id));
       try {
         await onResponse(interaction, response);
+      } catch (thrown) {
+        const responseError = thrown instanceof Error ? thrown : new Error(String(thrown));
+        setResponseErrors((current) => new Map(current).set(interaction.id, responseError));
+        throw thrown;
       } finally {
         responseInFlight.current.delete(interaction.id);
         setRespondingIds(new Set(responseInFlight.current));
@@ -115,7 +130,7 @@ export function ClioPendingInteractions({
         </QueueSectionTrigger>
         <QueueSectionContent className="flex min-h-0 flex-col">
           <ScrollArea
-            className="h-[min(22rem,40dvh)] min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50"
+            className="max-h-[min(22rem,40dvh)] min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50"
             scrollHideDelay={500}
             type="hover"
             viewportProps={{
@@ -140,7 +155,11 @@ export function ClioPendingInteractions({
                 // typed unavailable presentation says so instead of inventing a role.
                 const ownerLabel = ownerLabels[interaction.owner_session_id];
                 const showOwner = interaction.owner_session_id !== viewedSessionId;
+                // The card that is actually in flight is the only one that disables —
+                // a caller-supplied `disabled` is for a genuinely surface-wide reason,
+                // never a stand-in for "some other card's response is in flight."
                 const interactionDisabled = disabled || respondingIds.has(interaction.id);
+                const responseError = responseErrors.get(interaction.id);
                 if (interaction.kind === 'permission') {
                   return (
                     <PermissionResponse
@@ -149,13 +168,18 @@ export function ClioPendingInteractions({
                       key={interaction.id}
                       onResponse={handleResponse}
                       ownerLabel={ownerLabel}
+                      responseError={responseError}
                       showOwner={showOwner}
                     />
                   );
                 }
                 if (interaction.kind === 'a2ui') {
                   const surfaceId = interaction.source.surface_id;
-                  const surface = surfaceId
+                  // Looked up by id alone, WITHOUT the owner-session filter: the
+                  // component below distinguishes "not found yet" from "found, but
+                  // it belongs to a different session" instead of collapsing both
+                  // into the same "loading" message.
+                  const rawSurface = surfaceId
                     ? (surfaces[`${interaction.owner_session_id}:${surfaceId}`] ??
                       surfaces[surfaceId])
                     : undefined;
@@ -165,12 +189,12 @@ export function ClioPendingInteractions({
                       interaction={interaction}
                       key={interaction.id}
                       onLocalAction={onA2UILocalAction}
+                      onRefetchSurface={onRefetchSurfaces}
                       onResponse={handleResponse}
                       ownerLabel={ownerLabel}
+                      rawSurface={rawSurface}
+                      responseError={responseError}
                       showOwner={showOwner}
-                      surface={
-                        surface?.session_id === interaction.owner_session_id ? surface : undefined
-                      }
                     />
                   );
                 }
@@ -181,6 +205,7 @@ export function ClioPendingInteractions({
                     key={interaction.id}
                     onResponse={handleResponse}
                     ownerLabel={ownerLabel}
+                    responseError={responseError}
                     showOwner={showOwner}
                   />
                 );
@@ -232,17 +257,38 @@ function OwnerAttribution({
   );
 }
 
+/** The server's authoritative rejection for THIS card's last attempt, never a list-wide read failure. */
+function ResponseErrorNotice({ error }: { error?: Error }) {
+  if (!error) return null;
+  return (
+    <Alert className="mt-2" variant="destructive">
+      <AlertTriangleIcon aria-hidden="true" />
+      <AlertTitle>Response unavailable</AlertTitle>
+      <AlertDescription>{error.message}</AlertDescription>
+    </Alert>
+  );
+}
+
+function dropEntry<K, V>(map: ReadonlyMap<K, V>, key: K): ReadonlyMap<K, V> {
+  if (!map.has(key)) return map;
+  const next = new Map(map);
+  next.delete(key);
+  return next;
+}
+
 function PermissionResponse({
   disabled,
   interaction,
   onResponse,
   ownerLabel,
+  responseError,
   showOwner,
 }: {
   disabled?: boolean;
   interaction: PendingInteraction;
   onResponse: ClioPendingInteractionsProps['onResponse'];
   ownerLabel?: string;
+  responseError?: Error;
   showOwner: boolean;
 }) {
   const toolCall = interaction.payload?.tool_call;
@@ -269,6 +315,7 @@ function PermissionResponse({
         {interaction.prompt ? (
           <span className="block text-sm text-muted-foreground">{interaction.prompt}</span>
         ) : null}
+        <ResponseErrorNotice error={responseError} />
         {toolName || toolCall?.input !== undefined ? (
           <details className="mt-2 text-xs text-muted-foreground">
             <summary className="cursor-pointer">Technical details</summary>
@@ -385,12 +432,14 @@ function QuestionResponse({
   disabled,
   onResponse,
   ownerLabel,
+  responseError,
   showOwner,
 }: {
   interaction: PendingInteraction;
   disabled?: boolean;
   onResponse: ClioPendingInteractionsProps['onResponse'];
   ownerLabel?: string;
+  responseError?: Error;
   showOwner: boolean;
 }) {
   const [answer, setAnswer] = useState('');
@@ -432,6 +481,7 @@ function QuestionResponse({
         showOwner={showOwner}
       />
       <FramePanel className="min-w-0 overflow-hidden">
+        <ResponseErrorNotice error={responseError} />
         {!canAnswer ? (
           <p className="text-sm text-muted-foreground">Input controls are not available yet.</p>
         ) : usesOptions ? (
@@ -575,18 +625,22 @@ function A2UIResponse({
   disabled,
   interaction,
   onLocalAction,
+  onRefetchSurface,
   onResponse,
   ownerLabel,
+  rawSurface,
+  responseError,
   showOwner,
-  surface,
 }: {
   disabled?: boolean;
   interaction: PendingInteraction;
   onLocalAction?: A2UILocalActionHandler;
+  onRefetchSurface?: () => void;
   onResponse: ClioPendingInteractionsProps['onResponse'];
   ownerLabel?: string;
+  rawSurface?: A2UISurface;
+  responseError?: Error;
   showOwner: boolean;
-  surface?: A2UISurface;
 }) {
   return (
     <Frame
@@ -597,26 +651,96 @@ function A2UIResponse({
     >
       <InteractionFrameHeader
         interaction={interaction}
+        onCancel={
+          (interaction.actions ?? []).includes('cancel')
+            ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
+            : undefined
+        }
         ownerLabel={ownerLabel}
         showOwner={showOwner}
       />
-      <FramePanel className={cn('p-2', disabled && 'pointer-events-none opacity-60')}>
-        {surface ? (
-          <ClioA2UISurface
-            onLocalAction={onLocalAction}
-            onRemoteAction={(message) => onResponse(interaction, { message })}
-            surface={surface}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">Interactive view is loading.</p>
+      <FramePanel
+        className={cn(
+          'p-2',
+          // 0.7, not 0.5/0.6, is this repo's WCAG AA contrast floor for a
+          // dimmed-but-readable disabled surface (see reui/sortable.tsx).
+          disabled && 'pointer-events-none opacity-70',
         )}
+      >
+        <ResponseErrorNotice error={responseError} />
+        <A2UISurfaceBody
+          interaction={interaction}
+          onLocalAction={onLocalAction}
+          onRefetchSurface={onRefetchSurface}
+          onResponse={onResponse}
+          rawSurface={rawSurface}
+        />
       </FramePanel>
     </Frame>
   );
 }
 
+/**
+ * "Interactive view is loading." collapsed three distinct realities into one
+ * message. Only the first is transient — the other two will never resolve by
+ * waiting, and telling them apart matters: a surface addressed to a different
+ * session is a security-relevant rejection, not a slow read.
+ */
+function A2UISurfaceBody({
+  interaction,
+  onLocalAction,
+  onRefetchSurface,
+  onResponse,
+  rawSurface,
+}: {
+  interaction: PendingInteraction;
+  onLocalAction?: A2UILocalActionHandler;
+  onRefetchSurface?: () => void;
+  onResponse: ClioPendingInteractionsProps['onResponse'];
+  rawSurface?: A2UISurface;
+}) {
+  if (!interaction.source.surface_id) {
+    return (
+      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+        <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
+        This interactive view has no surface to open.
+      </p>
+    );
+  }
+  if (rawSurface && rawSurface.session_id !== interaction.owner_session_id) {
+    return (
+      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
+        <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
+        This interactive view was rejected: it was addressed to a different session.
+      </p>
+    );
+  }
+  if (!rawSurface) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <LoaderCircleIcon aria-hidden="true" className="size-4 shrink-0 motion-safe:animate-spin" />
+        <span className="flex-1">Interactive view is loading.</span>
+        {onRefetchSurface ? (
+          <Button onClick={onRefetchSurface} size="sm" type="button" variant="ghost">
+            <RotateCcwIcon aria-hidden="true" />
+            Retry
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <ClioA2UISurface
+      onLocalAction={onLocalAction}
+      onRemoteAction={(message) => onResponse(interaction, { message })}
+      surface={rawSurface}
+    />
+  );
+}
+
 function respondFromControl(response: Promise<void>): void {
   void response.catch(() => {
-    // The owning mutation presents authoritative server errors beside the composer.
+    // handleResponse already recorded this failure against its own interaction
+    // (ResponseErrorNotice renders it on that card); nothing further to do here.
   });
 }

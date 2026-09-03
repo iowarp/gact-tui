@@ -1,12 +1,17 @@
 import { queryKeys } from '@/lib/query-keys';
 import { useQueries, useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
-import { ACTIVE_SESSION_POLL_MS, PROVIDER_CATALOG_STALE_TIME_MS } from '@/lib/runtime-limits';
+import {
+  ACTIVE_SESSION_POLL_MS,
+  PENDING_INTERACTIONS_FANOUT_CAP,
+  PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
+  PROVIDER_CATALOG_STALE_TIME_MS,
+} from '@/lib/runtime-limits';
 import { sessionArtifactEntities } from '@/lib/session-artifacts';
 import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
@@ -95,10 +100,11 @@ export function useWorkspaceData({
     () => allSessions.data ?? sessions.data ?? [],
     [allSessions.data, sessions.data],
   );
-  const attendedSessionId = useMemo(
+  const attendedSessionRoot = useMemo(
     () => interactionRootSessionId(sessionId, hierarchySessions),
     [hierarchySessions, sessionId],
   );
+  const attendedSessionId = attendedSessionRoot.id;
   const transcript = useQuery({
     queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
     queryFn: ({ signal }) => repository.transcript(sessionId, signal),
@@ -152,21 +158,27 @@ export function useWorkspaceData({
   });
   const attentionRootSessionIds = useMemo(() => {
     if (!supportsUnifiedInteractions) return [];
+    // A busy workspace with many background sessions cannot open one request
+    // per root session on every render — capped, not unbounded fan-out.
     return [
       ...new Set(
         hierarchySessions
           .filter((candidate) => !candidate.archived)
-          .map((candidate) => interactionRootSessionId(candidate.id, hierarchySessions))
+          .map((candidate) => interactionRootSessionId(candidate.id, hierarchySessions).id)
           .filter((candidateId) => candidateId !== attendedSessionId),
       ),
-    ];
+    ].slice(0, PENDING_INTERACTIONS_FANOUT_CAP);
   }, [attendedSessionId, hierarchySessions, supportsUnifiedInteractions]);
   const attentionInteractionQueries = useQueries({
     queries: attentionRootSessionIds.map((rootSessionId) => ({
       queryKey: queryKeys.pendingInteractions(settings.endpoint, rootSessionId),
       queryFn: ({ signal }) => repository.pendingInteractions(rootSessionId, true, signal),
+      staleTime: PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
     })),
   });
+  const attentionInteractionsError = attentionInteractionQueries.find(
+    (query) => query.error,
+  )?.error;
   const interactions = useMemo(
     () =>
       supportsUnifiedInteractions
@@ -207,6 +219,12 @@ export function useWorkspaceData({
         .map((surface) => [`${surface.session_id}:${surface.id}`, surface]),
     ),
   };
+  // A one-shot read: a card left waiting on a surface that missed its live
+  // event (rather than one that never existed) has no other path to recover
+  // without this — a poll interval is not wired for these snapshots.
+  const refetchInteractionSurfaces = useCallback(() => {
+    void Promise.all(interactionSurfaceSnapshots.map((snapshot) => snapshot.refetch()));
+  }, [interactionSurfaceSnapshots]);
 
   useEffect(() => {
     if (workspaces.data) mergeSnapshots({ workspaces: recordById(workspaces.data) });
@@ -386,15 +404,23 @@ export function useWorkspaceData({
     // `capabilities` belongs in this aggregate: it decides which interaction read
     // runs, so its failure is an interaction failure the composer must show. It
     // otherwise only reached the full-page unavailable state, which is skipped
-    // once a session is on screen.
+    // once a session is on screen. The per-root fan-out errors join it too —
+    // a blocked background session the reader cannot see is still an
+    // interaction the reader was not told about.
     interactionsError:
       normalizedInteractions.error ??
       approvals.error ??
       questions.error ??
       capabilities.error ??
+      attentionInteractionsError ??
       undefined,
     interactionRootSessionId: attendedSessionId,
+    // True when the attended session's true root could not be confirmed from
+    // locally known sessions (an unknown ancestor, or a hierarchy cycle) —
+    // `interactionRootSessionId` is then a best-effort id, not a proven root.
+    interactionRootUnresolved: !attendedSessionRoot.resolved,
     interactionSurfaces,
+    refetchInteractionSurfaces,
     supportsUnifiedInteractions,
     modelConfiguration,
     modelCatalogStatus,
