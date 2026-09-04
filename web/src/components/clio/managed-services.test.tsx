@@ -14,13 +14,16 @@ vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => runtime.desktop
 vi.mock('@/tauri/infrastructure-setup', () => deployment);
 
 import { ManagedServices } from './managed-services';
+import type { ManagedServiceDefinition } from '@/tauri/infrastructure-setup';
 
-const services = [
+const serviceLabels: Array<[ManagedServiceDefinition['id'], string]> = [
   ['vllm', 'vLLM'],
   ['llama_cpp', 'llama.cpp'],
   ['web_search', 'CLIO Web Search'],
   ['relay', 'CLIO Relay'],
-].map(([id, label]) => ({
+];
+
+const services = serviceLabels.map<ManagedServiceDefinition>(([id, label]) => ({
   id,
   label,
   description: `${label} deployment`,
@@ -32,13 +35,23 @@ const services = [
       id: `${id}-default`,
       label: 'Recommended',
       version: 'pinned',
-      installation_type: 'container',
+      install_type: 'container',
       artifact: `example/${id}:pinned`,
       compatible: true,
-      incompatibility: null,
+      reason: 'Compatible with target',
     },
   ],
 }));
+
+services[0].configuration_fields = [
+  {
+    id: 'reasoning_parser',
+    label: 'Reasoning parser',
+    placeholder: 'Automatic for common reasoning models',
+    required: false,
+    options: ['qwen3', 'deepseek_r1'],
+  },
+];
 
 function renderServices() {
   return render(
@@ -75,6 +88,7 @@ describe('ManagedServices', () => {
     expect(screen.getByRole('heading', { name: 'llama.cpp' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'CLIO Web Search' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'CLIO Relay' })).toBeVisible();
+    expect(screen.getByLabelText('vLLM Reasoning parser')).toBeVisible();
   });
 
   it('shows connection guidance without deployment controls in browser mode', () => {

@@ -201,17 +201,36 @@ function ServiceCard({
       ) : (
         <p className="mt-3 text-sm text-warning">No compatible pinned build was detected.</p>
       )}
-      {service.configuration_fields.map((field) => (
-        <Input
-          aria-label={`${service.label} ${field.label}`}
-          className="mt-2"
-          key={field.id}
-          onChange={(event) => onConfiguration(field.id, event.target.value)}
-          placeholder={field.placeholder}
-          required={field.required}
-          value={configuration[field.id] ?? ''}
-        />
-      ))}
+      {service.configuration_fields.map((field) =>
+        field.options?.length ? (
+          <Select
+            key={field.id}
+            onValueChange={(value) => onConfiguration(field.id, value)}
+            value={configuration[field.id]}
+          >
+            <SelectTrigger aria-label={`${service.label} ${field.label}`} className="mt-2">
+              <SelectValue placeholder={field.placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              {field.options.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input
+            aria-label={`${service.label} ${field.label}`}
+            className="mt-2"
+            key={field.id}
+            onChange={(event) => onConfiguration(field.id, event.target.value)}
+            placeholder={field.placeholder}
+            required={field.required}
+            value={configuration[field.id] ?? ''}
+          />
+        ),
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         {(['install', 'start', 'status', 'logs'] as const).map((name) => (
           <Button
