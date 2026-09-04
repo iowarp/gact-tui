@@ -13,6 +13,40 @@ const LLAMA_VULKAN_IMAGE: &str = "ghcr.io/ggml-org/llama.cpp:server-vulkan-b1062
 const LLAMA_WINDOWS_CPU_ARCHIVE: &str =
     "https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-win-cpu-x64.zip";
 const MAX_LOG_CHARS: usize = 4_000;
+// Exact parser names registered by the pinned vLLM v0.28.0 runtime.
+const VLLM_REASONING_PARSERS: &[&str] = &[
+    "cohere_command3",
+    "cohere_command4",
+    "deepseek_r1",
+    "deepseek_v3",
+    "deepseek_v4",
+    "ernie45",
+    "gemma4",
+    "glm45",
+    "glm47",
+    "granite",
+    "holo2",
+    "hunyuan_a13b",
+    "hy_v3",
+    "inkling",
+    "kimi_k2",
+    "kimi_k3",
+    "ling3",
+    "mimo",
+    "minimax_m2",
+    "minimax_m2_append_think",
+    "minimax_m3",
+    "mistral",
+    "muse_glimmer",
+    "nemotron_v3",
+    "olmo3",
+    "openai_gptoss",
+    "poolside_v1",
+    "qwen3",
+    "seed_oss",
+    "step3",
+    "step3p5",
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SshProfile {
@@ -43,6 +77,7 @@ pub struct ServiceConfigField {
     pub label: String,
     pub placeholder: String,
     pub required: bool,
+    pub options: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -165,7 +200,16 @@ impl Driver {
                         "Requires an approved x86-64 Linux target; CPU serving may be slow.",
                     ),
                 ],
-                vec![field("model", "Model", "Qwen/Qwen3-8B", true)],
+                vec![
+                    field("model", "Model", "Qwen/Qwen3-8B", true),
+                    choice_field(
+                        "reasoning_parser",
+                        "Reasoning parser",
+                        "Automatic for common reasoning models",
+                        false,
+                        VLLM_REASONING_PARSERS,
+                    ),
+                ],
                 true,
             ),
             Self::LlamaCpp => definition(
@@ -320,9 +364,34 @@ impl Driver {
                     args.extend(strings(&["--gpus", "all"]));
                 }
                 if variant.id == "rocm" {
-                    args.extend(strings(&["--device", "/dev/kfd", "--device", "/dev/dri"]));
+                    args.extend(strings(&[
+                        "--group-add",
+                        "video",
+                        "--cap-add",
+                        "SYS_PTRACE",
+                        "--security-opt",
+                        "seccomp=unconfined",
+                        "--device",
+                        "/dev/kfd",
+                        "--device",
+                        "/dev/dri",
+                    ]));
                 }
+                args.extend(strings(&["--ipc", "host"]));
                 args.extend([variant.artifact.clone(), "--model".into(), model.into()]);
+                let configured_parser = config(request, "reasoning_parser", false)?;
+                let reasoning_parser = if configured_parser.is_empty() {
+                    recommended_vllm_reasoning_parser(model)
+                } else if VLLM_REASONING_PARSERS.contains(&configured_parser) {
+                    Some(configured_parser)
+                } else {
+                    return Err(
+                        "The reasoning_parser value is not supported by vLLM v0.28.0.".into(),
+                    );
+                };
+                if let Some(parser) = reasoning_parser {
+                    args.extend(strings(&["--reasoning-parser", parser]));
+                }
                 Ok(vec![CommandSpec {
                     program: "docker".into(),
                     args,
@@ -892,6 +961,43 @@ fn field(id: &str, label: &str, placeholder: &str, required: bool) -> ServiceCon
         label: label.into(),
         placeholder: placeholder.into(),
         required,
+        options: Vec::new(),
+    }
+}
+
+fn choice_field(
+    id: &str,
+    label: &str,
+    placeholder: &str,
+    required: bool,
+    options: &[&str],
+) -> ServiceConfigField {
+    ServiceConfigField {
+        id: id.into(),
+        label: label.into(),
+        placeholder: placeholder.into(),
+        required,
+        options: strings(options),
+    }
+}
+
+fn recommended_vllm_reasoning_parser(model: &str) -> Option<&'static str> {
+    let model = model.to_ascii_lowercase();
+    if model.contains("qwen3") || model.contains("qwopus") {
+        Some("qwen3")
+    } else if model.contains("deepseek-r1")
+        || model.contains("deepseek_r1")
+        || model.contains("qwq")
+    {
+        Some("deepseek_r1")
+    } else if model.contains("gpt-oss") {
+        Some("openai_gptoss")
+    } else if model.contains("nemotron") {
+        Some("nemotron_v3")
+    } else if model.contains("gemma-4") || model.contains("gemma4") {
+        Some("gemma4")
+    } else {
+        None
     }
 }
 fn variant(
@@ -1088,6 +1194,18 @@ mod tests {
             .args
             .contains(&"vllm/vllm-openai:v0.28.0".into()));
         assert!(commands[0].args.contains(&"--gpus".into()));
+        assert!(commands[0]
+            .args
+            .windows(2)
+            .any(|pair| pair == ["--reasoning-parser", "qwen3"]));
+
+        input
+            .configuration
+            .insert("reasoning_parser".into(), "shell-command".into());
+        assert!(Driver::Vllm
+            .start(&input, &definition.variants[0])
+            .unwrap_err()
+            .contains("not supported"));
 
         let mut windows = facts("windows", "amd");
         windows.target = "This computer".into();

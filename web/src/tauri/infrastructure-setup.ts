@@ -50,6 +50,7 @@ export type ManagedServiceDefinition = {
     label: string;
     placeholder: string;
     required: boolean;
+    options?: string[];
   }>;
   supports_stop: boolean;
 };
