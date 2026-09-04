@@ -466,10 +466,13 @@ export function ImageResourceView({
     >
       <ZoomPan
         ariaLabel={`Zoomable image ${name}`}
-        className="bg-[linear-gradient(45deg,var(--muted)_25%,transparent_25%),linear-gradient(-45deg,var(--muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--muted)_75%),linear-gradient(-45deg,transparent_75%,var(--muted)_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px]"
+        className="bg-muted/30"
+        fitPadding={1}
         imageSrc={url}
         maxScale={8}
         minScale={0.05}
+        viewportClassName="bg-[linear-gradient(45deg,var(--muted)_25%,transparent_25%),linear-gradient(-45deg,var(--muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--muted)_75%),linear-gradient(-45deg,transparent_75%,var(--muted)_75%)] bg-[length:20px_20px] bg-[position:0_0,0_10px,10px_-10px,-10px_0px]"
+        viewportMode="image-aspect"
         zoomStep={0.2}
         controls={({ zoomIn, zoomOut, resetZoom, centerView, scalePercent }) => (
           <div className="flex min-h-10 items-center gap-1 border-b bg-background/90 px-2 backdrop-blur-sm">
