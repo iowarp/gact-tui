@@ -39,10 +39,17 @@ const executionSpanSchema = z.object({
   parent_id: z.string(),
   kind: z.string(),
   session_id: z.string(),
+  root_session_id: z.string().optional(),
+  owner_session_id: z.string().optional(),
   workflow_id: z.string(),
   campaign_id: z.string(),
   agent_id: z.string(),
   source_agent_id: z.string(),
+  task_id: z.string().optional(),
+  task_path: z.array(z.string()).default([]),
+  invocation_id: z.string().optional(),
+  tool_name: z.string().optional(),
+  surface_id: z.string().optional(),
   label: z.string(),
   event_type: z.string(),
   status: z.string(),
@@ -65,17 +72,35 @@ const executionNodeSchema = z.object({
   end_time: nullableFiniteNumber,
   attributes: z.record(z.string(), z.unknown()),
 });
-const executionEdgeSchema = z.object({
-  id: z.string(),
-  source: z.string(),
-  target: z.string(),
-  kind: z.string(),
+const executionEdgeSchema = z
+  .object({
+    id: z.string(),
+    source: z.string(),
+    target: z.string(),
+    kind: z.string(),
+    event_id: z.string().optional(),
+  })
+  .passthrough();
+
+const executionSessionLineageSchema = z.object({
+  session_id: z.string(),
+  parent_session_id: z.string(),
+  task_id: z.string(),
+  agent_id: z.string(),
+  label: z.string(),
+  depth: z.number().int().nonnegative(),
+  task_path: z.array(z.string()).default([]),
+  status: z.string().optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
 });
 
 export const executionProvenanceSchema = z.object({
   schema_version: z.string(),
   provider: z.string(),
   session_id: z.string(),
+  root_session_id: z.string().optional(),
+  session_lineage: z.array(executionSessionLineageSchema).optional(),
   complete: z.boolean(),
   truncated: z.boolean(),
   provider_health: healthSchema.default({}),

@@ -518,6 +518,9 @@ $documentProcessorEnvironment = @{
     CLIO_WEB_SEARCH_HOST = "127.0.0.1"
     CLIO_WEB_SEARCH_PORT = "$DocumentProcessorPort"
     CLIO_WEB_SEARCH_DATA_DIR = $documentProcessorDataRoot
+    # Docling enables torch.compile by default. Portable Windows development
+    # runs must not require an MSVC C++ toolchain merely to perform inference.
+    DOCLING_INFERENCE_COMPILE_TORCH_MODELS = "false"
 }
 $originalDocumentProcessorEnvironment = @{}
 foreach ($name in $documentProcessorEnvironment.Keys) {
@@ -541,6 +544,7 @@ try {
     $documentProcessorProcess = Start-Process `
         -FilePath $documentProcessorLauncher `
         -WorkingDirectory $documentProcessorRoot `
+        -Environment $documentProcessorEnvironment `
         -RedirectStandardOutput $documentProcessorStdout `
         -RedirectStandardError $documentProcessorStderr `
         -WindowStyle Hidden `
@@ -606,7 +610,7 @@ $runtimeEnvironment = @{
     SPOTTER_CLIO_CONFIG = $spotterConfigFull
 }
 if ($Provider -eq "codex") {
-    $runtimeEnvironment.CLIO_CODEX_TRANSPORT = "app_server"
+    $runtimeEnvironment.CLIO_CODEX_TRANSPORT = "sdk"
 }
 elseif ($Provider -eq "claude_code") {
     $runtimeEnvironment.CLIO_CLAUDE_CODE_TRANSPORT = "sdk"
@@ -668,7 +672,7 @@ Set-DeploymentStage -Name "provider_reconciliation"
 $providerUri = "http://127.0.0.1:$BackendPort/v1/providers/lm"
 $providerInfo = Invoke-RestMethod -Uri $providerUri -TimeoutSec 20
 $expectedTransport = if ($Provider -eq "codex") {
-    "app_server"
+    "sdk"
 }
 elseif ($Provider -eq "claude_code") {
     "sdk"

@@ -1,4 +1,9 @@
-import type { Artifact, ArtifactRecord, SessionArtifactListing } from '@clio/core/v3';
+import type {
+  Artifact,
+  ArtifactDetail,
+  ArtifactRecord,
+  SessionArtifactListing,
+} from '@clio/core/v3';
 
 /** Projects authoritative registry records into the normalized artifact shape used by the UI. */
 export function sessionArtifactEntities(
@@ -26,6 +31,14 @@ export function sessionArtifactEntities(
     }
   }
   return [...artifacts.values()];
+}
+
+/** Projects one authoritative artifact detail response into a canvas entity. */
+export function artifactDetailEntity(detail: ArtifactDetail, sessionId: string): Artifact {
+  const artifact = artifactRecordHead(detail.artifact, sessionId, 'used');
+  if (!artifact)
+    throw new Error(`Artifact ${detail.artifact.head_artifact_id} has no readable version.`);
+  return artifact;
 }
 
 function artifactRecordHead(

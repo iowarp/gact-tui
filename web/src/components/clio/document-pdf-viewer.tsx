@@ -236,9 +236,9 @@ export function ClioDocumentPdfViewer({
               {windowedPages.map((visiblePage) => (
                 <PdfPage
                   key={visiblePage}
+                  onMeasure={visiblePage === pageWindow.first ? measurePage : undefined}
                   onMouseUp={captureSelection}
                   pageNumber={visiblePage}
-                  ref={visiblePage === pageWindow.first ? measurePage : undefined}
                   scale={scale}
                   width={hostWidth}
                 />
@@ -257,26 +257,29 @@ export function ClioDocumentPdfViewer({
 }
 
 function PdfPage({
+  onMeasure,
   onMouseUp,
   pageNumber,
-  ref,
   scale,
   width,
 }: {
+  onMeasure?: (element: HTMLDivElement | null) => void;
   onMouseUp: () => void;
   pageNumber: number;
-  ref?: (element: HTMLDivElement | null) => void;
   scale: number;
   width: number;
 }) {
+  const pageRef = useRef<HTMLDivElement>(null);
+
   return (
     <div
       className="mx-auto w-fit overflow-hidden rounded-lg border bg-white shadow-sm"
       data-page={pageNumber - 1}
       onMouseUp={onMouseUp}
-      ref={ref}
+      ref={pageRef}
     >
       <Page
+        onRenderSuccess={() => onMeasure?.(pageRef.current)}
         pageNumber={pageNumber}
         renderAnnotationLayer
         renderTextLayer

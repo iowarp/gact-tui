@@ -1,5 +1,5 @@
-import type { ResourceDeliveryDecision } from './composer-domain.js';
 import type { InfrastructureDependency } from './infrastructure-domain.js';
+import type { MessageBlock } from './message-domain.js';
 import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
 
@@ -87,6 +87,7 @@ export interface Session {
   created_at: string;
   updated_at: string;
   last_interaction_at?: string;
+  message_count?: number;
   provider_id?: string;
   model_id?: string;
   effort?: string;
@@ -240,6 +241,7 @@ export interface UserQuestion {
   status: WireValue<'pending' | 'answered' | 'cancelled' | 'expired'>;
   kind: WireValue<'freeform' | 'choice' | 'confirmation'>;
   options?: Array<{ label: string; value: string; description?: string }>;
+  allow_freeform?: boolean;
   answer?: string;
   selected_options?: string[];
   created_at: string;
@@ -445,9 +447,12 @@ export interface AsyncProcess {
   title: string;
   live_state: RunState;
   status: string;
+  root_session_id?: string;
+  owner_session_id?: string;
   parent_session_id?: string;
   child_session_id?: string;
   parent_turn_id?: string;
+  task_path?: string[];
   handle_id?: string;
   host?: string;
   placement?: string;
@@ -545,6 +550,8 @@ export interface McpServerDefinition {
   source?: string;
   enabled?: boolean;
   agent_blueprint_id?: string;
+  agent_blueprint_name?: string;
+  session_id?: string;
   spec: Record<string, unknown>;
 }
 
@@ -619,58 +626,6 @@ export interface RuntimeMetrics {
   latencies: Record<string, { count: number; p50_ms: number; p95_ms: number; max_ms: number }>;
 }
 
-export interface MessageBlockContext {
-  agent_id?: string;
-  sequence?: number;
-  stream_source?: string;
-  channel?: string;
-}
-
-export type MessageBlock = MessageBlockContext &
-  (
-    | { id: string; type: 'text'; text: string; streaming?: boolean }
-    | {
-        id: string;
-        type: 'reasoning';
-        text: string;
-        streaming?: boolean;
-        source?: string;
-        provider_source?: string;
-        default_collapsed?: boolean;
-      }
-    | { id: string; type: 'tool'; tool_id: string; thought?: string }
-    | { id: string; type: 'plan'; title: string; detail?: string }
-    | { id: string; type: 'task'; task_id: string }
-    | { id: string; type: 'subagent'; subagent_id: string }
-    | { id: string; type: 'artifact'; artifact_id: string }
-    | {
-        id: string;
-        type: 'resource';
-        resource_id: string;
-        resource_revision: string;
-        workspace_id: string;
-        name: string;
-        media_type: string;
-        delivery?: ResourceDeliveryDecision;
-      }
-    | {
-        id: string;
-        type: 'action_card';
-        title: string;
-        detail?: string;
-        source?: string;
-        severity?: string;
-        status?: string;
-        actions: ActionCardAction[];
-      }
-    | { id: string; type: 'a2ui'; surface_id: string }
-    | { id: string; type: 'citation'; label: string; uri: string }
-    | { id: string; type: 'diff'; path: string; unified_diff: string }
-    | { id: string; type: 'error'; code: string; message: string; recoverable: boolean }
-    | { id: string; type: 'routing'; label: string; detail?: string }
-    | { id: string; type: 'unknown'; original_type: string; raw: Record<string, unknown> }
-  );
-
 export interface MessageUsage {
   input: number;
   output: number;
@@ -720,17 +675,6 @@ export interface PermissionLedgerItem {
   resolved_at?: string;
 }
 
-export interface ActionCardAction {
-  id: string;
-  label: string;
-  enabled: boolean;
-  behavior: {
-    kind: string;
-    handle_id?: string;
-    reason?: string;
-  };
-}
-
 export interface TranscriptSnapshot {
   cursor?: string;
   messages: Message[];
@@ -777,6 +721,7 @@ export interface EntityState {
   /** Frames the reducer could not apply, each carrying its typed reason. */
   gaps: TransportGap[];
 }
+export type { ActionCardAction, MessageBlock, MessageBlockContext } from './message-domain.js';
 export type {
   CommandDefinition,
   PromptDefinition,

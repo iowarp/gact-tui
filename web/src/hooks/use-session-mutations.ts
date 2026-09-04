@@ -6,13 +6,16 @@ import type {
   ComposerMessagePart,
   MessageBehavior,
   MessageDelivery,
+  PendingInteraction,
+  PendingInteractionResponse,
   QueuedMessage,
   Session,
+  WorkspaceResource,
 } from '@clio/core/v3';
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SessionBehaviorPatch } from '@/components/clio/session-behavior-options';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -21,7 +24,9 @@ import { useRepository } from './use-repository';
 import {
   uploadWorkspaceResources,
   type ResourceUploadProgress,
+  type WorkspaceResourceUploadResult,
 } from '@/lib/upload-workspace-resources';
+import { respondToLegacyInteraction } from '@/lib/pending-interaction-contract';
 
 interface UseSessionMutationsInput {
   activeModel?: string;
@@ -29,10 +34,13 @@ interface UseSessionMutationsInput {
   session?: Session;
   sessionId: string;
   workspaceId: string;
+  interactionRootSessionId?: string;
+  supportsUnifiedInteractions?: boolean;
 }
 
 export interface SessionSendInput {
   text: string;
+  references?: ComposerMessagePart[];
   files?: FileUIPart[];
   provider?: string;
   model?: string;
@@ -56,6 +64,8 @@ export function useSessionMutations({
   session,
   sessionId,
   workspaceId,
+  interactionRootSessionId = sessionId,
+  supportsUnifiedInteractions = false,
 }: UseSessionMutationsInput) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -66,11 +76,20 @@ export function useSessionMutations({
   // Uploads outlive a single request: they chunk bytes and then wait for the
   // service to register the resource. Leaving the session must end that wait
   // rather than leave it polling against a session nobody is looking at.
-  const uploads = useRef<AbortController | null>(null);
+  const uploadController = useRef<AbortController | null>(null);
+  const preparedUploads = useRef(new Map<string, Promise<WorkspaceResourceUploadResult>>());
   useEffect(() => {
     const controller = new AbortController();
-    uploads.current = controller;
-    return () => controller.abort();
+    uploadController.current = controller;
+    const cache = preparedUploads.current;
+    const cachePrefix = `${sessionId}\u0000`;
+    return () => {
+      controller.abort();
+      if (uploadController.current === controller) uploadController.current = null;
+      for (const key of cache.keys()) {
+        if (key.startsWith(cachePrefix)) cache.delete(key);
+      }
+    };
   }, [sessionId]);
 
   const queuedMessages = useQuery({
@@ -95,6 +114,61 @@ export function useSessionMutations({
     ]);
   };
 
+  const prepareFiles = useCallback(
+    async (
+      files: readonly FileUIPart[],
+      onProgress?: (progress: ResourceUploadProgress) => void,
+      signal?: AbortSignal,
+    ): Promise<WorkspaceResourceUploadResult> => {
+      const uploadsForFiles = files.map((file) => {
+        const cacheKey = `${sessionId}\u0000${file.url}`;
+        let pending = preparedUploads.current.get(cacheKey);
+        if (!pending) {
+          const controller = uploadController.current;
+          if (!controller || controller.signal.aborted) {
+            throw new Error('The attachment upload is no longer active for this session.');
+          }
+          const uploadSignal = signal
+            ? AbortSignal.any([controller.signal, signal])
+            : controller.signal;
+          pending = uploadWorkspaceResources({
+            files: [file],
+            onProgress,
+            repository,
+            signal: uploadSignal,
+            workspaceId,
+          })
+            .then((result) => {
+              queryClient.setQueryData<WorkspaceResource[]>(
+                queryKeys.workspaceResources(settings.endpoint, workspaceId),
+                (current = []) => {
+                  const byId = new Map(current.map((resource) => [resource.id, resource]));
+                  for (const resource of result.resources) byId.set(resource.id, resource);
+                  return [...byId.values()];
+                },
+              );
+              void queryClient.invalidateQueries({
+                queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),
+              });
+              return result;
+            })
+            .catch((error: unknown) => {
+              preparedUploads.current.delete(cacheKey);
+              throw error;
+            });
+          preparedUploads.current.set(cacheKey, pending);
+        }
+        return pending;
+      });
+      const results = await Promise.all(uploadsForFiles);
+      return {
+        parts: results.flatMap((result) => result.parts),
+        resources: results.flatMap((result) => result.resources),
+      };
+    },
+    [queryClient, repository, sessionId, settings.endpoint, workspaceId],
+  );
+
   const sendIdentities = useRef(new SendIdentities());
   const send = useMutation({
     mutationFn: async (value: SessionSendInput) => {
@@ -104,17 +178,12 @@ export function useSessionMutations({
       const identity = sendIdentities.current.forSend(sendFingerprint(value));
 
       const uploaded = value.files?.length
-        ? await uploadWorkspaceResources({
-            files: value.files,
-            onProgress: value.onUploadProgress,
-            repository,
-            signal: uploads.current?.signal,
-            workspaceId,
-          })
+        ? await prepareFiles(value.files, value.onUploadProgress)
         : { parts: [] as ComposerMessagePart[], resources: [] };
       const text = value.text.trim();
       const parts: ComposerMessagePart[] = [
         ...(text ? [{ text, type: 'text' as const }] : []),
+        ...(value.references ?? []),
         ...uploaded.parts,
       ];
       if (parts.length === 0) throw new Error('Write a message or attach a resource.');
@@ -288,6 +357,59 @@ export function useSessionMutations({
     },
   });
 
+  const respondInteraction = useMutation({
+    mutationFn: ({
+      interaction,
+      response,
+    }: {
+      interaction: PendingInteraction;
+      response: PendingInteractionResponse;
+    }) => {
+      if (supportsUnifiedInteractions) {
+        return repository.respondInteraction(interactionRootSessionId, interaction.id, response);
+      }
+      return respondToLegacyInteraction(interaction, response, {
+        answerQuestion: (ownerSessionId, questionId, answer) =>
+          repository.answerQuestion(ownerSessionId, questionId, answer),
+        cancelQuestion: (ownerSessionId, questionId) =>
+          repository.cancelQuestion(ownerSessionId, questionId),
+        respondPermission: (permissionId, action) =>
+          repository.respondPermission(permissionId, action),
+        a2uiAction: (ownerSessionId, message, correlation) =>
+          repository.a2uiAction(ownerSessionId, message, correlation),
+      });
+    },
+    onSettled: async (_result, _error, { interaction }) => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pendingInteractions(settings.endpoint, interactionRootSessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.pendingApprovals(settings.endpoint),
+        }),
+        // Pending questions are read unscoped (`?status=pending`, no session_id) at
+        // the 'all-active' key, same as pending-approvals — the per-session key
+        // this used to invalidate never matches that query, so it never refetches.
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('pending-questions', settings.endpoint),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sessions(settings.endpoint, workspaceId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sessions(settings.endpoint, 'all'),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.transcript(
+            settings.endpoint,
+            interaction.owner_session_id,
+            'pending-a2ui',
+          ),
+        }),
+      ]);
+    },
+  });
+
   const actionCard = useMutation({
     mutationFn: async (action: ActionCardInput) => {
       if (action.behavior.kind !== 'focus_session' || !action.behavior.handle_id) {
@@ -309,8 +431,10 @@ export function useSessionMutations({
     deleteQueuedMessage,
     pendingSteers,
     promoteQueuedMessage,
+    prepareFiles,
     queuedMessages,
     reorderQueuedMessages,
+    respondInteraction,
     respondPermission,
     retry,
     send,

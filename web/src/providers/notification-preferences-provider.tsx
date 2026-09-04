@@ -23,7 +23,7 @@ interface NotificationPreferencesContextValue extends NotificationPreferences {
 }
 
 const defaults: NotificationPreferences = {
-  attentionSound: 'background',
+  attentionSound: 'off',
   desktopNotifications: false,
 };
 
@@ -99,9 +99,9 @@ function parsePreferences(raw: string | null): NotificationPreferences {
   const value = JSON.parse(raw ?? '{}') as Record<string, unknown>;
   return {
     attentionSound:
-      value.attentionSound === 'off' || value.attentionSound === 'always'
+      value.attentionSound === 'background' || value.attentionSound === 'always'
         ? value.attentionSound
-        : 'background',
+        : 'off',
     desktopNotifications: value.desktopNotifications === true,
   };
 }

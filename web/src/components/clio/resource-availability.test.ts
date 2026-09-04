@@ -110,9 +110,123 @@ describe('resourceAvailability', () => {
   it('carries no presentation class of its own', () => {
     expect(resourceAvailability(workspaceResource())).not.toHaveProperty('className');
   });
+
+  it('reports the conversion stage without claiming partial agent availability', () => {
+    const resource = workspaceResource({
+      processing: {
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_1',
+        resource_revision: 1,
+        source_sha256: 'abc',
+        processor: 'docling',
+        processor_url: 'http://processor.test',
+        job_id: 'job_1',
+        state: 'processing',
+        progress: 40,
+        progress_kind: 'stage',
+        stage: 'docling',
+        derivatives_available: false,
+        failure: {},
+        cancellation: {},
+        created_at: '2026-08-31T00:00:00Z',
+        updated_at: '2026-08-31T00:00:01Z',
+      },
+    });
+
+    expect(resourceAvailability(resource)).toMatchObject({
+      // Every other not-yet-readable state says what happened to the file the
+      // person handed over. While a conversion runs is exactly when that
+      // reassurance is worth the most, and it was the one state that omitted it.
+      detail: 'Converting. The original is retained and can be previewed.',
+      state: 'preparing',
+    });
+  });
+
+  it('keeps the custody sentence on a queued conversion too', () => {
+    const resource = workspaceResource({
+      processing: {
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_1',
+        resource_revision: 1,
+        source_sha256: 'abc',
+        processor: 'docling',
+        processor_url: 'http://processor.test',
+        job_id: 'job_1',
+        state: 'submitted',
+        progress: 0,
+        progress_kind: 'stage',
+        derivatives_available: false,
+        failure: {},
+        cancellation: {},
+        created_at: '2026-08-31T00:00:00Z',
+        updated_at: '2026-08-31T00:00:01Z',
+      },
+    });
+
+    expect(resourceAvailability(resource)).toMatchObject({
+      detail: 'Conversion queued. The original is retained and can be previewed.',
+      state: 'preparing',
+    });
+  });
 });
 
 describe('resourcePipelineStages', () => {
+  it('names stage-based conversion honestly instead of displaying a milestone as percent', () => {
+    const stages = resourcePipelineStages(
+      workspaceResource({
+        processing: {
+          workspace_id: 'workspace_1',
+          resource_id: 'resource_1',
+          resource_revision: 1,
+          source_sha256: 'abc',
+          processor: 'docling',
+          processor_url: 'http://processor.test',
+          job_id: 'job_1',
+          state: 'processing',
+          progress: 40,
+          progress_kind: 'stage',
+          stage: 'docling',
+          derivatives_available: false,
+          failure: {},
+          cancellation: {},
+          created_at: '2026-08-31T00:00:00Z',
+          updated_at: '2026-08-31T00:00:01Z',
+        },
+      }),
+    );
+
+    expect(stages.conversion).toMatchObject({
+      detail: undefined,
+      kind: 'active',
+      label: 'Converting',
+    });
+  });
+
+  it('shows a percentage only when a converter declares measured progress', () => {
+    const resource = workspaceResource({
+      processing: {
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_1',
+        resource_revision: 1,
+        source_sha256: 'abc',
+        processor: 'measured-converter',
+        processor_url: 'http://processor.test',
+        job_id: 'job_1',
+        state: 'processing',
+        progress: 42,
+        progress_kind: 'measured',
+        stage: 'conversion',
+        derivatives_available: false,
+        failure: {},
+        cancellation: {},
+        created_at: '2026-08-31T00:00:00Z',
+        updated_at: '2026-08-31T00:00:01Z',
+      },
+    });
+
+    expect(resourcePipelineStages(resource).conversion.detail).toBe('42%');
+  });
+
   it('keys the conversion stage off the availability state, not its wording', () => {
     const resource = workspaceResource({ detected_mime: 'text/csv' });
 

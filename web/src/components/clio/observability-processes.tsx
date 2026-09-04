@@ -389,6 +389,18 @@ function ProcessLaneRow({
   );
 }
 
+/**
+ * What to call a process on a timeline row.
+ *
+ * Never its id. A task token is an opaque correlation handle, not a name: it
+ * tells the reader nothing about what is running, and the row is the only place
+ * they can find out. The token stays on the span as `data-execution-span-id`
+ * for anyone matching a row to a trace.
+ */
+function processLabel(process: AsyncProcess): string {
+  return process.title.trim() || (process.kind === 'agent' ? 'Agent task' : 'MCP task');
+}
+
 interface ProcessSpan {
   id: string;
   label: string;
@@ -401,6 +413,7 @@ interface ProcessSpan {
   status: RunState | ToolState;
   timing: 'exact' | 'observed';
   subagentId?: string;
+  depth: number;
 }
 
 interface ProcessLane {
@@ -430,8 +443,17 @@ function executionSpans({
 }): ProcessSpan[] {
   const processOwners = new Map(
     processes
-      .filter((process) => process.child_session_id)
-      .map((process) => [process.child_session_id!, process.id]),
+      .filter(
+        (process) =>
+          process.kind === 'agent' && (process.owner_session_id || process.child_session_id),
+      )
+      .map((process) => [
+        process.owner_session_id ?? process.child_session_id!,
+        {
+          id: process.id,
+          depth: process.task_path?.length ?? process.depth ?? (process.kind === 'agent' ? 1 : 0),
+        },
+      ]),
   );
   const processSpans = processes
     .map((process): ProcessSpan | undefined => {
@@ -443,7 +465,7 @@ function executionSpans({
       );
       return {
         id: process.id,
-        label: process.title || process.id,
+        label: processLabel(process),
         branch: process.id,
         owner: process.id,
         kind: process.kind,
@@ -458,6 +480,7 @@ function executionSpans({
         status: process.live_state,
         timing: 'exact',
         subagentId: process.id,
+        depth: process.task_path?.length ?? process.depth ?? (process.kind === 'agent' ? 1 : 0),
       };
     })
     .filter((span): span is ProcessSpan => span !== undefined);
@@ -479,6 +502,7 @@ function executionSpans({
         state: run.state === 'failed' ? 'failed' : running ? 'running' : 'done',
         status: run.state,
         timing: 'exact',
+        depth: 0,
       };
     })
     .filter((span): span is ProcessSpan => span !== undefined);
@@ -503,6 +527,7 @@ function executionSpans({
             state: message.error_info ? 'failed' : 'done',
             status: message.error_info ? 'failed' : 'completed',
             timing: 'observed',
+            depth: 0,
           };
         })
         .filter((span): span is ProcessSpan => span !== undefined);
@@ -518,7 +543,8 @@ function executionSpans({
       const observedAt = turnTimes.get(tool.id);
       const start = exactStart ?? exactEnd ?? observedAt;
       if (start === undefined) return undefined;
-      const owner = processOwners.get(tool.session_id) ?? 'main';
+      const processOwner = processOwners.get(tool.session_id);
+      const owner = processOwner?.id ?? 'main';
       const running = tool.state === 'pending' || tool.state === 'running';
       const exact = exactStart !== undefined || exactEnd !== undefined;
       return {
@@ -532,6 +558,7 @@ function executionSpans({
         state: tool.state === 'failed' ? 'failed' : running ? 'running' : 'done',
         status: tool.state,
         timing: exact ? 'exact' : 'observed',
+        depth: processOwner ? processOwner.depth + 1 : 1,
       };
     })
     .filter((span): span is ProcessSpan => span !== undefined);
@@ -582,7 +609,7 @@ function executionLanes(spans: readonly ProcessSpan[], colors: Map<string, strin
               : lane[0]!.label,
         color: colors.get(branch) ?? BRANCH_COLORS[0]!,
         kind: lane[0]!.kind,
-        depth: lane[0]!.kind === 'tool' ? 1 : 0,
+        depth: lane[0]!.depth,
         spans: lane,
       }));
     });

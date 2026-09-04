@@ -71,7 +71,7 @@ export function ClioAttentionCenter({ activeSessionId, attentions, sessions }: A
         <PopoverContent align="end" className="w-80" side="bottom">
           <PopoverHeader>
             <PopoverTitle>Response needed</PopoverTitle>
-            <PopoverDescription>Open a session to continue.</PopoverDescription>
+            <PopoverDescription>Open a session to respond.</PopoverDescription>
           </PopoverHeader>
           <div className="flex max-h-72 flex-col gap-1 overflow-y-auto">
             {entries.map(({ session, attention }) => (

@@ -1,4 +1,16 @@
 import { z } from 'zod';
+import { forwardCompatibleEnum } from './schema-utils.js';
+
+export const contextReferenceKindSchema = z.enum([
+  'workspace_file',
+  'artifact',
+  'session',
+  'agent_run',
+  'evidence_source',
+  'context_frame',
+  'diff',
+  'plan',
+]);
 
 export const composerModelRefSchema = z.object({
   provider_id: z.string(),
@@ -15,6 +27,13 @@ export const messageBehaviorSchema = z.object({
 export const composerMessagePartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }),
   z.object({
+    type: z.literal('context_ref'),
+    ref_kind: contextReferenceKindSchema,
+    ref_id: z.string(),
+    label: z.string(),
+    revision: z.string().optional(),
+  }),
+  z.object({
     type: z.literal('resource_ref'),
     resource_id: z.string(),
     resource_revision: z.string(),
@@ -22,6 +41,29 @@ export const composerMessagePartSchema = z.discriminatedUnion('type', [
     delivery_preference: z.string().optional(),
   }),
 ]);
+
+export const workspaceReferenceSchema = z.object({
+  // A workspace the service has taught new kinds of context about must still
+  // list the kinds this build knows. An unrecognised kind decodes as `unknown`
+  // and is reported to the person rather than taking the whole listing down.
+  kind: forwardCompatibleEnum([
+    'workspace_file',
+    'resource',
+    'artifact',
+    'session',
+    'agent_run',
+    'evidence_source',
+    'context_frame',
+    'diff',
+    'plan',
+  ]),
+  id: z.string(),
+  label: z.string(),
+  detail: z.string(),
+  media_type: z.string(),
+  revision: z.string(),
+  navigation: z.record(z.string(), z.unknown()),
+});
 
 export const messageAcceptanceSchema = z.object({
   message_id: z.string(),
@@ -88,6 +130,16 @@ export const queuedMessagePromotionSchema = z.object({
   status_code: z.number().int().optional(),
 });
 
+export const workspaceResourceProcessingEventSchema = z.object({
+  sequence: z.number().int().nonnegative(),
+  created_at: z.string(),
+  level: forwardCompatibleEnum(['info', 'warning', 'error']).default('info'),
+  progress: z.number().int().min(0).max(100).default(0),
+  progress_kind: z.enum(['unknown', 'stage', 'measured']).default('unknown'),
+  stage: z.string().default(''),
+  message: z.string(),
+});
+
 export const workspaceResourceProcessingSchema = z.object({
   workspace_id: z.string(),
   resource_id: z.string(),
@@ -101,6 +153,10 @@ export const workspaceResourceProcessingSchema = z.object({
     .enum(['not_started', 'submitted', 'processing', 'complete', 'failed', 'cancelled'])
     .default('not_started'),
   progress: z.number().int().min(0).max(100).default(0),
+  progress_kind: z.enum(['unknown', 'stage', 'measured']).default('unknown'),
+  stage: z.string().default(''),
+  message: z.string().default(''),
+  events: z.array(workspaceResourceProcessingEventSchema).default([]),
   derivatives_available: z.boolean().default(false),
   failure: z.record(z.string(), z.unknown()).default({}),
   cancellation: z.record(z.string(), z.unknown()).default({}),

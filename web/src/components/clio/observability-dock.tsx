@@ -56,7 +56,12 @@ import {
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import { ClioInteractiveRow } from './interactive-row';
-import { ClioActivityTimeline, type ObservabilityActivityItem } from './observability-activity';
+import {
+  asyncProcessDetail,
+  childProjectionActivityItems,
+  ClioActivityTimeline,
+  type ObservabilityActivityItem,
+} from './observability-activity';
 import { ClioEvidenceView } from './observability-evidence';
 import { ClioProcessLanes } from './observability-processes';
 import { ClioStatus, type ClioStatusValue } from './status';
@@ -361,58 +366,86 @@ export function ClioObservabilityView({
   const hasWideNavigation = useContainerQuery(surfaceRef, 520);
   const hasGraphSpace = useContainerQuery(surfaceRef, 640);
   const toolTurnContext = useMemo(() => toolActivityContext(messages), [messages]);
-  const activity = useMemo<ObservabilityActivityItem[]>(
-    () =>
-      [
-        ...runs.map(
-          (run): ObservabilityActivityItem => ({
-            id: run.id,
-            kind: 'run',
-            label: run.summary || `Run ${run.id.slice(0, 8)}`,
-            detail:
-              run.elapsed_ms === undefined
-                ? 'Agent run'
-                : `${formatDuration(run.elapsed_ms)} elapsed`,
-            state: run.state,
-            at: run.completed_at ?? run.started_at,
-            timing: run.completed_at || run.started_at ? 'event' : undefined,
-          }),
-        ),
-        ...tools.map((tool): ObservabilityActivityItem => {
-          const eventAt = tool.completed_at ?? tool.started_at;
-          const turnContext = toolTurnContext.get(tool.id);
-          return {
-            id: tool.id,
-            kind: 'tool',
-            label: getToolPresentation(tool).title,
-            detail: getToolSummary(tool),
-            state: tool.state,
-            at: eventAt ?? turnContext?.at,
-            groupId: turnContext?.turnId,
-            timing: eventAt ? 'event' : turnContext ? 'turn' : undefined,
-          };
+  const activity = useMemo<ObservabilityActivityItem[]>(() => {
+    const projected = executionProvenance?.session_lineage;
+    const lineageBySession = new Map(projected?.map((owner) => [owner.session_id, owner]) ?? []);
+    const processByOwner = new Map(
+      processes
+        .filter(
+          (process) =>
+            process.kind === 'agent' && (process.owner_session_id || process.child_session_id),
+        )
+        .map((process) => [process.owner_session_id ?? process.child_session_id!, process]),
+    );
+    const knownToolIds = new Set(tools.map((tool) => tool.id));
+    const items: ObservabilityActivityItem[] = [
+      ...runs.map(
+        (run): ObservabilityActivityItem => ({
+          id: run.id,
+          kind: 'run',
+          label: run.summary || `Run ${run.id.slice(0, 8)}`,
+          detail:
+            run.elapsed_ms === undefined
+              ? 'Agent run'
+              : `${formatDuration(run.elapsed_ms)} elapsed`,
+          state: run.state,
+          at: run.completed_at ?? run.started_at,
+          timing: run.completed_at || run.started_at ? 'event' : undefined,
         }),
-        ...processes.map(
-          (process): ObservabilityActivityItem => ({
-            id: process.id,
-            kind: 'process',
-            label: process.title,
-            detail:
-              process.kind === 'agent'
-                ? childAgentProcessDetail(process.placement)
-                : `Background task${process.host ? `, ${process.host}` : ''}`,
-            state: process.live_state,
-            at: process.updated_at ?? process.created_at,
-            groupId: process.parent_turn_id,
-            timing: process.updated_at || process.created_at ? 'event' : undefined,
-          }),
-        ),
-      ].sort((left, right) => {
+      ),
+      ...tools.map((tool): ObservabilityActivityItem => {
+        const eventAt = tool.completed_at ?? tool.started_at;
+        const turnContext = toolTurnContext.get(tool.id);
+        const process = processByOwner.get(tool.session_id);
+        const owner = lineageBySession.get(tool.session_id);
+        return {
+          id: tool.id,
+          kind: 'tool',
+          label: getToolPresentation(tool).title,
+          detail: getToolSummary(tool),
+          state: tool.state,
+          at: eventAt ?? turnContext?.at,
+          groupId: turnContext?.turnId,
+          timing: eventAt ? 'event' : turnContext ? 'turn' : undefined,
+          rootSessionId: executionProvenance?.root_session_id ?? executionProvenance?.session_id,
+          ownerSessionId: tool.session_id,
+          ownerLabel: owner?.label,
+          parentSessionId: owner?.parent_session_id,
+          taskId: process?.id ?? owner?.task_id,
+          taskPath: process?.task_path ?? owner?.task_path,
+          depth: owner?.depth ?? process?.task_path?.length,
+        };
+      }),
+      // An empty session_lineage ([]) is a legal "no children" answer, not a
+      // missing read — it must still fall back to the plain processes list, or
+      // every process the Gantt shows below renders zero rows here.
+      ...(projected && projected.length > 0
+        ? childProjectionActivityItems(executionProvenance, processes, knownToolIds)
+        : processes.map(
+            (process): ObservabilityActivityItem => ({
+              id: process.id,
+              kind: 'process',
+              label: process.title,
+              detail: asyncProcessDetail(process),
+              state: process.live_state,
+              at: process.updated_at ?? process.created_at,
+              groupId: process.parent_turn_id,
+              timing: process.updated_at || process.created_at ? 'event' : undefined,
+            }),
+          )),
+    ];
+    return items
+      .map((item) => {
+        const subagent = findSubagent(subagents, item.taskId, item.ownerSessionId);
+        return subagent && onOpenSubagent
+          ? { ...item, onOpen: (target: SubagentOpenTarget) => onOpenSubagent(subagent, target) }
+          : item;
+      })
+      .sort((left, right) => {
         const byTime = (right.at ?? '').localeCompare(left.at ?? '');
         return byTime;
-      }),
-    [processes, runs, toolTurnContext, tools],
-  );
+      });
+  }, [executionProvenance, onOpenSubagent, processes, runs, subagents, toolTurnContext, tools]);
   return (
     <div className="h-full min-h-0 min-w-0" ref={surfaceRef}>
       <Tabs className="h-full min-h-0 gap-0" defaultValue="work">
@@ -452,7 +485,11 @@ export function ClioObservabilityView({
             />
             {executionProvenance?.nodes.length ? (
               <Suspense fallback={<ObservabilityLoading label="Loading execution provenance" />}>
-                <ClioExecutionProvenanceGraph provenance={executionProvenance} />
+                <ClioExecutionProvenanceGraph
+                  onOpenSubagent={onOpenSubagent}
+                  provenance={executionProvenance}
+                  subagents={subagents}
+                />
               </Suspense>
             ) : executionProvenance ? (
               <p className="rounded-lg border border-dashed p-3 text-xs leading-5 text-muted-foreground">
@@ -494,6 +531,7 @@ export function ClioObservabilityView({
               onOpenFile={onOpenFile}
               onOpenResource={onOpenResource}
               processes={processes}
+              executionProvenance={executionProvenance}
               artifactProvenanceProvider={artifactProvenanceProvider}
               provenanceDegradation={provenanceDegradation}
               provenanceProvider={provenanceProviders?.find(
@@ -672,6 +710,14 @@ function toolActivityContext(
   return context;
 }
 
-function childAgentProcessDetail(placement: string | undefined): string {
-  return placement?.trim() || 'Child agent';
+function findSubagent(
+  subagents: readonly SubagentRun[],
+  taskId?: string,
+  ownerSessionId?: string,
+): SubagentRun | undefined {
+  return subagents.find(
+    (candidate) =>
+      Boolean(taskId && candidate.id === taskId) ||
+      Boolean(ownerSessionId && candidate.child_session_id === ownerSessionId),
+  );
 }

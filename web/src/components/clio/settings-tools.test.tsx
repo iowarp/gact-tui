@@ -125,11 +125,11 @@ describe('tool provider settings', () => {
     const user = userEvent.setup();
     renderSettings(<ToolsSettings />);
 
-    await user.click(await screen.findByRole('button', { name: 'Connect provider' }));
+    await user.click(await screen.findByRole('button', { name: 'Connect MCP' }));
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Name'), 'Science tools');
     await user.type(within(dialog).getByLabelText('Service address'), 'https://mcp.example.test');
-    await user.click(within(dialog).getByRole('button', { name: 'Connect provider' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
 
     expect(repository.installMcpServer).toHaveBeenCalledWith({
       name: 'Science tools',
@@ -142,7 +142,7 @@ describe('tool provider settings', () => {
     const user = userEvent.setup();
     renderSettings(<ToolsSettings />);
 
-    await user.click(await screen.findByRole('button', { name: 'Connect provider' }));
+    await user.click(await screen.findByRole('button', { name: 'Connect MCP' }));
     const dialog = screen.getByRole('dialog');
     await user.type(within(dialog).getByLabelText('Name'), 'Web search');
     await user.click(within(dialog).getByLabelText('Connection type'));
@@ -156,7 +156,7 @@ describe('tool provider settings', () => {
       within(dialog).getByLabelText('Process settings'),
       'WEB_STATE_DIR=D:\\agent-state',
     );
-    await user.click(within(dialog).getByRole('button', { name: 'Connect provider' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
 
     expect(repository.installMcpServer).toHaveBeenCalledWith({
       name: 'Web search',

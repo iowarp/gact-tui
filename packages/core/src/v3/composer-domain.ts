@@ -1,3 +1,5 @@
+import type { WireValue } from './domain.js';
+
 export type MessageDelivery = 'start' | 'steer' | 'auto';
 
 export type ResourceDeliveryRepresentation =
@@ -26,8 +28,46 @@ export interface MessageBehavior {
   confirmation_policy: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
 }
 
+export type ContextReferenceKind =
+  | 'workspace_file'
+  | 'artifact'
+  | 'session'
+  | 'agent_run'
+  | 'evidence_source'
+  | 'context_frame'
+  | 'diff'
+  | 'plan';
+/**
+ * What a workspace reference can be about.
+ *
+ * `unknown` is the forward-compatible reading of a kind a newer service serves
+ * and this build has no handling for. It is a real value a surface has to
+ * account for, not a placeholder: such a reference can be counted and named,
+ * but never opened and never sent.
+ */
+export type WorkspaceReferenceKind = ContextReferenceKind | 'resource' | 'unknown';
+
+export interface ContextReferencePart {
+  type: 'context_ref';
+  ref_kind: ContextReferenceKind;
+  ref_id: string;
+  label: string;
+  revision?: string;
+}
+
+export interface WorkspaceReference {
+  kind: WorkspaceReferenceKind;
+  id: string;
+  label: string;
+  detail: string;
+  media_type: string;
+  revision: string;
+  navigation: Record<string, unknown>;
+}
+
 export type ComposerMessagePart =
   | { type: 'text'; text: string }
+  | ContextReferencePart
   | {
       type: 'resource_ref';
       resource_id: string;
@@ -134,11 +174,25 @@ export interface WorkspaceResourceProcessing {
   query_tool?: string;
   state: 'not_started' | 'submitted' | 'processing' | 'complete' | 'failed' | 'cancelled';
   progress: number;
+  progress_kind?: 'unknown' | 'stage' | 'measured';
+  stage?: string;
+  message?: string;
+  events?: WorkspaceResourceProcessingEvent[];
   derivatives_available?: boolean;
   failure: Record<string, unknown>;
   cancellation: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+export interface WorkspaceResourceProcessingEvent {
+  sequence: number;
+  created_at: string;
+  level: WireValue<'info' | 'warning' | 'error'>;
+  progress: number;
+  progress_kind: 'unknown' | 'stage' | 'measured';
+  stage: string;
+  message: string;
 }
 
 export interface WorkspaceResourceDerivative {

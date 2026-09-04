@@ -1,4 +1,8 @@
-import type { WorkspaceResourceDerivative, WorkspaceResourceProcessing } from '@clio/core/v3';
+import type {
+  WorkspaceResourceDerivative,
+  WorkspaceResourceProcessing,
+  WorkspaceResourceProcessingEvent,
+} from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
@@ -7,6 +11,7 @@ import {
   FileIcon,
   FileStackIcon,
   RefreshCwIcon,
+  TriangleAlertIcon,
 } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import { toast } from 'sonner';
@@ -96,6 +101,20 @@ export function WorkspaceResourceDerivativesView({
     onError: (mutationError) => toast.error(mutationError.message),
   });
   const processingActive = processing?.state === 'submitted' || processing?.state === 'processing';
+  const hasActivity = Boolean(processing?.events?.length || processing?.message);
+  const hasProblem =
+    processing?.state === 'failed' ||
+    (processing?.events ?? []).some((event) => event.level === 'warning' || event.level === 'error');
+  // Existing derivatives replace a clean event log — once you have the
+  // output, the informational trail that produced it is noise. A failure or
+  // a warning-or-error row is never noise: a reprocess can fail (or log one)
+  // on a resource that already has derivatives from an earlier run, and that
+  // must still be visible, not hidden behind derivatives this attempt did
+  // not produce.
+  const showActivity =
+    !pending &&
+    Boolean(processing) &&
+    (processingActive || hasProblem || (derivatives.length === 0 && hasActivity));
 
   if (error) return <ResourceUnavailable detail={error} label="Derivatives unavailable" />;
   if (selected) {
@@ -185,7 +204,8 @@ export function WorkspaceResourceDerivativesView({
           </button>
         ))}
         {pending ? <ResourceLoading label="Loading derivatives" /> : null}
-        {!pending && !derivatives.length ? (
+        {showActivity && processing ? <ConversionActivity processing={processing} /> : null}
+        {!pending && !derivatives.length && !showActivity ? (
           <ResourceUnavailable
             detail="No derived representations have been recorded for this resource."
             label="No derivatives"
@@ -194,6 +214,81 @@ export function WorkspaceResourceDerivativesView({
       </div>
     </ScrollArea>
   );
+}
+
+function ConversionActivity({ processing }: { processing: WorkspaceResourceProcessing }) {
+  const events = [...(processing.events ?? [])].reverse();
+  const fallback = processing.message?.trim() ?? '';
+  const waiting = processing.state === 'submitted' || processing.state === 'processing';
+
+  return (
+    <section aria-label="Conversion activity" className="overflow-hidden rounded-lg border">
+      <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2">
+        <span className="text-sm font-medium">Conversion activity</span>
+        {processing.progress_kind === 'measured' ? (
+          <span className="ml-auto text-xs tabular-nums text-muted-foreground">
+            {processing.progress}%
+          </span>
+        ) : null}
+      </div>
+      {events.length ? (
+        <ol className="divide-y" aria-live="polite">
+          {events.map((event) => (
+            <ConversionActivityRow event={event} key={`${event.sequence}:${event.created_at}`} />
+          ))}
+        </ol>
+      ) : (
+        <p className="px-3 py-3 text-sm text-muted-foreground">
+          {fallback ||
+            (waiting
+              ? 'Waiting for converter activity.'
+              : 'No conversion activity was reported.')}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function ConversionActivityRow({ event }: { event: WorkspaceResourceProcessingEvent }) {
+  const timestamp = formatEventTime(event.created_at);
+  const warning = event.level === 'warning' || event.level === 'error';
+
+  return (
+    <li className="flex min-w-0 items-start gap-2 px-3 py-2 text-sm">
+      {warning ? (
+        <TriangleAlertIcon
+          aria-label={event.level === 'error' ? 'Error' : 'Warning'}
+          className="mt-0.5 size-3.5 shrink-0 text-destructive"
+        />
+      ) : (
+        <span aria-hidden="true" className="mt-1.5 size-1.5 shrink-0 rounded-full bg-primary" />
+      )}
+      <span className="min-w-0 flex-1 break-words">{event.message}</span>
+      {event.progress_kind === 'measured' ? (
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          {event.progress}%
+        </span>
+      ) : null}
+      {timestamp ? (
+        <time
+          className="shrink-0 text-xs tabular-nums text-muted-foreground"
+          dateTime={event.created_at}
+        >
+          {timestamp}
+        </time>
+      ) : null}
+    </li>
+  );
+}
+
+function formatEventTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(date);
 }
 
 function DerivativePreview({

@@ -190,9 +190,15 @@ export function useSessionLiveStream({
 }
 
 function isPendingInteractionEvent(eventName: string): boolean {
-  return ['permission.', 'user_question.', 'approval.', 'question.'].some((prefix) =>
-    eventName.startsWith(prefix),
-  );
+  return [
+    'permission.',
+    'user_question.',
+    'approval.',
+    'question.',
+    'a2ui.',
+    'mcp.task.',
+    'mcp_task.',
+  ].some((prefix) => eventName.startsWith(prefix));
 }
 
 function isProcessEvent(eventName: string): boolean {
@@ -281,6 +287,7 @@ export function queryInvalidationKeysForEvent({
     // endpoint-level prefix each query is actually keyed under, not a
     // per-session key that would never match the shared cache entry.
     keys.push(
+      queryKeys.pendingInteractions(endpoint),
       queryKeys.pendingApprovals(endpoint),
       queryKeys.key('pending-questions', endpoint),
     );

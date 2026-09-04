@@ -139,6 +139,31 @@ foreach ($name in @("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE")) {
 if ($startSource -notmatch 'sync_preserved_committed_heads') {
     throw "Start-ClioDev must advance preserved runtime clones to the selected committed heads."
 }
+if ($startSource -notmatch 'CLIO_CODEX_TRANSPORT\s*=\s*"sdk"') {
+    throw "Start-ClioDev must configure Codex through the backend's supported official SDK transport."
+}
+if ($startSource -match 'CLIO_CODEX_TRANSPORT\s*=\s*"app_server"') {
+    throw "Start-ClioDev must not configure the removed Codex app-server transport."
+}
+if ($startSource -notmatch 'DOCLING_INFERENCE_COMPILE_TORCH_MODELS\s*=\s*"false"') {
+    throw "Start-ClioDev must keep Docling inference independent of a Windows C++ compiler."
+}
+if ($startSource -notmatch '-Environment\s+\$documentProcessorEnvironment') {
+    throw "Start-ClioDev must pass the Docling environment directly to its child process."
+}
+$preflightSource = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot "Test-ClioDevPreflight.ps1")
+if ($preflightSource -notmatch 'gact_versions[\s\S]{0,120}?contains\s+"0\.3"') {
+    throw "Test-ClioDevPreflight must validate the negotiated GACT 0.3 envelope through gact_versions."
+}
+if ($preflightSource -match 'contract_version\s+-ne\s+"0\.3"') {
+    throw "Test-ClioDevPreflight must not expect the legacy contract_version field in a GACT 0.3 envelope."
+}
+if ($preflightSource -notmatch 'x_clio_resources\.max_bytes') {
+    throw "Test-ClioDevPreflight must validate resource custody through the backend's advertised max_bytes contract."
+}
+if ($preflightSource -match 'x_clio_resources\.enabled') {
+    throw "Test-ClioDevPreflight must not require a resource enabled field that the backend does not advertise."
+}
 
 # Every stop this script performs is a restart step, never an uninstall. The
 # readiness-failure path is the one that lost -PreserveState: a 60-second Vite

@@ -15,6 +15,11 @@ export interface ResourceUploadProgress {
   total: number;
 }
 
+export interface WorkspaceResourceUploadResult {
+  parts: ComposerMessagePart[];
+  resources: WorkspaceResource[];
+}
+
 async function uploadFingerprint(name: string, mediaType: string, blob: Blob): Promise<string> {
   const prefix = new TextEncoder().encode(`${name}\u0000${mediaType}\u0000${blob.size}\u0000`);
   const first = new Uint8Array(
@@ -43,7 +48,7 @@ export async function uploadWorkspaceResources({
   repository: ComposerRepository;
   signal?: AbortSignal;
   workspaceId: string;
-}): Promise<{ parts: ComposerMessagePart[]; resources: WorkspaceResource[] }> {
+}): Promise<WorkspaceResourceUploadResult> {
   const resources: WorkspaceResource[] = [];
 
   for (const file of files) {

@@ -106,40 +106,40 @@
 }
 
 .dark {
-  --background: oklch(0.115 0.022 235);
-  --foreground: oklch(0.94 0.018 220);
-  --card: oklch(0.155 0.028 235);
-  --card-foreground: oklch(0.94 0.018 220);
-  --popover: oklch(0.17 0.03 235);
-  --popover-foreground: oklch(0.94 0.018 220);
+  --background: oklch(0.105 0 0);
+  --foreground: oklch(0.95 0 0);
+  --card: oklch(0.155 0 0);
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.18 0 0);
+  --popover-foreground: oklch(0.95 0 0);
   --primary: oklch(0.77 0.145 198);
-  --primary-foreground: oklch(0.12 0.03 225);
-  --secondary: oklch(0.21 0.035 235);
-  --secondary-foreground: oklch(0.94 0.018 220);
-  --muted: oklch(0.195 0.03 235);
-  --muted-foreground: oklch(0.68 0.038 220);
-  --accent: oklch(0.235 0.05 220);
-  --accent-foreground: oklch(0.95 0.02 210);
+  --primary-foreground: oklch(0.13 0 0);
+  --secondary: oklch(0.21 0 0);
+  --secondary-foreground: oklch(0.95 0 0);
+  --muted: oklch(0.195 0 0);
+  --muted-foreground: oklch(0.7 0 0);
+  --accent: oklch(0.245 0 0);
+  --accent-foreground: oklch(0.96 0 0);
   --destructive: oklch(0.69 0.19 24);
   --info: oklch(0.72 0.14 215);
   --success: oklch(0.72 0.15 155);
   --warning: oklch(0.78 0.15 80);
   --action: oklch(0.75 0.17 57);
-  --border: oklch(0.34 0.035 230 / 55%);
-  --input: oklch(0.34 0.035 230 / 65%);
+  --border: oklch(0.34 0 0 / 60%);
+  --input: oklch(0.38 0 0 / 70%);
   --ring: oklch(0.77 0.145 198);
   --chart-1: oklch(0.77 0.145 198);
   --chart-2: oklch(0.75 0.17 57);
   --chart-3: oklch(0.72 0.15 155);
   --chart-4: oklch(0.72 0.15 290);
   --chart-5: oklch(0.7 0.18 25);
-  --sidebar: oklch(0.135 0.026 235);
-  --sidebar-foreground: oklch(0.91 0.02 220);
+  --sidebar: oklch(0.125 0 0);
+  --sidebar-foreground: oklch(0.92 0 0);
   --sidebar-primary: oklch(0.77 0.145 198);
-  --sidebar-primary-foreground: oklch(0.12 0.03 225);
-  --sidebar-accent: oklch(0.22 0.045 225);
-  --sidebar-accent-foreground: oklch(0.95 0.02 210);
-  --sidebar-border: oklch(0.34 0.035 230 / 55%);
+  --sidebar-primary-foreground: oklch(0.13 0 0);
+  --sidebar-accent: oklch(0.22 0 0);
+  --sidebar-accent-foreground: oklch(0.96 0 0);
+  --sidebar-border: oklch(0.34 0 0 / 60%);
   --sidebar-ring: oklch(0.77 0.145 198);
   --destructive-foreground: var(--color-red-600);
   --success-foreground: var(--color-emerald-600);
@@ -259,6 +259,15 @@
 
 .clio-scrollbar:hover::-webkit-scrollbar-thumb {
   background: color-mix(in oklch, var(--muted-foreground) 52%, transparent);
+}
+
+/* Radix uses an inline table wrapper so generic scroll areas can measure
+   horizontal content. Pending interactions are strictly vertical; forcing
+   that wrapper to block layout prevents percentage-width fields from taking
+   the table's intrinsic minimum width. */
+.pending-interactions-viewport > div {
+  display: block !important;
+  min-width: 100%;
 }
 
 .clio-scientific-map-popup .maplibregl-popup-content {

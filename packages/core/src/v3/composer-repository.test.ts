@@ -15,6 +15,76 @@ const behavior = {
 const model = { provider_id: 'codex', model_id: 'gpt-5.6-luna' };
 
 describe('ComposerRepository', () => {
+  it('searches categorized workspace references without flattening their identity', async () => {
+    const reference = {
+      kind: 'artifact',
+      id: 'artifact_1',
+      label: 'Displacement plot',
+      detail: 'Displacement plot v3 (image)',
+      media_type: 'image/png',
+      revision: 'v3',
+      navigation: { artifact_id: 'artifact_1' },
+    };
+    const transport = new RecordingTransport([{ references: [reference] }]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(
+      repository.workspaceReferences('workspace 1', {
+        q: 'plot',
+        kinds: ['artifact', 'session'],
+      }),
+    ).resolves.toEqual([reference]);
+    expect(transport.requests[0]).toMatchObject({
+      method: 'GET',
+      path: '/v1/workspaces/workspace%201/references?q=plot&kinds=artifact&kinds=session',
+    });
+  });
+
+  it('keeps the readable workspace references when the service serves one this client cannot read', async () => {
+    clearComposerRowDegradations();
+    const readable = {
+      kind: 'artifact',
+      id: 'artifact_1',
+      label: 'Displacement plot',
+      detail: 'Displacement plot v3 (image)',
+      media_type: 'image/png',
+      revision: 'v3',
+      navigation: { artifact_id: 'artifact_1' },
+    };
+    const transport = new RecordingTransport([
+      { references: [readable, { kind: 'artifact', id: 'artifact_2' }] },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(repository.workspaceReferences('workspace 1')).resolves.toEqual([readable]);
+    expect(composerRowDegradations()).toMatchObject([
+      { collection: 'workspace_references', code: 'row_decode_failed', index: 1, id: 'artifact_2' },
+    ]);
+  });
+
+  it('reads a reference kind this build has no handling for as unknown', async () => {
+    const transport = new RecordingTransport([
+      {
+        references: [
+          {
+            kind: 'holographic_trace',
+            id: 'trace_1',
+            label: 'Trace 1',
+            detail: 'A kind from a newer service',
+            media_type: 'application/json',
+            revision: '1',
+            navigation: {},
+          },
+        ],
+      },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(repository.workspaceReferences('workspace 1')).resolves.toMatchObject([
+      { id: 'trace_1', kind: 'unknown' },
+    ]);
+  });
+
   it('submits an explicit delivery intent with immutable resource references', async () => {
     const transport = new RecordingTransport([
       {
@@ -313,6 +383,17 @@ describe('ComposerRepository', () => {
       job_id: 'job_1',
       state: 'complete',
       progress: 100,
+      events: [
+        {
+          sequence: 7,
+          created_at: '2026-08-31T12:00:30Z',
+          level: 'info',
+          progress: 40,
+          progress_kind: 'stage',
+          stage: 'docling',
+          message: 'Reading page layout',
+        },
+      ],
       failure: {},
       cancellation: {},
       created_at: '2026-08-31T12:00:00Z',
@@ -350,7 +431,10 @@ describe('ComposerRepository', () => {
     await expect(
       repository.resourceDerivatives('workspace_1', 'resource_1'),
     ).resolves.toMatchObject({
-      processor: { state: 'complete' },
+      processor: {
+        state: 'complete',
+        events: [{ sequence: 7, message: 'Reading page layout', progress_kind: 'stage' }],
+      },
       derivatives: [{ id: 'markdown', media_type: 'text/markdown' }],
     });
     await expect(repository.resourceStructure('workspace_1', 'resource_1')).resolves.toMatchObject({
@@ -380,6 +464,41 @@ describe('ComposerRepository', () => {
     ]);
   });
 
+  it('contains an unrecognized processing-event level as unknown instead of failing the read', async () => {
+    const transport = new RecordingTransport([
+      {
+        resource_id: 'resource_1',
+        revision: 2,
+        derivatives: [],
+        processor: {
+          workspace_id: 'workspace_1',
+          resource_id: 'resource_1',
+          resource_revision: 2,
+          state: 'processing',
+          progress: 40,
+          events: [
+            {
+              sequence: 1,
+              created_at: '2026-08-31T12:00:30Z',
+              // A future backend's severity this client predates.
+              level: 'critical',
+              message: 'Escalated during layout analysis',
+            },
+          ],
+          created_at: '2026-08-31T12:00:00Z',
+          updated_at: '2026-08-31T12:00:30Z',
+        },
+      },
+    ]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(
+      repository.resourceDerivatives('workspace_1', 'resource_1'),
+    ).resolves.toMatchObject({
+      processor: { events: [{ level: 'unknown', message: 'Escalated during layout analysis' }] },
+    });
+  });
+
   it('searches, reprocesses, and exposes immutable resource delivery provenance', async () => {
     const processing = {
       workspace_id: 'workspace_1',
@@ -391,6 +510,9 @@ describe('ComposerRepository', () => {
       job_id: '',
       state: 'submitted',
       progress: 0,
+      progress_kind: 'unknown',
+      stage: '',
+      message: '',
       derivatives_available: false,
       failure: {},
       cancellation: {},
@@ -431,9 +553,10 @@ describe('ComposerRepository', () => {
     ).resolves.toMatchObject({
       matches: [{ line: 7 }],
     });
-    await expect(repository.reprocessResource('workspace_1', 'resource_1')).resolves.toEqual(
-      processing,
-    );
+    await expect(repository.reprocessResource('workspace_1', 'resource_1')).resolves.toEqual({
+      ...processing,
+      events: [],
+    });
     await expect(
       repository.cancelResourceProcessing('workspace_1', 'resource_1'),
     ).resolves.toMatchObject({ state: 'cancelled' });
@@ -579,13 +702,13 @@ describe('ComposerRepository decode hygiene', () => {
     ]);
     await expect(repository.resourceDeliveries('workspace_1')).resolves.toEqual([]);
 
-    expect(composerRowDegradations().map(({ collection, index }) => ({ collection, index }))).toEqual(
-      [
-        { collection: 'pending_steers', index: 1 },
-        { collection: 'resources', index: 0 },
-        { collection: 'resource_deliveries', index: 0 },
-      ],
-    );
+    expect(
+      composerRowDegradations().map(({ collection, index }) => ({ collection, index })),
+    ).toEqual([
+      { collection: 'pending_steers', index: 1 },
+      { collection: 'resources', index: 0 },
+      { collection: 'resource_deliveries', index: 0 },
+    ]);
   });
 
   it('still fails the whole read when the service serves no list at all', async () => {

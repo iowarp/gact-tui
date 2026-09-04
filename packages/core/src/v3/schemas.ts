@@ -165,12 +165,15 @@ export const userQuestionSchema = z.object({
       }),
     )
     .default([]),
+  allow_freeform: z.boolean().default(false),
   answer: z.string().optional(),
   selected_options: z.array(z.string()).default([]),
   created_at: z.string(),
   updated_at: z.string(),
   expires_at: z.string().optional(),
 });
+
+export * from './pending-interaction-schemas.js';
 
 export const approvalRequestSchema = z.object({
   id: z.string(),
@@ -266,6 +269,7 @@ export const sessionSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   last_interaction_at: z.string().optional(),
+  message_count: z.number().int().nonnegative().optional(),
   provider_id: z.string().optional(),
   model_id: z.string().optional(),
   effort: z.string().optional(),
@@ -484,6 +488,8 @@ export const mcpServerDefinitionSchema = z.object({
   source: z.string().optional(),
   enabled: z.boolean().optional(),
   agent_blueprint_id: z.string().optional(),
+  agent_blueprint_name: z.string().optional(),
+  session_id: z.string().optional(),
   spec: z.record(z.string(), z.unknown()).default({}),
 });
 

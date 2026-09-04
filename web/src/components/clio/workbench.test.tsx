@@ -40,7 +40,37 @@ function renderWorkbench() {
   );
 }
 
+function BrokenCanvasItem(): never {
+  throw new Error('broken source preview');
+}
+
 describe('ClioWorkbench canvas', () => {
+  it('contains a broken canvas item without replacing the workspace', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    render(
+      <ClioWorkbench
+        artifacts={[]}
+        blueprints={[]}
+        diffs={[]}
+        files={[]}
+        onApplyDiff={vi.fn()}
+        onOpenSubagent={vi.fn()}
+        onRejectDiff={vi.fn()}
+        sessionId="session_parent"
+        sessionView={<BrokenCanvasItem />}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not open Observability');
+    expect(screen.getByRole('complementary', { name: 'Workspace canvas' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Close tab' }));
+    expect(screen.getByText('Canvas is empty')).toBeVisible();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
   it('keeps tabs mounted while suspending hidden canvas content', () => {
     const { rerender } = render(
       <WorkspaceCanvasVisibilityProvider visible={false}>

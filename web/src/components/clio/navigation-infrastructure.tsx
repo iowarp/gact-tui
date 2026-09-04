@@ -24,7 +24,8 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { humanizeToolName } from './tool-presentation';
+import { workspaceIdFromRoute } from '@/lib/workspace-route-memory';
+import { serviceTitle } from '@/lib/mcp-service-presentation';
 
 type InfrastructureState = 'checking' | 'healthy' | 'degraded' | 'failed' | 'unavailable';
 
@@ -45,6 +46,7 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const [open, setOpen] = useState(false);
+  const workspaceId = workspaceIdFromRoute(from);
   const health = useQuery({
     queryKey: queryKeys.key('service-health', settings.endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
@@ -56,8 +58,8 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const servers = useQuery({
-    queryKey: queryKeys.key('mcp-servers', settings.endpoint, 'infrastructure'),
-    queryFn: ({ signal }) => repository.mcpServers(undefined, signal),
+    queryKey: queryKeys.key('mcp-servers', settings.endpoint, workspaceId || 'infrastructure'),
+    queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
 
@@ -99,14 +101,14 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
     const relayState: InfrastructureItem = relay.isPending
       ? {
           id: 'remote-work',
-          label: 'Remote work',
+          label: 'Remote computers',
           state: 'checking',
           stateLabel: 'Checking',
         }
       : relay.error
         ? {
             id: 'remote-work',
-            label: 'Remote work',
+            label: 'Remote computers',
             state: 'failed',
             stateLabel: 'Unavailable',
             detail: relay.error.message,
@@ -114,21 +116,21 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
         : relay.data?.reachable
           ? {
               id: 'remote-work',
-              label: 'Remote work',
+              label: 'Remote computers',
               state: 'healthy',
               stateLabel: 'Ready',
             }
           : relay.data?.configured
             ? {
                 id: 'remote-work',
-                label: 'Remote work',
+                label: 'Remote computers',
                 state: 'degraded',
                 stateLabel: 'Warning',
                 detail: relay.data.detail || relay.data.reason,
               }
             : {
                 id: 'remote-work',
-                label: 'Remote work',
+                label: 'Remote computers',
                 state: 'unavailable',
                 stateLabel: 'Not connected',
               };
@@ -137,7 +139,7 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
       ? [
           {
             id: 'tool-services',
-            label: 'Tools and data',
+            label: 'MCP tools',
             state: 'checking' as const,
             stateLabel: 'Checking',
           },
@@ -146,7 +148,7 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
         ? [
             {
               id: 'tool-services',
-              label: 'Tools and data',
+              label: 'MCP tools',
               state: 'failed' as const,
               stateLabel: 'Unavailable',
               detail: servers.error.message,
@@ -284,18 +286,6 @@ function stateLabel(state: InfrastructureState): string {
     failed: 'Failed',
     unavailable: 'Unavailable',
   }[state];
-}
-
-function serviceTitle(server: McpServerDefinition): string {
-  const configuredTitle = server.spec.title ?? server.spec.display_name;
-  if (typeof configuredTitle === 'string' && configuredTitle.trim()) return configuredTitle;
-  const names: Record<string, string> = {
-    fs: 'Workspace files',
-    filesystem: 'Workspace files',
-    shell: 'Command execution',
-    'clio-web-search': 'Web search',
-  };
-  return names[server.id] || names[server.name] || humanizeToolName(server.name || server.id);
 }
 
 function aggregateInfrastructureState(items: readonly InfrastructureItem[]): InfrastructureItem {

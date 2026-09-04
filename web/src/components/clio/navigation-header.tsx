@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,11 +26,16 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import type { SavedConnection } from '@/lib/connection';
+import {
+  connectionAvailability,
+  type ConnectionAvailabilityMap,
+} from '@/hooks/use-connection-availability';
 
 interface NavigationHeaderProps {
   endpoint: string;
   activeLabel?: string;
   currentPath: string;
+  connectionAvailabilities: ConnectionAvailabilityMap;
   recentConnections: readonly SavedConnection[];
   onConnect: (connection: SavedConnection) => void | Promise<void>;
   onNewSession: () => void;
@@ -43,6 +49,7 @@ export function NavigationHeader({
   endpoint,
   activeLabel,
   currentPath,
+  connectionAvailabilities,
   recentConnections,
   onConnect,
   onNewSession,
@@ -54,6 +61,7 @@ export function NavigationHeader({
   const logoSource =
     brand.logoImage ??
     (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null);
+  const activeAvailability = connectionAvailability(connectionAvailabilities, endpoint);
 
   return (
     <SidebarHeader className="gap-2 border-b border-sidebar-border/70 p-2">
@@ -72,7 +80,21 @@ export function NavigationHeader({
                   )}
                 </span>
                 <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="font-heading font-semibold">{brand.wordmark}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
+                    <span
+                      aria-hidden="true"
+                      className={`size-1.5 shrink-0 rounded-full ${
+                        activeAvailability.state === 'healthy'
+                          ? 'bg-success'
+                          : activeAvailability.state === 'degraded'
+                            ? 'bg-warning'
+                            : activeAvailability.state === 'unavailable'
+                              ? 'bg-muted-foreground/45'
+                              : 'bg-info'
+                      }`}
+                    />
+                  </span>
                   <span className="truncate text-[11px] text-muted-foreground">
                     {connectionPlaceLabel(endpoint, activeLabel)}
                   </span>
@@ -83,41 +105,52 @@ export function NavigationHeader({
                 />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuContent align="start" className="w-96">
               <DropdownMenuLabel>
                 <span className="block">Agent services</span>
-                <span
-                  className="block truncate text-[11px] font-normal text-muted-foreground"
-                  title={endpoint}
-                >
-                  {connectionTypeLabel(endpoint)}
+                <span className="block truncate font-mono text-[11px] font-normal text-muted-foreground">
+                  {endpoint}
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {recentConnections.map((recent) => (
-                <DropdownMenuItem
-                  className="items-start gap-2"
-                  key={recent.endpoint}
-                  onSelect={() => {
-                    if (recent.endpoint !== endpoint) void onConnect(recent);
-                  }}
-                  title={recent.endpoint}
-                >
-                  <span className="mt-0.5 grid size-4 place-items-center">
-                    {recent.endpoint === endpoint ? (
-                      <CheckIcon aria-hidden="true" className="size-3.5 text-primary" />
-                    ) : null}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm">
-                      {connectionPlaceLabel(recent.endpoint, recent.label)}
+              {recentConnections.map((recent) => {
+                const availability = connectionAvailability(
+                  connectionAvailabilities,
+                  recent.endpoint,
+                );
+                return (
+                  <DropdownMenuItem
+                    className="items-center gap-2 py-1.5"
+                    disabled={availability.state === 'unavailable'}
+                    key={recent.endpoint}
+                    onSelect={() => {
+                      if (recent.endpoint !== endpoint) void onConnect(recent);
+                    }}
+                  >
+                    <span className="grid size-4 place-items-center">
+                      {recent.endpoint === endpoint ? (
+                        <CheckIcon aria-hidden="true" className="text-primary" />
+                      ) : null}
                     </span>
-                    <span className="block truncate text-[11px] text-muted-foreground">
-                      {connectionTypeLabel(recent.endpoint)}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm">
+                        {connectionPlaceLabel(recent.endpoint, recent.label)}
+                      </span>
+                      <span
+                        className="block truncate font-mono text-[11px] text-muted-foreground"
+                        title={recent.endpoint}
+                      >
+                        {recent.endpoint}
+                      </span>
                     </span>
-                  </span>
-                </DropdownMenuItem>
-              ))}
+                    <ConnectionAvailabilityIndicator
+                      availability={availability}
+                      compact
+                      endpoint={recent.endpoint}
+                    />
+                  </DropdownMenuItem>
+                );
+              })}
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link state={{ endpoint, from: currentPath }} to="/settings/connections">
@@ -192,28 +225,4 @@ function connectionPlaceLabel(endpoint: string, label?: string): string {
   } catch {
     return 'Connected service';
   }
-}
-
-function connectionTypeLabel(endpoint: string): string {
-  try {
-    const url = new URL(endpoint);
-    const hostname = url.hostname.toLowerCase();
-    if (url.pathname.includes('__clio_remote')) return 'Development tunnel';
-    if (['127.0.0.1', 'localhost', '::1'].includes(hostname)) return 'This device';
-    if (isPrivateNetworkHost(hostname)) return 'Local network';
-    return hostname || 'Remote service';
-  } catch {
-    return 'Connected service';
-  }
-}
-
-function isPrivateNetworkHost(hostname: string): boolean {
-  const octets = hostname.split('.').map(Number);
-  if (octets.length !== 4 || octets.some((value) => !Number.isInteger(value))) return false;
-  return (
-    octets[0] === 10 ||
-    (octets[0] === 172 && (octets[1] ?? 0) >= 16 && (octets[1] ?? 0) <= 31) ||
-    (octets[0] === 192 && octets[1] === 168) ||
-    (octets[0] === 100 && (octets[1] ?? 0) >= 64 && (octets[1] ?? 0) <= 127)
-  );
 }

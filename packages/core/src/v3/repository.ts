@@ -56,7 +56,7 @@ import {
   readTextPath,
 } from './artifact-custody.js';
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
-import { ComposerRepository } from './composer-repository.js';
+import { InteractionRepository } from './interaction-repository.js';
 
 /**
  * Artifact records requested per page while walking a session's registry.
@@ -73,7 +73,7 @@ const ARTIFACT_PAGE_SIZE = 200;
  */
 const MAX_ARTIFACT_PAGES = 100;
 
-export class ClioRepository extends ComposerRepository {
+export class ClioRepository extends InteractionRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }

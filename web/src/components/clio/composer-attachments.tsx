@@ -1,5 +1,6 @@
+import type { WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -18,8 +19,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
+import type {
+  ResourceUploadProgress,
+  WorkspaceResourceUploadResult,
+} from '@/lib/upload-workspace-resources';
 import {
+  resourcePipelineStages,
   summarizeResourcePipelineStages,
   type ResourcePipelineStages,
 } from './resource-availability';
@@ -44,14 +49,96 @@ export interface ResourceUploadFailure {
 
 /** Compact AI Elements attachment tray backed by PromptInput file state. */
 export function ClioComposerAttachments({
+  onPrepareFiles,
+  resources = [],
   uploadFailure,
   uploadProgress,
 }: {
+  onPrepareFiles?: (
+    files: readonly FileUIPart[],
+    onProgress?: (progress: ResourceUploadProgress) => void,
+    signal?: AbortSignal,
+  ) => Promise<WorkspaceResourceUploadResult>;
+  resources?: readonly WorkspaceResource[];
   uploadFailure?: ResourceUploadFailure;
   uploadProgress?: ResourceUploadProgress;
 }) {
   const attachments = usePromptInputAttachments();
   const [preview, setPreview] = useState<(FileUIPart & { id: string }) | undefined>();
+  const preparingAttachmentIds = useRef(new Set<string>());
+  const preparationControllers = useRef(new Map<string, AbortController>());
+  const [attachmentProgress, setAttachmentProgress] = useState<
+    Record<string, ResourceUploadProgress>
+  >({});
+  const [attachmentFailures, setAttachmentFailures] = useState<
+    Record<string, ResourceUploadFailure>
+  >({});
+  const [preparedResources, setPreparedResources] = useState<Record<string, WorkspaceResource>>({});
+
+  useEffect(() => {
+    const attachedIds = new Set(attachments.files.map((file) => file.id));
+    for (const [id, controller] of preparationControllers.current) {
+      if (attachedIds.has(id)) continue;
+      controller.abort();
+      preparationControllers.current.delete(id);
+    }
+  }, [attachments.files]);
+
+  useEffect(
+    () => () => {
+      for (const controller of preparationControllers.current.values()) controller.abort();
+      preparationControllers.current.clear();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!onPrepareFiles) return;
+    for (const file of attachments.files) {
+      if (preparingAttachmentIds.current.has(file.id) || preparedResources[file.id]) continue;
+      preparingAttachmentIds.current.add(file.id);
+      const controller = new AbortController();
+      preparationControllers.current.set(file.id, controller);
+      setAttachmentFailures((current) => {
+        if (!(file.id in current)) return current;
+        const next = { ...current };
+        delete next[file.id];
+        return next;
+      });
+      void onPrepareFiles(
+        [file],
+        (progress) => {
+          if (!controller.signal.aborted) {
+            setAttachmentProgress((current) => ({ ...current, [file.id]: progress }));
+          }
+        },
+        controller.signal,
+      )
+        .then((result) => {
+          const resource = result.resources[0];
+          if (resource && !controller.signal.aborted) {
+            setPreparedResources((current) => ({ ...current, [file.id]: resource }));
+          }
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return;
+          setAttachmentFailures((current) => ({
+            ...current,
+            [file.id]: {
+              filename: file.filename,
+              message: error instanceof Error ? error.message : 'The upload failed.',
+            },
+          }));
+        })
+        .finally(() => {
+          preparingAttachmentIds.current.delete(file.id);
+          if (preparationControllers.current.get(file.id) === controller) {
+            preparationControllers.current.delete(file.id);
+          }
+        });
+    }
+  }, [attachments.files, onPrepareFiles, preparedResources]);
+
   if (attachments.files.length === 0) return null;
 
   return (
@@ -59,14 +146,27 @@ export function ClioComposerAttachments({
       <Attachments className="ml-0 w-full justify-start px-2.5 pb-1.5 pt-2" variant="inline">
         {attachments.files.map((file) => {
           const filename = file.filename ?? 'Attachment';
-          const stages = localAttachmentStages(file, uploadProgress, uploadFailure);
+          const prepared = preparedResources[file.id];
+          const resource = resources.find((candidate) => candidate.id === prepared?.id) ?? prepared;
+          const stages = resource
+            ? resourcePipelineStages(resource)
+            : localAttachmentStages(
+                file,
+                attachmentProgress[file.id] ?? uploadProgress,
+                attachmentFailures[file.id] ?? uploadFailure,
+                Boolean(onPrepareFiles),
+              );
           return (
             <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
               <AttachmentHoverCardTrigger asChild>
                 <Attachment
                   className="h-8 max-w-52 gap-0 p-0"
                   data={file}
-                  onRemove={() => attachments.remove(file.id)}
+                  onRemove={() => {
+                    preparationControllers.current.get(file.id)?.abort();
+                    preparationControllers.current.delete(file.id);
+                    attachments.remove(file.id);
+                  }}
                 >
                   <button
                     aria-label={`Open ${filename}`}
@@ -78,7 +178,7 @@ export function ClioComposerAttachments({
                     <AttachmentInfo className="max-w-28 text-xs" />
                     <ResourcePipelineSummaryIcon stages={stages} />
                   </button>
-                  <AttachmentRemove />
+                  <AttachmentRemove aria-label={`Remove ${filename}`} />
                 </Attachment>
               </AttachmentHoverCardTrigger>
               <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
@@ -115,6 +215,7 @@ function localAttachmentStages(
   file: FileUIPart,
   uploadProgress?: ResourceUploadProgress,
   uploadFailure?: ResourceUploadFailure,
+  preparing = false,
 ): ResourcePipelineStages {
   if (uploadFailure && uploadFailure.filename === file.filename) {
     // Without this a rejected upload keeps reading as a healthy "Ready locally"
@@ -137,13 +238,13 @@ function localAttachmentStages(
           name: 'Upload' as const,
         }
       : {
-          kind: 'complete' as const,
-          label: progress ? 'Complete' : 'Ready locally',
+          kind: preparing ? ('active' as const) : ('complete' as const),
+          label: progress ? 'Complete' : preparing ? 'Starting' : 'Ready locally',
           name: 'Upload' as const,
         };
   const conversion = {
     kind: 'waiting' as const,
-    label: progress ? 'Waiting for workspace' : 'Starts after submission',
+    label: 'Waiting for upload',
     name: 'Conversion' as const,
   };
   return summarizeResourcePipelineStages(upload, conversion);

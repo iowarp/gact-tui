@@ -1,16 +1,32 @@
-import type { CommandDefinition } from '@clio/core/v3';
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import type { CommandDefinition, WorkspaceResource } from '@clio/core/v3';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { toast } from 'sonner';
 import { PromptInputProvider } from '@/components/ai-elements/prompt-input';
 import { ClioComposer, type ClioComposerProps } from './composer';
 
+const repositoryMocks = vi.hoisted(() => ({
+  workspaceReferences: vi.fn(),
+}));
+
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repositoryMocks }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://clio.test' } }),
+}));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 afterEach(cleanup);
 
+/** The composer's editor: a combobox because it drives the reference popover. */
+function composerEditor(): HTMLElement {
+  return screen.getByRole('combobox', { name: /investigate, build, explain, or act/ });
+}
+
 beforeEach(() => {
+  repositoryMocks.workspaceReferences.mockReset();
+  repositoryMocks.workspaceReferences.mockResolvedValue([]);
   vi.mocked(toast.error).mockClear();
   Object.defineProperty(window, 'matchMedia', {
     configurable: true,
@@ -58,33 +74,50 @@ const commands: CommandDefinition[] = [
 
 function renderComposer({
   attachments = false,
+  contextReferences = false,
   effort = 'medium',
   onCommand = vi.fn(async () => undefined),
+  onOpenReference,
+  onPrepareFiles,
   onStop = vi.fn(),
   onSubmit = vi.fn(async () => undefined),
   state = 'completed',
+  workspaceId,
 }: {
   attachments?: boolean;
+  contextReferences?: boolean;
   effort?: string;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
+  onOpenReference?: ClioComposerProps['onOpenReference'];
+  onPrepareFiles?: ClioComposerProps['onPrepareFiles'];
   onStop?: () => void;
   onSubmit?: ClioComposerProps['onSubmit'];
   state?: 'completed' | 'running';
+  workspaceId?: string;
 } = {}) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   render(
-    <PromptInputProvider>
-      <ClioComposer
-        attachments={attachments}
-        commands={commands}
-        effort={effort}
-        model="gpt-5.6-luna"
-        onCommand={onCommand}
-        onStop={onStop}
-        onSubmit={onSubmit}
-        provider="codex"
-        state={state}
-      />
-    </PromptInputProvider>,
+    <QueryClientProvider client={queryClient}>
+      <PromptInputProvider>
+        <ClioComposer
+          attachments={attachments}
+          commands={commands}
+          contextReferences={contextReferences}
+          effort={effort}
+          model="gpt-5.6-luna"
+          onCommand={onCommand}
+          onOpenReference={onOpenReference}
+          onPrepareFiles={onPrepareFiles}
+          onStop={onStop}
+          onSubmit={onSubmit}
+          provider="codex"
+          state={state}
+          workspaceId={workspaceId}
+        />
+      </PromptInputProvider>
+    </QueryClientProvider>,
   );
   return { onCommand, onStop, onSubmit };
 }
@@ -107,7 +140,7 @@ describe('ClioComposer service commands', () => {
     expect(screen.getByRole('button', { name: 'Open first.md' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Open second.py' })).toBeVisible();
 
-    await user.type(screen.getByRole('textbox'), 'Inspect both files.{Enter}');
+    await user.type(composerEditor(), 'Inspect both files.{Enter}');
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
@@ -132,6 +165,39 @@ describe('ClioComposer service commands', () => {
     expect(open).toHaveBeenCalledOnce();
   });
 
+  it('adds files pasted into the inline editor through the attachment provider', async () => {
+    renderComposer({ attachments: true });
+    const image = new File(['pixels'], 'pasted-map.png', { type: 'image/png' });
+
+    fireEvent.paste(composerEditor(), {
+      clipboardData: {
+        files: [image],
+        getData: () => '',
+        items: [{ getAsFile: () => image, kind: 'file' }],
+      },
+    });
+
+    expect(await screen.findByRole('button', { name: 'Open pasted-map.png' })).toBeVisible();
+  });
+
+  it('pastes rich clipboard content as plain text', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    const editor = composerEditor();
+    await user.click(editor);
+
+    fireEvent.paste(editor, {
+      clipboardData: {
+        files: [],
+        getData: (type: string) => (type === 'text/plain' ? 'plain text' : '<b>plain text</b>'),
+        items: [],
+      },
+    });
+
+    expect(document.querySelector('input[name="message"]')).toHaveValue('plain text');
+    expect(editor.querySelector('b')).toBeNull();
+  });
+
   it('renders an image thumbnail and opens the full attachment preview', async () => {
     const user = userEvent.setup();
     renderComposer({ attachments: true });
@@ -153,7 +219,7 @@ describe('ClioComposer service commands', () => {
       await screen.findByRole('status', { name: 'Upload status: Ready locally' }),
     ).toBeVisible();
     expect(
-      screen.getByRole('status', { name: 'Conversion status: Starts after submission' }),
+      screen.getByRole('status', { name: 'Conversion status: Waiting for upload' }),
     ).toBeVisible();
 
     await user.click(openAttachment);
@@ -165,6 +231,108 @@ describe('ClioComposer service commands', () => {
       'src',
       'blob:test-field-map.png',
     );
+  });
+
+  it('uploads a selected file before submission so conversion can start immediately', async () => {
+    const user = userEvent.setup();
+    const uploaded: WorkspaceResource = {
+      id: 'resource_pdf',
+      workspace_id: 'workspace_1',
+      client_upload_id: 'browser-pdf',
+      revision: 1,
+      name: 'paper.pdf',
+      claimed_mime: 'application/pdf',
+      detected_mime: 'application/pdf',
+      detection_source: 'magic',
+      declared_size: 12,
+      received_size: 12,
+      sha256: 'abc',
+      state: 'ready',
+      failure: '',
+      created_at: '2026-09-02T00:00:00Z',
+      updated_at: '2026-09-02T00:00:00Z',
+      completed_at: '2026-09-02T00:00:00Z',
+      mime_mismatch: false,
+      processing: {
+        workspace_id: 'workspace_1',
+        resource_id: 'resource_pdf',
+        resource_revision: 1,
+        source_sha256: 'abc',
+        processor: 'docling',
+        processor_url: 'http://processor.test',
+        job_id: 'remote_job',
+        state: 'submitted',
+        progress: 0,
+        failure: {},
+        cancellation: {},
+        created_at: '2026-09-02T00:00:00Z',
+        updated_at: '2026-09-02T00:00:00Z',
+      },
+    };
+    const onPrepareFiles = vi.fn<NonNullable<ClioComposerProps['onPrepareFiles']>>(
+      async (_files, onProgress) => {
+        onProgress?.({ filename: 'paper.pdf', loaded: 12, total: 12 });
+        return {
+          parts: [
+            {
+              type: 'resource_ref',
+              resource_id: uploaded.id,
+              resource_revision: '1',
+              name: uploaded.name,
+            },
+          ],
+          resources: [uploaded],
+        };
+      },
+    );
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(async () => undefined);
+    renderComposer({
+      attachments: true,
+      onPrepareFiles,
+      onSubmit,
+      workspaceId: 'workspace_1',
+    });
+
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['%PDF-content'], 'paper.pdf', { type: 'application/pdf' }),
+    );
+
+    await waitFor(() => expect(onPrepareFiles).toHaveBeenCalledOnce());
+    expect(onSubmit).not.toHaveBeenCalled();
+    const attachment = screen.getByRole('button', { name: 'Open paper.pdf' });
+    await user.hover(attachment);
+    expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Conversion status: Queued' })).toBeVisible();
+  });
+
+  it('cancels an in-flight preparation when its attachment is removed', async () => {
+    const user = userEvent.setup();
+    let preparationSignal: AbortSignal | undefined;
+    const onPrepareFiles = vi.fn<NonNullable<ClioComposerProps['onPrepareFiles']>>(
+      async (_files, _onProgress, signal) => {
+        preparationSignal = signal;
+        await new Promise<void>((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => reject(Object.assign(new Error('cancelled'), { name: 'AbortError' })),
+            { once: true },
+          );
+        });
+        return { parts: [], resources: [] };
+      },
+    );
+    renderComposer({ attachments: true, onPrepareFiles, onSubmit: vi.fn() });
+
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['pixels'], 'field-map.png', { type: 'image/png' }),
+    );
+    await waitFor(() => expect(onPrepareFiles).toHaveBeenCalledOnce());
+    await user.click(screen.getByRole('button', { name: 'Remove field-map.png' }));
+
+    expect(preparationSignal?.aborted).toBe(true);
+    expect(screen.queryByRole('button', { name: 'Open field-map.png' })).not.toBeInTheDocument();
   });
 
   it('keeps a rejected attachment retryable without a stale uploading state', async () => {
@@ -182,7 +350,7 @@ describe('ClioComposer service commands', () => {
       screen.getByLabelText('Upload files'),
       new File(['pixels'], 'field-map.png', { type: 'image/png' }),
     );
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, 'Describe the image.{Enter}');
 
@@ -199,7 +367,7 @@ describe('ClioComposer service commands', () => {
     expect(
       screen.getByText('The selected model cannot receive this image resource.'),
     ).toBeVisible();
-    expect(input).toHaveValue('Describe the image.');
+    expect(input).toHaveTextContent('Describe the image.');
 
     await user.click(screen.getByRole('button', { name: /^Submit$/ }));
 
@@ -207,6 +375,41 @@ describe('ClioComposer service commands', () => {
     expect(screen.queryByText('Uploading field-map.png 100%')).not.toBeInTheDocument();
     // The accepted retry clears the tray, so no stale failure is left behind.
     expect(screen.queryByRole('button', { name: 'Open field-map.png' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the selectors the desktop WebView probe drives the composer with', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+
+    // desktop/tests/webview-e2e.test.mjs cannot run in this suite — it needs a
+    // built Tauri app and a native WebDriver — so its two selectors are held
+    // against the real component here instead of drifting silently.
+    const probed = document.querySelector(
+      'div[contenteditable="true"][role="combobox"], div[contenteditable="true"][role="textbox"]',
+    );
+    expect(probed).toBe(composerEditor());
+
+    await user.type(composerEditor(), 'Run this shell command');
+    const mirror = document.querySelector('input[name="message"]');
+    expect(mirror).toHaveValue('Run this shell command');
+  });
+
+  it('brings the placeholder back when the draft is cleared by hand', async () => {
+    const user = userEvent.setup();
+    renderComposer();
+    const editor = composerEditor();
+
+    await user.type(editor, 'Half a thought');
+    expect(editor).not.toBeEmptyDOMElement();
+
+    // Clearing a contenteditable by hand leaves a stray <br> behind, which
+    // defeats the :empty rule the placeholder is drawn with.
+    editor.innerHTML = '<br>';
+    fireEvent.input(editor);
+
+    expect(editor).toBeEmptyDOMElement();
+    expect(editor).toHaveAttribute('data-placeholder', expect.stringContaining('investigate'));
+    expect(document.querySelector('input[name="message"]')).toHaveValue('');
   });
 
   it('focuses only after an explicit focus request changes', async () => {
@@ -219,7 +422,7 @@ describe('ClioComposer service commands', () => {
       state: 'completed' as const,
     };
     const { rerender } = render(<ClioComposer {...props} focusRequestKey={0} />);
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     expect(input).not.toHaveFocus();
 
@@ -227,7 +430,7 @@ describe('ClioComposer service commands', () => {
     await waitFor(() => expect(input).toHaveFocus());
   });
 
-  it('restores the textarea focus after the sending block clears', async () => {
+  it('restores the composer focus after the sending block clears', async () => {
     const user = userEvent.setup();
     let resolveSubmit!: () => void;
     const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(
@@ -245,14 +448,14 @@ describe('ClioComposer service commands', () => {
       state: 'completed' as const,
     };
     const view = render(<ClioComposer {...props} />);
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, 'Send this message.{Enter}');
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
 
     input.blur();
     view.rerender(<ClioComposer {...props} disabled />);
-    expect(input).toBeDisabled();
+    expect(input).toHaveAttribute('aria-disabled', 'true');
     expect(input).not.toHaveFocus();
 
     await act(async () => {
@@ -262,17 +465,17 @@ describe('ClioComposer service commands', () => {
     view.rerender(<ClioComposer {...props} disabled={false} />);
 
     await waitFor(() => expect(input).toHaveFocus());
-    expect(input).toHaveValue('');
+    expect(input).toHaveTextContent('');
   });
 
   it('discovers sourced commands and dispatches the canonical command with arguments', async () => {
     const user = userEvent.setup();
     const { onCommand, onSubmit } = renderComposer();
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, '/rev');
     await user.click(screen.getByText('Review evidence'));
-    expect(input).toHaveValue('/review ');
+    expect(document.querySelector('input[name="message"]')).toHaveValue('/review ');
 
     await user.type(input, 'results/stations.csv{Enter}');
 
@@ -281,19 +484,19 @@ describe('ClioComposer service commands', () => {
       input: 'results/stations.csv',
     });
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(input).toHaveValue('');
+    expect(input).toHaveTextContent('');
   });
 
   it('does not turn unknown slash commands into chat messages', async () => {
     const user = userEvent.setup();
     const { onCommand, onSubmit } = renderComposer();
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, '/not-a-service-command{Enter}');
 
     expect(onCommand).not.toHaveBeenCalled();
     expect(onSubmit).not.toHaveBeenCalled();
-    expect(input).toHaveValue('/not-a-service-command');
+    expect(input).toHaveTextContent('/not-a-service-command');
   });
 
   it('reveals the inline attachment remove control to a keyboard as well as a pointer', async () => {
@@ -304,7 +507,7 @@ describe('ClioComposer service commands', () => {
       new File(['pixels'], 'field-map.png', { type: 'image/png' }),
     );
 
-    const remove = screen.getByRole('button', { name: 'Remove' });
+    const remove = screen.getByRole('button', { name: 'Remove field-map.png' });
     expect(remove).toHaveClass('group-hover:opacity-100', 'group-focus-within:opacity-100');
   });
 
@@ -320,7 +523,7 @@ describe('ClioComposer service commands', () => {
     const user = userEvent.setup();
     const onCommand = vi.fn().mockRejectedValue(new Error('The command service is unreachable.'));
     renderComposer({ onCommand });
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, '/review results/stations.csv{Enter}');
 
@@ -330,26 +533,26 @@ describe('ClioComposer service commands', () => {
       }),
     );
     // A rejected command leaves the typed command in place to retry.
-    expect(input).toHaveValue('/review results/stations.csv');
+    expect(input).toHaveTextContent('/review results/stations.csv');
   });
 
   it('explains unavailable service commands without dispatching them', async () => {
     const user = userEvent.setup();
     const { onCommand } = renderComposer();
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, '/admin');
     expect(screen.getByText('Requires administrator access.')).toBeVisible();
     await user.keyboard('{Enter}');
 
     expect(onCommand).not.toHaveBeenCalled();
-    expect(input).toHaveValue('/admin');
+    expect(input).toHaveTextContent('/admin');
   });
 
   it('keeps steering and stopping as distinct actions while work is running', async () => {
     const user = userEvent.setup();
     const { onStop, onSubmit } = renderComposer({ state: 'running' });
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     expect(input).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Stop' })).toBeVisible();
@@ -368,7 +571,7 @@ describe('ClioComposer service commands', () => {
   it('queues Enter and steers Ctrl+Enter while work is running', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderComposer({ state: 'running' });
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, 'Review the second station.{Enter}');
     await waitFor(() =>
@@ -394,7 +597,7 @@ describe('ClioComposer service commands', () => {
   it('starts normally from either Enter shortcut while idle', async () => {
     const user = userEvent.setup();
     const { onSubmit } = renderComposer();
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, 'Start the analysis.{Enter}');
     await waitFor(() =>
@@ -427,7 +630,7 @@ describe('ClioComposer service commands', () => {
       </PromptInputProvider>
     );
     const view = render(renderState('running'));
-    const input = screen.getByRole('textbox');
+    const input = composerEditor();
 
     await user.type(input, 'Queue this while running.{Enter}');
     await waitFor(() =>
@@ -437,7 +640,7 @@ describe('ClioComposer service commands', () => {
     );
 
     view.rerender(renderState('completed'));
-    await user.type(screen.getByRole('textbox'), 'Start this after completion.');
+    await user.type(composerEditor(), 'Start this after completion.');
     await user.click(screen.getByRole('button', { name: /^Submit$/ }));
 
     await waitFor(() =>

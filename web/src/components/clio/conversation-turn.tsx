@@ -228,7 +228,9 @@ function TaskActivityLine({ task, className }: { task: Task; className?: string 
         className="h-auto shrink-0 border-0 bg-transparent px-0 py-0 shadow-none"
         value={task.state}
       />
-      {task.detail ? <span className="sr-only">{task.detail}</span> : null}
+      <span className="min-w-0 max-w-[45%] truncate" title={task.detail || 'No detail reported'}>
+        {task.detail || 'No detail reported'}
+      </span>
     </span>
   );
 }

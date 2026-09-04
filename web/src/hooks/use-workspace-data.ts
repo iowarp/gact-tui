@@ -1,12 +1,17 @@
 import { queryKeys } from '@/lib/query-keys';
-import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { useQueries, useQuery } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo } from 'react';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import { buildContextTargets, resolveContextSession } from '@/lib/context-targets';
 import { recordById } from '@/lib/entities';
 import { buildModelOptions } from '@/lib/model-options';
-import { ACTIVE_SESSION_POLL_MS, PROVIDER_CATALOG_STALE_TIME_MS } from '@/lib/runtime-limits';
+import {
+  ACTIVE_SESSION_POLL_MS,
+  PENDING_INTERACTIONS_FANOUT_CAP,
+  PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
+  PROVIDER_CATALOG_STALE_TIME_MS,
+} from '@/lib/runtime-limits';
 import { sessionArtifactEntities } from '@/lib/session-artifacts';
 import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
@@ -18,6 +23,11 @@ import { useExecutionProvenance } from './use-execution-provenance';
 import { useSessionLiveStream } from './use-session-live-stream';
 import { useSessionObservability } from './use-session-observability';
 import { useWorkspaceCapabilities } from './use-workspace-capabilities';
+import {
+  hasUnifiedInteractionCapability,
+  interactionRootSessionId,
+  legacyPendingInteractions,
+} from '@/lib/pending-interaction-contract';
 
 interface UseWorkspaceDataInput {
   contextTargetId: string;
@@ -37,6 +47,7 @@ export function useWorkspaceData({
   const entityContext = useLiveStore((state) => state.entities.context);
   const entityRuns = useLiveStore((state) => state.entities.runs);
   const entitySessions = useLiveStore((state) => state.entities.sessions);
+  const entitySurfaces = useLiveStore((state) => state.entities.surfaces);
   const entitySubagents = useLiveStore((state) => state.entities.subagents);
   const entityTasks = useLiveStore((state) => state.entities.tasks);
   const entityTools = useLiveStore((state) => state.entities.tools);
@@ -47,6 +58,7 @@ export function useWorkspaceData({
       context: entityContext,
       runs: entityRuns,
       sessions: entitySessions,
+      surfaces: entitySurfaces,
       subagents: entitySubagents,
       tasks: entityTasks,
       tools: entityTools,
@@ -57,6 +69,7 @@ export function useWorkspaceData({
       entityContext,
       entityRuns,
       entitySessions,
+      entitySurfaces,
       entitySubagents,
       entityTasks,
       entityTools,
@@ -83,6 +96,15 @@ export function useWorkspaceData({
     queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
     queryFn: ({ signal }) => repository.allSessions(signal),
   });
+  const hierarchySessions = useMemo(
+    () => allSessions.data ?? sessions.data ?? [],
+    [allSessions.data, sessions.data],
+  );
+  const attendedSessionRoot = useMemo(
+    () => interactionRootSessionId(sessionId, hierarchySessions),
+    [hierarchySessions, sessionId],
+  );
+  const attendedSessionId = attendedSessionRoot.id;
   const transcript = useQuery({
     queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
     queryFn: ({ signal }) => repository.transcript(sessionId, signal),
@@ -99,10 +121,19 @@ export function useWorkspaceData({
     sessionId,
     workspaceId,
   });
+  const supportsUnifiedInteractions = hasUnifiedInteractionCapability(
+    capabilities.data?.capabilities,
+  );
+  // Capability detection may only ADD the normalized read; it may never subtract
+  // the legacy ledgers. Gating these on a resolved capability read made a failing
+  // or still-pending `/v1/capabilities` blank the whole interaction surface — a
+  // blocked agent with nothing on screen to unblock it. Unresolved means legacy,
+  // which is what every backend answered before the capability existed.
+  const useLegacyInteractions = !supportsUnifiedInteractions;
   const approvals = useQuery({
     queryKey: queryKeys.key('pending-approvals', settings.endpoint, 'all-active'),
     queryFn: ({ signal }) => repository.pendingApprovals(undefined, signal),
-    enabled: Boolean(sessionId),
+    enabled: Boolean(sessionId) && useLegacyInteractions,
     refetchInterval: ACTIVE_SESSION_POLL_MS,
   });
   // Read unscoped (`/v1/questions?status=pending`, no `session_id`), mirroring
@@ -113,9 +144,87 @@ export function useWorkspaceData({
   const questions = useQuery({
     queryKey: queryKeys.key('pending-questions', settings.endpoint, 'all-active'),
     queryFn: ({ signal }) => repository.pendingQuestions(undefined, signal),
-    enabled: Boolean(sessionId),
+    enabled: Boolean(sessionId) && useLegacyInteractions,
     refetchInterval: ACTIVE_SESSION_POLL_MS,
   });
+  const normalizedInteractions = useQuery({
+    queryKey: queryKeys.pendingInteractions(settings.endpoint, attendedSessionId),
+    queryFn: ({ signal }) => repository.pendingInteractions(attendedSessionId, true, signal),
+    enabled:
+      Boolean(attendedSessionId) &&
+      (allSessions.data !== undefined || sessions.data !== undefined) &&
+      supportsUnifiedInteractions,
+    refetchInterval: ACTIVE_SESSION_POLL_MS,
+  });
+  const attentionRootSessionIds = useMemo(() => {
+    if (!supportsUnifiedInteractions) return [];
+    // A busy workspace with many background sessions cannot open one request
+    // per root session on every render — capped, not unbounded fan-out.
+    return [
+      ...new Set(
+        hierarchySessions
+          .filter((candidate) => !candidate.archived)
+          .map((candidate) => interactionRootSessionId(candidate.id, hierarchySessions).id)
+          .filter((candidateId) => candidateId !== attendedSessionId),
+      ),
+    ].slice(0, PENDING_INTERACTIONS_FANOUT_CAP);
+  }, [attendedSessionId, hierarchySessions, supportsUnifiedInteractions]);
+  const attentionInteractionQueries = useQueries({
+    queries: attentionRootSessionIds.map((rootSessionId) => ({
+      queryKey: queryKeys.pendingInteractions(settings.endpoint, rootSessionId),
+      queryFn: ({ signal }) => repository.pendingInteractions(rootSessionId, true, signal),
+      staleTime: PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
+    })),
+  });
+  const attentionInteractionsError = attentionInteractionQueries.find(
+    (query) => query.error,
+  )?.error;
+  const interactions = useMemo(
+    () =>
+      supportsUnifiedInteractions
+        ? (normalizedInteractions.data ?? [])
+        : legacyPendingInteractions(hierarchySessions, approvals.data ?? [], questions.data ?? []),
+    [
+      approvals.data,
+      hierarchySessions,
+      normalizedInteractions.data,
+      questions.data,
+      supportsUnifiedInteractions,
+    ],
+  );
+  const attentionInteractions = supportsUnifiedInteractions
+    ? [...interactions, ...attentionInteractionQueries.flatMap((query) => query.data ?? [])]
+    : interactions;
+  const a2uiOwnerIds = useMemo(
+    () => [
+      ...new Set(
+        interactions
+          .filter((interaction) => interaction.kind === 'a2ui')
+          .map((interaction) => interaction.owner_session_id),
+      ),
+    ],
+    [interactions],
+  );
+  const interactionSurfaceSnapshots = useQueries({
+    queries: a2uiOwnerIds.map((ownerSessionId) => ({
+      queryKey: queryKeys.transcript(settings.endpoint, ownerSessionId, 'pending-a2ui'),
+      queryFn: ({ signal }) => repository.transcript(ownerSessionId, signal),
+    })),
+  });
+  const interactionSurfaces = {
+    ...entities.surfaces,
+    ...Object.fromEntries(
+      interactionSurfaceSnapshots
+        .flatMap((snapshot) => snapshot.data?.surfaces ?? [])
+        .map((surface) => [`${surface.session_id}:${surface.id}`, surface]),
+    ),
+  };
+  // A one-shot read: a card left waiting on a surface that missed its live
+  // event (rather than one that never existed) has no other path to recover
+  // without this — a poll interval is not wired for these snapshots.
+  const refetchInteractionSurfaces = useCallback(() => {
+    void Promise.all(interactionSurfaceSnapshots.map((snapshot) => snapshot.refetch()));
+  }, [interactionSurfaceSnapshots]);
 
   useEffect(() => {
     if (workspaces.data) mergeSnapshots({ workspaces: recordById(workspaces.data) });
@@ -279,6 +388,7 @@ export function useWorkspaceData({
     activeEffort,
     activeModel,
     activeProvider,
+    attentionInteractions,
     agentBlueprints,
     allSessions,
     approvals,
@@ -290,6 +400,31 @@ export function useWorkspaceData({
     entities,
     executionProvenance,
     interactionSessionIds,
+    interactions,
+    // Reads that actually failed to list responses. The per-root fan-out errors
+    // join it — a blocked background session the reader cannot see is still an
+    // interaction the reader was not told about.
+    interactionsError:
+      normalizedInteractions.error ??
+      approvals.error ??
+      questions.error ??
+      attentionInteractionsError ??
+      undefined,
+    // `capabilities` failing is a degradation, not a failed response read: the
+    // legacy ledgers above still run and still answer, so every pending
+    // response was listed. It is reported on its own channel so the composer
+    // can say the route is degraded without claiming responses are missing —
+    // and so it never reaches only the full-page unavailable state, which is
+    // skipped once a session is on screen.
+    interactionCapabilityError: capabilities.error ?? undefined,
+    interactionRootSessionId: attendedSessionId,
+    // True when the attended session's true root could not be confirmed from
+    // locally known sessions (an unknown ancestor, or a hierarchy cycle) —
+    // `interactionRootSessionId` is then a best-effort id, not a proven root.
+    interactionRootUnresolved: !attendedSessionRoot.resolved,
+    interactionSurfaces,
+    refetchInteractionSurfaces,
+    supportsUnifiedInteractions,
     modelConfiguration,
     modelCatalogStatus,
     modelOptions,

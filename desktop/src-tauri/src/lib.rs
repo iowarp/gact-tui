@@ -11,6 +11,7 @@ mod commands;
 mod credentials;
 mod gact_http;
 mod gact_http_response;
+mod infrastructure_setup;
 #[cfg(test)]
 mod gact_http_tests;
 mod menu;
@@ -82,6 +83,8 @@ pub fn run() {
             commands::read_logs,
             commands::open_document_path,
             commands::tunnel_open,
+            infrastructure_setup::infrastructure_ssh_profiles,
+            infrastructure_setup::infrastructure_deploy_web_search,
             credentials::credential_store,
             credentials::credential_read,
             credentials::credential_delete,

@@ -9,6 +9,8 @@ import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifi
 import { CheckIcon, GripVerticalIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { referenceKindLabel } from '@/lib/composer-reference-domain';
+import { referenceKindIcon } from './composer-reference-presentation';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -155,6 +157,9 @@ export function ClioComposerQueue({
               {ordered.map((message) => {
                 const text = message.parts.find((part) => part.type === 'text')?.text ?? '';
                 const resources = message.parts.filter((part) => part.type === 'resource_ref');
+                const contextReferences = message.parts.filter(
+                  (part) => part.type === 'context_ref',
+                );
                 const isEditing = editing?.id === message.id;
                 return (
                   <SortableItem
@@ -193,9 +198,42 @@ export function ClioComposerQueue({
                         />
                       ) : (
                         <QueueItemContent className="text-foreground" title={text}>
-                          {text || 'Attachments only'}
+                          {text ||
+                            (contextReferences.length > 0 ? 'Context only' : 'Attachments only')}
                         </QueueItemContent>
                       )}
+                      {contextReferences.length > 0 ? (
+                        <div className="flex min-w-0 max-w-48 shrink items-center gap-1">
+                          {contextReferences.slice(0, 2).map((reference) => {
+                            const ReferenceIcon = referenceKindIcon(reference.ref_kind);
+                            return (
+                              <span
+                                className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md border border-border px-1.5 text-xs"
+                                key={`${reference.ref_kind}:${reference.ref_id}:${reference.revision ?? ''}`}
+                                title={`${reference.label} (${referenceKindLabel(reference.ref_kind)})`}
+                              >
+                                <ReferenceIcon
+                                  aria-hidden="true"
+                                  className="size-3 shrink-0 text-primary"
+                                />
+                                <span className="truncate">{reference.label}</span>
+                              </span>
+                            );
+                          })}
+                          {contextReferences.length > 2 ? (
+                            <span
+                              aria-label={`${contextReferences.length - 2} more references`}
+                              // Matches the chips it summarises rather than
+                              // dropping to muted: against the queue's
+                              // translucent surface muted computes 4.11:1,
+                              // under the 4.5:1 floor for text this size.
+                              className="text-xs text-foreground/70"
+                            >
+                              +{contextReferences.length - 2}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       {resources.length > 0 ? (
                         <Attachments className="shrink-0 flex-nowrap gap-1" variant="inline">
                           {resources.slice(0, 2).map((resourceRef) => (

@@ -57,6 +57,11 @@ function buildSurface(components: Record<string, unknown>[]) {
 }
 
 describe('CLIO A2UI scientific catalog', () => {
+  // The plot is code-split, so both this test and the accessibility sweep below
+  // wait on a real dynamic import resolving through Suspense before they can
+  // assert anything. The default per-test budget is not enough for that on a
+  // loaded machine, and eagerly pulling the charting library in to make the
+  // tests faster would cost every user the download instead.
   it('renders shared chart and data-grid components instead of JSON representations', async () => {
     const surface = buildSurface([
       { id: 'root', component: 'Column', children: ['plot', 'table'] },
@@ -108,7 +113,7 @@ describe('CLIO A2UI scientific catalog', () => {
       'Observed displacement and quality',
     );
     expect(container.textContent).not.toContain('"series"');
-  });
+  }, 20_000);
 
   it('accepts labeled table-column objects for scientific units', async () => {
     const surface = buildSurface([
@@ -336,5 +341,5 @@ describe('CLIO A2UI scientific catalog', () => {
     ]) {
       expect((await screen.findAllByLabelText(label)).length).toBeGreaterThan(0);
     }
-  });
+  }, 20_000);
 });

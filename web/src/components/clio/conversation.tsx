@@ -6,6 +6,7 @@ import type {
   SubagentRun,
   Task as DomainTask,
   ToolInvocation,
+  WorkspaceReference,
   WorkspaceResource,
 } from '@clio/core/v3';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
@@ -71,6 +72,7 @@ export interface ClioConversationProps {
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenFile?: (path: string) => void;
   onOpenResource?: (resource: WorkspaceResource) => void;
+  onOpenReference?: (reference: WorkspaceReference) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   pendingMessageIds?: ReadonlySet<string>;
   cancellablePendingMessageIds?: ReadonlySet<string>;
@@ -79,7 +81,7 @@ export interface ClioConversationProps {
   bottomInset?: number;
 }
 
-interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
+export interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
   displayMode: ConversationDisplayMode;
   message: DomainMessage;
   index: number;
@@ -352,7 +354,11 @@ function linkedSubagentsEqual(
   return true;
 }
 
-function conversationMessageRowPropsEqual(
+// The memo boundary's equality check is exported for a direct regression test:
+// every callback prop the row closes over must be enumerated here, or a fresh
+// callback the app passed down is silently discarded for a stale one.
+// oxlint-disable-next-line react/only-export-components
+export function conversationMessageRowPropsEqual(
   left: ConversationMessageRowProps,
   right: ConversationMessageRowProps,
 ): boolean {
@@ -376,6 +382,7 @@ function conversationMessageRowPropsEqual(
     left.onCancelPendingSteer !== right.onCancelPendingSteer ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
+    left.onOpenReference !== right.onOpenReference ||
     left.onOpenResource !== right.onOpenResource ||
     left.onOpenSubagent !== right.onOpenSubagent ||
     left.pendingMessageIds?.has(left.message.id) !==

@@ -623,6 +623,9 @@ describe('ClioRepository interaction contracts', () => {
             title: 'Run analysis on Ares',
             live_state: 'working',
             status: 'working',
+            root_session_id: 'sess 1',
+            owner_session_id: 'sess child',
+            task_path: ['task_parent', 'jarvis_1'],
             created_at: '2026-08-22T00:00:00Z',
             updated_at: '2026-08-22T00:01:00Z',
             server_id: 'relay-ares',
@@ -659,12 +662,16 @@ describe('ClioRepository interaction contracts', () => {
     expect(processes[0]).toMatchObject({
       title: 'Run analysis on Ares',
       live_state: 'running',
+      root_session_id: 'sess 1',
+      owner_session_id: 'sess child',
+      task_path: ['task_parent', 'jarvis_1'],
       metadata: { server_id: 'relay-ares' },
     });
     expect(processes[1]).toMatchObject({
       id: 'task_interrupted',
       live_state: 'failed',
       result: undefined,
+      task_path: [],
     });
   });
 

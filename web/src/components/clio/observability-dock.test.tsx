@@ -1,3 +1,4 @@
+import type { AsyncProcess, ExecutionProvenanceResult } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,6 +11,9 @@ const repository = vi.hoisted(() => ({
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+}));
 import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
 
 beforeEach(() => {
@@ -460,6 +464,137 @@ describe('ClioObservabilityView', () => {
     );
   });
 
+  it('uses typed child provenance for source and artifact ownership instead of workflow scraping', async () => {
+    const user = userEvent.setup();
+    renderObservability(
+      <ClioObservabilityView
+        artifacts={[
+          {
+            id: 'artifact_review',
+            session_id: 'session_leaf',
+            name: 'review.md',
+            media_type: 'text/markdown',
+            uri: 'artifact://review.md',
+          },
+        ]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        executionProvenance={{
+          schema_version: 'clio.execution_provenance.v1',
+          provider: 'native',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          complete: true,
+          truncated: false,
+          provider_health: {},
+          campaigns: [],
+          workflows: [],
+          agents: [],
+          session_lineage: [
+            {
+              session_id: 'session_root',
+              parent_session_id: '',
+              task_id: '',
+              agent_id: '',
+              label: 'Investigation',
+              depth: 0,
+              task_path: [],
+            },
+            {
+              session_id: 'session_leaf',
+              parent_session_id: 'session_root',
+              task_id: 'task_leaf',
+              agent_id: 'critic',
+              label: 'Evidence critic',
+              depth: 1,
+              task_path: ['task_leaf'],
+            },
+          ],
+          spans: [],
+          nodes: [
+            {
+              id: 'task:task_leaf',
+              kind: 'task',
+              label: 'Evidence critic',
+              status: 'completed',
+              session_id: 'session_leaf',
+              agent_id: 'critic',
+              start_time: null,
+              end_time: null,
+              attributes: { owner_session_id: 'session_leaf', task_id: 'task_leaf' },
+            },
+            {
+              id: 'resource:catalog_1',
+              kind: 'resource',
+              label: 'EarthScope dataset',
+              status: 'available',
+              session_id: 'session_leaf',
+              agent_id: 'critic',
+              start_time: null,
+              end_time: null,
+              attributes: { owner_session_id: 'session_leaf', resource_id: 'catalog_1' },
+            },
+            {
+              id: 'artifact:artifact_review',
+              kind: 'artifact',
+              label: 'review.md',
+              status: 'available',
+              session_id: 'session_leaf',
+              agent_id: 'critic',
+              start_time: null,
+              end_time: null,
+              attributes: { artifact_id: 'artifact_review' },
+            },
+          ],
+          edges: [
+            {
+              id: 'used:task:task_leaf->resource:catalog_1',
+              source: 'task:task_leaf',
+              target: 'resource:catalog_1',
+              kind: 'used',
+            },
+            {
+              id: 'generated:task:task_leaf->artifact:artifact_review',
+              source: 'task:task_leaf',
+              target: 'artifact:artifact_review',
+              kind: 'generated',
+            },
+          ],
+        }}
+        messages={[]}
+        processes={[
+          {
+            kind: 'agent',
+            id: 'task_leaf',
+            title: 'Evidence critic',
+            live_state: 'completed',
+            status: 'completed',
+            owner_session_id: 'session_leaf',
+            task_path: ['task_leaf'],
+            result: {
+              workflow_state: { source_url: 'https://legacy.invalid/scraped' },
+            },
+            metadata: {},
+          },
+        ]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Evidence' }));
+    expect(screen.getByText('EarthScope dataset')).toBeVisible();
+    expect(screen.getByText('Used by Evidence critic')).toBeVisible();
+    expect(screen.getByText('catalog_1')).toBeVisible();
+    expect(screen.queryByText('https://legacy.invalid/scraped')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Artifacts1/u }));
+    expect(screen.getByText('Generated by Evidence critic')).toBeVisible();
+  });
+
   it('distinguishes a failed observability section from an empty one', async () => {
     const user = userEvent.setup();
     renderObservability(
@@ -608,6 +743,52 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByText(/Partial flowcept provenance/u)).toBeVisible();
+  });
+
+  it('still shows process activity when session_lineage is legally empty', async () => {
+    // [] means "delegated to nothing", not a missing read — must still fall back.
+    const user = userEvent.setup();
+    const provenance: ExecutionProvenanceResult = {
+      schema_version: 'clio.execution_provenance.v1',
+      provider: 'native',
+      session_id: 'session_root',
+      complete: true,
+      truncated: false,
+      provider_health: {},
+      campaigns: [],
+      workflows: [],
+      agents: [],
+      session_lineage: [],
+      spans: [],
+      nodes: [],
+      edges: [],
+    };
+    const process: AsyncProcess = {
+      kind: 'agent',
+      id: 'task_1',
+      title: 'ndp #1',
+      live_state: 'completed',
+      status: 'completed',
+      metadata: {},
+    };
+    renderObservability(
+      <ClioObservabilityView
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        executionProvenance={provenance}
+        messages={[]}
+        processes={[process]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Timeline' }));
+    expect(screen.getByText('ndp #1')).toBeVisible();
   });
 });
 

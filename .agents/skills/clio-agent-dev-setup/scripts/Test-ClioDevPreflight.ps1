@@ -10,7 +10,7 @@ param(
     [int]$CtePort = 9413,
     [string]$ExpectedProvider = "codex",
     [string]$ExpectedModel = "gpt-5.6-luna",
-    [string]$ExpectedTransport = "app_server",
+    [string]$ExpectedTransport = "sdk",
     [string]$DevRoot = "D:\Libraries\Documents\projects\clio_develop_workspace",
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
@@ -79,28 +79,57 @@ $documentProcessorResponse = Invoke-ClioDevWebRequest `
     -Uri "$documentProcessorUrl/readyz" `
     -TimeoutSec 10
 $documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
-$provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 10
+# SDK-native provider discovery performs real modality probes and may need to
+# initialize the provider subprocess even after the service health endpoint is
+# ready. Keep that evidence-producing request bounded independently of generic
+# health checks.
+try {
+    $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 120
+}
+catch {
+    throw "Provider preflight failed for $backendUrl/v1/providers/lm: $($_.Exception.Message)"
+}
 $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
-$sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 10
-$webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 10
+# Source discovery reads the installed marketplace and can cross a cold disk on
+# the first request. Keep this bounded without applying the generic 10-second
+# HTTP timeout to a valid cold-start path.
+$sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 30
+try {
+    # The first full application request may still be compiling the Vite graph
+    # after the lightweight startup readiness request has succeeded.
+    $webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 30
+}
+catch {
+    throw "Web root preflight failed for $webUrl/: $($_.Exception.Message)"
+}
 $gactHeaders = @{
     Origin = $webUrl
     "X-GACT-Version" = "0.3"
 }
-$gactResponse = Invoke-WebRequest `
-    -Uri "$backendUrl/v1/capabilities" `
-    -Headers $gactHeaders `
-    -TimeoutSec 10
+try {
+    $gactResponse = Invoke-WebRequest `
+        -Uri "$backendUrl/v1/capabilities" `
+        -Headers $gactHeaders `
+        -TimeoutSec 30
+}
+catch {
+    throw "GACT capability preflight failed for $backendUrl/v1/capabilities: $($_.Exception.Message)"
+}
 $gactCapabilities = $gactResponse.Content | ConvertFrom-Json
-$corsPreflight = Invoke-WebRequest `
-    -Uri "$backendUrl/v1/capabilities" `
-    -Method Options `
-    -Headers @{
-        Origin = $webUrl
-        "Access-Control-Request-Method" = "GET"
-        "Access-Control-Request-Headers" = "x-gact-version"
-    } `
-    -TimeoutSec 10
+try {
+    $corsPreflight = Invoke-WebRequest `
+        -Uri "$backendUrl/v1/capabilities" `
+        -Method Options `
+        -Headers @{
+            Origin = $webUrl
+            "Access-Control-Request-Method" = "GET"
+            "Access-Control-Request-Headers" = "x-gact-version"
+        } `
+        -TimeoutSec 30
+}
+catch {
+    throw "GACT CORS preflight failed for $backendUrl/v1/capabilities: $($_.Exception.Message)"
+}
 $spotterImplRoot = [System.IO.Path]::GetFullPath($SpotterImplDir)
 $spotterConfigFull = [System.IO.Path]::GetFullPath($SpotterConfigPath)
 
@@ -132,8 +161,9 @@ $preflightOrigin = [string]$corsPreflight.Headers["Access-Control-Allow-Origin"]
 if ($preflightOrigin -ne $webUrl) {
     throw "GACT browser preflight rejected '$webUrl'."
 }
-if ($gactCapabilities.contract_version -ne "0.3") {
-    throw "GACT negotiation mismatch: expected '0.3', got '$($gactCapabilities.contract_version)'."
+if (@($gactCapabilities.gact_versions) -notcontains "0.3") {
+    $offeredVersions = @($gactCapabilities.gact_versions) -join ", "
+    throw "GACT negotiation mismatch: expected '0.3' in offered versions, got '$offeredVersions'."
 }
 $campaignCapabilities = $gactCapabilities.capabilities
 foreach ($capabilityName in @(
@@ -145,18 +175,14 @@ foreach ($capabilityName in @(
         throw "GACT 0.3 capability '$capabilityName' is not enabled."
     }
 }
-if ($campaignCapabilities.x_clio_resources.enabled -ne $true) {
+if (
+    $null -eq $campaignCapabilities.x_clio_resources -or
+    [int64]$campaignCapabilities.x_clio_resources.max_bytes -le 0
+) {
     throw "GACT 0.3 resource custody is not enabled."
 }
-$structuredProcessing = $campaignCapabilities.x_clio_resources.structured_document_processing
-if (
-    $structuredProcessing.supported -ne $true -or
-    $structuredProcessing.state -ne "configured"
-) {
-    throw "GACT 0.3 structured document processing is not configured."
-}
 $configuredDocumentProcessor = @(
-    $structuredProcessing.converters |
+    $campaignCapabilities.x_clio_resources.converters |
         Where-Object {
             $_.id -eq "clio-web-search-docling" -and
             $_.configured -eq $true -and
@@ -274,6 +300,10 @@ $arcProbeScope = "clio-dev-preflight"
 $arcProbeSentinel = "arc-probe-$([Guid]::NewGuid().ToString('N'))"
 $arcProbeSessionId = $null
 try {
+    # A cold SDK-native provider may still be finishing its first agent
+    # initialization after the health route is ready. Keep this one
+    # disposable-session probe bounded without applying a long timeout to
+    # ordinary health checks.
     $arcProbeSession = Invoke-RestMethod `
         -Method Post `
         -Uri "$backendUrl/v1/sessions" `
@@ -284,7 +314,7 @@ try {
             approval_mode = "bypass"
             metadata = @{ preflight = $true }
         } | ConvertTo-Json -Depth 4) `
-        -TimeoutSec 15
+        -TimeoutSec 60
     $arcProbeSessionId = [string]$arcProbeSession.id
     if (-not $arcProbeSessionId) {
         throw "ARC probe could not create its disposable session."

@@ -4,13 +4,29 @@ import { DocumentRepository } from './document-repository.js';
 import { mcpServerListSchema } from './repository-decoders.js';
 import { mcpServerDefinitionSchema } from './schemas.js';
 
+/** Narrows an MCP server listing to the tools one session holds open. */
+export interface McpServerListOptions {
+  /**
+   * Restricts the listing to the servers this session owns, alongside the
+   * shared ones. A service that predates the parameter ignores it and answers
+   * with the shared inventory, which is why the caller must check whether the
+   * answer carries `session_id` at all rather than assume it was honoured.
+   */
+  sessionId?: string;
+}
+
 /** Tool-provider discovery, lifecycle, and inventory routes. */
 export class McpRepository extends DocumentRepository {
   public async mcpServers(
     workspaceId?: string,
     signal?: AbortSignal,
+    options: McpServerListOptions = {},
   ): Promise<McpServerDefinition[]> {
-    const query = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : '';
+    const params = [
+      workspaceId ? `workspace_id=${encodeURIComponent(workspaceId)}` : '',
+      options.sessionId ? `session_id=${encodeURIComponent(options.sessionId)}` : '',
+    ].filter(Boolean);
+    const query = params.length ? `?${params.join('&')}` : '';
     const result = await this.transport.request({
       method: 'GET',
       path: `/v1/mcp/servers${query}`,

@@ -1,5 +1,5 @@
 import type { MessageBlock, SubagentRun, Task, ToolInvocation } from '@clio/core/v3';
-import { ListChecksIcon } from 'lucide-react';
+import { ChevronDownIcon, ListChecksIcon } from 'lucide-react';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Task as AITask, TaskContent, TaskItem, TaskTrigger } from '@/components/ai-elements/task';
@@ -81,15 +81,34 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   }
   if (block.type === 'task') {
     const task = entities.tasks[block.task_id];
+    const title = task?.title || 'Task unavailable';
+    const state = task?.state ?? 'unavailable';
     return (
-      <AITask className="mb-0 rounded-lg border bg-card/60" defaultOpen={false}>
-        <TaskTrigger title={task?.title ?? 'Task unavailable'} />
+      // The detail is the only thing a task record adds beyond its title and
+      // state, so it has to be reachable — a `title` attribute on a plain span
+      // reaches neither the keyboard nor a screen reader. The AI Elements task
+      // disclosure owns that reveal; only its trigger is replaced, because the
+      // stock one wears a search glyph that reads as a search result here.
+      <AITask className="mb-0" defaultOpen={false}>
+        <TaskTrigger title={title}>
+          <button
+            className="flex w-full min-w-0 cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left text-xs text-muted-foreground transition-colors hover:text-foreground"
+            type="button"
+          >
+            <ListChecksIcon aria-hidden="true" className="size-3.5 shrink-0" />
+            <span className="min-w-0 flex-1 truncate text-foreground/85">{title}</span>
+            <ClioStatus
+              className="h-auto shrink-0 border-0 bg-transparent px-0 py-0 shadow-none"
+              value={state}
+            />
+            <ChevronDownIcon
+              aria-hidden="true"
+              className="size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-180"
+            />
+          </button>
+        </TaskTrigger>
         <TaskContent>
-          <TaskItem className="flex flex-wrap items-start gap-2">
-            <ListChecksIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-            <ClioStatus value={task?.state ?? 'unavailable'} />
-            <span className="min-w-0 flex-1">{task?.detail || 'No task detail was reported.'}</span>
-          </TaskItem>
+          <TaskItem className="text-xs">{task?.detail || 'No task detail was reported.'}</TaskItem>
         </TaskContent>
       </AITask>
     );

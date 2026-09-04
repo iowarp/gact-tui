@@ -272,9 +272,8 @@ describe('useSessionLiveStream resume recovery', () => {
   });
 
   it('invalidates the approvals query the workspace actually reads', async () => {
-    const { QueryClient } = await vi.importActual<typeof import('@tanstack/react-query')>(
-      '@tanstack/react-query',
-    );
+    const { QueryClient } =
+      await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
     const client = new QueryClient();
     client.setQueryData(['pending-approvals', 'http://127.0.0.1:8790', 'all-active'], []);
 
@@ -291,6 +290,14 @@ describe('useSessionLiveStream resume recovery', () => {
     );
 
     expect(matched).toContainEqual(['pending-approvals', 'http://127.0.0.1:8790', 'all-active']);
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'a2ui.updated',
+        sessionId: 'sess_child',
+        workspaceId: 'ws_1',
+      }),
+    ).toContainEqual(['pending-interactions', 'http://127.0.0.1:8790']);
   });
 
   it('invalidates the unscoped questions query the workspace actually reads', async () => {

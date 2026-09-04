@@ -15,6 +15,7 @@ import type {
   WorkspaceResourceProcessing,
   WorkspaceResourceSearchResult,
   WorkspaceResourceStructure,
+  WorkspaceReference,
   WorkspaceResourceStructureNode,
   ComposerModelRef,
 } from './composer-domain.js';
@@ -32,6 +33,7 @@ import {
   workspaceResourceSearchResultSchema,
   workspaceResourceStructureNodeSchema,
   workspaceResourceStructureSchema,
+  workspaceReferenceSchema,
 } from './composer-schemas.js';
 import { ArtifactPreviewRepository } from './artifact-preview-repository.js';
 import { QueuedMessageReorderConflictError } from './composer-conflicts.js';
@@ -48,6 +50,29 @@ export interface CreateQueuedMessageInput {
 }
 
 export class ComposerRepository extends ArtifactPreviewRepository {
+  public async workspaceReferences(
+    workspaceId: string,
+    options: { q?: string; kinds?: readonly string[] } = {},
+    signal?: AbortSignal,
+  ): Promise<WorkspaceReference[]> {
+    const query = new URLSearchParams();
+    if (options.q?.trim()) query.set('q', options.q.trim());
+    for (const kind of options.kinds ?? []) query.append('kinds', kind);
+    const suffix = query.size ? `?${query.toString()}` : '';
+    const result = await this.transport.request({
+      method: 'GET',
+      path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/references${suffix}`,
+      decode: (value) =>
+        decodeComposerRows(
+          'workspace_references',
+          workspaceReferenceSchema,
+          (value as { references?: unknown }).references,
+        ),
+      signal,
+    });
+    return result;
+  }
+
   public submitMessage(
     sessionId: string,
     input: MessageSubmissionInput,

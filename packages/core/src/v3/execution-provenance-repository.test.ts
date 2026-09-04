@@ -104,9 +104,89 @@ describe('ExecutionProvenanceRepository', () => {
       },
     ]);
 
-    await expect(new ClioRepository(transport).executionProvenance('sess_1')).resolves.toMatchObject({
+    await expect(
+      new ClioRepository(transport).executionProvenance('sess_1'),
+    ).resolves.toMatchObject({
       campaigns: [{ campaign_id: 'campaign_1' }],
       workflows: [{ workflow_id: 'workflow_1' }],
     });
+  });
+
+  it('preserves authoritative child ownership, task paths, and typed causal edges', async () => {
+    const transport = new RecordingTransport([
+      {
+        schema_version: 'clio.execution_provenance.v1',
+        provider: 'native',
+        session_id: 'sess_root',
+        root_session_id: 'sess_root',
+        complete: true,
+        truncated: false,
+        provider_health: {},
+        campaigns: [],
+        workflows: [],
+        agents: [],
+        session_lineage: [
+          {
+            session_id: 'sess_child',
+            parent_session_id: 'sess_root',
+            task_id: 'task_child',
+            agent_id: 'researcher',
+            label: 'Evidence researcher',
+            depth: 1,
+            task_path: ['task_child'],
+          },
+        ],
+        spans: [
+          {
+            id: 'artifact_event',
+            parent_id: '',
+            kind: 'artifact',
+            session_id: 'sess_child',
+            root_session_id: 'sess_root',
+            owner_session_id: 'sess_child',
+            workflow_id: '',
+            campaign_id: '',
+            agent_id: 'researcher',
+            source_agent_id: '',
+            task_id: 'task_child',
+            task_path: ['task_child'],
+            label: 'Produced evidence',
+            event_type: 'artifact.created',
+            status: 'completed',
+            start_time: 1,
+            end_time: 1,
+            duration_ms: 0,
+            host: '',
+            artifact_refs: [{ artifact_id: 'artifact_1', sha256: 'abc' }],
+            attributes: {},
+            source_event_ids: ['event_1'],
+          },
+        ],
+        nodes: [],
+        edges: [
+          {
+            id: 'generated:task:task_child->artifact:artifact_1',
+            source: 'task:task_child',
+            target: 'artifact:artifact_1',
+            kind: 'generated',
+            event_id: 'artifact_event',
+          },
+        ],
+      },
+    ]);
+
+    const result = await new ClioRepository(transport).executionProvenance('sess_root');
+
+    expect(result.session_lineage?.[0]).toMatchObject({
+      session_id: 'sess_child',
+      depth: 1,
+      task_path: ['task_child'],
+    });
+    expect(result.spans[0]).toMatchObject({
+      owner_session_id: 'sess_child',
+      task_id: 'task_child',
+      task_path: ['task_child'],
+    });
+    expect(result.edges[0]).toMatchObject({ kind: 'generated', event_id: 'artifact_event' });
   });
 });

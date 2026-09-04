@@ -167,6 +167,59 @@ describe('ClioComposerQueue', () => {
     );
   });
 
+  it('keeps structured context references visible while a message is queued', () => {
+    const message = queued('queue_references', '', 0);
+    message.parts.push(
+      {
+        type: 'context_ref',
+        ref_kind: 'artifact',
+        ref_id: 'artifact_plot',
+        label: 'Displacement plot',
+        revision: 'v3',
+      },
+      {
+        type: 'context_ref',
+        ref_kind: 'session',
+        ref_id: 'session_prior',
+        label: 'Prior evidence review',
+        revision: '2026-09-02T12:00:00Z',
+      },
+    );
+
+    renderQueue({ messages: [message] });
+
+    expect(screen.getByText('Context only')).toBeVisible();
+    // The kind is carried by the icon and named in plain words, never as a
+    // glyph-separated field list.
+    const artifactChip = screen.getByTitle('Displacement plot (artifact)');
+    const sessionChip = screen.getByTitle('Prior evidence review (conversation)');
+    expect(artifactChip).toBeVisible();
+    expect(sessionChip).toBeVisible();
+    expect(artifactChip.querySelector('svg')).toHaveClass('lucide-package');
+    expect(sessionChip.querySelector('svg')).toHaveClass('lucide-message-square');
+    expect(screen.queryByText('·')).not.toBeInTheDocument();
+  });
+
+  it('keeps the overflow count as legible as the references it stands for', () => {
+    const message = queued('queue_reference_overflow', '', 0);
+    for (const index of [0, 1, 2]) {
+      message.parts.push({
+        type: 'context_ref',
+        ref_kind: 'artifact',
+        ref_id: `artifact_${index}`,
+        label: `Plot ${index}`,
+        revision: 'v1',
+      });
+    }
+
+    renderQueue({ messages: [message] });
+
+    // The chips it summarises inherit the foreground colour. At
+    // `text-muted-foreground` this one dropped to 4.11:1 against the queue's
+    // translucent surface — below the 4.5:1 floor for text this size.
+    expect(screen.getByLabelText('1 more references')).toHaveClass('text-foreground/70');
+  });
+
   it('shows compact queued attachment progress, hover semantics, preview, and overflow', async () => {
     const user = userEvent.setup();
     const message = queued('queue_resources', 'Review these files', 0);
@@ -208,12 +261,14 @@ describe('ClioComposerQueue', () => {
 
     await user.hover(attachment);
     expect(await screen.findByRole('status', { name: 'Upload status: Complete' })).toBeVisible();
-    expect(screen.getByText(/structured content is 42% ready/i)).toBeVisible();
+    expect(
+      screen.getByText(/^In progress\. The original is retained and can be previewed\.$/i),
+    ).toBeVisible();
     const conversionStatus = screen.getByRole('status', {
       name: 'Conversion status: In progress',
     });
     expect(conversionStatus).toHaveTextContent('In progress');
-    expect(conversionStatus).toHaveTextContent('42%');
+    expect(conversionStatus).not.toHaveTextContent('42%');
 
     await user.click(attachment);
     expect(props.onOpenResource).toHaveBeenCalledWith(panel);

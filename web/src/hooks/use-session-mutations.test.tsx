@@ -1,10 +1,12 @@
+import type { PendingInteraction } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
 
 const mocks = vi.hoisted(() => ({
+  uploadWorkspaceResources: vi.fn(),
   repository: {
     answerQuestion: vi.fn(async () => ({})),
     cancelQuestion: vi.fn(async () => ({})),
@@ -29,6 +31,9 @@ vi.mock('@/store/live-store', () => ({
 }));
 vi.mock('./use-repository', () => ({ useRepository: () => mocks.repository }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => vi.fn() }));
+vi.mock('@/lib/upload-workspace-resources', () => ({
+  uploadWorkspaceResources: mocks.uploadWorkspaceResources,
+}));
 
 import { useSessionMutations, type SessionSendInput } from './use-session-mutations';
 
@@ -37,6 +42,17 @@ function wrapper({ children }: { children: ReactNode }) {
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+function strictWrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  return (
+    <StrictMode>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </StrictMode>
+  );
 }
 
 const behavior = {
@@ -117,6 +133,128 @@ describe('useSessionMutations send identity', () => {
     // The accepted send releases the identity; the next one is a new message.
     expect(keys[3]).not.toBe(keys[2]);
   });
+
+  it('mints a fresh identity when only the structured reference changes', async () => {
+    mocks.repository.submitMessage.mockRejectedValue(new Error('connection interrupted'));
+    const { result } = renderMutations();
+    const reference = (refId: string) => ({
+      type: 'context_ref' as const,
+      ref_kind: 'artifact' as const,
+      ref_id: refId,
+      label: 'Review notes',
+      revision: 'v1',
+    });
+
+    await result.current.send
+      .mutateAsync({ ...draft, references: [reference('artifact_a')] })
+      .catch(() => undefined);
+    await result.current.send
+      .mutateAsync({ ...draft, references: [reference('artifact_b')] })
+      .catch(() => undefined);
+
+    const keys = mocks.repository.submitMessage.mock.calls.map(
+      (call) => call[1].idempotency_key as string,
+    );
+    expect(keys[0]).not.toBe(keys[1]);
+  });
+});
+
+describe('useSessionMutations attachment preparation', () => {
+  it('keeps the upload signal active after the StrictMode effect replay', async () => {
+    mocks.uploadWorkspaceResources.mockResolvedValue({ parts: [], resources: [] });
+    const file = {
+      type: 'file' as const,
+      filename: 'paper.pdf',
+      mediaType: 'application/pdf',
+      url: 'blob:strict-paper-pdf',
+    };
+    const { result } = renderHook(
+      () =>
+        useSessionMutations({
+          activeModel: 'gpt-5.6-luna',
+          activeProvider: 'codex',
+          sessionId: 'sess_1',
+          workspaceId: 'ws_1',
+        }),
+      { wrapper: strictWrapper },
+    );
+
+    await result.current.prepareFiles([file]);
+
+    const uploadOptions = mocks.uploadWorkspaceResources.mock.calls[0]?.[0];
+    expect(uploadOptions.signal.aborted).toBe(false);
+  });
+
+  it('combines per-attachment cancellation with the session upload lifetime', async () => {
+    mocks.uploadWorkspaceResources.mockResolvedValue({ parts: [], resources: [] });
+    const file = {
+      type: 'file' as const,
+      filename: 'paper.pdf',
+      mediaType: 'application/pdf',
+      url: 'blob:cancel-paper-pdf',
+    };
+    const attachmentController = new AbortController();
+    const { result } = renderMutations();
+
+    await result.current.prepareFiles([file], undefined, attachmentController.signal);
+    const uploadOptions = mocks.uploadWorkspaceResources.mock.calls[0]?.[0];
+    expect(uploadOptions.signal.aborted).toBe(false);
+
+    attachmentController.abort();
+    expect(uploadOptions.signal.aborted).toBe(true);
+  });
+
+  it('reuses the immediate upload when the message is submitted', async () => {
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_resource' });
+    mocks.uploadWorkspaceResources.mockResolvedValue({
+      parts: [
+        {
+          type: 'resource_ref',
+          resource_id: 'resource_pdf',
+          resource_revision: '1',
+          name: 'paper.pdf',
+        },
+      ],
+      resources: [
+        {
+          id: 'resource_pdf',
+          workspace_id: 'ws_1',
+          name: 'paper.pdf',
+          revision: 1,
+        },
+      ],
+    });
+    const file = {
+      type: 'file' as const,
+      filename: 'paper.pdf',
+      mediaType: 'application/pdf',
+      url: 'blob:paper-pdf',
+    };
+    const { result } = renderMutations();
+
+    await result.current.prepareFiles([file]);
+    await result.current.send.mutateAsync({
+      ...draft,
+      files: [file],
+      text: 'Read the title.',
+    });
+
+    expect(mocks.uploadWorkspaceResources).toHaveBeenCalledOnce();
+    expect(mocks.repository.submitMessage).toHaveBeenCalledWith(
+      'sess_1',
+      expect.objectContaining({
+        parts: [
+          { type: 'text', text: 'Read the title.' },
+          {
+            type: 'resource_ref',
+            resource_id: 'resource_pdf',
+            resource_revision: '1',
+            name: 'paper.pdf',
+          },
+        ],
+      }),
+    );
+  });
 });
 
 describe('useSessionMutations pending-question invalidation', () => {
@@ -178,9 +316,39 @@ describe('useSessionMutations pending-question invalidation', () => {
     await result.current.respondPermission.mutateAsync({ id: 'perm_1', action: 'allow' });
 
     await waitFor(() =>
-      expect(
-        client.getQueryCache().find({ queryKey: approvalsReadKey })?.state.isInvalidated,
-      ).toBe(true),
+      expect(client.getQueryCache().find({ queryKey: approvalsReadKey })?.state.isInvalidated).toBe(
+        true,
+      ),
+    );
+  });
+
+  // respondInteraction is the mutation the pending-interactions surface actually
+  // calls (ClioPendingInteractions -> workspace-page's onResponse), unlike the
+  // answerQuestion/cancelQuestion mutations above which nothing in the app wires
+  // up. Its own onSettled invalidation drifted the same way theirs once did.
+  it('invalidates the unscoped pending-questions read when respondInteraction answers a question', async () => {
+    const client = clientWithReadPopulated();
+    const { result } = renderMutationsWithClient(client);
+    const interaction: PendingInteraction = {
+      id: 'question:q1',
+      kind: 'question',
+      owner_session_id: 'sess_child',
+      attended_session_id: 'sess_1',
+      status: 'pending',
+      title: 'Question from agent',
+      source: { protocol: 'native' },
+      created_at: '2026-09-02T00:00:00Z',
+      payload: { question_id: 'q1' },
+      actions: ['answer', 'cancel'],
+    };
+
+    await result.current.respondInteraction.mutateAsync({
+      interaction,
+      response: { action: 'answer', answer: 'yes' },
+    });
+
+    await waitFor(() =>
+      expect(client.getQueryCache().find({ queryKey: readKey })?.state.isInvalidated).toBe(true),
     );
   });
 });

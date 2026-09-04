@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { truncate } from '@/lib/format';
+import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { TRANSCRIPT_PREVIEW_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 
@@ -44,8 +45,8 @@ export function ClioTranscriptMinimap({
         <PopoverTrigger asChild>
           <Button
             aria-label="Open transcript outline"
-            className="absolute top-2 left-2 z-10 rounded-full"
-            size="icon-sm"
+            className="absolute top-2 -left-0.5 z-10 rounded-full"
+            size="icon-xs"
             variant="outline"
           >
             <ListTreeIcon aria-hidden="true" />
@@ -263,8 +264,9 @@ function MinimapRail({
     <aside aria-label="Transcript minimap" className="absolute inset-y-3 left-1 z-10 w-6">
       <div
         aria-label="Browse transcript landmarks"
-        className="h-full overflow-y-auto overscroll-y-contain px-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="h-full overflow-y-auto overscroll-y-contain px-0.5 outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         data-slot="transcript-minimap-scroll-area"
+        onKeyDown={handleScrollableRegionKeys}
         onWheel={(event) => event.stopPropagation()}
         ref={railRef}
         tabIndex={0}

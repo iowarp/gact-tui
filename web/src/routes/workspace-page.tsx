@@ -1,10 +1,11 @@
 import { queryKeys } from '@/lib/query-keys';
-import type { RunState } from '@clio/core/v3';
+import type { RunState, WorkspaceReference } from '@clio/core/v3';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioComposer } from '@/components/clio/composer';
@@ -32,11 +33,14 @@ import { useSessionCommands } from '@/hooks/use-session-commands';
 import { useSessionMutations } from '@/hooks/use-session-mutations';
 import { useSessionMessageCount } from '@/hooks/use-session-message-count';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
+import { useComposerDraft } from '@/hooks/use-composer-draft';
 import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
+import { navigateComposerReference } from '@/lib/composer-reference-navigation';
+import { referenceKindLabel } from '@/lib/composer-reference-domain';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -45,12 +49,7 @@ export function WorkspacePage() {
   const navigateToAvailableSession = useAvailableSessionNavigation();
   const repository = useRepository();
   const queryClient = useQueryClient();
-  const [composerDraftState, setComposerDraftState] = useState({ sessionId, value: '' });
-  const composerDraft = composerDraftState.sessionId === sessionId ? composerDraftState.value : '';
-  const setComposerDraft = useCallback(
-    (value: string) => setComposerDraftState({ sessionId, value }),
-    [sessionId],
-  );
+  const composerDraft = useComposerDraft(sessionId);
   const [composerFocusKey, setComposerFocusKey] = useState(0);
   const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
@@ -63,9 +62,9 @@ export function WorkspacePage() {
     activeEffort,
     activeModel,
     activeProvider,
+    attentionInteractions,
     agentBlueprints,
     allSessions,
-    approvals,
     artifacts,
     capabilities,
     context,
@@ -73,13 +72,18 @@ export function WorkspacePage() {
     contextTargetOptions,
     entities,
     executionProvenance,
+    interactions,
+    interactionCapabilityError,
+    interactionsError,
+    interactionRootSessionId,
     interactionSessionIds,
+    interactionSurfaces,
+    refetchInteractionSurfaces,
     modelOptions,
     modelCatalogStatus,
     parentSession,
     providerCatalog,
     processes,
-    questions,
     runs,
     session,
     sessionArtifacts,
@@ -92,7 +96,7 @@ export function WorkspacePage() {
     tools,
     transcript,
     transcriptError,
-    visibleApprovals,
+    supportsUnifiedInteractions,
     workspaceFiles,
     workspaceResources,
     workspaces,
@@ -102,8 +106,25 @@ export function WorkspacePage() {
     [allSessions.data, sessions.data],
   );
   const sessionAttentions = useMemo(
-    () => buildSessionAttentionMap(navigationSessions, approvals.data ?? [], questions.data ?? []),
-    [approvals.data, navigationSessions, questions.data],
+    () => buildSessionAttentionMap(navigationSessions, attentionInteractions),
+    [attentionInteractions, navigationSessions],
+  );
+  // Omit an owner this view has not discovered through the session hierarchy
+  // walk, or one it discovered without a usable title — either way the
+  // interaction surface renders a typed "not listed" state instead of an
+  // invented role rather than inventing a role for it here.
+  const interactionOwnerLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        interactions.flatMap((interaction) => {
+          if (!interactionSessionIds.has(interaction.owner_session_id)) return [];
+          const owner = navigationSessions.find(
+            (candidate) => candidate.id === interaction.owner_session_id,
+          );
+          return owner?.title ? [[interaction.owner_session_id, owner.title] as const] : [];
+        }),
+      ),
+    [interactionSessionIds, interactions, navigationSessions],
   );
   const messageCount = useSessionMessageCount(sessionId);
   const conversationStarted = messageCount > 0 || startedSessionId === sessionId;
@@ -133,20 +154,71 @@ export function WorkspacePage() {
       ),
     [workspaceResources.data],
   );
+  const openComposerReference = useCallback(
+    async (reference: WorkspaceReference) => {
+      try {
+        const outcome = await navigateComposerReference({
+          artifacts,
+          diffs: sessionObservability.diffs.data ?? [],
+          openArtifact,
+          openDiff,
+          openExternal: (uri) => window.open(uri, '_blank', 'noopener,noreferrer'),
+          openSession: (targetWorkspaceId, targetSessionId) =>
+            void navigate(
+              `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(targetSessionId)}`,
+            ),
+          openWorkspaceFile,
+          openWorkspaceResource,
+          reference,
+          repository,
+          resources: workspaceResourceEntities,
+          revealSession: () => revealWorkbench({ kind: 'session' }),
+          sessionId,
+          workspaceId,
+        });
+        if (outcome.status === 'unresolved') {
+          toast.error(`Could not open ${referenceKindLabel(reference.kind)} reference`, {
+            description: outcome.reason,
+          });
+        }
+      } catch (error) {
+        console.error('Could not open composer reference', reference, error);
+        toast.error(`Could not open ${referenceKindLabel(reference.kind)} reference`, {
+          description:
+            error instanceof Error
+              ? error.message
+              : 'The workspace is still available. Refresh the reference and try again.',
+        });
+      }
+    },
+    [
+      artifacts,
+      navigate,
+      openArtifact,
+      openDiff,
+      openWorkspaceFile,
+      openWorkspaceResource,
+      repository,
+      revealWorkbench,
+      sessionId,
+      sessionObservability.diffs.data,
+      workspaceId,
+      workspaceResourceEntities,
+    ],
+  );
   const handleA2UILocalAction = useA2UILocalActions(entities.artifacts, sessionId, openArtifact);
 
   const {
     actionCard,
-    answerQuestion,
     cancel,
     cancelPendingSteer,
-    cancelQuestion,
     deleteQueuedMessage,
     pendingSteers,
     promoteQueuedMessage,
+    prepareFiles,
     queuedMessages,
     reorderQueuedMessages,
-    respondPermission,
+    respondInteraction,
     retry,
     send,
     updateQueuedMessage,
@@ -156,6 +228,8 @@ export function WorkspacePage() {
     session,
     sessionId,
     workspaceId,
+    interactionRootSessionId,
+    supportsUnifiedInteractions,
   });
   const refreshNavigation = useCallback(
     async (targetWorkspaceId = workspaceId) => {
@@ -360,6 +434,9 @@ export function WorkspacePage() {
         attachments={workspaceRouteState.canUploadWorkspaceResources(
           capabilities.data?.capabilities,
         )}
+        contextReferences={workspaceRouteState.canUseContextReferences(
+          capabilities.data?.capabilities,
+        )}
         commands={commands}
         confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
         disabled={!session || send.isPending || cancel.isPending || isPending}
@@ -372,27 +449,23 @@ export function WorkspacePage() {
               : 'execute'
         }
         focusRequestKey={composerFocusKey}
-        key={`composer:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
+        key={`composer:${sessionId}:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
         model={activeModel}
         modelCatalogStatus={modelCatalogStatus}
         modelOptions={modelOptions}
         pendingInteractions={
           <ClioPendingInteractions
-            approvals={visibleApprovals}
-            disabled={
-              respondPermission.isPending || answerQuestion.isPending || cancelQuestion.isPending
-            }
-            listedSessionIds={interactionSessionIds}
-            onAnswer={async (id, answer) => {
-              await answerQuestion.mutateAsync({ id, answer });
+            capabilityError={interactionCapabilityError ?? undefined}
+            error={interactionsError ?? undefined}
+            interactions={interactions}
+            onA2UILocalAction={handleA2UILocalAction}
+            onRefetchSurfaces={refetchInteractionSurfaces}
+            onResponse={async (interaction, response) => {
+              await respondInteraction.mutateAsync({ interaction, response });
             }}
-            onApproval={async (id, action) => {
-              await respondPermission.mutateAsync({ id, action });
-            }}
-            onCancelQuestion={async (id) => {
-              await cancelQuestion.mutateAsync(id);
-            }}
-            questions={questions.data ?? []}
+            ownerLabels={interactionOwnerLabels}
+            surfaces={interactionSurfaces}
+            viewedSessionId={sessionId}
           />
         }
         onCommand={async (value) => {
@@ -408,6 +481,7 @@ export function WorkspacePage() {
         onRetryModelCatalog={() => {
           void providerCatalog.refetch();
         }}
+        onPrepareFiles={prepareFiles}
         onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
         onSubmit={async (value) => {
           const startedFromWelcome = showConversationWelcome;
@@ -421,6 +495,7 @@ export function WorkspacePage() {
         }}
         onStop={() => cancel.mutate()}
         onOpenResource={openWorkspaceResource}
+        onOpenReference={(reference) => void openComposerReference(reference)}
         onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
         onPromoteQueuedMessage={(message, delivery) =>
           promoteQueuedMessage.mutateAsync({ delivery, message }).then(() => undefined)
@@ -431,7 +506,8 @@ export function WorkspacePage() {
         onUpdateQueuedMessage={(message, text) =>
           updateQueuedMessage.mutateAsync({ message, text }).then(() => undefined)
         }
-        onValueChange={setComposerDraft}
+        onReferencesChange={composerDraft.onReferencesChange}
+        onValueChange={composerDraft.onValueChange}
         provider={activeProvider}
         queuedMessages={queuedMessages.data ?? []}
         resources={workspaceResources.data ?? []}
@@ -442,8 +518,10 @@ export function WorkspacePage() {
           updateQueuedMessage.isPending
         }
         state={state}
-        value={composerDraft}
+        references={composerDraft.references}
+        value={composerDraft.value}
         variant={variant}
+        workspaceId={workspaceId}
       />
     </m.div>
   );
@@ -623,7 +701,7 @@ export function WorkspacePage() {
                     <ClioConversationWelcome
                       disabled={!session || send.isPending || cancel.isPending || isPending}
                       onSelectPrompt={(prompt) => {
-                        setComposerDraft(prompt);
+                        composerDraft.onValueChange(prompt);
                         setComposerFocusKey((current) => current + 1);
                       }}
                     >
@@ -648,6 +726,7 @@ export function WorkspacePage() {
                     onOpenArtifact={openArtifact}
                     onOpenFile={openWorkspaceFile}
                     onOpenResource={openWorkspaceResource}
+                    onOpenReference={(reference) => void openComposerReference(reference)}
                     forkingMessageId={
                       sessionHistory.fork.isPending && sessionHistory.fork.variables
                         ? sessionHistory.fork.variables
@@ -685,13 +764,6 @@ export function WorkspacePage() {
                 <AlertTriangleIcon aria-hidden="true" />
                 <AlertTitle>Retry unavailable</AlertTitle>
                 <AlertDescription>{retry.error.message}</AlertDescription>
-              </Alert>
-            ) : null}
-            {approvals.error || questions.error ? (
-              <Alert className="mx-4 mb-3" variant="destructive">
-                <AlertTriangleIcon aria-hidden="true" />
-                <AlertTitle>Responses unavailable</AlertTitle>
-                <AlertDescription>{(approvals.error ?? questions.error)?.message}</AlertDescription>
               </Alert>
             ) : null}
             <AnimatePresence initial={false}>

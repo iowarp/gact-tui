@@ -213,7 +213,13 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
     .poll(() => conversation.evaluate((element) => element.scrollTop))
     .toBe(conversationScrollTop);
   if (minimapBounds) await page.mouse.wheel(0, 50_000);
-  await expect(activeLandmark).toBeVisible();
+  // Wheel dispatch is asynchronous on Linux Chromium. Seeing the last rail
+  // marker only proves that the minimap itself is present; it does not prove
+  // the transcript finished returning to its latest anchor. Re-settle the
+  // native scroll container before the visual assertion so the screenshot
+  // cannot alternate between the attachment and Activity rows above it.
+  await settleConversationAtLatest(page);
+  await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
   await page.mouse.move(600, 30);
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
@@ -456,12 +462,9 @@ test('renders a ghost queue stack and reconciles a live server update', async ({
 test('scrolls pending responses and queued messages independently at a narrow viewport', async ({
   page,
 }) => {
-  // Short as well as narrow. The queue carries its own 136 px bound and scrolls
-  // at any height, but the pending-responses list deliberately has none — it is
-  // `min-h-0 shrink` and scrolls only once the composer stack runs out of room,
-  // so a tall window leaves both surfaces fitting and nothing to scroll. This is
-  // the window where they compete, which is the only place independence means
-  // anything.
+  // Short as well as narrow. The queue has its own 136 px bound and the
+  // pending-response stack has a responsive viewport bound, so both must keep
+  // wheel and keyboard scrolling local when they compete for composer space.
   await page.setViewportSize({ height: 720, width: 848 });
   const seeded = await page.request.post(`${fixtureEndpoint}/__test/queue-demo`);
   expect(seeded.ok()).toBe(true);

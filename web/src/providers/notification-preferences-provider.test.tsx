@@ -39,7 +39,7 @@ describe('notification preferences', () => {
       </NotificationPreferencesProvider>,
     );
 
-    expect(screen.getByText('background:false')).toBeVisible();
+    expect(screen.getByText('off:false')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Always' }));
     await user.click(screen.getByRole('button', { name: 'Desktop' }));
 

@@ -17,6 +17,7 @@ export type ClioQueryNamespace =
   | 'blueprint-files'
   | 'capabilities'
   | 'commands'
+  | 'connection-availability'
   | 'document-content'
   | 'document-editor-health'
   | 'document-manifest'
@@ -32,6 +33,7 @@ export type ClioQueryNamespace =
   | 'memory-search'
   | 'memory-statistics'
   | 'pending-approvals'
+  | 'pending-interactions'
   | 'pending-questions'
   | 'permissions'
   | 'permission-policies'
@@ -59,6 +61,7 @@ export type ClioQueryNamespace =
   | 'workspace-file-bytes'
   | 'workspace-files'
   | 'workspace-resources'
+  | 'workspace-references'
   | 'workspace-resource-derivatives'
   | 'workspace-resource-derivative-content'
   | 'workspace-resource-deliveries'
@@ -85,6 +88,10 @@ export const queryKeys = {
     scope
       ? (['pending-approvals', endpoint, scope] as const)
       : (['pending-approvals', endpoint] as const),
+  pendingInteractions: (endpoint: string, rootSessionId?: string) =>
+    rootSessionId
+      ? (['pending-interactions', endpoint, rootSessionId] as const)
+      : (['pending-interactions', endpoint] as const),
   pendingQuestions: (endpoint: string, sessionId: string) =>
     ['pending-questions', endpoint, sessionId] as const,
   providerModels: (endpoint: string, providerId?: string) =>
@@ -126,6 +133,8 @@ export const queryKeys = {
     ['workspace-files', endpoint, workspaceId] as const,
   workspaceResources: (endpoint: string, workspaceId: string) =>
     ['workspace-resources', endpoint, workspaceId] as const,
+  workspaceReferences: (endpoint: string, workspaceId: string, query: string, kinds: string = '') =>
+    ['workspace-references', endpoint, workspaceId, query, kinds] as const,
   workspaceResourceDeliveries: (endpoint: string, workspaceId: string) =>
     ['workspace-resource-deliveries', endpoint, workspaceId] as const,
   // Each shorter form is the prefix an invalidation uses: without a revision it

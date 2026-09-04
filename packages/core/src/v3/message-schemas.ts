@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { messageBlockGeneratedSchema } from '../generated/clio-schemas/message-block.schema.js';
 import type { MessageBlock } from './domain.js';
+import { contextReferenceKindSchema } from './composer-schemas.js';
 import { forwardCompatibleEnum } from './schema-utils.js';
 
 function omitGeneratedNulls(value: unknown): unknown {
@@ -34,7 +35,9 @@ function omitAdditiveFields(schema: z.ZodTypeAny): (value: unknown) => unknown {
     if (parsed.success) return value;
     const additive = new Set(
       parsed.error.issues.flatMap((issue) =>
-        issue.code === z.ZodIssueCode.unrecognized_keys && issue.path.length === 0 ? issue.keys : [],
+        issue.code === z.ZodIssueCode.unrecognized_keys && issue.path.length === 0
+          ? issue.keys
+          : [],
       ),
     );
     if (additive.size === 0) return value;
@@ -89,6 +92,24 @@ const resourceMessageBlockSchema = additivelyTolerant(
     })
     .strict(),
 );
+const contextReferenceMessageBlockSchema = additivelyTolerant(
+  z
+    .object({
+      id: z.string(),
+      type: z.literal('context_reference'),
+      ref_kind: contextReferenceKindSchema,
+      ref_id: z.string(),
+      label: z.string(),
+      revision: z.string(),
+      media_type: z.string(),
+      navigation: z.record(z.string(), z.unknown()).default({}),
+      agent_id: z.string().optional(),
+      sequence: z.number().int().positive().optional(),
+      stream_source: z.string().optional(),
+      channel: z.string().optional(),
+    })
+    .strict(),
+);
 const unknownMessageBlockSchema = z
   .object({
     id: z.string(),
@@ -117,6 +138,7 @@ const unknownMessageBlockSchema = z
  */
 export const messageBlockSchema = z.union([
   resourceMessageBlockSchema,
+  contextReferenceMessageBlockSchema,
   knownMessageBlockSchema,
   additiveKnownMessageBlockSchema,
   unknownMessageBlockSchema,
