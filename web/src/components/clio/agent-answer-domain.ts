@@ -10,31 +10,38 @@ export function isAgentMcpInteraction(interaction: PendingInteraction): boolean 
   );
 }
 
-/** Return agent-addressed requests correlated with one causal tool invocation. */
-export function agentInteractionsForTool(
+/** True for a native or MCP question that belongs in causal tool/task history. */
+export function isCausalQuestionInteraction(interaction: PendingInteraction): boolean {
+  return interaction.kind === 'question' || interaction.kind === 'mcp_task_input';
+}
+
+/** Return questions correlated with one causal tool invocation. */
+export function questionInteractionsForTool(
   interactions: readonly PendingInteraction[] | undefined,
   toolId: string,
 ): PendingInteraction[] {
   return (interactions ?? [])
     .filter(
       (interaction) =>
-        interaction.source.invocation_id === toolId && isAgentMcpInteraction(interaction),
+        interaction.source.invocation_id === toolId && isCausalQuestionInteraction(interaction),
     )
-    .sort(compareAgentInteractions);
+    .sort(compareQuestionInteractions);
 }
 
-/** Return agent-addressed requests owned by an asynchronous MCP task. */
-export function agentInteractionsForTask(
+/** Return questions owned by an asynchronous task. */
+export function questionInteractionsForTask(
   interactions: readonly PendingInteraction[] | undefined,
   taskId: string,
 ): PendingInteraction[] {
   return (interactions ?? [])
-    .filter((interaction) => interaction.task_id === taskId && isAgentMcpInteraction(interaction))
-    .sort(compareAgentInteractions);
+    .filter(
+      (interaction) => interaction.task_id === taskId && isCausalQuestionInteraction(interaction),
+    )
+    .sort(compareQuestionInteractions);
 }
 
 /** Human-readable identity that stays honest about request versus protocol round. */
-export function agentInteractionRequestLabel(interaction: PendingInteraction): string {
+export function questionInteractionRequestLabel(interaction: PendingInteraction): string {
   const kind =
     interaction.payload?.mode === 'url'
       ? 'URL consent request'
@@ -42,13 +49,15 @@ export function agentInteractionRequestLabel(interaction: PendingInteraction): s
         ? 'Form request'
         : interaction.kind === 'mcp_task_input'
           ? 'Task input request'
-          : 'Information request';
+          : interaction.source.protocol === 'native'
+            ? 'Question'
+            : 'Information request';
   const index = interaction.payload?.request_index;
   const count = interaction.payload?.request_count;
   return index && count ? `${kind} ${index} of ${count}` : kind;
 }
 
-function compareAgentInteractions(left: PendingInteraction, right: PendingInteraction): number {
+function compareQuestionInteractions(left: PendingInteraction, right: PendingInteraction): number {
   const leftIndex = left.payload?.request_index;
   const rightIndex = right.payload?.request_index;
   if (leftIndex !== undefined && rightIndex !== undefined && leftIndex !== rightIndex) {

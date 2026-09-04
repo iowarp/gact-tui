@@ -6,13 +6,14 @@ import {
   CircleCheckIcon,
   MessageCircleQuestionIcon,
   RouteIcon,
+  UserRoundIcon,
   WorkflowIcon,
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { humanizeProtocolValue } from './presentation-labels';
-import { agentInteractionRequestLabel } from './agent-answer-domain';
+import { isAgentMcpInteraction, questionInteractionRequestLabel } from './agent-answer-domain';
 
 /** Quiet lifecycle attribution for a question routed to an agent. */
 export function AgentAnswerActivity({
@@ -22,11 +23,14 @@ export function AgentAnswerActivity({
   interaction: PendingInteraction;
   compact?: boolean;
 }) {
+  if (!isAgentMcpInteraction(interaction)) {
+    return <HumanQuestionActivity compact={compact} interaction={interaction} />;
+  }
   const answered = interaction.status === 'answered' && interaction.answered_by === 'agent';
   const fallback = interaction.routing_state === 'agent_elicitation_fallback_to_human';
   const fallbackPending = fallback && interaction.status === 'pending';
   const fallbackAnswered = fallback && interaction.status === 'answered';
-  const requestLabel = agentInteractionRequestLabel(interaction);
+  const requestLabel = questionInteractionRequestLabel(interaction);
   if (compact) {
     return (
       <span
@@ -168,6 +172,97 @@ export function AgentAnswerActivity({
             </>
           ) : null}
         </>
+      ) : null}
+    </div>
+  );
+}
+
+function HumanQuestionActivity({
+  interaction,
+  compact,
+}: {
+  interaction: PendingInteraction;
+  compact: boolean;
+}) {
+  const requestLabel = questionInteractionRequestLabel(interaction);
+  const answers = answerEntries(interaction.payload?.answer_metadata);
+  const answered = interaction.status === 'answered';
+  const cancelled = interaction.status === 'cancelled';
+  const expired = interaction.status === 'expired';
+  const declined = interaction.payload?.answer_metadata?.elicitation_action === 'decline';
+  const isMcp = interaction.source.protocol === 'mcp';
+  const stateLabel = answered
+    ? declined
+      ? 'Declined by you'
+      : 'Answered by you'
+    : cancelled
+      ? 'Cancelled'
+      : expired
+        ? 'Expired'
+        : 'Needs your response';
+
+  if (compact) {
+    return (
+      <span
+        className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"
+        data-human-question-state={interaction.status}
+      >
+        <UserRoundIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        <span>
+          {requestLabel} · {stateLabel}
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <div
+      className="my-3 flex flex-col gap-3 border-l-2 border-border pl-3 text-xs"
+      data-human-question-state={interaction.status}
+      data-interaction-id={interaction.id}
+      data-invocation-id={interaction.source.invocation_id}
+      data-task-id={interaction.task_id}
+    >
+      <ActivityStep icon={MessageCircleQuestionIcon} title={requestLabel}>
+        {interaction.prompt}
+      </ActivityStep>
+      {interaction.status === 'pending' ? (
+        <ActivityStep icon={RouteIcon} title="Waiting for your response">
+          The question is available in the response stack.
+        </ActivityStep>
+      ) : null}
+      {answered ? (
+        <>
+          <ActivityStep icon={UserRoundIcon} title={declined ? 'You declined' : 'You answered'}>
+            {answers.length > 0 ? (
+              <dl className="mt-1 grid gap-x-2 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
+                {answers.map(([label, value]) => (
+                  <div className="contents" key={label}>
+                    <dt className="text-muted-foreground">{label}</dt>
+                    <dd className="break-words text-foreground/85">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+          </ActivityStep>
+          {isMcp && interaction.payload?.mode === 'form' && !declined ? (
+            <ActivityStep icon={CircleCheckIcon} title="Validated by MCP schema" />
+          ) : null}
+          <ActivityStep
+            icon={ArrowUpToLineIcon}
+            title={isMcp ? 'Response returned to MCP' : 'Answer returned to agent'}
+          >
+            {isMcp
+              ? 'The waiting request resumed with your response.'
+              : 'The waiting agent resumed with your response.'}
+          </ActivityStep>
+        </>
+      ) : null}
+      {cancelled || expired ? (
+        <ActivityStep
+          icon={CircleAlertIcon}
+          title={cancelled ? 'You cancelled the request' : 'The request expired'}
+        />
       ) : null}
     </div>
   );

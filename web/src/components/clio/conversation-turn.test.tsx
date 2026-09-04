@@ -168,6 +168,92 @@ describe('ConversationTurn correlated work placement', () => {
     expect(screen.getByText('session_answer')).toBeVisible();
   });
 
+  it('keeps a direct human MCP answer attached to its causal tool', async () => {
+    const user = userEvent.setup();
+    const interaction: PendingInteraction = {
+      id: 'mcp_task_input:human_1',
+      kind: 'mcp_task_input',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      task_id: 'mcp_task_1',
+      status: 'answered',
+      title: 'MCP task input required',
+      requires_human_response: false,
+      answered_by: 'human',
+      prompt: 'Pick a value',
+      source: { protocol: 'mcp', invocation_id: 'call_read' },
+      created_at: '2026-09-03T00:00:00Z',
+      payload: {
+        mode: 'form',
+        request_index: 1,
+        request_count: 1,
+        answer_metadata: { value: 'human-visible-4d72' },
+      },
+      actions: [],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Guarded Input') },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Form request 1 of 1 · Answered by you')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Guarded Input/i }));
+    expect(screen.getByText('Pick a value')).toBeVisible();
+    expect(screen.getByText('You answered')).toBeVisible();
+    expect(screen.getByText('human-visible-4d72')).toBeVisible();
+    expect(screen.getByText('Validated by MCP schema')).toBeVisible();
+    expect(screen.getByText('Response returned to MCP')).toBeVisible();
+  });
+
+  it('keeps a native ask-user answer attached to the ask-user tool', async () => {
+    const user = userEvent.setup();
+    const interaction: PendingInteraction = {
+      id: 'question:native_1',
+      kind: 'question',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'answered',
+      title: 'Question from agent',
+      requires_human_response: false,
+      answered_by: 'human',
+      prompt: 'Which physical system should I simulate?',
+      source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'call_ask' },
+      created_at: '2026-09-03T00:00:00Z',
+      payload: { answer_metadata: { answer: 'A cantilever beam' } },
+      actions: [],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([{ kind: 'tool', id: 'call_ask', tool: tool('call_ask', 'Ask User') }]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Question · Answered by you')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Ask User/i }));
+    expect(screen.getByText('Which physical system should I simulate?')).toBeVisible();
+    expect(screen.getByText('A cantilever beam')).toBeVisible();
+    expect(screen.getByText('Answer returned to agent')).toBeVisible();
+    expect(screen.queryByText('Validated by MCP schema')).not.toBeInTheDocument();
+    expect(screen.queryByText('Response returned to MCP')).not.toBeInTheDocument();
+  });
+
   it('keeps an agent failure in the causal tool after routing the request to the human', async () => {
     const user = userEvent.setup();
     const interaction: PendingInteraction = {

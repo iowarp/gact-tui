@@ -182,7 +182,7 @@ const provenance: ExecutionProvenanceResult = {
   edges: [],
 };
 
-describe('agent-addressed MCP interaction activity', () => {
+describe('causal question interaction activity', () => {
   it('stays visible under its MCP task even without an initiating tool card', () => {
     const interaction: PendingInteraction = {
       id: 'mcp_task_input:nonce',
@@ -216,6 +216,57 @@ describe('agent-addressed MCP interaction activity', () => {
         state: 'completed',
         groupId: 'mcp-task:mcp_review_task',
         taskId: 'mcp_review_task',
+      }),
+    ]);
+  });
+
+  it('keeps a direct human answer in the durable MCP task activity', () => {
+    const interaction: PendingInteraction = {
+      id: 'mcp_task_input:human',
+      kind: 'mcp_task_input',
+      owner_session_id: 'session_leaf',
+      attended_session_id: 'session_root',
+      task_id: 'mcp_review_task',
+      status: 'answered',
+      title: 'MCP request',
+      answered_by: 'human',
+      source: { protocol: 'mcp', invocation_id: 'invoke-async' },
+      created_at: '2026-09-02T12:00:25Z',
+      payload: { mode: 'form', request_index: 1, request_count: 1 },
+    };
+
+    expect(agentInteractionActivityItems([interaction], processes, 'session_root')).toEqual([
+      expect.objectContaining({
+        kind: 'interaction',
+        label: 'Form request 1 of 1',
+        detail: 'Your response was validated and returned to MCP',
+        state: 'completed',
+        groupId: 'mcp-task:mcp_review_task',
+      }),
+    ]);
+  });
+
+  it('keeps a native ask-user answer in durable activity', () => {
+    const interaction: PendingInteraction = {
+      id: 'question:native',
+      kind: 'question',
+      owner_session_id: 'session_root',
+      attended_session_id: 'session_root',
+      status: 'answered',
+      title: 'Question from agent',
+      answered_by: 'human',
+      source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'call-native' },
+      created_at: '2026-09-02T12:00:25Z',
+      payload: { answer_metadata: { answer: 'A cantilever beam' } },
+    };
+
+    expect(agentInteractionActivityItems([interaction], processes, 'session_root')).toEqual([
+      expect.objectContaining({
+        kind: 'interaction',
+        label: 'Question',
+        detail: 'Your answer resumed the agent',
+        state: 'completed',
+        groupId: 'native-invocation:call-native',
       }),
     ]);
   });

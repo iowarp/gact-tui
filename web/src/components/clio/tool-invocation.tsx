@@ -11,12 +11,12 @@ export function ClioToolInvocation({
   tool,
   defaultOpen,
   embedded = false,
-  agentInteractions = [],
+  questionInteractions = [],
 }: {
   tool?: ToolInvocation;
   defaultOpen?: boolean;
   embedded?: boolean;
-  agentInteractions?: readonly PendingInteraction[];
+  questionInteractions?: readonly PendingInteraction[];
 }) {
   if (!tool) {
     return (
@@ -50,7 +50,7 @@ export function ClioToolInvocation({
           {summary ? (
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">{summary}</span>
           ) : null}
-          {agentInteractions.map((interaction) => (
+          {questionInteractions.map((interaction) => (
             <AgentAnswerActivity compact interaction={interaction} key={interaction.id} />
           ))}
         </span>
@@ -67,7 +67,7 @@ export function ClioToolInvocation({
       </CollapsibleTrigger>
       <ToolContent className={cn('border-t', embedded && 'mt-2 rounded-lg border p-3')}>
         {tool.input !== undefined ? <ToolInput input={(tool.input ?? {}) as never} /> : null}
-        {agentInteractions.map((interaction) => (
+        {questionInteractions.map((interaction) => (
           <AgentAnswerActivity interaction={interaction} key={interaction.id} />
         ))}
         <ToolOutput errorText={tool.error as never} output={tool.output as never} />

@@ -13,7 +13,7 @@ import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
-import { agentInteractionsForTool } from './agent-answer-domain';
+import { questionInteractionsForTool } from './agent-answer-domain';
 
 export type ProcessBlock = Extract<
   MessageBlock,
@@ -77,7 +77,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   }
   if (block.type === 'tool') {
     const tool = entities.tools[block.tool_id];
-    const routed = agentInteractionsForTool(entities.interactions, block.tool_id);
+    const questions = questionInteractionsForTool(entities.interactions, block.tool_id);
     return (
       <div className="space-y-3">
         {block.thought ? (
@@ -86,7 +86,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
             <ReasoningContent className="mt-3 leading-6">{block.thought}</ReasoningContent>
           </Reasoning>
         ) : null}
-        <ClioToolInvocation agentInteractions={routed} tool={tool} />
+        <ClioToolInvocation questionInteractions={questions} tool={tool} />
       </div>
     );
   }

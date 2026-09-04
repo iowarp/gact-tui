@@ -18,7 +18,7 @@ import { subagentsForTool } from './subagent-tool-link';
 import { getToolPresentation, getToolSummary } from './tool-presentation';
 import { ClioToolInvocation } from './tool-invocation';
 import { AgentAnswerActivity } from './agent-answer-activity';
-import { agentInteractionsForTool } from './agent-answer-domain';
+import { questionInteractionsForTool } from './agent-answer-domain';
 
 interface ConversationTurnProps {
   iterations: readonly ConversationIteration[];
@@ -132,7 +132,7 @@ function IterationSummary({
                 <TaskActivityLine className="mt-1" key={task.id} task={task} />
               ))}
               {iteration.tools.flatMap((tool) =>
-                agentInteractionsForTool(interactions, tool.id).map((interaction) => (
+                questionInteractionsForTool(interactions, tool.id).map((interaction) => (
                   <AgentAnswerActivity compact interaction={interaction} key={interaction.id} />
                 )),
               )}
@@ -167,14 +167,14 @@ function IterationDetail({
   subagents,
   interactions,
   showTasks = true,
-  showAgentInteractions = true,
+  showQuestionInteractions = true,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
   interactions?: readonly PendingInteraction[];
   showTasks?: boolean;
-  showAgentInteractions?: boolean;
+  showQuestionInteractions?: boolean;
 }) {
   return (
     <article>
@@ -214,9 +214,9 @@ function IterationDetail({
               key={`tool:${entry.id}`}
             >
               <ClioToolInvocation
-                agentInteractions={
-                  showAgentInteractions
-                    ? agentInteractionsForTool(interactions, entry.id)
+                questionInteractions={
+                  showQuestionInteractions
+                    ? questionInteractionsForTool(interactions, entry.id)
                     : undefined
                 }
                 tool={entry.tool}

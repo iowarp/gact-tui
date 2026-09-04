@@ -35,7 +35,11 @@ import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { humanizeToolName } from './tool-presentation';
-import { agentInteractionRequestLabel, isAgentMcpInteraction } from './agent-answer-domain';
+import {
+  isAgentMcpInteraction,
+  isCausalQuestionInteraction,
+  questionInteractionRequestLabel,
+} from './agent-answer-domain';
 
 export interface ObservabilityActivityItem {
   id: string;
@@ -84,7 +88,7 @@ export function asyncProcessDetail(process: AsyncProcess): string {
   return process.host?.trim() ? `Background task, ${process.host.trim()}` : 'Background task';
 }
 
-/** Project agent-addressed MCP requests into the durable Activity timeline. */
+/** Project native and MCP questions and their answer route into durable Activity. */
 // oxlint-disable-next-line react/only-export-components
 export function agentInteractionActivityItems(
   interactions: readonly PendingInteraction[],
@@ -92,37 +96,56 @@ export function agentInteractionActivityItems(
   rootSessionId?: string,
 ): ObservabilityActivityItem[] {
   const processById = new Map(processes.map((process) => [process.id, process]));
-  return interactions.filter(isAgentMcpInteraction).map((interaction) => {
+  return interactions.filter(isCausalQuestionInteraction).map((interaction) => {
     const answerTask = interaction.payload?.agent_answer_task;
     const process = interaction.task_id ? processById.get(interaction.task_id) : undefined;
     const fallback = interaction.routing_state === 'agent_elicitation_fallback_to_human';
     const fallbackPending = fallback && interaction.status === 'pending';
     const fallbackAnswered = fallback && interaction.status === 'answered';
     const answered = interaction.status === 'answered' && interaction.answered_by === 'agent';
+    const humanAddressed = !isAgentMcpInteraction(interaction);
+    const humanPending = humanAddressed && interaction.status === 'pending';
+    const humanAnswered = humanAddressed && interaction.status === 'answered';
+    const isMcp = interaction.source.protocol === 'mcp';
     return {
-      id: `mcp-interaction:${interaction.id}`,
+      id: `question-interaction:${interaction.id}`,
       kind: 'interaction',
-      label: agentInteractionRequestLabel(interaction),
+      label: questionInteractionRequestLabel(interaction),
       detail: fallbackPending
         ? 'Agent answer attempt ended; routed to you'
         : fallbackAnswered
-          ? 'Your response was validated and returned to MCP'
-        : answered
-          ? 'Agent answer validated and returned to MCP'
-          : 'Agent answer turn is in progress',
-      state: fallbackPending
-        ? 'waiting_user'
-        : answered || fallbackAnswered
-          ? 'completed'
-          : answerTask?.live_state === 'queued'
-            ? 'queued'
-            : 'running',
+          ? isMcp
+            ? 'Your response was validated and returned to MCP'
+            : 'Your answer resumed the agent'
+          : humanPending
+            ? 'Waiting for your response'
+            : humanAnswered
+              ? isMcp
+                ? 'Your response was validated and returned to MCP'
+                : 'Your answer resumed the agent'
+              : answered
+                ? 'Agent answer validated and returned to MCP'
+                : interaction.status === 'cancelled'
+                  ? 'The request was cancelled'
+                  : interaction.status === 'expired'
+                    ? 'The request expired'
+                    : 'Agent answer turn is in progress',
+      state:
+        fallbackPending || humanPending
+          ? 'waiting_user'
+          : answered || fallbackAnswered || humanAnswered
+            ? 'completed'
+            : interaction.status === 'cancelled' || interaction.status === 'expired'
+              ? 'cancelled'
+              : answerTask?.live_state === 'queued'
+                ? 'queued'
+                : 'running',
       at: answerTask?.updated_at ?? interaction.created_at,
       groupId:
         process?.parent_turn_id ??
         (interaction.task_id
           ? `mcp-task:${interaction.task_id}`
-          : `mcp-invocation:${interaction.source.invocation_id ?? interaction.id}`),
+          : `${interaction.source.protocol}-invocation:${interaction.source.invocation_id ?? interaction.id}`),
       timing: 'event',
       rootSessionId,
       ownerSessionId: interaction.owner_session_id,
