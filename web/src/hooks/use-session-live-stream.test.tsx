@@ -104,6 +104,9 @@ describe('useSessionLiveStream resume recovery', () => {
         workspaceId: 'ws_1',
       }),
     ).toEqual([
+      ['pending-interactions', 'http://127.0.0.1:8790'],
+      ['pending-approvals', 'http://127.0.0.1:8790'],
+      ['pending-questions', 'http://127.0.0.1:8790'],
       ['session-observability', 'http://127.0.0.1:8790', 'sess_1', 'processes'],
       ['sessions', 'http://127.0.0.1:8790', 'all'],
     ]);
@@ -301,9 +304,8 @@ describe('useSessionLiveStream resume recovery', () => {
   });
 
   it('invalidates the unscoped questions query the workspace actually reads', async () => {
-    const { QueryClient } = await vi.importActual<typeof import('@tanstack/react-query')>(
-      '@tanstack/react-query',
-    );
+    const { QueryClient } =
+      await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
     const client = new QueryClient();
     // This is the ACTUAL cache key use-workspace-data.ts reads questions
     // under now that they are fetched unscoped, mirroring pending-approvals'

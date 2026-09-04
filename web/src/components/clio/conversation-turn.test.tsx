@@ -121,10 +121,17 @@ describe('ConversationTurn correlated work placement', () => {
       source: { protocol: 'mcp', invocation_id: 'call_read' },
       created_at: '2026-09-03T00:00:00Z',
       payload: {
+        mode: 'form',
+        request_index: 1,
+        request_count: 1,
         answer_metadata: { nonce: 'browser-agent-9f42' },
         agent_answer_task: {
           task_id: 'task_answer',
           child_session_id: 'session_answer',
+          status: 'completed',
+          live_state: 'completed',
+          created_at: '2026-09-03T00:00:00Z',
+          updated_at: '2026-09-03T00:00:18.300Z',
         },
       },
       actions: [],
@@ -144,19 +151,67 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
-    expect(screen.getByText('Agent answered MCP request')).toBeVisible();
+    expect(screen.getByText('Form request 1 of 1 · Agent answered')).toBeVisible();
     expect(
       screen
-        .getByText('Agent answered MCP request')
+        .getByText('Form request 1 of 1 · Agent answered')
         .closest('[data-turn-activity="tool:call_read"]'),
     ).not.toBeNull();
     await user.click(screen.getByRole('button', { name: /Read evidence file/i }));
-    expect(screen.getByText('MCP requested information')).toBeVisible();
+    expect(screen.getByText('Form request 1 of 1')).toBeVisible();
     expect(screen.getByText('Which nonce did the user provide?')).toBeVisible();
-    expect(screen.getByText('Agent answered from conversation context')).toBeVisible();
+    expect(screen.getByText('Agent prepared an answer')).toBeVisible();
     expect(screen.getByText('browser-agent-9f42')).toBeVisible();
+    expect(screen.getByText('Validated by MCP schema')).toBeVisible();
     expect(screen.getByText('Answer returned to MCP')).toBeVisible();
+    expect(screen.getByText('18.3 s')).toBeVisible();
     expect(screen.getByText('session_answer')).toBeVisible();
+  });
+
+  it('keeps an agent failure in the causal tool after routing the request to the human', async () => {
+    const user = userEvent.setup();
+    const interaction: PendingInteraction = {
+      id: 'question:fallback',
+      kind: 'question',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'pending',
+      title: 'Question from tool',
+      requires_human_response: true,
+      audience: 'agent',
+      routing_state: 'agent_elicitation_fallback_to_human',
+      fallback_detail: 'agent_answer_schema_invalid',
+      prompt: 'Choose a valid sample count',
+      source: { protocol: 'mcp', invocation_id: 'call_read' },
+      created_at: '2026-09-03T00:00:00Z',
+      payload: {
+        mode: 'form',
+        request_index: 2,
+        request_count: 2,
+        agent_answer_task: { status: 'completed', live_state: 'completed' },
+      },
+      actions: ['answer', 'cancel'],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Read evidence file') },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Form request 2 of 2 · Needs your response')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Read evidence file/i }));
+    expect(screen.getByText('Answer rejected by MCP schema')).toBeVisible();
+    expect(screen.getByText('Routed to you')).toBeVisible();
+    expect(screen.getByText('Technical details')).toBeVisible();
   });
 });
 

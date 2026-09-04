@@ -405,6 +405,7 @@ export function WorkspacePage() {
                 contextFrames={sessionObservability.contextFrames.data ?? []}
                 diffs={sessionObservability.diffs.data ?? []}
                 executionProvenance={executionProvenance.execution.data}
+                interactions={interactions}
                 onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
@@ -629,6 +630,7 @@ export function WorkspacePage() {
                 processesError={sessionObservability.processes.error?.message}
                 processesPending={sessionObservability.processes.isPending}
                 executionProvenance={executionProvenance.execution.data}
+                interactions={interactions}
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
                 onOpenFile={openWorkspaceFile}

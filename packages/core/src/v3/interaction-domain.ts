@@ -37,7 +37,15 @@ export interface PendingInteractionPayload {
   agent_answer_task?: {
     task_id?: string;
     child_session_id?: string;
+    status?: WireValue<'queued' | 'running' | 'completed' | 'failed' | 'cancelled'>;
+    live_state?: string;
+    created_at?: string;
+    updated_at?: string;
+    run_label?: string;
+    error_reason?: string;
   };
+  request_index?: number;
+  request_count?: number;
   mode?: WireValue<'form' | 'url'>;
   fields?: PendingInteractionField[];
   additional_properties?: boolean;

@@ -103,7 +103,8 @@ export function useSessionLiveStream({
               }),
             );
             const notice = streamNoticeForFrame(frame);
-            if (notice) toast.error(notice.title, { id: notice.id, description: notice.description });
+            if (notice)
+              toast.error(notice.title, { id: notice.id, description: notice.description });
           }
           // The iterator ended without the consumer aborting it — whether or
           // not a frame ever arrived, the connection is gone (server close,
@@ -198,6 +199,9 @@ function isPendingInteractionEvent(eventName: string): boolean {
     'a2ui.',
     'mcp.task.',
     'mcp_task.',
+    'agent.task.',
+    'agent_task.',
+    'agent_elicitation_',
   ].some((prefix) => eventName.startsWith(prefix));
 }
 

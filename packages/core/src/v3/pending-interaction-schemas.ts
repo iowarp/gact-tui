@@ -90,6 +90,27 @@ export const pendingInteractionSchema = z.object({
         .optional(),
       allow_freeform: z.boolean().optional(),
       answer_metadata: z.record(z.string(), z.unknown()).optional(),
+      agent_answer_task: z
+        .object({
+          task_id: z.string().optional(),
+          child_session_id: z.string().optional(),
+          status: forwardCompatibleEnum([
+            'queued',
+            'running',
+            'completed',
+            'failed',
+            'cancelled',
+          ]).optional(),
+          live_state: z.string().optional(),
+          created_at: z.string().optional(),
+          updated_at: z.string().optional(),
+          run_label: z.string().optional(),
+          error_reason: z.string().optional(),
+        })
+        .passthrough()
+        .optional(),
+      request_index: z.number().int().positive().optional(),
+      request_count: z.number().int().positive().optional(),
       mode: forwardCompatibleEnum(['form', 'url']).optional(),
       fields: z.array(pendingInteractionFieldSchema).optional(),
       additional_properties: z.boolean().optional(),

@@ -95,7 +95,18 @@ describe('ClioRepository normalized interaction contract', () => {
             created_at: '2026-09-02T00:00:00Z',
             payload: {
               mode: 'form',
+              request_index: 1,
+              request_count: 2,
               answer_metadata: { count: 3 },
+              agent_answer_task: {
+                task_id: 'answer-task',
+                child_session_id: 'answer-session',
+                status: 'running',
+                live_state: 'running',
+                created_at: '2026-09-02T00:00:00Z',
+                updated_at: '2026-09-02T00:00:01Z',
+                run_label: 'agent-elicitation answer',
+              },
               fields: [
                 {
                   name: 'count',
@@ -137,7 +148,13 @@ describe('ClioRepository normalized interaction contract', () => {
     expect(rows[0]).toMatchObject({
       requires_human_response: false,
       audience: 'agent',
-      payload: { answer_metadata: { count: 3 }, fields: [{ type: 'integer' }] },
+      payload: {
+        request_index: 1,
+        request_count: 2,
+        answer_metadata: { count: 3 },
+        agent_answer_task: { status: 'running', child_session_id: 'answer-session' },
+        fields: [{ type: 'integer' }],
+      },
     });
     expect(rows[1]).toMatchObject({
       requires_human_response: true,

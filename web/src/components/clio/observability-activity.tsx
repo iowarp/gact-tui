@@ -1,4 +1,10 @@
-import type { AsyncProcess, ExecutionProvenanceResult, Message, RunState } from '@clio/core/v3';
+import type {
+  AsyncProcess,
+  ExecutionProvenanceResult,
+  Message,
+  PendingInteraction,
+  RunState,
+} from '@clio/core/v3';
 import {
   BotIcon,
   BoxesIcon,
@@ -29,6 +35,7 @@ import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { humanizeToolName } from './tool-presentation';
+import { agentInteractionRequestLabel, isAgentMcpInteraction } from './agent-answer-domain';
 
 export interface ObservabilityActivityItem {
   id: string;
@@ -75,6 +82,52 @@ export function asyncProcessDetail(process: AsyncProcess): string {
   if (reported) return truncate(reported, SUMMARY_TRUNCATE_CHARS);
   if (process.kind === 'agent') return process.placement?.trim() || 'Child agent';
   return process.host?.trim() ? `Background task, ${process.host.trim()}` : 'Background task';
+}
+
+/** Project agent-addressed MCP requests into the durable Activity timeline. */
+// oxlint-disable-next-line react/only-export-components
+export function agentInteractionActivityItems(
+  interactions: readonly PendingInteraction[],
+  processes: readonly AsyncProcess[],
+  rootSessionId?: string,
+): ObservabilityActivityItem[] {
+  const processById = new Map(processes.map((process) => [process.id, process]));
+  return interactions.filter(isAgentMcpInteraction).map((interaction) => {
+    const answerTask = interaction.payload?.agent_answer_task;
+    const process = interaction.task_id ? processById.get(interaction.task_id) : undefined;
+    const fallback = interaction.routing_state === 'agent_elicitation_fallback_to_human';
+    const answered = interaction.status === 'answered' && interaction.answered_by === 'agent';
+    return {
+      id: `mcp-interaction:${interaction.id}`,
+      kind: 'interaction',
+      label: agentInteractionRequestLabel(interaction),
+      detail: fallback
+        ? 'Agent answer attempt ended; routed to you'
+        : answered
+          ? 'Agent answer validated and returned to MCP'
+          : 'Agent answer turn is in progress',
+      state: fallback
+        ? 'waiting_user'
+        : answered
+          ? 'completed'
+          : answerTask?.live_state === 'queued'
+            ? 'queued'
+            : 'running',
+      at: answerTask?.updated_at ?? interaction.created_at,
+      groupId:
+        process?.parent_turn_id ??
+        (interaction.task_id
+          ? `mcp-task:${interaction.task_id}`
+          : `mcp-invocation:${interaction.source.invocation_id ?? interaction.id}`),
+      timing: 'event',
+      rootSessionId,
+      ownerSessionId: interaction.owner_session_id,
+      taskId: interaction.task_id,
+      taskPath: process?.task_path,
+      depth: process?.task_path?.length ?? 0,
+      lifecycle: 'event',
+    } satisfies ObservabilityActivityItem;
+  });
 }
 
 const HIGH_SIGNAL_CHILD_KINDS = new Set([
@@ -165,6 +218,7 @@ export function childProjectionActivityItems(
       rootSessionId,
       ownerSessionId: process.owner_session_id,
       ownerLabel: owner?.label,
+      groupId: `mcp-task:${process.id}`,
       taskId: process.id,
       taskPath: process.task_path,
       depth: owner?.depth ?? process.task_path?.length ?? 0,

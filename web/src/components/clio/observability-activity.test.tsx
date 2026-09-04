@@ -1,7 +1,16 @@
-import type { AsyncProcess, ExecutionProvenanceResult, Message } from '@clio/core/v3';
+import type {
+  AsyncProcess,
+  ExecutionProvenanceResult,
+  Message,
+  PendingInteraction,
+} from '@clio/core/v3';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { childProjectionActivityItems, ClioActivityTimeline } from './observability-activity';
+import {
+  agentInteractionActivityItems,
+  childProjectionActivityItems,
+  ClioActivityTimeline,
+} from './observability-activity';
 
 const processes: AsyncProcess[] = [
   {
@@ -172,6 +181,45 @@ const provenance: ExecutionProvenanceResult = {
   nodes: [],
   edges: [],
 };
+
+describe('agent-addressed MCP interaction activity', () => {
+  it('stays visible under its MCP task even without an initiating tool card', () => {
+    const interaction: PendingInteraction = {
+      id: 'mcp_task_input:nonce',
+      kind: 'mcp_task_input',
+      owner_session_id: 'session_leaf',
+      attended_session_id: 'session_root',
+      task_id: 'mcp_review_task',
+      status: 'answered',
+      title: 'MCP request',
+      audience: 'agent',
+      routing_state: 'elicitation_routed_to_agent',
+      answered_by: 'agent',
+      source: { protocol: 'mcp', invocation_id: 'invoke-async' },
+      created_at: '2026-09-02T12:00:25Z',
+      payload: {
+        mode: 'form',
+        request_index: 1,
+        request_count: 2,
+        agent_answer_task: {
+          live_state: 'completed',
+          updated_at: '2026-09-02T12:00:35Z',
+        },
+      },
+    };
+
+    expect(agentInteractionActivityItems([interaction], processes, 'session_root')).toEqual([
+      expect.objectContaining({
+        kind: 'interaction',
+        label: 'Form request 1 of 2',
+        detail: 'Agent answer validated and returned to MCP',
+        state: 'completed',
+        groupId: 'mcp-task:mcp_review_task',
+        taskId: 'mcp_review_task',
+      }),
+    ]);
+  });
+});
 
 describe('child work activity projection', () => {
   it('preserves authoritative task identity, depth, lifecycle, and safe high-signal activity', () => {

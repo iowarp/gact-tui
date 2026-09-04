@@ -7,6 +7,7 @@ import type {
   ExecutionProvenanceDegradation,
   ExecutionProvenanceResult,
   Message,
+  PendingInteraction,
   Run,
   RunState,
   SessionDiff,
@@ -58,6 +59,7 @@ import { ClioContextCanvasPanel } from './context-canvas-panel';
 import { ClioInteractiveRow } from './interactive-row';
 import {
   asyncProcessDetail,
+  agentInteractionActivityItems,
   childProjectionActivityItems,
   ClioActivityTimeline,
   type ObservabilityActivityItem,
@@ -83,6 +85,7 @@ export interface ClioObservabilityDockProps {
   contextFrames: readonly ContextFrame[];
   diffs: readonly SessionDiff[];
   messages: readonly Message[];
+  interactions?: readonly PendingInteraction[];
   processes: readonly AsyncProcess[];
   tasks: readonly Task[];
   tools: readonly ToolInvocation[];
@@ -151,7 +154,9 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     props.sessionState === 'waiting_permission' ||
     props.sessionState === 'waiting_user' ||
     props.sessionState === 'failed';
-  const showDockStatusBadge = Boolean(activeActivityCount || sessionActive || sessionNeedsAttention);
+  const showDockStatusBadge = Boolean(
+    activeActivityCount || sessionActive || sessionNeedsAttention,
+  );
   const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
   const hasAssistantActivity = props.messages.some(
     (message) => message.role === 'assistant' && message.blocks.length > 0,
@@ -360,6 +365,7 @@ export function ClioObservabilityView({
   provenanceDegradation,
   onProvenanceProviderChange,
   resources,
+  interactions = [],
 }: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const hasMediumNavigation = useContainerQuery(surfaceRef, 320);
@@ -429,10 +435,17 @@ export function ClioObservabilityView({
               detail: asyncProcessDetail(process),
               state: process.live_state,
               at: process.updated_at ?? process.created_at,
-              groupId: process.parent_turn_id,
+              groupId:
+                process.parent_turn_id ??
+                (process.kind === 'mcp-task' ? `mcp-task:${process.id}` : undefined),
               timing: process.updated_at || process.created_at ? 'event' : undefined,
             }),
           )),
+      ...agentInteractionActivityItems(
+        interactions,
+        processes,
+        executionProvenance?.root_session_id ?? executionProvenance?.session_id,
+      ),
     ];
     return items
       .map((item) => {
@@ -445,7 +458,16 @@ export function ClioObservabilityView({
         const byTime = (right.at ?? '').localeCompare(left.at ?? '');
         return byTime;
       });
-  }, [executionProvenance, onOpenSubagent, processes, runs, subagents, toolTurnContext, tools]);
+  }, [
+    executionProvenance,
+    interactions,
+    onOpenSubagent,
+    processes,
+    runs,
+    subagents,
+    toolTurnContext,
+    tools,
+  ]);
   return (
     <div className="h-full min-h-0 min-w-0" ref={surfaceRef}>
       <Tabs className="h-full min-h-0 gap-0" defaultValue="work">

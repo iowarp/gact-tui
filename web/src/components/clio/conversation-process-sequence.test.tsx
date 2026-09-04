@@ -96,7 +96,7 @@ describe('ConversationProcessSequence agent-routed questions', () => {
       />,
     );
 
-    expect(screen.getByText('Agent is answering MCP request')).toBeVisible();
+    expect(screen.getByText('Information request · Agent is answering')).toBeVisible();
     expect(screen.queryByText(/response needed/i)).not.toBeInTheDocument();
 
     rerender(
@@ -132,6 +132,6 @@ describe('ConversationProcessSequence agent-routed questions', () => {
       />,
     );
 
-    expect(screen.getByText('Agent answered MCP request')).toBeVisible();
+    expect(screen.getByText('Information request · Agent answered')).toBeVisible();
   });
 });
