@@ -97,6 +97,30 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   activeMcpAppId?: string;
 }
 
+/**
+ * The resume message is an internal delivery envelope, not a second message
+ * authored by the user. Once its authoritative question is projected on the
+ * causal tool call, rendering the envelope would duplicate the answer and put
+ * it outside the tool lifecycle that produced it.
+ */
+// Exported for a direct regression test of the transport-envelope boundary.
+// oxlint-disable-next-line react/only-export-components
+export function isProjectedQuestionResumeEnvelope(
+  message: DomainMessage,
+  interactions: readonly PendingInteraction[] | undefined,
+): boolean {
+  if (message.role !== 'user' || message.metadata?.ask_user_resume !== true) return false;
+  const questionId = message.metadata.ask_user_question_id;
+  if (typeof questionId !== 'string' || questionId.length === 0) return false;
+  return (interactions ?? []).some(
+    (interaction) =>
+      interaction.kind === 'question' &&
+      interaction.source.protocol === 'native' &&
+      Boolean(interaction.source.invocation_id) &&
+      interaction.payload?.question_id === questionId,
+  );
+}
+
 const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
   index,
@@ -273,8 +297,11 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
             ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
               <>
                 <ConversationTurn
+                  activeMcpAppId={entities.activeMcpAppId}
                   interactions={entities.interactions}
                   iterations={turn.iterations}
+                  mcpAppRepository={entities.mcpAppRepository}
+                  messageSessionId={message.session_id}
                   mode={displayMode}
                   onOpenSubagent={entities.onOpenSubagent}
                   subagents={entities.subagents}
@@ -436,12 +463,19 @@ function routedInteractionsEqual(
 }
 
 export function ClioConversation({
-  messages,
+  messages: sourceMessages,
   loading,
   error,
   bottomInset = 0,
   ...entities
 }: ClioConversationProps) {
+  const messages = useMemo(
+    () =>
+      sourceMessages.filter(
+        (message) => !isProjectedQuestionResumeEnvelope(message, entities.interactions),
+      ),
+    [entities.interactions, sourceMessages],
+  );
   const { mode: defaultDisplayMode } = useConversationDisplay();
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);

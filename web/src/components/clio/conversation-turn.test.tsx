@@ -1,6 +1,5 @@
 import type { PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConversationTurn } from './conversation-turn';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
@@ -105,7 +104,6 @@ describe('ConversationTurn correlated work placement', () => {
   });
 
   it('attaches the complete agent-routed exchange to its causal tool inside Activity', async () => {
-    const user = userEvent.setup();
     const interaction: PendingInteraction = {
       id: 'question:agent_1',
       kind: 'question',
@@ -151,16 +149,19 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
-    expect(screen.getByText('Form request 1 of 1 · Agent answered')).toBeVisible();
-    expect(
-      screen
-        .getByText('Form request 1 of 1 · Agent answered')
-        .closest('[data-turn-activity="tool:call_read"]'),
-    ).not.toBeNull();
-    await user.click(screen.getByRole('button', { name: /Read evidence file/i }));
     expect(screen.getByText('Form request 1 of 1')).toBeVisible();
+    expect(
+      screen.getByText('Form request 1 of 1').closest('[data-turn-activity="tool:call_read"]'),
+    ).toBeNull();
+    expect(
+      [
+        ...screen
+          .getByRole('region', { name: 'Full agent activity' })
+          .querySelectorAll('[data-turn-activity]'),
+      ].map((node) => node.getAttribute('data-turn-activity')),
+    ).toEqual(['tool:call_read', 'interaction:question:agent_1']);
     expect(screen.getByText('Which nonce did the user provide?')).toBeVisible();
-    expect(screen.getByText('Agent prepared an answer')).toBeVisible();
+    expect(screen.getByText('Agent responded')).toBeVisible();
     expect(screen.getByText('browser-agent-9f42')).toBeVisible();
     expect(screen.getByText('Validated by MCP schema')).toBeVisible();
     expect(screen.getByText('Answer returned to MCP')).toBeVisible();
@@ -169,7 +170,6 @@ describe('ConversationTurn correlated work placement', () => {
   });
 
   it('keeps a direct human MCP answer attached to its causal tool', async () => {
-    const user = userEvent.setup();
     const interaction: PendingInteraction = {
       id: 'mcp_task_input:human_1',
       kind: 'mcp_task_input',
@@ -206,17 +206,15 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
-    expect(screen.getByText('Form request 1 of 1 · Answered by you')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /Guarded Input/i }));
+    expect(screen.getByText('Form request 1 of 1')).toBeVisible();
     expect(screen.getByText('Pick a value')).toBeVisible();
-    expect(screen.getByText('You answered')).toBeVisible();
+    expect(screen.getByText('You responded')).toBeVisible();
     expect(screen.getByText('human-visible-4d72')).toBeVisible();
     expect(screen.getByText('Validated by MCP schema')).toBeVisible();
     expect(screen.getByText('Response returned to MCP')).toBeVisible();
   });
 
   it('keeps a native ask-user answer attached to the ask-user tool', async () => {
-    const user = userEvent.setup();
     const interaction: PendingInteraction = {
       id: 'question:native_1',
       kind: 'question',
@@ -245,8 +243,14 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
-    expect(screen.getByText('Question · Answered by you')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /Ask User/i }));
+    expect(screen.getByText('Agent asked')).toBeVisible();
+    expect(
+      [
+        ...screen
+          .getByRole('region', { name: 'Full agent activity' })
+          .querySelectorAll('[data-turn-activity]'),
+      ].map((node) => node.getAttribute('data-turn-activity')),
+    ).toEqual(['tool:call_ask', 'interaction:question:native_1']);
     expect(screen.getByText('Which physical system should I simulate?')).toBeVisible();
     expect(screen.getByText('A cantilever beam')).toBeVisible();
     expect(screen.getByText('Answer returned to agent')).toBeVisible();
@@ -255,7 +259,6 @@ describe('ConversationTurn correlated work placement', () => {
   });
 
   it('keeps an agent failure in the causal tool after routing the request to the human', async () => {
-    const user = userEvent.setup();
     const interaction: PendingInteraction = {
       id: 'question:fallback',
       kind: 'question',
@@ -293,15 +296,13 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
-    expect(screen.getByText('Form request 2 of 2 · Needs your response')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /Read evidence file/i }));
+    expect(screen.getByText('Form request 2 of 2')).toBeVisible();
     expect(screen.getByText('Answer rejected by MCP schema')).toBeVisible();
     expect(screen.getByText('Routed to you')).toBeVisible();
     expect(screen.getByText('Technical details')).toBeVisible();
   });
 
   it('shows that a human-resolved fallback returned to MCP instead of still needing attention', async () => {
-    const user = userEvent.setup();
     const interaction: PendingInteraction = {
       id: 'question:fallback-resolved',
       kind: 'question',
@@ -340,10 +341,9 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
-    expect(screen.getByText('Form request 1 of 1 · Answered by you')).toBeVisible();
+    expect(screen.getByText('Form request 1 of 1')).toBeVisible();
     expect(screen.queryByText('Form request 1 of 1 · Needs your response')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Read evidence file/i }));
-    expect(screen.getByText('You answered')).toBeVisible();
+    expect(screen.getByText('You responded')).toBeVisible();
     expect(screen.getByText('human-fallback-7c31')).toBeVisible();
     expect(screen.getByText('Answer returned to MCP')).toBeVisible();
     expect(screen.queryByText('Routed to you')).not.toBeInTheDocument();

@@ -8,7 +8,12 @@ import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
  */
 export type ConversationActivity =
   | { kind: 'tool'; id: string; tool: ToolInvocation }
-  | { kind: 'task'; id: string; task: Task };
+  | { kind: 'task'; id: string; task: Task }
+  | {
+      kind: 'mcp_app';
+      id: string;
+      block: Extract<MessageBlock, { type: 'mcp_app' }>;
+    };
 
 export interface ConversationIteration {
   id: string;
@@ -136,6 +141,13 @@ function fallbackIterations(
         current.activity.push({ kind: 'task', id: task.id, task });
       }
       current.streaming ||= ['queued', 'running'].includes(task.state);
+      consumed.add(block.id);
+      continue;
+    }
+    if (block.type === 'mcp_app') {
+      if (!alreadyInLane(current, 'mcp_app', block.id)) {
+        current.activity.push({ kind: 'mcp_app', id: block.id, block });
+      }
       consumed.add(block.id);
       continue;
     }

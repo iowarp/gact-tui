@@ -8,6 +8,7 @@ import { AppearanceProvider } from '@/providers/appearance-provider';
 import {
   ClioConversation,
   conversationMessageRowPropsEqual,
+  isProjectedQuestionResumeEnvelope,
   type ConversationMessageRowProps,
 } from './conversation';
 
@@ -56,6 +57,38 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation recovery actions', () => {
+  it('keeps an internal native answer envelope out of chat once the tool owns its lifecycle', () => {
+    const envelope: Message = {
+      id: 'message_resume',
+      session_id: 'session_1',
+      role: 'user',
+      created_at: '2026-09-04T00:00:00Z',
+      blocks: [{ id: 'resume_text', type: 'text', text: '[Answer to agent question]' }],
+      metadata: {
+        ask_user_resume: true,
+        ask_user_question_id: 'ques_1',
+      },
+    };
+    const interaction = {
+      id: 'question:ques_1',
+      kind: 'question' as const,
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'answered' as const,
+      title: 'Question from agent',
+      prompt: 'Which physical system should I simulate?',
+      answered_by: 'human' as const,
+      source: { protocol: 'native' as const, tool_name: 'ask_user', invocation_id: 'call_1' },
+      created_at: '2026-09-04T00:00:00Z',
+      payload: { question_id: 'ques_1', answer_metadata: { answer: 'A cantilever beam' } },
+      requires_human_response: false,
+      actions: [],
+    };
+
+    expect(isProjectedQuestionResumeEnvelope(envelope, [interaction])).toBe(true);
+    expect(isProjectedQuestionResumeEnvelope(envelope, [])).toBe(false);
+  });
+
   it('keeps a structured context reference visible and clickable in the sent message', async () => {
     const user = userEvent.setup();
     const onOpenReference = vi.fn();

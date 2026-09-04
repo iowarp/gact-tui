@@ -641,6 +641,7 @@ export interface Message {
   created_at: string;
   completed_at?: string;
   blocks: MessageBlock[];
+  metadata?: Record<string, unknown>;
   usage?: MessageUsage;
   cost_usd?: number;
   stop_reason?: string;

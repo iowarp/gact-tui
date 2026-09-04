@@ -1,5 +1,5 @@
 import { BrainIcon, ChevronDownIcon, ListChecksIcon, WrenchIcon } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import {
   ChainOfThought,
   ChainOfThoughtContent,
@@ -10,7 +10,7 @@ import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import type { PendingInteraction, SubagentRun, Task } from '@clio/core/v3';
+import type { ClioRepository, PendingInteraction, SubagentRun, Task } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus, clioStatusLabel } from './status';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
@@ -19,6 +19,7 @@ import { getToolPresentation, getToolSummary } from './tool-presentation';
 import { ClioToolInvocation } from './tool-invocation';
 import { AgentAnswerActivity } from './agent-answer-activity';
 import { questionInteractionsForTool } from './agent-answer-domain';
+import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 
 interface ConversationTurnProps {
   iterations: readonly ConversationIteration[];
@@ -26,6 +27,9 @@ interface ConversationTurnProps {
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
   interactions?: readonly PendingInteraction[];
+  activeMcpAppId?: string;
+  mcpAppRepository?: ClioRepository;
+  messageSessionId?: string;
 }
 
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
@@ -35,6 +39,9 @@ export function ConversationTurn({
   onOpenSubagent,
   subagents,
   interactions,
+  activeMcpAppId,
+  mcpAppRepository,
+  messageSessionId,
 }: ConversationTurnProps) {
   if (iterations.length === 0) return null;
   if (mode === 'full') {
@@ -49,6 +56,9 @@ export function ConversationTurn({
               showTasks
               subagents={subagents}
               interactions={interactions}
+              activeMcpAppId={activeMcpAppId}
+              mcpAppRepository={mcpAppRepository}
+              messageSessionId={messageSessionId}
             />
           ))}
         </div>
@@ -67,6 +77,9 @@ export function ConversationTurn({
             onOpenSubagent={onOpenSubagent}
             subagents={subagents}
             interactions={interactions}
+            activeMcpAppId={activeMcpAppId}
+            mcpAppRepository={mcpAppRepository}
+            messageSessionId={messageSessionId}
           />
         ))}
       </ChainOfThoughtContent>
@@ -79,11 +92,17 @@ function IterationSummary({
   onOpenSubagent,
   subagents,
   interactions,
+  activeMcpAppId,
+  mcpAppRepository,
+  messageSessionId,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
   interactions?: readonly PendingInteraction[];
+  activeMcpAppId?: string;
+  mcpAppRepository?: ClioRepository;
+  messageSessionId?: string;
 }) {
   const [manualOpen, setManualOpen] = useState(false);
   const open = iteration.streaming || manualOpen;
@@ -154,6 +173,9 @@ function IterationSummary({
             showTasks={false}
             subagents={subagents}
             interactions={interactions}
+            activeMcpAppId={activeMcpAppId}
+            mcpAppRepository={mcpAppRepository}
+            messageSessionId={messageSessionId}
           />
         </CollapsibleContent>
       </ChainOfThoughtStep>
@@ -168,6 +190,9 @@ function IterationDetail({
   interactions,
   showTasks = true,
   showQuestionInteractions = true,
+  activeMcpAppId,
+  mcpAppRepository,
+  messageSessionId,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
@@ -175,6 +200,9 @@ function IterationDetail({
   interactions?: readonly PendingInteraction[];
   showTasks?: boolean;
   showQuestionInteractions?: boolean;
+  activeMcpAppId?: string;
+  mcpAppRepository?: ClioRepository;
+  messageSessionId?: string;
 }) {
   return (
     <article>
@@ -208,22 +236,40 @@ function IterationDetail({
         */}
         {iteration.activity.map((entry) =>
           entry.kind === 'tool' ? (
-            <div
-              className="space-y-2"
-              data-turn-activity={`tool:${entry.id}`}
-              key={`tool:${entry.id}`}
-            >
-              <ClioToolInvocation
-                questionInteractions={
-                  showQuestionInteractions
-                    ? questionInteractionsForTool(interactions, entry.id)
-                    : undefined
-                }
-                tool={entry.tool}
-              />
-              {subagentsForTool(entry.tool, subagents).map((subagent) => (
-                <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
-              ))}
+            <Fragment key={`tool:${entry.id}`}>
+              <div className="space-y-2" data-turn-activity={`tool:${entry.id}`}>
+                <ClioToolInvocation tool={entry.tool} />
+                {subagentsForTool(entry.tool, subagents).map((subagent) => (
+                  <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
+                ))}
+              </div>
+              {showQuestionInteractions
+                ? questionInteractionsForTool(interactions, entry.id).map((interaction) => (
+                    <AgentAnswerActivity interaction={interaction} key={interaction.id} />
+                  ))
+                : null}
+            </Fragment>
+          ) : entry.kind === 'mcp_app' ? (
+            <div data-turn-activity={`mcp-app:${entry.id}`} key={`mcp-app:${entry.id}`}>
+              {entry.block.app_instance_id === activeMcpAppId &&
+              mcpAppRepository &&
+              messageSessionId ? (
+                <McpAppSurface
+                  appInstanceId={entry.block.app_instance_id}
+                  dataRef={entry.block.data_ref}
+                  height={entry.block.height}
+                  repository={mcpAppRepository}
+                  resourceUri={entry.block.resource_uri}
+                  sessionId={messageSessionId}
+                  sourceServer={entry.block.source_server}
+                  toolName={entry.block.tool_name}
+                />
+              ) : (
+                <McpAppHistoryLine
+                  sourceServer={entry.block.source_server}
+                  toolName={entry.block.tool_name}
+                />
+              )}
             </div>
           ) : showTasks ? (
             <TaskActivityLine key={`task:${entry.id}`} task={entry.task} />

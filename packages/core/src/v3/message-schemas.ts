@@ -192,6 +192,7 @@ export const messageSchema = z.object({
   created_at: z.string(),
   completed_at: z.string().optional(),
   blocks: z.array(messageBlockSchema),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   usage: messageUsageSchema.optional(),
   cost_usd: z.number().nonnegative().optional(),
   stop_reason: z.string().optional(),

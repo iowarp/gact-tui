@@ -96,7 +96,8 @@ describe('ConversationProcessSequence agent-routed questions', () => {
       />,
     );
 
-    expect(screen.getByText('Information request · Agent is answering')).toBeVisible();
+    expect(screen.getByText('Information request')).toBeVisible();
+    expect(screen.getByText('Agent is reading conversation context')).toBeVisible();
     expect(screen.queryByText(/response needed/i)).not.toBeInTheDocument();
 
     rerender(
@@ -132,6 +133,6 @@ describe('ConversationProcessSequence agent-routed questions', () => {
       />,
     );
 
-    expect(screen.getByText('Information request · Agent answered')).toBeVisible();
+    expect(screen.getByText('Agent responded')).toBeVisible();
   });
 });

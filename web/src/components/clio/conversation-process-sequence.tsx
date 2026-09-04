@@ -14,6 +14,7 @@ import { ClioStreamingText } from './streaming-text';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
 import { questionInteractionsForTool } from './agent-answer-domain';
+import { AgentAnswerActivity } from './agent-answer-activity';
 
 export type ProcessBlock = Extract<
   MessageBlock,
@@ -86,7 +87,10 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
             <ReasoningContent className="mt-3 leading-6">{block.thought}</ReasoningContent>
           </Reasoning>
         ) : null}
-        <ClioToolInvocation questionInteractions={questions} tool={tool} />
+        <ClioToolInvocation tool={tool} />
+        {questions.map((interaction) => (
+          <AgentAnswerActivity interaction={interaction} key={interaction.id} />
+        ))}
       </div>
     );
   }

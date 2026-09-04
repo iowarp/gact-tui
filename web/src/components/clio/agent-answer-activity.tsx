@@ -51,9 +51,9 @@ export function AgentAnswerActivity({
           {fallbackPending
             ? 'Needs your response'
             : fallbackAnswered
-              ? 'Answered by you'
+              ? 'You responded'
               : answered
-                ? 'Agent answered'
+                ? 'Agent responded'
                 : 'Agent is answering'}
           {!fallback ? (
             <span aria-hidden="true" className="sr-only">
@@ -87,6 +87,7 @@ export function AgentAnswerActivity({
       data-mcp-interaction-id={interaction.id}
       data-mcp-invocation-id={interaction.source.invocation_id}
       data-mcp-task-id={interaction.task_id}
+      data-turn-activity={`interaction:${interaction.id}`}
     >
       <ActivityStep icon={MessageCircleQuestionIcon} title={requestLabel}>
         {interaction.prompt}
@@ -104,7 +105,7 @@ export function AgentAnswerActivity({
         icon={BotIcon}
         title={
           answered
-            ? 'Agent prepared an answer'
+            ? 'Agent responded'
             : fallback
               ? 'Agent answer attempt'
               : 'Agent is reading conversation context'
@@ -154,7 +155,7 @@ export function AgentAnswerActivity({
           ) : null}
           {fallbackAnswered ? (
             <>
-              <ActivityStep icon={CircleCheckIcon} title="You answered">
+              <ActivityStep icon={CircleCheckIcon} title="You responded">
                 {answers.length > 0 ? (
                   <dl className="mt-1 grid gap-x-2 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
                     {answers.map(([label, value]) => (
@@ -209,7 +210,9 @@ function HumanQuestionActivity({
       >
         <UserRoundIcon aria-hidden="true" className="size-3.5 shrink-0" />
         <span>
-          {requestLabel} · {stateLabel}
+          {answered && !declined
+            ? `You responded · ${requestLabel}`
+            : `${requestLabel} · ${stateLabel}`}
         </span>
       </span>
     );
@@ -222,8 +225,9 @@ function HumanQuestionActivity({
       data-interaction-id={interaction.id}
       data-invocation-id={interaction.source.invocation_id}
       data-task-id={interaction.task_id}
+      data-turn-activity={`interaction:${interaction.id}`}
     >
-      <ActivityStep icon={MessageCircleQuestionIcon} title={requestLabel}>
+      <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : 'Agent asked'}>
         {interaction.prompt}
       </ActivityStep>
       {interaction.status === 'pending' ? (
@@ -233,7 +237,7 @@ function HumanQuestionActivity({
       ) : null}
       {answered ? (
         <>
-          <ActivityStep icon={UserRoundIcon} title={declined ? 'You declined' : 'You answered'}>
+          <ActivityStep icon={UserRoundIcon} title={declined ? 'You declined' : 'You responded'}>
             {answers.length > 0 ? (
               <dl className="mt-1 grid gap-x-2 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
                 {answers.map(([label, value]) => (
