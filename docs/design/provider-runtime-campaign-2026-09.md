@@ -39,6 +39,8 @@ Targets are local or explicit SSH profiles. Users may select only compatible pre
 ### Qualification evidence (2026-09-04)
 
 - The local LM Studio `qwopus3.5-9b-v3` probe passed through the completed CLIO bridge: the first provider-native reasoning delta surfaced at 7.81 seconds, the first DSPy contract-field delta surfaced at 13.52 seconds, and the prediction completed with an answer.
+- A live `dspy.Image` request passed through CLIO's LM factory and LiteLLM to LM Studio's vision-capable `SmolVLM-500M-Instruct`. The captured request contained one `image_url` part and the model correctly identified the CLIO logo's letter-like shape as `C`. Its unmarked `Answer: C` response also reproduced the weak-instruct-model parse failure and was retained by the answer-only blueprint recovery.
+- The three vLLM reports from the earlier `aecc7bfa` backend were addressed at their owning boundaries: answer-only blueprint output recovers complete unmarked prose, guided requests cannot send `tool_choice` without `tools`, and guided `max_tokens` is bounded after DSPy formats the prompt using the handshake-discovered context window. Regression tests cover each behavior and prove the recovery remains disabled for Codex and Claude Code. A vLLM hardware rerun is still required to confirm these fixes against the DeltaAI endpoint.
 - vLLM was not launched on this workstation. Docker/WSL exposed `/dev/dxg` but not the ROCm `/dev/kfd` and `/dev/dri` devices, and `rocminfo` reported no AMD GPU agent. The driver therefore continues to reject this target rather than pretending the ROCm variant is compatible.
 
 ## Deferred
