@@ -22,6 +22,7 @@ import { ClioStatus, type ClioStatusValue } from '@/components/clio/status';
 import { humanizeProtocolValue } from '@/components/clio/presentation-labels';
 import { RelayConnectionDialog } from '@/components/clio/relay-settings';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
+import { ManagedServices } from '@/components/clio/managed-services';
 import {
   Frame,
   FrameDescription,
@@ -140,6 +141,8 @@ export function InfrastructurePage() {
             </AlertDescription>
           </Alert>
         ) : null}
+
+        <ManagedServices />
 
         <section aria-label="Add capabilities" className="mt-8 grid gap-4 md:grid-cols-2">
           <SetupCard

@@ -62,8 +62,10 @@ export interface ProviderHandshake {
 
 export interface LanguageModelPreset {
   id: string;
+  provider_id?: string;
   label: string;
   provider: string;
+  litellm_prefix?: string;
   api_base?: string;
   suggested_model?: string;
   requires_api_key: boolean;
@@ -74,10 +76,20 @@ export interface LanguageModelPreset {
   status_message?: string;
   supports_live_catalog: boolean;
   supports_vision: boolean;
+  configuration_fields?: Array<{
+    id: string;
+    label: string;
+    description?: string;
+    placeholder?: string;
+    required: boolean;
+  }>;
+  supports_runtime_sizing?: boolean;
+  managed_service_id?: string;
 }
 
 export interface LanguageModelConfiguration {
   configured: boolean;
+  provider_id?: string;
   provider: string;
   api_base: string;
   model: string;
@@ -88,5 +100,6 @@ export interface LanguageModelConfiguration {
   state?: string;
   status_message?: string;
   error?: string;
+  provider_options?: Record<string, string>;
   presets: LanguageModelPreset[];
 }

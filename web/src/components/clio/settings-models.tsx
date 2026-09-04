@@ -22,6 +22,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Input } from '@/components/ui/input';
 import { providerAvailability } from '@/lib/provider-availability';
+import { readProviderCredential, storeProviderCredential } from '@/tauri/secure-credentials';
 import { providerDisplayName, providerSummary } from '@/lib/provider-presentation';
 import {
   modelSettingsUpdate,
@@ -128,12 +129,29 @@ function ModelsSettingsContent({
   const selectedProvider = providers.find(
     (provider) => provider.id === selectedPreset?.id || provider.id === selectedPreset?.provider,
   );
+  const storedCredential = useQuery({
+    enabled: Boolean(selectedPreset?.requires_api_key && values.apiBase),
+    queryKey: [
+      'provider-credential',
+      selectedPreset?.provider_id ?? selectedPreset?.id,
+      values.apiBase,
+    ],
+    queryFn: () =>
+      readProviderCredential(
+        selectedPreset?.provider_id ?? selectedPreset?.id ?? '',
+        values.apiBase,
+      ),
+  });
   const selectedAvailability = providerAvailability(selectedProvider, selectedPreset);
   const supportsRuntimeControls = providerSupportsRuntimeSizing(selectedPreset);
+  const missingRequiredOption = selectedPreset?.configuration_fields?.some(
+    (field) => field.required && !values.providerOptions[field.id]?.trim(),
+  );
   const providerReadyForApply = Boolean(
     selectedPreset &&
+      !missingRequiredOption &&
       (selectedPreset.is_authenticated ||
-        (selectedPreset.requires_api_key && values.apiKey) ||
+        (selectedPreset.requires_api_key && (values.apiKey || storedCredential.data)) ||
         selectedPreset.auth_method === 'none'),
   );
   const models = useQuery({
@@ -152,9 +170,22 @@ function ModelsSettingsContent({
   const save = useMutation({
     mutationFn: async () => {
       if (!selectedPreset || !values.modelId) throw new Error('Choose a provider and model first.');
-      return repository.updateLanguageModelConfiguration(
-        modelSettingsUpdate({ preset: selectedPreset, seeded, values }),
-      );
+      const update = modelSettingsUpdate({ preset: selectedPreset, seeded, values });
+      if (selectedPreset.requires_api_key) {
+        if (values.apiKey) {
+          await storeProviderCredential(update.provider_id, update.api_base, values.apiKey);
+          queryClient.setQueryData(
+            ['provider-credential', update.provider_id, update.api_base],
+            values.apiKey,
+          );
+        } else {
+          const stored =
+            storedCredential.data ??
+            (await readProviderCredential(update.provider_id, update.api_base));
+          if (stored) update.api_key = stored;
+        }
+      }
+      return repository.updateLanguageModelConfiguration(update);
     },
     onSuccess: async (next) => {
       // What was applied is now the service's own state, so the panel goes back
@@ -297,6 +328,7 @@ function ModelsSettingsContent({
                   apiBase: active ? configuration.api_base : (preset?.api_base ?? ''),
                   apiKey: '',
                   modelId: active ? configuration.model : (preset?.suggested_model ?? ''),
+                  providerOptions: active ? (configuration.provider_options ?? {}) : {},
                 });
                 setRefreshResult(undefined);
                 setHandshakeResult(undefined);
@@ -385,11 +417,31 @@ function ModelsSettingsContent({
               value={values.apiBase}
             />
             <FieldDescription>
-              {selectedPreset?.provider === 'vllm'
+              {(selectedPreset?.provider_id ?? selectedPreset?.id) === 'vllm'
                 ? 'Set the vLLM host and port here, including the OpenAI-compatible /v1 path.'
                 : 'The connected service will use this endpoint for the selected provider.'}
             </FieldDescription>
           </Field>
+          {(selectedPreset?.configuration_fields ?? []).map((field) => (
+            <Field key={field.id}>
+              <FieldLabel htmlFor={`provider-option-${field.id}`}>{field.label}</FieldLabel>
+              <Input
+                id={`provider-option-${field.id}`}
+                onChange={(event) =>
+                  edit({
+                    providerOptions: {
+                      ...values.providerOptions,
+                      [field.id]: event.target.value,
+                    },
+                  })
+                }
+                placeholder={field.placeholder}
+                required={field.required}
+                value={values.providerOptions[field.id] ?? ''}
+              />
+              {field.description ? <FieldDescription>{field.description}</FieldDescription> : null}
+            </Field>
+          ))}
           {selectedPreset?.requires_api_key ? (
             <Field>
               <FieldLabel htmlFor="provider-api-key">API key</FieldLabel>
