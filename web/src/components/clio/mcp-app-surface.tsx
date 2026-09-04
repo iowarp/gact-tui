@@ -4,7 +4,7 @@ import {
   type McpAppDescriptor,
   type McpAppIdentity,
 } from '@clio/core/v3';
-import { AlertTriangleIcon, PanelsTopLeftIcon } from 'lucide-react';
+import { AlertTriangleIcon, CornerDownRightIcon, PanelsTopLeftIcon } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -44,6 +44,16 @@ export interface McpAppSurfaceProps {
   resourceUri: string;
   sessionId: string;
   sourceServer: string;
+  toolName: string;
+}
+
+export interface McpAppResponseActivityData {
+  appInstanceId: string;
+  createdAt: string;
+  messageId: string;
+  sourceServer: string;
+  state: 'delivered' | 'pending';
+  text: string;
   toolName: string;
 }
 
@@ -326,6 +336,43 @@ export function McpAppHistoryLine({
           <span className="shrink-0 text-xs text-muted-foreground">View ended</span>
         </>
       )}
+    </div>
+  );
+}
+
+/** Render a message emitted by an App as causal ledger activity, not composer chat. */
+export function McpAppResponseActivity({ response }: { response: McpAppResponseActivityData }) {
+  const displayName = mcpAppDisplayName(response.toolName, response.sourceServer);
+  return (
+    <div
+      className="flex min-w-0 items-start gap-3 border-l-2 border-primary/35 py-1 pl-3 text-sm"
+      data-mcp-app-response={response.appInstanceId}
+      data-turn-activity={`mcp-app-response:${response.messageId}`}
+    >
+      <CornerDownRightIcon
+        aria-hidden="true"
+        className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+      />
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="font-medium text-foreground">You responded through {displayName}</span>
+          <time
+            className="font-mono text-[10px] text-muted-foreground"
+            dateTime={response.createdAt}
+          >
+            {new Date(response.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </time>
+        </div>
+        {response.text ? (
+          <p className="whitespace-pre-wrap text-foreground/85">{response.text}</p>
+        ) : null}
+        <p className="text-xs text-muted-foreground">
+          {response.state === 'pending' ? 'Queued for the agent' : 'Sent to the agent'}
+        </p>
+      </div>
     </div>
   );
 }

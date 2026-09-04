@@ -50,6 +50,7 @@ import { useConversationTurn } from './use-conversation-turn';
 import { subagentsForTool } from './subagent-tool-link';
 import type { SubagentOpenTarget } from './subagent-card';
 import { ClioTranscriptMinimap } from './transcript-minimap';
+import { McpAppResponseActivity, type McpAppResponseActivityData } from './mcp-app-surface';
 
 const VIRTUALIZATION_THRESHOLD = 80;
 
@@ -95,6 +96,7 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   virtualized?: boolean;
   onDisplayModeChange: (mode: ConversationDisplayMode) => void;
   activeMcpAppId?: string;
+  mcpAppResponse?: McpAppResponseActivityData;
 }
 
 /**
@@ -130,6 +132,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
   virtualized = false,
   displayMode,
   onDisplayModeChange,
+  mcpAppResponse,
   ...entities
 }: ConversationMessageRowProps) {
   const canRetry =
@@ -142,6 +145,28 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
   const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
   const { linkedSubagentIds, residualBlocks } = turn;
+
+  if (mcpAppResponse) {
+    return (
+      <div
+        className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-4 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
+        data-index={index}
+        id={`message-${message.id}`}
+        ref={measureElement}
+        style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
+        tabIndex={-1}
+      >
+        <m.div
+          animate={{ opacity: 1 }}
+          className="w-full"
+          initial={{ opacity: recent ? 0 : 1 }}
+          transition={{ duration: 0.16 }}
+        >
+          <McpAppResponseActivity response={mcpAppResponse} />
+        </m.div>
+      </div>
+    );
+  }
   const actions = (
     <MessageActions className="ml-auto shrink-0 opacity-100 sm:pointer-events-none sm:opacity-0 sm:transition-opacity sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
       {cancellablePendingSteer ? (
@@ -420,6 +445,7 @@ export function conversationMessageRowPropsEqual(
     left.onCancelPendingSteer !== right.onCancelPendingSteer ||
     left.activeMcpAppId !== right.activeMcpAppId ||
     left.mcpAppRepository !== right.mcpAppRepository ||
+    left.mcpAppResponse !== right.mcpAppResponse ||
     !routedInteractionsEqual(left, right, messageEntityRefs(left.message).tools) ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
@@ -469,6 +495,20 @@ export function ClioConversation({
   bottomInset = 0,
   ...entities
 }: ClioConversationProps) {
+  const mcpAppResponses = useMemo(() => {
+    const apps = new Map<string, Extract<DomainMessage['blocks'][number], { type: 'mcp_app' }>>();
+    for (const message of sourceMessages) {
+      for (const block of message.blocks) {
+        if (block.type === 'mcp_app') apps.set(block.app_instance_id, block);
+      }
+    }
+    const responses = new Map<string, McpAppResponseActivityData>();
+    for (const message of sourceMessages) {
+      const response = mcpAppResponseForMessage(message, apps);
+      if (response) responses.set(message.id, response);
+    }
+    return responses;
+  }, [sourceMessages]);
   const messages = useMemo(
     () =>
       sourceMessages.filter(
@@ -759,6 +799,7 @@ export function ClioConversation({
                   key={message.id}
                   measureElement={virtualizer.measureElement}
                   message={message}
+                  mcpAppResponse={mcpAppResponses.get(message.id)}
                   onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                   recent={index >= messages.length - 2}
                   start={start}
@@ -798,5 +839,34 @@ export function ClioConversation({
       ) : null}
     </div>
   );
+}
+
+// Exported for a direct regression of the transport-envelope classification.
+// oxlint-disable-next-line react/only-export-components
+export function mcpAppResponseForMessage(
+  message: DomainMessage,
+  apps: ReadonlyMap<string, Extract<DomainMessage['blocks'][number], { type: 'mcp_app' }>>,
+): McpAppResponseActivityData | undefined {
+  if (message.role !== 'user') return undefined;
+  const raw = message.metadata?.mcp_app_response;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const appInstanceId = (raw as Record<string, unknown>).app_instance_id;
+  if (typeof appInstanceId !== 'string' || !appInstanceId) return undefined;
+  const app = apps.get(appInstanceId);
+  if (!app) return undefined;
+  const rawState = (raw as Record<string, unknown>).state;
+  return {
+    appInstanceId,
+    createdAt: message.created_at,
+    messageId: message.id,
+    sourceServer: app.source_server,
+    state: rawState === 'pending' ? 'pending' : 'delivered',
+    text: message.blocks
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('\n')
+      .trim(),
+    toolName: app.tool_name,
+  };
 }
 import { brand } from '@brand';
