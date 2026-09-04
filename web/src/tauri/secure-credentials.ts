@@ -28,3 +28,27 @@ export async function deleteConnectionCredential(endpoint: string): Promise<void
   if (!inTauri()) return;
   await invokeCredential('credential_delete', { endpoint });
 }
+
+/** Read a provider API key from the desktop credential vault. */
+export async function readProviderCredential(
+  providerId: string,
+  apiBase: string,
+): Promise<string | undefined> {
+  if (!inTauri()) return undefined;
+  return (
+    (await invokeCredential<string | null>('provider_credential_read', {
+      providerId,
+      apiBase,
+    })) ?? undefined
+  );
+}
+
+/** Save a provider API key under the provider and normalized endpoint. */
+export async function storeProviderCredential(
+  providerId: string,
+  apiBase: string,
+  secret: string,
+): Promise<void> {
+  if (!inTauri()) return;
+  await invokeCredential('provider_credential_store', { providerId, apiBase, secret });
+}

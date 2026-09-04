@@ -88,8 +88,10 @@ export const providerModelSchema = z.object({
 
 export const languageModelPresetSchema = z.object({
   id: z.string(),
+  provider_id: z.string().optional().default(''),
   label: z.string(),
   provider: z.string(),
+  litellm_prefix: z.string().optional().default(''),
   api_base: z.string().optional(),
   suggested_model: z.string().optional(),
   requires_api_key: z.boolean().default(false),
@@ -100,10 +102,24 @@ export const languageModelPresetSchema = z.object({
   status_message: z.string().optional(),
   supports_live_catalog: z.boolean().default(false),
   supports_vision: z.boolean().default(false),
+  configuration_fields: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        description: z.string().optional(),
+        placeholder: z.string().optional(),
+        required: z.boolean().default(false),
+      }),
+    )
+    .default([]),
+  supports_runtime_sizing: z.boolean().default(false),
+  managed_service_id: z.string().optional(),
 });
 
 export const languageModelConfigurationSchema = z.object({
   configured: z.boolean(),
+  provider_id: z.string().optional().default(''),
   provider: z.string(),
   api_base: z.string(),
   model: z.string(),
@@ -117,6 +133,7 @@ export const languageModelConfigurationSchema = z.object({
   state: z.string().optional(),
   status_message: z.string().optional(),
   error: z.string().optional(),
+  provider_options: z.record(z.string(), z.string()).default({}),
   presets: z.array(languageModelPresetSchema).default([]),
 });
 
