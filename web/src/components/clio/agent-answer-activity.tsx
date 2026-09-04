@@ -24,17 +24,33 @@ export function AgentAnswerActivity({
 }) {
   const answered = interaction.status === 'answered' && interaction.answered_by === 'agent';
   const fallback = interaction.routing_state === 'agent_elicitation_fallback_to_human';
+  const fallbackPending = fallback && interaction.status === 'pending';
+  const fallbackAnswered = fallback && interaction.status === 'answered';
   const requestLabel = agentInteractionRequestLabel(interaction);
   if (compact) {
     return (
       <span
         className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"
-        data-agent-question-state={fallback ? 'fallback' : answered ? 'answered' : 'answering'}
+        data-agent-question-state={
+          fallbackPending
+            ? 'fallback'
+            : fallbackAnswered
+              ? 'fallback-answered'
+              : answered
+                ? 'answered'
+                : 'answering'
+        }
       >
         <BotIcon aria-hidden="true" className="size-3.5 shrink-0" />
         <span>
           {requestLabel} ·{' '}
-          {fallback ? 'Needs your response' : answered ? 'Agent answered' : 'Agent is answering'}
+          {fallbackPending
+            ? 'Needs your response'
+            : fallbackAnswered
+              ? 'Answered by you'
+              : answered
+                ? 'Agent answered'
+                : 'Agent is answering'}
           {!fallback ? (
             <span aria-hidden="true" className="sr-only">
               {answered ? 'Agent answered MCP request' : 'Agent is answering MCP request'}
@@ -55,7 +71,15 @@ export function AgentAnswerActivity({
   return (
     <div
       className="my-3 flex flex-col gap-3 border-l-2 border-border pl-3 text-xs"
-      data-agent-question-state={fallback ? 'fallback' : answered ? 'answered' : 'answering'}
+      data-agent-question-state={
+        fallbackPending
+          ? 'fallback'
+          : fallbackAnswered
+            ? 'fallback-answered'
+            : answered
+              ? 'answered'
+              : 'answering'
+      }
       data-mcp-interaction-id={interaction.id}
       data-mcp-invocation-id={interaction.source.invocation_id}
       data-mcp-task-id={interaction.task_id}
@@ -119,9 +143,30 @@ export function AgentAnswerActivity({
               </details>
             ) : null}
           </ActivityStep>
-          <ActivityStep icon={RouteIcon} title="Routed to you">
-            The request remains available in the response stack.
-          </ActivityStep>
+          {fallbackPending ? (
+            <ActivityStep icon={RouteIcon} title="Routed to you">
+              The request remains available in the response stack.
+            </ActivityStep>
+          ) : null}
+          {fallbackAnswered ? (
+            <>
+              <ActivityStep icon={CircleCheckIcon} title="You answered">
+                {answers.length > 0 ? (
+                  <dl className="mt-1 grid gap-x-2 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
+                    {answers.map(([label, value]) => (
+                      <div className="contents" key={label}>
+                        <dt className="text-muted-foreground">{label}</dt>
+                        <dd className="break-words text-foreground/85">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+              </ActivityStep>
+              <ActivityStep icon={ArrowUpToLineIcon} title="Answer returned to MCP">
+                The waiting request resumed with your accepted response.
+              </ActivityStep>
+            </>
+          ) : null}
         </>
       ) : null}
     </div>

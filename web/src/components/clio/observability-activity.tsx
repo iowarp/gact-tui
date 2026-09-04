@@ -96,19 +96,23 @@ export function agentInteractionActivityItems(
     const answerTask = interaction.payload?.agent_answer_task;
     const process = interaction.task_id ? processById.get(interaction.task_id) : undefined;
     const fallback = interaction.routing_state === 'agent_elicitation_fallback_to_human';
+    const fallbackPending = fallback && interaction.status === 'pending';
+    const fallbackAnswered = fallback && interaction.status === 'answered';
     const answered = interaction.status === 'answered' && interaction.answered_by === 'agent';
     return {
       id: `mcp-interaction:${interaction.id}`,
       kind: 'interaction',
       label: agentInteractionRequestLabel(interaction),
-      detail: fallback
+      detail: fallbackPending
         ? 'Agent answer attempt ended; routed to you'
+        : fallbackAnswered
+          ? 'Your response was validated and returned to MCP'
         : answered
           ? 'Agent answer validated and returned to MCP'
           : 'Agent answer turn is in progress',
-      state: fallback
+      state: fallbackPending
         ? 'waiting_user'
-        : answered
+        : answered || fallbackAnswered
           ? 'completed'
           : answerTask?.live_state === 'queued'
             ? 'queued'

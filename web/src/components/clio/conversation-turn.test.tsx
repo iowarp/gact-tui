@@ -213,6 +213,55 @@ describe('ConversationTurn correlated work placement', () => {
     expect(screen.getByText('Routed to you')).toBeVisible();
     expect(screen.getByText('Technical details')).toBeVisible();
   });
+
+  it('shows that a human-resolved fallback returned to MCP instead of still needing attention', async () => {
+    const user = userEvent.setup();
+    const interaction: PendingInteraction = {
+      id: 'question:fallback-resolved',
+      kind: 'question',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'answered',
+      title: 'Question from tool',
+      requires_human_response: false,
+      audience: 'agent',
+      answered_by: 'human',
+      routing_state: 'agent_elicitation_fallback_to_human',
+      fallback_detail: 'policy_denied_server',
+      prompt: 'Which nonce did the user provide?',
+      source: { protocol: 'mcp', invocation_id: 'call_read' },
+      created_at: '2026-09-03T00:00:00Z',
+      payload: {
+        mode: 'form',
+        request_index: 1,
+        request_count: 1,
+        answer_metadata: { nonce: 'human-fallback-7c31' },
+      },
+      actions: [],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Read evidence file') },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Form request 1 of 1 · Answered by you')).toBeVisible();
+    expect(screen.queryByText('Form request 1 of 1 · Needs your response')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Read evidence file/i }));
+    expect(screen.getByText('You answered')).toBeVisible();
+    expect(screen.getByText('human-fallback-7c31')).toBeVisible();
+    expect(screen.getByText('Answer returned to MCP')).toBeVisible();
+    expect(screen.queryByText('Routed to you')).not.toBeInTheDocument();
+  });
 });
 
 describe('ConversationTurn announced state', () => {
