@@ -21,6 +21,8 @@ import { AgentAnswerActivity } from './agent-answer-activity';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 
+type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
+
 interface ConversationTurnProps {
   iterations: readonly ConversationIteration[];
   mode: 'chain' | 'full';
@@ -106,6 +108,10 @@ function IterationSummary({
 }) {
   const [manualOpen, setManualOpen] = useState(false);
   const open = iteration.streaming || manualOpen;
+  const activeApp = iteration.activity.find(
+    (entry): entry is McpAppActivityEntry =>
+      entry.kind === 'mcp_app' && entry.block.app_instance_id === activeMcpAppId,
+  );
   const primaryTool = iteration.tools[0];
   const tool = primaryTool ? getToolPresentation(primaryTool) : undefined;
   const toolSummary = primaryTool ? getToolSummary(primaryTool) : undefined;
@@ -126,60 +132,71 @@ function IterationSummary({
     .map((segment) => String(segment).trim().replace(/[.]+$/u, ''))
     .join('. ');
   return (
-    <Collapsible onOpenChange={setManualOpen} open={open}>
-      <ChainOfThoughtStep
-        icon={BrainIcon}
-        label={
-          <CollapsibleTrigger
-            aria-label={disclosureLabel}
-            className="group flex w-full min-w-0 items-start gap-2 rounded-md py-0.5 text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm text-foreground">{iteration.summary}</span>
-              {tool ? (
-                <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <WrenchIcon aria-hidden="true" className="size-3.5 shrink-0" />
-                  <span className="truncate">{tool.title}</span>
-                  {toolSummary ? <span className="min-w-0 truncate">{toolSummary}</span> : null}
-                  {toolState ? <span className="shrink-0">{toolState}</span> : null}
-                  {iteration.tools.length > 1 ? (
-                    <span className="shrink-0">+{iteration.tools.length - 1}</span>
-                  ) : null}
-                </span>
-              ) : null}
-              {iteration.tasks.map((task) => (
-                <TaskActivityLine className="mt-1" key={task.id} task={task} />
-              ))}
-              {iteration.tools.flatMap((tool) =>
-                questionInteractionsForTool(interactions, tool.id).map((interaction) => (
-                  <AgentAnswerActivity compact interaction={interaction} key={interaction.id} />
-                )),
-              )}
-              {iteration.interrupted && !open ? (
-                <ClioStatus className="mt-1" value="interrupted" />
-              ) : null}
-            </span>
-            <ChevronDownIcon
-              aria-hidden="true"
-              className={cn('mt-1 size-4 shrink-0 transition-transform', open && 'rotate-180')}
+    <>
+      <Collapsible onOpenChange={setManualOpen} open={open}>
+        <ChainOfThoughtStep
+          icon={BrainIcon}
+          label={
+            <CollapsibleTrigger
+              aria-label={disclosureLabel}
+              className="group flex w-full min-w-0 items-start gap-2 rounded-md py-0.5 text-left outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm text-foreground">{iteration.summary}</span>
+                {tool ? (
+                  <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <WrenchIcon aria-hidden="true" className="size-3.5 shrink-0" />
+                    <span className="truncate">{tool.title}</span>
+                    {toolSummary ? <span className="min-w-0 truncate">{toolSummary}</span> : null}
+                    {toolState ? <span className="shrink-0">{toolState}</span> : null}
+                    {iteration.tools.length > 1 ? (
+                      <span className="shrink-0">+{iteration.tools.length - 1}</span>
+                    ) : null}
+                  </span>
+                ) : null}
+                {iteration.tasks.map((task) => (
+                  <TaskActivityLine className="mt-1" key={task.id} task={task} />
+                ))}
+                {iteration.tools.flatMap((tool) =>
+                  questionInteractionsForTool(interactions, tool.id).map((interaction) => (
+                    <AgentAnswerActivity compact interaction={interaction} key={interaction.id} />
+                  )),
+                )}
+                {iteration.interrupted && !open ? (
+                  <ClioStatus className="mt-1" value="interrupted" />
+                ) : null}
+              </span>
+              <ChevronDownIcon
+                aria-hidden="true"
+                className={cn('mt-1 size-4 shrink-0 transition-transform', open && 'rotate-180')}
+              />
+            </CollapsibleTrigger>
+          }
+        >
+          <CollapsibleContent className="pt-2">
+            <IterationDetail
+              activeMcpAppId={activeMcpAppId}
+              hiddenMcpAppId={activeApp?.block.app_instance_id}
+              interactions={interactions}
+              iteration={iteration}
+              mcpAppRepository={mcpAppRepository}
+              messageSessionId={messageSessionId}
+              onOpenSubagent={onOpenSubagent}
+              showTasks={false}
+              subagents={subagents}
             />
-          </CollapsibleTrigger>
-        }
-      >
-        <CollapsibleContent className="pt-2">
-          <IterationDetail
-            iteration={iteration}
-            onOpenSubagent={onOpenSubagent}
-            showTasks={false}
-            subagents={subagents}
-            interactions={interactions}
-            activeMcpAppId={activeMcpAppId}
-            mcpAppRepository={mcpAppRepository}
-            messageSessionId={messageSessionId}
-          />
-        </CollapsibleContent>
-      </ChainOfThoughtStep>
-    </Collapsible>
+          </CollapsibleContent>
+        </ChainOfThoughtStep>
+      </Collapsible>
+      {activeApp ? (
+        <McpAppActivity
+          activeMcpAppId={activeMcpAppId}
+          entry={activeApp}
+          mcpAppRepository={mcpAppRepository}
+          messageSessionId={messageSessionId}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -191,6 +208,7 @@ function IterationDetail({
   showTasks = true,
   showQuestionInteractions = true,
   activeMcpAppId,
+  hiddenMcpAppId,
   mcpAppRepository,
   messageSessionId,
 }: {
@@ -201,6 +219,7 @@ function IterationDetail({
   showTasks?: boolean;
   showQuestionInteractions?: boolean;
   activeMcpAppId?: string;
+  hiddenMcpAppId?: string;
   mcpAppRepository?: ClioRepository;
   messageSessionId?: string;
 }) {
@@ -250,27 +269,15 @@ function IterationDetail({
                 : null}
             </Fragment>
           ) : entry.kind === 'mcp_app' ? (
-            <div data-turn-activity={`mcp-app:${entry.id}`} key={`mcp-app:${entry.id}`}>
-              {entry.block.app_instance_id === activeMcpAppId &&
-              mcpAppRepository &&
-              messageSessionId ? (
-                <McpAppSurface
-                  appInstanceId={entry.block.app_instance_id}
-                  dataRef={entry.block.data_ref}
-                  height={entry.block.height}
-                  repository={mcpAppRepository}
-                  resourceUri={entry.block.resource_uri}
-                  sessionId={messageSessionId}
-                  sourceServer={entry.block.source_server}
-                  toolName={entry.block.tool_name}
-                />
-              ) : (
-                <McpAppHistoryLine
-                  sourceServer={entry.block.source_server}
-                  toolName={entry.block.tool_name}
-                />
-              )}
-            </div>
+            entry.block.app_instance_id === hiddenMcpAppId ? null : (
+              <McpAppActivity
+                activeMcpAppId={activeMcpAppId}
+                entry={entry}
+                key={`mcp-app:${entry.id}`}
+                mcpAppRepository={mcpAppRepository}
+                messageSessionId={messageSessionId}
+              />
+            )
           ) : showTasks ? (
             <TaskActivityLine key={`task:${entry.id}`} task={entry.task} />
           ) : null,
@@ -278,6 +285,40 @@ function IterationDetail({
         {iteration.interrupted ? <ClioStatus value="interrupted" /> : null}
       </div>
     </article>
+  );
+}
+
+function McpAppActivity({
+  activeMcpAppId,
+  entry,
+  mcpAppRepository,
+  messageSessionId,
+}: {
+  activeMcpAppId?: string;
+  entry: McpAppActivityEntry;
+  mcpAppRepository?: ClioRepository;
+  messageSessionId?: string;
+}) {
+  return (
+    <div data-turn-activity={`mcp-app:${entry.id}`}>
+      {entry.block.app_instance_id === activeMcpAppId && mcpAppRepository && messageSessionId ? (
+        <McpAppSurface
+          appInstanceId={entry.block.app_instance_id}
+          dataRef={entry.block.data_ref}
+          height={entry.block.height}
+          repository={mcpAppRepository}
+          resourceUri={entry.block.resource_uri}
+          sessionId={messageSessionId}
+          sourceServer={entry.block.source_server}
+          toolName={entry.block.tool_name}
+        />
+      ) : (
+        <McpAppHistoryLine
+          sourceServer={entry.block.source_server}
+          toolName={entry.block.tool_name}
+        />
+      )}
+    </div>
   );
 }
 /**

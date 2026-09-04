@@ -1,8 +1,15 @@
-import type { PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
+import type { ClioRepository, PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationTurn } from './conversation-turn';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
+
+vi.mock('./mcp-app-surface', () => ({
+  McpAppHistoryLine: ({ toolName }: { toolName: string }) => <div>{`${toolName} closed`}</div>,
+  McpAppSurface: ({ appInstanceId }: { appInstanceId: string }) => (
+    <div data-testid="active-mcp-app">{appInstanceId}</div>
+  ),
+}));
 
 afterEach(cleanup);
 
@@ -101,6 +108,47 @@ describe('ConversationTurn correlated work placement', () => {
       node.getAttribute('data-turn-activity'),
     );
     expect(rendered).toEqual(['tool:call_read', 'task:task_review', 'tool:call_render']);
+  });
+
+  it('keeps the active MCP App visible after its collapsed chain summary', () => {
+    const app: ConversationActivity = {
+      kind: 'mcp_app',
+      id: 'app_block',
+      block: {
+        id: 'app_block',
+        type: 'mcp_app',
+        app_instance_id: 'app_1',
+        resource_uri: 'ui://v2ex/panel',
+        source_server: 'v2ex',
+        tool_name: 'v2ex_ui_echo',
+        data_ref: 'opaque',
+        mime_type: 'text/html;profile=mcp-app',
+      },
+    };
+    render(
+      <ConversationTurn
+        activeMcpAppId="app_1"
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: 'call_ui', tool: tool('call_ui', 'UI Echo') },
+              app,
+            ]),
+          ),
+        ]}
+        mcpAppRepository={{} as ClioRepository}
+        messageSessionId="session_1"
+        mode="chain"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByTestId('active-mcp-app')).toBeVisible();
+    expect(screen.getAllByTestId('active-mcp-app')).toHaveLength(1);
+    expect(screen.getByTestId('active-mcp-app').closest('[data-turn-activity]')).toHaveAttribute(
+      'data-turn-activity',
+      'mcp-app:app_block',
+    );
   });
 
   it('attaches the complete agent-routed exchange to its causal tool inside Activity', async () => {
