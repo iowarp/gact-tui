@@ -66,7 +66,7 @@ export function ClioToolInvocation({
         />
       </CollapsibleTrigger>
       <ToolContent className={cn('border-t', embedded && 'mt-2 rounded-lg border p-3')}>
-        {tool.input !== undefined ? <ToolInput input={tool.input as never} /> : null}
+        {tool.input !== undefined ? <ToolInput input={(tool.input ?? {}) as never} /> : null}
         {agentInteractions.map((interaction) => (
           <AgentAnswerActivity interaction={interaction} key={interaction.id} />
         ))}

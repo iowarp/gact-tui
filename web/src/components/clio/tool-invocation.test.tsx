@@ -78,4 +78,24 @@ describe('ClioToolInvocation', () => {
     expect(screen.getByRole('heading', { name: 'Arguments' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Result' })).toBeVisible();
   });
+
+  it('renders an empty argument map when a persisted no-argument call decodes as null', () => {
+    render(
+      <ClioToolInvocation
+        defaultOpen
+        tool={{
+          id: 'tool-no-arguments',
+          session_id: 'session-1',
+          name: 'v2ex_agent_guarded_input',
+          title: 'Agent Guarded Input',
+          state: 'succeeded',
+          input: null,
+          output: [{ type: 'text', text: 'agent-answered' }],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('{}')).toBeVisible();
+    expect(screen.queryByText('null')).not.toBeInTheDocument();
+  });
 });
