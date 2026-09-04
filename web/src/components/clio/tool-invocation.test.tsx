@@ -41,6 +41,24 @@ describe('ClioToolInvocation', () => {
     expect(screen.queryByText('Staged')).not.toBeInTheDocument();
   });
 
+  it('keeps runtime cancellation diagnostics out of the compact summary', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-cancelled',
+          session_id: 'session-1',
+          name: 'v2ex_staller',
+          title: 'Staller',
+          state: 'cancelled',
+          error: "CancellationError('tool call cancelled by client')",
+        }}
+      />,
+    );
+
+    expect(screen.getByText('The action was cancelled.')).toBeVisible();
+    expect(screen.queryByText(/CancellationError/u)).not.toBeInTheDocument();
+  });
+
   it('keeps tool arguments available under the approved heading', () => {
     render(
       <ClioToolInvocation
