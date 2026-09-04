@@ -13,7 +13,6 @@ import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
-import { AgentAnswerActivity } from './agent-answer-activity';
 import { agentInteractionsForTool } from './agent-answer-domain';
 
 export type ProcessBlock = Extract<
@@ -87,10 +86,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
             <ReasoningContent className="mt-3 leading-6">{block.thought}</ReasoningContent>
           </Reasoning>
         ) : null}
-        <ClioToolInvocation tool={tool} />
-        {routed.map((interaction) => (
-          <AgentAnswerActivity interaction={interaction} key={interaction.id} />
-        ))}
+        <ClioToolInvocation agentInteractions={routed} tool={tool} />
       </div>
     );
   }

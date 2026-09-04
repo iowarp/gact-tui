@@ -10,6 +10,7 @@ import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/fr
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClioStatus } from './status';
+import { humanizeToolName } from './tool-presentation';
 
 export const MCP_APPS_PROTOCOL_VERSION = '2026-01-26';
 
@@ -43,6 +44,7 @@ export interface McpAppSurfaceProps {
   resourceUri: string;
   sessionId: string;
   sourceServer: string;
+  toolName: string;
 }
 
 /** Host one MCP App at the tool result that produced it. */
@@ -64,6 +66,7 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [descriptor, setDescriptor] = useState<McpAppDescriptor>();
   const [error, setError] = useState('');
+  const [ended, setEnded] = useState(false);
   const [ready, setReady] = useState(false);
   const [requestedHeight, setRequestedHeight] = useState(props.height ?? 420);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
@@ -93,7 +96,12 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
       })
       .catch((thrown) => {
         if (!controller.signal.aborted) {
-          setError(thrown instanceof Error ? thrown.message : String(thrown));
+          if (isEndedAppError(thrown)) {
+            closedApps.add(identityKey);
+            setEnded(true);
+          } else {
+            setError(thrown instanceof Error ? thrown.message : String(thrown));
+          }
         }
       });
     return () => controller.abort();
@@ -231,13 +239,16 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
     [identity, identityKey, props.repository],
   );
 
+  if (ended) {
+    return <McpAppHistoryLine sourceServer={props.sourceServer} toolName={props.toolName} />;
+  }
+
+  const displayName = mcpAppDisplayName(props.toolName, props.sourceServer);
   return (
     <Frame className="min-w-0 overflow-hidden" data-mcp-app={props.appInstanceId} spacing={null}>
       <FrameHeader className="flex-row items-center gap-2 border-b px-3 py-2">
         <PanelsTopLeftIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-        <FrameTitle className="min-w-0 flex-1 truncate">
-          {props.sourceServer || 'Interactive tool'}
-        </FrameTitle>
+        <FrameTitle className="min-w-0 flex-1 truncate">{displayName}</FrameTitle>
         <ClioStatus label={ready ? 'Ready' : 'Loading'} value={ready ? 'succeeded' : 'running'} />
       </FrameHeader>
       <FramePanel className="relative min-w-0 p-0" style={{ minHeight: frameHeight }}>
@@ -258,7 +269,7 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
             sandbox="allow-scripts allow-same-origin"
             src={descriptor.sandbox_url}
             style={{ height: frameHeight }}
-            title={`${props.sourceServer || 'Tool'} interactive view`}
+            title={`${displayName} interactive view`}
           />
         ) : (
           <div className="grid gap-3 p-4" style={{ minHeight: frameHeight }}>
@@ -293,13 +304,29 @@ async function loadDescriptor(
   }
 }
 
-export function McpAppHistoryLine({ sourceServer }: { sourceServer: string }) {
+export function McpAppHistoryLine({
+  sourceServer,
+  toolName,
+}: {
+  sourceServer: string;
+  toolName: string;
+}) {
+  const displayName = mcpAppDisplayName(toolName, sourceServer);
   return (
-    <div className="flex min-h-12 items-center gap-2 rounded-lg border bg-muted/25 px-3 text-sm text-muted-foreground">
+    <div className="flex min-h-10 items-center gap-2 rounded-lg border bg-muted/20 px-3 text-sm">
       <PanelsTopLeftIcon aria-hidden="true" className="size-4" />
-      <span>{sourceServer || 'Interactive tool'} view closed</span>
+      <span className="min-w-0 flex-1 truncate text-foreground/85">{displayName}</span>
+      <span className="shrink-0 text-xs text-muted-foreground">View ended</span>
     </div>
   );
+}
+
+function mcpAppDisplayName(toolName: string, sourceServer: string): string {
+  return humanizeToolName(toolName || sourceServer || 'interactive_tool');
+}
+
+function isEndedAppError(error: unknown): boolean {
+  return error instanceof TransportError && error.status === 404 && error.code === 'not_found';
 }
 
 function isJsonRpcMessage(value: unknown): value is JsonRpcMessage {

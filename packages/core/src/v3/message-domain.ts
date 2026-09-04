@@ -72,6 +72,7 @@ export type MessageBlock = MessageBlockContext &
         app_instance_id: string;
         resource_uri: string;
         source_server: string;
+        tool_name: string;
         data_ref: string;
         mime_type: string;
         height?: number;

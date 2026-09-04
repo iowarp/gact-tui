@@ -67,8 +67,8 @@ test('renders structured MCP v2 interactions and one live inline App', async ({ 
   await page.goto(workspaceUrl);
   const attention = page.getByRole('region', { name: 'Agent needs your response' });
   await expect(attention.getByRole('button', { name: '3 responses needed' })).toBeVisible();
-  await expect(page.getByText('Specialist answering a question')).toBeVisible();
-  await expect(page.getByText('Answered by specialist')).toBeVisible();
+  await expect(page.getByText('Agent is answering MCP request')).toBeVisible();
+  await expect(page.getByText('Agent answered MCP request')).toBeVisible();
 
   const form = attention
     .locator('[data-interaction-kind="question"]')

@@ -1,5 +1,6 @@
 import type { PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConversationTurn } from './conversation-turn';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
@@ -103,7 +104,8 @@ describe('ConversationTurn correlated work placement', () => {
     expect(rendered).toEqual(['tool:call_read', 'task:task_review', 'tool:call_render']);
   });
 
-  it('attaches agent-routed question state to its causal tool inside Activity', () => {
+  it('attaches the complete agent-routed exchange to its causal tool inside Activity', async () => {
+    const user = userEvent.setup();
     const interaction: PendingInteraction = {
       id: 'question:agent_1',
       kind: 'question',
@@ -115,8 +117,16 @@ describe('ConversationTurn correlated work placement', () => {
       audience: 'agent',
       routing_state: 'elicitation_routed_to_agent',
       answered_by: 'agent',
+      prompt: 'Which nonce did the user provide?',
       source: { protocol: 'mcp', invocation_id: 'call_read' },
       created_at: '2026-09-03T00:00:00Z',
+      payload: {
+        answer_metadata: { nonce: 'browser-agent-9f42' },
+        agent_answer_task: {
+          task_id: 'task_answer',
+          child_session_id: 'session_answer',
+        },
+      },
       actions: [],
     };
     render(
@@ -134,10 +144,19 @@ describe('ConversationTurn correlated work placement', () => {
       />,
     );
 
-    expect(screen.getByText('Answered by specialist')).toBeVisible();
+    expect(screen.getByText('Agent answered MCP request')).toBeVisible();
     expect(
-      screen.getByText('Answered by specialist').closest('[data-turn-activity="tool:call_read"]'),
+      screen
+        .getByText('Agent answered MCP request')
+        .closest('[data-turn-activity="tool:call_read"]'),
     ).not.toBeNull();
+    await user.click(screen.getByRole('button', { name: /Read evidence file/i }));
+    expect(screen.getByText('MCP requested information')).toBeVisible();
+    expect(screen.getByText('Which nonce did the user provide?')).toBeVisible();
+    expect(screen.getByText('Agent answered from conversation context')).toBeVisible();
+    expect(screen.getByText('browser-agent-9f42')).toBeVisible();
+    expect(screen.getByText('Answer returned to MCP')).toBeVisible();
+    expect(screen.getByText('session_answer')).toBeVisible();
   });
 });
 

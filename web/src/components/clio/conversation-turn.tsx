@@ -133,7 +133,7 @@ function IterationSummary({
               ))}
               {iteration.tools.flatMap((tool) =>
                 agentInteractionsForTool(interactions, tool.id).map((interaction) => (
-                  <AgentAnswerActivity interaction={interaction} key={interaction.id} />
+                  <AgentAnswerActivity compact interaction={interaction} key={interaction.id} />
                 )),
               )}
               {iteration.interrupted && !open ? (
@@ -154,7 +154,6 @@ function IterationSummary({
             showTasks={false}
             subagents={subagents}
             interactions={interactions}
-            showAgentInteractions={false}
           />
         </CollapsibleContent>
       </ChainOfThoughtStep>
@@ -214,15 +213,17 @@ function IterationDetail({
               data-turn-activity={`tool:${entry.id}`}
               key={`tool:${entry.id}`}
             >
-              <ClioToolInvocation tool={entry.tool} />
+              <ClioToolInvocation
+                agentInteractions={
+                  showAgentInteractions
+                    ? agentInteractionsForTool(interactions, entry.id)
+                    : undefined
+                }
+                tool={entry.tool}
+              />
               {subagentsForTool(entry.tool, subagents).map((subagent) => (
                 <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
               ))}
-              {showAgentInteractions
-                ? agentInteractionsForTool(interactions, entry.id).map((interaction) => (
-                    <AgentAnswerActivity interaction={interaction} key={interaction.id} />
-                  ))
-                : null}
             </div>
           ) : showTasks ? (
             <TaskActivityLine key={`task:${entry.id}`} task={entry.task} />

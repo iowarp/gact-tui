@@ -85,11 +85,18 @@ describe('ConversationProcessSequence agent-routed questions', () => {
         ]}
         subagents={{}}
         tasks={{}}
-        tools={{}}
+        tools={{
+          invoke_1: {
+            id: 'invoke_1',
+            session_id: 'sess_root',
+            name: 'v2ex_agent_guarded_input',
+            state: 'running',
+          },
+        }}
       />,
     );
 
-    expect(screen.getByText('Specialist answering a question')).toBeVisible();
+    expect(screen.getByText('Agent is answering MCP request')).toBeVisible();
     expect(screen.queryByText(/response needed/i)).not.toBeInTheDocument();
 
     rerender(
@@ -114,10 +121,17 @@ describe('ConversationProcessSequence agent-routed questions', () => {
         ]}
         subagents={{}}
         tasks={{}}
-        tools={{}}
+        tools={{
+          invoke_1: {
+            id: 'invoke_1',
+            session_id: 'sess_root',
+            name: 'v2ex_agent_guarded_input',
+            state: 'succeeded',
+          },
+        }}
       />,
     );
 
-    expect(screen.getByText('Answered by specialist')).toBeVisible();
+    expect(screen.getByText('Agent answered MCP request')).toBeVisible();
   });
 });

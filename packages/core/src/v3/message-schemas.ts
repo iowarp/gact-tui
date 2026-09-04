@@ -118,6 +118,7 @@ const mcpAppMessageBlockSchema = additivelyTolerant(
       app_instance_id: z.string(),
       resource_uri: z.string(),
       source_server: z.string(),
+      tool_name: z.string().default(''),
       data_ref: z.string(),
       mime_type: z.string(),
       height: z.number().int().positive().optional(),

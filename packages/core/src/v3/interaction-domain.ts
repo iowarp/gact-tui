@@ -34,6 +34,10 @@ export interface PendingInteractionPayload {
   options?: Array<{ label: string; value: string; description?: string }>;
   allow_freeform?: boolean;
   answer_metadata?: Record<string, unknown>;
+  agent_answer_task?: {
+    task_id?: string;
+    child_session_id?: string;
+  };
   mode?: WireValue<'form' | 'url'>;
   fields?: PendingInteractionField[];
   additional_properties?: boolean;

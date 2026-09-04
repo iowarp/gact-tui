@@ -221,9 +221,10 @@ function MessageBlockView({
           resourceUri={block.resource_uri}
           sessionId={messageSessionId}
           sourceServer={block.source_server}
+          toolName={block.tool_name}
         />
       ) : (
-        <McpAppHistoryLine sourceServer={block.source_server} />
+        <McpAppHistoryLine sourceServer={block.source_server} toolName={block.tool_name} />
       );
     case 'citation':
       return (

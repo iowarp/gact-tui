@@ -1,19 +1,22 @@
-import type { ToolInvocation } from '@clio/core/v3';
+import type { PendingInteraction, ToolInvocation } from '@clio/core/v3';
 import { ChevronDownIcon, PanelsTopLeftIcon, WrenchIcon } from 'lucide-react';
 import { ClioStatus } from './status';
 import { Tool, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { formatToolDuration, getToolPresentation, getToolSummary } from './tool-presentation';
 import { cn } from '@/lib/utils';
+import { AgentAnswerActivity } from './agent-answer-activity';
 
 export function ClioToolInvocation({
   tool,
   defaultOpen,
   embedded = false,
+  agentInteractions = [],
 }: {
   tool?: ToolInvocation;
   defaultOpen?: boolean;
   embedded?: boolean;
+  agentInteractions?: readonly PendingInteraction[];
 }) {
   if (!tool) {
     return (
@@ -47,6 +50,9 @@ export function ClioToolInvocation({
           {summary ? (
             <span className="mt-0.5 block truncate text-xs text-muted-foreground">{summary}</span>
           ) : null}
+          {agentInteractions.map((interaction) => (
+            <AgentAnswerActivity compact interaction={interaction} key={interaction.id} />
+          ))}
         </span>
         <ClioStatus value={tool.state} />
         {tool.duration_ms !== undefined ? (
@@ -61,6 +67,9 @@ export function ClioToolInvocation({
       </CollapsibleTrigger>
       <ToolContent className={cn('border-t', embedded && 'mt-2 rounded-lg border p-3')}>
         {tool.input !== undefined ? <ToolInput input={tool.input as never} /> : null}
+        {agentInteractions.map((interaction) => (
+          <AgentAnswerActivity interaction={interaction} key={interaction.id} />
+        ))}
         <ToolOutput errorText={tool.error as never} output={tool.output as never} />
       </ToolContent>
     </Tool>
