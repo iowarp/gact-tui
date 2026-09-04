@@ -35,6 +35,11 @@ export function AgentAnswerActivity({
         <span>
           {requestLabel} ·{' '}
           {fallback ? 'Needs your response' : answered ? 'Agent answered' : 'Agent is answering'}
+          {!fallback ? (
+            <span aria-hidden="true" className="sr-only">
+              {answered ? 'Agent answered MCP request' : 'Agent is answering MCP request'}
+            </span>
+          ) : null}
         </span>
       </span>
     );

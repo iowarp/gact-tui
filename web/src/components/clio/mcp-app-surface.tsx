@@ -312,11 +312,20 @@ export function McpAppHistoryLine({
   toolName: string;
 }) {
   const displayName = mcpAppDisplayName(toolName, sourceServer);
+  const serverOnly = !toolName.trim();
   return (
     <div className="flex min-h-10 items-center gap-2 rounded-lg border bg-muted/20 px-3 text-sm">
       <PanelsTopLeftIcon aria-hidden="true" className="size-4" />
-      <span className="min-w-0 flex-1 truncate text-foreground/85">{displayName}</span>
-      <span className="shrink-0 text-xs text-muted-foreground">View ended</span>
+      {serverOnly ? (
+        <span className="min-w-0 flex-1 truncate text-foreground/85">
+          {displayName} view closed
+        </span>
+      ) : (
+        <>
+          <span className="min-w-0 flex-1 truncate text-foreground/85">{displayName}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">View ended</span>
+        </>
+      )}
     </div>
   );
 }
