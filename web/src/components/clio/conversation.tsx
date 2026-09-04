@@ -2,6 +2,8 @@ import type {
   ActionCardAction,
   Artifact,
   A2UISurface,
+  ClioRepository,
+  PendingInteraction,
   Message as DomainMessage,
   SubagentRun,
   Task as DomainTask,
@@ -79,6 +81,8 @@ export interface ClioConversationProps {
   cancellingPendingMessageId?: string;
   onCancelPendingSteer?: (messageId: string) => void | Promise<unknown>;
   bottomInset?: number;
+  mcpAppRepository?: ClioRepository;
+  interactions?: readonly PendingInteraction[];
 }
 
 export interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
@@ -90,6 +94,7 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   measureElement?: (element: Element | null) => void;
   virtualized?: boolean;
   onDisplayModeChange: (mode: ConversationDisplayMode) => void;
+  activeMcpAppId?: string;
 }
 
 const ConversationMessageRow = memo(function ConversationMessageRow({
@@ -268,6 +273,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
             ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
               <>
                 <ConversationTurn
+                  interactions={entities.interactions}
                   iterations={turn.iterations}
                   mode={displayMode}
                   onOpenSubagent={entities.onOpenSubagent}
@@ -278,11 +284,16 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                     (block) =>
                       block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
                   )}
+                  messageSessionId={message.session_id}
                   {...entities}
                 />
               </>
             ) : (
-              <MessageBlockSequence blocks={message.blocks} {...entities} />
+              <MessageBlockSequence
+                blocks={message.blocks}
+                messageSessionId={message.session_id}
+                {...entities}
+              />
             )}
           </MessageContent>
         </Message>
@@ -380,6 +391,9 @@ export function conversationMessageRowPropsEqual(
     left.onRewindToMessage !== right.onRewindToMessage ||
     left.onRetryMessage !== right.onRetryMessage ||
     left.onCancelPendingSteer !== right.onCancelPendingSteer ||
+    left.activeMcpAppId !== right.activeMcpAppId ||
+    left.mcpAppRepository !== right.mcpAppRepository ||
+    !routedInteractionsEqual(left, right, messageEntityRefs(left.message).tools) ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
     left.onOpenReference !== right.onOpenReference ||
@@ -403,6 +417,21 @@ export function conversationMessageRowPropsEqual(
     referencedRowsEqual(left.tools, right.tools, refs.tools) &&
     referencedRowsEqual(left.resources ?? {}, right.resources ?? {}, refs.resources) &&
     linkedSubagentsEqual(left, right, refs.tools)
+  );
+}
+
+function routedInteractionsEqual(
+  left: ConversationMessageRowProps,
+  right: ConversationMessageRowProps,
+  toolIds: ReadonlySet<string>,
+): boolean {
+  if (toolIds.size === 0) return true;
+  const relevant = (rows: readonly PendingInteraction[] | undefined) =>
+    (rows ?? []).filter((row) => row.source.invocation_id && toolIds.has(row.source.invocation_id));
+  const leftRows = relevant(left.interactions);
+  const rightRows = relevant(right.interactions);
+  return (
+    leftRows.length === rightRows.length && leftRows.every((row, index) => row === rightRows[index])
   );
 }
 
@@ -435,6 +464,12 @@ export function ClioConversation({
           message.blocks.filter((block) => block.type === 'a2ui').map((block) => block.surface_id),
         ),
       ),
+    [messages],
+  );
+  const activeMcpAppId = useMemo(
+    () =>
+      messages.flatMap((message) => message.blocks).findLast((block) => block.type === 'mcp_app')
+        ?.app_instance_id,
     [messages],
   );
   const detachedSurfaces = useMemo(
@@ -684,6 +719,7 @@ export function ClioConversation({
               return (
                 <ConversationMessageRow
                   {...entities}
+                  activeMcpAppId={activeMcpAppId}
                   displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
                   index={index}
                   key={message.id}

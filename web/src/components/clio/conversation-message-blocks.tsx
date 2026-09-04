@@ -28,6 +28,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ClioA2UISurface } from './a2ui-surface';
+import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import type { ClioConversationProps } from './conversation';
 import { ConversationProcessSequence } from './conversation-process-sequence';
@@ -96,7 +97,9 @@ export function DeferredA2UISurface({
 }
 
 type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
+  activeMcpAppId?: string;
   block: MessageBlock;
+  messageSessionId?: string;
   reasoningDefaultOpen?: boolean;
 };
 
@@ -116,6 +119,10 @@ function MessageBlockView({
   onOpenReference,
   onOpenSubagent,
   reasoningDefaultOpen,
+  activeMcpAppId,
+  mcpAppRepository,
+  messageSessionId,
+  interactions,
 }: MessageBlockViewProps) {
   switch (block.type) {
     case 'text':
@@ -136,6 +143,7 @@ function MessageBlockView({
           subagents={subagents}
           tasks={tasks}
           tools={tools}
+          interactions={interactions}
         />
       );
     case 'plan':
@@ -203,6 +211,20 @@ function MessageBlockView({
         <ClioStatus label="Interactive surface unavailable" value="unavailable" />
       );
     }
+    case 'mcp_app':
+      return block.app_instance_id === activeMcpAppId && mcpAppRepository && messageSessionId ? (
+        <McpAppSurface
+          appInstanceId={block.app_instance_id}
+          dataRef={block.data_ref}
+          height={block.height}
+          repository={mcpAppRepository}
+          resourceUri={block.resource_uri}
+          sessionId={messageSessionId}
+          sourceServer={block.source_server}
+        />
+      ) : (
+        <McpAppHistoryLine sourceServer={block.source_server} />
+      );
     case 'citation':
       return (
         <a

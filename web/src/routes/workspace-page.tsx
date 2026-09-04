@@ -747,6 +747,8 @@ export function WorkspacePage() {
                     }
                     retryingMessageId={retry.isPending ? retry.variables : undefined}
                     resources={workspaceResourceEntities}
+                    mcpAppRepository={repository}
+                    interactions={interactions}
                     sessionId={sessionId}
                   />
                 </m.div>

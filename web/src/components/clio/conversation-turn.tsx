@@ -10,19 +10,22 @@ import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import type { SubagentRun, Task } from '@clio/core/v3';
+import type { PendingInteraction, SubagentRun, Task } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus, clioStatusLabel } from './status';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
 import { getToolPresentation, getToolSummary } from './tool-presentation';
 import { ClioToolInvocation } from './tool-invocation';
+import { AgentAnswerActivity } from './agent-answer-activity';
+import { agentInteractionsForTool } from './agent-answer-domain';
 
 interface ConversationTurnProps {
   iterations: readonly ConversationIteration[];
   mode: 'chain' | 'full';
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
+  interactions?: readonly PendingInteraction[];
 }
 
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
@@ -31,6 +34,7 @@ export function ConversationTurn({
   mode,
   onOpenSubagent,
   subagents,
+  interactions,
 }: ConversationTurnProps) {
   if (iterations.length === 0) return null;
   if (mode === 'full') {
@@ -44,6 +48,7 @@ export function ConversationTurn({
               onOpenSubagent={onOpenSubagent}
               showTasks
               subagents={subagents}
+              interactions={interactions}
             />
           ))}
         </div>
@@ -61,6 +66,7 @@ export function ConversationTurn({
             key={iteration.id}
             onOpenSubagent={onOpenSubagent}
             subagents={subagents}
+            interactions={interactions}
           />
         ))}
       </ChainOfThoughtContent>
@@ -72,10 +78,12 @@ function IterationSummary({
   iteration,
   onOpenSubagent,
   subagents,
+  interactions,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
+  interactions?: readonly PendingInteraction[];
 }) {
   const [manualOpen, setManualOpen] = useState(false);
   const open = iteration.streaming || manualOpen;
@@ -123,6 +131,11 @@ function IterationSummary({
               {iteration.tasks.map((task) => (
                 <TaskActivityLine className="mt-1" key={task.id} task={task} />
               ))}
+              {iteration.tools.flatMap((tool) =>
+                agentInteractionsForTool(interactions, tool.id).map((interaction) => (
+                  <AgentAnswerActivity interaction={interaction} key={interaction.id} />
+                )),
+              )}
               {iteration.interrupted && !open ? (
                 <ClioStatus className="mt-1" value="interrupted" />
               ) : null}
@@ -140,6 +153,8 @@ function IterationSummary({
             onOpenSubagent={onOpenSubagent}
             showTasks={false}
             subagents={subagents}
+            interactions={interactions}
+            showAgentInteractions={false}
           />
         </CollapsibleContent>
       </ChainOfThoughtStep>
@@ -151,12 +166,16 @@ function IterationDetail({
   iteration,
   onOpenSubagent,
   subagents,
+  interactions,
   showTasks = true,
+  showAgentInteractions = true,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: Record<string, SubagentRun>;
+  interactions?: readonly PendingInteraction[];
   showTasks?: boolean;
+  showAgentInteractions?: boolean;
 }) {
   return (
     <article>
@@ -199,6 +218,11 @@ function IterationDetail({
               {subagentsForTool(entry.tool, subagents).map((subagent) => (
                 <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
               ))}
+              {showAgentInteractions
+                ? agentInteractionsForTool(interactions, entry.id).map((interaction) => (
+                    <AgentAnswerActivity interaction={interaction} key={interaction.id} />
+                  ))
+                : null}
             </div>
           ) : showTasks ? (
             <TaskActivityLine key={`task:${entry.id}`} task={entry.task} />

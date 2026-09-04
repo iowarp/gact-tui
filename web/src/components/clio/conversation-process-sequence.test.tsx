@@ -61,3 +61,63 @@ describe('ConversationProcessSequence task blocks', () => {
     expect(screen.getByText('Unavailable')).toBeVisible();
   });
 });
+
+describe('ConversationProcessSequence agent-routed questions', () => {
+  it('attaches quiet answering and answered attribution to the causal tool', () => {
+    const { rerender } = render(
+      <ConversationProcessSequence
+        block={{ id: 'block_tool', type: 'tool', tool_id: 'invoke_1' }}
+        interactions={[
+          {
+            id: 'question:q1',
+            kind: 'question',
+            owner_session_id: 'sess_child',
+            attended_session_id: 'sess_root',
+            status: 'pending',
+            title: 'Question from agent',
+            requires_human_response: false,
+            audience: 'agent',
+            routing_state: 'elicitation_routed_to_agent',
+            source: { protocol: 'mcp', invocation_id: 'invoke_1' },
+            created_at: '2026-09-03T00:00:00Z',
+            actions: [],
+          },
+        ]}
+        subagents={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    expect(screen.getByText('Specialist answering a question')).toBeVisible();
+    expect(screen.queryByText(/response needed/i)).not.toBeInTheDocument();
+
+    rerender(
+      <ConversationProcessSequence
+        block={{ id: 'block_tool', type: 'tool', tool_id: 'invoke_1' }}
+        interactions={[
+          {
+            id: 'question:q1',
+            kind: 'question',
+            owner_session_id: 'sess_child',
+            attended_session_id: 'sess_root',
+            status: 'answered',
+            title: 'Question from agent',
+            requires_human_response: false,
+            audience: 'agent',
+            routing_state: 'elicitation_routed_to_agent',
+            answered_by: 'agent',
+            source: { protocol: 'mcp', invocation_id: 'invoke_1' },
+            created_at: '2026-09-03T00:00:00Z',
+            actions: [],
+          },
+        ]}
+        subagents={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    expect(screen.getByText('Answered by specialist')).toBeVisible();
+  });
+});

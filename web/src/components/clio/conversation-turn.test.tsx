@@ -1,4 +1,4 @@
-import type { Task, ToolInvocation } from '@clio/core/v3';
+import type { PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConversationTurn } from './conversation-turn';
@@ -101,6 +101,43 @@ describe('ConversationTurn correlated work placement', () => {
       node.getAttribute('data-turn-activity'),
     );
     expect(rendered).toEqual(['tool:call_read', 'task:task_review', 'tool:call_render']);
+  });
+
+  it('attaches agent-routed question state to its causal tool inside Activity', () => {
+    const interaction: PendingInteraction = {
+      id: 'question:agent_1',
+      kind: 'question',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'answered',
+      title: 'Question from tool',
+      requires_human_response: false,
+      audience: 'agent',
+      routing_state: 'elicitation_routed_to_agent',
+      answered_by: 'agent',
+      source: { protocol: 'mcp', invocation_id: 'call_read' },
+      created_at: '2026-09-03T00:00:00Z',
+      actions: [],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Read evidence file') },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Answered by specialist')).toBeVisible();
+    expect(
+      screen.getByText('Answered by specialist').closest('[data-turn-activity="tool:call_read"]'),
+    ).not.toBeNull();
   });
 });
 

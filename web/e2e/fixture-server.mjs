@@ -17,6 +17,13 @@ const streamMessageId = 'msg_stream';
 const streamBlockId = 'block_stream';
 let permissionPending = true;
 let questionPending = true;
+let mcpV2UiDemo = false;
+let mcpAppGeneration = 1;
+let mcpAppToolCalls = 0;
+let mcpAppModelContextUpdates = 0;
+let mcpAppMessages = 0;
+let mcpAppCloses = 0;
+let resolvedInteractionIds = new Set();
 let streamedText = '';
 let streamStarted = false;
 let nextCursor = 1;
@@ -26,6 +33,77 @@ const artifactPng = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+X8wNAAAAAElFTkSuQmCC',
   'base64',
 );
+
+const mcpAppHtml = `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>V2 exerciser panel</title></head>
+  <body style="font-family:system-ui;margin:0;padding:16px;background:#fff;color:#171717">
+    <h2 style="font-size:16px;margin:0 0 8px">Evidence row inspector</h2>
+    <p style="font-size:13px;margin:0 0 12px">Choose a row to send a structured tool action.</p>
+    <button id="inspect" type="button">Inspect row 2</button>
+    <output id="status" style="display:block;font-size:12px;margin-top:10px">Ready</output>
+    <script>
+      const send = (message) => parent.postMessage(message, '*');
+      let initialized = false;
+      addEventListener('message', (event) => {
+        const message = event.data;
+        if (!message || message.jsonrpc !== '2.0') return;
+        if (message.id === 'initialize-fixture' && !initialized) {
+          initialized = true;
+          send({ jsonrpc: '2.0', method: 'ui/notifications/initialized', params: {} });
+        }
+      });
+      document.querySelector('#inspect').addEventListener('click', () => {
+        send({ jsonrpc: '2.0', id: 'context-fixture', method: 'ui/update-model-context', params: { selected_row: 2 } });
+        send({ jsonrpc: '2.0', id: 'tool-fixture', method: 'tools/call', params: { name: 'inspect_row', arguments: { row: 2 } } });
+        send({ jsonrpc: '2.0', id: 'message-fixture', method: 'ui/message', params: { role: 'user', content: [{ type: 'text', text: 'Inspect row 2' }] } });
+        document.querySelector('#status').textContent = 'Action sent';
+      });
+      send({
+        jsonrpc: '2.0',
+        id: 'initialize-fixture',
+        method: 'ui/initialize',
+        params: {
+          protocolVersion: '2026-01-26',
+          appInfo: { name: 'V2 exerciser', version: '1.0.0' },
+          appCapabilities: { availableDisplayModes: ['inline'] }
+        }
+      });
+    </script>
+  </body>
+</html>`;
+
+function mcpSandboxHtml() {
+  return `<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8"><title>MCP App sandbox</title></head>
+  <body style="margin:0">
+    <script>
+      let appFrame;
+      addEventListener('message', (event) => {
+        const message = event.data;
+        if (event.source === parent) {
+          if (message?.method === 'ui/notifications/sandbox-resource-ready') {
+            appFrame = document.createElement('iframe');
+            appFrame.title = 'MCP App content';
+            appFrame.sandbox = 'allow-scripts';
+            appFrame.style.cssText = 'border:0;width:100%;height:300px;display:block';
+            appFrame.srcdoc = message.params.html;
+            document.body.replaceChildren(appFrame);
+          } else {
+            appFrame?.contentWindow?.postMessage(message, '*');
+          }
+          return;
+        }
+        if (appFrame && event.source === appFrame.contentWindow) {
+          parent.postMessage(message, '*');
+        }
+      });
+      parent.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/sandbox-proxy-ready', params: {} }, '*');
+    </script>
+  </body>
+</html>`;
+}
 
 const capabilities = {
   contract_version: '0.2',
@@ -98,7 +176,9 @@ const artifactRecord = {
 let resources = new Map();
 
 function seedResources() {
-  resources = new Map([[readyResource.id, { record: { ...readyResource }, bytes: Buffer.alloc(0) }]]);
+  resources = new Map([
+    [readyResource.id, { record: { ...readyResource }, bytes: Buffer.alloc(0) }],
+  ]);
 }
 seedResources();
 
@@ -182,6 +262,34 @@ function transcriptMessages() {
       { id: 'block_task', type: 'task', task_id: 'task_quality' },
       { id: 'block_subagent', type: 'subagent', subagent_id: 'subagent_station' },
       { id: 'block_artifact', type: 'artifact', artifact_id: 'artifact_plot' },
+      ...(mcpV2UiDemo
+        ? [
+            {
+              id: 'block_mcp_app_1',
+              type: 'mcp_app',
+              app_instance_id: 'app_fixture_1',
+              data_ref: 'opaque-fixture-1',
+              resource_uri: 'ui://v2ex/panel',
+              source_server: 'MCP v2 exerciser',
+              mime_type: 'text/html;profile=mcp-app',
+              height: 300,
+            },
+            ...(mcpAppGeneration > 1
+              ? [
+                  {
+                    id: 'block_mcp_app_2',
+                    type: 'mcp_app',
+                    app_instance_id: 'app_fixture_2',
+                    data_ref: 'opaque-fixture-2',
+                    resource_uri: 'ui://v2ex/panel',
+                    source_server: 'Simulation viewer',
+                    mime_type: 'text/html;profile=mcp-app',
+                    height: 300,
+                  },
+                ]
+              : []),
+          ]
+        : []),
       {
         id: streamBlockId,
         type: 'text',
@@ -191,6 +299,156 @@ function transcriptMessages() {
     ],
   });
   return messages;
+}
+
+function mcpV2Interactions() {
+  const interactions = [
+    {
+      id: 'question:form_fixture',
+      kind: 'question',
+      owner_session_id: sessionId,
+      attended_session_id: sessionId,
+      status: 'pending',
+      title: 'Configure the evidence review',
+      prompt: 'Choose how this evidence should be reviewed.',
+      requires_human_response: true,
+      audience: 'human',
+      source: { protocol: 'mcp', tool_name: 'guarded_input', invocation_id: 'tool_earthscope' },
+      created_at: observedAt,
+      actions: ['answer', 'cancel'],
+      payload: {
+        mode: 'form',
+        question_id: 'form_fixture',
+        answer_metadata: {
+          brief: 'NDP evidence',
+          iterations: 3,
+          method: 'table',
+          provenance: true,
+          views: ['coverage'],
+        },
+        fields: [
+          {
+            name: 'brief',
+            type: 'string',
+            title: 'Review brief',
+            required: true,
+            min_length: 3,
+            max_length: 40,
+          },
+          { name: 'iterations', type: 'integer', title: 'Iterations', required: true, default: 3 },
+          {
+            name: 'method',
+            type: 'string',
+            title: 'Primary view',
+            enum: ['table', 'plot'],
+            enum_names: ['Station table', 'Displacement plot'],
+            default: 'table',
+          },
+          { name: 'provenance', type: 'boolean', title: 'Keep provenance visible', default: true },
+          {
+            name: 'views',
+            type: 'array',
+            title: 'Supporting views',
+            enum: ['coverage', 'quality', 'displacement'],
+            enum_names: ['Coverage', 'Quality', 'Displacement'],
+            multi: true,
+            min_items: 1,
+            max_items: 2,
+            default: ['coverage'],
+          },
+        ],
+      },
+    },
+    {
+      id: 'question:url_fixture',
+      kind: 'question',
+      owner_session_id: sessionId,
+      attended_session_id: sessionId,
+      status: 'pending',
+      title: 'Authorize the data source',
+      prompt: 'Open the provider authorization page?',
+      requires_human_response: true,
+      audience: 'human',
+      source: { protocol: 'mcp', tool_name: 'url_guarded_input' },
+      created_at: observedAt,
+      actions: ['answer', 'cancel'],
+      payload: {
+        mode: 'url',
+        question_id: 'url_fixture',
+        url: 'https://xn--nxasmq6b.mcp-clio.example.com/authorize',
+        container: 'external',
+        punycode_warning: true,
+        punycode_host: 'ελληνικά.mcp-clio.example.com',
+        punycode_host_raw: 'xn--nxasmq6b.mcp-clio.example.com',
+      },
+    },
+    {
+      id: 'question:agent_fixture',
+      kind: 'question',
+      owner_session_id: sessionId,
+      attended_session_id: sessionId,
+      status: 'pending',
+      title: 'Agent-owned method check',
+      prompt: 'Choose the station comparison method.',
+      requires_human_response: false,
+      audience: 'agent',
+      routing_state: 'elicitation_routed_to_agent',
+      source: {
+        protocol: 'mcp',
+        tool_name: 'agent_guarded_input',
+        invocation_id: 'tool_earthscope',
+      },
+      created_at: observedAt,
+      actions: [],
+    },
+    {
+      id: 'question:answered_agent_fixture',
+      kind: 'question',
+      owner_session_id: sessionId,
+      attended_session_id: sessionId,
+      status: 'answered',
+      title: 'Agent-owned completed check',
+      requires_human_response: false,
+      audience: 'agent',
+      routing_state: 'elicitation_routed_to_agent',
+      answered_by: 'agent',
+      source: {
+        protocol: 'mcp',
+        tool_name: 'agent_guarded_input',
+        invocation_id: 'tool_earthscope',
+      },
+      created_at: observedAt,
+      actions: [],
+    },
+    {
+      id: 'question:fallback_fixture',
+      kind: 'question',
+      owner_session_id: sessionId,
+      attended_session_id: sessionId,
+      status: 'pending',
+      title: 'Confirm the fallback method',
+      prompt: 'Which fallback should the review use?',
+      requires_human_response: true,
+      audience: 'human',
+      routing_state: 'agent_elicitation_fallback_to_human',
+      fallback_detail: 'agent_answer_timeout',
+      source: {
+        protocol: 'mcp',
+        tool_name: 'agent_guarded_input',
+        invocation_id: 'tool_earthscope',
+      },
+      created_at: observedAt,
+      actions: ['answer', 'cancel'],
+      payload: {
+        question_kind: 'choice',
+        options: [
+          { label: 'Station table', value: 'table', description: 'Use sortable station evidence.' },
+          { label: 'Displacement plot', value: 'plot', description: 'Use the derived series.' },
+        ],
+      },
+    },
+  ];
+  return interactions.filter((interaction) => !resolvedInteractionIds.has(interaction.id));
 }
 
 /** Apply the CORS and version headers used by every fixture response. */
@@ -324,7 +582,12 @@ function createResource(body) {
     (entry) =>
       body.client_upload_id && entry.record.client_upload_id === String(body.client_upload_id),
   );
-  if (existing) return { ...existing.record, idempotent_replay: true, upload_url: uploadUrl(existing.record.id) };
+  if (existing)
+    return {
+      ...existing.record,
+      idempotent_replay: true,
+      upload_url: uploadUrl(existing.record.id),
+    };
   const id = `res_upload_${resources.size + 1}`;
   const now = new Date().toISOString();
   const record = {
@@ -409,6 +672,13 @@ const server = createServer(async (request, response) => {
   if (request.method === 'POST' && url.pathname === '/__test/reset') {
     permissionPending = true;
     questionPending = true;
+    mcpV2UiDemo = false;
+    mcpAppGeneration = 1;
+    mcpAppToolCalls = 0;
+    mcpAppModelContextUpdates = 0;
+    mcpAppMessages = 0;
+    mcpAppCloses = 0;
+    resolvedInteractionIds = new Set();
     streamedText = '';
     streamStarted = false;
     nextCursor = 1;
@@ -416,6 +686,31 @@ const server = createServer(async (request, response) => {
     seedResources();
     response.writeHead(204, commonHeaders());
     response.end();
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/mcp-v2-ui-demo') {
+    mcpV2UiDemo = true;
+    permissionPending = false;
+    questionPending = false;
+    sendJson(response, { status: 'ready' }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/mcp-v2-ui-replace') {
+    mcpAppGeneration = 2;
+    sendJson(response, { status: 'replaced' }, 202);
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/__test/mcp-v2-ui-state') {
+    sendJson(response, {
+      tool_calls: mcpAppToolCalls,
+      model_context_updates: mcpAppModelContextUpdates,
+      messages: mcpAppMessages,
+      closes: mcpAppCloses,
+      resolved_interactions: [...resolvedInteractionIds],
+    });
     return;
   }
 
@@ -445,7 +740,13 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/capabilities') {
-    sendJson(response, capabilities);
+    sendJson(response, {
+      ...capabilities,
+      capabilities: {
+        ...capabilities.capabilities,
+        ...(mcpV2UiDemo ? { x_clio_interactions: true } : {}),
+      },
+    });
     return;
   }
   if (request.method === 'GET' && url.pathname === '/v1/health') {
@@ -689,9 +990,7 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/events`) {
     response.writeHead(200, commonHeaders('text/event-stream'));
     const preamble = envelope('stream.live', { service: 'clio-fixture' }, nextCursor);
-    response.write(
-      `id: ${nextCursor}\nevent: stream.live\ndata: ${JSON.stringify(preamble)}\n\n`,
-    );
+    response.write(`id: ${nextCursor}\nevent: stream.live\ndata: ${JSON.stringify(preamble)}\n\n`);
     nextCursor += 1;
     streamClients.add(response);
     const keepAlive = setInterval(() => response.write(': fixture keep-alive\n\n'), 1000);
@@ -734,6 +1033,93 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
+  if (
+    mcpV2UiDemo &&
+    request.method === 'GET' &&
+    url.pathname === `/v1/sessions/${sessionId}/interactions`
+  ) {
+    sendJson(response, { interactions: mcpV2Interactions() });
+    return;
+  }
+  const interactionResponseMatch = url.pathname.match(
+    new RegExp(`^/v1/sessions/${sessionId}/interactions/([^/]+)/respond$`),
+  );
+  if (mcpV2UiDemo && request.method === 'POST' && interactionResponseMatch) {
+    const interactionId = decodeURIComponent(interactionResponseMatch[1]);
+    const body = await readJson(request);
+    resolvedInteractionIds.add(interactionId);
+    sendJson(response, { interaction_id: interactionId, response: body, status: 'answered' });
+    return;
+  }
+  const mcpAppMatch = url.pathname.match(
+    new RegExp(`^/v1/sessions/${sessionId}/mcp-apps/(app_fixture_[12])(?:/(.*))?$`),
+  );
+  if (mcpV2UiDemo && mcpAppMatch) {
+    const appInstanceId = mcpAppMatch[1];
+    const suffix = mcpAppMatch[2] ?? '';
+    const expectedRef = appInstanceId === 'app_fixture_1' ? 'opaque-fixture-1' : 'opaque-fixture-2';
+    if (url.searchParams.get('data_ref') !== expectedRef) {
+      sendJson(response, { detail: 'invalid app capability' }, 403);
+      return;
+    }
+    if (request.method === 'GET' && suffix === '') {
+      sendJson(response, {
+        protocol_version: '2026-01-26',
+        resource: {
+          uri: 'ui://v2ex/panel',
+          mime_type: 'text/html;profile=mcp-app',
+          html: mcpAppHtml,
+          csp: {},
+          permissions: {},
+        },
+        tool_input: { dataset: 'stations' },
+        tool_result: { structuredContent: { rows: 3 } },
+        sandbox_url: `http://127.0.0.1:${port}/v1/sessions/${sessionId}/mcp-apps/${appInstanceId}/sandbox?data_ref=${expectedRef}`,
+      });
+      return;
+    }
+    if (request.method === 'GET' && suffix === 'sandbox') {
+      response.writeHead(200, {
+        ...commonHeaders('text/html; charset=utf-8'),
+        'Content-Security-Policy':
+          "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-src 'self'",
+      });
+      response.end(mcpSandboxHtml());
+      return;
+    }
+    if (request.method === 'POST' && suffix === 'tools/call') {
+      await readJson(request);
+      mcpAppToolCalls += 1;
+      sendJson(response, { content: [{ type: 'text', text: 'row inspected' }] });
+      return;
+    }
+    if (request.method === 'PUT' && suffix === 'model-context') {
+      await readJson(request);
+      mcpAppModelContextUpdates += 1;
+      sendJson(response, {});
+      return;
+    }
+    if (request.method === 'POST' && suffix === 'messages') {
+      await readJson(request);
+      mcpAppMessages += 1;
+      sendJson(response, {
+        message_id: `fixture-message-${mcpAppMessages}`,
+        delivery: 'queued',
+        state: 'waiting',
+      });
+      return;
+    }
+    if (request.method === 'POST' && suffix === 'resources/read') {
+      const body = await readJson(request);
+      sendJson(response, { contents: [{ uri: body.uri, text: 'fixture resource' }] });
+      return;
+    }
+    if (request.method === 'DELETE' && suffix === '') {
+      mcpAppCloses += 1;
+      sendJson(response, { closed: true });
+      return;
+    }
+  }
   if (request.method === 'GET' && url.pathname === '/v1/permissions') {
     sendJson(response, {
       permissions: permissionPending
@@ -771,30 +1157,30 @@ const server = createServer(async (request, response) => {
       questions:
         questionPending && (wantsPending === null || wantsPending === 'pending')
           ? [
-            {
-              id: 'question_fixture',
-              session_id: sessionId,
-              prompt: 'Which evidence view should remain primary?',
-              status: 'pending',
-              kind: 'choice',
-              options: [
-                {
-                  label: 'Station table',
-                  value: 'table',
-                  description: 'Keep sortable evidence primary.',
-                },
-                {
-                  label: 'Displacement plot',
-                  value: 'plot',
-                  description: 'Keep the derived series primary.',
-                },
-              ],
-              selected_options: [],
-              created_at: observedAt,
-              updated_at: observedAt,
-            },
-          ]
-        : [],
+              {
+                id: 'question_fixture',
+                session_id: sessionId,
+                prompt: 'Which evidence view should remain primary?',
+                status: 'pending',
+                kind: 'choice',
+                options: [
+                  {
+                    label: 'Station table',
+                    value: 'table',
+                    description: 'Keep sortable evidence primary.',
+                  },
+                  {
+                    label: 'Displacement plot',
+                    value: 'plot',
+                    description: 'Keep the derived series primary.',
+                  },
+                ],
+                selected_options: [],
+                created_at: observedAt,
+                updated_at: observedAt,
+              },
+            ]
+          : [],
     });
     return;
   }

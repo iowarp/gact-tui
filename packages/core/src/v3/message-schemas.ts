@@ -110,6 +110,24 @@ const contextReferenceMessageBlockSchema = additivelyTolerant(
     })
     .strict(),
 );
+const mcpAppMessageBlockSchema = additivelyTolerant(
+  z
+    .object({
+      id: z.string(),
+      type: z.literal('mcp_app'),
+      app_instance_id: z.string(),
+      resource_uri: z.string(),
+      source_server: z.string(),
+      data_ref: z.string(),
+      mime_type: z.string(),
+      height: z.number().int().positive().optional(),
+      agent_id: z.string().optional(),
+      sequence: z.number().int().positive().optional(),
+      stream_source: z.string().optional(),
+      channel: z.string().optional(),
+    })
+    .strict(),
+);
 const unknownMessageBlockSchema = z
   .object({
     id: z.string(),
@@ -139,6 +157,7 @@ const unknownMessageBlockSchema = z
 export const messageBlockSchema = z.union([
   resourceMessageBlockSchema,
   contextReferenceMessageBlockSchema,
+  mcpAppMessageBlockSchema,
   knownMessageBlockSchema,
   additiveKnownMessageBlockSchema,
   unknownMessageBlockSchema,

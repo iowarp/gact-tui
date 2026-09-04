@@ -11,11 +11,37 @@ export interface PendingInteractionSource {
   surface_id?: string;
 }
 
+export interface PendingInteractionField {
+  name: string;
+  type: WireValue<'string' | 'number' | 'integer' | 'boolean' | 'array'>;
+  title: string;
+  description?: string;
+  required?: boolean;
+  default?: unknown;
+  enum?: unknown[];
+  enum_names?: string[];
+  multi?: boolean;
+  item_type?: WireValue<'string' | 'number' | 'integer' | 'boolean'>;
+  min_items?: number;
+  max_items?: number;
+  min_length?: number;
+  max_length?: number;
+}
+
 export interface PendingInteractionPayload {
   question_id?: string;
-  question_kind?: WireValue<'freeform' | 'choice' | 'confirmation'>;
+  question_kind?: WireValue<'freeform' | 'choice' | 'confirmation' | 'multi_choice'>;
   options?: Array<{ label: string; value: string; description?: string }>;
   allow_freeform?: boolean;
+  answer_metadata?: Record<string, unknown>;
+  mode?: WireValue<'form' | 'url'>;
+  fields?: PendingInteractionField[];
+  additional_properties?: boolean;
+  url?: string;
+  container?: string;
+  punycode_warning?: boolean;
+  punycode_host?: string;
+  punycode_host_raw?: string;
   expires_at?: string;
   input_key?: string;
   permission_id?: string;
@@ -36,6 +62,11 @@ export interface PendingInteraction {
   status: WireValue<'pending' | 'answered' | 'cancelled' | 'expired'>;
   title: string;
   prompt?: string;
+  requires_human_response?: boolean;
+  audience?: WireValue<'human' | 'agent'>;
+  routing_state?: WireValue<'elicitation_routed_to_agent' | 'agent_elicitation_fallback_to_human'>;
+  fallback_detail?: string;
+  answered_by?: WireValue<'human' | 'agent'>;
   source: PendingInteractionSource;
   created_at: string;
   payload?: PendingInteractionPayload;

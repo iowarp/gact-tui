@@ -116,6 +116,28 @@ describe('forward-compatible wire enums', () => {
     });
     expect(
       messageBlockSchema.parse({
+        id: 'app_1',
+        type: 'mcp_app',
+        app_instance_id: 'instance_1',
+        resource_uri: 'ui://vigil/viewer',
+        source_server: 'vigil',
+        data_ref: 'opaque-reference',
+        mime_type: 'text/html;profile=mcp-app',
+        height: 420,
+        future_hint: 'ignored',
+      }),
+    ).toEqual({
+      id: 'app_1',
+      type: 'mcp_app',
+      app_instance_id: 'instance_1',
+      resource_uri: 'ui://vigil/viewer',
+      source_server: 'vigil',
+      data_ref: 'opaque-reference',
+      mime_type: 'text/html;profile=mcp-app',
+      height: 420,
+    });
+    expect(
+      messageBlockSchema.parse({
         id: 'reference_1',
         type: 'context_reference',
         ref_kind: 'artifact',

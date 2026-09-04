@@ -1,4 +1,10 @@
-import type { MessageBlock, SubagentRun, Task, ToolInvocation } from '@clio/core/v3';
+import type {
+  MessageBlock,
+  PendingInteraction,
+  SubagentRun,
+  Task,
+  ToolInvocation,
+} from '@clio/core/v3';
 import { ChevronDownIcon, ListChecksIcon } from 'lucide-react';
 import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
@@ -7,6 +13,8 @@ import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
+import { AgentAnswerActivity } from './agent-answer-activity';
+import { agentInteractionsForTool } from './agent-answer-domain';
 
 export type ProcessBlock = Extract<
   MessageBlock,
@@ -20,6 +28,7 @@ interface ConversationProcessSequenceProps {
   subagents: Record<string, SubagentRun>;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   reasoningDefaultOpen?: boolean;
+  interactions?: readonly PendingInteraction[];
 }
 
 type ProcessEntities = Omit<ConversationProcessSequenceProps, 'block'>;
@@ -32,6 +41,7 @@ export function ConversationProcessSequence({
   subagents,
   onOpenSubagent,
   reasoningDefaultOpen,
+  interactions,
 }: ConversationProcessSequenceProps) {
   return renderSingleProcessBlock(block, {
     onOpenSubagent,
@@ -39,6 +49,7 @@ export function ConversationProcessSequence({
     subagents,
     tasks,
     tools,
+    interactions,
   });
 }
 
@@ -67,6 +78,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   }
   if (block.type === 'tool') {
     const tool = entities.tools[block.tool_id];
+    const routed = agentInteractionsForTool(entities.interactions, block.tool_id);
     return (
       <div className="space-y-3">
         {block.thought ? (
@@ -76,6 +88,9 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
           </Reasoning>
         ) : null}
         <ClioToolInvocation tool={tool} />
+        {routed.map((interaction) => (
+          <AgentAnswerActivity interaction={interaction} key={interaction.id} />
+        ))}
       </div>
     );
   }

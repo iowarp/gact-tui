@@ -66,6 +66,16 @@ export type MessageBlock = MessageBlockContext &
         actions: ActionCardAction[];
       }
     | { id: string; type: 'a2ui'; surface_id: string }
+    | {
+        id: string;
+        type: 'mcp_app';
+        app_instance_id: string;
+        resource_uri: string;
+        source_server: string;
+        data_ref: string;
+        mime_type: string;
+        height?: number;
+      }
     | { id: string; type: 'citation'; label: string; uri: string }
     | { id: string; type: 'diff'; path: string; unified_diff: string }
     | { id: string; type: 'error'; code: string; message: string; recoverable: boolean }

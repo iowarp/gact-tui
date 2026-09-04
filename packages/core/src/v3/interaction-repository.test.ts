@@ -61,7 +61,7 @@ describe('ClioRepository normalized interaction contract', () => {
     const interactions = await repository.pendingInteractions('root session', true);
 
     expect(transport.requests[0]?.path).toBe(
-      '/v1/sessions/root%20session/interactions?include_children=true',
+      '/v1/sessions/root%20session/interactions?include_children=true&include_recent_resolved=true&resolved_limit=20',
     );
     expect(interactions.map(({ kind }) => kind)).toEqual([
       'question',
@@ -73,6 +73,79 @@ describe('ClioRepository normalized interaction contract', () => {
       owner_session_id: 'sess_child',
       attended_session_id: 'sess_root',
       source: { surface_id: 'surface_1' },
+    });
+  });
+
+  it('decodes form, URL, and agent-routing metadata without making agent work actionable', async () => {
+    const transport = new RecordingTransport([
+      {
+        interactions: [
+          {
+            id: 'question:agent',
+            kind: 'question',
+            owner_session_id: 'child',
+            attended_session_id: 'root',
+            status: 'pending',
+            title: 'Question from agent',
+            prompt: 'Choose samples',
+            requires_human_response: false,
+            audience: 'agent',
+            routing_state: 'elicitation_routed_to_agent',
+            source: { protocol: 'mcp', invocation_id: 'invoke-1' },
+            created_at: '2026-09-02T00:00:00Z',
+            payload: {
+              mode: 'form',
+              answer_metadata: { count: 3 },
+              fields: [
+                {
+                  name: 'count',
+                  type: 'integer',
+                  title: 'Sample count',
+                  required: true,
+                  default: 3,
+                },
+              ],
+            },
+            actions: [],
+          },
+          {
+            id: 'question:url',
+            kind: 'question',
+            owner_session_id: 'root',
+            attended_session_id: 'root',
+            status: 'pending',
+            title: 'Open link',
+            requires_human_response: true,
+            source: { protocol: 'mcp' },
+            created_at: '2026-09-02T00:00:01Z',
+            payload: {
+              mode: 'url',
+              url: 'https://xn--bcher-kva.example/report',
+              container: 'isolated',
+              punycode_warning: true,
+              punycode_host: 'bücher.example',
+              punycode_host_raw: 'xn--bcher-kva.example',
+            },
+            actions: ['answer', 'cancel'],
+          },
+        ],
+      },
+    ]);
+
+    const rows = await new ClioRepository(transport).pendingInteractions('root');
+
+    expect(rows[0]).toMatchObject({
+      requires_human_response: false,
+      audience: 'agent',
+      payload: { answer_metadata: { count: 3 }, fields: [{ type: 'integer' }] },
+    });
+    expect(rows[1]).toMatchObject({
+      requires_human_response: true,
+      payload: {
+        mode: 'url',
+        punycode_warning: true,
+        punycode_host_raw: 'xn--bcher-kva.example',
+      },
     });
   });
 
