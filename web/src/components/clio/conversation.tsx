@@ -50,10 +50,14 @@ import { useConversationTurn } from './use-conversation-turn';
 import { subagentsForTool } from './subagent-tool-link';
 import type { SubagentOpenTarget } from './subagent-card';
 import { ClioTranscriptMinimap } from './transcript-minimap';
-import { McpAppResponseActivity, type McpAppResponseActivityData } from './mcp-app-surface';
+import type { McpAppResponseActivityData } from './mcp-app-surface';
+import {
+  isProjectedQuestionResumeEnvelope,
+  mcpAppResponsesForMessages,
+} from './conversation-message-projection';
+import { McpAppResponseMessageRow } from './conversation-message-projections';
 
 const VIRTUALIZATION_THRESHOLD = 80;
-
 export interface ClioConversationProps {
   messages: readonly DomainMessage[];
   loading?: boolean;
@@ -99,30 +103,6 @@ export interface ConversationMessageRowProps extends Omit<ClioConversationProps,
   mcpAppResponse?: McpAppResponseActivityData;
 }
 
-/**
- * The resume message is an internal delivery envelope, not a second message
- * authored by the user. Once its authoritative question is projected on the
- * causal tool call, rendering the envelope would duplicate the answer and put
- * it outside the tool lifecycle that produced it.
- */
-// Exported for a direct regression test of the transport-envelope boundary.
-// oxlint-disable-next-line react/only-export-components
-export function isProjectedQuestionResumeEnvelope(
-  message: DomainMessage,
-  interactions: readonly PendingInteraction[] | undefined,
-): boolean {
-  if (message.role !== 'user' || message.metadata?.ask_user_resume !== true) return false;
-  const questionId = message.metadata.ask_user_question_id;
-  if (typeof questionId !== 'string' || questionId.length === 0) return false;
-  return (interactions ?? []).some(
-    (interaction) =>
-      interaction.kind === 'question' &&
-      interaction.source.protocol === 'native' &&
-      Boolean(interaction.source.invocation_id) &&
-      interaction.payload?.question_id === questionId,
-  );
-}
-
 const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
   index,
@@ -148,23 +128,15 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
 
   if (mcpAppResponse) {
     return (
-      <div
-        className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-4 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
-        data-index={index}
-        id={`message-${message.id}`}
-        ref={measureElement}
-        style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
-        tabIndex={-1}
-      >
-        <m.div
-          animate={{ opacity: 1 }}
-          className="w-full"
-          initial={{ opacity: recent ? 0 : 1 }}
-          transition={{ duration: 0.16 }}
-        >
-          <McpAppResponseActivity response={mcpAppResponse} />
-        </m.div>
-      </div>
+      <McpAppResponseMessageRow
+        index={index}
+        measureElement={measureElement}
+        messageId={message.id}
+        recent={recent}
+        response={mcpAppResponse}
+        start={start}
+        virtualized={virtualized}
+      />
     );
   }
   const actions = (
@@ -239,8 +211,6 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
       className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-4 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
       data-index={index}
       id={`message-${message.id}`}
-      // Measured on both branches: the virtualizer owns the active-index
-      // derivation even when it is not positioning the rows.
       ref={measureElement}
       style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
       tabIndex={-1}
@@ -459,8 +429,6 @@ export function conversationMessageRowPropsEqual(
   ) {
     return false;
   }
-  // onDisplayModeChange closes only over this immutable message id and the
-  // stable state setter, so a freshly-created wrapper is not a row invalidation.
   const refs = messageEntityRefs(left.message);
   return (
     referencedRowsEqual(left.artifacts, right.artifacts, refs.artifacts) &&
@@ -495,20 +463,10 @@ export function ClioConversation({
   bottomInset = 0,
   ...entities
 }: ClioConversationProps) {
-  const mcpAppResponses = useMemo(() => {
-    const apps = new Map<string, Extract<DomainMessage['blocks'][number], { type: 'mcp_app' }>>();
-    for (const message of sourceMessages) {
-      for (const block of message.blocks) {
-        if (block.type === 'mcp_app') apps.set(block.app_instance_id, block);
-      }
-    }
-    const responses = new Map<string, McpAppResponseActivityData>();
-    for (const message of sourceMessages) {
-      const response = mcpAppResponseForMessage(message, apps);
-      if (response) responses.set(message.id, response);
-    }
-    return responses;
-  }, [sourceMessages]);
+  const mcpAppResponses = useMemo(
+    () => mcpAppResponsesForMessages(sourceMessages),
+    [sourceMessages],
+  );
   const messages = useMemo(
     () =>
       sourceMessages.filter(
@@ -560,8 +518,7 @@ export function ClioConversation({
   );
   const virtualized = messages.length >= VIRTUALIZATION_THRESHOLD;
   const minimapVisible = conversationViewportWidth >= 760;
-  // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
-  // oxlint-disable-next-line react/incompatible-library
+  // oxlint-disable-next-line react/incompatible-library -- TanStack owns these functions.
   const virtualizer = useVirtualizer({
     count: messages.length,
     estimateSize: () => 180,
@@ -734,8 +691,6 @@ export function ClioConversation({
       ) : null}
       <div
         aria-label="Conversation"
-        // The minimap is a landmark index, not a scrollbar: it has no drag or
-        // proportional thumb, so the native scrollbar stays in both states.
         className="clio-scrollbar h-full overflow-y-auto overscroll-contain"
         data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
@@ -841,32 +796,4 @@ export function ClioConversation({
   );
 }
 
-// Exported for a direct regression of the transport-envelope classification.
-// oxlint-disable-next-line react/only-export-components
-export function mcpAppResponseForMessage(
-  message: DomainMessage,
-  apps: ReadonlyMap<string, Extract<DomainMessage['blocks'][number], { type: 'mcp_app' }>>,
-): McpAppResponseActivityData | undefined {
-  if (message.role !== 'user') return undefined;
-  const raw = message.metadata?.mcp_app_response;
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
-  const appInstanceId = (raw as Record<string, unknown>).app_instance_id;
-  if (typeof appInstanceId !== 'string' || !appInstanceId) return undefined;
-  const app = apps.get(appInstanceId);
-  if (!app) return undefined;
-  const rawState = (raw as Record<string, unknown>).state;
-  return {
-    appInstanceId,
-    createdAt: message.created_at,
-    messageId: message.id,
-    sourceServer: app.source_server,
-    state: rawState === 'pending' ? 'pending' : 'delivered',
-    text: message.blocks
-      .filter((block) => block.type === 'text')
-      .map((block) => block.text)
-      .join('\n')
-      .trim(),
-    toolName: app.tool_name,
-  };
-}
 import { brand } from '@brand';
