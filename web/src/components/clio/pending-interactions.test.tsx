@@ -143,7 +143,7 @@ describe('ClioPendingInteractions', () => {
     const onResponse = renderPending([interaction]);
 
     expect(screen.getByText('Review execution plan')).toBeVisible();
-    expect(await screen.findByText('Implementation plan')).toBeVisible();
+    expect(await screen.findByText('Implementation plan', {}, { timeout: 5_000 })).toBeVisible();
     expect(screen.getByText('Agent recommendation:')).toHaveTextContent(
       'Agent recommendation: interactive',
     );

@@ -178,11 +178,23 @@ export function ClioComposer({
 }: ClioComposerProps) {
   const [selectedProvider, setSelectedProvider] = useState(provider);
   const [selectedModel, setSelectedModel] = useState(model);
-  const [behavior, setBehavior] = useState<MessageBehavior>({
-    confirmation_policy: confirmationPolicy,
-    execution_mode: executionMode,
-    reasoning_effort: knownReasoningEffort(effort) ?? DEFAULT_REASONING_EFFORT,
-  });
+  const [behaviorSelection, setBehaviorSelection] = useState<{
+    behavior: MessageBehavior;
+    authoritativeExecutionMode: MessageBehavior['execution_mode'];
+  }>(() => ({
+    behavior: {
+      confirmation_policy: confirmationPolicy,
+      execution_mode: executionMode,
+      reasoning_effort: knownReasoningEffort(effort) ?? DEFAULT_REASONING_EFFORT,
+    },
+    authoritativeExecutionMode: executionMode,
+  }));
+  const behavior =
+    behaviorSelection.authoritativeExecutionMode === executionMode
+      ? behaviorSelection.behavior
+      : { ...behaviorSelection.behavior, execution_mode: executionMode };
+  const setBehavior = (next: MessageBehavior) =>
+    setBehaviorSelection({ behavior: next, authoritativeExecutionMode: executionMode });
   // Kept apart from `behavior`, which must always carry a value the message
   // contract accepts. The control names this rather than showing the default as
   // though the service had asked for it.

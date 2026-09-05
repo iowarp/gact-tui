@@ -122,6 +122,36 @@ function renderComposer({
   return { onCommand, onStop, onSubmit };
 }
 
+describe('ClioComposer execution mode', () => {
+  it('tracks authoritative session mode changes after submission and approval', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const composer = (executionMode: 'execute' | 'plan') => (
+      <QueryClientProvider client={queryClient}>
+        <PromptInputProvider>
+          <ClioComposer
+            attachments={false}
+            executionMode={executionMode}
+            model="gpt-5.6-luna"
+            onSubmit={vi.fn(async () => undefined)}
+            provider="codex"
+            state="completed"
+          />
+        </PromptInputProvider>
+      </QueryClientProvider>
+    );
+    const view = render(composer('execute'));
+    expect(screen.getByRole('button', { name: 'Execution mode: Execute' })).toBeVisible();
+
+    view.rerender(composer('plan'));
+    expect(await screen.findByRole('button', { name: 'Execution mode: Plan' })).toBeVisible();
+
+    view.rerender(composer('execute'));
+    expect(await screen.findByRole('button', { name: 'Execution mode: Execute' })).toBeVisible();
+  });
+});
+
 describe('ClioComposer service commands', () => {
   it('adds and submits every file selected in one picker interaction', async () => {
     const user = userEvent.setup();
