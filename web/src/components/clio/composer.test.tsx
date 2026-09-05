@@ -122,16 +122,20 @@ function renderComposer({
   return { onCommand, onStop, onSubmit };
 }
 
-describe('ClioComposer execution mode', () => {
-  it('tracks authoritative session mode changes after submission and approval', async () => {
+describe('ClioComposer authoritative behavior', () => {
+  it('tracks mode and confirmation changes after plan approval', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    const composer = (executionMode: 'execute' | 'plan') => (
+    const composer = (
+      executionMode: 'execute' | 'plan',
+      confirmationPolicy: 'ask' | 'auto-edits',
+    ) => (
       <QueryClientProvider client={queryClient}>
         <PromptInputProvider>
           <ClioComposer
             attachments={false}
+            confirmationPolicy={confirmationPolicy}
             executionMode={executionMode}
             model="gpt-5.6-luna"
             onSubmit={vi.fn(async () => undefined)}
@@ -141,15 +145,17 @@ describe('ClioComposer execution mode', () => {
         </PromptInputProvider>
       </QueryClientProvider>
     );
-    const view = render(composer('execute'));
-    expect(screen.getByRole('button', { name: 'Execution mode: Execute' })).toBeVisible();
+    const view = render(composer('plan', 'ask'));
+    expect(screen.getByRole('button', { name: 'Execution mode: Plan' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Confirmation policy: Ask first' })).toBeVisible();
 
-    view.rerender(composer('plan'));
-    expect(await screen.findByRole('button', { name: 'Execution mode: Plan' })).toBeVisible();
-
-    view.rerender(composer('execute'));
+    view.rerender(composer('execute', 'auto-edits'));
     expect(await screen.findByRole('button', { name: 'Execution mode: Execute' })).toBeVisible();
+    expect(
+      await screen.findByRole('button', { name: 'Confirmation policy: Workspace edits' }),
+    ).toBeVisible();
   });
+
 });
 
 describe('ClioComposer service commands', () => {

@@ -180,6 +180,7 @@ export function ClioComposer({
   const [selectedModel, setSelectedModel] = useState(model);
   const [behaviorSelection, setBehaviorSelection] = useState<{
     behavior: MessageBehavior;
+    authoritativeConfirmationPolicy: MessageBehavior['confirmation_policy'];
     authoritativeExecutionMode: MessageBehavior['execution_mode'];
   }>(() => ({
     behavior: {
@@ -187,14 +188,26 @@ export function ClioComposer({
       execution_mode: executionMode,
       reasoning_effort: knownReasoningEffort(effort) ?? DEFAULT_REASONING_EFFORT,
     },
+    authoritativeConfirmationPolicy: confirmationPolicy,
     authoritativeExecutionMode: executionMode,
   }));
-  const behavior =
-    behaviorSelection.authoritativeExecutionMode === executionMode
-      ? behaviorSelection.behavior
-      : { ...behaviorSelection.behavior, execution_mode: executionMode };
+  const behavior: MessageBehavior = {
+    ...behaviorSelection.behavior,
+    confirmation_policy:
+      behaviorSelection.authoritativeConfirmationPolicy === confirmationPolicy
+        ? behaviorSelection.behavior.confirmation_policy
+        : confirmationPolicy,
+    execution_mode:
+      behaviorSelection.authoritativeExecutionMode === executionMode
+        ? behaviorSelection.behavior.execution_mode
+        : executionMode,
+  };
   const setBehavior = (next: MessageBehavior) =>
-    setBehaviorSelection({ behavior: next, authoritativeExecutionMode: executionMode });
+    setBehaviorSelection({
+      behavior: next,
+      authoritativeConfirmationPolicy: confirmationPolicy,
+      authoritativeExecutionMode: executionMode,
+    });
   // Kept apart from `behavior`, which must always carry a value the message
   // contract accepts. The control names this rather than showing the default as
   // though the service had asked for it.
