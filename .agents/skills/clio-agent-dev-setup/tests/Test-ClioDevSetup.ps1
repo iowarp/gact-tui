@@ -152,6 +152,18 @@ if ($startSource -notmatch '-Environment\s+\$documentProcessorEnvironment') {
     throw "Start-ClioDev must pass the Docling environment directly to its child process."
 }
 $preflightSource = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot "Test-ClioDevPreflight.ps1")
+if (
+    $startSource -notmatch '\[int\]\$BackendReadinessTimeoutSec\s*=\s*300' -or
+    $startSource -notmatch 'AddSeconds\(\$BackendReadinessTimeoutSec\)'
+) {
+    throw "Start-ClioDev must allow preserved session-ledger rehydration to finish before failing readiness."
+}
+if ($startSource -notmatch '-HealthTimeoutSec\s+\$BackendReadinessTimeoutSec') {
+    throw "Start-ClioDev must pass its readiness budget through to live preflight."
+}
+if ($preflightSource -notmatch 'HealthTimeoutSec[\s\S]{0,2500}?/v1/health[^\r\n]*-TimeoutSec\s+\$HealthTimeoutSec') {
+    throw "Test-ClioDevPreflight must use the configured health timeout for preserved ledger rehydration."
+}
 if ($preflightSource -notmatch 'gact_versions[\s\S]{0,120}?contains\s+"0\.3"') {
     throw "Test-ClioDevPreflight must validate the negotiated GACT 0.3 envelope through gact_versions."
 }
