@@ -211,6 +211,12 @@ if ($stopSource -notmatch 'if\s*\(-not\s+\$generationManifestPresent\s+-and\s+-n
 if ($stopSource -match 'function\s+Test-ClioDevOwnedProcess') {
     throw "Stop-ClioDev must not carry the dead ancestry-walk helper."
 }
+if (
+    $stopSource -notmatch '\$callerProcessTree\s*=\s*\[System\.Collections\.Generic\.HashSet\[int\]\]' -or
+    $stopSource -notmatch '\$callerProcessTree\.Contains\(\$ProcessId\)'
+) {
+    throw "Stop-ClioDev must protect its complete caller chain from command-line ownership sweeps."
+}
 
 # One shell contract for the whole skill: -SkipHttpErrorCheck is PowerShell 7
 # only, and under 5.1 it fails to bind before the request is ever made.
