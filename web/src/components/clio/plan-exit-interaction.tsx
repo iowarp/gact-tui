@@ -170,28 +170,41 @@ export function PlanExitResponse({
                 The saved plan could not be loaded into this review.
               </p>
             )}
+            {plan?.recommended_mode || plan?.risk_notes ? (
+              <div className={DOCUMENT_MARKDOWN_CLASS_NAME} data-slot="plan-guidance">
+                {plan.recommended_mode ? (
+                  <section>
+                    <h2>Execution recommendation</h2>
+                    <p>{planModeLabel(plan.recommended_mode)}</p>
+                  </section>
+                ) : null}
+                {plan.risk_notes ? (
+                  <section>
+                    <h2>Risks</h2>
+                    <p>{plan.risk_notes}</p>
+                  </section>
+                ) : null}
+              </div>
+            ) : null}
           </PlanContent>
-          <PlanFooter className="flex-col items-start gap-1 border-t text-xs text-muted-foreground">
-            {plan?.recommended_mode ? (
-              <span>
-                Agent recommendation: <strong>{plan.recommended_mode}</strong>
-              </span>
-            ) : null}
-            {plan?.risk_notes ? <span>Risks: {plan.risk_notes}</span> : null}
-            {plan?.plan_content_status === 'truncated' ? (
-              <span className="text-warning">
-                The review is truncated ({plan.plan_content_included_chars} of{' '}
-                {plan.plan_content_chars} characters). Automatic execution remains unavailable until
-                the complete plan can be reviewed.
-              </span>
-            ) : null}
-            {plan?.plan_content_status === 'unavailable' ? (
-              <span className="text-destructive">
-                The saved plan is unavailable. Automatic execution remains unavailable; reject it
-                for revision or exit Plan mode without executing.
-              </span>
-            ) : null}
-          </PlanFooter>
+          {plan?.plan_content_status === 'truncated' ||
+          plan?.plan_content_status === 'unavailable' ? (
+            <PlanFooter className="flex-col items-start gap-1 border-t text-xs text-muted-foreground">
+              {plan?.plan_content_status === 'truncated' ? (
+                <span className="text-warning">
+                  The review is truncated ({plan.plan_content_included_chars} of{' '}
+                  {plan.plan_content_chars} characters). Automatic execution remains unavailable
+                  until the complete plan can be reviewed.
+                </span>
+              ) : null}
+              {plan?.plan_content_status === 'unavailable' ? (
+                <span className="text-destructive">
+                  The saved plan is unavailable. Automatic execution remains unavailable; reject it
+                  for revision or exit Plan mode without executing.
+                </span>
+              ) : null}
+            </PlanFooter>
+          ) : null}
         </Plan>
 
         {interaction.status !== 'pending' ? (

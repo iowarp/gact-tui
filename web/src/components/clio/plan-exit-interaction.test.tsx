@@ -57,8 +57,14 @@ describe('PlanExitResponse', () => {
     );
     expect(planHeading).toBeVisible();
     expect(planHeading.closest('.space-y-2')).not.toBeNull();
-    expect(screen.getByText('Agent recommendation:')).toHaveTextContent('interactive');
-    expect(screen.getByText(/Risks: The session mode must change/)).toBeVisible();
+    const recommendation = screen.getByRole('heading', { name: 'Execution recommendation' });
+    const risks = screen.getByRole('heading', { name: 'Risks' });
+    const planContent = planHeading.closest('[data-slot="plan-content"]');
+    expect(recommendation.closest('[data-slot="plan-content"]')).toBe(planContent);
+    expect(risks.closest('[data-slot="plan-content"]')).toBe(planContent);
+    expect(planContent).toHaveTextContent('Interactive');
+    expect(planContent).toHaveTextContent('The session mode must change before submission.');
+    expect(document.querySelector('[data-slot="plan-footer"]')).not.toBeInTheDocument();
     await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
     await user.click(screen.getByRole('option', { name: 'Auto-execute' }));
     await user.click(screen.getByRole('checkbox', { name: 'Clear conversation context' }));
