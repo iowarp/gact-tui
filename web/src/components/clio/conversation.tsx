@@ -253,7 +253,6 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                       block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
                   )}
                   messageSessionId={message.session_id}
-                  resourcesFirst={message.role === 'user'}
                   {...entities}
                 />
               </>
