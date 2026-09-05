@@ -203,6 +203,7 @@ export const messageCompletionSchema = z.object({
 export const messageSchema = z.object({
   id: z.string(),
   session_id: z.string(),
+  turn_id: z.string().optional(),
   run_id: z.string().optional(),
   role: forwardCompatibleEnum(['user', 'assistant', 'system']),
   created_at: z.string(),

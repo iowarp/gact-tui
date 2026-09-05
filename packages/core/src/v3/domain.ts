@@ -638,6 +638,7 @@ export interface MessageUsage {
 export interface Message {
   id: string;
   session_id: string;
+  turn_id?: string;
   run_id?: string;
   role: WireValue<'user' | 'assistant' | 'system'>;
   created_at: string;
@@ -719,6 +720,7 @@ export interface EntityState {
   context: Record<string, ContextSnapshot>;
   surfaces: Record<string, A2UISurface>;
   infrastructure: Record<string, InfrastructureDependency>;
+  active_turns: Record<string, string>;
   revisions: Record<string, number>;
   processed_cursors: string[];
   /** Frames the reducer could not apply, each carrying its typed reason. */

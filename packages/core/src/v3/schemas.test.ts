@@ -24,6 +24,19 @@ describe('forward-compatible wire enums', () => {
     ).toEqual({ ask_user_resume: true, ask_user_question_id: 'ques_1' });
   });
 
+  it('retains the authoritative turn id on transcript messages', () => {
+    expect(
+      messageSchema.parse({
+        id: 'msg_assistant',
+        session_id: 'sess_1',
+        turn_id: 'turn_1',
+        role: 'assistant',
+        created_at: '2026-09-05T20:00:00Z',
+        blocks: [],
+      }).turn_id,
+    ).toBe('turn_1');
+  });
+
   it('maps future enum values to an explicit unknown state', () => {
     expect(runStateSchema.parse('paused_by_provider')).toBe('unknown');
     expect(

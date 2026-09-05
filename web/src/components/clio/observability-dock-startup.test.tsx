@@ -13,6 +13,7 @@ describe('ClioObservabilityDock startup status', () => {
   it('replaces the generic startup label with the active MCP preparation phase', () => {
     render(
       <ClioObservabilityDock
+        activeTurnId="turn_1"
         artifacts={[]}
         contextFiles={[]}
         contextFrames={[]}
@@ -50,7 +51,7 @@ describe('ClioObservabilityDock startup status', () => {
   });
 
   it('keeps responding status after the current assistant stream closes', () => {
-    render(
+    const { rerender } = render(
       <ClioObservabilityDock
         artifacts={[]}
         contextFiles={[]}
@@ -61,6 +62,7 @@ describe('ClioObservabilityDock startup status', () => {
           {
             id: 'msg_user',
             session_id: 'sess_1',
+            turn_id: 'turn_1',
             role: 'user',
             created_at: '2026-09-05T20:00:00Z',
             blocks: [{ id: 'block_user', type: 'text', text: 'Hello' }],
@@ -68,6 +70,51 @@ describe('ClioObservabilityDock startup status', () => {
           {
             id: 'msg_assistant',
             session_id: 'sess_1',
+            turn_id: 'turn_1',
+            role: 'assistant',
+            created_at: '2026-09-05T20:00:01Z',
+            blocks: [
+              {
+                id: 'block_assistant',
+                type: 'text',
+                text: 'Finishing up',
+                streaming: true,
+              },
+            ],
+          },
+        ]}
+        processes={[]}
+        runs={[]}
+        sessionState="running"
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    expect(screen.getByText('Agent is responding')).toBeVisible();
+
+    rerender(
+      <ClioObservabilityDock
+        activeTurnId="turn_1"
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        infrastructureDependencies={[]}
+        messages={[
+          {
+            id: 'msg_user',
+            session_id: 'sess_1',
+            turn_id: 'turn_1',
+            role: 'user',
+            created_at: '2026-09-05T20:00:00Z',
+            blocks: [{ id: 'block_user', type: 'text', text: 'Hello' }],
+          },
+          {
+            id: 'msg_assistant',
+            session_id: 'sess_1',
+            turn_id: 'turn_1',
             role: 'assistant',
             created_at: '2026-09-05T20:00:01Z',
             blocks: [{ id: 'block_assistant', type: 'text', text: 'Finishing up' }],
@@ -89,6 +136,7 @@ describe('ClioObservabilityDock startup status', () => {
   it('does not treat an assistant response before the latest user turn as current', () => {
     render(
       <ClioObservabilityDock
+        activeTurnId="turn_new"
         artifacts={[]}
         contextFiles={[]}
         contextFrames={[]}
@@ -98,6 +146,7 @@ describe('ClioObservabilityDock startup status', () => {
           {
             id: 'msg_assistant_old',
             session_id: 'sess_1',
+            turn_id: 'turn_old',
             role: 'assistant',
             created_at: '2026-09-05T19:59:59Z',
             blocks: [{ id: 'block_assistant_old', type: 'text', text: 'Old answer' }],
@@ -105,6 +154,7 @@ describe('ClioObservabilityDock startup status', () => {
           {
             id: 'msg_user',
             session_id: 'sess_1',
+            turn_id: 'turn_new',
             role: 'user',
             created_at: '2026-09-05T20:00:00Z',
             blocks: [{ id: 'block_user', type: 'text', text: 'New turn' }],

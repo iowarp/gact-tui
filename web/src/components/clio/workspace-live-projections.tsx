@@ -55,6 +55,7 @@ export function WorkspaceLiveObservabilityDock({
   ...props
 }: LiveObservabilityDockProps) {
   const infrastructure = useLiveStore((state) => state.entities.infrastructure);
+  const activeTurnId = useLiveStore((state) => state.entities.active_turns[sessionId]);
   const infrastructureDependencies = useMemo(
     () => Object.values(infrastructure).filter((item) => item.session_id === sessionId),
     [infrastructure, sessionId],
@@ -62,6 +63,7 @@ export function WorkspaceLiveObservabilityDock({
   return (
     <ClioObservabilityDock
       {...props}
+      activeTurnId={activeTurnId}
       infrastructureDependencies={infrastructureDependencies}
       messages={useSessionMessages(sessionId)}
     />

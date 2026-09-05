@@ -90,6 +90,7 @@ export interface ClioObservabilityDockProps {
   messages: readonly Message[];
   interactions?: readonly PendingInteraction[];
   infrastructureDependencies?: readonly InfrastructureDependency[];
+  activeTurnId?: string;
   processes: readonly AsyncProcess[];
   tasks: readonly Task[];
   tools: readonly ToolInvocation[];
@@ -162,12 +163,24 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     activeActivityCount || sessionActive || sessionNeedsAttention,
   );
   const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
-  const latestUserIndex = props.messages.findLastIndex((message) => message.role === 'user');
-  const assistantResponding = props.messages.slice(latestUserIndex + 1).some(
+  const currentAssistantStreaming = props.messages.some(
     (message) =>
       message.role === 'assistant' &&
-      message.blocks.some((block) => block.type === 'text' || block.type === 'reasoning'),
+      message.blocks.some(
+        (block) =>
+          (block.type === 'text' || block.type === 'reasoning') && block.streaming === true,
+      ),
   );
+  const currentTurnHasResponse = Boolean(
+    props.activeTurnId &&
+      props.messages.some(
+        (message) =>
+          message.role === 'assistant' &&
+          message.turn_id === props.activeTurnId &&
+          message.blocks.some((block) => block.type === 'text' || block.type === 'reasoning'),
+      ),
+  );
+  const assistantResponding = currentAssistantStreaming || currentTurnHasResponse;
   const startupVisible = Boolean(
     sessionActive && !currentTool && !latestActiveProcess && !currentTask && !assistantResponding,
   );

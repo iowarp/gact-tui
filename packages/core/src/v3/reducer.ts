@@ -40,6 +40,7 @@ export function createEntityState(): EntityState {
     context: {},
     surfaces: {},
     infrastructure: {},
+    active_turns: {},
     revisions: {},
     processed_cursors: [],
     gaps: [],
@@ -342,12 +343,36 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     case 'turn.started': {
       const sessionId = envelope.scope.session_id;
       if (!sessionId) return base;
+      const turnId = (envelope.payload as { turn_id?: unknown }).turn_id;
       return {
         ...base,
+        active_turns:
+          typeof turnId === 'string'
+            ? { ...base.active_turns, [sessionId]: turnId }
+            : base.active_turns,
         infrastructure: Object.fromEntries(
           Object.entries(base.infrastructure).filter(
             ([, dependency]) => dependency.session_id !== sessionId,
           ),
+        ),
+      };
+    }
+    case 'session.status_changed': {
+      const sessionId = envelope.scope.session_id;
+      const payload = envelope.payload as { status?: unknown; prev_status?: unknown };
+      if (
+        !sessionId ||
+        !(
+          payload.status === 'idle' ||
+          (payload.status === 'running' && payload.prev_status === 'idle')
+        )
+      ) {
+        return base;
+      }
+      return {
+        ...base,
+        active_turns: Object.fromEntries(
+          Object.entries(base.active_turns).filter(([id]) => id !== sessionId),
         ),
       };
     }
