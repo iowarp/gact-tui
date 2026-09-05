@@ -1,7 +1,4 @@
-import type {
-  PendingInteraction,
-  Message as DomainMessage,
-} from '@clio/core/v3';
+import type { PendingInteraction, Message as DomainMessage } from '@clio/core/v3';
 import {
   AlertTriangleIcon,
   ArrowDownIcon,
@@ -256,6 +253,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                       block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
                   )}
                   messageSessionId={message.session_id}
+                  resourcesFirst={message.role === 'user'}
                   {...entities}
                 />
               </>
@@ -263,6 +261,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
               <MessageBlockSequence
                 blocks={message.blocks}
                 messageSessionId={message.session_id}
+                resourcesFirst={message.role === 'user'}
                 {...entities}
               />
             )}

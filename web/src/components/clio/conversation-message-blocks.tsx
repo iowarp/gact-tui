@@ -352,20 +352,30 @@ function MessageBlockView({
 
 export function MessageBlockSequence({
   blocks,
+  resourcesFirst = false,
   ...props
-}: Omit<MessageBlockViewProps, 'block'> & { blocks: readonly MessageBlock[] }) {
+}: Omit<MessageBlockViewProps, 'block'> & {
+  blocks: readonly MessageBlock[];
+  resourcesFirst?: boolean;
+}) {
+  const orderedBlocks = resourcesFirst
+    ? [
+        ...blocks.filter((block) => block.type === 'resource'),
+        ...blocks.filter((block) => block.type !== 'resource'),
+      ]
+    : blocks;
   const rendered: ReactNode[] = [];
   let index = 0;
 
-  while (index < blocks.length) {
-    const block = blocks[index];
+  while (index < orderedBlocks.length) {
+    const block = orderedBlocks[index];
     if (!block) break;
 
     if (block.type === 'resource') {
       const resourceBlocks: ResourceBlock[] = [];
       const firstBlockId = block.id;
-      while (index < blocks.length) {
-        const candidate = blocks[index];
+      while (index < orderedBlocks.length) {
+        const candidate = orderedBlocks[index];
         if (candidate?.type !== 'resource') break;
         resourceBlocks.push(candidate);
         index += 1;
@@ -389,8 +399,8 @@ export function MessageBlockSequence({
 
     const artifacts: Artifact[] = [];
     const firstBlockId = block.id;
-    while (index < blocks.length) {
-      const candidate = blocks[index];
+    while (index < orderedBlocks.length) {
+      const candidate = orderedBlocks[index];
       if (!candidate || candidate.type !== 'artifact') break;
       const artifact = props.artifacts[candidate.artifact_id];
       if (!artifact) break;
