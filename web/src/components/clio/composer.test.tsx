@@ -239,16 +239,23 @@ describe('ClioComposer service commands', () => {
     const thumbnail = screen.getByRole('img', { name: 'field-map.png' });
     expect(thumbnail).toBeVisible();
     expect(thumbnail).toHaveAttribute('src', 'blob:test-field-map.png');
-    expect(thumbnail).toHaveAttribute('width', '112');
+    expect(thumbnail).toHaveAttribute('width', '144');
     expect(thumbnail.closest('[data-attachment-variant]')).toHaveAttribute(
       'data-attachment-variant',
       'composer',
     );
+    const attachmentTray = screen.getByRole('group', { name: 'Pending attachments' });
+    expect(attachmentTray).toHaveClass('w-max', 'min-w-full');
+    expect(attachmentTray.closest('[data-slot="scroll-area"]')).toHaveClass('rounded-2xl');
 
     const openAttachment = screen.getByRole('button', { name: 'Open field-map.png' });
-    expect(
-      within(openAttachment).getByRole('img', { name: 'Attachment status: Waiting' }),
-    ).toBeVisible();
+    const status = within(openAttachment).getByRole('img', {
+      name: 'Attachment status: Waiting',
+    });
+    expect(status).toBeVisible();
+    expect(status).toHaveAttribute('data-overlay', 'true');
+    expect(status.parentElement).not.toHaveClass('bg-background/85');
+    expect(status.querySelector('svg')).toHaveClass('text-black');
     await user.hover(openAttachment);
     expect(
       await screen.findByRole('status', { name: 'Upload status: Ready locally' }),

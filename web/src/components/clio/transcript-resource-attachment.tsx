@@ -52,12 +52,12 @@ export function TranscriptResourceAttachments({
   });
 
   return (
-    <ScrollArea className="mb-2 w-full max-w-full" type="auto">
+    <ScrollArea className="mb-2 h-auto w-full max-w-full rounded-2xl" type="auto">
       <Attachments
         aria-label={
           blocks.length === 1 ? 'Message attachment' : `${blocks.length} message attachments`
         }
-        className="justify-start pb-2"
+        className="w-max min-w-full justify-start gap-3 pb-3 group-[.is-user]:justify-end"
         role="group"
         variant="composer"
       >
@@ -195,14 +195,8 @@ function TranscriptResourceAttachmentDisplay({
           >
             <AttachmentPreview />
             <AttachmentInfo className="text-xs" showMediaType />
-            <span
-              className={cn(
-                'shrink-0',
-                visual &&
-                  'absolute right-2 bottom-2 rounded-full bg-background/85 p-1 shadow-sm backdrop-blur-sm',
-              )}
-            >
-              <ResourcePipelineSummaryIcon stages={stages} />
+            <span className={cn('shrink-0', visual && 'absolute right-2 bottom-2')}>
+              <ResourcePipelineSummaryIcon overlay={visual} stages={stages} />
             </span>
           </button>
         </Attachment>

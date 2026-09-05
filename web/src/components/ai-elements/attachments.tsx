@@ -88,9 +88,9 @@ const renderAttachmentImage = (
     <img
       alt={filename || 'Image'}
       className="size-full object-cover"
-      height={variant === 'composer' ? 112 : 96}
+      height={variant === 'composer' ? 144 : 96}
       src={url}
-      width={variant === 'composer' ? 112 : 96}
+      width={variant === 'composer' ? 144 : 96}
     />
   ) : (
     <img
@@ -196,7 +196,7 @@ export const Attachment = ({ data, onRemove, className, children, ...props }: At
         className={cn(
           'group relative',
           variant === 'grid' && 'size-24 overflow-hidden rounded-lg',
-          visualComposerAttachment && 'size-28 shrink-0 overflow-hidden rounded-lg border bg-muted',
+          visualComposerAttachment && 'size-36 shrink-0 overflow-hidden rounded-lg border bg-muted',
           variant === 'composer' &&
             !visualComposerAttachment &&
             'flex h-14 w-60 shrink-0 items-center gap-2 rounded-lg border bg-background p-2',
@@ -361,10 +361,7 @@ export const AttachmentRemove = ({
           '[&>svg]:size-3',
         ],
         variant === 'composer' &&
-          !visualComposerAttachment && [
-            'size-7 shrink-0 rounded p-0',
-            '[&>svg]:size-3.5',
-          ],
+          !visualComposerAttachment && ['size-7 shrink-0 rounded p-0', '[&>svg]:size-3.5'],
         variant === 'inline' && [
           'size-5 rounded p-0',
           // Focus reveals it too, or the control is unreachable by keyboard.

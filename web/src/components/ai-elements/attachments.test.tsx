@@ -47,7 +47,7 @@ describe('composer attachments', () => {
       </Attachments>,
     );
 
-    expect(screen.getByRole('img', { name: 'field-map.png' })).toHaveAttribute('width', '112');
+    expect(screen.getByRole('img', { name: 'field-map.png' })).toHaveAttribute('width', '144');
     expect(document.querySelector('[data-attachment-variant]')).toHaveAttribute(
       'data-attachment-variant',
       'composer',

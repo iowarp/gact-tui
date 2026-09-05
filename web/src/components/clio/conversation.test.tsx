@@ -196,6 +196,17 @@ describe('ClioConversation recovery actions', () => {
       ),
     ).toBeVisible();
     expect(screen.getByText('Analyze this filing.')).toBeInTheDocument();
+    const textBubble = screen
+      .getByText('Analyze this filing.')
+      .closest('[data-slot="message-text"]');
+    expect(textBubble).toHaveClass(
+      'group-[.is-user]:rounded-lg',
+      'group-[.is-user]:bg-secondary',
+      'group-[.is-user]:px-4',
+      'group-[.is-user]:py-3',
+    );
+    expect(textBubble?.parentElement).not.toHaveClass('bg-secondary', 'px-4', 'py-3');
+    expect(attachment.closest('[data-slot="scroll-area"]')).not.toContainElement(textBubble);
     expect(screen.queryByText(/private runtime context/i)).not.toBeInTheDocument();
     fireEvent.click(attachment);
     expect(onOpenResource).toHaveBeenCalledWith(resource, [resource]);

@@ -167,10 +167,10 @@ export function ClioComposerAttachments({
 
   return (
     <>
-      <ScrollArea className="w-full" type="auto">
+      <ScrollArea className="h-auto w-full max-w-full rounded-2xl" type="auto">
         <Attachments
           aria-label="Pending attachments"
-          className="justify-start px-2.5 pt-2 pb-2.5"
+          className="w-max min-w-full justify-start gap-3 p-3"
           role="group"
           variant="composer"
         >
@@ -213,14 +213,8 @@ export function ClioComposerAttachments({
                     >
                       <AttachmentPreview />
                       <AttachmentInfo className="text-xs" showMediaType />
-                      <span
-                        className={cn(
-                          'shrink-0',
-                          visual &&
-                            'absolute bottom-2 left-2 rounded-full bg-background/85 p-1 shadow-sm backdrop-blur-sm',
-                        )}
-                      >
-                        <ResourcePipelineSummaryIcon stages={stages} />
+                      <span className={cn('shrink-0', visual && 'absolute right-2 bottom-2')}>
+                        <ResourcePipelineSummaryIcon overlay={visual} stages={stages} />
                       </span>
                     </button>
                     <AttachmentRemove aria-label={`Remove ${filename}`} />

@@ -7,7 +7,17 @@ import { cn } from '@/lib/utils';
 import type { UIMessage } from 'ai';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import type { ComponentProps, HTMLAttributes, ReactElement } from 'react';
-import { createContext, lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  lazy,
+  memo,
+  Suspense,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 const MarkdownText = lazy(() =>
   import('./markdown').then((module) => ({ default: module.MarkdownText })),
@@ -34,7 +44,7 @@ export const MessageContent = ({ children, className, ...props }: MessageContent
   <div
     className={cn(
       'is-user:dark flex w-fit min-w-0 max-w-full flex-col gap-2 overflow-hidden text-sm',
-      'group-[.is-user]:ml-auto group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3 group-[.is-user]:text-foreground',
+      'group-[.is-user]:ml-auto group-[.is-user]:items-end group-[.is-user]:text-foreground',
       'group-[.is-assistant]:text-foreground',
       className,
     )}

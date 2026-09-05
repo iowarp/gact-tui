@@ -113,6 +113,9 @@ describe('TranscriptResourceAttachment availability', () => {
     await user.click(screen.getByRole('button', { name: 'Open paper.pdf' }));
 
     expect(onOpen).toHaveBeenCalledWith(first, [first, second]);
+    const attachmentTray = screen.getByRole('group', { name: '2 message attachments' });
+    expect(attachmentTray).toHaveClass('w-max', 'min-w-full');
+    expect(attachmentTray.closest('[data-slot="scroll-area"]')).toHaveClass('rounded-2xl');
   });
 
   it('separates active upload from conversion waiting in the expanded status', async () => {
@@ -178,11 +181,14 @@ describe('TranscriptResourceAttachment availability', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: 'Attachment status: Ready' })).toBeVisible();
-    expect(await screen.findByRole('img', { name: 'diagram.png' })).toHaveAttribute(
-      'src',
-      'blob:test-3',
-    );
+    const status = screen.getByRole('img', { name: 'Attachment status: Ready' });
+    expect(status).toBeVisible();
+    expect(status).toHaveAttribute('data-overlay', 'true');
+    expect(status.parentElement).not.toHaveClass('bg-background/85');
+    expect(status.querySelector('svg')).toHaveClass('text-black');
+    const preview = await screen.findByRole('img', { name: 'diagram.png' });
+    expect(preview).toHaveAttribute('src', 'blob:test-3');
+    expect(preview).toHaveAttribute('width', '144');
     expect(repository.resourcePreview).toHaveBeenCalledWith('ws_1', 'res_1', expect.anything());
   });
 

@@ -127,10 +127,17 @@ function MessageBlockView({
 }: MessageBlockViewProps) {
   switch (block.type) {
     case 'text':
-      return block.streaming ? (
-        <ClioStreamingText className="leading-7" active text={block.text} />
-      ) : (
-        <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
+      return (
+        <div
+          className="min-w-0 max-w-full group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3"
+          data-slot="message-text"
+        >
+          {block.streaming ? (
+            <ClioStreamingText className="leading-7" active text={block.text} />
+          ) : (
+            <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
+          )}
+        </div>
       );
     case 'reasoning':
     case 'tool':
