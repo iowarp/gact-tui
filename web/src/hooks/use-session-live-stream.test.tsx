@@ -160,6 +160,21 @@ describe('useSessionLiveStream resume recovery', () => {
     expect(uploaded).toEqual([['workspace-resources', 'http://127.0.0.1:8790', 'ws_1']]);
   });
 
+  it('refreshes session artifacts when a streamed artifact becomes visible', () => {
+    const keys = queryInvalidationKeysForEvent({
+      endpoint: 'http://127.0.0.1:8790',
+      eventName: 'artifact.created',
+      sessionId: 'sess_1',
+      workspaceId: 'ws_1',
+    });
+
+    expect(keys).toContainEqual([
+      'session-artifacts',
+      'http://127.0.0.1:8790',
+      'sess_1',
+    ]);
+  });
+
   it('refreshes the steer list a queued-message promotion creates', () => {
     const keys = queryInvalidationKeysForEvent({
       endpoint: 'http://127.0.0.1:8790',

@@ -239,6 +239,16 @@ function isResourceEvent(eventName: string): boolean {
   return eventName.startsWith('resource.');
 }
 
+function isSessionArtifactEvent(eventName: string): boolean {
+  return [
+    'artifact.created',
+    'artifact.version.added',
+    'artifact.alias.moved',
+    'artifact.used',
+    'artifact.enriched',
+  ].includes(eventName);
+}
+
 /**
  * The extra reads one resource event changes, beyond the workspace list.
  *
@@ -324,6 +334,9 @@ export function queryInvalidationKeysForEvent({
       queryKeys.workspaceResources(endpoint, workspaceId),
       ...resourceInvalidationKeys(eventName, endpoint, workspaceId),
     );
+  }
+  if (isSessionArtifactEvent(eventName)) {
+    keys.push(queryKeys.sessionArtifacts(endpoint, sessionId));
   }
   if (eventName === 'message.completed') {
     keys.push(
