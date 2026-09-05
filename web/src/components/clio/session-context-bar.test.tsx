@@ -50,7 +50,7 @@ describe('ClioSessionContextBar', () => {
     expect(screen.queryByText('Default agent')).not.toBeInTheDocument();
   });
 
-  it('does not invent an agent identity when the service reports none', () => {
+  it('identifies an unconfigured root conversation as the base agent', () => {
     render(
       <ClioSessionContextBar
         actionsPending={false}
@@ -64,8 +64,24 @@ describe('ClioSessionContextBar', () => {
       />,
     );
 
-    expect(screen.queryByText(/default agent/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/standard agent/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Base agent')).toBeVisible();
     expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+  });
+
+  it('does not mislabel a child agent as the base agent', () => {
+    render(
+      <ClioSessionContextBar
+        actionsPending={false}
+        onCompact={vi.fn()}
+        onFork={vi.fn()}
+        onOpenBlueprint={vi.fn()}
+        onReturnToParent={vi.fn()}
+        onShare={vi.fn()}
+        onUndo={vi.fn()}
+        session={{ ...session, agent_id: 'researcher', parent_session_id: 'sess_parent' }}
+      />,
+    );
+
+    expect(screen.queryByText('Base agent')).not.toBeInTheDocument();
   });
 });
