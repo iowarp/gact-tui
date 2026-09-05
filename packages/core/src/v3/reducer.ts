@@ -362,10 +362,7 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       const payload = envelope.payload as { status?: unknown; prev_status?: unknown };
       if (
         !sessionId ||
-        !(
-          payload.status === 'idle' ||
-          (payload.status === 'running' && payload.prev_status === 'idle')
-        )
+        !(payload.status === 'running' && payload.prev_status === 'idle')
       ) {
         return base;
       }

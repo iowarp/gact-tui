@@ -356,15 +356,23 @@ describe('GACT 0.3 reducer', () => {
 
   it('clears a completed turn before a new session run starts', () => {
     const turnStarted = frame('108', 'turn.started', { turn_id: 'msg_user_1' });
-    const sessionStarted = frame('109', 'session.status_changed', {
+    const sessionSettled = frame('109', 'session.status_changed', {
+      status: 'idle',
+      prev_status: 'running',
+    });
+    const settledState = [turnStarted, sessionSettled].reduce(
+      reduceTransportFrame,
+      createEntityState(),
+    );
+
+    expect(settledState.active_turns).toEqual({ sess_1: 'msg_user_1' });
+
+    const sessionStarted = frame('110', 'session.status_changed', {
       status: 'running',
       prev_status: 'idle',
     });
 
-    const state = [turnStarted, sessionStarted].reduce(
-      reduceTransportFrame,
-      createEntityState(),
-    );
+    const state = reduceTransportFrame(settledState, sessionStarted);
 
     expect(state.active_turns).toEqual({});
   });
