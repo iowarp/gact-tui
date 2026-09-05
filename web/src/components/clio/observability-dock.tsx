@@ -6,6 +6,7 @@ import type {
   ContextSnapshot,
   ExecutionProvenanceDegradation,
   ExecutionProvenanceResult,
+  InfrastructureDependency,
   Message,
   PendingInteraction,
   Run,
@@ -57,6 +58,8 @@ import {
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import { ClioInteractiveRow } from './interactive-row';
+import { ClioInfrastructurePreparation } from './infrastructure-preparation';
+import { infrastructurePreparationLabel } from './infrastructure-preparation-label';
 import {
   asyncProcessDetail,
   agentInteractionActivityItems,
@@ -86,6 +89,7 @@ export interface ClioObservabilityDockProps {
   diffs: readonly SessionDiff[];
   messages: readonly Message[];
   interactions?: readonly PendingInteraction[];
+  infrastructureDependencies?: readonly InfrastructureDependency[];
   processes: readonly AsyncProcess[];
   tasks: readonly Task[];
   tools: readonly ToolInvocation[];
@@ -158,9 +162,18 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     activeActivityCount || sessionActive || sessionNeedsAttention,
   );
   const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
-  const hasAssistantActivity = props.messages.some(
-    (message) => message.role === 'assistant' && message.blocks.length > 0,
+  const assistantResponding = props.messages.some(
+    (message) =>
+      message.role === 'assistant' &&
+      message.blocks.some(
+        (block) =>
+          (block.type === 'text' || block.type === 'reasoning') && block.streaming === true,
+      ),
   );
+  const startupVisible = Boolean(
+    sessionActive && !currentTool && !latestActiveProcess && !currentTask && !assistantResponding,
+  );
+  const startupLabel = infrastructurePreparationLabel(props.infrastructureDependencies ?? []);
   const activityCountLabel = `${activityCount.toLocaleString()} background ${activityCount === 1 ? 'activity' : 'activities'}`;
   const dockLabel = currentTool
     ? getToolPresentation(currentTool).title
@@ -171,14 +184,14 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         : activityCount
           ? activityCountLabel
           : sessionActive
-            ? hasAssistantActivity
+            ? assistantResponding
               ? 'Agent is responding'
-              : 'Starting agent'
+              : startupLabel
             : 'Session details';
   const dockStatus = activeActivityCount
     ? `${activeActivityCount} active`
     : sessionActive
-      ? hasAssistantActivity
+      ? assistantResponding
         ? 'Working'
         : 'Starting'
       : activityCount
@@ -207,7 +220,11 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         ) : (
           <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         )}
-        <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
+        {startupVisible ? (
+          <ClioInfrastructurePreparation dependencies={props.infrastructureDependencies ?? []} />
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
+        )}
         {presentationOverrideCount ? (
           <ClioStatus
             className="hidden py-0.5 sm:inline-flex"
@@ -223,7 +240,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
       {/* Always mounted (not conditionally toggled) so it exists before its text changes, and
           outside the Button so its content never factors into the Button's accessible name. */}
       <span aria-live="polite" className="sr-only">
-        {dockStatus}
+        {startupVisible ? startupLabel : dockStatus}
       </span>
       {props.subagents.length ? (
         <Popover onOpenChange={setChildAgentsOpen} open={childAgentsOpen}>

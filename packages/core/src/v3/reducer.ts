@@ -339,6 +339,18 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       const artifact = artifactSchema.parse(envelope.payload);
       return { ...base, revisions, artifacts: { ...base.artifacts, [artifact.id]: artifact } };
     }
+    case 'turn.started': {
+      const sessionId = envelope.scope.session_id;
+      if (!sessionId) return base;
+      return {
+        ...base,
+        infrastructure: Object.fromEntries(
+          Object.entries(base.infrastructure).filter(
+            ([, dependency]) => dependency.session_id !== sessionId,
+          ),
+        ),
+      };
+    }
     case 'infrastructure.dependency.changed': {
       const dependency = infrastructureDependencySchema.parse(envelope.payload);
       const previous = base.infrastructure[dependency.id];

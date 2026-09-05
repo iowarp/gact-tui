@@ -334,6 +334,25 @@ describe('GACT 0.3 reducer', () => {
     });
   });
 
+  it('starts each turn with a fresh infrastructure preparation projection', () => {
+    const launching = frame('107', 'infrastructure.dependency.changed', {
+      id: 'sess_1:mcp:geo',
+      session_id: 'sess_1',
+      category: 'mcp',
+      namespace: 'geo',
+      title: 'Geo MCP',
+      phase: 'launch',
+      state: 'running',
+      attempt: 1,
+      max_attempts: 3,
+    });
+    const turnStarted = frame('108', 'turn.started', { turn_id: 'msg_user_2' });
+
+    const state = [launching, turnStarted].reduce(reduceTransportFrame, createEntityState());
+
+    expect(state.infrastructure).toEqual({});
+  });
+
   it('guards revisions per entity, not per event type on that entity', () => {
     const upserted = frame(
       '200',

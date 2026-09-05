@@ -24,7 +24,6 @@ import { WorkspaceLoading, WorkspaceUnavailable } from '@/components/clio/worksp
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import {
   WorkspaceLiveConversation,
-  WorkspaceLiveInfrastructurePreparation,
   WorkspaceLiveObservabilityDock,
   WorkspaceLiveObservabilityView,
   WorkspaceLiveStatusStrip,
@@ -412,7 +411,6 @@ export function WorkspacePage() {
       layout
       layoutId={`session-composer:${sessionId}`}
     >
-      <WorkspaceLiveInfrastructurePreparation sessionId={sessionId} />
       <ClioComposer
         activityControl={
           variant === 'docked' ? (

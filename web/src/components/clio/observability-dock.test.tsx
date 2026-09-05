@@ -57,7 +57,7 @@ describe('ClioObservabilityView', () => {
             session_id: 'sess_override_dock',
             role: 'assistant',
             created_at: '2026-08-27T12:00:00Z',
-            blocks: [{ id: 'block_1', type: 'text', text: 'Working on it' }],
+            blocks: [{ id: 'block_1', type: 'text', text: 'Working on it', streaming: true }],
           },
         ]}
         processes={[]}
@@ -105,6 +105,45 @@ describe('ClioObservabilityView', () => {
 
     expect(onOpenCanvas).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('replaces the generic startup label with the active MCP preparation phase', () => {
+    render(
+      <ClioObservabilityDock
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        infrastructureDependencies={[
+          {
+            id: 'sess_1:mcp:geo',
+            session_id: 'sess_1',
+            category: 'mcp',
+            namespace: 'geo',
+            title: 'Geo MCP',
+            phase: 'launch',
+            state: 'running',
+            attempt: 1,
+            max_attempts: 3,
+            observed_active: true,
+          },
+        ]}
+        messages={[]}
+        processes={[]}
+        runs={[]}
+        sessionState="running"
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    expect(
+      screen
+        .getAllByText('Setting up environment (loading MCP Geo)')
+        .find((element) => !element.classList.contains('sr-only')),
+    ).toBeVisible();
+    expect(screen.queryByText('Starting agent')).not.toBeInTheDocument();
   });
 
   it('shows a session waiting on permission with its own typed status, not the running spinner', () => {
@@ -167,7 +206,7 @@ describe('ClioObservabilityView', () => {
             session_id: 'sess_1',
             role: 'assistant',
             created_at: '2026-08-27T12:00:00Z',
-            blocks: [{ id: 'block_1', type: 'text', text: 'Working on it' }],
+            blocks: [{ id: 'block_1', type: 'text', text: 'Working on it', streaming: true }],
           },
         ]}
         processes={[]}
