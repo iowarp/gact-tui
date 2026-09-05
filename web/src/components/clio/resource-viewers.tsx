@@ -35,6 +35,7 @@ import {
   CodeBlockHeader,
   CodeBlockTitle,
 } from '@/components/ai-elements/code-block';
+import { MessageResponse } from '@/components/ai-elements/message';
 import {
   Empty,
   EmptyDescription,
@@ -309,7 +310,13 @@ export function ArtifactView({
     !canLoadInline ? (
       <LargeResourceNotice name={artifact.name} size={previewSize} />
     ) : text.data ? (
-      isCsvPath(artifact.name) || artifact.media_type === 'text/csv' ? (
+      isMarkdownArtifact(artifact.media_type, artifact.name) ? (
+        <article className="min-w-0 overflow-hidden rounded-lg border bg-background px-5 py-4">
+          <MessageResponse className="min-w-0 max-w-none [overflow-wrap:anywhere]">
+            {text.data}
+          </MessageResponse>
+        </article>
+      ) : isCsvPath(artifact.name) || artifact.media_type === 'text/csv' ? (
         <ClioCsvView content={text.data} title={artifact.name} />
       ) : isJsonPath(artifact.name) || artifact.media_type === 'application/json' ? (
         <ClioJsonResourceView content={text.data} title={artifact.name} />
@@ -655,6 +662,13 @@ function isCsvPath(path: string): boolean {
 
 function isJsonPath(path: string): boolean {
   return path.toLowerCase().endsWith('.json');
+}
+
+function isMarkdownArtifact(mediaType: string, name: string): boolean {
+  return (
+    ['text/markdown', 'text/x-markdown'].includes(mediaType) ||
+    ['md', 'markdown'].includes(name.split('.').at(-1)?.toLowerCase() ?? '')
+  );
 }
 
 function isDocumentArtifact(mediaType: string, name: string): boolean {

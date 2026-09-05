@@ -115,17 +115,24 @@ describe('ClioDocumentWorkspace', () => {
   });
 
   it('settles into a readable preview-only state when the registered revision is gone', async () => {
+    const user = userEvent.setup();
     repository.documentManifest.mockRejectedValue(
       new Error('artifact not found: artifact_internal_123'),
     );
     renderWorkspace();
 
-    expect(await screen.findByText('Preview only')).toBeVisible();
-    expect(screen.getByText('Preview only; review and editing unavailable.')).toBeVisible();
+    const warning = await screen.findByRole('button', { name: /Preview only/u });
+    expect(warning).toBeVisible();
+    expect(screen.getByText('Saved content is readable.')).toBeVisible();
+    expect(
+      screen.queryByText(/original registered revision could not be loaded/u),
+    ).not.toBeInTheDocument();
+    await user.click(warning);
     expect(screen.getByText(/original registered revision could not be loaded/u)).toBeVisible();
     expect(screen.getByText('Fallback preview')).toBeVisible();
     expect(screen.queryByText('Checking document capabilities…')).not.toBeInTheDocument();
     expect(screen.getByText('Technical details').closest('details')).not.toHaveAttribute('open');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('uses a confined working copy without duplicating artifact history inside the document', async () => {
