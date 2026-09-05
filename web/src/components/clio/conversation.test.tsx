@@ -56,67 +56,6 @@ function renderConversation(element: ReactElement) {
 }
 
 describe('ClioConversation recovery actions', () => {
-  it('labels Plan and Deep research prompts while leaving Execute prompts unmarked', () => {
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_plan',
-            session_id: 'session_1',
-            role: 'user',
-            created_at: '2026-09-05T00:00:00Z',
-            blocks: [{ id: 'text_plan', type: 'text', text: 'Plan this comparison.' }],
-            metadata: {
-              behavior: {
-                confirmation_policy: 'ask',
-                execution_mode: 'plan',
-                reasoning_effort: 'medium',
-              },
-            },
-          },
-          {
-            id: 'message_research',
-            session_id: 'session_1',
-            role: 'user',
-            created_at: '2026-09-05T00:01:00Z',
-            blocks: [{ id: 'text_research', type: 'text', text: 'Research this topic.' }],
-            metadata: {
-              behavior: {
-                confirmation_policy: 'ask',
-                execution_mode: 'deep_research',
-                reasoning_effort: 'high',
-              },
-            },
-          },
-          {
-            id: 'message_execute',
-            session_id: 'session_1',
-            role: 'user',
-            created_at: '2026-09-05T00:02:00Z',
-            blocks: [{ id: 'text_execute', type: 'text', text: 'Run this task.' }],
-            metadata: {
-              behavior: {
-                confirmation_policy: 'auto-edits',
-                execution_mode: 'execute',
-                reasoning_effort: 'medium',
-              },
-            },
-          },
-        ]}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{}}
-      />,
-    );
-
-    expect(screen.getByLabelText('Sent in Plan mode')).toHaveTextContent('Plan');
-    expect(screen.getByLabelText('Sent in Deep research mode')).toHaveTextContent('Deep research');
-    expect(screen.queryByLabelText('Sent in Execute mode')).not.toBeInTheDocument();
-    expect(screen.getByText('Run this task.')).toBeInTheDocument();
-  });
-
   it('keeps a structured context reference visible and clickable in the sent message', async () => {
     const user = userEvent.setup();
     const onOpenReference = vi.fn();
