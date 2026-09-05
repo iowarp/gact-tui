@@ -631,6 +631,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                             ? 'text-foreground'
                             : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
                         )}
+                        onAuxClick={(event) => {
+                          if (event.button !== 1) return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          closeTab(tab.id);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key !== 'Delete') return;
                           event.preventDefault();

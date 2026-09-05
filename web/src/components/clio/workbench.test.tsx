@@ -134,7 +134,7 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('No session artifacts')).toBeVisible();
   });
 
-  it('closes a tab by pointer or by the shortcut it announces, and owns nothing but tabs', async () => {
+  it('closes a tab by pointer, middle click, or its announced shortcut', async () => {
     const user = userEvent.setup();
     const { container } = renderWorkbench();
 
@@ -168,8 +168,25 @@ describe('ClioWorkbench canvas', () => {
     await user.keyboard('{ArrowRight}');
     expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
 
+    // Browser-style middle click closes the tab, while another auxiliary button does nothing.
+    fireEvent(
+      artifactsTab,
+      new MouseEvent('auxclick', { bubbles: true, button: 2, cancelable: true }),
+    );
+    expect(screen.getByRole('tab', { name: 'Artifacts' })).toBeInTheDocument();
+    fireEvent(
+      artifactsTab,
+      new MouseEvent('auxclick', { bubbles: true, button: 1, cancelable: true }),
+    );
+    expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
+    expect(observabilityTab).toHaveAttribute('aria-selected', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
+    const reopenedArtifactsTab = screen.getByRole('tab', { name: 'Artifacts' });
+
     // The keyboard route the tab advertises closes it...
-    act(() => artifactsTab.focus());
+    act(() => reopenedArtifactsTab.focus());
     await user.keyboard('{Delete}');
     expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
 
