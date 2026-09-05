@@ -198,7 +198,7 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByText('Analyze this filing.')).toBeInTheDocument();
     const textBubble = screen
       .getByText('Analyze this filing.')
-      .closest('[data-slot="message-text"]');
+      .closest<HTMLElement>('[data-slot="message-text"]');
     expect(textBubble).toHaveClass(
       'group-[.is-user]:rounded-lg',
       'group-[.is-user]:bg-secondary',
