@@ -9,24 +9,32 @@ const unexpectedErrors = new WeakMap<Page, string[]>();
 async function settleConversationAtLatest(page: Page) {
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation).toBeVisible();
-  for (let pass = 0; pass < 2; pass += 1) {
-    await conversation.evaluate((element) => {
-      element.scrollTo({ behavior: 'instant', top: element.scrollHeight });
-    });
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-        ),
-    );
-  }
+  let previousHeight = -1;
+  let stablePasses = 0;
   await expect
-    .poll(() =>
-      conversation.evaluate(
-        (element) => element.scrollHeight - element.scrollTop - element.clientHeight,
-      ),
+    .poll(
+      async () => {
+        const metrics = await conversation.evaluate((element) => {
+          element.scrollTo({ behavior: 'instant', top: element.scrollHeight });
+          return {
+            bottomGap: element.scrollHeight - element.scrollTop - element.clientHeight,
+            scrollHeight: element.scrollHeight,
+          };
+        });
+        await page.evaluate(
+          () =>
+            new Promise<void>((resolve) =>
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+            ),
+        );
+        stablePasses =
+          metrics.bottomGap <= 1 && metrics.scrollHeight === previousHeight ? stablePasses + 1 : 0;
+        previousHeight = metrics.scrollHeight;
+        return stablePasses;
+      },
+      { intervals: [50, 100, 200], timeout: 10_000 },
     )
-    .toBeLessThanOrEqual(1);
+    .toBeGreaterThanOrEqual(3);
 }
 
 async function waitForArtifactPreview(page: Page) {
