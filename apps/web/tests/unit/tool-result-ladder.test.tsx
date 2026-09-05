@@ -2109,3 +2109,57 @@ describe('long string values in wells clamp with an expand affordance, never ren
     expect(screen.queryByTestId('part-tool-block-text-expand')).toBeNull();
   });
 });
+
+describe('external input provenance', () => {
+  it('renders readable external source locators on a successful output-free tool call', () => {
+    render(
+      <ToolPart
+        call={toolCall('pandas_profile_csv', { data_path: 'D:/data/observations.csv' }, 'call_prov_1')}
+        result={toolResult('call_prov_1', {
+          content: [{ type: 'text', text: 'profile complete' }],
+          metadata: {
+            provenance_inputs: [
+              {
+                name: 'observations.csv',
+                locator: 'D:/data/observations.csv',
+                arg: 'data_path',
+                evidence: 'schema-arg',
+                note: 'external_input_not_hashed',
+              },
+            ],
+          },
+        })}
+      />,
+    );
+    openRow(/pandas_profile_csv/);
+    const sources = screen.getByTestId('part-tool-input-sources');
+    expect(sources).toHaveTextContent('Input sources');
+    expect(sources).toHaveTextContent('observations.csv');
+    expect(sources).toHaveTextContent('D:/data/observations.csv');
+  });
+
+  it('renders a provenance-incomplete warning for an unknown external path contract', () => {
+    render(
+      <ToolPart
+        call={toolCall('unknown_reader', { path: 'D:/data/observations.csv' }, 'call_prov_2')}
+        result={toolResult('call_prov_2', {
+          content: [{ type: 'text', text: 'completed' }],
+          metadata: {
+            provenance_warnings: [
+              {
+                reason: 'external_input_contract_unknown',
+                tool: 'unknown_reader',
+                arg: 'path',
+                value: 'D:/data/observations.csv',
+              },
+            ],
+          },
+        })}
+      />,
+    );
+    openRow(/unknown_reader/);
+    expect(screen.getByTestId('part-tool-provenance-incomplete')).toHaveTextContent(
+      'provenance incomplete',
+    );
+  });
+});

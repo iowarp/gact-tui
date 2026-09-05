@@ -189,7 +189,48 @@ export const MOCK_WIRE_MESSAGE = {
           text: 'staged 1,101 rows',
         },
       ],
-      metadata: { stream_source: 'live' },
+      metadata: {
+        stream_source: 'live',
+        provenance_inputs: [
+          {
+            name: 'earthscope_stations.csv',
+            locator: 'D:/external/earthscope_stations.csv',
+            arg: 'data_path',
+            evidence: 'schema-arg',
+            note: 'external_input_not_hashed',
+          },
+        ],
+      },
+    },
+    {
+      type: 'tool_call',
+      id: 'live_call_unknown_call',
+      agent_id: 'data',
+      call_id: 'call_unknown_external',
+      tool_name: 'unknown_reader',
+      input: { path: 'D:/external/unclassified.csv' },
+      sequence: 8,
+      metadata: { stream_source: 'live', telemetry_source: 'live_observer' },
+    },
+    {
+      type: 'tool_result',
+      id: 'live_call_unknown_result',
+      agent_id: 'data',
+      call_id: 'call_unknown_external',
+      is_error: false,
+      duration_ms: 12.0,
+      content: [{ type: 'text', text: 'completed' }],
+      metadata: {
+        stream_source: 'live',
+        provenance_warnings: [
+          {
+            reason: 'external_input_contract_unknown',
+            tool: 'unknown_reader',
+            arg: 'path',
+            value: 'D:/external/unclassified.csv',
+          },
+        ],
+      },
     },
     {
       // artifacts/wire.py:186

@@ -1699,6 +1699,13 @@ export function ToolPart({ call, result }: ToolPartProps) {
     !open && previewSource && !waited ? truncate(normalizeWhitespace(previewSource), PREVIEW_MAX) : '';
 
   const thought = str(call['thought']);
+  const resultMetadata = result && isRecord(result['metadata']) ? result['metadata'] : {};
+  const provenanceInputs = Array.isArray(resultMetadata['provenance_inputs'])
+    ? resultMetadata['provenance_inputs'].filter(isRecord)
+    : [];
+  const provenanceWarnings = Array.isArray(resultMetadata['provenance_warnings'])
+    ? resultMetadata['provenance_warnings'].filter(isRecord)
+    : [];
 
   // A) Tool titles (owner design 2026-08-05): `tool_title`/`server_title` are
   // OPTIONAL wire fields on the tool_call. Presence is judged on the RAW
@@ -1779,6 +1786,22 @@ export function ToolPart({ call, result }: ToolPartProps) {
       {open ? (
         <div className="part-toolrow__well" data-error={isError ? 'true' : undefined}>
           <MetadataChips attempts={attempts} budgets={budgets} />
+          {provenanceInputs.length > 0 ? (
+            <div className="part-toolrow__group" data-testid="part-tool-input-sources">
+              <SectionLabel>Input sources</SectionLabel>
+              <KvRows
+                rows={provenanceInputs.map((source) => ({
+                  k: str(source['name']) || 'external file',
+                  v: str(source['locator']),
+                }))}
+              />
+            </div>
+          ) : null}
+          {provenanceWarnings.length > 0 ? (
+            <p className="part-toolrow__conflicts" data-testid="part-tool-provenance-incomplete">
+              provenance incomplete: this tool has an unrecognized external file argument
+            </p>
+          ) : null}
           {/* Call-box section grammar (owner correction, clio#1218f):
               the request arguments and the result render as two labeled,
               visually distinct regions — never contiguous rows a reader has
