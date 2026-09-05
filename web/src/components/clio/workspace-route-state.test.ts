@@ -4,6 +4,7 @@ import {
   canOpenSessionStream,
   canUploadWorkspaceResources,
   conversationUnavailableMessage,
+  planRevisionFromComposer,
 } from './workspace-route-state';
 
 describe('workspace route state', () => {
@@ -31,5 +32,61 @@ describe('workspace route state', () => {
     });
 
     expect(conversationUnavailableMessage(error)).toBe('Unhandled server error.');
+  });
+
+  it('routes typed composer feedback to the pending Plan review as a revision', () => {
+    const interaction = {
+      id: 'question:plan_exit',
+      kind: 'question' as const,
+      owner_session_id: 'sess_1',
+      attended_session_id: 'sess_1',
+      status: 'pending' as const,
+      title: 'Review execution plan',
+      source: { protocol: 'native' as const, tool_name: 'plan_exit' },
+      created_at: '2026-09-05T00:00:00Z',
+      actions: ['answer'],
+    };
+
+    expect(
+      planRevisionFromComposer([interaction], {
+        delivery: 'start',
+        text: 'Add rollback and verification steps.',
+      }),
+    ).toEqual({
+      interaction,
+      response: {
+        action: 'answer',
+        answer: 'Add rollback and verification steps.',
+        selected_options: ['reject'],
+      },
+    });
+  });
+
+  it('does not consume ordinary messages or drop revision attachments', () => {
+    const interaction = {
+      id: 'question:plan_exit',
+      kind: 'question' as const,
+      owner_session_id: 'sess_1',
+      attended_session_id: 'sess_1',
+      status: 'pending' as const,
+      title: 'Review execution plan',
+      source: { protocol: 'native' as const, tool_name: 'plan_exit' },
+      created_at: '2026-09-05T00:00:00Z',
+      actions: ['answer'],
+    };
+
+    expect(
+      planRevisionFromComposer([interaction], {
+        delivery: 'start',
+        files: [{}],
+        text: 'Use this reference.',
+      }),
+    ).toBeUndefined();
+    expect(
+      planRevisionFromComposer([{ ...interaction, status: 'answered' }], {
+        delivery: 'start',
+        text: 'Start a new task.',
+      }),
+    ).toBeUndefined();
   });
 });

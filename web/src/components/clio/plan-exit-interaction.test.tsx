@@ -59,10 +59,11 @@ describe('PlanExitResponse', () => {
     expect(planHeading.closest('.space-y-2')).not.toBeNull();
     expect(screen.getByText('Agent recommendation:')).toHaveTextContent('interactive');
     expect(screen.getByText(/Risks: The session mode must change/)).toBeVisible();
-    await user.click(screen.getByRole('radio', { name: 'Approve — auto-execute' }));
-    await user.click(screen.getByRole('checkbox', { name: 'Also clear context (modifier)' }));
+    await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
+    await user.click(screen.getByRole('option', { name: 'Auto-execute' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Clear conversation context' }));
     await user.type(screen.getByRole('textbox', { name: 'Comment (optional)' }), 'Proceed now.');
-    await user.click(screen.getByRole('button', { name: 'Submit plan decision' }));
+    await user.click(screen.getByRole('button', { name: 'Approve plan' }));
 
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
@@ -97,10 +98,12 @@ describe('PlanExitResponse', () => {
     );
 
     expect(screen.getByText(/saved plan is unavailable/i)).toBeVisible();
-    await user.click(screen.getByRole('radio', { name: 'Approve — auto-execute' }));
-    expect(screen.getByRole('button', { name: 'Submit plan decision' })).toBeDisabled();
-    await user.click(screen.getByRole('radio', { name: 'Exit plan mode only' }));
-    await user.click(screen.getByRole('button', { name: 'Submit plan decision' }));
+    await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
+    await user.click(screen.getByRole('option', { name: 'Auto-execute' }));
+    expect(screen.getByRole('button', { name: 'Approve plan' })).toBeDisabled();
+    await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
+    await user.click(screen.getByRole('option', { name: 'Exit Plan mode only' }));
+    await user.click(screen.getByRole('button', { name: 'Approve plan' }));
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
       selected_options: ['exit_only'],
@@ -135,7 +138,39 @@ describe('PlanExitResponse', () => {
     expect(
       await screen.findByRole('heading', { name: 'Accepted implementation plan' }),
     ).toBeVisible();
-    expect(screen.getByRole('status')).toHaveTextContent('Approved · Approve — auto-execute');
-    expect(screen.queryByRole('button', { name: 'Submit plan decision' })).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Approved · Auto-execute');
+    expect(screen.queryByRole('button', { name: 'Approve plan' })).not.toBeInTheDocument();
+  });
+
+  it('keeps composer revision feedback visible with the reviewed plan', async () => {
+    const interaction = planInteraction({
+      status: 'answered',
+      requires_human_response: false,
+      actions: [],
+      payload: {
+        answer_metadata: {
+          answer: 'Add rollback and verification steps.',
+          selected_options: ['reject'],
+        },
+        options: [{ label: 'Request changes — keep planning', value: 'reject' }],
+        plan_exit: {
+          summary: 'Create the requested file after approval.',
+          plan_file: 'D:/workspace/.clio/plans/plan.md',
+          plan_content: '# Implementation plan\n\n1. Create the file.',
+          plan_content_status: 'complete',
+        },
+      },
+    });
+
+    render(
+      <PlanExitResponse
+        interaction={interaction}
+        onResponse={vi.fn(async () => undefined)}
+        showOwner={false}
+      />,
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Changes requested');
+    expect(screen.getByRole('status')).toHaveTextContent('Add rollback and verification steps.');
   });
 });

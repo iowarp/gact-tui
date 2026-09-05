@@ -494,16 +494,17 @@ export function WorkspacePage() {
             throw error;
           }
         }}
-        onRetryModelCatalog={() => {
-          void providerCatalog.refetch();
-        }}
+        onRetryModelCatalog={() => void providerCatalog.refetch()}
         onPrepareFiles={prepareFiles}
         onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
         onSubmit={async (value) => {
           const startedFromWelcome = showConversationWelcome;
           if (startedFromWelcome) setConversationStarted(true);
           try {
-            await send.mutateAsync(value);
+            const revision = workspaceRouteState.planRevisionFromComposer(interactions, value);
+            await (revision
+              ? handleInteractionResponse(revision.interaction, revision.response)
+              : send.mutateAsync(value));
           } catch (error) {
             if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
             throw error;

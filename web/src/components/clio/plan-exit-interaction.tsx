@@ -21,7 +21,14 @@ import {
   FieldLabel,
   FieldTitle,
 } from '@/components/ui/field';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { DOCUMENT_MARKDOWN_CLASS_NAME } from '@/lib/document-markdown';
 import { respondFromControl } from './interaction-control';
@@ -99,19 +106,18 @@ export function PlanExitResponse({
   const [feedback, setFeedback] = useState('');
   const plan = interaction.payload?.plan_exit;
   const options = interaction.payload?.options ?? [];
-  const decisions = options.filter((option) => (option.value || option.label) !== 'clear_context');
+  const decisions = options.filter((option) =>
+    ['auto', 'interactive', 'exit_only'].includes(option.value || option.label),
+  );
   const clearOption = options.find((option) => (option.value || option.label) === 'clear_context');
-  const rejectionNeedsFeedback = decision === 'reject' && !feedback.trim();
+  const selectedDecision = decisions.find((option) => (option.value || option.label) === decision);
   const canAnswer =
     interaction.status === 'pending' && (interaction.actions ?? []).includes('answer');
   const requiresCompleteReview = decision === 'auto' || decision === 'interactive';
   const planReviewComplete =
     plan?.plan_content_status === 'complete' && Boolean(plan.plan_content?.trim());
   const canSubmit =
-    canAnswer &&
-    Boolean(decision) &&
-    !rejectionNeedsFeedback &&
-    (!requiresCompleteReview || planReviewComplete);
+    canAnswer && Boolean(decision) && (!requiresCompleteReview || planReviewComplete);
 
   return (
     <Frame
@@ -189,46 +195,55 @@ export function PlanExitResponse({
         </Plan>
 
         {interaction.status !== 'pending' ? (
-          <PlanDecision interaction={interaction} options={options} />
+          <PlanDecision interaction={interaction} />
         ) : !canAnswer ? (
           <p className="text-sm text-muted-foreground">Plan controls are not available yet.</p>
         ) : (
           <>
-            <RadioGroup disabled={disabled} onValueChange={setDecision} value={decision}>
-              {decisions.map((option) => {
-                const value = option.value || option.label;
-                const label = value === 'reject' ? 'Request changes' : option.label;
-                return (
-                  <FieldLabel htmlFor={`${interaction.id}-${value}`} key={value}>
-                    <Field orientation="horizontal">
-                      <RadioGroupItem
-                        aria-label={label}
-                        id={`${interaction.id}-${value}`}
-                        value={value}
-                      />
-                      <FieldContent>
-                        <FieldTitle>{label}</FieldTitle>
-                        {option.description ? (
-                          <FieldDescription>{option.description}</FieldDescription>
-                        ) : null}
-                      </FieldContent>
-                    </Field>
-                  </FieldLabel>
-                );
-              })}
-            </RadioGroup>
+            <Field>
+              <FieldLabel htmlFor={`${interaction.id}-execution-mode`}>Execution mode</FieldLabel>
+              <Select disabled={disabled} onValueChange={setDecision} value={decision}>
+                <SelectTrigger
+                  className="w-full"
+                  id={`${interaction.id}-execution-mode`}
+                  aria-label="Execution mode"
+                >
+                  <SelectValue placeholder="Choose how to continue" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {decisions.map((option) => {
+                      const value = option.value || option.label;
+                      return (
+                        <SelectItem key={value} value={value}>
+                          {planModeLabel(value)}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {selectedDecision?.description ??
+                  'Choose whether approval should execute now, ask before actions, or only leave Plan mode.'}
+              </FieldDescription>
+            </Field>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Need a revision? Write the changes in the composer and send them while this review is
+              open.
+            </p>
             {clearOption ? (
               <FieldLabel className="mt-2" htmlFor={`${interaction.id}-clear-context`}>
                 <Field orientation="horizontal">
                   <Checkbox
-                    aria-label={clearOption.label}
+                    aria-label="Clear conversation context"
                     checked={clearContext}
                     disabled={disabled}
                     id={`${interaction.id}-clear-context`}
                     onCheckedChange={(checked) => setClearContext(checked === true)}
                   />
                   <FieldContent>
-                    <FieldTitle>{clearOption.label}</FieldTitle>
+                    <FieldTitle>Clear conversation context</FieldTitle>
                     {clearOption.description ? (
                       <FieldDescription>{clearOption.description}</FieldDescription>
                     ) : null}
@@ -238,19 +253,15 @@ export function PlanExitResponse({
             ) : null}
             <div className="mt-3 grid min-w-0 gap-1">
               <FieldLabel htmlFor={`${interaction.id}-plan-feedback`}>
-                {decision === 'reject' ? 'Revision feedback' : 'Comment (optional)'}
+                Comment (optional)
               </FieldLabel>
               <Textarea
-                aria-label={decision === 'reject' ? 'Revision feedback' : 'Comment (optional)'}
+                aria-label="Comment (optional)"
                 className="min-h-16 w-full resize-y field-sizing-fixed"
                 disabled={disabled}
                 id={`${interaction.id}-plan-feedback`}
                 onChange={(event) => setFeedback(event.target.value)}
-                placeholder={
-                  decision === 'reject'
-                    ? 'Explain what the agent should revise before asking again.'
-                    : 'Add context for execution'
-                }
+                placeholder="Add context for execution"
                 value={feedback}
               />
             </div>
@@ -267,7 +278,7 @@ export function PlanExitResponse({
                   )
                 }
               >
-                Submit plan decision
+                Approve plan
               </Button>
             </div>
           </>
@@ -277,21 +288,21 @@ export function PlanExitResponse({
   );
 }
 
-function PlanDecision({
-  interaction,
-  options,
-}: {
-  interaction: PendingInteraction;
-  options: Array<{ label: string; value: string; description?: string }>;
-}) {
+function planModeLabel(value: string): string {
+  if (value === 'auto') return 'Auto-execute';
+  if (value === 'interactive') return 'Interactive';
+  if (value === 'exit_only') return 'Exit Plan mode only';
+  return value;
+}
+
+function PlanDecision({ interaction }: { interaction: PendingInteraction }) {
   const selected = selectedOptions(interaction);
   const decision = selected.find((value) => value !== 'clear_context');
-  const option = options.find((candidate) => (candidate.value || candidate.label) === decision);
   const label =
     decision === 'reject'
       ? 'Changes requested'
       : decision
-        ? `Approved · ${option?.label ?? decision}`
+        ? `Approved · ${planModeLabel(decision)}`
         : interaction.status === 'cancelled'
           ? 'Plan review cancelled'
           : interaction.status === 'expired'
@@ -306,6 +317,11 @@ function PlanDecision({
       <div className="font-medium text-foreground">{label}</div>
       {selected.includes('clear_context') ? (
         <p className="mt-1 text-xs text-muted-foreground">Conversation context was cleared.</p>
+      ) : null}
+      {decision === 'reject' && typeof interaction.payload?.answer_metadata?.answer === 'string' ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {interaction.payload.answer_metadata.answer}
+        </p>
       ) : null}
     </div>
   );

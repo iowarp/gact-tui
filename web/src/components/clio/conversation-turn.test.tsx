@@ -133,8 +133,9 @@ describe('ConversationTurn correlated work placement', () => {
     expect(
       await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 5_000 }),
     ).toBeVisible();
-    expect(screen.getByRole('radio', { name: 'Approve — auto-execute' })).toBeVisible();
-    expect(screen.getByRole('radio', { name: 'Request changes' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
+    expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
+    expect(screen.getByText(/write the changes in the composer/i)).toBeVisible();
   });
 
   it('renders tools and tasks in the wire order that links them', () => {
