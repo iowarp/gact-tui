@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
+import type { SessionArtifactListing } from '@clio/core/v3';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,7 +17,15 @@ const mocks = vi.hoisted(() => ({
     providerCatalog: vi.fn(async () => ({ providers: [] })),
     providerModels: vi.fn(async () => ({ models: [] })),
     resources: vi.fn(async () => []),
-    sessionArtifacts: vi.fn(async () => ({ artifacts: [], used: [] })),
+    sessionArtifacts: vi.fn(
+      async (): Promise<SessionArtifactListing> => ({
+        artifacts: [],
+        used: [],
+        count: 0,
+        include_children: true,
+        child_session_ids: [],
+      }),
+    ),
     sessions: vi.fn(async () => [] as unknown[]),
     transcript: vi.fn(async () => ({
       messages: [],
