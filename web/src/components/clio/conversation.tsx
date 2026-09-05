@@ -7,7 +7,9 @@ import {
   CopyIcon,
   EyeIcon,
   GitBranchIcon,
+  Globe2Icon,
   LoaderCircleIcon,
+  MapIcon,
   RotateCcwIcon,
   UserIcon,
   XIcon,
@@ -25,6 +27,7 @@ import {
   MessageContent,
 } from '@/components/ai-elements/message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
@@ -40,6 +43,7 @@ import type { ClioConversationProps, ConversationMessageRowProps } from './conve
 import {
   isProjectedQuestionResumeEnvelope,
   mcpAppResponsesForMessages,
+  specialMessageExecutionMode,
 } from './conversation-message-projection';
 import { McpAppResponseMessageRow } from './conversation-message-projections';
 
@@ -68,6 +72,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
   const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
   const { linkedSubagentIds, residualBlocks } = turn;
+  const executionMode = specialMessageExecutionMode(message);
 
   if (mcpAppResponse) {
     return (
@@ -185,6 +190,17 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                 minute: '2-digit',
               })}
             </time>
+            {executionMode === 'plan' ? (
+              <Badge aria-label="Sent in Plan mode" variant="outline">
+                <MapIcon aria-hidden="true" data-icon="inline-start" />
+                Plan
+              </Badge>
+            ) : executionMode === 'deep_research' ? (
+              <Badge aria-label="Sent in Deep research mode" variant="outline">
+                <Globe2Icon aria-hidden="true" data-icon="inline-start" />
+                Deep research
+              </Badge>
+            ) : null}
             {message.role === 'assistant' && turn.iterations.length > 0 ? (
               <ToggleGroup
                 aria-label="Activity detail"

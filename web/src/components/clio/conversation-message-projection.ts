@@ -3,6 +3,19 @@ import type { McpAppResponseActivityData } from './mcp-app-surface';
 
 type McpAppBlock = Extract<DomainMessage['blocks'][number], { type: 'mcp_app' }>;
 
+export type SpecialMessageExecutionMode = 'plan' | 'deep_research';
+
+/** Return the non-default execution mode recorded when a human message was submitted. */
+export function specialMessageExecutionMode(
+  message: DomainMessage,
+): SpecialMessageExecutionMode | undefined {
+  if (message.role !== 'user') return undefined;
+  const behavior = message.metadata?.behavior;
+  if (!behavior || typeof behavior !== 'object' || Array.isArray(behavior)) return undefined;
+  const mode = (behavior as Record<string, unknown>).execution_mode;
+  return mode === 'plan' || mode === 'deep_research' ? mode : undefined;
+}
+
 /** Classify a native question answer envelope already owned by a projected interaction. */
 export function isProjectedQuestionResumeEnvelope(
   message: DomainMessage,
