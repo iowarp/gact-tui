@@ -89,13 +89,30 @@ function TranscriptResourceAttachmentItem({
   resource,
   onOpen,
 }: TranscriptResourceAttachmentProps) {
-  const filename = resource?.name ?? block.name;
   const mediaType = resource?.detected_mime || block.media_type;
-  const availability = resourceAvailability(resource, block.delivery);
-  const stages = resourcePipelineStages(resource, availability);
+
+  if (mediaType?.startsWith('image/')) {
+    return <TranscriptImageResourceAttachment block={block} onOpen={onOpen} resource={resource} />;
+  }
+
+  return (
+    <TranscriptResourceAttachmentDisplay
+      block={block}
+      onOpen={onOpen}
+      resource={resource}
+      visual={false}
+    />
+  );
+}
+
+function TranscriptImageResourceAttachment({
+  block,
+  resource,
+  onOpen,
+}: TranscriptResourceAttachmentProps) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const visual = mediaType?.startsWith('image/') ?? false;
+  const mediaType = resource?.detected_mime || block.media_type || 'image/*';
   const preview = useQuery({
     queryKey: queryKeys.workspaceResourcePreview(
       settings.endpoint,
@@ -109,9 +126,32 @@ function TranscriptResourceAttachmentItem({
         resource?.id ?? block.resource_id,
         signal,
       ),
-    enabled: visual && resource?.state === 'ready',
+    enabled: resource?.state === 'ready',
   });
-  const previewUrl = useObjectUrl(preview.data, mediaType || 'application/octet-stream');
+  const previewUrl = useObjectUrl(preview.data, mediaType);
+
+  return (
+    <TranscriptResourceAttachmentDisplay
+      block={block}
+      onOpen={onOpen}
+      previewUrl={previewUrl}
+      resource={resource}
+      visual
+    />
+  );
+}
+
+function TranscriptResourceAttachmentDisplay({
+  block,
+  resource,
+  onOpen,
+  previewUrl,
+  visual,
+}: TranscriptResourceAttachmentProps & { previewUrl?: string; visual: boolean }) {
+  const filename = resource?.name ?? block.name;
+  const mediaType = resource?.detected_mime || block.media_type;
+  const availability = resourceAvailability(resource, block.delivery);
+  const stages = resourcePipelineStages(resource, availability);
 
   const open = () => {
     if (resource) onOpen?.(resource);
