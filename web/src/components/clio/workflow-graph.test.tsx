@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildExecutionProvenanceGraph, buildWorkflowGraph } from './workflow-graph';
+import {
+  buildExecutionProvenanceGraph,
+  buildWorkflowGraph,
+  initialExecutionViewport,
+} from './workflow-graph';
 
 describe('buildWorkflowGraph', () => {
   it('builds an accessible session-to-child topology from authoritative processes', () => {
@@ -86,6 +90,44 @@ describe('buildWorkflowGraph', () => {
 });
 
 describe('buildExecutionProvenanceGraph', () => {
+  it('opens dense graphs at a readable root detail instead of shrinking every node to fit', () => {
+    const nodes = Array.from({ length: 25 }, (_, index) => ({
+      id: index === 0 ? 'session:session_root' : `tool:${index}`,
+      type: 'clio-execution' as const,
+      position: { x: index === 0 ? 1_200 : index * 10, y: index * 100 },
+      data: {
+        label: `Node ${index}`,
+        detail: index === 0 ? 'session, main' : 'tool, researcher',
+        status: 'completed',
+        width: 196,
+        direction: 'TB' as const,
+      },
+    }));
+
+    expect(
+      initialExecutionViewport(
+        nodes,
+        { root_session_id: 'session_root', session_id: 'session_root' },
+        'TB',
+      ),
+    ).toEqual({
+      fitView: false,
+      isReadableDetail: true,
+      viewport: { x: -892, y: 20, zoom: 0.76 },
+    });
+    expect(
+      initialExecutionViewport(
+        nodes.slice(0, 24),
+        { root_session_id: 'session_root', session_id: 'session_root' },
+        'TB',
+      ),
+    ).toEqual({
+      fitView: true,
+      isReadableDetail: false,
+      viewport: { x: 0, y: 0, zoom: 1 },
+    });
+  });
+
   it('preserves every provider relationship and exposes missing referenced nodes', () => {
     const graph = buildExecutionProvenanceGraph(
       {

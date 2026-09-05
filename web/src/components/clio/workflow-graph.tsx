@@ -172,6 +172,7 @@ export function ClioExecutionProvenanceGraph({
     };
   }, [horizontal, onOpenSubagent, provenance, subagents]);
   const height = Math.min(760, Math.max(300, graph.nodes.length * (horizontal ? 42 : 72)));
+  const initialView = initialExecutionViewport(graph.nodes, provenance, horizontal ? 'LR' : 'TB');
 
   return (
     <Frame spacing="sm" variant="ghost">
@@ -184,6 +185,12 @@ export function ClioExecutionProvenanceGraph({
               {description ??
                 `${provenance.nodes.length.toLocaleString()} nodes and ${provenance.edges.length.toLocaleString()} relationships reported by ${provenance.provider}.`}
             </p>
+            {initialView.isReadableDetail ? (
+              <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                Opened at readable detail. Pan to follow the research path, or use Fit view for the
+                complete map.
+              </p>
+            ) : null}
           </div>
         </div>
       </FrameHeader>
@@ -196,9 +203,11 @@ export function ClioExecutionProvenanceGraph({
           style={{ height }}
         >
           <ReactFlow
+            defaultViewport={initialView.viewport}
             edges={graph.edges}
-            fitView
+            fitView={initialView.fitView}
             fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
+            key={`${provenance.session_id}:${horizontal ? 'wide' : 'narrow'}:${graph.nodes.length}`}
             maxZoom={1.75}
             minZoom={0.12}
             nodeTypes={executionNodeTypes}
@@ -215,6 +224,38 @@ export function ClioExecutionProvenanceGraph({
       </FramePanel>
     </Frame>
   );
+}
+
+/** Keep dense provenance readable on first paint while retaining Fit view as an explicit overview. */
+// oxlint-disable-next-line react/only-export-components
+export function initialExecutionViewport(
+  nodes: readonly Node<ExecutionNodeData, 'clio-execution'>[],
+  provenance: Pick<ExecutionProvenanceResult, 'root_session_id' | 'session_id'>,
+  direction: 'LR' | 'TB',
+): {
+  fitView: boolean;
+  isReadableDetail: boolean;
+  viewport: { x: number; y: number; zoom: number };
+} {
+  if (nodes.length <= 24) {
+    return { fitView: true, isReadableDetail: false, viewport: { x: 0, y: 0, zoom: 1 } };
+  }
+
+  const rootSessionId = provenance.root_session_id || provenance.session_id;
+  const start =
+    nodes.find((node) => node.id === `session:${rootSessionId}`) ??
+    nodes.find((node) => node.data.detail.startsWith('session')) ??
+    nodes[0];
+  const zoom = direction === 'LR' ? 0.82 : 0.76;
+  return {
+    fitView: false,
+    isReadableDetail: true,
+    viewport: {
+      x: 20 - (start?.position.x ?? 0) * zoom,
+      y: 20 - (start?.position.y ?? 0) * zoom,
+      zoom,
+    },
+  };
 }
 
 // Pure construction preserves every service-reported relationship and exposes broken references.
