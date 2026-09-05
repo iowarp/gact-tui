@@ -44,8 +44,6 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 
 type SetupTarget = 'local' | 'ssh' | 'existing';
 
-
-
 export function WebSearchSetup({
   onOpenChange,
   open,
@@ -137,7 +135,7 @@ export function WebSearchSetup({
 
   return (
     <Dialog onOpenChange={handleOpenChange} open={open}>
-      <DialogContent className="grid max-h-[min(760px,calc(100dvh-2rem))] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl">
+      <DialogContent className="top-[10dvh] grid max-h-[80dvh] translate-y-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Set up web search and document reading</DialogTitle>
           <DialogDescription>
@@ -305,6 +303,9 @@ export function WebSearchSetup({
             />
             <FieldDescription>
               This must be reachable from the connected agent service, not only from this browser.
+              Connect to agent configures the Web MCP with this address. Search and HTML fetches can
+              appear to work without it, but PDF and Office conversion, progress, and saved outputs
+              cannot.
             </FieldDescription>
             {connect.isPending ? (
               <p className="text-sm text-muted-foreground">
