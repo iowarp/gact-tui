@@ -342,6 +342,10 @@ export function queryInvalidationKeysForEvent({
     keys.push(
       queryKeys.sessions(endpoint, workspaceId),
       queryKeys.sessions(endpoint, 'all'),
+      // Artifact lifecycle records are emitted as semantic events on current
+      // runtimes. Reconcile the registry at the authoritative turn boundary so
+      // a newly returned resource link never waits for a page reload.
+      queryKeys.sessionArtifacts(endpoint, sessionId),
       queryKeys.sessionObservability(endpoint, sessionId),
       queryKeys.sessionContext(endpoint, sessionId),
     );

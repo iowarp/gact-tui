@@ -173,6 +173,14 @@ describe('useSessionLiveStream resume recovery', () => {
       'http://127.0.0.1:8790',
       'sess_1',
     ]);
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'message.completed',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).toContainEqual(['session-artifacts', 'http://127.0.0.1:8790', 'sess_1']);
   });
 
   it('refreshes the steer list a queued-message promotion creates', () => {
