@@ -198,7 +198,7 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByText('Analyze this filing.')).toBeInTheDocument();
     expect(screen.queryByText(/private runtime context/i)).not.toBeInTheDocument();
     fireEvent.click(attachment);
-    expect(onOpenResource).toHaveBeenCalledWith(resource);
+    expect(onOpenResource).toHaveBeenCalledWith(resource, [resource]);
   });
 
   it('renders a resource block carried by an assistant turn that already has iterations', () => {
