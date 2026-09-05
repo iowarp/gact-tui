@@ -11,25 +11,29 @@ const requiredImports = {
   ],
   'web/src/components/clio/conversation-message-blocks.tsx': [
     '@/components/ai-elements/code-block',
-    '@/components/ai-elements/message',
     '@/components/ai-elements/plan',
     './artifact-card',
+    './grounded-message-response',
     './conversation-process-sequence',
   ],
   'web/src/components/clio/conversation-process-sequence.tsx': [
-    '@/components/ai-elements/message',
     '@/components/ai-elements/reasoning',
     '@/components/ai-elements/task',
+    './grounded-message-response',
     './subagent-card',
     './tool-invocation',
   ],
   // Chain mode moved to ConversationTurn; the ChainOfThought composition is required there.
   'web/src/components/clio/conversation-turn.tsx': [
     '@/components/ai-elements/chain-of-thought',
-    '@/components/ai-elements/message',
     '@/components/ai-elements/reasoning',
+    './grounded-message-response',
     './subagent-card',
     './tool-invocation',
+  ],
+  'web/src/components/clio/grounded-message-response.tsx': [
+    '@/components/ai-elements/message',
+    '@/components/ai-elements/sources',
   ],
   'web/src/components/clio/composer.tsx': [
     '@/components/ai-elements/model-selector',
