@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
+import { DOCUMENT_MARKDOWN_CLASS_NAME } from '@/lib/document-markdown';
 import { respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';
 import { ResponseErrorNotice } from './pending-interaction-notices';
@@ -155,7 +156,9 @@ export function PlanExitResponse({
           </PlanHeader>
           <PlanContent className="border-t pt-4">
             {plan?.plan_content ? (
-              <MessageResponse className="text-sm leading-6">{plan.plan_content}</MessageResponse>
+              <MessageResponse className={DOCUMENT_MARKDOWN_CLASS_NAME}>
+                {plan.plan_content}
+              </MessageResponse>
             ) : (
               <p className="text-sm text-muted-foreground">
                 The saved plan could not be loaded into this review.

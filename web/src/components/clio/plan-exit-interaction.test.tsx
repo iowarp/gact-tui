@@ -50,9 +50,13 @@ describe('PlanExitResponse', () => {
     );
 
     expect(screen.getByText('Review execution plan')).toBeVisible();
-    expect(
-      await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 5_000 }),
-    ).toBeVisible();
+    const planHeading = await screen.findByRole(
+      'heading',
+      { name: 'Implementation plan' },
+      { timeout: 5_000 },
+    );
+    expect(planHeading).toBeVisible();
+    expect(planHeading.closest('.space-y-2')).not.toBeNull();
     expect(screen.getByText('Agent recommendation:')).toHaveTextContent('interactive');
     expect(screen.getByText(/Risks: The session mode must change/)).toBeVisible();
     await user.click(screen.getByRole('radio', { name: 'Approve — auto-execute' }));
