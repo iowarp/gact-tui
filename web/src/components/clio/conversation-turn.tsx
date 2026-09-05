@@ -13,7 +13,11 @@ import { cn } from '@/lib/utils';
 import type { ClioRepository, PendingInteraction, SubagentRun, Task } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus, clioStatusLabel } from './status';
-import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
+import {
+  ClioSubagentCard,
+  ClioSubagentLifecycleLine,
+  type SubagentOpenTarget,
+} from './subagent-card';
 import { subagentsForTool } from './subagent-tool-link';
 import { getToolPresentation, getToolSummary } from './tool-presentation';
 import { ClioToolInvocation } from './tool-invocation';
@@ -112,6 +116,10 @@ function IterationSummary({
     (entry): entry is McpAppActivityEntry =>
       entry.kind === 'mcp_app' && entry.block.app_instance_id === activeMcpAppId,
   );
+  const subagentEvents = iteration.activity.filter(
+    (entry): entry is Extract<ConversationIteration['activity'][number], { kind: 'subagent' }> =>
+      entry.kind === 'subagent',
+  );
   const primaryTool = iteration.tools[0];
   const tool = primaryTool ? getToolPresentation(primaryTool) : undefined;
   const toolSummary = primaryTool ? getToolSummary(primaryTool) : undefined;
@@ -173,6 +181,18 @@ function IterationSummary({
             </CollapsibleTrigger>
           }
         >
+          {subagentEvents.length > 0 ? (
+            <div className="mb-1 mt-1 space-y-0.5">
+              {subagentEvents.map((entry) => (
+                <ClioSubagentLifecycleLine
+                  key={`subagent:${entry.id}`}
+                  onOpen={onOpenSubagent}
+                  stage={entry.block.stage ?? 'delegate.unknown'}
+                  subagent={subagents[entry.block.subagent_id]}
+                />
+              ))}
+            </div>
+          ) : null}
           <CollapsibleContent className="pt-2">
             <IterationDetail
               activeMcpAppId={activeMcpAppId}
@@ -182,6 +202,7 @@ function IterationSummary({
               mcpAppRepository={mcpAppRepository}
               messageSessionId={messageSessionId}
               onOpenSubagent={onOpenSubagent}
+              showSubagents={false}
               showTasks={false}
               subagents={subagents}
             />
@@ -206,6 +227,7 @@ function IterationDetail({
   subagents,
   interactions,
   showTasks = true,
+  showSubagents = true,
   showQuestionInteractions = true,
   activeMcpAppId,
   hiddenMcpAppId,
@@ -217,12 +239,18 @@ function IterationDetail({
   subagents: Record<string, SubagentRun>;
   interactions?: readonly PendingInteraction[];
   showTasks?: boolean;
+  showSubagents?: boolean;
   showQuestionInteractions?: boolean;
   activeMcpAppId?: string;
   hiddenMcpAppId?: string;
   mcpAppRepository?: ClioRepository;
   messageSessionId?: string;
 }) {
+  const explicitSubagentIds = new Set(
+    iteration.activity.flatMap((entry) =>
+      entry.kind === 'subagent' ? [entry.block.subagent_id] : [],
+    ),
+  );
   return (
     <article>
       <div className="space-y-4">
@@ -258,9 +286,15 @@ function IterationDetail({
             <Fragment key={`tool:${entry.id}`}>
               <div className="space-y-2" data-turn-activity={`tool:${entry.id}`}>
                 <ClioToolInvocation tool={entry.tool} />
-                {subagentsForTool(entry.tool, subagents).map((subagent) => (
-                  <ClioSubagentCard key={subagent.id} onOpen={onOpenSubagent} subagent={subagent} />
-                ))}
+                {subagentsForTool(entry.tool, subagents)
+                  .filter((subagent) => !explicitSubagentIds.has(subagent.id))
+                  .map((subagent) => (
+                    <ClioSubagentCard
+                      key={subagent.id}
+                      onOpen={onOpenSubagent}
+                      subagent={subagent}
+                    />
+                  ))}
               </div>
               {showQuestionInteractions
                 ? questionInteractionsForTool(interactions, entry.id).map((interaction) => (
@@ -268,6 +302,16 @@ function IterationDetail({
                   ))
                 : null}
             </Fragment>
+          ) : entry.kind === 'subagent' ? (
+            showSubagents ? (
+              <div data-turn-activity={`subagent:${entry.id}`} key={`subagent:${entry.id}`}>
+                <ClioSubagentLifecycleLine
+                  onOpen={onOpenSubagent}
+                  stage={entry.block.stage ?? 'delegate.unknown'}
+                  subagent={subagents[entry.block.subagent_id]}
+                />
+              </div>
+            ) : null
           ) : entry.kind === 'mcp_app' ? (
             entry.block.app_instance_id === hiddenMcpAppId ? null : (
               <McpAppActivity

@@ -153,6 +153,20 @@ describe('forward-compatible wire enums', () => {
     });
     expect(
       messageBlockSchema.parse({
+        id: 'handoff_1',
+        type: 'subagent',
+        subagent_id: 'task_1',
+        stage: 'delegate.completed',
+        future_hint: 'ignored',
+      }),
+    ).toEqual({
+      id: 'handoff_1',
+      type: 'subagent',
+      subagent_id: 'task_1',
+      stage: 'delegate.completed',
+    });
+    expect(
+      messageBlockSchema.parse({
         id: 'reference_1',
         type: 'context_reference',
         ref_kind: 'artifact',

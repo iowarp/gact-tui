@@ -312,6 +312,53 @@ describe('conversationTurnPresentation', () => {
     expect(view.residualBlocks.map((block) => block.id)).toEqual(['child']);
   });
 
+  it('keeps child launch and return events in their chronological activity positions', () => {
+    const message: Message = {
+      id: 'assistant_child_lifecycle',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-09-04T00:00:00Z',
+      blocks: [
+        {
+          id: 'child_started',
+          type: 'subagent',
+          subagent_id: 'task_researcher',
+          stage: 'delegate.started',
+          sequence: 1,
+        },
+        {
+          id: 'running_note',
+          type: 'text',
+          text: 'The researcher is running.',
+          channel: 'next_thought',
+          sequence: 2,
+        },
+        { id: 'wait', type: 'tool', tool_id: 'call_read', sequence: 3 },
+        {
+          id: 'child_returned',
+          type: 'subagent',
+          subagent_id: 'task_researcher',
+          stage: 'delegate.completed',
+          sequence: 4,
+        },
+        {
+          id: 'review_note',
+          type: 'text',
+          text: 'I will review the returned evidence.',
+          channel: 'next_thought',
+          sequence: 5,
+        },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+
+    expect(
+      view.iterations.map((iteration) => iteration.activity.map((entry) => entry.kind)),
+    ).toEqual([['subagent'], ['tool', 'subagent'], []]);
+    expect(view.residualBlocks).toEqual([]);
+  });
+
   it('does not invent a completed iteration from partial live provider blocks', () => {
     const message: Message = {
       id: 'assistant_live',

@@ -110,6 +110,63 @@ describe('ConversationTurn correlated work placement', () => {
     expect(rendered).toEqual(['tool:call_read', 'task:task_review', 'tool:call_render']);
   });
 
+  it('renders child start and return as separate navigable ledger rows', () => {
+    const child = {
+      id: 'task_researcher',
+      session_id: 'session_1',
+      child_session_id: 'session_child',
+      title: 'researcher #1',
+      state: 'completed' as const,
+      task: 'Research the HDF5 origin chronology.',
+      result: 'The authoritative history confirms the project chronology.',
+    };
+    render(
+      <ConversationTurn
+        iterations={[
+          iteration(
+            activityLane([
+              {
+                kind: 'subagent',
+                id: 'handoff_started',
+                block: {
+                  id: 'handoff_started',
+                  type: 'subagent',
+                  subagent_id: child.id,
+                  stage: 'delegate.started',
+                },
+              },
+              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Wait') },
+              {
+                kind: 'subagent',
+                id: 'handoff_returned',
+                block: {
+                  id: 'handoff_returned',
+                  type: 'subagent',
+                  subagent_id: child.id,
+                  stage: 'delegate.completed',
+                },
+              },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{ [child.id]: child }}
+      />,
+    );
+
+    const lane = screen.getByRole('region', { name: 'Full agent activity' });
+    const rendered = [...lane.querySelectorAll('[data-turn-activity]')].map((node) =>
+      node.getAttribute('data-turn-activity'),
+    );
+    expect(rendered).toEqual([
+      'subagent:handoff_started',
+      'tool:call_read',
+      'subagent:handoff_returned',
+    ]);
+    expect(screen.getByText(child.task)).toBeVisible();
+    expect(screen.getByText(child.result)).toBeVisible();
+  });
+
   it('keeps the active MCP App visible after its collapsed chain summary', () => {
     const app: ConversationActivity = {
       kind: 'mcp_app',
@@ -130,10 +187,7 @@ describe('ConversationTurn correlated work placement', () => {
         activeMcpAppId="app_1"
         iterations={[
           iteration(
-            activityLane([
-              { kind: 'tool', id: 'call_ui', tool: tool('call_ui', 'UI Echo') },
-              app,
-            ]),
+            activityLane([{ kind: 'tool', id: 'call_ui', tool: tool('call_ui', 'UI Echo') }, app]),
           ),
         ]}
         mcpAppRepository={{} as ClioRepository}

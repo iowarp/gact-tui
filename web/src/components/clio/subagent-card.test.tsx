@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ClioSubagentCard } from './subagent-card';
+import { ClioSubagentCard, ClioSubagentLifecycleLine } from './subagent-card';
 
 afterEach(cleanup);
 
@@ -100,5 +100,40 @@ describe('ClioSubagentCard', () => {
     );
 
     expect(screen.getByText('main <- geospatial')).toBeVisible();
+  });
+});
+
+describe('ClioSubagentLifecycleLine', () => {
+  const child = {
+    id: 'task_geo',
+    session_id: 'session_1',
+    child_session_id: 'session_child',
+    agent_id: 'researcher',
+    title: 'researcher #1',
+    state: 'completed' as const,
+    task: 'Find the primary source for the HDF5 origin chronology.',
+    result: 'The HDF Group history establishes the original project timeline.',
+    duration_ms: 12_500,
+  };
+
+  it('shows only the assignment at the launch position', () => {
+    render(<ClioSubagentLifecycleLine stage="delegate.started" subagent={child} />);
+
+    expect(screen.getByText('started')).toBeVisible();
+    expect(screen.getByText(child.task)).toBeVisible();
+    expect(screen.queryByText(child.result)).not.toBeInTheDocument();
+  });
+
+  it('shows only the result when the child returns and remains navigable', () => {
+    const onOpen = vi.fn();
+    render(
+      <ClioSubagentLifecycleLine onOpen={onOpen} stage="delegate.completed" subagent={child} />,
+    );
+
+    expect(screen.getByText('returned')).toBeVisible();
+    expect(screen.getByText(child.result)).toBeVisible();
+    expect(screen.queryByText(child.task)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open child conversation researcher #1' }));
+    expect(onOpen).toHaveBeenCalledWith(child, 'conversation');
   });
 });

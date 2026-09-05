@@ -129,6 +129,20 @@ const mcpAppMessageBlockSchema = additivelyTolerant(
     })
     .strict(),
 );
+const subagentMessageBlockSchema = additivelyTolerant(
+  z
+    .object({
+      id: z.string(),
+      type: z.literal('subagent'),
+      subagent_id: z.string(),
+      stage: z.string().optional(),
+      agent_id: z.string().optional(),
+      sequence: z.number().int().positive().optional(),
+      stream_source: z.string().optional(),
+      channel: z.string().optional(),
+    })
+    .strict(),
+);
 const unknownMessageBlockSchema = z
   .object({
     id: z.string(),
@@ -159,6 +173,7 @@ export const messageBlockSchema = z.union([
   resourceMessageBlockSchema,
   contextReferenceMessageBlockSchema,
   mcpAppMessageBlockSchema,
+  subagentMessageBlockSchema,
   knownMessageBlockSchema,
   additiveKnownMessageBlockSchema,
   unknownMessageBlockSchema,
