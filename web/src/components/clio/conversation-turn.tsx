@@ -6,7 +6,6 @@ import {
   ChainOfThoughtHeader,
   ChainOfThoughtStep,
 } from '@/components/ai-elements/chain-of-thought';
-import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
@@ -24,6 +23,7 @@ import { ClioToolInvocation } from './tool-invocation';
 import { AgentAnswerActivity } from './agent-answer-activity';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
+import { GroundedMessageResponse } from './grounded-message-response';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 
@@ -272,9 +272,12 @@ function IterationDetail({
           : null}
 
         {iteration.nextThoughts.map((thought, index) => (
-          <MessageResponse className="text-sm leading-6" key={`${iteration.id}:response:${index}`}>
+          <GroundedMessageResponse
+            className="text-sm leading-6"
+            key={`${iteration.id}:response:${index}`}
+          >
             {thought}
-          </MessageResponse>
+          </GroundedMessageResponse>
         ))}
 
         {/*

@@ -16,7 +16,6 @@ import {
   CodeBlockHeader,
   CodeBlockTitle,
 } from '@/components/ai-elements/code-block';
-import { MessageResponse } from '@/components/ai-elements/message';
 import {
   Plan,
   PlanAction,
@@ -38,6 +37,7 @@ import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
+import { GroundedMessageResponse } from './grounded-message-response';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -129,7 +129,7 @@ function MessageBlockView({
       return block.streaming ? (
         <ClioStreamingText className="leading-7" active text={block.text} />
       ) : (
-        <MessageResponse>{block.text}</MessageResponse>
+        <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
       );
     case 'reasoning':
     case 'tool':

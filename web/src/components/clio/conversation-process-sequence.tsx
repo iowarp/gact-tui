@@ -6,7 +6,6 @@ import type {
   ToolInvocation,
 } from '@clio/core/v3';
 import { ChevronDownIcon, ListChecksIcon } from 'lucide-react';
-import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Task as AITask, TaskContent, TaskItem, TaskTrigger } from '@/components/ai-elements/task';
 import { ClioStatus } from './status';
@@ -15,6 +14,7 @@ import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { AgentAnswerActivity } from './agent-answer-activity';
+import { GroundedMessageResponse } from './grounded-message-response';
 
 export type ProcessBlock = Extract<
   MessageBlock,
@@ -58,7 +58,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
     return block.streaming ? (
       <ClioStreamingText active className="leading-7" text={block.text} />
     ) : (
-      <MessageResponse>{block.text}</MessageResponse>
+      <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
     );
   }
   if (block.type === 'reasoning') {
