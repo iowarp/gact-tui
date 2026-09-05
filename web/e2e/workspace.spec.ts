@@ -29,6 +29,19 @@ async function settleConversationAtLatest(page: Page) {
     .toBeLessThanOrEqual(1);
 }
 
+async function waitForArtifactPreview(page: Page) {
+  const preview = page.getByRole('img', { name: 'vertical-displacement.png' });
+  await expect(preview).toBeVisible({ timeout: 20_000 });
+  await expect
+    .poll(() =>
+      preview.evaluate((image) => {
+        const element = image as HTMLImageElement;
+        return element.complete && element.naturalWidth > 0;
+      }),
+    )
+    .toBe(true);
+}
+
 test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   unexpectedErrors.set(page, errors);
@@ -155,6 +168,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
 
   await expect(page.getByText('EarthScope NDP evidence review').first()).toBeVisible();
   await expect(page.getByText('flat-NDP').first()).toBeVisible();
+  await waitForArtifactPreview(page);
   await expect(page.getByRole('button', { name: 'Change model' })).toContainText('Codex / Luna');
   await expect(page.getByText('D:\\science\\campaigns\\flat-NDP', { exact: true })).toHaveCount(0);
   const pendingResponses = page.getByRole('region', { name: 'Agent needs your response' });
@@ -378,6 +392,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
 
   await expect(page.locator('html')).toHaveClass(/light/);
   await expect(page.getByRole('button', { name: 'Open workspace canvas' })).toBeVisible();
+  await waitForArtifactPreview(page);
   // Capture a settled transcript. Without this the shot races the scroll to the
   // latest turn, so the last messages land a few pixels off and the "Latest"
   // affordance is present in some runs and gone in others — a baseline that
