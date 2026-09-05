@@ -209,6 +209,11 @@ describe('ClioComposer service commands', () => {
     const thumbnail = screen.getByRole('img', { name: 'field-map.png' });
     expect(thumbnail).toBeVisible();
     expect(thumbnail).toHaveAttribute('src', 'blob:test-field-map.png');
+    expect(thumbnail).toHaveAttribute('width', '112');
+    expect(thumbnail.closest('[data-attachment-variant]')).toHaveAttribute(
+      'data-attachment-variant',
+      'composer',
+    );
 
     const openAttachment = screen.getByRole('button', { name: 'Open field-map.png' });
     expect(
@@ -230,6 +235,22 @@ describe('ClioComposer service commands', () => {
     expect(within(dialog).getByRole('img', { name: 'field-map.png' })).toHaveAttribute(
       'src',
       'blob:test-field-map.png',
+    );
+  });
+
+  it('renders non-image uploads as file cards with useful metadata', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+    const picker = screen.getByLabelText('Upload files');
+
+    await user.upload(picker, new File(['# Notes'], 'field-notes.md', { type: 'text/markdown' }));
+
+    const openAttachment = screen.getByRole('button', { name: 'Open field-notes.md' });
+    expect(within(openAttachment).getByText('field-notes.md')).toBeVisible();
+    expect(within(openAttachment).getByText('text/markdown')).toBeVisible();
+    expect(openAttachment.closest('[data-attachment-variant]')).toHaveAttribute(
+      'data-attachment-category',
+      'document',
     );
   });
 

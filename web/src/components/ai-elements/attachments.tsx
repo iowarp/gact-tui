@@ -32,7 +32,7 @@ export type AttachmentMediaCategory =
   | 'source'
   | 'unknown';
 
-export type AttachmentVariant = 'grid' | 'inline' | 'list';
+export type AttachmentVariant = 'composer' | 'grid' | 'inline' | 'list';
 
 const mediaCategoryIcons: Record<AttachmentMediaCategory, typeof ImageIcon> = {
   audio: Music2Icon,
@@ -79,14 +79,18 @@ export const getAttachmentLabel = (data: AttachmentData): string => {
   return data.filename || (category === 'image' ? 'Image' : 'Attachment');
 };
 
-const renderAttachmentImage = (url: string, filename: string | undefined, isGrid: boolean) =>
-  isGrid ? (
+const renderAttachmentImage = (
+  url: string,
+  filename: string | undefined,
+  variant: AttachmentVariant,
+) =>
+  variant === 'grid' || variant === 'composer' ? (
     <img
       alt={filename || 'Image'}
       className="size-full object-cover"
-      height={96}
+      height={variant === 'composer' ? 112 : 96}
       src={url}
-      width={96}
+      width={variant === 'composer' ? 112 : 96}
     />
   ) : (
     <img
@@ -155,6 +159,7 @@ export const Attachments = ({
           'flex items-start',
           variant === 'list' ? 'flex-col gap-2' : 'flex-wrap gap-2',
           variant === 'grid' && 'ml-auto w-fit',
+          variant === 'composer' && 'w-max min-w-full flex-nowrap',
           className,
         )}
         {...props}
@@ -177,6 +182,8 @@ export type AttachmentProps = HTMLAttributes<HTMLDivElement> & {
 export const Attachment = ({ data, onRemove, className, children, ...props }: AttachmentProps) => {
   const { variant } = useAttachmentsContext();
   const mediaCategory = getMediaCategory(data);
+  const visualComposerAttachment =
+    variant === 'composer' && (mediaCategory === 'image' || mediaCategory === 'video');
 
   const contextValue = useMemo<AttachmentContextValue>(
     () => ({ data, mediaCategory, onRemove, variant }),
@@ -189,6 +196,10 @@ export const Attachment = ({ data, onRemove, className, children, ...props }: At
         className={cn(
           'group relative',
           variant === 'grid' && 'size-24 overflow-hidden rounded-lg',
+          visualComposerAttachment && 'size-28 shrink-0 overflow-hidden rounded-lg border bg-muted',
+          variant === 'composer' &&
+            !visualComposerAttachment &&
+            'flex h-14 w-60 shrink-0 items-center gap-2 rounded-lg border bg-background p-2',
           variant === 'inline' && [
             'flex h-8 cursor-pointer select-none items-center gap-1.5',
             'rounded-md border border-border px-1.5',
@@ -201,6 +212,9 @@ export const Attachment = ({ data, onRemove, className, children, ...props }: At
           ],
           className,
         )}
+        data-attachment-category={mediaCategory}
+        data-attachment-variant={variant}
+        data-slot="attachment"
         {...props}
       >
         {children}
@@ -232,7 +246,7 @@ export const AttachmentPreview = ({
 
   const renderContent = () => {
     if (mediaCategory === 'image' && data.type === 'file' && data.url) {
-      return renderAttachmentImage(data.url, data.filename, variant === 'grid');
+      return renderAttachmentImage(data.url, data.filename, variant);
     }
 
     if (mediaCategory === 'video' && data.type === 'file' && data.url) {
@@ -248,6 +262,13 @@ export const AttachmentPreview = ({
       className={cn(
         'flex shrink-0 items-center justify-center overflow-hidden',
         variant === 'grid' && 'size-full bg-muted',
+        variant === 'composer' &&
+          (mediaCategory === 'image' || mediaCategory === 'video') &&
+          'size-full bg-muted',
+        variant === 'composer' &&
+          mediaCategory !== 'image' &&
+          mediaCategory !== 'video' &&
+          'size-10 rounded-md bg-muted',
         variant === 'inline' && 'size-5 rounded bg-background',
         variant === 'list' && 'size-12 rounded bg-muted',
         className,
@@ -272,10 +293,13 @@ export const AttachmentInfo = ({
   className,
   ...props
 }: AttachmentInfoProps) => {
-  const { data, variant } = useAttachmentContext();
+  const { data, mediaCategory, variant } = useAttachmentContext();
   const label = getAttachmentLabel(data);
 
-  if (variant === 'grid') {
+  if (
+    variant === 'grid' ||
+    (variant === 'composer' && (mediaCategory === 'image' || mediaCategory === 'video'))
+  ) {
     return null;
   }
 
@@ -303,7 +327,9 @@ export const AttachmentRemove = ({
   children,
   ...props
 }: AttachmentRemoveProps) => {
-  const { onRemove, variant } = useAttachmentContext();
+  const { mediaCategory, onRemove, variant } = useAttachmentContext();
+  const visualComposerAttachment =
+    variant === 'composer' && (mediaCategory === 'image' || mediaCategory === 'video');
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -328,6 +354,17 @@ export const AttachmentRemove = ({
           'hover:bg-background',
           '[&>svg]:size-3',
         ],
+        visualComposerAttachment && [
+          'absolute top-2 right-2 size-6 rounded-full p-0',
+          'bg-background/85 opacity-0 shadow-sm backdrop-blur-sm transition-opacity',
+          'group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-background',
+          '[&>svg]:size-3',
+        ],
+        variant === 'composer' &&
+          !visualComposerAttachment && [
+            'size-7 shrink-0 rounded p-0',
+            '[&>svg]:size-3.5',
+          ],
         variant === 'inline' && [
           'size-5 rounded p-0',
           // Focus reveals it too, or the control is unreachable by keyboard.
