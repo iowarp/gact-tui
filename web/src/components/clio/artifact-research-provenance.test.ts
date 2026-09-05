@@ -26,8 +26,80 @@ describe('artifact research provenance', () => {
     ]);
     expect(projected.session_lineage?.map((row) => row.session_id)).toEqual(['sess_researcher']);
     expect(describeArtifactResearch(projected)).toBe(
-      '1 tool calls across 1 runs before this result was created, including 0 searches and 1 fetches. Workflow activity is observable history; declared evidence relationships remain separate.',
+      '1 tool call across 1 run in the causal turn, including 0 searches and 1 fetch. Workflow activity is observable history; declared evidence relationships remain separate.',
     );
+  });
+
+  it('excludes earlier work in the same long-lived session from the artifact causal turn', () => {
+    const provenance = fixture();
+    provenance.session_lineage?.unshift({
+      session_id: 'sess_earlier',
+      parent_session_id: 'sess_root',
+      task_id: 'task_earlier',
+      agent_id: 'researcher',
+      label: 'earlier researcher',
+      depth: 1,
+      task_path: ['task_earlier'],
+      created_at: '1970-01-01T00:00:10.000Z',
+    });
+    provenance.nodes.splice(1, 0, {
+      id: 'tool:root-current',
+      kind: 'tool',
+      label: 'main model action: create_artifact',
+      status: 'completed',
+      session_id: 'sess_root',
+      agent_id: 'main',
+      start_time: 49,
+      end_time: 49,
+      attributes: { tool_name: 'create_artifact', turn_id: 'turn_report' },
+    });
+    provenance.nodes.splice(1, 0, {
+      id: 'tool:root-earlier',
+      kind: 'tool',
+      label: 'main model action: web_search',
+      status: 'completed',
+      session_id: 'sess_root',
+      agent_id: 'main',
+      start_time: 20,
+      end_time: 20,
+      attributes: { tool_name: 'web_search', turn_id: 'turn_earlier' },
+    });
+    provenance.nodes.splice(1, 0, {
+      id: 'tool:earlier-child',
+      kind: 'tool',
+      label: 'earlier researcher model action: web_fetch',
+      status: 'completed',
+      session_id: 'sess_earlier',
+      agent_id: 'researcher',
+      start_time: 25,
+      end_time: 25,
+      attributes: { tool_name: 'web_fetch' },
+    });
+    provenance.nodes[0] = {
+      ...provenance.nodes[0],
+      start_time: 30,
+      attributes: { turn_id: 'turn_report' },
+    };
+    provenance.session_lineage![1] = {
+      ...provenance.session_lineage![1],
+      created_at: '1970-01-01T00:00:35.000Z',
+    };
+    provenance.spans[0] = {
+      ...provenance.spans[0],
+      attributes: { turn_id: 'turn_report' },
+    };
+
+    const projected = projectArtifactResearchProvenance(provenance, 'artifact_report');
+
+    expect(projected.nodes.map((node) => node.id)).toEqual([
+      'session:sess_root',
+      'tool:root-current',
+      'task:task_researcher',
+      'session:sess_researcher',
+      'tool:fetch-before',
+      'artifact:artifact_report',
+    ]);
+    expect(projected.session_lineage?.map((row) => row.session_id)).toEqual(['sess_researcher']);
   });
 });
 
@@ -59,6 +131,7 @@ function fixture(): ExecutionProvenanceResult {
         label: 'researcher #1',
         depth: 1,
         task_path: ['task_researcher'],
+        created_at: '1970-01-01T00:00:35.000Z',
       },
       {
         session_id: 'sess_later',
@@ -88,7 +161,7 @@ function fixture(): ExecutionProvenanceResult {
         duration_ms: 0,
         host: '',
         artifact_refs: [{ artifact_id: 'artifact_report', sha256: 'a'.repeat(64) }],
-        attributes: {},
+        attributes: { turn_id: 'turn_report' },
         source_event_ids: ['artifact-created'],
       },
     ],
