@@ -50,6 +50,33 @@ async function waitForArtifactPreview(page: Page) {
     .toBe(true);
 }
 
+async function alignLatestActivityAtTop(page: Page) {
+  const conversation = page.getByRole('log', { name: 'Conversation' });
+  const activityHeader = conversation.getByRole('button', { name: 'Activity' }).last();
+  await expect(activityHeader).toBeVisible();
+  await activityHeader.evaluate((header) => {
+    const scroller = header.closest<HTMLElement>('[role="log"]');
+    const activity = header.parentElement;
+    if (!scroller || !activity) throw new Error('Latest Activity is outside the conversation');
+    scroller.scrollBy({
+      behavior: 'instant',
+      top: activity.getBoundingClientRect().top - scroller.getBoundingClientRect().top,
+    });
+  });
+  await expect
+    .poll(() =>
+      activityHeader.evaluate((header) => {
+        const scroller = header.closest<HTMLElement>('[role="log"]');
+        const activity = header.parentElement;
+        if (!scroller || !activity) return Number.POSITIVE_INFINITY;
+        return Math.abs(
+          activity.getBoundingClientRect().top - scroller.getBoundingClientRect().top,
+        );
+      }),
+    )
+    .toBeLessThanOrEqual(1);
+}
+
 test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   unexpectedErrors.set(page, errors);
@@ -335,18 +362,22 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   // Wheel dispatch is asynchronous on Linux Chromium. Seeing the last rail
   // marker only proves that the minimap itself is present; it does not prove
   // the transcript finished returning to its latest anchor. Re-settle the
-  // native scroll container before the visual assertion so the screenshot
-  // cannot alternate between the attachment and Activity rows above it.
+  // native scroll container, then pin the final semantic block to the viewport
+  // edge so the screenshot cannot alternate between the attachment and Activity
+  // rows above it.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await settleConversationAtLatest(page);
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
+  await alignLatestActivityAtTop(page);
   await page.mouse.move(600, 30);
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await alignLatestActivityAtTop(page);
   // maxDiffPixels absorbs sub-row anti-aliasing jitter at the latest-anchored
   // transcript's top edge (~400px observed); a real layout regression moves
   // orders of magnitude more.
   await expect(page).toHaveScreenshot('workspace-desktop-dark.png', {
-    animations: 'disabled',
+    animations: 'allow',
     maxDiffPixels: 1500,
   });
 
