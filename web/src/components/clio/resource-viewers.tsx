@@ -36,6 +36,7 @@ import {
   CodeBlockTitle,
 } from '@/components/ai-elements/code-block';
 import { MessageResponse } from '@/components/ai-elements/message';
+import { DOCUMENT_MARKDOWN_CLASS_NAME, normalizeConvertedMarkdown } from '@/lib/document-markdown';
 import {
   Empty,
   EmptyDescription,
@@ -312,8 +313,8 @@ export function ArtifactView({
     ) : text.data ? (
       isMarkdownArtifact(artifact.media_type, artifact.name) ? (
         <article className="min-w-0 overflow-hidden rounded-lg border bg-background px-5 py-4">
-          <MessageResponse className="min-w-0 max-w-none [overflow-wrap:anywhere]">
-            {text.data}
+          <MessageResponse className={DOCUMENT_MARKDOWN_CLASS_NAME}>
+            {normalizeConvertedMarkdown(text.data)}
           </MessageResponse>
         </article>
       ) : isCsvPath(artifact.name) || artifact.media_type === 'text/csv' ? (

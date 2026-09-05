@@ -11,6 +11,7 @@ import {
   BookOpenIcon,
   CircleAlertIcon,
   FileCheck2Icon,
+  FileCode2Icon,
   FileOutputIcon,
   MessageSquareTextIcon,
   RefreshCwIcon,
@@ -40,6 +41,7 @@ import { badgeVariants } from '@/components/reui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { copyText } from '@/lib/clipboard';
+import { DOCUMENT_MARKDOWN_CLASS_NAME, normalizeConvertedMarkdown } from '@/lib/document-markdown';
 import {
   Dialog,
   DialogContent,
@@ -273,6 +275,13 @@ export function ClioDocumentWorkspace({
                   label="Read document"
                   value="preview"
                 />
+                {effectiveManifest?.profile === 'markdown' ? (
+                  <DocumentDetailTab
+                    icon={<FileCode2Icon aria-hidden="true" />}
+                    label="Read raw"
+                    value="raw"
+                  />
+                ) : null}
                 <DocumentDetailTab
                   icon={<MessageSquareTextIcon aria-hidden="true" />}
                   label={`Reviews${reviews.data?.length ? `, ${reviews.data.length}` : ''}`}
@@ -368,6 +377,32 @@ export function ClioDocumentWorkspace({
             />
           </div>
         </TabsContent>
+        {effectiveManifest?.profile === 'markdown' ? (
+          <TabsContent className="m-0 min-w-0 overflow-hidden" value="raw">
+            {textContent === undefined ? (
+              <p className="p-4 text-sm text-muted-foreground">Loading raw Markdown…</p>
+            ) : (
+              <CodeBlock
+                aria-label={`Raw Markdown for ${effectiveManifest.name}`}
+                className="h-[70vh] min-h-[540px]"
+                code={textContent}
+                language="markdown"
+                role="region"
+                showLineNumbers
+              >
+                <CodeBlockHeader>
+                  <CodeBlockTitle>
+                    <FileCode2Icon aria-hidden="true" />
+                    <CodeBlockFilename>{effectiveManifest.name}</CodeBlockFilename>
+                  </CodeBlockTitle>
+                  <CodeBlockActions>
+                    <CodeBlockCopyButton aria-label={`Copy raw ${effectiveManifest.name}`} />
+                  </CodeBlockActions>
+                </CodeBlockHeader>
+              </CodeBlock>
+            )}
+          </TabsContent>
+        ) : null}
         <TabsContent className="m-0 min-w-0 overflow-hidden" value="reviews">
           <ReviewTimeline error={reviews.error?.message} reviews={reviews.data} />
         </TabsContent>
@@ -489,8 +524,8 @@ function DocumentPreview({
   if (manifest.profile === 'markdown' && text !== undefined) {
     return (
       <article className="min-h-72 min-w-0 overflow-hidden rounded-lg border bg-background p-5">
-        <MessageResponse className="min-w-0 max-w-none [overflow-wrap:anywhere]">
-          {text}
+        <MessageResponse className={DOCUMENT_MARKDOWN_CLASS_NAME}>
+          {normalizeConvertedMarkdown(text)}
         </MessageResponse>
       </article>
     );
