@@ -131,6 +131,24 @@ export const pendingInteractionSchema = z.object({
       revision: z.number().int().nonnegative().optional(),
       server_id: z.string().optional(),
       awaiting_question: z.boolean().optional(),
+      plan_exit: z
+        .object({
+          summary: z.string().optional(),
+          recommended_mode: z.string().optional(),
+          risk_notes: z.string().optional(),
+          plan_file: z.string().optional(),
+          plan_content: z.string().optional(),
+          plan_content_status: forwardCompatibleEnum([
+            'complete',
+            'truncated',
+            'unavailable',
+          ]).optional(),
+          plan_content_error: z.string().optional(),
+          plan_content_chars: z.number().int().nonnegative().optional(),
+          plan_content_included_chars: z.number().int().nonnegative().optional(),
+        })
+        .passthrough()
+        .optional(),
     })
     .passthrough()
     .optional(),

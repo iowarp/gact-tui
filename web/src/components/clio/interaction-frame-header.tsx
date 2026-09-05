@@ -20,6 +20,7 @@ export function InteractionFrameHeader({
   onCancel,
   disabled,
 }: InteractionFrameHeaderProps) {
+  const isPlanExit = interaction.source.tool_name === 'plan_exit';
   const Icon =
     interaction.kind === 'mcp_task_input'
       ? ClipboardPenLineIcon
@@ -33,9 +34,9 @@ export function InteractionFrameHeader({
         <FrameTitle
           className="line-clamp-3"
           data-slot="pending-interaction-title"
-          title={interaction.prompt ?? interaction.title}
+          title={isPlanExit ? interaction.title : (interaction.prompt ?? interaction.title)}
         >
-          {interaction.prompt ?? interaction.title}
+          {isPlanExit ? interaction.title : (interaction.prompt ?? interaction.title)}
         </FrameTitle>
         <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show={showOwner} />
         {interaction.routing_state === 'agent_elicitation_fallback_to_human' ? (

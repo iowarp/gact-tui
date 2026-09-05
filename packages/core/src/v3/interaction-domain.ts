@@ -61,6 +61,17 @@ export interface PendingInteractionPayload {
   revision?: number;
   server_id?: string;
   awaiting_question?: boolean;
+  plan_exit?: {
+    summary?: string;
+    recommended_mode?: string;
+    risk_notes?: string;
+    plan_file?: string;
+    plan_content?: string;
+    plan_content_status?: WireValue<'complete' | 'truncated' | 'unavailable'>;
+    plan_content_error?: string;
+    plan_content_chars?: number;
+    plan_content_included_chars?: number;
+  };
   [key: string]: unknown;
 }
 

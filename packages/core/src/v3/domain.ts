@@ -247,6 +247,8 @@ export interface UserQuestion {
   created_at: string;
   updated_at: string;
   expires_at?: string;
+  source?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Task {

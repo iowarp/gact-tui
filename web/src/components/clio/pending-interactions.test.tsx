@@ -102,6 +102,101 @@ function renderPending(
 }
 
 describe('ClioPendingInteractions', () => {
+  it('renders the saved plan and submits the plan-exit decision with its modifier', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('question', {
+      id: 'question:plan_exit',
+      title: 'Review execution plan',
+      prompt: 'Approve the saved plan?',
+      source: { protocol: 'native', tool_name: 'plan_exit' },
+      actions: ['answer', 'cancel'],
+      payload: {
+        question_id: 'plan_exit',
+        question_kind: 'choice',
+        plan_exit: {
+          summary: 'Add authoritative Plan mode wiring and qualify the lifecycle.',
+          recommended_mode: 'interactive',
+          risk_notes: 'The session mode must change before submission.',
+          plan_file: 'D:/workspace/plans/plan.md',
+          plan_content: '# Implementation plan\n\n1. Wire the mode.\n2. Verify approval.',
+          plan_content_status: 'complete',
+        },
+        options: [
+          {
+            label: 'Approve — auto-execute',
+            value: 'auto',
+            description: 'Exit plan mode and begin execution.',
+          },
+          {
+            label: 'Reject — keep planning',
+            value: 'reject',
+            description: 'Revise the plan before execution.',
+          },
+          {
+            label: 'Also clear context (modifier)',
+            value: 'clear_context',
+            description: 'Clear prior conversation context before resuming.',
+          },
+        ],
+      },
+    });
+    const onResponse = renderPending([interaction]);
+
+    expect(screen.getByText('Review execution plan')).toBeVisible();
+    expect(await screen.findByText('Implementation plan')).toBeVisible();
+    expect(screen.getByText('Agent recommendation:')).toHaveTextContent(
+      'Agent recommendation: interactive',
+    );
+    expect(screen.getByText(/Risks: The session mode must change/)).toBeVisible();
+
+    await user.click(screen.getByRole('radio', { name: 'Approve — auto-execute' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Also clear context (modifier)' }));
+    await user.type(screen.getByRole('textbox', { name: 'Comment (optional)' }), 'Proceed now.');
+    await user.click(screen.getByRole('button', { name: 'Submit plan decision' }));
+
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'answer',
+      answer: 'Proceed now.',
+      selected_options: ['auto', 'clear_context'],
+    });
+  });
+
+  it('never enables execution when the complete saved plan is unavailable', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('question', {
+      id: 'question:plan_exit_unavailable',
+      title: 'Review execution plan',
+      source: { protocol: 'native', tool_name: 'plan_exit' },
+      actions: ['answer'],
+      payload: {
+        question_id: 'plan_exit_unavailable',
+        question_kind: 'choice',
+        plan_exit: {
+          summary: 'Plan review failed to load.',
+          plan_file: 'D:/workspace/plans/plan.md',
+          plan_content_status: 'unavailable',
+        },
+        options: [
+          { label: 'Approve — auto-execute', value: 'auto' },
+          { label: 'Exit plan mode only', value: 'exit_only' },
+          { label: 'Reject — keep planning', value: 'reject' },
+        ],
+      },
+    });
+    const onResponse = renderPending([interaction]);
+
+    expect(screen.getByText(/saved plan is unavailable/i)).toBeVisible();
+    await user.click(screen.getByRole('radio', { name: 'Approve — auto-execute' }));
+    expect(screen.getByRole('button', { name: 'Submit plan decision' })).toBeDisabled();
+
+    await user.click(screen.getByRole('radio', { name: 'Exit plan mode only' }));
+    await user.click(screen.getByRole('button', { name: 'Submit plan decision' }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'answer',
+      selected_options: ['exit_only'],
+    });
+  });
+
   it('renders structured defaults and submits the complete field map', async () => {
     const user = userEvent.setup();
     const interaction = pending('mcp_task_input', {

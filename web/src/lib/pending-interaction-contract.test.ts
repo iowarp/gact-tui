@@ -75,6 +75,43 @@ describe('pending interaction legacy compatibility', () => {
     ]);
   });
 
+  it('preserves the plan-exit review payload on the legacy question path', () => {
+    const question = {
+      id: 'q_plan',
+      session_id: root.id,
+      prompt: 'Approve this plan?',
+      status: 'pending',
+      kind: 'choice',
+      options: [{ label: 'Approve', value: 'auto' }],
+      source: 'plan_exit',
+      metadata: {
+        plan_exit_approval: true,
+        summary: 'Wire Plan mode end to end.',
+        recommended_mode: 'auto',
+        plan_file: 'D:/workspace/plans/plan.md',
+        plan_content: '# Plan\n\nImplement and verify.',
+        plan_content_status: 'complete',
+      },
+      created_at: '2026-09-02T00:00:00Z',
+      updated_at: '2026-09-02T00:00:00Z',
+    } satisfies UserQuestion;
+
+    const [interaction] = legacyPendingInteractions([root], [], [question]);
+    expect(interaction).toMatchObject({
+      title: 'Review execution plan',
+      source: { protocol: 'native', tool_name: 'plan_exit' },
+      payload: {
+        plan_exit: {
+          summary: 'Wire Plan mode end to end.',
+          recommended_mode: 'auto',
+          plan_file: 'D:/workspace/plans/plan.md',
+          plan_content: '# Plan\n\nImplement and verify.',
+          plan_content_status: 'complete',
+        },
+      },
+    });
+  });
+
   it('marks the root unresolved when an ancestor is known only by id', () => {
     // "grandchild"'s parent (a middle session) is not in the locally known
     // list at all — the walk can reach no further than "grandchild" itself,
