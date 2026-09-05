@@ -91,6 +91,7 @@ export interface ClioObservabilityDockProps {
   interactions?: readonly PendingInteraction[];
   infrastructureDependencies?: readonly InfrastructureDependency[];
   activeTurnId?: string;
+  activeTurnResponded?: boolean;
   processes: readonly AsyncProcess[];
   tasks: readonly Task[];
   tools: readonly ToolInvocation[];
@@ -171,16 +172,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
           (block.type === 'text' || block.type === 'reasoning') && block.streaming === true,
       ),
   );
-  const currentTurnHasResponse = Boolean(
-    props.activeTurnId &&
-      props.messages.some(
-        (message) =>
-          message.role === 'assistant' &&
-          message.turn_id === props.activeTurnId &&
-          message.blocks.some((block) => block.type === 'text' || block.type === 'reasoning'),
-      ),
-  );
-  const assistantResponding = currentAssistantStreaming || currentTurnHasResponse;
+  const assistantResponding = currentAssistantStreaming || props.activeTurnResponded === true;
   const startupVisible = Boolean(
     sessionActive && !currentTool && !latestActiveProcess && !currentTask && !assistantResponding,
   );

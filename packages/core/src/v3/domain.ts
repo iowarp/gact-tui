@@ -721,6 +721,7 @@ export interface EntityState {
   surfaces: Record<string, A2UISurface>;
   infrastructure: Record<string, InfrastructureDependency>;
   active_turns: Record<string, string>;
+  responded_turns: Record<string, string>;
   revisions: Record<string, number>;
   processed_cursors: string[];
   /** Frames the reducer could not apply, each carrying its typed reason. */

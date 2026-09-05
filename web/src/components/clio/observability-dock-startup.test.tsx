@@ -97,6 +97,7 @@ describe('ClioObservabilityDock startup status', () => {
     rerender(
       <ClioObservabilityDock
         activeTurnId="turn_1"
+        activeTurnResponded
         artifacts={[]}
         contextFiles={[]}
         contextFrames={[]}
