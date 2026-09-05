@@ -205,6 +205,52 @@ describe('ConversationTurn correlated work placement', () => {
     );
   });
 
+  it('keeps replaced MCP Apps as visible history without remounting them', () => {
+    const replaced: ConversationActivity = {
+      kind: 'mcp_app',
+      id: 'app_block_1',
+      block: {
+        id: 'app_block_1',
+        type: 'mcp_app',
+        app_instance_id: 'app_1',
+        resource_uri: 'ui://v2ex/first',
+        source_server: 'MCP v2 exerciser',
+        tool_name: 'v2ex_ui_echo',
+        data_ref: 'opaque-1',
+        mime_type: 'text/html;profile=mcp-app',
+      },
+    };
+    const active: ConversationActivity = {
+      kind: 'mcp_app',
+      id: 'app_block_2',
+      block: {
+        id: 'app_block_2',
+        type: 'mcp_app',
+        app_instance_id: 'app_2',
+        resource_uri: 'ui://v2ex/second',
+        source_server: 'Simulation viewer',
+        tool_name: 'v2ex_ui_echo',
+        data_ref: 'opaque-2',
+        mime_type: 'text/html;profile=mcp-app',
+      },
+    };
+
+    render(
+      <ConversationTurn
+        activeMcpAppId="app_2"
+        iterations={[iteration(activityLane([replaced, active]))]}
+        mcpAppRepository={{} as ClioRepository}
+        messageSessionId="session_1"
+        mode="chain"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('v2ex_ui_echo closed')).toBeVisible();
+    expect(screen.getAllByTestId('active-mcp-app')).toHaveLength(1);
+    expect(screen.getByTestId('active-mcp-app')).toHaveTextContent('app_2');
+  });
+
   it('attaches the complete agent-routed exchange to its causal tool inside Activity', async () => {
     const interaction: PendingInteraction = {
       id: 'question:agent_1',

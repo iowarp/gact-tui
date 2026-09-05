@@ -112,9 +112,8 @@ function IterationSummary({
 }) {
   const [manualOpen, setManualOpen] = useState(false);
   const open = iteration.streaming || manualOpen;
-  const activeApp = iteration.activity.find(
-    (entry): entry is McpAppActivityEntry =>
-      entry.kind === 'mcp_app' && entry.block.app_instance_id === activeMcpAppId,
+  const appEvents = iteration.activity.filter(
+    (entry): entry is McpAppActivityEntry => entry.kind === 'mcp_app',
   );
   const subagentEvents = iteration.activity.filter(
     (entry): entry is Extract<ConversationIteration['activity'][number], { kind: 'subagent' }> =>
@@ -197,7 +196,7 @@ function IterationSummary({
           <CollapsibleContent className="pt-2">
             <IterationDetail
               activeMcpAppId={activeMcpAppId}
-              hiddenMcpAppId={activeApp?.block.app_instance_id}
+              hiddenMcpAppIds={appEvents.map((entry) => entry.block.app_instance_id)}
               interactions={interactions}
               iteration={iteration}
               mcpAppRepository={mcpAppRepository}
@@ -210,14 +209,15 @@ function IterationSummary({
           </CollapsibleContent>
         </ChainOfThoughtStep>
       </Collapsible>
-      {activeApp ? (
+      {appEvents.map((entry) => (
         <McpAppActivity
           activeMcpAppId={activeMcpAppId}
-          entry={activeApp}
+          entry={entry}
+          key={`mcp-app:${entry.id}`}
           mcpAppRepository={mcpAppRepository}
           messageSessionId={messageSessionId}
         />
-      ) : null}
+      ))}
     </>
   );
 }
@@ -231,7 +231,7 @@ function IterationDetail({
   showSubagents = true,
   showQuestionInteractions = true,
   activeMcpAppId,
-  hiddenMcpAppId,
+  hiddenMcpAppIds,
   mcpAppRepository,
   messageSessionId,
 }: {
@@ -243,7 +243,7 @@ function IterationDetail({
   showSubagents?: boolean;
   showQuestionInteractions?: boolean;
   activeMcpAppId?: string;
-  hiddenMcpAppId?: string;
+  hiddenMcpAppIds?: readonly string[];
   mcpAppRepository?: ClioRepository;
   messageSessionId?: string;
 }) {
@@ -315,7 +315,7 @@ function IterationDetail({
               </div>
             ) : null
           ) : entry.kind === 'mcp_app' ? (
-            entry.block.app_instance_id === hiddenMcpAppId ? null : (
+            hiddenMcpAppIds?.includes(entry.block.app_instance_id) ? null : (
               <McpAppActivity
                 activeMcpAppId={activeMcpAppId}
                 entry={entry}
