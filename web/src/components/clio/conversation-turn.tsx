@@ -189,6 +189,7 @@ function IterationSummary({
                   onOpen={onOpenSubagent}
                   stage={entry.block.stage ?? 'delegate.unknown'}
                   subagent={subagents[entry.block.subagent_id]}
+                  task={entry.block.task}
                 />
               ))}
             </div>
@@ -309,6 +310,7 @@ function IterationDetail({
                   onOpen={onOpenSubagent}
                   stage={entry.block.stage ?? 'delegate.unknown'}
                   subagent={subagents[entry.block.subagent_id]}
+                  task={entry.block.task}
                 />
               </div>
             ) : null

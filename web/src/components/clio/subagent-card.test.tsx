@@ -124,6 +124,19 @@ describe('ClioSubagentLifecycleLine', () => {
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
   });
 
+  it('uses the causal launch block assignment before the live entity catches up', () => {
+    render(
+      <ClioSubagentLifecycleLine
+        stage="delegate.started"
+        subagent={{ ...child, task: undefined }}
+        task="Inspect the current SWMR deployment evidence."
+      />,
+    );
+
+    expect(screen.getByText('Inspect the current SWMR deployment evidence.')).toBeVisible();
+    expect(screen.queryByText('Delegated work')).not.toBeInTheDocument();
+  });
+
   it('shows only the result when the child returns and remains navigable', () => {
     const onOpen = vi.fn();
     render(

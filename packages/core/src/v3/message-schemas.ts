@@ -136,6 +136,7 @@ const subagentMessageBlockSchema = additivelyTolerant(
       type: z.literal('subagent'),
       subagent_id: z.string(),
       stage: z.string().optional(),
+      task: z.string().optional(),
       agent_id: z.string().optional(),
       sequence: z.number().int().positive().optional(),
       stream_source: z.string().optional(),

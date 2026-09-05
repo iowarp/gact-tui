@@ -157,6 +157,7 @@ describe('forward-compatible wire enums', () => {
         type: 'subagent',
         subagent_id: 'task_1',
         stage: 'delegate.completed',
+        task: 'Inspect the current SWMR deployment evidence.',
         future_hint: 'ignored',
       }),
     ).toEqual({
@@ -164,6 +165,7 @@ describe('forward-compatible wire enums', () => {
       type: 'subagent',
       subagent_id: 'task_1',
       stage: 'delegate.completed',
+      task: 'Inspect the current SWMR deployment evidence.',
     });
     expect(
       messageBlockSchema.parse({

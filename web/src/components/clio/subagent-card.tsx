@@ -20,6 +20,7 @@ type SubagentBlock = Extract<MessageBlock, { type: 'subagent' }>;
 export interface ClioSubagentLifecycleLineProps {
   stage: NonNullable<SubagentBlock['stage']>;
   subagent?: SubagentRun;
+  task?: string;
   onOpen?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
 }
 
@@ -27,14 +28,14 @@ export interface ClioSubagentLifecycleLineProps {
 export function ClioSubagentLifecycleLine({
   stage,
   subagent,
+  task,
   onOpen,
 }: ClioSubagentLifecycleLineProps) {
   const started = stage === 'delegate.started';
   const title = subagent?.title || 'Child agent';
   const detail = started
-    ? subagent
-      ? getChildAgentAssignment(subagent).label
-      : 'Waiting for the child task record.'
+    ? task?.trim() ||
+      (subagent ? getChildAgentAssignment(subagent).label : 'Waiting for the child task record.')
     : subagent?.result || subagent?.summary || 'No return summary was reported.';
   const Icon = started ? CornerDownRightIcon : CornerDownLeftIcon;
   const interactive = Boolean(subagent?.child_session_id && onOpen);
