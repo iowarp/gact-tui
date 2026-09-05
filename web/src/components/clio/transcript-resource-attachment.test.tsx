@@ -4,7 +4,10 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { TranscriptResourceAttachment } from './transcript-resource-attachment';
+import {
+  TranscriptResourceAttachment,
+  TranscriptResourceAttachments,
+} from './transcript-resource-attachment';
 
 const repository = vi.hoisted(() => ({ resourcePreview: vi.fn() }));
 
@@ -89,6 +92,29 @@ function renderAttachment(element: ReactElement) {
 }
 
 describe('TranscriptResourceAttachment availability', () => {
+  it('opens an attachment with the complete adjacent message group', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const first = resource('application/pdf', processing('complete'));
+    const second = {
+      ...first,
+      id: 'res_2',
+      client_upload_id: 'upload_2',
+      name: 'appendix.pdf',
+    };
+    renderAttachment(
+      <TranscriptResourceAttachments
+        blocks={[block, { ...block, id: 'part_2', name: 'appendix.pdf', resource_id: 'res_2' }]}
+        onOpen={onOpen}
+        resources={{ res_1: first, res_2: second }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open paper.pdf' }));
+
+    expect(onOpen).toHaveBeenCalledWith(first, [first, second]);
+  });
+
   it('separates active upload from conversion waiting in the expanded status', async () => {
     const user = userEvent.setup();
     renderAttachment(

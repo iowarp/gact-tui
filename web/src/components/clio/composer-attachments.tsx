@@ -1,6 +1,6 @@
 import type { WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -35,6 +35,7 @@ import {
   ResourcePipelineStatusLines,
   ResourcePipelineSummaryIcon,
 } from './resource-pipeline-status';
+import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
 
 const LocalPdfViewer = lazy(() =>
   import('./document-pdf-viewer').then((module) => ({
@@ -67,7 +68,7 @@ export function ClioComposerAttachments({
   uploadProgress?: ResourceUploadProgress;
 }) {
   const attachments = usePromptInputAttachments();
-  const [preview, setPreview] = useState<(FileUIPart & { id: string }) | undefined>();
+  const [previewId, setPreviewId] = useState<string>();
   const preparingAttachmentIds = useRef(new Set<string>());
   const preparationControllers = useRef(new Map<string, AbortController>());
   const [attachmentProgress, setAttachmentProgress] = useState<
@@ -142,6 +143,26 @@ export function ClioComposerAttachments({
     }
   }, [attachments.files, onPrepareFiles, preparedResources]);
 
+  const preview = attachments.files.find((file) => file.id === previewId);
+  const previewItems = useMemo(
+    () =>
+      attachments.files.map((file) => ({
+        id: file.id,
+        label: file.filename ?? 'Attachment',
+        renderPreview: () => (
+          <div className="size-full min-h-0 overflow-auto bg-muted/25 p-4">
+            <LocalAttachmentPreview file={file} />
+          </div>
+        ),
+        renderThumbnail: () => (
+          <Attachment className="size-full" data={file}>
+            <AttachmentPreview />
+          </Attachment>
+        ),
+      })),
+    [attachments.files],
+  );
+
   if (attachments.files.length === 0) return null;
 
   return (
@@ -187,7 +208,7 @@ export function ClioComposerAttachments({
                           ? 'size-full'
                           : 'flex min-w-0 flex-1 items-center gap-2 overflow-hidden',
                       )}
-                      onClick={() => setPreview(file)}
+                      onClick={() => setPreviewId(file.id)}
                       type="button"
                     >
                       <AttachmentPreview />
@@ -220,7 +241,7 @@ export function ClioComposerAttachments({
         </Attachments>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
-      <Dialog onOpenChange={(open) => !open && setPreview(undefined)} open={Boolean(preview)}>
+      <Dialog onOpenChange={(open) => !open && setPreviewId(undefined)} open={Boolean(preview)}>
         <DialogContent className="grid h-[min(46rem,calc(100dvh-2rem))] w-[min(64rem,calc(100vw-2rem))] max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 sm:max-w-none">
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="truncate">
@@ -228,9 +249,14 @@ export function ClioComposerAttachments({
             </DialogTitle>
             <DialogDescription>{preview?.mediaType || 'Detected after upload'}</DialogDescription>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-auto bg-muted/25 p-4">
-            {preview ? <LocalAttachmentPreview file={preview} /> : null}
-          </div>
+          {preview ? (
+            <AttachmentPreviewCarousel
+              className="min-h-0 p-3"
+              items={previewItems}
+              onValueChange={setPreviewId}
+              value={preview.id}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

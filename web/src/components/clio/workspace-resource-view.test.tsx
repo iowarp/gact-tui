@@ -3,7 +3,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { WorkspaceResource } from '@clio/core/v3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { WorkspaceResourceView } from './workspace-resource-view';
+import { WorkspaceResourceCarousel, WorkspaceResourceView } from './workspace-resource-view';
 
 const repository = vi.hoisted(() => ({
   deleteResource: vi.fn().mockResolvedValue(undefined),
@@ -79,6 +79,33 @@ const resource: WorkspaceResource = {
 };
 
 describe('WorkspaceResourceView', () => {
+  it('moves between related message resources without opening another canvas tab', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const secondResource = {
+      ...resource,
+      id: 'resource_2',
+      client_upload_id: 'upload_2',
+      name: 'appendix.pdf',
+    };
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceResourceCarousel
+          resource={resource}
+          resources={[resource, secondResource]}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'paper.pdf' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Show paper.pdf' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Show appendix.pdf' }));
+
+    expect(await screen.findByRole('heading', { name: 'appendix.pdf' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'paper.pdf' })).not.toBeInTheDocument();
+  });
+
   it('uses the shared PDF.js viewer instead of the unreliable native object plugin', async () => {
     const objectUrls = vi.spyOn(URL, 'createObjectURL');
     const queryClient = new QueryClient({

@@ -268,6 +268,33 @@ describe('ClioComposer service commands', () => {
     );
   });
 
+  it('opens all pending attachments in one thumbnail carousel', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+    const picker = screen.getByLabelText('Upload files');
+    await user.upload(picker, [
+      new File(['first'], 'first-map.png', { type: 'image/png' }),
+      new File(['second'], 'second-map.png', { type: 'image/png' }),
+    ]);
+
+    await user.click(screen.getByRole('button', { name: 'Open first-map.png' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'Previous attachment' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Next attachment' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Show first-map.png' })).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Show second-map.png' }));
+
+    expect(await within(dialog).findByRole('heading', { name: 'second-map.png' })).toBeVisible();
+    const previewCarousel = within(dialog).getByRole('region', {
+      name: 'Attachment previews',
+    });
+    expect(within(previewCarousel).getByRole('img', { name: 'second-map.png' })).toHaveAttribute(
+      'src',
+      'blob:test-second-map.png',
+    );
+  });
+
   it('renders non-image uploads as file cards with useful metadata', async () => {
     const user = userEvent.setup();
     renderComposer({ attachments: true });

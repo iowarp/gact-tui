@@ -25,14 +25,15 @@ type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
 export interface TranscriptResourceAttachmentProps {
   block: ResourceBlock;
+  relatedResources?: readonly WorkspaceResource[];
   resource?: WorkspaceResource;
-  onOpen?: (resource: WorkspaceResource) => void;
+  onOpen?: (resource: WorkspaceResource, relatedResources?: readonly WorkspaceResource[]) => void;
 }
 
 export interface TranscriptResourceAttachmentsProps {
   blocks: readonly ResourceBlock[];
   resources?: Record<string, WorkspaceResource>;
-  onOpen?: (resource: WorkspaceResource) => void;
+  onOpen?: (resource: WorkspaceResource, relatedResources?: readonly WorkspaceResource[]) => void;
 }
 
 /**
@@ -45,6 +46,11 @@ export function TranscriptResourceAttachments({
   resources,
   onOpen,
 }: TranscriptResourceAttachmentsProps) {
+  const relatedResources = blocks.flatMap((block) => {
+    const resource = resources?.[block.resource_id];
+    return resource ? [resource] : [];
+  });
+
   return (
     <ScrollArea className="mb-2 w-full max-w-full" type="auto">
       <Attachments
@@ -60,6 +66,7 @@ export function TranscriptResourceAttachments({
             block={block}
             key={block.id}
             onOpen={onOpen}
+            relatedResources={relatedResources}
             resource={resources?.[block.resource_id]}
           />
         ))}
@@ -86,19 +93,28 @@ export function TranscriptResourceAttachment({
 
 function TranscriptResourceAttachmentItem({
   block,
+  relatedResources,
   resource,
   onOpen,
 }: TranscriptResourceAttachmentProps) {
   const mediaType = resource?.detected_mime || block.media_type;
 
   if (mediaType?.startsWith('image/')) {
-    return <TranscriptImageResourceAttachment block={block} onOpen={onOpen} resource={resource} />;
+    return (
+      <TranscriptImageResourceAttachment
+        block={block}
+        onOpen={onOpen}
+        relatedResources={relatedResources}
+        resource={resource}
+      />
+    );
   }
 
   return (
     <TranscriptResourceAttachmentDisplay
       block={block}
       onOpen={onOpen}
+      relatedResources={relatedResources}
       resource={resource}
       visual={false}
     />
@@ -107,6 +123,7 @@ function TranscriptResourceAttachmentItem({
 
 function TranscriptImageResourceAttachment({
   block,
+  relatedResources,
   resource,
   onOpen,
 }: TranscriptResourceAttachmentProps) {
@@ -135,6 +152,7 @@ function TranscriptImageResourceAttachment({
       block={block}
       onOpen={onOpen}
       previewUrl={previewUrl}
+      relatedResources={relatedResources}
       resource={resource}
       visual
     />
@@ -143,6 +161,7 @@ function TranscriptImageResourceAttachment({
 
 function TranscriptResourceAttachmentDisplay({
   block,
+  relatedResources,
   resource,
   onOpen,
   previewUrl,
@@ -154,7 +173,7 @@ function TranscriptResourceAttachmentDisplay({
   const stages = resourcePipelineStages(resource, availability);
 
   const open = () => {
-    if (resource) onOpen?.(resource);
+    if (resource) onOpen?.(resource, relatedResources);
   };
 
   return (

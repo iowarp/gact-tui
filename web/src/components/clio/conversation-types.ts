@@ -37,7 +37,10 @@ export interface ClioConversationProps {
   retryingMessageId?: string;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenFile?: (path: string) => void;
-  onOpenResource?: (resource: WorkspaceResource) => void;
+  onOpenResource?: (
+    resource: WorkspaceResource,
+    relatedResources?: readonly WorkspaceResource[],
+  ) => void;
   onOpenReference?: (reference: WorkspaceReference) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   pendingMessageIds?: ReadonlySet<string>;
