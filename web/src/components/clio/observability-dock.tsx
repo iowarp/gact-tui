@@ -162,13 +162,11 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     activeActivityCount || sessionActive || sessionNeedsAttention,
   );
   const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
-  const assistantResponding = props.messages.some(
+  const latestUserIndex = props.messages.findLastIndex((message) => message.role === 'user');
+  const assistantResponding = props.messages.slice(latestUserIndex + 1).some(
     (message) =>
       message.role === 'assistant' &&
-      message.blocks.some(
-        (block) =>
-          (block.type === 'text' || block.type === 'reasoning') && block.streaming === true,
-      ),
+      message.blocks.some((block) => block.type === 'text' || block.type === 'reasoning'),
   );
   const startupVisible = Boolean(
     sessionActive && !currentTool && !latestActiveProcess && !currentTask && !assistantResponding,
