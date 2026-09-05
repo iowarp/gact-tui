@@ -8,7 +8,12 @@ export function isProjectedQuestionResumeEnvelope(
   message: DomainMessage,
   interactions: readonly PendingInteraction[] | undefined,
 ): boolean {
-  if (message.role !== 'user' || message.metadata?.ask_user_resume !== true) return false;
+  if (message.role !== 'user') return false;
+  // Plan approval resumes the same agent with a server-authored constraint-lift
+  // envelope. It belongs in model context, not in the human transcript as a
+  // second user-authored prompt.
+  if (message.metadata?.plan_exit_resume === true) return true;
+  if (message.metadata?.ask_user_resume !== true) return false;
   const questionId = message.metadata.ask_user_question_id;
   if (typeof questionId !== 'string' || questionId.length === 0) return false;
   return (interactions ?? []).some(

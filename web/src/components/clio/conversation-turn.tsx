@@ -9,7 +9,14 @@ import {
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import type { ClioRepository, PendingInteraction, SubagentRun, Task } from '@clio/core/v3';
+import type {
+  Artifact,
+  ClioRepository,
+  PendingInteraction,
+  PendingInteractionResponse,
+  SubagentRun,
+  Task,
+} from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus, clioStatusLabel } from './status';
 import {
@@ -20,7 +27,7 @@ import {
 import { subagentsForTool } from './subagent-tool-link';
 import { getToolPresentation, getToolSummary } from './tool-presentation';
 import { ClioToolInvocation } from './tool-invocation';
-import { AgentAnswerActivity } from './agent-answer-activity';
+import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { GroundedMessageResponse } from './grounded-message-response';
@@ -36,6 +43,12 @@ interface ConversationTurnProps {
   activeMcpAppId?: string;
   mcpAppRepository?: ClioRepository;
   messageSessionId?: string;
+  artifacts?: Record<string, Artifact>;
+  onOpenArtifact?: (artifact: Artifact) => void;
+  onInteractionResponse?: (
+    interaction: PendingInteraction,
+    response: PendingInteractionResponse,
+  ) => Promise<void>;
 }
 
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
@@ -48,6 +61,9 @@ export function ConversationTurn({
   activeMcpAppId,
   mcpAppRepository,
   messageSessionId,
+  artifacts = {},
+  onOpenArtifact,
+  onInteractionResponse,
 }: ConversationTurnProps) {
   if (iterations.length === 0) return null;
   if (mode === 'full') {
@@ -65,6 +81,9 @@ export function ConversationTurn({
               activeMcpAppId={activeMcpAppId}
               mcpAppRepository={mcpAppRepository}
               messageSessionId={messageSessionId}
+              artifacts={artifacts}
+              onInteractionResponse={onInteractionResponse}
+              onOpenArtifact={onOpenArtifact}
             />
           ))}
         </div>
@@ -86,6 +105,9 @@ export function ConversationTurn({
             activeMcpAppId={activeMcpAppId}
             mcpAppRepository={mcpAppRepository}
             messageSessionId={messageSessionId}
+            artifacts={artifacts}
+            onInteractionResponse={onInteractionResponse}
+            onOpenArtifact={onOpenArtifact}
           />
         ))}
       </ChainOfThoughtContent>
@@ -101,6 +123,9 @@ function IterationSummary({
   activeMcpAppId,
   mcpAppRepository,
   messageSessionId,
+  artifacts,
+  onOpenArtifact,
+  onInteractionResponse,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
@@ -109,6 +134,12 @@ function IterationSummary({
   activeMcpAppId?: string;
   mcpAppRepository?: ClioRepository;
   messageSessionId?: string;
+  artifacts: Record<string, Artifact>;
+  onOpenArtifact?: (artifact: Artifact) => void;
+  onInteractionResponse?: (
+    interaction: PendingInteraction,
+    response: PendingInteractionResponse,
+  ) => Promise<void>;
 }) {
   const [manualOpen, setManualOpen] = useState(false);
   const open = iteration.streaming || manualOpen;
@@ -166,7 +197,12 @@ function IterationSummary({
                 ))}
                 {iteration.tools.flatMap((tool) =>
                   questionInteractionsForTool(interactions, tool.id).map((interaction) => (
-                    <AgentAnswerActivity compact interaction={interaction} key={interaction.id} />
+                    <ConversationInteractionActivity
+                      artifacts={artifacts}
+                      compact
+                      interaction={interaction}
+                      key={interaction.id}
+                    />
                   )),
                 )}
                 {iteration.interrupted && !open ? (
@@ -201,6 +237,9 @@ function IterationSummary({
               iteration={iteration}
               mcpAppRepository={mcpAppRepository}
               messageSessionId={messageSessionId}
+              artifacts={artifacts}
+              onInteractionResponse={onInteractionResponse}
+              onOpenArtifact={onOpenArtifact}
               onOpenSubagent={onOpenSubagent}
               showSubagents={false}
               showTasks={false}
@@ -234,6 +273,9 @@ function IterationDetail({
   hiddenMcpAppIds,
   mcpAppRepository,
   messageSessionId,
+  artifacts,
+  onOpenArtifact,
+  onInteractionResponse,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
@@ -246,6 +288,12 @@ function IterationDetail({
   hiddenMcpAppIds?: readonly string[];
   mcpAppRepository?: ClioRepository;
   messageSessionId?: string;
+  artifacts: Record<string, Artifact>;
+  onOpenArtifact?: (artifact: Artifact) => void;
+  onInteractionResponse?: (
+    interaction: PendingInteraction,
+    response: PendingInteractionResponse,
+  ) => Promise<void>;
 }) {
   const explicitSubagentIds = new Set(
     iteration.activity.flatMap((entry) =>
@@ -302,7 +350,13 @@ function IterationDetail({
               </div>
               {showQuestionInteractions
                 ? questionInteractionsForTool(interactions, entry.id).map((interaction) => (
-                    <AgentAnswerActivity interaction={interaction} key={interaction.id} />
+                    <ConversationInteractionActivity
+                      artifacts={artifacts}
+                      interaction={interaction}
+                      key={interaction.id}
+                      onOpenArtifact={onOpenArtifact}
+                      onResponse={onInteractionResponse}
+                    />
                   ))
                 : null}
             </Fragment>

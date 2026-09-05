@@ -64,6 +64,19 @@ describe('conversation message projections', () => {
     expect(isProjectedQuestionResumeEnvelope(envelope, [])).toBe(false);
   });
 
+  it('always hides a server-authored Plan approval resume envelope', () => {
+    const envelope: Message = {
+      id: 'message_plan_resume',
+      session_id: 'session_1',
+      role: 'user',
+      created_at: '2026-09-05T00:00:00Z',
+      blocks: [{ id: 'resume_text', type: 'text', text: '[STATE TRANSITION OVERRIDE]' }],
+      metadata: { plan_exit_resume: true, plan_exit_result: 'approved' },
+    };
+
+    expect(isProjectedQuestionResumeEnvelope(envelope, [])).toBe(true);
+  });
+
   it('renders an MCP App response as its own causal ledger entry', () => {
     const appBlock = {
       id: 'app_block',

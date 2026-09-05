@@ -1,5 +1,10 @@
 import { queryKeys } from '@/lib/query-keys';
-import type { RunState, WorkspaceReference } from '@clio/core/v3';
+import type {
+  PendingInteraction,
+  PendingInteractionResponse,
+  RunState,
+  WorkspaceReference,
+} from '@clio/core/v3';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
@@ -231,6 +236,20 @@ export function WorkspacePage() {
     interactionRootSessionId,
     supportsUnifiedInteractions,
   });
+  const handleInteractionResponse = useCallback(
+    async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
+      await respondInteraction.mutateAsync({ interaction, response });
+    },
+    [respondInteraction],
+  );
+  const responseTrayInteractions = useMemo(
+    () =>
+      interactions.filter(
+        (interaction) =>
+          interaction.source.tool_name !== 'plan_exit' || !interaction.source.invocation_id,
+      ),
+    [interactions],
+  );
   const refreshNavigation = useCallback(
     async (targetWorkspaceId = workspaceId) => {
       await Promise.all([
@@ -458,12 +477,10 @@ export function WorkspacePage() {
           <ClioPendingInteractions
             capabilityError={interactionCapabilityError ?? undefined}
             error={interactionsError ?? undefined}
-            interactions={interactions}
+            interactions={responseTrayInteractions}
             onA2UILocalAction={handleA2UILocalAction}
             onRefetchSurfaces={refetchInteractionSurfaces}
-            onResponse={async (interaction, response) => {
-              await respondInteraction.mutateAsync({ interaction, response });
-            }}
+            onResponse={handleInteractionResponse}
             ownerLabels={interactionOwnerLabels}
             surfaces={interactionSurfaces}
             viewedSessionId={sessionId}
@@ -729,6 +746,7 @@ export function WorkspacePage() {
                     onOpenFile={openWorkspaceFile}
                     onOpenResource={openWorkspaceResource}
                     onOpenReference={(reference) => void openComposerReference(reference)}
+                    onInteractionResponse={handleInteractionResponse}
                     forkingMessageId={
                       sessionHistory.fork.isPending && sessionHistory.fork.variables
                         ? sessionHistory.fork.variables

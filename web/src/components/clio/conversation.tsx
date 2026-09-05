@@ -1,17 +1,7 @@
 import type {
-  ActionCardAction,
-  Artifact,
-  A2UISurface,
-  ClioRepository,
   PendingInteraction,
   Message as DomainMessage,
-  SubagentRun,
-  Task as DomainTask,
-  ToolInvocation,
-  WorkspaceReference,
-  WorkspaceResource,
 } from '@clio/core/v3';
-import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import {
   AlertTriangleIcon,
   ArrowDownIcon,
@@ -48,9 +38,8 @@ import { DeferredA2UISurface, MessageBlockSequence } from './conversation-messag
 import { ConversationTurn } from './conversation-turn';
 import { useConversationTurn } from './use-conversation-turn';
 import { subagentsForTool } from './subagent-tool-link';
-import type { SubagentOpenTarget } from './subagent-card';
 import { ClioTranscriptMinimap } from './transcript-minimap';
-import type { McpAppResponseActivityData } from './mcp-app-surface';
+import type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
 import {
   isProjectedQuestionResumeEnvelope,
   mcpAppResponsesForMessages,
@@ -58,50 +47,7 @@ import {
 import { McpAppResponseMessageRow } from './conversation-message-projections';
 
 const VIRTUALIZATION_THRESHOLD = 80;
-export interface ClioConversationProps {
-  messages: readonly DomainMessage[];
-  loading?: boolean;
-  error?: string;
-  tools: Record<string, ToolInvocation>;
-  tasks: Record<string, DomainTask>;
-  subagents: Record<string, SubagentRun>;
-  artifacts: Record<string, Artifact>;
-  surfaces: Record<string, A2UISurface>;
-  resources?: Record<string, WorkspaceResource>;
-  onActionCardAction?: (action: ActionCardAction) => void | Promise<unknown>;
-  onA2UILocalAction?: (action: A2uiClientAction) => string | void | Promise<string | void>;
-  onForkFromMessage?: (messageId: string) => void | Promise<unknown>;
-  forkingMessageId?: string;
-  onRewindToMessage?: (messageId: string) => void | Promise<unknown>;
-  rewindingMessageId?: string;
-  onRetryMessage?: (messageId: string) => void | Promise<unknown>;
-  retryingMessageId?: string;
-  onOpenArtifact?: (artifact: Artifact) => void;
-  onOpenFile?: (path: string) => void;
-  onOpenResource?: (resource: WorkspaceResource) => void;
-  onOpenReference?: (reference: WorkspaceReference) => void;
-  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  pendingMessageIds?: ReadonlySet<string>;
-  cancellablePendingMessageIds?: ReadonlySet<string>;
-  cancellingPendingMessageId?: string;
-  onCancelPendingSteer?: (messageId: string) => void | Promise<unknown>;
-  bottomInset?: number;
-  mcpAppRepository?: ClioRepository;
-  interactions?: readonly PendingInteraction[];
-}
-
-export interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
-  displayMode: ConversationDisplayMode;
-  message: DomainMessage;
-  index: number;
-  start?: number;
-  recent: boolean;
-  measureElement?: (element: Element | null) => void;
-  virtualized?: boolean;
-  onDisplayModeChange: (mode: ConversationDisplayMode) => void;
-  activeMcpAppId?: string;
-  mcpAppResponse?: McpAppResponseActivityData;
-}
+export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
 
 const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
@@ -293,12 +239,15 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
               <>
                 <ConversationTurn
                   activeMcpAppId={entities.activeMcpAppId}
+                  artifacts={entities.artifacts}
                   interactions={entities.interactions}
                   iterations={turn.iterations}
                   mcpAppRepository={entities.mcpAppRepository}
                   messageSessionId={message.session_id}
                   mode={displayMode}
                   onOpenSubagent={entities.onOpenSubagent}
+                  onOpenArtifact={entities.onOpenArtifact}
+                  onInteractionResponse={entities.onInteractionResponse}
                   subagents={entities.subagents}
                 />
                 <MessageBlockSequence
@@ -413,6 +362,7 @@ export function conversationMessageRowPropsEqual(
     left.onRewindToMessage !== right.onRewindToMessage ||
     left.onRetryMessage !== right.onRetryMessage ||
     left.onCancelPendingSteer !== right.onCancelPendingSteer ||
+    left.onInteractionResponse !== right.onInteractionResponse ||
     left.activeMcpAppId !== right.activeMcpAppId ||
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||

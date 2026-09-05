@@ -102,4 +102,36 @@ describe('PlanExitResponse', () => {
       selected_options: ['exit_only'],
     });
   });
+
+  it('keeps the accepted plan and its recorded decision in the lifecycle', async () => {
+    const interaction = planInteraction({
+      status: 'answered',
+      requires_human_response: false,
+      actions: [],
+      payload: {
+        answer_metadata: { selected_options: ['auto'] },
+        options: [{ label: 'Approve — auto-execute', value: 'auto' }],
+        plan_exit: {
+          summary: 'Create the requested file after approval.',
+          plan_file: 'D:/workspace/.clio/plans/plan.md',
+          plan_content: '# Accepted implementation plan\n\n1. Create the file.',
+          plan_content_status: 'complete',
+        },
+      },
+    });
+
+    render(
+      <PlanExitResponse
+        interaction={interaction}
+        onResponse={vi.fn(async () => undefined)}
+        showOwner={false}
+      />,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Accepted implementation plan' }),
+    ).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Approved · Approve — auto-execute');
+    expect(screen.queryByRole('button', { name: 'Submit plan decision' })).not.toBeInTheDocument();
+  });
 });

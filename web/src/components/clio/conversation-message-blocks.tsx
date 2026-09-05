@@ -29,7 +29,7 @@ import { Button } from '@/components/ui/button';
 import { ClioA2UISurface } from './a2ui-surface';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
-import type { ClioConversationProps } from './conversation';
+import type { ClioConversationProps } from './conversation-types';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { referenceKindIcon } from './composer-reference-presentation';
@@ -123,6 +123,7 @@ function MessageBlockView({
   mcpAppRepository,
   messageSessionId,
   interactions,
+  onInteractionResponse,
 }: MessageBlockViewProps) {
   switch (block.type) {
     case 'text':
@@ -138,6 +139,9 @@ function MessageBlockView({
       return (
         <ConversationProcessSequence
           block={block}
+          artifacts={artifacts}
+          onInteractionResponse={onInteractionResponse}
+          onOpenArtifact={onOpenArtifact}
           onOpenSubagent={onOpenSubagent}
           reasoningDefaultOpen={reasoningDefaultOpen}
           subagents={subagents}

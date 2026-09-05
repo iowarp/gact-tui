@@ -1,4 +1,4 @@
-import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
+import type { Artifact, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import { useState } from 'react';
 import { MessageResponse } from '@/components/ai-elements/message';
 import {
@@ -26,17 +26,65 @@ import { Textarea } from '@/components/ui/textarea';
 import { respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';
 import { ResponseErrorNotice } from './pending-interaction-notices';
+import { ClioArtifactAttachments } from './artifact-card';
+
+export function InlinePlanExitResponse({
+  artifacts,
+  interaction,
+  onOpenArtifact,
+  onResponse,
+}: {
+  artifacts: Record<string, Artifact>;
+  interaction: PendingInteraction;
+  onOpenArtifact?: (artifact: Artifact) => void;
+  onResponse?: (
+    interaction: PendingInteraction,
+    response: PendingInteractionResponse,
+  ) => Promise<void>;
+}) {
+  const [responding, setResponding] = useState(false);
+  const [responseError, setResponseError] = useState<Error>();
+  const artifact = planArtifact(interaction, artifacts);
+  const respond = async (target: PendingInteraction, response: PendingInteractionResponse) => {
+    if (!onResponse || responding) return;
+    setResponding(true);
+    setResponseError(undefined);
+    try {
+      await onResponse(target, response);
+    } catch (error) {
+      setResponseError(error instanceof Error ? error : new Error(String(error)));
+      throw error;
+    } finally {
+      setResponding(false);
+    }
+  };
+  return (
+    <PlanExitResponse
+      artifact={artifact}
+      disabled={responding || !onResponse}
+      interaction={interaction}
+      onOpenArtifact={onOpenArtifact}
+      onResponse={respond}
+      responseError={responseError}
+      showOwner={false}
+    />
+  );
+}
 
 export function PlanExitResponse({
+  artifact,
   interaction,
   disabled,
+  onOpenArtifact,
   onResponse,
   ownerLabel,
   responseError,
   showOwner,
 }: {
+  artifact?: Artifact;
   interaction: PendingInteraction;
   disabled?: boolean;
+  onOpenArtifact?: (artifact: Artifact) => void;
   onResponse: (
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
@@ -53,7 +101,8 @@ export function PlanExitResponse({
   const decisions = options.filter((option) => (option.value || option.label) !== 'clear_context');
   const clearOption = options.find((option) => (option.value || option.label) === 'clear_context');
   const rejectionNeedsFeedback = decision === 'reject' && !feedback.trim();
-  const canAnswer = (interaction.actions ?? []).includes('answer');
+  const canAnswer =
+    interaction.status === 'pending' && (interaction.actions ?? []).includes('answer');
   const requiresCompleteReview = decision === 'auto' || decision === 'interactive';
   const planReviewComplete =
     plan?.plan_content_status === 'complete' && Boolean(plan.plan_content?.trim());
@@ -83,6 +132,13 @@ export function PlanExitResponse({
       />
       <FramePanel className="min-w-0 overflow-hidden">
         <ResponseErrorNotice error={responseError} />
+        {artifact ? (
+          <ClioArtifactAttachments
+            artifacts={[artifact]}
+            className="mb-2"
+            onOpen={onOpenArtifact}
+          />
+        ) : null}
         <Plan className="mb-3 bg-background/70" defaultOpen>
           <PlanHeader>
             <div className="min-w-0">
@@ -129,23 +185,26 @@ export function PlanExitResponse({
           </PlanFooter>
         </Plan>
 
-        {!canAnswer ? (
+        {interaction.status !== 'pending' ? (
+          <PlanDecision interaction={interaction} options={options} />
+        ) : !canAnswer ? (
           <p className="text-sm text-muted-foreground">Plan controls are not available yet.</p>
         ) : (
           <>
             <RadioGroup disabled={disabled} onValueChange={setDecision} value={decision}>
               {decisions.map((option) => {
                 const value = option.value || option.label;
+                const label = value === 'reject' ? 'Request changes' : option.label;
                 return (
                   <FieldLabel htmlFor={`${interaction.id}-${value}`} key={value}>
                     <Field orientation="horizontal">
                       <RadioGroupItem
-                        aria-label={option.label}
+                        aria-label={label}
                         id={`${interaction.id}-${value}`}
                         value={value}
                       />
                       <FieldContent>
-                        <FieldTitle>{option.label}</FieldTitle>
+                        <FieldTitle>{label}</FieldTitle>
                         {option.description ? (
                           <FieldDescription>{option.description}</FieldDescription>
                         ) : null}
@@ -213,4 +272,55 @@ export function PlanExitResponse({
       </FramePanel>
     </Frame>
   );
+}
+
+function PlanDecision({
+  interaction,
+  options,
+}: {
+  interaction: PendingInteraction;
+  options: Array<{ label: string; value: string; description?: string }>;
+}) {
+  const selected = selectedOptions(interaction);
+  const decision = selected.find((value) => value !== 'clear_context');
+  const option = options.find((candidate) => (candidate.value || candidate.label) === decision);
+  const label =
+    decision === 'reject'
+      ? 'Changes requested'
+      : decision
+        ? `Approved · ${option?.label ?? decision}`
+        : interaction.status === 'cancelled'
+          ? 'Plan review cancelled'
+          : interaction.status === 'expired'
+            ? 'Plan review expired'
+            : 'Plan decision recorded';
+  return (
+    <div
+      className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-sm"
+      data-plan-decision={decision || interaction.status}
+      role="status"
+    >
+      <div className="font-medium text-foreground">{label}</div>
+      {selected.includes('clear_context') ? (
+        <p className="mt-1 text-xs text-muted-foreground">Conversation context was cleared.</p>
+      ) : null}
+    </div>
+  );
+}
+
+function selectedOptions(interaction: PendingInteraction): string[] {
+  const raw = interaction.payload?.answer_metadata?.selected_options;
+  return Array.isArray(raw)
+    ? raw.filter((value): value is string => typeof value === 'string')
+    : [];
+}
+
+function planArtifact(
+  interaction: PendingInteraction,
+  artifacts: Record<string, Artifact>,
+): Artifact | undefined {
+  const planFile = interaction.payload?.plan_exit?.plan_file;
+  const name = planFile?.replaceAll('\\', '/').split('/').at(-1)?.toLocaleLowerCase();
+  if (!name) return undefined;
+  return Object.values(artifacts).find((artifact) => artifact.name.toLocaleLowerCase() === name);
 }

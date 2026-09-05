@@ -82,6 +82,61 @@ describe('ConversationTurn incomplete state', () => {
 });
 
 describe('ConversationTurn correlated work placement', () => {
+  it('anchors an actionable saved-plan review to the Exit Plan tool', async () => {
+    const interaction: PendingInteraction = {
+      id: 'question:plan_exit',
+      kind: 'question',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'pending',
+      title: 'Review execution plan',
+      requires_human_response: true,
+      prompt: 'Approve the saved plan?',
+      source: { protocol: 'native', tool_name: 'plan_exit', invocation_id: 'call_plan_exit' },
+      created_at: '2026-09-05T00:00:00Z',
+      payload: {
+        answer_metadata: {},
+        options: [
+          { label: 'Approve — auto-execute', value: 'auto' },
+          { label: 'Reject — keep planning', value: 'reject' },
+        ],
+        plan_exit: {
+          plan_file: 'D:/workspace/.clio/plans/plan.md',
+          plan_content: '# Implementation plan\n\n1. Make the requested change.',
+          plan_content_status: 'complete',
+          summary: 'Make the requested change after approval.',
+        },
+      },
+      actions: ['answer'],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([
+              {
+                kind: 'tool',
+                id: 'call_plan_exit',
+                tool: tool('call_plan_exit', 'Exit Plan'),
+              },
+            ]),
+          ),
+        ]}
+        mode="full"
+        onInteractionResponse={vi.fn(async () => undefined)}
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Review execution plan')).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 5_000 }),
+    ).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'Approve — auto-execute' })).toBeVisible();
+    expect(screen.getByRole('radio', { name: 'Request changes' })).toBeVisible();
+  });
+
   it('renders tools and tasks in the wire order that links them', () => {
     render(
       <ConversationTurn

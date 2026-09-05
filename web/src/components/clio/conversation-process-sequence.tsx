@@ -1,6 +1,8 @@
 import type {
+  Artifact,
   MessageBlock,
   PendingInteraction,
+  PendingInteractionResponse,
   SubagentRun,
   Task,
   ToolInvocation,
@@ -13,7 +15,7 @@ import { ClioStreamingText } from './streaming-text';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
 import { questionInteractionsForTool } from './agent-answer-domain';
-import { AgentAnswerActivity } from './agent-answer-activity';
+import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import { GroundedMessageResponse } from './grounded-message-response';
 
 export type ProcessBlock = Extract<
@@ -29,6 +31,12 @@ interface ConversationProcessSequenceProps {
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   reasoningDefaultOpen?: boolean;
   interactions?: readonly PendingInteraction[];
+  artifacts?: Record<string, Artifact>;
+  onOpenArtifact?: (artifact: Artifact) => void;
+  onInteractionResponse?: (
+    interaction: PendingInteraction,
+    response: PendingInteractionResponse,
+  ) => Promise<void>;
 }
 
 type ProcessEntities = Omit<ConversationProcessSequenceProps, 'block'>;
@@ -42,6 +50,9 @@ export function ConversationProcessSequence({
   onOpenSubagent,
   reasoningDefaultOpen,
   interactions,
+  artifacts,
+  onOpenArtifact,
+  onInteractionResponse,
 }: ConversationProcessSequenceProps) {
   return renderSingleProcessBlock(block, {
     onOpenSubagent,
@@ -50,6 +61,9 @@ export function ConversationProcessSequence({
     tasks,
     tools,
     interactions,
+    artifacts,
+    onOpenArtifact,
+    onInteractionResponse,
   });
 }
 
@@ -89,7 +103,13 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
         ) : null}
         <ClioToolInvocation tool={tool} />
         {questions.map((interaction) => (
-          <AgentAnswerActivity interaction={interaction} key={interaction.id} />
+          <ConversationInteractionActivity
+            artifacts={entities.artifacts ?? {}}
+            interaction={interaction}
+            key={interaction.id}
+            onOpenArtifact={entities.onOpenArtifact}
+            onResponse={entities.onInteractionResponse}
+          />
         ))}
       </div>
     );
