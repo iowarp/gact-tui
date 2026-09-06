@@ -106,6 +106,49 @@ describe('WorkspaceResourceView', () => {
     expect(screen.queryByRole('heading', { name: 'paper.pdf' })).not.toBeInTheDocument();
   });
 
+  it('moves between related resources with the overlay controls and arrow keys', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const secondResource = {
+      ...resource,
+      id: 'resource_2',
+      client_upload_id: 'upload_2',
+      name: 'appendix.pdf',
+    };
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceResourceCarousel
+          resource={resource}
+          resources={[resource, secondResource]}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    const previewCarousel = screen.getByRole('region', { name: 'Attachment previews' });
+    const previous = within(previewCarousel).getByRole('button', {
+      name: 'Previous attachment',
+    });
+    const next = within(previewCarousel).getByRole('button', { name: 'Next attachment' });
+
+    expect(previous).toBeDisabled();
+    expect(next).toBeEnabled();
+    await user.click(next);
+    expect(await screen.findByRole('heading', { name: 'appendix.pdf' })).toBeVisible();
+    expect(previous).toBeEnabled();
+    expect(next).toBeDisabled();
+
+    await user.click(previous);
+    expect(await screen.findByRole('heading', { name: 'paper.pdf' })).toBeVisible();
+
+    await user.click(previewCarousel);
+    expect(previewCarousel).toHaveFocus();
+    await user.keyboard('{ArrowRight}');
+    expect(await screen.findByRole('heading', { name: 'appendix.pdf' })).toBeVisible();
+    await user.keyboard('{ArrowLeft}');
+    expect(await screen.findByRole('heading', { name: 'paper.pdf' })).toBeVisible();
+  });
+
   it('uses the shared PDF.js viewer instead of the unreliable native object plugin', async () => {
     const objectUrls = vi.spyOn(URL, 'createObjectURL');
     const queryClient = new QueryClient({

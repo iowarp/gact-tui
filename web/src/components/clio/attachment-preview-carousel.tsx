@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { KeyboardEvent, PointerEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Carousel,
@@ -41,6 +41,41 @@ export function AttachmentPreviewCarousel({
     0,
     items.findIndex((item) => item.id === value),
   );
+
+  const selectIndex = useCallback(
+    (index: number) => {
+      const item = items[index];
+      if (!item) return;
+      onValueChange(item.id);
+      mainApi?.scrollTo(index);
+      thumbnailApi?.scrollTo(index);
+    },
+    [items, mainApi, onValueChange, thumbnailApi],
+  );
+
+  const handlePreviewKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      const ownsArrowKeys =
+        target === event.currentTarget ||
+        Boolean(target.closest('[data-slot="carousel-previous"], [data-slot="carousel-next"]'));
+      if (!ownsArrowKeys) return;
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        selectIndex(selectedIndex - 1);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        selectIndex(selectedIndex + 1);
+      }
+    },
+    [selectIndex, selectedIndex],
+  );
+
+  const focusPreviewCarousel = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('a, button, input, select, textarea, [contenteditable="true"]')) return;
+    event.currentTarget.focus({ preventScroll: true });
+  }, []);
 
   const selectMainSlide = useCallback(() => {
     if (!mainApi) return;
@@ -86,8 +121,11 @@ export function AttachmentPreviewCarousel({
       <Carousel
         aria-label="Attachment previews"
         className="h-full min-h-0 [&_[data-slot=carousel-content]]:h-full"
+        onKeyDownCapture={handlePreviewKeyDown}
+        onPointerDown={focusPreviewCarousel}
         opts={{ startIndex: selectedIndex }}
         setApi={setMainApi}
+        tabIndex={0}
       >
         <CarouselContent className="-ml-0 h-full">
           {items.map((item, index) => (
@@ -105,10 +143,14 @@ export function AttachmentPreviewCarousel({
             <CarouselPrevious
               aria-label="Previous attachment"
               className="left-3 bg-background/90 shadow-sm backdrop-blur-sm"
+              disabled={selectedIndex === 0}
+              onClick={() => selectIndex(selectedIndex - 1)}
             />
             <CarouselNext
               aria-label="Next attachment"
               className="right-3 bg-background/90 shadow-sm backdrop-blur-sm"
+              disabled={selectedIndex === items.length - 1}
+              onClick={() => selectIndex(selectedIndex + 1)}
             />
           </>
         ) : null}
@@ -133,10 +175,7 @@ export function AttachmentPreviewCarousel({
                     index === selectedIndex && 'border-primary opacity-100',
                     index !== selectedIndex && 'border-transparent',
                   )}
-                  onClick={() => {
-                    onValueChange(item.id);
-                    mainApi?.scrollTo(index);
-                  }}
+                  onClick={() => selectIndex(index)}
                   type="button"
                 >
                   {item.renderThumbnail()}
