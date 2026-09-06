@@ -55,7 +55,7 @@ describe('composer attachments', () => {
     expect(screen.queryByText('field-map.png')).not.toBeInTheDocument();
   });
 
-  it('uses a metadata card for non-image files', () => {
+  it('uses a visual metadata tile for non-image files', () => {
     render(
       <Attachments variant="composer">
         <Attachment
@@ -75,9 +75,12 @@ describe('composer attachments', () => {
 
     expect(screen.getByText('field-notes.md')).toBeVisible();
     expect(screen.getByText('text/markdown')).toBeVisible();
-    expect(document.querySelector('[data-attachment-variant]')).toHaveAttribute(
+    const attachment = document.querySelector('[data-attachment-variant]');
+    expect(attachment).toHaveAttribute(
       'data-attachment-category',
       'document',
     );
+    expect(attachment).toHaveClass('size-36');
+    expect(attachment).not.toHaveClass('h-14', 'w-60');
   });
 });

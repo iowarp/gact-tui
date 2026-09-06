@@ -199,7 +199,7 @@ export const Attachment = ({ data, onRemove, className, children, ...props }: At
           visualComposerAttachment && 'size-36 shrink-0 overflow-hidden rounded-lg border bg-muted',
           variant === 'composer' &&
             !visualComposerAttachment &&
-            'flex h-14 w-60 shrink-0 items-center gap-2 rounded-lg border bg-background p-2',
+            'flex size-36 shrink-0 flex-col overflow-hidden rounded-lg border bg-background',
           variant === 'inline' && [
             'flex h-8 cursor-pointer select-none items-center gap-1.5',
             'rounded-md border border-border px-1.5',
@@ -238,7 +238,12 @@ export const AttachmentPreview = ({
 }: AttachmentPreviewProps) => {
   const { data, mediaCategory, variant } = useAttachmentContext();
 
-  const iconSize = variant === 'inline' ? 'size-3' : 'size-4';
+  const iconSize =
+    variant === 'inline'
+      ? 'size-3'
+      : variant === 'composer' && mediaCategory !== 'image' && mediaCategory !== 'video'
+        ? 'size-7'
+        : 'size-4';
 
   const renderIcon = (Icon: typeof ImageIcon) => (
     <Icon className={cn(iconSize, 'text-muted-foreground')} />
@@ -268,7 +273,7 @@ export const AttachmentPreview = ({
         variant === 'composer' &&
           mediaCategory !== 'image' &&
           mediaCategory !== 'video' &&
-          'size-10 rounded-md bg-muted',
+          'min-h-0 w-full flex-1 bg-muted/60',
         variant === 'inline' && 'size-5 rounded bg-background',
         variant === 'list' && 'size-12 rounded bg-muted',
         className,
@@ -304,7 +309,15 @@ export const AttachmentInfo = ({
   }
 
   return (
-    <div className={cn('min-w-0 flex-1', className)} {...props}>
+    <div
+      className={cn(
+        'min-w-0 flex-1',
+        variant === 'composer' &&
+          'w-full flex-none border-t bg-background px-2 py-1.5 pr-8 leading-tight',
+        className,
+      )}
+      {...props}
+    >
       <span className="block truncate">{label}</span>
       {showMediaType && data.mediaType && (
         <span className="block truncate text-muted-foreground text-xs">{data.mediaType}</span>
@@ -327,9 +340,7 @@ export const AttachmentRemove = ({
   children,
   ...props
 }: AttachmentRemoveProps) => {
-  const { mediaCategory, onRemove, variant } = useAttachmentContext();
-  const visualComposerAttachment =
-    variant === 'composer' && (mediaCategory === 'image' || mediaCategory === 'video');
+  const { onRemove, variant } = useAttachmentContext();
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -354,14 +365,12 @@ export const AttachmentRemove = ({
           'hover:bg-background',
           '[&>svg]:size-3',
         ],
-        visualComposerAttachment && [
+        variant === 'composer' && [
           'absolute top-2 right-2 size-6 rounded-full p-0',
           'bg-background/85 opacity-0 shadow-sm backdrop-blur-sm transition-opacity',
           'group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-background',
           '[&>svg]:size-3',
         ],
-        variant === 'composer' &&
-          !visualComposerAttachment && ['size-7 shrink-0 rounded p-0', '[&>svg]:size-3.5'],
         variant === 'inline' && [
           'size-5 rounded p-0',
           // Focus reveals it too, or the control is unreachable by keyboard.

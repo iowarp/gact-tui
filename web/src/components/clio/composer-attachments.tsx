@@ -206,15 +206,15 @@ export function ClioComposerAttachments({
                         'text-left',
                         visual
                           ? 'size-full'
-                          : 'flex min-w-0 flex-1 items-center gap-2 overflow-hidden',
+                          : 'flex size-full min-w-0 flex-col overflow-hidden',
                       )}
                       onClick={() => setPreviewId(file.id)}
                       type="button"
                     >
                       <AttachmentPreview />
                       <AttachmentInfo className="text-xs" showMediaType />
-                      <span className={cn('shrink-0', visual && 'absolute right-2 bottom-2')}>
-                        <ResourcePipelineSummaryIcon overlay={visual} stages={stages} />
+                      <span className="absolute right-2 bottom-2 shrink-0">
+                        <ResourcePipelineSummaryIcon overlay stages={stages} />
                       </span>
                     </button>
                     <AttachmentRemove aria-label={`Remove ${filename}`} />

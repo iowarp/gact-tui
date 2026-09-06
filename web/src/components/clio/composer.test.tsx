@@ -322,10 +322,12 @@ describe('ClioComposer service commands', () => {
     const openAttachment = screen.getByRole('button', { name: 'Open field-notes.md' });
     expect(within(openAttachment).getByText('field-notes.md')).toBeVisible();
     expect(within(openAttachment).getByText('text/markdown')).toBeVisible();
+    expect(openAttachment).toHaveClass('size-full', 'flex-col');
     expect(openAttachment.closest('[data-attachment-variant]')).toHaveAttribute(
       'data-attachment-category',
       'document',
     );
+    expect(openAttachment.closest('[data-attachment-variant]')).toHaveClass('size-36');
   });
 
   it('opens PDF attachments in a near-fullscreen reading canvas', async () => {

@@ -113,6 +113,9 @@ describe('TranscriptResourceAttachment availability', () => {
     await user.click(screen.getByRole('button', { name: 'Open paper.pdf' }));
 
     expect(onOpen).toHaveBeenCalledWith(first, [first, second]);
+    const openPaper = screen.getByRole('button', { name: 'Open paper.pdf' });
+    expect(openPaper).toHaveClass('size-full', 'flex-col');
+    expect(openPaper.closest('[data-attachment-variant]')).toHaveClass('size-36');
     const attachmentTray = screen.getByRole('group', { name: '2 message attachments' });
     expect(attachmentTray).toHaveClass('w-max', 'min-w-full');
     expect(attachmentTray.closest('[data-slot="scroll-area"]')).toHaveClass('rounded-2xl');
