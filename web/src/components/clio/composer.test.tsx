@@ -275,10 +275,9 @@ describe('ClioComposer service commands', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeVisible();
     expect(screen.getByRole('heading', { name: 'field-map.png' })).toBeVisible();
-    expect(within(dialog).getByRole('img', { name: 'field-map.png' })).toHaveAttribute(
-      'src',
-      'blob:test-field-map.png',
-    );
+    const previewImage = within(dialog).getByRole('img', { name: 'field-map.png' });
+    expect(previewImage).toHaveAttribute('src', 'blob:test-field-map.png');
+    expect(previewImage).toHaveClass('size-full', 'object-contain');
   });
 
   it('opens all pending attachments in one thumbnail carousel', async () => {
@@ -288,6 +287,7 @@ describe('ClioComposer service commands', () => {
     await user.upload(picker, [
       new File(['first'], 'first-map.png', { type: 'image/png' }),
       new File(['second'], 'second-map.png', { type: 'image/png' }),
+      new File(['third'], 'third-map.png', { type: 'image/png' }),
     ]);
 
     await user.click(screen.getByRole('button', { name: 'Open first-map.png' }));
@@ -296,16 +296,20 @@ describe('ClioComposer service commands', () => {
     expect(within(dialog).getByRole('button', { name: 'Previous attachment' })).toBeVisible();
     expect(within(dialog).getByRole('button', { name: 'Next attachment' })).toBeVisible();
     expect(within(dialog).getByRole('button', { name: 'Show first-map.png' })).toBeVisible();
-    await user.click(within(dialog).getByRole('button', { name: 'Show second-map.png' }));
-
-    expect(await within(dialog).findByRole('heading', { name: 'second-map.png' })).toBeVisible();
     const previewCarousel = within(dialog).getByRole('region', {
       name: 'Attachment previews',
     });
+    expect(within(previewCarousel).getByRole('img', { name: 'first-map.png' })).toBeVisible();
+    expect(within(previewCarousel).getByRole('img', { name: 'second-map.png' })).toBeVisible();
+    expect(within(previewCarousel).queryByRole('img', { name: 'third-map.png' })).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: 'Show second-map.png' }));
+
+    expect(await within(dialog).findByRole('heading', { name: 'second-map.png' })).toBeVisible();
     expect(within(previewCarousel).getByRole('img', { name: 'second-map.png' })).toHaveAttribute(
       'src',
       'blob:test-second-map.png',
     );
+    expect(within(previewCarousel).getByRole('img', { name: 'third-map.png' })).toBeVisible();
   });
 
   it('renders non-image uploads as file cards with useful metadata', async () => {

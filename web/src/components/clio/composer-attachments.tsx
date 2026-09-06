@@ -301,7 +301,7 @@ function LocalAttachmentPreview({ file }: { file: FileUIPart }) {
     return (
       <img
         alt={file.filename ?? 'Attachment preview'}
-        className="mx-auto max-h-full max-w-full rounded-lg object-contain"
+        className="size-full rounded-lg object-contain"
         src={file.url}
       />
     );

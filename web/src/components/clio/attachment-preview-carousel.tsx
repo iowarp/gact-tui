@@ -26,8 +26,8 @@ interface AttachmentPreviewCarouselProps {
 
 /**
  * Synchronizes a full attachment preview with a draggable thumbnail rail.
- * Only the selected preview is mounted so PDF, video, and image readers do not
- * all allocate their backing data when a message contains several resources.
+ * The selected preview and its immediate neighbors are mounted so drag and
+ * arrow transitions remain continuous without allocating every heavy reader.
  */
 export function AttachmentPreviewCarousel({
   className,
@@ -134,7 +134,7 @@ export function AttachmentPreviewCarousel({
               className="h-full pl-0"
               key={item.id}
             >
-              {index === selectedIndex ? item.renderPreview() : null}
+              {Math.abs(index - selectedIndex) <= 1 ? item.renderPreview() : null}
             </CarouselItem>
           ))}
         </CarouselContent>

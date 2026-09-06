@@ -103,7 +103,13 @@ describe('WorkspaceResourceView', () => {
     await user.click(screen.getByRole('button', { name: 'Show appendix.pdf' }));
 
     expect(await screen.findByRole('heading', { name: 'appendix.pdf' })).toBeVisible();
-    expect(screen.queryByRole('heading', { name: 'paper.pdf' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show appendix.pdf' })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Show paper.pdf' })).not.toHaveAttribute(
+      'aria-current',
+    );
   });
 
   it('moves between related resources with the overlay controls and arrow keys', async () => {
