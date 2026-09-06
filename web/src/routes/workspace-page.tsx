@@ -736,6 +736,7 @@ export function WorkspacePage() {
                   key="conversation"
                 >
                   <WorkspaceLiveConversation
+                    artifacts={artifacts}
                     bottomInset={dockedComposerHeight}
                     error={transcriptError}
                     loading={transcript.isPending}

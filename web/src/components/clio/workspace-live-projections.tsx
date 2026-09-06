@@ -1,4 +1,4 @@
-import type { Message } from '@clio/core/v3';
+import type { Artifact, Message } from '@clio/core/v3';
 import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useLiveStore } from '@/store/live-store';
@@ -21,12 +21,16 @@ type LiveConversationProps = Omit<
   ClioConversationProps,
   'artifacts' | 'messages' | 'subagents' | 'surfaces' | 'tasks' | 'tools'
 > & {
+  artifacts: readonly Artifact[];
   sessionId: string;
 };
 
 /** Isolates high-rate message updates from the surrounding workspace chrome. */
-export function WorkspaceLiveConversation({ sessionId, ...props }: LiveConversationProps) {
-  const artifacts = useLiveStore((state) => state.entities.artifacts);
+export function WorkspaceLiveConversation({
+  artifacts: artifactList,
+  sessionId,
+  ...props
+}: LiveConversationProps) {
   const messageEntities = useLiveStore((state) => state.entities.messages);
   const subagents = useLiveStore((state) => state.entities.subagents);
   const surfaces = useLiveStore((state) => state.entities.surfaces);
@@ -38,6 +42,10 @@ export function WorkspaceLiveConversation({ sessionId, ...props }: LiveConversat
         .filter((message): message is Message => message.session_id === sessionId)
         .sort((left, right) => left.created_at.localeCompare(right.created_at)),
     [messageEntities, sessionId],
+  );
+  const artifacts = useMemo(
+    () => Object.fromEntries(artifactList.map((artifact) => [artifact.id, artifact])),
+    [artifactList],
   );
   const entities = useMemo(
     () => ({ artifacts, subagents, surfaces, tasks, tools }),
