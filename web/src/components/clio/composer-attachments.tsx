@@ -236,7 +236,14 @@ export function ClioComposerAttachments({
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
       <Dialog onOpenChange={(open) => !open && setPreviewId(undefined)} open={Boolean(preview)}>
-        <DialogContent className="grid h-[min(46rem,calc(100dvh-2rem))] w-[min(64rem,calc(100vw-2rem))] max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 sm:max-w-none">
+        <DialogContent
+          className={cn(
+            'grid max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 sm:max-w-none',
+            preview?.mediaType === 'application/pdf'
+              ? 'h-[calc(100dvh-1rem)] w-[min(90rem,calc(100vw-1rem))]'
+              : 'h-[min(46rem,calc(100dvh-2rem))] w-[min(64rem,calc(100vw-2rem))]',
+          )}
+        >
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="truncate">
               {preview?.filename ?? 'Attachment preview'}
@@ -398,6 +405,7 @@ function LocalPdfPreview({ file }: { file: FileUIPart }) {
     <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>}>
       <LocalPdfViewer
         bytes={bytes}
+        fit="page"
         name={file.filename ?? 'Attachment'}
         onSelection={() => undefined}
       />

@@ -328,6 +328,22 @@ describe('ClioComposer service commands', () => {
     );
   });
 
+  it('opens PDF attachments in a near-fullscreen reading canvas', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['%PDF-content'], 'paper.pdf', { type: 'application/pdf' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Open paper.pdf' }));
+
+    expect(screen.getByRole('dialog')).toHaveClass(
+      'h-[calc(100dvh-1rem)]',
+      'w-[min(90rem,calc(100vw-1rem))]',
+    );
+  });
+
   it('uploads a selected file before submission so conversion can start immediately', async () => {
     const user = userEvent.setup();
     const uploaded: WorkspaceResource = {

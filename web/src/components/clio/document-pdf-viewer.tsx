@@ -14,7 +14,12 @@ import { Button } from '@/components/ui/button';
 import { ButtonGroup, ButtonGroupText } from '@/components/ui/button-group';
 import { Toggle } from '@/components/ui/toggle';
 import { PDF_PAGE_GAP_PX } from '@/lib/runtime-limits';
-import { estimatedPdfPageHeight, pdfPageNumbers, pdfPageWindow } from './document-pdf-window';
+import {
+  estimatedPdfPageHeight,
+  fitPdfPageWidth,
+  pdfPageNumbers,
+  pdfPageWindow,
+} from './document-pdf-window';
 import { ClioStatus } from './status';
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -24,10 +29,12 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 export function ClioDocumentPdfViewer({
   bytes,
+  fit = 'width',
   name,
   onSelection,
 }: {
   bytes: Uint8Array;
+  fit?: 'page' | 'width';
   name: string;
   onSelection: (anchor: DocumentAnchor) => void;
 }) {
@@ -79,7 +86,11 @@ export function ClioDocumentPdfViewer({
   // A rendered page is the only honest page height. The estimate stands in
   // until one exists, and a measurement taken at a different width or zoom is
   // discarded rather than trusted at the new geometry.
-  const geometry = `${hostWidth}:${scale}`;
+  const pageWidth =
+    fit === 'page'
+      ? fitPdfPageWidth({ hostWidth, viewportHeight: scroll.viewport })
+      : hostWidth;
+  const geometry = `${pageWidth}:${scale}`;
   const measurePage = useCallback(
     (element: HTMLDivElement | null) => {
       if (!element) return;
@@ -89,7 +100,7 @@ export function ClioDocumentPdfViewer({
     [geometry],
   );
   const pageHeightPx =
-    measured?.geometry === geometry ? measured.height : estimatedPdfPageHeight(hostWidth * scale);
+    measured?.geometry === geometry ? measured.height : estimatedPdfPageHeight(pageWidth * scale);
   const pageWindow = pdfPageWindow({
     pageCount,
     pageHeightPx,
@@ -224,7 +235,7 @@ export function ClioDocumentPdfViewer({
               onMouseUp={captureSelection}
               pageNumber={pageNumber}
               scale={scale}
-              width={hostWidth}
+              width={pageWidth}
             />
           ) : (
             <div className="grid gap-3">
@@ -240,7 +251,7 @@ export function ClioDocumentPdfViewer({
                   onMouseUp={captureSelection}
                   pageNumber={visiblePage}
                   scale={scale}
-                  width={hostWidth}
+                  width={pageWidth}
                 />
               ))}
               <div
