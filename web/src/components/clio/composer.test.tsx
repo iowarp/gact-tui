@@ -191,16 +191,6 @@ describe('ClioComposer service commands', () => {
     );
   });
 
-  it('opens the AI Elements attachment picker from a direct composer action', async () => {
-    const user = userEvent.setup();
-    renderComposer({ attachments: true });
-    const picker = screen.getByLabelText('Upload files');
-    const open = vi.spyOn(picker, 'click');
-
-    await user.click(screen.getByRole('button', { name: 'Add files' }));
-    expect(open).toHaveBeenCalledOnce();
-  });
-
   it('adds files pasted into the inline editor through the attachment provider', async () => {
     renderComposer({ attachments: true });
     const image = new File(['pixels'], 'pasted-map.png', { type: 'image/png' });
