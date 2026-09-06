@@ -109,6 +109,7 @@ describe('useSessionLiveStream resume recovery', () => {
       ['pending-questions', 'http://127.0.0.1:8790'],
       ['session-observability', 'http://127.0.0.1:8790', 'sess_1', 'processes'],
       ['sessions', 'http://127.0.0.1:8790', 'all'],
+      ['execution-provenance', 'http://127.0.0.1:8790', 'sess_1'],
     ]);
   });
 
@@ -122,6 +123,26 @@ describe('useSessionLiveStream resume recovery', () => {
 
     expect(keys).not.toContainEqual(['transcript', 'http://127.0.0.1:8790', 'sess_1']);
     expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790', 'ws_1']);
+    expect(keys).toContainEqual([
+      'execution-provenance',
+      'http://127.0.0.1:8790',
+      'sess_1',
+    ]);
+  });
+
+  it('refreshes execution provenance when a semantic ledger event arrives', () => {
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'semantic.event',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).toContainEqual([
+      'execution-provenance',
+      'http://127.0.0.1:8790',
+      'sess_1',
+    ]);
   });
 
   it('refreshes the reads each resource event actually changes', () => {

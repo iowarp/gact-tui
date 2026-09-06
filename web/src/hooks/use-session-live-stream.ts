@@ -353,6 +353,18 @@ export function queryInvalidationKeysForEvent({
   if (eventName === 'session.status_changed' || eventName === 'session.upserted') {
     keys.push(queryKeys.sessions(endpoint, workspaceId), queryKeys.sessions(endpoint, 'all'));
   }
+  // Execution provenance is a durable projection over the semantic ledger,
+  // child lifecycle and artifact custody records. Refresh its provider-keyed
+  // queries at those authoritative boundaries so the Timeline does not freeze
+  // at the first snapshot it happened to read while a run was still active.
+  if (
+    eventName === 'semantic.event' ||
+    eventName === 'message.completed' ||
+    isProcessEvent(eventName) ||
+    isSessionArtifactEvent(eventName)
+  ) {
+    keys.push(queryKeys.key('execution-provenance', endpoint, sessionId));
+  }
   return keys;
 }
 
