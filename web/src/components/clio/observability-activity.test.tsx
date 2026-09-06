@@ -273,6 +273,117 @@ describe('causal question interaction activity', () => {
 });
 
 describe('child work activity projection', () => {
+  it('shows commission, research, artifact return, and parent use as separate ledger events', () => {
+    const commissioned: ExecutionProvenanceResult = {
+      ...provenance,
+      spans: [
+        ...provenance.spans,
+        {
+          id: 'commission_started',
+          parent_id: '',
+          kind: 'event',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          owner_session_id: 'session_root',
+          workflow_id: '',
+          campaign_id: '',
+          agent_id: 'main',
+          source_agent_id: '',
+          task_id: 'task_child',
+          task_path: ['task_child'],
+          label: 'main commissioned Deep Researcher',
+          event_type: 'blueprint.commission.started',
+          status: 'running',
+          start_time: 1_788_350_400,
+          end_time: null,
+          duration_ms: null,
+          host: 'local',
+          artifact_refs: [],
+          attributes: { turn_id: 'turn_root' },
+          source_event_ids: ['event_commission_started'],
+        },
+        {
+          id: 'artifact_returned',
+          parent_id: '',
+          kind: 'event',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          owner_session_id: 'session_root',
+          workflow_id: '',
+          campaign_id: '',
+          agent_id: 'main',
+          source_agent_id: '',
+          task_id: 'task_child',
+          task_path: ['task_child'],
+          label: 'Deep Researcher returned a registered artifact',
+          event_type: 'blueprint.commission.artifact_returned',
+          status: 'completed',
+          start_time: 1_788_350_460,
+          end_time: 1_788_350_460,
+          duration_ms: 0,
+          host: 'local',
+          artifact_refs: [{ artifact_id: 'artifact_report', sha256: 'a'.repeat(64) }],
+          attributes: { turn_id: 'turn_root' },
+          source_event_ids: ['event_artifact_returned'],
+        },
+        {
+          id: 'parent_used_artifact',
+          parent_id: '',
+          kind: 'event',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          owner_session_id: 'session_root',
+          workflow_id: '',
+          campaign_id: '',
+          agent_id: 'main',
+          source_agent_id: '',
+          task_id: 'task_child',
+          task_path: ['task_child'],
+          label: 'Parent used the report returned by Deep Researcher',
+          event_type: 'blueprint.commission.parent_used_artifact',
+          status: 'completed',
+          start_time: 1_788_350_470,
+          end_time: 1_788_350_470,
+          duration_ms: 0,
+          host: 'local',
+          artifact_refs: [{ artifact_id: 'artifact_report', sha256: 'a'.repeat(64) }],
+          attributes: { turn_id: 'turn_root' },
+          source_event_ids: ['event_parent_used_artifact'],
+        },
+      ],
+    };
+
+    const items = childProjectionActivityItems(commissioned, processes);
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'projected:commission_started',
+          detail: 'Commissioned blueprint',
+          groupId: 'turn_root',
+        }),
+        expect.objectContaining({
+          id: 'task_leaf:branch-open',
+          lifecycle: 'open',
+        }),
+        expect.objectContaining({
+          id: 'task_leaf:branch-close',
+          lifecycle: 'close',
+        }),
+        expect.objectContaining({
+          id: 'projected:artifact_returned',
+          detail: 'Registered report returned',
+          kind: 'artifact',
+        }),
+        expect.objectContaining({
+          id: 'projected:parent_used_artifact',
+          detail: 'Parent used returned report',
+          kind: 'artifact',
+        }),
+      ]),
+    );
+  });
+
   it('preserves authoritative task identity, depth, lifecycle, and safe high-signal activity', () => {
     const items = childProjectionActivityItems(provenance, processes);
 

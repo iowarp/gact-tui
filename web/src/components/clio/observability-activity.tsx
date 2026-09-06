@@ -165,6 +165,21 @@ const HIGH_SIGNAL_CHILD_KINDS = new Set([
   'resource',
 ]);
 
+const COMMISSION_ACTIVITY = {
+  'blueprint.commission.started': {
+    detail: 'Commissioned blueprint',
+    kind: 'process',
+  },
+  'blueprint.commission.artifact_returned': {
+    detail: 'Registered report returned',
+    kind: 'artifact',
+  },
+  'blueprint.commission.parent_used_artifact': {
+    detail: 'Parent used returned report',
+    kind: 'artifact',
+  },
+} as const satisfies Record<string, { detail: string; kind: ObservabilityActivityItem['kind'] }>;
+
 /**
  * Build the child-only portion of the timeline from CLIO's authoritative projection.
  * No message or reasoning content is consulted here.
@@ -255,6 +270,31 @@ export function childProjectionActivityItems(
 
   for (const span of provenance.spans) {
     const ownerSessionId = span.owner_session_id ?? span.session_id;
+    const commission = COMMISSION_ACTIVITY[span.event_type as keyof typeof COMMISSION_ACTIVITY];
+    if (commission) {
+      const owner = lineageBySession.get(ownerSessionId);
+      const turnId =
+        typeof span.attributes.turn_id === 'string' ? span.attributes.turn_id : undefined;
+      items.push({
+        id: `projected:${span.id}`,
+        kind: commission.kind,
+        label: span.label,
+        detail: commission.detail,
+        state: activityState(span.status),
+        at: timestampString(span.end_time ?? span.start_time),
+        timing: span.start_time === null && span.end_time === null ? undefined : 'event',
+        rootSessionId,
+        ownerSessionId,
+        ownerLabel: owner?.label,
+        parentSessionId: owner?.parent_session_id,
+        taskId: span.task_id || owner?.task_id,
+        taskPath: span.task_path?.length ? span.task_path : owner?.task_path,
+        depth: owner?.depth ?? span.task_path?.length ?? 0,
+        groupId: turnId,
+        lifecycle: 'event',
+      });
+      continue;
+    }
     if (ownerSessionId === rootSessionId || !HIGH_SIGNAL_CHILD_KINDS.has(span.kind)) continue;
     if (
       span.kind === 'tool' &&
