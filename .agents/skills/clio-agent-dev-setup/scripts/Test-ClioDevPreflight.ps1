@@ -12,6 +12,8 @@ param(
     [string]$ExpectedModel = "gpt-5.6-luna",
     [string]$ExpectedTransport = "sdk",
     [string]$DevRoot = "D:\Libraries\Documents\projects\clio_develop_workspace",
+    [ValidateRange(30, 900)]
+    [int]$HealthTimeoutSec = 300,
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
     [string[]]$RequiredMcpNamespaces = @(),
@@ -74,7 +76,7 @@ function Get-OneListenerPid {
 $backendPid = Get-OneListenerPid -Port $BackendPort
 $webPid = Get-OneListenerPid -Port $WebPort
 $documentProcessorPid = Get-OneListenerPid -Port $DocumentProcessorPort
-$health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec 10
+$health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec $HealthTimeoutSec
 $documentProcessorResponse = Invoke-ClioDevWebRequest `
     -Uri "$documentProcessorUrl/readyz" `
     -TimeoutSec 10

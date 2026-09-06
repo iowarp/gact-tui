@@ -171,6 +171,8 @@ export const userQuestionSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   expires_at: z.string().optional(),
+  source: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export * from './pending-interaction-schemas.js';

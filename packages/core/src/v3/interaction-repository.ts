@@ -12,7 +12,7 @@ export class InteractionRepository extends ComposerRepository {
   ): Promise<PendingInteraction[]> {
     const result = await this.transport.request({
       method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(rootSessionId)}/interactions?include_children=${includeChildren}`,
+      path: `/v1/sessions/${encodeURIComponent(rootSessionId)}/interactions?include_children=${includeChildren}&include_recent_resolved=true&resolved_limit=20`,
       decode: (value) => pendingInteractionListSchema.parse(value),
       signal,
     });

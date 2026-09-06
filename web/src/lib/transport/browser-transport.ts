@@ -205,9 +205,10 @@ async function decodeErrorResponse(
 ): Promise<{ code?: string; message?: string; details?: unknown }> {
   try {
     const value = (await response.clone().json()) as {
+      detail?: { error?: { error?: unknown; message?: unknown; details?: unknown } };
       error?: { error?: unknown; message?: unknown; details?: unknown };
     };
-    const envelope = value.error;
+    const envelope = value.error ?? value.detail?.error;
     if (!envelope || typeof envelope !== 'object') return {};
     return {
       code: typeof envelope.error === 'string' ? envelope.error : undefined,

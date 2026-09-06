@@ -247,6 +247,8 @@ export interface UserQuestion {
   created_at: string;
   updated_at: string;
   expires_at?: string;
+  source?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface Task {
@@ -636,11 +638,13 @@ export interface MessageUsage {
 export interface Message {
   id: string;
   session_id: string;
+  turn_id?: string;
   run_id?: string;
   role: WireValue<'user' | 'assistant' | 'system'>;
   created_at: string;
   completed_at?: string;
   blocks: MessageBlock[];
+  metadata?: Record<string, unknown>;
   usage?: MessageUsage;
   cost_usd?: number;
   stop_reason?: string;
@@ -716,6 +720,8 @@ export interface EntityState {
   context: Record<string, ContextSnapshot>;
   surfaces: Record<string, A2UISurface>;
   infrastructure: Record<string, InfrastructureDependency>;
+  active_turns: Record<string, string>;
+  responded_turns: Record<string, string>;
   revisions: Record<string, number>;
   processed_cursors: string[];
   /** Frames the reducer could not apply, each carrying its typed reason. */

@@ -1,12 +1,8 @@
 import type { InfrastructureDependency } from '@clio/core/v3';
-import { act, cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { ClioInfrastructurePreparation } from './infrastructure-preparation';
-
-afterEach(() => {
-  vi.useRealTimers();
-  cleanup();
-});
+import { infrastructurePreparationLabel } from './infrastructure-preparation-label';
 
 function dependency(
   state: InfrastructureDependency['state'],
@@ -17,7 +13,7 @@ function dependency(
     session_id: 'sess_1',
     category: 'mcp',
     namespace: 'geo',
-    title: 'Geospatial tools',
+    title: 'Geo MCP',
     phase: state === 'ready' ? 'connect' : 'launch',
     state,
     attempt: 1,
@@ -28,50 +24,32 @@ function dependency(
 }
 
 describe('ClioInfrastructurePreparation', () => {
-  it('shows selected blueprint infrastructure while it starts', () => {
+  it('uses one AI Elements shimmer line for a cold MCP launch', () => {
     render(<ClioInfrastructurePreparation dependencies={[dependency('running')]} />);
 
-    expect(screen.getByText('Initial infrastructure setup')).toBeInTheDocument();
-    expect(screen.getByText('Agent tools')).toBeInTheDocument();
-    expect(screen.getByText('Geospatial tools')).toBeInTheDocument();
-    expect(screen.getByText('Starting')).toBeInTheDocument();
+    expect(screen.getByText('Setting up environment (loading MCP Geo)')).toBeVisible();
+    expect(document.querySelector('[style*="background-image"]')).not.toBeNull();
   });
 
-  it('does not replay completed historical setup after remount', () => {
-    render(
-      <ClioInfrastructurePreparation dependencies={[dependency('ready', { tool_count: 4 })]} />,
-    );
-
-    expect(screen.queryByText('Initial infrastructure setup')).not.toBeInTheDocument();
+  it('evolves the same sentence with authoritative connection and retry phases', () => {
+    expect(
+      infrastructurePreparationLabel([
+        dependency('running', { phase: 'connect', title: 'NDP MCP' }),
+      ]),
+    ).toBe('Setting up environment (connecting MCP NDP)');
+    expect(
+      infrastructurePreparationLabel([
+        dependency('retrying', { phase: 'retry', title: 'Pandas MCP' }),
+      ]),
+    ).toBe('Setting up environment (retrying MCP Pandas)');
   });
 
-  it('keeps a typed failure visible for recovery', () => {
-    render(<ClioInfrastructurePreparation dependencies={[dependency('failed')]} />);
-
-    expect(screen.getByText('Needs attention')).toBeInTheDocument();
-    expect(screen.getByText('Could not prepare this tool service')).toBeInTheDocument();
-  });
-
-  it('shows a calm completion before fading after live preparation', () => {
-    vi.useFakeTimers();
-    const view = render(<ClioInfrastructurePreparation dependencies={[dependency('running')]} />);
-
-    view.rerender(
-      <ClioInfrastructurePreparation
-        dependencies={[
-          dependency('ready', {
-            observed_active: true,
-            tool_count: 4,
-          }),
-        ]}
-      />,
-    );
-
-    expect(screen.getByText('Ready')).toBeInTheDocument();
-    expect(screen.getByText('Connected with 4 tools')).toBeInTheDocument();
-
-    act(() => vi.advanceTimersByTime(1_500));
-
-    expect(screen.queryByText('Initial infrastructure setup')).not.toBeInTheDocument();
+  it('moves from generic session setup to agent startup without inventing a phase', () => {
+    expect(infrastructurePreparationLabel([])).toBe('Setting up session');
+    expect(
+      infrastructurePreparationLabel([
+        dependency('ready', { observed_active: true, tool_count: 4 }),
+      ]),
+    ).toBe('Starting agent');
   });
 });

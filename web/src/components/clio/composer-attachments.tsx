@@ -1,6 +1,6 @@
 import type { WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -10,6 +10,7 @@ import {
   AttachmentPreview,
   AttachmentRemove,
   Attachments,
+  getMediaCategory,
 } from '@/components/ai-elements/attachments';
 import { usePromptInputAttachments } from '@/components/ai-elements/prompt-input';
 import {
@@ -19,6 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 import type {
   ResourceUploadProgress,
   WorkspaceResourceUploadResult,
@@ -32,6 +35,7 @@ import {
   ResourcePipelineStatusLines,
   ResourcePipelineSummaryIcon,
 } from './resource-pipeline-status';
+import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
 
 const LocalPdfViewer = lazy(() =>
   import('./document-pdf-viewer').then((module) => ({
@@ -47,7 +51,7 @@ export interface ResourceUploadFailure {
   message: string;
 }
 
-/** Compact AI Elements attachment tray backed by PromptInput file state. */
+/** Adaptive AI Elements attachment tray backed by PromptInput file state. */
 export function ClioComposerAttachments({
   onPrepareFiles,
   resources = [],
@@ -64,7 +68,7 @@ export function ClioComposerAttachments({
   uploadProgress?: ResourceUploadProgress;
 }) {
   const attachments = usePromptInputAttachments();
-  const [preview, setPreview] = useState<(FileUIPart & { id: string }) | undefined>();
+  const [previewId, setPreviewId] = useState<string>();
   const preparingAttachmentIds = useRef(new Set<string>());
   const preparationControllers = useRef(new Map<string, AbortController>());
   const [attachmentProgress, setAttachmentProgress] = useState<
@@ -139,72 +143,121 @@ export function ClioComposerAttachments({
     }
   }, [attachments.files, onPrepareFiles, preparedResources]);
 
+  const preview = attachments.files.find((file) => file.id === previewId);
+  const previewItems = useMemo(
+    () =>
+      attachments.files.map((file) => ({
+        id: file.id,
+        label: file.filename ?? 'Attachment',
+        renderPreview: () => (
+          <div className="size-full min-h-0 overflow-auto bg-muted/25 p-4">
+            <LocalAttachmentPreview file={file} />
+          </div>
+        ),
+        renderThumbnail: () => (
+          <Attachment className="size-full" data={file}>
+            <AttachmentPreview />
+          </Attachment>
+        ),
+      })),
+    [attachments.files],
+  );
+
   if (attachments.files.length === 0) return null;
 
   return (
     <>
-      <Attachments className="ml-0 w-full justify-start px-2.5 pb-1.5 pt-2" variant="inline">
-        {attachments.files.map((file) => {
-          const filename = file.filename ?? 'Attachment';
-          const prepared = preparedResources[file.id];
-          const resource = resources.find((candidate) => candidate.id === prepared?.id) ?? prepared;
-          const stages = resource
-            ? resourcePipelineStages(resource)
-            : localAttachmentStages(
-                file,
-                attachmentProgress[file.id] ?? uploadProgress,
-                attachmentFailures[file.id] ?? uploadFailure,
-                Boolean(onPrepareFiles),
-              );
-          return (
-            <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
-              <AttachmentHoverCardTrigger asChild>
-                <Attachment
-                  className="h-8 max-w-52 gap-0 p-0"
-                  data={file}
-                  onRemove={() => {
-                    preparationControllers.current.get(file.id)?.abort();
-                    preparationControllers.current.delete(file.id);
-                    attachments.remove(file.id);
-                  }}
-                >
-                  <button
-                    aria-label={`Open ${filename}`}
-                    className="flex min-w-0 flex-1 items-center gap-1.5 py-1 pl-1.5 text-left"
-                    onClick={() => setPreview(file)}
-                    type="button"
+      <ScrollArea className="h-auto w-full max-w-full rounded-2xl" type="auto">
+        <Attachments
+          aria-label="Pending attachments"
+          className="w-max min-w-full justify-start gap-3 p-3"
+          role="group"
+          variant="composer"
+        >
+          {attachments.files.map((file) => {
+            const filename = file.filename ?? 'Attachment';
+            const mediaCategory = getMediaCategory(file);
+            const visual = mediaCategory === 'image' || mediaCategory === 'video';
+            const prepared = preparedResources[file.id];
+            const resource =
+              resources.find((candidate) => candidate.id === prepared?.id) ?? prepared;
+            const stages = resource
+              ? resourcePipelineStages(resource)
+              : localAttachmentStages(
+                  file,
+                  attachmentProgress[file.id] ?? uploadProgress,
+                  attachmentFailures[file.id] ?? uploadFailure,
+                  Boolean(onPrepareFiles),
+                );
+            return (
+              <AttachmentHoverCard closeDelay={100} key={file.id} openDelay={220}>
+                <AttachmentHoverCardTrigger asChild>
+                  <Attachment
+                    data={file}
+                    onRemove={() => {
+                      preparationControllers.current.get(file.id)?.abort();
+                      preparationControllers.current.delete(file.id);
+                      attachments.remove(file.id);
+                    }}
                   >
-                    <AttachmentPreview className="size-5 [&_svg]:size-3" />
-                    <AttachmentInfo className="max-w-28 text-xs" />
-                    <ResourcePipelineSummaryIcon stages={stages} />
-                  </button>
-                  <AttachmentRemove aria-label={`Remove ${filename}`} />
-                </Attachment>
-              </AttachmentHoverCardTrigger>
-              <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
-                <p className="truncate text-sm font-medium">{filename}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {file.mediaType || 'Media type pending'}
-                </p>
-                <div className="mt-2">
-                  <ResourcePipelineStatusLines stages={stages} />
-                </div>
-              </AttachmentHoverCardContent>
-            </AttachmentHoverCard>
-          );
-        })}
-      </Attachments>
-      <Dialog onOpenChange={(open) => !open && setPreview(undefined)} open={Boolean(preview)}>
-        <DialogContent className="grid h-[min(46rem,calc(100dvh-2rem))] w-[min(64rem,calc(100vw-2rem))] max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 sm:max-w-none">
+                    <button
+                      aria-label={`Open ${filename}`}
+                      className={cn(
+                        'text-left',
+                        visual
+                          ? 'size-full'
+                          : 'flex size-full min-w-0 flex-col overflow-hidden',
+                      )}
+                      onClick={() => setPreviewId(file.id)}
+                      type="button"
+                    >
+                      <AttachmentPreview />
+                      <AttachmentInfo className="text-xs" showMediaType />
+                      <span className="absolute right-2 bottom-2 shrink-0">
+                        <ResourcePipelineSummaryIcon overlay stages={stages} />
+                      </span>
+                    </button>
+                    <AttachmentRemove aria-label={`Remove ${filename}`} />
+                  </Attachment>
+                </AttachmentHoverCardTrigger>
+                <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
+                  <p className="truncate text-sm font-medium">{filename}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {file.mediaType || 'Media type pending'}
+                  </p>
+                  <div className="mt-2">
+                    <ResourcePipelineStatusLines stages={stages} />
+                  </div>
+                </AttachmentHoverCardContent>
+              </AttachmentHoverCard>
+            );
+          })}
+        </Attachments>
+        <ScrollBar orientation="horizontal" />
+      </ScrollArea>
+      <Dialog onOpenChange={(open) => !open && setPreviewId(undefined)} open={Boolean(preview)}>
+        <DialogContent
+          className={cn(
+            'grid max-w-none grid-rows-[auto_minmax(0,1fr)] overflow-hidden p-0 sm:max-w-none',
+            preview?.mediaType === 'application/pdf'
+              ? 'h-[calc(100dvh-1rem)] w-[min(90rem,calc(100vw-1rem))]'
+              : 'h-[min(46rem,calc(100dvh-2rem))] w-[min(64rem,calc(100vw-2rem))]',
+          )}
+        >
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="truncate">
               {preview?.filename ?? 'Attachment preview'}
             </DialogTitle>
             <DialogDescription>{preview?.mediaType || 'Detected after upload'}</DialogDescription>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-auto bg-muted/25 p-4">
-            {preview ? <LocalAttachmentPreview file={preview} /> : null}
-          </div>
+          {preview ? (
+            <AttachmentPreviewCarousel
+              className="min-h-0 p-3"
+              items={previewItems}
+              onValueChange={setPreviewId}
+              value={preview.id}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
     </>
@@ -255,7 +308,7 @@ function LocalAttachmentPreview({ file }: { file: FileUIPart }) {
     return (
       <img
         alt={file.filename ?? 'Attachment preview'}
-        className="mx-auto max-h-full max-w-full rounded-lg object-contain"
+        className="size-full rounded-lg object-contain"
         src={file.url}
       />
     );
@@ -352,6 +405,7 @@ function LocalPdfPreview({ file }: { file: FileUIPart }) {
     <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>}>
       <LocalPdfViewer
         bytes={bytes}
+        fit="page"
         name={file.filename ?? 'Attachment'}
         onSelection={() => undefined}
       />

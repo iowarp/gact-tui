@@ -334,6 +334,77 @@ describe('GACT 0.3 reducer', () => {
     });
   });
 
+  it('starts each turn with a fresh infrastructure preparation projection', () => {
+    const launching = frame('107', 'infrastructure.dependency.changed', {
+      id: 'sess_1:mcp:geo',
+      session_id: 'sess_1',
+      category: 'mcp',
+      namespace: 'geo',
+      title: 'Geo MCP',
+      phase: 'launch',
+      state: 'running',
+      attempt: 1,
+      max_attempts: 3,
+    });
+    const turnStarted = frame('108', 'turn.started', { turn_id: 'msg_user_2' });
+
+    const state = [launching, turnStarted].reduce(reduceTransportFrame, createEntityState());
+
+    expect(state.infrastructure).toEqual({});
+    expect(state.active_turns).toEqual({ sess_1: 'msg_user_2' });
+  });
+
+  it('clears a completed turn before a new session run starts', () => {
+    const turnStarted = frame('108', 'turn.started', { turn_id: 'msg_user_1' });
+    const sessionSettled = frame('109', 'session.status_changed', {
+      status: 'idle',
+      prev_status: 'running',
+    });
+    const settledState = [turnStarted, sessionSettled].reduce(
+      reduceTransportFrame,
+      createEntityState(),
+    );
+
+    expect(settledState.active_turns).toEqual({ sess_1: 'msg_user_1' });
+
+    const sessionStarted = frame('110', 'session.status_changed', {
+      status: 'running',
+      prev_status: 'idle',
+    });
+
+    const state = reduceTransportFrame(settledState, sessionStarted);
+
+    expect(state.active_turns).toEqual({});
+    expect(state.responded_turns).toEqual({});
+  });
+
+  it('retains that the active turn responded after its stream block completes', () => {
+    const assistant = frame('120', 'message.upserted', {
+      id: 'msg_assistant',
+      session_id: 'sess_1',
+      role: 'assistant',
+      created_at: '2026-09-05T20:00:00Z',
+      blocks: [],
+    });
+    const turnStarted = frame('121', 'turn.started', { turn_id: 'turn_1' });
+    const blockAdded = frame('122', 'message.block.upserted', {
+      message_id: 'msg_assistant',
+      block: { id: 'block_1', type: 'text', text: '', streaming: true },
+    });
+    const blockCompleted = frame('123', 'message.block.completed', {
+      message_id: 'msg_assistant',
+      block_id: 'block_1',
+      text: 'Ready.',
+    });
+
+    const state = [assistant, turnStarted, blockAdded, blockCompleted].reduce(
+      reduceTransportFrame,
+      createEntityState(),
+    );
+
+    expect(state.responded_turns).toEqual({ sess_1: 'turn_1' });
+  });
+
   it('guards revisions per entity, not per event type on that entity', () => {
     const upserted = frame(
       '200',

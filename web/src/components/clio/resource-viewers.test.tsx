@@ -1,12 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BlueprintFileEditor } from './resource-viewers';
+import { ArtifactView, BlueprintFileEditor } from './resource-viewers';
 
 const { repository } = vi.hoisted(() => ({
   repository: {
     readAgentBlueprintFile: vi.fn(),
+    readArtifactTextFor: vi.fn(),
     writeAgentBlueprintFile: vi.fn(),
   },
 }));
@@ -40,6 +42,11 @@ vi.mock('react-ace', () => ({
       onChange={(event) => onChange(event.target.value)}
       value={value}
     />
+  ),
+}));
+vi.mock('./document-workspace', () => ({
+  ClioDocumentWorkspace: ({ fallbackPreview }: { fallbackPreview: ReactNode }) => (
+    <>{fallbackPreview}</>
   ),
 }));
 
@@ -85,5 +92,37 @@ describe('BlueprintFileEditor', () => {
       { workspaceId: 'workspace_1', sessionId: 'session_1' },
     );
     expect(await screen.findByText('Source is saved.')).toBeVisible();
+  });
+});
+
+describe('ArtifactView', () => {
+  it('renders Markdown as a readable wrapping document instead of source code', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    repository.readArtifactTextFor.mockResolvedValue(
+      '# HDF5 report\n\nA long scientific sentence that should reflow with the document column.',
+    );
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ArtifactView
+          artifact={{
+            id: 'artifact_report',
+            session_id: 'session_1',
+            workspace_id: 'workspace_1',
+            name: 'report.md',
+            media_type: 'text/markdown',
+            size: 96,
+            uri: 'artifact://workspace_1/report.md@v1',
+          }}
+          files={[]}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    const heading = await screen.findByRole('heading', { name: 'HDF5 report' });
+    expect(heading.closest('article')).toHaveClass('min-w-0');
+    expect(document.querySelector('[data-language="markdown"]')).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent('# HDF5 report');
   });
 });

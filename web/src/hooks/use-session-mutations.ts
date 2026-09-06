@@ -17,7 +17,10 @@ import type { FileUIPart } from 'ai';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { SessionBehaviorPatch } from '@/components/clio/session-behavior-options';
+import {
+  SESSION_MODE_PATCHES,
+  type SessionBehaviorPatch,
+} from '@/components/clio/session-behavior-options';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useRepository } from './use-repository';
@@ -48,6 +51,14 @@ export interface SessionSendInput {
   delivery: MessageDelivery | 'queued';
   behavior: MessageBehavior;
   onUploadProgress?: (progress: ResourceUploadProgress) => void;
+}
+
+function sessionModeForExecution(
+  executionMode: MessageBehavior['execution_mode'],
+): Exclude<Session['mode'], 'unknown'> {
+  if (executionMode === 'plan') return 'plan';
+  if (executionMode === 'deep_research') return 'architect';
+  return 'edit';
 }
 
 interface ActionCardInput {
@@ -170,6 +181,21 @@ export function useSessionMutations({
   );
 
   const sendIdentities = useRef(new SendIdentities());
+  const reconcileTurnMode = async (behavior: MessageBehavior) => {
+    if (!session) return;
+    const mode = sessionModeForExecution(behavior.execution_mode);
+    const patch = SESSION_MODE_PATCHES[mode];
+    if (
+      session.mode === patch.mode &&
+      (patch.routing_mode === undefined || session.routing_mode === patch.routing_mode)
+    ) {
+      return;
+    }
+    const updated = await repository.updateSession(sessionId, patch);
+    replaceSnapshots({
+      sessions: { ...useLiveStore.getState().entities.sessions, [updated.id]: updated },
+    });
+  };
   const send = useMutation({
     mutationFn: async (value: SessionSendInput) => {
       const provider = value.provider ?? activeProvider;
@@ -198,6 +224,7 @@ export function useSessionMutations({
           parts,
         });
       }
+      if (value.delivery === 'start') await reconcileTurnMode(value.behavior);
       return repository.submitMessage(sessionId, {
         behavior: value.behavior,
         client_message_id: identity.clientMessageId,
@@ -227,8 +254,16 @@ export function useSessionMutations({
   });
 
   const promoteQueuedMessage = useMutation({
-    mutationFn: ({ delivery, message }: { delivery: MessageDelivery; message: QueuedMessage }) =>
-      repository.promoteQueuedMessage(sessionId, message.id, message.revision, delivery),
+    mutationFn: async ({
+      delivery,
+      message,
+    }: {
+      delivery: MessageDelivery;
+      message: QueuedMessage;
+    }) => {
+      if (delivery === 'start') await reconcileTurnMode(message.behavior);
+      return repository.promoteQueuedMessage(sessionId, message.id, message.revision, delivery);
+    },
     onSuccess: invalidateComposerState,
   });
 

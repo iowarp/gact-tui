@@ -1,5 +1,10 @@
 import { queryKeys } from '@/lib/query-keys';
-import type { RunState, WorkspaceReference } from '@clio/core/v3';
+import type {
+  PendingInteraction,
+  PendingInteractionResponse,
+  RunState,
+  WorkspaceReference,
+} from '@clio/core/v3';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
@@ -19,7 +24,6 @@ import { WorkspaceLoading, WorkspaceUnavailable } from '@/components/clio/worksp
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import {
   WorkspaceLiveConversation,
-  WorkspaceLiveInfrastructurePreparation,
   WorkspaceLiveObservabilityDock,
   WorkspaceLiveObservabilityView,
   WorkspaceLiveStatusStrip,
@@ -231,6 +235,20 @@ export function WorkspacePage() {
     interactionRootSessionId,
     supportsUnifiedInteractions,
   });
+  const handleInteractionResponse = useCallback(
+    async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
+      await respondInteraction.mutateAsync({ interaction, response });
+    },
+    [respondInteraction],
+  );
+  const responseTrayInteractions = useMemo(
+    () =>
+      interactions.filter(
+        (interaction) =>
+          interaction.source.tool_name !== 'plan_exit' || !interaction.source.invocation_id,
+      ),
+    [interactions],
+  );
   const refreshNavigation = useCallback(
     async (targetWorkspaceId = workspaceId) => {
       await Promise.all([
@@ -393,7 +411,6 @@ export function WorkspacePage() {
       layout
       layoutId={`session-composer:${sessionId}`}
     >
-      <WorkspaceLiveInfrastructurePreparation sessionId={sessionId} />
       <ClioComposer
         activityControl={
           variant === 'docked' ? (
@@ -405,6 +422,7 @@ export function WorkspacePage() {
                 contextFrames={sessionObservability.contextFrames.data ?? []}
                 diffs={sessionObservability.diffs.data ?? []}
                 executionProvenance={executionProvenance.execution.data}
+                interactions={interactions}
                 onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
@@ -457,12 +475,10 @@ export function WorkspacePage() {
           <ClioPendingInteractions
             capabilityError={interactionCapabilityError ?? undefined}
             error={interactionsError ?? undefined}
-            interactions={interactions}
+            interactions={responseTrayInteractions}
             onA2UILocalAction={handleA2UILocalAction}
             onRefetchSurfaces={refetchInteractionSurfaces}
-            onResponse={async (interaction, response) => {
-              await respondInteraction.mutateAsync({ interaction, response });
-            }}
+            onResponse={handleInteractionResponse}
             ownerLabels={interactionOwnerLabels}
             surfaces={interactionSurfaces}
             viewedSessionId={sessionId}
@@ -478,16 +494,17 @@ export function WorkspacePage() {
             throw error;
           }
         }}
-        onRetryModelCatalog={() => {
-          void providerCatalog.refetch();
-        }}
+        onRetryModelCatalog={() => void providerCatalog.refetch()}
         onPrepareFiles={prepareFiles}
         onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
         onSubmit={async (value) => {
           const startedFromWelcome = showConversationWelcome;
           if (startedFromWelcome) setConversationStarted(true);
           try {
-            await send.mutateAsync(value);
+            const revision = workspaceRouteState.planRevisionFromComposer(interactions, value);
+            await (revision
+              ? handleInteractionResponse(revision.interaction, revision.response)
+              : send.mutateAsync(value));
           } catch (error) {
             if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
             throw error;
@@ -629,6 +646,7 @@ export function WorkspacePage() {
                 processesError={sessionObservability.processes.error?.message}
                 processesPending={sessionObservability.processes.isPending}
                 executionProvenance={executionProvenance.execution.data}
+                interactions={interactions}
                 onOpenArtifact={openArtifact}
                 onOpenDiff={openDiff}
                 onOpenFile={openWorkspaceFile}
@@ -718,6 +736,7 @@ export function WorkspacePage() {
                   key="conversation"
                 >
                   <WorkspaceLiveConversation
+                    artifacts={artifacts}
                     bottomInset={dockedComposerHeight}
                     error={transcriptError}
                     loading={transcript.isPending}
@@ -727,6 +746,7 @@ export function WorkspacePage() {
                     onOpenFile={openWorkspaceFile}
                     onOpenResource={openWorkspaceResource}
                     onOpenReference={(reference) => void openComposerReference(reference)}
+                    onInteractionResponse={handleInteractionResponse}
                     forkingMessageId={
                       sessionHistory.fork.isPending && sessionHistory.fork.variables
                         ? sessionHistory.fork.variables
@@ -747,6 +767,8 @@ export function WorkspacePage() {
                     }
                     retryingMessageId={retry.isPending ? retry.variables : undefined}
                     resources={workspaceResourceEntities}
+                    mcpAppRepository={repository}
+                    interactions={interactions}
                     sessionId={sessionId}
                   />
                 </m.div>

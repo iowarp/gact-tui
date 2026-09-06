@@ -11,6 +11,32 @@ import {
 } from './index.js';
 
 describe('forward-compatible wire enums', () => {
+  it('retains message metadata used to classify internal resume envelopes', () => {
+    expect(
+      messageSchema.parse({
+        id: 'msg_resume',
+        session_id: 'sess_1',
+        role: 'user',
+        created_at: '2026-09-04T00:00:00Z',
+        blocks: [{ id: 'block_1', type: 'text', text: 'Answer' }],
+        metadata: { ask_user_resume: true, ask_user_question_id: 'ques_1' },
+      }).metadata,
+    ).toEqual({ ask_user_resume: true, ask_user_question_id: 'ques_1' });
+  });
+
+  it('retains the authoritative turn id on transcript messages', () => {
+    expect(
+      messageSchema.parse({
+        id: 'msg_assistant',
+        session_id: 'sess_1',
+        turn_id: 'turn_1',
+        role: 'assistant',
+        created_at: '2026-09-05T20:00:00Z',
+        blocks: [],
+      }).turn_id,
+    ).toBe('turn_1');
+  });
+
   it('maps future enum values to an explicit unknown state', () => {
     expect(runStateSchema.parse('paused_by_provider')).toBe('unknown');
     expect(
@@ -113,6 +139,46 @@ describe('forward-compatible wire enums', () => {
       type: 'unknown',
       original_type: 'resource',
       raw: { id: 'resource_2', type: 'resource', resource_id: 'res_2' },
+    });
+    expect(
+      messageBlockSchema.parse({
+        id: 'app_1',
+        type: 'mcp_app',
+        app_instance_id: 'instance_1',
+        resource_uri: 'ui://vigil/viewer',
+        source_server: 'vigil',
+        tool_name: 'vigil_open_viewer',
+        data_ref: 'opaque-reference',
+        mime_type: 'text/html;profile=mcp-app',
+        height: 420,
+        future_hint: 'ignored',
+      }),
+    ).toEqual({
+      id: 'app_1',
+      type: 'mcp_app',
+      app_instance_id: 'instance_1',
+      resource_uri: 'ui://vigil/viewer',
+      source_server: 'vigil',
+      tool_name: 'vigil_open_viewer',
+      data_ref: 'opaque-reference',
+      mime_type: 'text/html;profile=mcp-app',
+      height: 420,
+    });
+    expect(
+      messageBlockSchema.parse({
+        id: 'handoff_1',
+        type: 'subagent',
+        subagent_id: 'task_1',
+        stage: 'delegate.completed',
+        task: 'Inspect the current SWMR deployment evidence.',
+        future_hint: 'ignored',
+      }),
+    ).toEqual({
+      id: 'handoff_1',
+      type: 'subagent',
+      subagent_id: 'task_1',
+      stage: 'delegate.completed',
+      task: 'Inspect the current SWMR deployment evidence.',
     });
     expect(
       messageBlockSchema.parse({

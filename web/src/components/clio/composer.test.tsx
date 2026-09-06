@@ -122,6 +122,42 @@ function renderComposer({
   return { onCommand, onStop, onSubmit };
 }
 
+describe('ClioComposer authoritative behavior', () => {
+  it('tracks mode and confirmation changes after plan approval', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const composer = (
+      executionMode: 'execute' | 'plan',
+      confirmationPolicy: 'ask' | 'auto-edits',
+    ) => (
+      <QueryClientProvider client={queryClient}>
+        <PromptInputProvider>
+          <ClioComposer
+            attachments={false}
+            confirmationPolicy={confirmationPolicy}
+            executionMode={executionMode}
+            model="gpt-5.6-luna"
+            onSubmit={vi.fn(async () => undefined)}
+            provider="codex"
+            state="completed"
+          />
+        </PromptInputProvider>
+      </QueryClientProvider>
+    );
+    const view = render(composer('plan', 'ask'));
+    expect(screen.getByRole('button', { name: 'Execution mode: Plan' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Confirmation policy: Ask first' })).toBeVisible();
+
+    view.rerender(composer('execute', 'auto-edits'));
+    expect(await screen.findByRole('button', { name: 'Execution mode: Execute' })).toBeVisible();
+    expect(
+      await screen.findByRole('button', { name: 'Confirmation policy: Workspace edits' }),
+    ).toBeVisible();
+  });
+
+});
+
 describe('ClioComposer service commands', () => {
   it('adds and submits every file selected in one picker interaction', async () => {
     const user = userEvent.setup();
@@ -153,16 +189,6 @@ describe('ClioComposer service commands', () => {
         }),
       ),
     );
-  });
-
-  it('opens the AI Elements attachment picker from a direct composer action', async () => {
-    const user = userEvent.setup();
-    renderComposer({ attachments: true });
-    const picker = screen.getByLabelText('Upload files');
-    const open = vi.spyOn(picker, 'click');
-
-    await user.click(screen.getByRole('button', { name: 'Add files' }));
-    expect(open).toHaveBeenCalledOnce();
   });
 
   it('adds files pasted into the inline editor through the attachment provider', async () => {
@@ -209,11 +235,23 @@ describe('ClioComposer service commands', () => {
     const thumbnail = screen.getByRole('img', { name: 'field-map.png' });
     expect(thumbnail).toBeVisible();
     expect(thumbnail).toHaveAttribute('src', 'blob:test-field-map.png');
+    expect(thumbnail).toHaveAttribute('width', '144');
+    expect(thumbnail.closest('[data-attachment-variant]')).toHaveAttribute(
+      'data-attachment-variant',
+      'composer',
+    );
+    const attachmentTray = screen.getByRole('group', { name: 'Pending attachments' });
+    expect(attachmentTray).toHaveClass('w-max', 'min-w-full');
+    expect(attachmentTray.closest('[data-slot="scroll-area"]')).toHaveClass('rounded-2xl');
 
     const openAttachment = screen.getByRole('button', { name: 'Open field-map.png' });
-    expect(
-      within(openAttachment).getByRole('img', { name: 'Attachment status: Waiting' }),
-    ).toBeVisible();
+    const status = within(openAttachment).getByRole('img', {
+      name: 'Attachment status: Waiting',
+    });
+    expect(status).toBeVisible();
+    expect(status).toHaveAttribute('data-overlay', 'true');
+    expect(status.parentElement).not.toHaveClass('bg-background/85');
+    expect(status.querySelector('svg')).toHaveClass('text-black');
     await user.hover(openAttachment);
     expect(
       await screen.findByRole('status', { name: 'Upload status: Ready locally' }),
@@ -227,9 +265,74 @@ describe('ClioComposer service commands', () => {
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeVisible();
     expect(screen.getByRole('heading', { name: 'field-map.png' })).toBeVisible();
-    expect(within(dialog).getByRole('img', { name: 'field-map.png' })).toHaveAttribute(
+    const previewImage = within(dialog).getByRole('img', { name: 'field-map.png' });
+    expect(previewImage).toHaveAttribute('src', 'blob:test-field-map.png');
+    expect(previewImage).toHaveClass('size-full', 'object-contain');
+  });
+
+  it('opens all pending attachments in one thumbnail carousel', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+    const picker = screen.getByLabelText('Upload files');
+    await user.upload(picker, [
+      new File(['first'], 'first-map.png', { type: 'image/png' }),
+      new File(['second'], 'second-map.png', { type: 'image/png' }),
+      new File(['third'], 'third-map.png', { type: 'image/png' }),
+    ]);
+
+    await user.click(screen.getByRole('button', { name: 'Open first-map.png' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'Previous attachment' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Next attachment' })).toBeVisible();
+    expect(within(dialog).getByRole('button', { name: 'Show first-map.png' })).toBeVisible();
+    const previewCarousel = within(dialog).getByRole('region', {
+      name: 'Attachment previews',
+    });
+    expect(within(previewCarousel).getByRole('img', { name: 'first-map.png' })).toBeVisible();
+    expect(within(previewCarousel).getByRole('img', { name: 'second-map.png' })).toBeVisible();
+    expect(within(previewCarousel).queryByRole('img', { name: 'third-map.png' })).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: 'Show second-map.png' }));
+
+    expect(await within(dialog).findByRole('heading', { name: 'second-map.png' })).toBeVisible();
+    expect(within(previewCarousel).getByRole('img', { name: 'second-map.png' })).toHaveAttribute(
       'src',
-      'blob:test-field-map.png',
+      'blob:test-second-map.png',
+    );
+    expect(within(previewCarousel).getByRole('img', { name: 'third-map.png' })).toBeVisible();
+  });
+
+  it('renders non-image uploads as file cards with useful metadata', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+    const picker = screen.getByLabelText('Upload files');
+
+    await user.upload(picker, new File(['# Notes'], 'field-notes.md', { type: 'text/markdown' }));
+
+    const openAttachment = screen.getByRole('button', { name: 'Open field-notes.md' });
+    expect(within(openAttachment).getByText('field-notes.md')).toBeVisible();
+    expect(within(openAttachment).getByText('text/markdown')).toBeVisible();
+    expect(openAttachment).toHaveClass('size-full', 'flex-col');
+    expect(openAttachment.closest('[data-attachment-variant]')).toHaveAttribute(
+      'data-attachment-category',
+      'document',
+    );
+    expect(openAttachment.closest('[data-attachment-variant]')).toHaveClass('size-36');
+  });
+
+  it('opens PDF attachments in a near-fullscreen reading canvas', async () => {
+    const user = userEvent.setup();
+    renderComposer({ attachments: true });
+
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['%PDF-content'], 'paper.pdf', { type: 'application/pdf' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Open paper.pdf' }));
+
+    expect(screen.getByRole('dialog')).toHaveClass(
+      'h-[calc(100dvh-1rem)]',
+      'w-[min(90rem,calc(100vw-1rem))]',
     );
   });
 

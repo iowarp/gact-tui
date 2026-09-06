@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
@@ -134,7 +134,7 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('No session artifacts')).toBeVisible();
   });
 
-  it('closes a tab by pointer or by the shortcut it announces, and owns nothing but tabs', async () => {
+  it('closes a tab by pointer, middle click, or its announced shortcut', async () => {
     const user = userEvent.setup();
     const { container } = renderWorkbench();
 
@@ -168,8 +168,25 @@ describe('ClioWorkbench canvas', () => {
     await user.keyboard('{ArrowRight}');
     expect(artifactsTab).toHaveAttribute('aria-selected', 'true');
 
+    // Browser-style middle click closes the tab, while another auxiliary button does nothing.
+    fireEvent(
+      artifactsTab,
+      new MouseEvent('auxclick', { bubbles: true, button: 2, cancelable: true }),
+    );
+    expect(screen.getByRole('tab', { name: 'Artifacts' })).toBeInTheDocument();
+    fireEvent(
+      artifactsTab,
+      new MouseEvent('auxclick', { bubbles: true, button: 1, cancelable: true }),
+    );
+    expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
+    expect(observabilityTab).toHaveAttribute('aria-selected', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Session artifacts' }));
+    const reopenedArtifactsTab = screen.getByRole('tab', { name: 'Artifacts' });
+
     // The keyboard route the tab advertises closes it...
-    act(() => artifactsTab.focus());
+    act(() => reopenedArtifactsTab.focus());
     await user.keyboard('{Delete}');
     expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
 
@@ -233,9 +250,10 @@ describe('ClioWorkbench canvas', () => {
     await user.click(screen.getByRole('button', { name: 'Open report.md' }));
     expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'report.md' })).toHaveAttribute('aria-selected', 'true');
-    // The markdown view tokenizes content into per-token spans, so assert on
-    // textContent instead of a single text node.
-    await waitFor(() => expect(document.body).toHaveTextContent('# Report'));
+    expect(
+      await screen.findByRole('heading', { name: 'Report' }, { timeout: 5_000 }),
+    ).toBeVisible();
+    expect(document.body).not.toHaveTextContent('# Report');
   });
 
   it('keeps the picker in a resizable split when an artifact is shift-clicked', async () => {
@@ -275,12 +293,12 @@ describe('ClioWorkbench canvas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open report.md' }), { shiftKey: true });
 
     expect(screen.getByRole('tab', { name: 'Artifacts' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('region', { name: 'Selected artifact' })).toBeVisible();
-    await waitFor(() =>
-      expect(screen.getByRole('region', { name: 'Selected artifact' })).toHaveTextContent(
-        '# Report',
-      ),
-    );
+    const selectedArtifact = screen.getByRole('region', { name: 'Selected artifact' });
+    expect(selectedArtifact).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'Report' }, { timeout: 5_000 }),
+    ).toBeVisible();
+    expect(selectedArtifact).not.toHaveTextContent('# Report');
   });
 
   it('closes and reopens observability as a normal canvas tab', async () => {

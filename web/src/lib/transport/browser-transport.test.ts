@@ -78,6 +78,36 @@ describe('BrowserClioTransport', () => {
     });
   });
 
+  it('preserves FastAPI detail-wrapped errors for typed recovery', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      Response.json(
+        {
+          detail: {
+            error: {
+              error: 'not_found',
+              message: 'MCP App instance not found',
+              recoverable: false,
+            },
+          },
+        },
+        { status: 404, statusText: 'Not Found' },
+      ),
+    );
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test:8787', fetcher });
+
+    const request = transport.request({
+      method: 'GET',
+      path: '/v1/sessions/sess_1/mcp-apps/app_1?data_ref=opaque-ref',
+      decode: String,
+    });
+
+    await expect(request).rejects.toMatchObject({
+      status: 404,
+      code: 'not_found',
+      message: 'MCP App instance not found',
+    });
+  });
+
   it('cancels the response reader when a session stream is aborted', async () => {
     const cancel = vi.fn();
     const body = new ReadableStream<Uint8Array>({

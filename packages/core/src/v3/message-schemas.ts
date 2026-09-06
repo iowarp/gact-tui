@@ -110,6 +110,40 @@ const contextReferenceMessageBlockSchema = additivelyTolerant(
     })
     .strict(),
 );
+const mcpAppMessageBlockSchema = additivelyTolerant(
+  z
+    .object({
+      id: z.string(),
+      type: z.literal('mcp_app'),
+      app_instance_id: z.string(),
+      resource_uri: z.string(),
+      source_server: z.string(),
+      tool_name: z.string().default(''),
+      data_ref: z.string(),
+      mime_type: z.string(),
+      height: z.number().int().positive().optional(),
+      agent_id: z.string().optional(),
+      sequence: z.number().int().positive().optional(),
+      stream_source: z.string().optional(),
+      channel: z.string().optional(),
+    })
+    .strict(),
+);
+const subagentMessageBlockSchema = additivelyTolerant(
+  z
+    .object({
+      id: z.string(),
+      type: z.literal('subagent'),
+      subagent_id: z.string(),
+      stage: z.string().optional(),
+      task: z.string().optional(),
+      agent_id: z.string().optional(),
+      sequence: z.number().int().positive().optional(),
+      stream_source: z.string().optional(),
+      channel: z.string().optional(),
+    })
+    .strict(),
+);
 const unknownMessageBlockSchema = z
   .object({
     id: z.string(),
@@ -139,6 +173,8 @@ const unknownMessageBlockSchema = z
 export const messageBlockSchema = z.union([
   resourceMessageBlockSchema,
   contextReferenceMessageBlockSchema,
+  mcpAppMessageBlockSchema,
+  subagentMessageBlockSchema,
   knownMessageBlockSchema,
   additiveKnownMessageBlockSchema,
   unknownMessageBlockSchema,
@@ -167,11 +203,13 @@ export const messageCompletionSchema = z.object({
 export const messageSchema = z.object({
   id: z.string(),
   session_id: z.string(),
+  turn_id: z.string().optional(),
   run_id: z.string().optional(),
   role: forwardCompatibleEnum(['user', 'assistant', 'system']),
   created_at: z.string(),
   completed_at: z.string().optional(),
   blocks: z.array(messageBlockSchema),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   usage: messageUsageSchema.optional(),
   cost_usd: z.number().nonnegative().optional(),
   stop_reason: z.string().optional(),

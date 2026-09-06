@@ -46,7 +46,7 @@ export function buildSessionAttentionMap(
   };
 
   for (const interaction of interactions) {
-    if (interaction.status !== 'pending') continue;
+    if (interaction.status !== 'pending' || interaction.requires_human_response === false) continue;
     const target = pending(interaction.attended_session_id);
     interactionIdsForKind(target, interaction.kind).add(interaction.id);
   }

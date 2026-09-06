@@ -36,7 +36,23 @@ $statePath = Join-Path $runtimeRoot "dev-processes.json"
 $targetPids = [System.Collections.Generic.HashSet[int]]::new()
 $recordedPids = [System.Collections.Generic.HashSet[int]]::new()
 $externalPids = [System.Collections.Generic.HashSet[int]]::new()
+$callerProcessTree = [System.Collections.Generic.HashSet[int]]::new()
 $trackedResidue = @()
+
+# Start-ClioDev invokes this script in-process. The outer shell and launchers can
+# also mention the generation path in their command lines, so protect the whole
+# caller chain from the generation sweep rather than only the current pwsh PID.
+$callerCursor = [int]$PID
+while ($callerCursor -gt 0 -and $callerProcessTree.Add($callerCursor)) {
+    $callerProcess = Get-CimInstance `
+        Win32_Process `
+        -Filter "ProcessId = $callerCursor" `
+        -ErrorAction SilentlyContinue
+    if ($null -eq $callerProcess) {
+        break
+    }
+    $callerCursor = [int]$callerProcess.ParentProcessId
+}
 
 function Add-OwnedProcessId {
     param(
@@ -49,8 +65,9 @@ function Add-OwnedProcessId {
     # Stop-ClioDev is also invoked in-process by Start-ClioDev and Reset-ClioDev.
     # A missing or stale generation manifest may broaden generationRoot to the
     # owned development root, which appears in this process's own command line.
-    # The cleanup routine must never terminate its caller.
-    if ($ProcessId -eq $PID) {
+    # The cleanup routine must never terminate itself or the shell/launcher that
+    # is waiting for it to return.
+    if ($callerProcessTree.Contains($ProcessId)) {
         return
     }
 

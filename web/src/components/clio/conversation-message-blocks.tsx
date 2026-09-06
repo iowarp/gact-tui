@@ -16,7 +16,6 @@ import {
   CodeBlockHeader,
   CodeBlockTitle,
 } from '@/components/ai-elements/code-block';
-import { MessageResponse } from '@/components/ai-elements/message';
 import {
   Plan,
   PlanAction,
@@ -28,8 +27,9 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { ClioA2UISurface } from './a2ui-surface';
+import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
-import type { ClioConversationProps } from './conversation';
+import type { ClioConversationProps } from './conversation-types';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { referenceKindIcon } from './composer-reference-presentation';
@@ -37,6 +37,7 @@ import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
+import { GroundedMessageResponse } from './grounded-message-response';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -96,7 +97,9 @@ export function DeferredA2UISurface({
 }
 
 type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
+  activeMcpAppId?: string;
   block: MessageBlock;
+  messageSessionId?: string;
   reasoningDefaultOpen?: boolean;
 };
 
@@ -116,13 +119,25 @@ function MessageBlockView({
   onOpenReference,
   onOpenSubagent,
   reasoningDefaultOpen,
+  activeMcpAppId,
+  mcpAppRepository,
+  messageSessionId,
+  interactions,
+  onInteractionResponse,
 }: MessageBlockViewProps) {
   switch (block.type) {
     case 'text':
-      return block.streaming ? (
-        <ClioStreamingText className="leading-7" active text={block.text} />
-      ) : (
-        <MessageResponse>{block.text}</MessageResponse>
+      return (
+        <div
+          className="min-w-0 max-w-full group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3"
+          data-slot="message-text"
+        >
+          {block.streaming ? (
+            <ClioStreamingText className="leading-7" active text={block.text} />
+          ) : (
+            <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
+          )}
+        </div>
       );
     case 'reasoning':
     case 'tool':
@@ -131,11 +146,15 @@ function MessageBlockView({
       return (
         <ConversationProcessSequence
           block={block}
+          artifacts={artifacts}
+          onInteractionResponse={onInteractionResponse}
+          onOpenArtifact={onOpenArtifact}
           onOpenSubagent={onOpenSubagent}
           reasoningDefaultOpen={reasoningDefaultOpen}
           subagents={subagents}
           tasks={tasks}
           tools={tools}
+          interactions={interactions}
         />
       );
     case 'plan':
@@ -203,6 +222,21 @@ function MessageBlockView({
         <ClioStatus label="Interactive surface unavailable" value="unavailable" />
       );
     }
+    case 'mcp_app':
+      return block.app_instance_id === activeMcpAppId && mcpAppRepository && messageSessionId ? (
+        <McpAppSurface
+          appInstanceId={block.app_instance_id}
+          dataRef={block.data_ref}
+          height={block.height}
+          repository={mcpAppRepository}
+          resourceUri={block.resource_uri}
+          sessionId={messageSessionId}
+          sourceServer={block.source_server}
+          toolName={block.tool_name}
+        />
+      ) : (
+        <McpAppHistoryLine sourceServer={block.source_server} toolName={block.tool_name} />
+      );
     case 'citation':
       return (
         <a
@@ -318,20 +352,30 @@ function MessageBlockView({
 
 export function MessageBlockSequence({
   blocks,
+  resourcesFirst = false,
   ...props
-}: Omit<MessageBlockViewProps, 'block'> & { blocks: readonly MessageBlock[] }) {
+}: Omit<MessageBlockViewProps, 'block'> & {
+  blocks: readonly MessageBlock[];
+  resourcesFirst?: boolean;
+}) {
+  const orderedBlocks = resourcesFirst
+    ? [
+        ...blocks.filter((block) => block.type === 'resource'),
+        ...blocks.filter((block) => block.type !== 'resource'),
+      ]
+    : blocks;
   const rendered: ReactNode[] = [];
   let index = 0;
 
-  while (index < blocks.length) {
-    const block = blocks[index];
+  while (index < orderedBlocks.length) {
+    const block = orderedBlocks[index];
     if (!block) break;
 
     if (block.type === 'resource') {
       const resourceBlocks: ResourceBlock[] = [];
       const firstBlockId = block.id;
-      while (index < blocks.length) {
-        const candidate = blocks[index];
+      while (index < orderedBlocks.length) {
+        const candidate = orderedBlocks[index];
         if (candidate?.type !== 'resource') break;
         resourceBlocks.push(candidate);
         index += 1;
@@ -355,8 +399,8 @@ export function MessageBlockSequence({
 
     const artifacts: Artifact[] = [];
     const firstBlockId = block.id;
-    while (index < blocks.length) {
-      const candidate = blocks[index];
+    while (index < orderedBlocks.length) {
+      const candidate = orderedBlocks[index];
       if (!candidate || candidate.type !== 'artifact') break;
       const artifact = props.artifacts[candidate.artifact_id];
       if (!artifact) break;

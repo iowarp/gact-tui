@@ -20,6 +20,8 @@ param(
     [string]$ClioKitVersion = "2.10.6",
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
+    [ValidateRange(30, 900)]
+    [int]$BackendReadinessTimeoutSec = 300,
     [switch]$FreshInstall,
     [switch]$PreserveState
 )
@@ -641,13 +643,13 @@ finally {
 
 Set-DeploymentStage -Name "backend_readiness"
 $healthUri = "http://127.0.0.1:$BackendPort/v1/health"
-$deadline = [DateTime]::UtcNow.AddSeconds(120)
+$deadline = [DateTime]::UtcNow.AddSeconds($BackendReadinessTimeoutSec)
 do {
     if ($backendProcess.HasExited) {
         throw "CLIO backend exited during startup. See $backendStderr"
     }
     try {
-        $health = Invoke-RestMethod -Uri $healthUri -TimeoutSec 3
+        $health = Invoke-RestMethod -Uri $healthUri -TimeoutSec $BackendReadinessTimeoutSec
     }
     catch {
         $health = $null
@@ -660,7 +662,7 @@ do {
 
 if ($null -eq $health -or $health.overall_status -ne "ready") {
     Stop-Process -Id $backendProcess.Id -Force -ErrorAction SilentlyContinue
-    throw "CLIO backend did not become ready within 120 seconds."
+    throw "CLIO backend did not become ready within $BackendReadinessTimeoutSec seconds."
 }
 
 # The committed CLIO config file deliberately outranks environment variables.
@@ -863,6 +865,7 @@ Set-DeploymentStage -Name "live_preflight"
     -ExpectedProvider $Provider `
     -ExpectedModel $Model `
     -ExpectedTransport $expectedTransport `
+    -HealthTimeoutSec $BackendReadinessTimeoutSec `
     -SpotterImplDir $spotterImplRoot `
     -SpotterConfigPath $spotterConfigFull
 [pscustomobject]@{

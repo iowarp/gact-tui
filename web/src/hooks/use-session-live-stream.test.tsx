@@ -104,8 +104,12 @@ describe('useSessionLiveStream resume recovery', () => {
         workspaceId: 'ws_1',
       }),
     ).toEqual([
+      ['pending-interactions', 'http://127.0.0.1:8790'],
+      ['pending-approvals', 'http://127.0.0.1:8790'],
+      ['pending-questions', 'http://127.0.0.1:8790'],
       ['session-observability', 'http://127.0.0.1:8790', 'sess_1', 'processes'],
       ['sessions', 'http://127.0.0.1:8790', 'all'],
+      ['execution-provenance', 'http://127.0.0.1:8790', 'sess_1'],
     ]);
   });
 
@@ -119,6 +123,26 @@ describe('useSessionLiveStream resume recovery', () => {
 
     expect(keys).not.toContainEqual(['transcript', 'http://127.0.0.1:8790', 'sess_1']);
     expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790', 'ws_1']);
+    expect(keys).toContainEqual([
+      'execution-provenance',
+      'http://127.0.0.1:8790',
+      'sess_1',
+    ]);
+  });
+
+  it('refreshes execution provenance when a semantic ledger event arrives', () => {
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'semantic.event',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).toContainEqual([
+      'execution-provenance',
+      'http://127.0.0.1:8790',
+      'sess_1',
+    ]);
   });
 
   it('refreshes the reads each resource event actually changes', () => {
@@ -155,6 +179,29 @@ describe('useSessionLiveStream resume recovery', () => {
     // derivatives, structure and deliveries.
     const uploaded = forEvent('resource.updated');
     expect(uploaded).toEqual([['workspace-resources', 'http://127.0.0.1:8790', 'ws_1']]);
+  });
+
+  it('refreshes session artifacts when a streamed artifact becomes visible', () => {
+    const keys = queryInvalidationKeysForEvent({
+      endpoint: 'http://127.0.0.1:8790',
+      eventName: 'artifact.created',
+      sessionId: 'sess_1',
+      workspaceId: 'ws_1',
+    });
+
+    expect(keys).toContainEqual([
+      'session-artifacts',
+      'http://127.0.0.1:8790',
+      'sess_1',
+    ]);
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'message.completed',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).toContainEqual(['session-artifacts', 'http://127.0.0.1:8790', 'sess_1']);
   });
 
   it('refreshes the steer list a queued-message promotion creates', () => {
@@ -301,9 +348,8 @@ describe('useSessionLiveStream resume recovery', () => {
   });
 
   it('invalidates the unscoped questions query the workspace actually reads', async () => {
-    const { QueryClient } = await vi.importActual<typeof import('@tanstack/react-query')>(
-      '@tanstack/react-query',
-    );
+    const { QueryClient } =
+      await vi.importActual<typeof import('@tanstack/react-query')>('@tanstack/react-query');
     const client = new QueryClient();
     // This is the ACTUAL cache key use-workspace-data.ts reads questions
     // under now that they are fetched unscoped, mirroring pending-approvals'

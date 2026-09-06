@@ -39,7 +39,6 @@ import {
   PromptInputHeader,
   PromptInputSubmit,
   PromptInputTools,
-  usePromptInputAttachments,
 } from '@/components/ai-elements/prompt-input';
 import { ClioStatus } from './status';
 import { ClioModelPicker } from './model-picker';
@@ -56,6 +55,7 @@ import { useComposerReferenceController } from './composer-reference-controller'
 import { toMessagePart, type InlineReferenceSelection } from '@/lib/composer-reference-domain';
 import { ComposerInlineReferenceEditor } from './composer-inline-reference-editor';
 import { focusEditorAtOffset } from './composer-editor-model';
+import { ClioComposerFileUpload } from './composer-file-upload';
 
 const focusComposerEditor = focusEditorAtOffset;
 
@@ -178,16 +178,42 @@ export function ClioComposer({
 }: ClioComposerProps) {
   const [selectedProvider, setSelectedProvider] = useState(provider);
   const [selectedModel, setSelectedModel] = useState(model);
-  const [behavior, setBehavior] = useState<MessageBehavior>({
-    confirmation_policy: confirmationPolicy,
-    execution_mode: executionMode,
-    reasoning_effort: knownReasoningEffort(effort) ?? DEFAULT_REASONING_EFFORT,
-  });
+  const [behaviorSelection, setBehaviorSelection] = useState<{
+    behavior: MessageBehavior;
+    authoritativeConfirmationPolicy: MessageBehavior['confirmation_policy'];
+    authoritativeExecutionMode: MessageBehavior['execution_mode'];
+  }>(() => ({
+    behavior: {
+      confirmation_policy: confirmationPolicy,
+      execution_mode: executionMode,
+      reasoning_effort: knownReasoningEffort(effort) ?? DEFAULT_REASONING_EFFORT,
+    },
+    authoritativeConfirmationPolicy: confirmationPolicy,
+    authoritativeExecutionMode: executionMode,
+  }));
+  const behavior: MessageBehavior = {
+    ...behaviorSelection.behavior,
+    confirmation_policy:
+      behaviorSelection.authoritativeConfirmationPolicy === confirmationPolicy
+        ? behaviorSelection.behavior.confirmation_policy
+        : confirmationPolicy,
+    execution_mode:
+      behaviorSelection.authoritativeExecutionMode === executionMode
+        ? behaviorSelection.behavior.execution_mode
+        : executionMode,
+  };
+  const setBehavior = (next: MessageBehavior) =>
+    setBehaviorSelection({
+      behavior: next,
+      authoritativeConfirmationPolicy: confirmationPolicy,
+      authoritativeExecutionMode: executionMode,
+    });
   // Kept apart from `behavior`, which must always carry a value the message
   // contract accepts. The control names this rather than showing the default as
   // though the service had asked for it.
   const unrecognizedEffort = effort && !knownReasoningEffort(effort) ? effort : undefined;
   const [uploadProgress, setUploadProgress] = useState<ResourceUploadProgress>();
+  const [fileUploadOpen, setFileUploadOpen] = useState(false);
   const [internalReferences, setInternalReferences] = useState<readonly InlineReferenceSelection[]>(
     [],
   );
@@ -467,6 +493,11 @@ export function ClioComposer({
           }
         }}
       >
+        <ClioComposerFileUpload
+          enabled={attachments}
+          onOpenChange={setFileUploadOpen}
+          open={fileUploadOpen}
+        />
         {activityControl ? (
           <PromptInputHeader className="border-b px-2.5 py-1.5">
             {activityControl}
@@ -517,6 +548,7 @@ export function ClioComposer({
               <ComposerAddContextButton
                 attachments={attachments}
                 contextReferences={contextReferences}
+                onOpenFileUpload={() => setFileUploadOpen(true)}
                 onOpenReferences={composerReferences.openPicker}
               />
             ) : null}
@@ -593,18 +625,19 @@ export function ClioComposer({
 function ComposerAddContextButton({
   attachments: attachmentEnabled,
   contextReferences,
+  onOpenFileUpload,
   onOpenReferences,
 }: {
   attachments: boolean;
   contextReferences: boolean;
+  onOpenFileUpload: () => void;
   onOpenReferences: () => void;
 }) {
-  const attachments = usePromptInputAttachments();
   if (!contextReferences) {
     return (
       <PromptInputButton
         aria-label="Add files"
-        onClick={attachments.openFileDialog}
+        onClick={onOpenFileUpload}
         title="Add files"
       >
         <PlusIcon aria-hidden="true" />
@@ -620,7 +653,7 @@ function ComposerAddContextButton({
         {attachmentEnabled ? (
           <PromptInputActionMenuItem
             aria-label="Attach a new file"
-            onSelect={attachments.openFileDialog}
+            onSelect={onOpenFileUpload}
             title="Attach a new file"
           >
             <PaperclipIcon aria-hidden="true" />

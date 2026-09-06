@@ -1,9 +1,8 @@
-import type { Message } from '@clio/core/v3';
+import type { Artifact, Message } from '@clio/core/v3';
 import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useLiveStore } from '@/store/live-store';
 import { ClioConversation, type ClioConversationProps } from './conversation';
-import { ClioInfrastructurePreparation } from './infrastructure-preparation';
 import { ClioObservabilityDock, ClioObservabilityView } from './observability-dock';
 import { WorkspaceStatusStrip } from './workspace-route-surfaces';
 
@@ -22,12 +21,16 @@ type LiveConversationProps = Omit<
   ClioConversationProps,
   'artifacts' | 'messages' | 'subagents' | 'surfaces' | 'tasks' | 'tools'
 > & {
+  artifacts: readonly Artifact[];
   sessionId: string;
 };
 
 /** Isolates high-rate message updates from the surrounding workspace chrome. */
-export function WorkspaceLiveConversation({ sessionId, ...props }: LiveConversationProps) {
-  const artifacts = useLiveStore((state) => state.entities.artifacts);
+export function WorkspaceLiveConversation({
+  artifacts: artifactList,
+  sessionId,
+  ...props
+}: LiveConversationProps) {
   const messageEntities = useLiveStore((state) => state.entities.messages);
   const subagents = useLiveStore((state) => state.entities.subagents);
   const surfaces = useLiveStore((state) => state.entities.surfaces);
@@ -39,6 +42,10 @@ export function WorkspaceLiveConversation({ sessionId, ...props }: LiveConversat
         .filter((message): message is Message => message.session_id === sessionId)
         .sort((left, right) => left.created_at.localeCompare(right.created_at)),
     [messageEntities, sessionId],
+  );
+  const artifacts = useMemo(
+    () => Object.fromEntries(artifactList.map((artifact) => [artifact.id, artifact])),
+    [artifactList],
   );
   const entities = useMemo(
     () => ({ artifacts, subagents, surfaces, tasks, tools }),
@@ -55,7 +62,24 @@ export function WorkspaceLiveObservabilityDock({
   sessionId,
   ...props
 }: LiveObservabilityDockProps) {
-  return <ClioObservabilityDock {...props} messages={useSessionMessages(sessionId)} />;
+  const infrastructure = useLiveStore((state) => state.entities.infrastructure);
+  const activeTurnId = useLiveStore((state) => state.entities.active_turns[sessionId]);
+  const activeTurnResponded = useLiveStore(
+    (state) => state.entities.responded_turns[sessionId] === activeTurnId,
+  );
+  const infrastructureDependencies = useMemo(
+    () => Object.values(infrastructure).filter((item) => item.session_id === sessionId),
+    [infrastructure, sessionId],
+  );
+  return (
+    <ClioObservabilityDock
+      {...props}
+      activeTurnId={activeTurnId}
+      activeTurnResponded={activeTurnResponded}
+      infrastructureDependencies={infrastructureDependencies}
+      messages={useSessionMessages(sessionId)}
+    />
+  );
 }
 
 type LiveObservabilityViewProps = Omit<ComponentProps<typeof ClioObservabilityView>, 'messages'> & {
@@ -88,13 +112,4 @@ export function WorkspaceLiveStatusStrip({ sessionId, ...props }: LiveStatusStri
       stream={stream}
     />
   );
-}
-
-export function WorkspaceLiveInfrastructurePreparation({ sessionId }: { sessionId: string }) {
-  const infrastructure = useLiveStore((state) => state.entities.infrastructure);
-  const dependencies = useMemo(
-    () => Object.values(infrastructure).filter((item) => item.session_id === sessionId),
-    [infrastructure, sessionId],
-  );
-  return <ClioInfrastructurePreparation dependencies={dependencies} key={sessionId} />;
 }

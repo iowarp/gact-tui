@@ -11,6 +11,7 @@ import {
   BookOpenIcon,
   CircleAlertIcon,
   FileCheck2Icon,
+  FileCode2Icon,
   FileOutputIcon,
   MessageSquareTextIcon,
   RefreshCwIcon,
@@ -36,9 +37,11 @@ import {
   TimelineSeparator,
   TimelineTitle,
 } from '@/components/reui/timeline';
+import { badgeVariants } from '@/components/reui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { copyText } from '@/lib/clipboard';
+import { DOCUMENT_MARKDOWN_CLASS_NAME, normalizeConvertedMarkdown } from '@/lib/document-markdown';
 import {
   Dialog,
   DialogContent,
@@ -50,6 +53,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { openDocumentWorkingCopy } from '@/tauri/documents';
@@ -217,29 +228,73 @@ export function ClioDocumentWorkspace({
               {effectiveManifest
                 ? `Version ${effectiveManifest.version}, ${effectiveManifest.sha256.slice(0, 12)}`
                 : manifest.error
-                  ? 'Preview only; review and editing unavailable.'
+                  ? 'Saved content is readable.'
                   : 'Checking document capabilities…'}
             </p>
           </div>
-          <TooltipProvider delayDuration={240}>
-            <TabsList aria-label="Document details" className="h-8 shrink-0" variant="default">
-              <DocumentDetailTab
-                icon={<BookOpenIcon aria-hidden="true" />}
-                label="Read document"
-                value="preview"
-              />
-              <DocumentDetailTab
-                icon={<MessageSquareTextIcon aria-hidden="true" />}
-                label={`Reviews${reviews.data?.length ? `, ${reviews.data.length}` : ''}`}
-                value="reviews"
-              />
-              <DocumentDetailTab
-                icon={<ShieldCheckIcon aria-hidden="true" />}
-                label="Document safety"
-                value="policy"
-              />
-            </TabsList>
-          </TooltipProvider>
+          <div className="flex shrink-0 items-center gap-2">
+            {manifest.error ? (
+              <Popover>
+                <PopoverTrigger
+                  aria-label="Preview only: document features unavailable"
+                  className={badgeVariants({
+                    variant: 'warning-light',
+                    radius: 'full',
+                    size: 'lg',
+                    className: 'h-8 cursor-pointer px-2.5',
+                  })}
+                >
+                  <CircleAlertIcon aria-hidden="true" />
+                  Preview only
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-80">
+                  <PopoverHeader>
+                    <PopoverTitle className="flex items-center gap-1.5 text-warning-foreground dark:text-warning">
+                      <CircleAlertIcon aria-hidden="true" className="size-4" />
+                      Document features unavailable
+                    </PopoverTitle>
+                    <PopoverDescription>
+                      This saved result remains readable, but comments, revision history, and
+                      editing are unavailable because its original registered revision could not be
+                      loaded.
+                    </PopoverDescription>
+                  </PopoverHeader>
+                  <details className="text-xs text-muted-foreground">
+                    <summary className="cursor-pointer font-medium text-foreground">
+                      Technical details
+                    </summary>
+                    <code className="mt-1 block break-all">{manifest.error.message}</code>
+                  </details>
+                </PopoverContent>
+              </Popover>
+            ) : null}
+            <TooltipProvider delayDuration={240}>
+              <TabsList aria-label="Document details" className="h-8 shrink-0" variant="default">
+                <DocumentDetailTab
+                  icon={<BookOpenIcon aria-hidden="true" />}
+                  label="Read document"
+                  value="preview"
+                />
+                {effectiveManifest?.profile === 'markdown' ? (
+                  <DocumentDetailTab
+                    icon={<FileCode2Icon aria-hidden="true" />}
+                    label="Read raw"
+                    value="raw"
+                  />
+                ) : null}
+                <DocumentDetailTab
+                  icon={<MessageSquareTextIcon aria-hidden="true" />}
+                  label={`Reviews${reviews.data?.length ? `, ${reviews.data.length}` : ''}`}
+                  value="reviews"
+                />
+                <DocumentDetailTab
+                  icon={<ShieldCheckIcon aria-hidden="true" />}
+                  label="Document safety"
+                  value="policy"
+                />
+              </TabsList>
+            </TooltipProvider>
+          </div>
           {selection ? (
             <Button onClick={() => setReviewOpen(true)} size="sm" variant="secondary">
               <MessageSquareTextIcon aria-hidden="true" /> Review selection
@@ -291,22 +346,6 @@ export function ClioDocumentWorkspace({
           </Button>
         </div>
         {status ? <ClioStatus detail={status} label="Document updated" value="healthy" /> : null}
-        {manifest.error ? (
-          <Alert>
-            <CircleAlertIcon aria-hidden="true" />
-            <AlertTitle>Preview only</AlertTitle>
-            <AlertDescription>
-              <p>
-                This saved result remains readable, but comments, revision history, and editing are
-                unavailable because its original registered revision could not be loaded.
-              </p>
-              <details className="mt-2 text-xs">
-                <summary className="cursor-pointer font-medium">Technical details</summary>
-                <code className="mt-1 block break-all">{manifest.error.message}</code>
-              </details>
-            </AlertDescription>
-          </Alert>
-        ) : null}
         {createWorkingCopy.error || rendition.error ? (
           <Alert variant="destructive">
             <AlertTitle>Document action failed</AlertTitle>
@@ -338,6 +377,32 @@ export function ClioDocumentWorkspace({
             />
           </div>
         </TabsContent>
+        {effectiveManifest?.profile === 'markdown' ? (
+          <TabsContent className="m-0 min-w-0 overflow-hidden" value="raw">
+            {textContent === undefined ? (
+              <p className="p-4 text-sm text-muted-foreground">Loading raw Markdown…</p>
+            ) : (
+              <CodeBlock
+                aria-label={`Raw Markdown for ${effectiveManifest.name}`}
+                className="h-[70vh] min-h-[540px]"
+                code={textContent}
+                language="markdown"
+                role="region"
+                showLineNumbers
+              >
+                <CodeBlockHeader>
+                  <CodeBlockTitle>
+                    <FileCode2Icon aria-hidden="true" />
+                    <CodeBlockFilename>{effectiveManifest.name}</CodeBlockFilename>
+                  </CodeBlockTitle>
+                  <CodeBlockActions>
+                    <CodeBlockCopyButton aria-label={`Copy raw ${effectiveManifest.name}`} />
+                  </CodeBlockActions>
+                </CodeBlockHeader>
+              </CodeBlock>
+            )}
+          </TabsContent>
+        ) : null}
         <TabsContent className="m-0 min-w-0 overflow-hidden" value="reviews">
           <ReviewTimeline error={reviews.error?.message} reviews={reviews.data} />
         </TabsContent>
@@ -458,8 +523,10 @@ function DocumentPreview({
   }
   if (manifest.profile === 'markdown' && text !== undefined) {
     return (
-      <article className="min-h-72 rounded-lg border bg-background p-5">
-        <MessageResponse>{text}</MessageResponse>
+      <article className="min-h-72 min-w-0 overflow-hidden rounded-lg border bg-background p-5">
+        <MessageResponse className={DOCUMENT_MARKDOWN_CLASS_NAME}>
+          {normalizeConvertedMarkdown(text)}
+        </MessageResponse>
       </article>
     );
   }

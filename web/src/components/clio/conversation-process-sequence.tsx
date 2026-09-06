@@ -1,12 +1,22 @@
-import type { MessageBlock, SubagentRun, Task, ToolInvocation } from '@clio/core/v3';
+import type {
+  Artifact,
+  MessageBlock,
+  PendingInteraction,
+  PendingInteractionResponse,
+  SubagentRun,
+  Task,
+  ToolInvocation,
+} from '@clio/core/v3';
 import { ChevronDownIcon, ListChecksIcon } from 'lucide-react';
-import { MessageResponse } from '@/components/ai-elements/message';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Task as AITask, TaskContent, TaskItem, TaskTrigger } from '@/components/ai-elements/task';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
+import { questionInteractionsForTool } from './agent-answer-domain';
+import { ConversationInteractionActivity } from './conversation-interaction-activity';
+import { GroundedMessageResponse } from './grounded-message-response';
 
 export type ProcessBlock = Extract<
   MessageBlock,
@@ -20,6 +30,13 @@ interface ConversationProcessSequenceProps {
   subagents: Record<string, SubagentRun>;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   reasoningDefaultOpen?: boolean;
+  interactions?: readonly PendingInteraction[];
+  artifacts?: Record<string, Artifact>;
+  onOpenArtifact?: (artifact: Artifact) => void;
+  onInteractionResponse?: (
+    interaction: PendingInteraction,
+    response: PendingInteractionResponse,
+  ) => Promise<void>;
 }
 
 type ProcessEntities = Omit<ConversationProcessSequenceProps, 'block'>;
@@ -32,6 +49,10 @@ export function ConversationProcessSequence({
   subagents,
   onOpenSubagent,
   reasoningDefaultOpen,
+  interactions,
+  artifacts,
+  onOpenArtifact,
+  onInteractionResponse,
 }: ConversationProcessSequenceProps) {
   return renderSingleProcessBlock(block, {
     onOpenSubagent,
@@ -39,6 +60,10 @@ export function ConversationProcessSequence({
     subagents,
     tasks,
     tools,
+    interactions,
+    artifacts,
+    onOpenArtifact,
+    onInteractionResponse,
   });
 }
 
@@ -47,7 +72,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
     return block.streaming ? (
       <ClioStreamingText active className="leading-7" text={block.text} />
     ) : (
-      <MessageResponse>{block.text}</MessageResponse>
+      <GroundedMessageResponse>{block.text}</GroundedMessageResponse>
     );
   }
   if (block.type === 'reasoning') {
@@ -67,6 +92,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   }
   if (block.type === 'tool') {
     const tool = entities.tools[block.tool_id];
+    const questions = questionInteractionsForTool(entities.interactions, block.tool_id);
     return (
       <div className="space-y-3">
         {block.thought ? (
@@ -76,6 +102,15 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
           </Reasoning>
         ) : null}
         <ClioToolInvocation tool={tool} />
+        {questions.map((interaction) => (
+          <ConversationInteractionActivity
+            artifacts={entities.artifacts ?? {}}
+            interaction={interaction}
+            key={interaction.id}
+            onOpenArtifact={entities.onOpenArtifact}
+            onResponse={entities.onInteractionResponse}
+          />
+        ))}
       </div>
     );
   }
