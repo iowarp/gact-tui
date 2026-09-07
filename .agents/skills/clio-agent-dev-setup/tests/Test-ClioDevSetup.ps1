@@ -218,6 +218,9 @@ if ($startSource -notmatch '\$providerInfo\s*=\s*Invoke-RestMethod[\s\S]{0,160}?
 if ($preflightSource -notmatch 'HealthTimeoutSec[\s\S]{0,2500}?/v1/health[^\r\n]*-TimeoutSec\s+\$HealthTimeoutSec') {
     throw "Test-ClioDevPreflight must use the configured health timeout for preserved ledger rehydration."
 }
+if ($preflightSource -match '/context/ops[\s\S]{0,500}?-TimeoutSec\s+15') {
+    throw "The disposable ARC transaction must share the explicit live-preflight budget."
+}
 if ($preflightSource -notmatch 'gact_versions[\s\S]{0,120}?contains\s+"0\.3"') {
     throw "Test-ClioDevPreflight must validate the negotiated GACT 0.3 envelope through gact_versions."
 }

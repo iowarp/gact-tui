@@ -321,7 +321,7 @@ try {
             approval_mode = "bypass"
             metadata = @{ preflight = $true }
         } | ConvertTo-Json -Depth 4) `
-        -TimeoutSec 60
+        -TimeoutSec $HealthTimeoutSec
     $arcProbeSessionId = [string]$arcProbeSession.id
     if (-not $arcProbeSessionId) {
         throw "ARC probe could not create its disposable session."
@@ -339,7 +339,7 @@ try {
             token_count = 4
             trace_ref = "clio-dev-preflight"
         } | ConvertTo-Json -Depth 5) `
-        -TimeoutSec 15
+        -TimeoutSec $HealthTimeoutSec
     $segmentId = [string]$appendResult.result.id
     if (-not $segmentId -or $appendResult.live_block_count -ne 1) {
         throw "ARC append did not return one live segment."
@@ -347,7 +347,7 @@ try {
 
     $state = Invoke-RestMethod `
         -Uri "$backendUrl/v1/sessions/$arcProbeSessionId/context/state?scope=$arcProbeScope" `
-        -TimeoutSec 15
+        -TimeoutSec $HealthTimeoutSec
     $liveIds = @($state.segments | ForEach-Object { [string]$_.id })
     if ($segmentId -notin $liveIds -or -not ([string]$state.render_text).Contains($arcProbeSentinel)) {
         throw "ARC read did not return the segment written by the probe."
@@ -362,14 +362,14 @@ try {
             scope = $arcProbeScope
             ids = @($segmentId)
         } | ConvertTo-Json -Depth 4) `
-        -TimeoutSec 15
+        -TimeoutSec $HealthTimeoutSec
     if ($deleteResult.tombstoned_count -ne 1 -or $deleteResult.live_block_count -ne 0) {
         throw "ARC delete did not tombstone the disposable segment."
     }
 
     $stateAfterDelete = Invoke-RestMethod `
         -Uri "$backendUrl/v1/sessions/$arcProbeSessionId/context/state?scope=$arcProbeScope" `
-        -TimeoutSec 15
+        -TimeoutSec $HealthTimeoutSec
     if (@($stateAfterDelete.segments).Count -ne 0 -or ([string]$stateAfterDelete.render_text).Contains($arcProbeSentinel)) {
         throw "ARC delete left the disposable segment visible."
     }
@@ -379,7 +379,7 @@ finally {
         $cleanupResponse = Invoke-ClioDevWebRequest `
             -Method Delete `
             -Uri "$backendUrl/v1/sessions/$arcProbeSessionId" `
-            -TimeoutSec 15
+            -TimeoutSec $HealthTimeoutSec
         if ($cleanupResponse.StatusCode -notin @(200, 204)) {
             throw "ARC probe cleanup failed with HTTP $($cleanupResponse.StatusCode)."
         }
