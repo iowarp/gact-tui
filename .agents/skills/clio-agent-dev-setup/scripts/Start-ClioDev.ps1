@@ -199,6 +199,28 @@ foreach ($requiredPath in @($backendSource, $frontendSource, $documentProcessorS
 }
 
 if ($reuseActiveGeneration) {
+    # Persist a recovered legacy runtime directory before stopping it. If a
+    # later startup stage fails, the next preserve-state restart must still
+    # reopen the same sessions and ledgers instead of falling back to the new
+    # empty directory named by a stale manifest.
+    $declaredRuntimeRoot = if (
+        $null -ne $activeGeneration.runtime_root -and
+        -not [string]::IsNullOrWhiteSpace([string]$activeGeneration.runtime_root)
+    ) {
+        [System.IO.Path]::GetFullPath([string]$activeGeneration.runtime_root)
+    }
+    else {
+        ""
+    }
+    if (-not $runtimeRoot.Equals($declaredRuntimeRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $activeGeneration | Add-Member `
+            -NotePropertyName runtime_root `
+            -NotePropertyValue $runtimeRoot `
+            -Force
+        $activeGeneration | ConvertTo-Json | Set-Content `
+            -LiteralPath $activeGenerationPath `
+            -Encoding utf8
+    }
     Set-DeploymentStage -Name "stop_previous_runtime"
     & $stopScript `
         -DevRoot $devRootFull `

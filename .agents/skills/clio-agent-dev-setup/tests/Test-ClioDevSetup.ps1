@@ -183,6 +183,9 @@ foreach ($name in @("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE")) {
 if ($startSource -notmatch 'sync_preserved_committed_heads') {
     throw "Start-ClioDev must advance preserved runtime clones to the selected committed heads."
 }
+if ($startSource -notmatch 'Add-Member[\s\S]{0,180}?runtime_root[\s\S]{0,300}?Set-Content[\s\S]{0,180}?activeGenerationPath[\s\S]{0,300}?stop_previous_runtime') {
+    throw "Start-ClioDev must persist a recovered runtime root before stopping the preserved generation."
+}
 if ($startSource -notmatch 'CLIO_CODEX_TRANSPORT\s*=\s*"sdk"') {
     throw "Start-ClioDev must configure Codex through the backend's supported official SDK transport."
 }
