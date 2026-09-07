@@ -4,6 +4,53 @@
 
 <#
 .SYNOPSIS
+Resolve the runtime-state directory for an existing generation.
+
+.DESCRIPTION
+The runtime directory was historically named `clio-agent` and is now named
+`clio-agent-dev`.  A preserved generation can therefore carry a valid process
+manifest under a different directory than the active-generation manifest says.
+Prefer the declared directory when it has live state. Otherwise adopt exactly
+one sibling runtime containing `dev-processes.json`; multiple candidates are an
+ownership ambiguity and must fail rather than broadening the stop sweep.
+#>
+function Resolve-ClioDevRuntimeRoot {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)]
+        [string]$GenerationRoot,
+        [Parameter(Mandatory)]
+        [string]$PreferredRuntimeRoot
+    )
+
+    $generationRootFull = [System.IO.Path]::GetFullPath($GenerationRoot)
+    $preferredRuntimeRootFull = [System.IO.Path]::GetFullPath($PreferredRuntimeRoot)
+    if (Test-Path -LiteralPath (Join-Path $preferredRuntimeRootFull "dev-processes.json") -PathType Leaf) {
+        return $preferredRuntimeRootFull
+    }
+
+    $runtimeParent = Join-Path $generationRootFull "runtime"
+    $stateFiles = @(
+        Get-ChildItem -LiteralPath $runtimeParent -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $candidateState = Join-Path $_.FullName "dev-processes.json"
+                if (Test-Path -LiteralPath $candidateState -PathType Leaf) {
+                    $candidateState
+                }
+            }
+    )
+    if ($stateFiles.Count -gt 1) {
+        throw "Multiple runtime process manifests exist under $runtimeParent; refusing ambiguous ownership."
+    }
+    if ($stateFiles.Count -eq 1) {
+        return [System.IO.Path]::GetFullPath((Split-Path -Parent $stateFiles[0]))
+    }
+    return $preferredRuntimeRootFull
+}
+
+<#
+.SYNOPSIS
 Decide what to do with a process the stop sweep found.
 
 .DESCRIPTION

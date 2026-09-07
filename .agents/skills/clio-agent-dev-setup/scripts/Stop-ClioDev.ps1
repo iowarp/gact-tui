@@ -26,7 +26,10 @@ $generationManifestPresent = Test-Path -LiteralPath $activeGenerationPath -PathT
 if ($generationManifestPresent) {
     $activeGeneration = Get-Content -Raw -LiteralPath $activeGenerationPath | ConvertFrom-Json
     $generationRoot = [System.IO.Path]::GetFullPath([string]$activeGeneration.generation_root)
-    $runtimeRoot = [System.IO.Path]::GetFullPath([string]$activeGeneration.runtime_root)
+    $preferredRuntimeRoot = [System.IO.Path]::GetFullPath([string]$activeGeneration.runtime_root)
+    $runtimeRoot = Resolve-ClioDevRuntimeRoot `
+        -GenerationRoot $generationRoot `
+        -PreferredRuntimeRoot $preferredRuntimeRoot
 }
 else {
     $generationRoot = $devRootFull
@@ -35,6 +38,7 @@ else {
 $statePath = Join-Path $runtimeRoot "dev-processes.json"
 $targetPids = [System.Collections.Generic.HashSet[int]]::new()
 $recordedPids = [System.Collections.Generic.HashSet[int]]::new()
+$recordedOwnedChildren = [System.Collections.Generic.HashSet[int]]::new()
 $externalPids = [System.Collections.Generic.HashSet[int]]::new()
 $callerProcessTree = [System.Collections.Generic.HashSet[int]]::new()
 $trackedResidue = @()
@@ -68,6 +72,17 @@ function Add-OwnedProcessId {
     # The cleanup routine must never terminate itself or the shell/launcher that
     # is waiting for it to return.
     if ($callerProcessTree.Contains($ProcessId)) {
+        return
+    }
+
+    # The Windows Python venv launcher can hand execution to the uv-managed
+    # interpreter, whose executable and command line no longer contain the
+    # generation path. Authorize only the exact backend listener recorded by
+    # Start-ClioDev when it is still a direct child of the separately recorded,
+    # generation-owned launcher. This is not a descendant sweep and cannot
+    # adopt an unrelated daemon discovered from a port.
+    if ($recordedOwnedChildren.Contains($ProcessId)) {
+        [void]$targetPids.Add($ProcessId)
         return
     }
 
@@ -117,6 +132,21 @@ $recordedPidProperties = @(
 )
 if (Test-Path -LiteralPath $statePath) {
     $state = Get-Content -Raw -LiteralPath $statePath | ConvertFrom-Json
+    $backendPid = [int]$state.backend_pid
+    $backendLauncherPid = [int]$state.backend_launcher_pid
+    if ($backendPid -gt 0 -and $backendLauncherPid -gt 0) {
+        $backendProcess = Get-CimInstance Win32_Process -Filter "ProcessId = $backendPid" -ErrorAction SilentlyContinue
+        $backendLauncher = Get-CimInstance Win32_Process -Filter "ProcessId = $backendLauncherPid" -ErrorAction SilentlyContinue
+        if ($null -ne $backendProcess -and $null -ne $backendLauncher) {
+            $launcherIdentity = "$($backendLauncher.ExecutablePath) $($backendLauncher.CommandLine)"
+            if (
+                [int]$backendProcess.ParentProcessId -eq $backendLauncherPid -and
+                $launcherIdentity.IndexOf($devRootFull, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+            ) {
+                [void]$recordedOwnedChildren.Add($backendPid)
+            }
+        }
+    }
     # Adopted listeners are recorded with a companion `<name>_external` flag when
     # Start-ClioDev found them running from outside the owned root. Collect them
     # BEFORE any sweep so no later signal -- record, port or generation hit --

@@ -85,6 +85,50 @@ if ($cleanupSource -match 'if\s*\(\$CrossConfirmed\)\s*\{\s*return\s+"stop"') {
     throw "Resolve-ClioDevProcessAction must never return 'stop' on cross-confirmation alone."
 }
 
+# Preserved generations survive the historical runtime-directory rename. The
+# live process manifest is authoritative only when exactly one candidate exists.
+$runtimeProbe = Join-Path ([System.IO.Path]::GetTempPath()) ("clio-dev-runtime-" + [Guid]::NewGuid().ToString("N"))
+$preferredRuntime = Join-Path $runtimeProbe "runtime\clio-agent-dev"
+$legacyRuntime = Join-Path $runtimeProbe "runtime\clio-agent"
+New-Item -ItemType Directory -Force -Path $preferredRuntime, $legacyRuntime | Out-Null
+try {
+    Set-Content -LiteralPath (Join-Path $legacyRuntime "dev-processes.json") -Value "{}" -Encoding utf8
+    $resolvedRuntime = Resolve-ClioDevRuntimeRoot `
+        -GenerationRoot $runtimeProbe `
+        -PreferredRuntimeRoot $preferredRuntime
+    if ($resolvedRuntime -ne [System.IO.Path]::GetFullPath($legacyRuntime)) {
+        throw "A unique legacy process manifest must be adopted for a preserved generation."
+    }
+
+    Set-Content -LiteralPath (Join-Path $preferredRuntime "dev-processes.json") -Value "{}" -Encoding utf8
+    $resolvedRuntime = Resolve-ClioDevRuntimeRoot `
+        -GenerationRoot $runtimeProbe `
+        -PreferredRuntimeRoot $preferredRuntime
+    if ($resolvedRuntime -ne [System.IO.Path]::GetFullPath($preferredRuntime)) {
+        throw "A populated declared runtime must remain authoritative."
+    }
+
+    Remove-Item -LiteralPath (Join-Path $preferredRuntime "dev-processes.json") -Force
+    $secondLegacyRuntime = Join-Path $runtimeProbe "runtime\clio-agent-old"
+    New-Item -ItemType Directory -Force -Path $secondLegacyRuntime | Out-Null
+    Set-Content -LiteralPath (Join-Path $secondLegacyRuntime "dev-processes.json") -Value "{}" -Encoding utf8
+    $ambiguousRuntimeRejected = $false
+    try {
+        Resolve-ClioDevRuntimeRoot `
+            -GenerationRoot $runtimeProbe `
+            -PreferredRuntimeRoot $preferredRuntime | Out-Null
+    }
+    catch {
+        $ambiguousRuntimeRejected = $_.Exception.Message -like "Multiple runtime process manifests*"
+    }
+    if (-not $ambiguousRuntimeRejected) {
+        throw "Multiple runtime process manifests must be rejected as ambiguous ownership."
+    }
+}
+finally {
+    Remove-Item -LiteralPath $runtimeProbe -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 # Legacy-root ownership: a bare directory is not CLIO residue; one carrying this
 # tooling's generation state is.
 $residueProbe = Join-Path ([System.IO.Path]::GetTempPath()) ("clio-dev-residue-" + [Guid]::NewGuid().ToString("N"))
@@ -204,6 +248,12 @@ if ($stopSource -notmatch '\$stillRunning\s*=\s*Get-Process') {
 }
 if ($stopSource -notmatch '\$externalPids\.Contains\(\$ProcessId\)') {
     throw "Stop-ClioDev must refuse to stop a PID recorded as externally owned."
+}
+if (
+    $stopSource -notmatch '\$recordedOwnedChildren\.Contains\(\$ProcessId\)' -or
+    $stopSource -notmatch '\$backendProcess\.ParentProcessId\s*-eq\s*\$backendLauncherPid'
+) {
+    throw "Stop-ClioDev must recognize only the recorded backend listener's direct owned launcher relationship."
 }
 if ($stopSource -notmatch 'if\s*\(-not\s+\$generationManifestPresent\s+-and\s+-not\s+\$executableOwned\)') {
     throw "Without a generation manifest the sweep must require an owned EXECUTABLE, not a command-line mention."

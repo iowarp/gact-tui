@@ -28,6 +28,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "ClioDevHttp.ps1")
+. (Join-Path $PSScriptRoot "ClioDevCleanup.ps1")
 $deploymentStartedAt = [DateTimeOffset]::Now
 $deploymentStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $deploymentStages = [System.Collections.Generic.List[object]]::new()
@@ -68,7 +69,24 @@ $worktreeRoot = Join-Path $generationRoot "worktrees"
 $backendRoot = Join-Path $worktreeRoot "clio-agent"
 $frontendRoot = Join-Path $worktreeRoot "gact-tui"
 $documentProcessorRoot = Join-Path $worktreeRoot "clio-web-search"
-$runtimeRoot = Join-Path $generationRoot "runtime\clio-agent-dev"
+$preferredRuntimeRoot = if (
+    $reuseActiveGeneration -and
+    $null -ne $activeGeneration.runtime_root -and
+    -not [string]::IsNullOrWhiteSpace([string]$activeGeneration.runtime_root)
+) {
+    [string]$activeGeneration.runtime_root
+}
+else {
+    Join-Path $generationRoot "runtime\clio-agent-dev"
+}
+$runtimeRoot = if ($reuseActiveGeneration) {
+    Resolve-ClioDevRuntimeRoot `
+        -GenerationRoot $generationRoot `
+        -PreferredRuntimeRoot $preferredRuntimeRoot
+}
+else {
+    [System.IO.Path]::GetFullPath($preferredRuntimeRoot)
+}
 $documentProcessorDataRoot = Join-Path $generationRoot "runtime\clio-web-search"
 $logRoot = Join-Path $generationRoot "logs"
 $webRoot = Join-Path $frontendRoot "web"
