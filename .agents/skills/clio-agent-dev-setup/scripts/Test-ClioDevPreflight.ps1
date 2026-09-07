@@ -81,21 +81,21 @@ $documentProcessorResponse = Invoke-ClioDevWebRequest `
     -Uri "$documentProcessorUrl/readyz" `
     -TimeoutSec 10
 $documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
-# SDK-native provider discovery performs real modality probes and may need to
-# initialize the provider subprocess even after the service health endpoint is
-# ready. Keep that evidence-producing request bounded independently of generic
-# health checks.
+# SDK-native provider and blueprint discovery can perform real cold-start work
+# after the lightweight health endpoint is ready. Keep every backend readiness
+# probe within the single explicit live-preflight budget supplied by the caller.
 try {
-    $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 120
+    $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec $HealthTimeoutSec
 }
 catch {
     throw "Provider preflight failed for $backendUrl/v1/providers/lm: $($_.Exception.Message)"
 }
-$catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
-# Source discovery reads the installed marketplace and can cross a cold disk on
-# the first request. Keep this bounded without applying the generic 10-second
-# HTTP timeout to a valid cold-start path.
-$sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 30
+$catalog = Invoke-RestMethod `
+    -Uri "$backendUrl/v1/agent-blueprints" `
+    -TimeoutSec $HealthTimeoutSec
+$sources = Invoke-RestMethod `
+    -Uri "$backendUrl/v1/agent-blueprints/sources" `
+    -TimeoutSec $HealthTimeoutSec
 try {
     # The first full application request may still be compiling the Vite graph
     # after the lightweight startup readiness request has succeeded.
