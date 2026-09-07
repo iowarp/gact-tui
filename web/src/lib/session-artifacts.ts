@@ -12,22 +12,30 @@ export function sessionArtifactEntities(
   sessionId: string,
 ): Artifact[] {
   const artifacts = new Map<string, Artifact>();
+  const artifactIds = new Set<string>();
   if (listing) {
     for (const record of listing.artifacts) {
       const artifact = artifactRecordHead(record, sessionId, 'produced');
-      if (artifact) artifacts.set(recordKey(record), artifact);
+      if (artifact) {
+        artifacts.set(recordKey(record), artifact);
+        artifactIds.add(artifact.id);
+      }
     }
     for (const record of listing.used) {
       const key = recordKey(record);
       if (artifacts.has(key)) continue;
       const artifact = artifactRecordHead(record, sessionId, 'used');
-      if (artifact) artifacts.set(key, artifact);
+      if (artifact) {
+        artifacts.set(key, artifact);
+        artifactIds.add(artifact.id);
+      }
     }
   }
   for (const artifact of transcriptArtifacts) {
     const key = `${artifact.workspace_id ?? ''}:${artifact.name.toLocaleLowerCase()}`;
-    if (!artifacts.has(key)) {
+    if (!artifacts.has(key) && !artifactIds.has(artifact.id)) {
       artifacts.set(key, { ...artifact, session_relation: 'produced' });
+      artifactIds.add(artifact.id);
     }
   }
   return [...artifacts.values()];
