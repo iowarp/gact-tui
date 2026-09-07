@@ -5,6 +5,7 @@ import {
   canUploadWorkspaceResources,
   conversationUnavailableMessage,
   planRevisionFromComposer,
+  responseTrayInteractions,
 } from './workspace-route-state';
 
 describe('workspace route state', () => {
@@ -61,6 +62,22 @@ describe('workspace route state', () => {
         metadata: { composer_user_message: true },
       },
     });
+  });
+
+  it('keeps a native Plan review inline instead of duplicating it in the response tray', () => {
+    const plan = {
+      id: 'question:plan_exit',
+      kind: 'question' as const,
+      owner_session_id: 'sess_1',
+      attended_session_id: 'sess_1',
+      status: 'pending' as const,
+      title: 'Review execution plan',
+      source: { protocol: 'native' as const, tool_name: 'plan_exit', invocation_id: 'inv_1' },
+      created_at: '2026-09-05T00:00:00Z',
+    };
+    const ordinary = { ...plan, id: 'question:ordinary', source: { ...plan.source, tool_name: 'ask' } };
+
+    expect(responseTrayInteractions([plan, ordinary])).toEqual([ordinary]);
   });
 
   it('does not consume ordinary messages or drop revision attachments', () => {

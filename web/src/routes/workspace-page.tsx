@@ -15,7 +15,7 @@ import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
-import { SESSION_MODE_PATCHES } from '@/components/clio/session-behavior-options';
+import { sessionPatchForMessageBehavior } from '@/components/clio/session-behavior-options';
 import { ClioNavigation } from '@/components/clio/navigation';
 import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { ClioPendingInteractions } from '@/components/clio/pending-interactions';
@@ -243,14 +243,7 @@ export function WorkspacePage() {
     },
     [respondInteraction],
   );
-  const responseTrayInteractions = useMemo(
-    () =>
-      interactions.filter(
-        (interaction) =>
-          interaction.source.tool_name !== 'plan_exit' || !interaction.source.invocation_id,
-      ),
-    [interactions],
-  );
+  const responseTrayInteractions = workspaceRouteState.responseTrayInteractions(interactions);
   const refreshNavigation = useCallback(
     async (targetWorkspaceId = workspaceId) => {
       await Promise.all([
@@ -497,18 +490,9 @@ export function WorkspacePage() {
           }
         }}
         onRetryModelCatalog={() => void providerCatalog.refetch()}
-        onBehaviorChange={async (behavior) => {
-          const targetMode =
-            behavior.execution_mode === 'plan'
-              ? 'plan'
-              : behavior.execution_mode === 'deep_research'
-                ? 'architect'
-                : 'edit';
-          await updateSessionBehavior.mutateAsync({
-            ...SESSION_MODE_PATCHES[targetMode],
-            approval_mode: behavior.confirmation_policy,
-          });
-        }}
+        onBehaviorChange={(behavior) =>
+          updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior))
+        }
         onPrepareFiles={prepareFiles}
         onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
         onSubmit={async (value) => {
