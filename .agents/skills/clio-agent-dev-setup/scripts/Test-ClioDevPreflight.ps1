@@ -92,9 +92,6 @@ catch {
     throw "Provider preflight failed for $backendUrl/v1/providers/lm: $($_.Exception.Message)"
 }
 $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
-$webConfiguration = Invoke-RestMethod `
-    -Uri "$backendUrl/v1/mcp/configuration/web" `
-    -TimeoutSec 30
 # Source discovery reads the installed marketplace and can cross a cold disk on
 # the first request. Keep this bounded without applying the generic 10-second
 # HTTP timeout to a valid cold-start path.
@@ -202,12 +199,20 @@ $configuredDocumentProcessor = @(
 if ($null -eq $configuredDocumentProcessor) {
     throw "CLIO does not advertise a configured clio-web-search-docling document processor."
 }
-if ($webConfiguration.status -notin @("ready", "local_fallback")) {
-    throw "CLIO Web Search configuration is '$($webConfiguration.status)', not ready."
-}
 $resourceDegradations = @($campaignCapabilities.x_clio_resources.degradations)
 if ($resourceDegradations.Count -gt 0) {
     throw "CLIO resource conversion is degraded: $($resourceDegradations -join '; ')."
+}
+$activeDocumentProcessorUrl = ([string]$configuredDocumentProcessor.endpoint).TrimEnd("/")
+$activeDocumentProcessorResponse = Invoke-ClioDevWebRequest `
+    -Uri "$activeDocumentProcessorUrl/readyz" `
+    -TimeoutSec 30
+$activeDocumentProcessorHealth = $activeDocumentProcessorResponse.Content | ConvertFrom-Json
+if (
+    $activeDocumentProcessorResponse.StatusCode -ne 200 -or
+    $activeDocumentProcessorHealth.checks.docling -ne "ready"
+) {
+    throw "The configured document processor at $activeDocumentProcessorUrl is not ready."
 }
 if ($documentProcessorHealth.checks.docling -ne "ready") {
     throw "The contained document processor's Docling worker is '$($documentProcessorHealth.checks.docling)', not ready."
@@ -419,10 +424,10 @@ foreach ($item in $degraded) {
     web_url = $webUrl
     web_pid = $webPid
     document_processor_url = $documentProcessorUrl
-    active_document_processor_url = $configuredDocumentProcessor.endpoint
+    active_document_processor_url = $activeDocumentProcessorUrl
+    active_document_processor_status = "ready"
     document_processor_pid = $documentProcessorPid
     document_processor = $configuredDocumentProcessor.id
-    web_configuration_status = $webConfiguration.status
     provider = $provider.provider
     model = $provider.model
     transport = $provider.transport

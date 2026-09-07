@@ -237,10 +237,10 @@ if ($preflightSource -match '\$_\.endpoint\s+-eq\s+\$documentProcessorUrl') {
     throw "Test-ClioDevPreflight must accept the authoritative configured converter endpoint, not force localhost."
 }
 if (
-    $preflightSource -notmatch '/v1/mcp/configuration/web' -or
-    $preflightSource -notmatch 'ready.+local_fallback'
+    $preflightSource -notmatch 'configuredDocumentProcessor\.endpoint' -or
+    $preflightSource -notmatch 'activeDocumentProcessorUrl/readyz'
 ) {
-    throw "Test-ClioDevPreflight must require a ready durable or local-fallback Web Search configuration."
+    throw "Test-ClioDevPreflight must probe the authoritative configured converter endpoint."
 }
 
 # Every stop this script performs is a restart step, never an uninstall. The
