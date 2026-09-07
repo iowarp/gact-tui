@@ -138,4 +138,53 @@ describe('conversation message projections', () => {
       document.querySelector('[data-turn-activity="mcp-app-response:message_app_response"]'),
     ).toBeInTheDocument();
   });
+
+  it('renders an edit diff once beneath its tool instead of duplicating the block', () => {
+    render(
+      <AppearanceProvider>
+        <ConversationDisplayProvider>
+          <ClioConversation
+            artifacts={{}}
+            messages={[
+              {
+                id: 'message_edit',
+                session_id: 'session_1',
+                role: 'assistant',
+                created_at: '2026-09-07T00:00:00Z',
+                blocks: [
+                  { id: 'tool_block', type: 'tool', tool_id: 'tool_edit' },
+                  {
+                    id: 'diff_block',
+                    type: 'diff',
+                    path: 'src/example.py',
+                    unified_diff: '@@ -1 +1 @@\n-old\n+new',
+                  },
+                ],
+              },
+            ]}
+            subagents={{}}
+            surfaces={{}}
+            tasks={{}}
+            tools={{
+              tool_edit: {
+                id: 'tool_edit',
+                session_id: 'session_1',
+                name: 'fs_apply_edit_write',
+                state: 'succeeded',
+                output: {
+                  content: [],
+                  structuredContent: {
+                    path: 'src/example.py',
+                    unified_diff: '@@ -1 +1 @@\n-old\n+new',
+                  },
+                },
+              },
+            }}
+          />
+        </ConversationDisplayProvider>
+      </AppearanceProvider>,
+    );
+
+    expect(screen.getAllByText('+new')).toHaveLength(1);
+  });
 });

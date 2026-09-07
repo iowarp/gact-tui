@@ -148,6 +148,9 @@ importers:
       ai:
         specifier: ^7.0.77
         version: 7.0.77(zod@3.25.76)
+      ansi-to-react:
+        specifier: ^6.2.6
+        version: 6.2.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       canvg:
         specifier: ^4.0.3
         version: 4.0.3
@@ -2729,6 +2732,9 @@ packages:
   ajv@8.20.0:
     resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
 
+  anser@2.3.5:
+    resolution: {integrity: sha512-vcZjxvvVoxTeR5XBNJB38oTu/7eDCZlwdz32N1eNgpyPF7j/Z7Idf+CUwQOkKKpJ7RJyjxgLHCM7vdIK0iCNMQ==}
+
   ansi-colors@4.1.3:
     resolution: {integrity: sha512-/6w/C21Pm1A7aZitlI5Ni/2J6FFQN8i1Cvz3kHABAAbw93v/NlvKdVOqz7CCWz/3iv/JplRSEEZ83XION15ovw==}
     engines: {node: '>=6'}
@@ -2748,6 +2754,12 @@ packages:
   ansi-styles@5.2.0:
     resolution: {integrity: sha512-Cxwpt2SfTzTtXcfOlzGEee8O+c+MmUgGrNiBcXnuWxuFJHe6a5Hz7qwhwe5OgaSYI0IJvkLqWX1ASG+cJOkEiA==}
     engines: {node: '>=10'}
+
+  ansi-to-react@6.2.6:
+    resolution: {integrity: sha512-Eqi0iaMK5OZ3jsVFxWvU2B74UZBnGuHlkflKMX6wTOeH+luy9KE2O0gUkc2PxhIP1R4IO0xohv62UMFInQOSeg==}
+    peerDependencies:
+      react: ^16.3.2 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.3.2 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
@@ -3378,6 +3390,9 @@ packages:
   escalade@3.2.0:
     resolution: {integrity: sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA==}
     engines: {node: '>=6'}
+
+  escape-carriage@1.3.1:
+    resolution: {integrity: sha512-GwBr6yViW3ttx1kb7/Oh+gKQ1/TrhYwxKqVmg5gS+BK+Qe2KrOa/Vh7w3HPBvgGf0LfcDGoY9I6NHKoA5Hozhw==}
 
   escape-html@1.0.3:
     resolution: {integrity: sha512-NiSupZ4OeuGwr68lGIeym/ksIZMJodUGOSCZ/FSnTxcrekbvqrgdUxlJOMpijaKZVjAJrWrGs/6Jy8OMuyj9ow==}
@@ -4157,6 +4172,9 @@ packages:
 
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
+
+  linkify-it@3.0.3:
+    resolution: {integrity: sha512-ynTsyrFSdE5oZ/O9GEf00kPngmOfVwazR5GKDq6EYfhlpFug3J2zybX56a2PRRpc9P+FuSoGNAwjlbDs9jJBPQ==}
 
   linkify-it@5.0.2:
     resolution: {integrity: sha512-ONTm2jCMAVZjgQa/Fy1kScXsuOoF5NPTsoFBdE1KVIZ2vAh/r9+Bqo+0jINCBYnavTPQZz38QzFTme79ENoN3Q==}
@@ -5430,6 +5448,9 @@ packages:
 
   typewise@1.0.3:
     resolution: {integrity: sha512-aXofE06xGhaQSPzt8hlTY+/YWQhm9P0jYUp1f2XtmW/3Bk0qzXcyFWAtPoo2uTGQj1ZwbDuSyuxicq+aDo8lCQ==}
+
+  uc.micro@1.0.6:
+    resolution: {integrity: sha512-8Y75pvTYkLJW2hWQHXxoqRgV7qb9B+9vFEtidML+7koHUFapnVJAZ6cKs+Qjz5Aw3aZWHMC6u0wJE3At+nSGwA==}
 
   uc.micro@2.1.0:
     resolution: {integrity: sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==}
@@ -8130,6 +8151,8 @@ snapshots:
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
+  anser@2.3.5: {}
+
   ansi-colors@4.1.3: {}
 
   ansi-regex@5.0.1: {}
@@ -8141,6 +8164,14 @@ snapshots:
       color-convert: 2.0.1
 
   ansi-styles@5.2.0: {}
+
+  ansi-to-react@6.2.6(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+    dependencies:
+      anser: 2.3.5
+      escape-carriage: 1.3.1
+      linkify-it: 3.0.3
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
 
   argparse@2.0.1: {}
 
@@ -8754,6 +8785,8 @@ snapshots:
       '@esbuild/win32-x64': 0.21.5
 
   escalade@3.2.0: {}
+
+  escape-carriage@1.3.1: {}
 
   escape-html@1.0.3: {}
 
@@ -9545,6 +9578,10 @@ snapshots:
       lightningcss-win32-x64-msvc: 1.33.0
 
   lines-and-columns@1.2.4: {}
+
+  linkify-it@3.0.3:
+    dependencies:
+      uc.micro: 1.0.6
 
   linkify-it@5.0.2:
     dependencies:
@@ -11219,6 +11256,8 @@ snapshots:
   typewise@1.0.3:
     dependencies:
       typewise-core: 1.2.0
+
+  uc.micro@1.0.6: {}
 
   uc.micro@2.1.0: {}
 

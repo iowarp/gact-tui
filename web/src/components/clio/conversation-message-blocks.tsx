@@ -38,6 +38,7 @@ import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { GroundedMessageResponse } from './grounded-message-response';
+import { toolOutputDiffKey } from './tool-result-presentation-model';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -365,11 +366,23 @@ export function MessageBlockSequence({
       ]
     : blocks;
   const rendered: ReactNode[] = [];
+  const inlineDiffs = new Set(
+    orderedBlocks.flatMap((block) => {
+      if (block.type !== 'tool') return [];
+      const key = toolOutputDiffKey(props.tools[block.tool_id]);
+      return key ? [key] : [];
+    }),
+  );
   let index = 0;
 
   while (index < orderedBlocks.length) {
     const block = orderedBlocks[index];
     if (!block) break;
+
+    if (block.type === 'diff' && inlineDiffs.has(`${block.path}\u0000${block.unified_diff}`)) {
+      index += 1;
+      continue;
+    }
 
     if (block.type === 'resource') {
       const resourceBlocks: ResourceBlock[] = [];
