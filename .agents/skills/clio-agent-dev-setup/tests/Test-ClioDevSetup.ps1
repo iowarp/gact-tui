@@ -294,6 +294,14 @@ foreach ($file in Get-ChildItem -LiteralPath $scriptsRoot -Filter "*.ps1") {
         throw "$($file.Name) uses the PowerShell 7-only -SkipHttpErrorCheck; use Invoke-ClioDevWebRequest."
     }
 }
+$preflightWebRequests = @(
+    [regex]::Matches($preflightSource, 'Invoke-WebRequest[\s\S]*?(?=\r?\n\S|\z)')
+)
+foreach ($request in $preflightWebRequests) {
+    if ($request.Value -notmatch '-UseBasicParsing') {
+        throw "Test-ClioDevPreflight must make every Invoke-WebRequest call Windows PowerShell 5.1-safe."
+    }
+}
 if ($startSource -match 'Start-Process[\s\S]{0,500}?-Environment\s') {
     throw "Start-ClioDev must use process-scoped environment variables instead of PowerShell 7-only Start-Process -Environment."
 }

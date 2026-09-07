@@ -99,7 +99,10 @@ $sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -Tim
 try {
     # The first full application request may still be compiling the Vite graph
     # after the lightweight startup readiness request has succeeded.
-    $webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 30
+    $webResponse = Invoke-WebRequest `
+        -Uri "$webUrl/" `
+        -TimeoutSec 30 `
+        -UseBasicParsing
 }
 catch {
     throw "Web root preflight failed for $webUrl/: $($_.Exception.Message)"
@@ -112,7 +115,8 @@ try {
     $gactResponse = Invoke-WebRequest `
         -Uri "$backendUrl/v1/capabilities" `
         -Headers $gactHeaders `
-        -TimeoutSec 30
+        -TimeoutSec 30 `
+        -UseBasicParsing
 }
 catch {
     throw "GACT capability preflight failed for $backendUrl/v1/capabilities: $($_.Exception.Message)"
@@ -127,7 +131,8 @@ try {
             "Access-Control-Request-Method" = "GET"
             "Access-Control-Request-Headers" = "x-gact-version"
         } `
-        -TimeoutSec 30
+        -TimeoutSec 30 `
+        -UseBasicParsing
 }
 catch {
     throw "GACT CORS preflight failed for $backendUrl/v1/capabilities: $($_.Exception.Message)"
