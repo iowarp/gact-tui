@@ -80,13 +80,19 @@ export function InfrastructurePage() {
     queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal, { sessionId }),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
-  const error = health.error ?? relay.error ?? servers.error;
+  const webSearchConfiguration = useQuery({
+    queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
+    queryFn: ({ signal }) => repository.mcpConfiguration('web', signal),
+  });
+  const error = health.error ?? relay.error ?? servers.error ?? webSearchConfiguration.error;
   const foundationIssues =
     health.data?.integrations.filter(
       (integration) => integrationStatus(integration.status) !== 'healthy',
     ).length ?? 0;
   const webSearch = servers.data?.find(isWebSearchServer);
-  const webSearchReady = webSearch?.status === 'ready';
+  const webSearchReady =
+    webSearchConfiguration.data?.status === 'ready' || webSearch?.status === 'ready';
+  const webSearchConfigured = webSearchConfiguration.data?.configured ?? Boolean(webSearch);
   const grouping = groupSessionServices(servers.data, sessionId);
   const agentName = sessionAgentName(grouping.sessionServers);
   const relayConnect = useMutation({
@@ -143,12 +149,20 @@ export function InfrastructurePage() {
 
         <section aria-label="Add capabilities" className="mt-8 grid gap-4 md:grid-cols-2">
           <SetupCard
-            action={webSearchReady ? 'View MCP' : webSearch ? 'Retry setup' : 'Set up web search'}
+            action={
+              webSearchReady
+                ? 'View MCP'
+                : webSearchConfigured
+                  ? 'Retry setup'
+                  : 'Set up web search'
+            }
             description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
             icon={BookOpenCheckIcon}
             onAction={() => setWebSearchOpen(true)}
-            status={webSearchReady ? 'healthy' : webSearch ? 'degraded' : 'unavailable'}
-            statusLabel={webSearchReady ? 'Ready' : webSearch ? 'Needs attention' : 'Not set up'}
+            status={webSearchReady ? 'healthy' : webSearchConfigured ? 'degraded' : 'unavailable'}
+            statusLabel={
+              webSearchReady ? 'Ready' : webSearchConfigured ? 'Needs attention' : 'Not set up'
+            }
             title="Research and documents"
             to={webSearchReady ? '/settings/tools' : undefined}
           />

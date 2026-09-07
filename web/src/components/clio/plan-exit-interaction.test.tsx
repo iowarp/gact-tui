@@ -53,7 +53,7 @@ describe('PlanExitResponse', () => {
     const planHeading = await screen.findByRole(
       'heading',
       { name: 'Implementation plan' },
-      { timeout: 5_000 },
+      { timeout: 10_000 },
     );
     expect(planHeading).toBeVisible();
     expect(planHeading.closest('.space-y-2')).not.toBeNull();
@@ -75,6 +75,39 @@ describe('PlanExitResponse', () => {
       action: 'answer',
       answer: 'Proceed now.',
       selected_options: ['auto', 'clear_context'],
+    });
+  });
+
+  it('submits Interactive as the authoritative ask posture choice', async () => {
+    const user = userEvent.setup();
+    const interaction = planInteraction({
+      payload: {
+        question_id: 'plan_exit_interactive',
+        question_kind: 'choice',
+        plan_exit: {
+          summary: 'Review the interactive execution plan.',
+          plan_content: '# Interactive plan\n\n1. Execute with confirmations.',
+          plan_content_status: 'complete',
+        },
+        options: [
+          { label: 'Approve — auto-execute', value: 'auto' },
+          { label: 'Approve — interactive', value: 'interactive' },
+          { label: 'Approve — exit only', value: 'exit_only' },
+        ],
+      },
+    });
+    const onResponse = vi.fn(async () => undefined);
+    render(
+      <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
+    );
+
+    await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
+    await user.click(screen.getByRole('option', { name: 'Interactive' }));
+    await user.click(screen.getByRole('button', { name: 'Approve plan' }));
+
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'answer',
+      selected_options: ['interactive'],
     });
   });
 

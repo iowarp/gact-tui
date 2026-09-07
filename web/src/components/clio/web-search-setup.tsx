@@ -14,6 +14,7 @@ import {
   ContainerIcon,
   Globe2Icon,
   LaptopIcon,
+  RotateCcwIcon,
   ServerIcon,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -41,6 +42,7 @@ import {
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { remoteUrlFromSpec } from './web-search-configuration';
 
 type SetupTarget = 'local' | 'ssh' | 'existing';
 
@@ -55,26 +57,37 @@ export function WebSearchSetup({
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const [target, setTarget] = useState<SetupTarget>('local');
+  const [targetOverride, setTargetOverride] = useState<SetupTarget | null>(null);
   const [profileName, setProfileName] = useState('');
-  const [serviceUrl, setServiceUrl] = useState(WEB_SEARCH_DEFAULT_LOCAL_URL);
+  const [serviceUrlOverride, setServiceUrlOverride] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState('');
   const [deploymentReady, setDeploymentReady] = useState(false);
+  const configuration = useQuery({
+    enabled: open,
+    queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
+    queryFn: ({ signal }) => repository.mcpConfiguration('web', signal),
+    refetchOnWindowFocus: false,
+  });
+  const configuredRemoteUrl = remoteUrlFromSpec(configuration.data?.spec);
+  const target =
+    targetOverride ?? (configuredRemoteUrl ? 'existing' : desktop ? 'local' : 'existing');
+  const serviceUrl =
+    serviceUrlOverride ?? configuredRemoteUrl ?? (desktop ? WEB_SEARCH_DEFAULT_LOCAL_URL : '');
   const profiles = useQuery({
     enabled: open && desktop,
     queryKey: ['desktop-ssh-profiles'],
     queryFn: sshProfiles,
   });
   const selectTarget = (value: SetupTarget) => {
-    setTarget(value);
+    setTargetOverride(value);
     setDeploymentReady(false);
-    if (value === 'local') setServiceUrl(WEB_SEARCH_DEFAULT_LOCAL_URL);
-    if (value === 'ssh' || value === 'existing') setServiceUrl('');
+    if (value === 'local') setServiceUrlOverride(WEB_SEARCH_DEFAULT_LOCAL_URL);
+    if (value === 'ssh' || value === 'existing') setServiceUrlOverride('');
   };
   const selectProfile = (value: string) => {
     setProfileName(value);
     const profile = profiles.data?.find((candidate) => candidate.name === value);
-    if (profile?.hostname) setServiceUrl(webSearchUrlForHost(profile.hostname));
+    if (profile?.hostname) setServiceUrlOverride(webSearchUrlForHost(profile.hostname));
   };
 
   const refreshMcp = async () => {
@@ -82,22 +95,44 @@ export function WebSearchSetup({
       queryClient.invalidateQueries({ queryKey: queryKeys.key('mcp-servers', settings.endpoint) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
+      }),
     ]);
   };
   const connect = useMutation({
     mutationFn: () =>
-      repository.installMcpServer({
+      repository.configureMcpServer('web', {
         name: 'CLIO Web Search',
         transport: 'stdio',
         command: 'uvx',
         args: webSearchMcpArgs(serviceUrl.trim()),
       }),
+    onSuccess: async (result) => {
+      await refreshMcp();
+      if (result.status === 'ready') {
+        toast.success('Web search is ready for agents');
+        handleOpenChange(false);
+      } else {
+        toast.warning('Web search configuration was saved', {
+          description: 'The service is currently unreachable. Retry after it is available.',
+        });
+      }
+    },
+    onError: (error) =>
+      toast.error('Web search configuration could not be saved', { description: error.message }),
+  });
+  const useLocalEngines = useMutation({
+    mutationFn: () => repository.removeMcpConfiguration('web'),
     onSuccess: async () => {
       await refreshMcp();
-      toast.success('Web search is ready for agents');
+      toast.success('Web search now uses its built-in local engines');
       handleOpenChange(false);
     },
-    onError: (error) => toast.error('Web search could not connect', { description: error.message }),
+    onError: (error) =>
+      toast.error('Web search configuration could not be removed', {
+        description: error.message,
+      }),
   });
   const deploy = useMutation({
     mutationFn: () =>
@@ -124,9 +159,10 @@ export function WebSearchSetup({
     if (!nextOpen) {
       connect.reset();
       deploy.reset();
-      setTarget('local');
+      useLocalEngines.reset();
+      setTargetOverride(null);
       setProfileName('');
-      setServiceUrl(WEB_SEARCH_DEFAULT_LOCAL_URL);
+      setServiceUrlOverride(null);
       setContactEmail('');
       setDeploymentReady(false);
     }
@@ -145,33 +181,44 @@ export function WebSearchSetup({
         </DialogHeader>
 
         <div className="min-h-0 space-y-5 overflow-y-auto pr-1">
-          <Field>
-            <FieldLabel>Where will CLIO Web Search run?</FieldLabel>
-            <RadioGroup
-              className="grid gap-2 sm:grid-cols-3"
-              onValueChange={(value) => selectTarget(value as SetupTarget)}
-              value={target}
-            >
-              <SetupChoice
-                description="Docker on this device"
-                icon={LaptopIcon}
-                label="This computer"
-                value="local"
-              />
-              <SetupChoice
-                description="Use a saved SSH host"
-                icon={ServerIcon}
-                label="Another computer"
-                value="ssh"
-              />
-              <SetupChoice
-                description="Connect by address"
-                icon={Globe2Icon}
-                label="Already running"
-                value="existing"
-              />
-            </RadioGroup>
-          </Field>
+          {desktop ? (
+            <Field>
+              <FieldLabel>Where will CLIO Web Search run?</FieldLabel>
+              <RadioGroup
+                className="grid gap-2 sm:grid-cols-3"
+                onValueChange={(value) => selectTarget(value as SetupTarget)}
+                value={target}
+              >
+                <SetupChoice
+                  description="Docker on this device"
+                  icon={LaptopIcon}
+                  label="This computer"
+                  value="local"
+                />
+                <SetupChoice
+                  description="Use a saved SSH host"
+                  icon={ServerIcon}
+                  label="Another computer"
+                  value="ssh"
+                />
+                <SetupChoice
+                  description="Connect by address"
+                  icon={Globe2Icon}
+                  label="Already running"
+                  value="existing"
+                />
+              </RadioGroup>
+            </Field>
+          ) : (
+            <Alert>
+              <Globe2Icon aria-hidden="true" />
+              <AlertTitle>Connect an existing service</AlertTitle>
+              <AlertDescription>
+                Enter the address reachable from the agent service. Deployment is available in the
+                desktop app or on the service host.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {target === 'ssh' ? (
             desktop ? (
@@ -217,7 +264,7 @@ export function WebSearchSetup({
             )
           ) : null}
 
-          {target !== 'existing' ? (
+          {desktop && target !== 'existing' ? (
             <section className="rounded-xl border bg-muted/20 p-4">
               <div className="flex items-start gap-3">
                 <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -296,7 +343,7 @@ export function WebSearchSetup({
             <FieldLabel htmlFor="web-search-service-url">Service address</FieldLabel>
             <Input
               id="web-search-service-url"
-              onChange={(event) => setServiceUrl(event.target.value)}
+              onChange={(event) => setServiceUrlOverride(event.target.value)}
               placeholder={WEB_SEARCH_DEFAULT_LOCAL_URL}
               type="url"
               value={serviceUrl}
@@ -320,6 +367,21 @@ export function WebSearchSetup({
               <AlertDescription>{connect.error.message}</AlertDescription>
             </Alert>
           ) : null}
+          {configuration.data?.status === 'degraded' ? (
+            <Alert variant="destructive">
+              <AlertTitle>Configuration saved, service unavailable</AlertTitle>
+              <AlertDescription>
+                The remote address remains configured across restarts. Start the service or correct
+                the address, then retry.
+                {configuration.data.error ? (
+                  <details className="mt-2 text-xs">
+                    <summary className="cursor-pointer">Technical details</summary>
+                    <p className="mt-1 break-words font-mono">{configuration.data.error}</p>
+                  </details>
+                ) : null}
+              </AlertDescription>
+            </Alert>
+          ) : null}
           {deploymentReady ? (
             <Alert>
               <CheckCircle2Icon aria-hidden="true" />
@@ -332,6 +394,17 @@ export function WebSearchSetup({
         </div>
 
         <DialogFooter>
+          {configuration.data?.configured ? (
+            <Button
+              disabled={useLocalEngines.isPending || connect.isPending}
+              onClick={() => useLocalEngines.mutate()}
+              type="button"
+              variant="ghost"
+            >
+              <RotateCcwIcon aria-hidden="true" />
+              {useLocalEngines.isPending ? 'Removing…' : 'Use local engines'}
+            </Button>
+          ) : null}
           <Button onClick={() => handleOpenChange(false)} type="button" variant="outline">
             Cancel
           </Button>
@@ -341,7 +414,11 @@ export function WebSearchSetup({
             type="button"
           >
             <Globe2Icon aria-hidden="true" />
-            {connect.isPending ? 'Connecting…' : 'Connect to agent'}
+            {connect.isPending
+              ? 'Connecting…'
+              : configuration.data?.status === 'degraded'
+                ? 'Retry connection'
+                : 'Connect to agent'}
           </Button>
         </DialogFooter>
       </DialogContent>

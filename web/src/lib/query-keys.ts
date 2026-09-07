@@ -27,6 +27,7 @@ export type ClioQueryNamespace =
   | 'hook-inspection'
   | 'language-model-configuration'
   | 'mcp-server'
+  | 'mcp-configuration'
   | 'mcp-server-inventory'
   | 'mcp-servers'
   | 'memory-events'

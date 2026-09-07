@@ -557,6 +557,20 @@ export interface McpServerDefinition {
   spec: Record<string, unknown>;
 }
 
+export interface McpUserConfiguration {
+  name: string;
+  configured: boolean;
+  scope: 'user';
+  status: 'ready' | 'degraded' | 'local_fallback';
+  transport?: string;
+  tools_count: number;
+  tools: string[];
+  spec?: Record<string, unknown>;
+  error?: string;
+  retryable: boolean;
+  removed?: boolean;
+}
+
 export interface ExpertPackDefinition {
   id: string;
   version: string;

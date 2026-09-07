@@ -58,6 +58,7 @@ describe('workspace route state', () => {
         action: 'answer',
         answer: 'Add rollback and verification steps.',
         selected_options: ['reject'],
+        metadata: { composer_user_message: true },
       },
     });
   });

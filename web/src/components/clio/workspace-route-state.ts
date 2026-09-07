@@ -76,7 +76,12 @@ export function planRevisionFromComposer(
   if (!interaction) return undefined;
   return {
     interaction,
-    response: { action: 'answer', answer: feedback, selected_options: ['reject'] },
+    response: {
+      action: 'answer',
+      answer: feedback,
+      selected_options: ['reject'],
+      metadata: { composer_user_message: true },
+    },
   };
 }
 
