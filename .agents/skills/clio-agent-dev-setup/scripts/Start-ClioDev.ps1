@@ -765,7 +765,9 @@ if ($null -eq $health -or $health.overall_status -ne "ready") {
 # profile store, the catalog, and the UI all observe one effective selection.
 Set-DeploymentStage -Name "provider_reconciliation"
 $providerUri = "http://127.0.0.1:$BackendPort/v1/providers/lm"
-$providerInfo = Invoke-RestMethod -Uri $providerUri -TimeoutSec 20
+$providerInfo = Invoke-RestMethod `
+    -Uri $providerUri `
+    -TimeoutSec $BackendReadinessTimeoutSec
 $expectedTransport = if ($Provider -eq "codex") {
     "sdk"
 }

@@ -212,6 +212,9 @@ if (
 if ($startSource -notmatch '-HealthTimeoutSec\s+\$BackendReadinessTimeoutSec') {
     throw "Start-ClioDev must pass its readiness budget through to live preflight."
 }
+if ($startSource -notmatch '\$providerInfo\s*=\s*Invoke-RestMethod[\s\S]{0,160}?\$providerUri[\s\S]{0,120}?-TimeoutSec\s+\$BackendReadinessTimeoutSec') {
+    throw "Cold provider discovery must share the explicit backend readiness budget."
+}
 if ($preflightSource -notmatch 'HealthTimeoutSec[\s\S]{0,2500}?/v1/health[^\r\n]*-TimeoutSec\s+\$HealthTimeoutSec') {
     throw "Test-ClioDevPreflight must use the configured health timeout for preserved ledger rehydration."
 }
