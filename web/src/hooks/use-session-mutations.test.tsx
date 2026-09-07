@@ -411,4 +411,34 @@ describe('useSessionMutations pending-question invalidation', () => {
       expect(client.getQueryCache().find({ queryKey: readKey })?.state.isInvalidated).toBe(true),
     );
   });
+
+  it('refreshes authoritative session posture after a Plan approval response', async () => {
+    const client = clientWithReadPopulated();
+    const sessionsKey = queryKeys.sessions('http://127.0.0.1:8790', 'ws_1');
+    client.setQueryData(sessionsKey, []);
+    const { result } = renderMutationsWithClient(client);
+    const interaction: PendingInteraction = {
+      id: 'question:plan_exit',
+      kind: 'question',
+      owner_session_id: 'sess_1',
+      attended_session_id: 'sess_1',
+      status: 'pending',
+      title: 'Review execution plan',
+      source: { protocol: 'native', tool_name: 'plan_exit' },
+      created_at: '2026-09-07T00:00:00Z',
+      payload: { question_id: 'plan_exit' },
+      actions: ['answer'],
+    };
+
+    await result.current.respondInteraction.mutateAsync({
+      interaction,
+      response: { action: 'answer', selected_options: ['auto'] },
+    });
+
+    await waitFor(() =>
+      expect(client.getQueryCache().find({ queryKey: sessionsKey })?.state.isInvalidated).toBe(
+        true,
+      ),
+    );
+  });
 });
