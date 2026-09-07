@@ -564,7 +564,6 @@ try {
     $documentProcessorProcess = Start-Process `
         -FilePath $documentProcessorLauncher `
         -WorkingDirectory $documentProcessorRoot `
-        -Environment $documentProcessorEnvironment `
         -RedirectStandardOutput $documentProcessorStdout `
         -RedirectStandardError $documentProcessorStderr `
         -WindowStyle Hidden `

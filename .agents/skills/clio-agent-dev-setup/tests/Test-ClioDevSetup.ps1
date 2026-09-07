@@ -192,8 +192,12 @@ if ($startSource -match 'CLIO_CODEX_TRANSPORT\s*=\s*"app_server"') {
 if ($startSource -notmatch 'DOCLING_INFERENCE_COMPILE_TORCH_MODELS\s*=\s*"false"') {
     throw "Start-ClioDev must keep Docling inference independent of a Windows C++ compiler."
 }
-if ($startSource -notmatch '-Environment\s+\$documentProcessorEnvironment') {
-    throw "Start-ClioDev must pass the Docling environment directly to its child process."
+if (
+    $startSource -notmatch '\$originalDocumentProcessorEnvironment\s*=\s*@\{\}' -or
+    $startSource -notmatch '\[Environment\]::SetEnvironmentVariable\([\s\S]{0,180}?\$documentProcessorEnvironment\[\$name\][\s\S]{0,900}?Start-Process' -or
+    $startSource -notmatch 'finally\s*\{[\s\S]{0,500}?\$originalDocumentProcessorEnvironment\[\$name\]'
+) {
+    throw "Start-ClioDev must scope the Docling environment around child-process creation and restore it afterward."
 }
 $preflightSource = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot "Test-ClioDevPreflight.ps1")
 if (
@@ -280,6 +284,9 @@ foreach ($file in Get-ChildItem -LiteralPath $scriptsRoot -Filter "*.ps1") {
     if ($offending.Count -gt 0) {
         throw "$($file.Name) uses the PowerShell 7-only -SkipHttpErrorCheck; use Invoke-ClioDevWebRequest."
     }
+}
+if ($startSource -match 'Start-Process[\s\S]{0,500}?-Environment\s') {
+    throw "Start-ClioDev must use process-scoped environment variables instead of PowerShell 7-only Start-Process -Environment."
 }
 # ...and the replacement has to actually do the job the parameter did: a served
 # 503 is data the readiness poll reads, while a refused connection still throws.
