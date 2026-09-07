@@ -15,6 +15,7 @@ import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
+import { SESSION_MODE_PATCHES } from '@/components/clio/session-behavior-options';
 import { ClioNavigation } from '@/components/clio/navigation';
 import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { ClioPendingInteractions } from '@/components/clio/pending-interactions';
@@ -226,6 +227,7 @@ export function WorkspacePage() {
     retry,
     send,
     updateQueuedMessage,
+    updateSessionBehavior,
   } = useSessionMutations({
     activeModel,
     activeProvider,
@@ -495,6 +497,18 @@ export function WorkspacePage() {
           }
         }}
         onRetryModelCatalog={() => void providerCatalog.refetch()}
+        onBehaviorChange={async (behavior) => {
+          const targetMode =
+            behavior.execution_mode === 'plan'
+              ? 'plan'
+              : behavior.execution_mode === 'deep_research'
+                ? 'architect'
+                : 'edit';
+          await updateSessionBehavior.mutateAsync({
+            ...SESSION_MODE_PATCHES[targetMode],
+            approval_mode: behavior.confirmation_policy,
+          });
+        }}
         onPrepareFiles={prepareFiles}
         onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
         onSubmit={async (value) => {

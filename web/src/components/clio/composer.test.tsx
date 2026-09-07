@@ -123,6 +123,40 @@ function renderComposer({
 }
 
 describe('ClioComposer authoritative behavior', () => {
+  it('persists a selected Plan mode before the message is submitted', async () => {
+    const user = userEvent.setup();
+    const onBehaviorChange = vi.fn(async () => undefined);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <PromptInputProvider>
+          <ClioComposer
+            attachments={false}
+            confirmationPolicy="ask"
+            executionMode="execute"
+            model="gpt-5.6-luna"
+            onBehaviorChange={onBehaviorChange}
+            onSubmit={vi.fn(async () => undefined)}
+            provider="codex"
+            state="completed"
+          />
+        </PromptInputProvider>
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Execution mode: Execute' }));
+    await user.click(screen.getByRole('menuitemradio', { name: /PlanDevelop/ }));
+
+    await waitFor(() =>
+      expect(onBehaviorChange).toHaveBeenCalledWith(
+        expect.objectContaining({ confirmation_policy: 'ask', execution_mode: 'plan' }),
+      ),
+    );
+    expect(screen.getByRole('button', { name: 'Execution mode: Plan' })).toBeVisible();
+  });
+
   it('tracks mode and confirmation changes after plan approval', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },

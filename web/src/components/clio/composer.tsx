@@ -97,6 +97,7 @@ export interface ClioComposerProps {
     behavior: MessageBehavior;
     onUploadProgress: (progress: ResourceUploadProgress) => void;
   }) => Promise<void>;
+  onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
   onPrepareFiles?: (
     files: readonly FileUIPart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
@@ -153,6 +154,7 @@ export function ClioComposer({
   workspaceId = '',
   commands = [],
   onSubmit,
+  onBehaviorChange,
   onPrepareFiles,
   onStop,
   onCommand,
@@ -202,12 +204,31 @@ export function ClioComposer({
         ? behaviorSelection.behavior.execution_mode
         : executionMode,
   };
-  const setBehavior = (next: MessageBehavior) =>
+  const setBehavior = (next: MessageBehavior) => {
+    const previous = behavior;
     setBehaviorSelection({
       behavior: next,
       authoritativeConfirmationPolicy: confirmationPolicy,
       authoritativeExecutionMode: executionMode,
     });
+    if (
+      !onBehaviorChange ||
+      (next.execution_mode === previous.execution_mode &&
+        next.confirmation_policy === previous.confirmation_policy)
+    ) {
+      return;
+    }
+    void onBehaviorChange(next).catch((error: unknown) => {
+      setBehaviorSelection({
+        behavior: previous,
+        authoritativeConfirmationPolicy: confirmationPolicy,
+        authoritativeExecutionMode: executionMode,
+      });
+      toast.error('Session behavior was not changed', {
+        description: error instanceof Error ? error.message : 'The service rejected the change.',
+      });
+    });
+  };
   // Kept apart from `behavior`, which must always carry a value the message
   // contract accepts. The control names this rather than showing the default as
   // though the service had asked for it.
