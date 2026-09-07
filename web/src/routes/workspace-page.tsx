@@ -490,9 +490,9 @@ export function WorkspacePage() {
           }
         }}
         onRetryModelCatalog={() => void providerCatalog.refetch()}
-        onBehaviorChange={(behavior) =>
-          updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior))
-        }
+        onBehaviorChange={async (behavior) => {
+          await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
+        }}
         onPrepareFiles={prepareFiles}
         onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
         onSubmit={async (value) => {
