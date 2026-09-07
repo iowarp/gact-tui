@@ -233,6 +233,15 @@ if ($preflightSource -notmatch 'x_clio_resources\.max_bytes') {
 if ($preflightSource -match 'x_clio_resources\.enabled') {
     throw "Test-ClioDevPreflight must not require a resource enabled field that the backend does not advertise."
 }
+if ($preflightSource -match '\$_\.endpoint\s+-eq\s+\$documentProcessorUrl') {
+    throw "Test-ClioDevPreflight must accept the authoritative configured converter endpoint, not force localhost."
+}
+if (
+    $preflightSource -notmatch '/v1/mcp/configuration/web' -or
+    $preflightSource -notmatch 'ready.+local_fallback'
+) {
+    throw "Test-ClioDevPreflight must require a ready durable or local-fallback Web Search configuration."
+}
 
 # Every stop this script performs is a restart step, never an uninstall. The
 # readiness-failure path is the one that lost -PreserveState: a 60-second Vite

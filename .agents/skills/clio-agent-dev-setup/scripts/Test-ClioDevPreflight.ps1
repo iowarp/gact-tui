@@ -92,6 +92,9 @@ catch {
     throw "Provider preflight failed for $backendUrl/v1/providers/lm: $($_.Exception.Message)"
 }
 $catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
+$webConfiguration = Invoke-RestMethod `
+    -Uri "$backendUrl/v1/mcp/configuration/web" `
+    -TimeoutSec 30
 # Source discovery reads the installed marketplace and can cross a cold disk on
 # the first request. Keep this bounded without applying the generic 10-second
 # HTTP timeout to a valid cold-start path.
@@ -193,11 +196,18 @@ $configuredDocumentProcessor = @(
         Where-Object {
             $_.id -eq "clio-web-search-docling" -and
             $_.configured -eq $true -and
-            $_.endpoint -eq $documentProcessorUrl
+            -not [string]::IsNullOrWhiteSpace([string]$_.endpoint)
         }
 ) | Select-Object -First 1
 if ($null -eq $configuredDocumentProcessor) {
-    throw "CLIO does not advertise the contained document processor at $documentProcessorUrl."
+    throw "CLIO does not advertise a configured clio-web-search-docling document processor."
+}
+if ($webConfiguration.status -notin @("ready", "local_fallback")) {
+    throw "CLIO Web Search configuration is '$($webConfiguration.status)', not ready."
+}
+$resourceDegradations = @($campaignCapabilities.x_clio_resources.degradations)
+if ($resourceDegradations.Count -gt 0) {
+    throw "CLIO resource conversion is degraded: $($resourceDegradations -join '; ')."
 }
 if ($documentProcessorHealth.checks.docling -ne "ready") {
     throw "The contained document processor's Docling worker is '$($documentProcessorHealth.checks.docling)', not ready."
@@ -409,8 +419,10 @@ foreach ($item in $degraded) {
     web_url = $webUrl
     web_pid = $webPid
     document_processor_url = $documentProcessorUrl
+    active_document_processor_url = $configuredDocumentProcessor.endpoint
     document_processor_pid = $documentProcessorPid
     document_processor = $configuredDocumentProcessor.id
+    web_configuration_status = $webConfiguration.status
     provider = $provider.provider
     model = $provider.model
     transport = $provider.transport
