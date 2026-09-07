@@ -243,7 +243,10 @@ export function WorkspacePage() {
     },
     [respondInteraction],
   );
-  const responseTrayInteractions = workspaceRouteState.responseTrayInteractions(interactions);
+  const responseTrayInteractions = workspaceRouteState.responseTrayInteractions(
+    interactions,
+    new Set(tools.map((tool) => tool.id)),
+  );
   const refreshNavigation = useCallback(
     async (targetWorkspaceId = workspaceId) => {
       await Promise.all([

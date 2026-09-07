@@ -48,12 +48,16 @@ export function conversationUnavailableMessage(error: unknown): string | undefin
   return error instanceof Error ? error.message : undefined;
 }
 
-/** Keeps native Plan reviews inline with their tool call instead of duplicating them in the tray. */
+/** Keeps Plan reviews inline only when their tool call is present in the recovered transcript. */
 export function responseTrayInteractions(
   interactions: readonly PendingInteraction[],
+  anchoredInvocationIds: ReadonlySet<string>,
 ): PendingInteraction[] {
   return interactions.filter(
-    (interaction) => interaction.source.tool_name !== 'plan_exit' || !interaction.source.invocation_id,
+    (interaction) =>
+      interaction.source.tool_name !== 'plan_exit' ||
+      !interaction.source.invocation_id ||
+      !anchoredInvocationIds.has(interaction.source.invocation_id),
   );
 }
 
