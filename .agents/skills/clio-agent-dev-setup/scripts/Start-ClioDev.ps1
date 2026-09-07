@@ -160,10 +160,64 @@ function Write-DeploymentTiming {
     }
 }
 
+function Write-ProvisionalProcessState {
+    # A startup failure can occur after a venv launcher has handed execution to
+    # its uv-managed child but before the final process ledger is written. Give
+    # Stop-ClioDev the exact launch/listener pairs it needs for that cleanup.
+    $listenerByPort = @{}
+    foreach ($port in @($BackendPort, $WebPort, $DocumentProcessorPort, $CtePort)) {
+        $listenerPids = @(
+            Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty OwningProcess -Unique
+        )
+        $listenerByPort[$port] = if ($listenerPids.Count -eq 1) {
+            [int]$listenerPids[0]
+        }
+        else {
+            $null
+        }
+    }
+
+    $processIdByVariable = @{}
+    foreach ($variableName in @("backendProcess", "webProcess", "documentProcessorProcess")) {
+        $processVariable = Get-Variable -Name $variableName -Scope Script -ErrorAction SilentlyContinue
+        $processIdByVariable[$variableName] = if ($null -ne $processVariable -and $null -ne $processVariable.Value) {
+            [int]$processVariable.Value.Id
+        }
+        else {
+            $null
+        }
+    }
+    $cteExternalVariable = Get-Variable -Name "cteExternal" -Scope Script -ErrorAction SilentlyContinue
+    $cteExternalValue = $null -ne $cteExternalVariable -and [bool]$cteExternalVariable.Value
+
+    New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
+    @{
+        backend_pid = $listenerByPort[$BackendPort]
+        web_pid = $listenerByPort[$WebPort]
+        document_processor_pid = $listenerByPort[$DocumentProcessorPort]
+        cte_pid = $listenerByPort[$CtePort]
+        cte_external = $cteExternalValue
+        backend_launcher_pid = $processIdByVariable.backendProcess
+        web_launcher_pid = $processIdByVariable.webProcess
+        document_processor_launcher_pid = $processIdByVariable.documentProcessorProcess
+        backend_port = $BackendPort
+        web_port = $WebPort
+        document_processor_port = $DocumentProcessorPort
+        cte_port = $CtePort
+        python_version = $PythonVersion
+        started_at = [DateTime]::UtcNow.ToString("o")
+        provisional = $true
+    } | ConvertTo-Json | Set-Content `
+        -LiteralPath (Join-Path $runtimeRoot "dev-processes.json") `
+        -Encoding utf8
+}
+
 trap {
     $failure = $_
     if ($script:startupProcessesOwned) {
         try {
+            Write-ProvisionalProcessState
             & $stopScript `
                 -DevRoot $devRootFull `
                 -BackendPort $BackendPort `
@@ -801,7 +855,9 @@ do {
         throw "CLIO web exited during startup. See $webStderr"
     }
     try {
-        $webResponse = Invoke-WebRequest -Uri "http://127.0.0.1:$WebPort/" -TimeoutSec 3
+        $webResponse = Invoke-ClioDevWebRequest `
+            -Uri "http://127.0.0.1:$WebPort/" `
+            -TimeoutSec 3
     }
     catch {
         $webResponse = $null

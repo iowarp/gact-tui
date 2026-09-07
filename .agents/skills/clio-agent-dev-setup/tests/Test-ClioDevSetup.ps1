@@ -243,6 +243,12 @@ foreach ($call in $stopCalls) {
 if ($startSource -notmatch 'if\s*\(\$null\s+-eq\s+\$webResponse[\s\S]*?-PreserveState[\s\S]*?throw\s+"CLIO web did not become ready') {
     throw "The web-readiness failure path must stop with -PreserveState instead of deleting the development root."
 }
+if ($startSource -notmatch '\$webResponse\s*=\s*Invoke-ClioDevWebRequest') {
+    throw "Web readiness must use the Windows PowerShell-compatible HTTP helper."
+}
+if ($startSource -notmatch 'trap\s*\{[\s\S]{0,300}?Write-ProvisionalProcessState[\s\S]{0,300}?&\s+\$stopScript') {
+    throw "Failed startup cleanup must record exact launcher/listener pairs before its scoped stop."
+}
 
 # The CTE listener is adopted from a port query, so it is recorded with who owns
 # it and the stop sweep leaves an external daemon running.
