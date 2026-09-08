@@ -23,6 +23,42 @@ function planInteraction(overrides: Partial<PendingInteraction> = {}): PendingIn
 }
 
 describe('PlanExitResponse', () => {
+  it('offers two explicit decisions and requests revision comments only after rejection', async () => {
+    const user = userEvent.setup();
+    const interaction = planInteraction({
+      payload: {
+        options: [
+          { label: 'Auto', value: 'auto' },
+          { label: 'Reject', value: 'reject' },
+          { label: 'Clear context', value: 'clear_context' },
+        ],
+        plan_exit: { plan_content: '# Plan', plan_content_status: 'complete' },
+      },
+    });
+    const onResponse = vi.fn(async () => undefined);
+    render(
+      <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
+    );
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Reject plan with comments' }));
+    expect(onResponse).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Request changes' })).toBeDisabled();
+    await user.type(
+      screen.getByRole('textbox', { name: 'What should change?' }),
+      'Add rollback steps.',
+    );
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('radio', { name: 'Reject plan with comments' })).toHaveFocus();
+    await user.click(screen.getByRole('radio', { name: 'Reject plan with comments' }));
+    expect(screen.getByRole('textbox')).toHaveValue('Add rollback steps.');
+    await user.click(screen.getByRole('button', { name: 'Request changes' }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'answer',
+      answer: 'Add rollback steps.',
+      selected_options: ['reject'],
+    });
+  });
   it('renders the saved plan and submits its decision with a modifier', async () => {
     const user = userEvent.setup();
     const interaction = planInteraction({
@@ -68,8 +104,10 @@ describe('PlanExitResponse', () => {
     await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
     await user.click(screen.getByRole('option', { name: 'Auto-execute' }));
     await user.click(screen.getByRole('checkbox', { name: 'Clear conversation context' }));
+    await user.click(screen.getByRole('button', { name: 'Add comment' }));
     await user.type(screen.getByRole('textbox', { name: 'Comment (optional)' }), 'Proceed now.');
-    await user.click(screen.getByRole('button', { name: 'Approve plan' }));
+    await user.click(screen.getByRole('button', { name: 'Save comment' }));
+    await user.click(screen.getByRole('button', { name: 'Execute plan' }));
 
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
@@ -103,7 +141,7 @@ describe('PlanExitResponse', () => {
 
     await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
     await user.click(screen.getByRole('option', { name: 'Interactive' }));
-    await user.click(screen.getByRole('button', { name: 'Approve plan' }));
+    await user.click(screen.getByRole('button', { name: 'Execute plan' }));
 
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
@@ -139,10 +177,10 @@ describe('PlanExitResponse', () => {
     expect(screen.getByText(/saved plan is unavailable/i)).toBeVisible();
     await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
     await user.click(screen.getByRole('option', { name: 'Auto-execute' }));
-    expect(screen.getByRole('button', { name: 'Approve plan' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Execute plan' })).toBeDisabled();
     await user.click(screen.getByRole('combobox', { name: 'Execution mode' }));
     await user.click(screen.getByRole('option', { name: 'Exit Plan mode only' }));
-    await user.click(screen.getByRole('button', { name: 'Approve plan' }));
+    await user.click(screen.getByRole('button', { name: 'Leave Plan mode' }));
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
       selected_options: ['exit_only'],
@@ -178,7 +216,7 @@ describe('PlanExitResponse', () => {
       await screen.findByRole('heading', { name: 'Accepted implementation plan' }),
     ).toBeVisible();
     expect(screen.getByRole('status')).toHaveTextContent('Approved · Auto-execute');
-    expect(screen.queryByRole('button', { name: 'Approve plan' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Execute plan' })).not.toBeInTheDocument();
   });
 
   it('keeps composer revision feedback visible with the reviewed plan', async () => {
