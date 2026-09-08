@@ -11,6 +11,13 @@ import (
 )
 
 func (t Theme) renderToolCallPart(p gact.Part, wrapW int) string {
+	if p.Presentation != nil {
+		title := p.ToolTitle
+		if title == "" {
+			title = p.ToolName
+		}
+		return title + "\n" + t.renderDeclaredToolPresentation(p, wrapW, true)
+	}
 	workflowPrefix := toolPartWorkflowPrefix(p)
 	toolWrapW := wrapW - lipgloss.Width(workflowPrefix)
 	if toolWrapW < 20 {
@@ -31,9 +38,6 @@ func (t Theme) renderToolCallPart(p gact.Part, wrapW int) string {
 	if status := toolCallStatusLabel(p); status != "" {
 		head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
 			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(status)
-	}
-	if p.Presentation != nil {
-		head += "\n" + t.renderDeclaredToolPresentation(p, wrapW, true)
 	}
 	return head
 }

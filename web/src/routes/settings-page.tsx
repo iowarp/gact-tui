@@ -1,4 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
+import { Input } from '@/components/ui/input';
 import { brand } from '@brand';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
@@ -322,8 +323,6 @@ function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
     </div>
   );
 }
-
-import { Input } from '@/components/ui/input';
 
 function AppearanceSettings() {
   const { resolvedTheme, theme, setTheme } = useTheme();

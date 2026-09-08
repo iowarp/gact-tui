@@ -71,6 +71,7 @@ type Part struct {
 
 	// tool_call
 	ToolName    string         `json:"tool_name,omitempty"`
+	ToolTitle   string         `json:"tool_title,omitempty"`
 	Input       map[string]any `json:"input,omitempty"`
 	ServerID    string         `json:"server_id,omitempty"`
 	Annotations any            `json:"annotations,omitempty"`

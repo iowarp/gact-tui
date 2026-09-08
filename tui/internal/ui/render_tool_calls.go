@@ -13,10 +13,11 @@ func toolCallWithResultStatusSuppressed(p gact.Part, inlineResults map[string]ga
 	if p.Type != gact.PartTypeToolCall || p.CallID == "" || inlineResults == nil {
 		return p
 	}
-	if _, ok := inlineResults[p.CallID]; !ok || p.Metadata == nil {
+	if _, ok := inlineResults[p.CallID]; !ok {
 		return p
 	}
 	clone := p
+	clone.Presentation = nil // The paired final result owns the completed body.
 	metadata := make(map[string]any, len(p.Metadata))
 	for key, value := range p.Metadata {
 		if key == "status" {
