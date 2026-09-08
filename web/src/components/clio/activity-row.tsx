@@ -10,6 +10,7 @@ export function ActivityRow({
   status,
   duration,
   action,
+  inlineDetail = false,
 }: {
   icon: ReactNode;
   title: ReactNode;
@@ -17,6 +18,7 @@ export function ActivityRow({
   status?: ClioStatusValue;
   duration?: number;
   action?: ReactNode;
+  inlineDetail?: boolean;
 }) {
   return (
     <span
@@ -28,13 +30,18 @@ export function ActivityRow({
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{title}</span>
+          <span className="min-w-0 max-w-full font-medium">{title}</span>
           {status ? <ClioStatus value={status} className="text-sm" /> : null}
           {duration !== undefined ? (
             <span className="text-sm text-muted-foreground">{formatDuration(duration)}</span>
           ) : null}
+          {inlineDetail && detail ? (
+            <span className="max-w-[42ch] truncate text-muted-foreground" title={detail}>
+              {detail}
+            </span>
+          ) : null}
         </span>
-        {detail ? (
+        {detail && !inlineDetail ? (
           <span className="block text-sm leading-6 text-muted-foreground">{detail}</span>
         ) : null}
       </span>

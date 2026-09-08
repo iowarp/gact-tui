@@ -10,6 +10,74 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation', () => {
+  it('renders a declared action and clickable subject once in the row, never the payload', async () => {
+    const openFile = vi.fn();
+    const path = 'D:/workspace/long-readable-evidence.txt';
+    const { container } = render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenFile: openFile }}
+      >
+        <ClioToolInvocation
+          tool={{
+            id: 'call',
+            session_id: 's',
+            name: 'internal_overloaded_tool_name',
+            state: 'succeeded',
+            duration_ms: 42,
+            input: { payload: 'RAW PAYLOAD' },
+            presentation: {
+              action: 'Write',
+              subject: 'file',
+              summary: '',
+              blocks: [
+                {
+                  id: 'file',
+                  type: 'link',
+                  target: 'file',
+                  uri: path,
+                  label: 'long-readable-evidence.txt',
+                },
+                {
+                  id: 'effect',
+                  type: 'diff',
+                  text: '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new',
+                },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    const row = container.querySelector('[data-slot="activity-row"]')!;
+    const file = screen.getByRole('button', { name: 'long-readable-evidence.txt' });
+    expect(row).toContainElement(file);
+    expect(row).toHaveTextContent('Write');
+    expect(container.querySelector('[data-slot="tool-human-result"]')).not.toContainElement(file);
+    expect(container).not.toHaveTextContent('RAW PAYLOAD');
+    expect(container.querySelector('[data-diff-line="addition"]')).toHaveTextContent('+new');
+    expect(container.querySelector('[data-diff-line="deletion"]')).toHaveTextContent('-old');
+    await userEvent.setup().click(file);
+    expect(openFile).toHaveBeenCalledWith(path);
+  });
+  it('does not hide content if a declared subject is not a text or link block', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'c',
+          session_id: 's',
+          name: 'unknown',
+          state: 'succeeded',
+          presentation: {
+            action: 'Inspect',
+            subject: 'body',
+            summary: '',
+            blocks: [{ id: 'body', type: 'code', text: 'preserved content' }],
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('preserved content')).toBeVisible();
+  });
   it('renders declared media rather than binary text and rejects active MIME content', () => {
     const { rerender } = render(
       <ClioToolInvocation

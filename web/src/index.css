@@ -361,5 +361,30 @@ html[data-clio-motion='reduced'] *::after {
 .tool-presentation-body pre {
   width: 100%;
   min-width: 0;
-  padding: 0;
+  padding: 0.5rem 0.75rem;
+}
+
+/* A result surface, not another outer tool card. Tokens adapt to both themes. */
+[data-slot='tool-human-result'] [data-language] {
+  background: color-mix(in srgb, var(--muted) 65%, var(--background));
+}
+[data-slot='tool-result-panel'] [data-language] {
+  border: 0;
+  border-radius: 0;
+}
+[data-slot='tool-result-panel'] .tool-presentation-body > p,
+[data-slot='tool-result-panel'] .tool-presentation-body > [data-streamdown] {
+  padding: 0.5rem 0.75rem;
+}
+[data-slot='tool-human-result'] [data-language] pre {
+  background: transparent !important;
+}
+[data-diff-line='addition'] {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+}
+[data-diff-line='deletion'] {
+  background: color-mix(in srgb, var(--destructive) 14%, transparent);
+}
+[data-diff-line] {
+  padding-inline: 0.5rem;
 }

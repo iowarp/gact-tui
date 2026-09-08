@@ -18,6 +18,33 @@ function frame(cursor: string, type: string, payload: unknown): TransportFrame {
 }
 
 describe('declared tool presentation stream', () => {
+  it('preserves authored action and subject identity through transport decoding', () => {
+    const state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'tool.upserted', {
+        id: 'header',
+        session_id: 'session',
+        name: 'arbitrary',
+        state: 'succeeded',
+        presentation: {
+          action: 'Read',
+          subject: 'file',
+          summary: '12 bytes',
+          blocks: [
+            {
+              id: 'file',
+              type: 'link',
+              target: 'file',
+              uri: '/workspace/evidence.md',
+              label: 'evidence.md',
+            },
+          ],
+        },
+      }),
+    );
+    expect(state.tools.header?.presentation?.action).toBe('Read');
+    expect(state.tools.header?.presentation?.subject).toBe('file');
+  });
   const tool = {
     id: 'call',
     session_id: 'session',

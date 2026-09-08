@@ -13,6 +13,19 @@ keys. Add an upstream presenter or MCP adapter for new semantics; do not add a
 frontend `if tool.name` branch. Resource and artifact links reuse conversation
 workbench navigation. Unsupported URI schemes are never executable links.
 
+Presenters may declare a short `action` and a `subject` block ID. A text/link
+subject is rendered once inside the action row: `Write (filename)`, `Fetch (URL)`,
+or `Collect (child)`. The renderer never extracts the payload or guesses which
+argument is important. Long subjects truncate within the available width; hover
+and keyboard focus reveal the full identity, and declared links open normally.
+Unknown or non-text/link subject IDs leave all result blocks visible. Existing
+records without these fields retain their original labels.
+
+Diff previews retain real unified-diff syntax, with semantic addition/deletion
+backgrounds. The complete preview boundary remains visible when content is
+clipped; a muted result surface separates effects from conversation prose without
+putting a large card around every tool.
+
 `BoundedResult` measures actual rendered text rectangles, including soft wraps.
 The local Appearance setting defaults to five display lines (range 1–50); diffs
 receive at most twice that budget, without padding short diffs. Show more reveals

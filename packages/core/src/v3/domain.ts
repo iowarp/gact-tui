@@ -228,6 +228,8 @@ export interface ToolPresentationBlock {
 }
 
 export interface ToolPresentation {
+  action?: string;
+  subject?: string;
   summary: string;
   blocks: ToolPresentationBlock[];
   diagnostic?: string;

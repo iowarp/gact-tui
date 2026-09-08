@@ -90,16 +90,31 @@ const LINE_NUMBER_CLASSES = cn(
 const LineSpan = ({
   keyedLine,
   showLineNumbers,
+  diff,
 }: {
   keyedLine: KeyedLine;
   showLineNumbers: boolean;
+  diff: boolean;
 }) => (
-  <span className={showLineNumbers ? LINE_NUMBER_CLASSES : 'block'}>
+  <span
+    className={showLineNumbers ? LINE_NUMBER_CLASSES : 'block'}
+    data-diff-line={
+      diff ? diffLineKind(keyedLine.tokens.map(({ token }) => token.content).join('')) : undefined
+    }
+  >
     {keyedLine.tokens.length === 0
       ? '\n'
       : keyedLine.tokens.map(({ token, key }) => <TokenSpan key={key} token={token} />)}
   </span>
 );
+
+/** Classify unified-diff syntax, not tool names or model result keys. */
+function diffLineKind(line: string): string {
+  if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('@@')) return 'header';
+  if (line.startsWith('+')) return 'addition';
+  if (line.startsWith('-')) return 'deletion';
+  return 'context';
+}
 
 // Types
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
@@ -244,10 +259,12 @@ const CodeBlockBody = memo(
     tokenized,
     showLineNumbers,
     className,
+    diff,
   }: {
     tokenized: TokenizedCode;
     showLineNumbers: boolean;
     className?: string;
+    diff: boolean;
   }) => {
     const preStyle = useMemo(
       () => ({
@@ -274,7 +291,12 @@ const CodeBlockBody = memo(
           )}
         >
           {keyedLines.map((keyedLine) => (
-            <LineSpan key={keyedLine.key} keyedLine={keyedLine} showLineNumbers={showLineNumbers} />
+            <LineSpan
+              key={keyedLine.key}
+              keyedLine={keyedLine}
+              showLineNumbers={showLineNumbers}
+              diff={diff}
+            />
           ))}
         </code>
       </pre>
@@ -283,6 +305,7 @@ const CodeBlockBody = memo(
   (prevProps, nextProps) =>
     prevProps.tokenized === nextProps.tokenized &&
     prevProps.showLineNumbers === nextProps.showLineNumbers &&
+    prevProps.diff === nextProps.diff &&
     prevProps.className === nextProps.className,
 );
 
@@ -407,7 +430,11 @@ export const CodeBlockContent = ({
       aria-label="Scrollable code"
       tabIndex={0}
     >
-      <CodeBlockBody showLineNumbers={showLineNumbers} tokenized={tokenized} />
+      <CodeBlockBody
+        showLineNumbers={showLineNumbers}
+        tokenized={tokenized}
+        diff={language === 'diff'}
+      />
     </div>
   );
 };

@@ -41,6 +41,17 @@ async function openFixture(page: Page, type?: string, content?: string) {
             ],
           }
         : undefined;
+    if (type === 'diff') {
+      data.tools[0].presentation.action = 'Write';
+      data.tools[0].presentation.subject = 'target';
+      data.tools[0].presentation.blocks.unshift({
+        id: 'target',
+        type: 'link',
+        target: 'url',
+        uri: 'https://example.org/full/path/evidence.txt',
+        label: 'long-readable-evidence-filename-that-must-not-push-status-outside-the-row.txt',
+      });
+    }
     await route.fulfill({ response, json: data });
   });
   await page.goto(`/workspaces/ws_flat_ndp/sessions/${session}`);
@@ -51,6 +62,36 @@ async function openFixture(page: Page, type?: string, content?: string) {
   await responses.click();
   await page.getByRole('radio', { name: 'Full activity view', exact: true }).click();
 }
+
+test('compact subjects stay in the action row and diffs have distinct bounded surfaces', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1003, height: 1037 });
+  await openFixture(page, 'diff', '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new');
+  const activity = page.locator('[data-slot="tool-activity"]').first();
+  const row = activity.locator('[data-slot="activity-row"]');
+  const subject = row.getByRole('link');
+  await expect(subject).toHaveCount(1);
+  await expect(row).toContainText('Write');
+  await expect(activity.locator('[data-slot="tool-human-result"]').getByRole('link')).toHaveCount(
+    0,
+  );
+  await subject.focus();
+  await expect(page.getByRole('tooltip')).toHaveText('https://example.org/full/path/evidence.txt');
+  await page.keyboard.press('Escape');
+  const addition = activity.locator('[data-diff-line="addition"]');
+  const deletion = activity.locator('[data-diff-line="deletion"]');
+  await expect(addition).toHaveText('+new');
+  await expect(deletion).toHaveText('-old');
+  expect(await addition.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(
+    await deletion.evaluate((e) => getComputedStyle(e).backgroundColor),
+  );
+  const panel = activity.locator('[data-slot="tool-result-panel"]');
+  expect(await panel.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(
+    'rgba(0, 0, 0, 0)',
+  );
+  await expect.poll(() => activity.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
+});
 
 test('declared Markdown is rendered and width-bounded inline and in the full viewer', async ({
   page,
@@ -95,12 +136,16 @@ test('declared Markdown is rendered and width-bounded inline and in the full vie
 test('wide Markdown code and URLs cannot widen the whole result document', async ({ page }) => {
   await page.setViewportSize({ width: 1003, height: 1037 });
   const longUrl = `https://example.org/${'reference-'.repeat(100)}`;
-  await openFixture(page, 'markdown',
+  await openFixture(
+    page,
+    'markdown',
     '# Document with wide source\n\n' +
-    'Readable paragraph. '.repeat(15) + '\n\n```text\n' +
-    'unbroken-source-'.repeat(600) + '\n```\n\n' +
-    `1. Reference: [${longUrl}](${longUrl})\n\n` +
-    'Final paragraph remains readable. '.repeat(15),
+      'Readable paragraph. '.repeat(15) +
+      '\n\n```text\n' +
+      'unbroken-source-'.repeat(600) +
+      '\n```\n\n' +
+      `1. Reference: [${longUrl}](${longUrl})\n\n` +
+      'Final paragraph remains readable. '.repeat(15),
   );
   const activity = page.locator('[data-slot="tool-activity"]').first();
   await activity.getByRole('button', { name: 'Show more', exact: true }).click();
@@ -108,7 +153,13 @@ test('wide Markdown code and URLs cannot widen the whole result document', async
   const body = dialog.getByRole('region', { name: 'Scrollable result content' });
   await expect(dialog).toContainText('Final paragraph remains readable.');
   await expect.poll(() => body.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
-  await expect.poll(() => dialog.locator('p').last().evaluate((e) => e.getBoundingClientRect().width))
+  await expect
+    .poll(() =>
+      dialog
+        .locator('p')
+        .last()
+        .evaluate((e) => e.getBoundingClientRect().width),
+    )
     .toBeLessThan(900);
 });
 

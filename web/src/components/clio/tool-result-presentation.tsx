@@ -160,9 +160,15 @@ function PagedBlock({ block, lines }: { block: ToolPresentationBlock; lines: num
 }
 
 /** Render only the declared presentation contract. Raw results stay technical. */
-export function ToolResultPresentation({ tool }: { tool: ToolInvocation }) {
+export function ToolResultPresentation({
+  tool,
+  subjectId,
+}: {
+  tool: ToolInvocation;
+  subjectId?: string;
+}) {
   const lines = useTranscriptPreviewLines();
-  const blocks = tool.presentation?.blocks ?? [];
+  const blocks = (tool.presentation?.blocks ?? []).filter((block) => block.id !== subjectId);
   return (
     <div className="ml-7 flex min-w-0 flex-col gap-2" data-slot="tool-human-result">
       {tool.progress_message && tool.state === 'running' ? (
@@ -221,7 +227,11 @@ export function ToolResultPresentation({ tool }: { tool: ToolInvocation }) {
             </Terminal>
           );
         return (
-          <div key={`${block.id}:${running ? 'running' : 'complete'}`} className="min-w-0">
+          <div
+            key={`${block.id}:${running ? 'running' : 'complete'}`}
+            className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
+            data-slot="tool-result-panel"
+          >
             {block.label ? (
               <p className="break-words text-sm text-muted-foreground">{block.label}</p>
             ) : null}

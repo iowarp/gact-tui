@@ -2,12 +2,33 @@ import { useContext } from 'react';
 import type { ToolPresentationBlock } from '@clio/core/v3';
 import { PresentationNavigation } from './presentation-navigation';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 /** Resolve declared result links through the conversation's existing workbench. */
-export function PresentationLink({ block }: { block: ToolPresentationBlock }) {
+export function PresentationLink({
+  block,
+  compact = false,
+}: {
+  block: ToolPresentationBlock;
+  compact?: boolean;
+}) {
   const navigation = useContext(PresentationNavigation);
   const uri = block.uri ?? '';
-  const label = block.label || uri;
+  const label = block.label || block.text || uri;
+  const text = <span className={compact ? 'truncate' : undefined}>{label}</span>;
+  const className = cn('text-sm', compact ? 'min-w-0 max-w-[42ch] truncate' : 'break-words');
+  const withTooltip = (element: React.ReactElement) =>
+    compact ? (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{element}</TooltipTrigger>
+          <TooltipContent className="max-w-sm break-words">{uri || label}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    ) : (
+      element
+    );
   const artifact = navigation?.artifacts[uri];
   const resource = navigation?.resources?.[uri];
   const child = Object.values(navigation?.subagents ?? {}).find(
@@ -27,32 +48,41 @@ export function PresentationLink({ block }: { block: ToolPresentationBlock }) {
   )
     open = () => navigation.onOpenFile?.(uri);
   if (open)
-    return (
+    return withTooltip(
       <Button
         variant="link"
-        className="h-auto justify-start whitespace-normal p-0 text-left text-sm"
+        className={cn(
+          'h-auto justify-start p-0 text-left',
+          className,
+          !compact && 'whitespace-normal',
+        )}
         onClick={open}
         title={uri}
       >
-        {label}
-      </Button>
+        {text}
+      </Button>,
     );
   if (/^https?:\/\//iu.test(uri))
-    return (
-      <a className="text-sm underline" href={uri} target="_blank" rel="noopener noreferrer">
-        {label}
-      </a>
+    return withTooltip(
+      <a
+        className={cn(className, 'underline')}
+        href={uri}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {text}
+      </a>,
     );
   if (block.target === 'session' && uri)
-    return (
-      <a className="text-sm underline" href={`./${encodeURIComponent(uri)}`}>
-        {label}
-      </a>
+    return withTooltip(
+      <a className={cn(className, 'underline')} href={`./${encodeURIComponent(uri)}`}>
+        {text}
+      </a>,
     );
-  return (
-    <span className="break-words text-sm">
-      {label}
-      {label !== uri ? ` · ${uri}` : ''}
-    </span>
+  return withTooltip(
+    <span className={className} tabIndex={compact ? 0 : undefined}>
+      {text}
+      {!compact && uri && label !== uri ? ` · ${uri}` : ''}
+    </span>,
   );
 }

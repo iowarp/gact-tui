@@ -600,6 +600,8 @@ export const contextStateSchema = z.object({
 });
 
 export const toolPresentationSchema = z.object({
+  action: z.string().optional(),
+  subject: z.string().optional(),
   summary: z.string(),
   blocks: z.array(
     z.object({

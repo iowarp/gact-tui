@@ -6,6 +6,7 @@ import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { ActivityRow } from './activity-row';
 import { ToolResultPresentation } from './tool-result-presentation';
 import { ResultDialogContent } from './result-dialog-content';
+import { PresentationLink } from './presentation-link';
 
 export function ClioToolInvocation({
   tool,
@@ -16,13 +17,31 @@ export function ClioToolInvocation({
   embedded?: boolean;
 }) {
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
+  const subject = tool.presentation?.blocks.find(
+    (block) =>
+      block.id === tool.presentation?.subject && (block.type === 'link' || block.type === 'text'),
+  );
   return (
     <Dialog defaultOpen={defaultOpen ?? false}>
       <div className="flex min-w-0 flex-col gap-1" data-slot="tool-activity">
         <ActivityRow
           icon={<WrenchIcon className="size-4" />}
-          title={tool.title || tool.name}
+          title={
+            <span className="flex min-w-0 items-center gap-1" data-slot="tool-action-label">
+              <span className="shrink-0">
+                {tool.presentation?.action || tool.title || tool.name}
+              </span>
+              {subject ? (
+                <>
+                  <span aria-hidden="true">(</span>
+                  <PresentationLink block={subject} compact />
+                  <span aria-hidden="true">)</span>
+                </>
+              ) : null}
+            </span>
+          }
           detail={tool.presentation?.summary}
+          inlineDetail
           status={tool.state}
           duration={tool.duration_ms}
           action={
@@ -38,7 +57,7 @@ export function ClioToolInvocation({
             </DialogTrigger>
           }
         />
-        <ToolResultPresentation tool={tool} />
+        <ToolResultPresentation tool={tool} subjectId={subject?.id} />
         <ResultDialogContent
           title={`${tool.title || tool.name} — Technical details`}
           description="Original tool arguments, result, and diagnostics."
