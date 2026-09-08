@@ -6,7 +6,6 @@ import type {
   WorkspaceReference,
 } from '@clio/core/v3';
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangleIcon } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -22,7 +21,12 @@ import { ClioPendingInteractions } from '@/components/clio/pending-interactions'
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
 import { SessionWorkSummary } from '@/components/clio/session-work';
-import { WorkspaceLoading, WorkspaceUnavailable } from '@/components/clio/workspace-route-surfaces';
+import {
+  WorkspaceLoading,
+  WorkspaceUnavailable,
+  WorkspaceTranscriptAlerts,
+  WorkspaceActionAlerts,
+} from '@/components/clio/workspace-route-surfaces';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import {
   WorkspaceLiveConversation,
@@ -30,7 +34,6 @@ import {
   WorkspaceLiveObservabilityView,
   WorkspaceLiveStatusStrip,
 } from '@/components/clio/workspace-live-projections';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useA2UILocalActions } from '@/hooks/use-a2ui-local-actions';
 import { useRepository } from '@/hooks/use-repository';
 import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
@@ -701,20 +704,10 @@ export function WorkspacePage() {
         }
       >
         <section className="relative flex h-full min-w-0 flex-col bg-background">
-          {streamError ? (
-            <Alert className="m-3 mb-0 rounded-lg" variant="destructive">
-              <AlertTriangleIcon aria-hidden="true" />
-              <AlertTitle>Live stream needs reconciliation</AlertTitle>
-              <AlertDescription>{streamError}</AlertDescription>
-            </Alert>
-          ) : null}
-          {transcriptError && messageCount > 0 ? (
-            <Alert className="m-3 mb-0" variant="destructive">
-              <AlertTriangleIcon aria-hidden="true" />
-              <AlertTitle>Conversation unavailable</AlertTitle>
-              <AlertDescription>{transcriptError}</AlertDescription>
-            </Alert>
-          ) : null}
+          <WorkspaceTranscriptAlerts
+            streamError={streamError}
+            transcriptError={messageCount > 0 ? transcriptError : undefined}
+          />
           <LayoutGroup id={`session-layout:${sessionId}`}>
             <AnimatePresence initial={false} mode="popLayout">
               {showConversationWelcome ? (
@@ -784,20 +777,10 @@ export function WorkspacePage() {
                 </m.div>
               )}
             </AnimatePresence>
-            {actionCard.error ? (
-              <Alert className="mx-4 mb-3" variant="destructive">
-                <AlertTriangleIcon aria-hidden="true" />
-                <AlertTitle>Action unavailable</AlertTitle>
-                <AlertDescription>{actionCard.error.message}</AlertDescription>
-              </Alert>
-            ) : null}
-            {retry.error ? (
-              <Alert className="mx-4 mb-3" variant="destructive">
-                <AlertTriangleIcon aria-hidden="true" />
-                <AlertTitle>Retry unavailable</AlertTitle>
-                <AlertDescription>{retry.error.message}</AlertDescription>
-              </Alert>
-            ) : null}
+            <WorkspaceActionAlerts
+              actionError={actionCard.error?.message}
+              retryError={retry.error?.message}
+            />
             <AnimatePresence initial={false}>
               {showConversationWelcome ? null : renderComposer('docked')}
             </AnimatePresence>

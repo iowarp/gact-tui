@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { sessionWorkSchema, type SessionWork } from './work-state.js';
 import type {
   Artifact,
   ArtifactDetail,
@@ -289,19 +288,6 @@ export class ClioRepository extends PresentationRepository {
       schedules: result.schedules,
       timezone: result.cron_timezone,
     };
-  }
-
-  public async sessionWork(
-    sessionId: string,
-    cursor = 0,
-    signal?: AbortSignal,
-  ): Promise<SessionWork> {
-    return this.transport.request({
-      method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/work?cursor=${cursor}`,
-      decode: (value) => sessionWorkSchema.parse(value),
-      signal,
-    });
   }
 
   public createScheduledTurn(

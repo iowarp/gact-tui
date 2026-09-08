@@ -15,6 +15,60 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { ClioStatus } from './status';
 
+/** Surface failed user actions alongside the composer, independently of stream health. */
+export function WorkspaceActionAlerts({
+  actionError,
+  retryError,
+}: {
+  actionError?: string;
+  retryError?: string;
+}) {
+  return (
+    <>
+      {[
+        ['Action unavailable', actionError],
+        ['Retry unavailable', retryError],
+      ].map(([title, error]) =>
+        error ? (
+          <Alert key={title} className="mx-4 mb-3" variant="destructive">
+            <AlertTriangleIcon aria-hidden="true" />
+            <AlertTitle>{title}</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null,
+      )}
+    </>
+  );
+}
+
+/** Keep recoverable transcript failures visible without replacing the conversation. */
+export function WorkspaceTranscriptAlerts({
+  streamError,
+  transcriptError,
+}: {
+  streamError?: string;
+  transcriptError?: string;
+}) {
+  return (
+    <>
+      {streamError ? (
+        <Alert className="m-3 mb-0 rounded-lg" variant="destructive">
+          <AlertTriangleIcon aria-hidden="true" />
+          <AlertTitle>Live stream needs reconciliation</AlertTitle>
+          <AlertDescription>{streamError}</AlertDescription>
+        </Alert>
+      ) : null}
+      {transcriptError ? (
+        <Alert className="m-3 mb-0" variant="destructive">
+          <AlertTriangleIcon aria-hidden="true" />
+          <AlertTitle>Conversation unavailable</AlertTitle>
+          <AlertDescription>{transcriptError}</AlertDescription>
+        </Alert>
+      ) : null}
+    </>
+  );
+}
+
 export function WorkspaceUnavailable({ error, onRetry }: { error: string; onRetry?: () => void }) {
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-6">
