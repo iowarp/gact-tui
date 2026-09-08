@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const session = 'sess_flat_ndp';
-const subjectUri = `https://example.org/${'long-unbroken-directory-'.repeat(12)}/evidence.txt`;
+const subjectUri = `D:\\workspace\\${'long-unbroken-directory-'.repeat(12)}\\evidence.txt`;
 
 async function openFixture(page: Page, type?: string, content?: string) {
   await page.request.post(`${endpoint}/__test/reset`);
@@ -48,7 +48,7 @@ async function openFixture(page: Page, type?: string, content?: string) {
       data.tools[0].presentation.blocks.unshift({
         id: 'target',
         type: 'link',
-        target: 'url',
+        target: 'file',
         uri: subjectUri,
         label: 'long-readable-evidence-filename-that-must-not-push-status-outside-the-row.txt',
       });
@@ -56,6 +56,10 @@ async function openFixture(page: Page, type?: string, content?: string) {
     await route.fulfill({ response, json: data });
   });
   await page.goto(`/workspaces/ws_flat_ndp/sessions/${session}`);
+  // Wait for the populated transcript and the outgoing welcome animation.
+  // Its composer briefly coexists with the docked composer during the transition.
+  await expect(page.getByRole('log', { name: 'Conversation', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: /conversation welcome$/i })).toHaveCount(0);
   const responses = page
     .getByRole('region', { name: 'Conversation workspace', exact: true })
     .getByRole('button', { name: '2 responses needed', exact: true });
@@ -71,7 +75,7 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
   await openFixture(page, 'diff', '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new');
   const activity = page.locator('[data-slot="tool-activity"]').first();
   const row = activity.locator('[data-slot="activity-row"]');
-  const subject = row.getByRole('link');
+  const subject = row.locator('[data-slot="tool-action-label"]').getByRole('button');
   await expect(subject).toHaveCount(1);
   await expect(row).toContainText('Write');
   const titleBounds = await row.locator('[data-slot="tool-action-label"]').boundingBox();
@@ -79,6 +83,9 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
   expect(titleBounds).not.toBeNull();
   expect(statusBounds).not.toBeNull();
   expect(Math.abs(titleBounds!.y - statusBounds!.y)).toBeLessThan(8);
+  const subjectBounds = await subject.boundingBox();
+  expect(subjectBounds).not.toBeNull();
+  expect(subjectBounds!.x + subjectBounds!.width).toBeLessThan(statusBounds!.x);
   await expect(activity.locator('[data-slot="tool-human-result"]').getByRole('link')).toHaveCount(
     0,
   );

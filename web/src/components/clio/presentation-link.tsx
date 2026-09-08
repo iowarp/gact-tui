@@ -25,7 +25,7 @@ export function PresentationLink({
   ) : (
     <span className={compact ? 'truncate' : undefined}>{label}</span>
   );
-  const className = cn('text-sm', compact ? 'min-w-0 max-w-[42ch] truncate' : 'break-words');
+  const className = cn('text-sm', compact ? 'min-w-0 max-w-[42ch] shrink truncate' : 'break-words');
   const withTooltip = (element: React.ReactElement) =>
     compact ? (
       <TooltipProvider>
