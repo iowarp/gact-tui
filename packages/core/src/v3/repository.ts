@@ -56,7 +56,7 @@ import {
   readTextPath,
 } from './artifact-custody.js';
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
-import { McpAppRepository } from './mcp-app-repository.js';
+import { PresentationRepository } from './presentation-repository.js';
 
 /**
  * Artifact records requested per page while walking a session's registry.
@@ -73,30 +73,7 @@ const ARTIFACT_PAGE_SIZE = 200;
  */
 const MAX_ARTIFACT_PAGES = 100;
 
-export class ClioRepository extends McpAppRepository {
-  public toolPresentationContent(
-    sessionId: string,
-    callId: string,
-    blockId: string,
-    cursor: number,
-    signal?: AbortSignal,
-  ) {
-    return this.transport.request({
-      method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tools/${encodeURIComponent(callId)}/presentation/${encodeURIComponent(blockId)}?cursor=${cursor}`,
-      decode: (value) =>
-        z
-          .object({
-            text: z.string(),
-            cursor: z.number().int(),
-            next_cursor: z.number().int().nullable(),
-            total_chars: z.number().int(),
-          })
-          .parse(value),
-      signal,
-    });
-  }
-
+export class ClioRepository extends PresentationRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }

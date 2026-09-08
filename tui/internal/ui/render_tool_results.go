@@ -4,6 +4,7 @@ package ui
 
 import (
 	"encoding/json"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/contract/gact"
@@ -12,7 +13,7 @@ import (
 
 func (t Theme) renderToolResultForTool(p gact.Part, width int, toolName string) string {
 	if p.Presentation != nil {
-		return t.renderDeclaredToolPresentation(p, width, false)
+		return presentation.Render(p, width, t.CollapseThreshold, false, t.renderToolDetailHint)
 	}
 	if toolName == "grep" {
 		if out := t.renderGrepResult(p, width); out != "" {

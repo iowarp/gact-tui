@@ -1,4 +1,5 @@
-package ui
+// Package presentation renders provider-declared results without tool-name inference.
+package presentation
 
 import (
 	"fmt"
@@ -8,12 +9,11 @@ import (
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/textutil"
 )
 
-// renderDeclaredToolPresentation interprets block types, never tool names or raw JSON.
-func (t Theme) renderDeclaredToolPresentation(p gact.Part, width int, running bool) string {
+// Render interprets declared block types, never tool names or raw JSON.
+func Render(p gact.Part, width, threshold int, running bool, detailHint func(string) string) string {
 	if p.Presentation == nil {
 		return ""
 	}
-	threshold := t.CollapseThreshold
 	if threshold < 1 {
 		threshold = 5
 	}
@@ -44,10 +44,12 @@ func (t Theme) renderDeclaredToolPresentation(p gact.Part, width int, running bo
 			}
 			rendered = append(rendered, strings.Join(lines, "\n"))
 		} else {
-			preview, hidden := collapseForPreview(wrapped, budget)
+			lines := strings.Split(wrapped, "\n")
+			hidden := max(0, len(lines)-budget)
+			preview := strings.Join(lines[:min(len(lines), budget)], "\n")
 			rendered = append(rendered, preview)
 			if hidden > 0 {
-				rendered = append(rendered, t.renderToolDetailHint(fmt.Sprintf("%d more lines", hidden)))
+				rendered = append(rendered, detailHint(fmt.Sprintf("%d more lines", hidden)))
 			}
 		}
 		if !running && block.Type == "terminal" {

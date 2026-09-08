@@ -12,7 +12,7 @@ export function ActivityRow({
   action,
 }: {
   icon: ReactNode;
-  title: string;
+  title: ReactNode;
   detail?: string;
   status?: ClioStatusValue;
   duration?: number;
@@ -29,7 +29,7 @@ export function ActivityRow({
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
           <span className="font-medium">{title}</span>
-          {status ? <ClioStatus value={status} /> : null}
+          {status ? <ClioStatus value={status} className="text-sm" /> : null}
           {duration !== undefined ? (
             <span className="text-sm text-muted-foreground">{formatDuration(duration)}</span>
           ) : null}

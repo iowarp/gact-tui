@@ -49,34 +49,43 @@ export function ClioSubagentLifecycleLine({
 
   return (
     <div className="min-w-0">
-    <button
-      aria-label={interactive ? `Open child conversation ${title}` : undefined}
-      className={cn(
-        'group flex w-full min-w-0 items-start gap-2 rounded-md px-1.5 py-1 text-left text-sm',
-        interactive
-          ? 'cursor-pointer outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50'
-          : 'cursor-default',
-      )}
-      disabled={!interactive}
-      onClick={(event) => open(event.shiftKey)}
-      onMouseDown={(event) => {
-        if (event.shiftKey) event.preventDefault();
-      }}
-      title={
-        interactive ? 'Open child conversation. Shift-click to open it in the canvas.' : detail
-      }
-      type="button"
-    >
-      <ActivityRow
-        icon={<Icon aria-hidden="true" className="size-4" />}
-        title={`${title} ${started ? 'started' : 'returned'}`}
-        status={!started ? subagent?.state : undefined}
-        duration={!started ? subagent?.duration_ms : undefined}
-      />
-    </button>
-    <div className="ml-7 text-sm leading-6">
-      <BoundedResult lines={lines}><p className="whitespace-pre-wrap break-words">{detail}</p></BoundedResult>
-    </div>
+      <button
+        aria-label={interactive ? `Open child conversation ${title}` : undefined}
+        className={cn(
+          'group flex w-full min-w-0 items-start gap-2 rounded-md px-1.5 py-1 text-left text-sm',
+          interactive
+            ? 'cursor-pointer outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50'
+            : 'cursor-default',
+        )}
+        disabled={!interactive}
+        onClick={(event) => open(event.shiftKey)}
+        onMouseDown={(event) => {
+          if (event.shiftKey) event.preventDefault();
+        }}
+        title={
+          interactive ? 'Open child conversation. Shift-click to open it in the canvas.' : detail
+        }
+        type="button"
+      >
+        <ActivityRow
+          icon={<Icon aria-hidden="true" className="size-4" />}
+          title={
+            <>
+              {title}{' '}
+              <span className="font-normal text-muted-foreground">
+                {started ? 'started' : 'returned'}
+              </span>
+            </>
+          }
+          status={!started ? subagent?.state : undefined}
+          duration={!started ? subagent?.duration_ms : undefined}
+        />
+      </button>
+      <div className="ml-7 text-sm leading-6">
+        <BoundedResult lines={lines}>
+          <p className="whitespace-pre-wrap break-words">{detail}</p>
+        </BoundedResult>
+      </div>
     </div>
   );
 }
