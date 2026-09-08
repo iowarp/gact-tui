@@ -1,5 +1,14 @@
 import type { Virtualizer } from '@tanstack/react-virtual';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 
 export interface TranscriptReadingAnchor {
   id: string;
@@ -8,6 +17,8 @@ export interface TranscriptReadingAnchor {
 }
 
 interface ReadingPositionOptions {
+  messageCount: number;
+  setActiveMessageIndex: Dispatch<SetStateAction<number>>;
   scrollRef: RefObject<HTMLDivElement | null>;
   pinnedToBottomRef: RefObject<boolean>;
   readingAnchorRef: RefObject<TranscriptReadingAnchor | null>;
@@ -18,6 +29,8 @@ interface ReadingPositionOptions {
 
 /** Preserve explicit reader intent across native scrolling and virtualized measurement. */
 export function useTranscriptReadingPosition({
+  messageCount,
+  setActiveMessageIndex,
   scrollRef,
   pinnedToBottomRef,
   readingAnchorRef,
@@ -25,9 +38,40 @@ export function useTranscriptReadingPosition({
   virtualizer,
   virtualRangeKey,
 }: ReadingPositionOptions) {
+  useLayoutEffect(() => {
+    // In-flow rows use browser layout plus our reading anchor. Letting the
+    // virtualizer also compensate their measured heights double-scrolls them.
+    // oxlint-disable-next-line react/immutability -- TanStack exposes this imperative configuration property on its stable instance.
+    virtualizer.shouldAdjustScrollPositionOnItemSizeChange = virtualized ? undefined : () => false;
+  }, [virtualized, virtualizer]);
   const userScrollPendingRef = useRef(false);
   const pointerScrollingRef = useRef(false);
   const scrollIntentVersionRef = useRef(0);
+  useLayoutEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    if (pinnedToBottomRef.current) {
+      const latestIndex = messageCount - 1;
+      setActiveMessageIndex((current) => (current === latestIndex ? current : latestIndex));
+      return;
+    }
+    // The virtualizer measures all mounted rows, including the in-flow layout;
+    // the minimap must not infer position from its own incomplete DOM landmarks.
+    const firstVisible = virtualizer
+      .getVirtualItems()
+      .find((item) => item.end >= element.scrollTop);
+    if (firstVisible)
+      setActiveMessageIndex((current) =>
+        current === firstVisible.index ? current : firstVisible.index,
+      );
+  }, [
+    messageCount,
+    virtualizer,
+    virtualRangeKey,
+    scrollRef,
+    pinnedToBottomRef,
+    setActiveMessageIndex,
+  ]);
   const captureReadingAnchor = useCallback(() => {
     const element = scrollRef.current;
     if (!element) return;
@@ -93,6 +137,7 @@ export function useTranscriptReadingPosition({
 }
 
 interface TranscriptWidthOptions {
+  virtualized: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
   pinnedToBottomRef: RefObject<boolean>;
   readingAnchorRef: RefObject<TranscriptReadingAnchor | null>;
@@ -103,6 +148,7 @@ interface TranscriptWidthOptions {
 
 /** Remeasure wrapped rows while preserving the reader's visible anchor. */
 export function useTranscriptWidth({
+  virtualized,
   scrollRef,
   pinnedToBottomRef,
   readingAnchorRef,
@@ -128,7 +174,7 @@ export function useTranscriptWidth({
       // still holds the height it had at the previous width. Keeping those
       // stale heights makes the transcript jump when the reader scrolls back
       // up; re-estimating and re-measuring costs a frame and stays honest.
-      virtualizer.measure();
+      if (virtualized) virtualizer.measure();
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         // Re-check intent at execution time; the user may have scrolled since
@@ -155,6 +201,7 @@ export function useTranscriptWidth({
     scrollIntentVersionRef,
     scrollToLatest,
     virtualizer,
+    virtualized,
   ]);
 
   return conversationViewportWidth;

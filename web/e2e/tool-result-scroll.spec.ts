@@ -4,7 +4,7 @@ const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'
 const session = 'sess_flat_ndp';
 const subjectUri = `D:\\workspace\\${'long-unbroken-directory-'.repeat(12)}\\evidence.txt`;
 
-async function openFixture(page: Page, type?: string, content?: string) {
+async function openFixture(page: Page, type?: string, content?: string, shortTranscript = false) {
   await page.request.post(`${endpoint}/__test/reset`);
   await page.addInitScript((address) => {
     localStorage.setItem('clio.recent-connections', JSON.stringify([address]));
@@ -12,6 +12,17 @@ async function openFixture(page: Page, type?: string, content?: string) {
   await page.route(`**/v1/sessions/${session}/messages`, async (route) => {
     const response = await route.fetch();
     const data = await response.json();
+    if (shortTranscript) {
+      data.messages = data.messages.slice(-2);
+      data.messages.at(-1).blocks.push({
+        id: 'long-in-flow-answer',
+        type: 'text',
+        text: Array.from(
+          { length: 40 },
+          (_, index) => `Evidence paragraph ${index}: a readable result within a long answer.`,
+        ).join('\n\n'),
+      });
+    }
     const todos = Array.from({ length: 4 }, (_, i) => ({
       content: `Task ${i}: ${'Long readable evidence '.repeat(12)}`,
       status: 'pending',
@@ -324,26 +335,57 @@ test('wide Markdown code and URLs cannot widen the whole result document', async
     .toBeLessThan(900);
 });
 
-test('opening and resizing the canvas preserves an earlier reading position', async ({ page }) => {
-  await page.setViewportSize({ width: 1408, height: 1037 });
-  await openFixture(
+for (const shortTranscript of [false, true]) {
+  test(`opening and resizing preserves an earlier reading position (${shortTranscript ? 'in-flow' : 'virtualized'})`, async ({
     page,
-    'markdown',
-    '# Earlier evidence\n\n' + 'Readable evidence.\n\n'.repeat(50),
-  );
-  const log = page.getByRole('log', { name: 'Conversation', exact: true });
-  await log.focus();
-  await log.press('Control+Home');
-  await expect.poll(() => log.evaluate((e) => e.scrollTop)).toBeLessThan(2);
-  const anchor = log.locator('[data-index]').first();
-  const topBefore = await anchor.evaluate((e) => e.getBoundingClientRect().top);
-  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
-  const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
-  await resize.press('ArrowLeft');
-  await expect
-    .poll(() => anchor.evaluate((e) => e.getBoundingClientRect().top))
-    .toBeCloseTo(topBefore, 0);
-});
+  }) => {
+    await page.setViewportSize({ width: 1408, height: 1037 });
+    await openFixture(
+      page,
+      'markdown',
+      '# Earlier evidence\n\n' + 'Readable evidence.\n\n'.repeat(50),
+      shortTranscript,
+    );
+    const log = page.getByRole('log', { name: 'Conversation', exact: true });
+    await log.focus();
+    await log.press('Control+Home');
+    await expect.poll(() => log.evaluate((e) => e.scrollTop)).toBeLessThan(2);
+    const anchor = log.locator('[data-index]').first();
+    const topBefore = await anchor.evaluate((e) => e.getBoundingClientRect().top);
+    await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
+    const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
+    await resize.press('ArrowLeft');
+    await expect
+      .poll(() => anchor.evaluate((e) => e.getBoundingClientRect().top))
+      .toBeCloseTo(topBefore, 0);
+    await log.focus();
+    await log.press('PageDown');
+    await expect.poll(() => log.evaluate((e) => e.scrollTop)).toBeGreaterThan(100);
+    let previousTop = -1;
+    let stableSamples = 0;
+    await expect
+      .poll(async () => {
+        const top = await log.evaluate((e) => e.scrollTop);
+        stableSamples = top === previousTop ? stableSamples + 1 : 0;
+        previousTop = top;
+        return stableSamples;
+      })
+      .toBeGreaterThanOrEqual(3);
+    const visibleId = await log.evaluate(
+      (e) =>
+        Array.from(e.querySelectorAll<HTMLElement>('[data-index][id^="message-"]')).find(
+          (row) => row.getBoundingClientRect().bottom > e.getBoundingClientRect().top,
+        )?.id,
+    );
+    expect(visibleId).toBeTruthy();
+    const middleAnchor = page.locator(`[id="${visibleId}"]`);
+    const middleTop = await middleAnchor.evaluate((e) => e.getBoundingClientRect().top);
+    await resize.press('ArrowRight');
+    await expect
+      .poll(() => middleAnchor.evaluate((e) => e.getBoundingClientRect().top))
+      .toBeCloseTo(middleTop, 0);
+  });
+}
 
 test('short technical results fit their content instead of padding to the viewport limit', async ({
   page,

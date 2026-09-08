@@ -530,6 +530,8 @@ function ConversationBody({
     markUserScrollIntent,
     releasePointer,
   } = useTranscriptReadingPosition({
+    messageCount: messages.length,
+    setActiveMessageIndex,
     scrollRef,
     pinnedToBottomRef,
     readingAnchorRef,
@@ -537,27 +539,6 @@ function ConversationBody({
     virtualizer,
     virtualRangeKey,
   });
-
-  // The virtualizer is the only source of the active transcript index, on both
-  // branches. It measures every mounted row, so an index it reports may well be
-  // one the minimap rail has not mounted — reading the rail's own DOM back could
-  // only ever name a landmark that is already on screen.
-  useLayoutEffect(() => {
-    const element = scrollRef.current;
-    if (!element) return;
-    if (pinnedToBottomRef.current) {
-      const latestIndex = messages.length - 1;
-      setActiveMessageIndex((current) => (current === latestIndex ? current : latestIndex));
-      return;
-    }
-    const firstVisible = virtualizer
-      .getVirtualItems()
-      .find((item) => item.end >= element.scrollTop);
-    if (!firstVisible) return;
-    setActiveMessageIndex((current) =>
-      current === firstVisible.index ? current : firstVisible.index,
-    );
-  }, [messages.length, virtualizer, virtualRangeKey]);
 
   const updateBottomState = useCallback(() => {
     const element = scrollRef.current;
@@ -612,6 +593,7 @@ function ConversationBody({
   );
 
   const conversationViewportWidth = useTranscriptWidth({
+    virtualized,
     scrollRef,
     pinnedToBottomRef,
     readingAnchorRef,
