@@ -208,7 +208,11 @@ export function ToolResultPresentation({
   subjectId?: string;
 }) {
   const lines = useTranscriptPreviewLines();
-  const blocks = (tool.presentation?.blocks ?? []).filter((block) => block.id !== subjectId);
+  const blocks = (tool.presentation?.blocks ?? []).filter(
+    (block) =>
+      block.id !== subjectId &&
+      (!['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref),
+  );
   const subject = tool.presentation?.blocks.find((block) => block.id === subjectId);
   // An explicitly declared file subject owns one document preview, including
   // metadata. Do not give each constituent block another preview-line budget.

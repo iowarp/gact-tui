@@ -14,6 +14,24 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation', () => {
+  it('does not create an empty panel for empty declared prose', () => {
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'empty',
+          session_id: 's',
+          name: 'declared_empty',
+          state: 'succeeded',
+          presentation: {
+            summary: 'No schedules',
+            blocks: [{ id: 'none', type: 'text', text: '' }],
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('No schedules')).toBeVisible();
+    expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeNull();
+  });
   it('insets rendered Markdown and keeps table action chrome out of the preview', async () => {
     render(
       <ClioToolInvocation
