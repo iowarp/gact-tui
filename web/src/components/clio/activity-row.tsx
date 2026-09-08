@@ -29,11 +29,13 @@ export function ActivityRow({
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
+        <span className={`flex items-center gap-2 ${inlineDetail ? '' : 'flex-wrap'}`}>
           <span className="min-w-0 max-w-full font-medium">{title}</span>
-          {status ? <ClioStatus value={status} className="text-sm" /> : null}
+          {status ? <ClioStatus value={status} className="shrink-0 text-sm" /> : null}
           {duration !== undefined ? (
-            <span className="text-sm text-muted-foreground">{formatDuration(duration)}</span>
+            <span className="shrink-0 text-sm text-muted-foreground">
+              {formatDuration(duration)}
+            </span>
           ) : null}
           {inlineDetail && detail ? (
             <span className="max-w-[42ch] truncate text-muted-foreground" title={detail}>

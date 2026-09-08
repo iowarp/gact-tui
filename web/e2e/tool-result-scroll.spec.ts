@@ -74,6 +74,11 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
   const subject = row.getByRole('link');
   await expect(subject).toHaveCount(1);
   await expect(row).toContainText('Write');
+  const titleBounds = await row.locator('[data-slot="tool-action-label"]').boundingBox();
+  const statusBounds = await row.locator('[data-slot="badge"]').boundingBox();
+  expect(titleBounds).not.toBeNull();
+  expect(statusBounds).not.toBeNull();
+  expect(Math.abs(titleBounds!.y - statusBounds!.y)).toBeLessThan(8);
   await expect(activity.locator('[data-slot="tool-human-result"]').getByRole('link')).toHaveCount(
     0,
   );
