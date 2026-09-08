@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const session = 'sess_flat_ndp';
+const subjectUri = `https://example.org/${'long-unbroken-directory-'.repeat(12)}/evidence.txt`;
 
 async function openFixture(page: Page, type?: string, content?: string) {
   await page.request.post(`${endpoint}/__test/reset`);
@@ -48,7 +49,7 @@ async function openFixture(page: Page, type?: string, content?: string) {
         id: 'target',
         type: 'link',
         target: 'url',
-        uri: 'https://example.org/full/path/evidence.txt',
+        uri: subjectUri,
         label: 'long-readable-evidence-filename-that-must-not-push-status-outside-the-row.txt',
       });
     }
@@ -77,7 +78,10 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
     0,
   );
   await subject.focus();
-  await expect(page.getByRole('tooltip')).toHaveText('https://example.org/full/path/evidence.txt');
+  await expect(page.getByRole('tooltip')).toHaveText(subjectUri);
+  const tooltip = page.locator('[data-slot="tooltip-content"]');
+  await expect.poll(() => tooltip.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
+  await expect(tooltip).toHaveCSS('font-size', '14px');
   await page.keyboard.press('Escape');
   const addition = activity.locator('[data-diff-line="addition"]');
   const deletion = activity.locator('[data-diff-line="deletion"]');

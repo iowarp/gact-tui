@@ -31,7 +31,9 @@ export function PresentationLink({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>{element}</TooltipTrigger>
-          <TooltipContent className="max-w-sm break-words">{uri || label}</TooltipContent>
+          <TooltipContent className="max-w-sm text-sm">
+            <span className="min-w-0 [overflow-wrap:anywhere]">{uri || label}</span>
+          </TooltipContent>
         </Tooltip>
       </TooltipProvider>
     ) : (
