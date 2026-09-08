@@ -68,6 +68,43 @@ async function openFixture(page: Page, type?: string, content?: string) {
   await page.getByRole('radio', { name: 'Full activity view', exact: true }).click();
 }
 
+test('session Work is a readable canvas peer with accessible task state', async ({ page }) => {
+  await page.setViewportSize({ width: 1003, height: 1037 });
+  const goal = {
+    id: 'goal-test',
+    title: 'Verify the current tool presentation',
+    state: 'active',
+    created_at: '2026-09-08T12:00:00Z',
+    iterations: 2,
+    reason: '',
+  };
+  await page.route(`**/v1/sessions/${session}/work?*`, (route) =>
+    route.fulfill({
+      json: {
+        cursor: 0,
+        goal,
+        loop: null,
+        goals: [goal],
+        loops: [],
+        goal_next_cursor: null,
+        loop_next_cursor: null,
+        todos: [{ content: 'Inspect the actual rendered output', status: 'in_progress' }],
+      },
+    }),
+  );
+  await openFixture(page, 'text', 'A short readable result.');
+  await page.getByRole('button', { name: 'Open session Work', exact: true }).click();
+  const panel = page.getByRole('tabpanel', { name: 'Work', exact: true });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText(goal.title, { exact: true })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Todos' })).toBeVisible();
+  const status = panel.getByRole('img', { name: 'In progress', exact: true });
+  await status.focus();
+  await expect(page.getByRole('tooltip', { name: 'In progress' })).toBeVisible();
+  await expect.poll(() => panel.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
+  await expect(panel.getByRole('heading', { name: 'Schedules' })).toBeAttached();
+});
+
 test('compact subjects stay in the action row and diffs have distinct bounded surfaces', async ({
   page,
 }) => {
@@ -318,10 +355,8 @@ for (const type of ['text', 'markdown', 'code', 'diff', 'terminal']) {
     await expect(body).toContainText('line-99');
     if (type === 'code' || type === 'diff') {
       const code = dialog.locator('[data-slot="code-block-scroll"]');
-      await expect.poll(() => code.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true);
-      await code.focus();
-      await page.keyboard.press('ArrowRight');
-      await expect.poll(() => code.evaluate((e) => e.scrollLeft)).toBeGreaterThan(0);
+      await expect.poll(() => code.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
+      await expect(code).toContainText('line-99');
     }
     await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
   });

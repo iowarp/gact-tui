@@ -65,7 +65,13 @@ const WorkspaceFileView = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.WorkspaceFileView })),
 );
 
-export type CanvasResourceKind = 'session' | 'files' | 'resources' | 'artifacts' | 'blueprints';
+export type CanvasResourceKind =
+  | 'session'
+  | 'work'
+  | 'files'
+  | 'resources'
+  | 'artifacts'
+  | 'blueprints';
 
 interface FileBrowserProps {
   workspaceId: string;
@@ -116,6 +122,9 @@ export function CanvasLauncher({ onOpen }: { onOpen: (kind: CanvasResourceKind) 
         <DropdownMenuLabel>Add to canvas</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => onOpen('session')}>
           <ActivityIcon aria-hidden="true" /> Observability
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onOpen('work')}>
+          <ActivityIcon aria-hidden="true" /> Work
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onOpen('files')}>

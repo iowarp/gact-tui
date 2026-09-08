@@ -66,6 +66,82 @@ export function ConversationTurn({
   onInteractionResponse,
 }: ConversationTurnProps) {
   if (iterations.length === 0) return null;
+  // Plan decisions are conversation boundaries, not details of hidden activity.
+  // Split at the owning tool (including mid-iteration) without changing wire order.
+  const planReviews = interactions?.filter((item) => item.source.tool_name === 'plan_exit') ?? [];
+  const boundaries = new Map(
+    iterations.flatMap((iteration) =>
+      iteration.tools.flatMap((tool) => {
+        const reviews = questionInteractionsForTool(planReviews, tool.id);
+        return reviews.length ? [[tool.id, reviews] as const] : [];
+      }),
+    ),
+  );
+  if (mode === 'chain' && boundaries.size > 0) {
+    const sections: Array<
+      | { kind: 'activity'; iterations: ConversationIteration[] }
+      | { kind: 'review'; interaction: PendingInteraction }
+    > = [];
+    let group: ConversationIteration[] = [];
+    for (const iteration of iterations) {
+      let start = 0;
+      const appendSegment = (end: number) => {
+        const activity = iteration.activity.slice(start, end);
+        group.push({
+          ...iteration,
+          id: `${iteration.id}:segment:${start}`,
+          thinking: start === 0 ? iteration.thinking : [],
+          nextThoughts: start === 0 ? iteration.nextThoughts : [],
+          activity,
+          tools: activity.flatMap((entry) => (entry.kind === 'tool' ? [entry.tool] : [])),
+          tasks: activity.flatMap((entry) => (entry.kind === 'task' ? [entry.task] : [])),
+        });
+      };
+      iteration.activity.forEach((entry, index) => {
+        const reviews = entry.kind === 'tool' ? boundaries.get(entry.id) : undefined;
+        if (!reviews) return;
+        appendSegment(index + 1);
+        sections.push({ kind: 'activity', iterations: group });
+        group = [];
+        reviews.forEach((interaction) => sections.push({ kind: 'review', interaction }));
+        start = index + 1;
+      });
+      if (start === 0 || start < iteration.activity.length)
+        appendSegment(iteration.activity.length);
+    }
+    if (group.length) sections.push({ kind: 'activity', iterations: group });
+    const activityInteractions = interactions?.filter((item) => !planReviews.includes(item));
+    return (
+      <div className="flex min-w-0 flex-col gap-4" data-slot="plan-review-sequence">
+        {sections.map((section) =>
+          section.kind === 'review' ? (
+            <ConversationInteractionActivity
+              key={section.interaction.id}
+              artifacts={artifacts}
+              interaction={section.interaction}
+              onOpenArtifact={onOpenArtifact}
+              onResponse={onInteractionResponse}
+            />
+          ) : (
+            <ConversationTurn
+              key={section.iterations[0].id}
+              iterations={section.iterations}
+              mode={mode}
+              subagents={subagents}
+              interactions={activityInteractions}
+              onOpenSubagent={onOpenSubagent}
+              activeMcpAppId={activeMcpAppId}
+              mcpAppRepository={mcpAppRepository}
+              messageSessionId={messageSessionId}
+              artifacts={artifacts}
+              onOpenArtifact={onOpenArtifact}
+              onInteractionResponse={onInteractionResponse}
+            />
+          ),
+        )}
+      </div>
+    );
+  }
   if (mode === 'full') {
     return (
       <section aria-label="Full agent activity" className="mb-4">

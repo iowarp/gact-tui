@@ -52,6 +52,58 @@ function view() {
 }
 
 describe('full presentation viewer paging', () => {
+  it('keeps file metadata and paged Markdown in one surface and one expansion', async () => {
+    page.mockResolvedValueOnce({
+      text: 'complete body',
+      cursor: 6,
+      next_cursor: null,
+      total_chars: 19,
+    });
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'call',
+          session_id: 'session',
+          name: 'arbitrary',
+          state: 'succeeded',
+          presentation: {
+            subject: 'file-link',
+            summary: '19 bytes',
+            blocks: [
+              {
+                id: 'file-link',
+                type: 'link',
+                target: 'file',
+                uri: 'D:/workspace/example.md',
+                label: 'example.md',
+              },
+              { id: 'metadata', type: 'text', text: 'Name: Readable document' },
+              {
+                id: 'body',
+                type: 'markdown',
+                text: 'first ',
+                content_ref: {
+                  session_id: 'session',
+                  call_id: 'call',
+                  block_id: 'body',
+                  cursor: 6,
+                  total_chars: 19,
+                },
+              },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(container.querySelectorAll('[data-slot="tool-result-panel"]')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Show more' })).toHaveLength(1);
+    expect(page).not.toHaveBeenCalled();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Show more' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText('Name: Readable document')).toBeVisible();
+    expect(await within(dialog).findByText('first complete body')).toBeVisible();
+    expect(page).toHaveBeenCalledWith('session', 'call', 'body', 6, expect.any(AbortSignal));
+  });
   it('one user action fetches contiguous pages and renders the complete result outside the transcript', async () => {
     page
       .mockResolvedValueOnce({ text: 'second ', cursor: 6, next_cursor: 13, total_chars: 17 })

@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { ClioConversation } from './conversation';
+import { specialMessageExecutionMode } from './conversation-message-projection';
 
 vi.mock('@tanstack/react-virtual', () => ({
   defaultRangeExtractor: () => [],
@@ -65,4 +66,23 @@ it('labels special prompt modes while leaving Execute unmarked', () => {
   expect(screen.getByLabelText('Sent in Deep research mode')).toHaveTextContent('Deep research');
   expect(screen.queryByLabelText('Sent in Execute mode')).not.toBeInTheDocument();
   expect(screen.getByText('Run this task.')).toBeInTheDocument();
+});
+
+it('retains the recorded Plan mode after a transcript round trip', () => {
+  const sent = prompt('plan', 'Plan this change before executing it.');
+  const reloaded = JSON.parse(JSON.stringify(sent)) as Message;
+  expect(specialMessageExecutionMode(reloaded)).toBe('plan');
+  expect(
+    specialMessageExecutionMode(prompt('execute', 'Now execute the approved plan.')),
+  ).toBeUndefined();
+  // Later execution must not retroactively relabel the earlier planning prompt.
+  expect(specialMessageExecutionMode(reloaded)).toBe('plan');
+});
+
+it('does not infer a Plan badge from prose or missing historical metadata', () => {
+  const historical = { ...prompt('plan', 'Please plan this change.'), metadata: undefined };
+  expect(specialMessageExecutionMode(historical)).toBeUndefined();
+  expect(
+    specialMessageExecutionMode({ ...prompt('plan', 'Planning.'), role: 'assistant' }),
+  ).toBeUndefined();
 });

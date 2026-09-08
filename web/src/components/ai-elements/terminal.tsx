@@ -203,7 +203,7 @@ export const TerminalContent = ({ className, children, ...props }: TerminalConte
       {...props}
     >
       {children ?? (
-        <pre className="whitespace-pre-wrap break-words">
+        <pre className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]">
           <AnsiRenderer>{output}</AnsiRenderer>
           {isStreaming && (
             <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-zinc-100" />
@@ -231,7 +231,9 @@ export const TerminalCommand = ({ command, className, ...props }: TerminalComman
     <span aria-hidden="true" className="shrink-0 select-none text-emerald-400">
       $
     </span>
-    <code className="min-w-0 whitespace-pre-wrap break-words text-zinc-100">{command}</code>
+    <code className="min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere] text-zinc-100">
+      {command}
+    </code>
   </div>
 );
 

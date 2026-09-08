@@ -1,5 +1,5 @@
 import type { ClioRepository, PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationTurn } from './conversation-turn';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
@@ -82,61 +82,69 @@ describe('ConversationTurn incomplete state', () => {
 });
 
 describe('ConversationTurn correlated work placement', () => {
-  it('anchors an actionable saved-plan review to the Exit Plan tool', async () => {
-    const interaction: PendingInteraction = {
-      id: 'question:plan_exit',
-      kind: 'question',
-      owner_session_id: 'session_1',
-      attended_session_id: 'session_1',
-      status: 'pending',
-      title: 'Review execution plan',
-      requires_human_response: true,
-      prompt: 'Approve the saved plan?',
-      source: { protocol: 'native', tool_name: 'plan_exit', invocation_id: 'call_plan_exit' },
-      created_at: '2026-09-05T00:00:00Z',
-      payload: {
-        answer_metadata: {},
-        options: [
-          { label: 'Approve — auto-execute', value: 'auto' },
-          { label: 'Reject — keep planning', value: 'reject' },
-        ],
-        plan_exit: {
-          plan_file: 'D:/workspace/.clio/plans/plan.md',
-          plan_content: '# Implementation plan\n\n1. Make the requested change.',
-          plan_content_status: 'complete',
-          summary: 'Make the requested change after approval.',
+  it.each(['full', 'chain'] as const)(
+    'keeps an actionable saved-plan review visible in %s mode',
+    async (mode) => {
+      const interaction: PendingInteraction = {
+        id: 'question:plan_exit',
+        kind: 'question',
+        owner_session_id: 'session_1',
+        attended_session_id: 'session_1',
+        status: 'pending',
+        title: 'Review execution plan',
+        requires_human_response: true,
+        prompt: 'Approve the saved plan?',
+        source: { protocol: 'native', tool_name: 'plan_exit', invocation_id: 'call_plan_exit' },
+        created_at: '2026-09-05T00:00:00Z',
+        payload: {
+          answer_metadata: {},
+          options: [
+            { label: 'Approve — auto-execute', value: 'auto' },
+            { label: 'Reject — keep planning', value: 'reject' },
+          ],
+          plan_exit: {
+            plan_file: 'D:/workspace/.clio/plans/plan.md',
+            plan_content: '# Implementation plan\n\n1. Make the requested change.',
+            plan_content_status: 'complete',
+            summary: 'Make the requested change after approval.',
+          },
         },
-      },
-      actions: ['answer'],
-    };
-    render(
-      <ConversationTurn
-        interactions={[interaction]}
-        iterations={[
-          iteration(
-            activityLane([
-              {
-                kind: 'tool',
-                id: 'call_plan_exit',
-                tool: tool('call_plan_exit', 'Exit Plan'),
-              },
-            ]),
-          ),
-        ]}
-        mode="full"
-        onInteractionResponse={vi.fn(async () => undefined)}
-        subagents={{}}
-      />,
-    );
+        actions: ['answer'],
+      };
+      render(
+        <ConversationTurn
+          interactions={[interaction]}
+          iterations={[
+            iteration(
+              activityLane([
+                {
+                  kind: 'tool',
+                  id: 'call_plan_exit',
+                  tool: tool('call_plan_exit', 'Exit Plan'),
+                },
+              ]),
+            ),
+          ]}
+          mode={mode}
+          onInteractionResponse={vi.fn(async () => undefined)}
+          subagents={{}}
+        />,
+      );
 
-    expect(screen.getByText('Review execution plan')).toBeVisible();
-    expect(
-      await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 5_000 }),
-    ).toBeVisible();
-    expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
-    expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
-    expect(screen.getByText(/write the changes in the composer/i)).toBeVisible();
-  });
+      expect(screen.getByText('Review execution plan')).toBeVisible();
+      expect(
+        await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 5_000 }),
+      ).toBeVisible();
+      expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
+      expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
+      expect(screen.getByText(/write the changes in the composer/i)).toBeVisible();
+      if (mode === 'chain') {
+        fireEvent.click(screen.getByRole('button', { name: /^Activity$/ }));
+        expect(screen.getByText('Review execution plan')).toBeVisible();
+        expect(screen.getByRole('heading', { name: 'Implementation plan' })).toBeVisible();
+      }
+    },
+  );
 
   it('renders tools and tasks in the wire order that links them', () => {
     render(

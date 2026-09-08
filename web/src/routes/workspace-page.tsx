@@ -21,6 +21,7 @@ import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { ClioPendingInteractions } from '@/components/clio/pending-interactions';
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
+import { SessionWorkSummary } from '@/components/clio/session-work';
 import { WorkspaceLoading, WorkspaceUnavailable } from '@/components/clio/workspace-route-surfaces';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import {
@@ -244,7 +245,8 @@ export function WorkspacePage() {
     [respondInteraction],
   );
   const responseTrayInteractions = workspaceRouteState.responseTrayInteractions(
-    interactions, new Set(tools.map((tool) => tool.id)),
+    interactions,
+    new Set(tools.map((tool) => tool.id)),
   );
   const refreshNavigation = useCallback(
     async (targetWorkspaceId = workspaceId) => {
@@ -409,6 +411,14 @@ export function WorkspacePage() {
       layoutId={`session-composer:${sessionId}`}
     >
       <ClioComposer
+        workSummary={
+          variant === 'docked' ? (
+            <SessionWorkSummary
+              sessionId={sessionId}
+              onOpen={() => revealWorkbench({ kind: 'resources', section: 'work' })}
+            />
+          ) : undefined
+        }
         activityControl={
           variant === 'docked' ? (
             <div className="flex min-w-0 flex-1 items-center gap-1">

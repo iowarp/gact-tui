@@ -279,7 +279,7 @@ const CodeBlockBody = memo(
     return (
       <pre
         className={cn(
-          'dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 w-max min-w-full p-4 text-sm',
+          'dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 w-full min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere] p-4 text-sm',
           className,
         )}
         style={preStyle}

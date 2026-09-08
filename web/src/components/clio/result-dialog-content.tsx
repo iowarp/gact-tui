@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 /** Keep the title and close control fixed while the complete result remains reachable. */
 export function ResultDialogContent({
@@ -31,7 +31,7 @@ export function ResultDialogContent({
   return (
     <DialogContent className="flex max-h-[85dvh] min-w-0 flex-col overflow-hidden sm:max-w-4xl">
       <DialogHeader className="shrink-0 pr-8">
-        <DialogTitle className="break-words">{title}</DialogTitle>
+        <DialogTitle className="min-w-0 [overflow-wrap:anywhere]">{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <ScrollArea
@@ -45,10 +45,12 @@ export function ResultDialogContent({
           className: 'overscroll-contain [&>div]:!block',
         }}
       >
-        <div ref={observeContent} className="grid min-w-0 grid-cols-1 gap-3 pr-3 pb-3 text-sm leading-6">
+        <div
+          ref={observeContent}
+          className="grid min-w-0 max-w-full grid-cols-1 gap-3 pr-3 pb-3 text-sm leading-6 [overflow-wrap:anywhere]"
+        >
           {children}
         </div>
-        <ScrollBar orientation="horizontal" />
       </ScrollArea>
       {footer ? <div className="shrink-0">{footer}</div> : null}
     </DialogContent>

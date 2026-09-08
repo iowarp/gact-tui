@@ -114,47 +114,84 @@ function BlockBody({
       );
     }
     default:
-      return <p className="whitespace-pre-wrap break-words">{text}</p>;
+      return <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{text}</p>;
   }
 }
 
-function PagedBlock({ block, lines }: { block: ToolPresentationBlock; lines: number }) {
+function PagedBlock({
+  block,
+  lines,
+  groupedBlocks = [block],
+}: {
+  block: ToolPresentationBlock;
+  lines: number;
+  groupedBlocks?: ToolPresentationBlock[];
+}) {
   const repository = useRepository();
-  const [text, setText] = useState(block.text ?? '');
-  const [cursor, setCursor] = useState<number | null>(block.content_ref!.cursor);
+  const [contents, setContents] = useState(() =>
+    Object.fromEntries(
+      groupedBlocks.map((item) => [
+        item.id,
+        {
+          text: item.text ?? '',
+          cursor: item.content_ref?.cursor ?? null,
+        },
+      ]),
+    ),
+  );
   const load = async (signal: AbortSignal) => {
-    const ref = block.content_ref!;
-    let next = cursor;
-    while (next !== null && !signal.aborted) {
-      const page = await repository.toolPresentationContent(
-        ref.session_id,
-        ref.call_id,
-        ref.block_id,
-        next,
-        signal,
-      );
-      if (signal.aborted) return;
-      if (page.cursor !== next || (page.next_cursor !== null && page.next_cursor <= next))
-        throw new Error('Invalid result content cursor');
-      setText((current) => current + page.text);
-      setCursor(page.next_cursor);
-      next = page.next_cursor;
+    for (const item of groupedBlocks) {
+      const ref = item.content_ref;
+      if (!ref) continue;
+      let next = contents[item.id].cursor;
+      while (next !== null && !signal.aborted) {
+        const page = await repository.toolPresentationContent(
+          ref.session_id,
+          ref.call_id,
+          ref.block_id,
+          next,
+          signal,
+        );
+        if (signal.aborted) return;
+        if (page.cursor !== next || (page.next_cursor !== null && page.next_cursor <= next))
+          throw new Error('Invalid result content cursor');
+        setContents((current) => ({
+          ...current,
+          [item.id]: {
+            text: current[item.id].text + page.text,
+            cursor: page.next_cursor,
+          },
+        }));
+        next = page.next_cursor;
+      }
     }
   };
   return (
     <BoundedResult
       title={block.label || 'Complete result'}
       lines={lines}
-      hasMore={cursor !== null}
+      hasMore={Object.values(contents).some((item) => item.cursor !== null)}
       loadMore={load}
       separateViewer={block.type === 'media'}
       fullContent={
         block.type === 'media' ? (
-          <BlockBody block={block} text={text} full complete={cursor === null} />
+          <BlockBody
+            block={block}
+            text={contents[block.id].text}
+            full
+            complete={contents[block.id].cursor === null}
+          />
         ) : undefined
       }
     >
-      <BlockBody block={block} text={text} complete={block.type !== 'media' || cursor === null} />
+      {groupedBlocks.map((item) => (
+        <BlockBody
+          key={item.id}
+          block={item}
+          text={contents[item.id].text}
+          complete={item.type !== 'media' || contents[item.id].cursor === null}
+        />
+      ))}
     </BoundedResult>
   );
 }
@@ -169,6 +206,34 @@ export function ToolResultPresentation({
 }) {
   const lines = useTranscriptPreviewLines();
   const blocks = (tool.presentation?.blocks ?? []).filter((block) => block.id !== subjectId);
+  const subject = tool.presentation?.blocks.find((block) => block.id === subjectId);
+  // An explicitly declared file subject owns one document preview, including
+  // metadata. Do not give each constituent block another preview-line budget.
+  const document =
+    subject?.target === 'file' &&
+    blocks.length > 0 &&
+    blocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type));
+  if (document) {
+    const budget = blocks.some((block) => block.type === 'diff') ? lines * 2 : lines;
+    return (
+      <div className="ml-7 min-w-0" data-slot="tool-human-result">
+        <div
+          className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
+          data-slot="tool-result-panel"
+        >
+          {blocks.some((block) => block.content_ref) ? (
+            <PagedBlock block={blocks[0]} groupedBlocks={blocks} lines={budget} />
+          ) : (
+            <BoundedResult lines={budget} title={subject.label || 'File contents'}>
+              {blocks.map((block) => (
+                <BlockBody key={block.id} block={block} text={block.text ?? ''} />
+              ))}
+            </BoundedResult>
+          )}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="ml-7 flex min-w-0 flex-col gap-2" data-slot="tool-human-result">
       {tool.progress_message && tool.state === 'running' ? (

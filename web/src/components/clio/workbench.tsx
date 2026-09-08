@@ -48,6 +48,7 @@ import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import type { SubagentOpenTarget } from './subagent-card';
 import { DiffCanvasView } from './diff-canvas-view';
 import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-context';
+import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
 import {
@@ -73,6 +74,7 @@ const WorkspaceResourceCarousel = lazy(() =>
 );
 
 type WorkbenchTab =
+  | { id: 'work'; kind: 'work'; label: 'Work' }
   | { id: 'session'; kind: 'session'; label: 'Observability' }
   | { id: 'files'; kind: 'files'; label: 'Files'; path?: string }
   | { id: 'artifacts'; kind: 'artifacts'; label: 'Artifacts' }
@@ -190,6 +192,7 @@ const resourceBrowserTab: WorkbenchTab = {
 };
 
 const canvasResourceTabs = {
+  work: { id: 'work', kind: 'work', label: 'Work' },
   session: sessionTab,
   files: fileBrowserTab,
   artifacts: artifactBrowserTab,
@@ -198,6 +201,7 @@ const canvasResourceTabs = {
 } satisfies Record<CanvasResourceKind, WorkbenchTab>;
 
 const workbenchTabIcons = {
+  work: ActivityIcon,
   session: ActivityIcon,
   files: FolderIcon,
   artifacts: BoxIcon,
@@ -385,6 +389,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
 
     const renderTabContent = (tab: WorkbenchTab): ReactNode => {
       switch (tab.kind) {
+        case 'work':
+          return <SessionWorkView key={sessionId} sessionId={sessionId} />;
         case 'session':
           return sessionView;
         case 'files':
