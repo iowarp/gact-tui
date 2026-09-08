@@ -15,32 +15,53 @@ async function openFixture(page: Page, type?: string) {
       content: `Task ${i}: ${'Long readable evidence '.repeat(12)}`,
       status: 'pending',
     }));
-    data.tools[0].input = { todos };
-    data.tools[0].output = {
-      todos,
-      observations: Array.from({ length: 50 }, (_, i) => `Row ${i}`),
-    };
-    data.tools[0].presentation = type
-      ? {
-          summary: '',
-          blocks: [
-            {
-              id: 'body',
-              type,
-              text: Array.from(
-                { length: 100 },
-                (_, i) => `line-${i} ${'wide-output-'.repeat(40)}`,
-              ).join('\n'),
-            },
-          ],
-        }
-      : undefined;
+    data.tools[0].input = type === 'short' ? { value: 'x' } : { todos };
+    data.tools[0].output =
+      type === 'short'
+        ? { value: 'y' }
+        : {
+            todos,
+            observations: Array.from({ length: 50 }, (_, i) => `Row ${i}`),
+          };
+    data.tools[0].presentation =
+      type && type !== 'short'
+        ? {
+            summary: '',
+            blocks: [
+              {
+                id: 'body',
+                type,
+                text: Array.from(
+                  { length: 100 },
+                  (_, i) => `line-${i} ${'wide-output-'.repeat(40)}`,
+                ).join('\n'),
+              },
+            ],
+          }
+        : undefined;
     await route.fulfill({ response, json: data });
   });
   await page.goto(`/workspaces/ws_flat_ndp/sessions/${session}`);
-  await page.getByRole('button', { name: '2 responses needed', exact: true }).click();
+  const responses = page.getByRole('button', { name: '2 responses needed', exact: true });
+  await expect(responses).toHaveCount(1);
+  await responses.click();
   await page.getByRole('radio', { name: 'Full activity view', exact: true }).click();
 }
+
+test('short technical results fit their content instead of padding to the viewport limit', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1003, height: 1037 });
+  await openFixture(page, 'short');
+  await page
+    .getByRole('button', { name: 'Technical details for Search EarthScope catalog' })
+    .click();
+  const body = page.getByRole('region', { name: 'Scrollable result content' });
+  await expect.poll(() => body.evaluate((e) => e.clientHeight)).toBeLessThan(400);
+  await expect
+    .poll(() => body.evaluate((e) => Math.abs(e.scrollHeight - e.clientHeight)))
+    .toBeLessThan(2);
+});
 
 for (const size of [
   { width: 1003, height: 1037 },

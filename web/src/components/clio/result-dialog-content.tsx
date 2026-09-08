@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import {
   DialogContent,
   DialogDescription,
@@ -19,6 +19,15 @@ export function ResultDialogContent({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const [contentHeight, setContentHeight] = useState<number>();
+  const observeContent = useCallback((element: HTMLDivElement | null) => {
+    if (!element) return;
+    const measure = () => setContentHeight(element.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   return (
     <DialogContent className="flex max-h-[85dvh] min-w-0 flex-col overflow-hidden sm:max-w-4xl">
       <DialogHeader className="shrink-0 pr-8">
@@ -26,7 +35,8 @@ export function ResultDialogContent({
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
       <ScrollArea
-        className="h-[65dvh] min-h-0 min-w-0"
+        className="max-h-[65dvh] min-h-0 min-w-0"
+        style={{ height: contentHeight ?? '65dvh' }}
         type="auto"
         viewportProps={{
           role: 'region',
@@ -35,7 +45,9 @@ export function ResultDialogContent({
           className: 'overscroll-contain [&>div]:!block',
         }}
       >
-        <div className="grid min-w-0 gap-3 pr-3 pb-3 text-sm leading-6">{children}</div>
+        <div ref={observeContent} className="grid min-w-0 gap-3 pr-3 pb-3 text-sm leading-6">
+          {children}
+        </div>
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
       {footer ? <div className="shrink-0">{footer}</div> : null}
