@@ -35,8 +35,14 @@ func (c *conversationComponent) applyToolPresentationDelta(e client.SSEEvent) {
 			}
 			for k := range part.Presentation.Blocks {
 				block := &part.Presentation.Blocks[k]
-				if block.ID == delta.BlockID && utf8.RuneCountInString(block.Text) == delta.Offset {
+				offset := utf8.RuneCountInString(block.Text)
+				if block.StreamOffset != nil {
+					offset = *block.StreamOffset
+				}
+				if block.ID == delta.BlockID && offset == delta.Offset {
 					block.Text += delta.Text
+					next := offset + utf8.RuneCountInString(delta.Text)
+					block.StreamOffset = &next
 					c.bumpMessageEpoch(c.messages[i].ID)
 					return
 				}

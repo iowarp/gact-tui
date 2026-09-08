@@ -126,8 +126,7 @@ func (a *App) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// Z1: when the body cursor is set and the selected message
 		// has a bulky tool_result or text part, expand THAT one.
 		// Otherwise fall back to the "latest bulky" heuristic (L3).
-		a.detail.openModal()
-		return a, nil
+		return a, a.detail.openModal()
 	case "ctrl+l":
 		// Reload on-disk config without restarting. Hot-applies theme +
 		// voice command; backend changes are flagged but not applied

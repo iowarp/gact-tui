@@ -48,3 +48,21 @@ func TestDeclaredChecklistStates(t *testing.T) {
 		}
 	}
 }
+
+func TestDeclaredPagedPreviewAdvertisesFullResultEvenWithoutHiddenInlineLines(t *testing.T) {
+	part := gact.Part{Presentation: &gact.ToolPresentation{Blocks: []gact.ToolPresentationBlock{{
+		ID: "body", Type: "text", Text: "Preview", ContentRef: &gact.PresentationContentRef{Cursor: 7, TotalChars: 10000},
+	}}}}
+	got := Render(part, 80, 5, false, func(s string) string { return s })
+	if !strings.Contains(got, "open complete result") {
+		t.Fatalf("unreachable paged content: %s", got)
+	}
+}
+
+func TestDeclaredBudgetCountsWrappedLines(t *testing.T) {
+	part := gact.Part{Presentation: &gact.ToolPresentation{Blocks: []gact.ToolPresentationBlock{{ID: "body", Type: "text", Text: strings.Repeat("word ", 100)}}}}
+	got := Render(part, 24, 5, false, func(s string) string { return "MORE" })
+	if len(strings.Split(got, "\n")) != 6 || !strings.HasSuffix(got, "MORE") {
+		t.Fatalf("wrapped preview exceeds five lines: %q", got)
+	}
+}

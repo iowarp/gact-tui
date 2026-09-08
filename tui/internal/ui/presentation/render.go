@@ -61,7 +61,9 @@ func Render(p gact.Part, width, threshold int, running bool, detailHint func(str
 			hidden := max(0, len(lines)-budget)
 			preview := strings.Join(lines[:min(len(lines), budget)], "\n")
 			rendered = append(rendered, preview)
-			if hidden > 0 {
+			if block.ContentRef != nil && block.Type != "media" {
+				rendered = append(rendered, detailHint("more content · open complete result"))
+			} else if hidden > 0 {
 				rendered = append(rendered, detailHint(fmt.Sprintf("%d more lines", hidden)))
 			}
 		}

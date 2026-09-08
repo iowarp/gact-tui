@@ -13,6 +13,9 @@ import (
 // when the body cursor points at a message but not a specific addressable part.
 func findBulkyPartIn(m gact.Message) (bulkyPartRef, bool) {
 	for _, p := range m.Parts {
+		if p.Presentation != nil {
+			return declaredResultRef(m.ID, p), true
+		}
 		switch p.Type {
 		case gact.PartTypeToolResult:
 			text := flattenToolResult(p)
@@ -46,6 +49,9 @@ func findLatestBulkyPart(msgs []gact.Message) (bulkyPartRef, bool) {
 	for i := len(msgs) - 1; i >= 0; i-- {
 		m := msgs[i]
 		for _, p := range m.Parts {
+			if p.Presentation != nil {
+				return declaredResultRef(m.ID, p), true
+			}
 			switch p.Type {
 			case gact.PartTypeToolResult:
 				text := flattenToolResult(p)

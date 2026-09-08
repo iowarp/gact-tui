@@ -139,6 +139,8 @@ type Part struct {
 
 // ToolPresentation is observer-owned semantic content, separate from raw results.
 type ToolPresentation struct {
+	Action     string                  `json:"action,omitempty"`
+	Subject    string                  `json:"subject,omitempty"`
 	Summary    string                  `json:"summary"`
 	Blocks     []ToolPresentationBlock `json:"blocks"`
 	Diagnostic string                  `json:"diagnostic,omitempty"`
@@ -146,17 +148,28 @@ type ToolPresentation struct {
 
 // ToolPresentationBlock carries one ordered result body or navigation reference.
 type ToolPresentationBlock struct {
-	ID        string `json:"id"`
-	Type      string `json:"type"`
-	MediaType string `json:"media_type,omitempty"`
-	Text      string `json:"text,omitempty"`
-	Label     string `json:"label,omitempty"`
-	Target    string `json:"target,omitempty"`
-	State     string `json:"state,omitempty"`
-	URI       string `json:"uri,omitempty"`
-	Command   string `json:"command,omitempty"`
-	ExitCode  *int   `json:"exit_code,omitempty"`
-	TimedOut  bool   `json:"timed_out,omitempty"`
+	ContentRef   *PresentationContentRef `json:"content_ref,omitempty"`
+	StreamOffset *int                    `json:"stream_offset,omitempty"`
+	ID           string                  `json:"id"`
+	Type         string                  `json:"type"`
+	MediaType    string                  `json:"media_type,omitempty"`
+	Text         string                  `json:"text,omitempty"`
+	Label        string                  `json:"label,omitempty"`
+	Target       string                  `json:"target,omitempty"`
+	State        string                  `json:"state,omitempty"`
+	URI          string                  `json:"uri,omitempty"`
+	Command      string                  `json:"command,omitempty"`
+	ExitCode     *int                    `json:"exit_code,omitempty"`
+	TimedOut     bool                    `json:"timed_out,omitempty"`
+}
+
+// PresentationContentRef identifies session-scoped, character-paged result content.
+type PresentationContentRef struct {
+	SessionID  string `json:"session_id"`
+	CallID     string `json:"call_id"`
+	BlockID    string `json:"block_id"`
+	Cursor     int    `json:"cursor"`
+	TotalChars int    `json:"total_chars"`
 }
 
 // TextRange identifies a substring within a Text part (SPEC §4.5 citation).

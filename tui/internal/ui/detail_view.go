@@ -47,6 +47,9 @@ func (m *detailViewModal) view() string {
 	ref := m.ref
 	closeLabel := "x"
 	hint := ""
+	if ref.presentation != nil {
+		hint = "Up/Down scroll  Pg page  g/G top/bottom  t result/technical details  y copy  Esc close"
+	}
 	if a.catalog.open && a.catalog.current != nil {
 		closeLabel = "back"
 		hint = "Up/Down scroll  Pg page  g/G top/bottom  y copy  Esc back"

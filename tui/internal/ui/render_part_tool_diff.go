@@ -13,7 +13,10 @@ import (
 
 func (t Theme) renderToolCallPart(p gact.Part, wrapW int) string {
 	if p.Presentation != nil {
-		title := p.ToolTitle
+		title := p.Presentation.Action
+		if title == "" {
+			title = p.ToolTitle
+		}
 		if title == "" {
 			title = p.ToolName
 		}
