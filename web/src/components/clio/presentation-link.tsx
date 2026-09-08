@@ -16,7 +16,15 @@ export function PresentationLink({
   const navigation = useContext(PresentationNavigation);
   const uri = block.uri ?? '';
   const label = block.label || block.text || uri;
-  const text = <span className={compact ? 'truncate' : undefined}>{label}</span>;
+  const filename = compact && block.target === 'file';
+  const text = filename ? (
+    <span className="flex min-w-0">
+      <span className="truncate">{label.slice(0, -12)}</span>
+      <span className="shrink-0">{label.slice(-12)}</span>
+    </span>
+  ) : (
+    <span className={compact ? 'truncate' : undefined}>{label}</span>
+  );
   const className = cn('text-sm', compact ? 'min-w-0 max-w-[42ch] truncate' : 'break-words');
   const withTooltip = (element: React.ReactElement) =>
     compact ? (
@@ -57,6 +65,7 @@ export function PresentationLink({
           !compact && 'whitespace-normal',
         )}
         onClick={open}
+        aria-label={label}
         title={uri}
       >
         {text}

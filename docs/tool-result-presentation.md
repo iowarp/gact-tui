@@ -19,7 +19,9 @@ or `Collect (child)`. The renderer never extracts the payload or guesses which
 argument is important. Long subjects truncate within the available width; hover
 and keyboard focus reveal the full identity, and declared links open normally.
 Unknown or non-text/link subject IDs leave all result blocks visible. Existing
-records without these fields retain their original labels.
+records retain their original blocks. Registered adapters may supply today's
+action and subject placement during read-only projection; this never reruns a
+tool, reads a file, or rewrites stored content. Unknown tools keep their labels.
 
 Diff previews retain real unified-diff syntax, with semantic addition/deletion
 backgrounds. The complete preview boundary remains visible when content is
