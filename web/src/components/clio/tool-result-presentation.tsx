@@ -10,9 +10,45 @@ import { BoundedResult } from './bounded-result';
 import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 import { useRepository } from '@/hooks/use-repository';
 import { PresentationLink } from './presentation-link';
+import { Image } from '@/components/ai-elements/image';
 
-function BlockBody({ block, text }: { block: ToolPresentationBlock; text: string }) {
+function BlockBody({
+  block,
+  text,
+  full = false,
+  complete = true,
+}: {
+  block: ToolPresentationBlock;
+  text: string;
+  full?: boolean;
+  complete?: boolean;
+}) {
   switch (block.type) {
+    case 'media': {
+      if (!complete) return <p>Open the complete media result to preview it.</p>;
+      const mime = block.media_type ?? '';
+      if (!/^[A-Za-z0-9+/]*={0,2}$/u.test(text) || text.length % 4 !== 0)
+        return <p>Media data is invalid.</p>;
+      if (/^image\/(png|jpeg|webp|gif|avif)$/u.test(mime))
+        return (
+          <Image
+            base64={text}
+            mediaType={mime}
+            alt={block.label || 'Tool image result'}
+            className={full ? 'max-h-[65dvh] object-contain' : 'max-h-32 object-contain'}
+          />
+        );
+      if (/^audio\/(mpeg|wav|x-wav|ogg|mp4|webm)$/u.test(mime))
+        return (
+          <audio
+            controls
+            preload="none"
+            aria-label={block.label || 'Tool audio result'}
+            src={`data:${mime};base64,${text}`}
+          />
+        );
+      return <p>Preview unavailable for {mime || 'this media type'}.</p>;
+    }
     case 'markdown':
       return <GroundedMessageResponse>{text}</GroundedMessageResponse>;
     case 'code':
@@ -80,6 +116,7 @@ function PagedBlock({ block, lines }: { block: ToolPresentationBlock; lines: num
         ref.block_id,
         next,
       );
+      if (signal.aborted) return;
       if (page.cursor !== next || (page.next_cursor !== null && page.next_cursor <= next))
         throw new Error('Invalid result content cursor');
       setText((current) => current + page.text);
@@ -93,8 +130,14 @@ function PagedBlock({ block, lines }: { block: ToolPresentationBlock; lines: num
       lines={lines}
       hasMore={cursor !== null}
       loadMore={load}
+      separateViewer={block.type === 'media'}
+      fullContent={
+        block.type === 'media' ? (
+          <BlockBody block={block} text={text} full complete={cursor === null} />
+        ) : undefined
+      }
     >
-      <BlockBody block={block} text={text} />
+      <BlockBody block={block} text={text} complete={block.type !== 'media' || cursor === null} />
     </BoundedResult>
   );
 }
@@ -124,7 +167,11 @@ export function ToolResultPresentation({ tool }: { tool: ToolInvocation }) {
               <ul className="list-none">
                 {checks.map((check) => (
                   <li key={check.id}>
-                    <BlockBody block={check} text={check.text ?? ''} />
+                    {check.content_ref ? (
+                      <PagedBlock block={check} lines={lines} />
+                    ) : (
+                      <BlockBody block={check} text={check.text ?? ''} />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -164,7 +211,16 @@ export function ToolResultPresentation({ tool }: { tool: ToolInvocation }) {
             {block.content_ref && !running ? (
               <PagedBlock block={block} lines={budget} />
             ) : (
-              <BoundedResult lines={budget} running={running}>
+              <BoundedResult
+                lines={budget}
+                running={running}
+                separateViewer={block.type === 'media'}
+                fullContent={
+                  block.type === 'media' ? (
+                    <BlockBody block={block} text={block.text ?? ''} full />
+                  ) : undefined
+                }
+              >
                 <BlockBody block={block} text={block.text ?? ''} />
               </BoundedResult>
             )}

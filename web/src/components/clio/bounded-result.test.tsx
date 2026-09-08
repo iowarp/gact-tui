@@ -54,6 +54,15 @@ describe('display-line result previews', () => {
     node.textContent = 'A long single paragraph with no newline characters';
     expect(displayLineBottoms(node)).toHaveLength(12);
   });
+  it('does not spend visual preview lines on screen-reader-only status labels', () => {
+    geometry(1);
+    const node = document.createElement('div');
+    const status = document.createElement('span');
+    status.className = 'sr-only';
+    status.textContent = 'Pending';
+    node.append(status);
+    expect(displayLineBottoms(node)).toEqual([]);
+  });
   it('reveals the complete short result once, preserves focus, then offers Show less', async () => {
     geometry(12);
     render(

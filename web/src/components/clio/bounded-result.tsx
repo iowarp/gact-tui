@@ -19,6 +19,8 @@ export function BoundedResult({
   loadMore,
   running = false,
   title = 'Complete result',
+  fullContent,
+  separateViewer = false,
 }: {
   children: ReactNode;
   lines: number;
@@ -26,6 +28,8 @@ export function BoundedResult({
   loadMore?: (signal: AbortSignal) => Promise<void>;
   running?: boolean;
   title?: string;
+  fullContent?: ReactNode;
+  separateViewer?: boolean;
 }) {
   const id = useId();
   const body = useRef<HTMLDivElement>(null);
@@ -52,7 +56,7 @@ export function BoundedResult({
     return () => observer.disconnect();
   }, [children, running]);
   const hidden = bottoms.length > lines || hasMore;
-  const separate = hasMore || bottoms.length > Math.max(30, lines * 2);
+  const separate = separateViewer || hasMore || bottoms.length > Math.max(30, lines * 2);
   const height = running ? lines * 24 : expanded ? undefined : bottoms[lines - 1];
   const expand = async () => {
     setError('');
@@ -68,8 +72,10 @@ export function BoundedResult({
           setError(cause instanceof Error ? cause.message : 'Unable to load result');
         return;
       } finally {
-        setLoading(false);
-        request.current = null;
+        if (request.current === controller) {
+          setLoading(false);
+          request.current = null;
+        }
       }
     }
   };
@@ -121,7 +127,9 @@ export function BoundedResult({
                 Full output, kept separate from the conversation preview.
               </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[65dvh] min-w-0 overflow-auto text-sm leading-6">{children}</div>
+            <div className="max-h-[65dvh] min-w-0 overflow-auto text-sm leading-6">
+              {fullContent ?? children}
+            </div>
             {loading ? <p role="status">Loading complete result…</p> : null}
             {error ? (
               <p role="alert" className="text-destructive">

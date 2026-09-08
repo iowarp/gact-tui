@@ -30,6 +30,9 @@ func Render(p gact.Part, width, threshold int, running bool, detailHint func(str
 			budget *= 2
 		}
 		text := block.Text
+		if block.Type == "media" {
+			text = block.Label + " · " + block.MediaType + " (open in media viewer)"
+		}
 		if block.Type == "link" {
 			text = block.Label + " · " + block.URI
 		}

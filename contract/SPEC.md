@@ -2702,7 +2702,7 @@ known entity.
 
 `ToolInvocation.presentation` is optional observer-only metadata with a provider-authored
 `summary` and ordered `blocks`. A block has a stable `id` and a declared `type`:
-`text`, `markdown`, `code`, `diff` (unified diff), `terminal`, `check`, or `link`.
+`text`, `markdown`, `code`, `diff` (unified diff), `terminal`, `check`, `media`, or `link`.
 Clients render these types, not tool names or incidental keys in raw tool results.
 Absent metadata stays absent for historical records. Presentation MUST NOT change
 model observations, tool success, agent continuation, or assistant prose. Presenter
@@ -2728,6 +2728,10 @@ authoritative paged presentation; it does not append the final output a second t
 Check blocks carry task `text` and `state` (`pending`, `in_progress`, `completed`).
 Clients show distinct empty, dash, and checked indicators with accessible state labels;
 color is supplemental. Consecutive checks form one bounded checklist, not acknowledgements.
+Media blocks carry `media_type` and base64 `text`, subject to the same bounded preview
+and content cursor. Clients must fetch complete media before decoding, must not print
+binary text, and may only preview supported safe image/audio MIME types. Payloads absent
+from the retained result remain explicitly unavailable rather than fabricated.
 
 Link blocks declare `target` (`artifact`, `resource`, `session`, `file`, or `url`), `uri`,
 and a readable `label`. Raw arguments and structured results remain available in

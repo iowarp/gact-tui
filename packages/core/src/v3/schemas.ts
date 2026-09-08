@@ -604,7 +604,8 @@ export const toolPresentationSchema = z.object({
   blocks: z.array(
     z.object({
       id: z.string(),
-      type: z.enum(['text', 'markdown', 'code', 'diff', 'terminal', 'link', 'check']),
+      type: z.enum(['text', 'markdown', 'code', 'diff', 'terminal', 'link', 'check', 'media']),
+      media_type: z.string().optional(),
       text: z.string().optional(),
       label: z.string().optional(),
       language: z.string().optional(),

@@ -10,6 +10,51 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation', () => {
+  it('renders declared media rather than binary text and rejects active MIME content', () => {
+    const { rerender } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'call',
+          session_id: 's',
+          name: 'anything',
+          state: 'succeeded',
+          presentation: {
+            summary: '',
+            blocks: [
+              {
+                id: 'image',
+                type: 'media',
+                media_type: 'image/png',
+                text: 'AAAA',
+                label: 'Preview image',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(screen.getByRole('img', { name: 'Preview image' })).toHaveAttribute(
+      'src',
+      'data:image/png;base64,AAAA',
+    );
+    expect(screen.queryByText('AAAA')).not.toBeInTheDocument();
+    rerender(
+      <ClioToolInvocation
+        tool={{
+          id: 'call',
+          session_id: 's',
+          name: 'anything',
+          state: 'succeeded',
+          presentation: {
+            summary: '',
+            blocks: [{ id: 'image', type: 'media', media_type: 'text/html', text: 'AAAA' }],
+          },
+        }}
+      />,
+    );
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByText('Preview unavailable for text/html.')).toBeVisible();
+  });
   it('opens technical JSON in a separate accessible dialog from the row icon', async () => {
     const user = userEvent.setup();
     const { container } = render(

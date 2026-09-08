@@ -146,16 +146,17 @@ type ToolPresentation struct {
 
 // ToolPresentationBlock carries one ordered result body or navigation reference.
 type ToolPresentationBlock struct {
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Text     string `json:"text,omitempty"`
-	Label    string `json:"label,omitempty"`
-	Target   string `json:"target,omitempty"`
-	State    string `json:"state,omitempty"`
-	URI      string `json:"uri,omitempty"`
-	Command  string `json:"command,omitempty"`
-	ExitCode *int   `json:"exit_code,omitempty"`
-	TimedOut bool   `json:"timed_out,omitempty"`
+	ID        string `json:"id"`
+	Type      string `json:"type"`
+	MediaType string `json:"media_type,omitempty"`
+	Text      string `json:"text,omitempty"`
+	Label     string `json:"label,omitempty"`
+	Target    string `json:"target,omitempty"`
+	State     string `json:"state,omitempty"`
+	URI       string `json:"uri,omitempty"`
+	Command   string `json:"command,omitempty"`
+	ExitCode  *int   `json:"exit_code,omitempty"`
+	TimedOut  bool   `json:"timed_out,omitempty"`
 }
 
 // TextRange identifies a substring within a Text part (SPEC §4.5 citation).

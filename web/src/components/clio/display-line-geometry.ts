@@ -6,6 +6,7 @@ export function displayLineBottoms(element: HTMLElement): number[] {
   while (walker.nextNode()) {
     const node = walker.currentNode;
     if (!node.textContent?.trim()) continue;
+    if (node.parentElement?.closest('.sr-only, [aria-hidden="true"]')) continue;
     const range = document.createRange();
     range.selectNodeContents(node);
     for (const rect of Array.from(range.getClientRects())) {

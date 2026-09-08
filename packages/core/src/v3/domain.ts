@@ -206,7 +206,8 @@ export interface OperationalRun {
 
 export interface ToolPresentationBlock {
   id: string;
-  type: 'text' | 'markdown' | 'code' | 'diff' | 'terminal' | 'link' | 'check';
+  type: 'text' | 'markdown' | 'code' | 'diff' | 'terminal' | 'link' | 'check' | 'media';
+  media_type?: string;
   text?: string;
   label?: string;
   language?: string;
