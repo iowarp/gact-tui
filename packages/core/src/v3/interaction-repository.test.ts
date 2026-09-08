@@ -3,6 +3,23 @@ import { RecordingTransport } from './recording-transport.test-helper.js';
 import { ClioRepository } from './repository.js';
 
 describe('ClioRepository normalized interaction contract', () => {
+  it('preserves immutable plan references and failed registration reviews', async () => {
+    const references = [
+      { artifact_id: 'plan_v3', saved: true, version: 3, sha256: 'reviewed-content' },
+      { saved: false, reason: 'storage unavailable' },
+    ];
+    const transport = new RecordingTransport([{ interactions: references.map((artifact_ref, index) => ({
+      id: `plan_${index}`, kind: 'question', owner_session_id: 'session',
+      attended_session_id: 'session', status: 'pending', title: 'Review plan',
+      created_at: '2026-09-08T00:00:00Z',
+      source: { protocol: 'native', tool_name: 'plan_exit' },
+      payload: { plan_exit: { plan_file: 'plan.md', plan_content: '# Complete plan', artifact_ref } },
+    })) }]);
+    const interactions = await new ClioRepository(transport).pendingInteractions('session');
+    expect(interactions.map((item) => item.payload?.plan_exit?.artifact_ref)).toEqual(references);
+    expect(interactions.every((item) => item.payload?.plan_exit?.plan_content === '# Complete plan')).toBe(true);
+  });
+
   it('decodes all interaction kinds with ownership and source correlation', async () => {
     const common = {
       attended_session_id: 'sess_root',

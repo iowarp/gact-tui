@@ -62,6 +62,13 @@ export interface PendingInteractionPayload {
   server_id?: string;
   awaiting_question?: boolean;
   plan_exit?: {
+    artifact_ref?: {
+      artifact_id?: string;
+      saved?: boolean;
+      workspace_id?: string;
+      version?: number;
+      sha256?: string;
+    };
     summary?: string;
     recommended_mode?: string;
     risk_notes?: string;

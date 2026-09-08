@@ -35,6 +35,7 @@ import { respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';
 import { ResponseErrorNotice } from './pending-interaction-notices';
 import { ClioArtifactAttachments } from './artifact-card';
+import { planArtifact } from './plan-artifact';
 
 export function InlinePlanExitResponse({
   artifacts,
@@ -345,14 +346,4 @@ function selectedOptions(interaction: PendingInteraction): string[] {
   return Array.isArray(raw)
     ? raw.filter((value): value is string => typeof value === 'string')
     : [];
-}
-
-function planArtifact(
-  interaction: PendingInteraction,
-  artifacts: Record<string, Artifact>,
-): Artifact | undefined {
-  const planFile = interaction.payload?.plan_exit?.plan_file;
-  const name = planFile?.replaceAll('\\', '/').split('/').at(-1)?.toLocaleLowerCase();
-  if (!name) return undefined;
-  return Object.values(artifacts).find((artifact) => artifact.name.toLocaleLowerCase() === name);
 }
