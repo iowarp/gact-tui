@@ -239,17 +239,20 @@ export function useWorkspaceData({
       tools: recordById(transcript.data.tools),
       tasks: recordById(transcript.data.tasks),
       subagents: recordById(transcript.data.subagents),
-      artifacts: recordById(transcript.data.artifacts),
       surfaces: recordById(transcript.data.surfaces),
     });
   }, [mergeSnapshots, transcript.data]);
   useEffect(() => {
-    if (!sessionArtifacts.data) return;
-    const registryArtifacts = sessionArtifactEntities(sessionArtifacts.data, [], sessionId);
-    if (registryArtifacts.length) {
-      mergeSnapshots({ artifacts: recordById(registryArtifacts) });
-    }
-  }, [mergeSnapshots, sessionArtifacts.data, sessionId]);
+    if (!sessionArtifacts.data && !transcript.data) return;
+    // Registry heads enrich the current versions, but cannot replace the exact
+    // historical versions referenced by earlier transcript results.
+    const registryArtifacts = sessionArtifacts.data
+      ? sessionArtifactEntities(sessionArtifacts.data, [], sessionId)
+      : [];
+    mergeSnapshots({
+      artifacts: recordById([...(transcript.data?.artifacts ?? []), ...registryArtifacts]),
+    });
+  }, [mergeSnapshots, sessionArtifacts.data, sessionId, transcript.data]);
 
   const sessionCandidate =
     entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);

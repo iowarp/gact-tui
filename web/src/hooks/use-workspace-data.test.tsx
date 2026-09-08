@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { SessionArtifactListing } from '@clio/core/v3';
+import type { SessionArtifactListing, TranscriptSnapshot } from '@clio/core/v3';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -27,14 +27,16 @@ const mocks = vi.hoisted(() => ({
       }),
     ),
     sessions: vi.fn(async () => [] as unknown[]),
-    transcript: vi.fn(async () => ({
-      messages: [],
-      tools: [],
-      tasks: [],
-      subagents: [],
-      artifacts: [],
-      surfaces: [],
-    })),
+    transcript: vi.fn(
+      async (): Promise<TranscriptSnapshot> => ({
+        messages: [],
+        tools: [],
+        tasks: [],
+        subagents: [],
+        artifacts: [],
+        surfaces: [],
+      }),
+    ),
     workspaceFiles: vi.fn(async () => []),
     workspaces: vi.fn(async () => []),
   },
@@ -192,7 +194,24 @@ describe('useWorkspaceData interaction reads', () => {
 });
 
 describe('useWorkspaceData artifact reads', () => {
-  it('merges registry artifacts so transcript resource links resolve after a task completes', async () => {
+  it('enriches registry heads without dropping historical transcript result versions', async () => {
+    const historical = {
+      id: 'artifact_previous',
+      session_id: 'sess_1',
+      workspace_id: 'ws_1',
+      name: 'report.md',
+      media_type: 'text/markdown',
+      uri: 'artifact://ws_1/report.md@v0',
+      created_at: '2026-09-04T00:00:00Z',
+    };
+    mocks.repository.transcript.mockResolvedValue({
+      messages: [],
+      tools: [],
+      tasks: [],
+      subagents: [],
+      surfaces: [],
+      artifacts: [historical],
+    });
     mocks.repository.sessionArtifacts.mockResolvedValue({
       artifacts: [
         {
@@ -235,6 +254,7 @@ describe('useWorkspaceData artifact reads', () => {
     await waitFor(() =>
       expect(mocks.mergeSnapshots).toHaveBeenCalledWith({
         artifacts: {
+          artifact_previous: historical,
           artifact_report: expect.objectContaining({
             id: 'artifact_report',
             name: 'report.md',
