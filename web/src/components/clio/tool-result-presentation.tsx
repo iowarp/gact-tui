@@ -115,6 +115,7 @@ function PagedBlock({ block, lines }: { block: ToolPresentationBlock; lines: num
         ref.call_id,
         ref.block_id,
         next,
+        signal,
       );
       if (signal.aborted) return;
       if (page.cursor !== next || (page.next_cursor !== null && page.next_cursor <= next))

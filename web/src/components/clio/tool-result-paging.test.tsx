@@ -62,8 +62,8 @@ describe('full presentation viewer paging', () => {
     const dialog = screen.getByRole('dialog');
     await waitFor(() => expect(within(dialog).getByText('first second last')).toBeVisible());
     expect(page.mock.calls).toEqual([
-      ['session', 'call', 'body', 6],
-      ['session', 'call', 'body', 13],
+      ['session', 'call', 'body', 6, expect.any(AbortSignal)],
+      ['session', 'call', 'body', 13, expect.any(AbortSignal)],
     ]);
     expect(container).not.toContainElement(dialog);
   });
@@ -78,7 +78,10 @@ describe('full presentation viewer paging', () => {
     view();
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Show more' }));
+    const signal = page.mock.calls[0]![4] as AbortSignal;
+    expect(signal.aborted).toBe(false);
     await user.keyboard('{Escape}');
+    expect(signal.aborted).toBe(true);
     resolvePage({ text: 'second ', cursor: 6, next_cursor: 13, total_chars: 17 });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(page).toHaveBeenCalledTimes(1);
@@ -92,7 +95,7 @@ describe('full presentation viewer paging', () => {
     await waitFor(() =>
       expect(within(screen.getByRole('dialog')).getByText('first second last')).toBeVisible(),
     );
-    expect(page.mock.calls[1]).toEqual(['session', 'call', 'body', 6]);
+    expect(page.mock.calls[1]).toEqual(['session', 'call', 'body', 6, expect.any(AbortSignal)]);
   });
   it('surfaces a discontinuous cursor without appending incorrect content', async () => {
     page.mockResolvedValueOnce({ text: 'wrong', cursor: 5, next_cursor: null, total_chars: 17 });

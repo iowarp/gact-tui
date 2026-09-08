@@ -343,7 +343,7 @@ function AppearanceSettings() {
       />
       <ClioSettingsSection
         title="Transcript previews"
-        description="Display lines shown per result. Diffs show twice as many lines; Show more reveals another page."
+        description="Maximum preview lines per result; diffs allow twice as many. Show more reveals the full result, opening large output separately."
       >
         <Field>
           <FieldLabel htmlFor="transcript-preview-lines">Preview lines</FieldLabel>
