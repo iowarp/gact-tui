@@ -46,7 +46,7 @@ import {
   specialMessageExecutionMode,
 } from './conversation-message-projection';
 import { McpAppResponseMessageRow } from './conversation-message-projections';
-import { PresentationNavigation } from './presentation-link';
+import { PresentationNavigation } from './presentation-navigation';
 
 const VIRTUALIZATION_THRESHOLD = 80;
 export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
@@ -422,7 +422,11 @@ function routedInteractionsEqual(
 }
 
 export function ClioConversation(props: ClioConversationProps) {
-  return <PresentationNavigation.Provider value={props}><ConversationBody {...props} /></PresentationNavigation.Provider>;
+  return (
+    <PresentationNavigation.Provider value={props}>
+      <ConversationBody {...props} />
+    </PresentationNavigation.Provider>
+  );
 }
 
 function ConversationBody({

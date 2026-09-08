@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BoundedResult, displayLineBottoms } from './bounded-result';
+import { BoundedResult } from './bounded-result';
+import { displayLineBottoms } from './display-line-geometry';
 
 afterEach(() => {
   cleanup();

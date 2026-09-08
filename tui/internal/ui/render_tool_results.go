@@ -4,7 +4,6 @@ package ui
 
 import (
 	"encoding/json"
-	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/contract/gact"

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { PresentationLink, PresentationNavigation } from './presentation-link';
+import { PresentationLink } from './presentation-link';
+import { PresentationNavigation } from './presentation-navigation';
 
 describe('presentation navigation', () => {
   it('opens a saved document through the existing workspace file viewer', () => {
