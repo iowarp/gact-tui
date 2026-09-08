@@ -223,6 +223,20 @@ describe('useWorkspaceData artifact reads', () => {
           aliases: { latest: 1 },
           versions: [
             {
+              artifact_id: 'artifact_live_previous',
+              workspace_id: 'ws_1',
+              name: 'report.md',
+              version: 0,
+              kind: 'report',
+              custody: 'cas',
+              mechanism: 'tool-schema',
+              evidence_class: 'hashed-at-use',
+              created_at: '2026-09-04T12:00:00Z',
+              producer: {},
+              uri: 'artifact://ws_1/report.md@v0',
+              fetch_url: '/v1/artifacts/artifact_live_previous/bytes',
+            },
+            {
               artifact_id: 'artifact_report',
               workspace_id: 'ws_1',
               name: 'report.md',
@@ -255,6 +269,10 @@ describe('useWorkspaceData artifact reads', () => {
       expect(mocks.mergeSnapshots).toHaveBeenCalledWith({
         artifacts: {
           artifact_previous: historical,
+          artifact_live_previous: expect.objectContaining({
+            id: 'artifact_live_previous',
+            fetch_path: '/v1/artifacts/artifact_live_previous/bytes',
+          }),
           artifact_report: expect.objectContaining({
             id: 'artifact_report',
             name: 'report.md',

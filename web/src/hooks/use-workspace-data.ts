@@ -12,7 +12,7 @@ import {
   PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
   PROVIDER_CATALOG_STALE_TIME_MS,
 } from '@/lib/runtime-limits';
-import { sessionArtifactEntities } from '@/lib/session-artifacts';
+import { sessionArtifactEntities, sessionArtifactVersionEntities } from '@/lib/session-artifacts';
 import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -244,10 +244,10 @@ export function useWorkspaceData({
   }, [mergeSnapshots, transcript.data]);
   useEffect(() => {
     if (!sessionArtifacts.data && !transcript.data) return;
-    // Registry heads enrich the current versions, but cannot replace the exact
-    // historical versions referenced by earlier transcript results.
+    // Live turns may announce older versions before a transcript refetch. Retain
+    // every registered version, not just the head, so those links stay usable.
     const registryArtifacts = sessionArtifacts.data
-      ? sessionArtifactEntities(sessionArtifacts.data, [], sessionId)
+      ? sessionArtifactVersionEntities(sessionArtifacts.data, sessionId)
       : [];
     mergeSnapshots({
       artifacts: recordById([...(transcript.data?.artifacts ?? []), ...registryArtifacts]),
