@@ -204,6 +204,26 @@ export interface OperationalRun {
   };
 }
 
+export interface ToolPresentationBlock {
+  id: string;
+  type: 'text' | 'markdown' | 'code' | 'diff' | 'terminal' | 'link';
+  text?: string;
+  label?: string;
+  language?: string;
+  target?: 'artifact' | 'resource' | 'session' | 'url';
+  uri?: string;
+  command?: string;
+  exit_code?: number | null;
+  timed_out?: boolean;
+  content_ref?: { session_id: string; call_id: string; block_id: string; cursor: number; total_chars: number };
+}
+
+export interface ToolPresentation {
+  summary: string;
+  blocks: ToolPresentationBlock[];
+  diagnostic?: string;
+}
+
 export interface ToolInvocation {
   id: string;
   session_id: string;
@@ -213,6 +233,7 @@ export interface ToolInvocation {
   state: ToolState;
   input?: unknown;
   output?: unknown;
+  presentation?: ToolPresentation;
   /** Incremental, already-correlated terminal output for a running tool. */
   output_stream?: string;
   /** Latest server-authored progress message for non-terminal tools. */

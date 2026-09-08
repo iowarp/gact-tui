@@ -326,13 +326,19 @@ function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
 function AppearanceSettings() {
   const { resolvedTheme, theme, setTheme } = useTheme();
   const { mode: conversationMode, setMode: setConversationMode } = useConversationDisplay();
-  const { conversationWidth, motion, setConversationWidth, setMotion } = useAppearancePreferences();
+  const { conversationWidth, motion, setConversationWidth, setMotion, collapseThreshold, setCollapseThreshold } = useAppearancePreferences();
   return (
     <div className="grid gap-6">
       <SectionHeading
         description="Choose how the workspace looks, moves, and presents conversation activity."
         title="Appearance"
       />
+      <ClioSettingsSection title="Transcript previews" description="Display lines shown per result. Diffs show twice as many lines; Show more reveals another page.">
+        <Field>
+          <FieldLabel htmlFor="transcript-preview-lines">Preview lines</FieldLabel>
+          <Input id="transcript-preview-lines" type="number" min={1} max={50} value={collapseThreshold} onChange={(event) => setCollapseThreshold(Number(event.target.value))} />
+        </Field>
+      </ClioSettingsSection>
       <ClioSettingsSection
         description="System follows the operating system; light and dark use distinct palettes."
         title="Theme"

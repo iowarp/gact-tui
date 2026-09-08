@@ -14,6 +14,7 @@ import {
   subagentSchema,
   taskSchema,
   toolInvocationSchema,
+  toolPresentationDeltaSchema,
   workspaceSchema,
   userQuestionSchema,
 } from './schemas.js';
@@ -291,8 +292,20 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     case 'tool.upserted': {
       const candidate = toolInvocationSchema.parse(envelope.payload);
       const previous = base.tools[candidate.id];
-      const tool = previous ? { ...previous, ...candidate } : candidate;
+      const tool = previous ? { ...previous, ...candidate, presentation: candidate.presentation ?? previous.presentation } : candidate;
       return { ...base, revisions, tools: { ...base.tools, [tool.id]: tool } };
+    }
+    case 'tool.presentation.delta': {
+      const delta = toolPresentationDeltaSchema.parse(envelope.payload);
+      const tool = base.tools[delta.call_id];
+      if (!tool?.presentation || tool.state !== 'running') return base;
+      const blocks = tool.presentation.blocks.map((block) => {
+        if (block.id !== delta.block_id) return block;
+        const body = block.text ?? '';
+        if (delta.offset !== body.length) return block;
+        return { ...block, text: body + delta.text };
+      });
+      return { ...base, revisions, tools: { ...base.tools, [tool.id]: { ...tool, presentation: { ...tool.presentation, blocks } } } };
     }
     case 'run.upserted': {
       const run = runSchema.parse(envelope.payload);

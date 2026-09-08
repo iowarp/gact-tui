@@ -38,6 +38,7 @@ export const GACT_V3_EVENT_TYPES = [
   'subagent.upserted',
   'task.upserted',
   'tool.upserted',
+  'tool.presentation.delta',
   'workspace.upserted',
 ] as const;
 

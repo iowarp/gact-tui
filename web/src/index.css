@@ -340,3 +340,13 @@ html[data-clio-motion='reduced'] *::after {
   animation-iteration-count: 1 !important;
   transition-duration: 1ms !important;
 }
+
+/* Tool content follows the transcript's readable, wrapping line budget. */
+.tool-presentation-body pre,
+.tool-presentation-body code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 24px;
+}
+.tool-presentation-body { font-size: 14px; line-height: 24px; }

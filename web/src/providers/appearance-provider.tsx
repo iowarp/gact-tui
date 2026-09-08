@@ -16,16 +16,19 @@ export type ConversationWidth = 'focused' | 'wide';
 interface AppearancePreferences {
   motion: MotionPreference;
   conversationWidth: ConversationWidth;
+  collapseThreshold: number;
 }
 
 interface AppearanceContextValue extends AppearancePreferences {
   setMotion: (motion: MotionPreference) => void;
   setConversationWidth: (width: ConversationWidth) => void;
+  setCollapseThreshold: (lines: number) => void;
 }
 
 const defaults: AppearancePreferences = {
   motion: 'system',
   conversationWidth: 'focused',
+  collapseThreshold: 5,
 };
 
 const AppearanceContext = createContext<AppearanceContextValue | null>(null);
@@ -63,6 +66,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       ...preferences,
       setMotion: (motion) => update({ motion }),
       setConversationWidth: (conversationWidth) => update({ conversationWidth }),
+      setCollapseThreshold: (lines) => update({ collapseThreshold: Math.max(1, Math.min(50, Math.round(lines) || 5)) }),
     }),
     [preferences, update],
   );
@@ -86,10 +90,16 @@ function readPreferences(): AppearancePreferences {
   }
 }
 
+// oxlint-disable-next-line react/only-export-components
+export function useTranscriptPreviewLines(): number {
+  return useContext(AppearanceContext)?.collapseThreshold ?? 5;
+}
+
 function parsePreferences(raw: string | null): AppearancePreferences {
   const value = JSON.parse(raw ?? '{}') as Record<string, unknown>;
   return {
     motion: value.motion === 'reduced' ? 'reduced' : 'system',
     conversationWidth: value.conversationWidth === 'wide' ? 'wide' : 'focused',
+    collapseThreshold: typeof value.collapseThreshold === 'number' && Number.isInteger(value.collapseThreshold) && value.collapseThreshold >= 1 && value.collapseThreshold <= 50 ? value.collapseThreshold : 5,
   };
 }

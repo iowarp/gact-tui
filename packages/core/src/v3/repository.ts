@@ -74,6 +74,15 @@ const ARTIFACT_PAGE_SIZE = 200;
 const MAX_ARTIFACT_PAGES = 100;
 
 export class ClioRepository extends McpAppRepository {
+  public toolPresentationContent(sessionId: string, callId: string, blockId: string, cursor: number, signal?: AbortSignal) {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/tools/${encodeURIComponent(callId)}/presentation/${encodeURIComponent(blockId)}?cursor=${cursor}`,
+      decode: (value) => z.object({ text: z.string(), cursor: z.number().int(), next_cursor: z.number().int().nullable(), total_chars: z.number().int() }).parse(value),
+      signal,
+    });
+  }
+
   public constructor(transport: ClioTransport) {
     super(transport);
   }

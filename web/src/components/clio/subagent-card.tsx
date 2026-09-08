@@ -1,12 +1,12 @@
 import type { MessageBlock, SubagentRun } from '@clio/core/v3';
-import { BotIcon, CornerDownLeftIcon, CornerDownRightIcon } from 'lucide-react';
+import { CornerDownLeftIcon, CornerDownRightIcon } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { SubAgentDispatch, type SubAgentState } from '@/components/theokit/sub-agent-dispatch';
 import { formatDuration, truncate } from '@/lib/format';
 import { SUBAGENT_RESULT_TRUNCATE_CHARS, SUBAGENT_TASK_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { getChildAgentAssignment } from './child-agent-presentation';
-import { ClioStatus } from './status';
+import { ActivityRow } from './activity-row';
 
 export interface ClioSubagentCardProps {
   subagent?: SubagentRun;
@@ -63,33 +63,9 @@ export function ClioSubagentLifecycleLine({
       }
       type="button"
     >
-      <span className="relative mt-0.5 flex size-5 shrink-0 items-center justify-center text-muted-foreground">
-        <BotIcon aria-hidden="true" className="size-3.5" />
-        <Icon
-          aria-hidden="true"
-          className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-background"
-        />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <span className="truncate font-medium text-foreground">{title}</span>
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {started ? 'started' : 'returned'}
-          </span>
-          {!started && subagent ? (
-            <ClioStatus
-              className="h-auto shrink-0 border-0 bg-transparent px-0 py-0 shadow-none"
-              value={subagent.state}
-            />
-          ) : null}
-          {!started && subagent?.duration_ms !== undefined ? (
-            <span className="shrink-0 text-xs text-muted-foreground">
-              {formatDuration(subagent.duration_ms)}
-            </span>
-          ) : null}
-        </span>
-        <span className="line-clamp-2 text-xs leading-5 text-muted-foreground">{detail}</span>
-      </span>
+      <ActivityRow icon={<Icon aria-hidden="true" className="size-4" />}
+        title={`${title} ${started ? 'started' : 'returned'}`} detail={detail}
+        status={!started ? subagent?.state : undefined} duration={!started ? subagent?.duration_ms : undefined} />
     </button>
   );
 }

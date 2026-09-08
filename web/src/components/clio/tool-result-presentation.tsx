@@ -1,75 +1,56 @@
-import type { ToolInvocation } from '@clio/core/v3';
-import { FileCode2Icon } from 'lucide-react';
-import {
-  CodeBlock,
-  CodeBlockActions,
-  CodeBlockCopyButton,
-  CodeBlockFilename,
-  CodeBlockHeader,
-  CodeBlockTitle,
-} from '@/components/ai-elements/code-block';
+import { useState } from 'react';
+import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
+import { CodeBlock } from '@/components/ai-elements/code-block';
+import { Terminal, TerminalCommand, TerminalContent } from '@/components/ai-elements/terminal';
 import { Shimmer } from '@/components/ai-elements/shimmer';
-import { Terminal } from '@/components/ai-elements/terminal';
 import { GroundedMessageResponse } from './grounded-message-response';
-import {
-  outputDiff,
-  presentationRecord,
-  terminalCommand,
-  terminalOutput,
-  textBlocks,
-} from './tool-result-presentation-model';
+import { BoundedResult } from './bounded-result';
+import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
+import { useRepository } from '@/hooks/use-repository';
 
-/** Render server-declared human output while retaining raw JSON in technical details. */
-export function ToolResultPresentation({ tool }: { tool: ToolInvocation }) {
-  const output = presentationRecord(tool.output);
-  const message = typeof output?.message === 'string' ? output.message.trim() : '';
-  const diff = outputDiff(tool.output);
-  const blocks = textBlocks(tool.output);
-  const terminal = terminalOutput(tool, output);
-  const command = terminal === undefined ? undefined : terminalCommand(tool);
-  const hasExitCode = typeof output?.exit_code === 'number' || output?.exit_code === null;
-  const exitCode = output?.exit_code;
-  const timedOut = output?.timed_out === true;
-  const progressMessage = tool.progress_message?.trim() ?? '';
-
-  if (!message && !diff && blocks.length === 0 && terminal === undefined && !progressMessage) {
-    return null;
+function BlockBody({ block, text }: { block: ToolPresentationBlock; text: string }) {
+  switch (block.type) {
+    case 'markdown': return <GroundedMessageResponse>{text}</GroundedMessageResponse>;
+    case 'code': case 'diff': return <CodeBlock code={text} language={block.type === 'diff' ? 'diff' : block.language || 'text'} />;
+    case 'terminal': return <Terminal output={text} autoScroll={false}><TerminalContent className="max-h-none overflow-visible p-0" /></Terminal>;
+    default: return <p className="whitespace-pre-wrap break-words">{text}</p>;
   }
+}
 
-  return (
-    <div className="space-y-3 border-t px-4 py-3" data-slot="tool-human-result">
-      {message ? <p className="text-sm leading-6 text-foreground">{message}</p> : null}
-      {progressMessage && tool.state === 'running' ? (
-        <Shimmer className="text-sm">{progressMessage}</Shimmer>
-      ) : null}
-      {blocks.map((text, index) => (
-        <GroundedMessageResponse className="text-sm leading-6" key={`${tool.id}:text:${index}`}>
-          {text}
-        </GroundedMessageResponse>
-      ))}
-      {diff ? (
-        <CodeBlock code={diff.unifiedDiff} language="diff" showLineNumbers>
-          <CodeBlockHeader>
-            <CodeBlockTitle>
-              <FileCode2Icon aria-hidden="true" className="size-3.5" />
-              <CodeBlockFilename>{diff.path}</CodeBlockFilename>
-            </CodeBlockTitle>
-            <CodeBlockActions>
-              <CodeBlockCopyButton aria-label={`Copy diff for ${diff.path}`} />
-            </CodeBlockActions>
-          </CodeBlockHeader>
-        </CodeBlock>
-      ) : null}
-      {terminal !== undefined ? (
-        <div className="space-y-1.5">
-          <Terminal command={command} isStreaming={tool.state === 'running'} output={terminal} />
-          {tool.state !== 'running' && (hasExitCode || timedOut) ? (
-            <p className="font-mono text-xs text-muted-foreground">
-              {timedOut ? 'Process timed out.' : `Process exited with code ${String(exitCode)}.`}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
+function PagedBlock({ block, lines }: { block: ToolPresentationBlock; lines: number }) {
+  const repository = useRepository();
+  const [text, setText] = useState(block.text ?? '');
+  const [cursor, setCursor] = useState<number | null>(block.content_ref!.cursor);
+  const load = async () => {
+    if (cursor === null) return;
+    const ref = block.content_ref!;
+    const page = await repository.toolPresentationContent(ref.session_id, ref.call_id, ref.block_id, cursor);
+    if (page.cursor !== cursor || (page.next_cursor !== null && page.next_cursor <= cursor)) throw new Error('Invalid result content cursor');
+    setText((current) => current + page.text);
+    setCursor(page.next_cursor);
+  };
+  return <BoundedResult lines={lines} hasMore={cursor !== null} loadMore={load}><BlockBody block={block} text={text} /></BoundedResult>;
+}
+
+/** Render only the declared presentation contract. Raw results stay technical. */
+export function ToolResultPresentation({ tool }: { tool: ToolInvocation }) {
+  const lines = useTranscriptPreviewLines();
+  return <div className="ml-7 flex min-w-0 flex-col gap-2" data-slot="tool-human-result">
+    {tool.progress_message && tool.state === 'running' ? <Shimmer>{tool.progress_message}</Shimmer> : null}
+    {tool.presentation?.blocks.map((block) => {
+      const budget = block.type === 'diff' ? lines * 2 : lines;
+      const running = block.type === 'terminal' && tool.state === 'running';
+      if (block.type === 'link') {
+        const href = block.target === 'session' ? `./${encodeURIComponent(block.uri ?? '')}` : block.uri;
+        return <a key={block.id} className="text-sm underline" href={href}>{block.label || block.uri}</a>;
+      }
+      return <div key={`${block.id}:${running ? 'running' : 'complete'}`} className="min-w-0">
+        {block.label ? <p className="break-words text-sm text-muted-foreground">{block.label}</p> : null}
+        {block.type === 'terminal' && block.command ? <TerminalCommand command={block.command} /> : null}
+        {block.content_ref && !running ? <PagedBlock block={block} lines={budget} /> :
+          <BoundedResult lines={budget} running={running}><BlockBody block={block} text={block.text ?? ''} /></BoundedResult>}
+        {block.type === 'terminal' && !running ? <p className="text-sm text-muted-foreground">{block.timed_out ? 'Process timed out.' : block.exit_code !== undefined ? `Process exited with code ${block.exit_code}.` : ''}</p> : null}
+      </div>;
+    })}
+  </div>;
 }

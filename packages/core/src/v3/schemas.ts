@@ -599,6 +599,24 @@ export const contextStateSchema = z.object({
   render_keys: z.record(z.string(), z.unknown()).default({}),
 });
 
+export const toolPresentationSchema = z.object({
+  summary: z.string(),
+  blocks: z.array(z.object({
+    id: z.string(),
+    type: z.enum(['text', 'markdown', 'code', 'diff', 'terminal', 'link']),
+    text: z.string().optional(), label: z.string().optional(), language: z.string().optional(),
+    target: z.enum(['artifact', 'resource', 'session', 'url']).optional(), uri: z.string().optional(),
+    command: z.string().optional(), exit_code: z.number().nullable().optional(), timed_out: z.boolean().optional(),
+    content_ref: z.object({ session_id: z.string(), call_id: z.string(), block_id: z.string(), cursor: z.number().int().nonnegative(), total_chars: z.number().int().nonnegative() }).optional(),
+  })),
+  diagnostic: z.string().optional(),
+});
+
+export const toolPresentationDeltaSchema = z.object({
+  call_id: z.string(), block_id: z.string(), offset: z.number().int().nonnegative(),
+  sequence: z.number().int().nonnegative(), channel: z.enum(['stdout', 'stderr']), text: z.string(),
+});
+
 export const toolInvocationSchema = z.object({
   id: z.string(),
   session_id: z.string(),
@@ -618,6 +636,7 @@ export const toolInvocationSchema = z.object({
   ]),
   input: z.unknown().optional(),
   output: z.unknown().optional(),
+  presentation: toolPresentationSchema.nullish().transform((value) => value ?? undefined),
   output_stream: z.string().optional(),
   progress_message: z.string().optional(),
   progress: z.number().optional(),
