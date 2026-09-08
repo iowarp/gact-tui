@@ -12,7 +12,8 @@ import {
   PlanTrigger,
 } from '@/components/ai-elements/plan';
 import { Frame, FramePanel } from '@/components/reui/frame';
-import { PlanDecisionControls, planModeLabel } from './plan-decision-controls';
+import { PlanDecisionControls } from './plan-decision-controls';
+import { planModeLabel } from './plan-mode-label';
 import { DOCUMENT_MARKDOWN_CLASS_NAME } from '@/lib/document-markdown';
 import { respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';

@@ -10,6 +10,33 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation', () => {
+  it('insets rendered Markdown and keeps table action chrome out of the preview', async () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'markdown-preview',
+          session_id: 's',
+          name: 'declared_document',
+          state: 'succeeded',
+          presentation: {
+            summary: '',
+            blocks: [
+              {
+                id: 'document',
+                type: 'markdown',
+                text: '# Readable result\n\n| Feature | Value |\n| --- | --- |\n| Format | Markdown |',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+    const heading = await screen.findByRole('heading', { name: 'Readable result' });
+    expect(heading.parentElement).toHaveClass('px-3', 'py-2');
+    expect(screen.getByRole('table')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Copy table' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'View fullscreen' })).not.toBeInTheDocument();
+  });
   it('renders a declared action and clickable subject once in the row, never the payload', async () => {
     const openFile = vi.fn();
     const path = 'D:/workspace/long-readable-evidence.txt';

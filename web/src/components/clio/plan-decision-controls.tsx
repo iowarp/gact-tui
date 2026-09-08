@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { respondFromControl } from './interaction-control';
+import { planModeLabel } from './plan-mode-label';
 
 /** Explicit plan decisions; selecting a choice never submits or executes it. */
 export function PlanDecisionControls({
@@ -62,75 +63,77 @@ export function PlanDecisionControls({
     <FieldSet className="gap-2" data-slot="plan-decision-controls" disabled={disabled}>
       <FieldLegend className="sr-only">Plan decision</FieldLegend>
       <Popover open={commentOpen} onOpenChange={setCommentOpen}>
-        <RadioGroup
-          aria-label="Plan decision"
-          disabled={disabled}
-          value={choice}
-          onValueChange={(value) => {
-            setChoice(value);
-            setCommentOpen(value === 'reject');
-          }}
-          className="gap-3"
-        >
-          <FieldGroup className="gap-1.5">
-            <Field
-              orientation="horizontal"
-              className="flex-wrap [&>[data-slot=field-label]]:flex-none"
-            >
-              <RadioGroupItem
-                id={`${id}-execute`}
-                value="execute"
-                aria-label="Execute plan"
-                disabled={!modes.length}
-              />
-              <FieldLabel htmlFor={`${id}-execute`} className="flex-none">
-                Execute plan in
-              </FieldLabel>
-              <Select
-                disabled={disabled || !modes.length}
-                value={mode}
-                onValueChange={(value) => {
-                  setMode(value);
-                  setChoice('execute');
-                }}
+        <PopoverAnchor asChild>
+          <RadioGroup
+            aria-label="Plan decision"
+            disabled={disabled}
+            value={choice}
+            onValueChange={(value) => {
+              setChoice(value);
+              setCommentOpen(value === 'reject');
+            }}
+            className="gap-3"
+          >
+            <FieldGroup className="gap-1.5">
+              <Field
+                orientation="horizontal"
+                className="flex-wrap [&>[data-slot=field-label]]:flex-none"
               >
-                <SelectTrigger
-                  id={`${id}-execution-mode`}
-                  aria-label="Execution mode"
-                  className="w-auto max-w-full"
-                  size="sm"
-                >
-                  <SelectValue placeholder="Choose mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {modes.map((option) => {
-                      const value = option.value || option.label;
-                      return (
-                        <SelectItem key={value} value={value}>
-                          {planModeLabel(value)}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <span className="text-sm">mode</span>
-            </Field>
-            {canClear ? (
-              <Field orientation="horizontal" className="pl-6">
-                <Checkbox
-                  id={`${id}-clear-context`}
-                  checked={clearContext}
-                  disabled={disabled || choice !== 'execute'}
-                  onCheckedChange={(value) => setClearContext(value === true)}
+                <RadioGroupItem
+                  id={`${id}-execute`}
+                  value="execute"
+                  aria-label="Execute plan"
+                  disabled={!modes.length}
                 />
-                <FieldLabel htmlFor={`${id}-clear-context`}>Clear conversation context</FieldLabel>
+                <FieldLabel htmlFor={`${id}-execute`} className="flex-none">
+                  Execute plan in
+                </FieldLabel>
+                <Select
+                  disabled={disabled || !modes.length}
+                  value={mode}
+                  onValueChange={(value) => {
+                    setMode(value);
+                    setChoice('execute');
+                  }}
+                >
+                  <SelectTrigger
+                    id={`${id}-execution-mode`}
+                    aria-label="Execution mode"
+                    className="w-auto max-w-full"
+                    size="sm"
+                  >
+                    <SelectValue placeholder="Choose mode" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {modes.map((option) => {
+                        const value = option.value || option.label;
+                        return (
+                          <SelectItem key={value} value={value}>
+                            {planModeLabel(value)}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <span className="text-sm">mode</span>
               </Field>
-            ) : null}
-          </FieldGroup>
-          {canReject ? (
-            <PopoverAnchor asChild>
+              {canClear ? (
+                <Field orientation="horizontal" className="pl-6">
+                  <Checkbox
+                    id={`${id}-clear-context`}
+                    checked={clearContext}
+                    disabled={disabled || choice !== 'execute'}
+                    onCheckedChange={(value) => setClearContext(value === true)}
+                  />
+                  <FieldLabel htmlFor={`${id}-clear-context`}>
+                    Clear conversation context
+                  </FieldLabel>
+                </Field>
+              ) : null}
+            </FieldGroup>
+            {canReject ? (
               <Field orientation="horizontal">
                 <RadioGroupItem
                   ref={rejectRef}
@@ -140,9 +143,9 @@ export function PlanDecisionControls({
                 />
                 <FieldLabel htmlFor={`${id}-reject`}>Reject plan with comments</FieldLabel>
               </Field>
-            </PopoverAnchor>
-          ) : null}
-        </RadioGroup>
+            ) : null}
+          </RadioGroup>
+        </PopoverAnchor>
         {choice === 'execute' ? (
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
@@ -204,11 +207,4 @@ export function PlanDecisionControls({
       </Popover>
     </FieldSet>
   );
-}
-
-export function planModeLabel(value: string): string {
-  if (value === 'auto') return 'Auto-execute';
-  if (value === 'interactive') return 'Interactive';
-  if (value === 'exit_only') return 'Exit Plan mode only';
-  return value;
 }

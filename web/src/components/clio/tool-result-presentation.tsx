@@ -52,7 +52,10 @@ function BlockBody({
     }
     case 'markdown':
       return (
-        <GroundedMessageResponse className="min-w-0 max-w-full [overflow-wrap:anywhere]">
+        <GroundedMessageResponse
+          className="min-w-0 max-w-full px-3 py-2 [overflow-wrap:anywhere]"
+          controls={{ table: false }}
+        >
           {text}
         </GroundedMessageResponse>
       );
