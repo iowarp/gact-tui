@@ -385,6 +385,15 @@ html[data-clio-motion='reduced'] *::after {
 [data-diff-line='deletion'] {
   background: color-mix(in srgb, var(--destructive) 14%, transparent);
 }
+/* Syntax colors intended for plain backgrounds lose contrast on diff tints. */
+[data-diff-line='addition'],
+[data-diff-line='deletion'] {
+  color: var(--foreground);
+}
+[data-diff-line='addition'] span,
+[data-diff-line='deletion'] span {
+  color: inherit !important;
+}
 [data-diff-line] {
   padding-inline: 0.5rem;
 }

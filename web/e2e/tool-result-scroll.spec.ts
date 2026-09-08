@@ -109,6 +109,55 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
   await expect.poll(() => activity.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
 });
 
+test('highlighted diff text meets normal-text contrast in both themes', async ({ page }) => {
+  await openFixture(page, 'diff', '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new');
+  const lines = page.locator('[data-diff-line="addition"], [data-diff-line="deletion"]');
+  await expect(lines).toHaveCount(2);
+  // Exercise the highlighted tokens, not only the initial unstyled placeholder.
+  await expect(lines.first().locator('span').first()).not.toHaveAttribute(
+    'style',
+    /color: inherit/,
+  );
+  for (const dark of [false, true]) {
+    await page.evaluate(
+      (enabled) => document.documentElement.classList.toggle('dark', enabled),
+      dark,
+    );
+    const ratios = await lines.evaluateAll((elements) =>
+      elements.map((element) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 1;
+        const context = canvas.getContext('2d')!;
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, 1, 1);
+        const ancestors: Element[] = [];
+        for (let node: Element | null = element; node; node = node.parentElement)
+          ancestors.unshift(node);
+        for (const node of ancestors) {
+          context.fillStyle = getComputedStyle(node).backgroundColor;
+          context.fillRect(0, 0, 1, 1);
+        }
+        const luminance = (rgba: Uint8ClampedArray) => {
+          const channels = Array.from(rgba.slice(0, 3), (value) => {
+            const channel = value / 255;
+            return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+          });
+          return channels[0]! * 0.2126 + channels[1]! * 0.7152 + channels[2]! * 0.0722;
+        };
+        const background = luminance(context.getImageData(0, 0, 1, 1).data);
+        context.fillStyle = getComputedStyle(element.querySelector('span') ?? element).color;
+        context.fillRect(0, 0, 1, 1);
+        const foreground = luminance(context.getImageData(0, 0, 1, 1).data);
+        return (
+          (Math.max(background, foreground) + 0.05) / (Math.min(background, foreground) + 0.05)
+        );
+      }),
+    );
+    for (const ratio of ratios)
+      expect(ratio, `${dark ? 'dark' : 'light'} diff contrast`).toBeGreaterThanOrEqual(4.5);
+  }
+});
+
 test('declared Markdown is rendered and width-bounded inline and in the full viewer', async ({
   page,
 }) => {
