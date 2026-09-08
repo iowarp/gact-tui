@@ -61,6 +61,7 @@ import { ArtifactProvenance } from './artifact-provenance';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
 import { ClioJsonResourceView } from './json-resource-view';
 import { ClioDocumentWorkspace } from './document-workspace';
+import { MarkdownFilePreview } from './markdown-file-preview';
 
 export function WorkspaceFileView({
   workspaceId,
@@ -399,7 +400,7 @@ export function TextResourceView({
   content?: string;
   error?: string;
 }) {
-  if (!content && !error)
+  if (content === undefined && !error)
     return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
   if (error)
     return (
@@ -407,6 +408,9 @@ export function TextResourceView({
         <ResourceUnavailable detail={error} label="File preview unavailable" />
       </div>
     );
+  if (isMarkdownArtifact('', path)) {
+    return <MarkdownFilePreview name={fileName(path)} content={content ?? ''} />;
+  }
   if (isCsvPath(path) || isJsonPath(path)) {
     return (
       <ScrollArea className="h-full p-3">

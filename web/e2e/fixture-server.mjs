@@ -852,6 +852,23 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/work`) {
+    sendJson(response, {
+      cursor: 0,
+      goal: null,
+      loop: null,
+      goals: [],
+      loops: [],
+      todos: [],
+      goal_next_cursor: null,
+      loop_next_cursor: null,
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/schedules`) {
+    sendJson(response, { schedules: [], cron_timezone: 'UTC' });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/queued-messages`) {
     sendJson(response, { queued_messages: queuedMessages });
     return;
