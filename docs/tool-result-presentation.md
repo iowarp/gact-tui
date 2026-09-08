@@ -21,6 +21,14 @@ paged results open a separate dialog and retrieve the remaining content cursors
 there, keeping the transcript bounded. Closing the dialog cancels its outstanding
 read. Controls preserve focus, expose expanded state, and announce expansion.
 
+Technical details and full-result dialogs share `ResultDialogContent`. The title
+and close control remain fixed; its keyboard-focusable ScrollArea owns vertical
+overflow, with a visible scrollbar when content exceeds the viewport. Sections
+must retain their natural height, never flex-shrink into an overflow-hidden clip.
+Wide code uses a separately focusable horizontal scroll pane. Running terminal
+viewports are keyboard-focusable too. Browser regressions cover a short window,
+long arguments/results, and complete text, Markdown, code, diff, and terminal output.
+
 File results show a single clickable basename that opens the workspace canvas;
 full paths remain technical evidence. The row's right-aligned information button
 opens a separate Technical details dialog, never an inline JSON wall. Todos use

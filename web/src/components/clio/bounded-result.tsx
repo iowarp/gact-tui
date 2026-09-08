@@ -1,15 +1,9 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 
 import { displayLineBottoms } from './display-line-geometry';
+import { ResultDialogContent } from './result-dialog-content';
 
 /** Keep a bounded preview; reveal short results once, and open large results separately. */
 export function BoundedResult({
@@ -95,6 +89,9 @@ export function BoundedResult({
         id={id}
         ref={viewport}
         className={running ? 'overflow-auto' : 'overflow-hidden'}
+        role={running ? 'region' : undefined}
+        aria-label={running ? 'Live terminal output' : undefined}
+        tabIndex={running ? 0 : undefined}
         style={{ maxHeight: height === undefined ? undefined : `${height}px` }}
         onScroll={(event) => {
           const node = event.currentTarget;
@@ -130,23 +127,22 @@ export function BoundedResult({
               Show more
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-h-[85dvh] sm:max-w-4xl">
-            <DialogHeader>
-              <DialogTitle>{title}</DialogTitle>
-              <DialogDescription>
-                Full output, kept separate from the conversation preview.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="max-h-[65dvh] min-w-0 overflow-auto text-sm leading-6">
-              {fullContent ?? children}
-            </div>
-            {loading ? <p role="status">Loading complete result…</p> : null}
-            {error ? (
-              <p role="alert" className="text-destructive">
-                {error}
-              </p>
-            ) : null}
-          </DialogContent>
+          <ResultDialogContent
+            title={title}
+            description="Full output, kept separate from the conversation preview."
+            footer={
+              <>
+                {loading ? <p role="status">Loading complete result…</p> : null}
+                {error ? (
+                  <p role="alert" className="text-destructive">
+                    {error}
+                  </p>
+                ) : null}
+              </>
+            }
+          >
+            {fullContent ?? children}
+          </ResultDialogContent>
         </Dialog>
       ) : null}
       <span className="sr-only" role="status">

@@ -400,7 +400,13 @@ export const CodeBlockContent = ({
   const tokenized = asyncTokens ?? syncTokens;
 
   return (
-    <div className="relative min-h-0 flex-1 overflow-auto" data-slot="code-block-scroll">
+    <div
+      className="relative min-h-0 flex-1 overflow-auto focus-visible:outline focus-visible:outline-ring"
+      data-slot="code-block-scroll"
+      role="region"
+      aria-label="Scrollable code"
+      tabIndex={0}
+    >
       <CodeBlockBody showLineNumbers={showLineNumbers} tokenized={tokenized} />
     </div>
   );
