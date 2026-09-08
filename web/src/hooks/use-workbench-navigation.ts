@@ -5,11 +5,11 @@ import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 import type { ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { workspaceFilePath } from '@/lib/workspace-file-path';
+import { useLiveStore } from '@/store/live-store';
 
 interface UseWorkbenchNavigationInput {
   allSessions: readonly Session[];
   workspaceId: string;
-  workspacePath?: string;
 }
 
 interface WorkbenchRequest {
@@ -19,13 +19,10 @@ interface WorkbenchRequest {
 }
 
 /** Owns central-versus-canvas navigation for workspace resources and child sessions. */
-export function useWorkbenchNavigation({
-  allSessions,
-  workspaceId,
-  workspacePath,
-}: UseWorkbenchNavigationInput) {
+export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenchNavigationInput) {
   const navigate = useNavigate();
   const { settings } = useConnectionSettings();
+  const workspacePath = useLiveStore((state) => state.entities.workspaces[workspaceId]?.path);
   const [workbenchRequest, setWorkbenchRequest] = useState<WorkbenchRequest>();
 
   const revealWorkbench = useCallback(

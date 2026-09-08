@@ -151,11 +151,7 @@ export function WorkspacePage() {
     openWorkspaceFile,
     openWorkspaceResource,
     revealWorkbench,
-  } = useWorkbenchNavigation({
-    allSessions: allSessions.data ?? [],
-    workspaceId,
-    workspacePath: workspaces.data?.find((workspace) => workspace.id === workspaceId)?.path,
-  });
+  } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
   const workspaceResourceEntities = useMemo(
     () =>
       Object.fromEntries(
