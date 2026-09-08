@@ -43,7 +43,7 @@ describe('declared tool presentation stream', () => {
     expect(state.tools.call?.presentation?.blocks[0]?.text).toBe('🌻 warning\n');
     const completed = {
       ...tool,
-      state: 'completed',
+      state: 'succeeded',
       presentation: {
         summary: '',
         blocks: [{ id: 'terminal', type: 'terminal', text: '🌻 warning\nlast', exit_code: 0 }],
