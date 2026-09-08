@@ -404,10 +404,9 @@ function latestCursor(
   current: string | undefined,
   snapshot: string | undefined,
 ): string | undefined {
-  if (!current) return snapshot;
-  if (!snapshot) return current;
-  const currentNumber = Number(current);
-  const snapshotNumber = Number(snapshot);
-  if (!Number.isFinite(currentNumber) || !Number.isFinite(snapshotNumber)) return current;
-  return snapshotNumber > currentNumber ? snapshot : current;
+  // Once streaming owns entities, REST hydration deliberately cannot overwrite
+  // them. A newer snapshot cursor therefore does not prove its updates were
+  // applied. Resume after the last consumed frame, or completions between the
+  // two cursors disappear when a hidden tab returns or a snapshot refetches.
+  return current || snapshot;
 }

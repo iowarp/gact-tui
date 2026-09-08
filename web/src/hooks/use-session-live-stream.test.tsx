@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => {
     stream: vi.fn(),
   };
   const storeState = {
-    entities: { cursor: undefined, stream: 'offline' },
+    entities: { cursor: undefined as string | undefined, stream: 'offline' },
     error: undefined,
     applyFrames: vi.fn(),
     reconcileSnapshots: vi.fn(),
@@ -52,6 +52,7 @@ import { queryInvalidationKeysForEvent, useSessionLiveStream } from './use-sessi
 
 describe('useSessionLiveStream resume recovery', () => {
   beforeEach(() => {
+    mocks.storeState.entities.cursor = undefined;
     vi.spyOn(document, 'hasFocus').mockReturnValue(true);
     mocks.repository.stream.mockReset();
     mocks.queryClient.invalidateQueries.mockReset();
@@ -113,6 +114,29 @@ describe('useSessionLiveStream resume recovery', () => {
     ]);
   });
 
+  it('does not skip unseen tool completions when a newer REST snapshot arrives', async () => {
+    mocks.storeState.entities.cursor = '2578';
+    const { rerender, unmount } = renderHook(
+      ({ snapshot }) =>
+        useSessionLiveStream({
+          enabled: true,
+          initialCursor: snapshot,
+          sessionId: 'sess_1',
+          workspaceId: 'ws_1',
+        }),
+      { initialProps: { snapshot: '2570' } },
+    );
+    await waitFor(() => expect(mocks.repository.stream).toHaveBeenCalledTimes(1));
+    rerender({ snapshot: '2600' });
+    await waitFor(() => expect(mocks.repository.stream).toHaveBeenCalledTimes(2));
+    expect(mocks.repository.stream).toHaveBeenLastCalledWith(
+      { connection_id: 'active', workspace_id: 'ws_1', session_id: 'sess_1' },
+      '2578',
+      expect.any(AbortSignal),
+    );
+    unmount();
+  });
+
   it('does not refetch the complete transcript after an ordered completion event', () => {
     const keys = queryInvalidationKeysForEvent({
       endpoint: 'http://127.0.0.1:8790',
@@ -123,11 +147,7 @@ describe('useSessionLiveStream resume recovery', () => {
 
     expect(keys).not.toContainEqual(['transcript', 'http://127.0.0.1:8790', 'sess_1']);
     expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790', 'ws_1']);
-    expect(keys).toContainEqual([
-      'execution-provenance',
-      'http://127.0.0.1:8790',
-      'sess_1',
-    ]);
+    expect(keys).toContainEqual(['execution-provenance', 'http://127.0.0.1:8790', 'sess_1']);
   });
 
   it('refreshes execution provenance when a semantic ledger event arrives', () => {
@@ -138,11 +158,7 @@ describe('useSessionLiveStream resume recovery', () => {
         sessionId: 'sess_1',
         workspaceId: 'ws_1',
       }),
-    ).toContainEqual([
-      'execution-provenance',
-      'http://127.0.0.1:8790',
-      'sess_1',
-    ]);
+    ).toContainEqual(['execution-provenance', 'http://127.0.0.1:8790', 'sess_1']);
   });
 
   it('refreshes the reads each resource event actually changes', () => {
@@ -189,11 +205,7 @@ describe('useSessionLiveStream resume recovery', () => {
       workspaceId: 'ws_1',
     });
 
-    expect(keys).toContainEqual([
-      'session-artifacts',
-      'http://127.0.0.1:8790',
-      'sess_1',
-    ]);
+    expect(keys).toContainEqual(['session-artifacts', 'http://127.0.0.1:8790', 'sess_1']);
     expect(
       queryInvalidationKeysForEvent({
         endpoint: 'http://127.0.0.1:8790',
