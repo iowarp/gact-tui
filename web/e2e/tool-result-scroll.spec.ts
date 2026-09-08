@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 const endpoint = `http://127.0.0.1:${process.env['CLIO_FIXTURE_PORT'] ?? '18799'}`;
 const session = 'sess_flat_ndp';
 
-async function openFixture(page: Page, type?: string) {
+async function openFixture(page: Page, type?: string, content?: string) {
   await page.request.post(`${endpoint}/__test/reset`);
   await page.addInitScript((address) => {
     localStorage.setItem('clio.recent-connections', JSON.stringify([address]));
@@ -31,10 +31,12 @@ async function openFixture(page: Page, type?: string) {
               {
                 id: 'body',
                 type,
-                text: Array.from(
-                  { length: 100 },
-                  (_, i) => `line-${i} ${'wide-output-'.repeat(40)}`,
-                ).join('\n'),
+                text:
+                  content ??
+                  Array.from(
+                    { length: 100 },
+                    (_, i) => `line-${i} ${'wide-output-'.repeat(40)}`,
+                  ).join('\n'),
               },
             ],
           }
@@ -42,11 +44,59 @@ async function openFixture(page: Page, type?: string) {
     await route.fulfill({ response, json: data });
   });
   await page.goto(`/workspaces/ws_flat_ndp/sessions/${session}`);
-  const responses = page.getByRole('button', { name: '2 responses needed', exact: true });
+  const responses = page
+    .getByRole('region', { name: 'Conversation workspace', exact: true })
+    .getByRole('button', { name: '2 responses needed', exact: true });
   await expect(responses).toHaveCount(1);
   await responses.click();
   await page.getByRole('radio', { name: 'Full activity view', exact: true }).click();
 }
+
+test('declared Markdown is rendered and width-bounded inline and in the full viewer', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1003, height: 1037 });
+  await openFixture(
+    page,
+    'markdown',
+    '# Loaded procedure\n\nUse **readable evidence**.\n\n' +
+      Array.from(
+        { length: 45 },
+        (_, i) => `Paragraph ${i}: ${'A readable procedure with wrapping. '.repeat(5)}`,
+      ).join('\n\n'),
+  );
+  const activity = page.locator('[data-slot="tool-activity"]').first();
+  await expect(activity.getByRole('heading', { name: 'Loaded procedure' })).toBeVisible();
+  await expect(activity.locator('[data-streamdown="strong"]')).toHaveText('readable evidence');
+  await expect(activity.locator('[data-slot="code-block-scroll"]')).toHaveCount(0);
+  await activity.getByRole('button', { name: 'Show more', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Loaded procedure' })).toBeVisible();
+  const body = dialog.getByRole('region', { name: 'Scrollable result content' });
+  await expect.poll(() => body.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
+  await expect(dialog).toContainText('Paragraph 44:');
+});
+
+test('opening and resizing the canvas preserves an earlier reading position', async ({ page }) => {
+  await page.setViewportSize({ width: 1408, height: 1037 });
+  await openFixture(
+    page,
+    'markdown',
+    '# Earlier evidence\n\n' + 'Readable evidence.\n\n'.repeat(50),
+  );
+  const log = page.getByRole('log', { name: 'Conversation', exact: true });
+  await log.focus();
+  await log.press('Control+Home');
+  await expect.poll(() => log.evaluate((e) => e.scrollTop)).toBeLessThan(2);
+  const anchor = log.locator('[data-index]').first();
+  const topBefore = await anchor.evaluate((e) => e.getBoundingClientRect().top);
+  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
+  const resize = page.getByRole('separator', { name: 'Resize workspace canvas' });
+  await resize.press('ArrowLeft');
+  await expect
+    .poll(() => anchor.evaluate((e) => e.getBoundingClientRect().top))
+    .toBeCloseTo(topBefore, 0);
+});
 
 test('short technical results fit their content instead of padding to the viewport limit', async ({
   page,

@@ -42,6 +42,13 @@ export function BoundedResult({
     const element = body.current;
     if (!element) return;
     const measure = () => {
+      if (unit === 'items') {
+        // Clipped task rows must not remain keyboard stops or screen-reader
+        // content. inert preserves their geometry for the measured preview.
+        element.querySelectorAll<HTMLElement>(':scope > ul > li').forEach((item, index) => {
+          item.toggleAttribute('inert', !expanded && index >= lines);
+        });
+      }
       setBottoms(
         unit === 'items'
           ? Array.from(
@@ -57,7 +64,7 @@ export function BoundedResult({
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [children, running, unit]);
+  }, [children, running, unit, expanded, lines]);
   const hidden = bottoms.length > lines || hasMore;
   const separate =
     separateViewer || hasMore || bottoms.length > Math.max(unit === 'items' ? 10 : 30, lines * 2);

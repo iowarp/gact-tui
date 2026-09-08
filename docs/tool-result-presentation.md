@@ -47,3 +47,11 @@ results remain expandable; acknowledgement summaries do not replace content.
 Local validation covers geometry fixtures, paging, navigation, settings,
 streaming, and the TUI declared-block renderer. Actual wrapping, streaming before
 completion, and all required tool families still require live browser acceptance.
+
+Reading position is user-owned. A canvas resize or streamed update cannot enable
+follow-latest merely because layout temporarily puts the reader near the bottom.
+Queued scroll frames re-check intent before moving the viewport; a width change
+preserves the visible message and its offset. Keyboard, wheel, touch and native
+scrollbar intent yield immediately, without a timed re-pin window. Latest is the
+explicit way to resume following. Clipped checklist items are inert until expanded,
+so their status tooltips cannot become invisible keyboard stops.

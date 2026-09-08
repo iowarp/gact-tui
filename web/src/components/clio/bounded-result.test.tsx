@@ -43,6 +43,12 @@ describe('display-line result previews', () => {
     );
     expect(container.querySelector('[id]')).toHaveStyle({ maxHeight: '144px' });
     expect(screen.getByRole('button', { name: 'Show more' })).toBeVisible();
+    expect(container.querySelectorAll('li[inert]')).toHaveLength(1);
+    expect(container.querySelector('li:last-child')).toHaveAttribute('inert');
+    fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
+    expect(container.querySelectorAll('li[inert]')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Show less' }));
+    expect(container.querySelectorAll('li[inert]')).toHaveLength(1);
   });
   it('does not pad short results to the maximum or offer unnecessary expansion', () => {
     geometry(2);
