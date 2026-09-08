@@ -2728,6 +2728,7 @@ authoritative paged presentation; it does not append the final output a second t
 Check blocks carry task `text` and `state` (`pending`, `in_progress`, `completed`).
 Clients show distinct empty, dash, and checked indicators with accessible state labels;
 color is supplemental. Consecutive checks form one bounded checklist, not acknowledgements.
+Checklist previews show three whole items, so wrapping never cuts an item mid-sentence.
 Media blocks carry `media_type` and base64 `text`, subject to the same bounded preview
 and content cursor. Clients must fetch complete media before decoding, must not print
 binary text, and may only preview supported safe image/audio MIME types. Payloads absent

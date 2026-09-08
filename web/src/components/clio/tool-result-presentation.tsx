@@ -163,7 +163,7 @@ export function ToolResultPresentation({ tool }: { tool: ToolInvocation }) {
           for (let i = index; i < blocks.length && blocks[i].type === 'check'; i++)
             checks.push(blocks[i]);
           return (
-            <BoundedResult key={block.id} lines={Math.min(3, lines)} title="Task list">
+            <BoundedResult key={block.id} lines={3} unit="items" title="Task list">
               <ul className="list-none">
                 {checks.map((check) => (
                   <li key={check.id}>

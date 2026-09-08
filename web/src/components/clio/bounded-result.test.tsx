@@ -22,6 +22,28 @@ function geometry(lines: number) {
 }
 
 describe('display-line result previews', () => {
+  it('keeps three whole checklist items rather than slicing a wrapped item', () => {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element,
+    ) {
+      return {
+        top: 0,
+        bottom: this.tagName === 'LI' ? Number(this.getAttribute('data-bottom')) : 0,
+      } as DOMRect;
+    });
+    const { container } = render(
+      <BoundedResult lines={3} unit="items">
+        <ul>
+          <li data-bottom="48">Wrapped first task</li>
+          <li data-bottom="96">Wrapped second task</li>
+          <li data-bottom="144">Wrapped third task</li>
+          <li data-bottom="192">Fourth task</li>
+        </ul>
+      </BoundedResult>,
+    );
+    expect(container.querySelector('[id]')).toHaveStyle({ maxHeight: '144px' });
+    expect(screen.getByRole('button', { name: 'Show more' })).toBeVisible();
+  });
   it('does not pad short results to the maximum or offer unnecessary expansion', () => {
     geometry(2);
     const { container } = render(

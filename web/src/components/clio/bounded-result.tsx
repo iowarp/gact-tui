@@ -21,6 +21,7 @@ export function BoundedResult({
   title = 'Complete result',
   fullContent,
   separateViewer = false,
+  unit = 'lines',
 }: {
   children: ReactNode;
   lines: number;
@@ -30,6 +31,7 @@ export function BoundedResult({
   title?: string;
   fullContent?: ReactNode;
   separateViewer?: boolean;
+  unit?: 'lines' | 'items';
 }) {
   const id = useId();
   const body = useRef<HTMLDivElement>(null);
@@ -46,7 +48,14 @@ export function BoundedResult({
     const element = body.current;
     if (!element) return;
     const measure = () => {
-      setBottoms(displayLineBottoms(element));
+      setBottoms(
+        unit === 'items'
+          ? Array.from(
+              element.querySelectorAll(':scope > ul > li'),
+              (item) => item.getBoundingClientRect().bottom - element.getBoundingClientRect().top,
+            )
+          : displayLineBottoms(element),
+      );
       if (running && following.current && viewport.current)
         viewport.current.scrollTop = viewport.current.scrollHeight;
     };
@@ -54,9 +63,10 @@ export function BoundedResult({
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [children, running]);
+  }, [children, running, unit]);
   const hidden = bottoms.length > lines || hasMore;
-  const separate = separateViewer || hasMore || bottoms.length > Math.max(30, lines * 2);
+  const separate =
+    separateViewer || hasMore || bottoms.length > Math.max(unit === 'items' ? 10 : 30, lines * 2);
   const height = running ? lines * 24 : expanded ? undefined : bottoms[lines - 1];
   const expand = async () => {
     setError('');
