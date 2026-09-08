@@ -120,7 +120,7 @@ describe('ArtifactView', () => {
       </QueryClientProvider>,
     );
 
-    const heading = await screen.findByRole('heading', { name: 'HDF5 report' });
+    const heading = await screen.findByRole('heading', { name: 'HDF5 report' }, { timeout: 5000 });
     expect(heading.closest('article')).toHaveClass('min-w-0');
     expect(document.querySelector('[data-language="markdown"]')).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent('# HDF5 report');

@@ -358,6 +358,14 @@ html[data-clio-motion='reduced'] *::after {
   font-size: 14px;
   line-height: 24px;
 }
+[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6) {
+  font-size: 16px;
+  line-height: 24px;
+  margin-block: 8px 4px;
+}
+[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6):first-child {
+  margin-top: 0;
+}
 .tool-presentation-body pre {
   width: 100%;
   min-width: 0;

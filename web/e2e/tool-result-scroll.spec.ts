@@ -210,6 +210,14 @@ test('declared Markdown is rendered and width-bounded inline and in the full vie
   );
   const activity = page.locator('[data-slot="tool-activity"]').first();
   await expect(activity.getByRole('heading', { name: 'Loaded procedure' })).toBeVisible();
+  await expect(activity.getByRole('heading', { name: 'Loaded procedure' })).toHaveCSS(
+    'font-size',
+    '16px',
+  );
+  await expect(activity.getByRole('heading', { name: 'Loaded procedure' })).toHaveCSS(
+    'line-height',
+    '24px',
+  );
   await expect(activity.locator('[data-streamdown="strong"]')).toHaveText('readable evidence');
   await expect(activity.locator('[data-slot="code-block-scroll"]')).toHaveCount(0);
   await activity.getByRole('button', { name: 'Show more', exact: true }).click();

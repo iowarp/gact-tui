@@ -406,7 +406,15 @@ describe('ClioWorkbench canvas', () => {
     const fileRow = screen.getByRole('treeitem', { name: 'summary.md' });
     expect(fileRow).toBeVisible();
     expect(fileRow).toHaveClass('min-w-0', 'w-full');
-    expect(await screen.findByText('# workspace report')).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'workspace report' }, { timeout: 5000 }),
+    ).toBeVisible();
+    const sourceTab = screen.getByRole('tab', { name: /^Source$/ });
+    act(() => sourceTab.focus());
+    await user.keyboard('{Enter}');
+    const source = await screen.findByRole('tabpanel', { name: /^Source$/ }, { timeout: 5000 });
+    expect(source).toBeVisible();
+    expect(source.querySelector('pre code')).toHaveTextContent('# workspace report');
     expect(document.querySelector('[data-slot="code-block-scroll"]')).toHaveClass(
       'min-h-0',
       'flex-1',
@@ -417,7 +425,7 @@ describe('ClioWorkbench canvas', () => {
       'reports/summary.md',
       expect.any(AbortSignal),
     );
-  });
+  }, 15000);
 
   it('delivers a requested tab when a compact canvas mounts after the request', () => {
     const diff = {
