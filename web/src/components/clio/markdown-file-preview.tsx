@@ -18,7 +18,10 @@ export function MarkdownFilePreview({ name, content }: { name: string; content: 
         </TabsList>
       </div>
       <TabsContent value="preview" className="min-h-0 min-w-0 flex-1">
-        <ScrollArea className="h-full min-w-0 rounded-md border bg-muted/40">
+        <ScrollArea
+          className="h-full min-w-0 rounded-md border bg-muted/40"
+          viewportProps={{ className: '[&>div]:!block [&>div]:min-w-0 [&>div]:w-full' }}
+        >
           <article className="min-w-0 p-3">
             {frontmatter ? (
               <details className="mb-2 text-sm">

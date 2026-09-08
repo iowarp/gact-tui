@@ -243,6 +243,57 @@ test('declared Markdown is rendered and width-bounded inline and in the full vie
   await expect(dialog).toContainText('Paragraph 44:');
 });
 
+test('file explorer reflows converted Markdown and keeps exact source accessible', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 1037 });
+  const content =
+    '# Converted guide\n\n' +
+    '| Section | Evidence |\n|---|---|\n| Long table | ' +
+    '.'.repeat(400) +
+    ' |\n\n' +
+    'https://example.org/' +
+    'long-reference-'.repeat(80);
+  await page.route('**/v1/workspaces/ws_flat_ndp/files', (route) =>
+    route.fulfill({
+      json: {
+        entries: [{ path: 'converted.md', type: 'file', size: content.length }],
+      },
+    }),
+  );
+  await page.route('**/v1/workspaces/ws_flat_ndp/files/read?*', (route) =>
+    route.fulfill({
+      contentType: 'text/plain',
+      body: content,
+    }),
+  );
+  await openFixture(page, 'short');
+  await page.getByRole('button', { name: 'Open workspace canvas', exact: true }).click();
+  await page.getByRole('button', { name: 'Open a canvas tab', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'File explorer', exact: true }).click();
+  await page.getByRole('treeitem', { name: 'converted.md', exact: true }).click();
+  const preview = page.getByRole('region', { name: 'Workspace file preview', exact: true });
+  await expect(preview.getByRole('heading', { name: 'Converted guide' })).toBeVisible();
+  const viewport = preview.locator('[data-slot="scroll-area-viewport"]');
+  await expect.poll(() => viewport.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
+  await expect
+    .poll(() => preview.locator('article').evaluate((e) => e.getBoundingClientRect().width))
+    .toBeLessThan(500);
+  await preview.getByRole('tab', { name: 'Source', exact: true }).click();
+  await expect(preview.getByRole('tabpanel', { name: 'Source', exact: true })).toContainText(
+    '# Converted guide',
+  );
+  await expect
+    .poll(() =>
+      preview
+        .getByRole('region', { name: 'Scrollable code' })
+        .evaluate((e) => e.scrollWidth - e.clientWidth),
+    )
+    .toBeLessThan(2);
+  await preview.getByRole('tab', { name: 'Preview', exact: true }).click();
+  await expect(preview.getByRole('heading', { name: 'Converted guide' })).toBeVisible();
+});
+
 test('wide Markdown code and URLs cannot widen the whole result document', async ({ page }) => {
   await page.setViewportSize({ width: 1003, height: 1037 });
   const longUrl = `https://example.org/${'reference-'.repeat(100)}`;
