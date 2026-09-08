@@ -2740,6 +2740,10 @@ only useful surrounding context. Show more reveals an entire short result in one
 then offers Show less. Large or remotely paged results open in a separate accessible
 viewer; fetching pages is an implementation detail, not a repeated user action.
 Technical details open from a right-aligned activity-row icon outside the transcript.
+`message.block.upserted` may include the projected `subagent` alongside a handoff block.
+It MUST match the block's subagent ID and message session. Clients apply both atomically,
+including pre-spawn failures that have no child task. Live and snapshot projection share
+the recorded failure reason; neither synthesizes a child session or changes the result.
 
 A2UI surfaces use protocol `0.9.1` (the message wire spelling is `v0.9.1`) and
 catalog `https://iowarp.ai/a2ui/catalogs/clio-workspace/v1`. Each persisted A2UI

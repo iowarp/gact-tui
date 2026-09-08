@@ -169,7 +169,11 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       return { ...base, revisions, sessions: { ...base.sessions, [session.id]: session } };
     }
     case 'message.block.upserted': {
-      const payload = envelope.payload as { message_id?: unknown; block?: unknown };
+      const payload = envelope.payload as {
+        message_id?: unknown;
+        block?: unknown;
+        subagent?: unknown;
+      };
       if (typeof payload.message_id !== 'string') throw new Error('Invalid message block owner');
       const message = base.messages[payload.message_id];
       if (!message) {
@@ -181,11 +185,23 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         );
       }
       const block = messageBlockSchema.parse(payload.block);
+      const subagent =
+        payload.subagent === undefined ? undefined : subagentSchema.parse(payload.subagent);
+      if (
+        subagent &&
+        (block.type !== 'subagent' ||
+          block.subagent_id !== subagent.id ||
+          subagent.session_id !== message.session_id)
+      )
+        throw new Error('Invalid handoff entity owner');
       return {
         ...base,
         revisions,
         responded_turns: markRespondedTurn(base, message, block),
         messages: { ...base.messages, [message.id]: upsertBlock(message, block) },
+        subagents: subagent
+          ? { ...base.subagents, [subagent.id]: { ...base.subagents[subagent.id], ...subagent } }
+          : base.subagents,
       };
     }
     case 'message.block.delta': {

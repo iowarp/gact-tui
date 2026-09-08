@@ -61,7 +61,9 @@ describe('ClioToolInvocation', () => {
     const openFile = vi.fn();
     const path = 'D:/workspace/evidence.txt';
     render(
-      <PresentationNavigation.Provider value={{ artifacts: {}, onOpenFile: openFile }}>
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenFile: openFile }}
+      >
         <ClioToolInvocation
           tool={{
             id: 'call',

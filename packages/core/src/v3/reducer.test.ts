@@ -25,6 +25,41 @@ function frame(
 }
 
 describe('GACT 0.3 reducer', () => {
+  it('applies a live handoff and its scoped result entity atomically', () => {
+    let state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'message.upserted', {
+        id: 'm',
+        session_id: 'sess_1',
+        role: 'assistant',
+        created_at: '2026-09-08T00:00:00Z',
+        blocks: [],
+      }),
+    );
+    const payload = {
+      message_id: 'm',
+      block: { id: 'p', type: 'subagent', subagent_id: 'child' },
+      subagent: {
+        id: 'child',
+        session_id: 'sess_1',
+        title: 'Researcher',
+        state: 'failed',
+        summary: 'blueprint_not_found',
+      },
+    };
+    state = reduceTransportFrame(state, frame('2', 'message.block.upserted', payload));
+    expect(state.subagents.child?.summary).toBe('blueprint_not_found');
+    expect(state.messages.m?.blocks).toHaveLength(1);
+    expect(() =>
+      reduceTransportFrame(
+        state,
+        frame('3', 'message.block.upserted', {
+          ...payload,
+          subagent: { ...payload.subagent, session_id: 'wrong-session' },
+        }),
+      ),
+    ).toThrow('Invalid handoff entity owner');
+  });
   it('coalesces ordered blocks and deltas without inventing text', () => {
     const created = frame('1', 'message.upserted', {
       id: 'msg_1',
