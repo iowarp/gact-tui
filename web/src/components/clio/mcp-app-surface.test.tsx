@@ -259,7 +259,7 @@ describe('McpAppSurface', () => {
     );
 
     const second = await screen.findByTitle<HTMLIFrameElement>(
-      'Simulation viewer interactive view',
+      'simulation_viewer interactive view',
     );
     expect(second).toHaveAttribute('data-mcp-app-iframe', 'app_5');
     expect(document.querySelector('[data-mcp-app-iframe="app_4"]')).not.toBeInTheDocument();
