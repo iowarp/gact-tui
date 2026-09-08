@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import type { Artifact } from '@clio/core/v3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -34,6 +34,7 @@ import { WorkspaceLiveConversation } from './workspace-live-projections';
 
 describe('WorkspaceLiveConversation', () => {
   beforeEach(() => {
+    cleanup();
     mocks.entities.artifacts = {};
     mocks.entities.messages = {};
   });
