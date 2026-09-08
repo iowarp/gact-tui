@@ -15,9 +15,17 @@ workbench navigation. Unsupported URI schemes are never executable links.
 
 `BoundedResult` measures actual rendered text rectangles, including soft wraps.
 The local Appearance setting defaults to five display lines (range 1–50); diffs
-receive twice that budget. Show more reveals another page and requests additional
-content only when the next page needs it. Show less restores the initial budget.
-Controls preserve focus, expose expanded state, and announce revealed lines.
+receive at most twice that budget, without padding short diffs. Show more reveals
+the complete short result in one action; Show less restores its preview. Large or
+paged results open a separate dialog and retrieve the remaining content cursors
+there, keeping the transcript bounded. Closing the dialog cancels its outstanding
+read. Controls preserve focus, expose expanded state, and announce expansion.
+
+File results show a single clickable basename that opens the workspace canvas;
+full paths remain technical evidence. The row's right-aligned information button
+opens a separate Technical details dialog, never an inline JSON wall. Todos use
+empty pending boxes, amber in-progress dashes, and green completed checks. Their
+preview shows three whole items rather than cutting wrapped task text in half.
 
 Running terminals retain the command and use a scrolling line-budget viewport.
 They follow output until the reader scrolls away. Completed output is replaced

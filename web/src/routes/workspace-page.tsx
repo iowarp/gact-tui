@@ -151,7 +151,11 @@ export function WorkspacePage() {
     openWorkspaceFile,
     openWorkspaceResource,
     revealWorkbench,
-  } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
+  } = useWorkbenchNavigation({
+    allSessions: allSessions.data ?? [],
+    workspaceId,
+    workspacePath: workspaces.data?.find((workspace) => workspace.id === workspaceId)?.path,
+  });
   const workspaceResourceEntities = useMemo(
     () =>
       Object.fromEntries(
@@ -244,7 +248,8 @@ export function WorkspacePage() {
     [respondInteraction],
   );
   const responseTrayInteractions = workspaceRouteState.responseTrayInteractions(
-    interactions, new Set(tools.map((tool) => tool.id)),
+    interactions,
+    new Set(tools.map((tool) => tool.id)),
   );
   const refreshNavigation = useCallback(
     async (targetWorkspaceId = workspaceId) => {

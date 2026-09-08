@@ -4,10 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 import type { ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { workspaceFilePath } from '@/lib/workspace-file-path';
 
 interface UseWorkbenchNavigationInput {
   allSessions: readonly Session[];
   workspaceId: string;
+  workspacePath?: string;
 }
 
 interface WorkbenchRequest {
@@ -17,7 +19,11 @@ interface WorkbenchRequest {
 }
 
 /** Owns central-versus-canvas navigation for workspace resources and child sessions. */
-export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenchNavigationInput) {
+export function useWorkbenchNavigation({
+  allSessions,
+  workspaceId,
+  workspacePath,
+}: UseWorkbenchNavigationInput) {
   const navigate = useNavigate();
   const { settings } = useConnectionSettings();
   const [workbenchRequest, setWorkbenchRequest] = useState<WorkbenchRequest>();
@@ -53,8 +59,9 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     [revealWorkbench],
   );
   const openWorkspaceFile = useCallback(
-    (path: string) => revealWorkbench({ kind: 'workspace-file', path }),
-    [revealWorkbench],
+    (path: string) =>
+      revealWorkbench({ kind: 'workspace-file', path: workspaceFilePath(path, workspacePath) }),
+    [revealWorkbench, workspacePath],
   );
   const openWorkspaceResource = useCallback(
     (resource: WorkspaceResource, relatedResources?: readonly WorkspaceResource[]) =>
