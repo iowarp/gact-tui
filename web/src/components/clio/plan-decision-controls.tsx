@@ -73,7 +73,10 @@ export function PlanDecisionControls({
           className="gap-3"
         >
           <FieldGroup className="gap-1.5">
-            <Field orientation="horizontal" className="flex-wrap">
+            <Field
+              orientation="horizontal"
+              className="flex-wrap [&>[data-slot=field-label]]:flex-none"
+            >
               <RadioGroupItem
                 id={`${id}-execute`}
                 value="execute"

@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PlanExitResponse } from './plan-exit-interaction';
+import { PlanDecisionControls } from './plan-decision-controls';
 
 afterEach(cleanup);
 
@@ -36,9 +37,7 @@ describe('PlanExitResponse', () => {
       },
     });
     const onResponse = vi.fn(async () => undefined);
-    render(
-      <PlanExitResponse interaction={interaction} onResponse={onResponse} showOwner={false} />,
-    );
+    render(<PlanDecisionControls interaction={interaction} onResponse={onResponse} />);
     expect(screen.getAllByRole('radio')).toHaveLength(2);
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: 'Reject plan with comments' }));
