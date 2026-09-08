@@ -11,6 +11,7 @@ import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 import { useRepository } from '@/hooks/use-repository';
 import { PresentationLink } from './presentation-link';
 import { Image } from '@/components/ai-elements/image';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 function BlockBody({
   block,
@@ -86,14 +87,25 @@ function BlockBody({
             : 'Pending';
       return (
         <div className="flex items-start gap-2 py-1">
-          <Icon
-            aria-hidden="true"
-            className={`mt-1 size-4 shrink-0 ${block.state === 'completed' ? 'text-success' : block.state === 'in_progress' ? 'text-warning' : 'text-muted-foreground'}`}
-          />
-          <span>
-            <span className="sr-only">{status}: </span>
-            {text}
-          </span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  role="img"
+                  aria-label={status}
+                  tabIndex={0}
+                  className="mt-1 inline-flex size-4 shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                >
+                  <Icon
+                    aria-hidden="true"
+                    className={`size-4 ${block.state === 'completed' ? 'text-success' : block.state === 'in_progress' ? 'text-warning' : 'text-muted-foreground'}`}
+                  />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{status}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <span>{text}</span>
         </div>
       );
     }

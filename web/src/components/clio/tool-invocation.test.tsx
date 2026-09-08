@@ -98,9 +98,9 @@ describe('ClioToolInvocation', () => {
       />,
     );
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
-    expect(screen.getByText('Pending:')).toBeInTheDocument();
-    expect(screen.getByText('In progress:')).toBeInTheDocument();
-    expect(screen.getByText('Completed:')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Pending' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'In progress' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Completed' })).toBeInTheDocument();
   });
   it('shows one filename and opens its declared full path in the workbench', async () => {
     const openFile = vi.fn();
