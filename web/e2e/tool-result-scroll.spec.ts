@@ -78,11 +78,15 @@ for (const size of [
     const dialog = page.getByRole('dialog');
     const body = dialog.getByRole('region', { name: 'Scrollable result content' });
     await expect(body).toBeVisible();
+    // Lazy syntax highlighting replaces its bounded fallback. Exercise keyboard
+    // scrolling against the loaded panes, not during that geometry transition.
+    await expect(dialog.locator('[data-slot="code-block-scroll"]')).toHaveCount(2);
     const input = dialog.getByRole('heading', { name: 'Arguments' }).locator('..');
     await expect.poll(() => input.evaluate((e) => e.clientHeight >= e.scrollHeight)).toBe(true);
     await expect.poll(() => body.evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
     await body.focus();
-    await page.keyboard.press('Control+End');
+    await expect(body).toBeFocused();
+    await body.press('Control+End');
     await expect.poll(() => body.evaluate((e) => e.scrollTop)).toBeGreaterThan(0);
     await expect(dialog.getByRole('heading', { name: 'Result' })).toBeAttached();
     await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeInViewport();
