@@ -131,7 +131,7 @@ describe('conversation message projections', () => {
     );
 
     expect(screen.queryByText('You', { exact: true })).not.toBeInTheDocument();
-    expect(screen.getByText('You responded through V2ex ui echo')).toBeInTheDocument();
+    expect(screen.getByText('You responded through v2ex_ui_echo')).toBeInTheDocument();
     expect(screen.getByText('Continue with this result')).toBeInTheDocument();
     expect(screen.getByText('Sent to the agent')).toBeInTheDocument();
     expect(

@@ -157,7 +157,7 @@ describe('InfrastructurePage', () => {
     expect(within(shared!).getByText('Commands')).toBeVisible();
 
     const session = screen.getByText('EarthScope Skills').closest('section');
-    expect(within(session!).getByText('Ndp')).toBeVisible();
+    expect(within(session!).getByText('ndp')).toBeVisible();
     expect(within(session!).queryByText('Files')).not.toBeInTheDocument();
   });
 

@@ -581,6 +581,7 @@ describe('ClioConversation recovery actions', () => {
             state: 'succeeded',
             input: { path: 'D:/campaign/evidence.json' },
             output: 'large payload omitted from the collapsed summary',
+            presentation: { summary: 'Read evidence.json', blocks: [] },
           },
         }}
       />,

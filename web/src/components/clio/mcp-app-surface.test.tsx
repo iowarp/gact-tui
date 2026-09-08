@@ -60,7 +60,9 @@ describe('McpAppSurface', () => {
   it('handshakes through the distinct-origin sandbox and keeps private data out of markup', async () => {
     const client = repository();
     const { container } = render(<McpAppSurface {...props} repository={client} />);
-    const iframe = await screen.findByTitle<HTMLIFrameElement>('Open viewer interactive view');
+    const iframe = await screen.findByTitle<HTMLIFrameElement>(
+      'vigil_open_viewer interactive view',
+    );
     expect(iframe).toHaveAttribute('referrerpolicy', 'origin');
     const target = iframe.contentWindow;
     expect(target).not.toBeNull();
@@ -143,7 +145,9 @@ describe('McpAppSurface', () => {
   it('bridges requests to the exact app and closes it once on teardown', async () => {
     const client = repository();
     const view = render(<McpAppSurface {...props} appInstanceId="app_2" repository={client} />);
-    const iframe = await screen.findByTitle<HTMLIFrameElement>('Open viewer interactive view');
+    const iframe = await screen.findByTitle<HTMLIFrameElement>(
+      'vigil_open_viewer interactive view',
+    );
     const target = iframe.contentWindow;
 
     window.dispatchEvent(
@@ -202,7 +206,7 @@ describe('McpAppSurface', () => {
     render(<McpAppSurface {...props} appInstanceId="app_3" repository={client} />);
 
     expect(await screen.findByText('Interactive tool unavailable')).toBeVisible();
-    expect(screen.queryByTitle('Open viewer interactive view')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('vigil_open_viewer interactive view')).not.toBeInTheDocument();
   });
 
   it('recovers from one transient descriptor connection failure', async () => {
@@ -217,7 +221,7 @@ describe('McpAppSurface', () => {
 
     render(<McpAppSurface {...props} appInstanceId="app_retry" repository={client} />);
 
-    expect(await screen.findByTitle('Open viewer interactive view')).toBeVisible();
+    expect(await screen.findByTitle('vigil_open_viewer interactive view')).toBeVisible();
     expect(client.mcpAppDescriptor).toHaveBeenCalledTimes(2);
     expect(screen.queryByText('Interactive tool unavailable')).not.toBeInTheDocument();
   });
@@ -231,7 +235,7 @@ describe('McpAppSurface', () => {
     const view = render(<McpAppSurface {...props} appInstanceId="app_ended" repository={client} />);
 
     expect(await screen.findByText('View ended')).toBeVisible();
-    expect(screen.getByText('Open viewer')).toBeVisible();
+    expect(screen.getByText('vigil_open_viewer')).toBeVisible();
     expect(screen.queryByText('Interactive tool unavailable')).not.toBeInTheDocument();
     view.unmount();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -241,7 +245,7 @@ describe('McpAppSurface', () => {
   it('removes the replaced iframe and closes only the replaced app', async () => {
     const client = repository();
     const view = render(<McpAppSurface {...props} appInstanceId="app_4" repository={client} />);
-    const first = await screen.findByTitle<HTMLIFrameElement>('Open viewer interactive view');
+    const first = await screen.findByTitle<HTMLIFrameElement>('vigil_open_viewer interactive view');
     expect(first).toHaveAttribute('data-mcp-app-iframe', 'app_4');
 
     view.rerender(
