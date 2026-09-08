@@ -23,7 +23,10 @@ vi.mock('@/store/live-store', () => ({
 
 vi.mock('./conversation', () => ({
   ClioConversation: ({ artifacts }: { artifacts: Record<string, Artifact> }) => (
-    <output data-testid="artifact-size">{artifacts['artifact_plot']?.size}</output>
+    <>
+      <output data-testid="artifact-size">{artifacts['artifact_plot']?.size}</output>
+      <output data-testid="artifact-ids">{Object.keys(artifacts).join(',')}</output>
+    </>
   ),
 }));
 
@@ -50,5 +53,27 @@ describe('WorkspaceLiveConversation', () => {
     render(<WorkspaceLiveConversation artifacts={[artifact]} sessionId="sess_1" />);
 
     expect(screen.getByTestId('artifact-size')).toHaveTextContent('128');
+  });
+
+  it('keeps exact historical result versions without importing other sessions', () => {
+    const previous: Artifact = {
+      id: 'version_1',
+      session_id: 'sess_1',
+      name: 'evidence.txt',
+      media_type: 'text/plain',
+      uri: 'artifact://ws/evidence.txt@v1',
+    };
+    mocks.entities.artifacts = {
+      version_1: previous,
+      unrelated: { ...previous, id: 'unrelated', session_id: 'sess_2' },
+    };
+    render(
+      <WorkspaceLiveConversation
+        artifacts={[{ ...previous, id: 'version_2' }]}
+        sessionId="sess_1"
+      />,
+    );
+    expect(screen.getByTestId('artifact-ids')).toHaveTextContent('version_1,version_2');
+    expect(screen.getByTestId('artifact-ids')).not.toHaveTextContent('unrelated');
   });
 });

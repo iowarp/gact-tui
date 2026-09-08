@@ -32,6 +32,7 @@ export function WorkspaceLiveConversation({
   ...props
 }: LiveConversationProps) {
   const messageEntities = useLiveStore((state) => state.entities.messages);
+  const artifactEntities = useLiveStore((state) => state.entities.artifacts);
   const subagents = useLiveStore((state) => state.entities.subagents);
   const surfaces = useLiveStore((state) => state.entities.surfaces);
   const tasks = useLiveStore((state) => state.entities.tasks);
@@ -44,8 +45,16 @@ export function WorkspaceLiveConversation({
     [messageEntities, sessionId],
   );
   const artifacts = useMemo(
-    () => Object.fromEntries(artifactList.map((artifact) => [artifact.id, artifact])),
-    [artifactList],
+    () =>
+      Object.fromEntries(
+        [
+          ...Object.values(artifactEntities).filter(
+            (artifact) => artifact.session_id === sessionId,
+          ),
+          ...artifactList,
+        ].map((artifact) => [artifact.id, artifact]),
+      ),
+    [artifactEntities, artifactList, sessionId],
   );
   const entities = useMemo(
     () => ({ artifacts, subagents, surfaces, tasks, tools }),
