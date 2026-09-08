@@ -1,27 +1,40 @@
-import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 import { displayLineBottoms } from './display-line-geometry';
 
-/** Reveal display-line pages without mounting the entire remote result. */
+/** Keep a bounded preview; reveal short results once, and open large results separately. */
 export function BoundedResult({
   children,
   lines,
   hasMore = false,
   loadMore,
   running = false,
+  title = 'Complete result',
 }: {
   children: ReactNode;
   lines: number;
   hasMore?: boolean;
-  loadMore?: () => Promise<void>;
+  loadMore?: (signal: AbortSignal) => Promise<void>;
   running?: boolean;
+  title?: string;
 }) {
   const id = useId();
   const body = useRef<HTMLDivElement>(null);
   const viewport = useRef<HTMLDivElement>(null);
   const following = useRef(true);
-  const [pages, setPages] = useState(1);
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
+  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
   const [bottoms, setBottoms] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -38,27 +51,27 @@ export function BoundedResult({
     observer.observe(element);
     return () => observer.disconnect();
   }, [children, running]);
-  const budget = lines * pages;
-  const hidden = bottoms.length > budget || hasMore;
-  const height = running ? lines * 24 : bottoms[budget - 1];
+  const hidden = bottoms.length > lines || hasMore;
+  const separate = hasMore || bottoms.length > Math.max(30, lines * 2);
+  const height = running ? lines * 24 : expanded ? undefined : bottoms[lines - 1];
   const expand = async () => {
-    if (!hidden) {
-      setPages(1);
-      return;
-    }
     setError('');
-    if (hasMore && bottoms.length <= budget + lines && loadMore) {
+    if (hasMore && loadMore) {
+      if (request.current && !request.current.signal.aborted) return;
+      const controller = new AbortController();
+      request.current = controller;
       setLoading(true);
       try {
-        await loadMore();
+        await loadMore(controller.signal);
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : 'Unable to load result');
+        if (!controller.signal.aborted)
+          setError(cause instanceof Error ? cause.message : 'Unable to load result');
         return;
       } finally {
         setLoading(false);
+        request.current = null;
       }
     }
-    setPages((value) => value + 1);
   };
   return (
     <div className="min-w-0">
@@ -76,20 +89,50 @@ export function BoundedResult({
           {children}
         </div>
       </div>
-      {!running && (hidden || pages > 1) ? (
+      {!running && hidden && !separate ? (
         <Button
           variant="ghost"
           size="sm"
           aria-controls={id}
-          aria-expanded={pages > 1}
+          aria-expanded={expanded}
           disabled={loading}
-          onClick={() => void expand()}
+          onClick={() => setExpanded((value) => !value)}
         >
-          {loading ? 'Loading…' : hidden ? 'Show more' : 'Show less'}
+          {expanded ? 'Show less' : 'Show more'}
         </Button>
       ) : null}
+      {!running && (separate || open) ? (
+        <Dialog
+          open={open}
+          onOpenChange={(value) => {
+            setOpen(value);
+            if (!value) request.current?.abort();
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => void expand()}>
+              Show more
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[85dvh] sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>{title}</DialogTitle>
+              <DialogDescription>
+                Full output, kept separate from the conversation preview.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[65dvh] min-w-0 overflow-auto text-sm leading-6">{children}</div>
+            {loading ? <p role="status">Loading complete result…</p> : null}
+            {error ? (
+              <p role="alert" className="text-destructive">
+                {error}
+              </p>
+            ) : null}
+          </DialogContent>
+        </Dialog>
+      ) : null}
       <span className="sr-only" role="status">
-        {pages > 1 ? `${Math.min(bottoms.length, budget)} display lines revealed` : ''}
+        {expanded ? 'Complete result revealed' : ''}
       </span>
       {error ? (
         <p role="alert" className="text-sm text-destructive">

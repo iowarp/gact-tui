@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BoundedResult } from './bounded-result';
 import { displayLineBottoms } from './display-line-geometry';
+import userEvent from '@testing-library/user-event';
 
 afterEach(() => {
   cleanup();
@@ -21,13 +22,39 @@ function geometry(lines: number) {
 }
 
 describe('display-line result previews', () => {
+  it('does not pad short results to the maximum or offer unnecessary expansion', () => {
+    geometry(2);
+    const { container } = render(
+      <BoundedResult lines={10}>
+        <p>Short diff</p>
+      </BoundedResult>,
+    );
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(container.querySelector('[id]')).not.toHaveStyle({ maxHeight: '240px' });
+  });
+  it('opens long local output with the keyboard and restores focus on close', async () => {
+    geometry(40);
+    const user = userEvent.setup();
+    render(
+      <BoundedResult lines={5}>
+        <p>Long result</p>
+      </BoundedResult>,
+    );
+    const button = screen.getByRole('button', { name: 'Show more' });
+    button.focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('dialog')).toBeVisible();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(button).toHaveFocus();
+  });
   it('counts soft-wrapped layout boxes rather than newline characters', () => {
     geometry(12);
     const node = document.createElement('div');
     node.textContent = 'A long single paragraph with no newline characters';
     expect(displayLineBottoms(node)).toHaveLength(12);
   });
-  it('reveals another page, preserves focus, then offers Show less', async () => {
+  it('reveals the complete short result once, preserves focus, then offers Show less', async () => {
     geometry(12);
     render(
       <BoundedResult lines={5}>
@@ -39,13 +66,12 @@ describe('display-line result previews', () => {
     fireEvent.click(button);
     await waitFor(() => expect(button).toHaveAttribute('aria-expanded', 'true'));
     expect(button).toHaveFocus();
-    expect(screen.getByRole('status')).toHaveTextContent('10 display lines');
-    fireEvent.click(button);
+    expect(screen.getByRole('status')).toHaveTextContent('Complete result revealed');
     expect(screen.getByRole('button', { name: 'Show less' })).toBe(button);
     fireEvent.click(button);
     expect(button).toHaveAttribute('aria-expanded', 'false');
   });
-  it('fetches remote content only when the next display page needs it', async () => {
+  it('opens remote content separately and loads it only on explicit expansion', async () => {
     geometry(15);
     const load = vi.fn(async () => {});
     render(
@@ -53,9 +79,9 @@ describe('display-line result previews', () => {
         <p>Loaded prefix</p>
       </BoundedResult>,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
     expect(load).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Show more' }));
     await waitFor(() => expect(load).toHaveBeenCalledOnce());
+    expect(screen.getByRole('dialog')).toBeVisible();
   });
 });

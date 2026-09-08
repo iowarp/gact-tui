@@ -151,6 +151,7 @@ type ToolPresentationBlock struct {
 	Text     string `json:"text,omitempty"`
 	Label    string `json:"label,omitempty"`
 	Target   string `json:"target,omitempty"`
+	State    string `json:"state,omitempty"`
 	URI      string `json:"uri,omitempty"`
 	Command  string `json:"command,omitempty"`
 	ExitCode *int   `json:"exit_code,omitempty"`

@@ -504,9 +504,10 @@ describe('ConversationTurn correlated work placement', () => {
     expect(screen.getByText('Answer rejected by MCP schema')).toBeVisible();
     expect(screen.getByText('Routed to you')).toBeVisible();
     // Tool payload and the routed interaction each retain their own audit disclosure.
-    const details = screen.getAllByText('Technical details');
-    expect(details).toHaveLength(2);
-    details.forEach((detail) => expect(detail).toBeVisible());
+    expect(screen.getByText('Technical details')).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Technical details for Read evidence file' }),
+    ).toBeVisible();
   });
 
   it('shows that a human-resolved fallback returned to MCP instead of still needing attention', async () => {

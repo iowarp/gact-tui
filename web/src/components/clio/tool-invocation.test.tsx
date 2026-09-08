@@ -1,4 +1,6 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { PresentationNavigation } from './presentation-navigation';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClioToolInvocation } from './tool-invocation';
 
@@ -8,6 +10,78 @@ beforeEach(() => {
 });
 
 describe('ClioToolInvocation', () => {
+  it('opens technical JSON in a separate accessible dialog from the row icon', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'call',
+          session_id: 's',
+          name: 'arbitrary',
+          state: 'succeeded',
+          input: { exact: 'argument' },
+          output: { raw: 'value' },
+        }}
+      />,
+    );
+    const icon = screen.getByRole('button', { name: 'Technical details for arbitrary' });
+    expect(container).not.toHaveTextContent('argument');
+    await user.click(icon);
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Arguments' })).toBeVisible();
+    expect(container.querySelector('[data-slot="tool-activity"]')).not.toContainElement(dialog);
+    await user.keyboard('{Escape}');
+    expect(icon).toHaveFocus();
+  });
+  it('renders declared checklist states without status-word or tool-name inference', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'call',
+          session_id: 's',
+          name: 'arbitrary',
+          state: 'succeeded',
+          presentation: {
+            summary: '',
+            blocks: [
+              { id: 'a', type: 'check', state: 'pending', text: 'First task' },
+              { id: 'b', type: 'check', state: 'in_progress', text: 'Second task' },
+              { id: 'c', type: 'check', state: 'completed', text: 'Third task' },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(screen.getByText('Pending:')).toBeInTheDocument();
+    expect(screen.getByText('In progress:')).toBeInTheDocument();
+    expect(screen.getByText('Completed:')).toBeInTheDocument();
+  });
+  it('shows one filename and opens its declared full path in the workbench', async () => {
+    const openFile = vi.fn();
+    const path = 'D:/workspace/evidence.txt';
+    render(
+      <PresentationNavigation.Provider value={{ artifacts: {}, onOpenFile: openFile }}>
+        <ClioToolInvocation
+          tool={{
+            id: 'call',
+            session_id: 's',
+            name: 'arbitrary',
+            state: 'succeeded',
+            presentation: {
+              summary: '12 bytes',
+              blocks: [
+                { id: 'file', type: 'link', target: 'file', uri: path, label: 'evidence.txt' },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'evidence.txt' }));
+    expect(openFile).toHaveBeenCalledWith(path);
+    expect(screen.queryByText(path)).not.toBeInTheDocument();
+  });
   it('keeps the authoritative succeeded state when the result payload carries its own status', () => {
     render(
       <ClioToolInvocation
@@ -162,7 +236,9 @@ describe('ClioToolInvocation', () => {
 
     expect(screen.getByText('src/example.py')).toBeVisible();
     expect(screen.getByText('+new')).toBeVisible();
-    expect(screen.getByText('Technical details')).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Technical details for fs_propose_edit' }),
+    ).toBeVisible();
   });
 
   it('shows live terminal output and preserves the technical disclosure', () => {

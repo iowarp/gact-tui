@@ -2702,7 +2702,7 @@ known entity.
 
 `ToolInvocation.presentation` is optional observer-only metadata with a provider-authored
 `summary` and ordered `blocks`. A block has a stable `id` and a declared `type`:
-`text`, `markdown`, `code`, `diff` (unified diff), `terminal`, or `link`.
+`text`, `markdown`, `code`, `diff` (unified diff), `terminal`, `check`, or `link`.
 Clients render these types, not tool names or incidental keys in raw tool results.
 Absent metadata stays absent for historical records. Presentation MUST NOT change
 model observations, tool success, agent continuation, or assistant prose. Presenter
@@ -2725,9 +2725,21 @@ snapshots contain accumulated output, potentially a bounded running tail with an
 absolute `stream_offset`. A completed invocation replaces that tail with its
 authoritative paged presentation; it does not append the final output a second time.
 
-Link blocks declare `target` (`artifact`, `resource`, `session`, or `url`), `uri`,
+Check blocks carry task `text` and `state` (`pending`, `in_progress`, `completed`).
+Clients show distinct empty, dash, and checked indicators with accessible state labels;
+color is supplemental. Consecutive checks form one bounded checklist, not acknowledgements.
+
+Link blocks declare `target` (`artifact`, `resource`, `session`, `file`, or `url`), `uri`,
 and a readable `label`. Raw arguments and structured results remain available in
 Technical details; they are not substitutes for semantic result blocks.
+File labels use the filename; the complete path is available in the tooltip and details.
+
+Transcript previews use at most the configured number of rendered display lines
+(default five, twice that for diffs), not a fixed-height quota. Diff producers retain
+only useful surrounding context. Show more reveals an entire short result in one step,
+then offers Show less. Large or remotely paged results open in a separate accessible
+viewer; fetching pages is an implementation detail, not a repeated user action.
+Technical details open from a right-aligned activity-row icon outside the transcript.
 
 A2UI surfaces use protocol `0.9.1` (the message wire spelling is `v0.9.1`) and
 catalog `https://iowarp.ai/a2ui/catalogs/clio-workspace/v1`. Each persisted A2UI

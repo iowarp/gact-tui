@@ -206,11 +206,12 @@ export interface OperationalRun {
 
 export interface ToolPresentationBlock {
   id: string;
-  type: 'text' | 'markdown' | 'code' | 'diff' | 'terminal' | 'link';
+  type: 'text' | 'markdown' | 'code' | 'diff' | 'terminal' | 'link' | 'check';
   text?: string;
   label?: string;
   language?: string;
-  target?: 'artifact' | 'resource' | 'session' | 'url';
+  target?: 'artifact' | 'resource' | 'session' | 'url' | 'file';
+  state?: 'pending' | 'in_progress' | 'completed';
   uri?: string;
   command?: string;
   exit_code?: number | null;

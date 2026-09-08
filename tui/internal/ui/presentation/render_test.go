@@ -34,3 +34,17 @@ func TestDeclaredTerminalKeepsCommandOrderingAndExitCode(t *testing.T) {
 		}
 	}
 }
+
+func TestDeclaredChecklistStates(t *testing.T) {
+	part := gact.Part{Presentation: &gact.ToolPresentation{Blocks: []gact.ToolPresentationBlock{
+		{ID: "a", Type: "check", State: "pending", Text: "Collect"},
+		{ID: "b", Type: "check", State: "in_progress", Text: "Review"},
+		{ID: "c", Type: "check", State: "completed", Text: "Publish"},
+	}}}
+	rendered := Render(part, 80, 5, false, func(s string) string { return s })
+	for _, expected := range []string{"[ ] Collect", "[-] Review", "[x] Publish"} {
+		if !strings.Contains(rendered, expected) {
+			t.Fatalf("missing %q in %s", expected, rendered)
+		}
+	}
+}

@@ -33,12 +33,12 @@ export function ActivityRow({
           {duration !== undefined ? (
             <span className="text-sm text-muted-foreground">{formatDuration(duration)}</span>
           ) : null}
-          {action}
         </span>
         {detail ? (
           <span className="block text-sm leading-6 text-muted-foreground">{detail}</span>
         ) : null}
       </span>
+      {action ? <span className="ml-auto shrink-0">{action}</span> : null}
     </span>
   );
 }

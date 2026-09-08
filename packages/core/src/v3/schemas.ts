@@ -604,11 +604,12 @@ export const toolPresentationSchema = z.object({
   blocks: z.array(
     z.object({
       id: z.string(),
-      type: z.enum(['text', 'markdown', 'code', 'diff', 'terminal', 'link']),
+      type: z.enum(['text', 'markdown', 'code', 'diff', 'terminal', 'link', 'check']),
       text: z.string().optional(),
       label: z.string().optional(),
       language: z.string().optional(),
-      target: z.enum(['artifact', 'resource', 'session', 'url']).optional(),
+      target: z.enum(['artifact', 'resource', 'session', 'url', 'file']).optional(),
+      state: z.enum(['pending', 'in_progress', 'completed']).optional(),
       uri: z.string().optional(),
       command: z.string().optional(),
       exit_code: z.number().nullable().optional(),

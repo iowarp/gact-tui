@@ -33,6 +33,16 @@ func Render(p gact.Part, width, threshold int, running bool, detailHint func(str
 		if block.Type == "link" {
 			text = block.Label + " · " + block.URI
 		}
+		if block.Type == "check" {
+			marker := "[ ]"
+			if block.State == "completed" {
+				marker = "[x]"
+			}
+			if block.State == "in_progress" {
+				marker = "[-]"
+			}
+			text = marker + " " + text
+		}
 		if block.Command != "" {
 			rendered = append(rendered, "$ "+textutil.Wrap(block.Command, width-5))
 		}

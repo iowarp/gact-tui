@@ -21,7 +21,7 @@ export function PresentationLink({ block }: { block: ToolPresentationBlock }) {
   else if (block.target === 'session' && child && navigation?.onOpenSubagent)
     open = () => navigation.onOpenSubagent?.(child, 'conversation');
   else if (
-    (block.target === 'resource' || block.target === 'artifact') &&
+    (block.target === 'file' || block.target === 'resource' || block.target === 'artifact') &&
     /^(?:[a-z]:[\\/]|\/)/iu.test(uri) &&
     navigation?.onOpenFile
   )
@@ -32,6 +32,7 @@ export function PresentationLink({ block }: { block: ToolPresentationBlock }) {
         variant="link"
         className="h-auto justify-start whitespace-normal p-0 text-left text-sm"
         onClick={open}
+        title={uri}
       >
         {label}
       </Button>

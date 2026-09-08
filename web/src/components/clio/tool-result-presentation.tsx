@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SquareIcon, SquareMinusIcon, SquareCheckIcon } from 'lucide-react';
 import { bundledLanguages, type BundledLanguage } from 'shiki';
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { CodeBlock } from '@/components/ai-elements/code-block';
@@ -31,9 +32,35 @@ function BlockBody({ block, text }: { block: ToolPresentationBlock; text: string
     case 'terminal':
       return (
         <Terminal output={text} autoScroll={false}>
-          <TerminalContent className="max-h-none overflow-visible p-0" />
+          <TerminalContent className="max-h-none overflow-visible p-3" />
         </Terminal>
       );
+    case 'check': {
+      const Icon =
+        block.state === 'completed'
+          ? SquareCheckIcon
+          : block.state === 'in_progress'
+            ? SquareMinusIcon
+            : SquareIcon;
+      const status =
+        block.state === 'completed'
+          ? 'Completed'
+          : block.state === 'in_progress'
+            ? 'In progress'
+            : 'Pending';
+      return (
+        <div className="flex items-start gap-2 py-1">
+          <Icon
+            aria-hidden="true"
+            className={`mt-1 size-4 shrink-0 ${block.state === 'completed' ? 'text-success' : block.state === 'in_progress' ? 'text-warning' : 'text-muted-foreground'}`}
+          />
+          <span>
+            <span className="sr-only">{status}: </span>
+            {text}
+          </span>
+        </div>
+      );
+    }
     default:
       return <p className="whitespace-pre-wrap break-words">{text}</p>;
   }
@@ -43,22 +70,30 @@ function PagedBlock({ block, lines }: { block: ToolPresentationBlock; lines: num
   const repository = useRepository();
   const [text, setText] = useState(block.text ?? '');
   const [cursor, setCursor] = useState<number | null>(block.content_ref!.cursor);
-  const load = async () => {
-    if (cursor === null) return;
+  const load = async (signal: AbortSignal) => {
     const ref = block.content_ref!;
-    const page = await repository.toolPresentationContent(
-      ref.session_id,
-      ref.call_id,
-      ref.block_id,
-      cursor,
-    );
-    if (page.cursor !== cursor || (page.next_cursor !== null && page.next_cursor <= cursor))
-      throw new Error('Invalid result content cursor');
-    setText((current) => current + page.text);
-    setCursor(page.next_cursor);
+    let next = cursor;
+    while (next !== null && !signal.aborted) {
+      const page = await repository.toolPresentationContent(
+        ref.session_id,
+        ref.call_id,
+        ref.block_id,
+        next,
+      );
+      if (page.cursor !== next || (page.next_cursor !== null && page.next_cursor <= next))
+        throw new Error('Invalid result content cursor');
+      setText((current) => current + page.text);
+      setCursor(page.next_cursor);
+      next = page.next_cursor;
+    }
   };
   return (
-    <BoundedResult lines={lines} hasMore={cursor !== null} loadMore={load}>
+    <BoundedResult
+      title={block.label || 'Complete result'}
+      lines={lines}
+      hasMore={cursor !== null}
+      loadMore={load}
+    >
       <BlockBody block={block} text={text} />
     </BoundedResult>
   );
@@ -67,24 +102,64 @@ function PagedBlock({ block, lines }: { block: ToolPresentationBlock; lines: num
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation({ tool }: { tool: ToolInvocation }) {
   const lines = useTranscriptPreviewLines();
+  const blocks = tool.presentation?.blocks ?? [];
   return (
     <div className="ml-7 flex min-w-0 flex-col gap-2" data-slot="tool-human-result">
       {tool.progress_message && tool.state === 'running' ? (
         <Shimmer>{tool.progress_message}</Shimmer>
       ) : null}
-      {tool.presentation?.blocks.map((block) => {
+      {blocks.map((block, index) => {
         const budget = block.type === 'diff' ? lines * 2 : lines;
         const running = block.type === 'terminal' && tool.state === 'running';
         if (block.type === 'link') {
           return <PresentationLink key={block.id} block={block} />;
         }
+        if (block.type === 'check') {
+          if (blocks[index - 1]?.type === 'check') return null;
+          const checks: ToolPresentationBlock[] = [];
+          for (let i = index; i < blocks.length && blocks[i].type === 'check'; i++)
+            checks.push(blocks[i]);
+          return (
+            <BoundedResult key={block.id} lines={Math.min(3, lines)} title="Task list">
+              <ul className="list-none">
+                {checks.map((check) => (
+                  <li key={check.id}>
+                    <BlockBody block={check} text={check.text ?? ''} />
+                  </li>
+                ))}
+              </ul>
+            </BoundedResult>
+          );
+        }
+        if (block.type === 'terminal')
+          return (
+            <Terminal
+              key={`${block.id}:${running}`}
+              output={block.text ?? ''}
+              autoScroll={false}
+              isStreaming={running}
+            >
+              {block.command ? <TerminalCommand command={block.command} /> : null}
+              {block.content_ref && !running ? (
+                <PagedBlock block={block} lines={budget} />
+              ) : (
+                <BoundedResult lines={budget} running={running} title="Terminal output">
+                  <TerminalContent className="max-h-none overflow-visible bg-zinc-950 p-3 text-zinc-100" />
+                </BoundedResult>
+              )}
+              {!running && (block.timed_out || block.exit_code !== undefined) ? (
+                <p className="border-t border-zinc-800 px-3 py-2 text-sm text-zinc-400">
+                  {block.timed_out
+                    ? 'Process timed out.'
+                    : `Process exited with code ${block.exit_code}.`}
+                </p>
+              ) : null}
+            </Terminal>
+          );
         return (
           <div key={`${block.id}:${running ? 'running' : 'complete'}`} className="min-w-0">
             {block.label ? (
               <p className="break-words text-sm text-muted-foreground">{block.label}</p>
-            ) : null}
-            {block.type === 'terminal' && block.command ? (
-              <TerminalCommand command={block.command} />
             ) : null}
             {block.content_ref && !running ? (
               <PagedBlock block={block} lines={budget} />
@@ -93,15 +168,6 @@ export function ToolResultPresentation({ tool }: { tool: ToolInvocation }) {
                 <BlockBody block={block} text={block.text ?? ''} />
               </BoundedResult>
             )}
-            {block.type === 'terminal' && !running ? (
-              <p className="text-sm text-muted-foreground">
-                {block.timed_out
-                  ? 'Process timed out.'
-                  : block.exit_code !== undefined
-                    ? `Process exited with code ${block.exit_code}.`
-                    : ''}
-              </p>
-            ) : null}
           </div>
         );
       })}
