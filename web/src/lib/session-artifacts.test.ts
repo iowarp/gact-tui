@@ -37,7 +37,13 @@ describe('sessionArtifactEntities', () => {
     second.versions[0].version = 2;
     second.versions[0].uri = 'artifact://workspace_1/report.md@v2';
     second.versions.unshift(first.versions[0]);
-    const listing = { artifacts: [second], used: [], count: 1, child_session_ids: [] };
+    const listing = {
+      artifacts: [second],
+      used: [],
+      count: 1,
+      include_children: true,
+      child_session_ids: [],
+    };
     expect(sessionArtifactEntities(listing, [], 'session_1').map((item) => item.id)).toEqual([
       'report_v2',
     ]);
