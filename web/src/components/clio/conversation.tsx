@@ -667,10 +667,18 @@ function ConversationBody({
         className="clio-scrollbar h-full overflow-y-auto overscroll-contain"
         data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
+          const target = event.target as HTMLElement;
+          const ownsKey = target.closest(
+            'input, textarea, select, [contenteditable="true"], [role="combobox"], [role="listbox"], [role="menu"], [role="tablist"], [role="radiogroup"]',
+          );
           if (
-            event.target === event.currentTarget &&
+            !event.defaultPrevented &&
+            !ownsKey &&
+            !(event.key === ' ' && target.closest('button, [role="button"]')) &&
             ['ArrowDown', 'ArrowUp', 'End', 'Home', 'PageDown', 'PageUp', ' '].includes(event.key)
           ) {
+            // Native navigation keys also scroll when a plain transcript
+            // button has focus. That reading intent must survive a resize.
             markUserScrollIntent();
           }
         }}

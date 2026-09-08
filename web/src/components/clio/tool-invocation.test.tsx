@@ -1,10 +1,14 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PresentationNavigation } from './presentation-navigation';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClioToolInvocation } from './tool-invocation';
 
 afterEach(cleanup);
+// These assertions exercise the completed Markdown view, not lazy-module startup.
+beforeAll(async () => {
+  await import('@/components/ai-elements/markdown');
+});
 beforeEach(() => {
   Range.prototype.getClientRects = vi.fn(() => [] as unknown as DOMRectList);
 });

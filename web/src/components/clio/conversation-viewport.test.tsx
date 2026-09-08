@@ -116,6 +116,36 @@ function plainMessages(count: number, withText = true) {
 }
 
 describe('ClioConversation transcript viewport', () => {
+  it('honors keyboard scrolling from a focused transcript button before resizing', () => {
+    const viewport = stubViewport();
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: scrollTo,
+    });
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={plainMessages(80, false)}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+    frames.splice(0);
+    viewport.resizeTo(640);
+    fireEvent.keyDown(screen.getAllByRole('button', { name: 'Copy message' })[0], {
+      key: 'ArrowUp',
+    });
+    act(() => frames.splice(0).forEach((callback) => callback(0)));
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
   it('does not follow a queued resize after the reader starts scrolling', () => {
     const viewport = stubViewport();
     const frames: FrameRequestCallback[] = [];
