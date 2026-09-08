@@ -13,6 +13,9 @@ import (
 )
 
 func (t Theme) renderToolResultPart(p gact.Part, wrapW int) string {
+	if p.Presentation != nil {
+		return t.renderDeclaredToolPresentation(p, wrapW, false)
+	}
 	workflowPrefix := toolPartWorkflowPrefix(p)
 	toolWrapW := wrapW - lipgloss.Width(workflowPrefix)
 	if toolWrapW < 20 {

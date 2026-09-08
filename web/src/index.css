@@ -349,4 +349,12 @@ html[data-clio-motion='reduced'] *::after {
   font-size: 14px;
   line-height: 24px;
 }
-.tool-presentation-body { font-size: 14px; line-height: 24px; }
+.tool-presentation-body {
+  font-size: 14px;
+  line-height: 24px;
+}
+.tool-presentation-body pre {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+}

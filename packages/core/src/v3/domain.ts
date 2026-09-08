@@ -215,7 +215,14 @@ export interface ToolPresentationBlock {
   command?: string;
   exit_code?: number | null;
   timed_out?: boolean;
-  content_ref?: { session_id: string; call_id: string; block_id: string; cursor: number; total_chars: number };
+  stream_offset?: number;
+  content_ref?: {
+    session_id: string;
+    call_id: string;
+    block_id: string;
+    cursor: number;
+    total_chars: number;
+  };
 }
 
 export interface ToolPresentation {

@@ -32,6 +32,9 @@ func (t Theme) renderToolCallPart(p gact.Part, wrapW int) string {
 		head += lipgloss.NewStyle().Foreground(t.FgFaint).Render("  ·  ") +
 			lipgloss.NewStyle().Foreground(t.FgMuted).Italic(true).Render(status)
 	}
+	if p.Presentation != nil {
+		head += "\n" + t.renderDeclaredToolPresentation(p, wrapW, true)
+	}
 	return head
 }
 

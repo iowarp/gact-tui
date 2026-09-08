@@ -11,6 +11,9 @@ import (
 )
 
 func (t Theme) renderToolResultForTool(p gact.Part, width int, toolName string) string {
+	if p.Presentation != nil {
+		return t.renderDeclaredToolPresentation(p, width, false)
+	}
 	if toolName == "grep" {
 		if out := t.renderGrepResult(p, width); out != "" {
 			return out

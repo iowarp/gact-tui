@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClioToolInvocation } from './tool-invocation';
 
 afterEach(cleanup);
-beforeEach(() => { Range.prototype.getClientRects = vi.fn(() => [] as unknown as DOMRectList); });
+beforeEach(() => {
+  Range.prototype.getClientRects = vi.fn(() => [] as unknown as DOMRectList);
+});
 
 describe('ClioToolInvocation', () => {
   it('keeps the authoritative succeeded state when the result payload carries its own status', () => {
@@ -107,7 +109,16 @@ describe('ClioToolInvocation', () => {
           id: 'tool-skill',
           session_id: 'session-1',
           name: 'load_skill',
-          presentation: { summary: "loaded skill 'ai-elements' (204 lines)", blocks: [{ id: 'skill', type: 'markdown', text: '# Loaded skill body\nUse the real components.' }] },
+          presentation: {
+            summary: "loaded skill 'ai-elements' (204 lines)",
+            blocks: [
+              {
+                id: 'skill',
+                type: 'markdown',
+                text: '# Loaded skill body\nUse the real components.',
+              },
+            ],
+          },
           title: 'Load Skill',
           state: 'succeeded',
           output: {
@@ -133,7 +144,10 @@ describe('ClioToolInvocation', () => {
           id: 'tool-diff',
           session_id: 'session-1',
           name: 'fs_propose_edit',
-          presentation: { summary: 'src/example.py', blocks: [{ id: 'diff', type: 'diff', text: '@@ -1 +1 @@\n-old\n+new' }] },
+          presentation: {
+            summary: 'src/example.py',
+            blocks: [{ id: 'diff', type: 'diff', text: '@@ -1 +1 @@\n-old\n+new' }],
+          },
           state: 'succeeded',
           output: {
             content: [],
@@ -160,7 +174,17 @@ describe('ClioToolInvocation', () => {
           session_id: 'session-1',
           name: 'shell_bash',
           state: 'running',
-          presentation: { summary: '', blocks: [{ id: 'terminal', type: 'terminal', command: 'run checks', text: 'collecting tests\n42 passed\n' }] },
+          presentation: {
+            summary: '',
+            blocks: [
+              {
+                id: 'terminal',
+                type: 'terminal',
+                command: 'run checks',
+                text: 'collecting tests\n42 passed\n',
+              },
+            ],
+          },
           input: { command: 'run checks' },
           output_stream: 'collecting tests\n42 passed\n',
         }}
@@ -181,7 +205,12 @@ describe('ClioToolInvocation', () => {
           session_id: 'session-1',
           name: 'shell_bash',
           state: 'succeeded',
-          presentation: { summary: '', blocks: [{ id: 'terminal', type: 'terminal', text: 'all checks passed\n', exit_code: 0 }] },
+          presentation: {
+            summary: '',
+            blocks: [
+              { id: 'terminal', type: 'terminal', text: 'all checks passed\n', exit_code: 0 },
+            ],
+          },
           output: {
             content: [],
             structuredContent: { stdout: 'all checks passed\n', stderr: '', exit_code: 0 },

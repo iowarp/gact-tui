@@ -66,7 +66,8 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       ...preferences,
       setMotion: (motion) => update({ motion }),
       setConversationWidth: (conversationWidth) => update({ conversationWidth }),
-      setCollapseThreshold: (lines) => update({ collapseThreshold: Math.max(1, Math.min(50, Math.round(lines) || 5)) }),
+      setCollapseThreshold: (lines) =>
+        update({ collapseThreshold: Math.max(1, Math.min(50, Math.round(lines) || 5)) }),
     }),
     [preferences, update],
   );
@@ -100,6 +101,12 @@ function parsePreferences(raw: string | null): AppearancePreferences {
   return {
     motion: value.motion === 'reduced' ? 'reduced' : 'system',
     conversationWidth: value.conversationWidth === 'wide' ? 'wide' : 'focused',
-    collapseThreshold: typeof value.collapseThreshold === 'number' && Number.isInteger(value.collapseThreshold) && value.collapseThreshold >= 1 && value.collapseThreshold <= 50 ? value.collapseThreshold : 5,
+    collapseThreshold:
+      typeof value.collapseThreshold === 'number' &&
+      Number.isInteger(value.collapseThreshold) &&
+      value.collapseThreshold >= 1 &&
+      value.collapseThreshold <= 50
+        ? value.collapseThreshold
+        : 5,
   };
 }

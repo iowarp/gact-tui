@@ -38,7 +38,7 @@ import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { GroundedMessageResponse } from './grounded-message-response';
-import { toolOutputDiffKey } from './tool-result-presentation-model';
+import { toolOutputDiffKey } from './declared-diff-key';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 

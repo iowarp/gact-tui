@@ -323,20 +323,39 @@ function PermissionsSettings({ workspaceId }: { workspaceId?: string }) {
   );
 }
 
+import { Input } from '@/components/ui/input';
+
 function AppearanceSettings() {
   const { resolvedTheme, theme, setTheme } = useTheme();
   const { mode: conversationMode, setMode: setConversationMode } = useConversationDisplay();
-  const { conversationWidth, motion, setConversationWidth, setMotion, collapseThreshold, setCollapseThreshold } = useAppearancePreferences();
+  const {
+    conversationWidth,
+    motion,
+    setConversationWidth,
+    setMotion,
+    collapseThreshold,
+    setCollapseThreshold,
+  } = useAppearancePreferences();
   return (
     <div className="grid gap-6">
       <SectionHeading
         description="Choose how the workspace looks, moves, and presents conversation activity."
         title="Appearance"
       />
-      <ClioSettingsSection title="Transcript previews" description="Display lines shown per result. Diffs show twice as many lines; Show more reveals another page.">
+      <ClioSettingsSection
+        title="Transcript previews"
+        description="Display lines shown per result. Diffs show twice as many lines; Show more reveals another page."
+      >
         <Field>
           <FieldLabel htmlFor="transcript-preview-lines">Preview lines</FieldLabel>
-          <Input id="transcript-preview-lines" type="number" min={1} max={50} value={collapseThreshold} onChange={(event) => setCollapseThreshold(Number(event.target.value))} />
+          <Input
+            id="transcript-preview-lines"
+            type="number"
+            min={1}
+            max={50}
+            value={collapseThreshold}
+            onChange={(event) => setCollapseThreshold(Number(event.target.value))}
+          />
         </Field>
       </ClioSettingsSection>
       <ClioSettingsSection

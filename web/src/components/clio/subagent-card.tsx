@@ -7,6 +7,8 @@ import { SUBAGENT_RESULT_TRUNCATE_CHARS, SUBAGENT_TASK_TRUNCATE_CHARS } from '@/
 import { cn } from '@/lib/utils';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ActivityRow } from './activity-row';
+import { BoundedResult } from './bounded-result';
+import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 export interface ClioSubagentCardProps {
   subagent?: SubagentRun;
@@ -31,6 +33,7 @@ export function ClioSubagentLifecycleLine({
   task,
   onOpen,
 }: ClioSubagentLifecycleLineProps) {
+  const lines = useTranscriptPreviewLines();
   const started = stage === 'delegate.started';
   const title = subagent?.title || 'Child agent';
   const detail = started
@@ -45,6 +48,7 @@ export function ClioSubagentLifecycleLine({
   };
 
   return (
+    <div className="min-w-0">
     <button
       aria-label={interactive ? `Open child conversation ${title}` : undefined}
       className={cn(
@@ -63,10 +67,17 @@ export function ClioSubagentLifecycleLine({
       }
       type="button"
     >
-      <ActivityRow icon={<Icon aria-hidden="true" className="size-4" />}
-        title={`${title} ${started ? 'started' : 'returned'}`} detail={detail}
-        status={!started ? subagent?.state : undefined} duration={!started ? subagent?.duration_ms : undefined} />
+      <ActivityRow
+        icon={<Icon aria-hidden="true" className="size-4" />}
+        title={`${title} ${started ? 'started' : 'returned'}`}
+        status={!started ? subagent?.state : undefined}
+        duration={!started ? subagent?.duration_ms : undefined}
+      />
     </button>
+    <div className="ml-7 text-sm leading-6">
+      <BoundedResult lines={lines}><p className="whitespace-pre-wrap break-words">{detail}</p></BoundedResult>
+    </div>
+    </div>
   );
 }
 

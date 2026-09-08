@@ -1,7 +1,10 @@
 import type { ToolInvocation } from '@clio/core/v3';
 import { formatDuration } from '@/lib/format';
 
-export interface ToolPresentation { title: string; kind: 'analysis-view' | 'tool' }
+export interface ToolPresentation {
+  title: string;
+  kind: 'analysis-view' | 'tool';
+}
 
 /** Labels and summaries are authored by the provider's presentation contract. */
 export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
@@ -13,6 +16,10 @@ export function getToolSummary(tool: ToolInvocation): string | undefined {
 }
 
 /** An undeclared tool keeps its actual identifier as the fallback label. */
-export function humanizeToolName(name: string): string { return name; }
+export function humanizeToolName(name: string): string {
+  return name;
+}
 
-export function formatToolDuration(durationMs: number): string { return formatDuration(durationMs); }
+export function formatToolDuration(durationMs: number): string {
+  return formatDuration(durationMs);
+}
