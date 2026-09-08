@@ -59,7 +59,7 @@ test('declared Markdown is rendered and width-bounded inline and in the full vie
   await openFixture(
     page,
     'markdown',
-    '# Loaded procedure\n\nUse **readable evidence**.\n\n' +
+    '# Loaded procedure\n\nUse **readable evidence**.\n\n1. First instruction\n2. Second instruction\n\n- Source evidence\n\n' +
       Array.from(
         { length: 45 },
         (_, i) => `Paragraph ${i}: ${'A readable procedure with wrapping. '.repeat(5)}`,
@@ -72,6 +72,21 @@ test('declared Markdown is rendered and width-bounded inline and in the full vie
   await activity.getByRole('button', { name: 'Show more', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('heading', { name: 'Loaded procedure' })).toBeVisible();
+  await expect(dialog.locator('[data-streamdown="ordered-list"]')).toHaveCSS(
+    'list-style-type',
+    'decimal',
+  );
+  await expect(dialog.locator('[data-streamdown="unordered-list"]')).toHaveCSS(
+    'list-style-type',
+    'disc',
+  );
+  await expect
+    .poll(() =>
+      dialog
+        .getByRole('heading', { name: 'Loaded procedure' })
+        .evaluate((e) => Number.parseFloat(getComputedStyle(e).fontSize)),
+    )
+    .toBeGreaterThanOrEqual(20);
   const body = dialog.getByRole('region', { name: 'Scrollable result content' });
   await expect.poll(() => body.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
   await expect(dialog).toContainText('Paragraph 44:');
