@@ -47,6 +47,11 @@ import {
 } from './conversation-message-projection';
 import { McpAppResponseMessageRow } from './conversation-message-projections';
 import { PresentationNavigation } from './presentation-navigation';
+import {
+  useTranscriptReadingPosition,
+  useTranscriptWidth,
+  type TranscriptReadingAnchor,
+} from './use-transcript-reading-position';
 
 const VIRTUALIZATION_THRESHOLD = 80;
 export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
@@ -451,14 +456,10 @@ function ConversationBody({
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollComplete = useRef(false);
-  const pinnedToBottom = useRef(true);
-  const userScrollPending = useRef(false);
-  const pointerScrolling = useRef(false);
-  const scrollIntentVersion = useRef(0);
-  const readingAnchor = useRef<{ id: string; index: number; offset: number } | null>(null);
+  const pinnedToBottomRef = useRef(true);
+  const readingAnchorRef = useRef<TranscriptReadingAnchor | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [activeMessageIndex, setActiveMessageIndex] = useState(0);
-  const [conversationViewportWidth, setConversationViewportWidth] = useState(0);
   const [turnDisplayModes, setTurnDisplayModes] = useState<Record<string, ConversationDisplayMode>>(
     {},
   );
@@ -493,7 +494,6 @@ function ConversationBody({
     ),
   );
   const virtualized = messages.length >= VIRTUALIZATION_THRESHOLD;
-  const minimapVisible = conversationViewportWidth >= 760;
   // oxlint-disable-next-line react/incompatible-library -- TanStack owns these functions.
   const virtualizer = useVirtualizer({
     count: messages.length,
@@ -507,7 +507,7 @@ function ConversationBody({
           indexes.push(activeStreamingIndex);
           indexes.sort((left, right) => left - right);
         }
-        const anchorIndex = readingAnchor.current?.index;
+        const anchorIndex = readingAnchorRef.current?.index;
         if (anchorIndex !== undefined && !indexes.includes(anchorIndex)) {
           indexes.push(anchorIndex);
           indexes.sort((left, right) => left - right);
@@ -522,30 +522,21 @@ function ConversationBody({
   const lastVirtualRow = virtualRows.at(-1);
   const virtualRangeKey = `${firstVirtualRow?.index ?? -1}:${firstVirtualRow?.start ?? -1}:${lastVirtualRow?.index ?? -1}:${lastVirtualRow?.end ?? -1}`;
 
-  const captureReadingAnchor = useCallback(() => {
-    const element = scrollRef.current;
-    if (!element) return;
-    const viewportTop = element.getBoundingClientRect().top;
-    const row = Array.from(
-      element.querySelectorAll<HTMLElement>('[data-index][id^="message-"]'),
-    ).find((item) => {
-      const rect = item.getBoundingClientRect();
-      return rect.bottom > viewportTop && rect.top < viewportTop + element.clientHeight;
-    });
-    readingAnchor.current = row
-      ? {
-          id: row.id,
-          index: Number(row.dataset.index),
-          offset: row.getBoundingClientRect().top - viewportTop,
-        }
-      : null;
-  }, []);
-
-  useLayoutEffect(() => {
-    // A native scroll event can arrive before virtualization has mounted its
-    // new range. Never anchor an off-screen overscan row from the old range.
-    if (!pinnedToBottom.current && !readingAnchor.current) captureReadingAnchor();
-  }, [virtualRangeKey, captureReadingAnchor]);
+  const {
+    userScrollPendingRef,
+    pointerScrollingRef,
+    scrollIntentVersionRef,
+    captureReadingAnchor,
+    markUserScrollIntent,
+    releasePointer,
+  } = useTranscriptReadingPosition({
+    scrollRef,
+    pinnedToBottomRef,
+    readingAnchorRef,
+    virtualized,
+    virtualizer,
+    virtualRangeKey,
+  });
 
   // The virtualizer is the only source of the active transcript index, on both
   // branches. It measures every mounted row, so an index it reports may well be
@@ -554,7 +545,7 @@ function ConversationBody({
   useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
-    if (pinnedToBottom.current) {
+    if (pinnedToBottomRef.current) {
       const latestIndex = messages.length - 1;
       setActiveMessageIndex((current) => (current === latestIndex ? current : latestIndex));
       return;
@@ -572,14 +563,14 @@ function ConversationBody({
     const element = scrollRef.current;
     if (!element) return;
     const next = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
-    const userScrolling = pointerScrolling.current || userScrollPending.current;
-    userScrollPending.current = false;
+    const userScrolling = pointerScrollingRef.current || userScrollPendingRef.current;
+    userScrollPendingRef.current = false;
     if (userScrolling) {
-      pinnedToBottom.current = next;
+      pinnedToBottomRef.current = next;
     }
-    setIsAtBottom(pinnedToBottom.current && next);
-    if (pinnedToBottom.current) {
-      readingAnchor.current = null;
+    setIsAtBottom(pinnedToBottomRef.current && next);
+    if (pinnedToBottomRef.current) {
+      readingAnchorRef.current = null;
       setActiveMessageIndex(messages.length - 1);
       return;
     }
@@ -588,42 +579,20 @@ function ConversationBody({
       .find((item) => item.end >= element.scrollTop);
     if (firstVisible) setActiveMessageIndex(firstVisible.index);
     captureReadingAnchor();
-  }, [messages.length, virtualizer, captureReadingAnchor]);
-
-  const markUserScrollIntent = useCallback(() => {
-    userScrollPending.current = true;
-    scrollIntentVersion.current += 1;
-    // Yield immediately, before a queued resize/stream frame can pull the
-    // reader back down. Only an intentional scroll to the edge can re-pin.
-    pinnedToBottom.current = false;
-    readingAnchor.current = null;
-    // TanStack reconciles scrollToIndex while row sizes settle. Replace that
-    // old index target with the current offset before the browser applies the
-    // user's input, otherwise its later measurements can resurrect the jump.
-    if (virtualized && scrollRef.current) {
-      virtualizer.scrollToOffset(scrollRef.current.scrollTop, { behavior: 'auto' });
-    }
-  }, [virtualized, virtualizer]);
-
-  useEffect(() => {
-    const releasePointer = () => {
-      pointerScrolling.current = false;
-      userScrollPending.current = false;
-    };
-    window.addEventListener('pointerup', releasePointer);
-    window.addEventListener('pointercancel', releasePointer);
-    return () => {
-      window.removeEventListener('pointerup', releasePointer);
-      window.removeEventListener('pointercancel', releasePointer);
-    };
-  }, []);
+  }, [
+    messages.length,
+    virtualizer,
+    captureReadingAnchor,
+    pointerScrollingRef,
+    userScrollPendingRef,
+  ]);
 
   const scrollToLatest = useCallback((behavior: ScrollBehavior = 'smooth') => {
     const element = scrollRef.current;
     if (!element) return;
     element.scrollTo({ behavior, top: element.scrollHeight });
-    pinnedToBottom.current = true;
-    readingAnchor.current = null;
+    pinnedToBottomRef.current = true;
+    readingAnchorRef.current = null;
     setIsAtBottom(true);
   }, []);
   const jumpToMessage = useCallback(
@@ -631,7 +600,7 @@ function ConversationBody({
       const message = messages[index];
       if (!message) return;
       markUserScrollIntent();
-      pinnedToBottom.current = index === messages.length - 1;
+      pinnedToBottomRef.current = index === messages.length - 1;
       setActiveMessageIndex(index);
       if (virtualized) virtualizer.scrollToIndex(index, { align: 'auto' });
       else document.getElementById(`message-${message.id}`)?.scrollIntoView({ block: 'nearest' });
@@ -642,44 +611,15 @@ function ConversationBody({
     [markUserScrollIntent, messages, virtualized, virtualizer],
   );
 
-  useLayoutEffect(() => {
-    const element = scrollRef.current;
-    if (!element || typeof ResizeObserver === 'undefined') return;
-    let width = Math.round(element.getBoundingClientRect().width);
-    setConversationViewportWidth(width);
-    let frame = 0;
-    const observer = new ResizeObserver(([entry]) => {
-      const nextWidth = Math.round(entry?.contentRect.width ?? 0);
-      if (!nextWidth || nextWidth === width) return;
-      width = nextWidth;
-      setConversationViewportWidth(nextWidth);
-      const resizeAnchor = readingAnchor.current;
-      const intentVersion = scrollIntentVersion.current;
-      // Only mounted rows carry a live ResizeObserver, so every off-screen row
-      // still holds the height it had at the previous width. Keeping those
-      // stale heights makes the transcript jump when the reader scrolls back
-      // up; re-estimating and re-measuring costs a frame and stays honest.
-      virtualizer.measure();
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        // Re-check intent at execution time; the user may have scrolled since
-        // this resize was queued. Geometry alone never enables following.
-        if (pinnedToBottom.current) scrollToLatest('instant');
-        else if (intentVersion === scrollIntentVersion.current) {
-          const anchor = resizeAnchor;
-          const row = anchor ? document.getElementById(anchor.id) : null;
-          if (row && anchor)
-            element.scrollTop +=
-              row.getBoundingClientRect().top - element.getBoundingClientRect().top - anchor.offset;
-        }
-      });
-    });
-    observer.observe(element);
-    return () => {
-      observer.disconnect();
-      window.cancelAnimationFrame(frame);
-    };
-  }, [scrollToLatest, virtualizer]);
+  const conversationViewportWidth = useTranscriptWidth({
+    scrollRef,
+    pinnedToBottomRef,
+    readingAnchorRef,
+    scrollIntentVersionRef,
+    virtualizer,
+    scrollToLatest,
+  });
+  const minimapVisible = conversationViewportWidth >= 760;
 
   useLayoutEffect(() => {
     if (initialScrollComplete.current || messages.length === 0) return;
@@ -715,17 +655,17 @@ function ConversationBody({
   }, [messages, virtualizer, markUserScrollIntent]);
 
   useEffect(() => {
-    if (!pinnedToBottom.current || messages.length === 0) return;
+    if (!pinnedToBottomRef.current || messages.length === 0) return;
     const frame = window.requestAnimationFrame(() => {
-      if (pinnedToBottom.current) scrollToLatest('instant');
+      if (pinnedToBottomRef.current) scrollToLatest('instant');
     });
     return () => window.cancelAnimationFrame(frame);
   }, [messages, scrollToLatest]);
 
   useLayoutEffect(() => {
-    if (!pinnedToBottom.current || messages.length === 0) return;
+    if (!pinnedToBottomRef.current || messages.length === 0) return;
     const frame = window.requestAnimationFrame(() => {
-      if (pinnedToBottom.current) scrollToLatest('instant');
+      if (pinnedToBottomRef.current) scrollToLatest('instant');
     });
     return () => window.cancelAnimationFrame(frame);
   }, [bottomInset, messages.length, scrollToLatest]);
@@ -755,18 +695,12 @@ function ConversationBody({
         onScroll={updateBottomState}
         onPointerDown={(event) => {
           if (event.target === event.currentTarget) {
-            pointerScrolling.current = true;
+            pointerScrollingRef.current = true;
             markUserScrollIntent();
           }
         }}
-        onPointerUp={() => {
-          pointerScrolling.current = false;
-          userScrollPending.current = false;
-        }}
-        onPointerCancel={() => {
-          pointerScrolling.current = false;
-          userScrollPending.current = false;
-        }}
+        onPointerUp={releasePointer}
+        onPointerCancel={releasePointer}
         onTouchMove={markUserScrollIntent}
         onWheel={markUserScrollIntent}
         ref={scrollRef}
