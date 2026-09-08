@@ -51,7 +51,11 @@ function BlockBody({
       return <p>Preview unavailable for {mime || 'this media type'}.</p>;
     }
     case 'markdown':
-      return <GroundedMessageResponse>{text}</GroundedMessageResponse>;
+      return (
+        <GroundedMessageResponse className="min-w-0 max-w-full [overflow-wrap:anywhere]">
+          {text}
+        </GroundedMessageResponse>
+      );
     case 'code':
     case 'diff':
       return (

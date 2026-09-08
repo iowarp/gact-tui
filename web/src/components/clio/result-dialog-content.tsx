@@ -45,7 +45,7 @@ export function ResultDialogContent({
           className: 'overscroll-contain [&>div]:!block',
         }}
       >
-        <div ref={observeContent} className="grid min-w-0 gap-3 pr-3 pb-3 text-sm leading-6">
+        <div ref={observeContent} className="grid min-w-0 grid-cols-1 gap-3 pr-3 pb-3 text-sm leading-6">
           {children}
         </div>
         <ScrollBar orientation="horizontal" />

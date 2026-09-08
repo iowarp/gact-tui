@@ -92,6 +92,26 @@ test('declared Markdown is rendered and width-bounded inline and in the full vie
   await expect(dialog).toContainText('Paragraph 44:');
 });
 
+test('wide Markdown code and URLs cannot widen the whole result document', async ({ page }) => {
+  await page.setViewportSize({ width: 1003, height: 1037 });
+  const longUrl = `https://example.org/${'reference-'.repeat(100)}`;
+  await openFixture(page, 'markdown',
+    '# Document with wide source\n\n' +
+    'Readable paragraph. '.repeat(15) + '\n\n```text\n' +
+    'unbroken-source-'.repeat(600) + '\n```\n\n' +
+    `1. Reference: [${longUrl}](${longUrl})\n\n` +
+    'Final paragraph remains readable. '.repeat(15),
+  );
+  const activity = page.locator('[data-slot="tool-activity"]').first();
+  await activity.getByRole('button', { name: 'Show more', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const body = dialog.getByRole('region', { name: 'Scrollable result content' });
+  await expect(dialog).toContainText('Final paragraph remains readable.');
+  await expect.poll(() => body.evaluate((e) => e.scrollWidth - e.clientWidth)).toBeLessThan(2);
+  await expect.poll(() => dialog.locator('p').last().evaluate((e) => e.getBoundingClientRect().width))
+    .toBeLessThan(900);
+});
+
 test('opening and resizing the canvas preserves an earlier reading position', async ({ page }) => {
   await page.setViewportSize({ width: 1408, height: 1037 });
   await openFixture(
