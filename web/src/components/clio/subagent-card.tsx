@@ -1,5 +1,5 @@
 import type { MessageBlock, SubagentRun } from '@clio/core/v3';
-import { CornerDownLeftIcon, CornerDownRightIcon } from 'lucide-react';
+import { BotIcon } from 'lucide-react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import { SubAgentDispatch, type SubAgentState } from '@/components/theokit/sub-agent-dispatch';
 import { formatDuration, truncate } from '@/lib/format';
@@ -7,8 +7,6 @@ import { SUBAGENT_RESULT_TRUNCATE_CHARS, SUBAGENT_TASK_TRUNCATE_CHARS } from '@/
 import { cn } from '@/lib/utils';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ActivityRow } from './activity-row';
-import { BoundedResult } from './bounded-result';
-import { useTranscriptPreviewLines } from '@/providers/appearance-provider';
 
 export interface ClioSubagentCardProps {
   subagent?: SubagentRun;
@@ -26,6 +24,12 @@ export interface ClioSubagentLifecycleLineProps {
   onOpen?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
 }
 
+export interface ClioAgentMessageLineProps {
+  block: Extract<MessageBlock, { type: 'agent_message' }>;
+  subagent?: SubagentRun;
+  onOpen?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+}
+
 /** One chronological child-agent ledger event: launch or return, never both. */
 export function ClioSubagentLifecycleLine({
   stage,
@@ -33,14 +37,12 @@ export function ClioSubagentLifecycleLine({
   task,
   onOpen,
 }: ClioSubagentLifecycleLineProps) {
-  const lines = useTranscriptPreviewLines();
   const started = stage === 'delegate.started';
   const title = subagent?.title || 'Child agent';
   const detail = started
     ? task?.trim() ||
       (subagent ? getChildAgentAssignment(subagent).label : 'Waiting for the child task record.')
     : subagent?.result || subagent?.summary || 'No return summary was reported.';
-  const Icon = started ? CornerDownRightIcon : CornerDownLeftIcon;
   const interactive = Boolean(subagent?.child_session_id && onOpen);
 
   const open = (shiftKey: boolean) => {
@@ -48,11 +50,10 @@ export function ClioSubagentLifecycleLine({
   };
 
   return (
-    <div className="min-w-0">
-      <button
+    <button
         aria-label={interactive ? `Open child conversation ${title}` : undefined}
         className={cn(
-          'group flex w-full min-w-0 items-start gap-2 rounded-md px-1.5 py-1 text-left text-sm',
+          'group flex w-full min-w-0 items-start rounded-md px-1 py-0.5 text-left text-sm',
           interactive
             ? 'cursor-pointer outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50'
             : 'cursor-default',
@@ -68,7 +69,7 @@ export function ClioSubagentLifecycleLine({
         type="button"
       >
         <ActivityRow
-          icon={<Icon aria-hidden="true" className="size-4" />}
+          icon={<BotIcon aria-hidden="true" className="size-4 text-primary" />}
           title={
             <>
               {title}{' '}
@@ -79,14 +80,45 @@ export function ClioSubagentLifecycleLine({
           }
           status={!started ? subagent?.state : undefined}
           duration={!started ? subagent?.duration_ms : undefined}
+          detail={compactText(detail, SUBAGENT_RESULT_TRUNCATE_CHARS)}
+          inlineDetail
         />
       </button>
-      <div className="ml-7 text-sm leading-6">
-        <BoundedResult lines={lines}>
-          <p className="whitespace-pre-wrap break-words">{detail}</p>
-        </BoundedResult>
-      </div>
-    </div>
+  );
+}
+
+/** One message delivered to a child, kept at its recorded transcript position. */
+export function ClioAgentMessageLine({ block, subagent, onOpen }: ClioAgentMessageLineProps) {
+  const interactive = Boolean(subagent?.child_session_id && onOpen);
+  const recipient = subagent?.title || block.label || 'Child agent';
+  return (
+    <button
+      aria-label={interactive ? `Open child conversation ${recipient}` : undefined}
+      className={cn(
+        'group flex w-full min-w-0 items-start rounded-md px-1 py-0.5 text-left text-sm',
+        interactive
+          ? 'cursor-pointer outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50'
+          : 'cursor-default',
+      )}
+      disabled={!interactive}
+      onClick={(event) => {
+        if (subagent && interactive)
+          onOpen?.(subagent, event.shiftKey ? 'canvas' : 'conversation');
+      }}
+      type="button"
+    >
+      <ActivityRow
+        icon={<BotIcon aria-hidden="true" className="size-4 text-primary" />}
+        title={<>Message to {recipient}</>}
+        detail={compactText(block.message, SUBAGENT_TASK_TRUNCATE_CHARS)}
+        inlineDetail
+        action={
+          <span className="rounded-md border border-border bg-muted/50 px-1.5 py-0.5 text-xs text-muted-foreground">
+            {block.action === 'wake' ? 'Follow-up started' : 'Queued'}
+          </span>
+        }
+      />
+    </button>
   );
 }
 

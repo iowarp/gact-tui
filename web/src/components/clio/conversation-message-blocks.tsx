@@ -144,6 +144,7 @@ function MessageBlockView({
     case 'tool':
     case 'task':
     case 'subagent':
+    case 'agent_message':
       return (
         <ConversationProcessSequence
           block={block}

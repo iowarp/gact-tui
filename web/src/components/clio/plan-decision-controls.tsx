@@ -34,8 +34,15 @@ export function PlanDecisionControls({
   const modes = options.filter((option) =>
     ['auto', 'interactive', 'exit_only'].includes(option.value || option.label),
   );
-  const [choice, setChoice] = useState('');
-  const [mode, setMode] = useState('');
+  const recommendedMode = interaction.payload?.plan_exit?.recommended_mode;
+  const defaultMode =
+    modes.find((option) => (option.value || option.label) === recommendedMode)?.value ||
+    modes.find((option) => (option.value || option.label) === 'interactive')?.value ||
+    modes[0]?.value ||
+    modes[0]?.label ||
+    '';
+  const [choice, setChoice] = useState(defaultMode ? 'execute' : '');
+  const [mode, setMode] = useState(defaultMode);
   const [clearContext, setClearContext] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [commentOpen, setCommentOpen] = useState(false);
@@ -75,17 +82,14 @@ export function PlanDecisionControls({
             className="gap-3"
           >
             <div className="flex min-w-0 flex-col gap-1.5">
-              <Field
-                orientation="horizontal"
-                className="flex-wrap [&>[data-slot=field-label]]:flex-none"
-              >
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <RadioGroupItem
                   id={`${id}-execute`}
                   value="execute"
                   aria-label="Execute plan"
                   disabled={!modes.length}
                 />
-                <FieldLabel htmlFor={`${id}-execute`} className="flex-none">
+                <FieldLabel htmlFor={`${id}-execute`} className="w-auto flex-none">
                   Execute plan in
                 </FieldLabel>
                 <Select
@@ -118,7 +122,7 @@ export function PlanDecisionControls({
                   </SelectContent>
                 </Select>
                 <span className="text-sm">mode</span>
-              </Field>
+              </div>
               {canClear ? (
                 <Field orientation="horizontal" className="pl-6">
                   <Checkbox

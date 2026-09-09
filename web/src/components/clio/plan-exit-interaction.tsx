@@ -123,7 +123,7 @@ export function PlanExitResponse({
               <PlanTitle>{plan?.summary || 'Execution plan ready for review'}</PlanTitle>
               <PlanDescription>
                 {plan?.plan_file
-                  ? `Saved plan · ${plan.plan_file}`
+                  ? `Saved plan: ${plan.plan_file}`
                   : 'The agent has finished planning and is waiting for your decision.'}
               </PlanDescription>
             </div>
@@ -201,7 +201,7 @@ function PlanDecision({ interaction }: { interaction: PendingInteraction }) {
     decision === 'reject'
       ? 'Changes requested'
       : decision
-        ? `Approved · ${planModeLabel(decision)}`
+        ? `Approved in ${planModeLabel(decision)} mode`
         : interaction.status === 'cancelled'
           ? 'Plan review cancelled'
           : interaction.status === 'expired'

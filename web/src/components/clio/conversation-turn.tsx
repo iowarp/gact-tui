@@ -21,6 +21,7 @@ import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus, clioStatusLabel } from './status';
 import {
   ClioSubagentCard,
+  ClioAgentMessageLine,
   ClioSubagentLifecycleLine,
   type SubagentOpenTarget,
 } from './subagent-card';
@@ -447,6 +448,14 @@ function IterationDetail({
                 />
               </div>
             ) : null
+          ) : entry.kind === 'agent_message' ? (
+            <div data-turn-activity={`agent-message:${entry.id}`} key={`agent-message:${entry.id}`}>
+              <ClioAgentMessageLine
+                block={entry.block}
+                onOpen={onOpenSubagent}
+                subagent={subagents[entry.block.subagent_id]}
+              />
+            </div>
           ) : entry.kind === 'mcp_app' ? (
             hiddenMcpAppIds?.includes(entry.block.app_instance_id) ? null : (
               <McpAppActivity

@@ -606,7 +606,17 @@ export const toolPresentationSchema = z.object({
   blocks: z.array(
     z.object({
       id: z.string(),
-      type: z.enum(['text', 'markdown', 'code', 'diff', 'terminal', 'link', 'check', 'media']),
+      type: z.enum([
+        'text',
+        'markdown',
+        'code',
+        'diff',
+        'terminal',
+        'link',
+        'check',
+        'media',
+        'item',
+      ]),
       media_type: z.string().optional(),
       text: z.string().optional(),
       label: z.string().optional(),
@@ -627,6 +637,11 @@ export const toolPresentationSchema = z.object({
           total_chars: z.number().int().nonnegative(),
         })
         .optional(),
+      status: z.string().optional(),
+      detail: z.string().optional(),
+      duration_ms: z.number().nonnegative().optional(),
+      items: z.array(z.string()).optional(),
+      action_label: z.string().optional(),
     }),
   ),
   diagnostic: z.string().optional(),

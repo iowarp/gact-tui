@@ -113,6 +113,7 @@ export function BoundedResult({
         <Button
           variant="ghost"
           size="sm"
+          className="h-7 px-2"
           aria-controls={id}
           aria-expanded={expanded}
           disabled={loading}
@@ -130,7 +131,13 @@ export function BoundedResult({
           }}
         >
           <DialogTrigger asChild>
-            <Button variant="ghost" size="sm" aria-expanded={open} onClick={() => void expand()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2"
+              aria-expanded={open}
+              onClick={() => void expand()}
+            >
               Show more
             </Button>
           </DialogTrigger>

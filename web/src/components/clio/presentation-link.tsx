@@ -73,13 +73,13 @@ export function PresentationLink({
         {text}
       </Button>,
     );
-  if (/^https?:\/\//iu.test(uri))
+  if (block.target === 'url' && uri)
     return withTooltip(
       <a
         className={cn(className, 'underline')}
         href={uri}
-        target="_blank"
-        rel="noopener noreferrer"
+        target={/^https?:\/\//iu.test(uri) ? '_blank' : undefined}
+        rel={/^https?:\/\//iu.test(uri) ? 'noopener noreferrer' : undefined}
       >
         {text}
       </a>,
@@ -93,7 +93,6 @@ export function PresentationLink({
   return withTooltip(
     <span className={className} tabIndex={compact ? 0 : undefined}>
       {text}
-      {!compact && uri && label !== uri ? ` · ${uri}` : ''}
     </span>,
   );
 }

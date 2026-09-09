@@ -22,7 +22,7 @@ export function ActivityRow({
 }) {
   return (
     <span
-      className="flex w-full min-w-0 items-start gap-2 py-1 text-sm leading-6"
+      className="flex w-full min-w-0 items-start gap-1.5 py-0.5 text-sm leading-5"
       data-slot="activity-row"
     >
       <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center text-muted-foreground">
@@ -44,7 +44,7 @@ export function ActivityRow({
           ) : null}
         </span>
         {detail && !inlineDetail ? (
-          <span className="block text-sm leading-6 text-muted-foreground">{detail}</span>
+          <span className="block text-sm leading-5 text-muted-foreground">{detail}</span>
         ) : null}
       </span>
       {action ? <span className="ml-auto shrink-0">{action}</span> : null}

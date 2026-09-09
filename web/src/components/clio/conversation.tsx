@@ -317,7 +317,8 @@ function messageEntityRefs(message: DomainMessage): MessageEntityRefs {
   };
   for (const block of message.blocks) {
     if (block.type === 'artifact') refs.artifacts.add(block.artifact_id);
-    else if (block.type === 'subagent') refs.subagents.add(block.subagent_id);
+    else if (block.type === 'subagent' || block.type === 'agent_message')
+      refs.subagents.add(block.subagent_id);
     else if (block.type === 'a2ui') refs.surfaces.add(block.surface_id);
     else if (block.type === 'task') refs.tasks.add(block.task_id);
     else if (block.type === 'tool') refs.tools.add(block.tool_id);

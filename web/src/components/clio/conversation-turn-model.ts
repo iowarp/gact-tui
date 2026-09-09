@@ -15,6 +15,11 @@ export type ConversationActivity =
       block: Extract<MessageBlock, { type: 'subagent' }>;
     }
   | {
+      kind: 'agent_message';
+      id: string;
+      block: Extract<MessageBlock, { type: 'agent_message' }>;
+    }
+  | {
       kind: 'mcp_app';
       id: string;
       block: Extract<MessageBlock, { type: 'mcp_app' }>;
@@ -153,6 +158,13 @@ function fallbackIterations(
     if (block.type === 'subagent' && block.stage) {
       if (!alreadyInLane(current, 'subagent', block.id)) {
         current.activity.push({ kind: 'subagent', id: block.id, block });
+      }
+      consumed.add(block.id);
+      continue;
+    }
+    if (block.type === 'agent_message') {
+      if (!alreadyInLane(current, 'agent_message', block.id)) {
+        current.activity.push({ kind: 'agent_message', id: block.id, block });
       }
       consumed.add(block.id);
       continue;

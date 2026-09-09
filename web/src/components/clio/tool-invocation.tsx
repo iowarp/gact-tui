@@ -59,7 +59,7 @@ export function ClioToolInvocation({
         />
         <ToolResultPresentation tool={tool} subjectId={subject?.id} />
         <ResultDialogContent
-          title={`${tool.title || tool.name} — Technical details`}
+          title={`${tool.title || tool.name}: Technical details`}
           description="Original tool arguments, result, and diagnostics."
         >
           {tool.input !== undefined ? <ToolInput input={(tool.input ?? {}) as never} /> : null}

@@ -12,7 +12,11 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-e
 import { Task as AITask, TaskContent, TaskItem, TaskTrigger } from '@/components/ai-elements/task';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
-import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
+import {
+  ClioAgentMessageLine,
+  ClioSubagentCard,
+  type SubagentOpenTarget,
+} from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
@@ -20,7 +24,7 @@ import { GroundedMessageResponse } from './grounded-message-response';
 
 export type ProcessBlock = Extract<
   MessageBlock,
-  { type: 'text' | 'reasoning' | 'tool' | 'task' | 'subagent' }
+  { type: 'text' | 'reasoning' | 'tool' | 'task' | 'subagent' | 'agent_message' }
 >;
 
 interface ConversationProcessSequenceProps {
@@ -146,6 +150,15 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
           <TaskItem className="text-xs">{task?.detail || 'No task detail was reported.'}</TaskItem>
         </TaskContent>
       </AITask>
+    );
+  }
+  if (block.type === 'agent_message') {
+    return (
+      <ClioAgentMessageLine
+        block={block}
+        onOpen={entities.onOpenSubagent}
+        subagent={entities.subagents[block.subagent_id]}
+      />
     );
   }
   return (

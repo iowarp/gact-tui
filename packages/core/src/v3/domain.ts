@@ -206,7 +206,16 @@ export interface OperationalRun {
 
 export interface ToolPresentationBlock {
   id: string;
-  type: 'text' | 'markdown' | 'code' | 'diff' | 'terminal' | 'link' | 'check' | 'media';
+  type:
+    | 'text'
+    | 'markdown'
+    | 'code'
+    | 'diff'
+    | 'terminal'
+    | 'link'
+    | 'check'
+    | 'media'
+    | 'item';
   media_type?: string;
   text?: string;
   label?: string;
@@ -225,6 +234,11 @@ export interface ToolPresentationBlock {
     cursor: number;
     total_chars: number;
   };
+  status?: string;
+  detail?: string;
+  duration_ms?: number;
+  items?: string[];
+  action_label?: string;
 }
 
 export interface ToolPresentation {

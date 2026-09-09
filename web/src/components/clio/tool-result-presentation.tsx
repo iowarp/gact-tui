@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { SquareIcon, SquareMinusIcon, SquareCheckIcon } from 'lucide-react';
+import {
+  BotIcon,
+  InfoIcon,
+  ServerIcon,
+  SquareIcon,
+  SquareMinusIcon,
+  SquareCheckIcon,
+} from 'lucide-react';
 import { bundledLanguages, type BundledLanguage } from 'shiki';
 import type { ToolInvocation, ToolPresentationBlock } from '@clio/core/v3';
 import { CodeBlock } from '@/components/ai-elements/code-block';
@@ -12,6 +19,107 @@ import { useRepository } from '@/hooks/use-repository';
 import { PresentationLink } from './presentation-link';
 import { Image } from '@/components/ai-elements/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import { ResultDialogContent } from './result-dialog-content';
+import { ClioStatus, type ClioStatusValue } from './status';
+import { formatDuration } from '@/lib/format';
+
+const CLIO_STATUSES = new Set<ClioStatusValue>([
+  'queued',
+  'running',
+  'waiting_permission',
+  'waiting_user',
+  'completed',
+  'failed',
+  'cancelled',
+  'interrupted',
+  'unknown',
+  'pending',
+  'succeeded',
+  'denied',
+  'healthy',
+  'degraded',
+  'unavailable',
+]);
+
+function itemStatus(value?: string): ClioStatusValue | undefined {
+  return value && CLIO_STATUSES.has(value as ClioStatusValue)
+    ? (value as ClioStatusValue)
+    : undefined;
+}
+
+function PresentationItem({ block }: { block: ToolPresentationBlock }) {
+  const Icon = block.target === 'session' ? BotIcon : ServerIcon;
+  const status = itemStatus(block.status);
+  const details = [block.detail, ...(block.items ?? [])].filter(Boolean);
+  return (
+    <div className="flex min-w-0 items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
+      <Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+      <div className="min-w-0 flex-1">
+        <PresentationLink block={block} compact />
+        {block.items?.length ? (
+          <div className="mt-1 flex min-w-0 flex-wrap gap-1" aria-label="Available models">
+            {block.items.slice(0, 4).map((item) => (
+              <span className="max-w-48 truncate rounded bg-background px-1.5 py-0.5 text-xs" key={item}>
+                {item}
+              </span>
+            ))}
+            {block.items.length > 4 ? (
+              <span className="px-1 py-0.5 text-xs text-muted-foreground">
+                {block.items.length - 4} more
+              </span>
+            ) : null}
+          </div>
+        ) : block.detail ? (
+          <p className="truncate text-xs text-muted-foreground" title={block.detail}>
+            {block.detail.split('\n')[0]}
+          </p>
+        ) : null}
+      </div>
+      {status ? <ClioStatus className="shrink-0 px-1.5 py-0.5 text-xs" value={status} /> : null}
+      {block.duration_ms !== undefined ? (
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          {formatDuration(block.duration_ms)}
+        </span>
+      ) : null}
+      {block.action_label && block.uri ? (
+        <Button asChild size="sm" variant="outline" className="h-7 shrink-0">
+          <a href={block.uri}>{block.action_label}</a>
+        </Button>
+      ) : null}
+      {details.length ? (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button
+              aria-label={`Details for ${block.label || 'result'}`}
+              className="size-7 shrink-0"
+              size="icon-sm"
+              variant="ghost"
+            >
+              <InfoIcon aria-hidden="true" className="size-3.5" />
+            </Button>
+          </DialogTrigger>
+          <ResultDialogContent
+            title={block.label || 'Result details'}
+            description="Recorded details for this result."
+          >
+            {block.detail ? <p className="whitespace-pre-wrap text-sm">{block.detail}</p> : null}
+            {block.items?.length ? (
+              <ul className="grid gap-1 text-sm" aria-label="Available models">
+                {block.items.map((item) => (
+                  <li className="rounded-md border bg-muted/30 px-2 py-1" key={item}>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </ResultDialogContent>
+        </Dialog>
+      ) : null}
+    </div>
+  );
+}
 
 function BlockBody({
   block,
@@ -53,7 +161,7 @@ function BlockBody({
     case 'markdown':
       return (
         <GroundedMessageResponse
-          className="min-w-0 max-w-full px-3 py-2 [overflow-wrap:anywhere]"
+          className="min-w-0 max-w-full px-2 py-1 leading-5 [overflow-wrap:anywhere]"
           controls={{ table: false }}
         >
           {text}
@@ -117,7 +225,9 @@ function BlockBody({
       );
     }
     default:
-      return <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{text}</p>;
+      return (
+        <p className="whitespace-pre-wrap px-2 py-1 leading-5 [overflow-wrap:anywhere]">{text}</p>
+      );
   }
 }
 
@@ -242,7 +352,7 @@ export function ToolResultPresentation({
     );
   }
   return (
-    <div className="ml-7 flex min-w-0 flex-col gap-2" data-slot="tool-human-result">
+    <div className="ml-7 flex min-w-0 flex-col gap-1" data-slot="tool-human-result">
       {tool.progress_message && tool.state === 'running' ? (
         <Shimmer>{tool.progress_message}</Shimmer>
       ) : null}
@@ -251,6 +361,9 @@ export function ToolResultPresentation({
         const running = block.type === 'terminal' && tool.state === 'running';
         if (block.type === 'link') {
           return <PresentationLink key={block.id} block={block} />;
+        }
+        if (block.type === 'item') {
+          return <PresentationItem key={block.id} block={block} />;
         }
         if (block.type === 'check') {
           if (blocks[index - 1]?.type === 'check') return null;
@@ -305,7 +418,7 @@ export function ToolResultPresentation({
             data-slot="tool-result-panel"
           >
             {block.label ? (
-              <p className="break-words text-sm text-muted-foreground">{block.label}</p>
+              <p className="break-words px-2 pt-1 text-xs text-muted-foreground">{block.label}</p>
             ) : null}
             {block.content_ref && !running ? (
               <PagedBlock block={block} lines={budget} />
