@@ -137,15 +137,17 @@ describe('ClioSubagentLifecycleLine', () => {
     expect(screen.queryByText('Delegated work')).not.toBeInTheDocument();
   });
 
-  it('shows only the result when the child returns and remains navigable', () => {
+  it('keeps returned content out of the lifecycle row and remains navigable', () => {
     const onOpen = vi.fn();
     render(
       <ClioSubagentLifecycleLine onOpen={onOpen} stage="delegate.completed" subagent={child} />,
     );
 
     expect(screen.getByText('returned')).toBeVisible();
-    expect(screen.getByText(child.result)).toBeVisible();
+    expect(screen.queryByText(child.result)).not.toBeInTheDocument();
     expect(screen.queryByText(child.task)).not.toBeInTheDocument();
+    expect(screen.getByText('13 s')).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Completed' })).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Open child conversation researcher #1' }));
     expect(onOpen).toHaveBeenCalledWith(child, 'conversation');
   });

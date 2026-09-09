@@ -22,16 +22,15 @@ export function ActivityRow({
 }) {
   return (
     <span
-      className="flex w-full min-w-0 items-start gap-1.5 py-0.5 text-sm leading-5"
+      className="flex w-full min-w-0 items-center gap-1.5 py-0.5 text-sm leading-5"
       data-slot="activity-row"
     >
-      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center text-muted-foreground">
+      <span className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">
         {icon}
       </span>
       <span className="min-w-0 flex-1">
         <span className={`flex items-center gap-2 ${inlineDetail ? '' : 'flex-wrap'}`}>
           <span className="min-w-0 max-w-full font-medium">{title}</span>
-          {status ? <ClioStatus value={status} className="shrink-0 text-sm" /> : null}
           {duration !== undefined ? (
             <span className="shrink-0 text-sm text-muted-foreground">
               {formatDuration(duration)}
@@ -47,7 +46,8 @@ export function ActivityRow({
           <span className="block text-sm leading-5 text-muted-foreground">{detail}</span>
         ) : null}
       </span>
-      {action ? <span className="ml-auto shrink-0">{action}</span> : null}
+      {status ? <ClioStatus compact value={status} className="ml-auto shrink-0" /> : null}
+      {action ? <span className={status ? 'shrink-0' : 'ml-auto shrink-0'}>{action}</span> : null}
     </span>
   );
 }

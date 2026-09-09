@@ -7,6 +7,15 @@ import { ActivityRow } from './activity-row';
 import { ToolResultPresentation } from './tool-result-presentation';
 import { ResultDialogContent } from './result-dialog-content';
 import { PresentationLink } from './presentation-link';
+import type { ClioStatusValue } from './status';
+
+const PRESENTATION_STATUSES = new Set<ClioStatusValue>([
+  'succeeded',
+  'failed',
+  'degraded',
+  'cancelled',
+  'denied',
+]);
 
 export function ClioToolInvocation({
   tool,
@@ -21,9 +30,14 @@ export function ClioToolInvocation({
     (block) =>
       block.id === tool.presentation?.subject && (block.type === 'link' || block.type === 'text'),
   );
+  const declaredStatus = tool.presentation?.status;
+  const status =
+    declaredStatus && PRESENTATION_STATUSES.has(declaredStatus as ClioStatusValue)
+      ? (declaredStatus as ClioStatusValue)
+      : tool.state;
   return (
     <Dialog defaultOpen={defaultOpen ?? false}>
-      <div className="flex min-w-0 flex-col gap-1" data-slot="tool-activity">
+      <div className="flex min-w-0 flex-col gap-0.5" data-slot="tool-activity">
         <ActivityRow
           icon={<WrenchIcon className="size-4" />}
           title={
@@ -42,13 +56,14 @@ export function ClioToolInvocation({
           }
           detail={tool.presentation?.summary}
           inlineDetail
-          status={tool.state}
+          status={status}
           duration={tool.duration_ms}
           action={
             <DialogTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon-sm"
+                className="size-6"
                 aria-label={`Technical details for ${tool.title || tool.name}`}
                 title="Technical details"
               >

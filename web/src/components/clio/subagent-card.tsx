@@ -1,12 +1,13 @@
 import type { MessageBlock, SubagentRun } from '@clio/core/v3';
-import { BotIcon } from 'lucide-react';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import { BotIcon, CornerDownRightIcon } from 'lucide-react';
+import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { SubAgentDispatch, type SubAgentState } from '@/components/theokit/sub-agent-dispatch';
 import { formatDuration, truncate } from '@/lib/format';
 import { SUBAGENT_RESULT_TRUNCATE_CHARS, SUBAGENT_TASK_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ActivityRow } from './activity-row';
+import { ClioStatus } from './status';
 
 export interface ClioSubagentCardProps {
   subagent?: SubagentRun;
@@ -42,7 +43,7 @@ export function ClioSubagentLifecycleLine({
   const detail = started
     ? task?.trim() ||
       (subagent ? getChildAgentAssignment(subagent).label : 'Waiting for the child task record.')
-    : subagent?.result || subagent?.summary || 'No return summary was reported.';
+    : '';
   const interactive = Boolean(subagent?.child_session_id && onOpen);
 
   const open = (shiftKey: boolean) => {
@@ -50,10 +51,11 @@ export function ClioSubagentLifecycleLine({
   };
 
   return (
-    <button
+    <div className="min-w-0 text-sm">
+      <button
         aria-label={interactive ? `Open child conversation ${title}` : undefined}
         className={cn(
-          'group flex w-full min-w-0 items-start rounded-md px-1 py-0.5 text-left text-sm',
+          'group flex min-h-5 w-full min-w-0 items-center gap-1.5 rounded-md px-1 text-left',
           interactive
             ? 'cursor-pointer outline-none transition-colors hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50'
             : 'cursor-default',
@@ -64,26 +66,53 @@ export function ClioSubagentLifecycleLine({
           if (event.shiftKey) event.preventDefault();
         }}
         title={
-          interactive ? 'Open child conversation. Shift-click to open it in the canvas.' : detail
+          interactive ? 'Open child conversation. Shift-click to open it in the canvas.' : undefined
         }
         type="button"
       >
-        <ActivityRow
-          icon={<BotIcon aria-hidden="true" className="size-4 text-primary" />}
-          title={
-            <>
-              {title}{' '}
-              <span className="font-normal text-muted-foreground">
-                {started ? 'started' : 'returned'}
-              </span>
-            </>
-          }
-          status={!started ? subagent?.state : undefined}
-          duration={!started ? subagent?.duration_ms : undefined}
-          detail={compactText(detail, SUBAGENT_RESULT_TRUNCATE_CHARS)}
-          inlineDetail
-        />
+        <span aria-hidden="true" className="relative size-5 shrink-0 text-primary">
+          <BotIcon className="absolute left-0 top-0 size-4" />
+          <CornerDownRightIcon className="absolute bottom-0 right-0 size-3 rounded-sm bg-background text-muted-foreground" />
+        </span>
+        <span className="min-w-0 truncate font-medium">{title}</span>
+        <span className="shrink-0 text-muted-foreground">{started ? 'started' : 'returned'}</span>
+        {!started && subagent?.duration_ms !== undefined ? (
+          <span className="shrink-0 text-muted-foreground">
+            {formatDuration(subagent.duration_ms)}
+          </span>
+        ) : null}
+        {!started && subagent?.state ? (
+          <ClioStatus compact className="shrink-0" value={subagent.state} />
+        ) : null}
       </button>
+      {started && detail ? <ExpandableChildPrompt text={detail} /> : null}
+    </div>
+  );
+}
+
+function ExpandableChildPrompt({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const long = text.length > SUBAGENT_TASK_TRUNCATE_CHARS;
+  return (
+    <div className="ml-7 min-w-0 pr-2 text-sm leading-5 text-foreground/90">
+      <p
+        className={cn(
+          'whitespace-normal [overflow-wrap:anywhere]',
+          long && !expanded && 'line-clamp-2',
+        )}
+      >
+        {text}
+      </p>
+      {long ? (
+        <button
+          className="mt-0.5 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          onClick={() => setExpanded((value) => !value)}
+          type="button"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -102,8 +131,7 @@ export function ClioAgentMessageLine({ block, subagent, onOpen }: ClioAgentMessa
       )}
       disabled={!interactive}
       onClick={(event) => {
-        if (subagent && interactive)
-          onOpen?.(subagent, event.shiftKey ? 'canvas' : 'conversation');
+        if (subagent && interactive) onOpen?.(subagent, event.shiftKey ? 'canvas' : 'conversation');
       }}
       type="button"
     >

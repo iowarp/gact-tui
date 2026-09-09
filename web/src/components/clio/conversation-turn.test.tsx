@@ -139,11 +139,11 @@ describe('ConversationTurn correlated work placement', () => {
       expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
       expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
       const executeChoice = screen.getByRole('radio', { name: 'Execute plan' });
-      expect(executeChoice).not.toBeChecked();
+      expect(executeChoice).toBeChecked();
       const clearContext = screen.getByRole('checkbox', {
         name: /clear conversation context/i,
       });
-      expect(clearContext).toBeDisabled();
+      expect(clearContext).toBeEnabled();
       expect(screen.getByRole('radio', { name: /reject plan with comments/i })).toBeVisible();
       fireEvent.click(executeChoice);
       expect(executeChoice).toBeChecked();
@@ -238,7 +238,7 @@ describe('ConversationTurn correlated work placement', () => {
       'subagent:handoff_returned',
     ]);
     expect(screen.getByText(child.task)).toBeVisible();
-    expect(screen.getByText(child.result)).toBeVisible();
+    expect(screen.queryByText(child.result)).not.toBeInTheDocument();
   });
 
   it('keeps the active MCP App visible after its collapsed chain summary', () => {

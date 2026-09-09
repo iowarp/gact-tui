@@ -54,7 +54,7 @@ describe('ClioToolInvocation', () => {
       />,
     );
     const heading = await screen.findByRole('heading', { name: 'Readable result' });
-    expect(heading.parentElement).toHaveClass('px-3', 'py-2');
+    expect(heading.parentElement).toHaveClass('px-2', 'py-1');
     expect(screen.getByRole('table')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Copy table' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'View fullscreen' })).not.toBeInTheDocument();
@@ -463,5 +463,82 @@ describe('ClioToolInvocation', () => {
     expect(screen.getByText(/all checks passed/u)).toBeVisible();
     expect(screen.getByText('Process exited with code 0.')).toBeVisible();
     expect(screen.queryByLabelText('Command')).not.toBeInTheDocument();
+  });
+
+  it('renders child status and wait semantics without summary counts or boxes', () => {
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-wait',
+          session_id: 'session-1',
+          name: 'wait_agent_tasks',
+          state: 'succeeded',
+          duration_ms: 13_000,
+          presentation: {
+            action: 'Wait',
+            subject: 'task-subject',
+            summary: '',
+            blocks: [
+              {
+                id: 'task-subject',
+                type: 'text',
+                text: 'researcher #1, researcher #2',
+              },
+              {
+                id: 'task-1',
+                type: 'item',
+                target: 'session',
+                uri: 'session-child-1',
+                label: 'researcher #1',
+                status: 'completed',
+                result_kind: 'completion',
+                duration_ms: 7_000,
+                detail: 'The answer is 11.',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Wait')).toBeVisible();
+    expect(screen.getByText('researcher #1, researcher #2')).toBeVisible();
+    expect(screen.getByText('researcher #1')).toBeVisible();
+    expect(screen.getByText('returned after 7 s')).toBeVisible();
+    expect(screen.getByText('Context received')).toBeVisible();
+    expect(screen.getByText(/The answer is 11\./u)).toBeVisible();
+    expect(screen.queryByText(/task.*completed/iu)).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeNull();
+  });
+
+  it('uses semantic failure status and an error panel for a rejected artifact', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-artifact-rejected',
+          session_id: 'session-1',
+          name: 'create_artifact',
+          state: 'succeeded',
+          presentation: {
+            action: 'Create Artifact',
+            status: 'failed',
+            summary: '',
+            blocks: [
+              {
+                id: 'rejection',
+                type: 'text',
+                label: 'Artifact rejected',
+                severity: 'error',
+                text: 'The requested path is outside the active workspace.',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('status', { name: 'Failed' })).toBeVisible();
+    expect(screen.getByText('Artifact rejected')).toHaveClass('text-destructive');
+    expect(screen.getByText('The requested path is outside the active workspace.')).toBeVisible();
   });
 });

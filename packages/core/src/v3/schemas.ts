@@ -642,8 +642,11 @@ export const toolPresentationSchema = z.object({
       duration_ms: z.number().nonnegative().optional(),
       items: z.array(z.string()).optional(),
       action_label: z.string().optional(),
+      result_kind: z.enum(['snapshot', 'completion', 'message']).optional(),
+      severity: z.enum(['info', 'warning', 'error']).optional(),
     }),
   ),
+  status: z.string().optional(),
   diagnostic: z.string().optional(),
 });
 

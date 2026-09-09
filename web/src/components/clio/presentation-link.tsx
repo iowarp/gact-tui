@@ -73,13 +73,13 @@ export function PresentationLink({
         {text}
       </Button>,
     );
-  if (block.target === 'url' && uri)
+  if (block.target === 'url' && /^https?:\/\//iu.test(uri))
     return withTooltip(
       <a
         className={cn(className, 'underline')}
         href={uri}
-        target={/^https?:\/\//iu.test(uri) ? '_blank' : undefined}
-        rel={/^https?:\/\//iu.test(uri) ? 'noopener noreferrer' : undefined}
+        target="_blank"
+        rel="noopener noreferrer"
       >
         {text}
       </a>,

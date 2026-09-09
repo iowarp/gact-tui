@@ -46,8 +46,8 @@ export function AgentAnswerActivity({
         }
       >
         <BotIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        <span className="font-medium text-foreground/80">{requestLabel}</span>
         <span>
-          {requestLabel} ·{' '}
           {fallbackPending
             ? 'Needs your response'
             : fallbackAnswered
@@ -55,12 +55,12 @@ export function AgentAnswerActivity({
               : answered
                 ? 'Agent responded'
                 : 'Agent is answering'}
-          {!fallback ? (
-            <span aria-hidden="true" className="sr-only">
-              {answered ? 'Agent answered MCP request' : 'Agent is answering MCP request'}
-            </span>
-          ) : null}
         </span>
+        {!fallback ? (
+          <span aria-hidden="true" className="sr-only">
+            {answered ? 'Agent answered MCP request' : 'Agent is answering MCP request'}
+          </span>
+        ) : null}
       </span>
     );
   }
@@ -209,11 +209,8 @@ function HumanQuestionActivity({
         data-human-question-state={interaction.status}
       >
         <UserRoundIcon aria-hidden="true" className="size-3.5 shrink-0" />
-        <span>
-          {answered && !declined
-            ? `You responded · ${requestLabel}`
-            : `${requestLabel} · ${stateLabel}`}
-        </span>
+        <span className="font-medium text-foreground/80">{requestLabel}</span>
+        <span>{answered && !declined ? 'You responded' : stateLabel}</span>
       </span>
     );
   }

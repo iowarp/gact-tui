@@ -308,7 +308,7 @@ export function childProjectionActivityItems(
       id: `projected:${span.id}`,
       kind: projectedKind(span.kind),
       label: span.label,
-      detail: projectedActivityDetail(span.kind, span.tool_name, owner?.label),
+      detail: projectedActivityDetail(span.kind, span.tool_name),
       state: activityState(span.status),
       at: timestampString(span.end_time ?? span.start_time),
       timing: span.start_time === null && span.end_time === null ? undefined : 'event',
@@ -507,7 +507,7 @@ function projectedKind(kind: string): ObservabilityActivityItem['kind'] {
   return 'tool';
 }
 
-function projectedActivityDetail(kind: string, toolName?: string, ownerLabel?: string): string {
+function projectedActivityDetail(kind: string, toolName?: string): string {
   const detail =
     kind === 'tool'
       ? toolName
@@ -520,7 +520,7 @@ function projectedActivityDetail(kind: string, toolName?: string, ownerLabel?: s
           : kind === 'interaction'
             ? 'Human interaction'
             : 'Interactive surface or MCP task';
-  return ownerLabel ? `${ownerLabel} · ${detail}` : detail;
+  return detail;
 }
 
 function timestampString(value: number | null): string | undefined {

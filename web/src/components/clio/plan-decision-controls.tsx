@@ -150,7 +150,7 @@ export function PlanDecisionControls({
           </RadioGroup>
         </PopoverAnchor>
         {choice === 'execute' ? (
-          <div className="flex justify-end">
+          <div className="flex justify-end pr-2">
             <Button size="sm" disabled={disabled || !canExecute} onClick={submit}>
               {mode === 'exit_only' ? 'Leave Plan mode' : 'Execute plan'}
             </Button>

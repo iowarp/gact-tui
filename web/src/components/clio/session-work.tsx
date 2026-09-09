@@ -213,11 +213,13 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
                 <li key={schedule.id} className="rounded-md border p-3">
                   <Badge variant="outline">{schedule.enabled ? 'Scheduled' : 'Paused'}</Badge>
                   <p>{schedule.question}</p>
-                  <p className="text-muted-foreground">
-                    {schedule.next_fire_at
-                      ? new Date(schedule.next_fire_at).toLocaleString()
-                      : 'No next run'}{' '}
-                    · {schedule.timezone}
+                  <p className="flex flex-wrap gap-x-3 text-muted-foreground">
+                    <span>
+                      {schedule.next_fire_at
+                        ? new Date(schedule.next_fire_at).toLocaleString()
+                        : 'No next run'}
+                    </span>
+                    <span>{schedule.timezone}</span>
                   </p>
                   {schedule.last_error ? <p>{schedule.last_error}</p> : null}
                 </li>

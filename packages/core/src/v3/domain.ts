@@ -2,6 +2,9 @@ import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { MessageBlock } from './message-domain.js';
 import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
+import type { ToolPresentation } from './tool-presentation-domain.js';
+
+export type { ToolPresentation, ToolPresentationBlock } from './tool-presentation-domain.js';
 
 export type WireValue<Value extends string> = Value | 'unknown';
 export type ConnectionKind = 'local' | 'remote' | 'ssh';
@@ -202,51 +205,6 @@ export interface OperationalRun {
     updated_at: string;
     path?: string;
   };
-}
-
-export interface ToolPresentationBlock {
-  id: string;
-  type:
-    | 'text'
-    | 'markdown'
-    | 'code'
-    | 'diff'
-    | 'terminal'
-    | 'link'
-    | 'check'
-    | 'media'
-    | 'item';
-  media_type?: string;
-  text?: string;
-  label?: string;
-  language?: string;
-  target?: 'artifact' | 'resource' | 'session' | 'url' | 'file';
-  state?: 'pending' | 'in_progress' | 'completed';
-  uri?: string;
-  command?: string;
-  exit_code?: number | null;
-  timed_out?: boolean;
-  stream_offset?: number;
-  content_ref?: {
-    session_id: string;
-    call_id: string;
-    block_id: string;
-    cursor: number;
-    total_chars: number;
-  };
-  status?: string;
-  detail?: string;
-  duration_ms?: number;
-  items?: string[];
-  action_label?: string;
-}
-
-export interface ToolPresentation {
-  action?: string;
-  subject?: string;
-  summary: string;
-  blocks: ToolPresentationBlock[];
-  diagnostic?: string;
 }
 
 export interface ToolInvocation {

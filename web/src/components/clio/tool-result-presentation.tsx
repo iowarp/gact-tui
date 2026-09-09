@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   BotIcon,
+  CircleAlertIcon,
   InfoIcon,
   ServerIcon,
   SquareIcon,
@@ -22,8 +23,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { ResultDialogContent } from './result-dialog-content';
-import { ClioStatus, type ClioStatusValue } from './status';
+import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import { formatDuration } from '@/lib/format';
+import { cn } from '@/lib/utils';
 
 const CLIO_STATUSES = new Set<ClioStatusValue>([
   'queued',
@@ -53,15 +55,39 @@ function PresentationItem({ block }: { block: ToolPresentationBlock }) {
   const Icon = block.target === 'session' ? BotIcon : ServerIcon;
   const status = itemStatus(block.status);
   const details = [block.detail, ...(block.items ?? [])].filter(Boolean);
+  if (block.result_kind === 'message') {
+    return <ContextReceived label="Message sent" text={block.text ?? ''} />;
+  }
+  if (block.target === 'session') {
+    const observed = block.result_kind === 'snapshot';
+    const statusText = status ? clioStatusLabel(status).toLowerCase() : 'unknown';
+    const outcome = observed
+      ? `was ${statusText} when checked`
+      : status === 'completed' || status === 'succeeded'
+        ? `returned${block.duration_ms !== undefined ? ` after ${formatDuration(block.duration_ms)}` : ''}`
+        : `${statusText}${block.duration_ms !== undefined ? ` after ${formatDuration(block.duration_ms)}` : ''}`;
+    return (
+      <div className="min-w-0 py-0.5 text-sm">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <PresentationLink block={block} compact />
+          <span className="text-muted-foreground">{outcome}</span>
+        </div>
+        {block.detail ? <ContextReceived text={block.detail} /> : null}
+      </div>
+    );
+  }
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
+    <div className="flex min-w-0 items-center gap-1.5 rounded-md border bg-muted/30 px-2 py-1">
       <Icon aria-hidden="true" className="size-4 shrink-0 text-primary" />
       <div className="min-w-0 flex-1">
         <PresentationLink block={block} compact />
         {block.items?.length ? (
           <div className="mt-1 flex min-w-0 flex-wrap gap-1" aria-label="Available models">
             {block.items.slice(0, 4).map((item) => (
-              <span className="max-w-48 truncate rounded bg-background px-1.5 py-0.5 text-xs" key={item}>
+              <span
+                className="max-w-48 truncate rounded bg-background px-1.5 py-0.5 text-xs"
+                key={item}
+              >
                 {item}
               </span>
             ))}
@@ -77,12 +103,12 @@ function PresentationItem({ block }: { block: ToolPresentationBlock }) {
           </p>
         ) : null}
       </div>
-      {status ? <ClioStatus className="shrink-0 px-1.5 py-0.5 text-xs" value={status} /> : null}
       {block.duration_ms !== undefined ? (
         <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
           {formatDuration(block.duration_ms)}
         </span>
       ) : null}
+      {status ? <ClioStatus compact className="shrink-0" value={status} /> : null}
       {block.action_label && block.uri ? (
         <Button asChild size="sm" variant="outline" className="h-7 shrink-0">
           <a href={block.uri}>{block.action_label}</a>
@@ -116,6 +142,33 @@ function PresentationItem({ block }: { block: ToolPresentationBlock }) {
             ) : null}
           </ResultDialogContent>
         </Dialog>
+      ) : null}
+    </div>
+  );
+}
+
+function ContextReceived({ text, label = 'Context received' }: { text: string; label?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const long = text.length > 240;
+  return (
+    <div className="ml-4 min-w-0 pr-2 text-xs leading-5 text-muted-foreground">
+      <p
+        className={cn(
+          'whitespace-pre-wrap [overflow-wrap:anywhere]',
+          long && !expanded && 'line-clamp-2',
+        )}
+      >
+        <span className="font-medium text-foreground/80">{label} </span>
+        {text}
+      </p>
+      {long ? (
+        <button
+          className="text-xs underline-offset-2 hover:text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          onClick={() => setExpanded((value) => !value)}
+          type="button"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
       ) : null}
     </div>
   );
@@ -352,7 +405,7 @@ export function ToolResultPresentation({
     );
   }
   return (
-    <div className="ml-7 flex min-w-0 flex-col gap-1" data-slot="tool-human-result">
+    <div className="ml-7 flex min-w-0 flex-col gap-0.5" data-slot="tool-human-result">
       {tool.progress_message && tool.state === 'running' ? (
         <Shimmer>{tool.progress_message}</Shimmer>
       ) : null}
@@ -414,11 +467,28 @@ export function ToolResultPresentation({
         return (
           <div
             key={`${block.id}:${running ? 'running' : 'complete'}`}
-            className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
+            className={cn(
+              'min-w-0 overflow-hidden rounded-md border',
+              block.severity === 'error'
+                ? 'border-destructive/40 bg-destructive/5'
+                : block.severity === 'warning'
+                  ? 'border-warning/40 bg-warning/5'
+                  : 'bg-muted/40',
+            )}
             data-slot="tool-result-panel"
           >
             {block.label ? (
-              <p className="break-words px-2 pt-1 text-xs text-muted-foreground">{block.label}</p>
+              <p
+                className={cn(
+                  'flex items-center gap-1 break-words px-2 pt-1 text-xs font-medium',
+                  block.severity === 'error' ? 'text-destructive' : 'text-muted-foreground',
+                )}
+              >
+                {block.severity === 'error' ? (
+                  <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
+                ) : null}
+                {block.label}
+              </p>
             ) : null}
             {block.content_ref && !running ? (
               <PagedBlock block={block} lines={budget} />
