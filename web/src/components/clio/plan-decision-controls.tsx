@@ -47,7 +47,6 @@ export function PlanDecisionControls({
   const [feedback, setFeedback] = useState('');
   const [commentOpen, setCommentOpen] = useState(false);
   const rejectRef = useRef<HTMLButtonElement>(null);
-  const commentRef = useRef<HTMLButtonElement>(null);
   const plan = interaction.payload?.plan_exit;
   const complete = plan?.plan_content_status === 'complete' && Boolean(plan.plan_content?.trim());
   const canExecute = choice === 'execute' && Boolean(mode) && (mode === 'exit_only' || complete);
@@ -151,16 +150,7 @@ export function PlanDecisionControls({
           </RadioGroup>
         </PopoverAnchor>
         {choice === 'execute' ? (
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              ref={commentRef}
-              variant="ghost"
-              size="sm"
-              disabled={disabled}
-              onClick={() => setCommentOpen(true)}
-            >
-              {feedback.trim() ? 'Edit comment' : 'Add comment'}
-            </Button>
+          <div className="flex justify-end">
             <Button size="sm" disabled={disabled || !canExecute} onClick={submit}>
               {mode === 'exit_only' ? 'Leave Plan mode' : 'Execute plan'}
             </Button>
@@ -172,23 +162,19 @@ export function PlanDecisionControls({
           aria-label={rejecting ? 'Reject plan with comments' : 'Execution comment'}
           onCloseAutoFocus={(event) => {
             event.preventDefault();
-            (rejecting ? rejectRef : commentRef).current?.focus();
+            rejectRef.current?.focus();
           }}
         >
           <FieldGroup className="gap-2">
             <Field className="gap-1.5">
-              <FieldLabel htmlFor={`${id}-plan-feedback`}>
-                {rejecting ? 'What should change?' : 'Comment (optional)'}
-              </FieldLabel>
+              <FieldLabel htmlFor={`${id}-plan-feedback`}>What should change?</FieldLabel>
               <Textarea
                 id={`${id}-plan-feedback`}
                 className="min-h-20 max-h-48 resize-y field-sizing-fixed"
                 disabled={disabled}
                 value={feedback}
                 onChange={(event) => setFeedback(event.target.value)}
-                placeholder={
-                  rejecting ? 'Describe the changes you need…' : 'Add context for execution'
-                }
+                placeholder="Describe the changes you need…"
               />
             </Field>
             <div className="flex justify-end gap-2">
@@ -199,11 +185,10 @@ export function PlanDecisionControls({
                 size="sm"
                 disabled={disabled || (rejecting && !feedback.trim())}
                 onClick={() => {
-                  if (rejecting) submit();
-                  else setCommentOpen(false);
+                  submit();
                 }}
               >
-                {rejecting ? 'Request changes' : 'Save comment'}
+                Request changes
               </Button>
             </div>
           </FieldGroup>
