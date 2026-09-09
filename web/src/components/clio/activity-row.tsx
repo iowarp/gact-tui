@@ -29,7 +29,7 @@ export function ActivityRow({
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className={`flex items-center gap-2 ${inlineDetail ? '' : 'flex-wrap'}`}>
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-0">
           <span className="min-w-0 max-w-full font-medium">{title}</span>
           {duration !== undefined ? (
             <span className="shrink-0 text-sm text-muted-foreground">
@@ -37,7 +37,7 @@ export function ActivityRow({
             </span>
           ) : null}
           {inlineDetail && detail ? (
-            <span className="max-w-[42ch] truncate text-muted-foreground" title={detail}>
+            <span className="max-w-full shrink-0 truncate text-muted-foreground" title={detail}>
               {detail}
             </span>
           ) : null}

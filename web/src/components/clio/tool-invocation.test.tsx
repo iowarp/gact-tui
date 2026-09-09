@@ -156,6 +156,28 @@ describe('ClioToolInvocation', () => {
     );
     expect(container.querySelector('[data-language="python"]')).toBeInTheDocument();
   });
+  it('wraps qualifying result metadata instead of clipping it in a narrow pane', () => {
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'rejected-artifact',
+          session_id: 's',
+          name: 'create_artifact',
+          state: 'succeeded',
+          duration_ms: 369,
+          presentation: {
+            action: 'Create Artifact',
+            summary: 'rejected: escapes_root',
+            blocks: [],
+          },
+        }}
+      />,
+    );
+    const metadata = container.querySelector('[data-slot="activity-row"]')?.children[1]
+      ?.firstElementChild;
+    expect(metadata).toHaveClass('flex-wrap');
+    expect(screen.getByText('rejected: escapes_root')).toHaveClass('max-w-full', 'shrink-0');
+  });
   it('renders declared media rather than binary text and rejects active MIME content', () => {
     const { rerender } = render(
       <ClioToolInvocation
