@@ -25,6 +25,7 @@ import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { ResultDialogContent } from './result-dialog-content';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import { formatDuration } from '@/lib/format';
+import { languageForPath } from '@/lib/code-language';
 import { cn } from '@/lib/utils';
 
 const CLIO_STATUSES = new Set<ClioStatusValue>([
@@ -371,12 +372,19 @@ export function ToolResultPresentation({
   subjectId?: string;
 }) {
   const lines = useTranscriptPreviewLines();
-  const blocks = (tool.presentation?.blocks ?? []).filter(
-    (block) =>
-      block.id !== subjectId &&
-      (!['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref),
-  );
   const subject = tool.presentation?.blocks.find((block) => block.id === subjectId);
+  const subjectPath = subject?.target === 'file' ? subject.uri || subject.label || '' : '';
+  const blocks = (tool.presentation?.blocks ?? [])
+    .filter(
+      (block) =>
+        block.id !== subjectId &&
+        (!['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref),
+    )
+    .map((block) =>
+      block.type === 'code' && !block.language && subjectPath
+        ? { ...block, language: languageForPath(subjectPath) }
+        : block,
+    );
   // An explicitly declared file subject owns one document preview, including
   // metadata. Do not give each constituent block another preview-line budget.
   const document =

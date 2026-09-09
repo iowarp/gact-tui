@@ -128,6 +128,34 @@ describe('ClioToolInvocation', () => {
     );
     expect(screen.getByText('preserved content')).toBeVisible();
   });
+  it('uses the file subject language for persisted read results without a declaration', () => {
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'read-python',
+          session_id: 's',
+          name: 'fs_read_file',
+          state: 'succeeded',
+          presentation: {
+            action: 'Read',
+            subject: 'file-link',
+            summary: '46 bytes',
+            blocks: [
+              {
+                id: 'file-link',
+                type: 'link',
+                target: 'file',
+                uri: 'D:\\workspace\\example.py',
+                label: 'example.py',
+              },
+              { id: 'file', type: 'code', text: 'def answer():\n    return 43' },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-language="python"]')).toBeInTheDocument();
+  });
   it('renders declared media rather than binary text and rejects active MIME content', () => {
     const { rerender } = render(
       <ClioToolInvocation
