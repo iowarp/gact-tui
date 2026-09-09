@@ -89,7 +89,7 @@ describe('ClioToolInvocation', () => {
                 {
                   id: 'effect',
                   type: 'diff',
-                  text: '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new',
+                  text: '--- a/file\n+++ b/file\n@@ -1 +1 @@\n-old\n+new\n',
                 },
               ],
             },
@@ -105,6 +105,7 @@ describe('ClioToolInvocation', () => {
     expect(container).not.toHaveTextContent('RAW PAYLOAD');
     expect(container.querySelector('[data-diff-line="addition"]')).toHaveTextContent('+new');
     expect(container.querySelector('[data-diff-line="deletion"]')).toHaveTextContent('-old');
+    expect(container.querySelectorAll('[data-diff-line]')).toHaveLength(5);
     await userEvent.setup().click(file);
     expect(openFile).toHaveBeenCalledWith(path);
   });
