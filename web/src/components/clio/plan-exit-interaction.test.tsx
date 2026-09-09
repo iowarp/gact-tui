@@ -104,11 +104,9 @@ describe('PlanExitResponse', () => {
     await user.click(screen.getByRole('option', { name: 'Auto-execute' }));
     // A size-container wrapper collapsed this group after selection in the real browser.
     expect(
-      screen
-        .getByRole('radio', { name: 'Execute plan', exact: true })
-        .closest('[data-slot="field-group"]'),
+      screen.getByRole('radio', { name: /^Execute plan$/u }).closest('[data-slot="field-group"]'),
     ).toBeNull();
-    expect(screen.getByRole('radio', { name: 'Execute plan', exact: true })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /^Execute plan$/u })).toBeChecked();
     await user.click(screen.getByRole('checkbox', { name: 'Clear conversation context' }));
     await user.click(screen.getByRole('button', { name: 'Add comment' }));
     await user.type(screen.getByRole('textbox', { name: 'Comment (optional)' }), 'Proceed now.');
