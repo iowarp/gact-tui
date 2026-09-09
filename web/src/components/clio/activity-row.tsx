@@ -47,7 +47,15 @@ export function ActivityRow({
         ) : null}
       </span>
       {status ? <ClioStatus compact value={status} className="ml-auto shrink-0" /> : null}
-      {action ? <span className={status ? 'shrink-0' : 'ml-auto shrink-0'}>{action}</span> : null}
+      {action ? (
+        <span
+          className={
+            status ? 'flex size-5 shrink-0 items-center justify-center' : 'ml-auto shrink-0'
+          }
+        >
+          {action}
+        </span>
+      ) : null}
     </span>
   );
 }

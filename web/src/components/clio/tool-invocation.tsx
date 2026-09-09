@@ -63,7 +63,7 @@ export function ClioToolInvocation({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                className="size-6"
+                className="size-5"
                 aria-label={`Technical details for ${tool.title || tool.name}`}
                 title="Technical details"
               >
