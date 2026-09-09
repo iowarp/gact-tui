@@ -74,7 +74,7 @@ export function PlanDecisionControls({
             }}
             className="gap-3"
           >
-            <FieldGroup className="gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1.5">
               <Field
                 orientation="horizontal"
                 className="flex-wrap [&>[data-slot=field-label]]:flex-none"
@@ -132,7 +132,7 @@ export function PlanDecisionControls({
                   </FieldLabel>
                 </Field>
               ) : null}
-            </FieldGroup>
+            </div>
             {canReject ? (
               <Field orientation="horizontal">
                 <RadioGroupItem
