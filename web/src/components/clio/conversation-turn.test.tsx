@@ -100,6 +100,7 @@ describe('ConversationTurn correlated work placement', () => {
           answer_metadata: {},
           options: [
             { label: 'Approve — auto-execute', value: 'auto' },
+            { label: 'Clear conversation context', value: 'clear_context' },
             { label: 'Reject — keep planning', value: 'reject' },
           ],
           plan_exit: {
@@ -137,7 +138,16 @@ describe('ConversationTurn correlated work placement', () => {
       ).toBeVisible();
       expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
       expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
-      expect(screen.getByText(/write the changes in the composer/i)).toBeVisible();
+      const executeChoice = screen.getByRole('radio', { name: 'Execute plan' });
+      expect(executeChoice).not.toBeChecked();
+      const clearContext = screen.getByRole('checkbox', {
+        name: /clear conversation context/i,
+      });
+      expect(clearContext).toBeDisabled();
+      expect(screen.getByRole('radio', { name: /reject plan with comments/i })).toBeVisible();
+      fireEvent.click(executeChoice);
+      expect(executeChoice).toBeChecked();
+      expect(clearContext).toBeEnabled();
       if (mode === 'chain') {
         fireEvent.click(screen.getByRole('button', { name: /^Activity$/ }));
         expect(screen.getByText('Review execution plan')).toBeVisible();
