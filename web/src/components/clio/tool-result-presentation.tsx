@@ -833,6 +833,71 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
+/**
+ * Provenance blocks (`input-source-<i>` links, the `provenance-incomplete`
+ * warning) are appended by the backend after the declared presentation
+ * contract (#1336) to record which external files a tool read. They must
+ * never affect the document fast-path decision below.
+ */
+function isProvenanceBlock(block: ToolPresentationBlock): boolean {
+  return block.id.startsWith('input-source-') || block.id === 'provenance-incomplete';
+}
+
+/** The default (non-link/item/check/terminal) result panel for one block. */
+function DefaultBlockPanel({
+  block,
+  lines,
+  running,
+}: {
+  block: ToolPresentationBlock;
+  lines: number;
+  running: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        'min-w-0 overflow-hidden rounded-md border',
+        block.severity === 'error'
+          ? 'border-destructive/40 bg-destructive/5'
+          : block.severity === 'warning'
+            ? 'border-warning/40 bg-warning/5'
+            : 'bg-muted/40',
+      )}
+      data-slot="tool-result-panel"
+    >
+      {block.label ? (
+        <p
+          className={cn(
+            'flex items-center gap-1 break-words px-2 pt-1 text-xs font-medium',
+            block.severity === 'error' ? 'text-destructive' : 'text-muted-foreground',
+          )}
+        >
+          {block.severity === 'error' ? (
+            <CircleAlertIcon aria-hidden="true" className="size-3.5 shrink-0" />
+          ) : null}
+          {block.label}
+        </p>
+      ) : null}
+      {block.content_ref && !running ? (
+        <PagedBlock block={block} lines={lines} />
+      ) : (
+        <BoundedResult
+          lines={lines}
+          running={running}
+          separateViewer={block.type === 'media'}
+          fullContent={
+            block.type === 'media' ? (
+              <BlockBody block={block} text={block.text ?? ''} full />
+            ) : undefined
+          }
+        >
+          <BlockBody block={block} text={block.text ?? ''} />
+        </BoundedResult>
+      )}
+    </div>
+  );
+}
+
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation({
   tool,
@@ -869,12 +934,16 @@ export function ToolResultPresentation({
   const summary = summaryInHeader ? '' : (tool.presentation?.summary?.trim() ?? '');
   // An explicitly declared file subject owns one document preview, including
   // metadata. Do not give each constituent block another preview-line budget.
+  // Provenance blocks are ignored for this decision (see isProvenanceBlock)
+  // and rendered after the document instead.
+  const contentBlocks = blocks.filter((block) => !isProvenanceBlock(block));
+  const provenanceBlocks = blocks.filter(isProvenanceBlock);
   const document =
     (subject?.target === 'file' || resourceDocument) &&
-    blocks.length > 0 &&
-    blocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type));
+    contentBlocks.length > 0 &&
+    contentBlocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type));
   if (document) {
-    const budget = blocks.some((block) => block.type === 'diff') ? lines * 2 : lines;
+    const budget = contentBlocks.some((block) => block.type === 'diff') ? lines * 2 : lines;
     return (
       <div className="ml-7 flex min-w-0 flex-col gap-0.5" data-slot="tool-human-result">
         {summary ? (
@@ -886,16 +955,23 @@ export function ToolResultPresentation({
           className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
           data-slot="tool-result-panel"
         >
-          {blocks.some((block) => block.content_ref) ? (
-            <PagedBlock block={blocks[0]} groupedBlocks={blocks} lines={budget} />
+          {contentBlocks.some((block) => block.content_ref) ? (
+            <PagedBlock block={contentBlocks[0]} groupedBlocks={contentBlocks} lines={budget} />
           ) : (
             <BoundedResult lines={budget} title={subject.label || 'File contents'}>
-              {blocks.map((block) => (
+              {contentBlocks.map((block) => (
                 <BlockBody key={block.id} block={block} text={block.text ?? ''} />
               ))}
             </BoundedResult>
           )}
         </div>
+        {provenanceBlocks.map((block) =>
+          block.type === 'link' ? (
+            <PresentationLink key={block.id} block={block} />
+          ) : (
+            <DefaultBlockPanel key={block.id} block={block} lines={lines} running={false} />
+          ),
+        )}
       </div>
     );
   }

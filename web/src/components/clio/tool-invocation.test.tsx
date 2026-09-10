@@ -228,6 +228,119 @@ describe('ClioToolInvocation', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Line 13' }));
     expect(openResource).toHaveBeenCalledWith(resource);
   });
+  it('keeps the document fast-path for a file read with only document blocks', () => {
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'read-report',
+          session_id: 's',
+          name: 'fs_read_file',
+          state: 'succeeded',
+          presentation: {
+            action: 'Read',
+            subject: 'file-link',
+            summary: '',
+            blocks: [
+              {
+                id: 'file-link',
+                type: 'link',
+                target: 'file',
+                uri: 'D:\\workspace\\report.md',
+                label: 'report.md',
+              },
+              { id: 'body', type: 'text', text: 'Report body content unique-marker-xyz' },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(container.querySelectorAll('[data-slot="tool-result-panel"]')).toHaveLength(1);
+    expect(screen.getByText('Report body content unique-marker-xyz')).toBeVisible();
+  });
+  it('keeps the document fast-path and renders an appended input-source provenance link (#1336)', async () => {
+    const openFile = vi.fn();
+    const { container } = render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenFile: openFile }}
+      >
+        <ClioToolInvocation
+          tool={{
+            id: 'read-report-with-input',
+            session_id: 's',
+            name: 'fs_read_file',
+            state: 'succeeded',
+            presentation: {
+              action: 'Read',
+              subject: 'file-link',
+              summary: '',
+              blocks: [
+                {
+                  id: 'file-link',
+                  type: 'link',
+                  target: 'file',
+                  uri: 'D:\\workspace\\report.md',
+                  label: 'report.md',
+                },
+                { id: 'body', type: 'text', text: 'Report body content unique-marker-xyz' },
+                {
+                  id: 'input-source-0',
+                  type: 'link',
+                  target: 'file',
+                  uri: 'D:\\workspace\\inputs\\data.csv',
+                  label: 'data.csv',
+                  detail: 'Read as input',
+                },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    expect(container.querySelectorAll('[data-slot="tool-result-panel"]')).toHaveLength(1);
+    expect(screen.getByText('Report body content unique-marker-xyz')).toBeVisible();
+    const inputLink = screen.getByRole('button', { name: 'data.csv' });
+    expect(inputLink).toBeVisible();
+    await userEvent.setup().click(inputLink);
+    expect(openFile).toHaveBeenCalledWith('D:\\workspace\\inputs\\data.csv');
+  });
+  it('renders the incomplete-provenance warning alongside the document and shows the degraded badge (#1336)', () => {
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'read-report-incomplete',
+          session_id: 's',
+          name: 'fs_read_file',
+          state: 'succeeded',
+          presentation: {
+            action: 'Read',
+            subject: 'file-link',
+            summary: '',
+            status: 'degraded',
+            blocks: [
+              {
+                id: 'file-link',
+                type: 'link',
+                target: 'file',
+                uri: 'D:\\workspace\\report.md',
+                label: 'report.md',
+              },
+              { id: 'body', type: 'text', text: 'Report body content unique-marker-xyz' },
+              {
+                id: 'provenance-incomplete',
+                type: 'text',
+                severity: 'warning',
+                text: 'One input file could not be resolved.',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(container.querySelectorAll('[data-slot="tool-result-panel"]')).toHaveLength(2);
+    expect(screen.getByText('Report body content unique-marker-xyz')).toBeVisible();
+    expect(screen.getByText('One input file could not be resolved.')).toBeVisible();
+    expect(screen.getByText('Degraded')).toBeVisible();
+  });
   it('wraps qualifying result details instead of clipping them in a narrow pane', () => {
     const { container } = render(
       <ClioToolInvocation
