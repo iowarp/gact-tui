@@ -108,14 +108,10 @@ describe('PlanExitResponse', () => {
     ).toBeNull();
     expect(screen.getByRole('radio', { name: /^Execute plan$/u })).toBeChecked();
     await user.click(screen.getByRole('checkbox', { name: 'Clear conversation context' }));
-    await user.click(screen.getByRole('button', { name: 'Add comment' }));
-    await user.type(screen.getByRole('textbox', { name: 'Comment (optional)' }), 'Proceed now.');
-    await user.click(screen.getByRole('button', { name: 'Save comment' }));
     await user.click(screen.getByRole('button', { name: 'Execute plan' }));
 
     expect(onResponse).toHaveBeenCalledWith(interaction, {
       action: 'answer',
-      answer: 'Proceed now.',
       selected_options: ['auto', 'clear_context'],
     });
   });
@@ -219,7 +215,7 @@ describe('PlanExitResponse', () => {
     expect(
       await screen.findByRole('heading', { name: 'Accepted implementation plan' }),
     ).toBeVisible();
-    expect(screen.getByRole('status')).toHaveTextContent('Approved · Auto-execute');
+    expect(screen.getByRole('status')).toHaveTextContent('Approved in Auto-execute mode');
     expect(screen.queryByRole('button', { name: 'Execute plan' })).not.toBeInTheDocument();
   });
 

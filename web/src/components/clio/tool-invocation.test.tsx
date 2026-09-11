@@ -128,6 +128,56 @@ describe('ClioToolInvocation', () => {
     );
     expect(screen.getByText('preserved content')).toBeVisible();
   });
+  it('uses the file subject language for persisted read results without a declaration', () => {
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'read-python',
+          session_id: 's',
+          name: 'fs_read_file',
+          state: 'succeeded',
+          presentation: {
+            action: 'Read',
+            subject: 'file-link',
+            summary: '46 bytes',
+            blocks: [
+              {
+                id: 'file-link',
+                type: 'link',
+                target: 'file',
+                uri: 'D:\\workspace\\example.py',
+                label: 'example.py',
+              },
+              { id: 'file', type: 'code', text: 'def answer():\n    return 43' },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(container.querySelector('[data-language="python"]')).toBeInTheDocument();
+  });
+  it('wraps qualifying result metadata instead of clipping it in a narrow pane', () => {
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'rejected-artifact',
+          session_id: 's',
+          name: 'create_artifact',
+          state: 'succeeded',
+          duration_ms: 369,
+          presentation: {
+            action: 'Create Artifact',
+            summary: 'rejected: escapes_root',
+            blocks: [],
+          },
+        }}
+      />,
+    );
+    const metadata = container.querySelector('[data-slot="activity-row"]')?.children[1]
+      ?.firstElementChild;
+    expect(metadata).toHaveClass('flex-wrap');
+    expect(screen.getByText('rejected: escapes_root')).toHaveClass('max-w-full', 'shrink-0');
+  });
   it('renders declared media rather than binary text and rejects active MIME content', () => {
     const { rerender } = render(
       <ClioToolInvocation
@@ -467,5 +517,82 @@ describe('ClioToolInvocation', () => {
     expect(screen.getByText(/all checks passed/u)).toBeVisible();
     expect(screen.getByText('Process exited with code 0.')).toBeVisible();
     expect(screen.queryByLabelText('Command')).not.toBeInTheDocument();
+  });
+
+  it('renders child status and wait semantics without summary counts or boxes', () => {
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-wait',
+          session_id: 'session-1',
+          name: 'wait_agent_tasks',
+          state: 'succeeded',
+          duration_ms: 13_000,
+          presentation: {
+            action: 'Wait',
+            subject: 'task-subject',
+            summary: '',
+            blocks: [
+              {
+                id: 'task-subject',
+                type: 'text',
+                text: 'researcher #1, researcher #2',
+              },
+              {
+                id: 'task-1',
+                type: 'item',
+                target: 'session',
+                uri: 'session-child-1',
+                label: 'researcher #1',
+                status: 'completed',
+                result_kind: 'completion',
+                duration_ms: 7_000,
+                detail: 'The answer is 11.',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Wait')).toBeVisible();
+    expect(screen.getByText('researcher #1, researcher #2')).toBeVisible();
+    expect(screen.getByText('researcher #1')).toBeVisible();
+    expect(screen.getByText('returned after 7 s')).toBeVisible();
+    expect(screen.getByText('Context received')).toBeVisible();
+    expect(screen.getByText(/The answer is 11\./u)).toBeVisible();
+    expect(screen.queryByText(/task.*completed/iu)).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeNull();
+  });
+
+  it('uses semantic failure status and an error panel for a rejected artifact', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-artifact-rejected',
+          session_id: 'session-1',
+          name: 'create_artifact',
+          state: 'succeeded',
+          presentation: {
+            action: 'Create Artifact',
+            status: 'failed',
+            summary: '',
+            blocks: [
+              {
+                id: 'rejection',
+                type: 'text',
+                label: 'Artifact rejected',
+                severity: 'error',
+                text: 'The requested path is outside the active workspace.',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('status', { name: 'Failed' })).toBeVisible();
+    expect(screen.getByText('Artifact rejected')).toHaveClass('text-destructive');
+    expect(screen.getByText('The requested path is outside the active workspace.')).toBeVisible();
   });
 });

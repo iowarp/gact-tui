@@ -12,11 +12,7 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-e
 import { Task as AITask, TaskContent, TaskItem, TaskTrigger } from '@/components/ai-elements/task';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
-import {
-  ClioAgentMessageLine,
-  ClioSubagentCard,
-  type SubagentOpenTarget,
-} from './subagent-card';
+import { ClioAgentMessageLine, ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
