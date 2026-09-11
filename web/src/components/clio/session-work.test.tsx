@@ -102,6 +102,22 @@ it('shows authoritative work and exposes a compact canvas entry without toggling
   await userEvent.setup().click(entry);
   expect(open).toHaveBeenCalledOnce();
 });
+
+it('makes every Work category independently collapsible and scrollable', async () => {
+  mount(<SessionWorkView sessionId="s" />);
+
+  expect(await screen.findByText('Verify readable output')).toBeVisible();
+  expect(document.querySelectorAll('[data-slot="work-section-scroll"]')).toHaveLength(4);
+  const todos = screen.getByRole('region', { name: 'Todos' });
+  const todosTrigger = within(todos).getByRole('button', { name: 'Todos: 2 current' });
+  expect(todosTrigger).toHaveAttribute('aria-expanded', 'true');
+  await userEvent.setup().click(todosTrigger);
+  expect(todosTrigger).toHaveAttribute('aria-expanded', 'false');
+  expect(within(todos).queryByText('Inspect evidence')).not.toBeInTheDocument();
+  expect(
+    within(screen.getByRole('region', { name: 'Goals' })).getByText('Verify readable output'),
+  ).toBeVisible();
+});
 it('keeps stopped separate from paused and pages retained history', async () => {
   repository.sessionWork
     .mockResolvedValueOnce({
@@ -116,9 +132,11 @@ it('keeps stopped separate from paused and pages retained history', async () => 
       goals: [{ ...goal, id: 'old', title: 'Earlier goal', state: 'completed' }],
     });
   mount(<SessionWorkView sessionId="s" />);
-  await userEvent
-    .setup()
-    .click(within(await screen.findByRole('region', { name: 'Goals' })).getByRole('button'));
+  await userEvent.setup().click(
+    within(await screen.findByRole('region', { name: 'Goals' })).getByRole('button', {
+      name: /Previous 1 goal records/,
+    }),
+  );
   expect(await screen.findByText('Stopped')).toBeVisible();
   expect(screen.queryByText('paused', { exact: true })).not.toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: 'Older' }));
@@ -163,6 +181,9 @@ it('lets a user cancel an active schedule from Work', async () => {
     ],
   });
   mount(<SessionWorkView sessionId="s" />);
+
+  expect(await screen.findByText('Prepare the weekly report')).toBeVisible();
+  expect(screen.queryByText('schedule-1')).not.toBeInTheDocument();
 
   await userEvent
     .setup()

@@ -168,6 +168,55 @@ function PreviousRecords({
   );
 }
 
+function WorkSection({
+  title,
+  summary,
+  hasContent,
+  children,
+}: {
+  title: string;
+  summary: string;
+  hasContent: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Collapsible defaultOpen asChild>
+      <section
+        aria-label={title}
+        className={cn(
+          'group/work-section flex min-h-0 min-w-0 flex-col border-b last:border-b-0',
+          hasContent && 'data-[state=open]:flex-1',
+        )}
+      >
+        <CollapsibleTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            aria-label={`${title}: ${summary}`}
+            className="group h-9 w-full shrink-0 justify-start rounded-none px-0 hover:bg-transparent"
+          >
+            <span className="font-semibold">{title}</span>
+            <span className="ml-auto font-normal text-muted-foreground">{summary}</span>
+            <ChevronDownIcon
+              aria-hidden="true"
+              className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180"
+            />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="min-h-0 flex-1 overflow-hidden">
+          <ScrollArea
+            className="h-full min-h-0"
+            data-slot="work-section-scroll"
+            viewportProps={{ className: 'pr-3' }}
+          >
+            <div className="flex min-w-0 flex-col gap-2 pb-3">{children}</div>
+          </ScrollArea>
+        </CollapsibleContent>
+      </section>
+    </Collapsible>
+  );
+}
+
 function TodoRow({ todo }: { todo: WorkTodo }) {
   const Icon =
     todo.status === 'completed'
@@ -235,18 +284,18 @@ function PreviousScheduleRow({ schedule }: { schedule: WorkScheduleHistory }) {
   const recordedAt = schedule.ended_at || schedule.created_at;
   return (
     <li className="flex min-w-0 flex-col gap-0.5 py-1.5">
+      <p className="font-medium">{schedule.question}</p>
       <p className="flex flex-wrap items-center gap-x-2 text-muted-foreground">
         <span className="text-foreground">{state}</span>
         {recordedAt ? (
           <time dateTime={recordedAt}>{new Date(recordedAt).toLocaleString()}</time>
         ) : null}
       </p>
-      <p>{schedule.question}</p>
       <p className="flex flex-wrap gap-x-3 text-muted-foreground">
         {schedule.next_fire_at ? (
           <span>{new Date(schedule.next_fire_at).toLocaleString()}</span>
         ) : null}
-        {schedule.timezone ? <span>{schedule.timezone}</span> : null}
+        {schedule.timezone ? <span>Time zone: {schedule.timezone}</span> : null}
       </p>
     </li>
   );
@@ -298,165 +347,171 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
     data.loop_next_cursor ??
     data.todo_history_next_cursor ??
     data.schedule_history_next_cursor;
+  const activeScheduleCount = schedules.data?.schedules.length ?? 0;
   return (
-    <ScrollArea className="h-full min-h-0 min-w-0">
-      <div
-        className="flex min-w-0 flex-col gap-4 p-4 text-sm leading-6 [overflow-wrap:anywhere]"
-        aria-label="Session work"
+    <div
+      className="flex h-full min-h-0 min-w-0 flex-col px-4 text-sm leading-6 [overflow-wrap:anywhere]"
+      aria-label="Session work"
+    >
+      <WorkSection
+        title="Todos"
+        summary={data.todos.length ? `${data.todos.length} current` : 'None current'}
+        hasContent={Boolean(data.todos.length || data.todo_history.length)}
       >
-        <section className="flex flex-col gap-2" aria-label="Todos">
-          <h2 className="font-semibold">Todos</h2>
-          {data.todos.length ? (
-            <ul className="flex flex-col gap-2">
-              {data.todos.map((todo, index) => (
-                <TodoRow key={`${todo.content}-${index}`} todo={todo} />
-              ))}
-            </ul>
-          ) : (
-            <p className="text-muted-foreground">
-              {data.todo_history.length ? 'No current tasks.' : 'No tasks recorded.'}
-            </p>
-          )}
-          <PreviousRecords count={data.todo_history.length} noun="task lists">
-            <ul className="flex flex-col gap-2">
-              {data.todo_history.map((snapshot) => (
-                <TodoSnapshotRow key={snapshot.id} snapshot={snapshot} />
-              ))}
-            </ul>
-          </PreviousRecords>
-        </section>
-        {(['goal', 'loop'] as const).map((kind) => {
-          const current = data[kind];
-          const currentIsActive = current?.state === 'active' || current?.state === 'paused';
-          const records = data[kind === 'goal' ? 'goals' : 'loops'];
-          const previous = records.filter(
-            (record) => !currentIsActive || record.id !== current?.id,
-          );
-          return (
-            <section
-              key={kind}
-              className="flex flex-col gap-2"
-              aria-label={kind === 'goal' ? 'Goals' : 'Loops'}
-            >
-              <h2 className="font-semibold">{kind === 'goal' ? 'Goals' : 'Loops'}</h2>
-              {currentIsActive && current ? (
-                <ul>
-                  <WorkRecordRow record={current} />
-                </ul>
-              ) : (
-                <p className="text-muted-foreground">
-                  {previous.length ? `No active ${kind}.` : `No ${kind} recorded.`}
-                </p>
-              )}
-              <PreviousRecords count={previous.length} noun={`${kind} records`}>
-                <ul className="flex flex-col gap-2">
-                  {previous.map((record) => (
-                    <WorkRecordRow key={record.id} record={record} />
-                  ))}
-                </ul>
-              </PreviousRecords>
-            </section>
-          );
-        })}
-        <section className="flex flex-col gap-2" aria-label="Schedules">
-          <h2 className="font-semibold">Schedules</h2>
-          {schedules.error ? (
-            <p role="alert">Schedules could not be loaded.</p>
-          ) : schedules.isPending ? (
-            <p role="status">Loading schedules…</p>
-          ) : schedules.data?.schedules.length ? (
-            <ul className="flex flex-col gap-2">
-              {schedules.data.schedules.map((schedule) => (
-                <li key={schedule.id} className="flex min-w-0 items-start gap-2 py-1.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="inline-flex items-center gap-1 text-muted-foreground">
-                      {schedule.enabled ? (
-                        <CircleCheckIcon aria-hidden="true" className="size-4" />
-                      ) : (
-                        <CirclePauseIcon aria-hidden="true" className="size-4" />
-                      )}
-                      {schedule.enabled ? 'Scheduled' : 'Paused'}
-                    </p>
-                    <p>{schedule.question}</p>
-                    <p className="flex flex-wrap gap-x-3 text-muted-foreground">
-                      <span>
-                        {schedule.next_fire_at
-                          ? new Date(schedule.next_fire_at).toLocaleString()
-                          : 'No next run'}
-                      </span>
-                      <span>{schedule.timezone}</span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">{schedule.id}</p>
-                    {schedule.last_error ? <p>{schedule.last_error}</p> : null}
-                  </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        aria-label={`Cancel schedule: ${schedule.question}`}
-                        className="size-7 shrink-0"
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
+        {data.todos.length ? (
+          <ul className="flex flex-col gap-2">
+            {data.todos.map((todo, index) => (
+              <TodoRow key={`${todo.content}-${index}`} todo={todo} />
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">
+            {data.todo_history.length ? 'No current tasks.' : 'No tasks recorded.'}
+          </p>
+        )}
+        <PreviousRecords count={data.todo_history.length} noun="task lists">
+          <ul className="flex flex-col gap-2">
+            {data.todo_history.map((snapshot) => (
+              <TodoSnapshotRow key={snapshot.id} snapshot={snapshot} />
+            ))}
+          </ul>
+        </PreviousRecords>
+      </WorkSection>
+      {(['goal', 'loop'] as const).map((kind) => {
+        const current = data[kind];
+        const currentIsActive = current?.state === 'active' || current?.state === 'paused';
+        const records = data[kind === 'goal' ? 'goals' : 'loops'];
+        const previous = records.filter((record) => !currentIsActive || record.id !== current?.id);
+        return (
+          <WorkSection
+            key={kind}
+            title={kind === 'goal' ? 'Goals' : 'Loops'}
+            summary={
+              currentIsActive
+                ? current.state.charAt(0).toUpperCase() + current.state.slice(1)
+                : 'None active'
+            }
+            hasContent={Boolean(currentIsActive || previous.length)}
+          >
+            {currentIsActive && current ? (
+              <ul>
+                <WorkRecordRow record={current} />
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">
+                {previous.length ? `No active ${kind}.` : `No ${kind} recorded.`}
+              </p>
+            )}
+            <PreviousRecords count={previous.length} noun={`${kind} records`}>
+              <ul className="flex flex-col gap-2">
+                {previous.map((record) => (
+                  <WorkRecordRow key={record.id} record={record} />
+                ))}
+              </ul>
+            </PreviousRecords>
+          </WorkSection>
+        );
+      })}
+      <WorkSection
+        title="Schedules"
+        summary={activeScheduleCount ? `${activeScheduleCount} active` : 'None active'}
+        hasContent={Boolean(activeScheduleCount || data.schedule_history.length)}
+      >
+        {schedules.error ? (
+          <p role="alert">Schedules could not be loaded.</p>
+        ) : schedules.isPending ? (
+          <p role="status">Loading schedules…</p>
+        ) : schedules.data?.schedules.length ? (
+          <ul className="flex flex-col gap-2">
+            {schedules.data.schedules.map((schedule) => (
+              <li key={schedule.id} className="flex min-w-0 items-start gap-2 py-1.5">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{schedule.question}</p>
+                  <p className="inline-flex items-center gap-1 text-muted-foreground">
+                    {schedule.enabled ? (
+                      <CircleCheckIcon aria-hidden="true" className="size-4" />
+                    ) : (
+                      <CirclePauseIcon aria-hidden="true" className="size-4" />
+                    )}
+                    {schedule.enabled ? 'Scheduled' : 'Paused'}
+                  </p>
+                  <p className="flex flex-wrap gap-x-3 text-muted-foreground">
+                    <span>
+                      {schedule.next_fire_at
+                        ? new Date(schedule.next_fire_at).toLocaleString()
+                        : 'No next run'}
+                    </span>
+                    <span>Time zone: {schedule.timezone}</span>
+                  </p>
+                  {schedule.last_error ? <p>{schedule.last_error}</p> : null}
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      aria-label={`Cancel schedule: ${schedule.question}`}
+                      className="size-7 shrink-0"
+                      size="icon-sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trash2Icon aria-hidden="true" className="size-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancel this schedule?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Future runs will stop. Completed work remains in this session history.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Keep schedule</AlertDialogCancel>
+                      <AlertDialogAction
+                        disabled={removeSchedule.isPending}
+                        onClick={() => removeSchedule.mutate(schedule.id)}
+                        variant="destructive"
                       >
-                        <Trash2Icon aria-hidden="true" className="size-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Cancel this schedule?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Future runs will stop. Completed work remains in this session history.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Keep schedule</AlertDialogCancel>
-                        <AlertDialogAction
-                          disabled={removeSchedule.isPending}
-                          onClick={() => removeSchedule.mutate(schedule.id)}
-                          variant="destructive"
-                        >
-                          Cancel schedule
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-muted-foreground">
-              {data.schedule_history.length ? 'No active schedules.' : 'No schedules recorded.'}
-            </p>
-          )}
-          <PreviousRecords count={data.schedule_history.length} noun="schedule records">
-            <ul className="flex flex-col gap-2">
-              {data.schedule_history.map((schedule) => (
-                <PreviousScheduleRow key={schedule.id} schedule={schedule} />
-              ))}
-            </ul>
-          </PreviousRecords>
-        </section>
-        {cursor || next !== null ? (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              disabled={!cursor}
-              onClick={() => setCursor(Math.max(0, cursor - 25))}
-            >
-              Newer
-            </Button>
-            <Button
-              variant="outline"
-              disabled={next === null}
-              onClick={() => {
-                if (next !== null) setCursor(next);
-              }}
-            >
-              Older
-            </Button>
-          </div>
-        ) : null}
-      </div>
-    </ScrollArea>
+                        Cancel schedule
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">
+            {data.schedule_history.length ? 'No active schedules.' : 'No schedules recorded.'}
+          </p>
+        )}
+        <PreviousRecords count={data.schedule_history.length} noun="schedule records">
+          <ul className="flex flex-col gap-2">
+            {data.schedule_history.map((schedule) => (
+              <PreviousScheduleRow key={schedule.id} schedule={schedule} />
+            ))}
+          </ul>
+        </PreviousRecords>
+      </WorkSection>
+      {cursor || next !== null ? (
+        <div className="flex shrink-0 items-center gap-2 py-2">
+          <Button
+            variant="outline"
+            disabled={!cursor}
+            onClick={() => setCursor(Math.max(0, cursor - 25))}
+          >
+            Newer
+          </Button>
+          <Button
+            variant="outline"
+            disabled={next === null}
+            onClick={() => {
+              if (next !== null) setCursor(next);
+            }}
+          >
+            Older
+          </Button>
+        </div>
+      ) : null}
+    </div>
   );
 }

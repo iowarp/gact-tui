@@ -156,7 +156,7 @@ describe('ClioToolInvocation', () => {
     );
     expect(container.querySelector('[data-language="python"]')).toBeInTheDocument();
   });
-  it('wraps qualifying result metadata instead of clipping it in a narrow pane', () => {
+  it('wraps qualifying result details instead of clipping them in a narrow pane', () => {
     const { container } = render(
       <ClioToolInvocation
         tool={{
@@ -175,8 +175,11 @@ describe('ClioToolInvocation', () => {
     );
     const metadata = container.querySelector('[data-slot="activity-row"]')?.children[1]
       ?.firstElementChild;
-    expect(metadata).toHaveClass('flex-wrap');
-    expect(screen.getByText('rejected: escapes_root')).toHaveClass('max-w-full', 'shrink-0');
+    expect(metadata).toHaveClass('items-center');
+    expect(screen.getByText('rejected: escapes_root')).toHaveClass(
+      'whitespace-pre-wrap',
+      '[overflow-wrap:anywhere]',
+    );
   });
   it('renders declared media rather than binary text and rejects active MIME content', () => {
     const { rerender } = render(
@@ -558,7 +561,7 @@ describe('ClioToolInvocation', () => {
     expect(screen.getByText('Wait')).toBeVisible();
     expect(screen.getByText('researcher #1, researcher #2')).toBeVisible();
     expect(screen.getByText('researcher #1')).toBeVisible();
-    expect(screen.getByText('returned after 7 s')).toBeVisible();
+    expect(screen.getByText('completed, waited for 7 s')).toBeVisible();
     expect(screen.getByText('Context received')).toBeVisible();
     expect(screen.getByText(/The answer is 11\./u)).toBeVisible();
     expect(screen.queryByText(/task.*completed/iu)).not.toBeInTheDocument();
@@ -586,7 +589,7 @@ describe('ClioToolInvocation', () => {
                 target: 'work' as const,
                 uri: `schedule_${index}`,
                 label: `Prepare report ${index}`,
-                items: ['One-shot', 'Runs Sep 12, 2026, 9:00 AM', 'UTC'],
+                items: ['One-shot', 'Runs Sep 12, 2026, 9:00 AM', 'Time zone: UTC'],
               })),
             },
           }}
@@ -598,7 +601,8 @@ describe('ClioToolInvocation', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(4);
     expect(screen.getByRole('button', { name: 'Show more' })).toBeVisible();
     expect(screen.queryByText('Next:')).not.toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole('button', { name: 'schedule_0' }));
+    expect(screen.queryByText('schedule_0')).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Prepare report 0' }));
     expect(openWork).toHaveBeenCalledOnce();
   });
 

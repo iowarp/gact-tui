@@ -151,7 +151,6 @@ function PresentationItem({ block }: { block: ToolPresentationBlock }) {
 }
 
 function SchedulePresentationItem({ block }: { block: ToolPresentationBlock }) {
-  const scheduleId = block.uri || 'Schedule';
   return (
     <li className="flex min-w-0 items-start gap-2 py-1.5">
       <CalendarClockIcon aria-hidden="true" className="mt-1 size-4 shrink-0 text-primary" />
@@ -164,7 +163,6 @@ function SchedulePresentationItem({ block }: { block: ToolPresentationBlock }) {
             ))}
           </p>
         ) : null}
-        <PresentationLink block={{ ...block, label: scheduleId }} compact />
       </div>
     </li>
   );
