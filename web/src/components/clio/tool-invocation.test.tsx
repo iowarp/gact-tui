@@ -565,6 +565,43 @@ describe('ClioToolInvocation', () => {
     expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeNull();
   });
 
+  it('renders schedules as bounded actionable rows', async () => {
+    const openWork = vi.fn();
+    render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenWork: openWork }}
+      >
+        <ClioToolInvocation
+          tool={{
+            id: 'tool-schedules',
+            session_id: 'session-1',
+            name: 'cron_list',
+            state: 'succeeded',
+            presentation: {
+              action: 'List schedules',
+              summary: '4 schedules, 1 recurring, 3 one-shot',
+              blocks: Array.from({ length: 4 }, (_, index) => ({
+                id: `schedule-${index}`,
+                type: 'item' as const,
+                target: 'work' as const,
+                uri: `schedule_${index}`,
+                label: `Prepare report ${index}`,
+                items: ['One-shot', 'Runs Sep 12, 2026, 9:00 AM', 'UTC'],
+              })),
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+
+    expect(screen.getByRole('list', { name: 'Schedules' })).toBeVisible();
+    expect(screen.getAllByRole('listitem')).toHaveLength(4);
+    expect(screen.getByRole('button', { name: 'Show more' })).toBeVisible();
+    expect(screen.queryByText('Next:')).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'schedule_0' }));
+    expect(openWork).toHaveBeenCalledOnce();
+  });
+
   it('uses semantic failure status and an error panel for a rejected artifact', () => {
     render(
       <ClioToolInvocation

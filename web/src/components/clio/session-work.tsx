@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { WorkRecord, WorkScheduleHistory, WorkTodo, WorkTodoSnapshot } from '@clio/core/v3';
 import {
   ChevronDownIcon,
@@ -11,10 +11,22 @@ import {
   SquareIcon,
   SquareMinusIcon,
   SquareCheckIcon,
+  Trash2Icon,
 } from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -245,11 +257,24 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
   const [cursor, setCursor] = useState(0);
   const query = useSessionWork(sessionId, cursor);
   const repository = useRepository();
+  const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
+  const scheduleKey = ['session-work-schedules', settings.endpoint, sessionId] as const;
   const schedules = useQuery({
-    queryKey: ['session-work-schedules', settings.endpoint, sessionId],
+    queryKey: scheduleKey,
     queryFn: ({ signal }) => repository.scheduledTurns(sessionId, signal),
     refetchInterval: 5000,
+  });
+  const removeSchedule = useMutation({
+    mutationFn: (scheduleId: string) => repository.deleteScheduledTurn(scheduleId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: scheduleKey }),
+        queryClient.invalidateQueries({
+          queryKey: ['session-work', settings.endpoint, sessionId],
+        }),
+      ]);
+    },
   });
   if (query.isPending)
     return (
@@ -342,25 +367,59 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
           ) : schedules.data?.schedules.length ? (
             <ul className="flex flex-col gap-2">
               {schedules.data.schedules.map((schedule) => (
-                <li key={schedule.id} className="flex flex-col gap-0.5 py-1.5">
-                  <p className="inline-flex items-center gap-1 text-muted-foreground">
-                    {schedule.enabled ? (
-                      <CircleCheckIcon aria-hidden="true" className="size-4" />
-                    ) : (
-                      <CirclePauseIcon aria-hidden="true" className="size-4" />
-                    )}
-                    {schedule.enabled ? 'Scheduled' : 'Paused'}
-                  </p>
-                  <p>{schedule.question}</p>
-                  <p className="flex flex-wrap gap-x-3 text-muted-foreground">
-                    <span>
-                      {schedule.next_fire_at
-                        ? new Date(schedule.next_fire_at).toLocaleString()
-                        : 'No next run'}
-                    </span>
-                    <span>{schedule.timezone}</span>
-                  </p>
-                  {schedule.last_error ? <p>{schedule.last_error}</p> : null}
+                <li key={schedule.id} className="flex min-w-0 items-start gap-2 py-1.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="inline-flex items-center gap-1 text-muted-foreground">
+                      {schedule.enabled ? (
+                        <CircleCheckIcon aria-hidden="true" className="size-4" />
+                      ) : (
+                        <CirclePauseIcon aria-hidden="true" className="size-4" />
+                      )}
+                      {schedule.enabled ? 'Scheduled' : 'Paused'}
+                    </p>
+                    <p>{schedule.question}</p>
+                    <p className="flex flex-wrap gap-x-3 text-muted-foreground">
+                      <span>
+                        {schedule.next_fire_at
+                          ? new Date(schedule.next_fire_at).toLocaleString()
+                          : 'No next run'}
+                      </span>
+                      <span>{schedule.timezone}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">{schedule.id}</p>
+                    {schedule.last_error ? <p>{schedule.last_error}</p> : null}
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        aria-label={`Cancel schedule: ${schedule.question}`}
+                        className="size-7 shrink-0"
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trash2Icon aria-hidden="true" className="size-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel this schedule?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Future runs will stop. Completed work remains in this session history.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Keep schedule</AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={removeSchedule.isPending}
+                          onClick={() => removeSchedule.mutate(schedule.id)}
+                          variant="destructive"
+                        >
+                          Cancel schedule
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </li>
               ))}
             </ul>

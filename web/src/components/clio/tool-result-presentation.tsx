@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   BotIcon,
   ArrowRightIcon,
+  CalendarClockIcon,
   CircleAlertIcon,
   InfoIcon,
   ServerIcon,
@@ -146,6 +147,26 @@ function PresentationItem({ block }: { block: ToolPresentationBlock }) {
         </Dialog>
       ) : null}
     </div>
+  );
+}
+
+function SchedulePresentationItem({ block }: { block: ToolPresentationBlock }) {
+  const scheduleId = block.uri || 'Schedule';
+  return (
+    <li className="flex min-w-0 items-start gap-2 py-1.5">
+      <CalendarClockIcon aria-hidden="true" className="mt-1 size-4 shrink-0 text-primary" />
+      <div className="min-w-0 flex-1">
+        <PresentationLink block={block} />
+        {block.items?.length ? (
+          <p className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+            {block.items.map((item) => (
+              <span key={item}>{item}</span>
+            ))}
+          </p>
+        ) : null}
+        <PresentationLink block={{ ...block, label: scheduleId }} compact />
+      </div>
+    </li>
   );
 }
 
@@ -462,6 +483,26 @@ export function ToolResultPresentation({
           return <PresentationLink key={block.id} block={block} />;
         }
         if (block.type === 'item') {
+          if (block.target === 'work') {
+            if (blocks[index - 1]?.type === 'item' && blocks[index - 1]?.target === 'work')
+              return null;
+            const schedules: ToolPresentationBlock[] = [];
+            for (
+              let i = index;
+              i < blocks.length && blocks[i].type === 'item' && blocks[i].target === 'work';
+              i++
+            )
+              schedules.push(blocks[i]);
+            return (
+              <BoundedResult key={block.id} lines={3} unit="items" title="Schedules">
+                <ul aria-label="Schedules" className="border-l pl-3">
+                  {schedules.map((schedule) => (
+                    <SchedulePresentationItem key={schedule.id} block={schedule} />
+                  ))}
+                </ul>
+              </BoundedResult>
+            );
+          }
           return <PresentationItem key={block.id} block={block} />;
         }
         if (block.type === 'check') {

@@ -5,7 +5,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { SessionWorkSummary, SessionWorkView } from './session-work';
 
 const { repository } = vi.hoisted(() => ({
-  repository: { sessionWork: vi.fn(), scheduledTurns: vi.fn() },
+  repository: {
+    sessionWork: vi.fn(),
+    scheduledTurns: vi.fn(),
+    deleteScheduledTurn: vi.fn(),
+  },
 }));
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -65,6 +69,7 @@ const snapshot = {
 beforeEach(() => {
   repository.sessionWork.mockReset().mockResolvedValue(snapshot);
   repository.scheduledTurns.mockReset().mockResolvedValue({ schedules: [], cron_timezone: 'UTC' });
+  repository.deleteScheduledTurn.mockReset().mockResolvedValue(undefined);
 });
 function mount(children: React.ReactNode) {
   return render(
@@ -117,13 +122,11 @@ it('keeps stopped separate from paused and pages retained history', async () => 
   expect(await screen.findByText('Stopped')).toBeVisible();
   expect(screen.queryByText('paused', { exact: true })).not.toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: 'Older' }));
-  await userEvent
-    .setup()
-    .click(
-      within(await screen.findByRole('region', { name: 'Goals' })).getByRole('button', {
-        name: /Previous 1 goal records/,
-      }),
-    );
+  await userEvent.setup().click(
+    within(await screen.findByRole('region', { name: 'Goals' })).getByRole('button', {
+      name: /Previous 1 goal records/,
+    }),
+  );
   expect(await screen.findByText('Earlier goal')).toBeVisible();
   expect(repository.sessionWork).toHaveBeenLastCalledWith('s', 25, expect.any(AbortSignal));
 });
@@ -132,4 +135,40 @@ it('shows read failures instead of empty or completed state', async () => {
   mount(<SessionWorkView sessionId="s" />);
   expect(await screen.findByRole('alert')).toHaveTextContent('Session work could not be loaded');
   expect(screen.queryByText('No todos recorded.')).not.toBeInTheDocument();
+});
+
+it('lets a user cancel an active schedule from Work', async () => {
+  repository.scheduledTurns.mockResolvedValue({
+    cron_timezone: 'UTC',
+    schedules: [
+      {
+        id: 'schedule-1',
+        session_id: 's',
+        question: 'Prepare the weekly report',
+        cron: '',
+        run_at: '2026-09-12T14:00:00Z',
+        recurring: false,
+        next_fire_at: '2026-09-12T14:00:00Z',
+        timezone: 'UTC',
+        enabled: true,
+        created_at: '2026-09-11T14:00:00Z',
+        fire_count: 0,
+        max_fires: 1,
+        until: '',
+        overlap_policy: 'queue',
+        retry_count: 0,
+        last_error: '',
+        disabled_reason: '',
+      },
+    ],
+  });
+  mount(<SessionWorkView sessionId="s" />);
+
+  await userEvent
+    .setup()
+    .click(
+      await screen.findByRole('button', { name: 'Cancel schedule: Prepare the weekly report' }),
+    );
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Cancel schedule' }));
+  expect(repository.deleteScheduledTurn).toHaveBeenCalledWith('schedule-1');
 });
