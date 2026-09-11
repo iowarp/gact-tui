@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioComposer } from '@/components/clio/composer';
+import { ClioChildSessionFooter } from '@/components/clio/child-session-footer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
 import { sessionPatchForMessageBehavior } from '@/components/clio/session-behavior-options';
 import { ClioNavigation } from '@/components/clio/navigation';
@@ -402,6 +403,19 @@ export function WorkspacePage() {
       .map((steer) => steer.message_id),
   );
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
+  const pendingInteractionsPanel = (
+    <ClioPendingInteractions
+      capabilityError={interactionCapabilityError ?? undefined}
+      error={interactionsError ?? undefined}
+      interactions={responseTrayInteractions}
+      onA2UILocalAction={handleA2UILocalAction}
+      onRefetchSurfaces={refetchInteractionSurfaces}
+      onResponse={handleInteractionResponse}
+      ownerLabels={interactionOwnerLabels}
+      surfaces={interactionSurfaces}
+      viewedSessionId={sessionId}
+    />
+  );
   const renderComposer = (variant: 'docked' | 'welcome') => (
     <m.div
       className={
@@ -413,146 +427,150 @@ export function WorkspacePage() {
       layout
       layoutId={`session-composer:${sessionId}`}
     >
-      <ClioComposer
-        workSummary={
-          variant === 'docked' ? (
-            <SessionWorkSummary
-              sessionId={sessionId}
-              onOpen={() => revealWorkbench({ kind: 'resources', section: 'work' })}
-            />
-          ) : undefined
-        }
-        activityControl={
-          variant === 'docked' ? (
-            <div className="flex min-w-0 flex-1 items-center gap-1">
-              <WorkspaceLiveObservabilityDock
-                artifacts={artifacts}
-                context={context}
-                contextFiles={sessionObservability.contextFiles.data ?? []}
-                contextFrames={sessionObservability.contextFrames.data ?? []}
-                diffs={sessionObservability.diffs.data ?? []}
-                executionProvenance={executionProvenance.execution.data}
-                interactions={interactions}
-                onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
-                onOpenArtifact={openArtifact}
-                onOpenDiff={openDiff}
-                onOpenFile={openWorkspaceFile}
-                onOpenResource={openWorkspaceResource}
-                onOpenSubagent={openSubagent}
-                onProvenanceProviderChange={executionProvenance.setProvider}
-                processes={processes}
-                resources={workspaceResources.data ?? []}
-                provenanceDegradation={executionProvenance.degradation}
-                provenancePending={
-                  executionProvenance.providers.isPending || executionProvenance.execution.isPending
-                }
-                provenanceProvider={executionProvenance.provider}
-                provenanceProviders={executionProvenance.providers.data?.providers}
-                artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
-                runs={runs}
+      {parentSession ? (
+        <ClioChildSessionFooter
+          onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
+          onReturnToParent={() =>
+            navigate(
+              `/workspaces/${encodeURIComponent(parentSession.workspace_id)}/sessions/${encodeURIComponent(parentSession.id)}`,
+            )
+          }
+          parentTitle={parentSession.title}
+          pendingInteractions={pendingInteractionsPanel}
+          state={state}
+          variant={variant}
+        />
+      ) : (
+        <ClioComposer
+          workSummary={
+            variant === 'docked' ? (
+              <SessionWorkSummary
                 sessionId={sessionId}
-                sessionState={state}
-                subagents={subagents}
-                tasks={tasks}
-                tools={tools}
+                onOpen={() => revealWorkbench({ kind: 'resources', section: 'work' })}
               />
-            </div>
-          ) : undefined
-        }
-        attachments={workspaceRouteState.canUploadWorkspaceResources(
-          capabilities.data?.capabilities,
-        )}
-        contextReferences={workspaceRouteState.canUseContextReferences(
-          capabilities.data?.capabilities,
-        )}
-        commands={commands}
-        confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
-        disabled={!session || send.isPending || cancel.isPending || isPending}
-        effort={activeEffort}
-        executionMode={
-          session.mode === 'plan'
-            ? 'plan'
-            : session.mode === 'architect'
-              ? 'deep_research'
-              : 'execute'
-        }
-        focusRequestKey={composerFocusKey}
-        key={`composer:${sessionId}:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
-        model={activeModel}
-        modelCatalogStatus={modelCatalogStatus}
-        modelOptions={modelOptions}
-        pendingInteractions={
-          <ClioPendingInteractions
-            capabilityError={interactionCapabilityError ?? undefined}
-            error={interactionsError ?? undefined}
-            interactions={responseTrayInteractions}
-            onA2UILocalAction={handleA2UILocalAction}
-            onRefetchSurfaces={refetchInteractionSurfaces}
-            onResponse={handleInteractionResponse}
-            ownerLabels={interactionOwnerLabels}
-            surfaces={interactionSurfaces}
-            viewedSessionId={sessionId}
-          />
-        }
-        onCommand={async (value) => {
-          const startedFromWelcome = showConversationWelcome;
-          if (startedFromWelcome) setConversationStarted(true);
-          try {
-            await run(value);
-          } catch (error) {
-            if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
-            throw error;
+            ) : undefined
           }
-        }}
-        onRetryModelCatalog={() => void providerCatalog.refetch()}
-        onBehaviorChange={async (behavior) => {
-          await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
-        }}
-        onPrepareFiles={prepareFiles}
-        onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
-        onSubmit={async (value) => {
-          const startedFromWelcome = showConversationWelcome;
-          if (startedFromWelcome) setConversationStarted(true);
-          try {
-            const revision = workspaceRouteState.planRevisionFromComposer(interactions, value);
-            await (revision
-              ? handleInteractionResponse(revision.interaction, revision.response)
-              : send.mutateAsync(value));
-          } catch (error) {
-            if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
-            throw error;
+          activityControl={
+            variant === 'docked' ? (
+              <div className="flex min-w-0 flex-1 items-center gap-1">
+                <WorkspaceLiveObservabilityDock
+                  artifacts={artifacts}
+                  context={context}
+                  contextFiles={sessionObservability.contextFiles.data ?? []}
+                  contextFrames={sessionObservability.contextFrames.data ?? []}
+                  diffs={sessionObservability.diffs.data ?? []}
+                  executionProvenance={executionProvenance.execution.data}
+                  interactions={interactions}
+                  onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
+                  onOpenArtifact={openArtifact}
+                  onOpenDiff={openDiff}
+                  onOpenFile={openWorkspaceFile}
+                  onOpenResource={openWorkspaceResource}
+                  onOpenSubagent={openSubagent}
+                  onProvenanceProviderChange={executionProvenance.setProvider}
+                  processes={processes}
+                  resources={workspaceResources.data ?? []}
+                  provenanceDegradation={executionProvenance.degradation}
+                  provenancePending={
+                    executionProvenance.providers.isPending ||
+                    executionProvenance.execution.isPending
+                  }
+                  provenanceProvider={executionProvenance.provider}
+                  provenanceProviders={executionProvenance.providers.data?.providers}
+                  artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
+                  runs={runs}
+                  sessionId={sessionId}
+                  sessionState={state}
+                  subagents={subagents}
+                  tasks={tasks}
+                  tools={tools}
+                />
+              </div>
+            ) : undefined
           }
-        }}
-        onStop={() => cancel.mutate()}
-        onOpenResource={openWorkspaceResource}
-        onOpenReference={(reference) => void openComposerReference(reference)}
-        onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
-        onPromoteQueuedMessage={(message, delivery) =>
-          promoteQueuedMessage.mutateAsync({ delivery, message }).then(() => undefined)
-        }
-        onReorderQueuedMessages={(messages) =>
-          reorderQueuedMessages.mutateAsync(messages).then(() => undefined)
-        }
-        onUpdateQueuedMessage={(message, text) =>
-          updateQueuedMessage.mutateAsync({ message, text }).then(() => undefined)
-        }
-        onReferencesChange={composerDraft.onReferencesChange}
-        onValueChange={composerDraft.onValueChange}
-        provider={activeProvider}
-        queuedMessages={queuedMessages.data ?? []}
-        resources={workspaceResources.data ?? []}
-        queueBusy={
-          deleteQueuedMessage.isPending ||
-          promoteQueuedMessage.isPending ||
-          reorderQueuedMessages.isPending ||
-          updateQueuedMessage.isPending
-        }
-        state={state}
-        references={composerDraft.references}
-        value={composerDraft.value}
-        variant={variant}
-        workspaceId={workspaceId}
-      />
+          attachments={workspaceRouteState.canUploadWorkspaceResources(
+            capabilities.data?.capabilities,
+          )}
+          contextReferences={workspaceRouteState.canUseContextReferences(
+            capabilities.data?.capabilities,
+          )}
+          commands={commands}
+          confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
+          disabled={!session || send.isPending || cancel.isPending || isPending}
+          effort={activeEffort}
+          executionMode={
+            session.mode === 'plan'
+              ? 'plan'
+              : session.mode === 'architect'
+                ? 'deep_research'
+                : 'execute'
+          }
+          focusRequestKey={composerFocusKey}
+          key={`composer:${sessionId}:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
+          model={activeModel}
+          modelCatalogStatus={modelCatalogStatus}
+          modelOptions={modelOptions}
+          pendingInteractions={pendingInteractionsPanel}
+          onCommand={async (value) => {
+            const startedFromWelcome = showConversationWelcome;
+            if (startedFromWelcome) setConversationStarted(true);
+            try {
+              await run(value);
+            } catch (error) {
+              if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
+              throw error;
+            }
+          }}
+          onRetryModelCatalog={() => void providerCatalog.refetch()}
+          onBehaviorChange={async (behavior) => {
+            await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
+          }}
+          onPrepareFiles={prepareFiles}
+          onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
+          onSubmit={async (value) => {
+            const startedFromWelcome = showConversationWelcome;
+            if (startedFromWelcome) setConversationStarted(true);
+            try {
+              const revision = workspaceRouteState.planRevisionFromComposer(interactions, value);
+              await (revision
+                ? handleInteractionResponse(revision.interaction, revision.response)
+                : send.mutateAsync(value));
+            } catch (error) {
+              if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
+              throw error;
+            }
+          }}
+          onStop={() => cancel.mutate()}
+          onOpenResource={openWorkspaceResource}
+          onOpenReference={(reference) => void openComposerReference(reference)}
+          onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
+          onPromoteQueuedMessage={(message, delivery) =>
+            promoteQueuedMessage.mutateAsync({ delivery, message }).then(() => undefined)
+          }
+          onReorderQueuedMessages={(messages) =>
+            reorderQueuedMessages.mutateAsync(messages).then(() => undefined)
+          }
+          onUpdateQueuedMessage={(message, text) =>
+            updateQueuedMessage.mutateAsync({ message, text }).then(() => undefined)
+          }
+          onReferencesChange={composerDraft.onReferencesChange}
+          onValueChange={composerDraft.onValueChange}
+          provider={activeProvider}
+          queuedMessages={queuedMessages.data ?? []}
+          resources={workspaceResources.data ?? []}
+          queueBusy={
+            deleteQueuedMessage.isPending ||
+            promoteQueuedMessage.isPending ||
+            reorderQueuedMessages.isPending ||
+            updateQueuedMessage.isPending
+          }
+          state={state}
+          references={composerDraft.references}
+          value={composerDraft.value}
+          variant={variant}
+          workspaceId={workspaceId}
+        />
+      )}
     </m.div>
   );
   return (
