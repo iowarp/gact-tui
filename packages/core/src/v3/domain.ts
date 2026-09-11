@@ -382,6 +382,11 @@ export interface ContextSnapshot {
   session_id: string;
   scope?: string;
   used_tokens?: number;
+  used_tokens_source?: 'provider' | 'estimated';
+  usage_model?: string;
+  cache_read_tokens?: number;
+  cache_write_tokens?: number;
+  cache_tokens_measured?: boolean;
   limit_tokens?: number;
   live_tokens?: number;
   live_block_count?: number;

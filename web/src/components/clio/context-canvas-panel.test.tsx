@@ -10,6 +10,11 @@ const context: ContextSnapshot = {
   session_id: 'sess_1',
   scope: 'main',
   used_tokens: 460_000,
+  used_tokens_source: 'provider',
+  usage_model: 'anthropic/claude-sonnet-4-6',
+  cache_read_tokens: 230_000,
+  cache_write_tokens: 12_000,
+  cache_tokens_measured: true,
   limit_tokens: 922_000,
   live_tokens: 12_000,
   live_block_count: 2,
@@ -44,6 +49,8 @@ describe('ClioContextCanvasPanel', () => {
     expect(screen.getByText('Context composition')).toBeVisible();
     expect(screen.getByText('460K of 922K tokens')).toBeVisible();
     expect(screen.getByText('framing')).toBeVisible();
+    expect(screen.getByText(/Latest prompt measured by provider, 460K tokens/)).toBeVisible();
+    expect(screen.getByText(/Prompt cache read 230K tokens, 50% of this prompt/)).toBeVisible();
     expect(screen.queryByText('Session-only working context')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('combobox', { name: 'Context agent' }));
@@ -73,7 +80,7 @@ describe('ClioContextCanvasPanel', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Compact now' })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: /Saved snapshot/ }));
-    expect(screen.getByText('No saved snapshot for this agent.')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Latest context snapshot/ }));
+    expect(screen.getByText('No context snapshot is available for this agent.')).toBeVisible();
   });
 });

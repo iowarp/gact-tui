@@ -22,12 +22,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import type { ClioContextTarget } from '@/lib/context-targets';
@@ -146,7 +141,9 @@ export function ClioContextCanvasPanel({
             <AIContext maxTokens={limit} usedTokens={reading}>
               <ContextTrigger
                 aria-label={
-                  summaryEstimateActive ? 'Show estimated context usage' : 'Show exact context usage'
+                  summaryEstimateActive
+                    ? 'Show estimated context usage'
+                    : 'Show exact context usage'
                 }
                 className="size-8 p-0"
               />
@@ -209,6 +206,7 @@ export function ClioContextCanvasPanel({
                 </div>
               ))}
             </div>
+            <PromptUsageSummary context={context} />
           </div>
         ) : (
           <p className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
@@ -292,6 +290,33 @@ export function ClioContextCanvasPanel({
       ) : null}
 
       <ContextResources files={files} frame={latest} onOpenFile={onOpenFile} />
+    </div>
+  );
+}
+
+function PromptUsageSummary({ context }: { context?: ContextSnapshot }) {
+  if (!context?.used_tokens || !context.used_tokens_source) return null;
+  const measurement =
+    context.used_tokens_source === 'provider'
+      ? 'measured by provider'
+      : 'estimated from rendered messages';
+  const cacheRead = context.cache_read_tokens ?? 0;
+  const cacheWrite = context.cache_write_tokens ?? 0;
+  const cachePercent = context.cache_tokens_measured
+    ? Math.round((cacheRead / context.used_tokens) * 100)
+    : undefined;
+  return (
+    <div className="text-xs text-muted-foreground">
+      <p>
+        Latest prompt {measurement}, {formatTokens(context.used_tokens)} tokens
+        {context.usage_model ? `, ${context.usage_model}` : ''}
+      </p>
+      {cachePercent !== undefined ? (
+        <p>
+          Prompt cache read {formatTokens(cacheRead)} tokens, {cachePercent}% of this prompt
+          {cacheWrite ? `, cache write ${formatTokens(cacheWrite)} tokens` : ''}
+        </p>
+      ) : null}
     </div>
   );
 }
