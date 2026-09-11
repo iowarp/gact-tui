@@ -11,6 +11,22 @@ import {
 } from './index.js';
 
 describe('forward-compatible wire enums', () => {
+  it('retains a compacted context as its own message block', () => {
+    expect(
+      messageBlockSchema.parse({
+        id: 'compact_1',
+        type: 'compaction',
+        summary: '- Preserved evidence',
+        auto: false,
+      }),
+    ).toEqual({
+      id: 'compact_1',
+      type: 'compaction',
+      summary: '- Preserved evidence',
+      auto: false,
+    });
+  });
+
   it('retains message metadata used to classify internal resume envelopes', () => {
     expect(
       messageSchema.parse({

@@ -43,6 +43,7 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import { cn } from '@/lib/utils';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import type { SubagentOpenTarget } from './subagent-card';
@@ -174,6 +175,45 @@ export interface ClioWorkbenchHandle {
 }
 
 const sessionTab: WorkbenchTab = { id: 'session', kind: 'session', label: 'Observability' };
+const WORKBENCH_TABS_STORAGE_PREFIX = 'clio.workbench-tabs.v1';
+
+function workbenchTabsStorageKey(workspaceId: string): string {
+  return `${WORKBENCH_TABS_STORAGE_PREFIX}:${workspaceId}`;
+}
+
+function isWorkbenchTab(value: unknown): value is WorkbenchTab {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.id === 'string' && typeof row.kind === 'string' && typeof row.label === 'string'
+  );
+}
+
+function restoredWorkbenchState(workspaceId: string): {
+  tabs: WorkbenchTab[];
+  activeTabId: string;
+} {
+  if (typeof window === 'undefined') return { tabs: [sessionTab], activeTabId: sessionTab.id };
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(workbenchTabsStorageKey(workspaceId)) ?? 'null',
+    ) as unknown;
+    if (!parsed || typeof parsed !== 'object')
+      return { tabs: [sessionTab], activeTabId: sessionTab.id };
+    const record = parsed as Record<string, unknown>;
+    const storedTabs = Array.isArray(record.tabs) ? record.tabs.filter(isWorkbenchTab) : [];
+    const tabs = storedTabs.length ? storedTabs : [sessionTab];
+    const requestedActive = typeof record.activeTabId === 'string' ? record.activeTabId : '';
+    return {
+      tabs,
+      activeTabId: tabs.some((tab) => tab.id === requestedActive) ? requestedActive : tabs[0].id,
+    };
+  } catch {
+    return { tabs: [sessionTab], activeTabId: sessionTab.id };
+  }
+}
+
+const workbenchTabId = (tab: WorkbenchTab) => tab.id;
 const fileBrowserTab: WorkbenchTab = { id: 'files', kind: 'files', label: 'Files' };
 const artifactBrowserTab: WorkbenchTab = {
   id: 'artifacts',
@@ -248,11 +288,19 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     },
     ref,
   ) {
-    const [tabs, setTabs] = useState<WorkbenchTab[]>([sessionTab]);
-    const [activeTabId, setActiveTabId] = useState<string>(sessionTab.id);
+    const initialState = useRef(restoredWorkbenchState(workspaceId)).current;
+    const [tabs, setTabs] = useState<WorkbenchTab[]>(initialState.tabs);
+    const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
     const [maximized, setMaximized] = useState(false);
     const activeTabRef = useRef<HTMLDivElement>(null);
     const tabStripRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      window.localStorage.setItem(
+        workbenchTabsStorageKey(workspaceId),
+        JSON.stringify({ activeTabId, tabs }),
+      );
+    }, [activeTabId, tabs, workspaceId]);
 
     useLayoutEffect(() => {
       const strip = tabStripRef.current;
@@ -622,49 +670,87 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               className="no-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
               ref={tabStripRef}
             >
-              <TabsList className="h-10 w-max justify-start gap-1 rounded-lg bg-transparent p-1">
-                {tabs.map((tab) => {
-                  const active = tab.id === activeTabId;
-                  return (
-                    // The close button below is a SIBLING, not a child, of TabsTrigger: Radix's
-                    // Tabs.Trigger renders a real <button role="tab">, whose content model
-                    // forbids interactive descendants and whose ARIA role treats descendants as
-                    // presentational (stripped from the accessibility tree) — nesting a control
-                    // in it, real <button> or otherwise, cannot carry its own accessible name to
-                    // assistive tech, and adds a stray tab stop inside the tablist's roving-
-                    // tabindex model. Wrapping keeps both as ordinary flex siblings; Radix finds
-                    // TabsTrigger by DOM query regardless of this wrapper, so roving tabindex
-                    // between tabs is unaffected.
-                    <div
-                      className="group/canvas-tab relative flex min-w-24 max-w-56 shrink-0"
-                      key={tab.id}
-                      ref={active ? activeTabRef : undefined}
-                    >
-                      <TabsTrigger
-                        aria-keyshortcuts="Delete"
-                        className={cn(
-                          'h-8 w-full justify-start rounded-lg border-transparent bg-transparent py-0.5 pr-8 pl-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
-                          active
-                            ? 'text-foreground'
-                            : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
-                        )}
-                        onAuxClick={(event) => {
-                          if (event.button !== 1) return;
-                          event.preventDefault();
-                          event.stopPropagation();
-                          closeTab(tab.id);
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Delete') return;
-                          event.preventDefault();
-                          closeTab(tab.id);
-                        }}
+              <Sortable
+                asChild
+                getItemValue={workbenchTabId}
+                onValueChange={setTabs}
+                strategy="horizontal"
+                value={tabs}
+              >
+                <TabsList className="h-10 w-max justify-start gap-1 rounded-lg bg-transparent p-1">
+                  {tabs.map((tab) => {
+                    const active = tab.id === activeTabId;
+                    return (
+                      // The close button below is a SIBLING, not a child, of TabsTrigger: Radix's
+                      // Tabs.Trigger renders a real <button role="tab">, whose content model
+                      // forbids interactive descendants and whose ARIA role treats descendants as
+                      // presentational (stripped from the accessibility tree) — nesting a control
+                      // in it, real <button> or otherwise, cannot carry its own accessible name to
+                      // assistive tech, and adds a stray tab stop inside the tablist's roving-
+                      // tabindex model. Wrapping keeps both as ordinary flex siblings; Radix finds
+                      // TabsTrigger by DOM query regardless of this wrapper, so roving tabindex
+                      // between tabs is unaffected.
+                      <SortableItem
+                        asChild
+                        key={tab.id}
+                        role="presentation"
+                        tabIndex={-1}
                         value={tab.id}
                       >
-                        <TabIcon kind={tab.kind} />
-                        <span className="truncate">{tab.label}</span>
-                      </TabsTrigger>
-                      {/*
+                        <div
+                          className="group/canvas-tab relative flex min-w-24 max-w-56 shrink-0"
+                          ref={active ? activeTabRef : undefined}
+                        >
+                          <SortableItemHandle asChild>
+                            <TabsTrigger
+                              aria-keyshortcuts="Delete Alt+ArrowLeft Alt+ArrowRight"
+                              className={cn(
+                                'h-8 w-full justify-start rounded-lg border-transparent bg-transparent py-0.5 pr-8 pl-2 transition-colors data-active:border-transparent data-active:bg-muted data-active:text-foreground data-active:shadow-sm dark:data-active:border-transparent dark:data-active:bg-muted',
+                                active
+                                  ? 'text-foreground'
+                                  : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
+                              )}
+                              onAuxClick={(event) => {
+                                if (event.button !== 1) return;
+                                event.preventDefault();
+                                event.stopPropagation();
+                                closeTab(tab.id);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Delete') {
+                                  event.preventDefault();
+                                  closeTab(tab.id);
+                                  return;
+                                }
+                                if (
+                                  !event.altKey ||
+                                  (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')
+                                )
+                                  return;
+                                event.preventDefault();
+                                setTabs((current) => {
+                                  const index = current.findIndex((item) => item.id === tab.id);
+                                  const target = Math.max(
+                                    0,
+                                    Math.min(
+                                      current.length - 1,
+                                      index + (event.key === 'ArrowLeft' ? -1 : 1),
+                                    ),
+                                  );
+                                  if (index < 0 || index === target) return current;
+                                  const next = [...current];
+                                  const [moved] = next.splice(index, 1);
+                                  next.splice(target, 0, moved);
+                                  return next;
+                                });
+                              }}
+                              value={tab.id}
+                            >
+                              <TabIcon kind={tab.kind} />
+                              <span className="truncate">{tab.label}</span>
+                            </TabsTrigger>
+                          </SortableItemHandle>
+                          {/*
                         A pointer affordance, deliberately outside the accessibility tree. A
                         tablist may own nothing but tabs and a tab's own children are
                         presentational, so a real <button> is a critical violation on either side
@@ -675,22 +761,24 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                         button. Always at least faintly visible, since touch has no hover to reveal
                         it on; hover and keyboard focus within the tab only strengthen it.
                       */}
-                      <span
-                        aria-hidden="true"
-                        className="absolute top-1/2 right-1 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity group-hover/canvas-tab:opacity-100 group-focus-within/canvas-tab:opacity-100 hover:bg-muted hover:text-foreground"
-                        data-slot="canvas-tab-close"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          closeTab(tab.id);
-                        }}
-                        title={`Close ${tab.label}`}
-                      >
-                        <XIcon aria-hidden="true" className="size-3.5" />
-                      </span>
-                    </div>
-                  );
-                })}
-              </TabsList>
+                          <span
+                            aria-hidden="true"
+                            className="absolute top-1/2 right-1 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground opacity-70 transition-opacity group-hover/canvas-tab:opacity-100 group-focus-within/canvas-tab:opacity-100 hover:bg-muted hover:text-foreground"
+                            data-slot="canvas-tab-close"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              closeTab(tab.id);
+                            }}
+                            title={`Close ${tab.label}`}
+                          >
+                            <XIcon aria-hidden="true" className="size-3.5" />
+                          </span>
+                        </div>
+                      </SortableItem>
+                    );
+                  })}
+                </TabsList>
+              </Sortable>
             </div>
             <CanvasLauncher onOpen={openCanvasResource} />
             <Button

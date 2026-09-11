@@ -163,6 +163,10 @@ function fallbackIterations(
       continue;
     }
     if (block.type === 'agent_message') {
+      if (messageToolOwnsReceipt(current, block.message)) {
+        consumed.add(block.id);
+        continue;
+      }
       if (!alreadyInLane(current, 'agent_message', block.id)) {
         current.activity.push({ kind: 'agent_message', id: block.id, block });
       }
@@ -185,6 +189,16 @@ function fallbackIterations(
     messageInterrupted(message),
   );
   return { consumed, iterations };
+}
+
+function messageToolOwnsReceipt(iteration: ConversationIteration, message: string): boolean {
+  return iteration.activity.some(
+    (entry) =>
+      entry.kind === 'tool' &&
+      entry.tool.name === 'message_agent' &&
+      entry.tool.input?.message === message &&
+      entry.tool.presentation?.blocks.some((block) => block.result_kind === 'message'),
+  );
 }
 
 function alreadyInLane(

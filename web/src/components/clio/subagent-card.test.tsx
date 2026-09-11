@@ -137,16 +137,41 @@ describe('ClioSubagentLifecycleLine', () => {
     expect(screen.queryByText('Delegated work')).not.toBeInTheDocument();
   });
 
-  it('shows only the result when the child returns and remains navigable', () => {
+  it('shows return timing without moving result content onto the lifecycle row', () => {
     const onOpen = vi.fn();
     render(
       <ClioSubagentLifecycleLine onOpen={onOpen} stage="delegate.completed" subagent={child} />,
     );
 
-    expect(screen.getByText('returned')).toBeVisible();
-    expect(screen.getByText(child.result)).toBeVisible();
+    expect(screen.getByText('completed,')).toBeVisible();
+    expect(screen.getByText('waited for 13 s')).toBeVisible();
+    expect(screen.queryByText(child.result)).not.toBeInTheDocument();
     expect(screen.queryByText(child.task)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Open child conversation researcher #1' }));
     expect(onOpen).toHaveBeenCalledWith(child, 'conversation');
+  });
+
+  it('keeps a rejected child prompt and explains why the child did not start', () => {
+    render(
+      <ClioSubagentLifecycleLine
+        stage="delegate.completed"
+        subagent={{
+          ...child,
+          child_session_id: undefined,
+          duration_ms: undefined,
+          state: 'failed',
+          summary: 'This child is not declared by the current agent, so it was not started.',
+          task: undefined,
+        }}
+        task="Compare Claim X with Claim Y."
+      />,
+    );
+
+    expect(screen.getByText('failed')).toBeVisible();
+    expect(screen.getByText('Compare Claim X with Claim Y.')).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'This child is not declared by the current agent, so it was not started.',
+    );
+    expect(screen.getByRole('status', { name: 'Failed' })).toBeVisible();
   });
 });

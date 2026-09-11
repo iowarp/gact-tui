@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   mergeSnapshots: vi.fn(),
+  useSessionLiveStream: vi.fn(),
   repository: {
     agentBlueprints: vi.fn(async () => []),
     allSessions: vi.fn(async () => [] as unknown[]),
@@ -46,7 +47,9 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
 vi.mock('./use-repository', () => ({ useRepository: () => mocks.repository }));
-vi.mock('./use-session-live-stream', () => ({ useSessionLiveStream: () => undefined }));
+vi.mock('./use-session-live-stream', () => ({
+  useSessionLiveStream: mocks.useSessionLiveStream,
+}));
 vi.mock('./use-session-context', () => ({
   useSessionContext: () => ({ state: { data: undefined } }),
 }));
@@ -107,6 +110,7 @@ function renderWorkspaceData() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.useSessionLiveStream.mockReturnValue(undefined);
   mocks.repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: [] });
   mocks.repository.pendingApprovals.mockResolvedValue([]);
   mocks.repository.pendingQuestions.mockResolvedValue([]);
@@ -117,6 +121,32 @@ beforeEach(() => {
   mocks.repository.allSessions.mockResolvedValue([
     { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'idle' },
   ]);
+});
+
+describe('useWorkspaceData stream ownership', () => {
+  it('reserves the browser request channel while idle and opens the cursor stream when running', async () => {
+    mocks.repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: ['0.3'] });
+    const idle = renderWorkspaceData();
+
+    await waitFor(() =>
+      expect(mocks.useSessionLiveStream).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: false, sessionId: 'sess_1' }),
+      ),
+    );
+    idle.unmount();
+
+    mocks.repository.sessions.mockResolvedValue([
+      { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'running' },
+    ]);
+    const running = renderWorkspaceData();
+
+    await waitFor(() =>
+      expect(mocks.useSessionLiveStream).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: true, sessionId: 'sess_1' }),
+      ),
+    );
+    running.unmount();
+  });
 });
 
 describe('useWorkspaceData interaction reads', () => {

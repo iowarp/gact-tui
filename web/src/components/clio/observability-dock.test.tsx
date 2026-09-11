@@ -790,6 +790,145 @@ describe('ClioObservabilityView', () => {
     await user.click(screen.getByRole('tab', { name: 'Timeline' }));
     expect(screen.getByText('ndp #1')).toBeVisible();
   });
+
+  it('orders child branches, natural joins, wait, and collection by transcript causality', async () => {
+    const user = userEvent.setup();
+    const view = renderObservability(
+      <ClioObservabilityView
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        executionProvenance={{
+          schema_version: 'clio.execution_provenance.v1',
+          provider: 'native',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          complete: true,
+          truncated: false,
+          provider_health: {},
+          campaigns: [],
+          workflows: [],
+          agents: [],
+          session_lineage: [
+            {
+              session_id: 'session_root',
+              parent_session_id: '',
+              task_id: '',
+              agent_id: 'main',
+              label: 'Main agent',
+              depth: 0,
+              task_path: [],
+            },
+            {
+              session_id: 'session_a',
+              parent_session_id: 'session_root',
+              task_id: 'task_a',
+              agent_id: 'researcher',
+              label: 'Researcher A',
+              depth: 1,
+              task_path: ['task_a'],
+              status: 'completed',
+              created_at: '2026-09-09T12:00:01Z',
+              updated_at: '2026-09-09T12:00:08Z',
+            },
+            {
+              session_id: 'session_b',
+              parent_session_id: 'session_root',
+              task_id: 'task_b',
+              agent_id: 'reviewer',
+              label: 'Reviewer B',
+              depth: 1,
+              task_path: ['task_b'],
+              status: 'completed',
+              created_at: '2026-09-09T12:00:02Z',
+              updated_at: '2026-09-09T12:00:05Z',
+            },
+          ],
+          spans: [],
+          nodes: [],
+          edges: [],
+        }}
+        messages={[
+          {
+            id: 'message_1',
+            session_id: 'session_root',
+            role: 'assistant',
+            created_at: '2026-09-09T12:00:00Z',
+            blocks: [
+              {
+                id: 'started_a',
+                type: 'subagent',
+                subagent_id: 'task_a',
+                stage: 'delegate.started',
+                sequence: 1,
+              },
+              {
+                id: 'started_b',
+                type: 'subagent',
+                subagent_id: 'task_b',
+                stage: 'delegate.started',
+                sequence: 2,
+              },
+              { id: 'wait', type: 'tool', tool_id: 'wait_call', sequence: 3 },
+              { id: 'collect_b', type: 'tool', tool_id: 'collect_b_call', sequence: 4 },
+              { id: 'collect_a', type: 'tool', tool_id: 'collect_a_call', sequence: 5 },
+            ],
+          },
+        ]}
+        processes={[]}
+        runs={[]}
+        subagents={[]}
+        tasks={[]}
+        tools={[
+          {
+            id: 'spawn_call',
+            session_id: 'session_root',
+            name: 'spawn_agents_parallel',
+            state: 'succeeded',
+          },
+          {
+            id: 'wait_call',
+            session_id: 'session_root',
+            name: 'wait_agent_tasks',
+            title: 'Wait',
+            state: 'succeeded',
+            input: { task_ids: ['task_a', 'task_b'] },
+          },
+          {
+            id: 'collect_b_call',
+            session_id: 'session_root',
+            name: 'get_agent_task_output',
+            title: 'Collect Reviewer B',
+            state: 'succeeded',
+          },
+          {
+            id: 'collect_a_call',
+            session_id: 'session_root',
+            name: 'get_agent_task_output',
+            title: 'Collect Researcher A',
+            state: 'succeeded',
+          },
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole('tab', { name: 'Timeline' }));
+    const labels = [
+      ...view.container.querySelectorAll('[aria-label^="Open transcript event"]'),
+    ].map((element) => element.getAttribute('aria-label'));
+    expect(labels).toEqual([
+      'Open transcript event Researcher A',
+      'Open transcript event Reviewer B',
+      'Open transcript event Reviewer B',
+      'Open transcript event Researcher A',
+      'Open transcript event Wait',
+      'Open transcript event Collect Reviewer B',
+      'Open transcript event Collect Researcher A',
+    ]);
+    expect(screen.queryByText('Spawn Agents')).not.toBeInTheDocument();
+    expect(screen.getAllByText('In this turn')).toHaveLength(3);
+  });
 });
 
 function renderObservability(children: React.ReactNode) {

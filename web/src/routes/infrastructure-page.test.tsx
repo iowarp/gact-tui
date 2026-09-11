@@ -8,6 +8,7 @@ const repository = vi.hoisted(() => ({
   serviceHealth: vi.fn(),
   relayStatus: vi.fn(),
   mcpServers: vi.fn(),
+  effectiveAgentToolset: vi.fn(),
   mcpConfiguration: vi.fn(),
   configureMcpServer: vi.fn(),
   removeMcpConfiguration: vi.fn(),
@@ -71,6 +72,30 @@ beforeEach(() => {
       spec: {},
     },
   ]);
+  repository.effectiveAgentToolset.mockResolvedValue({
+    agentId: 'main',
+    sessionId: 'sess_demo',
+    tools: [
+      {
+        name: 'fs_read_file',
+        title: 'Read File',
+        source: 'gateway',
+        representation: 'row',
+      },
+      {
+        name: 'wait_agent_tasks',
+        title: 'Wait',
+        source: 'spawn-runtime',
+        representation: 'row',
+      },
+      {
+        name: 'memory_search_sessions',
+        title: 'Search memory',
+        source: 'native',
+        representation: 'row',
+      },
+    ],
+  });
   repository.mcpConfiguration.mockResolvedValue({
     name: 'web',
     configured: false,
@@ -133,6 +158,13 @@ describe('InfrastructurePage', () => {
     renderPage();
 
     expect(await screen.findByRole('heading', { name: 'Agent capabilities' })).toBeVisible();
+    expect(await screen.findByText('Available to this agent')).toBeVisible();
+    expect(screen.getByText('Workspace access')).toBeVisible();
+    expect(screen.getByText('Child coordination')).toBeVisible();
+    expect(screen.getByText('Session operations')).toBeVisible();
+    expect(screen.getByText('Search memory')).toBeVisible();
+    expect(screen.getByText('3 tools recorded for main')).toBeVisible();
+    expect(screen.getByText('Connected tool services')).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Research and documents' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Remote computers' })).toBeVisible();
     expect(await screen.findAllByText('Built-in MCP')).toHaveLength(2);
@@ -143,6 +175,10 @@ describe('InfrastructurePage', () => {
     expect(repository.mcpServers).toHaveBeenCalledWith('ws_factorio', expect.any(AbortSignal), {
       sessionId: 'sess_demo',
     });
+    expect(repository.effectiveAgentToolset).toHaveBeenCalledWith(
+      'sess_demo',
+      expect.any(AbortSignal),
+    );
   });
 
   it('groups only the servers this session actually owns', async () => {

@@ -115,8 +115,13 @@ export function useWorkspaceData({
     queryFn: ({ signal }) => repository.sessionArtifacts(sessionId, signal),
     enabled: Boolean(sessionId),
   });
+  const streamSession =
+    entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);
   const streamError = useSessionLiveStream({
-    enabled: workspaceRouteState.canOpenSessionStream(capabilities.data?.gact_versions, sessionId),
+    enabled:
+      workspaceRouteState.canOpenSessionStream(capabilities.data?.gact_versions, sessionId) &&
+      streamSession?.workspace_id === workspaceId &&
+      isSessionActive(streamSession.state),
     initialCursor: transcript.data?.cursor,
     sessionId,
     workspaceId,
@@ -254,8 +259,7 @@ export function useWorkspaceData({
     });
   }, [mergeSnapshots, sessionArtifacts.data, sessionId, transcript.data]);
 
-  const sessionCandidate =
-    entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);
+  const sessionCandidate = streamSession;
   const session = sessionCandidate?.workspace_id === workspaceId ? sessionCandidate : undefined;
   const workspace =
     entities.workspaces[workspaceId] ?? workspaces.data?.find((item) => item.id === workspaceId);

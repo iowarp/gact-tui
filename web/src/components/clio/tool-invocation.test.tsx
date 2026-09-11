@@ -54,7 +54,7 @@ describe('ClioToolInvocation', () => {
       />,
     );
     const heading = await screen.findByRole('heading', { name: 'Readable result' });
-    expect(heading.parentElement).toHaveClass('px-3', 'py-2');
+    expect(heading.parentElement).toHaveClass('px-2', 'py-1');
     expect(screen.getByRole('table')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Copy table' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'View fullscreen' })).not.toBeInTheDocument();
@@ -234,6 +234,7 @@ describe('ClioToolInvocation', () => {
             name: 'arbitrary',
             state: 'succeeded',
             presentation: {
+              subject: 'file',
               summary: '12 bytes',
               blocks: [
                 { id: 'file', type: 'link', target: 'file', uri: path, label: 'evidence.txt' },
@@ -246,6 +247,9 @@ describe('ClioToolInvocation', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'evidence.txt' }));
     expect(openFile).toHaveBeenCalledWith(path);
     expect(screen.queryByText(path)).not.toBeInTheDocument();
+    expect(screen.getByText('12 bytes').closest('[data-slot="activity-metadata"]')).not.toBeNull();
+    expect(screen.getByText('12 bytes').closest('[data-slot="tool-human-result"]')).toBeNull();
+    expect(document.querySelector('[data-slot="tool-action-label"]')).toHaveClass('w-full');
   });
   it('keeps the authoritative succeeded state when the result payload carries its own status', () => {
     render(

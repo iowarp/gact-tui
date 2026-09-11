@@ -51,6 +51,7 @@ export function PresentationLink({
     open = () => navigation.onOpenResource?.(resource);
   else if (block.target === 'session' && child && navigation?.onOpenSubagent)
     open = () => navigation.onOpenSubagent?.(child, 'conversation');
+  else if (block.target === 'work' && navigation?.onOpenWork) open = navigation.onOpenWork;
   else if (
     (block.target === 'file' || block.target === 'resource' || block.target === 'artifact') &&
     /^(?:[a-z]:[\\/]|\/)/iu.test(uri) &&
@@ -73,13 +74,13 @@ export function PresentationLink({
         {text}
       </Button>,
     );
-  if (block.target === 'url' && uri)
+  if (block.target === 'url' && /^https?:\/\//iu.test(uri))
     return withTooltip(
       <a
         className={cn(className, 'underline')}
         href={uri}
-        target={/^https?:\/\//iu.test(uri) ? '_blank' : undefined}
-        rel={/^https?:\/\//iu.test(uri) ? 'noopener noreferrer' : undefined}
+        target="_blank"
+        rel="noopener noreferrer"
       >
         {text}
       </a>,

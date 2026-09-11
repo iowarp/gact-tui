@@ -159,4 +159,21 @@ describe('ClioA2UISurface actions', () => {
       { run_id: undefined, message_id: undefined, part_id: undefined },
     );
   });
+
+  it('presents accepted protocol actions in plain language', () => {
+    const surface = actionSurface('agent.submit', { prompt: 'Continue' });
+    surface.messages.push({
+      version: 'v0.9.1',
+      updateDataModel: {
+        surfaceId: surface.id,
+        path: '/lastAction',
+        value: { name: 'agent.submit', status: 'accepted' },
+      },
+    });
+
+    renderSurface(surface);
+
+    expect(screen.getByText('Sent to agent')).toBeVisible();
+    expect(screen.queryByText('agent.submit accepted')).not.toBeInTheDocument();
+  });
 });

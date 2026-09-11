@@ -34,7 +34,7 @@ export function WorkspaceLiveConversation({
   const messageEntities = useLiveStore((state) => state.entities.messages);
   const artifactEntities = useLiveStore((state) => state.entities.artifacts);
   const subagents = useLiveStore((state) => state.entities.subagents);
-  const surfaces = useLiveStore((state) => state.entities.surfaces);
+  const surfaceEntities = useLiveStore((state) => state.entities.surfaces);
   const tasks = useLiveStore((state) => state.entities.tasks);
   const tools = useLiveStore((state) => state.entities.tools);
   const messages = useMemo(
@@ -55,6 +55,15 @@ export function WorkspaceLiveConversation({
         ].map((artifact) => [artifact.id, artifact]),
       ),
     [artifactEntities, artifactList, sessionId],
+  );
+  const surfaces = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.values(surfaceEntities)
+          .filter((surface) => surface.session_id === sessionId)
+          .map((surface) => [surface.id, surface]),
+      ),
+    [sessionId, surfaceEntities],
   );
   const entities = useMemo(
     () => ({ artifacts, subagents, surfaces, tasks, tools }),
@@ -99,7 +108,13 @@ export function WorkspaceLiveObservabilityView({
   sessionId,
   ...props
 }: LiveObservabilityViewProps) {
-  return <ClioObservabilityView {...props} messages={useSessionMessages(sessionId)} />;
+  return (
+    <ClioObservabilityView
+      {...props}
+      messages={useSessionMessages(sessionId)}
+      sessionId={sessionId}
+    />
+  );
 }
 
 type LiveStatusStripProps = Omit<

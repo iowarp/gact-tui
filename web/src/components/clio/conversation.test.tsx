@@ -500,6 +500,30 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
+  it('does not render projection-only A2UI updates as missing assistant responses', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'msg_a2ui_action_update',
+            session_id: 'session_1',
+            role: 'assistant',
+            created_at: '2026-08-22T00:00:00Z',
+            blocks: [],
+          },
+        ]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    expect(screen.queryByText('Response unavailable')).not.toBeInTheDocument();
+    expect(screen.getByText('This session has no messages')).toBeInTheDocument();
+  });
+
   it('renders navigable child-agent semantics from the shared dispatch component', () => {
     const onOpenSubagent = vi.fn();
     const child = {
@@ -724,6 +748,45 @@ describe('ClioConversation recovery actions', () => {
 
     expect(screen.getByText('Interactive surface removed')).toBeInTheDocument();
     expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
+  });
+
+  it('leaves a pending interactive surface to the response stack and hides empty routing noise', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        interactions={[
+          {
+            id: 'a2ui:session_1:surface_1',
+            kind: 'a2ui',
+            owner_session_id: 'session_1',
+            attended_session_id: 'session_1',
+            status: 'pending',
+            title: 'Interactive surface',
+            source: { protocol: 'native', surface_id: 'surface_1' },
+            created_at: '2026-09-09T00:00:00Z',
+          },
+        ]}
+        messages={[
+          {
+            id: 'message_surface',
+            session_id: 'session_1',
+            role: 'assistant',
+            created_at: '2026-09-09T00:00:00Z',
+            blocks: [
+              { id: 'block_surface', type: 'a2ui', surface_id: 'surface_1' },
+              { id: 'routing_placeholder', type: 'routing', label: 'Unknown' },
+            ],
+          },
+        ]}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    expect(screen.queryByLabelText('Agent-created view')).not.toBeInTheDocument();
+    expect(screen.queryByText('Unknown')).not.toBeInTheDocument();
   });
 });
 

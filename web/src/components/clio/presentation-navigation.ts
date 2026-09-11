@@ -9,6 +9,7 @@ type Navigation = Pick<
   | 'onOpenArtifact'
   | 'onOpenResource'
   | 'onOpenFile'
+  | 'onOpenWork'
   | 'onOpenSubagent'
 >;
 export const PresentationNavigation = createContext<Navigation | null>(null);

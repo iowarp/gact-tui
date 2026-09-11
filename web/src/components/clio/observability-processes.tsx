@@ -1,11 +1,11 @@
 import type {
   AsyncProcess,
+  ExecutionProvenanceResult,
+  ExecutionProvenanceSpan,
   Message,
   Run,
-  RunState,
   SubagentRun,
   ToolInvocation,
-  ToolState,
 } from '@clio/core/v3';
 import { scaleTime } from 'd3-scale';
 import { select } from 'd3-selection';
@@ -37,8 +37,9 @@ import { formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { SubagentOpenTarget } from './subagent-card';
 import { humanizeProtocolValue } from './presentation-labels';
-import { ClioStatus } from './status';
-import { getToolPresentation } from './tool-presentation';
+import { ClioStatus, type ClioStatusValue } from './status';
+import { getToolActivityTitle, getToolStatus, humanizeToolName } from './tool-presentation';
+import { provenanceFileFact } from './session-evidence-projection';
 
 const LABEL_COLUMN_PX = 148;
 const FALLBACK_PLOT_PX = 420;
@@ -46,6 +47,7 @@ const MAX_ZOOM = 200;
 const BRANCH_COLORS = ['#22d3ee', '#60a5fa', '#a78bfa', '#34d399', '#fb7185', '#facc15'];
 
 interface ClioProcessLanesProps {
+  executionProvenance?: ExecutionProvenanceResult;
   messages?: readonly Message[];
   processes: readonly AsyncProcess[];
   runs?: readonly Run[];
@@ -56,6 +58,7 @@ interface ClioProcessLanesProps {
 
 /** Zoomable execution Gantt adapted from the proven pre-rebuild observability surface. */
 export function ClioProcessLanes({
+  executionProvenance,
   messages = [],
   processes,
   runs = [],
@@ -64,8 +67,8 @@ export function ClioProcessLanes({
   onOpenSubagent,
 }: ClioProcessLanesProps) {
   const spans = useMemo(
-    () => executionSpans({ messages, processes, runs, tools }),
-    [messages, processes, runs, tools],
+    () => executionSpans({ executionProvenance, messages, processes, runs, tools }),
+    [executionProvenance, messages, processes, runs, tools],
   );
   const branches = useMemo(() => branchPalette(spans), [spans]);
   const lanes = useMemo(() => executionLanes(spans, branches), [branches, spans]);
@@ -404,13 +407,14 @@ function processLabel(process: AsyncProcess): string {
 interface ProcessSpan {
   id: string;
   label: string;
+  laneLabel?: string;
   branch: string;
   owner: string;
   kind: ProcessLane['kind'];
   start: number;
   end: number | null;
   state: 'done' | 'running' | 'failed';
-  status: RunState | ToolState;
+  status: ClioStatusValue;
   timing: 'exact' | 'observed';
   subagentId?: string;
   depth: number;
@@ -431,16 +435,19 @@ interface TimeRange {
 }
 
 function executionSpans({
+  executionProvenance,
   messages,
   processes,
   runs,
   tools,
 }: {
+  executionProvenance?: ExecutionProvenanceResult;
   messages: readonly Message[];
   processes: readonly AsyncProcess[];
   runs: readonly Run[];
   tools: readonly ToolInvocation[];
 }): ProcessSpan[] {
+  const processLabels = qualifiedProcessLabels(processes);
   const processOwners = new Map(
     processes
       .filter(
@@ -465,7 +472,7 @@ function executionSpans({
       );
       return {
         id: process.id,
-        label: processLabel(process),
+        label: processLabels.get(process.id) ?? processLabel(process),
         branch: process.id,
         owner: process.id,
         kind: process.kind,
@@ -506,7 +513,10 @@ function executionSpans({
       };
     })
     .filter((span): span is ProcessSpan => span !== undefined);
-  const messageSpans = runSpans.length
+  const hasDurableTurns = Boolean(
+    executionProvenance?.spans.some((span) => span.event_type === 'turn.started'),
+  );
+  const messageSpans = runSpans.length || hasDurableTurns
     ? []
     : messages
         .filter(
@@ -549,21 +559,152 @@ function executionSpans({
       const exact = exactStart !== undefined || exactEnd !== undefined;
       return {
         id: tool.id,
-        label: getToolPresentation(tool).title,
+        label: getToolActivityTitle(tool),
         branch: `${owner}:tool:${tool.name}`,
         owner,
         kind: 'tool',
         start,
         end: running ? null : exact ? Math.max(start, exactEnd ?? start) : start,
-        state: tool.state === 'failed' ? 'failed' : running ? 'running' : 'done',
-        status: tool.state,
+        state: getToolStatus(tool) === 'failed' ? 'failed' : running ? 'running' : 'done',
+        status: getToolStatus(tool),
         timing: exact ? 'exact' : 'observed',
         depth: processOwner ? processOwner.depth + 1 : 1,
       };
     })
     .filter((span): span is ProcessSpan => span !== undefined);
-  return [...runSpans, ...messageSpans, ...processSpans, ...toolSpans].sort(
+  const durableSpans = durableExecutionSpans(executionProvenance, tools, runs);
+  return [...runSpans, ...messageSpans, ...processSpans, ...toolSpans, ...durableSpans].sort(
     (left, right) => left.start - right.start,
+  );
+}
+
+/** Retain exact root timing when compaction removes old transcript entities. */
+function durableExecutionSpans(
+  provenance: ExecutionProvenanceResult | undefined,
+  tools: readonly ToolInvocation[],
+  runs: readonly Run[],
+): ProcessSpan[] {
+  if (!provenance) return [];
+  const rootSessionId = provenance.root_session_id ?? provenance.session_id;
+  const knownToolIds = new Set(tools.map((tool) => tool.id));
+  const turnRows = runs.length
+    ? []
+    : provenance.spans.filter(
+        (span) =>
+          span.owner_session_id === rootSessionId &&
+          span.event_type === 'turn.started' &&
+          span.start_time !== null,
+      );
+  const toolRows = provenance.spans.filter(
+    (span) =>
+      span.event_type === 'tool.call.started' &&
+      span.start_time !== null &&
+      !(span.invocation_id && knownToolIds.has(span.invocation_id)) &&
+      !matchesRecordedTool(span, tools),
+  );
+  return [
+    ...turnRows.map((span, index): ProcessSpan => ({
+      id: `provenance:${span.id}`,
+      label: `Main agent, turn ${index + 1}`,
+      branch: 'main',
+      owner: 'main',
+      kind: 'main',
+      start: span.start_time! * 1_000,
+      end: span.end_time === null ? null : Math.max(span.start_time!, span.end_time) * 1_000,
+      state: provenanceSpanState(span),
+      status: provenanceSpanStatus(span),
+      timing: 'exact',
+      depth: 0,
+    })),
+    ...toolRows.map((span): ProcessSpan => {
+      const owner =
+        !span.owner_session_id || span.owner_session_id === rootSessionId
+          ? 'main'
+          : span.owner_session_id;
+      const label = provenanceToolLabel(span);
+      return {
+        id: `provenance:${span.id}`,
+        label,
+        laneLabel: span.tool_name === 'fs_read_file' ? 'Read files' : operationLabel(span),
+        branch: `${owner}:tool:${span.tool_name ?? span.id}`,
+        owner,
+        kind: 'tool',
+        start: span.start_time! * 1_000,
+        end: span.end_time === null ? null : Math.max(span.start_time!, span.end_time) * 1_000,
+        state: provenanceSpanState(span),
+        status: provenanceSpanStatus(span),
+        timing: 'exact',
+        depth: owner === 'main' ? 1 : (span.task_path?.length ?? 1) + 1,
+      };
+    }),
+  ];
+}
+
+function matchesRecordedTool(
+  span: ExecutionProvenanceSpan,
+  tools: readonly ToolInvocation[],
+): boolean {
+  const startedAt = span.start_time === null ? undefined : span.start_time * 1_000;
+  return tools.some((tool) => {
+    if (tool.name !== span.tool_name || tool.session_id !== span.owner_session_id) return false;
+    const toolStartedAt = parseTimestamp(tool.started_at);
+    return startedAt !== undefined && toolStartedAt !== undefined
+      ? Math.abs(startedAt - toolStartedAt) < 2_000
+      : false;
+  });
+}
+
+function provenanceToolLabel(span: ExecutionProvenanceSpan): string {
+  const input = span.attributes.tool_input;
+  const qualifier =
+    input && typeof input === 'object'
+      ? ['filepath', 'path', 'uri', 'resource_id', 'task_id']
+          .map((key) => (input as Record<string, unknown>)[key])
+          .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      : undefined;
+  const operation = span.tool_name
+    ? (provenanceFileFact(span.tool_name) ?? humanizeToolName(span.tool_name))
+    : span.label;
+  if (!qualifier) return operation;
+  const compact = qualifier.split(/[\\/]/u).filter(Boolean).at(-1) ?? qualifier;
+  return `${operation} ${compact}`;
+}
+
+function operationLabel(span: ExecutionProvenanceSpan): string {
+  return span.tool_name
+    ? (provenanceFileFact(span.tool_name) ?? humanizeToolName(span.tool_name))
+    : span.label;
+}
+
+function provenanceSpanStatus(span: ExecutionProvenanceSpan): ClioStatusValue {
+  if (span.status === 'success' || span.status === 'succeeded') return 'completed';
+  if (span.status === 'error') return 'failed';
+  return span.status as ClioStatusValue;
+}
+
+function provenanceSpanState(span: ExecutionProvenanceSpan): ProcessSpan['state'] {
+  const status = provenanceSpanStatus(span);
+  if (status === 'failed' || status === 'denied') return 'failed';
+  return span.end_time === null ? 'running' : 'done';
+}
+
+function qualifiedProcessLabels(processes: readonly AsyncProcess[]): Map<string, string> {
+  const ordered = [...processes].sort((left, right) =>
+    (left.created_at ?? '').localeCompare(right.created_at ?? ''),
+  );
+  const totals = new Map<string, number>();
+  for (const process of ordered) {
+    const label = processLabel(process);
+    totals.set(label, (totals.get(label) ?? 0) + 1);
+  }
+  const seen = new Map<string, number>();
+  return new Map(
+    ordered.map((process) => {
+      const label = processLabel(process);
+      const occurrence = (seen.get(label) ?? 0) + 1;
+      seen.set(label, occurrence);
+      return [process.id, (totals.get(label) ?? 0) > 1 ? `${label}, turn ${occurrence}` : label];
+    }),
   );
 }
 
@@ -606,7 +747,7 @@ function executionLanes(spans: readonly ProcessSpan[], colors: Map<string, strin
             ? 'Main agent'
             : laneIndex
               ? `${lane[0]!.label} #${laneIndex + 1}`
-              : lane[0]!.label,
+              : (lane[0]!.laneLabel ?? lane[0]!.label),
         color: colors.get(branch) ?? BRANCH_COLORS[0]!,
         kind: lane[0]!.kind,
         depth: lane[0]!.depth,

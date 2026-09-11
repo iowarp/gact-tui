@@ -113,7 +113,7 @@ export function BoundedResult({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 px-2"
+          className="h-7 px-2 font-medium text-primary hover:text-primary/80"
           aria-controls={id}
           aria-expanded={expanded}
           disabled={loading}
@@ -134,7 +134,7 @@ export function BoundedResult({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 px-2"
+              className="h-7 px-2 font-medium text-primary hover:text-primary/80"
               aria-expanded={open}
               onClick={() => void expand()}
             >

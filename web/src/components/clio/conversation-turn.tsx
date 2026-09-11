@@ -146,7 +146,7 @@ export function ConversationTurn({
   if (mode === 'full') {
     return (
       <section aria-label="Full agent activity" className="mb-4">
-        <div className="space-y-4">
+        <div className="space-y-3">
           {iterations.map((iteration) => (
             <IterationDetail
               iteration={iteration}
@@ -379,17 +379,17 @@ function IterationDetail({
   );
   return (
     <article>
-      <div className="space-y-4">
+      <div className="space-y-2">
         {iteration.thinking.length > 0
           ? iteration.thinking.map((thinking) => (
               <Reasoning className="mb-0" isStreaming={thinking.streaming} key={thinking.id}>
                 <ReasoningTrigger
-                  className="min-h-7"
+                  className="min-h-6"
                   getThinkingMessage={(streaming) =>
                     streaming ? `${thinking.label} in progress` : thinking.label
                   }
                 />
-                <ReasoningContent className="mt-2 leading-6 [&_p]:my-1">
+                <ReasoningContent className="mt-1 leading-5 [&_p]:my-0.5">
                   {thinking.text}
                 </ReasoningContent>
               </Reasoning>
@@ -398,7 +398,7 @@ function IterationDetail({
 
         {iteration.nextThoughts.map((thought, index) => (
           <GroundedMessageResponse
-            className="text-sm leading-6"
+            className="text-sm leading-5"
             key={`${iteration.id}:response:${index}`}
           >
             {thought}
@@ -413,7 +413,7 @@ function IterationDetail({
         {iteration.activity.map((entry) =>
           entry.kind === 'tool' ? (
             <Fragment key={`tool:${entry.id}`}>
-              <div className="space-y-2" data-turn-activity={`tool:${entry.id}`}>
+              <div className="space-y-1" data-turn-activity={`tool:${entry.id}`}>
                 <ClioToolInvocation tool={entry.tool} />
                 {subagentsForTool(entry.tool, subagents)
                   .filter((subagent) => !explicitSubagentIds.has(subagent.id))

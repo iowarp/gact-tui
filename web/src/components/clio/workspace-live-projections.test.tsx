@@ -1,5 +1,5 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import type { Artifact } from '@clio/core/v3';
+import type { Artifact, A2UISurface } from '@clio/core/v3';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -22,21 +22,48 @@ vi.mock('@/store/live-store', () => ({
 }));
 
 vi.mock('./conversation', () => ({
-  ClioConversation: ({ artifacts }: { artifacts: Record<string, Artifact> }) => (
+  ClioConversation: ({
+    artifacts,
+    surfaces,
+  }: {
+    artifacts: Record<string, Artifact>;
+    surfaces: Record<string, A2UISurface>;
+  }) => (
     <>
       <output data-testid="artifact-size">{artifacts['artifact_plot']?.size}</output>
       <output data-testid="artifact-ids">{Object.keys(artifacts).join(',')}</output>
+      <output data-testid="surface-ids">{Object.keys(surfaces).join(',')}</output>
     </>
   ),
 }));
 
-import { WorkspaceLiveConversation } from './workspace-live-projections';
+vi.mock('./observability-dock', () => ({
+  ClioObservabilityDock: () => null,
+  ClioObservabilityView: ({
+    messages,
+    sessionId,
+  }: {
+    messages: readonly unknown[];
+    sessionId?: string;
+  }) => (
+    <>
+      <output data-testid="observability-session">{sessionId}</output>
+      <output data-testid="observability-message-count">{messages.length}</output>
+    </>
+  ),
+}));
+
+import {
+  WorkspaceLiveConversation,
+  WorkspaceLiveObservabilityView,
+} from './workspace-live-projections';
 
 describe('WorkspaceLiveConversation', () => {
   beforeEach(() => {
     cleanup();
     mocks.entities.artifacts = {};
     mocks.entities.messages = {};
+    mocks.entities.surfaces = {};
   });
 
   it('uses the registry-enriched artifact projection supplied by the workspace query', () => {
@@ -76,5 +103,63 @@ describe('WorkspaceLiveConversation', () => {
     );
     expect(screen.getByTestId('artifact-ids')).toHaveTextContent('version_1,version_2');
     expect(screen.getByTestId('artifact-ids')).not.toHaveTextContent('unrelated');
+  });
+
+  it('does not import detached A2UI surfaces from another session', () => {
+    const surface = {
+      id: 'surface_current',
+      session_id: 'sess_1',
+      catalog_id: 'catalog_1',
+      protocol_version: '0.9.1',
+      revision: 1,
+      state: 'ready',
+      messages: [],
+    } satisfies A2UISurface;
+    mocks.entities.surfaces = {
+      surface_current: surface,
+      surface_other: { ...surface, id: 'surface_other', session_id: 'sess_2' },
+    };
+
+    render(<WorkspaceLiveConversation artifacts={[]} sessionId="sess_1" />);
+
+    expect(screen.getByTestId('surface-ids')).toHaveTextContent('surface_current');
+    expect(screen.getByTestId('surface-ids')).not.toHaveTextContent('surface_other');
+  });
+
+  it('passes the authoritative session identity into the observability state owner', () => {
+    mocks.entities.messages = {
+      current: {
+        id: 'message_current',
+        session_id: 'sess_1',
+        role: 'assistant',
+        created_at: '2026-09-10T12:00:00Z',
+        blocks: [],
+      },
+      other: {
+        id: 'message_other',
+        session_id: 'sess_2',
+        role: 'assistant',
+        created_at: '2026-09-10T12:00:01Z',
+        blocks: [],
+      },
+    };
+
+    render(
+      <WorkspaceLiveObservabilityView
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        processes={[]}
+        runs={[]}
+        sessionId="sess_1"
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    expect(screen.getByTestId('observability-session')).toHaveTextContent('sess_1');
+    expect(screen.getByTestId('observability-message-count')).toHaveTextContent('1');
   });
 });

@@ -6,8 +6,10 @@ import type {
   ExecutionProvenanceDegradation,
   ExecutionProvenanceResult,
   Message,
+  PendingInteraction,
   ProvenanceProviderSummary,
   SessionDiff,
+  ToolInvocation,
   WorkspaceResource,
 } from '@clio/core/v3';
 import {
@@ -46,6 +48,14 @@ import { Button } from '@/components/ui/button';
 import { formatBytes } from '@/lib/format';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioArtifactCard } from './artifact-card';
+import {
+  fileName,
+  sessionDiffs,
+  sessionFiles,
+  sessionPlans,
+  type EvidenceFile,
+  type EvidencePlan,
+} from './session-evidence-projection';
 import { ClioStatus } from './status';
 
 export interface ClioEvidenceViewProps {
@@ -54,6 +64,8 @@ export interface ClioEvidenceViewProps {
   diffs: readonly SessionDiff[];
   messages: readonly Message[];
   processes: readonly AsyncProcess[];
+  interactions?: readonly PendingInteraction[];
+  tools?: readonly ToolInvocation[];
   executionProvenance?: ExecutionProvenanceResult;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
@@ -66,11 +78,9 @@ export interface ClioEvidenceViewProps {
 }
 
 export function ClioEvidenceView(props: ClioEvidenceViewProps) {
-  const plans = props.messages.flatMap((message) =>
-    message.blocks
-      .filter((block) => block.type === 'plan')
-      .map((block) => ({ ...block, messageId: message.id })),
-  );
+  const files = sessionFiles(props.contextFiles, props.tools ?? [], props.executionProvenance);
+  const diffs = sessionDiffs(props.diffs, props.tools ?? []);
+  const plans = sessionPlans(props.messages, props.interactions ?? [], props.artifacts);
   const sources = sessionSources(
     props.messages,
     props.processes,
@@ -78,14 +88,8 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
     props.executionProvenance,
   );
   const hasEvidence =
-    props.diffs.length ||
-    props.artifacts.length ||
-    sources.length ||
-    plans.length ||
-    props.contextFiles.length;
-  const hasProvenance = Boolean(
-    props.provenanceProvider || props.artifactProvenanceProvider || props.provenanceDegradation,
-  );
+    diffs.length || props.artifacts.length || sources.length || plans.length || files.length;
+  const hasProvenance = Boolean(props.provenanceProvider || props.artifactProvenanceProvider);
 
   if (!hasEvidence && !hasProvenance) {
     return (
@@ -97,119 +101,69 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
 
   return (
     <div className="grid gap-3">
-      {hasProvenance ? (
-        <Frame spacing="sm" variant="ghost">
-          <FrameHeader>
-            <FrameTitle>Evidence custody</FrameTitle>
-            <FrameDescription>
-              Provenance availability reported by the connected service.
-            </FrameDescription>
-          </FrameHeader>
-          <FramePanel className="flex flex-wrap gap-2">
-            {props.provenanceProvider ? (
-              <ClioStatus
-                label={`Execution: ${props.provenanceProvider.name}`}
-                detail={props.provenanceProvider.status}
-                value={evidenceProviderStatus(
-                  props.provenanceProvider.status,
-                  props.provenanceProvider.queryable,
-                )}
-              />
-            ) : null}
-            {props.artifactProvenanceProvider ? (
-              <ClioStatus
-                label={`Artifacts: ${props.artifactProvenanceProvider.provider}`}
-                detail={props.artifactProvenanceProvider.status}
-                value={evidenceProviderStatus(
-                  props.artifactProvenanceProvider.status,
-                  props.artifactProvenanceProvider.queryable,
-                )}
-              />
-            ) : null}
-            {props.provenanceDegradation ? (
-              <p className="basis-full text-xs leading-5 text-muted-foreground">
-                {props.provenanceDegradation.reason}
-              </p>
-            ) : null}
-          </FramePanel>
-        </Frame>
-      ) : null}
       <EvidenceCounts
         artifacts={props.artifacts.length}
-        contextFiles={props.contextFiles.length}
-        diffs={props.diffs.length}
+        files={files.length}
+        diffs={diffs.length}
         plans={plans.length}
         sources={sources.length}
       />
-      <Accordion defaultValue={['changes', 'sources']} type="multiple">
-        <EvidenceSection
-          icon={FileDiffIcon}
-          label="Changed files"
-          value="changes"
-          count={props.diffs.length}
-        >
-          <DiffEvidence
-            diffs={props.diffs}
-            onOpenDiff={props.onOpenDiff}
-            onOpenFile={props.onOpenFile}
-          />
-        </EvidenceSection>
-        <EvidenceSection
-          icon={WaypointsIcon}
-          label="Sources"
-          value="sources"
-          count={sources.length}
-        >
-          <SourceEvidence onOpenResource={props.onOpenResource} sources={sources} />
-        </EvidenceSection>
-        <EvidenceSection
-          icon={BoxIcon}
-          label="Artifacts"
-          value="artifacts"
-          count={props.artifacts.length}
-        >
-          <ArtifactEvidence
-            artifacts={props.artifacts}
-            executionProvenance={props.executionProvenance}
-            onOpenArtifact={props.onOpenArtifact}
-          />
-        </EvidenceSection>
-        <EvidenceSection icon={ListTreeIcon} label="Plans" value="plans" count={plans.length}>
-          {plans.length ? (
-            <div className="grid gap-2">
-              {plans.map((plan) => (
-                <ClioInteractiveRow key={`${plan.messageId}:${plan.id}`}>
-                  <p className="text-sm font-medium">{plan.title}</p>
-                  {plan.detail ? (
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{plan.detail}</p>
-                  ) : null}
-                </ClioInteractiveRow>
-              ))}
-            </div>
-          ) : (
-            <EmptyEvidence label="No plan blocks were recorded." />
-          )}
-        </EvidenceSection>
-        <EvidenceSection
-          icon={FileTextIcon}
-          label="Attached context"
-          value="context"
-          count={props.contextFiles.length}
-        >
-          <ContextFileEvidence files={props.contextFiles} onOpenFile={props.onOpenFile} />
-        </EvidenceSection>
+      <Accordion defaultValue={['files', 'changes', 'sources']} type="multiple">
+        {files.length ? (
+          <EvidenceSection icon={FileTextIcon} label="Files" value="files" count={files.length}>
+            <FileEvidence files={files} onOpenFile={props.onOpenFile} />
+          </EvidenceSection>
+        ) : null}
+        {diffs.length ? (
+          <EvidenceSection
+            icon={FileDiffIcon}
+            label="Changed files"
+            value="changes"
+            count={diffs.length}
+          >
+            <DiffEvidence
+              diffs={diffs}
+              onOpenDiff={props.onOpenDiff}
+              onOpenFile={props.onOpenFile}
+            />
+          </EvidenceSection>
+        ) : null}
+        {sources.length ? (
+          <EvidenceSection
+            icon={WaypointsIcon}
+            label="Sources"
+            value="sources"
+            count={sources.length}
+          >
+            <SourceEvidence onOpenResource={props.onOpenResource} sources={sources} />
+          </EvidenceSection>
+        ) : null}
+        {props.artifacts.length ? (
+          <EvidenceSection
+            icon={BoxIcon}
+            label="Artifacts"
+            value="artifacts"
+            count={props.artifacts.length}
+          >
+            <ArtifactEvidence
+              artifacts={props.artifacts}
+              executionProvenance={props.executionProvenance}
+              onOpenArtifact={props.onOpenArtifact}
+            />
+          </EvidenceSection>
+        ) : null}
+        {plans.length ? (
+          <EvidenceSection icon={ListTreeIcon} label="Plans" value="plans" count={plans.length}>
+            <PlanEvidence
+              onOpenArtifact={props.onOpenArtifact}
+              onOpenFile={props.onOpenFile}
+              plans={plans}
+            />
+          </EvidenceSection>
+        ) : null}
       </Accordion>
     </div>
   );
-}
-
-function evidenceProviderStatus(
-  status: string,
-  queryable: boolean,
-): 'healthy' | 'degraded' | 'unavailable' {
-  if (!queryable || status === 'unavailable' || status === 'disabled') return 'unavailable';
-  if (status === 'degraded' || status === 'partial') return 'degraded';
-  return 'healthy';
 }
 
 function EvidenceSection({
@@ -256,9 +210,9 @@ function DiffEvidence({
       language="diff"
     >
       <CodeBlockHeader>
-        <CodeBlockTitle>
+        <CodeBlockTitle title={diff.path}>
           <FileDiffIcon aria-hidden="true" className="size-3.5" />
-          <CodeBlockFilename>{diff.path}</CodeBlockFilename>
+          <CodeBlockFilename>{fileName(diff.path)}</CodeBlockFilename>
           <ClioStatus label={friendlyStatus(diff.status)} value={diffStatus(diff)} />
         </CodeBlockTitle>
         <CodeBlockActions>
@@ -417,15 +371,13 @@ function ArtifactEvidence({
   );
 }
 
-function ContextFileEvidence({
+function FileEvidence({
   files,
   onOpenFile,
 }: {
-  files: readonly ContextFile[];
+  files: readonly EvidenceFile[];
   onOpenFile?: (path: string) => void;
 }) {
-  if (!files.length)
-    return <EmptyEvidence label="No files are attached to this session context." />;
   return (
     <div className="grid gap-2">
       {files.map((file) => (
@@ -439,11 +391,15 @@ function ContextFileEvidence({
           <div className="flex items-center gap-3">
             <FileTextIcon aria-hidden="true" className="size-4 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{file.display_path}</p>
-              <p className="text-xs text-muted-foreground">
-                {friendlyStatus(file.mode)}
-                {file.size === undefined ? '' : `, ${formatBytes(file.size)}`}
+              <p className="truncate text-sm font-medium" title={file.path}>
+                {file.displayPath}
               </p>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                {file.facts.map((fact) => (
+                  <span key={fact}>{fact}</span>
+                ))}
+                {file.size === undefined ? null : <span>{formatBytes(file.size)}</span>}
+              </div>
             </div>
           </div>
         </ClioInteractiveRow>
@@ -454,7 +410,7 @@ function ContextFileEvidence({
 
 function EvidenceCounts(props: {
   artifacts: number;
-  contextFiles: number;
+  files: number;
   diffs: number;
   plans: number;
   sources: number;
@@ -464,14 +420,14 @@ function EvidenceCounts(props: {
       <FrameHeader>
         <FrameTitle>Session evidence</FrameTitle>
         <FrameDescription>
-          Authoritative references grouped by what they let you inspect.
+          Recorded files and outputs grouped by what you can inspect.
         </FrameDescription>
       </FrameHeader>
       <FramePanel className="grid grid-cols-5 gap-2 text-center">
         {[
+          ['Files', props.files],
+          ['Changes', props.diffs],
           ['Artifacts', props.artifacts],
-          ['Context files', props.contextFiles],
-          ['Diffs', props.diffs],
           ['Plans', props.plans],
           ['Sources', props.sources],
         ].map(([label, count]) => (
@@ -482,6 +438,51 @@ function EvidenceCounts(props: {
         ))}
       </FramePanel>
     </Frame>
+  );
+}
+
+function PlanEvidence({
+  onOpenArtifact,
+  onOpenFile,
+  plans,
+}: {
+  onOpenArtifact?: (artifact: Artifact) => void;
+  onOpenFile?: (path: string) => void;
+  plans: readonly EvidencePlan[];
+}) {
+  return (
+    <div className="grid gap-2">
+      {plans.map((plan) => {
+        const canOpen = Boolean((plan.artifact && onOpenArtifact) || (plan.path && onOpenFile));
+        return (
+          <ClioInteractiveRow
+            className={canOpen ? 'cursor-pointer' : undefined}
+            key={plan.id}
+            onClick={
+              canOpen
+                ? () =>
+                    plan.artifact
+                      ? onOpenArtifact?.(plan.artifact)
+                      : plan.path
+                        ? onOpenFile?.(plan.path)
+                        : undefined
+                : undefined
+            }
+            role={canOpen ? 'button' : undefined}
+            tabIndex={canOpen ? 0 : undefined}
+          >
+            <p className="truncate text-sm font-medium" title={plan.path}>
+              {plan.title}
+            </p>
+            {plan.detail ? (
+              <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                {plan.detail}
+              </p>
+            ) : null}
+          </ClioInteractiveRow>
+        );
+      })}
+    </div>
   );
 }
 

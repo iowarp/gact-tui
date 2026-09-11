@@ -235,7 +235,7 @@ function ClioA2UISurfaceContent({
                 ? `Sending action to ${brand.name}`
                 : localActionPending
                   ? 'Applying action in this workspace'
-                  : localActionStatus || `${lastAction?.name} accepted`
+                  : localActionStatus || acceptedActionLabel(lastAction?.name)
             }
             value={isPending || localActionPending ? 'running' : 'completed'}
           />
@@ -248,6 +248,23 @@ function ClioA2UISurfaceContent({
       ) : null}
     </section>
   );
+}
+
+function acceptedActionLabel(name: string | undefined): string {
+  switch (name) {
+    case 'agent.submit':
+      return 'Sent to agent';
+    case 'form.submit':
+      return 'Form response accepted';
+    case 'approval.respond':
+      return 'Approval response accepted';
+    case 'run.retry':
+      return 'Retry requested';
+    case 'run.cancel':
+      return 'Cancellation requested';
+    default:
+      return 'Action accepted';
+  }
 }
 
 export function ClioA2UISurface({

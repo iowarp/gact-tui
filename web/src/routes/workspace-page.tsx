@@ -747,6 +747,7 @@ export function WorkspacePage() {
                     onA2UILocalAction={handleA2UILocalAction}
                     onOpenArtifact={openArtifact}
                     onOpenFile={openWorkspaceFile}
+                    onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
                     onOpenResource={openWorkspaceResource}
                     onOpenReference={(reference) => void openComposerReference(reference)}
                     onInteractionResponse={handleInteractionResponse}

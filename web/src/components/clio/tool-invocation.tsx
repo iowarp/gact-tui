@@ -7,6 +7,7 @@ import { ActivityRow } from './activity-row';
 import { ToolResultPresentation } from './tool-result-presentation';
 import { ResultDialogContent } from './result-dialog-content';
 import { PresentationLink } from './presentation-link';
+import { getToolHeaderMetadata, getToolStatus } from './tool-presentation';
 
 export function ClioToolInvocation({
   tool,
@@ -21,13 +22,20 @@ export function ClioToolInvocation({
     (block) =>
       block.id === tool.presentation?.subject && (block.type === 'link' || block.type === 'text'),
   );
+  const status = getToolStatus(tool);
+  const headerMetadata = getToolHeaderMetadata(tool);
   return (
     <Dialog defaultOpen={defaultOpen ?? false}>
-      <div className="flex min-w-0 flex-col gap-1" data-slot="tool-activity">
+      <div
+        className="flex min-w-0 scroll-m-6 flex-col gap-0.5 rounded-sm focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+        data-slot="tool-activity"
+        id={`tool-${tool.id}`}
+        tabIndex={-1}
+      >
         <ActivityRow
           icon={<WrenchIcon className="size-4" />}
           title={
-            <span className="flex min-w-0 items-center gap-1" data-slot="tool-action-label">
+            <span className="flex w-full min-w-0 items-center gap-1" data-slot="tool-action-label">
               <span className="shrink-0">
                 {tool.presentation?.action || tool.title || tool.name}
               </span>
@@ -40,15 +48,15 @@ export function ClioToolInvocation({
               ) : null}
             </span>
           }
-          detail={tool.presentation?.summary}
-          inlineDetail
-          status={tool.state}
+          metadata={headerMetadata}
+          status={status}
           duration={tool.duration_ms}
           action={
             <DialogTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon-sm"
+                className="size-5"
                 aria-label={`Technical details for ${tool.title || tool.name}`}
                 title="Technical details"
               >
@@ -57,7 +65,11 @@ export function ClioToolInvocation({
             </DialogTrigger>
           }
         />
-        <ToolResultPresentation tool={tool} subjectId={subject?.id} />
+        <ToolResultPresentation
+          tool={tool}
+          subjectId={subject?.id}
+          summaryInHeader={Boolean(headerMetadata)}
+        />
         <ResultDialogContent
           title={`${tool.title || tool.name}: Technical details`}
           description="Original tool arguments, result, and diagnostics."

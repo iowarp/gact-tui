@@ -1,11 +1,19 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { WorkRecord } from '@clio/core/v3';
-import { ListChecksIcon, SquareIcon, SquareMinusIcon, SquareCheckIcon } from 'lucide-react';
+import {
+  CircleCheckIcon,
+  CircleDotIcon,
+  CirclePauseIcon,
+  CircleStopIcon,
+  ListChecksIcon,
+  SquareIcon,
+  SquareMinusIcon,
+  SquareCheckIcon,
+} from 'lucide-react';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -61,21 +69,49 @@ export function SessionWorkSummary({
   );
 }
 
-function WorkRecordRow({ record }: { record: WorkRecord }) {
+function workReasonLabel(reason: string): string {
   return (
-    <li className="flex min-w-0 flex-col gap-1 rounded-md border p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">{record.state}</Badge>
-        <span>{record.iterations} iterations</span>
+    {
+      goal_met: 'Goal met',
+      goal_cleared: 'Goal cleared',
+      goal_abandoned: 'Goal abandoned',
+      loop_user_stopped: 'Stopped by agent',
+      loop_max_iters: 'Iteration limit reached',
+      loop_wallclock_budget: 'Time limit reached',
+      loop_token_budget: 'Token limit reached',
+    }[reason] ?? reason.replaceAll('_', ' ')
+  );
+}
+
+function WorkRecordRow({ record }: { record: WorkRecord }) {
+  const Icon =
+    record.state === 'completed'
+      ? CircleCheckIcon
+      : record.state === 'stopped'
+        ? CircleStopIcon
+        : record.state === 'paused'
+          ? CirclePauseIcon
+          : CircleDotIcon;
+  const state = record.state.charAt(0).toUpperCase() + record.state.slice(1);
+  return (
+    <li className="flex min-w-0 flex-col gap-0.5 py-1.5">
+      <div className="flex flex-wrap items-center gap-x-2 text-muted-foreground">
+        <span className="inline-flex items-center gap-1 text-foreground">
+          <Icon aria-hidden="true" className="size-4" />
+          {state}
+        </span>
+        <span>
+          {record.iterations} {record.iterations === 1 ? 'iteration' : 'iterations'}
+        </span>
+        {record.created_at ? (
+          <time dateTime={record.created_at}>{new Date(record.created_at).toLocaleString()}</time>
+        ) : null}
       </div>
       <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{record.title}</p>
       {record.reason ? (
-        <p className="text-muted-foreground [overflow-wrap:anywhere]">{record.reason}</p>
-      ) : null}
-      {record.created_at ? (
-        <time dateTime={record.created_at} className="text-muted-foreground">
-          {new Date(record.created_at).toLocaleString()}
-        </time>
+        <p className="text-muted-foreground [overflow-wrap:anywhere]">
+          {workReasonLabel(record.reason)}
+        </p>
       ) : null}
     </li>
   );
@@ -197,10 +233,6 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
             </Button>
           </div>
         ) : null}
-        <p className="text-muted-foreground">
-          History retains goal and loop records from this version onward. Earlier overwritten
-          records are unavailable. Stopped is not paused.
-        </p>
         <section className="flex flex-col gap-2" aria-label="Schedules">
           <h2 className="font-semibold">Schedules</h2>
           {schedules.error ? (
@@ -210,14 +242,23 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
           ) : schedules.data?.schedules.length ? (
             <ul className="flex flex-col gap-2">
               {schedules.data.schedules.map((schedule) => (
-                <li key={schedule.id} className="rounded-md border p-3">
-                  <Badge variant="outline">{schedule.enabled ? 'Scheduled' : 'Paused'}</Badge>
+                <li key={schedule.id} className="flex flex-col gap-0.5 py-1.5">
+                  <p className="inline-flex items-center gap-1 text-muted-foreground">
+                    {schedule.enabled ? (
+                      <CircleCheckIcon aria-hidden="true" className="size-4" />
+                    ) : (
+                      <CirclePauseIcon aria-hidden="true" className="size-4" />
+                    )}
+                    {schedule.enabled ? 'Scheduled' : 'Paused'}
+                  </p>
                   <p>{schedule.question}</p>
-                  <p className="text-muted-foreground">
-                    {schedule.next_fire_at
-                      ? new Date(schedule.next_fire_at).toLocaleString()
-                      : 'No next run'}{' '}
-                    · {schedule.timezone}
+                  <p className="flex flex-wrap gap-x-3 text-muted-foreground">
+                    <span>
+                      {schedule.next_fire_at
+                        ? new Date(schedule.next_fire_at).toLocaleString()
+                        : 'No next run'}
+                    </span>
+                    <span>{schedule.timezone}</span>
                   </p>
                   {schedule.last_error ? <p>{schedule.last_error}</p> : null}
                 </li>

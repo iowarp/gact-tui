@@ -56,6 +56,15 @@ import {
 const VIRTUALIZATION_THRESHOLD = 80;
 export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
 
+function isProjectionOnlyA2UIMessage(message: DomainMessage): boolean {
+  return (
+    message.role === 'assistant' &&
+    message.id.startsWith('msg_a2ui_') &&
+    !message.turn_id &&
+    message.blocks.every((block) => block.type === 'a2ui')
+  );
+}
+
 const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
   index,
@@ -390,6 +399,7 @@ export function conversationMessageRowPropsEqual(
     !routedInteractionsEqual(left, right, messageEntityRefs(left.message).tools) ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
+    left.onOpenWork !== right.onOpenWork ||
     left.onOpenReference !== right.onOpenReference ||
     left.onOpenResource !== right.onOpenResource ||
     left.onOpenSubagent !== right.onOpenSubagent ||
@@ -449,7 +459,9 @@ function ConversationBody({
   const messages = useMemo(
     () =>
       sourceMessages.filter(
-        (message) => !isProjectedQuestionResumeEnvelope(message, entities.interactions),
+        (message) =>
+          !isProjectionOnlyA2UIMessage(message) &&
+          !isProjectedQuestionResumeEnvelope(message, entities.interactions),
       ),
     [entities.interactions, sourceMessages],
   );
@@ -582,10 +594,16 @@ function ConversationBody({
       const message = messages[index];
       if (!message) return;
       markUserScrollIntent();
-      pinnedToBottomRef.current = index === messages.length - 1;
+      // A message landmark is a reading position, not a claim that the reader
+      // reached the end of that message. This matters for a single tall turn,
+      // such as a compaction summary: its only message is also the latest one,
+      // but jumping to it must still move to the row's beginning.
+      pinnedToBottomRef.current = false;
+      readingAnchorRef.current = null;
+      setIsAtBottom(false);
       setActiveMessageIndex(index);
-      if (virtualized) virtualizer.scrollToIndex(index, { align: 'auto' });
-      else document.getElementById(`message-${message.id}`)?.scrollIntoView({ block: 'nearest' });
+      if (virtualized) virtualizer.scrollToIndex(index, { align: 'start' });
+      else document.getElementById(`message-${message.id}`)?.scrollIntoView({ block: 'start' });
       window.requestAnimationFrame(() => {
         document.getElementById(`message-${message.id}`)?.focus({ preventScroll: true });
       });
@@ -617,7 +635,10 @@ function ConversationBody({
     let frame = 0;
     const focusSearchResult = () => {
       if (!window.location.hash.startsWith('#message-')) return;
-      const messageId = decodeURIComponent(window.location.hash.slice('#message-'.length));
+      const target = window.location.hash.slice('#message-'.length);
+      const [encodedMessageId, encodedActivityId] = target.split('/activity-', 2);
+      const messageId = decodeURIComponent(encodedMessageId);
+      const activityId = encodedActivityId ? decodeURIComponent(encodedActivityId) : undefined;
       const index = messages.findIndex((message) => message.id === messageId);
       if (index < 0) return;
       markUserScrollIntent();
@@ -625,7 +646,11 @@ function ConversationBody({
       virtualizer.scrollToIndex(index, { align: 'center' });
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(() => {
-          document.getElementById(`message-${messageId}`)?.focus({ preventScroll: true });
+          const activity = activityId ? document.getElementById(`tool-${activityId}`) : null;
+          if (activity) {
+            activity.scrollIntoView({ block: 'center' });
+            activity.focus({ preventScroll: true });
+          } else document.getElementById(`message-${messageId}`)?.focus({ preventScroll: true });
         });
       });
     };

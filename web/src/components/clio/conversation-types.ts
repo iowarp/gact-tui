@@ -37,6 +37,7 @@ export interface ClioConversationProps {
   retryingMessageId?: string;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenFile?: (path: string) => void;
+  onOpenWork?: () => void;
   onOpenResource?: (
     resource: WorkspaceResource,
     relatedResources?: readonly WorkspaceResource[],

@@ -621,7 +621,7 @@ export const toolPresentationSchema = z.object({
       text: z.string().optional(),
       label: z.string().optional(),
       language: z.string().optional(),
-      target: z.enum(['artifact', 'resource', 'session', 'url', 'file']).optional(),
+      target: z.enum(['artifact', 'resource', 'session', 'url', 'file', 'work']).optional(),
       state: z.enum(['pending', 'in_progress', 'completed']).optional(),
       uri: z.string().optional(),
       command: z.string().optional(),
@@ -642,8 +642,11 @@ export const toolPresentationSchema = z.object({
       duration_ms: z.number().nonnegative().optional(),
       items: z.array(z.string()).optional(),
       action_label: z.string().optional(),
+      result_kind: z.enum(['snapshot', 'completion', 'message']).optional(),
+      severity: z.enum(['info', 'warning', 'error']).optional(),
     }),
   ),
+  status: z.string().optional(),
   diagnostic: z.string().optional(),
 });
 

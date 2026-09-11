@@ -1,4 +1,4 @@
-import type { ContextFile, ContextFrame, ContextSnapshot } from '@clio/core/v3';
+import type { ContextFile, ContextFrame, ContextSnapshot, Message } from '@clio/core/v3';
 import { BotIcon, ChevronDownIcon, FileTextIcon, HistoryIcon, SparklesIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
@@ -27,13 +27,13 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import type { ClioContextTarget } from '@/lib/context-targets';
 import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
+import { humanizeProtocolValue } from './presentation-labels';
 
 interface ClioContextCanvasPanelProps {
   compactPending?: boolean;
@@ -41,6 +41,7 @@ interface ClioContextCanvasPanelProps {
   error?: string;
   files: readonly ContextFile[];
   frames: readonly ContextFrame[];
+  messages?: readonly Message[];
   onCompact?: () => Promise<unknown>;
   onOpenFile?: (path: string) => void;
   onTargetChange?: (targetId: string) => void;
@@ -68,6 +69,7 @@ export function ClioContextCanvasPanel({
   error,
   files,
   frames,
+  messages = [],
   onCompact,
   onOpenFile,
   onTargetChange,
@@ -77,7 +79,12 @@ export function ClioContextCanvasPanel({
   targets = [],
 }: ClioContextCanvasPanelProps) {
   const latest = frames.at(-1);
-  const reading = context?.used_tokens ?? context?.live_tokens ?? 0;
+  const serverReading = context?.used_tokens ?? context?.live_tokens ?? 0;
+  const retainedSummaryTokens = compactedSummaryTokens(messages);
+  const reading = serverReading || retainedSummaryTokens;
+  const summaryEstimateActive = retainedSummaryTokens > 0 && !serverReading;
+  const activeContextItems =
+    context?.live_block_count || (retainedSummaryTokens && !serverReading ? 1 : 0);
   const limit = context?.limit_tokens ?? 0;
   const canCompact = Boolean(onCompact && context?.live_block_count);
   const automaticCompaction = context?.autocompact_enabled ?? true;
@@ -93,7 +100,11 @@ export function ClioContextCanvasPanel({
       : serverThreshold;
   const setThreshold = (value: number) =>
     setThresholdDraft({ targetId: selectedTargetId, serverValue: serverThreshold, value });
-  const categories = useMemo(() => contextCategories(context), [context]);
+  const categories = useMemo(
+    () => contextCategories(context, serverReading ? 0 : retainedSummaryTokens),
+    [context, retainedSummaryTokens, serverReading],
+  );
+  const selectedTarget = targets.find((target) => target.id === selectedTargetId);
 
   return (
     <div className="grid min-w-0 gap-5">
@@ -109,17 +120,23 @@ export function ClioContextCanvasPanel({
           <Select onValueChange={onTargetChange} value={selectedTargetId}>
             <SelectTrigger
               aria-label="Context agent"
-              className="min-w-0 flex-1 border-0 bg-muted/40 shadow-none"
+              className="w-fit min-w-52 max-w-full border-0 bg-muted/40 shadow-none"
             >
               <BotIcon aria-hidden="true" className="size-3.5 text-primary" />
-              <SelectValue placeholder="Select agent context" />
+              <span className="truncate">
+                {selectedTarget ? contextTargetLabel(selectedTarget) : 'Select agent context'}
+              </span>
             </SelectTrigger>
             <SelectContent>
               {targets.map((target) => (
                 <SelectItem key={target.id} value={target.id}>
                   <span className="grid min-w-0">
-                    <span className="truncate">{target.label}</span>
-                    <span className="truncate text-xs text-muted-foreground">{target.detail}</span>
+                    <span className="truncate">{contextTargetLabel(target)}</span>
+                    {contextTargetLabel(target) === target.detail ? null : (
+                      <span className="truncate text-xs text-muted-foreground">
+                        {target.detail}
+                      </span>
+                    )}
                   </span>
                 </SelectItem>
               ))}
@@ -127,11 +144,23 @@ export function ClioContextCanvasPanel({
           </Select>
           {limit > 0 ? (
             <AIContext maxTokens={limit} usedTokens={reading}>
-              <ContextTrigger aria-label="Show exact context usage" className="size-8 p-0" />
+              <ContextTrigger
+                aria-label={
+                  summaryEstimateActive ? 'Show estimated context usage' : 'Show exact context usage'
+                }
+                className="size-8 p-0"
+              />
               <ContextContent align="end">
                 <ContextContentHeader />
                 <ContextContentBody className="text-xs text-muted-foreground">
-                  {context?.live_block_count?.toLocaleString() ?? 'No'} active context items
+                  {activeContextItems
+                    ? `${activeContextItems.toLocaleString()} active context ${activeContextItems === 1 ? 'item' : 'items'}`
+                    : 'No active context items'}
+                  {summaryEstimateActive ? (
+                    <span className="mt-1 block">
+                      Compacted summary tokens are estimated from the retained text.
+                    </span>
+                  ) : null}
                 </ContextContentBody>
               </ContextContent>
             </AIContext>
@@ -158,9 +187,12 @@ export function ClioContextCanvasPanel({
               limit={limit}
               threshold={automaticCompaction ? threshold : undefined}
             />
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
               {categories.map((category, index) => (
-                <div className="flex min-w-0 items-center gap-2 text-xs" key={category.name}>
+                <div
+                  className="flex min-w-36 flex-1 items-center gap-2 text-xs"
+                  key={category.name}
+                >
                   <span
                     aria-hidden="true"
                     className={cn(
@@ -168,7 +200,7 @@ export function ClioContextCanvasPanel({
                       CATEGORY_STYLES[index % CATEGORY_STYLES.length],
                     )}
                   />
-                  <span className="min-w-0 flex-1 truncate capitalize">
+                  <span className="min-w-0 flex-1 capitalize">
                     {category.name.replaceAll('_', ' ')}
                   </span>
                   <span className="shrink-0 font-mono text-muted-foreground">
@@ -313,23 +345,18 @@ function ContextResources({
       <ResourceDisclosure
         count={frame?.items.length ?? 0}
         icon={<HistoryIcon aria-hidden="true" />}
-        label="Saved snapshot"
+        label="Latest context snapshot"
       >
         {frame ? (
           <div className="grid gap-1.5 pt-2">
-            <p className="text-xs text-muted-foreground">
-              {frame.items.length.toLocaleString()} items
-              <span className="px-1.5" aria-hidden="true">
-                /
-              </span>
-              {formatTokens(frame.tokens_estimated)}
-              <span className="px-1.5" aria-hidden="true">
-                /
-              </span>
-              {formatTimestamp(frame.updated_at)}
-            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 px-2 text-xs text-muted-foreground">
+              <span>{frame.items.length.toLocaleString()} context items</span>
+              <span>{formatTokens(frame.tokens_estimated)} tokens</span>
+              <time dateTime={frame.updated_at}>{formatTimestamp(frame.updated_at)}</time>
+            </div>
             {frame.items.slice(0, 8).map((item, index) => {
-              const title = item.display_path ?? item.path ?? item.role ?? item.kind;
+              const title = contextItemTitle(item);
+              const detail = contextItemDetail(item);
               return item.path && onOpenFile ? (
                 <ClioInteractiveRow
                   className="min-h-0 px-2 py-1.5"
@@ -337,24 +364,28 @@ function ContextResources({
                   onClick={() => onOpenFile(item.path!)}
                   role="button"
                 >
-                  <p className="truncate text-xs">{title}</p>
+                  <p className="truncate text-xs font-medium">{title}</p>
+                  <p className="text-[11px] leading-4 text-muted-foreground">{detail}</p>
                 </ClioInteractiveRow>
               ) : (
-                <p className="truncate px-2 py-1 text-xs" key={`${title}:${index}`}>
-                  {title}
-                </p>
+                <div className="min-w-0 px-2 py-1" key={`${title}:${index}`}>
+                  <p className="truncate text-xs font-medium">{title}</p>
+                  <p className="text-[11px] leading-4 text-muted-foreground">{detail}</p>
+                </div>
               );
             })}
           </div>
         ) : (
-          <p className="pt-2 text-xs text-muted-foreground">No saved snapshot for this agent.</p>
+          <p className="pt-2 text-xs text-muted-foreground">
+            No context snapshot is available for this agent.
+          </p>
         )}
       </ResourceDisclosure>
 
       <ResourceDisclosure
         count={files.length}
         icon={<FileTextIcon aria-hidden="true" />}
-        label="Attached files"
+        label="Files in context"
       >
         <div className="grid gap-1 pt-2">
           {files.length ? (
@@ -372,12 +403,35 @@ function ContextResources({
               </ClioInteractiveRow>
             ))
           ) : (
-            <p className="text-xs text-muted-foreground">No files attached to this agent.</p>
+            <p className="text-xs text-muted-foreground">
+              No files are attached to this agent&apos;s context.
+            </p>
           )}
         </div>
       </ResourceDisclosure>
     </div>
   );
+}
+
+function contextItemTitle(item: ContextFrame['items'][number]): string {
+  if (item.display_path || item.path) return item.display_path ?? item.path ?? 'File';
+  if (item.role === 'user') return 'User request';
+  if (item.role === 'assistant') return 'Assistant response';
+  return item.kind.replaceAll('_', ' ');
+}
+
+function contextItemDetail(item: ContextFrame['items'][number]): string {
+  const inclusion = item.included ? 'Included in model context' : 'Excluded from model context';
+  const tokens = `${formatTokens(item.tokens_estimated)} tokens`;
+  return item.reason
+    ? `${inclusion}, ${tokens}, source: ${humanizeProtocolValue(item.reason)}`
+    : `${inclusion}, ${tokens}`;
+}
+
+function contextTargetLabel(target: ClioContextTarget): string {
+  return target.detail === 'Main agent' && /^main$/iu.test(target.label)
+    ? 'Main agent'
+    : target.label;
 }
 
 function ResourceDisclosure({
@@ -411,11 +465,32 @@ interface ContextCategory {
   tokens: number;
 }
 
-function contextCategories(context: ContextSnapshot | undefined): ContextCategory[] {
-  return Object.entries(context?.categories ?? {})
+function contextCategories(
+  context: ContextSnapshot | undefined,
+  retainedSummaryTokens: number,
+): ContextCategory[] {
+  const categories = { ...(context?.categories ?? {}) };
+  if (retainedSummaryTokens > 0) {
+    categories.compacted_summary_estimate = retainedSummaryTokens;
+  }
+  return Object.entries(categories)
     .filter(([, tokens]) => tokens > 0)
     .sort((left, right) => right[1] - left[1])
     .map(([name, tokens]) => ({ name, tokens }));
+}
+
+function compactedSummaryTokens(messages: readonly Message[]): number {
+  const characters = messages.reduce(
+    (total, message) =>
+      total +
+      message.blocks.reduce(
+        (messageTotal, block) =>
+          messageTotal + (block.type === 'compaction' ? block.summary.length : 0),
+        0,
+      ),
+    0,
+  );
+  return characters ? Math.max(1, Math.ceil(characters / 4)) : 0;
 }
 
 function formatPercentage(used: number, limit: number): string {

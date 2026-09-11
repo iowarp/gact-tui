@@ -12,7 +12,6 @@ import 'ace-builds/src-noconflict/mode-toml';
 import 'ace-builds/src-noconflict/mode-yaml';
 import 'ace-builds/src-noconflict/theme-github';
 import 'ace-builds/src-noconflict/theme-one_dark';
-import type { BundledLanguage } from 'shiki';
 import {
   BoxIcon,
   FileCode2Icon,
@@ -54,6 +53,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { formatBytes } from '@/lib/format';
+import { languageForPath } from '@/lib/code-language';
 import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { ClioCsvView } from './csv-view';
@@ -592,31 +592,6 @@ function aceModeForPath(path: string): string {
       yml: 'yaml',
     }[extension ?? ''] ?? 'text'
   );
-}
-
-function languageForPath(path: string): BundledLanguage {
-  const extension = path.split('.').at(-1)?.toLowerCase();
-  const languages: Record<string, BundledLanguage> = {
-    c: 'c',
-    cpp: 'cpp',
-    css: 'css',
-    go: 'go',
-    html: 'html',
-    java: 'java',
-    js: 'javascript',
-    json: 'json',
-    jsx: 'jsx',
-    md: 'markdown',
-    py: 'python',
-    rs: 'rust',
-    sh: 'shellscript',
-    toml: 'toml',
-    ts: 'typescript',
-    tsx: 'tsx',
-    yaml: 'yaml',
-    yml: 'yaml',
-  };
-  return languages[extension ?? ''] ?? 'text';
 }
 
 function isTextArtifact(mediaType: string, name: string): boolean {

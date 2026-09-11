@@ -696,6 +696,50 @@ describe('ClioRepository interaction contracts', () => {
     expect(processes[0]).toMatchObject({ id: 'task_watcher', live_state: 'unknown' });
   });
 
+  it('reads the newest recorded effective agent toolset without reconstructing it', async () => {
+    const transport = new RecordingTransport([
+      {
+        events: [
+          {
+            occurred_at: '2026-09-10T11:53:16-05:00',
+            payload: {
+              agent_id: 'main',
+              session_id: 'sess 1',
+              tools: [
+                {
+                  name: 'memory_search_sessions',
+                  title: 'Search memory',
+                  source: 'native',
+                  representation: 'row',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    const toolset = await repository.effectiveAgentToolset('sess 1');
+
+    expect(transport.requests[0]?.path).toBe(
+      '/v1/sessions/sess%201/trace?scope=agent.toolset.recorded&limit=50',
+    );
+    expect(toolset).toEqual({
+      agentId: 'main',
+      sessionId: 'sess 1',
+      recordedAt: '2026-09-10T11:53:16-05:00',
+      tools: [
+        {
+          name: 'memory_search_sessions',
+          title: 'Search memory',
+          source: 'native',
+          representation: 'row',
+        },
+      ],
+    });
+  });
+
   it('normalizes the server permission ledger without flattening away the input', async () => {
     const transport = new RecordingTransport([
       {

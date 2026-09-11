@@ -33,7 +33,9 @@ function resourceMessage(input: {
   };
 }
 
-function workspaceResource(overrides: Partial<WorkspaceResource> & { id: string }): WorkspaceResource {
+function workspaceResource(
+  overrides: Partial<WorkspaceResource> & { id: string },
+): WorkspaceResource {
   return {
     workspace_id: 'ws_1',
     client_upload_id: `${overrides.id}_upload`,
@@ -222,6 +224,73 @@ describe('ClioEvidenceView resource sources', () => {
 });
 
 describe('ClioEvidenceView session_lineage fallback', () => {
+  it('includes files read by attached child agents from execution provenance', () => {
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        executionProvenance={{
+          schema_version: 'clio.execution_provenance.v1',
+          provider: 'native',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          complete: true,
+          truncated: false,
+          provider_health: {},
+          campaigns: [],
+          workflows: [],
+          agents: [],
+          session_lineage: [
+            {
+              session_id: 'session_root',
+              parent_session_id: '',
+              task_id: '',
+              agent_id: 'main',
+              label: 'Main agent',
+              depth: 0,
+              task_path: [],
+            },
+            {
+              session_id: 'session_gateway',
+              parent_session_id: 'session_root',
+              task_id: 'task_gateway',
+              agent_id: 'gateway',
+              label: 'gateway #1',
+              depth: 1,
+              task_path: ['task_gateway'],
+            },
+          ],
+          spans: [],
+          nodes: [
+            {
+              id: 'tool_read_gateway_log',
+              kind: 'tool',
+              label: 'Read gateway log',
+              status: 'completed',
+              session_id: 'session_gateway',
+              agent_id: 'gateway',
+              start_time: 1,
+              end_time: 2,
+              attributes: {
+                tool_name: 'fs_read_file',
+                owner_session_id: 'session_gateway',
+                tool_input: { filepath: 'D:/workspace/triage/api_gateway.log' },
+              },
+            },
+          ],
+          edges: [],
+        }}
+        messages={[]}
+        processes={[]}
+        resources={[]}
+      />,
+    );
+
+    expect(screen.getByText('api_gateway.log')).toBeVisible();
+    expect(screen.getByText('Read by gateway #1')).toBeVisible();
+  });
+
   it('still shows workflow-state sources when session_lineage is legally empty', () => {
     // An empty array is CLIO's legal "this session delegated to nothing" answer,
     // not a missing read — it must not suppress the plain workflow-state sources
