@@ -12,9 +12,6 @@ import {
 } from '@/components/ai-elements/artifact';
 import {
   Attachment,
-  AttachmentHoverCard,
-  AttachmentHoverCardContent,
-  AttachmentHoverCardTrigger,
   AttachmentInfo,
   AttachmentPreview,
   Attachments,
@@ -55,138 +52,34 @@ export interface ClioArtifactAttachmentsProps {
   ) => void;
 }
 
-/** Presents transcript artifacts as the compact AI Elements attachment grid. */
+/** Presents transcript outputs with the same compact rows as the Artifacts canvas. */
 export function ClioArtifactAttachments({
   artifacts,
   className,
   onOpen,
 }: ClioArtifactAttachmentsProps) {
   return (
-    <Attachments
+    <div
       aria-label={artifacts.length === 1 ? 'Artifact' : `${artifacts.length} artifacts`}
-      className={cn('ml-0 mr-auto w-full justify-start gap-2 py-1', className)}
-      variant="grid"
+      className={cn('flex w-full min-w-0 flex-col gap-2 py-1', className)}
+      role="group"
     >
-      {artifacts.map((artifact) => (
-        <ClioArtifactAttachment artifact={artifact} key={artifact.id} onOpen={onOpen} />
-      ))}
-    </Attachments>
+      {artifacts.map((artifact) => {
+        const output = artifact.session_relation
+          ? artifact
+          : { ...artifact, session_relation: 'produced' as const };
+        return (
+          <ClioArtifactCard
+            artifact={output}
+            className="w-full shadow-none"
+            key={artifact.id}
+            onOpen={onOpen}
+            preview={false}
+          />
+        );
+      })}
+    </div>
   );
-}
-
-function ClioArtifactAttachment({
-  artifact,
-  onOpen,
-}: {
-  artifact: ArtifactEntity;
-  onOpen?: ClioArtifactAttachmentsProps['onOpen'];
-}) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const image = isImageArtifact(artifact);
-  const withinBudget = artifact.size !== undefined && artifact.size <= INLINE_PREVIEW_MAX_BYTES;
-  const imageBytes = useQuery({
-    queryKey: queryKeys.key(
-      'artifact-attachment-image',
-      settings.endpoint,
-      artifact.id,
-      artifact.fetch_path,
-    ),
-    queryFn: async ({ signal }) => {
-      try {
-        return await repository.readArtifactBytesFor(artifact, signal);
-      } catch (error) {
-        if (!isMissingArtifactPayload(error) || !artifact.workspace_id) throw error;
-        const files = await repository.workspaceFiles(artifact.workspace_id, signal);
-        const fallback = uniqueWorkspaceArtifactFile(artifact, artifact.workspace_id, files);
-        if (!fallback) throw error;
-        return repository.readWorkspaceFileBytes(artifact.workspace_id, fallback.path, signal);
-      }
-    },
-    enabled: image && withinBudget,
-    ...IMMUTABLE_QUERY,
-  });
-  const imageUrl = useObjectUrl(
-    imageBytes.data,
-    artifact.media_type || imageMediaType(artifact.name),
-  );
-  const attachment: AttachmentData = {
-    type: 'file',
-    id: artifact.id,
-    filename: artifact.name,
-    mediaType: artifact.media_type,
-    url: imageUrl ?? '',
-  };
-  const { baseName, extension } = splitArtifactName(artifact.name);
-  const activate = (event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>) => {
-    if (!onOpen) return;
-    onOpen(artifact, event);
-  };
-
-  return (
-    <AttachmentHoverCard closeDelay={100} openDelay={260}>
-      <AttachmentHoverCardTrigger asChild>
-        <Attachment
-          aria-label={onOpen ? `Open ${artifact.name}` : artifact.name}
-          className={cn(
-            'isolate h-32 w-40 border bg-card shadow-xs',
-            onOpen &&
-              'cursor-pointer transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none',
-          )}
-          data={attachment}
-          onClick={onOpen ? activate : undefined}
-          onKeyDown={
-            onOpen
-              ? (event) => {
-                  if (event.key !== 'Enter' && event.key !== ' ') return;
-                  event.preventDefault();
-                  activate(event);
-                }
-              : undefined
-          }
-          role={onOpen ? 'button' : undefined}
-          tabIndex={onOpen ? 0 : undefined}
-        >
-          <AttachmentPreview className="h-[calc(100%-2.75rem)] w-full [&_img]:object-cover [&_svg]:size-6" />
-          <span className="absolute inset-x-0 bottom-0 z-10 flex h-11 flex-col items-center justify-center bg-background/90 px-2 text-center backdrop-blur-sm">
-            <span className="flex w-full min-w-0 justify-center text-xs leading-4 font-medium">
-              <span className="min-w-0 truncate">{baseName}</span>
-              <span className="shrink-0">{extension}</span>
-            </span>
-            <span className="flex items-center justify-center gap-1.5 text-[10px] leading-3 text-muted-foreground">
-              <span>{artifact.media_type || 'Type unavailable'}</span>
-              <span>
-                {artifact.size === undefined ? 'Size unavailable' : formatBytes(artifact.size)}
-              </span>
-            </span>
-          </span>
-        </Attachment>
-      </AttachmentHoverCardTrigger>
-      <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">
-        <p className="truncate text-sm font-medium">{artifact.name}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {artifact.media_type || 'Media type unavailable'}
-          {artifact.size === undefined ? '' : `, ${formatBytes(artifact.size)}`}
-        </p>
-        {artifact.session_relation ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {artifact.session_relation === 'produced' ? 'Created in this session' : 'Used as input'}
-          </p>
-        ) : null}
-      </AttachmentHoverCardContent>
-    </AttachmentHoverCard>
-  );
-}
-
-function splitArtifactName(name: string): { baseName: string; extension: string } {
-  const extensionStart = name.lastIndexOf('.');
-  if (extensionStart <= 0 || extensionStart === name.length - 1) {
-    return { baseName: name, extension: '' };
-  }
-  return {
-    baseName: name.slice(0, extensionStart),
-    extension: name.slice(extensionStart),
-  };
 }
 
 /** Maps a GACT artifact into AI Elements' artifact and attachment presentation. */

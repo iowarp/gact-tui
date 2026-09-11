@@ -13,7 +13,7 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
 
-import { ClioArtifactCard } from './artifact-card';
+import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 
 beforeEach(() => {
   repository.readArtifactBytesFor.mockResolvedValue(new Uint8Array([137, 80, 78, 71]));
@@ -57,6 +57,42 @@ function renderCard(onOpen = vi.fn()) {
 }
 
 describe('ClioArtifactCard', () => {
+  it('uses the compact Artifacts canvas row for transcript outputs', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ClioArtifactAttachments
+          artifacts={[
+            {
+              id: 'artifact_report',
+              session_id: 'session_1',
+              workspace_id: 'workspace_1',
+              name: 'lifecycle-report.md',
+              media_type: 'text/markdown',
+              uri: 'artifact://workspace_1/lifecycle-report.md@v1',
+              size: 175,
+            },
+          ]}
+          onOpen={onOpen}
+        />
+      </QueryClientProvider>,
+    );
+
+    const row = screen.getByRole('button', { name: 'Open lifecycle-report.md' });
+    expect(row).toHaveClass('w-full', 'shadow-none');
+    expect(screen.getByText('text/markdown, 175 B')).toBeVisible();
+    expect(screen.getByText('Output')).toBeVisible();
+    expect(document.querySelector('[data-attachment-variant="grid"]')).toBeNull();
+
+    await user.click(row);
+    expect(onOpen).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'artifact_report', session_relation: 'produced' }),
+      expect.objectContaining({ shiftKey: false }),
+    );
+  });
+
   it('uses the AI Elements attachment preview for image artifacts', async () => {
     renderCard();
 
