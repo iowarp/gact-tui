@@ -500,6 +500,39 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
+  it('explains when a response was interrupted by a service restart', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_restart_interrupted',
+            session_id: 'session_1',
+            role: 'assistant',
+            created_at: '2026-09-11T18:30:23Z',
+            blocks: [],
+            stop_reason: 'error',
+            error_info: {
+              error: 'server_restart_interrupted',
+              message:
+                'The agent service restarted before this response completed. Your request was preserved and can be retried.',
+              recoverable: true,
+            },
+          },
+        ]}
+        onRetryMessage={() => undefined}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    expect(screen.getByText('Response interrupted')).toBeInTheDocument();
+    expect(screen.getByText(/agent service restarted/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
+  });
+
   it('does not render projection-only A2UI updates as missing assistant responses', () => {
     renderConversation(
       <ClioConversation

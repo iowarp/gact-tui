@@ -77,6 +77,10 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
   mcpAppResponse,
   ...entities
 }: ConversationMessageRowProps) {
+  const emptyResponseErrorCode =
+    typeof message.error_info?.error === 'string' ? message.error_info.error : undefined;
+  const emptyResponseErrorMessage =
+    typeof message.error_info?.message === 'string' ? message.error_info.message : undefined;
   const canRetry =
     message.role === 'assistant' &&
     (message.blocks.length === 0 ||
@@ -258,9 +262,14 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
             {message.blocks.length === 0 && message.role === 'assistant' ? (
               <Alert variant="destructive">
                 <AlertTriangleIcon aria-hidden="true" />
-                <AlertTitle>Response unavailable</AlertTitle>
+                <AlertTitle>
+                  {emptyResponseErrorCode === 'server_restart_interrupted'
+                    ? 'Response interrupted'
+                    : 'Response unavailable'}
+                </AlertTitle>
                 <AlertDescription>
-                  No response content was recorded for this turn. You can retry the response.
+                  {emptyResponseErrorMessage ??
+                    'No response content was recorded for this turn. You can retry the response.'}
                 </AlertDescription>
               </Alert>
             ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
