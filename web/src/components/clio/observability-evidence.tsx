@@ -79,7 +79,7 @@ export interface ClioEvidenceViewProps {
 
 export function ClioEvidenceView(props: ClioEvidenceViewProps) {
   const files = sessionFiles(props.contextFiles, props.tools ?? [], props.executionProvenance);
-  const diffs = sessionDiffs(props.diffs, props.tools ?? []);
+  const diffs = sessionDiffs(props.diffs, props.tools ?? [], props.executionProvenance);
   const plans = sessionPlans(props.messages, props.interactions ?? [], props.artifacts);
   const sources = sessionSources(
     props.messages,

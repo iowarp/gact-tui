@@ -481,12 +481,7 @@ export function ClioObservabilityView({
       // missing read — it must still fall back to the plain processes list, or
       // every process the Gantt shows below renders zero rows here.
       ...(projected && projected.length > 0
-        ? childProjectionActivityItems(
-            executionProvenance,
-            processes,
-            knownToolIds,
-            onOpenFile,
-          )
+        ? childProjectionActivityItems(executionProvenance, processes, knownToolIds, onOpenFile)
         : processes.map(
             (process): ObservabilityActivityItem => ({
               id: process.id,
@@ -609,6 +604,7 @@ export function ClioObservabilityView({
               pending={contextFilesPending}
             />
             <ProvenanceSourceBar
+              artifactProvider={artifactProvenanceProvider}
               degradation={provenanceDegradation}
               onProviderChange={onProvenanceProviderChange}
               pending={provenancePending}
@@ -670,12 +666,14 @@ export function ClioObservabilityView({
 }
 
 function ProvenanceSourceBar({
+  artifactProvider,
   degradation,
   onProviderChange,
   pending,
   provider,
   providers,
 }: {
+  artifactProvider?: ArtifactProvenanceProviderSummary;
   degradation?: ExecutionProvenanceDegradation;
   onProviderChange?: (provider: string) => void;
   pending?: boolean;
@@ -692,6 +690,11 @@ function ProvenanceSourceBar({
           <span className="truncate text-xs text-muted-foreground">
             {pending ? 'Discovering providers' : (selected?.source ?? 'Unavailable')}
           </span>
+          {artifactProvider && artifactProvider.provider !== selected?.name ? (
+            <span className="shrink-0 text-xs text-muted-foreground">
+              Artifacts: {artifactProvider.provider}
+            </span>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {providers?.length && provider ? (

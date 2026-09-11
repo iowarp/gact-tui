@@ -102,9 +102,7 @@ export function sessionFiles(
   return [...files.values()];
 }
 
-export function provenanceFileFact(
-  toolName: string,
-): 'Read' | 'Proposed' | 'Written' | undefined {
+export function provenanceFileFact(toolName: string): 'Read' | 'Proposed' | 'Written' | undefined {
   if (toolName === 'fs_read_file') return 'Read';
   if (toolName === 'fs_propose_edit') return 'Proposed';
   if (toolName === 'fs_apply_edit_write') return 'Written';
@@ -129,10 +127,20 @@ function stringAttribute(attributes: Record<string, unknown> | undefined, key: s
 export function sessionDiffs(
   authoritativeDiffs: readonly SessionDiff[],
   tools: readonly ToolInvocation[],
+  executionProvenance?: ExecutionProvenanceResult,
 ): SessionDiff[] {
   const diffs = new Map(
     authoritativeDiffs.map((diff) => [normalizedFilePath(diff.path), diff] as const),
   );
+  const completedWrites = new Set<string>();
+  for (const node of executionProvenance?.nodes ?? []) {
+    if (node.kind !== 'tool' || node.status !== 'completed') continue;
+    const toolName = stringAttribute(node.attributes, 'tool_name');
+    if (provenanceFileFact(toolName) !== 'Written') continue;
+    const toolInput = objectAttribute(node.attributes, 'tool_input');
+    const path = stringAttribute(toolInput, 'filepath');
+    if (path) completedWrites.add(normalizedFilePath(path));
+  }
   for (const tool of tools) {
     if (tool.state !== 'succeeded' || !tool.presentation) continue;
     const link = tool.presentation.blocks.find(
@@ -150,10 +158,11 @@ export function sessionDiffs(
       // reports. Transcript blocks are historical evidence and must not replay
       // an older proposal over an applied, rejected, or newer pending record.
       if (existing) continue;
+      const applied = directWrite || completedWrites.has(key);
       diffs.set(key, {
         path,
-        status: directWrite ? 'applied' : 'pending',
-        applied: directWrite,
+        status: applied ? 'applied' : 'pending',
+        applied,
         unified_diff: block.text,
         part_id: `${tool.id}:${block.id}`,
       });

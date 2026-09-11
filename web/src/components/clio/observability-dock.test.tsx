@@ -185,7 +185,7 @@ describe('ClioObservabilityView', () => {
     expect(liveRegionAfter).toHaveTextContent('Working');
   });
 
-  it('opens a child lane centrally and uses shift-click for a durable canvas tab', async () => {
+  it('opens a child duration centrally and uses shift-click for a durable canvas tab', async () => {
     const user = userEvent.setup();
     const onOpenSubagent = vi.fn();
     const child = {
@@ -224,6 +224,7 @@ describe('ClioObservabilityView', () => {
       />,
     );
 
+    await user.click(screen.getByRole('tab', { name: 'Gantt' }));
     const childLane = screen.getByRole('button', { name: /geospatial #1, completed/iu });
     await user.click(childLane);
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
@@ -424,16 +425,17 @@ describe('ClioObservabilityView', () => {
       />,
     );
 
+    await user.click(screen.getByRole('tab', { name: 'Gantt' }));
     expect(screen.getByRole('region', { name: 'Observed execution spans' })).toBeVisible();
-    expect(screen.getByText(/delegation map is available in a wider canvas/i)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Fit full timeline' })).toBeVisible();
     expect(screen.getByText('ndp #1')).toBeVisible();
     expect(screen.getByText('Execution')).toBeVisible();
 
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));
 
     expect(screen.getByText('Session evidence')).toBeVisible();
-    expect(screen.getByText('Context files')).toBeVisible();
-    expect(screen.getByText('src/analysis.py')).toBeVisible();
+    expect(screen.getAllByText('Files')).toHaveLength(2);
+    expect(screen.getByText('analysis.py')).toBeVisible();
     expect(screen.getByRole('link', { name: /EarthScope catalog/i })).toHaveAttribute(
       'href',
       'https://example.test/earthscope',
@@ -614,6 +616,7 @@ describe('ClioObservabilityView', () => {
       />,
     );
 
+    await user.click(screen.getByRole('tab', { name: 'Gantt' }));
     expect(screen.getByText('Background work unavailable')).toBeVisible();
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));
     expect(screen.getByText('File changes unavailable')).toBeVisible();
@@ -658,7 +661,7 @@ describe('ClioObservabilityView', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText('Campaign health')).toBeVisible();
     expect(screen.queryByText('Time unavailable')).not.toBeInTheDocument();
-    expect(screen.getByText('Observed in its containing turn')).toBeVisible();
+    expect(screen.getByTitle('Observed in its containing turn')).toHaveTextContent('In this turn');
   });
 
   it('switches authoritative provenance providers and exposes artifact custody', async () => {
@@ -713,7 +716,7 @@ describe('ClioObservabilityView', () => {
     expect(onProviderChange).toHaveBeenCalledWith('flowcept');
 
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));
-    expect(screen.getByText('Evidence custody')).toBeVisible();
+    expect(screen.getByText('Provenance')).toBeVisible();
     expect(screen.getByText('Artifacts: cmf')).toBeVisible();
   });
 
