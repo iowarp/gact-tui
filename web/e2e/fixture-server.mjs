@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import {
   behavior,
+  compactionCheckpoint,
   observedAt,
   pendingSteer,
   providerCatalog,
@@ -231,6 +232,14 @@ function transcriptMessages() {
       },
     ],
   }));
+  messages.push({
+    id: 'msg_compaction_checkpoint',
+    session_id: sessionId,
+    role: 'assistant',
+    created_at: '2026-08-22T19:59:57.000Z',
+    completed_at: '2026-08-22T19:59:57.000Z',
+    blocks: [compactionCheckpoint],
+  });
   messages.push({
     id: 'msg_fixture_request',
     session_id: sessionId,

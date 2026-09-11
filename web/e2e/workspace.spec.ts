@@ -743,6 +743,48 @@ test('batches a 100-delta stream over a virtualized 1,000-message transcript', a
   expect(Math.abs(measurements.bottomGap)).toBeLessThanOrEqual(2);
 });
 
+test('shows the compaction checkpoint row collapsed with a clamped preview, then expands it (#1339)', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
+  await settleConversationAtLatest(page);
+
+  const compactionRow = page.locator('[data-slot="compaction-summary"]');
+  await expect(compactionRow).toBeVisible();
+  await expect(compactionRow.getByText('Context summarized')).toBeVisible();
+  await expect(compactionRow.getByText('Automatic')).toBeVisible();
+
+  // Collapsed: a clamped preview of the summary the agent received, not an
+  // empty row — the checkpoint appends to the transcript, it does not hide it.
+  const preview = compactionRow.locator('p.line-clamp-3');
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText('EarthScope station evidence ledger');
+  // Scroll the row to the top of the viewport: it sits near the tail of the
+  // transcript, close enough to the composer that the floating "Agent needs
+  // your response" queue (docked at the bottom) would otherwise cover it.
+  await compactionRow.evaluate((element) =>
+    element.scrollIntoView({ behavior: 'instant', block: 'start' }),
+  );
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  await expect(compactionRow).toHaveScreenshot('compaction-row-collapsed.png', {
+    animations: 'disabled',
+  });
+
+  await compactionRow.getByRole('button', { name: 'Show more' }).click();
+  await expect(compactionRow.locator('p.line-clamp-3')).toHaveCount(0);
+  await expect(
+    compactionRow.getByText(/derived displacement series before this checkpoint/),
+  ).toBeVisible();
+  await expect(compactionRow.getByRole('button', { name: 'Show less' })).toBeVisible();
+});
+
 declare global {
   interface Window {
     __clioLongTasks: number[];

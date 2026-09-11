@@ -114,7 +114,7 @@ export function ClioSessionActions({
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmation === 'compact'
-                ? 'The service will replace the visible transcript with an evidence-preserving compact summary. Export the session first if you need a portable copy of every message.'
+                ? 'The service appends a checkpoint; earlier messages stay in the transcript. Export the session first if you need a portable copy of every message.'
                 : 'The service will permanently remove the last stored message from this session. This action follows the connected permission policy.'}
             </AlertDialogDescription>
           </AlertDialogHeader>

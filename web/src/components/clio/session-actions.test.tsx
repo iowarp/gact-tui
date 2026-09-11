@@ -36,7 +36,7 @@ describe('ClioSessionActions', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Compact conversation' }));
 
     expect(screen.getByRole('alertdialog')).toHaveTextContent(
-      'evidence-preserving compact summary',
+      'appends a checkpoint; earlier messages stay in the transcript',
     );
     await user.click(screen.getByRole('button', { name: 'Compact conversation' }));
     expect(actions.onCompact).toHaveBeenCalledOnce();
