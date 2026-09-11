@@ -145,7 +145,7 @@ export function ConversationTurn({
   }
   if (mode === 'full') {
     return (
-      <section aria-label="Full agent activity" className="mb-4">
+      <section aria-label="Full agent activity">
         <div className="space-y-3">
           {iterations.map((iteration) => (
             <IterationDetail
@@ -169,7 +169,7 @@ export function ConversationTurn({
   }
 
   return (
-    <ChainOfThought className="mb-4 space-y-2" defaultOpen>
+    <ChainOfThought className="space-y-2" defaultOpen>
       <ChainOfThoughtHeader className="min-h-8">Activity</ChainOfThoughtHeader>
       <ChainOfThoughtContent className="mt-2">
         {iterations.map((iteration) => (

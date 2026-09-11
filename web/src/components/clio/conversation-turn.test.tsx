@@ -449,7 +449,16 @@ describe('ConversationTurn correlated work placement', () => {
       prompt: 'Which physical system should I simulate?',
       source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'call_ask' },
       created_at: '2026-09-03T00:00:00Z',
-      payload: { answer_metadata: { answer: 'A cantilever beam' } },
+      payload: {
+        options: [
+          { label: 'Cantilever beam', value: 'beam', description: 'Simulate a fixed beam' },
+          { label: 'Fluid channel', value: 'fluid', description: 'Simulate channel flow' },
+        ],
+        answer_metadata: {
+          selected_options: ['beam'],
+          answer: 'Use the measured steel dimensions.',
+        },
+      },
       actions: [],
     };
     render(
@@ -474,7 +483,11 @@ describe('ConversationTurn correlated work placement', () => {
       ].map((node) => node.getAttribute('data-turn-activity')),
     ).toEqual(['tool:call_ask', 'interaction:question:native_1']);
     expect(screen.getByText('Which physical system should I simulate?')).toBeVisible();
-    expect(screen.getByText('A cantilever beam')).toBeVisible();
+    expect(screen.getByText('Selected')).toBeVisible();
+    expect(screen.getByText('Cantilever beam')).toBeVisible();
+    expect(screen.getByText('Comment')).toBeVisible();
+    expect(screen.getByText('Use the measured steel dimensions.')).toBeVisible();
+    expect(screen.queryByText('beam')).not.toBeInTheDocument();
     expect(screen.getByText('Answer returned to agent')).toBeVisible();
     expect(screen.queryByText('Validated by MCP schema')).not.toBeInTheDocument();
     expect(screen.queryByText('Response returned to MCP')).not.toBeInTheDocument();

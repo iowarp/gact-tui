@@ -91,6 +91,9 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
   const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
   const { linkedSubagentIds, residualBlocks } = turn;
+  const visibleResidualBlocks = residualBlocks.filter(
+    (block) => block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
+  );
   const executionMode = specialMessageExecutionMode(message);
 
   if (mcpAppResponse) {
@@ -274,24 +277,23 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
               </Alert>
             ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
               <>
-                <ConversationTurn
-                  activeMcpAppId={entities.activeMcpAppId}
-                  artifacts={entities.artifacts}
-                  interactions={entities.interactions}
-                  iterations={turn.iterations}
-                  mcpAppRepository={entities.mcpAppRepository}
-                  messageSessionId={message.session_id}
-                  mode={displayMode}
-                  onOpenSubagent={entities.onOpenSubagent}
-                  onOpenArtifact={entities.onOpenArtifact}
-                  onInteractionResponse={entities.onInteractionResponse}
-                  subagents={entities.subagents}
-                />
+                <div className={visibleResidualBlocks.length > 0 ? 'mb-4' : undefined}>
+                  <ConversationTurn
+                    activeMcpAppId={entities.activeMcpAppId}
+                    artifacts={entities.artifacts}
+                    interactions={entities.interactions}
+                    iterations={turn.iterations}
+                    mcpAppRepository={entities.mcpAppRepository}
+                    messageSessionId={message.session_id}
+                    mode={displayMode}
+                    onOpenSubagent={entities.onOpenSubagent}
+                    onOpenArtifact={entities.onOpenArtifact}
+                    onInteractionResponse={entities.onInteractionResponse}
+                    subagents={entities.subagents}
+                  />
+                </div>
                 <MessageBlockSequence
-                  blocks={residualBlocks.filter(
-                    (block) =>
-                      block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
-                  )}
+                  blocks={visibleResidualBlocks}
                   messageSessionId={message.session_id}
                   {...entities}
                 />
