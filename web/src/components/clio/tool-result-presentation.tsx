@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   BotIcon,
+  ArrowRightIcon,
   CircleAlertIcon,
   InfoIcon,
   ServerIcon,
@@ -242,18 +243,26 @@ function BlockBody({
         </Terminal>
       );
     case 'check': {
-      const Icon =
-        block.state === 'completed'
+      const iconFor = (state: ToolPresentationBlock['state']) =>
+        state === 'completed'
           ? SquareCheckIcon
-          : block.state === 'in_progress'
+          : state === 'in_progress'
             ? SquareMinusIcon
             : SquareIcon;
-      const status =
-        block.state === 'completed'
-          ? 'Completed'
-          : block.state === 'in_progress'
-            ? 'In progress'
-            : 'Pending';
+      const labelFor = (state: ToolPresentationBlock['state']) =>
+        state === 'completed' ? 'Completed' : state === 'in_progress' ? 'In progress' : 'Pending';
+      const Icon = iconFor(block.state);
+      const status = labelFor(block.state);
+      const PreviousIcon = block.previous_state ? iconFor(block.previous_state) : undefined;
+      const previousStatus = block.previous_state ? labelFor(block.previous_state) : undefined;
+      const accessibleStatus =
+        block.change === 'status_changed' && previousStatus
+          ? `Changed from ${previousStatus} to ${status}`
+          : block.change === 'added'
+            ? `Added as ${status}`
+            : block.change === 'removed'
+              ? `Removed from task list, was ${status}`
+              : status;
       return (
         <div className="flex items-start gap-2 py-1">
           <TooltipProvider>
@@ -261,20 +270,36 @@ function BlockBody({
               <TooltipTrigger asChild>
                 <span
                   role="img"
-                  aria-label={status}
+                  aria-label={accessibleStatus}
                   tabIndex={0}
-                  className="mt-1 inline-flex size-4 shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                  className={cn(
+                    'mt-1 inline-flex h-4 shrink-0 items-center rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+                    block.change === 'status_changed' ? 'w-auto gap-0.5' : 'w-4',
+                  )}
                 >
+                  {PreviousIcon && block.change === 'status_changed' ? (
+                    <>
+                      <PreviousIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+                      <ArrowRightIcon aria-hidden="true" className="size-3 text-muted-foreground" />
+                    </>
+                  ) : null}
                   <Icon
                     aria-hidden="true"
                     className={`size-4 ${block.state === 'completed' ? 'text-success' : block.state === 'in_progress' ? 'text-warning' : 'text-muted-foreground'}`}
                   />
                 </span>
               </TooltipTrigger>
-              <TooltipContent>{status}</TooltipContent>
+              <TooltipContent>{accessibleStatus}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <span>{text}</span>
+          <span className={block.change === 'removed' ? 'text-muted-foreground line-through' : ''}>
+            {text}
+          </span>
+          {block.change === 'added' || block.change === 'removed' ? (
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {block.change === 'added' ? 'Added' : 'Removed'}
+            </span>
+          ) : null}
         </div>
       );
     }
@@ -445,7 +470,16 @@ export function ToolResultPresentation({
           for (let i = index; i < blocks.length && blocks[i].type === 'check'; i++)
             checks.push(blocks[i]);
           return (
-            <BoundedResult key={block.id} lines={3} unit="items" title="Task list">
+            <BoundedResult
+              key={block.id}
+              lines={3}
+              unit="items"
+              title={
+                checks.some((check) => check.change && check.change !== 'unchanged')
+                  ? 'Task changes'
+                  : 'Task list'
+              }
+            >
               <ul className="list-none">
                 {checks.map((check) => (
                   <li key={check.id}>

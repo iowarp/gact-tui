@@ -628,6 +628,8 @@ export const toolPresentationSchema = z.object({
       language: z.string().optional(),
       target: z.enum(['artifact', 'resource', 'session', 'url', 'file', 'work']).optional(),
       state: z.enum(['pending', 'in_progress', 'completed']).optional(),
+      previous_state: z.enum(['pending', 'in_progress', 'completed']).optional(),
+      change: z.enum(['added', 'removed', 'status_changed', 'unchanged']).optional(),
       uri: z.string().optional(),
       command: z.string().optional(),
       exit_code: z.number().nullable().optional(),

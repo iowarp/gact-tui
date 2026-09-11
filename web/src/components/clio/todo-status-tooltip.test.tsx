@@ -45,4 +45,42 @@ describe('todo status explanations', () => {
       expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     },
   );
+
+  it('renders a pending to completed transition as one accessible status', async () => {
+    Range.prototype.getClientRects = vi.fn(() => [] as unknown as DOMRectList);
+    const user = userEvent.setup();
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'todos-transition',
+          session_id: 's',
+          name: 'write_todos',
+          state: 'succeeded',
+          presentation: {
+            summary: '1 task changed',
+            blocks: [
+              {
+                id: 'task',
+                type: 'check',
+                state: 'completed',
+                previous_state: 'pending',
+                change: 'status_changed',
+                text: 'Read evidence',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    const transition = screen.getByRole('img', {
+      name: 'Changed from Pending to Completed',
+    });
+    expect(transition).toHaveAttribute('tabindex', '0');
+    await user.hover(transition);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Changed from Pending to Completed',
+    );
+    expect(screen.getByText('Read evidence')).toBeInTheDocument();
+  });
 });
