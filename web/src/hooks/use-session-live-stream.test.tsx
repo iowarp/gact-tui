@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
   const repository = {
+    sessions: vi.fn(),
     stream: vi.fn(),
+    transcript: vi.fn(),
+    workspaces: vi.fn(),
   };
   const storeState = {
     entities: { cursor: undefined as string | undefined, stream: 'offline' },
@@ -55,6 +58,20 @@ describe('useSessionLiveStream resume recovery', () => {
     mocks.storeState.entities.cursor = undefined;
     vi.spyOn(document, 'hasFocus').mockReturnValue(true);
     mocks.repository.stream.mockReset();
+    mocks.repository.sessions.mockReset();
+    mocks.repository.sessions.mockResolvedValue([]);
+    mocks.repository.transcript.mockReset();
+    mocks.repository.transcript.mockResolvedValue({
+      cursor: 'snapshot-9',
+      messages: [],
+      tools: [],
+      tasks: [],
+      subagents: [],
+      artifacts: [],
+      surfaces: [],
+    });
+    mocks.repository.workspaces.mockReset();
+    mocks.repository.workspaces.mockResolvedValue([]);
     mocks.queryClient.invalidateQueries.mockReset();
     mocks.queryClient.invalidateQueries.mockResolvedValue(undefined);
     mocks.resume = undefined;
@@ -326,6 +343,47 @@ describe('useSessionLiveStream resume recovery', () => {
 
     await waitFor(() =>
       expect(mocks.storeState.setStreamState).toHaveBeenCalledWith('reconnecting'),
+    );
+    unmount();
+  });
+
+  it('reconciles authoritative rows before reconnecting after a clean disconnect', async () => {
+    let attempt = 0;
+    mocks.repository.stream.mockImplementation(async function* (
+      _scope: unknown,
+      _cursor: unknown,
+      signal: AbortSignal,
+    ) {
+      attempt += 1;
+      if (attempt === 1) return;
+      await new Promise<void>((resolve) => {
+        if (signal.aborted) resolve();
+        else signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+      if (!signal.aborted) yield undefined;
+    });
+
+    const { unmount } = renderHook(() =>
+      useSessionLiveStream({ enabled: true, sessionId: 'sess_1', workspaceId: 'ws_1' }),
+    );
+
+    await waitFor(
+      () =>
+        expect(mocks.repository.transcript).toHaveBeenCalledWith('sess_1', expect.any(AbortSignal)),
+      {
+        timeout: 3_000,
+      },
+    );
+    expect(mocks.storeState.reconcileSnapshots).toHaveBeenCalledWith(
+      expect.objectContaining({ messages: {}, tools: {}, revisions: {} }),
+    );
+    await waitFor(() => expect(mocks.repository.stream).toHaveBeenCalledTimes(2), {
+      timeout: 3_000,
+    });
+    expect(mocks.repository.stream).toHaveBeenLastCalledWith(
+      { connection_id: 'active', workspace_id: 'ws_1', session_id: 'sess_1' },
+      'snapshot-9',
+      expect.any(AbortSignal),
     );
     unmount();
   });
