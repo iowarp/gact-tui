@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { WorkRecord } from '@clio/core/v3';
+import type { WorkRecord, WorkScheduleHistory, WorkTodo, WorkTodoSnapshot } from '@clio/core/v3';
 import {
+  ChevronDownIcon,
   CircleCheckIcon,
   CircleDotIcon,
   CirclePauseIcon,
@@ -14,8 +15,10 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 function useSessionWork(sessionId: string, cursor = 0) {
   const repository = useRepository();
@@ -117,6 +120,126 @@ function WorkRecordRow({ record }: { record: WorkRecord }) {
   );
 }
 
+function PreviousRecords({
+  count,
+  noun,
+  children,
+}: {
+  count: number;
+  noun: string;
+  children: React.ReactNode;
+}) {
+  if (!count) return null;
+  return (
+    <Collapsible>
+      <CollapsibleTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`Previous ${count} ${noun}`}
+          className="group h-7 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
+        >
+          Previous
+          <span className="font-normal">{count}</span>
+          <ChevronDownIcon
+            data-icon="inline-end"
+            aria-hidden="true"
+            className="transition-transform group-data-[state=open]:rotate-180"
+          />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="mt-1 border-l pl-3">{children}</div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function TodoRow({ todo }: { todo: WorkTodo }) {
+  const Icon =
+    todo.status === 'completed'
+      ? SquareCheckIcon
+      : todo.status === 'in_progress'
+        ? SquareMinusIcon
+        : SquareIcon;
+  const label =
+    todo.status === 'in_progress'
+      ? 'In progress'
+      : todo.status === 'completed'
+        ? 'Completed'
+        : 'Pending';
+  return (
+    <li className="flex items-start gap-2">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              aria-label={label}
+              role="img"
+              tabIndex={0}
+              className="mt-1 inline-flex size-4 shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            >
+              <Icon
+                aria-hidden="true"
+                className={cn(
+                  'size-4',
+                  todo.status === 'completed'
+                    ? 'text-success'
+                    : todo.status === 'in_progress'
+                      ? 'text-warning'
+                      : 'text-muted-foreground',
+                )}
+              />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{label}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <span>{todo.content}</span>
+    </li>
+  );
+}
+
+function TodoSnapshotRow({ snapshot }: { snapshot: WorkTodoSnapshot }) {
+  return (
+    <li className="flex min-w-0 flex-col gap-1 py-1.5">
+      {snapshot.created_at ? (
+        <time className="text-muted-foreground" dateTime={snapshot.created_at}>
+          {new Date(snapshot.created_at).toLocaleString()}
+        </time>
+      ) : null}
+      <ul className="flex flex-col gap-1.5">
+        {snapshot.items.map((todo, index) => (
+          <TodoRow key={`${todo.content}-${index}`} todo={todo} />
+        ))}
+      </ul>
+    </li>
+  );
+}
+
+function PreviousScheduleRow({ schedule }: { schedule: WorkScheduleHistory }) {
+  const state = schedule.state.charAt(0).toUpperCase() + schedule.state.slice(1);
+  const recordedAt = schedule.ended_at || schedule.created_at;
+  return (
+    <li className="flex min-w-0 flex-col gap-0.5 py-1.5">
+      <p className="flex flex-wrap items-center gap-x-2 text-muted-foreground">
+        <span className="text-foreground">{state}</span>
+        {recordedAt ? (
+          <time dateTime={recordedAt}>{new Date(recordedAt).toLocaleString()}</time>
+        ) : null}
+      </p>
+      <p>{schedule.question}</p>
+      <p className="flex flex-wrap gap-x-3 text-muted-foreground">
+        {schedule.next_fire_at ? (
+          <span>{new Date(schedule.next_fire_at).toLocaleString()}</span>
+        ) : null}
+        {schedule.timezone ? <span>{schedule.timezone}</span> : null}
+      </p>
+    </li>
+  );
+}
+
 /** Inspect todos, goal/loop history, and schedules without changing runtime state. */
 export function SessionWorkView({ sessionId }: { sessionId: string }) {
   const [cursor, setCursor] = useState(0);
@@ -145,7 +268,11 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
     );
   const data = query.data;
   if (!data) return null;
-  const next = data.goal_next_cursor ?? data.loop_next_cursor;
+  const next =
+    data.goal_next_cursor ??
+    data.loop_next_cursor ??
+    data.todo_history_next_cursor ??
+    data.schedule_history_next_cursor;
   return (
     <ScrollArea className="h-full min-h-0 min-w-0">
       <div
@@ -156,83 +283,56 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
           <h2 className="font-semibold">Todos</h2>
           {data.todos.length ? (
             <ul className="flex flex-col gap-2">
-              {data.todos.map((todo, index) => {
-                const Icon =
-                  todo.status === 'completed'
-                    ? SquareCheckIcon
-                    : todo.status === 'in_progress'
-                      ? SquareMinusIcon
-                      : SquareIcon;
-                const label =
-                  todo.status === 'in_progress'
-                    ? 'In progress'
-                    : todo.status === 'completed'
-                      ? 'Completed'
-                      : 'Pending';
-                return (
-                  <li key={index} className="flex items-start gap-2">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            aria-label={label}
-                            role="img"
-                            tabIndex={0}
-                            className="mt-1 inline-flex size-4 shrink-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                          >
-                            <Icon
-                              aria-hidden="true"
-                              className={`size-4 ${todo.status === 'completed' ? 'text-success' : todo.status === 'in_progress' ? 'text-warning' : 'text-muted-foreground'}`}
-                            />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>{label}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <span>{todo.content}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="text-muted-foreground">No todos recorded.</p>
-          )}
-        </section>
-        {(['goal', 'loop'] as const).map((kind) => (
-          <section
-            key={kind}
-            className="flex flex-col gap-2"
-            aria-label={kind === 'goal' ? 'Goals' : 'Loops'}
-          >
-            <h2 className="font-semibold">{kind === 'goal' ? 'Goals' : 'Loops'}</h2>
-            <ul className="flex flex-col gap-2">
-              {data[kind === 'goal' ? 'goals' : 'loops'].map((record) => (
-                <WorkRecordRow key={record.id} record={record} />
+              {data.todos.map((todo, index) => (
+                <TodoRow key={`${todo.content}-${index}`} todo={todo} />
               ))}
             </ul>
-            {!data[kind] ? <p className="text-muted-foreground">No {kind} recorded.</p> : null}
-          </section>
-        ))}
-        {cursor || next !== null ? (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              disabled={!cursor}
-              onClick={() => setCursor(Math.max(0, cursor - 25))}
+          ) : (
+            <p className="text-muted-foreground">
+              {data.todo_history.length ? 'No current tasks.' : 'No tasks recorded.'}
+            </p>
+          )}
+          <PreviousRecords count={data.todo_history.length} noun="task lists">
+            <ul className="flex flex-col gap-2">
+              {data.todo_history.map((snapshot) => (
+                <TodoSnapshotRow key={snapshot.id} snapshot={snapshot} />
+              ))}
+            </ul>
+          </PreviousRecords>
+        </section>
+        {(['goal', 'loop'] as const).map((kind) => {
+          const current = data[kind];
+          const currentIsActive = current?.state === 'active' || current?.state === 'paused';
+          const records = data[kind === 'goal' ? 'goals' : 'loops'];
+          const previous = records.filter(
+            (record) => !currentIsActive || record.id !== current?.id,
+          );
+          return (
+            <section
+              key={kind}
+              className="flex flex-col gap-2"
+              aria-label={kind === 'goal' ? 'Goals' : 'Loops'}
             >
-              Newer
-            </Button>
-            <Button
-              variant="outline"
-              disabled={next === null}
-              onClick={() => {
-                if (next !== null) setCursor(next);
-              }}
-            >
-              Older
-            </Button>
-          </div>
-        ) : null}
+              <h2 className="font-semibold">{kind === 'goal' ? 'Goals' : 'Loops'}</h2>
+              {currentIsActive && current ? (
+                <ul>
+                  <WorkRecordRow record={current} />
+                </ul>
+              ) : (
+                <p className="text-muted-foreground">
+                  {previous.length ? `No active ${kind}.` : `No ${kind} recorded.`}
+                </p>
+              )}
+              <PreviousRecords count={previous.length} noun={`${kind} records`}>
+                <ul className="flex flex-col gap-2">
+                  {previous.map((record) => (
+                    <WorkRecordRow key={record.id} record={record} />
+                  ))}
+                </ul>
+              </PreviousRecords>
+            </section>
+          );
+        })}
         <section className="flex flex-col gap-2" aria-label="Schedules">
           <h2 className="font-semibold">Schedules</h2>
           {schedules.error ? (
@@ -265,9 +365,38 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
               ))}
             </ul>
           ) : (
-            <p className="text-muted-foreground">No schedules recorded.</p>
+            <p className="text-muted-foreground">
+              {data.schedule_history.length ? 'No active schedules.' : 'No schedules recorded.'}
+            </p>
           )}
+          <PreviousRecords count={data.schedule_history.length} noun="schedule records">
+            <ul className="flex flex-col gap-2">
+              {data.schedule_history.map((schedule) => (
+                <PreviousScheduleRow key={schedule.id} schedule={schedule} />
+              ))}
+            </ul>
+          </PreviousRecords>
         </section>
+        {cursor || next !== null ? (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={!cursor}
+              onClick={() => setCursor(Math.max(0, cursor - 25))}
+            >
+              Newer
+            </Button>
+            <Button
+              variant="outline"
+              disabled={next === null}
+              onClick={() => {
+                if (next !== null) setCursor(next);
+              }}
+            >
+              Older
+            </Button>
+          </div>
+        ) : null}
       </div>
     </ScrollArea>
   );

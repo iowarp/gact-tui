@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { SessionWorkSummary, SessionWorkView } from './session-work';
@@ -24,14 +24,43 @@ const snapshot = {
   cursor: 0,
   goal,
   loop: null,
-  goals: [goal],
-  loops: [],
+  goals: [goal, { ...goal, id: 'goal-old', title: 'Earlier goal', state: 'completed' as const }],
+  loops: [
+    {
+      ...goal,
+      id: 'loop-old',
+      title: 'Earlier loop',
+      state: 'stopped' as const,
+      reason: 'loop_user_stopped',
+    },
+  ],
   goal_next_cursor: null,
   loop_next_cursor: null,
   todos: [
     { content: 'Inspect evidence', status: 'in_progress' },
     { content: 'Write evidence', status: 'completed' },
   ],
+  todo_history: [
+    {
+      id: 'todo-old',
+      created_at: '2026-09-08T11:00:00Z',
+      items: [{ content: 'Earlier checklist task', status: 'pending' as const }],
+    },
+  ],
+  todo_history_next_cursor: null,
+  schedule_history: [
+    {
+      id: 'schedule-old',
+      question: 'Earlier scheduled turn',
+      state: 'deleted' as const,
+      created_at: '2026-09-08T10:00:00Z',
+      ended_at: '2026-09-08T10:30:00Z',
+      recurring: false,
+      next_fire_at: '2026-09-08T10:30:00Z',
+      timezone: 'UTC',
+    },
+  ],
+  schedule_history_next_cursor: null,
 };
 beforeEach(() => {
   repository.sessionWork.mockReset().mockResolvedValue(snapshot);
@@ -56,7 +85,11 @@ it('shows authoritative work and exposes a compact canvas entry without toggling
   );
   expect(await screen.findByText('Verify readable output')).toBeVisible();
   expect(screen.getByRole('img', { name: 'In progress' })).toBeVisible();
-  expect(screen.getByText('No schedules recorded.')).toBeVisible();
+  expect(screen.getByText('No active schedules.')).toBeVisible();
+  expect(screen.getAllByRole('button', { name: /Previous 1/ })).toHaveLength(4);
+  expect(screen.queryByText('Earlier checklist task')).not.toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole('button', { name: /Previous 1 task lists/ }));
+  expect(await screen.findByText('Earlier checklist task')).toBeVisible();
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   const entry = screen.getByRole('button', { name: 'Open session Work' });
   expect(entry).toHaveTextContent('1/2 done');
@@ -68,6 +101,7 @@ it('keeps stopped separate from paused and pages retained history', async () => 
   repository.sessionWork
     .mockResolvedValueOnce({
       ...snapshot,
+      goal: null,
       goals: [{ ...goal, state: 'stopped' }],
       goal_next_cursor: 25,
     })
@@ -77,9 +111,19 @@ it('keeps stopped separate from paused and pages retained history', async () => 
       goals: [{ ...goal, id: 'old', title: 'Earlier goal', state: 'completed' }],
     });
   mount(<SessionWorkView sessionId="s" />);
-  expect(await screen.findByText('stopped')).toBeVisible();
+  await userEvent
+    .setup()
+    .click(within(await screen.findByRole('region', { name: 'Goals' })).getByRole('button'));
+  expect(await screen.findByText('Stopped')).toBeVisible();
   expect(screen.queryByText('paused', { exact: true })).not.toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button', { name: 'Older' }));
+  await userEvent
+    .setup()
+    .click(
+      within(await screen.findByRole('region', { name: 'Goals' })).getByRole('button', {
+        name: /Previous 1 goal records/,
+      }),
+    );
   expect(await screen.findByText('Earlier goal')).toBeVisible();
   expect(repository.sessionWork).toHaveBeenLastCalledWith('s', 25, expect.any(AbortSignal));
 });
