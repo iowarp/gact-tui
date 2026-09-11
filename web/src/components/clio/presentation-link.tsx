@@ -33,7 +33,9 @@ export function PresentationLink({
         <Tooltip>
           <TooltipTrigger asChild>{element}</TooltipTrigger>
           <TooltipContent className="max-w-sm text-sm">
-            <span className="min-w-0 [overflow-wrap:anywhere]">{uri || label}</span>
+            <span className="min-w-0 [overflow-wrap:anywhere]">
+              {block.target === 'surface' ? label : uri || label}
+            </span>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -76,7 +78,7 @@ export function PresentationLink({
         )}
         onClick={open}
         aria-label={label}
-        title={uri}
+        title={block.target === 'surface' ? label : uri}
       >
         {text}
       </Button>,

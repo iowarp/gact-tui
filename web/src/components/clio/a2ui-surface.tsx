@@ -14,7 +14,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { findLastSurfaceAction } from '@/lib/a2ui-state';
 import { A2uiSurface, clioA2UICatalog } from './a2ui-catalog';
 import { ClioStatus, type ClioStatusValue } from './status';
-import { a2uiSurfaceKind } from './a2ui-presentation';
+import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 
 function SurfaceFailure({ error }: { error: Error }) {
   return (
@@ -205,7 +205,9 @@ function ClioA2UISurfaceContent({
   return (
     <section
       aria-label={`Generated UI, ${surfaceKind}`}
-      className="overflow-hidden rounded-xl border bg-card/70"
+      className="scroll-m-8 overflow-hidden rounded-xl border bg-card/70 focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+      id={a2uiSurfaceDomId(surface.id)}
+      tabIndex={-1}
     >
       <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2 text-xs">
         <BoxesIcon aria-hidden="true" className="size-3.5 text-primary" />

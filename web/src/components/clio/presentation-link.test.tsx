@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { a2uiSurfaceDomId } from './a2ui-presentation';
 import { PresentationLink } from './presentation-link';
 import { PresentationNavigation } from './presentation-navigation';
 
@@ -36,5 +37,39 @@ describe('presentation navigation', () => {
     );
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.getByText(/Unsafe/)).toBeInTheDocument();
+  });
+  it('navigates a generated UI label to its exact rendered surface', () => {
+    render(
+      <PresentationNavigation.Provider
+        value={{
+          artifacts: {},
+          subagents: {},
+          surfaces: { 'surface-1': {} as never },
+        }}
+      >
+        <PresentationLink
+          block={{
+            id: 'generated-ui',
+            type: 'link',
+            target: 'surface',
+            uri: 'surface-1',
+            label: 'Input',
+          }}
+        />
+        <section
+          id={a2uiSurfaceDomId('surface-1')}
+          aria-label="Generated UI, Input"
+          tabIndex={-1}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    const surface = screen.getByLabelText('Generated UI, Input');
+    const scrollIntoView = vi.fn();
+    surface.scrollIntoView = scrollIntoView;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Input' }));
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+    expect(surface).toHaveFocus();
   });
 });
