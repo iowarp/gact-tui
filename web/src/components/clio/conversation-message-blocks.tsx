@@ -40,6 +40,7 @@ import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { toolOutputDiffKey } from './declared-diff-key';
+import { a2uiSurfaceDomId } from './a2ui-presentation';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -89,8 +90,12 @@ export function DeferredA2UISurface({
   const renderSurface = live || nearViewport;
   return (
     <div
+      aria-label="Generated UI surface"
       data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
+      id={a2uiSurfaceDomId(surface.id)}
       ref={hostRef}
+      tabIndex={-1}
+      className="scroll-m-8 rounded-xl focus:outline-2 focus:outline-offset-2 focus:outline-primary"
       style={renderSurface ? undefined : { minHeight: reservedHeight }}
     >
       {renderSurface ? <ClioA2UISurface onLocalAction={onLocalAction} surface={surface} /> : null}

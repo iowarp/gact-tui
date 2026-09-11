@@ -6,7 +6,7 @@ export interface ToolPresentationBlock {
   text?: string;
   label?: string;
   language?: string;
-  target?: 'artifact' | 'resource' | 'session' | 'url' | 'file' | 'work';
+  target?: 'artifact' | 'resource' | 'session' | 'url' | 'file' | 'work' | 'surface';
   state?: 'pending' | 'in_progress' | 'completed';
   previous_state?: 'pending' | 'in_progress' | 'completed';
   change?: 'added' | 'removed' | 'status_changed' | 'unchanged';

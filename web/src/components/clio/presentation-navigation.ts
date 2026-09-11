@@ -11,5 +11,6 @@ type Navigation = Pick<
   | 'onOpenFile'
   | 'onOpenWork'
   | 'onOpenSubagent'
->;
+> &
+  Partial<Pick<ClioConversationProps, 'surfaces'>>;
 export const PresentationNavigation = createContext<Navigation | null>(null);

@@ -4,6 +4,7 @@ import { PresentationNavigation } from './presentation-navigation';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { a2uiSurfaceDomId } from './a2ui-presentation';
 
 /** Resolve declared result links through the conversation's existing workbench. */
 export function PresentationLink({
@@ -52,6 +53,12 @@ export function PresentationLink({
   else if (block.target === 'session' && child && navigation?.onOpenSubagent)
     open = () => navigation.onOpenSubagent?.(child, 'conversation');
   else if (block.target === 'work' && navigation?.onOpenWork) open = navigation.onOpenWork;
+  else if (block.target === 'surface' && navigation?.surfaces?.[uri])
+    open = () => {
+      const surface = document.getElementById(a2uiSurfaceDomId(uri));
+      surface?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      surface?.focus({ preventScroll: true });
+    };
   else if (
     (block.target === 'file' || block.target === 'resource' || block.target === 'artifact') &&
     /^(?:[a-z]:[\\/]|\/)/iu.test(uri) &&

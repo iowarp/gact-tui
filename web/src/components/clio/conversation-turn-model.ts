@@ -108,6 +108,10 @@ function fallbackIterations(
 
   for (const { block } of ordered) {
     if (block.type === 'reasoning') {
+      if (!block.streaming && !block.text.trim()) {
+        consumed.add(block.id);
+        continue;
+      }
       if (current.nextThoughts.length > 0 || current.activity.length > 0) {
         flush();
       }
