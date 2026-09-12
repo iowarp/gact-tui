@@ -816,7 +816,14 @@ describe('ClioToolInvocation', () => {
     expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeNull();
   });
 
-  it('keeps Get status to the nonblocking child snapshot', () => {
+  it('shows the observe row as a cursor/pattern watcher, not an internal status snapshot', () => {
+    // Wire shape from clio-agent's native_presenters.py on 9f4f7fb9
+    // (tests/test_gact/test_tool_presentation_adapters.py
+    // test_patterned_observe_presents_match_cursor_status_and_curated_evidence),
+    // with _observe_status_line's field join updated from " · " to "; " per
+    // the owner rule (separators are layout, no glyph field lists). "Observe"
+    // is the retired "Get status" title's replacement; the row is a
+    // cursor/pattern watcher, not a blocking status snapshot.
     render(
       <PresentationNavigation.Provider
         value={{
@@ -827,25 +834,33 @@ describe('ClioToolInvocation', () => {
       >
         <ClioToolInvocation
           tool={{
-            id: 'tool-status',
+            id: 'tool-observe',
             session_id: 'session-1',
             name: 'observe_agent_tasks',
             state: 'succeeded',
             presentation: {
-              action: 'Get status',
+              action: 'Observe',
               subject: 'task-subject',
               summary: '',
               blocks: [
-                { id: 'task-subject', type: 'text', text: 'researcher #1' },
                 {
-                  id: 'task-1',
-                  type: 'item',
+                  id: 'task-subject',
+                  type: 'link',
                   target: 'session',
                   uri: 'session-child-1',
-                  label: 'researcher #1',
-                  status: 'running',
-                  result_kind: 'snapshot',
-                  detail: 'Internal event excerpt',
+                  label: 'Research methodologist #1',
+                },
+                {
+                  id: 'observation',
+                  type: 'text',
+                  label: 'Observed',
+                  text: 'Cursor 7 -> 10; Pattern "station=KOOT" matched; Research methodologist #1: running',
+                },
+                {
+                  id: 'evidence-0',
+                  type: 'text',
+                  label: 'Evidence · Research methodologist #1',
+                  text: 'thought: compare methods | tool: search({"query": "evidence"})',
                 },
               ],
             },
@@ -854,9 +869,15 @@ describe('ClioToolInvocation', () => {
       </PresentationNavigation.Provider>,
     );
 
-    expect(screen.getByText('was running when checked')).toBeVisible();
-    expect(screen.queryByText('Internal event excerpt')).not.toBeInTheDocument();
-    expect(screen.queryByText('Context received')).not.toBeInTheDocument();
+    expect(screen.getByText('Observe')).toBeVisible();
+    expect(screen.getByText('Observed')).toBeVisible();
+    expect(screen.getByText(/Cursor 7 -> 10/u)).toBeVisible();
+    expect(screen.getByText(/Research methodologist #1: running/u)).toBeVisible();
+    expect(screen.getByText('Evidence · Research methodologist #1')).toBeVisible();
+    expect(screen.getByText(/tool: search/u)).toBeVisible();
+    // Lifecycle events ("Context received...") are curated out of evidence;
+    // only the matched react.step excerpt survives.
+    expect(screen.queryByText(/Context received/u)).not.toBeInTheDocument();
   });
 
   it('bounds a historical Collect result behind Show more', async () => {
