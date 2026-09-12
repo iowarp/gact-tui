@@ -1,4 +1,4 @@
-import { BrainIcon, ChevronDownIcon, ListChecksIcon, WrenchIcon } from 'lucide-react';
+import { BrainIcon, ChevronDownIcon, ListChecksIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import {
   ChainOfThought,
@@ -32,8 +32,13 @@ import { ConversationInteractionActivity } from './conversation-interaction-acti
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { GroundedMessageResponse } from './grounded-message-response';
+import { workflowDescriptor } from './workflow-tool-presentation';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
+type SubagentActivityEntry = Extract<
+  ConversationIteration['activity'][number],
+  { kind: 'subagent' }
+>;
 
 interface ConversationTurnProps {
   iterations: readonly ConversationIteration[];
@@ -377,6 +382,13 @@ function IterationDetail({
       entry.kind === 'subagent' ? [entry.block.subagent_id] : [],
     ),
   );
+  const workflowTaskIds = new Set(
+    iteration.activity.flatMap((entry) =>
+      entry.kind === 'tool'
+        ? (workflowDescriptor(entry.tool)?.steps.flatMap((step) => step.taskId ?? []) ?? [])
+        : [],
+    ),
+  );
   return (
     <article>
       <div className="space-y-2">
@@ -415,6 +427,21 @@ function IterationDetail({
             <Fragment key={`tool:${entry.id}`}>
               <div className="space-y-1" data-turn-activity={`tool:${entry.id}`}>
                 <ClioToolInvocation tool={entry.tool} />
+                {workflowDescriptor(entry.tool) ? (
+                  <WorkflowChildGroup
+                    descriptor={workflowDescriptor(entry.tool)!}
+                    events={iteration.activity.filter(
+                      (candidate): candidate is SubagentActivityEntry =>
+                        candidate.kind === 'subagent' &&
+                        (workflowDescriptor(entry.tool)?.steps.some(
+                          (step) => step.taskId === candidate.block.subagent_id,
+                        ) ??
+                          false),
+                    )}
+                    onOpenSubagent={onOpenSubagent}
+                    subagents={subagents}
+                  />
+                ) : null}
                 {subagentsForTool(entry.tool, subagents)
                   .filter((subagent) => !explicitSubagentIds.has(subagent.id))
                   .map((subagent) => (
@@ -438,7 +465,7 @@ function IterationDetail({
                 : null}
             </Fragment>
           ) : entry.kind === 'subagent' ? (
-            showSubagents ? (
+            workflowTaskIds.has(entry.block.subagent_id) ? null : showSubagents ? (
               <div data-turn-activity={`subagent:${entry.id}`} key={`subagent:${entry.id}`}>
                 <ClioSubagentLifecycleLine
                   onOpen={onOpenSubagent}
@@ -473,6 +500,44 @@ function IterationDetail({
         {iteration.interrupted ? <ClioStatus value="interrupted" /> : null}
       </div>
     </article>
+  );
+}
+
+function WorkflowChildGroup({
+  descriptor,
+  events,
+  onOpenSubagent,
+  subagents,
+}: {
+  descriptor: NonNullable<ReturnType<typeof workflowDescriptor>>;
+  events: SubagentActivityEntry[];
+  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  subagents: Record<string, SubagentRun>;
+}) {
+  if (events.length === 0) return null;
+  return (
+    <div
+      aria-label={`Workflow steps: ${descriptor.label}`}
+      className="ml-2 min-w-0 border-l pl-3"
+      role="group"
+    >
+      <p className="mb-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+        <WorkflowIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        <span className="shrink-0 font-medium text-foreground/85">Workflow steps</span>
+        <span className="truncate">{descriptor.label}</span>
+      </p>
+      <div className="space-y-0.5">
+        {events.map((entry) => (
+          <ClioSubagentLifecycleLine
+            key={`workflow-subagent:${entry.id}`}
+            onOpen={onOpenSubagent}
+            stage={entry.block.stage ?? 'delegate.unknown'}
+            subagent={subagents[entry.block.subagent_id]}
+            task={entry.block.task}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 

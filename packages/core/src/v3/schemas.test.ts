@@ -7,10 +7,35 @@ import {
   messageBlockSchema,
   messageSchema,
   runStateSchema,
+  sessionSchema,
   toolInvocationSchema,
 } from './index.js';
 
 describe('forward-compatible wire enums', () => {
+  it('retains child launch metadata used to identify skill tasks', () => {
+    const parsed = sessionSchema.parse({
+      id: 'sess_child',
+      workspace_id: 'ws_1',
+      title: 'verification task',
+      state: 'completed',
+      created_at: '2026-09-10T00:00:00Z',
+      updated_at: '2026-09-10T00:01:00Z',
+      metadata: {
+        pending_spawn: {
+          mode: 'async',
+          seed_context: '# Skill: delegate-qualification-check',
+        },
+      },
+    });
+
+    expect(parsed.metadata).toEqual({
+      pending_spawn: {
+        mode: 'async',
+        seed_context: '# Skill: delegate-qualification-check',
+      },
+    });
+  });
+
   it('retains a compacted context as its own message block', () => {
     expect(
       messageBlockSchema.parse({

@@ -13,6 +13,7 @@ import {
   PROVIDER_CATALOG_STALE_TIME_MS,
 } from '@/lib/runtime-limits';
 import { sessionArtifactEntities, sessionArtifactVersionEntities } from '@/lib/session-artifacts';
+import { withSubagentOrigins } from '@/lib/subagent-origins';
 import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -317,8 +318,12 @@ export function useWorkspaceData({
     [sessionArtifacts.data, sessionId, transcriptArtifacts],
   );
   const subagents = useMemo(
-    () => Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
-    [entities.subagents, sessionId],
+    () =>
+      withSubagentOrigins(
+        Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
+        allSessions.data ?? [],
+      ),
+    [allSessions.data, entities.subagents, sessionId],
   );
   const processes = sessionObservability.processes.data ?? [];
   const interactionSessionIds = useMemo(() => {

@@ -8,6 +8,7 @@ import { ToolResultPresentation } from './tool-result-presentation';
 import { ResultDialogContent } from './result-dialog-content';
 import { PresentationLink } from './presentation-link';
 import { getToolHeaderMetadata, getToolStatus } from './tool-presentation';
+import { withWorkflowPresentation } from './workflow-tool-presentation';
 
 export function ClioToolInvocation({
   tool,
@@ -18,7 +19,7 @@ export function ClioToolInvocation({
   embedded?: boolean;
 }) {
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
-  const presentedTool = withSkillFileSubject(tool);
+  const presentedTool = withWorkflowPresentation(withSkillFileSubject(tool));
   const subject = presentedTool.presentation?.blocks.find(
     (block) =>
       block.id === presentedTool.presentation?.subject &&

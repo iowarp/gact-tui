@@ -1,5 +1,5 @@
 import type { MessageBlock, SubagentRun } from '@clio/core/v3';
-import { BotIcon, CornerDownRightIcon, TriangleAlertIcon } from 'lucide-react';
+import { ArrowRightIcon, BotIcon, CornerDownRightIcon, TriangleAlertIcon } from 'lucide-react';
 import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { SubAgentDispatch, type SubAgentState } from '@/components/theokit/sub-agent-dispatch';
 import { formatDuration, truncate } from '@/lib/format';
@@ -44,6 +44,12 @@ export function ClioSubagentLifecycleLine({
   const terminal = !started && !continued;
   const displayState = terminal ? (failed ? 'failed' : 'completed') : subagent?.state;
   const title = subagent?.title || 'Child agent';
+  const origin = subagent?.origin;
+  const agentName = subagent?.agent_id || title;
+  const namedRun = title === agentName || title.startsWith(`${agentName} #`);
+  // A custom run label may be the full assignment. Keep assignments in their
+  // existing detail row and preserve the recorded agent as the navigation name.
+  const displayTitle = origin ? `${agentName} → ${origin.name}` : namedRun ? title : agentName;
   const detail =
     started || failed
       ? task?.trim() ||
@@ -63,9 +69,9 @@ export function ClioSubagentLifecycleLine({
           <CornerDownRightIcon className="absolute bottom-0 right-0 size-3 rounded-sm bg-background text-muted-foreground" />
         </span>
         <button
-          aria-label={interactive ? `Open child conversation ${title}` : undefined}
+          aria-label={interactive ? `Open child conversation ${displayTitle}` : undefined}
           className={cn(
-            'min-w-0 truncate font-medium text-primary outline-none underline-offset-2',
+            'flex min-w-0 items-center gap-1 truncate font-medium text-primary outline-none underline-offset-2',
             interactive
               ? 'cursor-pointer hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring/50'
               : 'cursor-default text-foreground',
@@ -82,8 +88,19 @@ export function ClioSubagentLifecycleLine({
           }
           type="button"
         >
-          {title}
+          {origin ? (
+            <>
+              <span className="truncate">{agentName}</span>
+              <ArrowRightIcon aria-hidden="true" className="size-3 shrink-0" />
+              <span className="truncate">{origin.name}</span>
+            </>
+          ) : (
+            title
+          )}
         </button>
+        {origin?.mode ? (
+          <span className="shrink-0 text-xs text-muted-foreground">{origin.mode}</span>
+        ) : null}
         <span className="shrink-0 text-muted-foreground">
           {started ? 'started' : continued ? 'continued' : failed ? 'failed' : 'completed'}
         </span>
@@ -100,7 +117,7 @@ export function ClioSubagentLifecycleLine({
         <ExpandableChildPrompt
           text={detail}
           onOpen={interactive ? (event) => open(event.shiftKey) : undefined}
-          title={title}
+          title={displayTitle}
         />
       ) : null}
       {failed && subagent?.summary ? (

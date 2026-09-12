@@ -446,6 +446,38 @@ describe('ClioToolInvocation', () => {
     expect(openFile).toHaveBeenCalledWith(path);
   });
 
+  it('names a workflow from its ordered steps and exposes the request definition', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-workflow',
+          session_id: 'session-1',
+          name: 'run_workflow',
+          title: 'Run Workflow',
+          state: 'succeeded',
+          duration_ms: 33_000,
+          input: { request: 'Inventory and verify the supplied Alpha and Beta facts.' },
+          output: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                status: 'completed',
+                steps: [{ child: 'inventory' }, { child: 'verification' }],
+              }),
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Run workflow')).toBeVisible();
+    expect(screen.getByText('inventory → verification')).toBeVisible();
+    expect(screen.getByText('2 ordered steps · waited for completion')).toBeVisible();
+    expect(
+      screen.getByText('Inventory and verify the supplied Alpha and Beta facts.'),
+    ).toBeVisible();
+  });
+
   it('renders an exact proposed edit as a visible diff beneath the tool row', () => {
     render(
       <ClioToolInvocation

@@ -53,6 +53,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { cn } from '@/lib/utils';
 import { ClioArtifactCard } from './artifact-card';
 import { ClioInteractiveRow } from './interactive-row';
+import { WorkspaceFileView } from './resource-viewers';
 import { ClioStatus } from './status';
 
 const ArtifactView = lazy(() =>
@@ -61,10 +62,6 @@ const ArtifactView = lazy(() =>
 const BlueprintFileEditor = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.BlueprintFileEditor })),
 );
-const WorkspaceFileView = lazy(() =>
-  import('./resource-viewers').then((module) => ({ default: module.WorkspaceFileView })),
-);
-
 export type CanvasResourceKind =
   | 'session'
   | 'work'

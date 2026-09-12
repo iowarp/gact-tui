@@ -101,6 +101,7 @@ export interface Session {
   active_blueprint_name?: string;
   active_blueprint_version?: string;
   active_blueprint_scope?: string;
+  metadata?: Record<string, unknown>;
   mode: WireValue<'plan' | 'edit' | 'architect'>;
   edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
   routing_mode: WireValue<'auto' | 'chat' | 'experts' | 'reasoning_only'>;
@@ -281,6 +282,11 @@ export interface SubagentRun {
   task?: string;
   result?: string;
   duration_ms?: number;
+  origin?: {
+    kind: 'skill';
+    name: string;
+    mode?: WireValue<'sync' | 'async'>;
+  };
 }
 
 export interface Artifact {

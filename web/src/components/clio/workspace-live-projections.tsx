@@ -1,4 +1,4 @@
-import type { Artifact, Message } from '@clio/core/v3';
+import type { Artifact, Message, SubagentRun } from '@clio/core/v3';
 import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useLiveStore } from '@/store/live-store';
@@ -23,17 +23,19 @@ type LiveConversationProps = Omit<
 > & {
   artifacts: readonly Artifact[];
   sessionId: string;
+  subagents: readonly SubagentRun[];
 };
 
 /** Isolates high-rate message updates from the surrounding workspace chrome. */
 export function WorkspaceLiveConversation({
   artifacts: artifactList,
   sessionId,
+  subagents: subagentList,
   ...props
 }: LiveConversationProps) {
   const messageEntities = useLiveStore((state) => state.entities.messages);
   const artifactEntities = useLiveStore((state) => state.entities.artifacts);
-  const subagents = useLiveStore((state) => state.entities.subagents);
+  const subagentEntities = useLiveStore((state) => state.entities.subagents);
   const surfaceEntities = useLiveStore((state) => state.entities.surfaces);
   const tasks = useLiveStore((state) => state.entities.tasks);
   const tools = useLiveStore((state) => state.entities.tools);
@@ -64,6 +66,13 @@ export function WorkspaceLiveConversation({
           .map((surface) => [surface.id, surface]),
       ),
     [sessionId, surfaceEntities],
+  );
+  const subagents = useMemo(
+    () => ({
+      ...subagentEntities,
+      ...Object.fromEntries(subagentList.map((subagent) => [subagent.id, subagent])),
+    }),
+    [subagentEntities, subagentList],
   );
   const entities = useMemo(
     () => ({ artifacts, subagents, surfaces, tasks, tools }),

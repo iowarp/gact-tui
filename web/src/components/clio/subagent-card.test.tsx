@@ -131,6 +131,57 @@ describe('ClioSubagentLifecycleLine', () => {
     expect(onOpen).toHaveBeenCalledWith(child, 'conversation');
   });
 
+  it('names an async child launched from a skill without using its prompt as the title', () => {
+    render(
+      <ClioSubagentLifecycleLine
+        stage="delegate.started"
+        subagent={{
+          ...child,
+          agent_id: 'verification',
+          title: 'Check whether Alpha plus Beta equals 11 using only supplied facts...',
+          origin: { kind: 'skill', name: 'delegate-qualification-check', mode: 'async' },
+        }}
+        task="Check whether Alpha plus Beta equals 11 using only supplied facts."
+        onOpen={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Open child conversation verification → delegate-qualification-check',
+      }),
+    ).toBeVisible();
+    expect(screen.getByText('async')).toBeVisible();
+    expect(
+      screen.getByText('Check whether Alpha plus Beta equals 11 using only supplied facts.'),
+    ).toBeVisible();
+  });
+
+  it('uses the recorded agent name when a custom run label is the assignment', () => {
+    render(
+      <ClioSubagentLifecycleLine
+        onOpen={vi.fn()}
+        stage="delegate.started"
+        subagent={{
+          id: 'child_prompt_label',
+          session_id: 'session_parent',
+          child_session_id: 'session_child',
+          agent_id: 'verification',
+          title: 'Check whether Alpha plus Beta equals 11 using only the supplied facts...',
+          state: 'running',
+          task: 'Check whether Alpha plus Beta equals 11 using only the supplied facts.',
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Open child conversation verification' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: /Open child conversation verification from assignment/u }),
+    ).toHaveTextContent('Check whether Alpha plus Beta equals 11');
+  });
+
   it('uses the causal launch block assignment before the live entity catches up', () => {
     render(
       <ClioSubagentLifecycleLine

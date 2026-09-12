@@ -241,6 +241,82 @@ describe('ConversationTurn correlated work placement', () => {
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
   });
 
+  it('groups ordered child events beneath the workflow that owns their task ids', () => {
+    const inventory = {
+      id: 'task_inventory',
+      session_id: 'session_1',
+      child_session_id: 'session_inventory',
+      agent_id: 'inventory',
+      title: 'inventory #1',
+      state: 'completed' as const,
+      task: 'Record Alpha and Beta.',
+    };
+    const verification = {
+      ...inventory,
+      id: 'task_verification',
+      child_session_id: 'session_verification',
+      agent_id: 'verification',
+      title: 'verification #1',
+      task: 'Verify the sum.',
+    };
+    const workflow: ToolInvocation = {
+      id: 'call_workflow',
+      session_id: 'session_1',
+      name: 'run_workflow',
+      title: 'Run Workflow',
+      state: 'succeeded',
+      input: { request: 'Inventory and verify Alpha and Beta.' },
+      output: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            steps: [
+              { child: 'inventory', task_id: inventory.id },
+              { child: 'verification', task_id: verification.id },
+            ],
+          }),
+        },
+      ],
+    };
+    const subagentEvent = (
+      id: string,
+      subagentId: string,
+      stage: 'delegate.started' | 'delegate.completed',
+    ): ConversationActivity => ({
+      kind: 'subagent',
+      id,
+      block: { id, type: 'subagent', subagent_id: subagentId, stage },
+    });
+
+    render(
+      <ConversationTurn
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: workflow.id, tool: workflow },
+              subagentEvent('inventory-started', inventory.id, 'delegate.started'),
+              subagentEvent('inventory-completed', inventory.id, 'delegate.completed'),
+              subagentEvent('verification-started', verification.id, 'delegate.started'),
+              subagentEvent('verification-completed', verification.id, 'delegate.completed'),
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{ [inventory.id]: inventory, [verification.id]: verification }}
+      />,
+    );
+
+    const group = screen.getByRole('group', {
+      name: 'Workflow steps: inventory → verification',
+    });
+    expect(group).toBeVisible();
+    expect(group).toHaveTextContent('inventory #1');
+    expect(group).toHaveTextContent('verification #1');
+    expect(
+      screen.queryByText('inventory #1', { selector: '[data-turn-activity^="subagent"] *' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('keeps the active MCP App visible after its collapsed chain summary', () => {
     const app: ConversationActivity = {
       kind: 'mcp_app',

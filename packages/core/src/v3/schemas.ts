@@ -282,6 +282,7 @@ export const sessionSchema = z.object({
   active_blueprint_name: z.string().optional(),
   active_blueprint_version: z.string().optional(),
   active_blueprint_scope: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   mode: forwardCompatibleEnum(['plan', 'edit', 'architect']).default('edit'),
   edit_mode: forwardCompatibleEnum(['diff', 'whole', 'patch']).default('diff'),
   routing_mode: forwardCompatibleEnum(['auto', 'chat', 'experts', 'reasoning_only']).default(

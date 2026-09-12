@@ -792,6 +792,7 @@ export function WorkspacePage() {
                     mcpAppRepository={repository}
                     interactions={interactions}
                     sessionId={sessionId}
+                    subagents={subagents}
                   />
                 </m.div>
               )}

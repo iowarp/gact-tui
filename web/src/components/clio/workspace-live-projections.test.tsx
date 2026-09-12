@@ -78,7 +78,7 @@ describe('WorkspaceLiveConversation', () => {
       created_at: '2026-09-05T00:00:00Z',
     } satisfies Artifact;
 
-    render(<WorkspaceLiveConversation artifacts={[artifact]} sessionId="sess_1" />);
+    render(<WorkspaceLiveConversation artifacts={[artifact]} sessionId="sess_1" subagents={[]} />);
 
     expect(screen.getByTestId('artifact-size')).toHaveTextContent('128');
   });
@@ -99,6 +99,7 @@ describe('WorkspaceLiveConversation', () => {
       <WorkspaceLiveConversation
         artifacts={[{ ...previous, id: 'version_2' }]}
         sessionId="sess_1"
+        subagents={[]}
       />,
     );
     expect(screen.getByTestId('artifact-ids')).toHaveTextContent('version_1,version_2');
@@ -120,7 +121,7 @@ describe('WorkspaceLiveConversation', () => {
       surface_other: { ...surface, id: 'surface_other', session_id: 'sess_2' },
     };
 
-    render(<WorkspaceLiveConversation artifacts={[]} sessionId="sess_1" />);
+    render(<WorkspaceLiveConversation artifacts={[]} sessionId="sess_1" subagents={[]} />);
 
     expect(screen.getByTestId('surface-ids')).toHaveTextContent('surface_current');
     expect(screen.getByTestId('surface-ids')).not.toHaveTextContent('surface_other');
