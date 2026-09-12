@@ -277,7 +277,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
               </Alert>
             ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
               <>
-                <div className={visibleResidualBlocks.length > 0 ? 'mb-2' : undefined}>
+                <div>
                   <ConversationTurn
                     activeMcpAppId={entities.activeMcpAppId}
                     artifacts={entities.artifacts}

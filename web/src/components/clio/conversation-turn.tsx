@@ -174,9 +174,9 @@ export function ConversationTurn({
   }
 
   return (
-    <ChainOfThought className="space-y-2" defaultOpen>
+    <ChainOfThought className="space-y-0" defaultOpen>
       <ChainOfThoughtHeader className="min-h-8">Activity</ChainOfThoughtHeader>
-      <ChainOfThoughtContent className="mt-2">
+      <ChainOfThoughtContent>
         {iterations.map((iteration) => (
           <IterationSummary
             iteration={iteration}
