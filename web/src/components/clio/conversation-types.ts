@@ -44,6 +44,7 @@ export interface ClioConversationProps {
   ) => void;
   onOpenReference?: (reference: WorkspaceReference) => void;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  onOpenWorkflow?: (tool: ToolInvocation) => void;
   pendingMessageIds?: ReadonlySet<string>;
   cancellablePendingMessageIds?: ReadonlySet<string>;
   cancellingPendingMessageId?: string;

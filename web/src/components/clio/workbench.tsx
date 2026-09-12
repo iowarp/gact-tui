@@ -4,6 +4,7 @@ import type {
   Artifact as ArtifactEntity,
   SessionDiff,
   SubagentRun,
+  ToolInvocation,
   WorkspaceFileEntry,
   WorkspaceResource,
 } from '@clio/core/v3';
@@ -18,6 +19,7 @@ import {
   Maximize2Icon,
   Minimize2Icon,
   PaperclipIcon,
+  WorkflowIcon,
   XIcon,
 } from 'lucide-react';
 import {
@@ -52,6 +54,8 @@ import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-cont
 import { SessionWorkView } from './session-work';
 import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
+import { ClioWorkflowCanvasView } from './workflow-canvas-view';
+import { workflowDescriptor } from './workflow-tool-presentation';
 import {
   ArtifactBrowser,
   BlueprintBrowser,
@@ -128,6 +132,13 @@ type WorkbenchTab =
       label: string;
       subagent: SubagentRun;
       workspaceId: string;
+    }
+  | {
+      id: string;
+      kind: 'workflow';
+      label: string;
+      tool: ToolInvocation;
+      workspaceId: string;
     };
 
 export interface ClioWorkbenchProps {
@@ -153,6 +164,7 @@ export interface ClioWorkbenchProps {
   onApplyDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onRejectDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
+  subagents?: readonly SubagentRun[];
   requestedOpen?: { key: string; request: ClioWorkbenchOpenRequest };
 }
 
@@ -167,6 +179,7 @@ export type ClioWorkbenchOpenRequest =
     }
   | { kind: 'blueprint'; blueprint: AgentBlueprintReference }
   | { kind: 'subagent'; subagent: SubagentRun }
+  | { kind: 'workflow'; tool: ToolInvocation }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
   | { kind: 'session' };
 
@@ -254,6 +267,7 @@ const workbenchTabIcons = {
   resource: PaperclipIcon,
   blueprint: BoxesIcon,
   subagent: BoxesIcon,
+  workflow: WorkflowIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
   ComponentType<{ 'aria-hidden'?: boolean; className?: string }>
@@ -284,6 +298,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       onApplyDiff,
       onOpenSubagent,
       onRejectDiff,
+      subagents = [],
       requestedOpen,
     },
     ref,
@@ -408,6 +423,17 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               workspaceId,
             });
             return;
+          case 'workflow': {
+            const descriptor = workflowDescriptor(request.tool);
+            openTab({
+              id: `workflow:${request.tool.id}`,
+              kind: 'workflow',
+              label: descriptor?.label ?? request.tool.title ?? 'Workflow',
+              tool: request.tool,
+              workspaceId,
+            });
+            return;
+          }
           case 'resources':
             openCanvasResource(request.section ?? 'files');
             return;
@@ -647,6 +673,14 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               }}
               subagent={tab.subagent}
               workspaceId={tab.workspaceId}
+            />
+          );
+        case 'workflow':
+          return (
+            <ClioWorkflowCanvasView
+              onOpenSubagent={onOpenSubagent}
+              subagents={subagents}
+              tool={tab.tool}
             />
           );
         default:

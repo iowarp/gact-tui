@@ -1,4 +1,10 @@
-import type { AsyncProcess, ExecutionProvenanceResult, RunState, SubagentRun } from '@clio/core/v3';
+import type {
+  AsyncProcess,
+  ExecutionProvenanceResult,
+  RunState,
+  SubagentRun,
+  ToolInvocation,
+} from '@clio/core/v3';
 import { graphlib, layout } from '@dagrejs/dagre';
 import {
   Controls,
@@ -19,6 +25,7 @@ import { useContainerQuery } from '@/hooks/use-container-query';
 import { formatDuration, formatNestingDepth } from '@/lib/format';
 import { ClioStatus } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
+import { workflowDescriptor } from './workflow-tool-presentation';
 
 interface WorkflowNodeData extends Record<string, unknown> {
   label: string;
@@ -123,6 +130,85 @@ export function ClioWorkflowGraph({
             zoomOnDoubleClick={false}
           >
             <Controls aria-label="Delegation map controls" showInteractive={false} />
+          </ReactFlow>
+        </div>
+      </FramePanel>
+    </Frame>
+  );
+}
+
+/** One recorded run_workflow invocation rendered as its ordered execution graph. */
+export function ClioWorkflowExecutionGraph({
+  tool,
+  subagents,
+  onOpenSubagent,
+}: {
+  tool: ToolInvocation;
+  subagents: readonly SubagentRun[];
+  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const horizontal = useContainerQuery(containerRef, 560);
+  const direction = horizontal ? 'LR' : 'TB';
+  const descriptor = workflowDescriptor(tool);
+  const graph = useMemo(() => {
+    const next = buildWorkflowExecutionGraph(tool, subagents, direction);
+    return {
+      ...next,
+      nodes: next.nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          openSubagent:
+            node.data.subagent && onOpenSubagent
+              ? (target: SubagentOpenTarget) => onOpenSubagent(node.data.subagent!, target)
+              : undefined,
+        },
+      })),
+    };
+  }, [direction, onOpenSubagent, subagents, tool]);
+  const height = Math.min(720, Math.max(320, graph.nodes.length * (horizontal ? 118 : 136)));
+
+  if (!descriptor || graph.nodes.length < 2) return null;
+
+  return (
+    <Frame spacing="sm" variant="ghost">
+      <FrameHeader>
+        <div className="flex min-w-0 items-start gap-3">
+          <NetworkIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <FrameTitle>Workflow execution</FrameTitle>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {descriptor.steps.length} ordered {descriptor.steps.length === 1 ? 'step' : 'steps'}
+              {descriptor.request ? ` · ${descriptor.request}` : ''}
+            </p>
+          </div>
+        </div>
+      </FrameHeader>
+      <FramePanel>
+        <div
+          aria-label={`Workflow execution graph: ${descriptor.label}`}
+          className="min-h-72 overflow-hidden rounded-lg border bg-background/55"
+          ref={containerRef}
+          role="img"
+          style={{ height }}
+        >
+          <ReactFlow<WorkflowNode, Edge>
+            edges={graph.edges}
+            elementsSelectable
+            fitView
+            fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
+            maxZoom={1.5}
+            minZoom={0.25}
+            nodeTypes={nodeTypes}
+            nodes={graph.nodes}
+            nodesConnectable={false}
+            nodesDraggable={false}
+            panOnDrag
+            proOptions={{ hideAttribution: true }}
+            zoomOnDoubleClick={false}
+          >
+            <Controls aria-label="Workflow execution graph controls" showInteractive={false} />
           </ReactFlow>
         </div>
       </FramePanel>
@@ -521,6 +607,78 @@ export function buildWorkflowGraph(
   });
 
   return layoutGraph(nodes, edges, direction);
+}
+
+/** Build the ordered graph declared by a recorded run_workflow result. */
+// oxlint-disable-next-line react/only-export-components
+export function buildWorkflowExecutionGraph(
+  tool: ToolInvocation,
+  subagents: readonly SubagentRun[],
+  direction: 'LR' | 'TB',
+): { nodes: WorkflowNode[]; edges: Edge[] } {
+  const descriptor = workflowDescriptor(tool);
+  if (!descriptor) return { nodes: [], edges: [] };
+  const workflowState = toolStateAsRunState(tool.state);
+  const nodes: WorkflowNode[] = [
+    {
+      id: `workflow:${tool.id}`,
+      type: 'clio-workflow',
+      position: { x: 0, y: 0 },
+      data: {
+        label: descriptor.label,
+        detail: `${descriptor.steps.length} ordered ${descriptor.steps.length === 1 ? 'step' : 'steps'}`,
+        state: workflowState,
+      },
+      ariaLabel: `${descriptor.label}, workflow, ${workflowState}`,
+    },
+    ...descriptor.steps.map((step, index): WorkflowNode => {
+      const subagent = subagents.find((candidate) => candidate.id === step.taskId);
+      const state = subagent?.state ?? workflowState;
+      const detail = [
+        `Step ${index + 1} of ${descriptor.steps.length}`,
+        subagent?.duration_ms !== undefined ? formatDuration(subagent.duration_ms) : undefined,
+      ]
+        .filter(Boolean)
+        .join(', ');
+      return {
+        id: step.taskId ? `workflow-step:${step.taskId}` : `workflow-step:${tool.id}:${index}`,
+        type: 'clio-workflow',
+        position: { x: 0, y: 0 },
+        data: { label: step.name, detail, state, subagent },
+        ariaLabel: `${step.name}, ${detail}, ${state}`,
+      };
+    }),
+  ];
+  const edges = descriptor.steps.map((step, index): Edge => {
+    const target = step.taskId
+      ? `workflow-step:${step.taskId}`
+      : `workflow-step:${tool.id}:${index}`;
+    const previous = descriptor.steps[index - 1];
+    const source =
+      index === 0
+        ? `workflow:${tool.id}`
+        : previous.taskId
+          ? `workflow-step:${previous.taskId}`
+          : `workflow-step:${tool.id}:${index - 1}`;
+    return {
+      id: `workflow-order:${source}->${target}`,
+      source,
+      target,
+      label: index === 0 ? 'starts' : 'then',
+      type: 'smoothstep',
+      markerEnd: { type: MarkerType.ArrowClosed },
+    };
+  });
+  return layoutGraph(nodes, edges, direction);
+}
+
+function toolStateAsRunState(state: ToolInvocation['state']): RunState {
+  if (state === 'pending') return 'queued';
+  if (state === 'running') return 'running';
+  if (state === 'succeeded') return 'completed';
+  if (state === 'failed') return 'failed';
+  if (state === 'cancelled' || state === 'denied') return 'cancelled';
+  return 'unknown';
 }
 
 function stringAttribute(attributes: Record<string, unknown>, key: string): string {

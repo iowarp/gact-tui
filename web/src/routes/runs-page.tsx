@@ -6,8 +6,15 @@ import {
   RUN_REASON_TRUNCATE_CHARS,
   RUNS_POLL_MS,
 } from '@/lib/runtime-limits';
-import type { OperationalRun, RunState, Session, Workspace } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type {
+  OperationalRun,
+  RunState,
+  Session,
+  ToolInvocation,
+  TranscriptSnapshot,
+  Workspace,
+} from '@clio/core/v3';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useTable } from '@tanstack/react-table';
 import {
@@ -17,6 +24,7 @@ import {
   MoreHorizontalIcon,
   PlugZapIcon,
   SearchIcon,
+  WorkflowIcon,
 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -53,6 +61,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -67,7 +76,11 @@ import {
   type WorkspaceDisplayLabel,
 } from '@/lib/workspace-labels';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { returnRouteFromState } from '@/lib/workspace-route-memory';
+import { returnRouteFromState, sessionIdFromRoute } from '@/lib/workspace-route-memory';
+import { workflowDescriptor } from '@/components/clio/workflow-tool-presentation';
+
+type RunSource = OperationalRun['source'] | 'workflow';
+const WORKFLOW_SCAN_BATCH = 4;
 
 interface RunRow {
   handleId: string;
@@ -76,7 +89,7 @@ interface RunRow {
   state: RunState;
   reportedStatus: string;
   statusReason?: string;
-  source: OperationalRun['source'];
+  source: RunSource;
   host: string;
   placement: string;
   workspaceLabel: string;
@@ -85,15 +98,17 @@ interface RunRow {
   targetSessionId?: string;
   updatedAt: string;
   detached: boolean;
+  workflow?: ToolInvocation;
 }
 
 type ConfirmedRunAction = { kind: 'cancel' | 'dismiss'; row: RunRow };
 
-const sourceLabels: Record<OperationalRun['source'], string> = {
+const sourceLabels: Record<RunSource, string> = {
   agent_task: 'Agent',
   mcp_task: 'Tool',
   relay_job: 'Remote job',
   unknown: 'Unknown source',
+  workflow: 'Workflow',
 };
 
 function conciseReason(reason: string | undefined): string | undefined {
@@ -160,6 +175,56 @@ function buildRows(
   });
 }
 
+function workflowState(tool: ToolInvocation): RunState {
+  if (tool.state === 'pending') return 'queued';
+  if (tool.state === 'running') return 'running';
+  if (tool.state === 'succeeded') return 'completed';
+  if (tool.state === 'failed') return 'failed';
+  if (tool.state === 'cancelled' || tool.state === 'denied') return 'cancelled';
+  return 'unknown';
+}
+
+// Pure indexing keeps transcript-derived workflow identity deterministic and testable.
+// oxlint-disable-next-line react/only-export-components
+export function buildWorkflowRows(
+  transcripts: readonly TranscriptSnapshot[],
+  sessions: readonly Session[],
+  workspaces: readonly Workspace[],
+): RunRow[] {
+  const labels = workspaceLabels(workspaces);
+  const sessionsById = new Map(sessions.map((session) => [session.id, session]));
+  return transcripts.flatMap((transcript) =>
+    Object.values(transcript.tools).flatMap((tool): RunRow[] => {
+      const descriptor = workflowDescriptor(tool);
+      if (!descriptor) return [];
+      const session = sessionsById.get(tool.session_id);
+      const workspaceId = session?.workspace_id;
+      const workspaceLabelFields = workspaceId
+        ? (labels.get(workspaceId) ?? { name: 'Workspace unavailable', qualifiers: [] })
+        : { name: 'Workspace unavailable', qualifiers: [] };
+      return [
+        {
+          handleId: tool.id,
+          taskId: tool.id,
+          label: descriptor.label,
+          state: workflowState(tool),
+          reportedStatus: tool.state,
+          source: 'workflow',
+          host: 'Ordered execution',
+          placement: `${descriptor.steps.length} ordered ${descriptor.steps.length === 1 ? 'step' : 'steps'}`,
+          workspaceLabel: workspaceLabelText(workspaceLabelFields),
+          workspaceLabelFields,
+          workspaceId,
+          targetSessionId: tool.session_id,
+          updatedAt: tool.completed_at || tool.started_at || session?.updated_at || '',
+          detached: false,
+          workflow: tool,
+        },
+      ];
+    }),
+  );
+}
+
 function formatWhen(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
@@ -172,6 +237,8 @@ export function RunsPage() {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
+  const [category, setCategory] = useState<'executions' | 'workflows'>('executions');
+  const [workflowScanLimit, setWorkflowScanLimit] = useState(WORKFLOW_SCAN_BATCH);
   const [search, setSearch] = useState('');
   const [stateFilter, setStateFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
@@ -193,6 +260,23 @@ export function RunsPage() {
     queryKey: queryKeys.key('relay-status', settings.endpoint),
     queryFn: ({ signal }) => repository.relayStatus(signal),
     refetchInterval: OPERATIONS_POLL_MS,
+  });
+  const orderedWorkflowSessions = useMemo(() => {
+    const current = sessionIdFromRoute(returnRouteFromState(location.state, settings.endpoint));
+    const values = sessions.data ?? [];
+    return current
+      ? [...values].sort(
+          (left, right) => Number(right.id === current) - Number(left.id === current),
+        )
+      : values;
+  }, [location.state, sessions.data, settings.endpoint]);
+  const workflowTranscripts = useQueries({
+    queries: orderedWorkflowSessions.map((session, index) => ({
+      enabled: category === 'workflows' && index < workflowScanLimit,
+      queryKey: queryKeys.key('transcript', settings.endpoint, session.id),
+      queryFn: ({ signal }: { signal: AbortSignal }) => repository.transcript(session.id, signal),
+      staleTime: RUNS_POLL_MS,
+    })),
   });
   const refreshRuns = useCallback(
     () => queryClient.invalidateQueries({ queryKey: queryKeys.key('runs', settings.endpoint) }),
@@ -224,10 +308,20 @@ export function RunsPage() {
     },
     onError: (error) => toast.error(error.message),
   });
-  const rows = useMemo(
+  const executionRows = useMemo(
     () => buildRows(runs.data ?? [], sessions.data ?? [], workspaces.data ?? []),
     [runs.data, sessions.data, workspaces.data],
   );
+  const workflowRows = useMemo(
+    () =>
+      buildWorkflowRows(
+        workflowTranscripts.flatMap((query) => (query.data ? [query.data] : [])),
+        sessions.data ?? [],
+        workspaces.data ?? [],
+      ),
+    [sessions.data, workflowTranscripts, workspaces.data],
+  );
+  const rows = category === 'workflows' ? workflowRows : executionRows;
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
     return rows.filter((row) => {
@@ -237,7 +331,8 @@ export function RunsPage() {
         (stateFilter === 'active' && ['queued', 'running'].includes(row.state)) ||
         (stateFilter === 'attention' &&
           ['failed', 'interrupted', 'waiting_permission', 'waiting_user'].includes(row.state));
-      const sourceMatches = sourceFilter === 'all' || row.source === sourceFilter;
+      const sourceMatches =
+        category === 'workflows' || sourceFilter === 'all' || row.source === sourceFilter;
       const searchMatches =
         !query ||
         [
@@ -254,7 +349,7 @@ export function RunsPage() {
           .includes(query);
       return stateMatches && sourceMatches && searchMatches;
     });
-  }, [rows, search, sourceFilter, stateFilter]);
+  }, [category, rows, search, sourceFilter, stateFilter]);
   const columns = useMemo<ColumnDef<DataGridFeatures, RunRow, unknown>[]>(
     () => [
       {
@@ -265,7 +360,7 @@ export function RunsPage() {
             {row.original.workspaceId && row.original.targetSessionId ? (
               <Link
                 className="inline-flex items-center gap-1.5 font-medium underline-offset-4 hover:text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                to={`/workspaces/${encodeURIComponent(row.original.workspaceId)}/sessions/${encodeURIComponent(row.original.targetSessionId)}`}
+                to={`${`/workspaces/${encodeURIComponent(row.original.workspaceId)}/sessions/${encodeURIComponent(row.original.targetSessionId)}`}${row.original.workflow ? `?workflow=${encodeURIComponent(row.original.workflow.id)}` : ''}`}
               >
                 {row.original.label}
                 <ExternalLinkIcon aria-hidden="true" className="size-3.5" />
@@ -274,7 +369,7 @@ export function RunsPage() {
               <span className="font-medium">{row.original.label}</span>
             )}
             <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-              {row.original.taskId}
+              {row.original.workflow ? `workflow ${row.original.taskId}` : row.original.taskId}
             </p>
           </div>
         ),
@@ -309,7 +404,9 @@ export function RunsPage() {
           <div className="max-w-52 py-0.5">
             <p className="text-sm">{sourceLabels[row.original.source]}</p>
             <p className="truncate text-xs text-muted-foreground" title={row.original.placement}>
-              {row.original.host || 'Host unavailable'}
+              {row.original.workflow
+                ? row.original.placement
+                : row.original.host || 'Host unavailable'}
               {row.original.detached ? ', detached' : ''}
             </p>
           </div>
@@ -362,7 +459,19 @@ export function RunsPage() {
     [detach],
   );
   const table = useTable({ columns, data: filteredRows, features: dataGridFeatures });
-  const error = runs.error ?? sessions.error ?? workspaces.error;
+  const workflowError = workflowTranscripts.find((query) => query.error)?.error;
+  const error =
+    category === 'workflows'
+      ? (sessions.error ?? workspaces.error ?? (workflowRows.length === 0 ? workflowError : null))
+      : (runs.error ?? sessions.error ?? workspaces.error);
+  const workflowsIndexed = workflowTranscripts.filter(
+    (query) => query.data !== undefined || query.isError,
+  ).length;
+  const workflowsRemaining = Math.max(0, orderedWorkflowSessions.length - workflowsIndexed);
+  const workflowsIndexing = workflowTranscripts
+    .slice(0, workflowScanLimit)
+    .some((query) => query.isFetching);
+  const workflowFailures = workflowTranscripts.filter((query) => query.isError).length;
 
   return (
     <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
@@ -374,7 +483,7 @@ export function RunsPage() {
             </p>
             <h1 className="mt-2 text-4xl font-semibold tracking-tight">Runs</h1>
             <p className="mt-2 text-muted-foreground">
-              Search live agent, tool, and remote execution handles reported by the server.
+              Track operational handles and recorded multi-step workflow executions.
             </p>
           </div>
           <Button asChild variant="outline">
@@ -383,7 +492,27 @@ export function RunsPage() {
             </Link>
           </Button>
         </div>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
+        <Tabs
+          className="mt-8"
+          onValueChange={(value) => setCategory(value as 'executions' | 'workflows')}
+          value={category}
+        >
+          <TabsList aria-label="Run categories">
+            <TabsTrigger value="executions">
+              <ActivityIcon aria-hidden="true" /> Executions
+              <Badge className="ml-1" variant="secondary">
+                {executionRows.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="workflows">
+              <WorkflowIcon aria-hidden="true" /> Workflows
+              <Badge className="ml-1" variant="secondary">
+                {workflowRows.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <div className="relative min-w-64 flex-1">
             <SearchIcon
               aria-hidden="true"
@@ -393,7 +522,11 @@ export function RunsPage() {
               aria-label="Search runs"
               className="pl-9"
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search run, workspace, state, host, or task"
+              placeholder={
+                category === 'workflows'
+                  ? 'Search workflow, step, workspace, or state'
+                  : 'Search run, workspace, state, host, or task'
+              }
               value={search}
             />
           </div>
@@ -409,43 +542,81 @@ export function RunsPage() {
               <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>
           </Select>
-          <Select onValueChange={setSourceFilter} value={sourceFilter}>
-            <SelectTrigger aria-label="Filter by execution type" className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All execution</SelectItem>
-              <SelectItem value="agent_task">Agents</SelectItem>
-              <SelectItem value="mcp_task">Tools</SelectItem>
-              <SelectItem value="relay_job">Remote jobs</SelectItem>
-            </SelectContent>
-          </Select>
-          <Badge variant="secondary">{filteredRows.length} runs</Badge>
+          {category === 'executions' ? (
+            <Select onValueChange={setSourceFilter} value={sourceFilter}>
+              <SelectTrigger aria-label="Filter by execution type" className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All execution</SelectItem>
+                <SelectItem value="agent_task">Agents</SelectItem>
+                <SelectItem value="mcp_task">Tools</SelectItem>
+                <SelectItem value="relay_job">Remote jobs</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : null}
+          <Badge variant="secondary">
+            {filteredRows.length} {category === 'workflows' ? 'workflows' : 'runs'}
+          </Badge>
         </div>
-        <Alert className="mt-6">
-          <PlugZapIcon aria-hidden="true" />
-          <AlertTitle>
-            {relay.isPending
-              ? 'Checking remote execution'
-              : relay.data?.reachable
-                ? 'Remote execution is reachable'
-                : relay.data?.configured
-                  ? 'Remote execution needs attention'
-                  : 'Remote execution is not configured'}
-          </AlertTitle>
-          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-            <span>
-              {relay.error?.message ||
-                relay.data?.detail ||
-                relay.data?.reason ||
-                relay.data?.host ||
-                'This service has not advertised a remote execution connection.'}
-            </span>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/settings/relays">Open remote execution settings</Link>
-            </Button>
-          </AlertDescription>
-        </Alert>
+        {category === 'executions' ? (
+          <Alert className="mt-6">
+            <PlugZapIcon aria-hidden="true" />
+            <AlertTitle>
+              {relay.isPending
+                ? 'Checking remote execution'
+                : relay.data?.reachable
+                  ? 'Remote execution is reachable'
+                  : relay.data?.configured
+                    ? 'Remote execution needs attention'
+                    : 'Remote execution is not configured'}
+            </AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {relay.error?.message ||
+                  relay.data?.detail ||
+                  relay.data?.reason ||
+                  relay.data?.host ||
+                  'This service has not advertised a remote execution connection.'}
+              </span>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/settings/relays">Open remote execution settings</Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Alert className="mt-6">
+            <WorkflowIcon aria-hidden="true" />
+            <AlertTitle>Recorded workflow executions</AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                Each row is reconstructed from a recorded run_workflow call and its authoritative
+                ordered step task IDs. Open one to inspect its execution graph in the workspace
+                canvas.
+                {workflowsRemaining > 0
+                  ? ` ${workflowsIndexed} of ${orderedWorkflowSessions.length} sessions indexed.`
+                  : ''}
+                {workflowFailures > 0
+                  ? ` ${workflowFailures} session${workflowFailures === 1 ? '' : 's'} could not be indexed.`
+                  : ''}
+              </span>
+              {workflowScanLimit < orderedWorkflowSessions.length ? (
+                <Button
+                  disabled={workflowsIndexing}
+                  onClick={() =>
+                    setWorkflowScanLimit((current) =>
+                      Math.min(current + WORKFLOW_SCAN_BATCH, orderedWorkflowSessions.length),
+                    )
+                  }
+                  size="sm"
+                  variant="outline"
+                >
+                  {workflowsIndexing ? 'Indexing…' : 'Index more sessions'}
+                </Button>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        )}
         {error ? (
           <Alert className="mt-6" variant="destructive">
             <ActivityIcon aria-hidden="true" />
@@ -455,7 +626,13 @@ export function RunsPage() {
         ) : (
           <DataGrid
             emptyMessage="No runs match the current search and filters."
-            isLoading={runs.isPending || sessions.isPending || workspaces.isPending}
+            isLoading={
+              sessions.isPending ||
+              workspaces.isPending ||
+              (category === 'executions'
+                ? runs.isPending
+                : workflowRows.length === 0 && workflowsIndexing)
+            }
             recordCount={filteredRows.length}
             table={table}
             tableLayout={{
@@ -547,13 +724,22 @@ function RunActions({
         {row.workspaceId && row.targetSessionId ? (
           <DropdownMenuItem asChild>
             <Link
+              to={`${`/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(row.targetSessionId)}`}${row.workflow ? `?workflow=${encodeURIComponent(row.workflow.id)}` : ''}`}
+            >
+              {row.workflow ? 'Open workflow graph' : 'Open conversation'}
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {row.workflow && row.workspaceId && row.targetSessionId ? (
+          <DropdownMenuItem asChild>
+            <Link
               to={`/workspaces/${encodeURIComponent(row.workspaceId)}/sessions/${encodeURIComponent(row.targetSessionId)}`}
             >
               Open conversation
             </Link>
           </DropdownMenuItem>
         ) : null}
-        {active && !row.detached ? (
+        {!row.workflow && active && !row.detached ? (
           <DropdownMenuItem onSelect={onDetach}>Detach from active monitoring</DropdownMenuItem>
         ) : null}
         {active && row.source === 'agent_task' ? (
@@ -564,7 +750,7 @@ function RunActions({
             </DropdownMenuItem>
           </>
         ) : null}
-        {!active || row.detached ? (
+        {!row.workflow && (!active || row.detached) ? (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={onDismiss} variant="destructive">

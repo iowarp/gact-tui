@@ -7,8 +7,8 @@ import type {
 } from '@clio/core/v3';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
-import { useCallback, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
@@ -54,6 +54,7 @@ import { referenceKindLabel } from '@/lib/composer-reference-domain';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
   const navigateToAvailableSession = useAvailableSessionNavigation();
@@ -153,10 +154,20 @@ export function WorkspacePage() {
     openArtifact,
     openDiff,
     openSubagent,
+    openWorkflow,
     openWorkspaceFile,
     openWorkspaceResource,
     revealWorkbench,
   } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
+  const requestedWorkflowId = searchParams.get('workflow');
+  const openedWorkflowId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!requestedWorkflowId || openedWorkflowId.current === requestedWorkflowId) return;
+    const workflow = tools.find((tool) => tool.id === requestedWorkflowId);
+    if (!workflow || workflow.name !== 'run_workflow') return;
+    openedWorkflowId.current = requestedWorkflowId;
+    openWorkflow(workflow);
+  }, [openWorkflow, requestedWorkflowId, tools]);
   const workspaceResourceEntities = useMemo(
     () =>
       Object.fromEntries(
@@ -646,6 +657,7 @@ export function WorkspacePage() {
               })
             }
             onOpenSubagent={openSubagent}
+            subagents={subagents}
             onRejectDiff={(targetSessionId, targetWorkspaceId, path) =>
               diffActions.reject.mutateAsync({
                 sessionId: targetSessionId,
@@ -776,6 +788,7 @@ export function WorkspacePage() {
                     }
                     onForkFromMessage={sessionHistory.fork.mutateAsync}
                     onOpenSubagent={openSubagent}
+                    onOpenWorkflow={openWorkflow}
                     onRewindToMessage={sessionHistory.rewind.mutateAsync}
                     onRetryMessage={retry.mutateAsync}
                     cancellablePendingMessageIds={cancellablePendingMessageIds}

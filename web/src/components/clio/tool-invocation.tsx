@@ -1,5 +1,6 @@
 import type { ToolInvocation } from '@clio/core/v3';
-import { InfoIcon, WrenchIcon } from 'lucide-react';
+import { InfoIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
+import { useContext } from 'react';
 import { ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
@@ -8,7 +9,8 @@ import { ToolResultPresentation } from './tool-result-presentation';
 import { ResultDialogContent } from './result-dialog-content';
 import { PresentationLink } from './presentation-link';
 import { getToolHeaderMetadata, getToolStatus } from './tool-presentation';
-import { withWorkflowPresentation } from './workflow-tool-presentation';
+import { withWorkflowPresentation, workflowDescriptor } from './workflow-tool-presentation';
+import { PresentationNavigation } from './presentation-navigation';
 
 export function ClioToolInvocation({
   tool,
@@ -18,7 +20,9 @@ export function ClioToolInvocation({
   defaultOpen?: boolean;
   embedded?: boolean;
 }) {
+  const navigation = useContext(PresentationNavigation);
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
+  const workflow = workflowDescriptor(tool);
   const presentedTool = withWorkflowPresentation(withSkillFileSubject(tool));
   const subject = presentedTool.presentation?.blocks.find(
     (block) =>
@@ -36,7 +40,7 @@ export function ClioToolInvocation({
         tabIndex={-1}
       >
         <ActivityRow
-          icon={<WrenchIcon className="size-4" />}
+          icon={workflow ? <WorkflowIcon className="size-4" /> : <WrenchIcon className="size-4" />}
           title={
             <span className="flex w-full min-w-0 items-center gap-1" data-slot="tool-action-label">
               <span className="shrink-0">
@@ -45,7 +49,19 @@ export function ClioToolInvocation({
               {subject ? (
                 <>
                   <span aria-hidden="true">(</span>
-                  <PresentationLink block={subject} compact />
+                  {workflow && navigation?.onOpenWorkflow ? (
+                    <Button
+                      aria-label={`Open workflow ${workflow.label}`}
+                      className="h-auto min-w-0 max-w-[42ch] shrink justify-start truncate p-0 text-left text-sm"
+                      onClick={() => navigation.onOpenWorkflow?.(tool)}
+                      title={workflow.label}
+                      variant="link"
+                    >
+                      <span className="truncate">{workflow.label}</span>
+                    </Button>
+                  ) : (
+                    <PresentationLink block={subject} compact />
+                  )}
                   <span aria-hidden="true">)</span>
                 </>
               ) : null}

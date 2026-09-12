@@ -484,4 +484,55 @@ describe('ClioWorkbench canvas', () => {
     );
     expect(screen.getByText('Review file change')).toBeVisible();
   });
+
+  it('opens a recorded workflow as a durable canvas tab with its execution graph', () => {
+    const workflow = {
+      id: 'call_workflow',
+      session_id: 'session_parent',
+      name: 'run_workflow',
+      state: 'succeeded' as const,
+      duration_ms: 30_000,
+      input: { request: 'Inventory and verify the supplied facts.' },
+      output: {
+        steps: [
+          { child: 'inventory', task_id: 'task_inventory' },
+          { child: 'verification', task_id: 'task_verification' },
+        ],
+      },
+    };
+
+    render(
+      <ClioWorkbench
+        artifacts={[]}
+        blueprints={[]}
+        diffs={[]}
+        files={[]}
+        onApplyDiff={vi.fn()}
+        onOpenSubagent={vi.fn()}
+        onRejectDiff={vi.fn()}
+        requestedOpen={{ key: 'workflow-request', request: { kind: 'workflow', tool: workflow } }}
+        sessionId="session_parent"
+        sessionView={<p>Session intelligence</p>}
+        subagents={[
+          {
+            id: 'task_inventory',
+            session_id: 'session_parent',
+            child_session_id: 'session_inventory',
+            title: 'inventory #1',
+            state: 'completed',
+          },
+        ]}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.getByRole('tab', { name: 'inventory → verification' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('heading', { name: 'inventory → verification' })).toBeVisible();
+    expect(
+      screen.getByRole('img', { name: 'Workflow execution graph: inventory → verification' }),
+    ).toBeVisible();
+  });
 });

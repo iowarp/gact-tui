@@ -446,28 +446,30 @@ describe('ClioToolInvocation', () => {
     expect(openFile).toHaveBeenCalledWith(path);
   });
 
-  it('names a workflow from its ordered steps and exposes the request definition', () => {
+  it('names a workflow, exposes its request, and opens its canvas resource', async () => {
+    const onOpenWorkflow = vi.fn();
+    const tool = {
+      id: 'tool-workflow',
+      session_id: 'session-1',
+      name: 'run_workflow',
+      title: 'Run Workflow',
+      state: 'succeeded' as const,
+      duration_ms: 33_000,
+      input: { request: 'Inventory and verify the supplied Alpha and Beta facts.' },
+      output: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            status: 'completed',
+            steps: [{ child: 'inventory' }, { child: 'verification' }],
+          }),
+        },
+      ],
+    };
     render(
-      <ClioToolInvocation
-        tool={{
-          id: 'tool-workflow',
-          session_id: 'session-1',
-          name: 'run_workflow',
-          title: 'Run Workflow',
-          state: 'succeeded',
-          duration_ms: 33_000,
-          input: { request: 'Inventory and verify the supplied Alpha and Beta facts.' },
-          output: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                status: 'completed',
-                steps: [{ child: 'inventory' }, { child: 'verification' }],
-              }),
-            },
-          ],
-        }}
-      />,
+      <PresentationNavigation.Provider value={{ artifacts: {}, subagents: {}, onOpenWorkflow }}>
+        <ClioToolInvocation tool={tool} />
+      </PresentationNavigation.Provider>,
     );
 
     expect(screen.getByText('Run workflow')).toBeVisible();
@@ -476,6 +478,10 @@ describe('ClioToolInvocation', () => {
     expect(
       screen.getByText('Inventory and verify the supplied Alpha and Beta facts.'),
     ).toBeVisible();
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'Open workflow inventory → verification' }));
+    expect(onOpenWorkflow).toHaveBeenCalledWith(tool);
   });
 
   it('renders an exact proposed edit as a visible diff beneath the tool row', () => {
