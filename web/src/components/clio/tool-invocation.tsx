@@ -1,4 +1,4 @@
-import type { ToolInvocation } from '@clio/core/v3';
+import type { ToolInvocation, WorkspaceResource } from '@clio/core/v3';
 import { InfoIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
 import { useContext } from 'react';
 import { ToolInput, ToolOutput } from '@/components/ai-elements/tool';
@@ -25,6 +25,7 @@ export function ClioToolInvocation({
   const workflow = workflowDescriptor(tool);
   const presentedTool = withResourcePresentation(
     withWorkflowPresentation(withSkillFileSubject(tool)),
+    navigation?.resources,
   );
   const subject = presentedTool.presentation?.blocks.find(
     (block) =>
@@ -33,6 +34,8 @@ export function ClioToolInvocation({
   );
   const status = getToolStatus(presentedTool);
   const headerMetadata = getToolHeaderMetadata(presentedTool);
+  const summaryInHeader =
+    Boolean(headerMetadata) && headerMetadata === presentedTool.presentation?.summary?.trim();
   return (
     <Dialog defaultOpen={defaultOpen ?? false}>
       <div
@@ -89,7 +92,7 @@ export function ClioToolInvocation({
         <ToolResultPresentation
           tool={presentedTool}
           subjectId={subject?.id}
-          summaryInHeader={Boolean(headerMetadata)}
+          summaryInHeader={summaryInHeader}
         />
         <ResultDialogContent
           title={`${tool.title || tool.name}: Technical details`}
@@ -104,17 +107,46 @@ export function ClioToolInvocation({
   );
 }
 
-function withResourcePresentation(tool: ToolInvocation): ToolInvocation {
+function withResourcePresentation(
+  tool: ToolInvocation,
+  workspaceResources?: Record<string, WorkspaceResource>,
+): ToolInvocation {
   if (
     tool.name !== 'workspace_resource_list' &&
+    tool.name !== 'workspace_resource_wait' &&
+    tool.name !== 'workspace_resource_inspect' &&
     tool.name !== 'workspace_resource_read' &&
-    tool.name !== 'workspace_resource_search'
+    tool.name !== 'workspace_resource_search' &&
+    tool.name !== 'workspace_resource_structure'
   )
     return tool;
   const resources =
     tool.name === 'workspace_resource_list'
       ? (tool.presentation?.blocks.filter((block) => block.target === 'resource') ?? [])
       : [];
+  const result = toolResultRecord(tool.output);
+  const matches = Array.isArray(result?.matches) ? result.matches : undefined;
+  const processing = asRecord(result?.processing);
+  const input = asRecord(tool.input);
+  const taskId = typeof input?.task_id === 'string' ? input.task_id : '';
+  const taskResourceId = /^resource-processing:(res_[^:]+):/u.exec(taskId)?.[1];
+  const waitResourceId =
+    tool.name === 'workspace_resource_wait' && typeof processing?.resource_id === 'string'
+      ? processing.resource_id
+      : tool.name === 'workspace_resource_wait'
+        ? taskResourceId
+        : undefined;
+  const waitResource = waitResourceId ? workspaceResources?.[waitResourceId] : undefined;
+  const waitSubject =
+    waitResourceId && waitResource
+      ? {
+          id: 'wait-resource',
+          type: 'link' as const,
+          target: 'resource' as const,
+          uri: waitResourceId,
+          label: waitResource.name,
+        }
+      : undefined;
   return {
     ...tool,
     presentation: tool.presentation
@@ -122,16 +154,31 @@ function withResourcePresentation(tool: ToolInvocation): ToolInvocation {
           ...tool.presentation,
           action:
             tool.name === 'workspace_resource_list'
-              ? 'List resources'
-              : tool.name === 'workspace_resource_search'
-                ? 'Search resource'
-                : 'Read resource',
+              ? 'List workspace resources'
+              : tool.name === 'workspace_resource_wait'
+                ? 'Await conversion'
+                : tool.name === 'workspace_resource_inspect'
+                  ? 'Inspect resource'
+                  : tool.name === 'workspace_resource_search'
+                    ? 'Search resource'
+                    : tool.name === 'workspace_resource_structure'
+                      ? 'Inspect structure'
+                      : 'Read resource',
           subject:
-            tool.name === 'workspace_resource_list' ? undefined : tool.presentation.subject,
+            tool.name === 'workspace_resource_list'
+              ? undefined
+              : waitSubject?.id || tool.presentation.subject,
           summary:
             tool.name === 'workspace_resource_list' && resources.length
               ? `${resources.length} workspace ${resources.length === 1 ? 'resource' : 'resources'} found`
-              : tool.presentation.summary,
+              : tool.name === 'workspace_resource_search' && matches
+                ? `${matches.length} ${matches.length === 1 ? 'match' : 'matches'}`
+                : tool.name === 'workspace_resource_search'
+                  ? tool.presentation.summary.replace(/^(\d+)\s+(matches?)\s+for\s+.+$/u, '$1 $2')
+                  : tool.presentation.summary,
+          blocks: waitSubject
+            ? [waitSubject, ...tool.presentation.blocks]
+            : tool.presentation.blocks,
         }
       : tool.presentation,
   };

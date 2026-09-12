@@ -466,6 +466,121 @@ function ResourceSearchResults({
   );
 }
 
+function titleCase(value: unknown, fallback: string) {
+  if (typeof value !== 'string' || !value) return fallback;
+  return `${value[0].toUpperCase()}${value.slice(1).replaceAll('_', ' ')}`;
+}
+
+function ResourceFacts({ blocks }: { blocks: ToolPresentationBlock[] }) {
+  const identity = blocks.find((block) => block.id === 'identity' || block.type === 'text');
+  const values = (identity?.text ?? '').split('\n');
+  const labels = ['Format', 'Size', 'Revision', 'Upload', 'Conversion'];
+  const facts = labels.map((label, index) => ({
+    label,
+    value: (values[index] || 'Unavailable').replace(new RegExp(`^${label}\\s+`, 'iu'), ''),
+  }));
+  return (
+    <div
+      className="min-w-0 overflow-hidden rounded-md border bg-border"
+      data-slot="tool-result-panel"
+    >
+      <dl className="grid grid-cols-2 gap-px sm:grid-cols-5">
+        {facts.map((fact) => (
+          <div className="min-w-0 bg-muted/90 px-2 py-1.5" key={fact.label}>
+            <dt className="text-xs text-muted-foreground">{fact.label}</dt>
+            <dd className="break-words text-sm font-medium" title={fact.value}>
+              {fact.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function ResourceStructureResult({
+  blocks,
+  tool,
+}: {
+  blocks: ToolPresentationBlock[];
+  tool: ToolInvocation;
+}) {
+  const outline = blocks.find((block) => block.id === 'outline');
+  if (outline?.text) {
+    const counts = outline.text.split('\n').map((line) => {
+      const [label, value] = line.split(':', 2);
+      return { label, value: Number(value?.trim() || 0) };
+    });
+    return (
+      <div
+        className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
+        data-slot="tool-result-panel"
+      >
+        <p className="border-b px-2 py-1.5 text-xs font-medium text-muted-foreground">
+          Document structure
+        </p>
+        <dl className="grid grid-cols-4 divide-x">
+          {counts.map(({ label, value }) => (
+            <div className="px-2 py-1.5 text-center" key={label}>
+              <dd className="text-sm font-semibold tabular-nums">{value}</dd>
+              <dt className="text-xs text-muted-foreground">{label}</dt>
+            </div>
+          ))}
+        </dl>
+      </div>
+    );
+  }
+  const node = blocks.find((block) => block.id === 'node');
+  if (!node?.text) return null;
+  const input = asRecord(tool.input);
+  const collection = typeof input?.collection === 'string' ? input.collection : 'node';
+  const index = typeof input?.index === 'number' ? input.index : undefined;
+  const singular = collection.endsWith('s') ? collection.slice(0, -1) : collection;
+  const path = index === undefined ? undefined : `#/${collection}/${index}`;
+  return (
+    <div
+      className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
+      data-slot="tool-result-panel"
+    >
+      <div className="flex min-w-0 items-center justify-between gap-2 border-b px-2 py-1.5">
+        <p className="truncate text-xs font-medium text-muted-foreground">
+          {titleCase(singular, 'Structure')} node
+        </p>
+        <code className="shrink-0 text-xs text-muted-foreground">
+          {collection}
+          {index === undefined ? '' : `[${index}]`}
+        </code>
+      </div>
+      <p className="px-2 py-1.5 text-sm font-medium [overflow-wrap:anywhere]">{node.text}</p>
+      {path ? (
+        <p className="border-t px-2 py-1 text-xs text-muted-foreground">Path {path}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function ResourceConversionResult({ blocks }: { blocks: ToolPresentationBlock[] }) {
+  const status = blocks.find((block) => block.id === 'processing' || block.type === 'text');
+  if (!status?.text) return null;
+  return (
+    <div
+      className="flex min-w-0 items-center justify-between gap-3 rounded-md border bg-muted/40 px-2 py-1.5"
+      data-slot="tool-result-panel"
+    >
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">Conversion status</p>
+        <p className="truncate text-sm font-medium">{status.text}</p>
+      </div>
+    </div>
+  );
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation({
   tool,
@@ -529,6 +644,27 @@ export function ToolResultPresentation({
             </BoundedResult>
           )}
         </div>
+      </div>
+    );
+  }
+  if (tool.name === 'workspace_resource_wait') {
+    return (
+      <div className="ml-7 min-w-0" data-slot="tool-human-result">
+        <ResourceConversionResult blocks={blocks} />
+      </div>
+    );
+  }
+  if (tool.name === 'workspace_resource_inspect') {
+    return (
+      <div className="ml-7 min-w-0" data-slot="tool-human-result">
+        <ResourceFacts blocks={blocks} />
+      </div>
+    );
+  }
+  if (tool.name === 'workspace_resource_structure') {
+    return (
+      <div className="ml-7 min-w-0" data-slot="tool-human-result">
+        <ResourceStructureResult blocks={blocks} tool={tool} />
       </div>
     );
   }

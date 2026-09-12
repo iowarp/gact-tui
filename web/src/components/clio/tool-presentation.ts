@@ -22,6 +22,14 @@ export function getToolHeaderMetadata(tool: ToolInvocation): string | undefined 
     (block) => block.id === tool.presentation?.subject,
   );
   const summary = tool.presentation?.summary?.trim() ?? '';
+  if (tool.name === 'workspace_resource_search') {
+    const input =
+      tool.input !== null && typeof tool.input === 'object' && !Array.isArray(tool.input)
+        ? (tool.input as Record<string, unknown>)
+        : undefined;
+    const query = typeof input?.query === 'string' ? input.query.trim() : '';
+    if (query) return `for “${query}”`;
+  }
   return subject?.target === 'file' && /^\d[\d,]*\s+bytes?$/iu.test(summary) ? summary : undefined;
 }
 
