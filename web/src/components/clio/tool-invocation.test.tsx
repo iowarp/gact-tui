@@ -761,38 +761,49 @@ describe('ClioToolInvocation', () => {
 
   it('renders child status and wait semantics without summary counts or boxes', () => {
     const { container } = render(
-      <ClioToolInvocation
-        tool={{
-          id: 'tool-wait',
-          session_id: 'session-1',
-          name: 'wait_agent_tasks',
-          state: 'succeeded',
-          duration_ms: 13_000,
-          presentation: {
-            action: 'Wait',
-            subject: 'task-subject',
-            summary: '',
-            blocks: [
-              {
-                id: 'task-subject',
-                type: 'text',
-                text: 'researcher #1, researcher #2',
-              },
-              {
-                id: 'task-1',
-                type: 'item',
-                target: 'session',
-                uri: 'session-child-1',
-                label: 'researcher #1',
-                status: 'completed',
-                result_kind: 'completion',
-                duration_ms: 7_000,
-                detail: 'The answer is 11.',
-              },
-            ],
-          },
+      <PresentationNavigation.Provider
+        value={{
+          artifacts: {},
+          // A session-target item resolves through the real subagent map;
+          // without a match, PresentationLink falls back to a react-router
+          // Link, which needs a Router this unit test does not provide.
+          subagents: { child: { child_session_id: 'session-child-1' } as never },
+          onOpenSubagent: vi.fn(),
         }}
-      />,
+      >
+        <ClioToolInvocation
+          tool={{
+            id: 'tool-wait',
+            session_id: 'session-1',
+            name: 'wait_agent_tasks',
+            state: 'succeeded',
+            duration_ms: 13_000,
+            presentation: {
+              action: 'Wait',
+              subject: 'task-subject',
+              summary: '',
+              blocks: [
+                {
+                  id: 'task-subject',
+                  type: 'text',
+                  text: 'researcher #1, researcher #2',
+                },
+                {
+                  id: 'task-1',
+                  type: 'item',
+                  target: 'session',
+                  uri: 'session-child-1',
+                  label: 'researcher #1',
+                  status: 'completed',
+                  result_kind: 'completion',
+                  duration_ms: 7_000,
+                  detail: 'The answer is 11.',
+                },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
     );
 
     expect(screen.getByText('Wait')).toBeVisible();
@@ -807,32 +818,40 @@ describe('ClioToolInvocation', () => {
 
   it('keeps Get status to the nonblocking child snapshot', () => {
     render(
-      <ClioToolInvocation
-        tool={{
-          id: 'tool-status',
-          session_id: 'session-1',
-          name: 'observe_agent_tasks',
-          state: 'succeeded',
-          presentation: {
-            action: 'Get status',
-            subject: 'task-subject',
-            summary: '',
-            blocks: [
-              { id: 'task-subject', type: 'text', text: 'researcher #1' },
-              {
-                id: 'task-1',
-                type: 'item',
-                target: 'session',
-                uri: 'session-child-1',
-                label: 'researcher #1',
-                status: 'running',
-                result_kind: 'snapshot',
-                detail: 'Internal event excerpt',
-              },
-            ],
-          },
+      <PresentationNavigation.Provider
+        value={{
+          artifacts: {},
+          subagents: { child: { child_session_id: 'session-child-1' } as never },
+          onOpenSubagent: vi.fn(),
         }}
-      />,
+      >
+        <ClioToolInvocation
+          tool={{
+            id: 'tool-status',
+            session_id: 'session-1',
+            name: 'observe_agent_tasks',
+            state: 'succeeded',
+            presentation: {
+              action: 'Get status',
+              subject: 'task-subject',
+              summary: '',
+              blocks: [
+                { id: 'task-subject', type: 'text', text: 'researcher #1' },
+                {
+                  id: 'task-1',
+                  type: 'item',
+                  target: 'session',
+                  uri: 'session-child-1',
+                  label: 'researcher #1',
+                  status: 'running',
+                  result_kind: 'snapshot',
+                  detail: 'Internal event excerpt',
+                },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
     );
 
     expect(screen.getByText('was running when checked')).toBeVisible();
