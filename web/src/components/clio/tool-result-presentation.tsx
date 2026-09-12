@@ -363,7 +363,11 @@ function BlockBody({
     case 'markdown':
       return (
         <GroundedMessageResponse
-          className="min-w-0 max-w-full px-2 py-1 leading-5 [overflow-wrap:anywhere]"
+          // tool-presentation-body scopes the compact heading/pre/code rules
+          // in index.css; BoundedResult also carries this class on its own
+          // wrapper, but a markdown block rendered outside BoundedResult (the
+          // unboxed generic block path) needs it applied here directly.
+          className="tool-presentation-body min-w-0 max-w-full px-2 py-1 leading-5 [overflow-wrap:anywhere]"
           controls={{ table: false }}
         >
           {text}
@@ -1188,18 +1192,21 @@ export function ToolResultPresentation({
         if (!boxed) {
           if (block.content_ref && !running)
             return <PagedBlock key={block.id} block={block} lines={budget} />;
-          if (collectedChildOutput)
-            return (
-              <BoundedResult key={block.id} lines={budget} title="Collected child output">
-                <BlockBody block={block} text={block.text ?? ''} />
-              </BoundedResult>
-            );
+          // Every non-boxed block gets the same bounded preview (a "Show
+          // more" affordance only appears once content actually exceeds the
+          // line budget; short content -- most labeled text blocks -- renders
+          // exactly as before with no visible wrapper chrome).
           return (
             <div key={block.id} className="min-w-0">
               {block.label ? (
                 <p className="text-xs font-medium text-muted-foreground">{block.label}</p>
               ) : null}
-              <BlockBody block={block} text={block.text ?? ''} />
+              <BoundedResult
+                lines={budget}
+                title={collectedChildOutput ? 'Collected child output' : (block.label ?? undefined)}
+              >
+                <BlockBody block={block} text={block.text ?? ''} />
+              </BoundedResult>
             </div>
           );
         }

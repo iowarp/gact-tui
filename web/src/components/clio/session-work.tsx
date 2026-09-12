@@ -188,21 +188,26 @@ function WorkSection({
           hasContent && 'data-[state=open]:flex-1',
         )}
       >
-        <CollapsibleTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            aria-label={`${title}: ${summary}`}
-            className="group h-9 w-full shrink-0 justify-start rounded-none px-0 hover:bg-transparent"
-          >
-            <span className="font-semibold">{title}</span>
-            <span className="ml-auto font-normal text-muted-foreground">{summary}</span>
-            <ChevronDownIcon
-              aria-hidden="true"
-              className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180"
-            />
-          </Button>
-        </CollapsibleTrigger>
+        {/* The WAI-ARIA disclosure pattern nests an accordion trigger in a
+            heading so the section is reachable by heading navigation;
+            `contents` keeps the h3 out of the flex layout it wraps. */}
+        <h3 className="contents">
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label={`${title}: ${summary}`}
+              className="group h-9 w-full shrink-0 justify-start rounded-none px-0 hover:bg-transparent"
+            >
+              <span className="font-semibold">{title}</span>
+              <span className="ml-auto font-normal text-muted-foreground">{summary}</span>
+              <ChevronDownIcon
+                aria-hidden="true"
+                className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180"
+              />
+            </Button>
+          </CollapsibleTrigger>
+        </h3>
         <CollapsibleContent className="min-h-0 flex-1 overflow-hidden">
           <ScrollArea
             className="h-full min-h-0"

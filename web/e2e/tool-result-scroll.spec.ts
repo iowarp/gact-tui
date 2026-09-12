@@ -127,7 +127,11 @@ test('compact subjects stay in the action row and diffs have distinct bounded su
   await expect(subject).toHaveCount(1);
   await expect(row).toContainText('Write');
   const titleBounds = await row.locator('[data-slot="tool-action-label"]').boundingBox();
-  const statusBounds = await row.locator('[data-slot="badge"]').boundingBox();
+  // The status moved from an inline text Badge to a compact trailing icon
+  // (feat/4fc5d22c "refine tool presentation qualification"): activity-row.tsx
+  // always renders ClioStatus with compact, which drops data-slot="badge" for
+  // a role="status" icon.
+  const statusBounds = await row.getByRole('status').boundingBox();
   expect(titleBounds).not.toBeNull();
   expect(statusBounds).not.toBeNull();
   expect(Math.abs(titleBounds!.y - statusBounds!.y)).toBeLessThan(8);
