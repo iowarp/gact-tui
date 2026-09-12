@@ -47,6 +47,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatBytes, formatDuration } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioArtifactCard } from './artifact-card';
 import { getChildAgentAssignment } from './child-agent-presentation';
@@ -567,7 +568,7 @@ function FileEvidence({
     <div className="grid gap-2">
       {files.map((file) => (
         <ClioInteractiveRow
-          className={onOpenFile ? 'cursor-pointer' : undefined}
+          className={cn('border-border bg-muted/20', onOpenFile && 'cursor-pointer')}
           key={file.path}
           onClick={() => onOpenFile?.(file.path)}
           role={onOpenFile ? 'button' : undefined}
