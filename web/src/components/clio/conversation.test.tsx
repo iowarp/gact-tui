@@ -5,11 +5,8 @@ import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { AppearanceProvider } from '@/providers/appearance-provider';
-import {
-  ClioConversation,
-  conversationMessageRowPropsEqual,
-  type ConversationMessageRowProps,
-} from './conversation';
+import { ClioConversation, type ConversationMessageRowProps } from './conversation';
+import { conversationMessageRowPropsEqual } from './conversation-message-row';
 
 // Scroll, virtualization, and minimap behaviour live in
 // `conversation-viewport.test.tsx`; this file covers message content.
