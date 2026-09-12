@@ -18,12 +18,14 @@ export function ClioToolInvocation({
   embedded?: boolean;
 }) {
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
-  const subject = tool.presentation?.blocks.find(
+  const presentedTool = withSkillFileSubject(tool);
+  const subject = presentedTool.presentation?.blocks.find(
     (block) =>
-      block.id === tool.presentation?.subject && (block.type === 'link' || block.type === 'text'),
+      block.id === presentedTool.presentation?.subject &&
+      (block.type === 'link' || block.type === 'text'),
   );
-  const status = getToolStatus(tool);
-  const headerMetadata = getToolHeaderMetadata(tool);
+  const status = getToolStatus(presentedTool);
+  const headerMetadata = getToolHeaderMetadata(presentedTool);
   return (
     <Dialog defaultOpen={defaultOpen ?? false}>
       <div
@@ -37,7 +39,7 @@ export function ClioToolInvocation({
           title={
             <span className="flex w-full min-w-0 items-center gap-1" data-slot="tool-action-label">
               <span className="shrink-0">
-                {tool.presentation?.action || tool.title || tool.name}
+                {presentedTool.presentation?.action || tool.title || tool.name}
               </span>
               {subject ? (
                 <>
@@ -66,7 +68,7 @@ export function ClioToolInvocation({
           }
         />
         <ToolResultPresentation
-          tool={tool}
+          tool={presentedTool}
           subjectId={subject?.id}
           summaryInHeader={Boolean(headerMetadata)}
         />
@@ -81,4 +83,50 @@ export function ClioToolInvocation({
       </div>
     </Dialog>
   );
+}
+
+function withSkillFileSubject(tool: ToolInvocation): ToolInvocation {
+  const presentation = tool.presentation;
+  if (tool.name !== 'load_skill' || !presentation?.subject) return tool;
+  const subject = presentation.blocks.find((block) => block.id === presentation.subject);
+  if (!subject || subject.target === 'file' || (subject.type !== 'text' && subject.type !== 'link'))
+    return tool;
+  const result = toolResultRecord(tool.output);
+  const path = typeof result?.path === 'string' ? result.path : '';
+  if (!/^(?:[a-z]:[\\/]|\/)/iu.test(path)) return tool;
+  const skillId = typeof result?.skill_id === 'string' ? result.skill_id : undefined;
+  return {
+    ...tool,
+    presentation: {
+      ...presentation,
+      blocks: presentation.blocks.map((block) =>
+        block.id === presentation.subject
+          ? {
+              ...block,
+              type: 'link',
+              target: 'file',
+              uri: path,
+              label: block.label || skillId || block.text || 'SKILL.md',
+            }
+          : block,
+      ),
+    },
+  };
+}
+
+function toolResultRecord(value: unknown): Record<string, unknown> | undefined {
+  const output = asRecord(value);
+  if (!output) return undefined;
+  return (
+    asRecord(output.structuredContent) ??
+    asRecord(output.structured_content) ??
+    asRecord(output.result) ??
+    output
+  );
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
 }

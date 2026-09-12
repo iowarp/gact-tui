@@ -398,39 +398,52 @@ describe('ClioToolInvocation', () => {
     expect(screen.queryByText('null')).not.toBeInTheDocument();
   });
 
-  it('shows a declared human result without opening technical JSON', () => {
-    render(
-      <ClioToolInvocation
-        tool={{
-          id: 'tool-skill',
-          session_id: 'session-1',
-          name: 'load_skill',
-          presentation: {
-            summary: "loaded skill 'ai-elements' (204 lines)",
-            blocks: [
-              {
-                id: 'skill',
-                type: 'markdown',
-                text: '# Loaded skill body\nUse the real components.',
-              },
-            ],
-          },
-          title: 'Load Skill',
-          state: 'succeeded',
-          output: {
-            content: [],
-            structuredContent: {
-              message: "loaded skill 'ai-elements' (204 lines)",
-              skill_id: 'ai-elements',
-              path: 'skills/ai-elements/SKILL.md',
+  it('shows a loaded skill as a bounded file and opens its declared source path', async () => {
+    const openFile = vi.fn();
+    const path = 'D:/workspace/.clio/skills/ai-elements/SKILL.md';
+    const { container } = render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenFile: openFile }}
+      >
+        <ClioToolInvocation
+          tool={{
+            id: 'tool-skill',
+            session_id: 'session-1',
+            name: 'load_skill',
+            presentation: {
+              action: 'Load skill',
+              subject: 'skill',
+              summary: "loaded skill 'ai-elements' (204 lines)",
+              blocks: [
+                { id: 'skill', type: 'text', label: 'ai-elements' },
+                {
+                  id: 'body',
+                  type: 'markdown',
+                  text: '# Loaded skill body\nUse the real components.',
+                },
+              ],
             },
-          },
-        }}
-      />,
+            title: 'Load Skill',
+            state: 'succeeded',
+            output: {
+              content: [],
+              structuredContent: {
+                message: "loaded skill 'ai-elements' (204 lines)",
+                skill_id: 'ai-elements',
+                path,
+              },
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
     );
 
     expect(screen.getByText("loaded skill 'ai-elements' (204 lines)")).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'Result' })).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeVisible();
+    const skill = screen.getByRole('button', { name: 'ai-elements' });
+    await userEvent.setup().click(skill);
+    expect(openFile).toHaveBeenCalledWith(path);
   });
 
   it('renders an exact proposed edit as a visible diff beneath the tool row', () => {

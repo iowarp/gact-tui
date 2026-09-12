@@ -177,6 +177,7 @@ export function FileBrowser({
   const fileTree = useMemo(() => buildFileTree(filteredFiles), [filteredFiles]);
   const activePath = selectedPath ?? internalSelectedPath;
   const activeFile = files.find((entry) => entry.type === 'file' && entry.path === activePath);
+  const previewPath = activeFile?.path ?? activePath;
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -244,11 +245,11 @@ export function FileBrowser({
         <ResizableHandle aria-label="Resize file tree" withHandle />
         <ResizablePanel id="workspace-file-preview" minSize={stacked ? '180px' : '240px'}>
           <section aria-label="Workspace file preview" className="h-full min-h-0 overflow-hidden">
-            {activeFile ? (
+            {previewPath ? (
               <Suspense fallback={<ResourceLoading label="Loading file" />}>
                 <WorkspaceFileView
-                  path={activeFile.path}
-                  size={activeFile.size}
+                  path={previewPath}
+                  size={activeFile?.size}
                   workspaceId={workspaceId}
                 />
               </Suspense>

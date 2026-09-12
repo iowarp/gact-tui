@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
+import { FileBrowser } from './workbench-resource-browser';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 
 const { repository } = vi.hoisted(() => ({
@@ -426,6 +427,32 @@ describe('ClioWorkbench canvas', () => {
       expect.any(AbortSignal),
     );
   }, 15000);
+
+  it('renders a directly opened hidden workspace file even when the tree omits it', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    repository.readWorkspaceFile.mockResolvedValue('# Hidden skill source');
+    const path = '.clio/skills/inspect-qualification-brief/SKILL.md';
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FileBrowser
+          files={[]}
+          onSelectedPathChange={vi.fn()}
+          selectedPath={path}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Hidden skill source' }, { timeout: 5000 }),
+    ).toBeVisible();
+    expect(screen.queryByText('Select a file')).not.toBeInTheDocument();
+    expect(repository.readWorkspaceFile).toHaveBeenCalledWith(
+      'workspace_1',
+      path,
+      expect.any(AbortSignal),
+    );
+  });
 
   it('delivers a requested tab when a compact canvas mounts after the request', () => {
     const diff = {
