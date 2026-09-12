@@ -22,6 +22,11 @@ vi.mock('@/providers/connection-provider', () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // Every test shares workspaceId="workspace_1"; workbench.tsx persists tab
+  // state to localStorage keyed on it, so a test that closes or opens a tab
+  // leaks that state into the next test's initial restoredWorkbenchState()
+  // read unless it is cleared here.
+  window.localStorage.clear();
 });
 
 function renderWorkbench() {
@@ -159,7 +164,12 @@ describe('ClioWorkbench canvas', () => {
     }
     expect(screen.queryByRole('button', { name: /^Close / })).not.toBeInTheDocument();
     expect(observabilityTab).toHaveAccessibleName('Observability');
-    expect(observabilityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
+    // Tabs are now drag-reorderable (@dnd-kit/sortable); the announced
+    // shortcuts grew the keyboard equivalent alongside Delete.
+    expect(observabilityTab).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Delete Alt+ArrowLeft Alt+ArrowRight',
+    );
     expect(closeControls[0]).toHaveAttribute('title', 'Close Observability');
     expect(closeControls[1]).toHaveAttribute('title', 'Close Artifacts');
 
