@@ -3,6 +3,7 @@ import {
   BotIcon,
   ArrowRightIcon,
   CalendarClockIcon,
+  ChevronRightIcon,
   CircleAlertIcon,
   FileIcon,
   InfoIcon,
@@ -25,11 +26,18 @@ import { PresentationLink } from './presentation-link';
 import { Image } from '@/components/ai-elements/image';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { ResultDialogContent } from './result-dialog-content';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import { formatDuration } from '@/lib/format';
 import { languageForPath } from '@/lib/code-language';
+import { providerDisplayName } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 
 const CLIO_STATUSES = new Set<ClioStatusValue>([
@@ -151,6 +159,103 @@ function PresentationItem({ block }: { block: ToolPresentationBlock }) {
         </Dialog>
       ) : null}
     </div>
+  );
+}
+
+function ProviderRefreshResults({ blocks }: { blocks: ToolPresentationBlock[] }) {
+  const refreshed = blocks.filter((block) =>
+    ['completed', 'succeeded', 'healthy'].includes(block.status ?? ''),
+  ).length;
+  const failed = blocks.length - refreshed;
+  return (
+    <div className="min-w-0" data-slot="provider-refresh-results">
+      <p className="pb-1 text-sm text-muted-foreground">
+        {blocks.length} providers · {refreshed} refreshed · {failed} failed
+      </p>
+      <ul aria-label="Provider refresh results" className="divide-y border-y">
+        {blocks.map((block) => (
+          <li key={block.id}>
+            <ProviderRefreshItem block={block} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ProviderRefreshItem({ block }: { block: ToolPresentationBlock }) {
+  const providerName = providerDisplayName(undefined, block.label);
+  const status = itemStatus(block.status);
+  const detailLines = (block.detail ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const sourceLine = detailLines.find((line) => /^Source:/iu.test(line));
+  const diagnosticLines = detailLines.filter((line) => line !== sourceLine);
+  const modelCount = block.items?.length ?? 0;
+  const outcome = modelCount
+    ? `${modelCount} ${modelCount === 1 ? 'model' : 'models'}`
+    : status
+      ? clioStatusLabel(status)
+      : 'No result';
+  return (
+    <Collapsible className="group/provider">
+      <CollapsibleTrigger asChild>
+        <button
+          aria-label={`Details for ${providerName}`}
+          className="flex min-h-8 w-full min-w-0 items-center gap-2 rounded-sm px-1.5 py-1 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/50"
+          type="button"
+        >
+          <ChevronRightIcon
+            aria-hidden="true"
+            className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/provider:rotate-90"
+          />
+          <ServerIcon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
+          <span className="min-w-0 flex-1 truncate text-sm font-medium">{providerName}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">{outcome}</span>
+          {status ? <ClioStatus compact className="shrink-0" value={status} /> : null}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="ml-7 flex min-w-0 flex-col gap-2 border-l px-3 pt-1 pb-2">
+          {block.items?.length ? (
+            <div aria-label={`Models from ${providerName}`} className="flex flex-wrap gap-1">
+              {block.items.map((item) => (
+                <Badge className="max-w-full font-normal" key={item} variant="secondary">
+                  <span className="truncate">{item}</span>
+                </Badge>
+              ))}
+            </div>
+          ) : null}
+          {sourceLine ? (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Source </span>
+              {sourceLine.replace(/^Source:\s*/iu, '').replaceAll('_', ' ')}
+            </p>
+          ) : null}
+          {diagnosticLines.map((line) => {
+            const diagnostic = /^(\w+Error):\s*(.*)$/u.exec(line);
+            return (
+              <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]" key={line}>
+                {diagnostic ? (
+                  <>
+                    <span className="font-medium text-foreground">{diagnostic[1]} </span>
+                    {diagnostic[2]}
+                  </>
+                ) : (
+                  line
+                )}
+              </p>
+            );
+          })}
+          {block.action_label && block.uri ? (
+            <Button asChild className="h-7 self-start px-2" size="sm" variant="ghost">
+              <a href={block.uri}>Configure provider</a>
+            </Button>
+          ) : null}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -711,6 +816,17 @@ export function ToolResultPresentation({
           </p>
         ) : null}
         <ResourceSearchResults block={resourceSearchBlock} resource={subject} lines={lines} />
+      </div>
+    );
+  }
+  const providerRefreshBlocks =
+    tool.name === 'refresh_provider_models'
+      ? blocks.filter((block) => block.type === 'item' && block.target !== 'work')
+      : [];
+  if (providerRefreshBlocks.length) {
+    return (
+      <div className="ml-7 min-w-0" data-slot="tool-human-result">
+        <ProviderRefreshResults blocks={providerRefreshBlocks} />
       </div>
     );
   }
