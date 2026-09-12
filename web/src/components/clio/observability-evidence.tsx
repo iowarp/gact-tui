@@ -199,7 +199,6 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
           >
             <ArtifactEvidence
               artifacts={props.artifacts}
-              executionProvenance={props.executionProvenance}
               onOpenArtifact={props.onOpenArtifact}
             />
           </EvidenceSection>
@@ -240,8 +239,10 @@ function EvidenceSection({
           <Badge variant="secondary">{count}</Badge>
         </span>
       </AccordionTrigger>
-      <AccordionContent className="grid max-h-[min(24rem,60vh)] gap-2 overflow-y-auto pr-1">
-        {children}
+      <AccordionContent>
+        <div className="clio-scrollbar grid max-h-[min(24rem,60vh)] gap-2 overflow-y-auto pr-1">
+          {children}
+        </div>
       </AccordionContent>
     </AccordionItem>
   );
@@ -530,29 +531,22 @@ function SourceEvidence({
 
 function ArtifactEvidence({
   artifacts,
-  executionProvenance,
   onOpenArtifact,
 }: {
   artifacts: readonly Artifact[];
-  executionProvenance?: ExecutionProvenanceResult;
   onOpenArtifact?: (artifact: Artifact) => void;
 }) {
   if (!artifacts.length) return <EmptyEvidence label="No artifacts were produced." />;
   return (
     <div className="grid gap-2">
-      {artifacts.map((artifact) => {
-        const attribution = artifactAttribution(artifact, executionProvenance);
-        return (
-          <div className="grid gap-1" key={artifact.id}>
-            <ClioArtifactCard artifact={artifact} onOpen={onOpenArtifact} />
-            {attribution ? (
-              <p className="px-1 text-[11px] text-muted-foreground">
-                {friendlyStatus(attribution.relation)} by {attribution.owner}
-              </p>
-            ) : null}
-          </div>
-        );
-      })}
+      {artifacts.map((artifact) => (
+        <ClioArtifactCard
+          artifact={artifact}
+          key={artifact.id}
+          onOpen={onOpenArtifact}
+          preview={false}
+        />
+      ))}
     </div>
   );
 }
@@ -733,31 +727,6 @@ function provenanceSources(provenance: ExecutionProvenanceResult): EvidenceSourc
     });
   }
   return sources;
-}
-
-function artifactAttribution(
-  artifact: Artifact,
-  provenance?: ExecutionProvenanceResult,
-): { owner: string; relation: string } | undefined {
-  if (!provenance?.session_lineage) return undefined;
-  const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
-  const artifactNode = nodeById.get(`artifact:${artifact.id}`);
-  if (!artifactNode) return undefined;
-  const relation = provenance.edges.find(
-    (edge) => edge.target === artifactNode.id && ['used', 'generated'].includes(edge.kind),
-  );
-  if (!relation) return undefined;
-  const ownerNode = nodeById.get(relation.source);
-  const ownerSessionId =
-    stringAttribute(ownerNode?.attributes, 'owner_session_id') ||
-    ownerNode?.session_id ||
-    artifactNode?.session_id ||
-    artifact.session_id;
-  const owner = provenance.session_lineage.find((row) => row.session_id === ownerSessionId);
-  return {
-    owner: ownerNode?.label || owner?.label || 'Unknown session',
-    relation: relation.kind,
-  };
 }
 
 function stringAttribute(attributes: Record<string, unknown> | undefined, key: string): string {
