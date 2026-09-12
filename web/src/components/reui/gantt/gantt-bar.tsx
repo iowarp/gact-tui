@@ -1,0 +1,445 @@
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type ReactNode,
+} from "react"
+import {
+  useGantt,
+  useGanttSelector,
+  useGanttViewConfig,
+} from "@/components/reui/gantt/gantt"
+import {
+  useGanttGestures,
+  wasRecentDrag,
+} from "@/components/reui/gantt/gantt-dnd"
+import {
+  flattenResources,
+  getBaselineVariance,
+  resolveEventBaseline,
+  toZoned,
+} from "@/components/reui/gantt/gantt-lib"
+import type {
+  GanttOccurrence,
+  GanttSegment,
+} from "@/components/reui/gantt/gantt-types"
+import { Slot } from "radix-ui"
+
+import { cn } from "@/lib/utils"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { RepeatIcon, CheckIcon } from "lucide-react"
+
+/**
+ * Effective Tailwind palette presets for bar colors; every entry works on
+ * light and dark surfaces through the bar's alpha background + accent border.
+ */
+const GANTT_COLORS: Array<{ name: string; value: string }> = [
+  { name: "Blue", value: "var(--color-blue-500)" },
+  { name: "Emerald", value: "var(--color-emerald-500)" },
+  { name: "Violet", value: "var(--color-violet-500)" },
+  { name: "Rose", value: "var(--color-rose-500)" },
+  { name: "Amber", value: "var(--color-amber-500)" },
+  { name: "Cyan", value: "var(--color-cyan-500)" },
+  { name: "Orange", value: "var(--color-orange-500)" },
+  { name: "Pink", value: "var(--color-pink-500)" },
+  { name: "Teal", value: "var(--color-teal-500)" },
+  { name: "Indigo", value: "var(--color-indigo-500)" },
+]
+
+interface GanttBarContextValue<TData = unknown> {
+  occurrence: GanttOccurrence<TData>
+  segment: GanttSegment<TData>
+  isDragging: boolean
+  isSelected: boolean
+}
+
+const GanttBarContext =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  createContext<GanttBarContextValue<any> | null>(null)
+
+/** The bar's subject; usable inside renderEvent content and bar children. */
+function useGanttBarContext<TData = unknown>(): GanttBarContextValue<TData> {
+  const ctx = useContext(GanttBarContext)
+  if (!ctx) {
+    throw new Error("useGanttBarContext must be used within <GanttBar>")
+  }
+  return ctx as GanttBarContextValue<TData>
+}
+
+interface GanttBarProps<TData = unknown> extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "children"
+> {
+  segment: GanttSegment<TData>
+  /** Replaces the default bar CONTENT; the wrapper stays gantt-owned. */
+  children?: ReactNode
+  /**
+   * The title renders beside the bar (view-owned), so the default inner
+   * content is suppressed. Explicit children and renderEvent still win.
+   */
+  labelOutside?: boolean
+  /**
+   * The owning row's title for the aria-label. Pass it when the row is in
+   * scope (the internal view does); omitting falls back to a tree lookup.
+   */
+  rowTitle?: string
+  asChild?: boolean
+}
+
+/**
+ * The one interactive bar element. The wrapper owns positioning hooks, a11y,
+ * selection, drag/resize listeners, and data attributes; content comes from
+ * children, the root renderEvent override, or the built-in default.
+ */
+function GanttBar<TData = unknown>({
+  segment,
+  className,
+  asChild = false,
+  children,
+  labelOutside,
+  rowTitle: rowTitleProp,
+  ...props
+}: GanttBarProps<TData>) {
+  const instance = useGantt<TData>()
+  const viewConfig = useGanttViewConfig<TData>()
+  const gestures = useGanttGestures<TData>()
+  const { settings } = instance
+  const occurrence = segment.occurrence
+  const event = occurrence.event
+
+  const isSelected = useGanttSelector<TData, boolean>(
+    (state) => state.selection.eventKeys.includes(occurrence.key),
+    { calendar: instance }
+  )
+  const isDragging = useGanttSelector<TData, boolean>(
+    (state) => state.drag?.occurrence.key === occurrence.key,
+    { calendar: instance }
+  )
+  // Which gesture owns this bar: a move hides the original (the smooth clone
+  // stands in for it); a resize keeps it as a faint placeholder behind the
+  // dashed preview so you can see the original extent.
+  const dragKind = useGanttSelector<TData, string | null>(
+    (state) =>
+      state.drag?.occurrence.key === occurrence.key ? state.drag.kind : null,
+    { calendar: instance }
+  )
+  // Hover-only range tooltip. Focus opens are ignored (the known button+
+  // tooltip flash: clicking a bar opens a dialog, focus returns, and a
+  // focus-triggered tooltip would pop). Hidden while dragging/resizing.
+  const [tipOpen, setTipOpen] = useState(false)
+  // Gated on tipOpen: with the tooltip closed the selector returns a stable
+  // false, so gesture start/end doesn't re-render every mounted bar.
+  const anyInteracting = useGanttSelector<TData, boolean>(
+    (state) => tipOpen && (state.drag !== null || state.slotDraft !== null),
+    { calendar: instance }
+  )
+
+  const progress =
+    typeof event.progress === "number"
+      ? Math.min(Math.max(Math.round(event.progress), 0), 100)
+      : null
+
+  // A zero-duration occurrence is a MILESTONE: the button stays the
+  // interactive shell (click, select, menu, move), the diamond replaces the
+  // tinted bar body, and the view keeps the title outside.
+  const milestone = occurrence.end.getTime() === occurrence.start.getTime()
+
+  // The bar only LABELS its baseline (attributes, tooltip, aria); the ghost
+  // itself is view-owned chrome, because its range differs from this bar's.
+  const baseline = viewConfig.baselineBars ? resolveEventBaseline(event) : null
+  const baselineVariance = baseline ? getBaselineVariance(event) : null
+
+  const defaultContent = (
+    <>
+      {occurrence.isRecurring && (
+        <RepeatIcon className="size-2.5 shrink-0 opacity-70" aria-hidden="true" />
+      )}
+      <span className="truncate font-medium">{event.title}</span>
+      {!occurrence.allDay && segment.isStart && (
+        <span className="text-muted-foreground hidden truncate @[8rem]:inline">
+          {settings.i18n.functions.formatEventTime(
+            toZoned(occurrence.start, settings.timeZone),
+            toZoned(occurrence.end, settings.timeZone),
+            occurrence.allDay,
+            settings.locale
+          )}
+        </span>
+      )}
+    </>
+  )
+
+  const renderProps = { occurrence, segment, isDragging, isSelected }
+  const content =
+    children ??
+    viewConfig.renderEvent?.(renderProps) ??
+    (labelOutside || milestone ? null : defaultContent)
+  // Consumer-owned content owns the WHOLE inner visualization: the built-in
+  // progress fill and done mark yield so custom bars start from a blank
+  // canvas (progress stays readable via data-progress/data-completed).
+  const consumerOwnsContent = children !== undefined || !!viewConfig.renderEvent
+
+  const timeLabel = settings.i18n.functions.formatEventTime(
+    toZoned(occurrence.start, settings.timeZone),
+    toZoned(occurrence.end, settings.timeZone),
+    occurrence.allDay,
+    settings.locale
+  )
+  // Memoized: a second full formatEventTime per render would double the
+  // bar's formatting cost, and it cannot wait for the tooltip because the
+  // label also feeds aria-label. Keyed on the instants, not the baseline
+  // object - resolveEventBaseline allocates a fresh one every render.
+  const baselineStartMs = baseline?.start.getTime()
+  const baselineEndMs = baseline?.end.getTime()
+  const plannedLabel = useMemo(
+    () =>
+      baselineStartMs === undefined || baselineEndMs === undefined
+        ? undefined
+        : settings.i18n.labels.planned(
+            settings.i18n.functions.formatEventTime(
+              toZoned(new Date(baselineStartMs), settings.timeZone),
+              toZoned(new Date(baselineEndMs), settings.timeZone),
+              occurrence.allDay,
+              settings.locale
+            )
+          ),
+    [
+      baselineStartMs,
+      baselineEndMs,
+      occurrence.allDay,
+      settings.i18n,
+      settings.timeZone,
+      settings.locale,
+    ]
+  )
+  // name the row too: the split-pane layout carries no grid semantics.
+  // The prop path is O(1); the lookup fallback is memoized so external
+  // GanttBar usage never flattens the tree per render.
+  const fallbackRowTitle = useMemo(
+    () =>
+      rowTitleProp === undefined && event.resourceId
+        ? flattenResources(settings.resources).find(
+            ({ resource }) => resource.id === event.resourceId
+          )?.resource.title
+        : undefined,
+    [rowTitleProp, event.resourceId, settings.resources]
+  )
+  const rowTitle = rowTitleProp ?? fallbackRowTitle
+
+  const showResize = gestures.canResize(segment)
+  const resizeHandles = showResize && (
+    <>
+      {segment.isStart && (
+        <span
+          data-slot="gantt-resize-handle"
+          data-edge="start"
+          // grip hugs the start edge (justify-start + tight inset) so the
+          // indicator reads as "resize this end", not a centered pill.
+          // pointer-coarse keeps it visible on touch, where hover never fires
+          className="absolute inset-y-0 start-0.5 flex w-2 cursor-ew-resize items-center justify-start opacity-0 group-hover/gantt-bar-group:opacity-100 pointer-coarse:opacity-100"
+          onPointerDown={(e) => gestures.beginResize(e, segment, "start")}
+        >
+          <span
+            aria-hidden
+            className="bg-foreground/40 h-2.5 w-0.5 rounded-full"
+          />
+        </span>
+      )}
+      {segment.isEnd && (
+        <span
+          data-slot="gantt-resize-handle"
+          data-edge="end"
+          // grip hugs the end edge (justify-end + tight inset) so the
+          // indicator reads as "resize this end", not a centered pill.
+          // pointer-coarse keeps it visible on touch, where hover never fires
+          className="absolute inset-y-0 end-0.5 flex w-2 cursor-ew-resize items-center justify-end opacity-0 group-hover/gantt-bar-group:opacity-100 pointer-coarse:opacity-100"
+          onPointerDown={(e) => gestures.beginResize(e, segment, "end")}
+        >
+          <span
+            aria-hidden
+            className="bg-foreground/40 h-2.5 w-0.5 rounded-full"
+          />
+        </span>
+      )}
+    </>
+  )
+
+  const Comp = asChild ? Slot.Root : "button"
+
+  const barButton = (
+    <Comp
+      type="button"
+      data-slot="gantt-bar"
+      data-milestone={milestone || undefined}
+      data-all-day={occurrence.allDay || undefined}
+      data-recurring={occurrence.isRecurring || undefined}
+      data-selected={isSelected || undefined}
+      data-dragging={isDragging || undefined}
+      data-drag-kind={dragKind ?? undefined}
+      data-past={occurrence.end.getTime() < Date.now() || undefined}
+      data-label-outside={labelOutside || undefined}
+      data-progress={progress ?? undefined}
+      data-completed={progress === 100 || undefined}
+      data-baseline={!!baseline || undefined}
+      data-baseline-variance={baselineVariance ?? undefined}
+      aria-label={settings.i18n.functions.formatEventAriaLabel({
+        title: event.title,
+        timeLabel,
+        milestoneLabel: milestone ? settings.i18n.labels.milestone : undefined,
+        rowTitle,
+        progressLabel:
+          progress !== null
+            ? settings.i18n.labels.progress(progress)
+            : undefined,
+        plannedLabel,
+        continues: segment.continuesBefore || segment.continuesAfter,
+      })}
+      style={
+        {
+          "--gantt-event-color": event.color ?? "var(--color-primary)",
+        } as CSSProperties
+      }
+      onPointerDown={(e: React.PointerEvent) => {
+        e.stopPropagation()
+        gestures.beginMove(e, segment)
+      }}
+      onClick={(e: React.MouseEvent) => {
+        e.stopPropagation()
+        if (wasRecentDrag()) return
+        instance.api.selectEvent(occurrence.key)
+        settings.onEventClick?.(occurrence, e)
+      }}
+      onDoubleClick={(e: React.MouseEvent) => {
+        e.stopPropagation()
+        settings.onEventDoubleClick?.(occurrence, e)
+      }}
+      className={cn(
+        "group/gantt-bar-group text-foreground @container relative flex w-full min-w-0 cursor-pointer touch-none items-center gap-1.5 overflow-hidden rounded-sm px-1.5 py-0.5 text-start leading-normal select-none",
+        "focus-visible:ring-ring/50 outline-none focus-visible:ring-2",
+        // the unfilled remainder has to be legible on its own - at /12 a bar
+        // with a progress fill read as a floating segment with no basement
+        "bg-(--gantt-event-color)/20 hover:bg-(--gantt-event-color)/30",
+        // move: hide the original (the smooth cursor clone represents it)
+        "data-[drag-kind=move]:opacity-0",
+        // resize: keep the original event exactly, just fade it to a soft
+        // placeholder behind the dashed preview - no dramatic restyle
+        "data-[drag-kind=resize-end]:opacity-40 data-[drag-kind=resize-start]:opacity-40",
+        "data-selected:bg-(--gantt-event-color)/30",
+        /* the diamond is the milestone's body, so the shell sheds its own
+           tinted fill and centers the glyph on the instant */
+        milestone &&
+          "justify-center bg-transparent px-0 hover:bg-transparent data-selected:bg-transparent",
+        segment.continuesBefore && "rounded-s-none",
+        segment.continuesAfter && "rounded-e-none",
+        viewConfig.classNames?.event,
+        className
+      )}
+      {...props}
+    >
+      {milestone && !consumerOwnsContent && (
+        // the filled diamond IS the milestone's body - chrome, so a custom
+        // renderEvent still starts from a blank canvas (data-milestone
+        // keeps the fact readable there)
+        <span
+          aria-hidden
+          data-slot="gantt-bar-milestone"
+          className={cn(
+            "size-2.5 shrink-0 rotate-45 rounded-[2px] border border-(--gantt-event-color) bg-(--gantt-event-color)/80",
+            isSelected && "ring-ring/50 ring-2"
+          )}
+        />
+      )}
+      {progress !== null && !milestone && (
+        // Chrome, not content: it is an absolutely-positioned layer BEHIND
+        // whatever the bar renders, so a consumer bar (renderEvent) keeps its
+        // completion fill instead of silently losing it. The inline done-mark
+        // below stays gated, because that one really is content.
+        <span
+          aria-hidden
+          data-slot="gantt-bar-progress"
+          className="pointer-events-none absolute inset-y-0 start-0 border-e border-(--gantt-event-color)/65 bg-(--gantt-event-color)/40 data-full:border-e-0"
+          data-full={progress === 100 || undefined}
+          style={{ width: `${progress}%` }}
+        />
+      )}
+      {progress === 100 && !consumerOwnsContent && !milestone && (
+        // done mark: completion chrome like the fill itself, so it shows
+        // for outside-label bars too (where the inner content is empty)
+        <CheckIcon className="relative size-2.5 shrink-0 opacity-80" aria-hidden="true" />
+      )}
+      {content}
+      {resizeHandles}
+    </Comp>
+  )
+
+  // Consumer-owned right-click menu (headless): the primitive only wires the
+  // ContextMenu; the items and their handlers come entirely from the block.
+  const menu = viewConfig.renderEventMenu?.(renderProps)
+
+  // The bar is simultaneously the tooltip trigger and (when a menu exists)
+  // the context-menu trigger; Radix composes both via asChild. The tooltip
+  // opens only on hover: Radix has no open reason, so focus opens (the known
+  // button+tooltip flash) are suppressed at the trigger via preventDefault,
+  // and press already closes the tooltip in Radix.
+  const trigger = menu ? (
+    <ContextMenuTrigger asChild>
+      <TooltipTrigger asChild onFocus={(e) => e.preventDefault()}>
+        {barButton}
+      </TooltipTrigger>
+    </ContextMenuTrigger>
+  ) : (
+    <TooltipTrigger asChild onFocus={(e) => e.preventDefault()}>
+      {barButton}
+    </TooltipTrigger>
+  )
+
+  const barTree = (
+    <TooltipProvider delayDuration={500} skipDelayDuration={300}>
+      <Tooltip
+        open={tipOpen && !anyInteracting}
+        onOpenChange={(next: boolean) => setTipOpen(next)}
+      >
+        {trigger}
+        {tipOpen && !anyInteracting && (
+          <TooltipContent side="top" className="pointer-events-none">
+            <div className="font-medium">{event.title}</div>
+            <div className="opacity-80">{timeLabel}</div>
+            {plannedLabel && <div className="opacity-80">{plannedLabel}</div>}
+          </TooltipContent>
+        )}
+      </Tooltip>
+    </TooltipProvider>
+  )
+
+  return (
+    <GanttBarContext.Provider
+      value={{ occurrence, segment, isDragging, isSelected }}
+    >
+      {menu ? (
+        <ContextMenu>
+          {barTree}
+          <ContextMenuContent data-slot="gantt-bar-menu" className="min-w-44">
+            {menu}
+          </ContextMenuContent>
+        </ContextMenu>
+      ) : (
+        barTree
+      )}
+    </GanttBarContext.Provider>
+  )
+}
+
+export { GANTT_COLORS, GanttBar, useGanttBarContext }
+export type { GanttBarContextValue, GanttBarProps }

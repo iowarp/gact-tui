@@ -225,7 +225,7 @@ describe('ClioObservabilityView', () => {
     );
 
     await user.click(screen.getByRole('tab', { name: 'Gantt' }));
-    const childLane = screen.getByRole('button', { name: /geospatial #1, completed/iu });
+    const childLane = screen.getByRole('button', { name: /geospatial #1/iu });
     await user.click(childLane);
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
 
@@ -427,7 +427,10 @@ describe('ClioObservabilityView', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Gantt' }));
     expect(screen.getByRole('region', { name: 'Observed execution spans' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Fit full timeline' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Zoom in' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Zoom out' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Main agent' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Agent work' })).toBeVisible();
     expect(screen.getByText('ndp #1')).toBeVisible();
     expect(screen.getByText('Execution')).toBeVisible();
 
