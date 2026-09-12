@@ -39,7 +39,10 @@ export function ClioSubagentLifecycleLine({
   onOpen,
 }: ClioSubagentLifecycleLineProps) {
   const started = stage === 'delegate.started';
-  const failed = !started && subagent?.state === 'failed';
+  const continued = stage === 'delegate.superseded';
+  const failed = !started && !continued && subagent?.state === 'failed';
+  const terminal = !started && !continued;
+  const displayState = terminal ? (failed ? 'failed' : 'completed') : subagent?.state;
   const title = subagent?.title || 'Child agent';
   const detail =
     started || failed
@@ -82,18 +85,24 @@ export function ClioSubagentLifecycleLine({
           {title}
         </button>
         <span className="shrink-0 text-muted-foreground">
-          {started ? 'started' : failed ? 'failed' : 'completed,'}
+          {started ? 'started' : continued ? 'continued' : failed ? 'failed' : 'completed'}
         </span>
-        {!started && !failed && subagent?.duration_ms !== undefined ? (
+        {terminal && !failed && subagent?.duration_ms !== undefined ? (
           <span className="shrink-0 text-muted-foreground">
-            waited for {formatDuration(subagent.duration_ms)}
+            in {formatDuration(subagent.duration_ms)}
           </span>
         ) : null}
-        {!started && subagent?.state ? (
-          <ClioStatus compact className="ml-auto shrink-0" value={subagent.state} />
+        {!started && displayState ? (
+          <ClioStatus compact className="ml-auto shrink-0" value={displayState} />
         ) : null}
       </div>
-      {detail ? <ExpandableChildPrompt text={detail} /> : null}
+      {detail ? (
+        <ExpandableChildPrompt
+          text={detail}
+          onOpen={interactive ? (event) => open(event.shiftKey) : undefined}
+          title={title}
+        />
+      ) : null}
       {failed && subagent?.summary ? (
         <div
           className="ml-7 mt-1 flex min-w-0 items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 px-2 py-1 text-xs leading-5 text-destructive"
@@ -107,19 +116,41 @@ export function ClioSubagentLifecycleLine({
   );
 }
 
-function ExpandableChildPrompt({ text }: { text: string }) {
+function ExpandableChildPrompt({
+  text,
+  onOpen,
+  title,
+}: {
+  text: string;
+  onOpen?: (event: MouseEvent<HTMLButtonElement>) => void;
+  title: string;
+}) {
   const [expanded, setExpanded] = useState(false);
   const long = text.length > SUBAGENT_TASK_TRUNCATE_CHARS;
+  const content = (
+    <span
+      className={cn(
+        'block whitespace-normal [overflow-wrap:anywhere]',
+        long && !expanded && 'line-clamp-2',
+      )}
+    >
+      {text}
+    </span>
+  );
   return (
     <div className="ml-7 min-w-0 pr-2 text-sm leading-5 text-foreground/90">
-      <p
-        className={cn(
-          'whitespace-normal [overflow-wrap:anywhere]',
-          long && !expanded && 'line-clamp-2',
-        )}
-      >
-        {text}
-      </p>
+      {onOpen ? (
+        <button
+          aria-label={`Open child conversation ${title} from assignment`}
+          className="block w-full rounded-sm text-left outline-none transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50"
+          onClick={onOpen}
+          type="button"
+        >
+          {content}
+        </button>
+      ) : (
+        content
+      )}
       {long ? (
         <button
           className="mt-0.5 text-xs font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

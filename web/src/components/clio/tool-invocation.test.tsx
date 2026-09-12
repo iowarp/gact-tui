@@ -561,11 +561,80 @@ describe('ClioToolInvocation', () => {
     expect(screen.getByText('Wait')).toBeVisible();
     expect(screen.getByText('researcher #1, researcher #2')).toBeVisible();
     expect(screen.getByText('researcher #1')).toBeVisible();
-    expect(screen.getByText('completed, waited for 7 s')).toBeVisible();
-    expect(screen.getByText('Context received')).toBeVisible();
+    expect(screen.getByText('completed, returned after 7 s')).toBeVisible();
+    expect(screen.getByText('Returned')).toBeVisible();
     expect(screen.getByText(/The answer is 11\./u)).toBeVisible();
     expect(screen.queryByText(/task.*completed/iu)).not.toBeInTheDocument();
     expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeNull();
+  });
+
+  it('keeps Get status to the nonblocking child snapshot', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-status',
+          session_id: 'session-1',
+          name: 'observe_agent_tasks',
+          state: 'succeeded',
+          presentation: {
+            action: 'Get status',
+            subject: 'task-subject',
+            summary: '',
+            blocks: [
+              { id: 'task-subject', type: 'text', text: 'researcher #1' },
+              {
+                id: 'task-1',
+                type: 'item',
+                target: 'session',
+                uri: 'session-child-1',
+                label: 'researcher #1',
+                status: 'running',
+                result_kind: 'snapshot',
+                detail: 'Internal event excerpt',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('was running when checked')).toBeVisible();
+    expect(screen.queryByText('Internal event excerpt')).not.toBeInTheDocument();
+    expect(screen.queryByText('Context received')).not.toBeInTheDocument();
+  });
+
+  it('bounds a historical Collect result behind Show more', async () => {
+    Range.prototype.getClientRects = vi.fn(
+      () =>
+        [
+          { top: 0, bottom: 20, width: 100, height: 20 },
+          { top: 20, bottom: 40, width: 100, height: 20 },
+          { top: 40, bottom: 60, width: 100, height: 20 },
+        ] as unknown as DOMRectList,
+    );
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-collect',
+          session_id: 'session-1',
+          name: 'get_agent_task_output',
+          state: 'succeeded',
+          presentation: {
+            action: 'Collect',
+            summary: '',
+            blocks: [
+              {
+                id: 'output',
+                type: 'markdown',
+                text: '# Result\n\n- First finding\n- Second finding\n- Third finding',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Show more' })).toBeVisible();
   });
 
   it('renders schedules as bounded actionable rows', async () => {

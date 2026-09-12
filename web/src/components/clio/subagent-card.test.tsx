@@ -117,11 +117,18 @@ describe('ClioSubagentLifecycleLine', () => {
   };
 
   it('shows only the assignment at the launch position', () => {
-    render(<ClioSubagentLifecycleLine stage="delegate.started" subagent={child} />);
+    const onOpen = vi.fn();
+    render(<ClioSubagentLifecycleLine stage="delegate.started" subagent={child} onOpen={onOpen} />);
 
     expect(screen.getByText('started')).toBeVisible();
     expect(screen.getByText(child.task)).toBeVisible();
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Open child conversation researcher #1 from assignment',
+      }),
+    );
+    expect(onOpen).toHaveBeenCalledWith(child, 'conversation');
   });
 
   it('uses the causal launch block assignment before the live entity catches up', () => {
@@ -139,16 +146,36 @@ describe('ClioSubagentLifecycleLine', () => {
 
   it('shows return timing without moving result content onto the lifecycle row', () => {
     const onOpen = vi.fn();
+    const staleRunningChild = { ...child, state: 'running' as const };
     render(
-      <ClioSubagentLifecycleLine onOpen={onOpen} stage="delegate.completed" subagent={child} />,
+      <ClioSubagentLifecycleLine
+        onOpen={onOpen}
+        stage="delegate.completed"
+        subagent={staleRunningChild}
+      />,
     );
 
-    expect(screen.getByText('completed,')).toBeVisible();
-    expect(screen.getByText('waited for 13 s')).toBeVisible();
+    expect(screen.getByText('completed')).toBeVisible();
+    expect(screen.getByText('in 13 s')).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Completed' })).toBeVisible();
+    expect(screen.queryByRole('status', { name: 'Running' })).not.toBeInTheDocument();
     expect(screen.queryByText(child.result)).not.toBeInTheDocument();
     expect(screen.queryByText(child.task)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Open child conversation researcher #1' }));
-    expect(onOpen).toHaveBeenCalledWith(child, 'conversation');
+    expect(onOpen).toHaveBeenCalledWith(staleRunningChild, 'conversation');
+  });
+
+  it('presents a successor as a continuation instead of a completed child', () => {
+    render(
+      <ClioSubagentLifecycleLine
+        stage="delegate.superseded"
+        subagent={{ ...child, title: 'researcher #2', state: 'running' }}
+      />,
+    );
+
+    expect(screen.getByText('continued')).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Running' })).toBeVisible();
+    expect(screen.queryByText('completed')).not.toBeInTheDocument();
   });
 
   it('keeps a rejected child prompt and explains why the child did not start', () => {

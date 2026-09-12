@@ -59,7 +59,7 @@ function PresentationItem({ block }: { block: ToolPresentationBlock }) {
   const status = itemStatus(block.status);
   const details = [block.detail, ...(block.items ?? [])].filter(Boolean);
   if (block.result_kind === 'message') {
-    return <ContextReceived label={block.label || 'Message sent'} text={block.text ?? ''} />;
+    return <ExpandableDetail label={block.label || 'Message sent'} text={block.text ?? ''} />;
   }
   if (block.target === 'session') {
     const observed = block.result_kind === 'snapshot';
@@ -67,15 +67,17 @@ function PresentationItem({ block }: { block: ToolPresentationBlock }) {
     const outcome = observed
       ? `was ${statusText} when checked`
       : status === 'completed' || status === 'succeeded'
-        ? `completed${block.duration_ms !== undefined ? `, waited for ${formatDuration(block.duration_ms)}` : ''}`
+        ? `completed${block.duration_ms === undefined ? '' : block.duration_ms <= 0 ? ', already available' : `, returned after ${formatDuration(block.duration_ms)}`}`
         : `${statusText}${block.duration_ms !== undefined ? ` after ${formatDuration(block.duration_ms)}` : ''}`;
     return (
-      <div className="min-w-0 py-0.5 text-sm">
+      <div className="min-w-0 text-sm">
         <div className="flex min-w-0 items-center gap-1.5">
           <PresentationLink block={block} compact />
           <span className="text-muted-foreground">{outcome}</span>
         </div>
-        {block.detail ? <ContextReceived text={block.detail} /> : null}
+        {!observed && block.detail ? (
+          <ExpandableDetail label="Returned" text={block.detail} />
+        ) : null}
       </div>
     );
   }
@@ -168,23 +170,23 @@ function SchedulePresentationItem({ block }: { block: ToolPresentationBlock }) {
   );
 }
 
-function ContextReceived({ text, label = 'Context received' }: { text: string; label?: string }) {
+function ExpandableDetail({ text, label }: { text: string; label: string }) {
   const [expanded, setExpanded] = useState(false);
   const long = text.length > 240;
   return (
-    <div className="ml-4 min-w-0 pr-2 text-xs leading-5 text-muted-foreground">
+    <div className="min-w-0 pr-2 text-sm leading-5 text-foreground/90">
       <p
         className={cn(
           'whitespace-pre-wrap [overflow-wrap:anywhere]',
           long && !expanded && 'line-clamp-2',
         )}
       >
-        <span className="font-medium text-foreground/80">{label} </span>
+        <span className="font-medium text-foreground">{label} </span>
         {text}
       </p>
       {long ? (
         <button
-          className="text-xs font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           onClick={() => setExpanded((value) => !value)}
           type="button"
         >
@@ -475,7 +477,14 @@ export function ToolResultPresentation({
         </p>
       ) : null}
       {blocks.map((block, index) => {
-        const budget = block.type === 'diff' ? lines * 2 : lines;
+        const collectedChildOutput =
+          (tool.name === 'get_agent_task_output' || tool.presentation?.action === 'Collect') &&
+          block.type === 'markdown';
+        const budget = collectedChildOutput
+          ? Math.min(lines, 2)
+          : block.type === 'diff'
+            ? lines * 2
+            : lines;
         const running = block.type === 'terminal' && tool.state === 'running';
         if (block.type === 'link') {
           return <PresentationLink key={block.id} block={block} />;
@@ -563,9 +572,15 @@ export function ToolResultPresentation({
           block.severity === 'warning' ||
           ['code', 'diff', 'media'].includes(block.type);
         if (!boxed) {
-          return block.content_ref && !running ? (
-            <PagedBlock key={block.id} block={block} lines={budget} />
-          ) : (
+          if (block.content_ref && !running)
+            return <PagedBlock key={block.id} block={block} lines={budget} />;
+          if (collectedChildOutput)
+            return (
+              <BoundedResult key={block.id} lines={budget} title="Collected child output">
+                <BlockBody block={block} text={block.text ?? ''} />
+              </BoundedResult>
+            );
+          return (
             <div key={block.id} className="min-w-0">
               {block.label ? (
                 <p className="text-xs font-medium text-muted-foreground">{block.label}</p>
