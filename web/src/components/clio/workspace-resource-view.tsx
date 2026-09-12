@@ -207,6 +207,8 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
             {resource.name}
           </h2>
           <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+            <span className="shrink-0 font-medium text-foreground/80">Uploaded resource</span>
+            <span aria-hidden="true">·</span>
             <span className="truncate">
               {resource.detected_mime || resource.claimed_mime || 'Type unavailable'}
             </span>
