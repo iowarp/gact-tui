@@ -300,7 +300,11 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
     })
     .toBe(true);
   await settleConversationAtLatest(page);
-  const activeLandmark = page.getByRole('button', { name: 'Jump to assistant message 1000' });
+  // #1339 appended a compaction checkpoint message to the shared fixture
+  // transcript, shifting every landmark after it by one (999 -> the
+  // checkpoint itself, 1000 -> the fixture request, 1001 -> the active
+  // streaming turn).
+  const activeLandmark = page.getByRole('button', { name: 'Jump to assistant message 1001' });
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
   await expect(minimap).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(minimap).toHaveCSS('box-shadow', 'none');
@@ -319,7 +323,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(activeMarker).toHaveCSS('opacity', '1');
   const previousLandmark = minimap.getByRole('button', {
     exact: true,
-    name: 'Jump to user message 999',
+    name: 'Jump to user message 1000',
   });
   const previousMarker = previousLandmark.locator('[data-slot="transcript-minimap-landmark"]');
   await expect(previousMarker).toHaveCSS('width', '12px');
