@@ -364,6 +364,7 @@ export function ClioObservabilityView({
   diffs,
   messages,
   processes,
+  tasks,
   tools,
   runs,
   subagents,
@@ -621,7 +622,11 @@ export function ClioObservabilityView({
               onOpenDiff={onOpenDiff}
               onOpenFile={onOpenFile}
               onOpenResource={onOpenResource}
+              onOpenSubagent={onOpenSubagent}
               processes={processes}
+              runs={runs}
+              subagents={subagents}
+              tasks={tasks}
               executionProvenance={executionProvenance}
               artifactProvenanceProvider={artifactProvenanceProvider}
               provenanceDegradation={provenanceDegradation}

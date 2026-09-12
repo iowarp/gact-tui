@@ -5,11 +5,94 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioEvidenceView } from './observability-evidence';
 
 afterEach(() => {
   cleanup();
+});
+
+describe('ClioEvidenceView operational inventory', () => {
+  it('replaces the summary card with collapsible runs, tasks, children, tools, and background work', async () => {
+    const user = userEvent.setup();
+    const onOpenSubagent = vi.fn();
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        messages={[]}
+        onOpenSubagent={onOpenSubagent}
+        processes={[
+          {
+            id: 'process_1',
+            kind: 'mcp-task',
+            title: 'Remote analysis',
+            live_state: 'completed',
+            status: 'completed',
+            host: 'worker-1',
+            metadata: {},
+          },
+        ]}
+        runs={[
+          {
+            id: 'run_1',
+            session_id: 'sess_1',
+            state: 'completed',
+            summary: 'Investigate the evidence',
+            elapsed_ms: 1250,
+          },
+        ]}
+        subagents={[
+          {
+            id: 'task_child',
+            session_id: 'sess_1',
+            child_session_id: 'sess_child',
+            title: 'research_methodologist #1',
+            state: 'completed',
+            task: 'Compare all four records.',
+          },
+        ]}
+        tasks={[
+          {
+            id: 'task_1',
+            session_id: 'sess_1',
+            title: 'Review findings',
+            state: 'completed',
+          },
+        ]}
+        tools={[
+          {
+            id: 'tool_1',
+            session_id: 'sess_1',
+            name: 'fs_read_file',
+            state: 'succeeded',
+            presentation: { action: 'Read evidence', blocks: [], summary: '387 bytes' },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.queryByText('Session evidence')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Agent runs, 1 recorded' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Tasks, 1 recorded' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Child agents, 1 recorded' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Tool calls, 1 recorded' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Background tasks, 1 recorded' })).toBeVisible();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open child conversation research_methodologist #1' }),
+    );
+    expect(onOpenSubagent).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'task_child' }),
+      'conversation',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Agent runs, 1 recorded' }));
+    expect(screen.getByText('Investigate the evidence')).toBeVisible();
+    expect(screen.getByText('1 s')).toBeVisible();
+  });
 });
 
 function resourceMessage(input: {

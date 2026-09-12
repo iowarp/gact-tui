@@ -8,19 +8,27 @@ import type {
   Message,
   PendingInteraction,
   ProvenanceProviderSummary,
+  Run,
   SessionDiff,
+  SubagentRun,
+  Task,
   ToolInvocation,
   WorkspaceResource,
 } from '@clio/core/v3';
 import {
+  ActivityIcon,
   BoxIcon,
+  BoxesIcon,
   ExternalLinkIcon,
   FileDiffIcon,
   FileCode2Icon,
   FileTextIcon,
+  ListChecksIcon,
   ListTreeIcon,
   PanelsTopLeftIcon,
+  ServerCogIcon,
   WaypointsIcon,
+  WrenchIcon,
 } from 'lucide-react';
 import {
   CodeBlock,
@@ -31,13 +39,6 @@ import {
   CodeBlockTitle,
 } from '@/components/ai-elements/code-block';
 import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
-import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -45,9 +46,10 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatBytes } from '@/lib/format';
+import { formatBytes, formatDuration } from '@/lib/format';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioArtifactCard } from './artifact-card';
+import { getChildAgentAssignment } from './child-agent-presentation';
 import {
   fileName,
   sessionDiffs,
@@ -56,7 +58,9 @@ import {
   type EvidenceFile,
   type EvidencePlan,
 } from './session-evidence-projection';
-import { ClioStatus } from './status';
+import { ClioStatus, type ClioStatusValue } from './status';
+import type { SubagentOpenTarget } from './subagent-card';
+import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
 
 export interface ClioEvidenceViewProps {
   artifacts: readonly Artifact[];
@@ -65,12 +69,16 @@ export interface ClioEvidenceViewProps {
   messages: readonly Message[];
   processes: readonly AsyncProcess[];
   interactions?: readonly PendingInteraction[];
+  runs?: readonly Run[];
+  subagents?: readonly SubagentRun[];
+  tasks?: readonly Task[];
   tools?: readonly ToolInvocation[];
   executionProvenance?: ExecutionProvenanceResult;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
   onOpenResource?: (resource: WorkspaceResource) => void;
+  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   provenanceProvider?: ProvenanceProviderSummary;
   artifactProvenanceProvider?: ArtifactProvenanceProviderSummary;
   provenanceDegradation?: ExecutionProvenanceDegradation;
@@ -78,8 +86,13 @@ export interface ClioEvidenceViewProps {
 }
 
 export function ClioEvidenceView(props: ClioEvidenceViewProps) {
-  const files = sessionFiles(props.contextFiles, props.tools ?? [], props.executionProvenance);
-  const diffs = sessionDiffs(props.diffs, props.tools ?? [], props.executionProvenance);
+  const backgroundProcesses = props.processes.filter((process) => process.kind !== 'agent');
+  const runs = props.runs ?? [];
+  const subagents = props.subagents ?? [];
+  const tasks = props.tasks ?? [];
+  const tools = props.tools ?? [];
+  const files = sessionFiles(props.contextFiles, tools, props.executionProvenance);
+  const diffs = sessionDiffs(props.diffs, tools, props.executionProvenance);
   const plans = sessionPlans(props.messages, props.interactions ?? [], props.artifacts);
   const sources = sessionSources(
     props.messages,
@@ -87,28 +100,66 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
     props.resources ?? [],
     props.executionProvenance,
   );
-  const hasEvidence =
-    diffs.length || props.artifacts.length || sources.length || plans.length || files.length;
+  const hasEvidence = Boolean(
+    diffs.length ||
+      props.artifacts.length ||
+      sources.length ||
+      plans.length ||
+      files.length ||
+      runs.length ||
+      subagents.length ||
+      tasks.length ||
+      tools.length ||
+      backgroundProcesses.length,
+  );
   const hasProvenance = Boolean(props.provenanceProvider || props.artifactProvenanceProvider);
 
   if (!hasEvidence && !hasProvenance) {
     return (
       <p className="p-6 text-center text-sm text-muted-foreground">
-        No changed files, sources, artifacts, plans, or attached context are available.
+        No session evidence or recorded activity is available.
       </p>
     );
   }
 
   return (
-    <div className="grid gap-3">
-      <EvidenceCounts
-        artifacts={props.artifacts.length}
-        files={files.length}
-        diffs={diffs.length}
-        plans={plans.length}
-        sources={sources.length}
-      />
-      <Accordion defaultValue={['files', 'changes', 'sources']} type="multiple">
+    <div className="min-w-0">
+      <Accordion defaultValue={['child-agents', 'files', 'changes', 'sources']} type="multiple">
+        {runs.length ? (
+          <EvidenceSection icon={ActivityIcon} label="Agent runs" value="runs" count={runs.length}>
+            <RunEvidence runs={runs} />
+          </EvidenceSection>
+        ) : null}
+        {tasks.length ? (
+          <EvidenceSection icon={ListChecksIcon} label="Tasks" value="tasks" count={tasks.length}>
+            <TaskEvidence tasks={tasks} />
+          </EvidenceSection>
+        ) : null}
+        {subagents.length ? (
+          <EvidenceSection
+            icon={BoxesIcon}
+            label="Child agents"
+            value="child-agents"
+            count={subagents.length}
+          >
+            <SubagentEvidence onOpenSubagent={props.onOpenSubagent} subagents={subagents} />
+          </EvidenceSection>
+        ) : null}
+        {tools.length ? (
+          <EvidenceSection icon={WrenchIcon} label="Tool calls" value="tools" count={tools.length}>
+            <ToolEvidence tools={tools} />
+          </EvidenceSection>
+        ) : null}
+        {backgroundProcesses.length ? (
+          <EvidenceSection
+            icon={ServerCogIcon}
+            label="Background tasks"
+            value="background"
+            count={backgroundProcesses.length}
+          >
+            <BackgroundEvidence processes={backgroundProcesses} />
+          </EvidenceSection>
+        ) : null}
         {files.length ? (
           <EvidenceSection icon={FileTextIcon} label="Files" value="files" count={files.length}>
             <FileEvidence files={files} onOpenFile={props.onOpenFile} />
@@ -181,15 +232,149 @@ function EvidenceSection({
 }) {
   return (
     <AccordionItem value={value}>
-      <AccordionTrigger>
+      <AccordionTrigger aria-label={`${label}, ${count.toLocaleString()} recorded`}>
         <span className="flex items-center gap-2">
           <Icon aria-hidden="true" className="size-4 text-primary" />
           {label}
           <Badge variant="secondary">{count}</Badge>
         </span>
       </AccordionTrigger>
-      <AccordionContent className="grid gap-2">{children}</AccordionContent>
+      <AccordionContent className="grid max-h-[min(24rem,60vh)] gap-2 overflow-y-auto pr-1">
+        {children}
+      </AccordionContent>
     </AccordionItem>
+  );
+}
+
+function RunEvidence({ runs }: { runs: readonly Run[] }) {
+  return (
+    <div className="grid gap-1">
+      {runs.map((run) => (
+        <ClioInteractiveRow key={run.id} running={run.state === 'running'}>
+          <EvidenceRecord
+            detail={run.elapsed_ms === undefined ? undefined : formatDuration(run.elapsed_ms)}
+            icon={ActivityIcon}
+            label={run.summary || 'Agent run'}
+            state={run.state}
+          />
+        </ClioInteractiveRow>
+      ))}
+    </div>
+  );
+}
+
+function TaskEvidence({ tasks }: { tasks: readonly Task[] }) {
+  return (
+    <div className="grid gap-1">
+      {tasks.map((task) => (
+        <ClioInteractiveRow key={task.id} running={task.state === 'running'}>
+          <EvidenceRecord
+            detail={task.detail}
+            icon={ListChecksIcon}
+            label={task.title}
+            state={task.state}
+          />
+        </ClioInteractiveRow>
+      ))}
+    </div>
+  );
+}
+
+function SubagentEvidence({
+  onOpenSubagent,
+  subagents,
+}: {
+  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  subagents: readonly SubagentRun[];
+}) {
+  return (
+    <div className="grid gap-1">
+      {subagents.map((subagent) => {
+        const assignment = getChildAgentAssignment(subagent);
+        const canOpen = Boolean(subagent.child_session_id && onOpenSubagent);
+        return (
+          <ClioInteractiveRow
+            aria-label={canOpen ? `Open child conversation ${subagent.title}` : undefined}
+            className={canOpen ? 'cursor-pointer' : undefined}
+            disabled={!canOpen}
+            key={subagent.id}
+            onClick={canOpen ? () => onOpenSubagent?.(subagent, 'conversation') : undefined}
+            role={canOpen ? 'button' : undefined}
+            running={subagent.state === 'running'}
+          >
+            <EvidenceRecord
+              detail={assignment.detail ?? assignment.label}
+              icon={BoxesIcon}
+              label={subagent.title}
+              state={subagent.state}
+            />
+          </ClioInteractiveRow>
+        );
+      })}
+    </div>
+  );
+}
+
+function ToolEvidence({ tools }: { tools: readonly ToolInvocation[] }) {
+  return (
+    <div className="grid gap-1">
+      {tools.map((tool) => (
+        <ClioInteractiveRow key={tool.id} running={tool.state === 'running'}>
+          <EvidenceRecord
+            detail={getToolSummary(tool)}
+            icon={WrenchIcon}
+            label={getToolActivityTitle(tool)}
+            state={getToolStatus(tool)}
+          />
+        </ClioInteractiveRow>
+      ))}
+    </div>
+  );
+}
+
+function BackgroundEvidence({ processes }: { processes: readonly AsyncProcess[] }) {
+  return (
+    <div className="grid gap-1">
+      {processes.map((process) => (
+        <ClioInteractiveRow key={process.id} running={process.live_state === 'running'}>
+          <EvidenceRecord
+            detail={[process.host, process.placement].filter(Boolean).join(', ') || undefined}
+            icon={ServerCogIcon}
+            label={process.title}
+            state={process.live_state}
+          />
+        </ClioInteractiveRow>
+      ))}
+    </div>
+  );
+}
+
+function EvidenceRecord({
+  detail,
+  icon: Icon,
+  label,
+  state,
+}: {
+  detail?: string;
+  icon: typeof ActivityIcon;
+  label: string;
+  state: ClioStatusValue;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-3">
+      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
+            {label}
+          </p>
+          <ClioStatus className="shrink-0 py-0.5" value={state} />
+        </div>
+        {detail ? (
+          <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{detail}</p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -405,39 +590,6 @@ function FileEvidence({
         </ClioInteractiveRow>
       ))}
     </div>
-  );
-}
-
-function EvidenceCounts(props: {
-  artifacts: number;
-  files: number;
-  diffs: number;
-  plans: number;
-  sources: number;
-}) {
-  return (
-    <Frame spacing="xs" variant="ghost">
-      <FrameHeader>
-        <FrameTitle>Session evidence</FrameTitle>
-        <FrameDescription>
-          Recorded files and outputs grouped by what you can inspect.
-        </FrameDescription>
-      </FrameHeader>
-      <FramePanel className="grid grid-cols-5 gap-2 text-center">
-        {[
-          ['Files', props.files],
-          ['Changes', props.diffs],
-          ['Artifacts', props.artifacts],
-          ['Plans', props.plans],
-          ['Sources', props.sources],
-        ].map(([label, count]) => (
-          <div key={label}>
-            <p className="text-base font-semibold">{count}</p>
-            <p className="truncate text-[10px] text-muted-foreground">{label}</p>
-          </div>
-        ))}
-      </FramePanel>
-    </Frame>
   );
 }
 
