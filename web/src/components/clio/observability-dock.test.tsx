@@ -225,7 +225,11 @@ describe('ClioObservabilityView', () => {
     );
 
     await user.click(screen.getByRole('tab', { name: 'Gantt' }));
-    const childLane = screen.getByRole('button', { name: /geospatial #1/iu });
+    // The reui gantt swap (f15c56ce) added a tree-row expand toggle whose
+    // aria-label is the bare title ("geospatial #1"); the clickable bar's own
+    // aria-label always appends a time range, so the trailing comma
+    // disambiguates it from the toggle.
+    const childLane = screen.getByRole('button', { name: /geospatial #1,/iu });
     await user.click(childLane);
     expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
 
@@ -430,9 +434,18 @@ describe('ClioObservabilityView', () => {
     expect(screen.getByRole('button', { name: 'Zoom in' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Zoom out' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Main agent' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Agent work' })).toBeVisible();
-    expect(screen.getByText('ndp #1')).toBeVisible();
-    expect(screen.getByText('Execution')).toBeVisible();
+    // Every owner's non-tool lanes get their own "Agent work" child group
+    // (executionGantt names it generically per-owner, not per-title), so the
+    // main turn's own reasoning group AND the ndp #1 process's own reasoning
+    // group both render one — two rows sharing the label, not a duplicate.
+    const agentWorkGroups = screen.getAllByRole('button', { name: 'Agent work' });
+    expect(agentWorkGroups).toHaveLength(2);
+    for (const group of agentWorkGroups) expect(group).toBeVisible();
+    // Renders once as the owner group's row title and once as the span's own
+    // event label.
+    for (const element of screen.getAllByText('ndp #1')) expect(element).toBeVisible();
+    // GanttTitle now appends the visible time window ("Execution · <range>").
+    expect(screen.getByText(/^Execution/u)).toBeVisible();
 
     await user.click(screen.getByRole('tab', { name: 'Evidence' }));
 
