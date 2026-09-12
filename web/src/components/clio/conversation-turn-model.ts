@@ -200,9 +200,16 @@ function messageToolOwnsReceipt(iteration: ConversationIteration, message: strin
     (entry) =>
       entry.kind === 'tool' &&
       entry.tool.name === 'message_agent' &&
-      entry.tool.input?.message === message &&
+      asRecord(entry.tool.input)?.message === message &&
       entry.tool.presentation?.blocks.some((block) => block.result_kind === 'message'),
   );
+}
+
+/** `tool.input` is `unknown` on the wire; narrow it before reading a field. */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
 }
 
 function alreadyInLane(

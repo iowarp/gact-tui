@@ -89,7 +89,7 @@ export function InfrastructurePage() {
   const toolset = useQuery({
     enabled: Boolean(sessionId),
     queryKey: queryKeys.key('session-toolset', settings.endpoint, sessionId),
-    queryFn: ({ signal }) => repository.effectiveAgentToolset(sessionId, signal),
+    queryFn: ({ signal }) => repository.effectiveAgentToolset(sessionId ?? '', signal),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const webSearchConfiguration = useQuery({

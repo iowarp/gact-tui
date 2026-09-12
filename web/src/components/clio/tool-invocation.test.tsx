@@ -167,6 +167,7 @@ describe('ClioToolInvocation', () => {
           state: 'succeeded',
           presentation: {
             subject: 'resource',
+            summary: '',
             blocks: [
               {
                 id: 'resource',

@@ -333,7 +333,7 @@ export function childProjectionActivityItems(
       id: `projected:${span.id}`,
       kind: projectedKind(span.kind),
       label: projectedActivityLabel(span.kind, toolName, span.label, span.attributes),
-      detail: projectedActivityDetail(span.kind, toolName),
+      detail: projectedActivityDetail(span.kind),
       state: activityState(span.status),
       at: timestampString(span.end_time ?? span.start_time),
       timing: span.start_time === null && span.end_time === null ? undefined : 'event',
@@ -654,7 +654,7 @@ function projectedKind(kind: string): ObservabilityActivityItem['kind'] {
   return 'tool';
 }
 
-function projectedActivityDetail(kind: string, toolName?: string): string | undefined {
+function projectedActivityDetail(kind: string): string | undefined {
   const detail =
     kind === 'tool'
       ? undefined
