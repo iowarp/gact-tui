@@ -686,6 +686,13 @@ function ProvenanceSourceBar({
   providers?: readonly ProvenanceProviderSummary[];
 }) {
   const selected = providers?.find((item) => item.name === provider);
+  const selectedDegradation =
+    degradation && degradation.provider === selected?.name ? degradation : undefined;
+  const selectedStatus = selected
+    ? selectedDegradation
+      ? 'degraded'
+      : providerStatus(selected.status, selected.queryable)
+    : undefined;
   return (
     <div className="grid gap-1 px-1 py-1">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -726,9 +733,9 @@ function ProvenanceSourceBar({
           {selected ? (
             <ClioStatus
               compact
-              detail={selected.status}
-              label={`${selected.name} provenance ${selected.status}`}
-              value={providerStatus(selected.status, selected.queryable)}
+              detail={selectedDegradation?.reason ?? selected.status}
+              label={`${selected.name} provenance ${selectedDegradation ? 'degraded' : selected.status}`}
+              value={selectedStatus ?? 'unavailable'}
             />
           ) : null}
         </div>

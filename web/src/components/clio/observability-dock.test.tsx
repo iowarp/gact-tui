@@ -738,6 +738,17 @@ describe('ClioObservabilityView', () => {
           partial: true,
         }}
         provenanceProvider="flowcept"
+        provenanceProviders={[
+          {
+            name: 'flowcept',
+            configured: true,
+            queryable: true,
+            durable: false,
+            status: 'ready',
+            source: 'flowcept',
+            health: {},
+          },
+        ]}
         runs={[]}
         subagents={[]}
         tasks={[]}
@@ -746,6 +757,10 @@ describe('ClioObservabilityView', () => {
     );
 
     expect(screen.getByText(/Partial flowcept provenance/u)).toBeVisible();
+    expect(screen.getByRole('status', { name: 'flowcept provenance degraded' })).toBeVisible();
+    expect(
+      screen.queryByRole('status', { name: 'flowcept provenance ready' }),
+    ).not.toBeInTheDocument();
   });
 
   it('still shows process activity when session_lineage is legally empty', async () => {
