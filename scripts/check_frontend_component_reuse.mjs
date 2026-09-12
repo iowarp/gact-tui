@@ -57,10 +57,14 @@ const requiredImports = {
     '@/components/ui/tabs',
     './observability-activity',
   ],
-  'web/src/components/clio/observability-activity.tsx': ['@/components/reui/timeline'],
+  // web/src/components/clio/observability-activity.tsx has no entry here:
+  // ClioActivityTimeline replaced the reui Timeline row-list with a bespoke
+  // git-style causal graph (SVG connector paths across stable agent-strand
+  // lanes); Timeline's linear-item model can't represent concurrent strands,
+  // so no sourced component composes this view (reviewed 2026-09-12).
   'web/src/components/clio/observability-evidence.tsx': [
     '@/components/ai-elements/code-block',
-    '@/components/reui/frame',
+    '@/components/ui/accordion',
     './artifact-card',
   ],
   'web/src/components/clio/inspector.tsx': [
