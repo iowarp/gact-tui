@@ -305,6 +305,24 @@ function ExpandableDetail({ text, label }: { text: string; label: string }) {
   );
 }
 
+/**
+ * A checklist item's state icon. Defined at module scope (not selected into a
+ * local variable during render) so the icon is a stable element, never a
+ * component "created during render".
+ */
+function CheckStateIcon({
+  className,
+  state,
+}: {
+  className: string;
+  state: ToolPresentationBlock['state'];
+}) {
+  if (state === 'completed') return <SquareCheckIcon aria-hidden="true" className={className} />;
+  if (state === 'in_progress')
+    return <SquareMinusIcon aria-hidden="true" className={className} />;
+  return <SquareIcon aria-hidden="true" className={className} />;
+}
+
 function BlockBody({
   block,
   text,
@@ -372,17 +390,9 @@ function BlockBody({
         </Terminal>
       );
     case 'check': {
-      const iconFor = (state: ToolPresentationBlock['state']) =>
-        state === 'completed'
-          ? SquareCheckIcon
-          : state === 'in_progress'
-            ? SquareMinusIcon
-            : SquareIcon;
       const labelFor = (state: ToolPresentationBlock['state']) =>
         state === 'completed' ? 'Completed' : state === 'in_progress' ? 'In progress' : 'Pending';
-      const Icon = iconFor(block.state);
       const status = labelFor(block.state);
-      const PreviousIcon = block.previous_state ? iconFor(block.previous_state) : undefined;
       const previousStatus = block.previous_state ? labelFor(block.previous_state) : undefined;
       const accessibleStatus =
         block.change === 'status_changed' && previousStatus
@@ -406,15 +416,18 @@ function BlockBody({
                     block.change === 'status_changed' ? 'w-auto gap-0.5' : 'w-4',
                   )}
                 >
-                  {PreviousIcon && block.change === 'status_changed' ? (
+                  {block.previous_state && block.change === 'status_changed' ? (
                     <>
-                      <PreviousIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+                      <CheckStateIcon
+                        className="size-4 text-muted-foreground"
+                        state={block.previous_state}
+                      />
                       <ArrowRightIcon aria-hidden="true" className="size-3 text-muted-foreground" />
                     </>
                   ) : null}
-                  <Icon
-                    aria-hidden="true"
+                  <CheckStateIcon
                     className={`size-4 ${block.state === 'completed' ? 'text-success' : block.state === 'in_progress' ? 'text-warning' : 'text-muted-foreground'}`}
+                    state={block.state}
                   />
                 </span>
               </TooltipTrigger>

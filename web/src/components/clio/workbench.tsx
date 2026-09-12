@@ -303,7 +303,9 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     },
     ref,
   ) {
-    const initialState = useRef(restoredWorkbenchState(workspaceId)).current;
+    // Lazy useState initializer (not useRef().current, which reads a ref
+    // during render) computes the restored state exactly once.
+    const [initialState] = useState(() => restoredWorkbenchState(workspaceId));
     const [tabs, setTabs] = useState<WorkbenchTab[]>(initialState.tabs);
     const [activeTabId, setActiveTabId] = useState<string>(initialState.activeTabId);
     const [maximized, setMaximized] = useState(false);

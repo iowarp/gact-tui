@@ -29,7 +29,7 @@ import {
   PanelRightOpenIcon,
   WaypointsIcon,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -405,6 +405,14 @@ export function ClioObservabilityView({
   const [activeView, setActiveView] = useState<ObservabilityView>(() =>
     restoredObservabilityView(sessionId),
   );
+  // Reset the restored view when the session identity itself changes, without
+  // an effect: adjusting state from a prop change during render (rather than
+  // in a post-commit effect) avoids the extra render-then-reset flash.
+  const [viewedSessionId, setViewedSessionId] = useState(sessionId);
+  if (sessionId !== viewedSessionId) {
+    setViewedSessionId(sessionId);
+    setActiveView(restoredObservabilityView(sessionId));
+  }
   const hasMediumNavigation = useContainerQuery(surfaceRef, 320);
   const hasWideNavigation = useContainerQuery(surfaceRef, 520);
   const toolTurnContext = useMemo(() => toolActivityContext(messages), [messages]);
@@ -551,9 +559,6 @@ export function ClioObservabilityView({
     tools,
     waitTurnContext,
   ]);
-  useEffect(() => {
-    setActiveView(restoredObservabilityView(sessionId));
-  }, [sessionId]);
 
   const selectView = (value: string) => {
     if (!OBSERVABILITY_VIEWS.has(value as ObservabilityView)) return;
