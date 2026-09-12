@@ -4,6 +4,7 @@ import {
   ArrowRightIcon,
   CalendarClockIcon,
   CircleAlertIcon,
+  FileIcon,
   InfoIcon,
   SearchIcon,
   ServerIcon,
@@ -527,6 +528,36 @@ export function ToolResultPresentation({
               ))}
             </BoundedResult>
           )}
+        </div>
+      </div>
+    );
+  }
+  const resourceListBlocks =
+    tool.name === 'workspace_resource_list'
+      ? blocks.filter((block) => block.type === 'link' && block.target === 'resource')
+      : [];
+  if (resourceListBlocks.length) {
+    return (
+      <div className="ml-7 flex min-w-0 flex-col gap-0.5" data-slot="tool-human-result">
+        {summary ? (
+          <p className="whitespace-pre-wrap pr-2 text-sm leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+            {summary}
+          </p>
+        ) : null}
+        <div
+          className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
+          data-slot="tool-result-panel"
+        >
+          <BoundedResult lines={3} unit="items" title="Workspace resources">
+            <ul aria-label="Workspace resources" className="divide-y">
+              {resourceListBlocks.map((resource) => (
+                <li className="flex min-w-0 items-center gap-2 px-2 py-1.5" key={resource.id}>
+                  <FileIcon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
+                  <PresentationLink block={resource} />
+                </li>
+              ))}
+            </ul>
+          </BoundedResult>
         </div>
       </div>
     );

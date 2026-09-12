@@ -23,7 +23,9 @@ export function ClioToolInvocation({
   const navigation = useContext(PresentationNavigation);
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
   const workflow = workflowDescriptor(tool);
-  const presentedTool = withResourceAction(withWorkflowPresentation(withSkillFileSubject(tool)));
+  const presentedTool = withResourcePresentation(
+    withWorkflowPresentation(withSkillFileSubject(tool)),
+  );
   const subject = presentedTool.presentation?.blocks.find(
     (block) =>
       block.id === presentedTool.presentation?.subject &&
@@ -102,15 +104,34 @@ export function ClioToolInvocation({
   );
 }
 
-function withResourceAction(tool: ToolInvocation): ToolInvocation {
-  if (tool.name !== 'workspace_resource_read' && tool.name !== 'workspace_resource_search')
+function withResourcePresentation(tool: ToolInvocation): ToolInvocation {
+  if (
+    tool.name !== 'workspace_resource_list' &&
+    tool.name !== 'workspace_resource_read' &&
+    tool.name !== 'workspace_resource_search'
+  )
     return tool;
+  const resources =
+    tool.name === 'workspace_resource_list'
+      ? (tool.presentation?.blocks.filter((block) => block.target === 'resource') ?? [])
+      : [];
   return {
     ...tool,
     presentation: tool.presentation
       ? {
           ...tool.presentation,
-          action: tool.name === 'workspace_resource_search' ? 'Search resource' : 'Read resource',
+          action:
+            tool.name === 'workspace_resource_list'
+              ? 'List resources'
+              : tool.name === 'workspace_resource_search'
+                ? 'Search resource'
+                : 'Read resource',
+          subject:
+            tool.name === 'workspace_resource_list' ? undefined : tool.presentation.subject,
+          summary:
+            tool.name === 'workspace_resource_list' && resources.length
+              ? `${resources.length} workspace ${resources.length === 1 ? 'resource' : 'resources'} found`
+              : tool.presentation.summary,
         }
       : tool.presentation,
   };
