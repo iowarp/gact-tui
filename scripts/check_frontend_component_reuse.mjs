@@ -6,9 +6,12 @@ const root = resolve(import.meta.dirname, '..');
 const requiredImports = {
   'web/src/components/clio/conversation.tsx': [
     '@/components/ai-elements/conversation',
-    '@/components/ai-elements/message',
-    './conversation-message-blocks',
+    './conversation-message-row',
   ],
+  // The per-message Message/MessageContent/MessageActions composition moved
+  // here when conversation.tsx was split by behavior (2026-09-12); the
+  // sourced component is still composed, just from this file now.
+  'web/src/components/clio/conversation-message-row.tsx': ['@/components/ai-elements/message'],
   'web/src/components/clio/conversation-message-blocks.tsx': [
     '@/components/ai-elements/code-block',
     '@/components/ai-elements/plan',
