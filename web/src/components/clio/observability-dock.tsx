@@ -746,7 +746,14 @@ function ProvenanceSourceBar({
         </div>
       </div>
       {degradation ? (
-        <p className="pl-6 text-xs leading-5 text-warning">{degradation.reason}</p>
+        // Small body text needs the 4.5:1 AA contrast plain text-warning
+        // doesn't clear against a light background (axe color-contrast,
+        // serious); text-warning-foreground is the established fix already
+        // used for warning text elsewhere (document-workspace.tsx,
+        // model-picker.tsx).
+        <p className="pl-6 text-xs leading-5 text-warning-foreground dark:text-warning">
+          {degradation.reason}
+        </p>
       ) : null}
     </div>
   );

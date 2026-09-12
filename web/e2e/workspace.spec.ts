@@ -38,16 +38,15 @@ async function settleConversationAtLatest(page: Page) {
 }
 
 async function waitForArtifactPreview(page: Page) {
-  const preview = page.getByRole('img', { name: 'vertical-displacement.png' });
-  await expect(preview).toBeVisible({ timeout: 20_000 });
-  await expect
-    .poll(() =>
-      preview.evaluate((image) => {
-        const element = image as HTMLImageElement;
-        return element.complete && element.naturalWidth > 0;
-      }),
-    )
-    .toBe(true);
+  // ClioArtifactAttachments now renders every transcript artifact as the
+  // compact, click-to-open row shared with the Artifacts canvas (Codex's
+  // af2c40e5 "fix: unify artifact output rows" sets preview={false}
+  // unconditionally there), so the inline <img> preview this helper used to
+  // wait for no longer renders in the transcript -- opening it is a separate
+  // affordance this test does not exercise.
+  await expect(
+    page.getByRole('button', { name: 'Open vertical-displacement.png' }),
+  ).toBeVisible({ timeout: 20_000 });
 }
 
 async function alignTranscriptAnchorAtTop(page: Page, anchor: Locator) {
@@ -395,7 +394,12 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   const observabilityClose = observabilityTab
     .locator('..')
     .locator('[data-slot="canvas-tab-close"]');
-  await expect(observabilityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
+  // Tabs are now drag-reorderable (@dnd-kit/sortable); the announced
+  // shortcuts grew the keyboard equivalent alongside Delete.
+  await expect(observabilityTab).toHaveAttribute(
+    'aria-keyshortcuts',
+    'Delete Alt+ArrowLeft Alt+ArrowRight',
+  );
   await expect(observabilityClose).toHaveAttribute('aria-hidden', 'true');
   await expect(canvas.getByRole('button', { name: /^Close / })).toHaveCount(0);
   await expect(observabilityClose).toHaveCSS('opacity', '0.7');

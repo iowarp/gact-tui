@@ -845,6 +845,9 @@ const server = createServer(async (request, response) => {
           name: 'vertical-displacement.png',
           media_type: 'image/png',
           uri: 'artifact://flat-ndp/vertical-displacement.png@v1',
+          // Without size, ClioArtifactCard's withinBudget check never opens,
+          // so the inline preview never fetches or renders (artifact-card.tsx).
+          size: artifactPng.length,
           created_at: observedAt,
         },
       ],

@@ -726,11 +726,30 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                       // tabindex model. Wrapping keeps both as ordinary flex siblings; Radix finds
                       // TabsTrigger by DOM query regardless of this wrapper, so roving tabindex
                       // between tabs is unaffected.
+                      // dnd-kit's useSortable defaults this element's role to
+                      // "button" (drag keyboard activation) via {...attributes};
+                      // that or an explicit role="presentation" both become a
+                      // disallowed direct child of the TabsList's
+                      // role="tablist" (axe aria-required-children, critical)
+                      // and sever the required tablist->tab parent
+                      // relationship for the real TabsTrigger nested inside
+                      // (aria-required-parent). This wrapper does not need
+                      // dnd-kit's own interactive semantics at all: the drag
+                      // handle is SortableItemHandle on the TabsTrigger below,
+                      // which only takes {...listeners} (the pointer/keyboard
+                      // drag activation), never {...attributes}. Overriding
+                      // every ARIA attribute {...attributes} sets to undefined
+                      // (props spread after attributes) drops them from the
+                      // DOM entirely, leaving a plain, role-less div the
+                      // tablist does not enumerate as an owned child.
                       <SortableItem
+                        aria-describedby={undefined}
+                        aria-disabled={undefined}
+                        aria-roledescription={undefined}
                         asChild
                         key={tab.id}
-                        role="presentation"
-                        tabIndex={-1}
+                        role={undefined}
+                        tabIndex={undefined}
                         value={tab.id}
                       >
                         <div

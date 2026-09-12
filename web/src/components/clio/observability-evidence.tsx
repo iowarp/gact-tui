@@ -125,6 +125,15 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
 
   return (
     <div className="min-w-0">
+      {/* Radix's AccordionHeader always renders an h3 (no level prop); the
+          removed Frame/FrameTitle summary (b4931b86) was this view's only
+          heading anchor, so section h3s now follow the transcript's own h1
+          with nothing between -- an axe heading-order violation. An h2 gives
+          the h3 sections a correctly-leveled parent; aria-label (not text
+          content) keeps it out of getByText so it doesn't reintroduce the
+          "Session evidence" string the redesign deliberately dropped
+          (test_observability_evidence.tsx:77 pins its absence). */}
+      <h2 aria-label="Session evidence" className="sr-only" />
       <Accordion defaultValue={['child-agents', 'files', 'changes', 'sources']} type="multiple">
         {runs.length ? (
           <EvidenceSection icon={ActivityIcon} label="Agent runs" value="runs" count={runs.length}>
