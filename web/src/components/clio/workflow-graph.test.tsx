@@ -4,7 +4,7 @@ import {
   buildWorkflowExecutionGraph,
   buildWorkflowGraph,
   initialExecutionViewport,
-} from './workflow-graph';
+} from './workflow-graph-builders';
 
 describe('buildWorkflowExecutionGraph', () => {
   it('preserves recorded workflow order and links step task identities to child runs', () => {

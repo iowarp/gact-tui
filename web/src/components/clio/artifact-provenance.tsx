@@ -22,7 +22,7 @@ import {
   projectArtifactResearchProvenance,
 } from './artifact-research-provenance';
 import { ClioStatus } from './status';
-import { ClioExecutionProvenanceGraph } from './workflow-graph';
+import { ClioExecutionProvenanceGraph } from './workflow-execution-graph';
 
 export function ArtifactProvenance({
   artifact,
