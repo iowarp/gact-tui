@@ -7,6 +7,7 @@ import {
   CircleAlertIcon,
   FileIcon,
   InfoIcon,
+  MessageSquareIcon,
   SearchIcon,
   ServerIcon,
   SquareIcon,
@@ -571,6 +572,152 @@ function ResourceSearchResults({
   );
 }
 
+interface MemoryExcerpt {
+  id: string;
+  role: string;
+  text: string;
+  session?: ToolPresentationBlock;
+}
+
+function compactExcerpt(text: string): string {
+  return text.replace(/\*\*/gu, '').replace(/\s+/gu, ' ').trim();
+}
+
+function MemoryExcerptItem({ excerpt, index }: { excerpt: MemoryExcerpt; index: number }) {
+  const label = excerpt.session?.label || `Excerpt ${index + 1}`;
+  return (
+    <Collapsible className="group/memory">
+      <div className="flex min-w-0 items-center gap-1.5 px-1.5 py-1">
+        <CollapsibleTrigger asChild>
+          <Button
+            aria-label={`Toggle ${label} ${excerpt.role} excerpt`}
+            className="shrink-0"
+            size="icon-sm"
+            variant="ghost"
+          >
+            <ChevronRightIcon
+              aria-hidden="true"
+              className="shrink-0 transition-transform group-data-[state=open]/memory:rotate-90"
+            />
+          </Button>
+        </CollapsibleTrigger>
+        {excerpt.session ? (
+          <PresentationLink block={excerpt.session} compact />
+        ) : (
+          <span className="shrink-0 text-sm font-medium">{label}</span>
+        )}
+        <Badge className="shrink-0 font-normal" variant="secondary">
+          {excerpt.role}
+        </Badge>
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+          {compactExcerpt(excerpt.text)}
+        </span>
+      </div>
+      <CollapsibleContent>
+        <div className="border-t bg-background/60 px-2 py-1.5">
+          <GroundedMessageResponse
+            className="min-w-0 max-w-full text-sm leading-5 [overflow-wrap:anywhere]"
+            controls={{ table: false }}
+          >
+            {excerpt.text}
+          </GroundedMessageResponse>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function MemoryExcerptPanel({
+  excerpts,
+  title,
+  icon: Icon = MessageSquareIcon,
+}: {
+  excerpts: readonly MemoryExcerpt[];
+  title: string;
+  icon?: typeof MessageSquareIcon;
+}) {
+  return (
+    <div
+      className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
+      data-slot="tool-result-panel"
+    >
+      <div className="flex items-center gap-1.5 border-b px-2 py-1.5 text-xs font-medium text-muted-foreground">
+        <Icon aria-hidden="true" className="shrink-0" />
+        <span>{title}</span>
+      </div>
+      {excerpts.length ? (
+        <BoundedResult lines={3} title={title} unit="items">
+          <ul aria-label={title} className="divide-y">
+            {excerpts.map((excerpt, index) => (
+              <li key={excerpt.id}>
+                <MemoryExcerptItem excerpt={excerpt} index={index} />
+              </li>
+            ))}
+          </ul>
+        </BoundedResult>
+      ) : (
+        <p className="px-2 py-1.5 text-sm text-muted-foreground">No retained excerpts</p>
+      )}
+    </div>
+  );
+}
+
+function memorySearchExcerpts(blocks: readonly ToolPresentationBlock[]): MemoryExcerpt[] {
+  const excerpts: MemoryExcerpt[] = [];
+  for (let index = 0; index < blocks.length; index++) {
+    const session = blocks[index];
+    const detail = blocks[index + 1];
+    if (session.type !== 'link' || session.target !== 'session' || detail?.type !== 'text') continue;
+    excerpts.push({
+      id: detail.id,
+      role: detail.label || 'Memory',
+      session,
+      text: detail.text ?? '',
+    });
+    index++;
+  }
+  return excerpts;
+}
+
+function MemorySearchResults({
+  blocks,
+  summary,
+}: {
+  blocks: readonly ToolPresentationBlock[];
+  summary: string;
+}) {
+  const title = summary.replace(/^(\d+\s+matches?)\s+in\s+(\d+\s+sessions?)$/iu, '$1 across $2');
+  return <MemoryExcerptPanel excerpts={memorySearchExcerpts(blocks)} icon={SearchIcon} title={title} />;
+}
+
+function MemorySessionSummary({
+  blocks,
+  summary,
+}: {
+  blocks: readonly ToolPresentationBlock[];
+  summary: string;
+}) {
+  const messageCount = /^(\d+\s+messages?)/imu.exec(summary)?.[1] || 'Session summary';
+  const status = /^Status:\s*(.+)$/imu.exec(summary)?.[1];
+  const excerpts = blocks
+    .filter((block) => block.type === 'text' && block.text)
+    .map((block) => ({
+      id: block.id,
+      role: block.label || 'Memory',
+      text: block.text ?? '',
+    }));
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <div className="flex items-center gap-2 px-0.5 text-xs text-muted-foreground">
+        <MessageSquareIcon aria-hidden="true" className="shrink-0" />
+        <span>{messageCount}</span>
+        {status ? <Badge variant="secondary">{status}</Badge> : null}
+      </div>
+      <MemoryExcerptPanel excerpts={excerpts} title="Recent session excerpts" />
+    </div>
+  );
+}
+
 function titleCase(value: unknown, fallback: string) {
   if (typeof value !== 'string' || !value) return fallback;
   return `${value[0].toUpperCase()}${value.slice(1).replaceAll('_', ' ')}`;
@@ -816,6 +963,20 @@ export function ToolResultPresentation({
           </p>
         ) : null}
         <ResourceSearchResults block={resourceSearchBlock} resource={subject} lines={lines} />
+      </div>
+    );
+  }
+  if (tool.name === 'memory_search_sessions') {
+    return (
+      <div className="ml-7 min-w-0" data-slot="tool-human-result">
+        <MemorySearchResults blocks={blocks} summary={summary} />
+      </div>
+    );
+  }
+  if (tool.name === 'memory_read_session_summary' && tool.state === 'succeeded') {
+    return (
+      <div className="ml-7 min-w-0" data-slot="tool-human-result">
+        <MemorySessionSummary blocks={blocks} summary={summary} />
       </div>
     );
   }

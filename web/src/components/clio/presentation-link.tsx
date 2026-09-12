@@ -1,4 +1,5 @@
 import { useContext } from 'react';
+import { Link } from 'react-router-dom';
 import type { ToolPresentationBlock } from '@clio/core/v3';
 import { PresentationNavigation } from './presentation-navigation';
 import { Button } from '@/components/ui/button';
@@ -96,9 +97,13 @@ export function PresentationLink({
     );
   if (block.target === 'session' && uri)
     return withTooltip(
-      <a className={cn(className, 'underline')} href={`./${encodeURIComponent(uri)}`}>
+      <Link
+        className={cn(className, 'underline')}
+        relative="path"
+        to={`../${encodeURIComponent(uri)}`}
+      >
         {text}
-      </a>,
+      </Link>,
     );
   return withTooltip(
     <span className={className} tabIndex={compact ? 0 : undefined}>

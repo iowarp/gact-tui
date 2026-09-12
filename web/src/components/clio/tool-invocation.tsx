@@ -23,9 +23,11 @@ export function ClioToolInvocation({
   const navigation = useContext(PresentationNavigation);
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
   const workflow = workflowDescriptor(tool);
-  const presentedTool = withResourcePresentation(
-    withWorkflowPresentation(withSkillFileSubject(tool)),
-    navigation?.resources,
+  const presentedTool = withMemoryPresentation(
+    withResourcePresentation(
+      withWorkflowPresentation(withSkillFileSubject(tool)),
+      navigation?.resources,
+    ),
   );
   const subject = presentedTool.presentation?.blocks.find(
     (block) =>
@@ -105,6 +107,22 @@ export function ClioToolInvocation({
       </div>
     </Dialog>
   );
+}
+
+function withMemoryPresentation(tool: ToolInvocation): ToolInvocation {
+  const action =
+    tool.name === 'memory_search_sessions'
+      ? 'Search session memory'
+      : tool.name === 'memory_read_session_summary'
+        ? 'Read session summary'
+        : tool.name === 'memory_read_context_frame'
+          ? 'Read retained context'
+          : undefined;
+  if (!action || !tool.presentation) return tool;
+  return {
+    ...tool,
+    presentation: { ...tool.presentation, action },
+  };
 }
 
 function withResourcePresentation(
