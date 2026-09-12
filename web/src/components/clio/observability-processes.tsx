@@ -162,7 +162,8 @@ function executionGantt(lanes: readonly ProcessLane[], now: number): ExecutionGa
     const ownerLabel =
       owner === 'main'
         ? 'Main agent'
-        : (work.find((lane) => lane.kind === 'agent' || lane.kind === 'mcp')?.label ?? 'Background work');
+        : (work.find((lane) => lane.kind === 'agent' || lane.kind === 'mcp-task')?.label ??
+          'Background work');
     return { id: `owner:${owner}`, title: ownerLabel, children };
   });
   const dependencyIds = ganttDependencies(lanes);

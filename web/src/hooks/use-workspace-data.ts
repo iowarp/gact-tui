@@ -13,6 +13,16 @@ import {
   PROVIDER_CATALOG_STALE_TIME_MS,
 } from '@/lib/runtime-limits';
 import { sessionArtifactEntities, sessionArtifactVersionEntities } from '@/lib/session-artifacts';
+import {
+  readReloadAllSessions,
+  readReloadSessions,
+  readReloadTranscript,
+  readReloadWorkspaces,
+  writeReloadAllSessions,
+  writeReloadSessions,
+  writeReloadTranscript,
+  writeReloadWorkspaces,
+} from '@/lib/session-reload-cache';
 import { withSubagentOrigins } from '@/lib/subagent-origins';
 import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
@@ -79,15 +89,30 @@ export function useWorkspaceData({
   );
   const mergeSnapshots = useLiveStore((state) => state.mergeSnapshots);
   const { capabilities, modelConfiguration } = useWorkspaceCapabilities();
+  const reloadWorkspaces = useMemo(() => readReloadWorkspaces(settings.endpoint), [settings.endpoint]);
+  const reloadSessions = useMemo(
+    () => readReloadSessions(settings.endpoint, workspaceId),
+    [settings.endpoint, workspaceId],
+  );
+  const reloadAllSessions = useMemo(
+    () => readReloadAllSessions(settings.endpoint),
+    [settings.endpoint],
+  );
+  const reloadTranscript = useMemo(
+    () => readReloadTranscript(settings.endpoint, sessionId),
+    [sessionId, settings.endpoint],
+  );
 
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
+    placeholderData: reloadWorkspaces,
   });
   const sessions = useQuery({
     queryKey: queryKeys.key('sessions', settings.endpoint, workspaceId),
     queryFn: ({ signal }) => repository.sessions(workspaceId, signal),
     enabled: Boolean(workspaceId),
+    placeholderData: reloadSessions,
     refetchInterval: (query) => {
       const current = query.state.data?.find((item) => item.id === sessionId);
       return current && isSessionActive(current.state) ? ACTIVE_SESSION_POLL_MS : false;
@@ -96,6 +121,7 @@ export function useWorkspaceData({
   const allSessions = useQuery({
     queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
     queryFn: ({ signal }) => repository.allSessions(signal),
+    placeholderData: reloadAllSessions,
   });
   const hierarchySessions = useMemo(
     () => allSessions.data ?? sessions.data ?? [],
@@ -110,6 +136,7 @@ export function useWorkspaceData({
     queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
     queryFn: ({ signal }) => repository.transcript(sessionId, signal),
     enabled: Boolean(sessionId),
+    placeholderData: reloadTranscript,
   });
   const sessionArtifacts = useQuery({
     queryKey: queryKeys.key('session-artifacts', settings.endpoint, sessionId),
@@ -236,8 +263,23 @@ export function useWorkspaceData({
     if (workspaces.data) mergeSnapshots({ workspaces: recordById(workspaces.data) });
   }, [mergeSnapshots, workspaces.data]);
   useEffect(() => {
+    if (workspaces.data && !workspaces.isPlaceholderData) {
+      writeReloadWorkspaces(settings.endpoint, workspaces.data);
+    }
+  }, [settings.endpoint, workspaces.data, workspaces.isPlaceholderData]);
+  useEffect(() => {
     if (sessions.data) mergeSnapshots({ sessions: recordById(sessions.data) });
   }, [mergeSnapshots, sessions.data]);
+  useEffect(() => {
+    if (sessions.data && !sessions.isPlaceholderData) {
+      writeReloadSessions(settings.endpoint, workspaceId, sessions.data);
+    }
+  }, [sessions.data, sessions.isPlaceholderData, settings.endpoint, workspaceId]);
+  useEffect(() => {
+    if (allSessions.data && !allSessions.isPlaceholderData) {
+      writeReloadAllSessions(settings.endpoint, allSessions.data);
+    }
+  }, [allSessions.data, allSessions.isPlaceholderData, settings.endpoint]);
   useEffect(() => {
     if (!transcript.data) return;
     mergeSnapshots({
@@ -248,6 +290,11 @@ export function useWorkspaceData({
       surfaces: recordById(transcript.data.surfaces),
     });
   }, [mergeSnapshots, transcript.data]);
+  useEffect(() => {
+    if (transcript.data && !transcript.isPlaceholderData) {
+      writeReloadTranscript(settings.endpoint, sessionId, transcript.data);
+    }
+  }, [sessionId, settings.endpoint, transcript.data, transcript.isPlaceholderData]);
   useEffect(() => {
     if (!sessionArtifacts.data && !transcript.data) return;
     // Live turns may announce older versions before a transcript refetch. Retain

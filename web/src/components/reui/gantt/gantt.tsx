@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-  type ComponentType,
   type HTMLAttributes,
   type ReactNode,
   type RefObject,

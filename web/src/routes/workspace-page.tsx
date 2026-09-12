@@ -147,7 +147,7 @@ export function WorkspacePage() {
     [sessionId],
   );
   const showConversationWelcome =
-    messageCount === 0 && !transcript.isPending && !transcriptError && !conversationStarted;
+    messageCount === 0 && !transcript.isFetching && !transcriptError && !conversationStarted;
 
   const {
     activeRequest: workbenchRequest,
@@ -772,7 +772,7 @@ export function WorkspacePage() {
                     artifacts={artifacts}
                     bottomInset={dockedComposerHeight}
                     error={transcriptError}
-                    loading={transcript.isPending}
+                    loading={transcript.isFetching}
                     onActionCardAction={actionCard.mutateAsync}
                     onA2UILocalAction={handleA2UILocalAction}
                     onOpenArtifact={openArtifact}

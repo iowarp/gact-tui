@@ -243,12 +243,6 @@ function getBaselineVariance<TData>(
   return deltaMs > 0 ? "late" : deltaMs < 0 ? "early" : "on-time"
 }
 
-interface PackedPosition {
-  column: number
-  columnCount: number
-  columnSpan: number
-}
-
 /**
  * Identity of a schedule ACROSS time edits. `occurrence.key` embeds the start
  * instant, so it changes the moment a schedule is moved or start-resized -
