@@ -156,6 +156,78 @@ describe('ClioToolInvocation', () => {
     );
     expect(container.querySelector('[data-language="python"]')).toBeInTheDocument();
   });
+  it('normalizes workspace resource reads into a bounded file preview', () => {
+    const { container } = render(
+      <ClioToolInvocation
+        tool={{
+          id: 'read-resource',
+          session_id: 's',
+          name: 'workspace_resource_read',
+          title: 'Read',
+          state: 'succeeded',
+          presentation: {
+            subject: 'resource',
+            blocks: [
+              {
+                id: 'resource',
+                type: 'link',
+                target: 'resource',
+                uri: 'res_html',
+                label: 'brief.html',
+              },
+              { id: 'content', type: 'text', text: '<!doctype html>\n<title>Brief</title>' },
+            ],
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText('Read resource')).toBeVisible();
+    expect(container.querySelector('[data-slot="tool-result-panel"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-language="html"]')).toBeInTheDocument();
+  });
+  it('labels workspace resource searches and links structured line matches to the resource', async () => {
+    const openResource = vi.fn();
+    const resource = { id: 'res_html', name: 'brief.html' } as never;
+    render(
+      <PresentationNavigation.Provider
+        value={{
+          artifacts: {},
+          subagents: {},
+          resources: { res_html: resource },
+          onOpenResource: openResource,
+        }}
+      >
+        <ClioToolInvocation
+          tool={{
+            id: 'search-resource',
+            session_id: 's',
+            name: 'workspace_resource_search',
+            title: 'Search',
+            state: 'succeeded',
+            presentation: {
+              subject: 'resource',
+              summary: '2 matches for “Meridian”',
+              blocks: [
+                {
+                  id: 'resource',
+                  type: 'link',
+                  target: 'resource',
+                  uri: 'res_html',
+                  label: 'brief.html',
+                },
+                { id: 'matches', type: 'text', text: '13: first match\n31: second match' },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+    expect(screen.getByText('Search resource')).toBeVisible();
+    expect(screen.getByText('Matches in brief.html')).toBeVisible();
+    expect(screen.getByText('first match')).toBeVisible();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Line 13' }));
+    expect(openResource).toHaveBeenCalledWith(resource);
+  });
   it('wraps qualifying result details instead of clipping them in a narrow pane', () => {
     const { container } = render(
       <ClioToolInvocation

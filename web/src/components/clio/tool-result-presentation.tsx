@@ -5,6 +5,7 @@ import {
   CalendarClockIcon,
   CircleAlertIcon,
   InfoIcon,
+  SearchIcon,
   ServerIcon,
   SquareIcon,
   SquareMinusIcon,
@@ -409,6 +410,61 @@ function PagedBlock({
   );
 }
 
+function ResourceSearchResults({
+  block,
+  resource,
+  lines,
+}: {
+  block: ToolPresentationBlock;
+  resource: ToolPresentationBlock;
+  lines: number;
+}) {
+  const matches = (block.text ?? '')
+    .split('\n')
+    .map((text) => {
+      const match = /^(\d+):\s*(.*)$/u.exec(text);
+      return match ? { line: match[1], text: match[2] } : undefined;
+    })
+    .filter((match): match is { line: string; text: string } => Boolean(match));
+  const title = `Matches in ${resource.label || 'workspace resource'}`;
+  return (
+    <div
+      className="min-w-0 overflow-hidden rounded-md border bg-muted/40"
+      data-slot="tool-result-panel"
+    >
+      <div className="flex items-center gap-1.5 border-b px-2 py-1.5 text-xs font-medium text-muted-foreground">
+        <SearchIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        <span>{title}</span>
+      </div>
+      {matches.length ? (
+        <BoundedResult lines={Math.min(lines, 3)} unit="items" title={title}>
+          <ul className="divide-y">
+            {matches.map((match) => (
+              <li className="grid min-w-0 grid-cols-[auto_1fr] gap-2 px-2 py-1.5" key={match.line}>
+                <PresentationLink
+                  block={{
+                    ...resource,
+                    id: `${resource.id}-line-${match.line}`,
+                    label: `Line ${match.line}`,
+                  }}
+                  compact
+                />
+                <code className="min-w-0 whitespace-pre-wrap break-words text-xs leading-5">
+                  {match.text}
+                </code>
+              </li>
+            ))}
+          </ul>
+        </BoundedResult>
+      ) : (
+        <p className="px-2 py-1.5 text-sm text-muted-foreground">
+          {block.text || 'No matching passages'}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation({
   tool,
@@ -421,23 +477,32 @@ export function ToolResultPresentation({
 }) {
   const lines = useTranscriptPreviewLines();
   const subject = tool.presentation?.blocks.find((block) => block.id === subjectId);
-  const subjectPath = subject?.target === 'file' ? subject.uri || subject.label || '' : '';
+  const resourceDocument =
+    tool.name === 'workspace_resource_read' && subject?.target === 'resource';
+  const subjectPath =
+    subject?.target === 'file'
+      ? subject.uri || subject.label || ''
+      : subject?.target === 'resource'
+        ? subject.label || subject.uri || ''
+        : '';
   const blocks = (tool.presentation?.blocks ?? [])
     .filter(
       (block) =>
         block.id !== subjectId &&
         (!['text', 'markdown'].includes(block.type) || block.text?.trim() || block.content_ref),
     )
-    .map((block) =>
-      block.type === 'code' && !block.language && subjectPath
+    .map((block) => {
+      if (resourceDocument && block.type === 'text')
+        return { ...block, type: 'code' as const, language: languageForPath(subjectPath) };
+      return block.type === 'code' && !block.language && subjectPath
         ? { ...block, language: languageForPath(subjectPath) }
-        : block,
-    );
+        : block;
+    });
   const summary = summaryInHeader ? '' : (tool.presentation?.summary?.trim() ?? '');
   // An explicitly declared file subject owns one document preview, including
   // metadata. Do not give each constituent block another preview-line budget.
   const document =
-    subject?.target === 'file' &&
+    (subject?.target === 'file' || resourceDocument) &&
     blocks.length > 0 &&
     blocks.every((block) => ['text', 'markdown', 'code', 'diff'].includes(block.type));
   if (document) {
@@ -463,6 +528,22 @@ export function ToolResultPresentation({
             </BoundedResult>
           )}
         </div>
+      </div>
+    );
+  }
+  const resourceSearchBlock =
+    tool.name === 'workspace_resource_search' && subject?.target === 'resource'
+      ? blocks.find((block) => block.type === 'text')
+      : undefined;
+  if (resourceSearchBlock && subject) {
+    return (
+      <div className="ml-7 flex min-w-0 flex-col gap-0.5" data-slot="tool-human-result">
+        {summary ? (
+          <p className="whitespace-pre-wrap pr-2 text-sm leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+            {summary}
+          </p>
+        ) : null}
+        <ResourceSearchResults block={resourceSearchBlock} resource={subject} lines={lines} />
       </div>
     );
   }

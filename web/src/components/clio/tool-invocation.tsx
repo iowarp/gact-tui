@@ -23,7 +23,7 @@ export function ClioToolInvocation({
   const navigation = useContext(PresentationNavigation);
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
   const workflow = workflowDescriptor(tool);
-  const presentedTool = withWorkflowPresentation(withSkillFileSubject(tool));
+  const presentedTool = withResourceAction(withWorkflowPresentation(withSkillFileSubject(tool)));
   const subject = presentedTool.presentation?.blocks.find(
     (block) =>
       block.id === presentedTool.presentation?.subject &&
@@ -100,6 +100,20 @@ export function ClioToolInvocation({
       </div>
     </Dialog>
   );
+}
+
+function withResourceAction(tool: ToolInvocation): ToolInvocation {
+  if (tool.name !== 'workspace_resource_read' && tool.name !== 'workspace_resource_search')
+    return tool;
+  return {
+    ...tool,
+    presentation: tool.presentation
+      ? {
+          ...tool.presentation,
+          action: tool.name === 'workspace_resource_search' ? 'Search resource' : 'Read resource',
+        }
+      : tool.presentation,
+  };
 }
 
 function withSkillFileSubject(tool: ToolInvocation): ToolInvocation {
