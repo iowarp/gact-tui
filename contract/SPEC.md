@@ -729,7 +729,7 @@ field is still present at its default.
 | `file_diff` | Proposed file change | **Implemented (clio)**: `path: string`, `unified_diff: string`, `new_content: string` (whole-file replacement the apply path writes — re-applying a unified diff is fragile; ships on the wire in both SSE `message.part.added` and `GET /messages`), `status: string` (`"pending"`/`"applied"`/`"rejected"`/`"apply_failed"`), `edit_mode: string` (`diff`/`whole`/`patch`), `lines_added: int`, `lines_removed: int`. NOTE: clio uses `unified_diff`/`new_content`/`status`, NOT the v0.1 `before`/`after`/`applied` triple. **Lifecycle caveat**: the persisted Part's `status` is frozen at `"pending"` (its status at proposal time) — apply/reject mutate only the §6.10 diff rows and emit `file.diff.*` events; `GET /messages` never reflects apply state. `GET /diffs` + `file.diff.*` are authoritative. |
 | `citation` | Source attribution | `text_range: {start, end}`, `source: {type: "document"\|"web"\|"resource", reference: string, location: object}` (v0.1 sketch) |
 | `error` | In-stream error | `code: string`, `message: string`, `recoverable: bool` (v0.1 shape; v0.2 backends prefer `Message.error_info`, §14) |
-| `compaction` | Marks where prior history was summarized away | `summary: string`, `compacted_message_ids: string[]`, `auto: bool` (true if backend-triggered, false if user-triggered). **[EMITTED by clio 2f892c1]** — clio's `/compact` (§6.25) REPLACES the ledger with one synthetic assistant message whose single part is `type="compaction"`, carrying `summary`/`compacted_message_ids`/`auto=false` (user-triggered) plus `metadata.synthetic: "compact_summary"` + `memory_event_id`. (Prior to 2f892c1 clio inlined the summary as a `[compact summary]`-prefixed `text` part; that prose form is retired.) |
+| `compaction` | Marks a checkpoint appended after prior history was summarized | `summary: string`, `compacted_message_ids: string[]`, `auto: bool` (true if backend-triggered, false if user-triggered). **[EMITTED by clio 2f892c1; APPEND semantics since #1339]** — clio's `/compact` (§6.25) APPENDS a checkpoint row: one synthetic assistant message whose single part is `type="compaction"`, carrying `summary`/`compacted_message_ids`/`auto=false` (user-triggered) plus `metadata.synthetic: "compact_summary"` + `memory_event_id`; earlier messages stay in the transcript. (Prior to 2f892c1 clio inlined the summary as a `[compact summary]`-prefixed `text` part; that prose form is retired.) |
 
 > **Implemented part shape (clio `types.py:Part`).** The reference
 > backend models `Part` as a **single flat struct** with all of the
@@ -1995,23 +1995,40 @@ canonical tag), 503 `agent_unavailable` (no LM agent bound), 502
 `upstream_error` (summarization failed), 500 `memory_update_failed`
 (ARC store failure).
 
-Behavior (clio 2f892c1, descriptive):
+Behavior (clio 2f892c1, descriptive; APPEND semantics since #1339):
 
-- The transcript source is the text parts of the **last 50 messages**.
-- On success the visible ledger is **REPLACED by ONE synthetic
-  assistant message** (`msg_compact_*`) whose single part is
+- The row is announced with `message.created` (parts inline) before
+  `session.compacted`. On success the visible ledger **APPENDS ONE
+  synthetic assistant message** (`msg_compact_*`) whose single part is
   `type="compaction"` (§4.5) — carrying `summary`,
-  `compacted_message_ids` (the ids of the messages it replaced), and
-  `auto=false` (user-triggered) — and also retains
-  `metadata.synthetic: "compact_summary"` + `memory_event_id`. (Prior
-  to 2f892c1 the summary rode on a `[compact summary]`-prefixed `text`
-  part; that prose form is retired — see §4.5, §10 item 3.)
-- The original messages are archived **in-memory only**
-  (process-lifetime); the ARC conversation is replaced with the
-  summary when ARC is configured.
+  `compacted_message_ids` (the ids of the rows it covers), and `auto`
+  (`false` for a user-triggered `/compact`, `true` for the automatic
+  percentage trigger) — and also retains `metadata.synthetic:
+  "compact_summary"` + `memory_event_id`. This is a checkpoint row:
+  earlier messages stay in the transcript rather than being removed
+  from the visible ledger. (Prior to 2f892c1 the summary rode on a
+  `[compact summary]`-prefixed `text` part; that prose form is
+  retired — see §4.5, §10 item 3.)
+- The summariser input is the **model context**: the latest checkpoint
+  row plus every row it does not cover (by `compacted_message_ids`),
+  rendering every part class — text/thinking/error text, prior
+  checkpoint summaries, and bounded `tool call`/`tool result` lines.
+  There is no message cap.
+- There is **no archive**: nothing is removed, so nothing is
+  archived, and the ARC `conversations` record is no longer written.
+  When an ARC working-set scope is live (a running turn), the same
+  summary folds the working set, reported by the memory event's typed
+  `arc_status` (`not_configured` | `no_active_scope` |
+  `working_set_too_small` | `folded`).
 - Emits `session.compacted` with payload `{event_id, archived_count,
-  summary_chars, summary_message_id, version: 1}` (§7.3a) plus a
-  `memory.compacted` semantic event (semantic spine only, §7.6).
+  summary_chars, summary_message_id, version: 1}` (§7.3a) plus an
+  additive `trigger` (`"manual"` | `"auto"`) — `archived_count` now
+  counts the rows the checkpoint covers, not a deletion — plus a
+  `memory.compacted` semantic event (semantic spine only, §7.6). The
+  response adds `checkpoint_placement` (`"appended"`, or
+  `"staged_for_finalize"` when a turn is running and the row lands
+  right after that turn's assistant message). Automatic compaction
+  (the percentage trigger) runs the same operation with `auto=true`.
 
 This is the implemented path for both history compaction and the
 user-facing summary (the `/summarize` route is not registered and
@@ -2236,7 +2253,7 @@ sketch; the rest reflect clio's resource model.
 | `session.snapshot` | Right after `server.connected` (id 0, preamble) | `{session_id, status, updated_at, authoritative: true}` |
 | `session.status_changed` | status transition | `{session_id, status, prev_status?, updated_at, reason?, pending_user_question_id?}`; on `/cancel` additionally `{execution_cancellation: "cooperative_pending"\|"none"\|"turn_boundary"\|"best_effort", executor_work_may_continue, cancellation_attempt}`. **No `session.cancelled` event type exists** |
 | `session.updated` | PATCH `/v1/sessions/{id}` and after undo/rewind (only) | payload IS the **full Session object** (model_dump; zero-values present) |
-| `session.compacted` | `/compact` succeeded (§6.25) | `{event_id, archived_count, summary_chars, summary_message_id, version: 1}` |
+| `session.compacted` | `/compact` succeeded (§6.25) | `{event_id, archived_count, summary_chars, summary_message_id, version: 1}` plus an additive `trigger` (`"manual"` \| `"auto"`) |
 | `session.cleared` | `/clear` backend command wiped the ledger (policy-guarded) | `{session_id}` |
 | `session.undo` / `session.rewind` | rollback committed (§6.2) — after per-message `message.deleted`, before `session.updated` | `{session_id, deleted_message_ids, target_message_id, include_target}` (`target_message_id: ""` / `include_target: false` for undo) |
 | `message.created` | new message frame (user msg, streamed assistant frame, finalize assistant frame, tool-observer frame) | payload IS the **flat wire Message** (`Message.to_wire()`) — **NOT** `{message: Message}`. Assistant frames arrive with `parts: []` and a `turn_id`. No `role: "tool"` messages are emitted (tool results are `tool_result` parts on the assistant message) |
@@ -2844,7 +2861,7 @@ The 10 questions raised during design review are decided here. Several are expli
 
 2. **System messages: in the message stream as `role: "system"`.** Default included; suppressible via `?include_system=false`. Backends that store the system prompt only in session config simply never emit one. See §4.4.
 
-3. **Compaction: an event, plus a visible marker in history.** The `session.compacted` event (§7.3) lets the TUI react in real time. The in-history marker is the `compaction` part type (§4.5); **the reference backend emits it as of clio 2f892c1** — clio replaces the ledger with one synthetic assistant message whose sole part is a `compaction` part (still flagged `metadata.synthetic: "compact_summary"`, §6.25), serving the same archaeological purpose. The part type also remains valid for backends that keep pre-compaction history inline.
+3. **Compaction: an event, plus a visible marker in history.** The `session.compacted` event (§7.3) lets the TUI react in real time. The in-history marker is the `compaction` part type (§4.5); **the reference backend emits it as of clio 2f892c1** — clio APPENDS a checkpoint row: one synthetic assistant message whose sole part is a `compaction` part (still flagged `metadata.synthetic: "compact_summary"`, §6.25), serving the same archaeological purpose, with earlier messages staying in the transcript (APPEND semantics since #1339). The part type also remains valid for backends that keep pre-compaction history inline.
 
 4. **Search: yes, `GET /v1/sessions/{id}/messages/search?q=...`** (§6.3). Gated by `capabilities.search_messages`. Simple full-text shape, returns matches with snippets. Backend ranks however it wants.
 

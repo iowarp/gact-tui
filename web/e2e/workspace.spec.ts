@@ -300,7 +300,11 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
     })
     .toBe(true);
   await settleConversationAtLatest(page);
-  const activeLandmark = page.getByRole('button', { name: 'Jump to assistant message 1000' });
+  // #1339 appended a compaction checkpoint message to the shared fixture
+  // transcript, shifting every landmark after it by one (999 -> the
+  // checkpoint itself, 1000 -> the fixture request, 1001 -> the active
+  // streaming turn).
+  const activeLandmark = page.getByRole('button', { name: 'Jump to assistant message 1001' });
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
   await expect(minimap).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   await expect(minimap).toHaveCSS('box-shadow', 'none');
@@ -319,7 +323,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(activeMarker).toHaveCSS('opacity', '1');
   const previousLandmark = minimap.getByRole('button', {
     exact: true,
-    name: 'Jump to user message 999',
+    name: 'Jump to user message 1000',
   });
   const previousMarker = previousLandmark.locator('[data-slot="transcript-minimap-landmark"]');
   await expect(previousMarker).toHaveCSS('width', '12px');
@@ -741,6 +745,48 @@ test('batches a 100-delta stream over a virtualized 1,000-message transcript', a
   expect(measurements.streamMutationBatches).toBeLessThanOrEqual(measurements.animationFrames + 2);
   expect(measurements.transcriptMutationBatches).toBeLessThan(100);
   expect(Math.abs(measurements.bottomGap)).toBeLessThanOrEqual(2);
+});
+
+test('shows the compaction checkpoint row collapsed with a clamped preview, then expands it (#1339)', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+  await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
+  await settleConversationAtLatest(page);
+
+  const compactionRow = page.locator('[data-slot="compaction-summary"]');
+  await expect(compactionRow).toBeVisible();
+  await expect(compactionRow.getByText('Context summarized')).toBeVisible();
+  await expect(compactionRow.getByText('Automatic')).toBeVisible();
+
+  // Collapsed: a clamped preview of the summary the agent received, not an
+  // empty row — the checkpoint appends to the transcript, it does not hide it.
+  const preview = compactionRow.locator('p.line-clamp-3');
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText('EarthScope station evidence ledger');
+  // Scroll the row to the top of the viewport: it sits near the tail of the
+  // transcript, close enough to the composer that the floating "Agent needs
+  // your response" queue (docked at the bottom) would otherwise cover it.
+  await compactionRow.evaluate((element) =>
+    element.scrollIntoView({ behavior: 'instant', block: 'start' }),
+  );
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  await expect(compactionRow).toHaveScreenshot('compaction-row-collapsed.png', {
+    animations: 'disabled',
+  });
+
+  await compactionRow.getByRole('button', { name: 'Show more' }).click();
+  await expect(compactionRow.locator('p.line-clamp-3')).toHaveCount(0);
+  await expect(
+    compactionRow.getByText(/derived displacement series before this checkpoint/),
+  ).toBeVisible();
+  await expect(compactionRow.getByRole('button', { name: 'Show less' })).toBeVisible();
 });
 
 declare global {

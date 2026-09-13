@@ -41,7 +41,7 @@ gact-tui and is **not** made here. Tracked in **clio-agent#1170**.
 | `routing_decision` | assorted | selected expert |
 | `mcp_app` | `mcp_apps` path | `ui://` MCP App payload |
 | `file_diff` | assorted | `path`, `status` |
-| `compaction` | assorted | context compaction marker |
+| `compaction` | assorted | context compaction marker — `/compact` APPENDS a checkpoint row; earlier messages stay in the transcript |
 | `background_exit` | `gact/background_exit.py:46` | **P2.14 / #1131** |
 | `agent_message` | `gact/agent_messaging.py:116` | **P2.11 / #1128** |
 
