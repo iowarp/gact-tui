@@ -618,6 +618,10 @@ export const toolInvocationSchema = z.object({
   ]),
   input: z.unknown().optional(),
   output: z.unknown().optional(),
+  output_stream: z.string().optional(),
+  progress_message: z.string().optional(),
+  progress: z.number().optional(),
+  progress_total: z.number().optional(),
   started_at: z.string().optional(),
   completed_at: z.string().optional(),
   duration_ms: z

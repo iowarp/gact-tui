@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const fixturePort = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 const fixtureEndpoint = `http://127.0.0.1:${fixturePort}`;
@@ -50,31 +50,33 @@ async function waitForArtifactPreview(page: Page) {
     .toBe(true);
 }
 
-async function alignLatestActivityAtTop(page: Page) {
+async function alignTranscriptAnchorAtTop(page: Page, anchor: Locator) {
   const conversation = page.getByRole('log', { name: 'Conversation' });
-  const activityHeader = conversation.getByRole('button', { name: 'Activity' }).last();
-  await expect(activityHeader).toBeVisible();
-  await activityHeader.evaluate((header) => {
-    const scroller = header.closest<HTMLElement>('[role="log"]');
-    const activity = header.parentElement;
-    if (!scroller || !activity) throw new Error('Latest Activity is outside the conversation');
-    scroller.scrollBy({
-      behavior: 'instant',
-      top: activity.getBoundingClientRect().top - scroller.getBoundingClientRect().top,
-    });
-  });
+  await expect(anchor).toBeVisible();
   await expect
     .poll(() =>
-      activityHeader.evaluate((header) => {
-        const scroller = header.closest<HTMLElement>('[role="log"]');
-        const activity = header.parentElement;
-        if (!scroller || !activity) return Number.POSITIVE_INFINITY;
+      anchor.evaluate((element) => {
+        const scroller = element.closest<HTMLElement>('[role="log"]');
+        if (!scroller) return Number.POSITIVE_INFINITY;
+        const delta = element.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+        const remainingScroll = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight;
+        if (delta > remainingScroll + 1) {
+          const paddingBottom = Number.parseFloat(getComputedStyle(scroller).paddingBottom) || 0;
+          scroller.style.paddingBottom = `${paddingBottom + delta - remainingScroll}px`;
+        }
+        scroller.scrollBy({ behavior: 'instant', top: delta });
         return Math.abs(
-          activity.getBoundingClientRect().top - scroller.getBoundingClientRect().top,
+          element.getBoundingClientRect().top - scroller.getBoundingClientRect().top,
         );
       }),
     )
     .toBeLessThanOrEqual(1);
+}
+
+async function alignLatestActivityAtTop(page: Page) {
+  const conversation = page.getByRole('log', { name: 'Conversation' });
+  const activityHeader = conversation.getByRole('button', { name: 'Activity' }).last();
+  await alignTranscriptAnchorAtTop(page, activityHeader.locator('..'));
 }
 
 test.beforeEach(async ({ page }) => {
@@ -437,6 +439,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   // affordance is present in some runs and gone in others — a baseline that
   // matches about half the time.
   await settleConversationAtLatest(page);
+  await alignTranscriptAnchorAtTop(page, page.locator('[data-slot="sub-agent-dispatch"]'));
   await expect(page).toHaveScreenshot('workspace-mobile-light-reduced.png', {
     animations: 'disabled',
     maxDiffPixels: 1500,

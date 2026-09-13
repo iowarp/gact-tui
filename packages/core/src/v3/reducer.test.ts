@@ -223,6 +223,39 @@ describe('GACT 0.3 reducer', () => {
     ]);
   });
 
+  it('retains live terminal output when the tool completion arrives', () => {
+    const started = frame('5', 'tool.upserted', {
+      id: 'call_1',
+      session_id: 'sess_1',
+      name: 'shell_bash',
+      state: 'running',
+      input: { command: 'run checks' },
+    });
+    const progress = frame('6', 'tool.upserted', {
+      id: 'call_1',
+      session_id: 'sess_1',
+      name: 'shell_bash',
+      state: 'running',
+      output_stream: '42 passed\n',
+      progress: 10,
+    });
+    const completed = frame('7', 'tool.upserted', {
+      id: 'call_1',
+      session_id: 'sess_1',
+      name: 'shell_bash',
+      state: 'succeeded',
+      output: { stdout: '42 passed\n', stderr: '', exit_code: 0 },
+    });
+
+    const state = [started, progress, completed].reduce(reduceTransportFrame, createEntityState());
+
+    expect(state.tools.call_1).toMatchObject({
+      state: 'succeeded',
+      output_stream: '42 passed\n',
+      output: { stdout: '42 passed\n', stderr: '', exit_code: 0 },
+    });
+  });
+
   it('marks a replay gap for authoritative snapshot reconciliation', () => {
     const state = reduceTransportFrame(
       createEntityState(),

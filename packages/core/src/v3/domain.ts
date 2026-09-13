@@ -213,6 +213,12 @@ export interface ToolInvocation {
   state: ToolState;
   input?: unknown;
   output?: unknown;
+  /** Incremental, already-correlated terminal output for a running tool. */
+  output_stream?: string;
+  /** Latest server-authored progress message for non-terminal tools. */
+  progress_message?: string;
+  progress?: number;
+  progress_total?: number;
   started_at?: string;
   completed_at?: string;
   duration_ms?: number;

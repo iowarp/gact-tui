@@ -5,6 +5,8 @@ import { Tool, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elemen
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import { formatToolDuration, getToolPresentation, getToolSummary } from './tool-presentation';
 import { cn } from '@/lib/utils';
+import { ToolResultPresentation } from './tool-result-presentation';
+import { hasToolResultPresentation } from './tool-result-presentation-model';
 
 export function ClioToolInvocation({
   tool,
@@ -23,7 +25,7 @@ export function ClioToolInvocation({
     );
   }
   const presentation = getToolPresentation(tool);
-  const summary = getToolSummary(tool);
+  const summary = hasToolResultPresentation(tool) ? undefined : getToolSummary(tool);
   const PresentationIcon = presentation.kind === 'analysis-view' ? PanelsTopLeftIcon : WrenchIcon;
   return (
     <Tool
@@ -59,6 +61,7 @@ export function ClioToolInvocation({
           className="size-4 transition-transform group-data-[state=open]:rotate-180"
         />
       </CollapsibleTrigger>
+      <ToolResultPresentation tool={tool} />
       <ToolContent className={cn('border-t', embedded && 'mt-2 rounded-lg border p-3')}>
         {tool.input !== undefined ? <ToolInput input={(tool.input ?? {}) as never} /> : null}
         <ToolOutput errorText={tool.error as never} output={tool.output as never} />

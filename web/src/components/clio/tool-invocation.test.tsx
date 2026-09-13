@@ -98,4 +98,95 @@ describe('ClioToolInvocation', () => {
     expect(screen.getByText('{}')).toBeVisible();
     expect(screen.queryByText('null')).not.toBeInTheDocument();
   });
+
+  it('shows a declared human result without opening technical JSON', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-skill',
+          session_id: 'session-1',
+          name: 'load_skill',
+          title: 'Load Skill',
+          state: 'succeeded',
+          output: {
+            content: [],
+            structuredContent: {
+              message: "loaded skill 'ai-elements' (204 lines)",
+              skill_id: 'ai-elements',
+              path: 'skills/ai-elements/SKILL.md',
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText("loaded skill 'ai-elements' (204 lines)")).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Result' })).not.toBeInTheDocument();
+  });
+
+  it('renders an exact proposed edit as a visible diff beneath the tool row', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-diff',
+          session_id: 'session-1',
+          name: 'fs_propose_edit',
+          state: 'succeeded',
+          output: {
+            content: [],
+            structuredContent: {
+              path: 'src/example.py',
+              unified_diff: '@@ -1 +1 @@\n-old\n+new',
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('src/example.py')).toBeVisible();
+    expect(screen.getByText('+new')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Copy diff for src/example.py' })).toBeVisible();
+  });
+
+  it('shows live terminal output and preserves the technical disclosure', () => {
+    render(
+      <ClioToolInvocation
+        defaultOpen
+        tool={{
+          id: 'tool-shell',
+          session_id: 'session-1',
+          name: 'shell_bash',
+          state: 'running',
+          input: { command: 'run checks' },
+          output_stream: 'collecting tests\n42 passed\n',
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText('Command')).toHaveTextContent('run checks');
+    expect(screen.getByText(/collecting tests/u)).toBeVisible();
+    expect(screen.getByText(/42 passed/u)).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Arguments' })).toBeVisible();
+  });
+
+  it('renders completed stdout and the real process exit code', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-shell-complete',
+          session_id: 'session-1',
+          name: 'shell_bash',
+          state: 'succeeded',
+          output: {
+            content: [],
+            structuredContent: { stdout: 'all checks passed\n', stderr: '', exit_code: 0 },
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/all checks passed/u)).toBeVisible();
+    expect(screen.getByText('Process exited with code 0.')).toBeVisible();
+    expect(screen.queryByLabelText('Command')).not.toBeInTheDocument();
+  });
 });
