@@ -66,9 +66,9 @@ const ArtifactView = lazy(() =>
 const BlueprintFileEditor = lazy(() =>
   loadResourceViewers().then((module) => ({ default: module.BlueprintFileEditor })),
 );
-const WorkspaceResourceView = lazy(() =>
+const WorkspaceResourceCarousel = lazy(() =>
   import('./workspace-resource-view').then((module) => ({
-    default: module.WorkspaceResourceView,
+    default: module.WorkspaceResourceCarousel,
   })),
 );
 
@@ -107,6 +107,7 @@ type WorkbenchTab =
       id: string;
       kind: 'resource';
       label: string;
+      relatedResources: readonly WorkspaceResource[];
       resource: WorkspaceResource;
       workspaceId: string;
     }
@@ -156,7 +157,11 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'workspace-file'; path: string }
   | { kind: 'diff'; diff: SessionDiff }
   | { kind: 'artifact'; artifact: ArtifactEntity }
-  | { kind: 'resource'; resource: WorkspaceResource }
+  | {
+      kind: 'resource';
+      resource: WorkspaceResource;
+      relatedResources?: readonly WorkspaceResource[];
+    }
   | { kind: 'blueprint'; blueprint: AgentBlueprintReference }
   | { kind: 'subagent'; subagent: SubagentRun }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
@@ -327,6 +332,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
               id: `resource:${request.resource.id}`,
               kind: 'resource',
               label: request.resource.name,
+              relatedResources: request.relatedResources ?? [request.resource],
               resource: request.resource,
               workspaceId: request.resource.workspace_id || workspaceId,
             });
@@ -431,6 +437,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                   id: `resource:${resource.id}`,
                   kind: 'resource',
                   label: resource.name,
+                  relatedResources: resources ?? [resource],
                   resource,
                   workspaceId: resource.workspace_id || workspaceId,
                 })
@@ -535,7 +542,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         case 'resource':
           return (
             <Suspense fallback={<CanvasLoading label="Loading resource" />}>
-              <WorkspaceResourceView resource={tab.resource} workspaceId={tab.workspaceId} />
+              <WorkspaceResourceCarousel
+                resource={tab.resource}
+                resources={tab.relatedResources}
+                workspaceId={tab.workspaceId}
+              />
             </Suspense>
           );
         case 'blueprint':
@@ -631,6 +642,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                             ? 'text-foreground'
                             : 'text-muted-foreground hover:bg-muted/55 hover:text-foreground',
                         )}
+                        onAuxClick={(event) => {
+                          if (event.button !== 1) return;
+                          event.preventDefault();
+                          event.stopPropagation();
+                          closeTab(tab.id);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key !== 'Delete') return;
                           event.preventDefault();

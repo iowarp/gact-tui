@@ -12,6 +12,8 @@ param(
     [string]$ExpectedModel = "gpt-5.6-luna",
     [string]$ExpectedTransport = "sdk",
     [string]$DevRoot = "D:\Libraries\Documents\projects\clio_develop_workspace",
+    [ValidateRange(30, 900)]
+    [int]$HealthTimeoutSec = 300,
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
     [string[]]$RequiredMcpNamespaces = @(),
@@ -74,30 +76,33 @@ function Get-OneListenerPid {
 $backendPid = Get-OneListenerPid -Port $BackendPort
 $webPid = Get-OneListenerPid -Port $WebPort
 $documentProcessorPid = Get-OneListenerPid -Port $DocumentProcessorPort
-$health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec 10
+$health = Invoke-RestMethod -Uri "$backendUrl/v1/health" -TimeoutSec $HealthTimeoutSec
 $documentProcessorResponse = Invoke-ClioDevWebRequest `
     -Uri "$documentProcessorUrl/readyz" `
     -TimeoutSec 10
 $documentProcessorHealth = $documentProcessorResponse.Content | ConvertFrom-Json
-# SDK-native provider discovery performs real modality probes and may need to
-# initialize the provider subprocess even after the service health endpoint is
-# ready. Keep that evidence-producing request bounded independently of generic
-# health checks.
+# SDK-native provider and blueprint discovery can perform real cold-start work
+# after the lightweight health endpoint is ready. Keep every backend readiness
+# probe within the single explicit live-preflight budget supplied by the caller.
 try {
-    $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec 120
+    $provider = Invoke-RestMethod -Uri "$backendUrl/v1/providers/lm" -TimeoutSec $HealthTimeoutSec
 }
 catch {
     throw "Provider preflight failed for $backendUrl/v1/providers/lm: $($_.Exception.Message)"
 }
-$catalog = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints" -TimeoutSec 20
-# Source discovery reads the installed marketplace and can cross a cold disk on
-# the first request. Keep this bounded without applying the generic 10-second
-# HTTP timeout to a valid cold-start path.
-$sources = Invoke-RestMethod -Uri "$backendUrl/v1/agent-blueprints/sources" -TimeoutSec 30
+$catalog = Invoke-RestMethod `
+    -Uri "$backendUrl/v1/agent-blueprints" `
+    -TimeoutSec $HealthTimeoutSec
+$sources = Invoke-RestMethod `
+    -Uri "$backendUrl/v1/agent-blueprints/sources" `
+    -TimeoutSec $HealthTimeoutSec
 try {
     # The first full application request may still be compiling the Vite graph
     # after the lightweight startup readiness request has succeeded.
-    $webResponse = Invoke-WebRequest -Uri "$webUrl/" -TimeoutSec 30
+    $webResponse = Invoke-WebRequest `
+        -Uri "$webUrl/" `
+        -TimeoutSec 30 `
+        -UseBasicParsing
 }
 catch {
     throw "Web root preflight failed for $webUrl/: $($_.Exception.Message)"
@@ -110,7 +115,8 @@ try {
     $gactResponse = Invoke-WebRequest `
         -Uri "$backendUrl/v1/capabilities" `
         -Headers $gactHeaders `
-        -TimeoutSec 30
+        -TimeoutSec 30 `
+        -UseBasicParsing
 }
 catch {
     throw "GACT capability preflight failed for $backendUrl/v1/capabilities: $($_.Exception.Message)"
@@ -125,7 +131,8 @@ try {
             "Access-Control-Request-Method" = "GET"
             "Access-Control-Request-Headers" = "x-gact-version"
         } `
-        -TimeoutSec 30
+        -TimeoutSec 30 `
+        -UseBasicParsing
 }
 catch {
     throw "GACT CORS preflight failed for $backendUrl/v1/capabilities: $($_.Exception.Message)"
@@ -186,11 +193,26 @@ $configuredDocumentProcessor = @(
         Where-Object {
             $_.id -eq "clio-web-search-docling" -and
             $_.configured -eq $true -and
-            $_.endpoint -eq $documentProcessorUrl
+            -not [string]::IsNullOrWhiteSpace([string]$_.endpoint)
         }
 ) | Select-Object -First 1
 if ($null -eq $configuredDocumentProcessor) {
-    throw "CLIO does not advertise the contained document processor at $documentProcessorUrl."
+    throw "CLIO does not advertise a configured clio-web-search-docling document processor."
+}
+$resourceDegradations = @($campaignCapabilities.x_clio_resources.degradations)
+if ($resourceDegradations.Count -gt 0) {
+    throw "CLIO resource conversion is degraded: $($resourceDegradations -join '; ')."
+}
+$activeDocumentProcessorUrl = ([string]$configuredDocumentProcessor.endpoint).TrimEnd("/")
+$activeDocumentProcessorResponse = Invoke-ClioDevWebRequest `
+    -Uri "$activeDocumentProcessorUrl/readyz" `
+    -TimeoutSec 30
+$activeDocumentProcessorHealth = $activeDocumentProcessorResponse.Content | ConvertFrom-Json
+if (
+    $activeDocumentProcessorResponse.StatusCode -ne 200 -or
+    $activeDocumentProcessorHealth.checks.docling -ne "ready"
+) {
+    throw "The configured document processor at $activeDocumentProcessorUrl is not ready."
 }
 if ($documentProcessorHealth.checks.docling -ne "ready") {
     throw "The contained document processor's Docling worker is '$($documentProcessorHealth.checks.docling)', not ready."
@@ -314,7 +336,7 @@ try {
             approval_mode = "bypass"
             metadata = @{ preflight = $true }
         } | ConvertTo-Json -Depth 4) `
-        -TimeoutSec 60
+        -TimeoutSec $HealthTimeoutSec
     $arcProbeSessionId = [string]$arcProbeSession.id
     if (-not $arcProbeSessionId) {
         throw "ARC probe could not create its disposable session."
@@ -332,7 +354,7 @@ try {
             token_count = 4
             trace_ref = "clio-dev-preflight"
         } | ConvertTo-Json -Depth 5) `
-        -TimeoutSec 15
+        -TimeoutSec $HealthTimeoutSec
     $segmentId = [string]$appendResult.result.id
     if (-not $segmentId -or $appendResult.live_block_count -ne 1) {
         throw "ARC append did not return one live segment."
@@ -340,7 +362,7 @@ try {
 
     $state = Invoke-RestMethod `
         -Uri "$backendUrl/v1/sessions/$arcProbeSessionId/context/state?scope=$arcProbeScope" `
-        -TimeoutSec 15
+        -TimeoutSec $HealthTimeoutSec
     $liveIds = @($state.segments | ForEach-Object { [string]$_.id })
     if ($segmentId -notin $liveIds -or -not ([string]$state.render_text).Contains($arcProbeSentinel)) {
         throw "ARC read did not return the segment written by the probe."
@@ -355,14 +377,14 @@ try {
             scope = $arcProbeScope
             ids = @($segmentId)
         } | ConvertTo-Json -Depth 4) `
-        -TimeoutSec 15
+        -TimeoutSec $HealthTimeoutSec
     if ($deleteResult.tombstoned_count -ne 1 -or $deleteResult.live_block_count -ne 0) {
         throw "ARC delete did not tombstone the disposable segment."
     }
 
     $stateAfterDelete = Invoke-RestMethod `
         -Uri "$backendUrl/v1/sessions/$arcProbeSessionId/context/state?scope=$arcProbeScope" `
-        -TimeoutSec 15
+        -TimeoutSec $HealthTimeoutSec
     if (@($stateAfterDelete.segments).Count -ne 0 -or ([string]$stateAfterDelete.render_text).Contains($arcProbeSentinel)) {
         throw "ARC delete left the disposable segment visible."
     }
@@ -372,7 +394,7 @@ finally {
         $cleanupResponse = Invoke-ClioDevWebRequest `
             -Method Delete `
             -Uri "$backendUrl/v1/sessions/$arcProbeSessionId" `
-            -TimeoutSec 15
+            -TimeoutSec $HealthTimeoutSec
         if ($cleanupResponse.StatusCode -notin @(200, 204)) {
             throw "ARC probe cleanup failed with HTTP $($cleanupResponse.StatusCode)."
         }
@@ -402,6 +424,8 @@ foreach ($item in $degraded) {
     web_url = $webUrl
     web_pid = $webPid
     document_processor_url = $documentProcessorUrl
+    active_document_processor_url = $activeDocumentProcessorUrl
+    active_document_processor_status = "ready"
     document_processor_pid = $documentProcessorPid
     document_processor = $configuredDocumentProcessor.id
     provider = $provider.provider

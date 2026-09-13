@@ -60,7 +60,7 @@ export function ClioToolInvocation({
         />
       </CollapsibleTrigger>
       <ToolContent className={cn('border-t', embedded && 'mt-2 rounded-lg border p-3')}>
-        {tool.input !== undefined ? <ToolInput input={tool.input as never} /> : null}
+        {tool.input !== undefined ? <ToolInput input={(tool.input ?? {}) as never} /> : null}
         <ToolOutput errorText={tool.error as never} output={tool.output as never} />
       </ToolContent>
     </Tool>

@@ -30,7 +30,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { copyText } from '@/lib/clipboard';
 import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import {
-  isPrimarySession,
+  isWorkspaceNavigationSession,
   sessionInteractionAt,
   visibleWorkspaceSessions,
 } from '@/lib/recent-sessions';
@@ -151,7 +151,7 @@ export function WorkspaceNavigation({
             (session) =>
               session.workspace_id === workspace.id &&
               !session.archived &&
-              isPrimarySession(session),
+              isWorkspaceNavigationSession(session),
           );
           const expanded = workspaceExpansion[workspace.id] ?? workspace.id === activeWorkspaceId;
           return (

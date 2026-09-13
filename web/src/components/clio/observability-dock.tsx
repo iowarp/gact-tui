@@ -6,7 +6,9 @@ import type {
   ContextSnapshot,
   ExecutionProvenanceDegradation,
   ExecutionProvenanceResult,
+  InfrastructureDependency,
   Message,
+  PendingInteraction,
   Run,
   RunState,
   SessionDiff,
@@ -56,8 +58,11 @@ import {
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioContextCanvasPanel } from './context-canvas-panel';
 import { ClioInteractiveRow } from './interactive-row';
+import { ClioInfrastructurePreparation } from './infrastructure-preparation';
+import { infrastructurePreparationLabel } from './infrastructure-preparation-label';
 import {
   asyncProcessDetail,
+  agentInteractionActivityItems,
   childProjectionActivityItems,
   ClioActivityTimeline,
   type ObservabilityActivityItem,
@@ -83,6 +88,10 @@ export interface ClioObservabilityDockProps {
   contextFrames: readonly ContextFrame[];
   diffs: readonly SessionDiff[];
   messages: readonly Message[];
+  interactions?: readonly PendingInteraction[];
+  infrastructureDependencies?: readonly InfrastructureDependency[];
+  activeTurnId?: string;
+  activeTurnResponded?: boolean;
   processes: readonly AsyncProcess[];
   tasks: readonly Task[];
   tools: readonly ToolInvocation[];
@@ -151,11 +160,23 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
     props.sessionState === 'waiting_permission' ||
     props.sessionState === 'waiting_user' ||
     props.sessionState === 'failed';
-  const showDockStatusBadge = Boolean(activeActivityCount || sessionActive || sessionNeedsAttention);
-  const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
-  const hasAssistantActivity = props.messages.some(
-    (message) => message.role === 'assistant' && message.blocks.length > 0,
+  const showDockStatusBadge = Boolean(
+    activeActivityCount || sessionActive || sessionNeedsAttention,
   );
+  const dockStatusValue: ClioStatusValue = props.sessionState ?? 'running';
+  const currentAssistantStreaming = props.messages.some(
+    (message) =>
+      message.role === 'assistant' &&
+      message.blocks.some(
+        (block) =>
+          (block.type === 'text' || block.type === 'reasoning') && block.streaming === true,
+      ),
+  );
+  const assistantResponding = currentAssistantStreaming || props.activeTurnResponded === true;
+  const startupVisible = Boolean(
+    sessionActive && !currentTool && !latestActiveProcess && !currentTask && !assistantResponding,
+  );
+  const startupLabel = infrastructurePreparationLabel(props.infrastructureDependencies ?? []);
   const activityCountLabel = `${activityCount.toLocaleString()} background ${activityCount === 1 ? 'activity' : 'activities'}`;
   const dockLabel = currentTool
     ? getToolPresentation(currentTool).title
@@ -166,14 +187,14 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         : activityCount
           ? activityCountLabel
           : sessionActive
-            ? hasAssistantActivity
+            ? assistantResponding
               ? 'Agent is responding'
-              : 'Starting agent'
+              : startupLabel
             : 'Session details';
   const dockStatus = activeActivityCount
     ? `${activeActivityCount} active`
     : sessionActive
-      ? hasAssistantActivity
+      ? assistantResponding
         ? 'Working'
         : 'Starting'
       : activityCount
@@ -202,7 +223,11 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
         ) : (
           <ActivityIcon aria-hidden="true" className="size-4 text-muted-foreground" />
         )}
-        <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
+        {startupVisible ? (
+          <ClioInfrastructurePreparation dependencies={props.infrastructureDependencies ?? []} />
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-left font-medium">{dockLabel}</span>
+        )}
         {presentationOverrideCount ? (
           <ClioStatus
             className="hidden py-0.5 sm:inline-flex"
@@ -218,7 +243,7 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
       {/* Always mounted (not conditionally toggled) so it exists before its text changes, and
           outside the Button so its content never factors into the Button's accessible name. */}
       <span aria-live="polite" className="sr-only">
-        {dockStatus}
+        {startupVisible ? startupLabel : dockStatus}
       </span>
       {props.subagents.length ? (
         <Popover onOpenChange={setChildAgentsOpen} open={childAgentsOpen}>
@@ -360,6 +385,7 @@ export function ClioObservabilityView({
   provenanceDegradation,
   onProvenanceProviderChange,
   resources,
+  interactions = [],
 }: ClioObservabilityDockProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const hasMediumNavigation = useContainerQuery(surfaceRef, 320);
@@ -429,10 +455,17 @@ export function ClioObservabilityView({
               detail: asyncProcessDetail(process),
               state: process.live_state,
               at: process.updated_at ?? process.created_at,
-              groupId: process.parent_turn_id,
+              groupId:
+                process.parent_turn_id ??
+                (process.kind === 'mcp-task' ? `mcp-task:${process.id}` : undefined),
               timing: process.updated_at || process.created_at ? 'event' : undefined,
             }),
           )),
+      ...agentInteractionActivityItems(
+        interactions,
+        processes,
+        executionProvenance?.root_session_id ?? executionProvenance?.session_id,
+      ),
     ];
     return items
       .map((item) => {
@@ -445,7 +478,16 @@ export function ClioObservabilityView({
         const byTime = (right.at ?? '').localeCompare(left.at ?? '');
         return byTime;
       });
-  }, [executionProvenance, onOpenSubagent, processes, runs, subagents, toolTurnContext, tools]);
+  }, [
+    executionProvenance,
+    interactions,
+    onOpenSubagent,
+    processes,
+    runs,
+    subagents,
+    toolTurnContext,
+    tools,
+  ]);
   return (
     <div className="h-full min-h-0 min-w-0" ref={surfaceRef}>
       <Tabs className="h-full min-h-0 gap-0" defaultValue="work">

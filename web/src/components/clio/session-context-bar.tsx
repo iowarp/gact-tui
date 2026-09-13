@@ -28,6 +28,13 @@ export function ClioSessionContextBar({
   onReturnToParent,
   onUndo,
 }: ClioSessionContextBarProps) {
+  const showsBaseAgent = Boolean(
+    session &&
+      !session.parent_session_id &&
+      !activeBlueprint &&
+      (!session.agent_id || session.agent_id === 'main'),
+  );
+
   return (
     <div className="flex min-w-0 items-center gap-2 overflow-hidden">
       {parentSession ? (
@@ -60,6 +67,13 @@ export function ClioSessionContextBar({
             >
               <span className="truncate">{activeBlueprint.display_name}</span>
             </Button>
+          </>
+        ) : showsBaseAgent ? (
+          <>
+            <span aria-hidden="true" className="shrink-0 text-muted-foreground">
+              /
+            </span>
+            <span className="truncate px-1.5 text-xs text-muted-foreground">Base agent</span>
           </>
         ) : null}
       </div>

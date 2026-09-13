@@ -8,7 +8,17 @@ import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
  */
 export type ConversationActivity =
   | { kind: 'tool'; id: string; tool: ToolInvocation }
-  | { kind: 'task'; id: string; task: Task };
+  | { kind: 'task'; id: string; task: Task }
+  | {
+      kind: 'subagent';
+      id: string;
+      block: Extract<MessageBlock, { type: 'subagent' }>;
+    }
+  | {
+      kind: 'mcp_app';
+      id: string;
+      block: Extract<MessageBlock, { type: 'mcp_app' }>;
+    };
 
 export interface ConversationIteration {
   id: string;
@@ -85,6 +95,7 @@ function fallbackIterations(
       current.tasks,
       current.terminal,
       current.thinking.at(-1)?.text,
+      current.activity.find((entry) => entry.kind === 'subagent')?.block,
     );
     iterations.push(current);
     current = emptyIteration(message, iterations.length);
@@ -136,6 +147,20 @@ function fallbackIterations(
         current.activity.push({ kind: 'task', id: task.id, task });
       }
       current.streaming ||= ['queued', 'running'].includes(task.state);
+      consumed.add(block.id);
+      continue;
+    }
+    if (block.type === 'subagent' && block.stage) {
+      if (!alreadyInLane(current, 'subagent', block.id)) {
+        current.activity.push({ kind: 'subagent', id: block.id, block });
+      }
+      consumed.add(block.id);
+      continue;
+    }
+    if (block.type === 'mcp_app') {
+      if (!alreadyInLane(current, 'mcp_app', block.id)) {
+        current.activity.push({ kind: 'mcp_app', id: block.id, block });
+      }
       consumed.add(block.id);
       continue;
     }
@@ -204,6 +229,7 @@ function iterationSummary(
   tasks: readonly Task[],
   terminal: boolean,
   eventSummary?: string,
+  subagent?: Extract<MessageBlock, { type: 'subagent' }>,
 ): string {
   const thought = nextThoughts.find((value) => value.trim());
   if (thought) return compactSentence(thought);
@@ -212,6 +238,9 @@ function iterationSummary(
   if (tool) return `${tool.title ?? tool.name} requested`;
   const task = tasks[0];
   if (task) return compactSentence(task.title);
+  if (subagent) {
+    return subagent.stage === 'delegate.started' ? 'Child agent started' : 'Child agent returned';
+  }
   return terminal ? 'Preparing the final response' : 'Reasoning about the next action';
 }
 

@@ -114,18 +114,44 @@ describe('ClioDocumentWorkspace', () => {
     expect(await screen.findByText(/Review sent to the agent/)).toBeInTheDocument();
   });
 
+  it('cleans converted bullet glyphs in preview while preserving the raw Markdown', async () => {
+    const user = userEvent.setup();
+    repository.documentManifest.mockResolvedValue(manifest);
+    repository.documentContent.mockResolvedValue(
+      new TextEncoder().encode('## Contents\n\n- \uF0B7 Groups\n- Datasets'),
+    );
+    repository.artifactReviews.mockResolvedValue([]);
+    renderWorkspace();
+
+    expect(await screen.findByText('Groups')).toBeVisible();
+    expect(screen.queryByText(/\uF0B7 Groups/u)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Read raw' }));
+    expect(screen.getByRole('region', { name: 'Raw Markdown for evidence.md' })).toHaveTextContent(
+      '\uF0B7 Groups',
+    );
+    expect(screen.getByRole('button', { name: 'Copy raw evidence.md' })).toBeVisible();
+  });
+
   it('settles into a readable preview-only state when the registered revision is gone', async () => {
+    const user = userEvent.setup();
     repository.documentManifest.mockRejectedValue(
       new Error('artifact not found: artifact_internal_123'),
     );
     renderWorkspace();
 
-    expect(await screen.findByText('Preview only')).toBeVisible();
-    expect(screen.getByText('Preview only; review and editing unavailable.')).toBeVisible();
+    const warning = await screen.findByRole('button', { name: /Preview only/u });
+    expect(warning).toBeVisible();
+    expect(screen.getByText('Saved content is readable.')).toBeVisible();
+    expect(
+      screen.queryByText(/original registered revision could not be loaded/u),
+    ).not.toBeInTheDocument();
+    await user.click(warning);
     expect(screen.getByText(/original registered revision could not be loaded/u)).toBeVisible();
     expect(screen.getByText('Fallback preview')).toBeVisible();
     expect(screen.queryByText('Checking document capabilities…')).not.toBeInTheDocument();
     expect(screen.getByText('Technical details').closest('details')).not.toHaveAttribute('open');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('uses a confined working copy without duplicating artifact history inside the document', async () => {

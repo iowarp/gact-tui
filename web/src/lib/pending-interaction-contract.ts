@@ -16,6 +16,26 @@ const PERMISSION_ACTIONS: ReadonlySet<string> = new Set<PermissionAction>([
   'allow_workspace',
 ]);
 
+type PlanExitPayload = NonNullable<NonNullable<PendingInteraction['payload']>['plan_exit']>;
+
+function legacyPlanExitPayload(metadata: Record<string, unknown>): PlanExitPayload {
+  const text = (key: string) =>
+    typeof metadata[key] === 'string' ? (metadata[key] as string) : undefined;
+  const count = (key: string) =>
+    typeof metadata[key] === 'number' ? (metadata[key] as number) : undefined;
+  return {
+    summary: text('summary'),
+    recommended_mode: text('recommended_mode'),
+    risk_notes: text('risk_notes'),
+    plan_file: text('plan_file'),
+    plan_content: text('plan_content'),
+    plan_content_status: text('plan_content_status') as PlanExitPayload['plan_content_status'],
+    plan_content_error: text('plan_content_error'),
+    plan_content_chars: count('plan_content_chars'),
+    plan_content_included_chars: count('plan_content_included_chars'),
+  };
+}
+
 function isPermissionAction(value: string | undefined): value is PermissionAction {
   return value !== undefined && PERMISSION_ACTIONS.has(value);
 }
@@ -84,16 +104,18 @@ export function legacyPendingInteractions(
         actions: ['allow', 'deny', 'allow_session', 'allow_workspace'],
       }),
     ),
-    ...questions.map(
-      (question): PendingInteraction => ({
+    ...questions.map((question): PendingInteraction => {
+      const metadata = question.metadata ?? {};
+      const planExit = metadata.plan_exit_approval === true;
+      return {
         id: question.id,
         kind: 'question',
         owner_session_id: question.session_id,
         attended_session_id: interactionRootSessionId(question.session_id, sessions).id,
         status: question.status,
-        title: 'Question from agent',
+        title: planExit ? 'Review execution plan' : 'Question from agent',
         prompt: question.prompt,
-        source: { protocol: 'native' },
+        source: { protocol: 'native', ...(planExit ? { tool_name: 'plan_exit' } : {}) },
         created_at: question.created_at,
         payload: {
           question_id: question.id,
@@ -101,10 +123,15 @@ export function legacyPendingInteractions(
           options: question.options,
           allow_freeform: question.allow_freeform,
           expires_at: question.expires_at,
+          ...(planExit
+            ? {
+                plan_exit: legacyPlanExitPayload(metadata),
+              }
+            : {}),
         },
         actions: ['answer', 'cancel'],
-      }),
-    ),
+      };
+    }),
   ];
 }
 

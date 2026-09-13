@@ -1,8 +1,32 @@
 import { z } from 'zod';
-import type { McpServerDefinition } from './domain.js';
+import type { McpServerDefinition, McpUserConfiguration } from './domain.js';
 import { DocumentRepository } from './document-repository.js';
 import { mcpServerListSchema } from './repository-decoders.js';
 import { mcpServerDefinitionSchema } from './schemas.js';
+
+const mcpUserConfigurationSchema = z.object({
+  name: z.string(),
+  configured: z.boolean(),
+  scope: z.literal('user'),
+  status: z.enum(['ready', 'degraded', 'local_fallback']),
+  transport: z.string().optional(),
+  tools_count: z.number().int().nonnegative().default(0),
+  tools: z.array(z.string()).default([]),
+  spec: z.record(z.string(), z.unknown()).optional(),
+  error: z.string().optional(),
+  retryable: z.boolean(),
+  removed: z.boolean().optional(),
+});
+
+export type McpConfigurationInput =
+  | { transport: 'http'; url: string; name?: string }
+  | {
+      transport: 'stdio';
+      command: string;
+      args: string[];
+      env?: Record<string, string>;
+      name?: string;
+    };
 
 /** Narrows an MCP server listing to the tools one session holds open. */
 export interface McpServerListOptions {
@@ -17,6 +41,44 @@ export interface McpServerListOptions {
 
 /** Tool-provider discovery, lifecycle, and inventory routes. */
 export class McpRepository extends DocumentRepository {
+  public mcpConfiguration(
+    name: string,
+    signal?: AbortSignal,
+  ): Promise<McpUserConfiguration> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/mcp/configuration/${encodeURIComponent(name)}`,
+      decode: (value) => mcpUserConfigurationSchema.parse(value),
+      signal,
+    });
+  }
+
+  public configureMcpServer(
+    name: string,
+    input: McpConfigurationInput,
+    signal?: AbortSignal,
+  ): Promise<McpUserConfiguration> {
+    return this.transport.request({
+      method: 'PUT',
+      path: `/v1/mcp/configuration/${encodeURIComponent(name)}`,
+      body: input,
+      decode: (value) => mcpUserConfigurationSchema.parse(value),
+      signal,
+    });
+  }
+
+  public removeMcpConfiguration(
+    name: string,
+    signal?: AbortSignal,
+  ): Promise<McpUserConfiguration> {
+    return this.transport.request({
+      method: 'DELETE',
+      path: `/v1/mcp/configuration/${encodeURIComponent(name)}`,
+      decode: (value) => mcpUserConfigurationSchema.parse(value),
+      signal,
+    });
+  }
+
   public async mcpServers(
     workspaceId?: string,
     signal?: AbortSignal,

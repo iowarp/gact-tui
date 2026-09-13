@@ -31,9 +31,24 @@ const server = {
   spec: { transport: 'http', url: 'https://mcp.example.test' },
 };
 
+const configuration = {
+  name: 'web',
+  configured: true,
+  scope: 'user',
+  status: 'ready',
+  transport: 'stdio',
+  tools_count: 2,
+  tools: ['web_search', 'web_fetch'],
+  spec: { transport: 'stdio', command: 'uvx', args: ['clio-kit', 'mcp-server', 'web'] },
+  retryable: false,
+};
+
 describe('MCP server repository', () => {
   it('covers scoped discovery, lifecycle, and provider inventories', async () => {
     const transport = new RecordingTransport([
+      configuration,
+      configuration,
+      { ...configuration, configured: false, status: 'local_fallback', removed: true },
       { servers: [server] },
       server,
       server,
@@ -46,6 +61,13 @@ describe('MCP server repository', () => {
     ]);
     const repository = new ClioRepository(transport);
 
+    await repository.mcpConfiguration('web/search');
+    await repository.configureMcpServer('web/search', {
+      transport: 'stdio',
+      command: 'uvx',
+      args: ['clio-kit', 'mcp-server', 'web', '--remote-url', 'http://search:8089'],
+    });
+    await repository.removeMcpConfiguration('web/search');
     await repository.mcpServers('ws science', undefined, { sessionId: 'sess/earth' });
     await repository.mcpServer('science/tools');
     await repository.installMcpServer({
@@ -67,6 +89,9 @@ describe('MCP server repository', () => {
     await repository.deleteMcpServer('science/tools');
 
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
+      { method: 'GET', path: '/v1/mcp/configuration/web%2Fsearch' },
+      { method: 'PUT', path: '/v1/mcp/configuration/web%2Fsearch' },
+      { method: 'DELETE', path: '/v1/mcp/configuration/web%2Fsearch' },
       {
         method: 'GET',
         path: '/v1/mcp/servers?workspace_id=ws%20science&session_id=sess%2Fearth',
@@ -80,12 +105,17 @@ describe('MCP server repository', () => {
       { method: 'GET', path: '/v1/mcp/servers/science%2Ftools/prompts' },
       { method: 'DELETE', path: '/v1/mcp/servers/science%2Ftools' },
     ]);
-    expect(transport.requests[2]?.body).toEqual({
+    expect(transport.requests[1]?.body).toEqual({
+      transport: 'stdio',
+      command: 'uvx',
+      args: ['clio-kit', 'mcp-server', 'web', '--remote-url', 'http://search:8089'],
+    });
+    expect(transport.requests[5]?.body).toEqual({
       name: 'Science tools',
       transport: 'http',
       url: 'https://mcp.example.test',
     });
-    expect(transport.requests[3]?.body).toEqual({
+    expect(transport.requests[6]?.body).toEqual({
       name: 'Local science tools',
       transport: 'stdio',
       command: 'science-tools',

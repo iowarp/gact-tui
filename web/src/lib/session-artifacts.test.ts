@@ -57,4 +57,33 @@ describe('sessionArtifactEntities', () => {
       { id: 'input_1', media_type: 'text/csv', session_relation: 'used' },
     ]);
   });
+
+  it('keeps registry custody when a transcript projection omits its workspace id', () => {
+    const result = sessionArtifactEntities(
+      {
+        artifacts: [record('plot_1', 'vertical-displacement.png')],
+        used: [],
+        count: 1,
+        include_children: true,
+        child_session_ids: [],
+      },
+      [
+        {
+          id: 'plot_1',
+          session_id: 'session_1',
+          name: 'vertical-displacement.png',
+          media_type: 'image/png',
+          uri: 'artifact://workspace_1/vertical-displacement.png@v1',
+        },
+      ],
+      'session_1',
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      id: 'plot_1',
+      fetch_path: '/v1/artifacts/plot_1/bytes',
+      workspace_id: 'workspace_1',
+    });
+  });
 });

@@ -9,22 +9,70 @@ const unexpectedErrors = new WeakMap<Page, string[]>();
 async function settleConversationAtLatest(page: Page) {
   const conversation = page.getByRole('log', { name: 'Conversation' });
   await expect(conversation).toBeVisible();
-  for (let pass = 0; pass < 2; pass += 1) {
-    await conversation.evaluate((element) => {
-      element.scrollTo({ behavior: 'instant', top: element.scrollHeight });
-    });
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-        ),
-    );
-  }
+  let previousHeight = -1;
+  let stablePasses = 0;
+  await expect
+    .poll(
+      async () => {
+        const metrics = await conversation.evaluate((element) => {
+          element.scrollTo({ behavior: 'instant', top: element.scrollHeight });
+          return {
+            bottomGap: element.scrollHeight - element.scrollTop - element.clientHeight,
+            scrollHeight: element.scrollHeight,
+          };
+        });
+        await page.evaluate(
+          () =>
+            new Promise<void>((resolve) =>
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+            ),
+        );
+        stablePasses =
+          metrics.bottomGap <= 1 && metrics.scrollHeight === previousHeight ? stablePasses + 1 : 0;
+        previousHeight = metrics.scrollHeight;
+        return stablePasses;
+      },
+      { intervals: [50, 100, 200], timeout: 10_000 },
+    )
+    .toBeGreaterThanOrEqual(3);
+}
+
+async function waitForArtifactPreview(page: Page) {
+  const preview = page.getByRole('img', { name: 'vertical-displacement.png' });
+  await expect(preview).toBeVisible({ timeout: 20_000 });
   await expect
     .poll(() =>
-      conversation.evaluate(
-        (element) => element.scrollHeight - element.scrollTop - element.clientHeight,
-      ),
+      preview.evaluate((image) => {
+        const element = image as HTMLImageElement;
+        return element.complete && element.naturalWidth > 0;
+      }),
+    )
+    .toBe(true);
+}
+
+async function alignLatestActivityAtTop(page: Page) {
+  const conversation = page.getByRole('log', { name: 'Conversation' });
+  const activityHeader = conversation.getByRole('button', { name: 'Activity' }).last();
+  await expect(activityHeader).toBeVisible();
+  await activityHeader.evaluate((header) => {
+    const scroller = header.closest<HTMLElement>('[role="log"]');
+    const activity = header.parentElement;
+    if (!scroller || !activity) throw new Error('Latest Activity is outside the conversation');
+    scroller.scrollBy({
+      behavior: 'instant',
+      top: activity.getBoundingClientRect().top - scroller.getBoundingClientRect().top,
+    });
+  });
+  await expect
+    .poll(() =>
+      activityHeader.evaluate((header) => {
+        const scroller = header.closest<HTMLElement>('[role="log"]');
+        const activity = header.parentElement;
+        if (!scroller || !activity) return Number.POSITIVE_INFINITY;
+        return Math.abs(
+          activity.getBoundingClientRect().top - scroller.getBoundingClientRect().top,
+        );
+      }),
     )
     .toBeLessThanOrEqual(1);
 }
@@ -44,12 +92,109 @@ test.beforeEach(async ({ page }) => {
   const reset = await page.request.post(`${fixtureEndpoint}/__test/reset`);
   expect(reset.ok()).toBe(true);
   await page.addInitScript((endpoint) => {
-    localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
+    try {
+      localStorage.setItem('clio.recent-connections', JSON.stringify([endpoint]));
+    } catch {
+      // MCP Apps intentionally use an opaque inner origin without storage access.
+    }
   }, fixtureEndpoint);
 });
 
 test.afterEach(async ({ page }) => {
   expect(unexpectedErrors.get(page) ?? []).toEqual([]);
+});
+
+test('renders structured MCP v2 interactions and one live inline App', async ({ page }) => {
+  const seeded = await page.request.post(`${fixtureEndpoint}/__test/mcp-v2-ui-demo`);
+  expect(seeded.ok()).toBe(true);
+  const preConsentRequests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('mcp-clio.example.com')) preConsentRequests.push(request.url());
+  });
+
+  await page.goto(workspaceUrl);
+  const attention = page.getByRole('region', { name: 'Agent needs your response' });
+  await expect(attention.getByRole('button', { name: '3 responses needed' })).toBeVisible();
+  await expect(page.getByText('Agent is answering MCP request')).toBeVisible();
+  await expect(page.getByText('Agent answered MCP request')).toBeVisible();
+
+  const form = attention
+    .locator('[data-interaction-kind="question"]')
+    .filter({ hasText: 'Choose how this evidence should be reviewed.' });
+  await expect(form.getByLabel('Review brief')).toHaveValue('NDP evidence');
+  await expect(form.getByLabel('Iterations')).toHaveValue('3');
+  await expect(form.getByRole('radio', { name: 'Station table' })).toBeChecked();
+  await expect(form.getByRole('switch', { name: 'Keep provenance visible' })).toBeChecked();
+  await expect(form.getByRole('checkbox', { name: 'Coverage' })).toBeChecked();
+  await form.getByLabel('Review brief').fill('');
+  await form.getByRole('button', { name: 'Send response' }).click();
+  await expect(form.getByText('This field is required.')).toBeVisible();
+  await form.getByLabel('Review brief').fill('ab');
+  await form.getByRole('button', { name: 'Send response' }).click();
+  await expect(form.getByText('Enter at least 3 characters.')).toBeVisible();
+  await form.getByLabel('Review brief').fill('Station evidence');
+  await form.getByRole('checkbox', { name: 'Quality' }).check();
+  await form.getByRole('button', { name: 'Send response' }).click();
+  await expect(form).toHaveCount(0);
+
+  const urlConsent = attention
+    .locator('[data-interaction-kind="question"]')
+    .filter({ hasText: 'Open the provider authorization page?' });
+  await expect(urlConsent.getByText('Look-alike address warning')).toBeVisible();
+  await expect(urlConsent).toContainText('ελληνικά.mcp-clio.example.com');
+  await expect(urlConsent).toContainText('xn--nxasmq6b.mcp-clio.example.com');
+  expect(preConsentRequests).toEqual([]);
+  await urlConsent.getByRole('button', { name: 'Decline' }).click();
+  await expect(urlConsent).toHaveCount(0);
+  expect(preConsentRequests).toEqual([]);
+
+  const fallback = attention
+    .locator('[data-interaction-kind="question"]')
+    .filter({ hasText: 'Which fallback should the review use?' });
+  await expect(fallback).toContainText('The specialist could not answer this, so it needs you.');
+  await fallback.getByText('Technical details').click();
+  await expect(fallback.getByText('agent_answer_timeout')).toBeVisible();
+
+  await attention.getByRole('button', { name: '1 response needed' }).click();
+  await settleConversationAtLatest(page);
+  const appFrame = page.locator('[data-mcp-app="app_fixture_1"]');
+  await expect(appFrame.getByText('Ready', { exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    const methods: string[] = [];
+    Object.defineProperty(window, '__mcpFixtureMethods', { value: methods });
+    window.addEventListener('message', (event) => {
+      const method = (event.data as { method?: unknown } | null)?.method;
+      if (typeof method === 'string') methods.push(`${event.origin}:${method}`);
+    });
+  });
+  const app = page
+    .frameLocator('iframe[data-mcp-app-iframe="app_fixture_1"]')
+    .frameLocator('iframe[title="MCP App content"]');
+  await expect(app.getByRole('button', { name: 'Inspect row 2' })).toBeVisible();
+  await app.getByRole('button', { name: 'Inspect row 2' }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as typeof window & { __mcpFixtureMethods?: string[] }).__mcpFixtureMethods ?? [],
+      ),
+    )
+    .toContain('http://127.0.0.1:18799:tools/call');
+  await expect
+    .poll(async () => {
+      const state = await page.request.get(`${fixtureEndpoint}/__test/mcp-v2-ui-state`);
+      return state.json();
+    })
+    .toMatchObject({ tool_calls: 1, model_context_updates: 1, messages: 1 });
+  await expect(page.locator('body')).not.toContainText('selected_row');
+
+  const replaced = await page.request.post(`${fixtureEndpoint}/__test/mcp-v2-ui-replace`);
+  expect(replaced.ok()).toBe(true);
+  await page.reload();
+  await settleConversationAtLatest(page);
+  await expect(page.getByText('MCP v2 exerciser view closed')).toBeVisible();
+  await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_1"]')).toHaveCount(0);
+  await expect(page.locator('iframe[data-mcp-app-iframe="app_fixture_2"]')).toHaveCount(1);
 });
 
 test('renders dense flat-NDP semantics with accessible interactions', async ({ page }) => {
@@ -58,6 +203,7 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
 
   await expect(page.getByText('EarthScope NDP evidence review').first()).toBeVisible();
   await expect(page.getByText('flat-NDP').first()).toBeVisible();
+  await waitForArtifactPreview(page);
   await expect(page.getByRole('button', { name: 'Change model' })).toContainText('Codex / Luna');
   await expect(page.getByText('D:\\science\\campaigns\\flat-NDP', { exact: true })).toHaveCount(0);
   const pendingResponses = page.getByRole('region', { name: 'Agent needs your response' });
@@ -216,18 +362,22 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   // Wheel dispatch is asynchronous on Linux Chromium. Seeing the last rail
   // marker only proves that the minimap itself is present; it does not prove
   // the transcript finished returning to its latest anchor. Re-settle the
-  // native scroll container before the visual assertion so the screenshot
-  // cannot alternate between the attachment and Activity rows above it.
+  // native scroll container, then pin the final semantic block to the viewport
+  // edge so the screenshot cannot alternate between the attachment and Activity
+  // rows above it.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await settleConversationAtLatest(page);
   await expect(activeLandmark).toHaveAttribute('aria-current', 'location');
+  await alignLatestActivityAtTop(page);
   await page.mouse.move(600, 30);
   await expect(page.locator('[data-slot="hover-card-content"]')).toHaveCount(0);
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await alignLatestActivityAtTop(page);
   // maxDiffPixels absorbs sub-row anti-aliasing jitter at the latest-anchored
   // transcript's top edge (~400px observed); a real layout regression moves
   // orders of magnitude more.
   await expect(page).toHaveScreenshot('workspace-desktop-dark.png', {
-    animations: 'disabled',
+    animations: 'allow',
     maxDiffPixels: 1500,
   });
 
@@ -281,6 +431,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
 
   await expect(page.locator('html')).toHaveClass(/light/);
   await expect(page.getByRole('button', { name: 'Open workspace canvas' })).toBeVisible();
+  await waitForArtifactPreview(page);
   // Capture a settled transcript. Without this the shot races the scroll to the
   // latest turn, so the last messages land a few pixels off and the "Latest"
   // affordance is present in some runs and gone in others — a baseline that

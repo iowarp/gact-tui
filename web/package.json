@@ -46,6 +46,7 @@
     "d3-scale": "^4.0.2",
     "d3-selection": "^3.0.0",
     "d3-zoom": "^3.0.0",
+    "embla-carousel-react": "^8.6.0",
     "lucide-react": "^1.33.0",
     "maplibre-gl": "6.5.0",
     "mermaid": "^11.17.0",

@@ -13,6 +13,7 @@ import {
   TriangleAlertIcon,
 } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
+import { Attachment, AttachmentPreview } from '@/components/ai-elements/attachments';
 import {
   Timeline,
   TimelineContent,
@@ -50,6 +51,7 @@ import {
 import { ClioStatus } from './status';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 import { WorkspaceResourceRemoveAction } from './workspace-resource-remove';
+import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
 
 const PdfResourceViewer = lazy(() =>
   import('./document-pdf-viewer').then((module) => ({
@@ -60,6 +62,88 @@ const PdfResourceViewer = lazy(() =>
 interface WorkspaceResourceViewProps {
   resource: WorkspaceResource;
   workspaceId: string;
+}
+
+interface WorkspaceResourceCarouselProps extends WorkspaceResourceViewProps {
+  resources: readonly WorkspaceResource[];
+}
+
+/** Opens one message's attachments as a synchronized preview and thumbnail carousel. */
+export function WorkspaceResourceCarousel({
+  resource,
+  resources,
+  workspaceId,
+}: WorkspaceResourceCarouselProps) {
+  const carouselResources = useMemo(() => {
+    const unique = new Map<string, WorkspaceResource>();
+    for (const candidate of resources) {
+      if ((candidate.workspace_id || workspaceId) === workspaceId)
+        unique.set(candidate.id, candidate);
+    }
+    unique.set(resource.id, resource);
+    return [...unique.values()];
+  }, [resource, resources, workspaceId]);
+  const [selectedId, setSelectedId] = useState(resource.id);
+  const selectedResource =
+    carouselResources.find((candidate) => candidate.id === selectedId) ?? resource;
+  const items = useMemo(
+    () =>
+      carouselResources.map((candidate) => ({
+        id: candidate.id,
+        label: candidate.name,
+        renderPreview: () => (
+          <div className="size-full min-h-0 overflow-hidden">
+            <WorkspaceResourceView resource={candidate} workspaceId={workspaceId} />
+          </div>
+        ),
+        renderThumbnail: () => (
+          <WorkspaceResourceThumbnail resource={candidate} workspaceId={workspaceId} />
+        ),
+      })),
+    [carouselResources, workspaceId],
+  );
+
+  return (
+    <AttachmentPreviewCarousel
+      className="h-full min-h-0 p-3"
+      items={items}
+      onValueChange={setSelectedId}
+      value={selectedResource.id}
+    />
+  );
+}
+
+function WorkspaceResourceThumbnail({ resource, workspaceId }: WorkspaceResourceViewProps) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const mediaType = resource.detected_mime || resource.claimed_mime;
+  const preview = useQuery({
+    queryKey: queryKeys.workspaceResourcePreview(
+      settings.endpoint,
+      workspaceId,
+      resource.id,
+      resource.revision,
+    ),
+    queryFn: ({ signal }) => repository.resourcePreview(workspaceId, resource.id, signal),
+    enabled: resource.state === 'ready' && mediaType.startsWith('image/'),
+  });
+  const previewUrl = useObjectUrl(preview.data, mediaType);
+
+  return (
+    <Attachment
+      className="size-full"
+      data={{
+        filename: resource.name,
+        id: resource.id,
+        mediaType,
+        type: 'file',
+        url: previewUrl ?? '',
+      }}
+      title={resource.name}
+    >
+      <AttachmentPreview />
+    </Attachment>
+  );
 }
 
 /** Renders one workspace-owned upload and its structured processing provenance. */

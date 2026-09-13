@@ -91,6 +91,8 @@ Do not run `Reset-ClioDev.ps1`, create a generation, clone repositories, synchro
 .\scripts\Test-ClioDevPreflight.ps1
 ```
 
+Preserved installations may need to rehydrate large session ledgers on the first health request after restart. The startup and preflight health checks share a bounded 300-second readiness budget so valid stored sessions are not deleted or misclassified as a dead backend.
+
 Containment fails when generated paths escape the owned root or a legacy runtime root exists. Live preflight fails when:
 
 - the API is not `ready`;

@@ -97,3 +97,23 @@ export function estimatedPdfPageHeight(widthPx: number): number {
   const width = Number.isFinite(widthPx) && widthPx > 0 ? widthPx : 1;
   return width * PDF_PAGE_ESTIMATED_ASPECT_RATIO + PDF_PAGE_GAP_PX;
 }
+
+/**
+ * Width that keeps a complete portrait page inside a bounded reading viewport.
+ * The returned width is the 100% baseline; viewer zoom is applied afterwards.
+ */
+export function fitPdfPageWidth({
+  hostWidth,
+  viewportHeight,
+}: {
+  hostWidth: number;
+  viewportHeight: number;
+}): number {
+  const availableWidth = Number.isFinite(hostWidth) && hostWidth > 0 ? hostWidth : 1;
+  if (!Number.isFinite(viewportHeight) || viewportHeight <= PDF_PAGE_GAP_PX) {
+    return availableWidth;
+  }
+  const heightBound =
+    (viewportHeight - PDF_PAGE_GAP_PX) / PDF_PAGE_ESTIMATED_ASPECT_RATIO;
+  return Math.min(availableWidth, heightBound);
+}

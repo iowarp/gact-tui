@@ -13,6 +13,9 @@ export interface ZoomPanProps {
   initialScale?: number;
   zoomStep?: number;
   className?: string;
+  viewportClassName?: string;
+  viewportMode?: 'fill' | 'image-aspect';
+  fitPadding?: number;
   onLoad?: () => void;
   onError?: (error: Error) => void;
   controls?: (api: {
@@ -36,6 +39,9 @@ export function ZoomPan({
   initialScale = 1,
   zoomStep = 0.1,
   className = '',
+  viewportClassName = '',
+  viewportMode = 'fill',
+  fitPadding = 0.9,
   onLoad,
   onError,
   controls,
@@ -44,8 +50,11 @@ export function ZoomPan({
   error,
 }: ZoomPanProps) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const stageRef = React.useRef<HTMLDivElement>(null);
+  const viewportRef = React.useRef<HTMLDivElement>(null);
   const imageRef = React.useRef<HTMLImageElement | null>(null);
+  const [imageDimensions, setImageDimensions] = React.useState<Dimensions>();
+  const [stageDimensions, setStageDimensions] = React.useState<Dimensions>();
 
   // Transform refs
   const currentRef = React.useRef({ x: 0, y: 0, scale: initialScale });
@@ -64,6 +73,14 @@ export function ZoomPan({
   // Animation/Raf ref
   const rafRef = React.useRef<number | null>(null);
   const hasCentered = React.useRef(false);
+  const isFitView = React.useRef(true);
+
+  const viewportDimensions = React.useMemo(() => {
+    if (viewportMode !== 'image-aspect' || !stageDimensions || !imageDimensions) {
+      return undefined;
+    }
+    return fitAspectRatioViewport(stageDimensions, imageDimensions);
+  }, [imageDimensions, stageDimensions, viewportMode]);
 
   // Touch refs
   const touchStartRef = React.useRef<{
@@ -188,8 +205,8 @@ export function ZoomPan({
   const applyZoom = React.useCallback(
     (delta: number) => {
       const target = targetRef.current;
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
+      if (!viewportRef.current) return;
+      const rect = viewportRef.current.getBoundingClientRect();
       const centerX = rect.width / 2;
       const centerY = rect.height / 2;
 
@@ -199,6 +216,7 @@ export function ZoomPan({
       target.x = centerX - (centerX - target.x) * ratio;
       target.y = centerY - (centerY - target.y) * ratio;
       target.scale = newScale;
+      isFitView.current = false;
 
       updateSmooth();
     },
@@ -210,6 +228,7 @@ export function ZoomPan({
 
   const resetZoom = React.useCallback(() => {
     targetRef.current = { x: 0, y: 0, scale: initialScale };
+    isFitView.current = false;
     updateSmooth();
   }, [initialScale, updateSmooth]);
 
@@ -221,18 +240,19 @@ export function ZoomPan({
 
     const scaleX = canvas.clientWidth / image.naturalWidth;
     const scaleY = canvas.clientHeight / image.naturalHeight;
-    const scale = Math.min(scaleX, scaleY) * 0.9;
+    const scale = Math.min(scaleX, scaleY) * fitPadding;
 
     const x = (canvas.clientWidth - image.naturalWidth * scale) / 2;
     const y = (canvas.clientHeight - image.naturalHeight * scale) / 2;
 
     return { x, y, scale };
-  }, []);
+  }, [fitPadding]);
 
   const centerView = React.useCallback(() => {
     const center = getCenterTransform();
     if (!center) return;
     targetRef.current = center;
+    isFitView.current = true;
     updateSmooth();
   }, [getCenterTransform, updateSmooth]);
 
@@ -252,6 +272,7 @@ export function ZoomPan({
     if (e.button !== 0) return;
     e.preventDefault();
     isDragging.current = true;
+    isFitView.current = false;
 
     // Sync logic: grab exactly where we are, cancelling any smooth animation
     targetRef.current = { ...currentRef.current };
@@ -436,10 +457,28 @@ export function ZoomPan({
     updateImmediate();
   };
 
-  // ResizeObserver
   React.useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    if (viewportMode !== 'image-aspect') return;
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      const { width, height } = entry.contentRect;
+      setStageDimensions((current) =>
+        current?.width === width && current.height === height ? current : { width, height },
+      );
+    });
+    observer.observe(stage);
+    return () => observer.disconnect();
+  }, [viewportMode]);
+
+  // Size the drawing canvas from its actual viewport, not from the controls and
+  // stage around it. Image mode can therefore use a viewport matching the
+  // source aspect ratio while diagram mode keeps filling the available panel.
+  React.useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
 
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
@@ -455,9 +494,14 @@ export function ZoomPan({
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
 
-      // Perform initial centering if we haven't yet and we have a valid size
-      // and an image is already loaded.
-      if (!hasCentered.current && imageRef.current && width > 0 && height > 0) {
+      // Preserve a fit-to-view presentation as the panel changes size. Once
+      // the user zooms or pans, their chosen transform remains authoritative.
+      if (
+        imageRef.current &&
+        width > 0 &&
+        height > 0 &&
+        (!hasCentered.current || isFitView.current)
+      ) {
         const center = getCenterTransform();
         if (center) {
           targetRef.current = center;
@@ -470,7 +514,7 @@ export function ZoomPan({
       render();
     });
 
-    observer.observe(container);
+    observer.observe(viewport);
     return () => observer.disconnect();
   }, [render, getCenterTransform]);
 
@@ -479,6 +523,8 @@ export function ZoomPan({
     if (!imageSrc) {
       imageRef.current = null;
       hasCentered.current = false;
+      isFitView.current = true;
+      setImageDimensions(undefined);
       setImageError(undefined);
       render();
       return;
@@ -489,23 +535,21 @@ export function ZoomPan({
     image.crossOrigin = 'anonymous';
     image.onload = () => {
       imageRef.current = image;
+      setImageDimensions({ height: image.naturalHeight, width: image.naturalWidth });
+      hasCentered.current = false;
+      isFitView.current = true;
 
-      // Calculate center for initial display
-      // We manually implement "snap to center" here to avoid animation on load
-      const canvas = canvasRef.current;
-      if (canvas && canvas.clientWidth > 0 && canvas.clientHeight > 0) {
-        const scaleX = canvas.clientWidth / image.naturalWidth;
-        const scaleY = canvas.clientHeight / image.naturalHeight;
-        const scale = Math.min(scaleX, scaleY) * 0.9;
-
-        const x = (canvas.clientWidth - image.naturalWidth * scale) / 2;
-        const y = (canvas.clientHeight - image.naturalHeight * scale) / 2;
-
-        const center = { x, y, scale };
-        targetRef.current = center;
-        currentRef.current = center;
-        hasCentered.current = true;
-        setScalePercent(Math.round(scale * 100));
+      // Fill-mode viewports already have their final geometry. Image-aspect
+      // viewports center from their ResizeObserver after the intrinsic ratio is
+      // applied to the stage.
+      if (viewportMode === 'fill') {
+        const center = getCenterTransform();
+        if (center) {
+          targetRef.current = center;
+          currentRef.current = center;
+          hasCentered.current = true;
+          setScalePercent(Math.round(center.scale * 100));
+        }
       }
 
       render();
@@ -519,57 +563,91 @@ export function ZoomPan({
       onError?.(loadError);
     };
     image.src = imageSrc;
-  }, [imageSrc, onError, onLoad, render, getCenterTransform]);
+  }, [imageSrc, onError, onLoad, render, getCenterTransform, viewportMode]);
 
   return (
-    <div ref={containerRef} className={cn('flex flex-col min-h-0 h-full w-full', className)}>
+    <div className={cn('flex h-full min-h-0 w-full flex-col', className)}>
       {/* oxlint-disable-next-line react/refs -- Passing callback APIs does not read their closed-over refs. */}
       {controls?.(api)}
 
-      <div className="relative flex-1 min-h-0 overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none">
-        <canvas
-          aria-label={ariaLabel}
-          aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown + - 0"
-          ref={canvasRef}
-          onKeyDown={handleKeyDown}
-          onMouseDown={handleMouseDown}
-          // onWheel handled via useEffect with passive: false
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={() => {
-            isDragging.current = false;
-            isPinching.current = false;
-          }}
-          className="block w-full h-full touch-none"
-          role="img"
-          tabIndex={0}
-        />
-
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 pointer-events-none opacity-0 -z-50 overflow-hidden"
-        >
-          {children}
-        </div>
-
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-50">
-            {loadingFallback || <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
-          </div>
+      <div
+        className={cn(
+          'relative flex min-h-0 flex-1 items-center justify-center overflow-hidden',
+          viewportMode === 'image-aspect' && 'p-3',
         )}
-        {error || imageError ? (
+        ref={stageRef}
+      >
+        <div
+          className={cn(
+            'relative overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none',
+            viewportMode === 'fill' ? 'size-full' : 'max-h-full max-w-full shadow-sm',
+            viewportClassName,
+          )}
+          ref={viewportRef}
+          style={
+            viewportDimensions
+              ? { height: viewportDimensions.height, width: viewportDimensions.width }
+              : undefined
+          }
+        >
+          <canvas
+            aria-label={ariaLabel}
+            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown + - 0"
+            ref={canvasRef}
+            onKeyDown={handleKeyDown}
+            onMouseDown={handleMouseDown}
+            // onWheel handled via useEffect with passive: false
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={() => {
+              isDragging.current = false;
+              isPinching.current = false;
+            }}
+            className="block size-full touch-none"
+            role="img"
+            tabIndex={0}
+          />
+
           <div
-            className="absolute inset-0 z-40 grid place-items-center bg-background/95 p-6 text-center"
-            role="alert"
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 -z-50 overflow-hidden opacity-0"
           >
-            <div className="max-w-md">
-              <AlertTriangleIcon aria-hidden="true" className="mx-auto size-5 text-destructive" />
-              <p className="mt-2 text-sm font-medium">Preview unavailable</p>
-              <p className="mt-1 text-xs text-muted-foreground">{error || imageError}</p>
-            </div>
+            {children}
           </div>
-        ) : null}
+
+          {isLoading && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/50">
+              {loadingFallback || <Loader2 className="size-8 animate-spin text-muted-foreground" />}
+            </div>
+          )}
+          {error || imageError ? (
+            <div
+              className="absolute inset-0 z-40 grid place-items-center bg-background/95 p-6 text-center"
+              role="alert"
+            >
+              <div className="max-w-md">
+                <AlertTriangleIcon aria-hidden="true" className="mx-auto size-5 text-destructive" />
+                <p className="mt-2 text-sm font-medium">Preview unavailable</p>
+                <p className="mt-1 text-xs text-muted-foreground">{error || imageError}</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
+}
+
+interface Dimensions {
+  height: number;
+  width: number;
+}
+
+/** Fits one aspect ratio inside another without cropping either dimension. */
+export function fitAspectRatioViewport(stage: Dimensions, content: Dimensions): Dimensions {
+  if (stage.width <= 0 || stage.height <= 0 || content.width <= 0 || content.height <= 0) {
+    return { height: 0, width: 0 };
+  }
+  const scale = Math.min(stage.width / content.width, stage.height / content.height);
+  return { height: content.height * scale, width: content.width * scale };
 }

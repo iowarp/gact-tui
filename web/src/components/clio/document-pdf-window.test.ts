@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { estimatedPdfPageHeight, pdfPageNumbers, pdfPageWindow } from './document-pdf-window';
+import {
+  estimatedPdfPageHeight,
+  fitPdfPageWidth,
+  pdfPageNumbers,
+  pdfPageWindow,
+} from './document-pdf-window';
 
 describe('pdfPageWindow', () => {
   it('renders a bounded window of a long document instead of every page', () => {
@@ -86,5 +91,18 @@ describe('estimatedPdfPageHeight', () => {
     expect(estimatedPdfPageHeight(0)).toBeGreaterThan(0);
     expect(estimatedPdfPageHeight(600)).toBeGreaterThan(600);
     expect(estimatedPdfPageHeight(1_200)).toBeGreaterThan(estimatedPdfPageHeight(600));
+  });
+});
+
+describe('fitPdfPageWidth', () => {
+  it('fits a complete page inside the available reading height at 100% zoom', () => {
+    const width = fitPdfPageWidth({ hostWidth: 1_000, viewportHeight: 800 });
+
+    expect(width).toBeLessThan(1_000);
+    expect(estimatedPdfPageHeight(width)).toBeLessThanOrEqual(800);
+  });
+
+  it('keeps a narrower page at its available width', () => {
+    expect(fitPdfPageWidth({ hostWidth: 400, viewportHeight: 800 })).toBe(400);
   });
 });

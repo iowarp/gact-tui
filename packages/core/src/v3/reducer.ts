@@ -40,6 +40,8 @@ export function createEntityState(): EntityState {
     context: {},
     surfaces: {},
     infrastructure: {},
+    active_turns: {},
+    responded_turns: {},
     revisions: {},
     processed_cursors: [],
     gaps: [],
@@ -111,6 +113,23 @@ function upsertBlock(message: Message, block: MessageBlock): Message {
   return { ...message, blocks };
 }
 
+function markRespondedTurn(
+  state: EntityState,
+  message: Message,
+  block: MessageBlock,
+): Record<string, string> {
+  if (
+    message.role !== 'assistant' ||
+    (block.type !== 'text' && block.type !== 'reasoning')
+  ) {
+    return state.responded_turns;
+  }
+  const turnId = state.active_turns[message.session_id];
+  return turnId
+    ? { ...state.responded_turns, [message.session_id]: turnId }
+    : state.responded_turns;
+}
+
 function completeBlock(message: Message, blockId: string, text: string): Message {
   const blocks = message.blocks.map((block): MessageBlock => {
     if (block.id !== blockId || (block.type !== 'text' && block.type !== 'reasoning')) return block;
@@ -167,6 +186,7 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       return {
         ...base,
         revisions,
+        responded_turns: markRespondedTurn(base, message, block),
         messages: { ...base.messages, [message.id]: upsertBlock(message, block) },
       };
     }
@@ -192,9 +212,13 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
           `Message ${payload.message_id} is not resident for its block delta`,
         );
       }
+      const block = message.blocks.find((candidate) => candidate.id === payload.block_id);
       return {
         ...base,
         revisions,
+        responded_turns: block
+          ? markRespondedTurn(base, message, block)
+          : base.responded_turns,
         messages: {
           ...base.messages,
           [message.id]: appendDelta(message, payload.block_id, payload.delta),
@@ -338,6 +362,45 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     case 'artifact.upserted': {
       const artifact = artifactSchema.parse(envelope.payload);
       return { ...base, revisions, artifacts: { ...base.artifacts, [artifact.id]: artifact } };
+    }
+    case 'turn.started': {
+      const sessionId = envelope.scope.session_id;
+      if (!sessionId) return base;
+      const turnId = (envelope.payload as { turn_id?: unknown }).turn_id;
+      return {
+        ...base,
+        active_turns:
+          typeof turnId === 'string'
+            ? { ...base.active_turns, [sessionId]: turnId }
+            : base.active_turns,
+        responded_turns: Object.fromEntries(
+          Object.entries(base.responded_turns).filter(([id]) => id !== sessionId),
+        ),
+        infrastructure: Object.fromEntries(
+          Object.entries(base.infrastructure).filter(
+            ([, dependency]) => dependency.session_id !== sessionId,
+          ),
+        ),
+      };
+    }
+    case 'session.status_changed': {
+      const sessionId = envelope.scope.session_id;
+      const payload = envelope.payload as { status?: unknown; prev_status?: unknown };
+      if (
+        !sessionId ||
+        !(payload.status === 'running' && payload.prev_status === 'idle')
+      ) {
+        return base;
+      }
+      return {
+        ...base,
+        active_turns: Object.fromEntries(
+          Object.entries(base.active_turns).filter(([id]) => id !== sessionId),
+        ),
+        responded_turns: Object.fromEntries(
+          Object.entries(base.responded_turns).filter(([id]) => id !== sessionId),
+        ),
+      };
     }
     case 'infrastructure.dependency.changed': {
       const dependency = infrastructureDependencySchema.parse(envelope.payload);

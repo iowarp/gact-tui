@@ -85,6 +85,50 @@ if ($cleanupSource -match 'if\s*\(\$CrossConfirmed\)\s*\{\s*return\s+"stop"') {
     throw "Resolve-ClioDevProcessAction must never return 'stop' on cross-confirmation alone."
 }
 
+# Preserved generations survive the historical runtime-directory rename. The
+# live process manifest is authoritative only when exactly one candidate exists.
+$runtimeProbe = Join-Path ([System.IO.Path]::GetTempPath()) ("clio-dev-runtime-" + [Guid]::NewGuid().ToString("N"))
+$preferredRuntime = Join-Path $runtimeProbe "runtime\clio-agent-dev"
+$legacyRuntime = Join-Path $runtimeProbe "runtime\clio-agent"
+New-Item -ItemType Directory -Force -Path $preferredRuntime, $legacyRuntime | Out-Null
+try {
+    Set-Content -LiteralPath (Join-Path $legacyRuntime "dev-processes.json") -Value "{}" -Encoding utf8
+    $resolvedRuntime = Resolve-ClioDevRuntimeRoot `
+        -GenerationRoot $runtimeProbe `
+        -PreferredRuntimeRoot $preferredRuntime
+    if ($resolvedRuntime -ne [System.IO.Path]::GetFullPath($legacyRuntime)) {
+        throw "A unique legacy process manifest must be adopted for a preserved generation."
+    }
+
+    Set-Content -LiteralPath (Join-Path $preferredRuntime "dev-processes.json") -Value "{}" -Encoding utf8
+    $resolvedRuntime = Resolve-ClioDevRuntimeRoot `
+        -GenerationRoot $runtimeProbe `
+        -PreferredRuntimeRoot $preferredRuntime
+    if ($resolvedRuntime -ne [System.IO.Path]::GetFullPath($preferredRuntime)) {
+        throw "A populated declared runtime must remain authoritative."
+    }
+
+    Remove-Item -LiteralPath (Join-Path $preferredRuntime "dev-processes.json") -Force
+    $secondLegacyRuntime = Join-Path $runtimeProbe "runtime\clio-agent-old"
+    New-Item -ItemType Directory -Force -Path $secondLegacyRuntime | Out-Null
+    Set-Content -LiteralPath (Join-Path $secondLegacyRuntime "dev-processes.json") -Value "{}" -Encoding utf8
+    $ambiguousRuntimeRejected = $false
+    try {
+        Resolve-ClioDevRuntimeRoot `
+            -GenerationRoot $runtimeProbe `
+            -PreferredRuntimeRoot $preferredRuntime | Out-Null
+    }
+    catch {
+        $ambiguousRuntimeRejected = $_.Exception.Message -like "Multiple runtime process manifests*"
+    }
+    if (-not $ambiguousRuntimeRejected) {
+        throw "Multiple runtime process manifests must be rejected as ambiguous ownership."
+    }
+}
+finally {
+    Remove-Item -LiteralPath $runtimeProbe -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 # Legacy-root ownership: a bare directory is not CLIO residue; one carrying this
 # tooling's generation state is.
 $residueProbe = Join-Path ([System.IO.Path]::GetTempPath()) ("clio-dev-residue-" + [Guid]::NewGuid().ToString("N"))
@@ -139,6 +183,9 @@ foreach ($name in @("HF_HOME", "HF_HUB_CACHE", "HF_XET_CACHE")) {
 if ($startSource -notmatch 'sync_preserved_committed_heads') {
     throw "Start-ClioDev must advance preserved runtime clones to the selected committed heads."
 }
+if ($startSource -notmatch 'Add-Member[\s\S]{0,180}?runtime_root[\s\S]{0,300}?Set-Content[\s\S]{0,180}?activeGenerationPath[\s\S]{0,300}?stop_previous_runtime') {
+    throw "Start-ClioDev must persist a recovered runtime root before stopping the preserved generation."
+}
 if ($startSource -notmatch 'CLIO_CODEX_TRANSPORT\s*=\s*"sdk"') {
     throw "Start-ClioDev must configure Codex through the backend's supported official SDK transport."
 }
@@ -148,10 +195,38 @@ if ($startSource -match 'CLIO_CODEX_TRANSPORT\s*=\s*"app_server"') {
 if ($startSource -notmatch 'DOCLING_INFERENCE_COMPILE_TORCH_MODELS\s*=\s*"false"') {
     throw "Start-ClioDev must keep Docling inference independent of a Windows C++ compiler."
 }
-if ($startSource -notmatch '-Environment\s+\$documentProcessorEnvironment') {
-    throw "Start-ClioDev must pass the Docling environment directly to its child process."
+if (
+    $startSource -notmatch '\$originalDocumentProcessorEnvironment\s*=\s*@\{\}' -or
+    $startSource -notmatch '\[Environment\]::SetEnvironmentVariable\([\s\S]{0,180}?\$documentProcessorEnvironment\[\$name\][\s\S]{0,900}?Start-Process' -or
+    $startSource -notmatch 'finally\s*\{[\s\S]{0,500}?\$originalDocumentProcessorEnvironment\[\$name\]'
+) {
+    throw "Start-ClioDev must scope the Docling environment around child-process creation and restore it afterward."
 }
 $preflightSource = Get-Content -Raw -LiteralPath (Join-Path $scriptsRoot "Test-ClioDevPreflight.ps1")
+if (
+    $startSource -notmatch '\[int\]\$BackendReadinessTimeoutSec\s*=\s*300' -or
+    $startSource -notmatch 'AddSeconds\(\$BackendReadinessTimeoutSec\)'
+) {
+    throw "Start-ClioDev must allow preserved session-ledger rehydration to finish before failing readiness."
+}
+if ($startSource -notmatch '-HealthTimeoutSec\s+\$BackendReadinessTimeoutSec') {
+    throw "Start-ClioDev must pass its readiness budget through to live preflight."
+}
+if ($startSource -notmatch '\$providerInfo\s*=\s*Invoke-RestMethod[\s\S]{0,160}?\$providerUri[\s\S]{0,120}?-TimeoutSec\s+\$BackendReadinessTimeoutSec') {
+    throw "Cold provider discovery must share the explicit backend readiness budget."
+}
+if ($preflightSource -notmatch 'HealthTimeoutSec[\s\S]{0,2500}?/v1/health[^\r\n]*-TimeoutSec\s+\$HealthTimeoutSec') {
+    throw "Test-ClioDevPreflight must use the configured health timeout for preserved ledger rehydration."
+}
+foreach ($backendReadinessPath in @('/v1/providers/lm', '/v1/agent-blueprints"', '/v1/agent-blueprints/sources')) {
+    $escapedReadinessPath = [regex]::Escape($backendReadinessPath)
+    if ($preflightSource -notmatch "$escapedReadinessPath[\s\S]{0,160}?-TimeoutSec\s+\`$HealthTimeoutSec") {
+        throw "Test-ClioDevPreflight must apply the explicit readiness budget to $backendReadinessPath."
+    }
+}
+if ($preflightSource -match '/context/ops[\s\S]{0,500}?-TimeoutSec\s+15') {
+    throw "The disposable ARC transaction must share the explicit live-preflight budget."
+}
 if ($preflightSource -notmatch 'gact_versions[\s\S]{0,120}?contains\s+"0\.3"') {
     throw "Test-ClioDevPreflight must validate the negotiated GACT 0.3 envelope through gact_versions."
 }
@@ -163,6 +238,15 @@ if ($preflightSource -notmatch 'x_clio_resources\.max_bytes') {
 }
 if ($preflightSource -match 'x_clio_resources\.enabled') {
     throw "Test-ClioDevPreflight must not require a resource enabled field that the backend does not advertise."
+}
+if ($preflightSource -match '\$_\.endpoint\s+-eq\s+\$documentProcessorUrl') {
+    throw "Test-ClioDevPreflight must accept the authoritative configured converter endpoint, not force localhost."
+}
+if (
+    $preflightSource -notmatch 'configuredDocumentProcessor\.endpoint' -or
+    $preflightSource -notmatch 'activeDocumentProcessorUrl/readyz'
+) {
+    throw "Test-ClioDevPreflight must probe the authoritative configured converter endpoint."
 }
 
 # Every stop this script performs is a restart step, never an uninstall. The
@@ -180,6 +264,12 @@ foreach ($call in $stopCalls) {
 if ($startSource -notmatch 'if\s*\(\$null\s+-eq\s+\$webResponse[\s\S]*?-PreserveState[\s\S]*?throw\s+"CLIO web did not become ready') {
     throw "The web-readiness failure path must stop with -PreserveState instead of deleting the development root."
 }
+if ($startSource -notmatch '\$webResponse\s*=\s*Invoke-ClioDevWebRequest') {
+    throw "Web readiness must use the Windows PowerShell-compatible HTTP helper."
+}
+if ($startSource -notmatch 'trap\s*\{[\s\S]{0,300}?Write-ProvisionalProcessState[\s\S]{0,300}?&\s+\$stopScript') {
+    throw "Failed startup cleanup must record exact launcher/listener pairs before its scoped stop."
+}
 
 # The CTE listener is adopted from a port query, so it is recorded with who owns
 # it and the stop sweep leaves an external daemon running.
@@ -193,11 +283,23 @@ if ($stopSource -notmatch '\$stillRunning\s*=\s*Get-Process') {
 if ($stopSource -notmatch '\$externalPids\.Contains\(\$ProcessId\)') {
     throw "Stop-ClioDev must refuse to stop a PID recorded as externally owned."
 }
+if (
+    $stopSource -notmatch '\$recordedOwnedChildren\.Contains\(\$ProcessId\)' -or
+    $stopSource -notmatch '\$backendProcess\.ParentProcessId\s*-eq\s*\$backendLauncherPid'
+) {
+    throw "Stop-ClioDev must recognize only the recorded backend listener's direct owned launcher relationship."
+}
 if ($stopSource -notmatch 'if\s*\(-not\s+\$generationManifestPresent\s+-and\s+-not\s+\$executableOwned\)') {
     throw "Without a generation manifest the sweep must require an owned EXECUTABLE, not a command-line mention."
 }
 if ($stopSource -match 'function\s+Test-ClioDevOwnedProcess') {
     throw "Stop-ClioDev must not carry the dead ancestry-walk helper."
+}
+if (
+    $stopSource -notmatch '\$callerProcessTree\s*=\s*\[System\.Collections\.Generic\.HashSet\[int\]\]' -or
+    $stopSource -notmatch '\$callerProcessTree\.Contains\(\$ProcessId\)'
+) {
+    throw "Stop-ClioDev must protect its complete caller chain from command-line ownership sweeps."
 }
 
 # One shell contract for the whole skill: -SkipHttpErrorCheck is PowerShell 7
@@ -212,6 +314,17 @@ foreach ($file in Get-ChildItem -LiteralPath $scriptsRoot -Filter "*.ps1") {
     if ($offending.Count -gt 0) {
         throw "$($file.Name) uses the PowerShell 7-only -SkipHttpErrorCheck; use Invoke-ClioDevWebRequest."
     }
+}
+$preflightWebRequests = @(
+    [regex]::Matches($preflightSource, 'Invoke-WebRequest[\s\S]*?(?=\r?\n\S|\z)')
+)
+foreach ($request in $preflightWebRequests) {
+    if ($request.Value -notmatch '-UseBasicParsing') {
+        throw "Test-ClioDevPreflight must make every Invoke-WebRequest call Windows PowerShell 5.1-safe."
+    }
+}
+if ($startSource -match 'Start-Process[\s\S]{0,500}?-Environment\s') {
+    throw "Start-ClioDev must use process-scoped environment variables instead of PowerShell 7-only Start-Process -Environment."
 }
 # ...and the replacement has to actually do the job the parameter did: a served
 # 503 is data the readiness poll reads, while a refused connection still throws.

@@ -1,15 +1,4 @@
-import type {
-  ActionCardAction,
-  Artifact,
-  A2UISurface,
-  Message as DomainMessage,
-  SubagentRun,
-  Task as DomainTask,
-  ToolInvocation,
-  WorkspaceReference,
-  WorkspaceResource,
-} from '@clio/core/v3';
-import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
+import type { PendingInteraction, Message as DomainMessage } from '@clio/core/v3';
 import {
   AlertTriangleIcon,
   ArrowDownIcon,
@@ -18,7 +7,9 @@ import {
   CopyIcon,
   EyeIcon,
   GitBranchIcon,
+  Globe2Icon,
   LoaderCircleIcon,
+  MapIcon,
   RotateCcwIcon,
   UserIcon,
   XIcon,
@@ -36,6 +27,7 @@ import {
   MessageContent,
 } from '@/components/ai-elements/message';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { ConversationDisplayMode } from '@/providers/conversation-display-provider';
@@ -46,51 +38,17 @@ import { DeferredA2UISurface, MessageBlockSequence } from './conversation-messag
 import { ConversationTurn } from './conversation-turn';
 import { useConversationTurn } from './use-conversation-turn';
 import { subagentsForTool } from './subagent-tool-link';
-import type { SubagentOpenTarget } from './subagent-card';
 import { ClioTranscriptMinimap } from './transcript-minimap';
+import type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
+import {
+  isProjectedQuestionResumeEnvelope,
+  mcpAppResponsesForMessages,
+  specialMessageExecutionMode,
+} from './conversation-message-projection';
+import { McpAppResponseMessageRow } from './conversation-message-projections';
 
 const VIRTUALIZATION_THRESHOLD = 80;
-
-export interface ClioConversationProps {
-  messages: readonly DomainMessage[];
-  loading?: boolean;
-  error?: string;
-  tools: Record<string, ToolInvocation>;
-  tasks: Record<string, DomainTask>;
-  subagents: Record<string, SubagentRun>;
-  artifacts: Record<string, Artifact>;
-  surfaces: Record<string, A2UISurface>;
-  resources?: Record<string, WorkspaceResource>;
-  onActionCardAction?: (action: ActionCardAction) => void | Promise<unknown>;
-  onA2UILocalAction?: (action: A2uiClientAction) => string | void | Promise<string | void>;
-  onForkFromMessage?: (messageId: string) => void | Promise<unknown>;
-  forkingMessageId?: string;
-  onRewindToMessage?: (messageId: string) => void | Promise<unknown>;
-  rewindingMessageId?: string;
-  onRetryMessage?: (messageId: string) => void | Promise<unknown>;
-  retryingMessageId?: string;
-  onOpenArtifact?: (artifact: Artifact) => void;
-  onOpenFile?: (path: string) => void;
-  onOpenResource?: (resource: WorkspaceResource) => void;
-  onOpenReference?: (reference: WorkspaceReference) => void;
-  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
-  pendingMessageIds?: ReadonlySet<string>;
-  cancellablePendingMessageIds?: ReadonlySet<string>;
-  cancellingPendingMessageId?: string;
-  onCancelPendingSteer?: (messageId: string) => void | Promise<unknown>;
-  bottomInset?: number;
-}
-
-export interface ConversationMessageRowProps extends Omit<ClioConversationProps, 'messages'> {
-  displayMode: ConversationDisplayMode;
-  message: DomainMessage;
-  index: number;
-  start?: number;
-  recent: boolean;
-  measureElement?: (element: Element | null) => void;
-  virtualized?: boolean;
-  onDisplayModeChange: (mode: ConversationDisplayMode) => void;
-}
+export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
 
 const ConversationMessageRow = memo(function ConversationMessageRow({
   message,
@@ -101,6 +59,7 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
   virtualized = false,
   displayMode,
   onDisplayModeChange,
+  mcpAppResponse,
   ...entities
 }: ConversationMessageRowProps) {
   const canRetry =
@@ -113,6 +72,21 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
     pendingSteer && entities.cancellablePendingMessageIds?.has(message.id);
   const turn = useConversationTurn(message, entities.tools, entities.tasks, entities.subagents);
   const { linkedSubagentIds, residualBlocks } = turn;
+  const executionMode = specialMessageExecutionMode(message);
+
+  if (mcpAppResponse) {
+    return (
+      <McpAppResponseMessageRow
+        index={index}
+        measureElement={measureElement}
+        messageId={message.id}
+        recent={recent}
+        response={mcpAppResponse}
+        start={start}
+        virtualized={virtualized}
+      />
+    );
+  }
   const actions = (
     <MessageActions className="ml-auto shrink-0 opacity-100 sm:pointer-events-none sm:opacity-0 sm:transition-opacity sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100">
       {cancellablePendingSteer ? (
@@ -185,8 +159,6 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
       className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-4 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
       data-index={index}
       id={`message-${message.id}`}
-      // Measured on both branches: the virtualizer owns the active-index
-      // derivation even when it is not positioning the rows.
       ref={measureElement}
       style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
       tabIndex={-1}
@@ -218,6 +190,17 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                 minute: '2-digit',
               })}
             </time>
+            {executionMode === 'plan' ? (
+              <Badge aria-label="Sent in Plan mode" variant="outline">
+                <MapIcon aria-hidden="true" data-icon="inline-start" />
+                Plan
+              </Badge>
+            ) : executionMode === 'deep_research' ? (
+              <Badge aria-label="Sent in Deep research mode" variant="outline">
+                <Globe2Icon aria-hidden="true" data-icon="inline-start" />
+                Deep research
+              </Badge>
+            ) : null}
             {message.role === 'assistant' && turn.iterations.length > 0 ? (
               <ToggleGroup
                 aria-label="Activity detail"
@@ -268,9 +251,16 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
             ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
               <>
                 <ConversationTurn
+                  activeMcpAppId={entities.activeMcpAppId}
+                  artifacts={entities.artifacts}
+                  interactions={entities.interactions}
                   iterations={turn.iterations}
+                  mcpAppRepository={entities.mcpAppRepository}
+                  messageSessionId={message.session_id}
                   mode={displayMode}
                   onOpenSubagent={entities.onOpenSubagent}
+                  onOpenArtifact={entities.onOpenArtifact}
+                  onInteractionResponse={entities.onInteractionResponse}
                   subagents={entities.subagents}
                 />
                 <MessageBlockSequence
@@ -278,11 +268,17 @@ const ConversationMessageRow = memo(function ConversationMessageRow({
                     (block) =>
                       block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
                   )}
+                  messageSessionId={message.session_id}
                   {...entities}
                 />
               </>
             ) : (
-              <MessageBlockSequence blocks={message.blocks} {...entities} />
+              <MessageBlockSequence
+                blocks={message.blocks}
+                messageSessionId={message.session_id}
+                resourcesFirst={message.role === 'user'}
+                {...entities}
+              />
             )}
           </MessageContent>
         </Message>
@@ -380,6 +376,11 @@ export function conversationMessageRowPropsEqual(
     left.onRewindToMessage !== right.onRewindToMessage ||
     left.onRetryMessage !== right.onRetryMessage ||
     left.onCancelPendingSteer !== right.onCancelPendingSteer ||
+    left.onInteractionResponse !== right.onInteractionResponse ||
+    left.activeMcpAppId !== right.activeMcpAppId ||
+    left.mcpAppRepository !== right.mcpAppRepository ||
+    left.mcpAppResponse !== right.mcpAppResponse ||
+    !routedInteractionsEqual(left, right, messageEntityRefs(left.message).tools) ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
     left.onOpenReference !== right.onOpenReference ||
@@ -392,8 +393,6 @@ export function conversationMessageRowPropsEqual(
   ) {
     return false;
   }
-  // onDisplayModeChange closes only over this immutable message id and the
-  // stable state setter, so a freshly-created wrapper is not a row invalidation.
   const refs = messageEntityRefs(left.message);
   return (
     referencedRowsEqual(left.artifacts, right.artifacts, refs.artifacts) &&
@@ -406,13 +405,39 @@ export function conversationMessageRowPropsEqual(
   );
 }
 
+function routedInteractionsEqual(
+  left: ConversationMessageRowProps,
+  right: ConversationMessageRowProps,
+  toolIds: ReadonlySet<string>,
+): boolean {
+  if (toolIds.size === 0) return true;
+  const relevant = (rows: readonly PendingInteraction[] | undefined) =>
+    (rows ?? []).filter((row) => row.source.invocation_id && toolIds.has(row.source.invocation_id));
+  const leftRows = relevant(left.interactions);
+  const rightRows = relevant(right.interactions);
+  return (
+    leftRows.length === rightRows.length && leftRows.every((row, index) => row === rightRows[index])
+  );
+}
+
 export function ClioConversation({
-  messages,
+  messages: sourceMessages,
   loading,
   error,
   bottomInset = 0,
   ...entities
 }: ClioConversationProps) {
+  const mcpAppResponses = useMemo(
+    () => mcpAppResponsesForMessages(sourceMessages),
+    [sourceMessages],
+  );
+  const messages = useMemo(
+    () =>
+      sourceMessages.filter(
+        (message) => !isProjectedQuestionResumeEnvelope(message, entities.interactions),
+      ),
+    [entities.interactions, sourceMessages],
+  );
   const { mode: defaultDisplayMode } = useConversationDisplay();
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -437,6 +462,12 @@ export function ClioConversation({
       ),
     [messages],
   );
+  const activeMcpAppId = useMemo(
+    () =>
+      messages.flatMap((message) => message.blocks).findLast((block) => block.type === 'mcp_app')
+        ?.app_instance_id,
+    [messages],
+  );
   const detachedSurfaces = useMemo(
     () =>
       Object.values(entities.surfaces)
@@ -451,8 +482,7 @@ export function ClioConversation({
   );
   const virtualized = messages.length >= VIRTUALIZATION_THRESHOLD;
   const minimapVisible = conversationViewportWidth >= 760;
-  // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
-  // oxlint-disable-next-line react/incompatible-library
+  // oxlint-disable-next-line react/incompatible-library -- TanStack owns these functions.
   const virtualizer = useVirtualizer({
     count: messages.length,
     estimateSize: () => 180,
@@ -625,8 +655,6 @@ export function ClioConversation({
       ) : null}
       <div
         aria-label="Conversation"
-        // The minimap is a landmark index, not a scrollbar: it has no drag or
-        // proportional thumb, so the native scrollbar stays in both states.
         className="clio-scrollbar h-full overflow-y-auto overscroll-contain"
         data-minimap-visible={minimapVisible || undefined}
         onKeyDown={(event) => {
@@ -684,11 +712,13 @@ export function ClioConversation({
               return (
                 <ConversationMessageRow
                   {...entities}
+                  activeMcpAppId={activeMcpAppId}
                   displayMode={turnDisplayModes[message.id] ?? defaultDisplayMode}
                   index={index}
                   key={message.id}
                   measureElement={virtualizer.measureElement}
                   message={message}
+                  mcpAppResponse={mcpAppResponses.get(message.id)}
                   onDisplayModeChange={(mode) => setTurnDisplayMode(message.id, mode)}
                   recent={index >= messages.length - 2}
                   start={start}
@@ -729,4 +759,5 @@ export function ClioConversation({
     </div>
   );
 }
+
 import { brand } from '@brand';

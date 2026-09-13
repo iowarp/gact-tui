@@ -102,6 +102,156 @@ function renderPending(
 }
 
 describe('ClioPendingInteractions', () => {
+  it('renders structured defaults and submits the complete field map', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('mcp_task_input', {
+      prompt: 'Configure the analysis',
+      requires_human_response: true,
+      actions: ['answer', 'cancel'],
+      payload: {
+        mode: 'form',
+        answer_metadata: { count: 3, method: 'robust', include_uncertain: true },
+        fields: [
+          {
+            name: 'count',
+            type: 'integer',
+            title: 'Sample count',
+            required: true,
+            default: 2,
+          },
+          {
+            name: 'method',
+            type: 'string',
+            title: 'Method',
+            enum: ['fast', 'robust'],
+            enum_names: ['Fast', 'Robust'],
+            required: true,
+          },
+          {
+            name: 'include_uncertain',
+            type: 'boolean',
+            title: 'Include uncertain samples',
+          },
+          {
+            name: 'outputs',
+            type: 'array',
+            item_type: 'string',
+            title: 'Outputs',
+            enum: ['table', 'plot'],
+            multi: true,
+            min_items: 1,
+            max_items: 2,
+            required: true,
+          },
+        ],
+      },
+    });
+    const onResponse = renderPending([interaction]);
+
+    expect(screen.getByLabelText('Sample count')).toHaveValue(3);
+    expect(screen.getByRole('radio', { name: 'Robust' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Include uncertain samples' })).toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Send response' }));
+    expect(screen.getByText('Choose at least 1.')).toBeVisible();
+    expect(onResponse).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('checkbox', { name: 'table' }));
+    await user.clear(screen.getByLabelText('Sample count'));
+    await user.type(screen.getByLabelText('Sample count'), '7');
+    await user.click(screen.getByRole('button', { name: 'Send response' }));
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'answer',
+      metadata: {
+        count: 7,
+        method: 'robust',
+        include_uncertain: true,
+        outputs: ['table'],
+      },
+    });
+  });
+
+  it('moves an agent fallback into human attention without exposing its code as prose', () => {
+    renderPending([
+      pending('question', {
+        prompt: 'Which solver should run?',
+        requires_human_response: true,
+        audience: 'agent',
+        routing_state: 'agent_elicitation_fallback_to_human',
+        fallback_detail: 'agent_answer_timeout',
+        actions: ['answer'],
+      }),
+    ]);
+
+    expect(screen.getByRole('region', { name: 'Agent needs your response' })).toBeVisible();
+    expect(
+      screen.getByText('The specialist could not answer this, so it needs you.'),
+    ).toBeVisible();
+    expect(screen.queryByText('agent_answer_timeout')).not.toBeVisible();
+    expect(screen.getByText('Technical details')).toBeVisible();
+  });
+
+  it('shows URL identity and never navigates before explicit consent', async () => {
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const interaction = pending('question', {
+      prompt: 'Open the result?',
+      requires_human_response: true,
+      actions: ['answer', 'cancel'],
+      payload: {
+        mode: 'url',
+        url: 'https://xn--bcher-kva.example/report',
+        container: 'isolated',
+        punycode_warning: true,
+        punycode_host: 'bücher.example',
+        punycode_host_raw: 'xn--bcher-kva.example',
+      },
+    });
+    const onResponse = renderPending([interaction]);
+
+    expect(open).not.toHaveBeenCalled();
+    expect(screen.getByText('Look-alike address warning')).toBeVisible();
+    expect(screen.getByText('bücher.example')).toBeVisible();
+    expect(screen.getByText('xn--bcher-kva.example')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Open link' }));
+    expect(open).toHaveBeenCalledWith(
+      'https://xn--bcher-kva.example/report',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    expect(
+      screen.getByText('The browser blocked this link. It has not been accepted.'),
+    ).toBeVisible();
+    expect(onResponse).not.toHaveBeenCalled();
+  });
+
+  it('submits multiple choices and preserves comments for selected options', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('question', {
+      prompt: 'Choose outputs',
+      requires_human_response: true,
+      actions: ['answer'],
+      payload: {
+        question_kind: 'multi_choice',
+        options: [
+          { label: 'Table', value: 'table' },
+          { label: 'Plot', value: 'plot' },
+        ],
+      },
+    });
+    const onResponse = renderPending([interaction]);
+
+    await user.click(screen.getByRole('checkbox', { name: 'Table' }));
+    await user.type(screen.getByLabelText('Comment on Table'), 'Keep sortable columns');
+    await user.click(screen.getByRole('checkbox', { name: 'Plot' }));
+    await user.click(screen.getByRole('button', { name: 'Send response' }));
+
+    expect(onResponse).toHaveBeenCalledWith(interaction, {
+      action: 'answer',
+      selected_options: ['table', 'plot'],
+      metadata: { option_comments: { table: 'Keep sortable columns' } },
+    });
+  });
+
   it('keeps the accepted collapsible approval surface and emits the exact normalized action', async () => {
     const user = userEvent.setup();
     const interaction = pending('permission', {
@@ -146,10 +296,7 @@ describe('ClioPendingInteractions', () => {
     expect(screen.getByRole('button', { name: 'Allow once' })).toBeEnabled();
     const unknownAction = screen.getByRole('button', { name: 'allow_forever' });
     expect(unknownAction).toBeDisabled();
-    expect(unknownAction).toHaveAttribute(
-      'title',
-      'This client cannot offer "allow_forever" yet.',
-    );
+    expect(unknownAction).toHaveAttribute('title', 'This client cannot offer "allow_forever" yet.');
   });
 
   it('names the read that failed while it still renders what it could read', () => {
@@ -542,7 +689,9 @@ describe('ClioPendingInteractions', () => {
     renderPending([interaction], { surfaces: { surface_1: foreignSurface } });
 
     expect(
-      screen.getByText('This interactive view was rejected: it was addressed to a different session.'),
+      screen.getByText(
+        'This interactive view was rejected: it was addressed to a different session.',
+      ),
     ).toBeVisible();
     expect(screen.queryByText('Interactive view is loading.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Submit selection' })).not.toBeInTheDocument();

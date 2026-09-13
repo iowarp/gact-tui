@@ -1,7 +1,16 @@
-import type { AsyncProcess, ExecutionProvenanceResult, Message } from '@clio/core/v3';
+import type {
+  AsyncProcess,
+  ExecutionProvenanceResult,
+  Message,
+  PendingInteraction,
+} from '@clio/core/v3';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { childProjectionActivityItems, ClioActivityTimeline } from './observability-activity';
+import {
+  agentInteractionActivityItems,
+  childProjectionActivityItems,
+  ClioActivityTimeline,
+} from './observability-activity';
 
 const processes: AsyncProcess[] = [
   {
@@ -173,7 +182,208 @@ const provenance: ExecutionProvenanceResult = {
   edges: [],
 };
 
+describe('causal question interaction activity', () => {
+  it('stays visible under its MCP task even without an initiating tool card', () => {
+    const interaction: PendingInteraction = {
+      id: 'mcp_task_input:nonce',
+      kind: 'mcp_task_input',
+      owner_session_id: 'session_leaf',
+      attended_session_id: 'session_root',
+      task_id: 'mcp_review_task',
+      status: 'answered',
+      title: 'MCP request',
+      audience: 'agent',
+      routing_state: 'elicitation_routed_to_agent',
+      answered_by: 'agent',
+      source: { protocol: 'mcp', invocation_id: 'invoke-async' },
+      created_at: '2026-09-02T12:00:25Z',
+      payload: {
+        mode: 'form',
+        request_index: 1,
+        request_count: 2,
+        agent_answer_task: {
+          live_state: 'completed',
+          updated_at: '2026-09-02T12:00:35Z',
+        },
+      },
+    };
+
+    expect(agentInteractionActivityItems([interaction], processes, 'session_root')).toEqual([
+      expect.objectContaining({
+        kind: 'interaction',
+        label: 'Form request 1 of 2',
+        detail: 'Agent answer validated and returned to MCP',
+        state: 'completed',
+        groupId: 'mcp-task:mcp_review_task',
+        taskId: 'mcp_review_task',
+      }),
+    ]);
+  });
+
+  it('keeps a direct human answer in the durable MCP task activity', () => {
+    const interaction: PendingInteraction = {
+      id: 'mcp_task_input:human',
+      kind: 'mcp_task_input',
+      owner_session_id: 'session_leaf',
+      attended_session_id: 'session_root',
+      task_id: 'mcp_review_task',
+      status: 'answered',
+      title: 'MCP request',
+      answered_by: 'human',
+      source: { protocol: 'mcp', invocation_id: 'invoke-async' },
+      created_at: '2026-09-02T12:00:25Z',
+      payload: { mode: 'form', request_index: 1, request_count: 1 },
+    };
+
+    expect(agentInteractionActivityItems([interaction], processes, 'session_root')).toEqual([
+      expect.objectContaining({
+        kind: 'interaction',
+        label: 'Form request 1 of 1',
+        detail: 'Your response was validated and returned to MCP',
+        state: 'completed',
+        groupId: 'mcp-task:mcp_review_task',
+      }),
+    ]);
+  });
+
+  it('keeps a native ask-user answer in durable activity', () => {
+    const interaction: PendingInteraction = {
+      id: 'question:native',
+      kind: 'question',
+      owner_session_id: 'session_root',
+      attended_session_id: 'session_root',
+      status: 'answered',
+      title: 'Question from agent',
+      answered_by: 'human',
+      source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'call-native' },
+      created_at: '2026-09-02T12:00:25Z',
+      payload: { answer_metadata: { answer: 'A cantilever beam' } },
+    };
+
+    expect(agentInteractionActivityItems([interaction], processes, 'session_root')).toEqual([
+      expect.objectContaining({
+        kind: 'interaction',
+        label: 'Question',
+        detail: 'Your answer resumed the agent',
+        state: 'completed',
+        groupId: 'native-invocation:call-native',
+      }),
+    ]);
+  });
+});
+
 describe('child work activity projection', () => {
+  it('shows commission, research, artifact return, and parent use as separate ledger events', () => {
+    const commissioned: ExecutionProvenanceResult = {
+      ...provenance,
+      spans: [
+        ...provenance.spans,
+        {
+          id: 'commission_started',
+          parent_id: '',
+          kind: 'event',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          owner_session_id: 'session_root',
+          workflow_id: '',
+          campaign_id: '',
+          agent_id: 'main',
+          source_agent_id: '',
+          task_id: 'task_child',
+          task_path: ['task_child'],
+          label: 'main commissioned Deep Researcher',
+          event_type: 'blueprint.commission.started',
+          status: 'running',
+          start_time: 1_788_350_400,
+          end_time: null,
+          duration_ms: null,
+          host: 'local',
+          artifact_refs: [],
+          attributes: { turn_id: 'turn_root' },
+          source_event_ids: ['event_commission_started'],
+        },
+        {
+          id: 'artifact_returned',
+          parent_id: '',
+          kind: 'event',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          owner_session_id: 'session_root',
+          workflow_id: '',
+          campaign_id: '',
+          agent_id: 'main',
+          source_agent_id: '',
+          task_id: 'task_child',
+          task_path: ['task_child'],
+          label: 'Deep Researcher returned a registered artifact',
+          event_type: 'blueprint.commission.artifact_returned',
+          status: 'completed',
+          start_time: 1_788_350_460,
+          end_time: 1_788_350_460,
+          duration_ms: 0,
+          host: 'local',
+          artifact_refs: [{ artifact_id: 'artifact_report', sha256: 'a'.repeat(64) }],
+          attributes: { turn_id: 'turn_root' },
+          source_event_ids: ['event_artifact_returned'],
+        },
+        {
+          id: 'parent_used_artifact',
+          parent_id: '',
+          kind: 'event',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          owner_session_id: 'session_root',
+          workflow_id: '',
+          campaign_id: '',
+          agent_id: 'main',
+          source_agent_id: '',
+          task_id: 'task_child',
+          task_path: ['task_child'],
+          label: 'Parent used the report returned by Deep Researcher',
+          event_type: 'blueprint.commission.parent_used_artifact',
+          status: 'completed',
+          start_time: 1_788_350_470,
+          end_time: 1_788_350_470,
+          duration_ms: 0,
+          host: 'local',
+          artifact_refs: [{ artifact_id: 'artifact_report', sha256: 'a'.repeat(64) }],
+          attributes: { turn_id: 'turn_root' },
+          source_event_ids: ['event_parent_used_artifact'],
+        },
+      ],
+    };
+
+    const items = childProjectionActivityItems(commissioned, processes);
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'projected:commission_started',
+          detail: 'Commissioned blueprint',
+          groupId: 'turn_root',
+        }),
+        expect.objectContaining({
+          id: 'task_leaf:branch-open',
+          lifecycle: 'open',
+        }),
+        expect.objectContaining({
+          id: 'task_leaf:branch-close',
+          lifecycle: 'close',
+        }),
+        expect.objectContaining({
+          id: 'projected:artifact_returned',
+          detail: 'Registered report returned',
+          kind: 'artifact',
+        }),
+        expect.objectContaining({
+          id: 'projected:parent_used_artifact',
+          detail: 'Parent used returned report',
+          kind: 'artifact',
+        }),
+      ]),
+    );
+  });
+
   it('preserves authoritative task identity, depth, lifecycle, and safe high-signal activity', () => {
     const items = childProjectionActivityItems(provenance, processes);
 

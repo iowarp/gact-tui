@@ -1,4 +1,4 @@
-import type { PendingInteraction } from '@clio/core/v3';
+import type { PendingInteraction, Session } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { StrictMode, type ReactNode } from 'react';
@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
     queuedMessages: vi.fn(async () => []),
     respondPermission: vi.fn(async () => undefined),
     submitMessage: vi.fn(),
+    updateSession: vi.fn(),
   },
   replaceSnapshots: vi.fn(),
 }));
@@ -65,12 +66,13 @@ const draft: SessionSendInput = { behavior, delivery: 'start', text: 'Check the 
 
 beforeEach(() => vi.clearAllMocks());
 
-function renderMutations() {
+function renderMutations(session?: Session) {
   return renderHook(
     () =>
       useSessionMutations({
         activeModel: 'gpt-5.6-luna',
         activeProvider: 'codex',
+        session,
         sessionId: 'sess_1',
         workspaceId: 'ws_1',
       }),
@@ -156,6 +158,64 @@ describe('useSessionMutations send identity', () => {
       (call) => call[1].idempotency_key as string,
     );
     expect(keys[0]).not.toBe(keys[1]);
+  });
+});
+
+describe('useSessionMutations execution mode', () => {
+  const session = {
+    id: 'sess_1',
+    mode: 'edit',
+    routing_mode: 'auto',
+  } as Session;
+
+  beforeEach(() => {
+    mocks.repository.updateSession.mockImplementation(
+      async (_sessionId: string, patch: Partial<Session>) => ({ ...session, ...patch }),
+    );
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_plan' });
+  });
+
+  it('enters authoritative plan mode before starting a plan turn', async () => {
+    const { result } = renderMutations(session);
+
+    await result.current.send.mutateAsync({
+      ...draft,
+      behavior: { ...behavior, execution_mode: 'plan' },
+    });
+
+    expect(mocks.repository.updateSession).toHaveBeenCalledWith('sess_1', {
+      mode: 'plan',
+      routing_mode: 'auto',
+    });
+    expect(mocks.repository.updateSession.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.repository.submitMessage.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it('enters authoritative architect mode before starting deep research', async () => {
+    const { result } = renderMutations(session);
+
+    await result.current.send.mutateAsync({
+      ...draft,
+      behavior: { ...behavior, execution_mode: 'deep_research' },
+    });
+
+    expect(mocks.repository.updateSession).toHaveBeenCalledWith('sess_1', {
+      mode: 'architect',
+      routing_mode: 'experts',
+    });
+  });
+
+  it('does not mutate the authoritative mode for a steer into an active turn', async () => {
+    const { result } = renderMutations(session);
+
+    await result.current.send.mutateAsync({
+      ...draft,
+      behavior: { ...behavior, execution_mode: 'plan' },
+      delivery: 'steer',
+    });
+
+    expect(mocks.repository.updateSession).not.toHaveBeenCalled();
   });
 });
 
@@ -349,6 +409,36 @@ describe('useSessionMutations pending-question invalidation', () => {
 
     await waitFor(() =>
       expect(client.getQueryCache().find({ queryKey: readKey })?.state.isInvalidated).toBe(true),
+    );
+  });
+
+  it('refreshes authoritative session posture after a Plan approval response', async () => {
+    const client = clientWithReadPopulated();
+    const sessionsKey = queryKeys.sessions('http://127.0.0.1:8790', 'ws_1');
+    client.setQueryData(sessionsKey, []);
+    const { result } = renderMutationsWithClient(client);
+    const interaction: PendingInteraction = {
+      id: 'question:plan_exit',
+      kind: 'question',
+      owner_session_id: 'sess_1',
+      attended_session_id: 'sess_1',
+      status: 'pending',
+      title: 'Review execution plan',
+      source: { protocol: 'native', tool_name: 'plan_exit' },
+      created_at: '2026-09-07T00:00:00Z',
+      payload: { question_id: 'plan_exit' },
+      actions: ['answer'],
+    };
+
+    await result.current.respondInteraction.mutateAsync({
+      interaction,
+      response: { action: 'answer', selected_options: ['auto'] },
+    });
+
+    await waitFor(() =>
+      expect(client.getQueryCache().find({ queryKey: sessionsKey })?.state.isInvalidated).toBe(
+        true,
+      ),
     );
   });
 });

@@ -8,6 +8,9 @@ const repository = vi.hoisted(() => ({
   serviceHealth: vi.fn(),
   relayStatus: vi.fn(),
   mcpServers: vi.fn(),
+  mcpConfiguration: vi.fn(),
+  configureMcpServer: vi.fn(),
+  removeMcpConfiguration: vi.fn(),
   configureRelay: vi.fn(),
   deleteMcpServer: vi.fn(),
   installMcpServer: vi.fn(),
@@ -68,7 +71,34 @@ beforeEach(() => {
       spec: {},
     },
   ]);
-  repository.installMcpServer.mockResolvedValue({ id: 'mcp_ext_web' });
+  repository.mcpConfiguration.mockResolvedValue({
+    name: 'web',
+    configured: false,
+    scope: 'user',
+    status: 'local_fallback',
+    tools_count: 0,
+    tools: [],
+    retryable: false,
+  });
+  repository.configureMcpServer.mockResolvedValue({
+    name: 'web',
+    configured: true,
+    scope: 'user',
+    status: 'ready',
+    transport: 'stdio',
+    tools_count: 2,
+    tools: ['web_search', 'web_fetch'],
+    retryable: false,
+  });
+  repository.removeMcpConfiguration.mockResolvedValue({
+    name: 'web',
+    configured: false,
+    scope: 'user',
+    status: 'local_fallback',
+    tools_count: 0,
+    tools: [],
+    retryable: false,
+  });
 });
 
 afterEach(cleanup);
@@ -268,14 +298,18 @@ describe('InfrastructurePage', () => {
     renderPage();
 
     await user.click(await screen.findByRole('button', { name: /Set up web search/u }));
-    await user.click(screen.getByRole('radio', { name: /Already running/u }));
+    expect(screen.queryByRole('radio')).not.toBeInTheDocument();
+    expect(screen.getByText('Connect an existing service')).toBeVisible();
+    expect(
+      screen.getByText(/Search and HTML fetches can appear to work without it/u),
+    ).toBeVisible();
     const address = screen.getByLabelText('Service address');
     await user.clear(address);
     await user.type(address, 'http://10.0.0.102:8089');
     await user.click(screen.getByRole('button', { name: 'Connect to agent' }));
 
     await waitFor(() =>
-      expect(repository.installMcpServer).toHaveBeenCalledWith({
+      expect(repository.configureMcpServer).toHaveBeenCalledWith('web', {
         name: 'CLIO Web Search',
         transport: 'stdio',
         command: 'uvx',
@@ -291,5 +325,42 @@ describe('InfrastructurePage', () => {
       }),
     );
     expect(repository.deleteMcpServer).not.toHaveBeenCalled();
+  });
+
+  it('keeps an unreachable remote configuration visible and retryable', async () => {
+    repository.mcpConfiguration.mockResolvedValue({
+      name: 'web',
+      configured: true,
+      scope: 'user',
+      status: 'degraded',
+      transport: 'stdio',
+      tools_count: 0,
+      tools: [],
+      spec: {
+        args: ['clio-kit', 'mcp-server', 'web', '--remote-url', 'http://offline:8089'],
+      },
+      error: 'ConnectionError: service offline',
+      retryable: true,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /Retry setup/u }));
+    expect(await screen.findByDisplayValue('http://offline:8089')).toBeVisible();
+    expect(screen.getByText('Configuration saved, service unavailable')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Retry connection' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Use local engines' })).toBeVisible();
+  });
+
+  it('keeps Web Search and Relay setup aligned at the same top position and width', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /Set up web search/u }));
+    expect(screen.getByRole('dialog')).toHaveClass('top-[10dvh]', 'translate-y-0', 'sm:max-w-2xl');
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    await user.click(screen.getByRole('button', { name: 'Connect Relay' }));
+    expect(screen.getByRole('dialog')).toHaveClass('top-[10dvh]', 'translate-y-0', 'sm:max-w-2xl');
   });
 });

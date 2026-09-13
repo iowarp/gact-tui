@@ -1,4 +1,4 @@
-import type { Session } from '@clio/core/v3';
+import type { MessageBehavior, Session } from '@clio/core/v3';
 import {
   BotIcon,
   CircleHelpIcon,
@@ -82,6 +82,19 @@ export const SESSION_MODE_PATCHES: Record<Session['mode'], SessionBehaviorPatch>
   architect: { mode: 'architect', routing_mode: 'experts' },
   unknown: {},
 };
+
+/** Translate composer behavior into the authoritative session patch it represents. */
+export function sessionPatchForMessageBehavior(
+  behavior: MessageBehavior,
+): SessionBehaviorPatch {
+  const mode =
+    behavior.execution_mode === 'plan'
+      ? 'plan'
+      : behavior.execution_mode === 'deep_research'
+        ? 'architect'
+        : 'edit';
+  return { ...SESSION_MODE_PATCHES[mode], approval_mode: behavior.confirmation_policy };
+}
 
 export function sessionModeLabel(mode: Session['mode']): string {
   return SESSION_MODE_OPTIONS.find((option) => option.value === mode)?.label ?? 'Unknown mode';

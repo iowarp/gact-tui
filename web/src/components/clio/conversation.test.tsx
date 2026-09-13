@@ -112,7 +112,7 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByText('Use this as context.')).toBeInTheDocument();
   });
 
-  it('renders a workspace resource at its wire position without exposing private prompt context', async () => {
+  it('presents user attachments above the prompt without exposing private prompt context', async () => {
     const user = userEvent.setup();
     const onOpenResource = vi.fn();
     const resource = {
@@ -162,6 +162,7 @@ describe('ClioConversation recovery actions', () => {
             role: 'user',
             created_at: '2026-08-22T00:00:00Z',
             blocks: [
+              { id: 'text_part', type: 'text', text: 'Analyze this filing.' },
               {
                 id: 'resource_part',
                 type: 'resource',
@@ -171,7 +172,6 @@ describe('ClioConversation recovery actions', () => {
                 name: 'paper.pdf',
                 media_type: 'application/pdf',
               },
-              { id: 'text_part', type: 'text', text: 'Analyze this filing.' },
             ],
           },
         ]}
@@ -196,9 +196,22 @@ describe('ClioConversation recovery actions', () => {
       ),
     ).toBeVisible();
     expect(screen.getByText('Analyze this filing.')).toBeInTheDocument();
+    const textBubble = screen
+      .getByText('Analyze this filing.')
+      .closest<HTMLElement>('[data-slot="message-text"]');
+    expect(textBubble).toHaveClass(
+      'group-[.is-user]:rounded-lg',
+      'group-[.is-user]:bg-secondary',
+      'group-[.is-user]:px-4',
+      'group-[.is-user]:py-3',
+    );
+    expect(textBubble?.parentElement).not.toHaveClass('bg-secondary', 'px-4', 'py-3');
+    const attachmentTray = attachment.closest<HTMLElement>('[data-slot="scroll-area"]');
+    expect(attachmentTray).not.toContainElement(textBubble);
+    expect(textBubble?.parentElement?.firstElementChild).toBe(attachmentTray);
     expect(screen.queryByText(/private runtime context/i)).not.toBeInTheDocument();
     fireEvent.click(attachment);
-    expect(onOpenResource).toHaveBeenCalledWith(resource);
+    expect(onOpenResource).toHaveBeenCalledWith(resource, [resource]);
   });
 
   it('renders a resource block carried by an assistant turn that already has iterations', () => {
@@ -244,7 +257,7 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByText('summary.csv')).toBeInTheDocument();
   });
 
-  it('keeps resource blocks in wire order and groups adjacent ones into one grid', () => {
+  it('groups user resources into one leading tray while preserving prompt text order', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
@@ -292,8 +305,8 @@ describe('ClioConversation recovery actions', () => {
 
     const before = screen.getByText('Before the attachments.');
     const after = screen.getByText('After the attachments.');
-    expect(before.compareDocumentPosition(grids[0]!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(grids[0]!.compareDocumentPosition(after)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(grids[0]!.compareDocumentPosition(before)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(before.compareDocumentPosition(after)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('renders an accepted steer as the real human message and permits cancellation before claim', () => {

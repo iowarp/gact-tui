@@ -1,13 +1,10 @@
 import type { A2UISurface, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import {
   AlertTriangleIcon,
-  BoxesIcon,
-  ClipboardPenLineIcon,
   LoaderCircleIcon,
   MessageCircleQuestionIcon,
   RotateCcwIcon,
   ShieldQuestionIcon,
-  XIcon,
 } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import {
@@ -25,8 +22,9 @@ import {
   QueueSectionLabel,
   QueueSectionTrigger,
 } from '@/components/ai-elements/queue';
-import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
+import { Frame, FramePanel } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Field,
   FieldContent,
@@ -41,38 +39,35 @@ import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
 import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
+import { respondFromControl } from './interaction-control';
+import { InteractionFrameHeader } from './interaction-frame-header';
 import {
   OwnerAttribution,
   PendingSurfaceNotices,
   ResponseErrorNotice,
 } from './pending-interaction-notices';
+import { PlanExitResponse } from './plan-exit-interaction';
+import { StructuredQuestionResponse, UrlConsentResponse } from './question-interaction-forms';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
   surfaces?: Readonly<Record<string, A2UISurface>>;
   ownerLabels?: Readonly<Record<string, string>>;
-  /** The session currently on screen; every other owner gets attributed. */
+  /** The session on screen; every other owner gets attributed. */
   viewedSessionId: string;
   disabled?: boolean;
-  /** The read that could not be completed, surfaced here rather than swallowed. */
   error?: Error;
-  /**
-   * The capability negotiation that failed, if it did. Responses still work
-   * over the legacy routes, so this is a note on the same surface rather than
-   * a second alert elsewhere on the page — the reader learns why the surface
-   * is degraded exactly where the degraded surface is.
-   */
+  /** Failed capability negotiation; legacy responses may remain available. */
   capabilityError?: Error;
   onA2UILocalAction?: A2UILocalActionHandler;
   onResponse: (
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
   ) => Promise<void>;
-  /** Retries the surface read for an A2UI card still waiting on its surface. */
   onRefetchSurfaces?: () => void;
 }
 
-/** Renders the attended task's pending interaction stack immediately above the composer. */
+/** Renders pending interactions immediately above the composer. */
 export function ClioPendingInteractions({
   interactions,
   surfaces = {},
@@ -92,7 +87,10 @@ export function ClioPendingInteractions({
   // reader tries next, and a failure on one card must never disable or blank
   // out every other card's own error.
   const [responseErrors, setResponseErrors] = useState<ReadonlyMap<string, Error>>(new Map());
-  const pending = interactions.filter((interaction) => interaction.status === 'pending');
+  const pending = interactions.filter(
+    (interaction) =>
+      interaction.status === 'pending' && interaction.requires_human_response !== false,
+  );
   const handleResponse = useCallback(
     async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
       if (responseInFlight.current.has(interaction.id)) return;
@@ -198,6 +196,19 @@ export function ClioPendingInteractions({
                       onResponse={handleResponse}
                       ownerLabel={ownerLabel}
                       rawSurface={rawSurface}
+                      responseError={responseError}
+                      showOwner={showOwner}
+                    />
+                  );
+                }
+                if (interaction.source.tool_name === 'plan_exit') {
+                  return (
+                    <PlanExitResponse
+                      disabled={interactionDisabled}
+                      interaction={interaction}
+                      key={interaction.id}
+                      onResponse={handleResponse}
+                      ownerLabel={ownerLabel}
                       responseError={responseError}
                       showOwner={showOwner}
                     />
@@ -359,54 +370,6 @@ const KNOWN_PERMISSION_ACTIONS: ReadonlySet<string> = new Set<PermissionAction>(
   'allow',
 ]);
 
-function InteractionFrameHeader({
-  interaction,
-  ownerLabel,
-  showOwner,
-  onCancel,
-  disabled,
-}: {
-  interaction: PendingInteraction;
-  ownerLabel?: string;
-  showOwner: boolean;
-  onCancel?: () => void;
-  disabled?: boolean;
-}) {
-  const Icon =
-    interaction.kind === 'mcp_task_input'
-      ? ClipboardPenLineIcon
-      : interaction.kind === 'a2ui'
-        ? BoxesIcon
-        : MessageCircleQuestionIcon;
-  return (
-    <FrameHeader className="relative flex-row items-start gap-2 pr-10">
-      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-action" />
-      <div className="min-w-0 flex-1">
-        <FrameTitle
-          className="line-clamp-3"
-          data-slot="pending-interaction-title"
-          title={interaction.prompt ?? interaction.title}
-        >
-          {interaction.prompt ?? interaction.title}
-        </FrameTitle>
-        <OwnerAttribution interaction={interaction} ownerLabel={ownerLabel} show={showOwner} />
-      </div>
-      {onCancel ? (
-        <Button
-          aria-label="Cancel question"
-          className="absolute right-2 top-1"
-          disabled={disabled}
-          onClick={onCancel}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
-      ) : null}
-    </FrameHeader>
-  );
-}
-
 function QuestionResponse({
   interaction,
   disabled,
@@ -424,26 +387,53 @@ function QuestionResponse({
 }) {
   const [answer, setAnswer] = useState('');
   const [selection, setSelection] = useState('');
+  const [multiSelection, setMultiSelection] = useState<string[]>([]);
   const [optionComments, setOptionComments] = useState<Record<string, string>>({});
+  if (interaction.payload?.mode === 'url') {
+    return (
+      <UrlConsentResponse
+        disabled={disabled}
+        interaction={interaction}
+        onResponse={onResponse}
+        ownerLabel={ownerLabel}
+        responseError={responseError}
+        showOwner={showOwner}
+      />
+    );
+  }
+  if (interaction.payload?.mode === 'form' && interaction.payload.fields?.length) {
+    return (
+      <StructuredQuestionResponse
+        disabled={disabled}
+        interaction={interaction}
+        onResponse={onResponse}
+        ownerLabel={ownerLabel}
+        responseError={responseError}
+        showOwner={showOwner}
+      />
+    );
+  }
   const options = interaction.payload?.options ?? [];
   const usesOptions = options.length > 0;
+  const usesMulti = interaction.payload?.question_kind === 'multi_choice';
   const allowsFreeform = interaction.payload?.allow_freeform === true;
   const freeformValue = `${interaction.id}:freeform`;
   const usesFreeform = !usesOptions || selection === freeformValue;
   const canAnswer = (interaction.actions ?? []).includes('answer');
   const canSubmit =
     canAnswer &&
-    (usesOptions
-      ? Boolean(selection) && (!usesFreeform || Boolean(answer.trim()))
-      : Boolean(answer.trim()));
+    (usesMulti
+      ? multiSelection.length > 0
+      : usesOptions
+        ? Boolean(selection) && (!usesFreeform || Boolean(answer.trim()))
+        : Boolean(answer.trim()));
   const selectedComment = optionComments[selection]?.trim() ?? '';
 
   return (
     <Frame
       className={cn(
         'min-w-0 self-stretch',
-        interaction.kind === 'mcp_task_input' &&
-          'border-sky-500/25 bg-sky-500/[0.04] dark:bg-sky-400/[0.05]',
+        interaction.kind === 'mcp_task_input' && 'border-accent-foreground/15 bg-accent/25',
       )}
       data-interaction-kind={interaction.kind}
       dense
@@ -464,6 +454,61 @@ function QuestionResponse({
         <ResponseErrorNotice error={responseError} />
         {!canAnswer ? (
           <p className="text-sm text-muted-foreground">Input controls are not available yet.</p>
+        ) : usesMulti ? (
+          <div className="grid gap-2" data-slot="checkbox-group">
+            {options.map((option) => {
+              const value = option.value || option.label;
+              const selected = multiSelection.includes(value);
+              return (
+                <div className="rounded-lg border" key={value}>
+                  <FieldLabel htmlFor={`${interaction.id}-${value}`}>
+                    <Field orientation="horizontal">
+                      <Checkbox
+                        aria-label={option.label}
+                        checked={selected}
+                        disabled={disabled}
+                        id={`${interaction.id}-${value}`}
+                        onCheckedChange={(checked) =>
+                          setMultiSelection((current) =>
+                            checked === true
+                              ? [...current, value]
+                              : current.filter((item) => item !== value),
+                          )
+                        }
+                      />
+                      <FieldContent>
+                        <FieldTitle>{option.label}</FieldTitle>
+                        {option.description ? (
+                          <FieldDescription>{option.description}</FieldDescription>
+                        ) : null}
+                      </FieldContent>
+                    </Field>
+                  </FieldLabel>
+                  {selected ? (
+                    <div className="grid gap-1 border-t border-border/60 px-2.5 py-2">
+                      <FieldLabel htmlFor={`${interaction.id}-${value}-comment`}>
+                        Comment on {option.label} (optional)
+                      </FieldLabel>
+                      <Textarea
+                        aria-label={`Comment on ${option.label}`}
+                        className="min-h-12 resize-y field-sizing-fixed"
+                        disabled={disabled}
+                        id={`${interaction.id}-${value}-comment`}
+                        onChange={(event) =>
+                          setOptionComments((current) => ({
+                            ...current,
+                            [value]: event.target.value,
+                          }))
+                        }
+                        rows={2}
+                        value={optionComments[value] ?? ''}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         ) : usesOptions ? (
           <RadioGroup disabled={disabled} onValueChange={setSelection} value={selection}>
             {options.map((option) => {
@@ -581,13 +626,25 @@ function QuestionResponse({
                 respondFromControl(
                   onResponse(
                     interaction,
-                    usesOptions && !usesFreeform
+                    usesMulti
                       ? {
                           action: 'answer',
-                          selected_options: [selection],
-                          ...(selectedComment ? { answer: selectedComment } : {}),
+                          selected_options: multiSelection,
+                          metadata: {
+                            option_comments: Object.fromEntries(
+                              multiSelection
+                                .map((value) => [value, optionComments[value]?.trim()] as const)
+                                .filter((entry) => Boolean(entry[1])),
+                            ),
+                          },
                         }
-                      : { action: 'answer', answer: answer.trim() },
+                      : usesOptions && !usesFreeform
+                        ? {
+                            action: 'answer',
+                            selected_options: [selection],
+                            ...(selectedComment ? { answer: selectedComment } : {}),
+                          }
+                        : { action: 'answer', answer: answer.trim() },
                   ),
                 )
               }
@@ -713,7 +770,10 @@ function A2UISurfaceBody({
     <ClioA2UISurface
       onLocalAction={onLocalAction}
       onRemoteAction={(message) =>
-        onResponse(interaction, { correlation: surfaceCorrelation(interaction, rawSurface), message })
+        onResponse(interaction, {
+          correlation: surfaceCorrelation(interaction, rawSurface),
+          message,
+        })
       }
       surface={rawSurface}
     />
@@ -736,11 +796,4 @@ function surfaceCorrelation(
     message_id: surface.message_id,
     part_id: surface.part_id ?? interaction.source.invocation_id,
   };
-}
-
-function respondFromControl(response: Promise<void>): void {
-  void response.catch(() => {
-    // handleResponse already recorded this failure against its own interaction
-    // (ResponseErrorNotice renders it on that card); nothing further to do here.
-  });
 }

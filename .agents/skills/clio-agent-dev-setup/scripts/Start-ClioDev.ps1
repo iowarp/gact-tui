@@ -20,12 +20,15 @@ param(
     [string]$ClioKitVersion = "2.10.6",
     [string]$SpotterImplDir = "",
     [string]$SpotterConfigPath = "",
+    [ValidateRange(30, 900)]
+    [int]$BackendReadinessTimeoutSec = 300,
     [switch]$FreshInstall,
     [switch]$PreserveState
 )
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "ClioDevHttp.ps1")
+. (Join-Path $PSScriptRoot "ClioDevCleanup.ps1")
 $deploymentStartedAt = [DateTimeOffset]::Now
 $deploymentStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $deploymentStages = [System.Collections.Generic.List[object]]::new()
@@ -66,7 +69,24 @@ $worktreeRoot = Join-Path $generationRoot "worktrees"
 $backendRoot = Join-Path $worktreeRoot "clio-agent"
 $frontendRoot = Join-Path $worktreeRoot "gact-tui"
 $documentProcessorRoot = Join-Path $worktreeRoot "clio-web-search"
-$runtimeRoot = Join-Path $generationRoot "runtime\clio-agent-dev"
+$preferredRuntimeRoot = if (
+    $reuseActiveGeneration -and
+    $null -ne $activeGeneration.runtime_root -and
+    -not [string]::IsNullOrWhiteSpace([string]$activeGeneration.runtime_root)
+) {
+    [string]$activeGeneration.runtime_root
+}
+else {
+    Join-Path $generationRoot "runtime\clio-agent-dev"
+}
+$runtimeRoot = if ($reuseActiveGeneration) {
+    Resolve-ClioDevRuntimeRoot `
+        -GenerationRoot $generationRoot `
+        -PreferredRuntimeRoot $preferredRuntimeRoot
+}
+else {
+    [System.IO.Path]::GetFullPath($preferredRuntimeRoot)
+}
 $documentProcessorDataRoot = Join-Path $generationRoot "runtime\clio-web-search"
 $logRoot = Join-Path $generationRoot "logs"
 $webRoot = Join-Path $frontendRoot "web"
@@ -140,10 +160,64 @@ function Write-DeploymentTiming {
     }
 }
 
+function Write-ProvisionalProcessState {
+    # A startup failure can occur after a venv launcher has handed execution to
+    # its uv-managed child but before the final process ledger is written. Give
+    # Stop-ClioDev the exact launch/listener pairs it needs for that cleanup.
+    $listenerByPort = @{}
+    foreach ($port in @($BackendPort, $WebPort, $DocumentProcessorPort, $CtePort)) {
+        $listenerPids = @(
+            Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty OwningProcess -Unique
+        )
+        $listenerByPort[$port] = if ($listenerPids.Count -eq 1) {
+            [int]$listenerPids[0]
+        }
+        else {
+            $null
+        }
+    }
+
+    $processIdByVariable = @{}
+    foreach ($variableName in @("backendProcess", "webProcess", "documentProcessorProcess")) {
+        $processVariable = Get-Variable -Name $variableName -Scope Script -ErrorAction SilentlyContinue
+        $processIdByVariable[$variableName] = if ($null -ne $processVariable -and $null -ne $processVariable.Value) {
+            [int]$processVariable.Value.Id
+        }
+        else {
+            $null
+        }
+    }
+    $cteExternalVariable = Get-Variable -Name "cteExternal" -Scope Script -ErrorAction SilentlyContinue
+    $cteExternalValue = $null -ne $cteExternalVariable -and [bool]$cteExternalVariable.Value
+
+    New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
+    @{
+        backend_pid = $listenerByPort[$BackendPort]
+        web_pid = $listenerByPort[$WebPort]
+        document_processor_pid = $listenerByPort[$DocumentProcessorPort]
+        cte_pid = $listenerByPort[$CtePort]
+        cte_external = $cteExternalValue
+        backend_launcher_pid = $processIdByVariable.backendProcess
+        web_launcher_pid = $processIdByVariable.webProcess
+        document_processor_launcher_pid = $processIdByVariable.documentProcessorProcess
+        backend_port = $BackendPort
+        web_port = $WebPort
+        document_processor_port = $DocumentProcessorPort
+        cte_port = $CtePort
+        python_version = $PythonVersion
+        started_at = [DateTime]::UtcNow.ToString("o")
+        provisional = $true
+    } | ConvertTo-Json | Set-Content `
+        -LiteralPath (Join-Path $runtimeRoot "dev-processes.json") `
+        -Encoding utf8
+}
+
 trap {
     $failure = $_
     if ($script:startupProcessesOwned) {
         try {
+            Write-ProvisionalProcessState
             & $stopScript `
                 -DevRoot $devRootFull `
                 -BackendPort $BackendPort `
@@ -179,6 +253,28 @@ foreach ($requiredPath in @($backendSource, $frontendSource, $documentProcessorS
 }
 
 if ($reuseActiveGeneration) {
+    # Persist a recovered legacy runtime directory before stopping it. If a
+    # later startup stage fails, the next preserve-state restart must still
+    # reopen the same sessions and ledgers instead of falling back to the new
+    # empty directory named by a stale manifest.
+    $declaredRuntimeRoot = if (
+        $null -ne $activeGeneration.runtime_root -and
+        -not [string]::IsNullOrWhiteSpace([string]$activeGeneration.runtime_root)
+    ) {
+        [System.IO.Path]::GetFullPath([string]$activeGeneration.runtime_root)
+    }
+    else {
+        ""
+    }
+    if (-not $runtimeRoot.Equals($declaredRuntimeRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $activeGeneration | Add-Member `
+            -NotePropertyName runtime_root `
+            -NotePropertyValue $runtimeRoot `
+            -Force
+        $activeGeneration | ConvertTo-Json | Set-Content `
+            -LiteralPath $activeGenerationPath `
+            -Encoding utf8
+    }
     Set-DeploymentStage -Name "stop_previous_runtime"
     & $stopScript `
         -DevRoot $devRootFull `
@@ -544,7 +640,6 @@ try {
     $documentProcessorProcess = Start-Process `
         -FilePath $documentProcessorLauncher `
         -WorkingDirectory $documentProcessorRoot `
-        -Environment $documentProcessorEnvironment `
         -RedirectStandardOutput $documentProcessorStdout `
         -RedirectStandardError $documentProcessorStderr `
         -WindowStyle Hidden `
@@ -641,13 +736,13 @@ finally {
 
 Set-DeploymentStage -Name "backend_readiness"
 $healthUri = "http://127.0.0.1:$BackendPort/v1/health"
-$deadline = [DateTime]::UtcNow.AddSeconds(120)
+$deadline = [DateTime]::UtcNow.AddSeconds($BackendReadinessTimeoutSec)
 do {
     if ($backendProcess.HasExited) {
         throw "CLIO backend exited during startup. See $backendStderr"
     }
     try {
-        $health = Invoke-RestMethod -Uri $healthUri -TimeoutSec 3
+        $health = Invoke-RestMethod -Uri $healthUri -TimeoutSec $BackendReadinessTimeoutSec
     }
     catch {
         $health = $null
@@ -660,7 +755,7 @@ do {
 
 if ($null -eq $health -or $health.overall_status -ne "ready") {
     Stop-Process -Id $backendProcess.Id -Force -ErrorAction SilentlyContinue
-    throw "CLIO backend did not become ready within 120 seconds."
+    throw "CLIO backend did not become ready within $BackendReadinessTimeoutSec seconds."
 }
 
 # The committed CLIO config file deliberately outranks environment variables.
@@ -670,7 +765,9 @@ if ($null -eq $health -or $health.overall_status -ne "ready") {
 # profile store, the catalog, and the UI all observe one effective selection.
 Set-DeploymentStage -Name "provider_reconciliation"
 $providerUri = "http://127.0.0.1:$BackendPort/v1/providers/lm"
-$providerInfo = Invoke-RestMethod -Uri $providerUri -TimeoutSec 20
+$providerInfo = Invoke-RestMethod `
+    -Uri $providerUri `
+    -TimeoutSec $BackendReadinessTimeoutSec
 $expectedTransport = if ($Provider -eq "codex") {
     "sdk"
 }
@@ -760,7 +857,9 @@ do {
         throw "CLIO web exited during startup. See $webStderr"
     }
     try {
-        $webResponse = Invoke-WebRequest -Uri "http://127.0.0.1:$WebPort/" -TimeoutSec 3
+        $webResponse = Invoke-ClioDevWebRequest `
+            -Uri "http://127.0.0.1:$WebPort/" `
+            -TimeoutSec 3
     }
     catch {
         $webResponse = $null
@@ -863,6 +962,7 @@ Set-DeploymentStage -Name "live_preflight"
     -ExpectedProvider $Provider `
     -ExpectedModel $Model `
     -ExpectedTransport $expectedTransport `
+    -HealthTimeoutSec $BackendReadinessTimeoutSec `
     -SpotterImplDir $spotterImplRoot `
     -SpotterConfigPath $spotterConfigFull
 [pscustomobject]@{

@@ -12,7 +12,7 @@ export function visibleWorkspaceSessions(
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const candidates = sessions
     .filter(
-      (session) => session.workspace_id === workspaceId && isPrimarySession(session),
+      (session) => session.workspace_id === workspaceId && isWorkspaceNavigationSession(session),
     )
     .filter(
       (session) => !normalizedQuery || session.title.toLocaleLowerCase().includes(normalizedQuery),
@@ -26,6 +26,11 @@ export function visibleWorkspaceSessions(
 
 export function isPrimarySession(session: Session): boolean {
   return !session.parent_session_id;
+}
+
+/** Keep empty landing drafts out of the durable conversation ledger. */
+export function isWorkspaceNavigationSession(session: Session): boolean {
+  return isPrimarySession(session) && session.message_count !== 0;
 }
 
 export function sessionInteractionAt(session: Session): string {

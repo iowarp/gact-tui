@@ -135,10 +135,14 @@ export function ClioExecutionProvenanceGraph({
   provenance,
   subagents = [],
   onOpenSubagent,
+  title = 'Execution provenance',
+  description,
 }: {
   provenance: ExecutionProvenanceResult;
   subagents?: readonly SubagentRun[];
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  title?: string;
+  description?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const horizontal = useContainerQuery(containerRef, 560);
@@ -168,6 +172,7 @@ export function ClioExecutionProvenanceGraph({
     };
   }, [horizontal, onOpenSubagent, provenance, subagents]);
   const height = Math.min(760, Math.max(300, graph.nodes.length * (horizontal ? 42 : 72)));
+  const initialView = initialExecutionViewport(graph.nodes, provenance, horizontal ? 'LR' : 'TB');
 
   return (
     <Frame spacing="sm" variant="ghost">
@@ -175,12 +180,17 @@ export function ClioExecutionProvenanceGraph({
         <div className="flex min-w-0 items-start gap-3">
           <NetworkIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
           <div className="min-w-0">
-            <FrameTitle>Execution provenance</FrameTitle>
+            <FrameTitle>{title}</FrameTitle>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {provenance.nodes.length.toLocaleString()} nodes and{' '}
-              {provenance.edges.length.toLocaleString()} relationships reported by{' '}
-              {provenance.provider}.
+              {description ??
+                `${provenance.nodes.length.toLocaleString()} nodes and ${provenance.edges.length.toLocaleString()} relationships reported by ${provenance.provider}.`}
             </p>
+            {initialView.isReadableDetail ? (
+              <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+                Opened at readable detail. Pan to follow the research path, or use Fit view for the
+                complete map.
+              </p>
+            ) : null}
           </div>
         </div>
       </FrameHeader>
@@ -193,9 +203,11 @@ export function ClioExecutionProvenanceGraph({
           style={{ height }}
         >
           <ReactFlow
+            defaultViewport={initialView.viewport}
             edges={graph.edges}
-            fitView
+            fitView={initialView.fitView}
             fitViewOptions={{ maxZoom: 1, padding: 0.18 }}
+            key={`${provenance.session_id}:${horizontal ? 'wide' : 'narrow'}:${graph.nodes.length}`}
             maxZoom={1.75}
             minZoom={0.12}
             nodeTypes={executionNodeTypes}
@@ -214,6 +226,38 @@ export function ClioExecutionProvenanceGraph({
   );
 }
 
+/** Keep dense provenance readable on first paint while retaining Fit view as an explicit overview. */
+// oxlint-disable-next-line react/only-export-components
+export function initialExecutionViewport(
+  nodes: readonly Node<ExecutionNodeData, 'clio-execution'>[],
+  provenance: Pick<ExecutionProvenanceResult, 'root_session_id' | 'session_id'>,
+  direction: 'LR' | 'TB',
+): {
+  fitView: boolean;
+  isReadableDetail: boolean;
+  viewport: { x: number; y: number; zoom: number };
+} {
+  if (nodes.length <= 24) {
+    return { fitView: true, isReadableDetail: false, viewport: { x: 0, y: 0, zoom: 1 } };
+  }
+
+  const rootSessionId = provenance.root_session_id || provenance.session_id;
+  const start =
+    nodes.find((node) => node.id === `session:${rootSessionId}`) ??
+    nodes.find((node) => node.data.detail.startsWith('session')) ??
+    nodes[0];
+  const zoom = direction === 'LR' ? 0.82 : 0.76;
+  return {
+    fitView: false,
+    isReadableDetail: true,
+    viewport: {
+      x: 20 - (start?.position.x ?? 0) * zoom,
+      y: 20 - (start?.position.y ?? 0) * zoom,
+      zoom,
+    },
+  };
+}
+
 // Pure construction preserves every service-reported relationship and exposes broken references.
 // oxlint-disable-next-line react/only-export-components
 export function buildExecutionProvenanceGraph(
@@ -228,7 +272,8 @@ export function buildExecutionProvenanceGraph(
   );
   const nodes: ExecutionNode[] = [
     ...provenance.nodes.map((node) => {
-      const width = executionNodeWidth(node.label);
+      const label = executionNodeLabel(node);
+      const width = executionNodeWidth(label);
       const ownerSessionId =
         stringAttribute(node.attributes, 'owner_session_id') || node.session_id;
       const owner = lineageBySession.get(ownerSessionId);
@@ -239,8 +284,9 @@ export function buildExecutionProvenanceGraph(
         type: 'clio-execution' as const,
         position: { x: 0, y: 0 },
         data: {
-          label: node.label,
+          label,
           detail: [
+            toolInputDetail(node.attributes),
             node.kind,
             owner?.label || node.agent_id,
             depth === undefined ? undefined : formatNestingDepth(depth),
@@ -254,7 +300,7 @@ export function buildExecutionProvenanceGraph(
           taskId,
           depth,
         },
-        ariaLabel: `${node.label}, ${node.kind}, ${node.status}`,
+        ariaLabel: `${label}, ${node.kind}, ${node.status}`,
         style: { width },
       };
     }),
@@ -480,6 +526,37 @@ export function buildWorkflowGraph(
 function stringAttribute(attributes: Record<string, unknown>, key: string): string {
   const value = attributes[key];
   return typeof value === 'string' ? value : '';
+}
+
+function executionNodeLabel(node: ExecutionProvenanceResult['nodes'][number]): string {
+  const toolName = stringAttribute(node.attributes, 'tool_name');
+  if (!toolName) return node.label;
+  const titles: Record<string, string> = {
+    create_artifact: 'Create artifact',
+    get_agent_task_output: 'Read agent result',
+    spawn_agent_task: 'Start agent',
+    spawn_agents_parallel: 'Start agents',
+    submit: 'Submit result',
+    wait_agent_tasks: 'Wait for agents',
+    web_fetch: 'Fetch target',
+    web_search: 'Search web',
+    workspace_resource_inspect: 'Inspect resource',
+    workspace_resource_read: 'Read resource',
+    workspace_resource_search: 'Search resource',
+    workspace_resource_structure: 'Read resource structure',
+  };
+  return titles[toolName] ?? toolName.replaceAll('_', ' ');
+}
+
+function toolInputDetail(attributes: Record<string, unknown>): string {
+  const input = attributes.tool_input;
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return '';
+  const values = input as Record<string, unknown>;
+  for (const key of ['target', 'query', 'resource_id']) {
+    const value = values[key];
+    if (typeof value === 'string' && value) return value;
+  }
+  return '';
 }
 
 function numberAttribute(attributes: Record<string, unknown>, key: string): number | undefined {

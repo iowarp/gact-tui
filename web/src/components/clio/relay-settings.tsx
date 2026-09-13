@@ -227,7 +227,7 @@ export function RelayConnectionDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent>
+      <DialogContent className="top-[10dvh] grid max-h-[80dvh] translate-y-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-2xl">
         <form className="contents" onSubmit={submit}>
           <DialogHeader>
             <DialogTitle>
@@ -238,91 +238,93 @@ export function RelayConnectionDialog({
               remote computer over SSH.
             </DialogDescription>
           </DialogHeader>
-          <Alert>
-            <CableIcon aria-hidden="true" />
-            <AlertTitle>Connect to Relay, then add computers there</AlertTitle>
-            <AlertDescription>
-              These addresses belong to CLIO Relay. Relay can reach a computer through its direct
-              connection point or an SSH fallback; those computer details are configured in Relay,
-              not in this form.
-            </AlertDescription>
-          </Alert>
-          <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="relay-mcp-url">MCP address</FieldLabel>
-              <Input
-                autoComplete="url"
-                id="relay-mcp-url"
-                onChange={(event) => setMcpUrl(event.target.value)}
-                placeholder="https://relay.example.org/mcp"
-                required
-                type="url"
-                value={mcpUrl}
-              />
-              <FieldDescription>
-                The agent uses this MCP endpoint to submit work and follow its state.
-              </FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="relay-http-url">Results address</FieldLabel>
-              <Input
-                autoComplete="url"
-                id="relay-http-url"
-                onChange={(event) => setHttpUrl(event.target.value)}
-                placeholder="https://relay.example.org"
-                required
-                type="url"
-                value={httpUrl}
-              />
-              <FieldDescription>
-                Used to retrieve progress, output, and artifacts from the same Relay.
-              </FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="relay-access-token">Access credential</FieldLabel>
-              {credentialOpen ? (
-                <>
-                  <Input
-                    autoComplete="new-password"
-                    id="relay-access-token"
-                    name="clio-relay-access-token"
-                    onChange={(event) => setAccessToken(event.target.value)}
-                    placeholder={
-                      value?.credential_configured
-                        ? 'Leave blank to keep the current credential'
-                        : 'Enter access credential'
-                    }
-                    required={!value?.credential_configured}
-                    type="password"
-                    value={accessToken}
-                  />
-                  <FieldDescription>
-                    {value?.credential_configured
-                      ? 'Leave this empty to keep the current credential.'
-                      : 'The credential stays only in the connected agent process.'}
-                  </FieldDescription>
-                </>
-              ) : (
-                <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
-                  <p className="text-sm text-muted-foreground">
-                    {value?.credential_configured
-                      ? 'The current credential will be kept.'
-                      : 'A credential is required to connect.'}
-                  </p>
-                  <Button
-                    onClick={() => setCredentialOpen(true)}
-                    size="sm"
-                    type="button"
-                    variant="outline"
-                  >
-                    <KeyRoundIcon aria-hidden="true" />
-                    {value?.credential_configured ? 'Replace credential' : 'Enter credential'}
-                  </Button>
-                </div>
-              )}
-            </Field>
-          </FieldGroup>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
+            <Alert>
+              <CableIcon aria-hidden="true" />
+              <AlertTitle>Connect to Relay, then add computers there</AlertTitle>
+              <AlertDescription>
+                These addresses belong to CLIO Relay. Relay can reach a computer through its direct
+                connection point or an SSH fallback; those computer details are configured in Relay,
+                not in this form.
+              </AlertDescription>
+            </Alert>
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="relay-mcp-url">MCP address</FieldLabel>
+                <Input
+                  autoComplete="url"
+                  id="relay-mcp-url"
+                  onChange={(event) => setMcpUrl(event.target.value)}
+                  placeholder="https://relay.example.org/mcp"
+                  required
+                  type="url"
+                  value={mcpUrl}
+                />
+                <FieldDescription>
+                  The agent uses this MCP endpoint to submit work and follow its state.
+                </FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="relay-http-url">Results address</FieldLabel>
+                <Input
+                  autoComplete="url"
+                  id="relay-http-url"
+                  onChange={(event) => setHttpUrl(event.target.value)}
+                  placeholder="https://relay.example.org"
+                  required
+                  type="url"
+                  value={httpUrl}
+                />
+                <FieldDescription>
+                  Used to retrieve progress, output, and artifacts from the same Relay.
+                </FieldDescription>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="relay-access-token">Access credential</FieldLabel>
+                {credentialOpen ? (
+                  <>
+                    <Input
+                      autoComplete="new-password"
+                      id="relay-access-token"
+                      name="clio-relay-access-token"
+                      onChange={(event) => setAccessToken(event.target.value)}
+                      placeholder={
+                        value?.credential_configured
+                          ? 'Leave blank to keep the current credential'
+                          : 'Enter access credential'
+                      }
+                      required={!value?.credential_configured}
+                      type="password"
+                      value={accessToken}
+                    />
+                    <FieldDescription>
+                      {value?.credential_configured
+                        ? 'Leave this empty to keep the current credential.'
+                        : 'The credential stays only in the connected agent process.'}
+                    </FieldDescription>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
+                    <p className="text-sm text-muted-foreground">
+                      {value?.credential_configured
+                        ? 'The current credential will be kept.'
+                        : 'A credential is required to connect.'}
+                    </p>
+                    <Button
+                      onClick={() => setCredentialOpen(true)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <KeyRoundIcon aria-hidden="true" />
+                      {value?.credential_configured ? 'Replace credential' : 'Enter credential'}
+                    </Button>
+                  </div>
+                )}
+              </Field>
+            </FieldGroup>
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          </div>
           <DialogFooter>
             <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
               Cancel

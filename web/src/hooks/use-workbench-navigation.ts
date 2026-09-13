@@ -57,7 +57,8 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     [revealWorkbench],
   );
   const openWorkspaceResource = useCallback(
-    (resource: WorkspaceResource) => revealWorkbench({ kind: 'resource', resource }),
+    (resource: WorkspaceResource, relatedResources?: readonly WorkspaceResource[]) =>
+      revealWorkbench({ kind: 'resource', relatedResources, resource }),
     [revealWorkbench],
   );
   const openDiff = useCallback(

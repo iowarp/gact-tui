@@ -222,6 +222,51 @@ describe('conversationTurnPresentation', () => {
     ]);
   });
 
+  it('keeps an MCP App at its causal tool-result position before later agent text', () => {
+    const message: Message = {
+      id: 'assistant_mcp_app',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-09-04T00:00:00Z',
+      blocks: [
+        {
+          id: 'next_before',
+          type: 'text',
+          text: 'Call the requested tool.',
+          channel: 'next_thought',
+          sequence: 1,
+        },
+        { id: 'tool_app', type: 'tool', tool_id: 'call_read', sequence: 2 },
+        {
+          id: 'app',
+          type: 'mcp_app',
+          app_instance_id: 'app_1',
+          resource_uri: 'ui://v2ex/echo',
+          source_server: 'v2ex',
+          tool_name: 'v2ex_ui_echo',
+          data_ref: 'opaque:app_1',
+          mime_type: 'text/html',
+          sequence: 3,
+        },
+        {
+          id: 'next_after',
+          type: 'text',
+          text: 'The interactive result is ready.',
+          channel: 'next_thought',
+          sequence: 4,
+        },
+        { id: 'answer', type: 'text', text: 'Complete.', channel: 'answer', sequence: 5 },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+
+    expect(view.iterations).toHaveLength(2);
+    expect(view.iterations[0]?.activity.map((entry) => entry.kind)).toEqual(['tool', 'mcp_app']);
+    expect(view.iterations[1]?.nextThoughts).toEqual(['The interactive result is ready.']);
+    expect(view.residualBlocks.map((block) => block.id)).toEqual(['answer']);
+  });
+
   it('joins provider thinking across a child-agent transcript boundary', () => {
     const message: Message = {
       id: 'assistant_child',
@@ -265,6 +310,53 @@ describe('conversationTurnPresentation', () => {
     );
     expect(view.iterations[1]?.thinking[0]?.text).toBe('Wait for the grounded result.');
     expect(view.residualBlocks.map((block) => block.id)).toEqual(['child']);
+  });
+
+  it('keeps child launch and return events in their chronological activity positions', () => {
+    const message: Message = {
+      id: 'assistant_child_lifecycle',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-09-04T00:00:00Z',
+      blocks: [
+        {
+          id: 'child_started',
+          type: 'subagent',
+          subagent_id: 'task_researcher',
+          stage: 'delegate.started',
+          sequence: 1,
+        },
+        {
+          id: 'running_note',
+          type: 'text',
+          text: 'The researcher is running.',
+          channel: 'next_thought',
+          sequence: 2,
+        },
+        { id: 'wait', type: 'tool', tool_id: 'call_read', sequence: 3 },
+        {
+          id: 'child_returned',
+          type: 'subagent',
+          subagent_id: 'task_researcher',
+          stage: 'delegate.completed',
+          sequence: 4,
+        },
+        {
+          id: 'review_note',
+          type: 'text',
+          text: 'I will review the returned evidence.',
+          channel: 'next_thought',
+          sequence: 5,
+        },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+
+    expect(
+      view.iterations.map((iteration) => iteration.activity.map((entry) => entry.kind)),
+    ).toEqual([['subagent'], ['tool', 'subagent'], []]);
+    expect(view.residualBlocks).toEqual([]);
   });
 
   it('does not invent a completed iteration from partial live provider blocks', () => {

@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
+import type { SessionArtifactListing } from '@clio/core/v3';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  mergeSnapshots: vi.fn(),
   repository: {
     agentBlueprints: vi.fn(async () => []),
     allSessions: vi.fn(async () => [] as unknown[]),
@@ -15,7 +17,15 @@ const mocks = vi.hoisted(() => ({
     providerCatalog: vi.fn(async () => ({ providers: [] })),
     providerModels: vi.fn(async () => ({ models: [] })),
     resources: vi.fn(async () => []),
-    sessionArtifacts: vi.fn(async () => ({ artifacts: [], used: [] })),
+    sessionArtifacts: vi.fn(
+      async (): Promise<SessionArtifactListing> => ({
+        artifacts: [],
+        used: [],
+        count: 0,
+        include_children: true,
+        child_session_ids: [],
+      }),
+    ),
     sessions: vi.fn(async () => [] as unknown[]),
     transcript: vi.fn(async () => ({
       messages: [],
@@ -57,7 +67,7 @@ vi.mock('@/store/live-store', () => {
       tools: {},
       workspaces: {},
     },
-    mergeSnapshots: vi.fn(),
+    mergeSnapshots: mocks.mergeSnapshots,
   };
   return {
     useLiveStore: Object.assign((selector: (value: typeof state) => unknown) => selector(state), {
@@ -178,5 +188,60 @@ describe('useWorkspaceData interaction reads', () => {
     // owns them, so an approval served by both surfaces is never listed twice.
     await waitFor(() => expect(result.current.interactions).toHaveLength(1));
     expect(result.current.interactions[0]?.id).toBe('interaction_1');
+  });
+});
+
+describe('useWorkspaceData artifact reads', () => {
+  it('merges registry artifacts so transcript resource links resolve after a task completes', async () => {
+    mocks.repository.sessionArtifacts.mockResolvedValue({
+      artifacts: [
+        {
+          workspace_id: 'ws_1',
+          name: 'report.md',
+          kind: 'report',
+          latest_version: 1,
+          head_artifact_id: 'artifact_report',
+          aliases: { latest: 1 },
+          versions: [
+            {
+              artifact_id: 'artifact_report',
+              workspace_id: 'ws_1',
+              name: 'report.md',
+              version: 1,
+              kind: 'report',
+              custody: 'cas',
+              mechanism: 'tool-schema',
+              evidence_class: 'hashed-at-use',
+              sha256: 'abc123',
+              size_bytes: 128,
+              path: 'D:\\workspace\\report.md',
+              created_at: '2026-09-05T00:00:00Z',
+              producer: {},
+              uri: 'artifact://ws_1/report.md@v1',
+              fetch_url: '/v1/artifacts/artifact_report/bytes',
+            },
+          ],
+          producing_session_ids: ['sess_1'],
+        },
+      ],
+      used: [],
+      count: 1,
+      include_children: true,
+      child_session_ids: [],
+    });
+
+    renderWorkspaceData();
+
+    await waitFor(() =>
+      expect(mocks.mergeSnapshots).toHaveBeenCalledWith({
+        artifacts: {
+          artifact_report: expect.objectContaining({
+            id: 'artifact_report',
+            name: 'report.md',
+            session_id: 'sess_1',
+          }),
+        },
+      }),
+    );
   });
 });

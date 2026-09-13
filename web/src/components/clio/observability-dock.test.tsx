@@ -57,7 +57,7 @@ describe('ClioObservabilityView', () => {
             session_id: 'sess_override_dock',
             role: 'assistant',
             created_at: '2026-08-27T12:00:00Z',
-            blocks: [{ id: 'block_1', type: 'text', text: 'Working on it' }],
+            blocks: [{ id: 'block_1', type: 'text', text: 'Working on it', streaming: true }],
           },
         ]}
         processes={[]}
@@ -167,7 +167,7 @@ describe('ClioObservabilityView', () => {
             session_id: 'sess_1',
             role: 'assistant',
             created_at: '2026-08-27T12:00:00Z',
-            blocks: [{ id: 'block_1', type: 'text', text: 'Working on it' }],
+            blocks: [{ id: 'block_1', type: 'text', text: 'Working on it', streaming: true }],
           },
         ]}
         processes={[]}

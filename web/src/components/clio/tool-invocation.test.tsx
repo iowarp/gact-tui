@@ -41,6 +41,24 @@ describe('ClioToolInvocation', () => {
     expect(screen.queryByText('Staged')).not.toBeInTheDocument();
   });
 
+  it('keeps runtime cancellation diagnostics out of the compact summary', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-cancelled',
+          session_id: 'session-1',
+          name: 'v2ex_staller',
+          title: 'Staller',
+          state: 'cancelled',
+          error: "CancellationError('tool call cancelled by client')",
+        }}
+      />,
+    );
+
+    expect(screen.getByText('The action was cancelled.')).toBeVisible();
+    expect(screen.queryByText(/CancellationError/u)).not.toBeInTheDocument();
+  });
+
   it('keeps tool arguments available under the approved heading', () => {
     render(
       <ClioToolInvocation
@@ -59,5 +77,25 @@ describe('ClioToolInvocation', () => {
 
     expect(screen.getByRole('heading', { name: 'Arguments' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'Result' })).toBeVisible();
+  });
+
+  it('renders an empty argument map when a persisted no-argument call decodes as null', () => {
+    render(
+      <ClioToolInvocation
+        defaultOpen
+        tool={{
+          id: 'tool-no-arguments',
+          session_id: 'session-1',
+          name: 'v2ex_agent_guarded_input',
+          title: 'Agent Guarded Input',
+          state: 'succeeded',
+          input: null,
+          output: [{ type: 'text', text: 'agent-answered' }],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('{}')).toBeVisible();
+    expect(screen.queryByText('null')).not.toBeInTheDocument();
   });
 });

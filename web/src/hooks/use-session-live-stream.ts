@@ -103,7 +103,8 @@ export function useSessionLiveStream({
               }),
             );
             const notice = streamNoticeForFrame(frame);
-            if (notice) toast.error(notice.title, { id: notice.id, description: notice.description });
+            if (notice)
+              toast.error(notice.title, { id: notice.id, description: notice.description });
           }
           // The iterator ended without the consumer aborting it — whether or
           // not a frame ever arrived, the connection is gone (server close,
@@ -198,6 +199,9 @@ function isPendingInteractionEvent(eventName: string): boolean {
     'a2ui.',
     'mcp.task.',
     'mcp_task.',
+    'agent.task.',
+    'agent_task.',
+    'agent_elicitation_',
   ].some((prefix) => eventName.startsWith(prefix));
 }
 
@@ -233,6 +237,16 @@ function isQueuedMessageEvent(eventName: string): boolean {
 
 function isResourceEvent(eventName: string): boolean {
   return eventName.startsWith('resource.');
+}
+
+function isSessionArtifactEvent(eventName: string): boolean {
+  return [
+    'artifact.created',
+    'artifact.version.added',
+    'artifact.alias.moved',
+    'artifact.used',
+    'artifact.enriched',
+  ].includes(eventName);
 }
 
 /**
@@ -321,16 +335,35 @@ export function queryInvalidationKeysForEvent({
       ...resourceInvalidationKeys(eventName, endpoint, workspaceId),
     );
   }
+  if (isSessionArtifactEvent(eventName)) {
+    keys.push(queryKeys.sessionArtifacts(endpoint, sessionId));
+  }
   if (eventName === 'message.completed') {
     keys.push(
       queryKeys.sessions(endpoint, workspaceId),
       queryKeys.sessions(endpoint, 'all'),
+      // Artifact lifecycle records are emitted as semantic events on current
+      // runtimes. Reconcile the registry at the authoritative turn boundary so
+      // a newly returned resource link never waits for a page reload.
+      queryKeys.sessionArtifacts(endpoint, sessionId),
       queryKeys.sessionObservability(endpoint, sessionId),
       queryKeys.sessionContext(endpoint, sessionId),
     );
   }
   if (eventName === 'session.status_changed' || eventName === 'session.upserted') {
     keys.push(queryKeys.sessions(endpoint, workspaceId), queryKeys.sessions(endpoint, 'all'));
+  }
+  // Execution provenance is a durable projection over the semantic ledger,
+  // child lifecycle and artifact custody records. Refresh its provider-keyed
+  // queries at those authoritative boundaries so the Timeline does not freeze
+  // at the first snapshot it happened to read while a run was still active.
+  if (
+    eventName === 'semantic.event' ||
+    eventName === 'message.completed' ||
+    isProcessEvent(eventName) ||
+    isSessionArtifactEvent(eventName)
+  ) {
+    keys.push(queryKeys.key('execution-provenance', endpoint, sessionId));
   }
   return keys;
 }

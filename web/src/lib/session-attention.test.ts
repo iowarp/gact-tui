@@ -31,6 +31,22 @@ function interaction(kind: PendingInteraction['kind'], id: string): PendingInter
 }
 
 describe('session attention', () => {
+  it('excludes agent-answering interactions from attention counts', () => {
+    const attentions = buildSessionAttentionMap(
+      [baseSession],
+      [
+        {
+          ...interaction('question', 'question:agent'),
+          requires_human_response: false,
+          audience: 'agent',
+          routing_state: 'elicitation_routed_to_agent',
+        },
+      ],
+    );
+
+    expect(attentions[baseSession.id]).toBeUndefined();
+  });
+
   it('keeps a stopped child interaction steadily attached to the attended root', () => {
     const child: Session = {
       ...baseSession,

@@ -1,4 +1,10 @@
-import type { AsyncProcess, ExecutionProvenanceResult, Message, RunState } from '@clio/core/v3';
+import type {
+  AsyncProcess,
+  ExecutionProvenanceResult,
+  Message,
+  PendingInteraction,
+  RunState,
+} from '@clio/core/v3';
 import {
   BotIcon,
   BoxesIcon,
@@ -29,6 +35,11 @@ import { ClioInteractiveRow } from './interactive-row';
 import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { humanizeToolName } from './tool-presentation';
+import {
+  isAgentMcpInteraction,
+  isCausalQuestionInteraction,
+  questionInteractionRequestLabel,
+} from './agent-answer-domain';
 
 export interface ObservabilityActivityItem {
   id: string;
@@ -77,6 +88,75 @@ export function asyncProcessDetail(process: AsyncProcess): string {
   return process.host?.trim() ? `Background task, ${process.host.trim()}` : 'Background task';
 }
 
+/** Project native and MCP questions and their answer route into durable Activity. */
+// oxlint-disable-next-line react/only-export-components
+export function agentInteractionActivityItems(
+  interactions: readonly PendingInteraction[],
+  processes: readonly AsyncProcess[],
+  rootSessionId?: string,
+): ObservabilityActivityItem[] {
+  const processById = new Map(processes.map((process) => [process.id, process]));
+  return interactions.filter(isCausalQuestionInteraction).map((interaction) => {
+    const answerTask = interaction.payload?.agent_answer_task;
+    const process = interaction.task_id ? processById.get(interaction.task_id) : undefined;
+    const fallback = interaction.routing_state === 'agent_elicitation_fallback_to_human';
+    const fallbackPending = fallback && interaction.status === 'pending';
+    const fallbackAnswered = fallback && interaction.status === 'answered';
+    const answered = interaction.status === 'answered' && interaction.answered_by === 'agent';
+    const humanAddressed = !isAgentMcpInteraction(interaction);
+    const humanPending = humanAddressed && interaction.status === 'pending';
+    const humanAnswered = humanAddressed && interaction.status === 'answered';
+    const isMcp = interaction.source.protocol === 'mcp';
+    return {
+      id: `question-interaction:${interaction.id}`,
+      kind: 'interaction',
+      label: questionInteractionRequestLabel(interaction),
+      detail: fallbackPending
+        ? 'Agent answer attempt ended; routed to you'
+        : fallbackAnswered
+          ? isMcp
+            ? 'Your response was validated and returned to MCP'
+            : 'Your answer resumed the agent'
+          : humanPending
+            ? 'Waiting for your response'
+            : humanAnswered
+              ? isMcp
+                ? 'Your response was validated and returned to MCP'
+                : 'Your answer resumed the agent'
+              : answered
+                ? 'Agent answer validated and returned to MCP'
+                : interaction.status === 'cancelled'
+                  ? 'The request was cancelled'
+                  : interaction.status === 'expired'
+                    ? 'The request expired'
+                    : 'Agent answer turn is in progress',
+      state:
+        fallbackPending || humanPending
+          ? 'waiting_user'
+          : answered || fallbackAnswered || humanAnswered
+            ? 'completed'
+            : interaction.status === 'cancelled' || interaction.status === 'expired'
+              ? 'cancelled'
+              : answerTask?.live_state === 'queued'
+                ? 'queued'
+                : 'running',
+      at: answerTask?.updated_at ?? interaction.created_at,
+      groupId:
+        process?.parent_turn_id ??
+        (interaction.task_id
+          ? `mcp-task:${interaction.task_id}`
+          : `${interaction.source.protocol}-invocation:${interaction.source.invocation_id ?? interaction.id}`),
+      timing: 'event',
+      rootSessionId,
+      ownerSessionId: interaction.owner_session_id,
+      taskId: interaction.task_id,
+      taskPath: process?.task_path,
+      depth: process?.task_path?.length ?? 0,
+      lifecycle: 'event',
+    } satisfies ObservabilityActivityItem;
+  });
+}
+
 const HIGH_SIGNAL_CHILD_KINDS = new Set([
   'tool',
   'artifact',
@@ -84,6 +164,21 @@ const HIGH_SIGNAL_CHILD_KINDS = new Set([
   'interactive_work',
   'resource',
 ]);
+
+const COMMISSION_ACTIVITY = {
+  'blueprint.commission.started': {
+    detail: 'Commissioned blueprint',
+    kind: 'process',
+  },
+  'blueprint.commission.artifact_returned': {
+    detail: 'Registered report returned',
+    kind: 'artifact',
+  },
+  'blueprint.commission.parent_used_artifact': {
+    detail: 'Parent used returned report',
+    kind: 'artifact',
+  },
+} as const satisfies Record<string, { detail: string; kind: ObservabilityActivityItem['kind'] }>;
 
 /**
  * Build the child-only portion of the timeline from CLIO's authoritative projection.
@@ -165,6 +260,7 @@ export function childProjectionActivityItems(
       rootSessionId,
       ownerSessionId: process.owner_session_id,
       ownerLabel: owner?.label,
+      groupId: `mcp-task:${process.id}`,
       taskId: process.id,
       taskPath: process.task_path,
       depth: owner?.depth ?? process.task_path?.length ?? 0,
@@ -174,6 +270,31 @@ export function childProjectionActivityItems(
 
   for (const span of provenance.spans) {
     const ownerSessionId = span.owner_session_id ?? span.session_id;
+    const commission = COMMISSION_ACTIVITY[span.event_type as keyof typeof COMMISSION_ACTIVITY];
+    if (commission) {
+      const owner = lineageBySession.get(ownerSessionId);
+      const turnId =
+        typeof span.attributes.turn_id === 'string' ? span.attributes.turn_id : undefined;
+      items.push({
+        id: `projected:${span.id}`,
+        kind: commission.kind,
+        label: span.label,
+        detail: commission.detail,
+        state: activityState(span.status),
+        at: timestampString(span.end_time ?? span.start_time),
+        timing: span.start_time === null && span.end_time === null ? undefined : 'event',
+        rootSessionId,
+        ownerSessionId,
+        ownerLabel: owner?.label,
+        parentSessionId: owner?.parent_session_id,
+        taskId: span.task_id || owner?.task_id,
+        taskPath: span.task_path?.length ? span.task_path : owner?.task_path,
+        depth: owner?.depth ?? span.task_path?.length ?? 0,
+        groupId: turnId,
+        lifecycle: 'event',
+      });
+      continue;
+    }
     if (ownerSessionId === rootSessionId || !HIGH_SIGNAL_CHILD_KINDS.has(span.kind)) continue;
     if (
       span.kind === 'tool' &&

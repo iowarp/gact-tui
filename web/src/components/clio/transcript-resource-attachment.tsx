@@ -1,4 +1,5 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
+import { useQuery } from '@tanstack/react-query';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -8,6 +9,12 @@ import {
   AttachmentPreview,
   Attachments,
 } from '@/components/ai-elements/attachments';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useObjectUrl } from '@/hooks/use-object-url';
+import { useRepository } from '@/hooks/use-repository';
+import { queryKeys } from '@/lib/query-keys';
+import { cn } from '@/lib/utils';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { resourceAvailability, resourcePipelineStages } from './resource-availability';
 import {
   ResourcePipelineStatusLines,
@@ -18,14 +25,15 @@ type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
 export interface TranscriptResourceAttachmentProps {
   block: ResourceBlock;
+  relatedResources?: readonly WorkspaceResource[];
   resource?: WorkspaceResource;
-  onOpen?: (resource: WorkspaceResource) => void;
+  onOpen?: (resource: WorkspaceResource, relatedResources?: readonly WorkspaceResource[]) => void;
 }
 
 export interface TranscriptResourceAttachmentsProps {
   blocks: readonly ResourceBlock[];
   resources?: Record<string, WorkspaceResource>;
-  onOpen?: (resource: WorkspaceResource) => void;
+  onOpen?: (resource: WorkspaceResource, relatedResources?: readonly WorkspaceResource[]) => void;
 }
 
 /**
@@ -38,24 +46,33 @@ export function TranscriptResourceAttachments({
   resources,
   onOpen,
 }: TranscriptResourceAttachmentsProps) {
+  const relatedResources = blocks.flatMap((block) => {
+    const resource = resources?.[block.resource_id];
+    return resource ? [resource] : [];
+  });
+
   return (
-    <Attachments
-      aria-label={
-        blocks.length === 1 ? 'Message attachment' : `${blocks.length} message attachments`
-      }
-      className="mb-2 justify-start"
-      role="group"
-      variant="inline"
-    >
-      {blocks.map((block) => (
-        <TranscriptResourceAttachmentItem
-          block={block}
-          key={block.id}
-          onOpen={onOpen}
-          resource={resources?.[block.resource_id]}
-        />
-      ))}
-    </Attachments>
+    <ScrollArea className="mb-2 h-auto w-full max-w-full rounded-2xl" type="auto">
+      <Attachments
+        aria-label={
+          blocks.length === 1 ? 'Message attachment' : `${blocks.length} message attachments`
+        }
+        className="w-max min-w-full justify-start gap-3 pb-3 group-[.is-user]:justify-end"
+        role="group"
+        variant="composer"
+      >
+        {blocks.map((block) => (
+          <TranscriptResourceAttachmentItem
+            block={block}
+            key={block.id}
+            onOpen={onOpen}
+            relatedResources={relatedResources}
+            resource={resources?.[block.resource_id]}
+          />
+        ))}
+      </Attachments>
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
   );
 }
 
@@ -76,38 +93,112 @@ export function TranscriptResourceAttachment({
 
 function TranscriptResourceAttachmentItem({
   block,
+  relatedResources,
   resource,
   onOpen,
 }: TranscriptResourceAttachmentProps) {
+  const mediaType = resource?.detected_mime || block.media_type;
+
+  if (mediaType?.startsWith('image/')) {
+    return (
+      <TranscriptImageResourceAttachment
+        block={block}
+        onOpen={onOpen}
+        relatedResources={relatedResources}
+        resource={resource}
+      />
+    );
+  }
+
+  return (
+    <TranscriptResourceAttachmentDisplay
+      block={block}
+      onOpen={onOpen}
+      relatedResources={relatedResources}
+      resource={resource}
+      visual={false}
+    />
+  );
+}
+
+function TranscriptImageResourceAttachment({
+  block,
+  relatedResources,
+  resource,
+  onOpen,
+}: TranscriptResourceAttachmentProps) {
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  const mediaType = resource?.detected_mime || block.media_type || 'image/*';
+  const preview = useQuery({
+    queryKey: queryKeys.workspaceResourcePreview(
+      settings.endpoint,
+      resource?.workspace_id ?? block.workspace_id,
+      resource?.id ?? block.resource_id,
+      resource?.revision,
+    ),
+    queryFn: ({ signal }) =>
+      repository.resourcePreview(
+        resource?.workspace_id ?? block.workspace_id,
+        resource?.id ?? block.resource_id,
+        signal,
+      ),
+    enabled: resource?.state === 'ready',
+  });
+  const previewUrl = useObjectUrl(preview.data, mediaType);
+
+  return (
+    <TranscriptResourceAttachmentDisplay
+      block={block}
+      onOpen={onOpen}
+      previewUrl={previewUrl}
+      relatedResources={relatedResources}
+      resource={resource}
+      visual
+    />
+  );
+}
+
+function TranscriptResourceAttachmentDisplay({
+  block,
+  relatedResources,
+  resource,
+  onOpen,
+  previewUrl,
+  visual,
+}: TranscriptResourceAttachmentProps & { previewUrl?: string; visual: boolean }) {
   const filename = resource?.name ?? block.name;
   const mediaType = resource?.detected_mime || block.media_type;
   const availability = resourceAvailability(resource, block.delivery);
   const stages = resourcePipelineStages(resource, availability);
 
   const open = () => {
-    if (resource) onOpen?.(resource);
+    if (resource) onOpen?.(resource, relatedResources);
   };
 
   return (
     <AttachmentHoverCard closeDelay={100} openDelay={220}>
       <AttachmentHoverCardTrigger asChild>
         <Attachment
-          aria-label={`Open ${filename}`}
-          className="h-9 max-w-full gap-2 pr-2"
-          data={{ filename, id: block.id, mediaType, type: 'file', url: '' }}
-          onClick={open}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            open();
-          }}
-          role={resource && onOpen ? 'button' : undefined}
-          tabIndex={resource && onOpen ? 0 : undefined}
+          data={{ filename, id: block.id, mediaType, type: 'file', url: previewUrl ?? '' }}
           title={filename}
         >
-          <AttachmentPreview className="size-6 [&_svg]:size-3.5" />
-          <AttachmentInfo className="max-w-56 text-xs" showMediaType />
-          <ResourcePipelineSummaryIcon stages={stages} />
+          <button
+            aria-label={`Open ${filename}`}
+            className={cn(
+              'text-left',
+              visual ? 'size-full' : 'flex size-full min-w-0 flex-col overflow-hidden',
+            )}
+            disabled={!resource || !onOpen}
+            onClick={open}
+            type="button"
+          >
+            <AttachmentPreview />
+            <AttachmentInfo className="text-xs" showMediaType />
+            <span className="absolute right-2 bottom-2 shrink-0">
+              <ResourcePipelineSummaryIcon overlay stages={stages} />
+            </span>
+          </button>
         </Attachment>
       </AttachmentHoverCardTrigger>
       <AttachmentHoverCardContent className="max-w-72 border bg-popover p-3 shadow-md">

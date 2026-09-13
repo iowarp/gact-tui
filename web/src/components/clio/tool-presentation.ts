@@ -52,12 +52,15 @@ export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
 
 /** The summary is undefined whenever it would only restate the labeled tool state. */
 export function getToolSummary(tool: ToolInvocation): string | undefined {
+  // Cancellation is already a complete user-facing outcome. Provider/runtime
+  // diagnostics can remain in the expanded tool output, but must not replace
+  // that outcome in the compact transcript summary.
+  if (tool.state === 'cancelled') return 'The action was cancelled.';
   if (tool.error) return truncate(normalize(tool.error), SUMMARY_TRUNCATE_CHARS);
   const intent = toolIntent(tool);
   if (tool.state === 'pending') return intent ? `${intent.present} is queued.` : undefined;
   if (tool.state === 'running') return intent ? `${intent.progressive}…` : undefined;
   if (tool.state === 'denied') return 'The requested action was denied.';
-  if (tool.state === 'cancelled') return 'The action was cancelled.';
   const outputSummary = summarizeOutput(tool.output);
   if (intent && tool.state === 'succeeded') {
     return outputSummary && intent.includeOutput

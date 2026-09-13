@@ -1,8 +1,15 @@
-import type { Task, ToolInvocation } from '@clio/core/v3';
+import type { ClioRepository, PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationTurn } from './conversation-turn';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
+
+vi.mock('./mcp-app-surface', () => ({
+  McpAppHistoryLine: ({ toolName }: { toolName: string }) => <div>{`${toolName} closed`}</div>,
+  McpAppSurface: ({ appInstanceId }: { appInstanceId: string }) => (
+    <div data-testid="active-mcp-app">{appInstanceId}</div>
+  ),
+}));
 
 afterEach(cleanup);
 
@@ -75,6 +82,62 @@ describe('ConversationTurn incomplete state', () => {
 });
 
 describe('ConversationTurn correlated work placement', () => {
+  it('anchors an actionable saved-plan review to the Exit Plan tool', async () => {
+    const interaction: PendingInteraction = {
+      id: 'question:plan_exit',
+      kind: 'question',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'pending',
+      title: 'Review execution plan',
+      requires_human_response: true,
+      prompt: 'Approve the saved plan?',
+      source: { protocol: 'native', tool_name: 'plan_exit', invocation_id: 'call_plan_exit' },
+      created_at: '2026-09-05T00:00:00Z',
+      payload: {
+        answer_metadata: {},
+        options: [
+          { label: 'Approve — auto-execute', value: 'auto' },
+          { label: 'Reject — keep planning', value: 'reject' },
+        ],
+        plan_exit: {
+          plan_file: 'D:/workspace/.clio/plans/plan.md',
+          plan_content: '# Implementation plan\n\n1. Make the requested change.',
+          plan_content_status: 'complete',
+          summary: 'Make the requested change after approval.',
+        },
+      },
+      actions: ['answer'],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([
+              {
+                kind: 'tool',
+                id: 'call_plan_exit',
+                tool: tool('call_plan_exit', 'Exit Plan'),
+              },
+            ]),
+          ),
+        ]}
+        mode="full"
+        onInteractionResponse={vi.fn(async () => undefined)}
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Review execution plan')).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 5_000 }),
+    ).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
+    expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
+    expect(screen.getByText(/write the changes in the composer/i)).toBeVisible();
+  });
+
   it('renders tools and tasks in the wire order that links them', () => {
     render(
       <ConversationTurn
@@ -101,6 +164,393 @@ describe('ConversationTurn correlated work placement', () => {
       node.getAttribute('data-turn-activity'),
     );
     expect(rendered).toEqual(['tool:call_read', 'task:task_review', 'tool:call_render']);
+  });
+
+  it('renders child start and return as separate navigable ledger rows', () => {
+    const child = {
+      id: 'task_researcher',
+      session_id: 'session_1',
+      child_session_id: 'session_child',
+      title: 'researcher #1',
+      state: 'completed' as const,
+      task: 'Research the HDF5 origin chronology.',
+      result: 'The authoritative history confirms the project chronology.',
+    };
+    render(
+      <ConversationTurn
+        iterations={[
+          iteration(
+            activityLane([
+              {
+                kind: 'subagent',
+                id: 'handoff_started',
+                block: {
+                  id: 'handoff_started',
+                  type: 'subagent',
+                  subagent_id: child.id,
+                  stage: 'delegate.started',
+                },
+              },
+              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Wait') },
+              {
+                kind: 'subagent',
+                id: 'handoff_returned',
+                block: {
+                  id: 'handoff_returned',
+                  type: 'subagent',
+                  subagent_id: child.id,
+                  stage: 'delegate.completed',
+                },
+              },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{ [child.id]: child }}
+      />,
+    );
+
+    const lane = screen.getByRole('region', { name: 'Full agent activity' });
+    const rendered = [...lane.querySelectorAll('[data-turn-activity]')].map((node) =>
+      node.getAttribute('data-turn-activity'),
+    );
+    expect(rendered).toEqual([
+      'subagent:handoff_started',
+      'tool:call_read',
+      'subagent:handoff_returned',
+    ]);
+    expect(screen.getByText(child.task)).toBeVisible();
+    expect(screen.getByText(child.result)).toBeVisible();
+  });
+
+  it('keeps the active MCP App visible after its collapsed chain summary', () => {
+    const app: ConversationActivity = {
+      kind: 'mcp_app',
+      id: 'app_block',
+      block: {
+        id: 'app_block',
+        type: 'mcp_app',
+        app_instance_id: 'app_1',
+        resource_uri: 'ui://v2ex/panel',
+        source_server: 'v2ex',
+        tool_name: 'v2ex_ui_echo',
+        data_ref: 'opaque',
+        mime_type: 'text/html;profile=mcp-app',
+      },
+    };
+    render(
+      <ConversationTurn
+        activeMcpAppId="app_1"
+        iterations={[
+          iteration(
+            activityLane([{ kind: 'tool', id: 'call_ui', tool: tool('call_ui', 'UI Echo') }, app]),
+          ),
+        ]}
+        mcpAppRepository={{} as ClioRepository}
+        messageSessionId="session_1"
+        mode="chain"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByTestId('active-mcp-app')).toBeVisible();
+    expect(screen.getAllByTestId('active-mcp-app')).toHaveLength(1);
+    expect(screen.getByTestId('active-mcp-app').closest('[data-turn-activity]')).toHaveAttribute(
+      'data-turn-activity',
+      'mcp-app:app_block',
+    );
+  });
+
+  it('keeps replaced MCP Apps as visible history without remounting them', () => {
+    const replaced: ConversationActivity = {
+      kind: 'mcp_app',
+      id: 'app_block_1',
+      block: {
+        id: 'app_block_1',
+        type: 'mcp_app',
+        app_instance_id: 'app_1',
+        resource_uri: 'ui://v2ex/first',
+        source_server: 'MCP v2 exerciser',
+        tool_name: 'v2ex_ui_echo',
+        data_ref: 'opaque-1',
+        mime_type: 'text/html;profile=mcp-app',
+      },
+    };
+    const active: ConversationActivity = {
+      kind: 'mcp_app',
+      id: 'app_block_2',
+      block: {
+        id: 'app_block_2',
+        type: 'mcp_app',
+        app_instance_id: 'app_2',
+        resource_uri: 'ui://v2ex/second',
+        source_server: 'Simulation viewer',
+        tool_name: 'v2ex_ui_echo',
+        data_ref: 'opaque-2',
+        mime_type: 'text/html;profile=mcp-app',
+      },
+    };
+
+    render(
+      <ConversationTurn
+        activeMcpAppId="app_2"
+        iterations={[iteration(activityLane([replaced, active]))]}
+        mcpAppRepository={{} as ClioRepository}
+        messageSessionId="session_1"
+        mode="chain"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('v2ex_ui_echo closed')).toBeVisible();
+    expect(screen.getAllByTestId('active-mcp-app')).toHaveLength(1);
+    expect(screen.getByTestId('active-mcp-app')).toHaveTextContent('app_2');
+  });
+
+  it('attaches the complete agent-routed exchange to its causal tool inside Activity', async () => {
+    const interaction: PendingInteraction = {
+      id: 'question:agent_1',
+      kind: 'question',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'answered',
+      title: 'Question from tool',
+      requires_human_response: false,
+      audience: 'agent',
+      routing_state: 'elicitation_routed_to_agent',
+      answered_by: 'agent',
+      prompt: 'Which nonce did the user provide?',
+      source: { protocol: 'mcp', invocation_id: 'call_read' },
+      created_at: '2026-09-03T00:00:00Z',
+      payload: {
+        mode: 'form',
+        request_index: 1,
+        request_count: 1,
+        answer_metadata: { nonce: 'browser-agent-9f42' },
+        agent_answer_task: {
+          task_id: 'task_answer',
+          child_session_id: 'session_answer',
+          status: 'completed',
+          live_state: 'completed',
+          created_at: '2026-09-03T00:00:00Z',
+          updated_at: '2026-09-03T00:00:18.300Z',
+        },
+      },
+      actions: [],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Read evidence file') },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Form request 1 of 1')).toBeVisible();
+    expect(
+      screen.getByText('Form request 1 of 1').closest('[data-turn-activity="tool:call_read"]'),
+    ).toBeNull();
+    expect(
+      [
+        ...screen
+          .getByRole('region', { name: 'Full agent activity' })
+          .querySelectorAll('[data-turn-activity]'),
+      ].map((node) => node.getAttribute('data-turn-activity')),
+    ).toEqual(['tool:call_read', 'interaction:question:agent_1']);
+    expect(screen.getByText('Which nonce did the user provide?')).toBeVisible();
+    expect(screen.getByText('Agent responded')).toBeVisible();
+    expect(screen.getByText('browser-agent-9f42')).toBeVisible();
+    expect(screen.getByText('Validated by MCP schema')).toBeVisible();
+    expect(screen.getByText('Answer returned to MCP')).toBeVisible();
+    expect(screen.getByText('18.3 s')).toBeVisible();
+    expect(screen.getByText('session_answer')).toBeVisible();
+  });
+
+  it('keeps a direct human MCP answer attached to its causal tool', async () => {
+    const interaction: PendingInteraction = {
+      id: 'mcp_task_input:human_1',
+      kind: 'mcp_task_input',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      task_id: 'mcp_task_1',
+      status: 'answered',
+      title: 'MCP task input required',
+      requires_human_response: false,
+      answered_by: 'human',
+      prompt: 'Pick a value',
+      source: { protocol: 'mcp', invocation_id: 'call_read' },
+      created_at: '2026-09-03T00:00:00Z',
+      payload: {
+        mode: 'form',
+        request_index: 1,
+        request_count: 1,
+        answer_metadata: { value: 'human-visible-4d72' },
+      },
+      actions: [],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Guarded Input') },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Form request 1 of 1')).toBeVisible();
+    expect(screen.getByText('Pick a value')).toBeVisible();
+    expect(screen.getByText('You responded')).toBeVisible();
+    expect(screen.getByText('human-visible-4d72')).toBeVisible();
+    expect(screen.getByText('Validated by MCP schema')).toBeVisible();
+    expect(screen.getByText('Response returned to MCP')).toBeVisible();
+  });
+
+  it('keeps a native ask-user answer attached to the ask-user tool', async () => {
+    const interaction: PendingInteraction = {
+      id: 'question:native_1',
+      kind: 'question',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'answered',
+      title: 'Question from agent',
+      requires_human_response: false,
+      answered_by: 'human',
+      prompt: 'Which physical system should I simulate?',
+      source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'call_ask' },
+      created_at: '2026-09-03T00:00:00Z',
+      payload: { answer_metadata: { answer: 'A cantilever beam' } },
+      actions: [],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([{ kind: 'tool', id: 'call_ask', tool: tool('call_ask', 'Ask User') }]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Agent asked')).toBeVisible();
+    expect(
+      [
+        ...screen
+          .getByRole('region', { name: 'Full agent activity' })
+          .querySelectorAll('[data-turn-activity]'),
+      ].map((node) => node.getAttribute('data-turn-activity')),
+    ).toEqual(['tool:call_ask', 'interaction:question:native_1']);
+    expect(screen.getByText('Which physical system should I simulate?')).toBeVisible();
+    expect(screen.getByText('A cantilever beam')).toBeVisible();
+    expect(screen.getByText('Answer returned to agent')).toBeVisible();
+    expect(screen.queryByText('Validated by MCP schema')).not.toBeInTheDocument();
+    expect(screen.queryByText('Response returned to MCP')).not.toBeInTheDocument();
+  });
+
+  it('keeps an agent failure in the causal tool after routing the request to the human', async () => {
+    const interaction: PendingInteraction = {
+      id: 'question:fallback',
+      kind: 'question',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'pending',
+      title: 'Question from tool',
+      requires_human_response: true,
+      audience: 'agent',
+      routing_state: 'agent_elicitation_fallback_to_human',
+      fallback_detail: 'agent_answer_schema_invalid',
+      prompt: 'Choose a valid sample count',
+      source: { protocol: 'mcp', invocation_id: 'call_read' },
+      created_at: '2026-09-03T00:00:00Z',
+      payload: {
+        mode: 'form',
+        request_index: 2,
+        request_count: 2,
+        agent_answer_task: { status: 'completed', live_state: 'completed' },
+      },
+      actions: ['answer', 'cancel'],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Read evidence file') },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Form request 2 of 2')).toBeVisible();
+    expect(screen.getByText('Answer rejected by MCP schema')).toBeVisible();
+    expect(screen.getByText('Routed to you')).toBeVisible();
+    expect(screen.getByText('Technical details')).toBeVisible();
+  });
+
+  it('shows that a human-resolved fallback returned to MCP instead of still needing attention', async () => {
+    const interaction: PendingInteraction = {
+      id: 'question:fallback-resolved',
+      kind: 'question',
+      owner_session_id: 'session_1',
+      attended_session_id: 'session_1',
+      status: 'answered',
+      title: 'Question from tool',
+      requires_human_response: false,
+      audience: 'agent',
+      answered_by: 'human',
+      routing_state: 'agent_elicitation_fallback_to_human',
+      fallback_detail: 'policy_denied_server',
+      prompt: 'Which nonce did the user provide?',
+      source: { protocol: 'mcp', invocation_id: 'call_read' },
+      created_at: '2026-09-03T00:00:00Z',
+      payload: {
+        mode: 'form',
+        request_index: 1,
+        request_count: 1,
+        answer_metadata: { nonce: 'human-fallback-7c31' },
+      },
+      actions: [],
+    };
+    render(
+      <ConversationTurn
+        interactions={[interaction]}
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: 'call_read', tool: tool('call_read', 'Read evidence file') },
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{}}
+      />,
+    );
+
+    expect(screen.getByText('Form request 1 of 1')).toBeVisible();
+    expect(screen.queryByText('Form request 1 of 1 · Needs your response')).not.toBeInTheDocument();
+    expect(screen.getByText('You responded')).toBeVisible();
+    expect(screen.getByText('human-fallback-7c31')).toBeVisible();
+    expect(screen.getByText('Answer returned to MCP')).toBeVisible();
+    expect(screen.queryByText('Routed to you')).not.toBeInTheDocument();
   });
 });
 
