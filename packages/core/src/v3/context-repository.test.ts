@@ -28,6 +28,12 @@ class RecordingTransport implements ClioTransport {
             scope: 'main',
             window_tokens: 922_000,
             live_tokens: 120,
+            used_tokens: 1000,
+            used_tokens_source: 'provider',
+            usage_model: 'anthropic/claude-sonnet-4-6',
+            cache_read_tokens: 750,
+            cache_write_tokens: 40,
+            cache_tokens_measured: true,
             live_block_count: 1,
             tokens_by_kind: { message: 120 },
             categories: { conversation: 120 },
@@ -47,9 +53,14 @@ describe('ContextRepository', () => {
     const repository = new ClioRepository(transport);
 
     expect((await repository.contextPolicy('sess 1')).requires_user_consent).toBe(true);
-    expect((await repository.compactContext('sess 1', 'expert/main')).render_text).toBe(
-      'Retained evidence',
-    );
+    expect(await repository.compactContext('sess 1', 'expert/main')).toMatchObject({
+      render_text: 'Retained evidence',
+      used_tokens: 1000,
+      used_tokens_source: 'provider',
+      cache_read_tokens: 750,
+      cache_write_tokens: 40,
+      cache_tokens_measured: true,
+    });
     expect(
       await repository.updateContextPreferences('sess 1', {
         automatic_compaction: false,

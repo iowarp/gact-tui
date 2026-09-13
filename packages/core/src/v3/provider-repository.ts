@@ -102,10 +102,12 @@ export class ProviderRepository extends ContextRepository {
 
   public updateLanguageModelConfiguration(
     input: {
+      provider_id: string;
       provider: string;
       api_base: string;
       model: string;
       api_key?: string;
+      provider_options: Record<string, string>;
       thinking_level?: 'off' | 'low' | 'medium' | 'high';
       parallel?: number;
       context_length?: number;

@@ -845,11 +845,31 @@ const server = createServer(async (request, response) => {
           name: 'vertical-displacement.png',
           media_type: 'image/png',
           uri: 'artifact://flat-ndp/vertical-displacement.png@v1',
+          // Without size, ClioArtifactCard's withinBudget check never opens,
+          // so the inline preview never fetches or renders (artifact-card.tsx).
+          size: artifactPng.length,
           created_at: observedAt,
         },
       ],
       surfaces: [],
     });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/work`) {
+    sendJson(response, {
+      cursor: 0,
+      goal: null,
+      loop: null,
+      goals: [],
+      loops: [],
+      todos: [],
+      goal_next_cursor: null,
+      loop_next_cursor: null,
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/schedules`) {
+    sendJson(response, { schedules: [], cron_timezone: 'UTC' });
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/queued-messages`) {

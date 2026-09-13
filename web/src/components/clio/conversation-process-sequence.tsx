@@ -12,7 +12,7 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-e
 import { Task as AITask, TaskContent, TaskItem, TaskTrigger } from '@/components/ai-elements/task';
 import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
-import { ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
+import { ClioAgentMessageLine, ClioSubagentCard, type SubagentOpenTarget } from './subagent-card';
 import { ClioToolInvocation } from './tool-invocation';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
@@ -20,7 +20,7 @@ import { GroundedMessageResponse } from './grounded-message-response';
 
 export type ProcessBlock = Extract<
   MessageBlock,
-  { type: 'text' | 'reasoning' | 'tool' | 'task' | 'subagent' }
+  { type: 'text' | 'reasoning' | 'tool' | 'task' | 'subagent' | 'agent_message' }
 >;
 
 interface ConversationProcessSequenceProps {
@@ -86,7 +86,7 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
           className="min-h-6"
           getThinkingMessage={(streaming) => (streaming ? 'Thinking in progress' : 'Thinking')}
         />
-        <ReasoningContent className="mt-3 leading-6">{block.text}</ReasoningContent>
+        <ReasoningContent className="mt-1 leading-5">{block.text}</ReasoningContent>
       </Reasoning>
     );
   }
@@ -94,11 +94,11 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
     const tool = entities.tools[block.tool_id];
     const questions = questionInteractionsForTool(entities.interactions, block.tool_id);
     return (
-      <div className="space-y-3">
+      <div className="space-y-1">
         {block.thought ? (
           <Reasoning className="mb-0">
             <ReasoningTrigger className="min-h-6" getThinkingMessage={() => 'Thinking'} />
-            <ReasoningContent className="mt-3 leading-6">{block.thought}</ReasoningContent>
+            <ReasoningContent className="mt-1 leading-5">{block.thought}</ReasoningContent>
           </Reasoning>
         ) : null}
         <ClioToolInvocation tool={tool} />
@@ -146,6 +146,15 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
           <TaskItem className="text-xs">{task?.detail || 'No task detail was reported.'}</TaskItem>
         </TaskContent>
       </AITask>
+    );
+  }
+  if (block.type === 'agent_message') {
+    return (
+      <ClioAgentMessageLine
+        block={block}
+        onOpen={entities.onOpenSubagent}
+        subagent={entities.subagents[block.subagent_id]}
+      />
     );
   }
   return (

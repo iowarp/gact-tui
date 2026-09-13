@@ -9,6 +9,8 @@ func (a *App) dispatchUpdateMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return model, cmd
 	}
 	switch m := msg.(type) {
+	case declaredResultLoadedMsg:
+		return a.detail.handleDeclaredResultLoaded(m)
 	case connectedMsg:
 		return a.connection.handleConnected(m)
 

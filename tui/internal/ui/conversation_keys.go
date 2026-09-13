@@ -18,6 +18,9 @@ func (c *conversationComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd
 	}
 	switch key {
 	case "enter":
+		if _, ok := c.app.detail.selectedDeclaredResult(); ok {
+			return c.app, c.app.detail.openModal()
+		}
 		// For projected execution, Enter answers "what is this
 		// transcript item?" with event/turn detail. Ctrl+E remains the
 		// produced-artifact expansion path. Legacy message parts keep
@@ -25,8 +28,7 @@ func (c *conversationComponent) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd
 		if c.app.execution.openSemanticDetailForSelection() {
 			return c.app, nil
 		}
-		c.app.detail.openModal()
-		return c.app, nil
+		return c.app, c.app.detail.openModal()
 	case "up", "k":
 		// Up/k walks the body cursor one addressable part
 		// backward, crossing message boundaries. User feedback:

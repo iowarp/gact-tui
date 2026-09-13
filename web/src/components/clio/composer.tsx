@@ -108,6 +108,7 @@ export interface ClioComposerProps {
   onRetryModelCatalog?: () => void;
   onHeightChange?: (height: number) => void;
   activityControl?: ReactNode;
+  workSummary?: ReactNode;
   pendingInteractions?: ReactNode;
   queuedMessages?: QueuedMessage[];
   resources?: readonly WorkspaceResource[];
@@ -161,6 +162,7 @@ export function ClioComposer({
   onRetryModelCatalog,
   onHeightChange,
   activityControl,
+  workSummary,
   pendingInteractions,
   queuedMessages = [],
   resources = [],
@@ -519,6 +521,7 @@ export function ClioComposer({
           onOpenChange={setFileUploadOpen}
           open={fileUploadOpen}
         />
+        {workSummary}
         {activityControl ? (
           <PromptInputHeader className="border-b px-2.5 py-1.5">
             {activityControl}
@@ -656,11 +659,7 @@ function ComposerAddContextButton({
 }) {
   if (!contextReferences) {
     return (
-      <PromptInputButton
-        aria-label="Add files"
-        onClick={onOpenFileUpload}
-        title="Add files"
-      >
+      <PromptInputButton aria-label="Add files" onClick={onOpenFileUpload} title="Add files">
         <PlusIcon aria-hidden="true" />
       </PromptInputButton>
     );

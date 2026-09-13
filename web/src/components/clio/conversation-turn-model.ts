@@ -15,6 +15,11 @@ export type ConversationActivity =
       block: Extract<MessageBlock, { type: 'subagent' }>;
     }
   | {
+      kind: 'agent_message';
+      id: string;
+      block: Extract<MessageBlock, { type: 'agent_message' }>;
+    }
+  | {
       kind: 'mcp_app';
       id: string;
       block: Extract<MessageBlock, { type: 'mcp_app' }>;
@@ -103,6 +108,10 @@ function fallbackIterations(
 
   for (const { block } of ordered) {
     if (block.type === 'reasoning') {
+      if (!block.streaming && !block.text.trim()) {
+        consumed.add(block.id);
+        continue;
+      }
       if (current.nextThoughts.length > 0 || current.activity.length > 0) {
         flush();
       }
@@ -157,6 +166,17 @@ function fallbackIterations(
       consumed.add(block.id);
       continue;
     }
+    if (block.type === 'agent_message') {
+      if (messageToolOwnsReceipt(current, block.message)) {
+        consumed.add(block.id);
+        continue;
+      }
+      if (!alreadyInLane(current, 'agent_message', block.id)) {
+        current.activity.push({ kind: 'agent_message', id: block.id, block });
+      }
+      consumed.add(block.id);
+      continue;
+    }
     if (block.type === 'mcp_app') {
       if (!alreadyInLane(current, 'mcp_app', block.id)) {
         current.activity.push({ kind: 'mcp_app', id: block.id, block });
@@ -173,6 +193,23 @@ function fallbackIterations(
     messageInterrupted(message),
   );
   return { consumed, iterations };
+}
+
+function messageToolOwnsReceipt(iteration: ConversationIteration, message: string): boolean {
+  return iteration.activity.some(
+    (entry) =>
+      entry.kind === 'tool' &&
+      entry.tool.name === 'message_agent' &&
+      asRecord(entry.tool.input)?.message === message &&
+      entry.tool.presentation?.blocks.some((block) => block.result_kind === 'message'),
+  );
+}
+
+/** `tool.input` is `unknown` on the wire; narrow it before reading a field. */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
 }
 
 function alreadyInLane(

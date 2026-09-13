@@ -59,7 +59,7 @@ func (c *conversationComponent) registerPartHit(msgIdx int, addrIdx int, row int
 				app.conversation.bodySelPartIdx == addrIdx
 			app.conversation.selectPartForHit(msgIdx, addrIdx)
 			if alreadySelected {
-				app.detail.openModal()
+				return app.detail.openModal()
 			}
 			return nil
 		},
@@ -94,8 +94,7 @@ func (c *conversationComponent) registerDetailHit(block conversationPartHitBlock
 				return nil
 			}
 			app.conversation.selectPartForHit(msgIdx, addrIdx)
-			app.detail.openModal()
-			return nil
+			return app.detail.openModal()
 		},
 		func(app *App) tea.Cmd {
 			return app.conversation.openActionsForPart(msgIdx, addrIdx)

@@ -71,13 +71,15 @@ type Part struct {
 
 	// tool_call
 	ToolName    string         `json:"tool_name,omitempty"`
+	ToolTitle   string         `json:"tool_title,omitempty"`
 	Input       map[string]any `json:"input,omitempty"`
 	ServerID    string         `json:"server_id,omitempty"`
 	Annotations any            `json:"annotations,omitempty"`
 
 	// tool_result (recursive; can hold text, image, resource, ...)
-	Content []Part `json:"content,omitempty"`
-	IsError bool   `json:"is_error,omitempty"`
+	Content      []Part            `json:"content,omitempty"`
+	Presentation *ToolPresentation `json:"presentation,omitempty"`
+	IsError      bool              `json:"is_error,omitempty"`
 
 	// v0.2 — tool_result telemetry (capabilities.tool_telemetry)
 	Cached     bool    `json:"cached,omitempty"`      // result came from a memory cache hit
@@ -133,6 +135,41 @@ type Part struct {
 	// agent_question, retry_attempt
 	Question     *AgentQuestion `json:"question,omitempty"`
 	RetryAttempt *RetryAttempt  `json:"retry_attempt,omitempty"`
+}
+
+// ToolPresentation is observer-owned semantic content, separate from raw results.
+type ToolPresentation struct {
+	Action     string                  `json:"action,omitempty"`
+	Subject    string                  `json:"subject,omitempty"`
+	Summary    string                  `json:"summary"`
+	Blocks     []ToolPresentationBlock `json:"blocks"`
+	Diagnostic string                  `json:"diagnostic,omitempty"`
+}
+
+// ToolPresentationBlock carries one ordered result body or navigation reference.
+type ToolPresentationBlock struct {
+	ContentRef   *PresentationContentRef `json:"content_ref,omitempty"`
+	StreamOffset *int                    `json:"stream_offset,omitempty"`
+	ID           string                  `json:"id"`
+	Type         string                  `json:"type"`
+	MediaType    string                  `json:"media_type,omitempty"`
+	Text         string                  `json:"text,omitempty"`
+	Label        string                  `json:"label,omitempty"`
+	Target       string                  `json:"target,omitempty"`
+	State        string                  `json:"state,omitempty"`
+	URI          string                  `json:"uri,omitempty"`
+	Command      string                  `json:"command,omitempty"`
+	ExitCode     *int                    `json:"exit_code,omitempty"`
+	TimedOut     bool                    `json:"timed_out,omitempty"`
+}
+
+// PresentationContentRef identifies session-scoped, character-paged result content.
+type PresentationContentRef struct {
+	SessionID  string `json:"session_id"`
+	CallID     string `json:"call_id"`
+	BlockID    string `json:"block_id"`
+	Cursor     int    `json:"cursor"`
+	TotalChars int    `json:"total_chars"`
 }
 
 // TextRange identifies a substring within a Text part (SPEC §4.5 citation).

@@ -13,6 +13,19 @@ afterEach(() => {
 });
 
 describe('appearance preferences', () => {
+  it('restores the display-line preference and enforces its supported range', () => {
+    const first = renderHook(() => useAppearancePreferences(), { wrapper });
+    expect(first.result.current.collapseThreshold).toBe(5);
+    act(() => first.result.current.setCollapseThreshold(8));
+    first.unmount();
+    const restored = renderHook(() => useAppearancePreferences(), { wrapper });
+    expect(restored.result.current.collapseThreshold).toBe(8);
+    act(() => restored.result.current.setCollapseThreshold(100));
+    expect(restored.result.current.collapseThreshold).toBe(50);
+    act(() => restored.result.current.setCollapseThreshold(-1));
+    expect(restored.result.current.collapseThreshold).toBe(1);
+  });
+
   it('persists motion and conversation width without storing backend state', () => {
     const { result, unmount } = renderHook(() => useAppearancePreferences(), { wrapper });
 
@@ -26,6 +39,7 @@ describe('appearance preferences', () => {
     expect(JSON.parse(window.localStorage.getItem('clio.appearance.v1') ?? '{}')).toEqual({
       motion: 'reduced',
       conversationWidth: 'wide',
+      collapseThreshold: 5,
     });
 
     unmount();

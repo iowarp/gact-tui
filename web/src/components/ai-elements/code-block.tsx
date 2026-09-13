@@ -90,16 +90,31 @@ const LINE_NUMBER_CLASSES = cn(
 const LineSpan = ({
   keyedLine,
   showLineNumbers,
+  diff,
 }: {
   keyedLine: KeyedLine;
   showLineNumbers: boolean;
+  diff: boolean;
 }) => (
-  <span className={showLineNumbers ? LINE_NUMBER_CLASSES : 'block'}>
+  <span
+    className={showLineNumbers ? LINE_NUMBER_CLASSES : 'block'}
+    data-diff-line={
+      diff ? diffLineKind(keyedLine.tokens.map(({ token }) => token.content).join('')) : undefined
+    }
+  >
     {keyedLine.tokens.length === 0
       ? '\n'
       : keyedLine.tokens.map(({ token, key }) => <TokenSpan key={key} token={token} />)}
   </span>
 );
+
+/** Classify unified-diff syntax, not tool names or model result keys. */
+function diffLineKind(line: string): string {
+  if (line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('@@')) return 'header';
+  if (line.startsWith('+')) return 'addition';
+  if (line.startsWith('-')) return 'deletion';
+  return 'context';
+}
 
 // Types
 type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
@@ -244,10 +259,12 @@ const CodeBlockBody = memo(
     tokenized,
     showLineNumbers,
     className,
+    diff,
   }: {
     tokenized: TokenizedCode;
     showLineNumbers: boolean;
     className?: string;
+    diff: boolean;
   }) => {
     const preStyle = useMemo(
       () => ({
@@ -262,7 +279,7 @@ const CodeBlockBody = memo(
     return (
       <pre
         className={cn(
-          'dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 w-max min-w-full p-4 text-sm',
+          'dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 w-full min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere] p-4 text-sm',
           className,
         )}
         style={preStyle}
@@ -274,7 +291,12 @@ const CodeBlockBody = memo(
           )}
         >
           {keyedLines.map((keyedLine) => (
-            <LineSpan key={keyedLine.key} keyedLine={keyedLine} showLineNumbers={showLineNumbers} />
+            <LineSpan
+              key={keyedLine.key}
+              keyedLine={keyedLine}
+              showLineNumbers={showLineNumbers}
+              diff={diff}
+            />
           ))}
         </code>
       </pre>
@@ -283,6 +305,7 @@ const CodeBlockBody = memo(
   (prevProps, nextProps) =>
     prevProps.tokenized === nextProps.tokenized &&
     prevProps.showLineNumbers === nextProps.showLineNumbers &&
+    prevProps.diff === nextProps.diff &&
     prevProps.className === nextProps.className,
 );
 
@@ -364,29 +387,33 @@ export const CodeBlockContent = ({
   language: BundledLanguage;
   showLineNumbers?: boolean;
 }) => {
+  // A final newline is part of the file format, not another visible code row.
+  // Keep `code` unchanged in CodeBlockContext for copying and technical detail,
+  // but omit that synthetic empty row from the rendered preview.
+  const displayCode = useMemo(() => code.replace(/\r?\n$/u, ''), [code]);
   // Memoized raw tokens for immediate display
-  const rawTokens = useMemo(() => createRawTokens(code), [code]);
+  const rawTokens = useMemo(() => createRawTokens(displayCode), [displayCode]);
 
   // Synchronous cache lookup — avoids setState in effect for cached results
   const syncTokens = useMemo(
-    () => highlightCode(code, language) ?? rawTokens,
-    [code, language, rawTokens],
+    () => highlightCode(displayCode, language) ?? rawTokens,
+    [displayCode, language, rawTokens],
   );
 
   // Async highlighting result (populated after shiki loads)
   const [asyncTokens, setAsyncTokens] = useState<TokenizedCode | null>(null);
-  const asyncKeyRef = useRef({ code, language });
+  const asyncKeyRef = useRef({ code: displayCode, language });
 
   // Invalidate stale async tokens synchronously during render
-  if (asyncKeyRef.current.code !== code || asyncKeyRef.current.language !== language) {
-    asyncKeyRef.current = { code, language };
+  if (asyncKeyRef.current.code !== displayCode || asyncKeyRef.current.language !== language) {
+    asyncKeyRef.current = { code: displayCode, language };
     setAsyncTokens(null);
   }
 
   useEffect(() => {
     let cancelled = false;
 
-    highlightCode(code, language, (result) => {
+    highlightCode(displayCode, language, (result) => {
       if (!cancelled) {
         setAsyncTokens(result);
       }
@@ -395,13 +422,23 @@ export const CodeBlockContent = ({
     return () => {
       cancelled = true;
     };
-  }, [code, language]);
+  }, [displayCode, language]);
 
   const tokenized = asyncTokens ?? syncTokens;
 
   return (
-    <div className="relative min-h-0 flex-1 overflow-auto" data-slot="code-block-scroll">
-      <CodeBlockBody showLineNumbers={showLineNumbers} tokenized={tokenized} />
+    <div
+      className="relative min-h-0 flex-1 overflow-auto focus-visible:outline focus-visible:outline-ring"
+      data-slot="code-block-scroll"
+      role="region"
+      aria-label="Scrollable code"
+      tabIndex={0}
+    >
+      <CodeBlockBody
+        showLineNumbers={showLineNumbers}
+        tokenized={tokenized}
+        diff={language === 'diff'}
+      />
     </div>
   );
 };

@@ -17,6 +17,35 @@ const tools: Record<string, ToolInvocation> = {
     title: 'Analysis view created',
     state: 'succeeded',
   },
+  call_message: {
+    id: 'call_message',
+    session_id: 'session_1',
+    name: 'message_agent',
+    title: 'Message Agent',
+    state: 'succeeded',
+    input: { task_id: 'task_child', message: 'Inspect the exact sample values.' },
+    presentation: {
+      action: 'Message',
+      subject: 'recipient',
+      summary: '',
+      blocks: [
+        {
+          id: 'recipient',
+          type: 'link',
+          target: 'session',
+          uri: 'sess_child',
+          label: 'researcher #1',
+        },
+        {
+          id: 'message',
+          type: 'item',
+          result_kind: 'message',
+          label: 'Message sent',
+          text: 'Inspect the exact sample values.',
+        },
+      ],
+    },
+  },
 };
 
 const tasks: Record<string, Task> = {
@@ -30,6 +59,54 @@ const tasks: Record<string, Task> = {
 };
 
 describe('conversationTurnPresentation', () => {
+  it('lets the message tool own its receipt instead of repeating the agent message row', () => {
+    const message: Message = {
+      id: 'assistant_message_receipt',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        { id: 'tool_message', type: 'tool', tool_id: 'call_message' },
+        {
+          id: 'agent_message',
+          type: 'agent_message',
+          subagent_id: 'child_1',
+          label: 'researcher #1',
+          message: 'Inspect the exact sample values.',
+          action: 'queue',
+        },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+
+    expect(view.iterations[0]?.activity.map((entry) => entry.kind)).toEqual(['tool']);
+    expect(view.residualBlocks).toEqual([]);
+  });
+
+  it('retains a standalone agent message when no declared tool result owns it', () => {
+    const message: Message = {
+      id: 'assistant_standalone_message',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-08-24T00:00:00Z',
+      blocks: [
+        {
+          id: 'agent_message',
+          type: 'agent_message',
+          subagent_id: 'child_1',
+          label: 'researcher #1',
+          message: 'Inspect the exact sample values.',
+          action: 'queue',
+        },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+
+    expect(view.iterations[0]?.activity.map((entry) => entry.kind)).toEqual(['agent_message']);
+  });
+
   it('keeps a task returned after a tool inside the same causal activity iteration', () => {
     const message: Message = {
       id: 'assistant_task',

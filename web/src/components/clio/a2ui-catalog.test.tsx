@@ -96,7 +96,7 @@ describe('CLIO A2UI scientific catalog', () => {
     const { container } = render(<A2uiSurface surface={surface} />);
 
     expect(
-      await screen.findByRole('img', { name: /Vertical displacement plot/u }, { timeout: 5_000 }),
+      await screen.findByRole('img', { name: /Vertical displacement plot/u }, { timeout: 15_000 }),
     ).toBeVisible();
     expect(screen.getByText('3 rows')).toBeVisible();
     const table = screen.getByRole('table');

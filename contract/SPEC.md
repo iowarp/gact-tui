@@ -2683,6 +2683,7 @@ session.upserted implemented
 stream.gap implemented
 stream.live implemented
 subagent.upserted implemented
+tool.presentation.delta implemented
 tool.upserted implemented
 # spec-only — canonical client state with no reference-backend publisher yet
 artifact.upserted spec-only
@@ -2696,6 +2697,58 @@ the live stream, but reducers MUST ignore an unknown event without fabricating
 state. A dropped or malformed frame produces typed degradation/gap state and
 authoritative REST reconciliation; it is never silently reinterpreted as a
 known entity.
+
+#### Tool result presentation (normative)
+
+`ToolInvocation.presentation` is optional observer-only metadata with a provider-authored
+`summary` and ordered `blocks`. A block has a stable `id` and a declared `type`:
+`text`, `markdown`, `code`, `diff` (unified diff), `terminal`, `check`, `media`, or `link`.
+Clients render these types, not tool names or incidental keys in raw tool results.
+Absent metadata stays absent for historical records. Presentation MUST NOT change
+model observations, tool success, agent continuation, or assistant prose. Presenter
+failure produces a technical diagnostic and the compact invocation row, not repair.
+
+Text-bearing blocks carry bounded inline `text`. Additional content is addressed
+by `content_ref` containing `session_id`, `call_id`, `block_id`, `cursor`, and
+`total_chars`. `GET /v1/sessions/{session}/tools/{call}/presentation/{block}?cursor=N`
+returns `{text, cursor, next_cursor, total_chars}`. Cursors count Unicode code points,
+not bytes or UTF-16 code units; `next_cursor: null` marks exhaustion. Content is scoped
+to its owning session and invocation. Unknown scope is not an arbitrary-file lookup.
+Clients fetch further pages only when expansion requires them.
+
+Terminal blocks preserve the exact `command`, ordered output, `exit_code`, and
+`timed_out`. `tool.presentation.delta` carries `{call_id, block_id, sequence, offset,
+channel, text}`; `offset` and `sequence` identify the append position in Unicode
+code points. A client appends only at the expected offset, ignores duplicate or
+late terminal deltas, and reconciles gaps from authoritative state. Reconnect
+snapshots contain accumulated output, potentially a bounded running tail with an
+absolute `stream_offset`. A completed invocation replaces that tail with its
+authoritative paged presentation; it does not append the final output a second time.
+
+Check blocks carry task `text` and `state` (`pending`, `in_progress`, `completed`).
+Clients show distinct empty, dash, and checked indicators with accessible state labels;
+color is supplemental. Consecutive checks form one bounded checklist, not acknowledgements.
+Checklist previews show three whole items, so wrapping never cuts an item mid-sentence.
+Media blocks carry `media_type` and base64 `text`, subject to the same bounded preview
+and content cursor. Clients must fetch complete media before decoding, must not print
+binary text, and may only preview supported safe image/audio MIME types. Payloads absent
+from the retained result remain explicitly unavailable rather than fabricated.
+
+Link blocks declare `target` (`artifact`, `resource`, `session`, `file`, or `url`), `uri`,
+and a readable `label`. Raw arguments and structured results remain available in
+Technical details; they are not substitutes for semantic result blocks.
+File labels use the filename; the complete path is available in the tooltip and details.
+
+Transcript previews use at most the configured number of rendered display lines
+(default five, twice that for diffs), not a fixed-height quota. Diff producers retain
+only useful surrounding context. Show more reveals an entire short result in one step,
+then offers Show less. Large or remotely paged results open in a separate accessible
+viewer; fetching pages is an implementation detail, not a repeated user action.
+Technical details open from a right-aligned activity-row icon outside the transcript.
+`message.block.upserted` may include the projected `subagent` alongside a handoff block.
+It MUST match the block's subagent ID and message session. Clients apply both atomically,
+including pre-spawn failures that have no child task. Live and snapshot projection share
+the recorded failure reason; neither synthesizes a child session or changes the result.
 
 A2UI surfaces use protocol `0.9.1` (the message wire spelling is `v0.9.1`) and
 catalog `https://iowarp.ai/a2ui/catalogs/clio-workspace/v1`. Each persisted A2UI

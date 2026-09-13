@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { A2UI_VERSION, PROTOCOL_VERSION } from './protocol-versions.js';
 import { forwardCompatibleEnum } from './schema-utils.js';
+import { toolPresentationSchema } from './presentation-schemas.js';
 
 export * from './message-schemas.js';
+export * from './presentation-schemas.js';
 
 export const degradationSchema = z.object({
   code: z.string(),
@@ -88,8 +90,10 @@ export const providerModelSchema = z.object({
 
 export const languageModelPresetSchema = z.object({
   id: z.string(),
+  provider_id: z.string().optional().default(''),
   label: z.string(),
   provider: z.string(),
+  litellm_prefix: z.string().optional().default(''),
   api_base: z.string().optional(),
   suggested_model: z.string().optional(),
   requires_api_key: z.boolean().default(false),
@@ -100,10 +104,24 @@ export const languageModelPresetSchema = z.object({
   status_message: z.string().optional(),
   supports_live_catalog: z.boolean().default(false),
   supports_vision: z.boolean().default(false),
+  configuration_fields: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        description: z.string().optional(),
+        placeholder: z.string().optional(),
+        required: z.boolean().default(false),
+      }),
+    )
+    .default([]),
+  supports_runtime_sizing: z.boolean().default(false),
+  managed_service_id: z.string().optional(),
 });
 
 export const languageModelConfigurationSchema = z.object({
   configured: z.boolean(),
+  provider_id: z.string().optional().default(''),
   provider: z.string(),
   api_base: z.string(),
   model: z.string(),
@@ -117,6 +135,7 @@ export const languageModelConfigurationSchema = z.object({
   state: z.string().optional(),
   status_message: z.string().optional(),
   error: z.string().optional(),
+  provider_options: z.record(z.string(), z.string()).default({}),
   presets: z.array(languageModelPresetSchema).default([]),
 });
 
@@ -282,6 +301,7 @@ export const sessionSchema = z.object({
   active_blueprint_name: z.string().optional(),
   active_blueprint_version: z.string().optional(),
   active_blueprint_scope: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   mode: forwardCompatibleEnum(['plan', 'edit', 'architect']).default('edit'),
   edit_mode: forwardCompatibleEnum(['diff', 'whole', 'patch']).default('diff'),
   routing_mode: forwardCompatibleEnum(['auto', 'chat', 'experts', 'reasoning_only']).default(
@@ -589,6 +609,11 @@ export const contextStateSchema = z.object({
   window_tokens: z.number().int().nonnegative(),
   live_tokens: z.number().int().nonnegative(),
   used_tokens: z.number().int().nonnegative().nullish(),
+  used_tokens_source: z.enum(['provider', 'estimated']).nullish(),
+  usage_model: z.string().nullish(),
+  cache_read_tokens: z.number().int().nonnegative().default(0),
+  cache_write_tokens: z.number().int().nonnegative().default(0),
+  cache_tokens_measured: z.boolean().default(false),
   autocompact_enabled: z.boolean().default(true),
   autocompact_pct: z.number().nonnegative().nullish(),
   live_block_count: z.number().int().nonnegative(),
@@ -618,6 +643,7 @@ export const toolInvocationSchema = z.object({
   ]),
   input: z.unknown().optional(),
   output: z.unknown().optional(),
+  presentation: toolPresentationSchema.nullish().transform((value) => value ?? undefined),
   output_stream: z.string().optional(),
   progress_message: z.string().optional(),
   progress: z.number().optional(),

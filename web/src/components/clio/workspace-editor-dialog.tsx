@@ -78,15 +78,15 @@ export function WorkspaceEditorDialog({
 
   return (
     <Dialog onOpenChange={(open) => !open && onClose()} open>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Edit workspace</DialogTitle>
           <DialogDescription>
             Change its name and the folders this workspace is allowed to use.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-5">
-          <Field>
+        <div className="grid min-w-0 gap-5 overflow-y-auto pr-1">
+          <Field className="min-w-0">
             <FieldLabel htmlFor="workspace-editor-name">Workspace name</FieldLabel>
             <Input
               autoFocus
@@ -95,14 +95,14 @@ export function WorkspaceEditorDialog({
               value={name}
             />
           </Field>
-          <Field>
+          <Field className="min-w-0">
             <div className="flex items-center justify-between gap-3">
               <FieldLabel>Folders</FieldLabel>
               <span className="text-xs text-muted-foreground">
                 {1 + additional.length} permitted
               </span>
             </div>
-            <div className="overflow-hidden rounded-xl border bg-muted/15">
+            <div className="min-w-0 overflow-hidden rounded-xl border bg-muted/15">
               {primary ? <FolderRow name={primary.name} path={primary.path} primary /> : null}
               {additional.map((path) => (
                 <FolderRow
@@ -142,12 +142,12 @@ export function WorkspaceEditorDialog({
               grants and can be removed here.
             </FieldDescription>
           </Field>
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
         </div>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
         <DialogFooter>
           <Button disabled={pending} onClick={onClose} type="button" variant="ghost">
             Cancel

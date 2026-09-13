@@ -53,6 +53,7 @@ export type ClioQueryNamespace =
   | 'session-defaults'
   | 'session-diffs'
   | 'session-observability'
+  | 'session-toolset'
   | 'sessions'
   | 'pending-steers'
   | 'queued-messages'

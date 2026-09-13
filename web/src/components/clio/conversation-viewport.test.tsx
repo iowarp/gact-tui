@@ -5,7 +5,11 @@ import { ConversationDisplayProvider } from '@/providers/conversation-display-pr
 import { AppearanceProvider } from '@/providers/appearance-provider';
 import { ClioConversation } from './conversation';
 
-const virtualizerMocks = vi.hoisted(() => ({ measure: vi.fn(), scrollToIndex: vi.fn() }));
+const virtualizerMocks = vi.hoisted(() => ({
+  measure: vi.fn(),
+  scrollToIndex: vi.fn(),
+  scrollToOffset: vi.fn(),
+}));
 // Counts turn-model builds without replacing the real projection, so the
 // memoization assertion below observes production behaviour.
 const turnModelMocks = vi.hoisted(() => ({ presentation: vi.fn() }));
@@ -38,6 +42,7 @@ vi.mock('@tanstack/react-virtual', () => ({
     measureElement: () => undefined,
     measure: virtualizerMocks.measure,
     scrollToIndex: virtualizerMocks.scrollToIndex,
+    scrollToOffset: virtualizerMocks.scrollToOffset,
   }),
 }));
 
@@ -53,6 +58,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   virtualizerMocks.measure.mockClear();
   virtualizerMocks.scrollToIndex.mockClear();
+  virtualizerMocks.scrollToOffset.mockClear();
   turnModelMocks.presentation.mockClear();
   window.history.replaceState(null, '', window.location.pathname);
 });
@@ -110,6 +116,103 @@ function plainMessages(count: number, withText = true) {
 }
 
 describe('ClioConversation transcript viewport', () => {
+  it('honors keyboard scrolling from a focused transcript button before resizing', () => {
+    const viewport = stubViewport();
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: scrollTo,
+    });
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={plainMessages(80, false)}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+    frames.splice(0);
+    viewport.resizeTo(640);
+    fireEvent.keyDown(screen.getAllByRole('button', { name: 'Copy message' })[0], {
+      key: 'ArrowUp',
+    });
+    act(() => frames.splice(0).forEach((callback) => callback(0)));
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+  it('does not follow a queued resize after the reader starts scrolling', () => {
+    const viewport = stubViewport();
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: scrollTo,
+    });
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={plainMessages(80, false)}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+    frames.splice(0);
+    viewport.resizeTo(640);
+    fireEvent.wheel(screen.getByRole('log', { name: 'Conversation' }), { deltaY: -100 });
+    expect(virtualizerMocks.scrollToOffset).toHaveBeenCalledWith(0, { behavior: 'auto' });
+    act(() => frames.splice(0).forEach((callback) => callback(0)));
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it('does not re-pin a reader when resize geometry temporarily puts them at the bottom', () => {
+    const viewport = stubViewport();
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(300);
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 0;
+    });
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
+      configurable: true,
+      value: scrollTo,
+    });
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={plainMessages(80, false)}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    fireEvent.pointerDown(log);
+    Object.defineProperty(log, 'scrollTop', { configurable: true, writable: true, value: 400 });
+    fireEvent.scroll(log);
+    fireEvent.pointerUp(log);
+    vi.spyOn(performance, 'now').mockReturnValue(10_000);
+    Object.defineProperty(log, 'scrollHeight', { configurable: true, value: 700 });
+    fireEvent.scroll(log);
+    scrollTo.mockClear();
+    viewport.resizeTo(640);
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Scroll to latest message' })).toBeVisible();
+  });
+
   it('remeasures transcript rows and restores the pinned view on a width change', () => {
     const viewport = stubViewport();
     const scrollTo = vi.fn();
@@ -159,6 +262,50 @@ describe('ClioConversation transcript viewport', () => {
     expect(log).toHaveAttribute('data-minimap-visible', 'true');
     expect(log).toHaveClass('clio-scrollbar');
     expect(log.className).not.toContain('scrollbar-width:none');
+  });
+
+  it('preserves the visible message offset across a width change', () => {
+    const viewport = stubViewport();
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(2000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(500);
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 0;
+    });
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={plainMessages(3)}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    let displacement = 0;
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const top = this.id === 'message-message_0' ? -100 + displacement : 0;
+      return {
+        top,
+        bottom: top + 600,
+        width: 800,
+        height: 600,
+        left: 0,
+        right: 800,
+        x: 0,
+        y: top,
+        toJSON: () => ({}),
+      };
+    });
+    Object.defineProperty(log, 'scrollTop', { configurable: true, writable: true, value: 400 });
+    fireEvent.wheel(log, { deltaY: -100 });
+    fireEvent.scroll(log);
+    displacement = 70;
+    viewport.resizeTo(640);
+    expect(log.scrollTop).toBe(470);
   });
 
   it('derives the active landmark from the virtualizer without reading rail anchors', () => {

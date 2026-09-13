@@ -4,6 +4,11 @@
 @import '@fontsource-variable/inter';
 @import '@fontsource-variable/jetbrains-mono';
 
+/* Streamdown's utility classes live in the installed package, outside app source. */
+@source '../node_modules/streamdown/dist/*.js';
+@source '../node_modules/@streamdown/cjk/dist/*.js';
+@source '../node_modules/@streamdown/math/dist/*.js';
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -339,4 +344,64 @@ html[data-clio-motion='reduced'] *::after {
   animation-duration: 1ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 1ms !important;
+}
+
+/* Tool content follows the transcript's readable, wrapping line budget. */
+.tool-presentation-body pre,
+.tool-presentation-body code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 24px;
+}
+.tool-presentation-body {
+  font-size: 14px;
+  line-height: 24px;
+}
+[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6) {
+  font-size: 16px;
+  line-height: 24px;
+  margin-block: 8px 4px;
+}
+[data-slot='tool-activity'] .tool-presentation-body :is(h1, h2, h3, h4, h5, h6):first-child {
+  margin-top: 0;
+}
+.tool-presentation-body pre {
+  width: 100%;
+  min-width: 0;
+  padding: 0.5rem 0.75rem;
+}
+
+/* A result surface, not another outer tool card. Tokens adapt to both themes. */
+[data-slot='tool-human-result'] [data-language] {
+  background: color-mix(in srgb, var(--muted) 65%, var(--background));
+}
+[data-slot='tool-result-panel'] [data-language] {
+  border: 0;
+  border-radius: 0;
+}
+[data-slot='tool-result-panel'] .tool-presentation-body > p,
+[data-slot='tool-result-panel'] .tool-presentation-body > [data-streamdown] {
+  padding: 0.5rem 0.75rem;
+}
+[data-slot='tool-human-result'] [data-language] pre {
+  background: transparent !important;
+}
+[data-diff-line='addition'] {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+}
+[data-diff-line='deletion'] {
+  background: color-mix(in srgb, var(--destructive) 14%, transparent);
+}
+/* Syntax colors intended for plain backgrounds lose contrast on diff tints. */
+[data-diff-line='addition'],
+[data-diff-line='deletion'] {
+  color: var(--foreground);
+}
+[data-diff-line='addition'] span,
+[data-diff-line='deletion'] span {
+  color: inherit !important;
+}
+[data-diff-line] {
+  padding-inline: 0.5rem;
 }

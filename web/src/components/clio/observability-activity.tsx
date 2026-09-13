@@ -15,24 +15,17 @@ import {
   PanelRightOpenIcon,
   WaypointsIcon,
   WrenchIcon,
+  MinusIcon,
+  PlusIcon,
+  ScanIcon,
 } from 'lucide-react';
-import { useMemo } from 'react';
-import {
-  Timeline,
-  TimelineContent,
-  TimelineDate,
-  TimelineHeader,
-  TimelineIndicator,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineTitle,
-} from '@/components/reui/timeline';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { formatNestingDepth, truncate } from '@/lib/format';
+import { truncate } from '@/lib/format';
 import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
-import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
+import { ClioStatus, type ClioStatusValue } from './status';
 import type { SubagentOpenTarget } from './subagent-card';
 import { humanizeToolName } from './tool-presentation';
 import {
@@ -40,6 +33,7 @@ import {
   isCausalQuestionInteraction,
   questionInteractionRequestLabel,
 } from './agent-answer-domain';
+import { provenanceFileFact } from './session-evidence-projection';
 
 export interface ObservabilityActivityItem {
   id: string;
@@ -59,17 +53,31 @@ export interface ObservabilityActivityItem {
   taskPath?: readonly string[];
   depth?: number;
   lifecycle?: 'open' | 'close' | 'event';
+  /** Stable transcript position used when provider timestamps cannot express causality. */
+  causalOrder?: number;
+  causalMessageId?: string;
+  transcriptMessageId?: string;
+  /** Opens the durable object when its original transcript row no longer exists. */
+  onActivate?: () => void;
   onOpen?: (target: SubagentOpenTarget) => void;
 }
 
-interface ActivityGroup {
+const CAUSAL_COLORS = ['#22d3ee', '#60a5fa', '#a78bfa', '#34d399', '#fb7185', '#facc15'];
+
+const PROJECTED_COORDINATION_TOOLS = new Set([
+  'spawn_agent_task',
+  'spawn_agents_parallel',
+  'observe_agent_task',
+  'wait_agent_tasks',
+  'message_agent_task',
+  'collect_agent_task',
+]);
+
+interface CausalLane {
   id: string;
-  at?: string;
-  /** Where the group's timestamp came from: a server event, or its containing turn. */
-  atTiming?: 'event' | 'turn';
-  mainTurn: boolean;
-  depth: number;
-  items: ObservabilityActivityItem[];
+  label: string;
+  color: string;
+  index: number;
 }
 
 /**
@@ -181,8 +189,11 @@ const COMMISSION_ACTIVITY = {
 } as const satisfies Record<string, { detail: string; kind: ObservabilityActivityItem['kind'] }>;
 
 /**
- * Build the child-only portion of the timeline from CLIO's authoritative projection.
- * No message or reasoning content is consulted here.
+ * Build durable activity from CLIO's authoritative projection.
+ *
+ * Child ownership supplies the graph branches. Root tool spans are equally
+ * important after compaction, when the visible transcript no longer carries
+ * its old ToolInvocation rows. No message or reasoning content is consulted.
  */
 // Pure projection helper is exported for attribution and lifecycle contract tests.
 // oxlint-disable-next-line react/only-export-components
@@ -190,6 +201,7 @@ export function childProjectionActivityItems(
   provenance: ExecutionProvenanceResult,
   processes: readonly AsyncProcess[],
   knownToolIds: ReadonlySet<string> = new Set(),
+  onOpenFile?: (path: string) => void,
 ): ObservabilityActivityItem[] {
   const lineage = provenance.session_lineage;
   if (!lineage) return [];
@@ -295,7 +307,19 @@ export function childProjectionActivityItems(
       });
       continue;
     }
-    if (ownerSessionId === rootSessionId || !HIGH_SIGNAL_CHILD_KINDS.has(span.kind)) continue;
+    if (!HIGH_SIGNAL_CHILD_KINDS.has(span.kind)) continue;
+    // Transform records and model-step records describe trace assembly. They
+    // remain available in technical provenance, but they are not extra user
+    // actions. The primary graph owns one node for the real timed tool call.
+    if (span.event_type === 'artifact.transform.recorded') continue;
+    const toolName = projectedToolName(span.tool_name, span.label);
+    if (span.kind === 'tool' && span.event_type === 'react.step.completed') continue;
+    // Submission is the child's answer boundary, not a user-visible tool event.
+    // Showing both the submit call and the branch join repeats the same return.
+    if (span.kind === 'tool' && toolName === 'submit') continue;
+    // Child coordination already has explicit branch and join nodes. Rendering
+    // its transport calls as tools repeats those same causal edges.
+    if (span.kind === 'tool' && toolName && PROJECTED_COORDINATION_TOOLS.has(toolName)) continue;
     if (
       span.kind === 'tool' &&
       (knownToolIds.has(span.id) ||
@@ -304,11 +328,12 @@ export function childProjectionActivityItems(
       continue;
     }
     const owner = lineageBySession.get(ownerSessionId);
+    const filePath = projectedFilePath(span.attributes);
     items.push({
       id: `projected:${span.id}`,
       kind: projectedKind(span.kind),
-      label: span.label,
-      detail: projectedActivityDetail(span.kind, span.tool_name, owner?.label),
+      label: projectedActivityLabel(span.kind, toolName, span.label, span.attributes),
+      detail: projectedActivityDetail(span.kind),
       state: activityState(span.status),
       at: timestampString(span.end_time ?? span.start_time),
       timing: span.start_time === null && span.end_time === null ? undefined : 'event',
@@ -320,12 +345,13 @@ export function childProjectionActivityItems(
       taskPath: span.task_path?.length ? span.task_path : owner?.task_path,
       depth: owner?.depth ?? span.task_path?.length ?? 0,
       lifecycle: 'event',
+      onActivate: filePath && onOpenFile ? () => onOpenFile(filePath) : undefined,
     });
   }
   return items;
 }
 
-/** Causal activity timeline that keeps every record nested under its owning main-agent turn. */
+/** Git-style causal graph with stable agent strands and transcript navigation. */
 export function ClioActivityTimeline({
   items,
   messages,
@@ -333,85 +359,221 @@ export function ClioActivityTimeline({
   items: readonly ObservabilityActivityItem[];
   messages: readonly Message[];
 }) {
-  const groups = useMemo(() => groupActivity(items, messages), [items, messages]);
-  if (!groups.length) {
+  const [zoom, setZoom] = useState(1);
+  const rows = useMemo(
+    () =>
+      items
+        .map((item, index) => ({ item, index }))
+        .sort((left, right) => {
+          if (
+            left.item.causalMessageId &&
+            left.item.causalMessageId === right.item.causalMessageId &&
+            left.item.causalOrder !== undefined &&
+            right.item.causalOrder !== undefined
+          ) {
+            const byCausality = left.item.causalOrder - right.item.causalOrder;
+            if (byCausality) return byCausality;
+          }
+          const byTime = (left.item.at ?? '').localeCompare(right.item.at ?? '');
+          return byTime || left.index - right.index;
+        })
+        .map(({ item }) => item),
+    [items],
+  );
+  const lanes = useMemo(() => causalLanes(rows), [rows]);
+  const fitZoom = Math.max(0.5, Math.min(1, 10 / Math.max(1, lanes.length)));
+  const messageIds = useMemo(() => new Set(messages.map((message) => message.id)), [messages]);
+  if (!rows.length) {
     return (
       <p className="p-6 text-center text-sm text-muted-foreground">
         No run or tool activity is available.
       </p>
     );
   }
+  const laneSpacing = Math.round(24 * zoom);
+  const graphWidth = Math.max(64, lanes.length * laneSpacing + 24);
   return (
-    <Timeline defaultValue={groups.length}>
-      {groups.map((group, index) => (
-        <TimelineItem
-          key={group.id}
-          step={index + 1}
-          style={{ marginInlineStart: `${Math.min(group.depth, 8) * 14}px` }}
-        >
-          <TimelineIndicator />
-          <TimelineSeparator />
-          <TimelineDate className="flex flex-wrap items-center gap-2" dateTime={group.at}>
-            <span>{group.at ? formatTimestamp(group.at) : 'Time unavailable'}</span>
-            {group.atTiming === 'turn' ? (
-              <span className="font-normal">Observed in its containing turn</span>
-            ) : null}
-          </TimelineDate>
-          <TimelineHeader className="flex items-start justify-between gap-2">
-            <TimelineTitle>
-              {group.mainTurn
-                ? 'Main agent'
-                : group.depth
-                  ? (group.items[0]?.ownerLabel ?? 'Child work')
-                  : 'Activity'}
-            </TimelineTitle>
-          </TimelineHeader>
-          <TimelineContent className="mt-2 grid gap-1">
-            {group.items.map((item) => (
-              <ActivityRow baseDepth={group.depth} item={item} key={`${item.kind}:${item.id}`} />
+    <section className="min-w-0" aria-label="Causal activity graph">
+      <header className="flex items-center justify-between gap-2 border-b pb-2">
+        <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+          <span>{lanes.length.toLocaleString()} agent strands</span>
+          <span aria-label="Agent strand colors" className="flex min-w-0 items-center gap-1">
+            {lanes.map((lane) => (
+              <span
+                aria-hidden="true"
+                className="size-2 shrink-0 rounded-full"
+                key={lane.id}
+                style={{ backgroundColor: lane.color }}
+                title={lane.label}
+              />
             ))}
-          </TimelineContent>
-        </TimelineItem>
-      ))}
-    </Timeline>
+          </span>
+        </div>
+        <div
+          className="flex shrink-0 items-center gap-1"
+          aria-label="Causal graph zoom"
+          role="group"
+        >
+          <Button
+            aria-label="Zoom causal graph out"
+            disabled={zoom <= 0.5}
+            onClick={() => setZoom((value) => Math.max(0.5, value - 0.25))}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <MinusIcon aria-hidden="true" />
+          </Button>
+          <Button
+            aria-label="Zoom causal graph in"
+            disabled={zoom >= 1.75}
+            onClick={() => setZoom((value) => Math.min(1.75, value + 0.25))}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <PlusIcon aria-hidden="true" />
+          </Button>
+          <Button
+            aria-label="Fit causal graph"
+            onClick={() => setZoom(fitZoom)}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <ScanIcon aria-hidden="true" />
+          </Button>
+        </div>
+      </header>
+      <div className="min-w-0 overflow-x-auto py-1">
+        <div className="w-full max-w-3xl" style={{ minWidth: `${graphWidth + 280}px` }}>
+          {rows.map((item) => (
+            <CausalActivityRow
+              graphWidth={graphWidth}
+              item={{
+                ...item,
+                transcriptMessageId:
+                  item.transcriptMessageId ??
+                  (item.groupId && messageIds.has(item.groupId) ? item.groupId : undefined),
+              }}
+              key={`${item.kind}:${item.id}`}
+              laneSpacing={laneSpacing}
+              lanes={lanes}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
-function ActivityRow({ baseDepth, item }: { baseDepth: number; item: ObservabilityActivityItem }) {
-  const rowStyle = {
-    marginInlineStart: `${Math.max(0, Math.min((item.depth ?? 0) - baseDepth, 8)) * 14}px`,
+function CausalActivityRow({
+  graphWidth,
+  item,
+  laneSpacing,
+  lanes,
+}: {
+  graphWidth: number;
+  item: ObservabilityActivityItem;
+  laneSpacing: number;
+  lanes: readonly CausalLane[];
+}) {
+  const lane = lanes.find((candidate) => candidate.id === causalLaneId(item)) ?? lanes[0]!;
+  const parent = lanes.find((candidate) => candidate.id === item.parentSessionId) ?? lanes[0]!;
+  const x = 12 + lane.index * laneSpacing;
+  const parentX = 12 + parent.index * laneSpacing;
+  const target = Boolean(item.transcriptMessageId || item.onActivate || item.onOpen);
+  const activate = () => {
+    if (item.transcriptMessageId) {
+      const activityTarget = item.kind === 'tool' ? `/activity-${encodeURIComponent(item.id)}` : '';
+      const hash = `#message-${encodeURIComponent(item.transcriptMessageId)}${activityTarget}`;
+      if (window.location.hash === hash) window.dispatchEvent(new HashChangeEvent('hashchange'));
+      else window.location.hash = hash;
+      return;
+    }
+    if (item.onActivate) {
+      item.onActivate();
+      return;
+    }
+    item.onOpen?.('conversation');
   };
   const content = (
-    <div className="grid grid-cols-[1rem_minmax(0,1fr)_auto] items-start gap-2 px-1 py-1.5">
-      <ActivityGlyph
-        className={cn(
-          'mt-0.5 size-3.5',
-          item.kind === 'tool'
-            ? 'text-info'
-            : item.kind === 'process' || item.kind === 'artifact'
-              ? 'text-primary'
-              : 'text-muted-foreground',
-        )}
-        item={item}
-      />
+    <div className="grid min-h-11 min-w-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2">
+      <div className="relative h-11 shrink-0" style={{ width: graphWidth }}>
+        <svg aria-hidden="true" className="absolute inset-0 size-full" preserveAspectRatio="none">
+          {lanes.map((candidate) => {
+            const lineX = 12 + candidate.index * laneSpacing;
+            return (
+              <line
+                key={candidate.id}
+                stroke={candidate.color}
+                strokeOpacity="0.32"
+                strokeWidth="2"
+                x1={lineX}
+                x2={lineX}
+                y1="0"
+                y2="44"
+              />
+            );
+          })}
+          {item.lifecycle === 'open' && lane.id !== parent.id ? (
+            <path
+              d={`M ${parentX} 0 C ${parentX} 18, ${x} 18, ${x} 22`}
+              fill="none"
+              stroke={lane.color}
+              strokeWidth="2.5"
+            />
+          ) : null}
+          {item.lifecycle === 'close' && lane.id !== parent.id ? (
+            <path
+              d={`M ${x} 22 C ${x} 30, ${parentX} 30, ${parentX} 44`}
+              fill="none"
+              stroke={lane.color}
+              strokeWidth="2.5"
+            />
+          ) : null}
+        </svg>
+        <span
+          aria-hidden="true"
+          className={cn(
+            'absolute top-1/2 grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center border-2 bg-background shadow-sm',
+            item.kind === 'tool' ? 'rounded-md' : 'rounded-full',
+            item.lifecycle === 'open' && 'rotate-45',
+          )}
+          style={{ borderColor: lane.color, left: x }}
+        >
+          <ActivityGlyph
+            className={cn('size-3', item.lifecycle === 'open' && '-rotate-45')}
+            item={item}
+          />
+        </span>
+      </div>
       <div className="min-w-0">
-        <p className="truncate text-xs font-medium">{item.label}</p>
+        <p className="truncate text-[10px] leading-3 text-muted-foreground" title={lane.label}>
+          {lane.label}
+        </p>
+        <p className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
+          <span className="truncate">{item.label}</span>
+        </p>
         {item.detail ? (
           <p className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">{item.detail}</p>
         ) : null}
       </div>
-      <ActivityStatus item={item} />
+      <time
+        className="shrink-0 text-[10px] tabular-nums text-muted-foreground"
+        dateTime={item.at}
+        title={item.timing === 'turn' ? 'Observed in its containing turn' : undefined}
+      >
+        {item.timing === 'turn'
+          ? 'In this turn'
+          : item.at
+            ? formatGraphTime(item.at)
+            : 'Time unavailable'}
+      </time>
+      <ClioStatus compact className="shrink-0" value={item.state} />
     </div>
   );
-  if (!item.onOpen)
-    return (
-      <div className="rounded-md hover:bg-muted/35" style={rowStyle}>
-        {content}
-      </div>
-    );
+  if (!target) return <div className="border-b last:border-b-0">{content}</div>;
   return (
     <ClioInteractiveRow
-      actions={
+      actions={item.onOpen ? (
         <Button
           aria-label={`Open ${item.label} in canvas`}
           onClick={() => item.onOpen?.('canvas')}
@@ -422,64 +584,49 @@ function ActivityRow({ baseDepth, item }: { baseDepth: number; item: Observabili
         >
           <PanelRightOpenIcon aria-hidden="true" />
         </Button>
-      }
-      aria-label={activityRowAriaLabel(item)}
-      className="min-h-0 px-0 py-0"
-      onClick={(event) => item.onOpen?.(event.shiftKey ? 'canvas' : 'conversation')}
+      ) : undefined}
+      aria-label={`Open transcript event ${item.label}`}
+      className="min-h-0 border-b px-0 py-0 last:border-b-0"
+      onClick={activate}
       role="button"
-      style={rowStyle}
     >
       {content}
     </ClioInteractiveRow>
   );
 }
 
-function ActivityStatus({ item }: { item: ObservabilityActivityItem }) {
-  return <ClioStatus className="mt-0 shrink-0 py-0.5" value={item.state} />;
+function causalLaneId(item: ObservabilityActivityItem): string {
+  if (item.ownerSessionId && item.ownerSessionId !== item.rootSessionId) return item.ownerSessionId;
+  if ((item.depth ?? 0) > 0) return item.ownerSessionId || item.taskId || `depth-${item.depth}`;
+  return 'main';
 }
 
-function activityRowAriaLabel(item: ObservabilityActivityItem): string {
-  const depthDetail = formatNestingDepth(item.depth ?? 0);
-  return `${item.label}, ${clioStatusLabel(item.state)}${depthDetail ? `, ${depthDetail}` : ''}`;
-}
-
-function groupActivity(
-  items: readonly ObservabilityActivityItem[],
-  messages: readonly Message[],
-): ActivityGroup[] {
-  const mainTurns = new Map(
-    messages.filter((message) => message.role === 'user').map((message) => [message.id, message]),
-  );
-  const groups = new Map<string, ActivityGroup>();
+function causalLanes(items: readonly ObservabilityActivityItem[]): CausalLane[] {
+  const lanes = new Map<string, Omit<CausalLane, 'index'>>([
+    ['main', { id: 'main', label: 'Main agent', color: CAUSAL_COLORS[0]! }],
+  ]);
   for (const item of items) {
-    const id = item.groupId ?? `${item.kind}:${item.id}`;
-    const group = groups.get(id);
-    if (group) {
-      group.items.push(item);
-      group.depth = Math.min(group.depth, item.depth ?? 0);
-      const at = laterTimestamp(group.at, item.at);
-      if (at !== group.at) {
-        group.at = at;
-        group.atTiming = item.timing;
-      }
-      continue;
-    }
-    const containingTurnAt = mainTurns.get(id)?.created_at;
-    groups.set(id, {
+    const id = causalLaneId(item);
+    if (lanes.has(id)) continue;
+    lanes.set(id, {
       id,
-      at: item.at ?? containingTurnAt,
-      atTiming: item.at ? item.timing : containingTurnAt ? 'turn' : undefined,
-      mainTurn: mainTurns.has(id),
-      depth: mainTurns.has(id) ? 0 : (item.depth ?? 0),
-      items: [item],
+      label: item.ownerLabel || (item.lifecycle === 'open' ? item.label : 'Child agent'),
+      color: CAUSAL_COLORS[lanes.size % CAUSAL_COLORS.length]!,
     });
   }
-  return [...groups.values()]
-    .map((group) => ({
-      ...group,
-      items: group.items.sort((left, right) => (left.at ?? '').localeCompare(right.at ?? '')),
-    }))
-    .sort((left, right) => (right.at ?? '').localeCompare(left.at ?? ''));
+  const values = [...lanes.values()];
+  const totals = new Map<string, number>();
+  for (const lane of values) totals.set(lane.label, (totals.get(lane.label) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  return values.map((lane, index) => {
+    const occurrence = (seen.get(lane.label) ?? 0) + 1;
+    seen.set(lane.label, occurrence);
+    return {
+      ...lane,
+      label: (totals.get(lane.label) ?? 0) > 1 ? `${lane.label}, turn ${occurrence}` : lane.label,
+      index,
+    };
+  });
 }
 
 function ActivityGlyph({
@@ -507,12 +654,10 @@ function projectedKind(kind: string): ObservabilityActivityItem['kind'] {
   return 'tool';
 }
 
-function projectedActivityDetail(kind: string, toolName?: string, ownerLabel?: string): string {
+function projectedActivityDetail(kind: string): string | undefined {
   const detail =
     kind === 'tool'
-      ? toolName
-        ? humanizeToolName(toolName)
-        : 'Tool activity'
+      ? undefined
       : kind === 'artifact'
         ? 'Produced artifact'
         : kind === 'resource'
@@ -520,7 +665,39 @@ function projectedActivityDetail(kind: string, toolName?: string, ownerLabel?: s
           : kind === 'interaction'
             ? 'Human interaction'
             : 'Interactive surface or MCP task';
-  return ownerLabel ? `${ownerLabel} · ${detail}` : detail;
+  return detail;
+}
+
+function projectedToolName(toolName: string | undefined, label: string): string | undefined {
+  if (toolName) return toolName;
+  return /^Tool\s+([^\s]+)\s+(?:started|completed|failed)\.?$/iu.exec(label)?.[1];
+}
+
+function projectedActivityLabel(
+  kind: string,
+  toolName: string | undefined,
+  fallback: string,
+  attributes: Record<string, unknown>,
+): string {
+  if (kind !== 'tool' || !toolName) return fallback;
+  const input = attributes.tool_input;
+  const qualifier =
+    input && typeof input === 'object'
+      ? ['filepath', 'path', 'uri', 'resource_id', 'task_id']
+          .map((key) => (input as Record<string, unknown>)[key])
+          .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      : undefined;
+  const operation = provenanceFileFact(toolName) ?? humanizeToolName(toolName);
+  if (!qualifier) return operation;
+  const compact = qualifier.split(/[\\/]/u).filter(Boolean).at(-1) ?? qualifier;
+  return `${operation} ${compact}`;
+}
+
+function projectedFilePath(attributes: Record<string, unknown>): string | undefined {
+  const input = attributes.tool_input;
+  if (!input || typeof input !== 'object') return undefined;
+  const value = (input as Record<string, unknown>).filepath;
+  return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
 function timestampString(value: number | null): string | undefined {
@@ -558,15 +735,13 @@ function activityState(value: string): ClioStatusValue {
   return 'unknown';
 }
 
-function laterTimestamp(left?: string, right?: string): string | undefined {
-  if (!left) return right;
-  if (!right) return left;
-  return left.localeCompare(right) >= 0 ? left : right;
-}
-
-function formatTimestamp(value: string): string {
+function formatGraphTime(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? 'Time unavailable'
-    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+    : new Intl.DateTimeFormat(undefined, {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }).format(date);
 }

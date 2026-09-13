@@ -6,19 +6,29 @@ import type {
   ExecutionProvenanceDegradation,
   ExecutionProvenanceResult,
   Message,
+  PendingInteraction,
   ProvenanceProviderSummary,
+  Run,
   SessionDiff,
+  SubagentRun,
+  Task,
+  ToolInvocation,
   WorkspaceResource,
 } from '@clio/core/v3';
 import {
+  ActivityIcon,
   BoxIcon,
+  BoxesIcon,
   ExternalLinkIcon,
   FileDiffIcon,
   FileCode2Icon,
   FileTextIcon,
+  ListChecksIcon,
   ListTreeIcon,
   PanelsTopLeftIcon,
+  ServerCogIcon,
   WaypointsIcon,
+  WrenchIcon,
 } from 'lucide-react';
 import {
   CodeBlock,
@@ -29,13 +39,6 @@ import {
   CodeBlockTitle,
 } from '@/components/ai-elements/code-block';
 import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
-import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -43,10 +46,22 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatBytes } from '@/lib/format';
+import { formatBytes, formatDuration } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioArtifactCard } from './artifact-card';
-import { ClioStatus } from './status';
+import { getChildAgentAssignment } from './child-agent-presentation';
+import {
+  fileName,
+  sessionDiffs,
+  sessionFiles,
+  sessionPlans,
+  type EvidenceFile,
+  type EvidencePlan,
+} from './session-evidence-projection';
+import { ClioStatus, type ClioStatusValue } from './status';
+import type { SubagentOpenTarget } from './subagent-card';
+import { getToolActivityTitle, getToolStatus, getToolSummary } from './tool-presentation';
 
 export interface ClioEvidenceViewProps {
   artifacts: readonly Artifact[];
@@ -54,11 +69,17 @@ export interface ClioEvidenceViewProps {
   diffs: readonly SessionDiff[];
   messages: readonly Message[];
   processes: readonly AsyncProcess[];
+  interactions?: readonly PendingInteraction[];
+  runs?: readonly Run[];
+  subagents?: readonly SubagentRun[];
+  tasks?: readonly Task[];
+  tools?: readonly ToolInvocation[];
   executionProvenance?: ExecutionProvenanceResult;
   onOpenArtifact?: (artifact: Artifact) => void;
   onOpenDiff?: (diff: SessionDiff) => void;
   onOpenFile?: (path: string) => void;
   onOpenResource?: (resource: WorkspaceResource) => void;
+  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   provenanceProvider?: ProvenanceProviderSummary;
   artifactProvenanceProvider?: ArtifactProvenanceProviderSummary;
   provenanceDegradation?: ExecutionProvenanceDegradation;
@@ -66,150 +87,144 @@ export interface ClioEvidenceViewProps {
 }
 
 export function ClioEvidenceView(props: ClioEvidenceViewProps) {
-  const plans = props.messages.flatMap((message) =>
-    message.blocks
-      .filter((block) => block.type === 'plan')
-      .map((block) => ({ ...block, messageId: message.id })),
-  );
+  const backgroundProcesses = props.processes.filter((process) => process.kind !== 'agent');
+  const runs = props.runs ?? [];
+  const subagents = props.subagents ?? [];
+  const tasks = props.tasks ?? [];
+  const tools = props.tools ?? [];
+  const files = sessionFiles(props.contextFiles, tools, props.executionProvenance);
+  const diffs = sessionDiffs(props.diffs, tools, props.executionProvenance);
+  const plans = sessionPlans(props.messages, props.interactions ?? [], props.artifacts);
   const sources = sessionSources(
     props.messages,
     props.processes,
     props.resources ?? [],
     props.executionProvenance,
   );
-  const hasEvidence =
-    props.diffs.length ||
-    props.artifacts.length ||
-    sources.length ||
-    plans.length ||
-    props.contextFiles.length;
-  const hasProvenance = Boolean(
-    props.provenanceProvider || props.artifactProvenanceProvider || props.provenanceDegradation,
+  const hasEvidence = Boolean(
+    diffs.length ||
+      props.artifacts.length ||
+      sources.length ||
+      plans.length ||
+      files.length ||
+      runs.length ||
+      subagents.length ||
+      tasks.length ||
+      tools.length ||
+      backgroundProcesses.length,
   );
+  const hasProvenance = Boolean(props.provenanceProvider || props.artifactProvenanceProvider);
 
   if (!hasEvidence && !hasProvenance) {
     return (
       <p className="p-6 text-center text-sm text-muted-foreground">
-        No changed files, sources, artifacts, plans, or attached context are available.
+        No session evidence or recorded activity is available.
       </p>
     );
   }
 
   return (
-    <div className="grid gap-3">
-      {hasProvenance ? (
-        <Frame spacing="sm" variant="ghost">
-          <FrameHeader>
-            <FrameTitle>Evidence custody</FrameTitle>
-            <FrameDescription>
-              Provenance availability reported by the connected service.
-            </FrameDescription>
-          </FrameHeader>
-          <FramePanel className="flex flex-wrap gap-2">
-            {props.provenanceProvider ? (
-              <ClioStatus
-                label={`Execution: ${props.provenanceProvider.name}`}
-                detail={props.provenanceProvider.status}
-                value={evidenceProviderStatus(
-                  props.provenanceProvider.status,
-                  props.provenanceProvider.queryable,
-                )}
-              />
-            ) : null}
-            {props.artifactProvenanceProvider ? (
-              <ClioStatus
-                label={`Artifacts: ${props.artifactProvenanceProvider.provider}`}
-                detail={props.artifactProvenanceProvider.status}
-                value={evidenceProviderStatus(
-                  props.artifactProvenanceProvider.status,
-                  props.artifactProvenanceProvider.queryable,
-                )}
-              />
-            ) : null}
-            {props.provenanceDegradation ? (
-              <p className="basis-full text-xs leading-5 text-muted-foreground">
-                {props.provenanceDegradation.reason}
-              </p>
-            ) : null}
-          </FramePanel>
-        </Frame>
-      ) : null}
-      <EvidenceCounts
-        artifacts={props.artifacts.length}
-        contextFiles={props.contextFiles.length}
-        diffs={props.diffs.length}
-        plans={plans.length}
-        sources={sources.length}
-      />
-      <Accordion defaultValue={['changes', 'sources']} type="multiple">
-        <EvidenceSection
-          icon={FileDiffIcon}
-          label="Changed files"
-          value="changes"
-          count={props.diffs.length}
-        >
-          <DiffEvidence
-            diffs={props.diffs}
-            onOpenDiff={props.onOpenDiff}
-            onOpenFile={props.onOpenFile}
-          />
-        </EvidenceSection>
-        <EvidenceSection
-          icon={WaypointsIcon}
-          label="Sources"
-          value="sources"
-          count={sources.length}
-        >
-          <SourceEvidence onOpenResource={props.onOpenResource} sources={sources} />
-        </EvidenceSection>
-        <EvidenceSection
-          icon={BoxIcon}
-          label="Artifacts"
-          value="artifacts"
-          count={props.artifacts.length}
-        >
-          <ArtifactEvidence
-            artifacts={props.artifacts}
-            executionProvenance={props.executionProvenance}
-            onOpenArtifact={props.onOpenArtifact}
-          />
-        </EvidenceSection>
-        <EvidenceSection icon={ListTreeIcon} label="Plans" value="plans" count={plans.length}>
-          {plans.length ? (
-            <div className="grid gap-2">
-              {plans.map((plan) => (
-                <ClioInteractiveRow key={`${plan.messageId}:${plan.id}`}>
-                  <p className="text-sm font-medium">{plan.title}</p>
-                  {plan.detail ? (
-                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{plan.detail}</p>
-                  ) : null}
-                </ClioInteractiveRow>
-              ))}
-            </div>
-          ) : (
-            <EmptyEvidence label="No plan blocks were recorded." />
-          )}
-        </EvidenceSection>
-        <EvidenceSection
-          icon={FileTextIcon}
-          label="Attached context"
-          value="context"
-          count={props.contextFiles.length}
-        >
-          <ContextFileEvidence files={props.contextFiles} onOpenFile={props.onOpenFile} />
-        </EvidenceSection>
+    <div className="min-w-0">
+      {/* Radix's AccordionHeader always renders an h3 (no level prop); the
+          removed Frame/FrameTitle summary (b4931b86) was this view's only
+          heading anchor, so section h3s now follow the transcript's own h1
+          with nothing between -- an axe heading-order violation. An h2 gives
+          the h3 sections a correctly-leveled parent; aria-label (not text
+          content) keeps it out of getByText so it doesn't reintroduce the
+          "Session evidence" string the redesign deliberately dropped
+          (test_observability_evidence.tsx:77 pins its absence). */}
+      <h2 aria-label="Session evidence" className="sr-only" />
+      <Accordion defaultValue={['child-agents', 'files', 'changes', 'sources']} type="multiple">
+        {runs.length ? (
+          <EvidenceSection icon={ActivityIcon} label="Agent runs" value="runs" count={runs.length}>
+            <RunEvidence runs={runs} />
+          </EvidenceSection>
+        ) : null}
+        {tasks.length ? (
+          <EvidenceSection icon={ListChecksIcon} label="Tasks" value="tasks" count={tasks.length}>
+            <TaskEvidence tasks={tasks} />
+          </EvidenceSection>
+        ) : null}
+        {subagents.length ? (
+          <EvidenceSection
+            icon={BoxesIcon}
+            label="Child agents"
+            value="child-agents"
+            count={subagents.length}
+          >
+            <SubagentEvidence onOpenSubagent={props.onOpenSubagent} subagents={subagents} />
+          </EvidenceSection>
+        ) : null}
+        {tools.length ? (
+          <EvidenceSection icon={WrenchIcon} label="Tool calls" value="tools" count={tools.length}>
+            <ToolEvidence tools={tools} />
+          </EvidenceSection>
+        ) : null}
+        {backgroundProcesses.length ? (
+          <EvidenceSection
+            icon={ServerCogIcon}
+            label="Background tasks"
+            value="background"
+            count={backgroundProcesses.length}
+          >
+            <BackgroundEvidence processes={backgroundProcesses} />
+          </EvidenceSection>
+        ) : null}
+        {files.length ? (
+          <EvidenceSection icon={FileTextIcon} label="Files" value="files" count={files.length}>
+            <FileEvidence files={files} onOpenFile={props.onOpenFile} />
+          </EvidenceSection>
+        ) : null}
+        {diffs.length ? (
+          <EvidenceSection
+            icon={FileDiffIcon}
+            label="Changed files"
+            value="changes"
+            count={diffs.length}
+          >
+            <DiffEvidence
+              diffs={diffs}
+              onOpenDiff={props.onOpenDiff}
+              onOpenFile={props.onOpenFile}
+            />
+          </EvidenceSection>
+        ) : null}
+        {sources.length ? (
+          <EvidenceSection
+            icon={WaypointsIcon}
+            label="Sources"
+            value="sources"
+            count={sources.length}
+          >
+            <SourceEvidence onOpenResource={props.onOpenResource} sources={sources} />
+          </EvidenceSection>
+        ) : null}
+        {props.artifacts.length ? (
+          <EvidenceSection
+            icon={BoxIcon}
+            label="Artifacts"
+            value="artifacts"
+            count={props.artifacts.length}
+          >
+            <ArtifactEvidence
+              artifacts={props.artifacts}
+              onOpenArtifact={props.onOpenArtifact}
+              ownerLabels={artifactOwnerLabels(props.executionProvenance)}
+            />
+          </EvidenceSection>
+        ) : null}
+        {plans.length ? (
+          <EvidenceSection icon={ListTreeIcon} label="Plans" value="plans" count={plans.length}>
+            <PlanEvidence
+              onOpenArtifact={props.onOpenArtifact}
+              onOpenFile={props.onOpenFile}
+              plans={plans}
+            />
+          </EvidenceSection>
+        ) : null}
       </Accordion>
     </div>
   );
-}
-
-function evidenceProviderStatus(
-  status: string,
-  queryable: boolean,
-): 'healthy' | 'degraded' | 'unavailable' {
-  if (!queryable || status === 'unavailable' || status === 'disabled') return 'unavailable';
-  if (status === 'degraded' || status === 'partial') return 'degraded';
-  return 'healthy';
 }
 
 function EvidenceSection({
@@ -227,15 +242,151 @@ function EvidenceSection({
 }) {
   return (
     <AccordionItem value={value}>
-      <AccordionTrigger>
+      <AccordionTrigger aria-label={`${label}, ${count.toLocaleString()} recorded`}>
         <span className="flex items-center gap-2">
           <Icon aria-hidden="true" className="size-4 text-primary" />
           {label}
           <Badge variant="secondary">{count}</Badge>
         </span>
       </AccordionTrigger>
-      <AccordionContent className="grid gap-2">{children}</AccordionContent>
+      <AccordionContent>
+        <div className="clio-scrollbar grid max-h-[min(24rem,60vh)] gap-2 overflow-y-auto pr-1">
+          {children}
+        </div>
+      </AccordionContent>
     </AccordionItem>
+  );
+}
+
+function RunEvidence({ runs }: { runs: readonly Run[] }) {
+  return (
+    <div className="grid gap-1">
+      {runs.map((run) => (
+        <ClioInteractiveRow key={run.id} running={run.state === 'running'}>
+          <EvidenceRecord
+            detail={run.elapsed_ms === undefined ? undefined : formatDuration(run.elapsed_ms)}
+            icon={ActivityIcon}
+            label={run.summary || 'Agent run'}
+            state={run.state}
+          />
+        </ClioInteractiveRow>
+      ))}
+    </div>
+  );
+}
+
+function TaskEvidence({ tasks }: { tasks: readonly Task[] }) {
+  return (
+    <div className="grid gap-1">
+      {tasks.map((task) => (
+        <ClioInteractiveRow key={task.id} running={task.state === 'running'}>
+          <EvidenceRecord
+            detail={task.detail}
+            icon={ListChecksIcon}
+            label={task.title}
+            state={task.state}
+          />
+        </ClioInteractiveRow>
+      ))}
+    </div>
+  );
+}
+
+function SubagentEvidence({
+  onOpenSubagent,
+  subagents,
+}: {
+  onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
+  subagents: readonly SubagentRun[];
+}) {
+  return (
+    <div className="grid gap-1">
+      {subagents.map((subagent) => {
+        const assignment = getChildAgentAssignment(subagent);
+        const canOpen = Boolean(subagent.child_session_id && onOpenSubagent);
+        return (
+          <ClioInteractiveRow
+            aria-label={canOpen ? `Open child conversation ${subagent.title}` : undefined}
+            className={canOpen ? 'cursor-pointer' : undefined}
+            disabled={!canOpen}
+            key={subagent.id}
+            onClick={canOpen ? () => onOpenSubagent?.(subagent, 'conversation') : undefined}
+            role={canOpen ? 'button' : undefined}
+            running={subagent.state === 'running'}
+          >
+            <EvidenceRecord
+              detail={assignment.detail ?? assignment.label}
+              icon={BoxesIcon}
+              label={subagent.title}
+              state={subagent.state}
+            />
+          </ClioInteractiveRow>
+        );
+      })}
+    </div>
+  );
+}
+
+function ToolEvidence({ tools }: { tools: readonly ToolInvocation[] }) {
+  return (
+    <div className="grid gap-1">
+      {tools.map((tool) => (
+        <ClioInteractiveRow key={tool.id} running={tool.state === 'running'}>
+          <EvidenceRecord
+            detail={getToolSummary(tool)}
+            icon={WrenchIcon}
+            label={getToolActivityTitle(tool)}
+            state={getToolStatus(tool)}
+          />
+        </ClioInteractiveRow>
+      ))}
+    </div>
+  );
+}
+
+function BackgroundEvidence({ processes }: { processes: readonly AsyncProcess[] }) {
+  return (
+    <div className="grid gap-1">
+      {processes.map((process) => (
+        <ClioInteractiveRow key={process.id} running={process.live_state === 'running'}>
+          <EvidenceRecord
+            detail={[process.host, process.placement].filter(Boolean).join(', ') || undefined}
+            icon={ServerCogIcon}
+            label={process.title}
+            state={process.live_state}
+          />
+        </ClioInteractiveRow>
+      ))}
+    </div>
+  );
+}
+
+function EvidenceRecord({
+  detail,
+  icon: Icon,
+  label,
+  state,
+}: {
+  detail?: string;
+  icon: typeof ActivityIcon;
+  label: string;
+  state: ClioStatusValue;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-3">
+      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-sm font-medium" title={label}>
+            {label}
+          </p>
+          <ClioStatus className="shrink-0 py-0.5" value={state} />
+        </div>
+        {detail ? (
+          <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{detail}</p>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -256,9 +407,9 @@ function DiffEvidence({
       language="diff"
     >
       <CodeBlockHeader>
-        <CodeBlockTitle>
+        <CodeBlockTitle title={diff.path}>
           <FileDiffIcon aria-hidden="true" className="size-3.5" />
-          <CodeBlockFilename>{diff.path}</CodeBlockFilename>
+          <CodeBlockFilename>{fileName(diff.path)}</CodeBlockFilename>
           <ClioStatus label={friendlyStatus(diff.status)} value={diffStatus(diff)} />
         </CodeBlockTitle>
         <CodeBlockActions>
@@ -293,28 +444,14 @@ function DiffEvidence({
   ));
 }
 
-/** One labelled fact rendered as its own sibling element — never middot-joined into a string. */
-interface EvidenceSourceDetailPart {
-  id: string;
-  text: string;
-  title?: string;
-}
-
-interface EvidenceSource {
-  id: string;
-  label: string;
-  link: boolean;
-  /** The link href for a citation, or the raw value for a workflow-derived source. */
-  value?: string;
-  /** Structured detail for a resource source, rendered as separate spans. */
-  detailParts?: readonly EvidenceSourceDetailPart[];
-  /** Identity used to collapse duplicates — never the rendered text, so a formatting change
-   *  can't change what dedups. */
-  dedupeKey: string;
-  resource?: WorkspaceResource;
-  ownerLabel?: string;
-  relation?: string;
-}
+import type { EvidenceSource } from './observability-evidence-sources';
+import {
+  artifactOwnerLabels,
+  diffStatus,
+  friendlyStatus,
+  sessionSources,
+  sourceDisplayValue,
+} from './observability-evidence-sources';
 
 function SourceEvidence({
   sources,
@@ -390,47 +527,43 @@ function SourceEvidence({
 
 function ArtifactEvidence({
   artifacts,
-  executionProvenance,
   onOpenArtifact,
+  ownerLabels,
 }: {
   artifacts: readonly Artifact[];
-  executionProvenance?: ExecutionProvenanceResult;
   onOpenArtifact?: (artifact: Artifact) => void;
+  ownerLabels: ReadonlyMap<string, string>;
 }) {
   if (!artifacts.length) return <EmptyEvidence label="No artifacts were produced." />;
   return (
     <div className="grid gap-2">
-      {artifacts.map((artifact) => {
-        const attribution = artifactAttribution(artifact, executionProvenance);
-        return (
-          <div className="grid gap-1" key={artifact.id}>
-            <ClioArtifactCard artifact={artifact} onOpen={onOpenArtifact} />
-            {attribution ? (
-              <p className="px-1 text-[11px] text-muted-foreground">
-                {friendlyStatus(attribution.relation)} by {attribution.owner}
-              </p>
-            ) : null}
-          </div>
-        );
-      })}
+      {artifacts.map((artifact) => (
+        <div key={artifact.id}>
+          <ClioArtifactCard artifact={artifact} onOpen={onOpenArtifact} preview={false} />
+          {ownerLabels.get(artifact.id) ? (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              {`Generated by ${ownerLabels.get(artifact.id)}`}
+            </p>
+          ) : null}
+        </div>
+      ))}
     </div>
   );
 }
 
-function ContextFileEvidence({
+
+function FileEvidence({
   files,
   onOpenFile,
 }: {
-  files: readonly ContextFile[];
+  files: readonly EvidenceFile[];
   onOpenFile?: (path: string) => void;
 }) {
-  if (!files.length)
-    return <EmptyEvidence label="No files are attached to this session context." />;
   return (
     <div className="grid gap-2">
       {files.map((file) => (
         <ClioInteractiveRow
-          className={onOpenFile ? 'cursor-pointer' : undefined}
+          className={cn('border-border bg-muted/20', onOpenFile && 'cursor-pointer')}
           key={file.path}
           onClick={() => onOpenFile?.(file.path)}
           role={onOpenFile ? 'button' : undefined}
@@ -439,11 +572,15 @@ function ContextFileEvidence({
           <div className="flex items-center gap-3">
             <FileTextIcon aria-hidden="true" className="size-4 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{file.display_path}</p>
-              <p className="text-xs text-muted-foreground">
-                {friendlyStatus(file.mode)}
-                {file.size === undefined ? '' : `, ${formatBytes(file.size)}`}
+              <p className="truncate text-sm font-medium" title={file.path}>
+                {file.displayPath}
               </p>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                {file.facts.map((fact) => (
+                  <span key={fact}>{fact}</span>
+                ))}
+                {file.size === undefined ? null : <span>{formatBytes(file.size)}</span>}
+              </div>
             </div>
           </div>
         </ClioInteractiveRow>
@@ -452,281 +589,51 @@ function ContextFileEvidence({
   );
 }
 
-function EvidenceCounts(props: {
-  artifacts: number;
-  contextFiles: number;
-  diffs: number;
-  plans: number;
-  sources: number;
+function PlanEvidence({
+  onOpenArtifact,
+  onOpenFile,
+  plans,
+}: {
+  onOpenArtifact?: (artifact: Artifact) => void;
+  onOpenFile?: (path: string) => void;
+  plans: readonly EvidencePlan[];
 }) {
   return (
-    <Frame spacing="xs" variant="ghost">
-      <FrameHeader>
-        <FrameTitle>Session evidence</FrameTitle>
-        <FrameDescription>
-          Authoritative references grouped by what they let you inspect.
-        </FrameDescription>
-      </FrameHeader>
-      <FramePanel className="grid grid-cols-5 gap-2 text-center">
-        {[
-          ['Artifacts', props.artifacts],
-          ['Context files', props.contextFiles],
-          ['Diffs', props.diffs],
-          ['Plans', props.plans],
-          ['Sources', props.sources],
-        ].map(([label, count]) => (
-          <div key={label}>
-            <p className="text-base font-semibold">{count}</p>
-            <p className="truncate text-[10px] text-muted-foreground">{label}</p>
-          </div>
-        ))}
-      </FramePanel>
-    </Frame>
+    <div className="grid gap-2">
+      {plans.map((plan) => {
+        const canOpen = Boolean((plan.artifact && onOpenArtifact) || (plan.path && onOpenFile));
+        return (
+          <ClioInteractiveRow
+            className={canOpen ? 'cursor-pointer' : undefined}
+            key={plan.id}
+            onClick={
+              canOpen
+                ? () =>
+                    plan.artifact
+                      ? onOpenArtifact?.(plan.artifact)
+                      : plan.path
+                        ? onOpenFile?.(plan.path)
+                        : undefined
+                : undefined
+            }
+            role={canOpen ? 'button' : undefined}
+            tabIndex={canOpen ? 0 : undefined}
+          >
+            <p className="truncate text-sm font-medium" title={plan.path}>
+              {plan.title}
+            </p>
+            {plan.detail ? (
+              <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
+                {plan.detail}
+              </p>
+            ) : null}
+          </ClioInteractiveRow>
+        );
+      })}
+    </div>
   );
 }
 
-function sessionSources(
-  messages: readonly Message[],
-  processes: readonly AsyncProcess[],
-  resources: readonly WorkspaceResource[],
-  executionProvenance?: ExecutionProvenanceResult,
-): EvidenceSource[] {
-  const resourcesById = new Map(resources.map((resource) => [resource.id, resource]));
-  const sources: EvidenceSource[] = messages.flatMap((message) =>
-    message.blocks.flatMap((block): EvidenceSource[] => {
-      if (block.type === 'citation') {
-        return [
-          {
-            id: `citation:${message.id}:${block.id}`,
-            label: block.label,
-            value: block.uri,
-            link: isWebLink(block.uri),
-            dedupeKey: `citation:${block.uri}`,
-          },
-        ];
-      }
-      if (block.type !== 'resource') return [];
-      const resource = resourcesById.get(block.resource_id);
-      return [
-        {
-          id: `resource:${block.workspace_id}:${block.resource_id}:${block.resource_revision}`,
-          label: resource?.name ?? block.name,
-          link: false,
-          detailParts: resourceEvidenceDetail(resource, block.media_type, block.resource_revision),
-          // Keyed on resource identity, never the rendered string: two distinct resources can
-          // render identical detail text, and a formatting change must not change what collapses.
-          dedupeKey: `resource:${block.resource_id}:${block.resource_revision}`,
-          resource,
-        },
-      ];
-    }),
-  );
-  // An empty session_lineage ([]) is a legal "no children" answer, not a
-  // missing provenance read — it must still fall back to workflow-state
-  // sources, or a leaf session with no delegated children loses them all.
-  if (executionProvenance?.session_lineage?.length) {
-    sources.push(...provenanceSources(executionProvenance));
-  } else {
-    for (const process of processes) {
-      collectWorkflowSources(process.result?.workflow_state, process.title, sources);
-    }
-  }
-  const seen = new Set<string>();
-  return sources.filter((source) => {
-    if (seen.has(source.dedupeKey)) return false;
-    seen.add(source.dedupeKey);
-    return true;
-  });
-}
-
-function provenanceSources(provenance: ExecutionProvenanceResult): EvidenceSource[] {
-  const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
-  const lineageBySession = new Map(
-    provenance.session_lineage?.map((owner) => [owner.session_id, owner]) ?? [],
-  );
-  const sources: EvidenceSource[] = [];
-  for (const node of provenance.nodes) {
-    const relation = provenance.edges.find(
-      (edge) => edge.target === node.id && ['used', 'generated'].includes(edge.kind),
-    );
-    if (!relation) continue;
-    const isTypedSource =
-      node.kind === 'resource' || (node.kind === 'artifact' && relation.kind === 'used');
-    if (!isTypedSource) continue;
-    const ownerNode = nodeById.get(relation.source);
-    const ownerSessionId =
-      stringAttribute(ownerNode?.attributes, 'owner_session_id') ||
-      ownerNode?.session_id ||
-      stringAttribute(node.attributes, 'owner_session_id') ||
-      node.session_id;
-    const owner = lineageBySession.get(ownerSessionId);
-    const value =
-      firstStringAttribute(node.attributes, [
-        'uri',
-        'url',
-        'resource_id',
-        'artifact_id',
-        'sha256',
-      ]) || node.id;
-    sources.push({
-      id: `provenance:${node.id}`,
-      label: node.label || value,
-      value,
-      link: isWebLink(value),
-      dedupeKey: `provenance:${node.id}`,
-      ownerLabel: ownerNode?.label || owner?.label || 'Unknown session',
-      relation: relation.kind,
-    });
-  }
-  return sources;
-}
-
-function artifactAttribution(
-  artifact: Artifact,
-  provenance?: ExecutionProvenanceResult,
-): { owner: string; relation: string } | undefined {
-  if (!provenance?.session_lineage) return undefined;
-  const nodeById = new Map(provenance.nodes.map((node) => [node.id, node]));
-  const artifactNode = nodeById.get(`artifact:${artifact.id}`);
-  if (!artifactNode) return undefined;
-  const relation = provenance.edges.find(
-    (edge) => edge.target === artifactNode.id && ['used', 'generated'].includes(edge.kind),
-  );
-  if (!relation) return undefined;
-  const ownerNode = nodeById.get(relation.source);
-  const ownerSessionId =
-    stringAttribute(ownerNode?.attributes, 'owner_session_id') ||
-    ownerNode?.session_id ||
-    artifactNode?.session_id ||
-    artifact.session_id;
-  const owner = provenance.session_lineage.find((row) => row.session_id === ownerSessionId);
-  return {
-    owner: ownerNode?.label || owner?.label || 'Unknown session',
-    relation: relation.kind,
-  };
-}
-
-function stringAttribute(attributes: Record<string, unknown> | undefined, key: string): string {
-  const value = attributes?.[key];
-  return typeof value === 'string' ? value : '';
-}
-
-function firstStringAttribute(
-  attributes: Record<string, unknown>,
-  keys: readonly string[],
-): string {
-  for (const key of keys) {
-    const value = stringAttribute(attributes, key);
-    if (value) return value;
-  }
-  return '';
-}
-
-/**
- * Builds the resource detail parts for one source, favoring what was actually DELIVERED
- * (the message block's own media type and revision) over the live workspace resource, which
- * may have since changed. The live resource only fills in fields the block never carries
- * (size, SHA-256) and, when its revision has moved on, that is called out explicitly rather
- * than silently replacing the delivered revision.
- */
-function resourceEvidenceDetail(
-  resource: WorkspaceResource | undefined,
-  deliveredMediaType: string,
-  deliveredRevision: string,
-): EvidenceSourceDetailPart[] {
-  const mediaType = deliveredMediaType || resource?.detected_mime || resource?.claimed_mime;
-  const parts: EvidenceSourceDetailPart[] = [
-    { id: 'type', text: mediaType || 'Unknown type' },
-    { id: 'revision', text: `Revision ${deliveredRevision}` },
-  ];
-  if (resource && String(resource.revision) !== deliveredRevision) {
-    parts.push({
-      id: 'current-revision',
-      text: `Current revision ${resource.revision}`,
-      title:
-        'The workspace resource has since changed; this reference delivered an earlier revision to the model.',
-    });
-  }
-  if (resource?.received_size !== undefined) {
-    parts.push({ id: 'size', text: formatBytes(resource.received_size) });
-  }
-  if (resource?.sha256) {
-    parts.push({ id: 'sha', text: `SHA-256 ${resource.sha256.slice(0, 12)}…` });
-  }
-  return parts;
-}
-
-function collectWorkflowSources(
-  value: unknown,
-  owner: string,
-  sources: EvidenceSource[],
-  path: string[] = [],
-  depth = 0,
-) {
-  if (!value || depth > 5) return;
-  if (Array.isArray(value)) {
-    value.forEach((item, index) =>
-      collectWorkflowSources(item, owner, sources, [...path, String(index)], depth + 1),
-    );
-    return;
-  }
-  if (typeof value !== 'object') return;
-  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-    const nextPath = [...path, key];
-    if (
-      typeof child === 'string' &&
-      child.length <= 2_048 &&
-      (isWebLink(child) || /(?:^|_)(?:source|provenance)(?:_url)?$/iu.test(key))
-    ) {
-      sources.push({
-        id: `workflow:${owner}:${nextPath.join('.')}:${sources.length}`,
-        label: `${owner}, ${evidenceFieldLabel(key)}`,
-        value: child,
-        link: isWebLink(child),
-        dedupeKey: `workflow:${child}`,
-      });
-    } else {
-      collectWorkflowSources(child, owner, sources, nextPath, depth + 1);
-    }
-  }
-}
-
-function diffStatus(diff: SessionDiff): 'pending' | 'succeeded' | 'cancelled' | 'unavailable' {
-  if (diff.applied || diff.status === 'applied') return 'succeeded';
-  if (diff.status === 'rejected') return 'cancelled';
-  if (diff.status === 'pending') return 'pending';
-  return 'unavailable';
-}
-
-function friendlyStatus(value: string): string {
-  return value
-    .replaceAll('_', ' ')
-    .replaceAll('-', ' ')
-    .replace(/\b\w/gu, (letter) => letter.toUpperCase());
-}
-
-function evidenceFieldLabel(value: string): string {
-  return value
-    .replaceAll('_', ' ')
-    .replaceAll('-', ' ')
-    .trim()
-    .split(/\s+/u)
-    .map((word, index) => {
-      if (word.toLowerCase() === 'url') return 'URL';
-      const normalized = word.toLowerCase();
-      return index === 0 ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : normalized;
-    })
-    .join(' ');
-}
-
-function sourceDisplayValue(value: string): string {
-  if (value.toLowerCase() === 'osm_nominatim') return 'OpenStreetMap Nominatim';
-  return value;
-}
-
-function isWebLink(value: string): boolean {
-  return /^https?:\/\//iu.test(value);
-}
 
 function EmptyEvidence({ label }: { label: string }) {
   return (

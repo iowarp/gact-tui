@@ -53,6 +53,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { cn } from '@/lib/utils';
 import { ClioArtifactCard } from './artifact-card';
 import { ClioInteractiveRow } from './interactive-row';
+import { WorkspaceFileView } from './resource-viewers';
 import { ClioStatus } from './status';
 
 const ArtifactView = lazy(() =>
@@ -61,11 +62,13 @@ const ArtifactView = lazy(() =>
 const BlueprintFileEditor = lazy(() =>
   import('./resource-viewers').then((module) => ({ default: module.BlueprintFileEditor })),
 );
-const WorkspaceFileView = lazy(() =>
-  import('./resource-viewers').then((module) => ({ default: module.WorkspaceFileView })),
-);
-
-export type CanvasResourceKind = 'session' | 'files' | 'resources' | 'artifacts' | 'blueprints';
+export type CanvasResourceKind =
+  | 'session'
+  | 'work'
+  | 'files'
+  | 'resources'
+  | 'artifacts'
+  | 'blueprints';
 
 interface FileBrowserProps {
   workspaceId: string;
@@ -116,6 +119,9 @@ export function CanvasLauncher({ onOpen }: { onOpen: (kind: CanvasResourceKind) 
         <DropdownMenuLabel>Add to canvas</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => onOpen('session')}>
           <ActivityIcon aria-hidden="true" /> Observability
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onOpen('work')}>
+          <ActivityIcon aria-hidden="true" /> Work
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onOpen('files')}>
@@ -168,6 +174,7 @@ export function FileBrowser({
   const fileTree = useMemo(() => buildFileTree(filteredFiles), [filteredFiles]);
   const activePath = selectedPath ?? internalSelectedPath;
   const activeFile = files.find((entry) => entry.type === 'file' && entry.path === activePath);
+  const previewPath = activeFile?.path ?? activePath;
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -235,11 +242,11 @@ export function FileBrowser({
         <ResizableHandle aria-label="Resize file tree" withHandle />
         <ResizablePanel id="workspace-file-preview" minSize={stacked ? '180px' : '240px'}>
           <section aria-label="Workspace file preview" className="h-full min-h-0 overflow-hidden">
-            {activeFile ? (
+            {previewPath ? (
               <Suspense fallback={<ResourceLoading label="Loading file" />}>
                 <WorkspaceFileView
-                  path={activeFile.path}
-                  size={activeFile.size}
+                  path={previewPath}
+                  size={activeFile?.size}
                   workspaceId={workspaceId}
                 />
               </Suspense>

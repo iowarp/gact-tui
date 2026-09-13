@@ -78,11 +78,58 @@ export function useSessionLiveStream({
     const batcher = new FrameBatcher(applyFrames);
     const invalidations = new QueryInvalidationBatcher(queryClient);
     let reconnectDelay = STREAM_RECONNECT_BASE_MS;
+    let resumeCursor = initialCursor;
+    let reconcileBeforeConnect = false;
+    const reconcileAfterDisconnect = async () => {
+      const [workspaces, sessions, transcript] = await Promise.all([
+        repository.workspaces(controller.signal),
+        repository.sessions(workspaceId, controller.signal),
+        repository.transcript(sessionId, controller.signal),
+      ]);
+      if (controller.signal.aborted) return;
+      queryClient.setQueryData(queryKeys.workspaces(settings.endpoint), workspaces);
+      queryClient.setQueryData(queryKeys.sessions(settings.endpoint, workspaceId), sessions);
+      queryClient.setQueryData(queryKeys.transcript(settings.endpoint, sessionId), transcript);
+      reconcileSnapshots({
+        workspaces: recordById(workspaces),
+        sessions: recordById(sessions),
+        messages: recordById(transcript.messages),
+        tools: recordById(transcript.tools),
+        tasks: recordById(transcript.tasks),
+        subagents: recordById(transcript.subagents),
+        artifacts: recordById(transcript.artifacts),
+        surfaces: recordById(transcript.surfaces),
+        revisions: {},
+      });
+      resumeCursor = transcript.cursor ?? resumeCursor;
+      void Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: queryKeys.capabilities(settings.endpoint) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.languageModelConfiguration(settings.endpoint),
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.providerModels(settings.endpoint) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sessionArtifacts(settings.endpoint, sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sessionObservability(settings.endpoint, sessionId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.sessionContext(settings.endpoint, sessionId),
+        }),
+      ]);
+    };
     const consume = async () => {
       setStreamState('connecting');
       while (!controller.signal.aborted) {
         try {
-          const cursor = latestCursor(useLiveStore.getState().entities.cursor, initialCursor);
+          if (reconcileBeforeConnect) {
+            await reconcileAfterDisconnect();
+            if (controller.signal.aborted) break;
+            reconcileBeforeConnect = false;
+          }
+          const cursor = latestCursor(useLiveStore.getState().entities.cursor, resumeCursor);
           for await (const frame of repository.stream(
             { connection_id: 'active', workspace_id: workspaceId, session_id: sessionId },
             cursor,
@@ -110,9 +157,13 @@ export function useSessionLiveStream({
           // not a frame ever arrived, the connection is gone (server close,
           // idle timeout, network drop). Reporting 'live' here would be a
           // status lie; the next loop iteration's first frame flips it back.
-          if (!controller.signal.aborted) setStreamState('reconnecting');
+          if (!controller.signal.aborted) {
+            reconcileBeforeConnect = true;
+            setStreamState('reconnecting');
+          }
         } catch (error) {
           if (controller.signal.aborted) break;
+          reconcileBeforeConnect = true;
           setStreamState('reconnecting');
           if (error instanceof Error && error.name === 'AbortError') break;
         }
@@ -132,6 +183,7 @@ export function useSessionLiveStream({
     enabled,
     initialCursor,
     queryClient,
+    reconcileSnapshots,
     reconnectEpoch,
     repository,
     sessionId,
@@ -404,10 +456,9 @@ function latestCursor(
   current: string | undefined,
   snapshot: string | undefined,
 ): string | undefined {
-  if (!current) return snapshot;
-  if (!snapshot) return current;
-  const currentNumber = Number(current);
-  const snapshotNumber = Number(snapshot);
-  if (!Number.isFinite(currentNumber) || !Number.isFinite(snapshotNumber)) return current;
-  return snapshotNumber > currentNumber ? snapshot : current;
+  // Once streaming owns entities, REST hydration deliberately cannot overwrite
+  // them. A newer snapshot cursor therefore does not prove its updates were
+  // applied. Resume after the last consumed frame, or completions between the
+  // two cursors disappear when a hidden tab returns or a snapshot refetches.
+  return current || snapshot;
 }

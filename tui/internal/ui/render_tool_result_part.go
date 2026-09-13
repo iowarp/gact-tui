@@ -4,6 +4,7 @@ package ui
 
 import (
 	"fmt"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/presentation"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -13,6 +14,9 @@ import (
 )
 
 func (t Theme) renderToolResultPart(p gact.Part, wrapW int) string {
+	if p.Presentation != nil {
+		return presentation.Render(p, wrapW, t.CollapseThreshold, false, t.renderToolDetailHint)
+	}
 	workflowPrefix := toolPartWorkflowPrefix(p)
 	toolWrapW := wrapW - lipgloss.Width(workflowPrefix)
 	if toolWrapW < 20 {

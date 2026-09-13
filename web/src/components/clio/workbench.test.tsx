@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
+import { FileBrowser } from './workbench-resource-browser';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 
 const { repository } = vi.hoisted(() => ({
@@ -21,6 +22,11 @@ vi.mock('@/providers/connection-provider', () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // Every test shares workspaceId="workspace_1"; workbench.tsx persists tab
+  // state to localStorage keyed on it, so a test that closes or opens a tab
+  // leaks that state into the next test's initial restoredWorkbenchState()
+  // read unless it is cleared here.
+  window.localStorage.clear();
 });
 
 function renderWorkbench() {
@@ -158,7 +164,12 @@ describe('ClioWorkbench canvas', () => {
     }
     expect(screen.queryByRole('button', { name: /^Close / })).not.toBeInTheDocument();
     expect(observabilityTab).toHaveAccessibleName('Observability');
-    expect(observabilityTab).toHaveAttribute('aria-keyshortcuts', 'Delete');
+    // Tabs are now drag-reorderable (@dnd-kit/sortable); the announced
+    // shortcuts grew the keyboard equivalent alongside Delete.
+    expect(observabilityTab).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Delete Alt+ArrowLeft Alt+ArrowRight',
+    );
     expect(closeControls[0]).toHaveAttribute('title', 'Close Observability');
     expect(closeControls[1]).toHaveAttribute('title', 'Close Artifacts');
 
@@ -406,7 +417,15 @@ describe('ClioWorkbench canvas', () => {
     const fileRow = screen.getByRole('treeitem', { name: 'summary.md' });
     expect(fileRow).toBeVisible();
     expect(fileRow).toHaveClass('min-w-0', 'w-full');
-    expect(await screen.findByText('# workspace report')).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'workspace report' }, { timeout: 5000 }),
+    ).toBeVisible();
+    const sourceTab = screen.getByRole('tab', { name: /^Source$/ });
+    act(() => sourceTab.focus());
+    await user.keyboard('{Enter}');
+    const source = await screen.findByRole('tabpanel', { name: /^Source$/ }, { timeout: 5000 });
+    expect(source).toBeVisible();
+    expect(source.querySelector('pre code')).toHaveTextContent('# workspace report');
     expect(document.querySelector('[data-slot="code-block-scroll"]')).toHaveClass(
       'min-h-0',
       'flex-1',
@@ -415,6 +434,32 @@ describe('ClioWorkbench canvas', () => {
     expect(repository.readWorkspaceFile).toHaveBeenCalledWith(
       'workspace_1',
       'reports/summary.md',
+      expect.any(AbortSignal),
+    );
+  }, 15000);
+
+  it('renders a directly opened hidden workspace file even when the tree omits it', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    repository.readWorkspaceFile.mockResolvedValue('# Hidden skill source');
+    const path = '.clio/skills/inspect-qualification-brief/SKILL.md';
+    render(
+      <QueryClientProvider client={queryClient}>
+        <FileBrowser
+          files={[]}
+          onSelectedPathChange={vi.fn()}
+          selectedPath={path}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Hidden skill source' }, { timeout: 5000 }),
+    ).toBeVisible();
+    expect(screen.queryByText('Select a file')).not.toBeInTheDocument();
+    expect(repository.readWorkspaceFile).toHaveBeenCalledWith(
+      'workspace_1',
+      path,
       expect.any(AbortSignal),
     );
   });
@@ -448,5 +493,56 @@ describe('ClioWorkbench canvas', () => {
       'true',
     );
     expect(screen.getByText('Review file change')).toBeVisible();
+  });
+
+  it('opens a recorded workflow as a durable canvas tab with its execution graph', () => {
+    const workflow = {
+      id: 'call_workflow',
+      session_id: 'session_parent',
+      name: 'run_workflow',
+      state: 'succeeded' as const,
+      duration_ms: 30_000,
+      input: { request: 'Inventory and verify the supplied facts.' },
+      output: {
+        steps: [
+          { child: 'inventory', task_id: 'task_inventory' },
+          { child: 'verification', task_id: 'task_verification' },
+        ],
+      },
+    };
+
+    render(
+      <ClioWorkbench
+        artifacts={[]}
+        blueprints={[]}
+        diffs={[]}
+        files={[]}
+        onApplyDiff={vi.fn()}
+        onOpenSubagent={vi.fn()}
+        onRejectDiff={vi.fn()}
+        requestedOpen={{ key: 'workflow-request', request: { kind: 'workflow', tool: workflow } }}
+        sessionId="session_parent"
+        sessionView={<p>Session intelligence</p>}
+        subagents={[
+          {
+            id: 'task_inventory',
+            session_id: 'session_parent',
+            child_session_id: 'session_inventory',
+            title: 'inventory #1',
+            state: 'completed',
+          },
+        ]}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.getByRole('tab', { name: 'inventory → verification' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('heading', { name: 'inventory → verification' })).toBeVisible();
+    expect(
+      screen.getByRole('img', { name: 'Workflow execution graph: inventory → verification' }),
+    ).toBeVisible();
   });
 });

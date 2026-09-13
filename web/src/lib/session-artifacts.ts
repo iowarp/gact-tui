@@ -2,8 +2,29 @@ import type {
   Artifact,
   ArtifactDetail,
   ArtifactRecord,
+  ArtifactVersion,
   SessionArtifactListing,
 } from '@clio/core/v3';
+
+/** Preserve immutable versions for transcript links, independently of the head-only asset list. */
+export function sessionArtifactVersionEntities(
+  listing: SessionArtifactListing,
+  sessionId: string,
+): Artifact[] {
+  const versions = new Map<string, Artifact>();
+  for (const relation of ['produced', 'used'] as const) {
+    for (const record of relation === 'produced' ? listing.artifacts : listing.used) {
+      for (const version of record.versions) {
+        if (!versions.has(version.artifact_id))
+          versions.set(
+            version.artifact_id,
+            artifactVersionEntity(record, version, sessionId, relation),
+          );
+      }
+    }
+  }
+  return [...versions.values()];
+}
 
 /** Projects authoritative registry records into the normalized artifact shape used by the UI. */
 export function sessionArtifactEntities(
@@ -58,6 +79,15 @@ function artifactRecordHead(
     record.versions.find((candidate) => candidate.artifact_id === record.head_artifact_id) ??
     record.versions.toSorted((left, right) => right.version - left.version)[0];
   if (!version) return undefined;
+  return artifactVersionEntity(record, version, sessionId, relation);
+}
+
+function artifactVersionEntity(
+  record: ArtifactRecord,
+  version: ArtifactVersion,
+  sessionId: string,
+  relation: 'produced' | 'used',
+): Artifact {
   return {
     id: version.artifact_id,
     session_id: sessionId,

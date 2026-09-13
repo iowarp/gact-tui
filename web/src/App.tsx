@@ -5,6 +5,7 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
+import { WorkspacePage } from '@/routes/workspace-page';
 
 const ConnectionPage = lazy(() =>
   import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
@@ -20,10 +21,6 @@ const InfrastructurePage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('@/routes/settings-page').then((module) => ({ default: module.SettingsPage })),
 );
-const WorkspacePage = lazy(() =>
-  import('@/routes/workspace-page').then((module) => ({ default: module.WorkspacePage })),
-);
-
 function RouteFallback() {
   return (
     <main

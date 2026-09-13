@@ -1,5 +1,6 @@
 import type { MessageBlock, WorkspaceResource } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
+import { PaperclipIcon } from 'lucide-react';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -53,6 +54,10 @@ export function TranscriptResourceAttachments({
 
   return (
     <ScrollArea className="mb-2 h-auto w-full max-w-full rounded-2xl" type="auto">
+      <p className="mb-1.5 flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground group-[.is-user]:justify-end">
+        <PaperclipIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        Attached to this message
+      </p>
       <Attachments
         aria-label={
           blocks.length === 1 ? 'Message attachment' : `${blocks.length} message attachments`

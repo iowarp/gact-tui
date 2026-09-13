@@ -46,8 +46,8 @@ export function AgentAnswerActivity({
         }
       >
         <BotIcon aria-hidden="true" className="size-3.5 shrink-0" />
+        <span className="font-medium text-foreground/80">{requestLabel}</span>
         <span>
-          {requestLabel} ·{' '}
           {fallbackPending
             ? 'Needs your response'
             : fallbackAnswered
@@ -55,17 +55,17 @@ export function AgentAnswerActivity({
               : answered
                 ? 'Agent responded'
                 : 'Agent is answering'}
-          {!fallback ? (
-            <span aria-hidden="true" className="sr-only">
-              {answered ? 'Agent answered MCP request' : 'Agent is answering MCP request'}
-            </span>
-          ) : null}
         </span>
+        {!fallback ? (
+          <span aria-hidden="true" className="sr-only">
+            {answered ? 'Agent answered MCP request' : 'Agent is answering MCP request'}
+          </span>
+        ) : null}
       </span>
     );
   }
 
-  const answers = answerEntries(interaction.payload?.answer_metadata);
+  const answers = answerEntries(interaction);
   const answerTask = interaction.payload?.agent_answer_task;
   const taskStatus =
     fallback && !answerTask
@@ -74,7 +74,7 @@ export function AgentAnswerActivity({
   const taskTiming = answerTaskTiming(answerTask?.created_at, answerTask?.updated_at);
   return (
     <div
-      className="my-3 flex flex-col gap-3 border-l-2 border-border pl-3 text-xs"
+      className="flex flex-col gap-3 border-l-2 border-border pl-3 text-xs"
       data-agent-question-state={
         fallbackPending
           ? 'fallback'
@@ -113,10 +113,10 @@ export function AgentAnswerActivity({
       >
         {answered && answers.length > 0 ? (
           <dl className="mt-1 grid gap-x-2 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
-            {answers.map(([label, value]) => (
-              <div className="contents" key={label}>
-                <dt className="text-muted-foreground">{label}</dt>
-                <dd className="break-words text-foreground/85">{value}</dd>
+            {answers.map((entry) => (
+              <div className="contents" key={entry.key}>
+                <dt className="text-muted-foreground">{entry.label}</dt>
+                <dd className="break-words text-foreground/85">{entry.value}</dd>
               </div>
             ))}
           </dl>
@@ -158,10 +158,10 @@ export function AgentAnswerActivity({
               <ActivityStep icon={CircleCheckIcon} title="You responded">
                 {answers.length > 0 ? (
                   <dl className="mt-1 grid gap-x-2 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
-                    {answers.map(([label, value]) => (
-                      <div className="contents" key={label}>
-                        <dt className="text-muted-foreground">{label}</dt>
-                        <dd className="break-words text-foreground/85">{value}</dd>
+                    {answers.map((entry) => (
+                      <div className="contents" key={entry.key}>
+                        <dt className="text-muted-foreground">{entry.label}</dt>
+                        <dd className="break-words text-foreground/85">{entry.value}</dd>
                       </div>
                     ))}
                   </dl>
@@ -186,7 +186,7 @@ function HumanQuestionActivity({
   compact: boolean;
 }) {
   const requestLabel = questionInteractionRequestLabel(interaction);
-  const answers = answerEntries(interaction.payload?.answer_metadata);
+  const answers = answerEntries(interaction);
   const answered = interaction.status === 'answered';
   const cancelled = interaction.status === 'cancelled';
   const expired = interaction.status === 'expired';
@@ -209,41 +209,37 @@ function HumanQuestionActivity({
         data-human-question-state={interaction.status}
       >
         <UserRoundIcon aria-hidden="true" className="size-3.5 shrink-0" />
-        <span>
-          {answered && !declined
-            ? `You responded · ${requestLabel}`
-            : `${requestLabel} · ${stateLabel}`}
-        </span>
+        <span className="font-medium text-foreground/80">{requestLabel}</span>
+        <span>{answered && !declined ? 'You responded' : stateLabel}</span>
       </span>
     );
   }
 
   return (
     <div
-      className="my-3 flex flex-col gap-3 border-l-2 border-border pl-3 text-xs"
+      className="flex flex-col gap-3 border-l-2 border-border pl-3 text-xs"
       data-human-question-state={interaction.status}
       data-interaction-id={interaction.id}
       data-invocation-id={interaction.source.invocation_id}
       data-task-id={interaction.task_id}
       data-turn-activity={`interaction:${interaction.id}`}
     >
-      <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : 'Agent asked'}>
-        {interaction.prompt}
-      </ActivityStep>
       {interaction.status === 'pending' ? (
-        <ActivityStep icon={RouteIcon} title="Waiting for your response">
-          The question is available in the response stack.
+        <ActivityStep icon={RouteIcon} title="Waiting for your response" />
+      ) : (
+        <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : 'Agent asked'}>
+          {interaction.prompt}
         </ActivityStep>
-      ) : null}
+      )}
       {answered ? (
         <>
           <ActivityStep icon={UserRoundIcon} title={declined ? 'You declined' : 'You responded'}>
             {answers.length > 0 ? (
               <dl className="mt-1 grid gap-x-2 gap-y-1 sm:grid-cols-[max-content_minmax(0,1fr)]">
-                {answers.map(([label, value]) => (
-                  <div className="contents" key={label}>
-                    <dt className="text-muted-foreground">{label}</dt>
-                    <dd className="break-words text-foreground/85">{value}</dd>
+                {answers.map((entry) => (
+                  <div className="contents" key={entry.key}>
+                    <dt className="text-muted-foreground">{entry.label}</dt>
+                    <dd className="break-words text-foreground/85">{entry.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -294,11 +290,70 @@ function ActivityStep({
   );
 }
 
-function answerEntries(values: Record<string, unknown> | undefined): Array<[string, string]> {
+interface AnswerEntry {
+  key: string;
+  label: string;
+  value: string;
+}
+
+function answerEntries(interaction: PendingInteraction): AnswerEntry[] {
+  const values = interaction.payload?.answer_metadata;
   if (!values) return [];
-  return Object.entries(values)
-    .filter(([key]) => key !== 'elicitation_action')
-    .map(([key, value]) => [humanizeProtocolValue(key), formatAnswerValue(value)]);
+  const options = interaction.payload?.options ?? [];
+  const optionLabels = new Map(options.map((option) => [String(option.value), option.label]));
+  const selectedOptions = Array.isArray(values.selected_options) ? values.selected_options : [];
+  const entries: AnswerEntry[] = [];
+
+  if (selectedOptions.length > 0) {
+    entries.push({
+      key: 'selected-options',
+      label: selectedOptions.length === 1 ? 'Selected' : 'Selected options',
+      value: selectedOptions
+        .map((value) => optionLabels.get(String(value)) ?? formatAnswerValue(value))
+        .join(', '),
+    });
+  }
+
+  if (values.answer !== undefined && values.answer !== null && values.answer !== '') {
+    entries.push({
+      key: 'answer',
+      label: selectedOptions.length > 0 ? 'Comment' : 'Response',
+      value: formatAnswerValue(values.answer),
+    });
+  }
+
+  if (isRecord(values.option_comments)) {
+    Object.entries(values.option_comments).forEach(([optionValue, comment], index) => {
+      if (comment === undefined || comment === null || comment === '') return;
+      const optionLabel = optionLabels.get(optionValue) ?? optionValue;
+      entries.push({
+        key: `option-comment:${optionValue}:${index}`,
+        label: `Comment on ${optionLabel}`,
+        value: formatAnswerValue(comment),
+      });
+    });
+  }
+
+  Object.entries(values)
+    .filter(
+      ([key]) =>
+        key !== 'elicitation_action' &&
+        key !== 'selected_options' &&
+        key !== 'answer' &&
+        key !== 'option_comments',
+    )
+    .forEach(([key, value], index) =>
+      entries.push({
+        key: `metadata:${key}:${index}`,
+        label: humanizeProtocolValue(key),
+        value: formatAnswerValue(value),
+      }),
+    );
+  return entries;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function formatAnswerValue(value: unknown): string {

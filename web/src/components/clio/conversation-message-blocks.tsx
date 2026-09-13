@@ -4,6 +4,7 @@ import {
   AlertTriangleIcon,
   ExternalLinkIcon,
   FileCode2Icon,
+  PackageOpenIcon,
   PanelsTopLeftIcon,
   RouteIcon,
 } from 'lucide-react';
@@ -38,7 +39,7 @@ import { ClioStatus } from './status';
 import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { GroundedMessageResponse } from './grounded-message-response';
-import { toolOutputDiffKey } from './tool-result-presentation-model';
+import { toolOutputDiffKey } from './declared-diff-key';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -88,6 +89,7 @@ export function DeferredA2UISurface({
   const renderSurface = live || nearViewport;
   return (
     <div
+      aria-label="Generated UI surface"
       data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
       ref={hostRef}
       style={renderSurface ? undefined : { minHeight: reservedHeight }}
@@ -144,6 +146,7 @@ function MessageBlockView({
     case 'tool':
     case 'task':
     case 'subagent':
+    case 'agent_message':
       return (
         <ConversationProcessSequence
           block={block}
@@ -172,6 +175,8 @@ function MessageBlockView({
           </PlanHeader>
         </Plan>
       );
+    case 'compaction':
+      return <CompactionSummary block={block} />;
     case 'artifact': {
       const artifact = artifacts[block.artifact_id];
       return artifact ? (
@@ -215,6 +220,13 @@ function MessageBlockView({
       );
     case 'a2ui': {
       const surface = surfaces[block.surface_id];
+      const ownsPendingResponse = interactions?.some(
+        (interaction) =>
+          interaction.kind === 'a2ui' &&
+          interaction.status === 'pending' &&
+          interaction.source.surface_id === block.surface_id,
+      );
+      if (ownsPendingResponse) return null;
       return surface?.state === 'deleted' ? (
         <ClioStatus label="Interactive surface removed" value="cancelled" />
       ) : surface ? (
@@ -286,6 +298,7 @@ function MessageBlockView({
         </Alert>
       );
     case 'routing':
+      if (block.label === 'Unknown' && !block.detail) return null;
       return (
         <div className="flex items-center gap-2 rounded-lg border bg-muted/35 px-3 py-2 text-xs text-muted-foreground">
           <RouteIcon aria-hidden="true" className="size-3.5" />
@@ -351,6 +364,33 @@ function MessageBlockView({
   }
 }
 
+type CompactionBlock = Extract<MessageBlock, { type: 'compaction' }>;
+
+function CompactionSummary({ block }: { block: CompactionBlock }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <section className="min-w-0 max-w-full" data-slot="compaction-summary">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-muted-foreground">
+        <PackageOpenIcon aria-hidden="true" className="size-4 shrink-0" />
+        <span>Compacted context</span>
+        <button
+          aria-expanded={expanded}
+          className="text-xs font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          onClick={() => setExpanded((value) => !value)}
+          type="button"
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      </div>
+      {expanded ? (
+        <div className="mt-2 min-w-0 max-w-full break-words">
+          <GroundedMessageResponse>{block.summary}</GroundedMessageResponse>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function MessageBlockSequence({
   blocks,
   resourcesFirst = false,
@@ -359,12 +399,13 @@ export function MessageBlockSequence({
   blocks: readonly MessageBlock[];
   resourcesFirst?: boolean;
 }) {
+  const uniqueBlocks = [...new Map(blocks.map((block) => [block.id, block] as const)).values()];
   const orderedBlocks = resourcesFirst
     ? [
-        ...blocks.filter((block) => block.type === 'resource'),
-        ...blocks.filter((block) => block.type !== 'resource'),
+        ...uniqueBlocks.filter((block) => block.type === 'resource'),
+        ...uniqueBlocks.filter((block) => block.type !== 'resource'),
       ]
-    : blocks;
+    : uniqueBlocks;
   const rendered: ReactNode[] = [];
   const inlineDiffs = new Set(
     orderedBlocks.flatMap((block) => {
@@ -378,6 +419,7 @@ export function MessageBlockSequence({
   while (index < orderedBlocks.length) {
     const block = orderedBlocks[index];
     if (!block) break;
+    const keyIndex = index;
 
     if (block.type === 'diff' && inlineDiffs.has(`${block.path}\u0000${block.unified_diff}`)) {
       index += 1;
@@ -396,7 +438,7 @@ export function MessageBlockSequence({
       rendered.push(
         <TranscriptResourceAttachments
           blocks={resourceBlocks}
-          key={`resource-attachments-${firstBlockId}`}
+          key={`resource-attachments-${firstBlockId}-${keyIndex}`}
           onOpen={props.onOpenResource}
           resources={props.resources}
         />,
@@ -405,7 +447,7 @@ export function MessageBlockSequence({
     }
 
     if (block.type !== 'artifact' || !props.artifacts[block.artifact_id]) {
-      rendered.push(<MessageBlockView block={block} key={block.id} {...props} />);
+      rendered.push(<MessageBlockView block={block} key={`${block.id}-${keyIndex}`} {...props} />);
       index += 1;
       continue;
     }
@@ -423,7 +465,7 @@ export function MessageBlockSequence({
     rendered.push(
       <ClioArtifactAttachments
         artifacts={artifacts}
-        key={`artifact-attachments-${firstBlockId}`}
+        key={`artifact-attachments-${firstBlockId}-${keyIndex}`}
         onOpen={props.onOpenArtifact}
       />,
     );

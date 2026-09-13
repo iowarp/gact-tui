@@ -36,6 +36,8 @@ func (c *conversationComponent) applySSE(e client.SSEEvent) {
 		c.applyPartAdded(e)
 	case "message.part.delta":
 		c.applyPartDelta(e)
+	case "tool.presentation.delta":
+		c.applyToolPresentationDelta(e)
 	case "message.part.completed":
 		c.applyPartCompleted(e)
 	case "message.completed":

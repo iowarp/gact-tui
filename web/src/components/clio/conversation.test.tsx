@@ -1,15 +1,10 @@
-import type { Message } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { AppearanceProvider } from '@/providers/appearance-provider';
-import {
-  ClioConversation,
-  conversationMessageRowPropsEqual,
-  type ConversationMessageRowProps,
-} from './conversation';
+import { ClioConversation } from './conversation';
 
 // Scroll, virtualization, and minimap behaviour live in
 // `conversation-viewport.test.tsx`; this file covers message content.
@@ -54,6 +49,7 @@ function renderConversation(element: ReactElement) {
     </AppearanceProvider>,
   );
 }
+
 
 describe('ClioConversation recovery actions', () => {
   it('keeps a structured context reference visible and clickable in the sent message', async () => {
@@ -500,269 +496,60 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
-  it('renders navigable child-agent semantics from the shared dispatch component', () => {
-    const onOpenSubagent = vi.fn();
-    const child = {
-      id: 'task_geo',
-      session_id: 'session_1',
-      child_session_id: 'session_child',
-      agent_id: 'geospatial',
-      title: 'geospatial #1',
-      state: 'completed' as const,
-      summary: 'main <- geospatial',
-      task: 'Ground the requested region before catalog search.',
-      result: 'Resolved the region with authoritative coordinates.',
-      duration_ms: 12_500,
-    };
-
+  it('explains when a response was interrupted by a service restart', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
         messages={[
           {
-            id: 'message_child',
+            id: 'message_restart_interrupted',
             session_id: 'session_1',
             role: 'assistant',
-            created_at: '2026-08-22T00:00:00Z',
-            blocks: [{ id: 'block_child', type: 'subagent', subagent_id: child.id }],
+            created_at: '2026-09-11T18:30:23Z',
+            blocks: [],
+            stop_reason: 'error',
+            error_info: {
+              error: 'server_restart_interrupted',
+              message:
+                'The agent service restarted before this response completed. Your request was preserved and can be retried.',
+              recoverable: true,
+            },
           },
         ]}
-        onOpenSubagent={onOpenSubagent}
-        subagents={{ [child.id]: child }}
+        onRetryMessage={() => undefined}
+        subagents={{}}
         surfaces={{}}
         tasks={{}}
         tools={{}}
       />,
     );
 
-    expect(
-      screen.getByText('Ground the requested region before catalog search.'),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('Resolved the region with authoritative coordinates.'),
-    ).toBeInTheDocument();
-
-    const dispatch = screen.getByRole('button', {
-      name: 'Open child conversation geospatial #1',
-    });
-    fireEvent.click(dispatch);
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'conversation');
-
-    fireEvent.click(dispatch, { shiftKey: true });
-    expect(onOpenSubagent).toHaveBeenLastCalledWith(child, 'canvas');
+    expect(screen.getByText('Response interrupted')).toBeInTheDocument();
+    expect(screen.getByText(/agent service restarted/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
-  it('keeps the sourced tool outcome readable inside a compact activity chain', () => {
+  it('does not render projection-only A2UI updates as missing assistant responses', () => {
     renderConversation(
       <ClioConversation
         artifacts={{}}
         messages={[
           {
-            id: 'message_work',
+            id: 'msg_a2ui_action_update',
             session_id: 'session_1',
             role: 'assistant',
             created_at: '2026-08-22T00:00:00Z',
-            blocks: [
-              { id: 'reason_before', type: 'reasoning', text: 'Preparing to inspect evidence.' },
-              { id: 'tool_block', type: 'tool', tool_id: 'tool_read' },
-              { id: 'reason_after', type: 'reasoning', text: 'Formatting the response.' },
-            ],
+            blocks: [],
           },
         ]}
         subagents={{}}
         surfaces={{}}
-        tasks={{}}
-        tools={{
-          tool_read: {
-            id: 'tool_read',
-            session_id: 'session_1',
-            name: 'fs_read_file',
-            title: 'Read evidence file',
-            state: 'succeeded',
-            input: { path: 'D:/campaign/evidence.json' },
-            output: 'large payload omitted from the collapsed summary',
-          },
-        }}
-      />,
-    );
-
-    expect(screen.getByRole('button', { name: 'Activity' })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
-    const activity = screen.getByRole('button', {
-      name: /Expand activity:.*Read evidence file.*Read evidence\.json/,
-    });
-    expect(activity).toBeInTheDocument();
-    expect(activity).not.toHaveAccessibleName(/Completed/);
-    expect(screen.getByRole('radio', { name: 'Full activity view' })).toBeInTheDocument();
-  });
-
-  it('renders a tool-returned task as a quiet status line inside Activity', () => {
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_task',
-            session_id: 'session_1',
-            role: 'assistant',
-            created_at: '2026-08-22T00:00:00Z',
-            blocks: [
-              { id: 'reason_task', type: 'reasoning', text: 'Review the station evidence.' },
-              { id: 'tool_task', type: 'tool', tool_id: 'tool_read' },
-              { id: 'task_block', type: 'task', task_id: 'task_quality' },
-            ],
-          },
-        ]}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{
-          task_quality: {
-            id: 'task_quality',
-            session_id: 'session_1',
-            title: 'Review station quality',
-            state: 'completed',
-            detail: 'Evidence retained with source identity.',
-          },
-        }}
-        tools={{
-          tool_read: {
-            id: 'tool_read',
-            session_id: 'session_1',
-            name: 'ndp_search_datasets',
-            title: 'Search EarthScope catalog',
-            state: 'succeeded',
-          },
-        }}
-      />,
-    );
-
-    const taskLine = document.querySelector('[data-turn-activity="task:task_quality"]');
-    if (!taskLine) throw new Error('the task activity line was not rendered');
-    expect(taskLine).toBeInTheDocument();
-    expect(taskLine).toHaveTextContent('Review station quality');
-    expect(taskLine).toHaveTextContent('Completed');
-    expect(taskLine).toHaveTextContent('Evidence retained with source identity.');
-    expect(taskLine).not.toHaveTextContent('completed.');
-    expect(taskLine.closest('button')).toHaveAccessibleName(/Expand activity/);
-    expect(
-      screen.queryByRole('button', { name: 'Review station quality' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('opens a compact chain as the full causal turn and can condense it again', () => {
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_activity',
-            session_id: 'session_1',
-            role: 'assistant',
-            created_at: '2026-08-22T00:00:00Z',
-            blocks: [
-              { id: 'reason_1', type: 'reasoning', text: 'Inspecting the evidence.' },
-              { id: 'progress_1', type: 'text', text: 'I found the candidate file.' },
-              { id: 'tool_1', type: 'tool', tool_id: 'tool_read' },
-              { id: 'answer_1', type: 'text', text: 'The evidence is ready.' },
-            ],
-          },
-        ]}
-        subagents={{}}
-        surfaces={{}}
-        tasks={{}}
-        tools={{
-          tool_read: {
-            id: 'tool_read',
-            session_id: 'session_1',
-            name: 'fs_read_file',
-            title: 'Read evidence file',
-            state: 'succeeded',
-          },
-        }}
-      />,
-    );
-
-    fireEvent.click(screen.getByRole('radio', { name: 'Full activity view' }));
-
-    expect(screen.getByRole('region', { name: 'Full agent activity' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('radio', { name: 'Chain view' }));
-    expect(screen.queryByRole('region', { name: 'Full agent activity' })).not.toBeInTheDocument();
-  });
-
-  it('distinguishes a deliberately removed interactive surface from unavailable data', () => {
-    renderConversation(
-      <ClioConversation
-        artifacts={{}}
-        messages={[
-          {
-            id: 'message_surface',
-            session_id: 'session_1',
-            role: 'assistant',
-            created_at: '2026-08-22T00:00:00Z',
-            blocks: [{ id: 'block_surface', type: 'a2ui', surface_id: 'surface_1' }],
-          },
-        ]}
-        subagents={{}}
-        surfaces={{
-          surface_1: {
-            id: 'surface_1',
-            session_id: 'session_1',
-            catalog_id: 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1',
-            protocol_version: '0.9.1',
-            revision: 3,
-            state: 'deleted',
-            messages: [],
-          },
-        }}
         tasks={{}}
         tools={{}}
       />,
     );
 
-    expect(screen.getByText('Interactive surface removed')).toBeInTheDocument();
-    expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
-  });
-});
-
-function baseRowProps(): ConversationMessageRowProps {
-  const message: Message = {
-    id: 'message_1',
-    session_id: 'session_1',
-    role: 'user',
-    created_at: '2026-09-02T00:00:00Z',
-    blocks: [],
-  };
-  return {
-    artifacts: {},
-    displayMode: 'full',
-    index: 0,
-    message,
-    onDisplayModeChange: () => undefined,
-    recent: false,
-    subagents: {},
-    surfaces: {},
-    tasks: {},
-    tools: {},
-  };
-}
-
-describe('conversationMessageRowPropsEqual', () => {
-  it('treats a fresh onOpenReference as a real prop change, not a skippable re-render', () => {
-    // Every OTHER prop, message included, is the exact same reference on both
-    // sides — the only thing that changed between renders is the callback.
-    const base = baseRowProps();
-    const left = { ...base, onOpenReference: () => undefined };
-    const right = { ...base, onOpenReference: () => undefined };
-
-    expect(conversationMessageRowPropsEqual(left, right)).toBe(false);
-  });
-
-  it('still skips the re-render when every compared prop, onOpenReference included, is stable', () => {
-    const onOpenReference = () => undefined;
-    const shared = { ...baseRowProps(), onOpenReference };
-
-    expect(conversationMessageRowPropsEqual(shared, { ...shared })).toBe(true);
+    expect(screen.queryByText('Response unavailable')).not.toBeInTheDocument();
+    expect(screen.getByText('This session has no messages')).toBeInTheDocument();
   });
 });

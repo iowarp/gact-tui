@@ -88,8 +88,60 @@ const asyncProcessSchema = z
   .passthrough()
   .transform((process) => ({ ...process, metadata: process as Record<string, unknown> }));
 
+const effectiveToolSchema = z.object({
+  name: z.string(),
+  title: z.string(),
+  source: z.string(),
+  representation: z.string(),
+});
+
+const toolsetTraceSchema = z.object({
+  events: z
+    .array(
+      z.object({
+        occurred_at: z.string().optional(),
+        payload: z.object({
+          agent_id: z.string(),
+          session_id: z.string(),
+          tools: z.array(effectiveToolSchema),
+        }),
+      }),
+    )
+    .default([]),
+});
+
+export type EffectiveAgentTool = z.infer<typeof effectiveToolSchema>;
+
+export interface EffectiveAgentToolset {
+  agentId: string;
+  sessionId: string;
+  recordedAt?: string;
+  tools: EffectiveAgentTool[];
+}
+
 /** Authoritative read models for session work, evidence, and retained context. */
 export class SessionObservabilityRepository extends ExecutionProvenanceRepository {
+  /** Read the newest effective toolset recorded by the agent build itself. */
+  public async effectiveAgentToolset(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<EffectiveAgentToolset | undefined> {
+    const value = await this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/trace?scope=agent.toolset.recorded&limit=50`,
+      decode: (input) => toolsetTraceSchema.parse(input),
+      signal,
+    });
+    const event = value.events.at(-1);
+    if (!event) return undefined;
+    return {
+      agentId: event.payload.agent_id,
+      sessionId: event.payload.session_id,
+      recordedAt: event.occurred_at,
+      tools: event.payload.tools,
+    };
+  }
+
   public async sessionDiffs(sessionId: string, signal?: AbortSignal): Promise<SessionDiff[]> {
     const value = await this.transport.request({
       method: 'GET',

@@ -197,6 +197,8 @@ describe('ModelsSettings', () => {
     await waitFor(() => expect(repository.updateLanguageModelConfiguration).toHaveBeenCalled());
     expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith({
       provider: 'codex',
+      provider_id: 'codex',
+      provider_options: {},
       api_base: '',
       model: 'gpt-5.6-nova',
     });

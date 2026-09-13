@@ -434,6 +434,34 @@ describe('child work activity projection', () => {
     expect(items.find((item) => item.id === 'task_child:branch-open')?.groupId).toBe('turn_root');
   });
 
+  it('projects one tool node while retaining transform and model bookkeeping only as provenance', () => {
+    const realTool = provenance.spans[0]!;
+    const repeated: ExecutionProvenanceResult = {
+      ...provenance,
+      spans: [
+        realTool,
+        {
+          ...realTool,
+          id: 'tool_leaf_transform',
+          event_type: 'artifact.transform.recorded',
+          source_event_ids: ['event_tool_leaf_transform'],
+        },
+        {
+          ...realTool,
+          id: 'tool_leaf_model_action',
+          event_type: 'react.step.completed',
+          source_event_ids: ['event_tool_leaf_model_action'],
+        },
+      ],
+    };
+
+    const projectedToolIds = childProjectionActivityItems(repeated, processes)
+      .filter((item) => item.kind === 'tool')
+      .map((item) => item.id);
+
+    expect(projectedToolIds).toEqual(['projected:tool_leaf']);
+  });
+
   it('reports what an MCP task recorded rather than restating that it is one', () => {
     const failed: AsyncProcess = {
       ...processes[2]!,
@@ -465,11 +493,13 @@ describe('child work activity projection', () => {
     ];
     render(<ClioActivityTimeline items={[{ ...branch!, onOpen }]} messages={messages} />);
 
-    const row = screen.getByRole('button', { name: 'Evidence researcher, Running, 1 level deep' });
-    expect(row.closest('[data-slot="timeline-item"]')).toHaveStyle({ marginInlineStart: '0px' });
-    expect(row).toHaveStyle({ marginInlineStart: '14px' });
+    window.location.hash = '';
+    const row = screen.getByRole('button', {
+      name: 'Open transcript event Evidence researcher',
+    });
     fireEvent.click(row);
-    expect(onOpen).toHaveBeenLastCalledWith('conversation');
+    expect(window.location.hash).toBe('#message-turn_root');
+    expect(onOpen).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Open Evidence researcher in canvas' }));
     expect(onOpen).toHaveBeenLastCalledWith('canvas');
   });
@@ -480,10 +510,10 @@ describe('child work activity projection', () => {
     );
     expect(branch).toBeDefined();
 
-    render(<ClioActivityTimeline items={[branch!]} messages={[]} />);
+    const view = render(<ClioActivityTimeline items={[branch!]} messages={[]} />);
 
-    const row = screen.getAllByText('Evidence leaf')[0];
-    expect(row.closest('[data-slot="timeline-item"]')).toHaveStyle({ marginInlineStart: '28px' });
+    expect(screen.getAllByText('Evidence leaf').length).toBeGreaterThan(0);
+    expect(view.container.querySelector('path[d^="M "]')).not.toBeNull();
   });
 
   it('keeps a depth-0 owner instead of treating a legal depth as missing', () => {

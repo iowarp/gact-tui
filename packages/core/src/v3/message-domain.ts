@@ -32,8 +32,23 @@ export type MessageBlock = MessageBlockContext &
       }
     | { id: string; type: 'tool'; tool_id: string; thought?: string }
     | { id: string; type: 'plan'; title: string; detail?: string }
+    | {
+        id: string;
+        type: 'compaction';
+        summary: string;
+        auto?: boolean;
+      }
     | { id: string; type: 'task'; task_id: string }
     | { id: string; type: 'subagent'; subagent_id: string; stage?: string; task?: string }
+    | {
+        id: string;
+        type: 'agent_message';
+        subagent_id: string;
+        label: string;
+        message: string;
+        action?: string;
+        status?: string;
+      }
     | { id: string; type: 'artifact'; artifact_id: string }
     | {
         id: string;

@@ -133,6 +133,13 @@ export const pendingInteractionSchema = z.object({
       awaiting_question: z.boolean().optional(),
       plan_exit: z
         .object({
+          artifact_ref: z.object({
+            artifact_id: z.string().optional(),
+            saved: z.boolean().optional(),
+            workspace_id: z.string().optional(),
+            version: z.number().int().positive().optional(),
+            sha256: z.string().optional(),
+          }).passthrough().optional(),
           summary: z.string().optional(),
           recommended_mode: z.string().optional(),
           risk_notes: z.string().optional(),

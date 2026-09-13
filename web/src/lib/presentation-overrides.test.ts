@@ -50,11 +50,11 @@ describe('presentation override ledger', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     reportPresentationOverride({
-      kind: 'tool-name-humanization',
+      kind: 'child-tool-correlation',
       entityId: 'relay',
       serverValue: 'relay',
       rendered: 'Relay',
-      issue: PRESENTATION_OVERRIDE_REGISTRY['tool-name-humanization'].issue,
+      issue: PRESENTATION_OVERRIDE_REGISTRY['child-tool-correlation'].issue,
     });
 
     expect(getPresentationOverrideCount('sess_override_scope')).toBe(0);

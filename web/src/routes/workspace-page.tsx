@@ -1,27 +1,30 @@
-import { queryKeys } from '@/lib/query-keys';
 import type {
   PendingInteraction,
   PendingInteractionResponse,
   RunState,
   WorkspaceReference,
 } from '@clio/core/v3';
-import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangleIcon } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
-import { useCallback, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
 import { ClioComposer } from '@/components/clio/composer';
+import { ClioChildSessionFooter } from '@/components/clio/child-session-footer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
 import { sessionPatchForMessageBehavior } from '@/components/clio/session-behavior-options';
 import { ClioNavigation } from '@/components/clio/navigation';
-import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { ClioPendingInteractions } from '@/components/clio/pending-interactions';
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
-import { WorkspaceLoading, WorkspaceUnavailable } from '@/components/clio/workspace-route-surfaces';
+import { SessionWorkSummary } from '@/components/clio/session-work';
+import {
+  WorkspaceLoading,
+  WorkspaceUnavailable,
+  WorkspaceTranscriptAlerts,
+  WorkspaceActionAlerts,
+} from '@/components/clio/workspace-route-surfaces';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
 import {
   WorkspaceLiveConversation,
@@ -29,7 +32,6 @@ import {
   WorkspaceLiveObservabilityView,
   WorkspaceLiveStatusStrip,
 } from '@/components/clio/workspace-live-projections';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useA2UILocalActions } from '@/hooks/use-a2ui-local-actions';
 import { useRepository } from '@/hooks/use-repository';
 import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
@@ -40,8 +42,8 @@ import { useSessionMessageCount } from '@/hooks/use-session-message-count';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
 import { useComposerDraft } from '@/hooks/use-composer-draft';
 import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
-import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
+import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
@@ -49,11 +51,10 @@ import { referenceKindLabel } from '@/lib/composer-reference-domain';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
+  const [searchParams] = useSearchParams();
   const { settings } = useConnectionSettings();
   const navigate = useNavigate();
-  const navigateToAvailableSession = useAvailableSessionNavigation();
   const repository = useRepository();
-  const queryClient = useQueryClient();
   const composerDraft = useComposerDraft(sessionId);
   const [composerFocusKey, setComposerFocusKey] = useState(0);
   const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
@@ -141,17 +142,27 @@ export function WorkspacePage() {
     [sessionId],
   );
   const showConversationWelcome =
-    messageCount === 0 && !transcript.isPending && !transcriptError && !conversationStarted;
+    messageCount === 0 && !transcript.isFetching && !transcriptError && !conversationStarted;
 
   const {
     activeRequest: workbenchRequest,
     openArtifact,
     openDiff,
     openSubagent,
+    openWorkflow,
     openWorkspaceFile,
     openWorkspaceResource,
     revealWorkbench,
   } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
+  const requestedWorkflowId = searchParams.get('workflow');
+  const openedWorkflowId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!requestedWorkflowId || openedWorkflowId.current === requestedWorkflowId) return;
+    const workflow = tools.find((tool) => tool.id === requestedWorkflowId);
+    if (!workflow || workflow.name !== 'run_workflow') return;
+    openedWorkflowId.current = requestedWorkflowId;
+    openWorkflow(workflow);
+  }, [openWorkflow, requestedWorkflowId, tools]);
   const workspaceResourceEntities = useMemo(
     () =>
       Object.fromEntries(
@@ -244,112 +255,10 @@ export function WorkspacePage() {
     [respondInteraction],
   );
   const responseTrayInteractions = workspaceRouteState.responseTrayInteractions(
-    interactions, new Set(tools.map((tool) => tool.id)),
+    interactions,
+    new Set(tools.map((tool) => tool.id)),
   );
-  const refreshNavigation = useCallback(
-    async (targetWorkspaceId = workspaceId) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('workspaces', settings.endpoint) }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('sessions', settings.endpoint, targetWorkspaceId),
-        }),
-      ]);
-    },
-    [queryClient, settings.endpoint, workspaceId],
-  );
-  const navigationActions = useMemo<ResourceActions>(
-    () => ({
-      createWorkspace: async ({ name, rootPath }) => {
-        await repository.createWorkspace({ name, root_path: rootPath });
-        await refreshNavigation();
-      },
-      createSession: async ({
-        title,
-        workspaceId: targetWorkspaceId,
-        blueprintId,
-        mode,
-        routingMode,
-        approvalMode,
-      }) => {
-        const created = await repository.createSession({
-          workspace_id: targetWorkspaceId,
-          title,
-          mode,
-          routing_mode: routingMode,
-          approval_mode: approvalMode,
-        });
-        if (blueprintId) await repository.setSessionAgentBlueprint(created.id, blueprintId);
-        await refreshNavigation(targetWorkspaceId);
-        await navigate(
-          `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(created.id)}`,
-        );
-      },
-      renameWorkspace: async (targetWorkspaceId, name) => {
-        await repository.updateWorkspace(targetWorkspaceId, { name });
-        await refreshNavigation(targetWorkspaceId);
-      },
-      grantWorkspaceFolder: async (targetWorkspaceId, path) => {
-        await repository.grantWorkspaceFolder(targetWorkspaceId, path);
-        await refreshNavigation(targetWorkspaceId);
-      },
-      revokeWorkspaceFolder: async (targetWorkspaceId, path) => {
-        await repository.revokeWorkspaceFolder(targetWorkspaceId, path);
-        await refreshNavigation(targetWorkspaceId);
-      },
-      renameSession: async (targetSessionId, title) => {
-        await repository.updateSession(targetSessionId, { title });
-        await refreshNavigation();
-      },
-      setWorkspacePinned: async (targetWorkspaceId, pinned) => {
-        await repository.updateWorkspace(targetWorkspaceId, { pinned });
-        await refreshNavigation(targetWorkspaceId);
-      },
-      setSessionPinned: async (targetSessionId, pinned) => {
-        await repository.updateSession(targetSessionId, { pinned });
-        await refreshNavigation();
-      },
-      archiveSession: async (targetSessionId) => {
-        await repository.updateSession(targetSessionId, { archived: true });
-        if (targetSessionId === sessionId) {
-          await navigateToAvailableSession();
-          return;
-        }
-        await refreshNavigation();
-      },
-      restoreSession: async (targetSessionId) => {
-        await repository.updateSession(targetSessionId, { archived: false });
-        await refreshNavigation();
-      },
-      deleteWorkspace: async (targetWorkspaceId) => {
-        await repository.deleteWorkspace(targetWorkspaceId);
-        if (targetWorkspaceId === workspaceId) {
-          await navigateToAvailableSession();
-          return;
-        }
-        await refreshNavigation(targetWorkspaceId);
-      },
-      deleteSession: async (targetSessionId) => {
-        await repository.deleteSession(targetSessionId);
-        if (targetSessionId === sessionId) {
-          await navigateToAvailableSession();
-          return;
-        }
-        await refreshNavigation();
-      },
-      exportSession: (targetSessionId) => repository.exportSession(targetSessionId),
-      importSession: async (value) => {
-        const imported = await repository.importSession(value);
-        await refreshNavigation(imported.workspace_id);
-        await navigate(
-          `/workspaces/${encodeURIComponent(imported.workspace_id)}/sessions/${encodeURIComponent(imported.id)}`,
-        );
-      },
-    }),
-    [navigate, navigateToAvailableSession, refreshNavigation, repository, sessionId, workspaceId],
-  );
+  const { navigationActions } = useWorkspaceNavigationActions(workspaceId, sessionId);
   const queryError = capabilities.error ?? workspaces.error ?? sessions.error ?? transcript.error;
   if (
     !session &&
@@ -397,6 +306,19 @@ export function WorkspacePage() {
       .map((steer) => steer.message_id),
   );
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
+  const pendingInteractionsPanel = (
+    <ClioPendingInteractions
+      capabilityError={interactionCapabilityError ?? undefined}
+      error={interactionsError ?? undefined}
+      interactions={responseTrayInteractions}
+      onA2UILocalAction={handleA2UILocalAction}
+      onRefetchSurfaces={refetchInteractionSurfaces}
+      onResponse={handleInteractionResponse}
+      ownerLabels={interactionOwnerLabels}
+      surfaces={interactionSurfaces}
+      viewedSessionId={sessionId}
+    />
+  );
   const renderComposer = (variant: 'docked' | 'welcome') => (
     <m.div
       className={
@@ -408,138 +330,150 @@ export function WorkspacePage() {
       layout
       layoutId={`session-composer:${sessionId}`}
     >
-      <ClioComposer
-        activityControl={
-          variant === 'docked' ? (
-            <div className="flex min-w-0 flex-1 items-center gap-1">
-              <WorkspaceLiveObservabilityDock
-                artifacts={artifacts}
-                context={context}
-                contextFiles={sessionObservability.contextFiles.data ?? []}
-                contextFrames={sessionObservability.contextFrames.data ?? []}
-                diffs={sessionObservability.diffs.data ?? []}
-                executionProvenance={executionProvenance.execution.data}
-                interactions={interactions}
-                onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
-                onOpenArtifact={openArtifact}
-                onOpenDiff={openDiff}
-                onOpenFile={openWorkspaceFile}
-                onOpenResource={openWorkspaceResource}
-                onOpenSubagent={openSubagent}
-                onProvenanceProviderChange={executionProvenance.setProvider}
-                processes={processes}
-                resources={workspaceResources.data ?? []}
-                provenanceDegradation={executionProvenance.degradation}
-                provenancePending={
-                  executionProvenance.providers.isPending || executionProvenance.execution.isPending
-                }
-                provenanceProvider={executionProvenance.provider}
-                provenanceProviders={executionProvenance.providers.data?.providers}
-                artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
-                runs={runs}
+      {parentSession ? (
+        <ClioChildSessionFooter
+          onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
+          onReturnToParent={() =>
+            navigate(
+              `/workspaces/${encodeURIComponent(parentSession.workspace_id)}/sessions/${encodeURIComponent(parentSession.id)}`,
+            )
+          }
+          parentTitle={parentSession.title}
+          pendingInteractions={pendingInteractionsPanel}
+          state={state}
+          variant={variant}
+        />
+      ) : (
+        <ClioComposer
+          workSummary={
+            variant === 'docked' ? (
+              <SessionWorkSummary
                 sessionId={sessionId}
-                sessionState={state}
-                subagents={subagents}
-                tasks={tasks}
-                tools={tools}
+                onOpen={() => revealWorkbench({ kind: 'resources', section: 'work' })}
               />
-            </div>
-          ) : undefined
-        }
-        attachments={workspaceRouteState.canUploadWorkspaceResources(
-          capabilities.data?.capabilities,
-        )}
-        contextReferences={workspaceRouteState.canUseContextReferences(
-          capabilities.data?.capabilities,
-        )}
-        commands={commands}
-        confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
-        disabled={!session || send.isPending || cancel.isPending || isPending}
-        effort={activeEffort}
-        executionMode={
-          session.mode === 'plan'
-            ? 'plan'
-            : session.mode === 'architect'
-              ? 'deep_research'
-              : 'execute'
-        }
-        focusRequestKey={composerFocusKey}
-        key={`composer:${sessionId}:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
-        model={activeModel}
-        modelCatalogStatus={modelCatalogStatus}
-        modelOptions={modelOptions}
-        pendingInteractions={
-          <ClioPendingInteractions
-            capabilityError={interactionCapabilityError ?? undefined}
-            error={interactionsError ?? undefined}
-            interactions={responseTrayInteractions}
-            onA2UILocalAction={handleA2UILocalAction}
-            onRefetchSurfaces={refetchInteractionSurfaces}
-            onResponse={handleInteractionResponse}
-            ownerLabels={interactionOwnerLabels}
-            surfaces={interactionSurfaces}
-            viewedSessionId={sessionId}
-          />
-        }
-        onCommand={async (value) => {
-          const startedFromWelcome = showConversationWelcome;
-          if (startedFromWelcome) setConversationStarted(true);
-          try {
-            await run(value);
-          } catch (error) {
-            if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
-            throw error;
+            ) : undefined
           }
-        }}
-        onRetryModelCatalog={() => void providerCatalog.refetch()}
-        onBehaviorChange={async (behavior) => {
-          await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
-        }}
-        onPrepareFiles={prepareFiles}
-        onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
-        onSubmit={async (value) => {
-          const startedFromWelcome = showConversationWelcome;
-          if (startedFromWelcome) setConversationStarted(true);
-          try {
-            const revision = workspaceRouteState.planRevisionFromComposer(interactions, value);
-            await (revision
-              ? handleInteractionResponse(revision.interaction, revision.response)
-              : send.mutateAsync(value));
-          } catch (error) {
-            if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
-            throw error;
+          activityControl={
+            variant === 'docked' ? (
+              <div className="flex min-w-0 flex-1 items-center gap-1">
+                <WorkspaceLiveObservabilityDock
+                  artifacts={artifacts}
+                  context={context}
+                  contextFiles={sessionObservability.contextFiles.data ?? []}
+                  contextFrames={sessionObservability.contextFrames.data ?? []}
+                  diffs={sessionObservability.diffs.data ?? []}
+                  executionProvenance={executionProvenance.execution.data}
+                  interactions={interactions}
+                  onOpenCanvas={() => revealWorkbench({ kind: 'session' })}
+                  onOpenArtifact={openArtifact}
+                  onOpenDiff={openDiff}
+                  onOpenFile={openWorkspaceFile}
+                  onOpenResource={openWorkspaceResource}
+                  onOpenSubagent={openSubagent}
+                  onProvenanceProviderChange={executionProvenance.setProvider}
+                  processes={processes}
+                  resources={workspaceResources.data ?? []}
+                  provenanceDegradation={executionProvenance.degradation}
+                  provenancePending={
+                    executionProvenance.providers.isPending ||
+                    executionProvenance.execution.isPending
+                  }
+                  provenanceProvider={executionProvenance.provider}
+                  provenanceProviders={executionProvenance.providers.data?.providers}
+                  artifactProvenanceProvider={executionProvenance.providers.data?.artifact}
+                  runs={runs}
+                  sessionId={sessionId}
+                  sessionState={state}
+                  subagents={subagents}
+                  tasks={tasks}
+                  tools={tools}
+                />
+              </div>
+            ) : undefined
           }
-        }}
-        onStop={() => cancel.mutate()}
-        onOpenResource={openWorkspaceResource}
-        onOpenReference={(reference) => void openComposerReference(reference)}
-        onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
-        onPromoteQueuedMessage={(message, delivery) =>
-          promoteQueuedMessage.mutateAsync({ delivery, message }).then(() => undefined)
-        }
-        onReorderQueuedMessages={(messages) =>
-          reorderQueuedMessages.mutateAsync(messages).then(() => undefined)
-        }
-        onUpdateQueuedMessage={(message, text) =>
-          updateQueuedMessage.mutateAsync({ message, text }).then(() => undefined)
-        }
-        onReferencesChange={composerDraft.onReferencesChange}
-        onValueChange={composerDraft.onValueChange}
-        provider={activeProvider}
-        queuedMessages={queuedMessages.data ?? []}
-        resources={workspaceResources.data ?? []}
-        queueBusy={
-          deleteQueuedMessage.isPending ||
-          promoteQueuedMessage.isPending ||
-          reorderQueuedMessages.isPending ||
-          updateQueuedMessage.isPending
-        }
-        state={state}
-        references={composerDraft.references}
-        value={composerDraft.value}
-        variant={variant}
-        workspaceId={workspaceId}
-      />
+          attachments={workspaceRouteState.canUploadWorkspaceResources(
+            capabilities.data?.capabilities,
+          )}
+          contextReferences={workspaceRouteState.canUseContextReferences(
+            capabilities.data?.capabilities,
+          )}
+          commands={commands}
+          confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
+          disabled={!session || send.isPending || cancel.isPending || isPending}
+          effort={activeEffort}
+          executionMode={
+            session.mode === 'plan'
+              ? 'plan'
+              : session.mode === 'architect'
+                ? 'deep_research'
+                : 'execute'
+          }
+          focusRequestKey={composerFocusKey}
+          key={`composer:${sessionId}:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
+          model={activeModel}
+          modelCatalogStatus={modelCatalogStatus}
+          modelOptions={modelOptions}
+          pendingInteractions={pendingInteractionsPanel}
+          onCommand={async (value) => {
+            const startedFromWelcome = showConversationWelcome;
+            if (startedFromWelcome) setConversationStarted(true);
+            try {
+              await run(value);
+            } catch (error) {
+              if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
+              throw error;
+            }
+          }}
+          onRetryModelCatalog={() => void providerCatalog.refetch()}
+          onBehaviorChange={async (behavior) => {
+            await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
+          }}
+          onPrepareFiles={prepareFiles}
+          onHeightChange={variant === 'docked' ? setDockedComposerHeight : undefined}
+          onSubmit={async (value) => {
+            const startedFromWelcome = showConversationWelcome;
+            if (startedFromWelcome) setConversationStarted(true);
+            try {
+              const revision = workspaceRouteState.planRevisionFromComposer(interactions, value);
+              await (revision
+                ? handleInteractionResponse(revision.interaction, revision.response)
+                : send.mutateAsync(value));
+            } catch (error) {
+              if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
+              throw error;
+            }
+          }}
+          onStop={() => cancel.mutate()}
+          onOpenResource={openWorkspaceResource}
+          onOpenReference={(reference) => void openComposerReference(reference)}
+          onDeleteQueuedMessage={(message) => deleteQueuedMessage.mutateAsync(message)}
+          onPromoteQueuedMessage={(message, delivery) =>
+            promoteQueuedMessage.mutateAsync({ delivery, message }).then(() => undefined)
+          }
+          onReorderQueuedMessages={(messages) =>
+            reorderQueuedMessages.mutateAsync(messages).then(() => undefined)
+          }
+          onUpdateQueuedMessage={(message, text) =>
+            updateQueuedMessage.mutateAsync({ message, text }).then(() => undefined)
+          }
+          onReferencesChange={composerDraft.onReferencesChange}
+          onValueChange={composerDraft.onValueChange}
+          provider={activeProvider}
+          queuedMessages={queuedMessages.data ?? []}
+          resources={workspaceResources.data ?? []}
+          queueBusy={
+            deleteQueuedMessage.isPending ||
+            promoteQueuedMessage.isPending ||
+            reorderQueuedMessages.isPending ||
+            updateQueuedMessage.isPending
+          }
+          state={state}
+          references={composerDraft.references}
+          value={composerDraft.value}
+          variant={variant}
+          workspaceId={workspaceId}
+        />
+      )}
     </m.div>
   );
   return (
@@ -615,6 +549,7 @@ export function WorkspacePage() {
               })
             }
             onOpenSubagent={openSubagent}
+            subagents={subagents}
             onRejectDiff={(targetSessionId, targetWorkspaceId, path) =>
               diffActions.reject.mutateAsync({
                 sessionId: targetSessionId,
@@ -691,20 +626,10 @@ export function WorkspacePage() {
         }
       >
         <section className="relative flex h-full min-w-0 flex-col bg-background">
-          {streamError ? (
-            <Alert className="m-3 mb-0 rounded-lg" variant="destructive">
-              <AlertTriangleIcon aria-hidden="true" />
-              <AlertTitle>Live stream needs reconciliation</AlertTitle>
-              <AlertDescription>{streamError}</AlertDescription>
-            </Alert>
-          ) : null}
-          {transcriptError && messageCount > 0 ? (
-            <Alert className="m-3 mb-0" variant="destructive">
-              <AlertTriangleIcon aria-hidden="true" />
-              <AlertTitle>Conversation unavailable</AlertTitle>
-              <AlertDescription>{transcriptError}</AlertDescription>
-            </Alert>
-          ) : null}
+          <WorkspaceTranscriptAlerts
+            streamError={streamError}
+            transcriptError={messageCount > 0 ? transcriptError : undefined}
+          />
           <LayoutGroup id={`session-layout:${sessionId}`}>
             <AnimatePresence initial={false} mode="popLayout">
               {showConversationWelcome ? (
@@ -739,11 +664,12 @@ export function WorkspacePage() {
                     artifacts={artifacts}
                     bottomInset={dockedComposerHeight}
                     error={transcriptError}
-                    loading={transcript.isPending}
+                    loading={transcript.isFetching}
                     onActionCardAction={actionCard.mutateAsync}
                     onA2UILocalAction={handleA2UILocalAction}
                     onOpenArtifact={openArtifact}
                     onOpenFile={openWorkspaceFile}
+                    onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}
                     onOpenResource={openWorkspaceResource}
                     onOpenReference={(reference) => void openComposerReference(reference)}
                     onInteractionResponse={handleInteractionResponse}
@@ -754,6 +680,7 @@ export function WorkspacePage() {
                     }
                     onForkFromMessage={sessionHistory.fork.mutateAsync}
                     onOpenSubagent={openSubagent}
+                    onOpenWorkflow={openWorkflow}
                     onRewindToMessage={sessionHistory.rewind.mutateAsync}
                     onRetryMessage={retry.mutateAsync}
                     cancellablePendingMessageIds={cancellablePendingMessageIds}
@@ -770,24 +697,15 @@ export function WorkspacePage() {
                     mcpAppRepository={repository}
                     interactions={interactions}
                     sessionId={sessionId}
+                    subagents={subagents}
                   />
                 </m.div>
               )}
             </AnimatePresence>
-            {actionCard.error ? (
-              <Alert className="mx-4 mb-3" variant="destructive">
-                <AlertTriangleIcon aria-hidden="true" />
-                <AlertTitle>Action unavailable</AlertTitle>
-                <AlertDescription>{actionCard.error.message}</AlertDescription>
-              </Alert>
-            ) : null}
-            {retry.error ? (
-              <Alert className="mx-4 mb-3" variant="destructive">
-                <AlertTriangleIcon aria-hidden="true" />
-                <AlertTitle>Retry unavailable</AlertTitle>
-                <AlertDescription>{retry.error.message}</AlertDescription>
-              </Alert>
-            ) : null}
+            <WorkspaceActionAlerts
+              actionError={actionCard.error?.message}
+              retryError={retry.error?.message}
+            />
             <AnimatePresence initial={false}>
               {showConversationWelcome ? null : renderComposer('docked')}
             </AnimatePresence>

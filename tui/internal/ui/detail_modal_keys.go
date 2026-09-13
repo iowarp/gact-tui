@@ -2,21 +2,30 @@ package ui
 
 // detailViewModal: the scrollable detail/bulky-part overlay and its key handling.
 
-import tea "charm.land/bubbletea/v2"
+import (
+	tea "charm.land/bubbletea/v2"
+	"context"
+)
 
 // detailViewModal is the floating detail overlay's state: the bulky part being
 // shown, the scroll offset, and a wrap-cache scoped to this view. It owns its
 // behaviour (the former *App detail-view methods now hang off the struct) and
 // holds an app back-reference for shared services, wired in wireComponents().
 type detailViewModal struct {
-	app     *App
-	visible bool
-	ref     *bulkyPartRef
-	scroll  int
-	wrap    detailWrapCache
+	cancelLoad context.CancelFunc
+	app        *App
+	visible    bool
+	ref        *bulkyPartRef
+	scroll     int
+	wrap       detailWrapCache
 }
 
-func (m *detailViewModal) reset() { *m = detailViewModal{app: m.app} }
+func (m *detailViewModal) reset() {
+	if m.cancelLoad != nil {
+		m.cancelLoad()
+	}
+	*m = detailViewModal{app: m.app}
+}
 
 func (m *detailViewModal) close() { m.reset() }
 
@@ -25,6 +34,10 @@ func (m *detailViewModal) close() { m.reset() }
 // for cross-component openers — they build a *bulkyPartRef and hand it over
 // rather than poking visible/ref/scroll/wrap directly.
 func (m *detailViewModal) open(ref *bulkyPartRef) {
+	if m.cancelLoad != nil {
+		m.cancelLoad()
+		m.cancelLoad = nil
+	}
 	m.ref = ref
 	m.visible = true
 	m.scroll = 0
@@ -46,6 +59,17 @@ func (m *detailViewModal) handleKey(k tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.app, cmd
 	}
 	switch k.String() {
+	case "t":
+		if m.ref != nil && m.ref.presentation != nil {
+			if m.ref.fullText == m.ref.technicalText {
+				m.ref.fullText = m.ref.resultText
+			} else {
+				m.ref.fullText = m.ref.technicalText
+			}
+			m.scroll = 0
+			m.wrap = detailWrapCache{}
+			return m.app, nil
+		}
 	case "esc", "ctrl+c", "ctrl+e":
 		m.close()
 		return m.app, nil

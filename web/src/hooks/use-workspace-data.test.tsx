@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { SessionArtifactListing } from '@clio/core/v3';
+import type { SessionArtifactListing, TranscriptSnapshot } from '@clio/core/v3';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   mergeSnapshots: vi.fn(),
+  useSessionLiveStream: vi.fn(),
   repository: {
     agentBlueprints: vi.fn(async () => []),
     allSessions: vi.fn(async () => [] as unknown[]),
@@ -27,14 +28,16 @@ const mocks = vi.hoisted(() => ({
       }),
     ),
     sessions: vi.fn(async () => [] as unknown[]),
-    transcript: vi.fn(async () => ({
-      messages: [],
-      tools: [],
-      tasks: [],
-      subagents: [],
-      artifacts: [],
-      surfaces: [],
-    })),
+    transcript: vi.fn(
+      async (): Promise<TranscriptSnapshot> => ({
+        messages: [],
+        tools: [],
+        tasks: [],
+        subagents: [],
+        artifacts: [],
+        surfaces: [],
+      }),
+    ),
     workspaceFiles: vi.fn(async () => []),
     workspaces: vi.fn(async () => []),
   },
@@ -44,7 +47,9 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
 vi.mock('./use-repository', () => ({ useRepository: () => mocks.repository }));
-vi.mock('./use-session-live-stream', () => ({ useSessionLiveStream: () => undefined }));
+vi.mock('./use-session-live-stream', () => ({
+  useSessionLiveStream: mocks.useSessionLiveStream,
+}));
 vi.mock('./use-session-context', () => ({
   useSessionContext: () => ({ state: { data: undefined } }),
 }));
@@ -105,6 +110,7 @@ function renderWorkspaceData() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.useSessionLiveStream.mockReturnValue(undefined);
   mocks.repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: [] });
   mocks.repository.pendingApprovals.mockResolvedValue([]);
   mocks.repository.pendingQuestions.mockResolvedValue([]);
@@ -115,6 +121,32 @@ beforeEach(() => {
   mocks.repository.allSessions.mockResolvedValue([
     { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'idle' },
   ]);
+});
+
+describe('useWorkspaceData stream ownership', () => {
+  it('reserves the browser request channel while idle and opens the cursor stream when running', async () => {
+    mocks.repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: ['0.3'] });
+    const idle = renderWorkspaceData();
+
+    await waitFor(() =>
+      expect(mocks.useSessionLiveStream).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: false, sessionId: 'sess_1' }),
+      ),
+    );
+    idle.unmount();
+
+    mocks.repository.sessions.mockResolvedValue([
+      { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'running' },
+    ]);
+    const running = renderWorkspaceData();
+
+    await waitFor(() =>
+      expect(mocks.useSessionLiveStream).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: true, sessionId: 'sess_1' }),
+      ),
+    );
+    running.unmount();
+  });
 });
 
 describe('useWorkspaceData interaction reads', () => {
@@ -192,7 +224,24 @@ describe('useWorkspaceData interaction reads', () => {
 });
 
 describe('useWorkspaceData artifact reads', () => {
-  it('merges registry artifacts so transcript resource links resolve after a task completes', async () => {
+  it('enriches registry heads without dropping historical transcript result versions', async () => {
+    const historical = {
+      id: 'artifact_previous',
+      session_id: 'sess_1',
+      workspace_id: 'ws_1',
+      name: 'report.md',
+      media_type: 'text/markdown',
+      uri: 'artifact://ws_1/report.md@v0',
+      created_at: '2026-09-04T00:00:00Z',
+    };
+    mocks.repository.transcript.mockResolvedValue({
+      messages: [],
+      tools: [],
+      tasks: [],
+      subagents: [],
+      surfaces: [],
+      artifacts: [historical],
+    });
     mocks.repository.sessionArtifacts.mockResolvedValue({
       artifacts: [
         {
@@ -203,6 +252,20 @@ describe('useWorkspaceData artifact reads', () => {
           head_artifact_id: 'artifact_report',
           aliases: { latest: 1 },
           versions: [
+            {
+              artifact_id: 'artifact_live_previous',
+              workspace_id: 'ws_1',
+              name: 'report.md',
+              version: 0,
+              kind: 'report',
+              custody: 'cas',
+              mechanism: 'tool-schema',
+              evidence_class: 'hashed-at-use',
+              created_at: '2026-09-04T12:00:00Z',
+              producer: {},
+              uri: 'artifact://ws_1/report.md@v0',
+              fetch_url: '/v1/artifacts/artifact_live_previous/bytes',
+            },
             {
               artifact_id: 'artifact_report',
               workspace_id: 'ws_1',
@@ -235,6 +298,11 @@ describe('useWorkspaceData artifact reads', () => {
     await waitFor(() =>
       expect(mocks.mergeSnapshots).toHaveBeenCalledWith({
         artifacts: {
+          artifact_previous: historical,
+          artifact_live_previous: expect.objectContaining({
+            id: 'artifact_live_previous',
+            fetch_path: '/v1/artifacts/artifact_live_previous/bytes',
+          }),
           artifact_report: expect.objectContaining({
             id: 'artifact_report',
             name: 'report.md',

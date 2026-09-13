@@ -7,23 +7,23 @@ on:
     # contract/SPEC.md IS the source the Go/TS vocabulary gates enforce, so
     # re-include it (ordered negation: last matching pattern wins).
     paths:
-      - "**"
-      - "!**.png"
-      - "!**.gif"
-      - "!**.md"
-      - "!screenshots/**"
-      - "!docs/**"
-      - "contract/SPEC.md"
+      - '**'
+      - '!**.png'
+      - '!**.gif'
+      - '!**.md'
+      - '!screenshots/**'
+      - '!docs/**'
+      - 'contract/SPEC.md'
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, 'codex/**']
     paths:
-      - "**"
-      - "!**.png"
-      - "!**.gif"
-      - "!**.md"
-      - "!screenshots/**"
-      - "!docs/**"
-      - "contract/SPEC.md"
+      - '**'
+      - '!**.png'
+      - '!**.gif'
+      - '!**.md'
+      - '!screenshots/**'
+      - '!docs/**'
+      - 'contract/SPEC.md'
 
 jobs:
   build-test:
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           # Match the toolchain pinned in go.work.
-          go-version: "1.26.x"
+          go-version: '1.26.x'
           cache-dependency-path: |
             **/go.sum
 
@@ -96,7 +96,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           # Match the toolchain pinned in go.work.
-          go-version: "1.26.x"
+          go-version: '1.26.x'
           cache-dependency-path: |
             **/go.sum
 
@@ -126,7 +126,7 @@ jobs:
       - uses: actions/setup-python@v5
         if: steps.changes.outputs.adapter == 'true'
         with:
-          python-version: "3.12"
+          python-version: '3.12'
 
       - uses: astral-sh/setup-uv@v5
         if: steps.changes.outputs.adapter == 'true'

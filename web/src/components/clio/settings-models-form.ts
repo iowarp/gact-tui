@@ -36,7 +36,11 @@ const RUNTIME_SIZED_PROVIDERS: readonly string[] = ['vllm', 'lm_studio', 'ollama
 
 /** Whether the parallel-slot and context-length controls apply to this preset. */
 export function providerSupportsRuntimeSizing(preset?: LanguageModelPreset): boolean {
-  return Boolean(preset && RUNTIME_SIZED_PROVIDERS.includes(preset.provider));
+  return Boolean(
+    preset &&
+      (preset.supports_runtime_sizing ||
+        RUNTIME_SIZED_PROVIDERS.includes(preset.provider_id || preset.provider)),
+  );
 }
 
 /**
@@ -51,15 +55,18 @@ export interface ModelSettingsValues {
   maxTokens: string;
   modelId: string;
   parallel: string;
+  providerOptions: Record<string, string>;
   temperature: string;
 }
 
 /** The body of a configuration write, as the provider repository accepts it. */
 export interface ModelSettingsUpdate {
+  provider_id: string;
   provider: string;
   api_base: string;
   model: string;
   api_key?: string;
+  provider_options: Record<string, string>;
   thinking_level?: ReasoningEffort;
   parallel?: number;
   context_length?: number;
@@ -74,7 +81,7 @@ export function resolveActivePreset(
   return (
     configuration.presets.find(
       (preset) =>
-        preset.provider === configuration.provider &&
+        (preset.id === configuration.provider_id || preset.provider === configuration.provider) &&
         (!preset.api_base || preset.api_base === configuration.api_base),
     ) ?? configuration.presets.find((preset) => preset.id === configuration.provider)
   );
@@ -115,6 +122,7 @@ export function seedModelSettings({
     maxTokens: numberField(configuration.max_tokens),
     modelId: presetIsActive ? configuration.model : (preset?.suggested_model ?? ''),
     parallel: '',
+    providerOptions: presetIsActive ? (configuration.provider_options ?? {}) : {},
     temperature: numberField(configuration.temperature),
   };
 }
@@ -138,9 +146,11 @@ export function modelSettingsUpdate({
   values: ModelSettingsValues;
 }): ModelSettingsUpdate {
   const update: ModelSettingsUpdate = {
+    provider_id: preset.provider_id || preset.id,
     provider: preset.provider,
     api_base: values.apiBase,
     model: values.modelId,
+    provider_options: values.providerOptions,
   };
   if (values.apiKey) update.api_key = values.apiKey;
   if (values.effort && values.effort !== seeded.effort) update.thinking_level = values.effort;

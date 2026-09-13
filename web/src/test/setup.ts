@@ -1,5 +1,11 @@
 import '@testing-library/jest-dom/vitest';
 
+// jsdom has no layout engine. Geometry-specific tests replace this with real
+// row fixtures; browser qualification verifies wrapping against actual layout.
+if (!Range.prototype.getClientRects) {
+  Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
+}
+
 if (!URL.createObjectURL) {
   Object.defineProperty(URL, 'createObjectURL', {
     configurable: true,

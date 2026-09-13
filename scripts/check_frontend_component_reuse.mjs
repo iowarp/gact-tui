@@ -6,9 +6,12 @@ const root = resolve(import.meta.dirname, '..');
 const requiredImports = {
   'web/src/components/clio/conversation.tsx': [
     '@/components/ai-elements/conversation',
-    '@/components/ai-elements/message',
-    './conversation-message-blocks',
+    './conversation-message-row',
   ],
+  // The per-message Message/MessageContent/MessageActions composition moved
+  // here when conversation.tsx was split by behavior (2026-09-12); the
+  // sourced component is still composed, just from this file now.
+  'web/src/components/clio/conversation-message-row.tsx': ['@/components/ai-elements/message'],
   'web/src/components/clio/conversation-message-blocks.tsx': [
     '@/components/ai-elements/code-block',
     '@/components/ai-elements/plan',
@@ -57,10 +60,14 @@ const requiredImports = {
     '@/components/ui/tabs',
     './observability-activity',
   ],
-  'web/src/components/clio/observability-activity.tsx': ['@/components/reui/timeline'],
+  // web/src/components/clio/observability-activity.tsx has no entry here:
+  // ClioActivityTimeline replaced the reui Timeline row-list with a bespoke
+  // git-style causal graph (SVG connector paths across stable agent-strand
+  // lanes); Timeline's linear-item model can't represent concurrent strands,
+  // so no sourced component composes this view (reviewed 2026-09-12).
   'web/src/components/clio/observability-evidence.tsx': [
     '@/components/ai-elements/code-block',
-    '@/components/reui/frame',
+    '@/components/ui/accordion',
     './artifact-card',
   ],
   'web/src/components/clio/inspector.tsx': [

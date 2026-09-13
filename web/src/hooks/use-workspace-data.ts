@@ -12,7 +12,18 @@ import {
   PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
   PROVIDER_CATALOG_STALE_TIME_MS,
 } from '@/lib/runtime-limits';
-import { sessionArtifactEntities } from '@/lib/session-artifacts';
+import { sessionArtifactEntities, sessionArtifactVersionEntities } from '@/lib/session-artifacts';
+import {
+  readReloadAllSessions,
+  readReloadSessions,
+  readReloadTranscript,
+  readReloadWorkspaces,
+  writeReloadAllSessions,
+  writeReloadSessions,
+  writeReloadTranscript,
+  writeReloadWorkspaces,
+} from '@/lib/session-reload-cache';
+import { withSubagentOrigins } from '@/lib/subagent-origins';
 import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -78,15 +89,30 @@ export function useWorkspaceData({
   );
   const mergeSnapshots = useLiveStore((state) => state.mergeSnapshots);
   const { capabilities, modelConfiguration } = useWorkspaceCapabilities();
+  const reloadWorkspaces = useMemo(() => readReloadWorkspaces(settings.endpoint), [settings.endpoint]);
+  const reloadSessions = useMemo(
+    () => readReloadSessions(settings.endpoint, workspaceId),
+    [settings.endpoint, workspaceId],
+  );
+  const reloadAllSessions = useMemo(
+    () => readReloadAllSessions(settings.endpoint),
+    [settings.endpoint],
+  );
+  const reloadTranscript = useMemo(
+    () => readReloadTranscript(settings.endpoint, sessionId),
+    [sessionId, settings.endpoint],
+  );
 
   const workspaces = useQuery({
     queryKey: queryKeys.key('workspaces', settings.endpoint),
     queryFn: ({ signal }) => repository.workspaces(signal),
+    placeholderData: reloadWorkspaces,
   });
   const sessions = useQuery({
     queryKey: queryKeys.key('sessions', settings.endpoint, workspaceId),
     queryFn: ({ signal }) => repository.sessions(workspaceId, signal),
     enabled: Boolean(workspaceId),
+    placeholderData: reloadSessions,
     refetchInterval: (query) => {
       const current = query.state.data?.find((item) => item.id === sessionId);
       return current && isSessionActive(current.state) ? ACTIVE_SESSION_POLL_MS : false;
@@ -95,6 +121,7 @@ export function useWorkspaceData({
   const allSessions = useQuery({
     queryKey: queryKeys.key('sessions', settings.endpoint, 'all'),
     queryFn: ({ signal }) => repository.allSessions(signal),
+    placeholderData: reloadAllSessions,
   });
   const hierarchySessions = useMemo(
     () => allSessions.data ?? sessions.data ?? [],
@@ -109,14 +136,20 @@ export function useWorkspaceData({
     queryKey: queryKeys.key('transcript', settings.endpoint, sessionId),
     queryFn: ({ signal }) => repository.transcript(sessionId, signal),
     enabled: Boolean(sessionId),
+    placeholderData: reloadTranscript,
   });
   const sessionArtifacts = useQuery({
     queryKey: queryKeys.key('session-artifacts', settings.endpoint, sessionId),
     queryFn: ({ signal }) => repository.sessionArtifacts(sessionId, signal),
     enabled: Boolean(sessionId),
   });
+  const streamSession =
+    entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);
   const streamError = useSessionLiveStream({
-    enabled: workspaceRouteState.canOpenSessionStream(capabilities.data?.gact_versions, sessionId),
+    enabled:
+      workspaceRouteState.canOpenSessionStream(capabilities.data?.gact_versions, sessionId) &&
+      streamSession?.workspace_id === workspaceId &&
+      isSessionActive(streamSession.state),
     initialCursor: transcript.data?.cursor,
     sessionId,
     workspaceId,
@@ -230,8 +263,23 @@ export function useWorkspaceData({
     if (workspaces.data) mergeSnapshots({ workspaces: recordById(workspaces.data) });
   }, [mergeSnapshots, workspaces.data]);
   useEffect(() => {
+    if (workspaces.data && !workspaces.isPlaceholderData) {
+      writeReloadWorkspaces(settings.endpoint, workspaces.data);
+    }
+  }, [settings.endpoint, workspaces.data, workspaces.isPlaceholderData]);
+  useEffect(() => {
     if (sessions.data) mergeSnapshots({ sessions: recordById(sessions.data) });
   }, [mergeSnapshots, sessions.data]);
+  useEffect(() => {
+    if (sessions.data && !sessions.isPlaceholderData) {
+      writeReloadSessions(settings.endpoint, workspaceId, sessions.data);
+    }
+  }, [sessions.data, sessions.isPlaceholderData, settings.endpoint, workspaceId]);
+  useEffect(() => {
+    if (allSessions.data && !allSessions.isPlaceholderData) {
+      writeReloadAllSessions(settings.endpoint, allSessions.data);
+    }
+  }, [allSessions.data, allSessions.isPlaceholderData, settings.endpoint]);
   useEffect(() => {
     if (!transcript.data) return;
     mergeSnapshots({
@@ -239,20 +287,27 @@ export function useWorkspaceData({
       tools: recordById(transcript.data.tools),
       tasks: recordById(transcript.data.tasks),
       subagents: recordById(transcript.data.subagents),
-      artifacts: recordById(transcript.data.artifacts),
       surfaces: recordById(transcript.data.surfaces),
     });
   }, [mergeSnapshots, transcript.data]);
   useEffect(() => {
-    if (!sessionArtifacts.data) return;
-    const registryArtifacts = sessionArtifactEntities(sessionArtifacts.data, [], sessionId);
-    if (registryArtifacts.length) {
-      mergeSnapshots({ artifacts: recordById(registryArtifacts) });
+    if (transcript.data && !transcript.isPlaceholderData) {
+      writeReloadTranscript(settings.endpoint, sessionId, transcript.data);
     }
-  }, [mergeSnapshots, sessionArtifacts.data, sessionId]);
+  }, [sessionId, settings.endpoint, transcript.data, transcript.isPlaceholderData]);
+  useEffect(() => {
+    if (!sessionArtifacts.data && !transcript.data) return;
+    // Live turns may announce older versions before a transcript refetch. Retain
+    // every registered version, not just the head, so those links stay usable.
+    const registryArtifacts = sessionArtifacts.data
+      ? sessionArtifactVersionEntities(sessionArtifacts.data, sessionId)
+      : [];
+    mergeSnapshots({
+      artifacts: recordById([...(transcript.data?.artifacts ?? []), ...registryArtifacts]),
+    });
+  }, [mergeSnapshots, sessionArtifacts.data, sessionId, transcript.data]);
 
-  const sessionCandidate =
-    entities.sessions[sessionId] ?? sessions.data?.find((item) => item.id === sessionId);
+  const sessionCandidate = streamSession;
   const session = sessionCandidate?.workspace_id === workspaceId ? sessionCandidate : undefined;
   const workspace =
     entities.workspaces[workspaceId] ?? workspaces.data?.find((item) => item.id === workspaceId);
@@ -310,8 +365,12 @@ export function useWorkspaceData({
     [sessionArtifacts.data, sessionId, transcriptArtifacts],
   );
   const subagents = useMemo(
-    () => Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
-    [entities.subagents, sessionId],
+    () =>
+      withSubagentOrigins(
+        Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
+        allSessions.data ?? [],
+      ),
+    [allSessions.data, entities.subagents, sessionId],
   );
   const processes = sessionObservability.processes.data ?? [];
   const interactionSessionIds = useMemo(() => {

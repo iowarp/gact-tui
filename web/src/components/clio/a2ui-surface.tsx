@@ -14,6 +14,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { findLastSurfaceAction } from '@/lib/a2ui-state';
 import { A2uiSurface, clioA2UICatalog } from './a2ui-catalog';
 import { ClioStatus, type ClioStatusValue } from './status';
+import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 
 function SurfaceFailure({ error }: { error: Error }) {
   return (
@@ -190,6 +191,7 @@ function ClioA2UISurfaceContent({
   }, [handleAction, surface.id, surface.messages]);
   const lastAction = useMemo(() => findLastSurfaceAction(surface.messages), [surface.messages]);
   const surfaceBusy = isPending || localActionPending || surface.state !== 'ready';
+  const surfaceKind = useMemo(() => a2uiSurfaceKind(surface.messages), [surface.messages]);
 
   if (processedSurface.error) return <SurfaceFailure error={processedSurface.error} />;
   if (surface.error || surface.state === 'failed') {
@@ -202,13 +204,16 @@ function ClioA2UISurfaceContent({
   if (!processedSurface.model || surface.state === 'deleted') return null;
   return (
     <section
-      aria-label="Agent-created view"
-      className="overflow-hidden rounded-xl border bg-card/70"
+      aria-label={`Generated UI, ${surfaceKind}`}
+      className="scroll-m-8 overflow-hidden rounded-xl border bg-card/70 focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+      id={a2uiSurfaceDomId(surface.id)}
+      tabIndex={-1}
     >
-      {surfaceBusy ? (
-        <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2 text-xs">
-          <BoxesIcon aria-hidden="true" className="size-3.5 text-primary" />
-          <span className="font-medium">Analysis view</span>
+      <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2 text-xs">
+        <BoxesIcon aria-hidden="true" className="size-3.5 text-primary" />
+        <span className="font-medium">Generated UI</span>
+        <span className="text-muted-foreground">{surfaceKind}</span>
+        {surfaceBusy ? (
           <ClioStatus
             className="ml-auto"
             label={
@@ -220,8 +225,8 @@ function ClioA2UISurfaceContent({
             }
             value={isPending || localActionPending ? 'running' : surfaceStatusValue(surface.state)}
           />
-        </div>
-      ) : null}
+        ) : null}
+      </div>
       <div className="p-3 [--a2ui-tabs-content-padding:0]">
         <MarkdownContext.Provider value={renderMarkdown}>
           <A2uiSurface surface={processedSurface.model} />
@@ -235,7 +240,7 @@ function ClioA2UISurfaceContent({
                 ? `Sending action to ${brand.name}`
                 : localActionPending
                   ? 'Applying action in this workspace'
-                  : localActionStatus || `${lastAction?.name} accepted`
+                  : localActionStatus || acceptedActionLabel(lastAction?.name)
             }
             value={isPending || localActionPending ? 'running' : 'completed'}
           />
@@ -248,6 +253,23 @@ function ClioA2UISurfaceContent({
       ) : null}
     </section>
   );
+}
+
+function acceptedActionLabel(name: string | undefined): string {
+  switch (name) {
+    case 'agent.submit':
+      return 'Sent to agent';
+    case 'form.submit':
+      return 'Form response accepted';
+    case 'approval.respond':
+      return 'Approval response accepted';
+    case 'run.retry':
+      return 'Retry requested';
+    case 'run.cancel':
+      return 'Cancellation requested';
+    default:
+      return 'Action accepted';
+  }
 }
 
 export function ClioA2UISurface({

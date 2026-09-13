@@ -1,4 +1,4 @@
-import type { Artifact, Message } from '@clio/core/v3';
+import type { Artifact, Message, SubagentRun } from '@clio/core/v3';
 import type { ComponentProps } from 'react';
 import { useMemo } from 'react';
 import { useLiveStore } from '@/store/live-store';
@@ -23,17 +23,20 @@ type LiveConversationProps = Omit<
 > & {
   artifacts: readonly Artifact[];
   sessionId: string;
+  subagents: readonly SubagentRun[];
 };
 
 /** Isolates high-rate message updates from the surrounding workspace chrome. */
 export function WorkspaceLiveConversation({
   artifacts: artifactList,
   sessionId,
+  subagents: subagentList,
   ...props
 }: LiveConversationProps) {
   const messageEntities = useLiveStore((state) => state.entities.messages);
-  const subagents = useLiveStore((state) => state.entities.subagents);
-  const surfaces = useLiveStore((state) => state.entities.surfaces);
+  const artifactEntities = useLiveStore((state) => state.entities.artifacts);
+  const subagentEntities = useLiveStore((state) => state.entities.subagents);
+  const surfaceEntities = useLiveStore((state) => state.entities.surfaces);
   const tasks = useLiveStore((state) => state.entities.tasks);
   const tools = useLiveStore((state) => state.entities.tools);
   const messages = useMemo(
@@ -44,8 +47,32 @@ export function WorkspaceLiveConversation({
     [messageEntities, sessionId],
   );
   const artifacts = useMemo(
-    () => Object.fromEntries(artifactList.map((artifact) => [artifact.id, artifact])),
-    [artifactList],
+    () =>
+      Object.fromEntries(
+        [
+          ...Object.values(artifactEntities).filter(
+            (artifact) => artifact.session_id === sessionId,
+          ),
+          ...artifactList,
+        ].map((artifact) => [artifact.id, artifact]),
+      ),
+    [artifactEntities, artifactList, sessionId],
+  );
+  const surfaces = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.values(surfaceEntities)
+          .filter((surface) => surface.session_id === sessionId)
+          .map((surface) => [surface.id, surface]),
+      ),
+    [sessionId, surfaceEntities],
+  );
+  const subagents = useMemo(
+    () => ({
+      ...subagentEntities,
+      ...Object.fromEntries(subagentList.map((subagent) => [subagent.id, subagent])),
+    }),
+    [subagentEntities, subagentList],
   );
   const entities = useMemo(
     () => ({ artifacts, subagents, surfaces, tasks, tools }),
@@ -90,7 +117,13 @@ export function WorkspaceLiveObservabilityView({
   sessionId,
   ...props
 }: LiveObservabilityViewProps) {
-  return <ClioObservabilityView {...props} messages={useSessionMessages(sessionId)} />;
+  return (
+    <ClioObservabilityView
+      {...props}
+      messages={useSessionMessages(sessionId)}
+      sessionId={sessionId}
+    />
+  );
 }
 
 type LiveStatusStripProps = Omit<

@@ -2,6 +2,9 @@ import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { MessageBlock } from './message-domain.js';
 import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
+import type { ToolPresentation } from './tool-presentation-domain.js';
+
+export type { ToolPresentation, ToolPresentationBlock } from './tool-presentation-domain.js';
 
 export type WireValue<Value extends string> = Value | 'unknown';
 export type ConnectionKind = 'local' | 'remote' | 'ssh';
@@ -98,6 +101,7 @@ export interface Session {
   active_blueprint_name?: string;
   active_blueprint_version?: string;
   active_blueprint_scope?: string;
+  metadata?: Record<string, unknown>;
   mode: WireValue<'plan' | 'edit' | 'architect'>;
   edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
   routing_mode: WireValue<'auto' | 'chat' | 'experts' | 'reasoning_only'>;
@@ -213,6 +217,7 @@ export interface ToolInvocation {
   state: ToolState;
   input?: unknown;
   output?: unknown;
+  presentation?: ToolPresentation;
   /** Incremental, already-correlated terminal output for a running tool. */
   output_stream?: string;
   /** Latest server-authored progress message for non-terminal tools. */
@@ -277,6 +282,11 @@ export interface SubagentRun {
   task?: string;
   result?: string;
   duration_ms?: number;
+  origin?: {
+    kind: 'skill';
+    name: string;
+    mode?: WireValue<'sync' | 'async'>;
+  };
 }
 
 export interface Artifact {
@@ -378,6 +388,11 @@ export interface ContextSnapshot {
   session_id: string;
   scope?: string;
   used_tokens?: number;
+  used_tokens_source?: 'provider' | 'estimated';
+  usage_model?: string;
+  cache_read_tokens?: number;
+  cache_write_tokens?: number;
+  cache_tokens_measured?: boolean;
   limit_tokens?: number;
   live_tokens?: number;
   live_block_count?: number;

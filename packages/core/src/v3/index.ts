@@ -1,4 +1,5 @@
 export * from './domain.js';
+export * from './work-state.js';
 export * from './interaction-domain.js';
 export * from './blueprint-domain.js';
 export * from './memory-domain.js';

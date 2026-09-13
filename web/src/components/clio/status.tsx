@@ -144,11 +144,35 @@ export interface ClioStatusProps {
   label?: string;
   detail?: string;
   className?: string;
+  compact?: boolean;
 }
 
-export function ClioStatus({ value, label, detail, className }: ClioStatusProps) {
+export function ClioStatus({ value, label, detail, className, compact = false }: ClioStatusProps) {
   const presentation = statusPresentation[value];
   const Icon = presentation.icon;
+  const accessibleLabel = label ?? presentation.label;
+  if (compact)
+    return (
+      <span
+        aria-label={accessibleLabel}
+        className={cn(
+          'inline-flex size-5 items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+          presentation.className.split(' ').filter((value) => value.startsWith('text-')),
+          className,
+        )}
+        role="status"
+        title={detail ? `${accessibleLabel}: ${detail}` : accessibleLabel}
+      >
+        <Icon
+          aria-hidden="true"
+          className={cn(
+            'size-4',
+            (value === 'running' || value === 'connecting') && 'motion-safe:animate-spin',
+          )}
+        />
+        <span className="sr-only">{accessibleLabel}</span>
+      </span>
+    );
   return (
     <Badge
       variant="outline"
@@ -162,7 +186,7 @@ export function ClioStatus({ value, label, detail, className }: ClioStatusProps)
           (value === 'running' || value === 'connecting') && 'motion-safe:animate-spin',
         )}
       />
-      <span>{label ?? presentation.label}</span>
+      <span>{accessibleLabel}</span>
       {detail ? <span className="sr-only">, {detail}</span> : null}
     </Badge>
   );

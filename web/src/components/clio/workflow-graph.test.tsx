@@ -1,9 +1,65 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildExecutionProvenanceGraph,
+  buildWorkflowExecutionGraph,
   buildWorkflowGraph,
   initialExecutionViewport,
-} from './workflow-graph';
+} from './workflow-graph-builders';
+
+describe('buildWorkflowExecutionGraph', () => {
+  it('preserves recorded workflow order and links step task identities to child runs', () => {
+    const graph = buildWorkflowExecutionGraph(
+      {
+        id: 'call_workflow',
+        session_id: 'session_root',
+        name: 'run_workflow',
+        state: 'succeeded',
+        output: {
+          steps: [
+            { child: 'inventory', task_id: 'task_inventory' },
+            { child: 'verification', task_id: 'task_verification' },
+          ],
+        },
+      },
+      [
+        {
+          id: 'task_inventory',
+          session_id: 'session_root',
+          child_session_id: 'session_inventory',
+          title: 'inventory #1',
+          state: 'completed',
+        },
+        {
+          id: 'task_verification',
+          session_id: 'session_root',
+          child_session_id: 'session_verification',
+          title: 'verification #1',
+          state: 'completed',
+        },
+      ],
+      'LR',
+    );
+
+    expect(graph.nodes.map((node) => node.data.label)).toEqual([
+      'inventory → verification',
+      'inventory',
+      'verification',
+    ]);
+    expect(graph.nodes[1]?.data.subagent?.child_session_id).toBe('session_inventory');
+    expect(graph.edges).toEqual([
+      expect.objectContaining({
+        source: 'workflow:call_workflow',
+        target: 'workflow-step:task_inventory',
+        label: 'starts',
+      }),
+      expect.objectContaining({
+        source: 'workflow-step:task_inventory',
+        target: 'workflow-step:task_verification',
+        label: 'then',
+      }),
+    ]);
+  });
+});
 
 describe('buildWorkflowGraph', () => {
   it('builds an accessible session-to-child topology from authoritative processes', () => {

@@ -14,6 +14,7 @@ import {
   subagentSchema,
   taskSchema,
   toolInvocationSchema,
+  toolPresentationDeltaSchema,
   workspaceSchema,
   userQuestionSchema,
 } from './schemas.js';
@@ -118,10 +119,7 @@ function markRespondedTurn(
   message: Message,
   block: MessageBlock,
 ): Record<string, string> {
-  if (
-    message.role !== 'assistant' ||
-    (block.type !== 'text' && block.type !== 'reasoning')
-  ) {
+  if (message.role !== 'assistant' || (block.type !== 'text' && block.type !== 'reasoning')) {
     return state.responded_turns;
   }
   const turnId = state.active_turns[message.session_id];
@@ -171,7 +169,11 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       return { ...base, revisions, sessions: { ...base.sessions, [session.id]: session } };
     }
     case 'message.block.upserted': {
-      const payload = envelope.payload as { message_id?: unknown; block?: unknown };
+      const payload = envelope.payload as {
+        message_id?: unknown;
+        block?: unknown;
+        subagent?: unknown;
+      };
       if (typeof payload.message_id !== 'string') throw new Error('Invalid message block owner');
       const message = base.messages[payload.message_id];
       if (!message) {
@@ -183,11 +185,23 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         );
       }
       const block = messageBlockSchema.parse(payload.block);
+      const subagent =
+        payload.subagent === undefined ? undefined : subagentSchema.parse(payload.subagent);
+      if (
+        subagent &&
+        (block.type !== 'subagent' ||
+          block.subagent_id !== subagent.id ||
+          subagent.session_id !== message.session_id)
+      )
+        throw new Error('Invalid handoff entity owner');
       return {
         ...base,
         revisions,
         responded_turns: markRespondedTurn(base, message, block),
         messages: { ...base.messages, [message.id]: upsertBlock(message, block) },
+        subagents: subagent
+          ? { ...base.subagents, [subagent.id]: { ...base.subagents[subagent.id], ...subagent } }
+          : base.subagents,
       };
     }
     case 'message.block.delta': {
@@ -216,9 +230,7 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       return {
         ...base,
         revisions,
-        responded_turns: block
-          ? markRespondedTurn(base, message, block)
-          : base.responded_turns,
+        responded_turns: block ? markRespondedTurn(base, message, block) : base.responded_turns,
         messages: {
           ...base.messages,
           [message.id]: appendDelta(message, payload.block_id, payload.delta),
@@ -291,8 +303,38 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     case 'tool.upserted': {
       const candidate = toolInvocationSchema.parse(envelope.payload);
       const previous = base.tools[candidate.id];
-      const tool = previous ? { ...previous, ...candidate } : candidate;
+      const tool = previous
+        ? {
+            ...previous,
+            ...candidate,
+            presentation: candidate.presentation ?? previous.presentation,
+          }
+        : candidate;
       return { ...base, revisions, tools: { ...base.tools, [tool.id]: tool } };
+    }
+    case 'tool.presentation.delta': {
+      const delta = toolPresentationDeltaSchema.parse(envelope.payload);
+      const tool = base.tools[delta.call_id];
+      if (!tool?.presentation || tool.state !== 'running') return base;
+      const blocks = tool.presentation.blocks.map((block) => {
+        if (block.id !== delta.block_id) return block;
+        const body = block.text ?? '';
+        const offset = block.stream_offset ?? Array.from(body).length;
+        if (delta.offset !== offset) return block;
+        return {
+          ...block,
+          text: body + delta.text,
+          stream_offset: offset + Array.from(delta.text).length,
+        };
+      });
+      return {
+        ...base,
+        revisions,
+        tools: {
+          ...base.tools,
+          [tool.id]: { ...tool, presentation: { ...tool.presentation, blocks } },
+        },
+      };
     }
     case 'run.upserted': {
       const run = runSchema.parse(envelope.payload);
@@ -386,10 +428,7 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     case 'session.status_changed': {
       const sessionId = envelope.scope.session_id;
       const payload = envelope.payload as { status?: unknown; prev_status?: unknown };
-      if (
-        !sessionId ||
-        !(payload.status === 'running' && payload.prev_status === 'idle')
-      ) {
+      if (!sessionId || !(payload.status === 'running' && payload.prev_status === 'idle')) {
         return base;
       }
       return {

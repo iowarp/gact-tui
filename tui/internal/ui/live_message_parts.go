@@ -5,11 +5,51 @@ package ui
 import (
 	"encoding/json"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/JaimeCernuda/gact-tui/contract/gact"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
+
+func (c *conversationComponent) applyToolPresentationDelta(e client.SSEEvent) {
+	payload, ok := e.Payload["payload"].(map[string]any)
+	if !ok {
+		return
+	}
+	var delta struct {
+		CallID  string `json:"call_id"`
+		BlockID string `json:"block_id"`
+		Offset  int    `json:"offset"`
+		Text    string `json:"text"`
+	}
+	data, err := json.Marshal(payload)
+	if err != nil || json.Unmarshal(data, &delta) != nil {
+		return
+	}
+	for i := range c.messages {
+		for j := range c.messages[i].Parts {
+			part := &c.messages[i].Parts[j]
+			if part.CallID != delta.CallID || part.Presentation == nil {
+				continue
+			}
+			for k := range part.Presentation.Blocks {
+				block := &part.Presentation.Blocks[k]
+				offset := utf8.RuneCountInString(block.Text)
+				if block.StreamOffset != nil {
+					offset = *block.StreamOffset
+				}
+				if block.ID == delta.BlockID && offset == delta.Offset {
+					block.Text += delta.Text
+					next := offset + utf8.RuneCountInString(delta.Text)
+					block.StreamOffset = &next
+					c.bumpMessageEpoch(c.messages[i].ID)
+					return
+				}
+			}
+		}
+	}
+}
 
 func (c *conversationComponent) applyPartAdded(e client.SSEEvent) {
 	pl, ok := e.Payload["payload"].(map[string]any)

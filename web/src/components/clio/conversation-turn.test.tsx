@@ -1,5 +1,5 @@
 import type { ClioRepository, PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationTurn } from './conversation-turn';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
@@ -82,61 +82,79 @@ describe('ConversationTurn incomplete state', () => {
 });
 
 describe('ConversationTurn correlated work placement', () => {
-  it('anchors an actionable saved-plan review to the Exit Plan tool', async () => {
-    const interaction: PendingInteraction = {
-      id: 'question:plan_exit',
-      kind: 'question',
-      owner_session_id: 'session_1',
-      attended_session_id: 'session_1',
-      status: 'pending',
-      title: 'Review execution plan',
-      requires_human_response: true,
-      prompt: 'Approve the saved plan?',
-      source: { protocol: 'native', tool_name: 'plan_exit', invocation_id: 'call_plan_exit' },
-      created_at: '2026-09-05T00:00:00Z',
-      payload: {
-        answer_metadata: {},
-        options: [
-          { label: 'Approve — auto-execute', value: 'auto' },
-          { label: 'Reject — keep planning', value: 'reject' },
-        ],
-        plan_exit: {
-          plan_file: 'D:/workspace/.clio/plans/plan.md',
-          plan_content: '# Implementation plan\n\n1. Make the requested change.',
-          plan_content_status: 'complete',
-          summary: 'Make the requested change after approval.',
+  it.each(['full', 'chain'] as const)(
+    'keeps an actionable saved-plan review visible in %s mode',
+    async (mode) => {
+      const interaction: PendingInteraction = {
+        id: 'question:plan_exit',
+        kind: 'question',
+        owner_session_id: 'session_1',
+        attended_session_id: 'session_1',
+        status: 'pending',
+        title: 'Review execution plan',
+        requires_human_response: true,
+        prompt: 'Approve the saved plan?',
+        source: { protocol: 'native', tool_name: 'plan_exit', invocation_id: 'call_plan_exit' },
+        created_at: '2026-09-05T00:00:00Z',
+        payload: {
+          answer_metadata: {},
+          options: [
+            { label: 'Approve — auto-execute', value: 'auto' },
+            { label: 'Clear conversation context', value: 'clear_context' },
+            { label: 'Reject — keep planning', value: 'reject' },
+          ],
+          plan_exit: {
+            plan_file: 'D:/workspace/.clio/plans/plan.md',
+            plan_content: '# Implementation plan\n\n1. Make the requested change.',
+            plan_content_status: 'complete',
+            summary: 'Make the requested change after approval.',
+          },
         },
-      },
-      actions: ['answer'],
-    };
-    render(
-      <ConversationTurn
-        interactions={[interaction]}
-        iterations={[
-          iteration(
-            activityLane([
-              {
-                kind: 'tool',
-                id: 'call_plan_exit',
-                tool: tool('call_plan_exit', 'Exit Plan'),
-              },
-            ]),
-          ),
-        ]}
-        mode="full"
-        onInteractionResponse={vi.fn(async () => undefined)}
-        subagents={{}}
-      />,
-    );
+        actions: ['answer'],
+      };
+      render(
+        <ConversationTurn
+          interactions={[interaction]}
+          iterations={[
+            iteration(
+              activityLane([
+                {
+                  kind: 'tool',
+                  id: 'call_plan_exit',
+                  tool: tool('call_plan_exit', 'Exit Plan'),
+                },
+              ]),
+            ),
+          ]}
+          mode={mode}
+          onInteractionResponse={vi.fn(async () => undefined)}
+          subagents={{}}
+        />,
+      );
 
-    expect(screen.getByText('Review execution plan')).toBeVisible();
-    expect(
-      await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 5_000 }),
-    ).toBeVisible();
-    expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
-    expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
-    expect(screen.getByText(/write the changes in the composer/i)).toBeVisible();
-  });
+      expect(screen.getByText('Review execution plan')).toBeVisible();
+      expect(
+        await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 5_000 }),
+      ).toBeVisible();
+      expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
+      expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
+      const executeChoice = screen.getByRole('radio', { name: 'Execute plan' });
+      expect(executeChoice).toBeChecked();
+      const clearContext = screen.getByRole('checkbox', {
+        name: /clear conversation context/i,
+      });
+      expect(clearContext).toBeEnabled();
+      expect(screen.getByRole('radio', { name: /reject plan with comments/i })).toBeVisible();
+      fireEvent.click(executeChoice);
+      expect(executeChoice).toBeChecked();
+      expect(clearContext).toBeEnabled();
+      if (mode === 'chain') {
+        fireEvent.click(screen.getByRole('button', { name: /^Activity$/ }));
+        expect(screen.getByText('Review execution plan')).toBeVisible();
+        expect(screen.getByRole('heading', { name: 'Implementation plan' })).toBeVisible();
+      }
+    },
+  );
 
   it('renders tools and tasks in the wire order that links them', () => {
     render(
@@ -220,7 +238,83 @@ describe('ConversationTurn correlated work placement', () => {
       'subagent:handoff_returned',
     ]);
     expect(screen.getByText(child.task)).toBeVisible();
-    expect(screen.getByText(child.result)).toBeVisible();
+    expect(screen.queryByText(child.result)).not.toBeInTheDocument();
+  });
+
+  it('groups ordered child events beneath the workflow that owns their task ids', () => {
+    const inventory = {
+      id: 'task_inventory',
+      session_id: 'session_1',
+      child_session_id: 'session_inventory',
+      agent_id: 'inventory',
+      title: 'inventory #1',
+      state: 'completed' as const,
+      task: 'Record Alpha and Beta.',
+    };
+    const verification = {
+      ...inventory,
+      id: 'task_verification',
+      child_session_id: 'session_verification',
+      agent_id: 'verification',
+      title: 'verification #1',
+      task: 'Verify the sum.',
+    };
+    const workflow: ToolInvocation = {
+      id: 'call_workflow',
+      session_id: 'session_1',
+      name: 'run_workflow',
+      title: 'Run Workflow',
+      state: 'succeeded',
+      input: { request: 'Inventory and verify Alpha and Beta.' },
+      output: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            steps: [
+              { child: 'inventory', task_id: inventory.id },
+              { child: 'verification', task_id: verification.id },
+            ],
+          }),
+        },
+      ],
+    };
+    const subagentEvent = (
+      id: string,
+      subagentId: string,
+      stage: 'delegate.started' | 'delegate.completed',
+    ): ConversationActivity => ({
+      kind: 'subagent',
+      id,
+      block: { id, type: 'subagent', subagent_id: subagentId, stage },
+    });
+
+    render(
+      <ConversationTurn
+        iterations={[
+          iteration(
+            activityLane([
+              { kind: 'tool', id: workflow.id, tool: workflow },
+              subagentEvent('inventory-started', inventory.id, 'delegate.started'),
+              subagentEvent('inventory-completed', inventory.id, 'delegate.completed'),
+              subagentEvent('verification-started', verification.id, 'delegate.started'),
+              subagentEvent('verification-completed', verification.id, 'delegate.completed'),
+            ]),
+          ),
+        ]}
+        mode="full"
+        subagents={{ [inventory.id]: inventory, [verification.id]: verification }}
+      />,
+    );
+
+    const group = screen.getByRole('group', {
+      name: 'Workflow steps: inventory → verification',
+    });
+    expect(group).toBeVisible();
+    expect(group).toHaveTextContent('inventory #1');
+    expect(group).toHaveTextContent('verification #1');
+    expect(
+      screen.queryByText('inventory #1', { selector: '[data-turn-activity^="subagent"] *' }),
+    ).not.toBeInTheDocument();
   });
 
   it('keeps the active MCP App visible after its collapsed chain summary', () => {
@@ -431,7 +525,16 @@ describe('ConversationTurn correlated work placement', () => {
       prompt: 'Which physical system should I simulate?',
       source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'call_ask' },
       created_at: '2026-09-03T00:00:00Z',
-      payload: { answer_metadata: { answer: 'A cantilever beam' } },
+      payload: {
+        options: [
+          { label: 'Cantilever beam', value: 'beam', description: 'Simulate a fixed beam' },
+          { label: 'Fluid channel', value: 'fluid', description: 'Simulate channel flow' },
+        ],
+        answer_metadata: {
+          selected_options: ['beam'],
+          answer: 'Use the measured steel dimensions.',
+        },
+      },
       actions: [],
     };
     render(
@@ -456,7 +559,11 @@ describe('ConversationTurn correlated work placement', () => {
       ].map((node) => node.getAttribute('data-turn-activity')),
     ).toEqual(['tool:call_ask', 'interaction:question:native_1']);
     expect(screen.getByText('Which physical system should I simulate?')).toBeVisible();
-    expect(screen.getByText('A cantilever beam')).toBeVisible();
+    expect(screen.getByText('Selected')).toBeVisible();
+    expect(screen.getByText('Cantilever beam')).toBeVisible();
+    expect(screen.getByText('Comment')).toBeVisible();
+    expect(screen.getByText('Use the measured steel dimensions.')).toBeVisible();
+    expect(screen.queryByText('beam')).not.toBeInTheDocument();
     expect(screen.getByText('Answer returned to agent')).toBeVisible();
     expect(screen.queryByText('Validated by MCP schema')).not.toBeInTheDocument();
     expect(screen.queryByText('Response returned to MCP')).not.toBeInTheDocument();
@@ -503,7 +610,11 @@ describe('ConversationTurn correlated work placement', () => {
     expect(screen.getByText('Form request 2 of 2')).toBeVisible();
     expect(screen.getByText('Answer rejected by MCP schema')).toBeVisible();
     expect(screen.getByText('Routed to you')).toBeVisible();
+    // Tool payload and the routed interaction each retain their own audit disclosure.
     expect(screen.getByText('Technical details')).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Technical details for Read evidence file' }),
+    ).toBeVisible();
   });
 
   it('shows that a human-resolved fallback returned to MCP instead of still needing attention', async () => {

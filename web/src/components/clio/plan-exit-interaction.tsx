@@ -12,29 +12,14 @@ import {
   PlanTrigger,
 } from '@/components/ai-elements/plan';
 import { Frame, FramePanel } from '@/components/reui/frame';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-  FieldTitle,
-} from '@/components/ui/field';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { PlanDecisionControls } from './plan-decision-controls';
+import { planModeLabel } from './plan-mode-label';
 import { DOCUMENT_MARKDOWN_CLASS_NAME } from '@/lib/document-markdown';
 import { respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';
 import { ResponseErrorNotice } from './pending-interaction-notices';
 import { ClioArtifactAttachments } from './artifact-card';
+import { planArtifact } from './plan-artifact';
 
 export function InlinePlanExitResponse({
   artifacts,
@@ -101,23 +86,9 @@ export function PlanExitResponse({
   responseError?: Error;
   showOwner: boolean;
 }) {
-  const [decision, setDecision] = useState('');
-  const [clearContext, setClearContext] = useState(false);
-  const [feedback, setFeedback] = useState('');
   const plan = interaction.payload?.plan_exit;
-  const options = interaction.payload?.options ?? [];
-  const decisions = options.filter((option) =>
-    ['auto', 'interactive', 'exit_only'].includes(option.value || option.label),
-  );
-  const clearOption = options.find((option) => (option.value || option.label) === 'clear_context');
-  const selectedDecision = decisions.find((option) => (option.value || option.label) === decision);
   const canAnswer =
     interaction.status === 'pending' && (interaction.actions ?? []).includes('answer');
-  const requiresCompleteReview = decision === 'auto' || decision === 'interactive';
-  const planReviewComplete =
-    plan?.plan_content_status === 'complete' && Boolean(plan.plan_content?.trim());
-  const canSubmit =
-    canAnswer && Boolean(decision) && (!requiresCompleteReview || planReviewComplete);
 
   return (
     <Frame
@@ -152,7 +123,7 @@ export function PlanExitResponse({
               <PlanTitle>{plan?.summary || 'Execution plan ready for review'}</PlanTitle>
               <PlanDescription>
                 {plan?.plan_file
-                  ? `Saved plan · ${plan.plan_file}`
+                  ? `Saved plan: ${plan.plan_file}`
                   : 'The agent has finished planning and is waiting for your decision.'}
               </PlanDescription>
             </div>
@@ -212,100 +183,15 @@ export function PlanExitResponse({
         ) : !canAnswer ? (
           <p className="text-sm text-muted-foreground">Plan controls are not available yet.</p>
         ) : (
-          <>
-            <Field>
-              <FieldLabel htmlFor={`${interaction.id}-execution-mode`}>Execution mode</FieldLabel>
-              <Select disabled={disabled} onValueChange={setDecision} value={decision}>
-                <SelectTrigger
-                  className="w-full"
-                  id={`${interaction.id}-execution-mode`}
-                  aria-label="Execution mode"
-                >
-                  <SelectValue placeholder="Choose how to continue" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {decisions.map((option) => {
-                      const value = option.value || option.label;
-                      return (
-                        <SelectItem key={value} value={value}>
-                          {planModeLabel(value)}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <FieldDescription>
-                {selectedDecision?.description ??
-                  'Choose whether approval should execute now, ask before actions, or only leave Plan mode.'}
-              </FieldDescription>
-            </Field>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Need a revision? Write the changes in the composer and send them while this review is
-              open.
-            </p>
-            {clearOption ? (
-              <FieldLabel className="mt-2" htmlFor={`${interaction.id}-clear-context`}>
-                <Field orientation="horizontal">
-                  <Checkbox
-                    aria-label="Clear conversation context"
-                    checked={clearContext}
-                    disabled={disabled}
-                    id={`${interaction.id}-clear-context`}
-                    onCheckedChange={(checked) => setClearContext(checked === true)}
-                  />
-                  <FieldContent>
-                    <FieldTitle>Clear conversation context</FieldTitle>
-                    {clearOption.description ? (
-                      <FieldDescription>{clearOption.description}</FieldDescription>
-                    ) : null}
-                  </FieldContent>
-                </Field>
-              </FieldLabel>
-            ) : null}
-            <div className="mt-3 grid min-w-0 gap-1">
-              <FieldLabel htmlFor={`${interaction.id}-plan-feedback`}>
-                Comment (optional)
-              </FieldLabel>
-              <Textarea
-                aria-label="Comment (optional)"
-                className="min-h-16 w-full resize-y field-sizing-fixed"
-                disabled={disabled}
-                id={`${interaction.id}-plan-feedback`}
-                onChange={(event) => setFeedback(event.target.value)}
-                placeholder="Add context for execution"
-                value={feedback}
-              />
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Button
-                disabled={disabled || !canSubmit}
-                onClick={() =>
-                  respondFromControl(
-                    onResponse(interaction, {
-                      action: 'answer',
-                      answer: feedback.trim() || undefined,
-                      selected_options: [decision, ...(clearContext ? ['clear_context'] : [])],
-                    }),
-                  )
-                }
-              >
-                Approve plan
-              </Button>
-            </div>
-          </>
+          <PlanDecisionControls
+            interaction={interaction}
+            disabled={disabled}
+            onResponse={onResponse}
+          />
         )}
       </FramePanel>
     </Frame>
   );
-}
-
-function planModeLabel(value: string): string {
-  if (value === 'auto') return 'Auto-execute';
-  if (value === 'interactive') return 'Interactive';
-  if (value === 'exit_only') return 'Exit Plan mode only';
-  return value;
 }
 
 function PlanDecision({ interaction }: { interaction: PendingInteraction }) {
@@ -315,7 +201,7 @@ function PlanDecision({ interaction }: { interaction: PendingInteraction }) {
     decision === 'reject'
       ? 'Changes requested'
       : decision
-        ? `Approved · ${planModeLabel(decision)}`
+        ? `Approved in ${planModeLabel(decision)} mode`
         : interaction.status === 'cancelled'
           ? 'Plan review cancelled'
           : interaction.status === 'expired'
@@ -345,14 +231,4 @@ function selectedOptions(interaction: PendingInteraction): string[] {
   return Array.isArray(raw)
     ? raw.filter((value): value is string => typeof value === 'string')
     : [];
-}
-
-function planArtifact(
-  interaction: PendingInteraction,
-  artifacts: Record<string, Artifact>,
-): Artifact | undefined {
-  const planFile = interaction.payload?.plan_exit?.plan_file;
-  const name = planFile?.replaceAll('\\', '/').split('/').at(-1)?.toLocaleLowerCase();
-  if (!name) return undefined;
-  return Object.values(artifacts).find((artifact) => artifact.name.toLocaleLowerCase() === name);
 }

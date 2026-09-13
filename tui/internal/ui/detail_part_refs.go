@@ -41,6 +41,9 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 		return bulkyPartRef{}, false
 	}
 	p := m.Parts[partIdx]
+	if p.Type != gact.PartTypeToolCall && p.Presentation != nil {
+		return declaredResultRef(m.ID, p), true
+	}
 
 	switch p.Type {
 	case gact.PartTypeToolCall:
@@ -48,11 +51,17 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 		// following sibling tool messages. Mirrors render.PairToolResults.
 		callRef := toolCallDetailRef(m.ID, p)
 		if p.CallID == "" {
+			if p.Presentation != nil {
+				return declaredResultRef(m.ID, p), true
+			}
 			return callRef, true
 		}
 		// Same-message scan.
 		for _, sib := range m.Parts {
 			if sib.Type == gact.PartTypeToolResult && sib.CallID == p.CallID {
+				if sib.Presentation != nil {
+					return declaredResultRef(m.ID, sib), true
+				}
 				text := flattenToolResult(sib)
 				if lineCount(text) <= toolResultPreviewLines {
 					return callRef, true
@@ -73,6 +82,9 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 			}
 			for _, rp := range tm.Parts {
 				if rp.Type == gact.PartTypeToolResult && rp.CallID == p.CallID {
+					if rp.Presentation != nil {
+						return declaredResultRef(tm.ID, rp), true
+					}
 					text := flattenToolResult(rp)
 					if lineCount(text) <= toolResultPreviewLines {
 						return callRef, true
@@ -85,6 +97,9 @@ func findBulkyPartForSelected(m gact.Message, addrIdx int, allMsgs []gact.Messag
 					}, true
 				}
 			}
+		}
+		if p.Presentation != nil {
+			return declaredResultRef(m.ID, p), true
 		}
 		return callRef, true
 

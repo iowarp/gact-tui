@@ -40,6 +40,22 @@ type MessageFilter struct {
 	IncludeSystem bool
 }
 
+// PresentationPage is a contiguous Unicode-character page, not a model result.
+type PresentationPage struct {
+	Text       string `json:"text"`
+	Cursor     int    `json:"cursor"`
+	NextCursor *int   `json:"next_cursor"`
+	TotalChars int    `json:"total_chars"`
+}
+
+// ToolPresentationContent fetches one page within its session/call/block scope.
+func (c *Client) ToolPresentationContent(ctx context.Context, ref gact.PresentationContentRef, cursor int) (PresentationPage, error) {
+	var out PresentationPage
+	path := "/v1/sessions/" + url.PathEscape(ref.SessionID) + "/tools/" + url.PathEscape(ref.CallID) + "/presentation/" + url.PathEscape(ref.BlockID) + "?cursor=" + strconv.Itoa(cursor)
+	err := c.do(ctx, http.MethodGet, path, nil, &out)
+	return out, err
+}
+
 func (c *Client) ListMessages(ctx context.Context, f MessageFilter) ([]gact.Message, string, error) {
 	q := url.Values{}
 	if f.Before != "" {

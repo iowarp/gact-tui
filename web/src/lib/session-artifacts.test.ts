@@ -1,6 +1,6 @@
 import type { ArtifactRecord } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { sessionArtifactEntities } from './session-artifacts';
+import { sessionArtifactEntities, sessionArtifactVersionEntities } from './session-artifacts';
 
 function record(id: string, name: string): ArtifactRecord {
   return {
@@ -30,6 +30,36 @@ function record(id: string, name: string): ArtifactRecord {
 }
 
 describe('sessionArtifactEntities', () => {
+  it('retains every immutable version for transcript links while the asset list shows the head', () => {
+    const first = record('report_v1', 'report.md');
+    const second = record('report_v2', 'report.md');
+    second.latest_version = 2;
+    second.versions[0].version = 2;
+    second.versions[0].uri = 'artifact://workspace_1/report.md@v2';
+    second.versions.unshift(first.versions[0]);
+    const listing = {
+      artifacts: [second],
+      used: [],
+      count: 1,
+      include_children: true,
+      child_session_ids: [],
+    };
+    expect(sessionArtifactEntities(listing, [], 'session_1').map((item) => item.id)).toEqual([
+      'report_v2',
+    ]);
+    expect(sessionArtifactVersionEntities(listing, 'session_1')).toMatchObject([
+      {
+        id: 'report_v1',
+        fetch_path: '/v1/artifacts/report_v1/bytes',
+        uri: 'artifact://workspace_1/report.md@v1',
+      },
+      {
+        id: 'report_v2',
+        fetch_path: '/v1/artifacts/report_v2/bytes',
+        uri: 'artifact://workspace_1/report.md@v2',
+      },
+    ]);
+  });
   it('keeps produced outputs before used inputs and deduplicates transcript projections', () => {
     const result = sessionArtifactEntities(
       {

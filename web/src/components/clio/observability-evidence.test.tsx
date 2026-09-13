@@ -1,10 +1,98 @@
-import type { Message, WorkspaceResource } from '@clio/core/v3';
+import type {
+  ExecutionProvenanceResult,
+  Message,
+  ToolInvocation,
+  WorkspaceResource,
+} from '@clio/core/v3';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioEvidenceView } from './observability-evidence';
 
 afterEach(() => {
   cleanup();
+});
+
+describe('ClioEvidenceView operational inventory', () => {
+  it('replaces the summary card with collapsible runs, tasks, children, tools, and background work', async () => {
+    const user = userEvent.setup();
+    const onOpenSubagent = vi.fn();
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        messages={[]}
+        onOpenSubagent={onOpenSubagent}
+        processes={[
+          {
+            id: 'process_1',
+            kind: 'mcp-task',
+            title: 'Remote analysis',
+            live_state: 'completed',
+            status: 'completed',
+            host: 'worker-1',
+            metadata: {},
+          },
+        ]}
+        runs={[
+          {
+            id: 'run_1',
+            session_id: 'sess_1',
+            state: 'completed',
+            summary: 'Investigate the evidence',
+            elapsed_ms: 1250,
+          },
+        ]}
+        subagents={[
+          {
+            id: 'task_child',
+            session_id: 'sess_1',
+            child_session_id: 'sess_child',
+            title: 'research_methodologist #1',
+            state: 'completed',
+            task: 'Compare all four records.',
+          },
+        ]}
+        tasks={[
+          {
+            id: 'task_1',
+            session_id: 'sess_1',
+            title: 'Review findings',
+            state: 'completed',
+          },
+        ]}
+        tools={[
+          {
+            id: 'tool_1',
+            session_id: 'sess_1',
+            name: 'fs_read_file',
+            state: 'succeeded',
+            presentation: { action: 'Read evidence', blocks: [], summary: '387 bytes' },
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.queryByText('Session evidence')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Agent runs, 1 recorded' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Tasks, 1 recorded' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Child agents, 1 recorded' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Tool calls, 1 recorded' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Background tasks, 1 recorded' })).toBeVisible();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Open child conversation research_methodologist #1' }),
+    );
+    expect(onOpenSubagent).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'task_child' }),
+      'conversation',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Agent runs, 1 recorded' }));
+    expect(screen.getByText('Investigate the evidence')).toBeVisible();
+    expect(screen.getByText('1 s')).toBeVisible();
+  });
 });
 
 function resourceMessage(input: {
@@ -33,7 +121,9 @@ function resourceMessage(input: {
   };
 }
 
-function workspaceResource(overrides: Partial<WorkspaceResource> & { id: string }): WorkspaceResource {
+function workspaceResource(
+  overrides: Partial<WorkspaceResource> & { id: string },
+): WorkspaceResource {
   return {
     workspace_id: 'ws_1',
     client_upload_id: `${overrides.id}_upload`,
@@ -222,6 +312,73 @@ describe('ClioEvidenceView resource sources', () => {
 });
 
 describe('ClioEvidenceView session_lineage fallback', () => {
+  it('includes files read by attached child agents from execution provenance', () => {
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        executionProvenance={{
+          schema_version: 'clio.execution_provenance.v1',
+          provider: 'native',
+          session_id: 'session_root',
+          root_session_id: 'session_root',
+          complete: true,
+          truncated: false,
+          provider_health: {},
+          campaigns: [],
+          workflows: [],
+          agents: [],
+          session_lineage: [
+            {
+              session_id: 'session_root',
+              parent_session_id: '',
+              task_id: '',
+              agent_id: 'main',
+              label: 'Main agent',
+              depth: 0,
+              task_path: [],
+            },
+            {
+              session_id: 'session_gateway',
+              parent_session_id: 'session_root',
+              task_id: 'task_gateway',
+              agent_id: 'gateway',
+              label: 'gateway #1',
+              depth: 1,
+              task_path: ['task_gateway'],
+            },
+          ],
+          spans: [],
+          nodes: [
+            {
+              id: 'tool_read_gateway_log',
+              kind: 'tool',
+              label: 'Read gateway log',
+              status: 'completed',
+              session_id: 'session_gateway',
+              agent_id: 'gateway',
+              start_time: 1,
+              end_time: 2,
+              attributes: {
+                tool_name: 'fs_read_file',
+                owner_session_id: 'session_gateway',
+                tool_input: { filepath: 'D:/workspace/triage/api_gateway.log' },
+              },
+            },
+          ],
+          edges: [],
+        }}
+        messages={[]}
+        processes={[]}
+        resources={[]}
+      />,
+    );
+
+    expect(screen.getByText('api_gateway.log')).toBeVisible();
+    expect(screen.getByText('Read by gateway #1')).toBeVisible();
+  });
+
   it('still shows workflow-state sources when session_lineage is legally empty', () => {
     // An empty array is CLIO's legal "this session delegated to nothing" answer,
     // not a missing read — it must not suppress the plain workflow-state sources
@@ -270,5 +427,77 @@ describe('ClioEvidenceView session_lineage fallback', () => {
     );
 
     expect(screen.getByText('ndp #1, Metadata source URL')).toBeVisible();
+  });
+});
+
+describe('ClioEvidenceView change status', () => {
+  it('marks a historical proposal applied when provenance records the completed write', () => {
+    const path = 'D:\\workspace\\example.py';
+    const proposal: ToolInvocation = {
+      id: 'tool_proposal',
+      session_id: 'session_root',
+      name: 'fs_propose_edit',
+      state: 'succeeded',
+      presentation: {
+        action: 'Proposed edit',
+        summary: 'Review the proposed change.',
+        blocks: [
+          { id: 'file', type: 'link', target: 'file', label: 'example.py', uri: path },
+          {
+            id: 'diff',
+            type: 'diff',
+            text: '--- a/example.py\n+++ b/example.py\n@@ -1 +1 @@\n-old\n+new',
+          },
+        ],
+      },
+    };
+    const provenance: ExecutionProvenanceResult = {
+      schema_version: 'clio.execution_provenance.v1',
+      provider: 'native',
+      session_id: 'session_root',
+      root_session_id: 'session_root',
+      complete: true,
+      truncated: false,
+      provider_health: {},
+      campaigns: [],
+      workflows: [],
+      agents: [],
+      session_lineage: [],
+      spans: [],
+      nodes: [
+        {
+          id: 'tool_write',
+          kind: 'tool',
+          label: 'Write example.py',
+          status: 'completed',
+          session_id: 'session_root',
+          agent_id: 'main',
+          start_time: 1,
+          end_time: 2,
+          attributes: {
+            tool_name: 'fs_apply_edit_write',
+            owner_session_id: 'session_root',
+            tool_input: { filepath: path },
+          },
+        },
+      ],
+      edges: [],
+    };
+
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        executionProvenance={provenance}
+        messages={[]}
+        processes={[]}
+        resources={[]}
+        tools={[proposal]}
+      />,
+    );
+
+    expect(screen.getByText('Applied')).toBeVisible();
+    expect(screen.queryByText('Pending')).not.toBeInTheDocument();
   });
 });

@@ -11,6 +11,9 @@ export default defineConfig({
   snapshotPathTemplate:
     '{testDir}/../tests/visual/snapshots/{testFilePath}/{arg}-{projectName}-{platform}{ext}',
   fullyParallel: false,
+  // All files share one stateful fixture server; cross-file workers would reset
+  // each other's pending interactions and queues even with fullyParallel=false.
+  workers: 1,
   forbidOnly: true,
   retries: 0,
   reporter: 'list',

@@ -60,7 +60,7 @@ export function ClioPathPicker({
   };
 
   return (
-    <div className="grid gap-2">
+    <div className="grid min-w-0 gap-2">
       <div className="flex min-w-0 gap-2">
         <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border bg-muted/20 px-3">
           <FolderIcon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />

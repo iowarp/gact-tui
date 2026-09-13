@@ -1,9 +1,18 @@
-import type { Artifact, Session, SessionDiff, SubagentRun, WorkspaceResource } from '@clio/core/v3';
+import type {
+  Artifact,
+  Session,
+  SessionDiff,
+  SubagentRun,
+  ToolInvocation,
+  WorkspaceResource,
+} from '@clio/core/v3';
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { SubagentOpenTarget } from '@/components/clio/subagent-card';
 import type { ClioWorkbenchOpenRequest } from '@/components/clio/workbench';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { workspaceFilePath } from '@/lib/workspace-file-path';
+import { useLiveStore } from '@/store/live-store';
 
 interface UseWorkbenchNavigationInput {
   allSessions: readonly Session[];
@@ -20,6 +29,7 @@ interface WorkbenchRequest {
 export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenchNavigationInput) {
   const navigate = useNavigate();
   const { settings } = useConnectionSettings();
+  const workspacePath = useLiveStore((state) => state.entities.workspaces[workspaceId]?.path);
   const [workbenchRequest, setWorkbenchRequest] = useState<WorkbenchRequest>();
 
   const revealWorkbench = useCallback(
@@ -53,8 +63,9 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     [revealWorkbench],
   );
   const openWorkspaceFile = useCallback(
-    (path: string) => revealWorkbench({ kind: 'workspace-file', path }),
-    [revealWorkbench],
+    (path: string) =>
+      revealWorkbench({ kind: 'workspace-file', path: workspaceFilePath(path, workspacePath) }),
+    [revealWorkbench, workspacePath],
   );
   const openWorkspaceResource = useCallback(
     (resource: WorkspaceResource, relatedResources?: readonly WorkspaceResource[]) =>
@@ -63,6 +74,10 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
   );
   const openDiff = useCallback(
     (diff: SessionDiff) => revealWorkbench({ kind: 'diff', diff }),
+    [revealWorkbench],
+  );
+  const openWorkflow = useCallback(
+    (tool: ToolInvocation) => revealWorkbench({ kind: 'workflow', tool }),
     [revealWorkbench],
   );
 
@@ -74,6 +89,7 @@ export function useWorkbenchNavigation({ allSessions, workspaceId }: UseWorkbenc
     openArtifact,
     openDiff,
     openSubagent,
+    openWorkflow,
     openWorkspaceFile,
     openWorkspaceResource,
     revealWorkbench,

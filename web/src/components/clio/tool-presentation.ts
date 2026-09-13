@@ -1,320 +1,70 @@
-import type { ToolInvocation, ToolState } from '@clio/core/v3';
-import { formatDuration, truncate } from '@/lib/format';
-import { PRESENTATION_OVERRIDE_REGISTRY } from '@/lib/presentation-override-registry';
-import { reportPresentationOverride } from '@/lib/presentation-overrides';
-import { SUMMARY_TRUNCATE_CHARS } from '@/lib/runtime-limits';
+import type { ToolInvocation } from '@clio/core/v3';
+import { formatDuration } from '@/lib/format';
+import type { ClioStatusValue } from './status';
 
 export interface ToolPresentation {
   title: string;
   kind: 'analysis-view' | 'tool';
 }
 
-const CURATED_TOOL_TITLES: Readonly<Record<string, string>> = {
-  tool_call: 'Tool calls',
-  pandas_filter_data: 'Filter data',
-  pandas_profile_csv: 'Profile data',
-  ndp_stage_resource: 'Stage dataset',
-  geo_filter_points_by_radius: 'Filter points by radius',
-  plot_plot_timeseries: 'Plot time series',
-  plot_timeseries: 'Plot time series',
-  ndp_search_datasets: 'Search datasets',
-};
-
-function analysisViewTitle(state: ToolState): string {
-  switch (state) {
-    case 'pending':
-      return 'Analysis view queued';
-    case 'running':
-      return 'Building analysis view';
-    case 'succeeded':
-      return 'Analysis view created';
-    case 'failed':
-      return 'Analysis view failed';
-    case 'denied':
-      return 'Analysis view denied';
-    case 'cancelled':
-      return 'Analysis view cancelled';
-    case 'unknown':
-      return 'Analysis view status unknown';
-  }
-}
-
+/** Labels and summaries are authored by the provider's presentation contract. */
 export function getToolPresentation(tool: ToolInvocation): ToolPresentation {
-  if (tool.name === 'create_a2ui_surface') {
-    return { title: analysisViewTitle(tool.state), kind: 'analysis-view' };
-  }
-  const providedTitle = tool.title?.trim();
-  return {
-    title: providedTitle || humanizeToolName(tool.name),
-    kind: 'tool',
-  };
+  return { title: tool.title || tool.name, kind: 'tool' };
 }
 
-/** The summary is undefined whenever it would only restate the labeled tool state. */
 export function getToolSummary(tool: ToolInvocation): string | undefined {
-  // Cancellation is already a complete user-facing outcome. Provider/runtime
-  // diagnostics can remain in the expanded tool output, but must not replace
-  // that outcome in the compact transcript summary.
-  if (tool.state === 'cancelled') return 'The action was cancelled.';
-  if (tool.error) return truncate(normalize(tool.error), SUMMARY_TRUNCATE_CHARS);
-  const intent = toolIntent(tool);
-  if (tool.state === 'pending') return intent ? `${intent.present} is queued.` : undefined;
-  if (tool.state === 'running') return intent ? `${intent.progressive}…` : undefined;
-  if (tool.state === 'denied') return 'The requested action was denied.';
-  const outputSummary = summarizeOutput(tool.output);
-  if (intent && tool.state === 'succeeded') {
-    return outputSummary && intent.includeOutput
-      ? `${intent.past}. ${outputSummary}`
-      : `${intent.past}.`;
-  }
-  if (outputSummary) return outputSummary;
-  return tool.state === 'succeeded' ? undefined : 'No result summary was provided.';
+  return tool.presentation?.summary || undefined;
 }
 
-export function humanizeToolName(name: string): string {
-  const parts = name.split(/[._-]+/).filter(Boolean);
-  const normalized = parts.map((part) => part.toLowerCase());
-  const exact = normalized.join('_');
-  const curatedTitle = CURATED_TOOL_TITLES[exact];
-  let rendered = curatedTitle;
-  if (!rendered && /^(shell_)?(bash|command|exec|execute)$/.test(exact)) rendered = 'Run command';
-  if (!rendered && exact === 'fs_propose_edit') rendered = 'Propose file change';
-  if (!rendered && exact === 'fs_apply_edit_write') rendered = 'Apply file change';
-  if (!rendered && (exact === 'web_search' || exact.endsWith('_web_search')))
-    rendered = 'Search web';
-  if (!rendered && exact === 'create_a2ui_surface') rendered = 'Create analysis view';
-  if (!rendered && exact === 'wait_agent_tasks') rendered = 'Wait for child agents';
-  if (!rendered && exact === 'check_agent_tasks') rendered = 'Check child agents';
-  if (!rendered && exact === 'observe_agent_tasks') rendered = 'Watch child agents';
-  if (!rendered && exact === 'spawn_agent_task') rendered = 'Start child agent';
-  if (!rendered && exact === 'spawn_agents_parallel') rendered = 'Start child agents';
-
-  const actionIndex = normalized.findIndex((part) =>
-    [
-      'answer',
-      'create',
-      'delete',
-      'edit',
-      'fetch',
-      'find',
-      'geocode',
-      'get',
-      'list',
-      'open',
-      'query',
-      'read',
-      'remove',
-      'run',
-      'search',
-      'submit',
-      'update',
-      'write',
-    ].includes(part),
+/** Move compact file facts into the shared trailing header cluster. */
+export function getToolHeaderMetadata(tool: ToolInvocation): string | undefined {
+  const subject = tool.presentation?.blocks.find(
+    (block) => block.id === tool.presentation?.subject,
   );
-  if (actionIndex > 0) {
-    parts.splice(0, actionIndex);
-  } else if (parts.length > 1 && ['fs', 'mcp', 'tool', 'tools'].includes(parts[0]!.toLowerCase())) {
-    parts.shift();
+  const summary = tool.presentation?.summary?.trim() ?? '';
+  if (tool.name === 'workspace_resource_search') {
+    const input =
+      tool.input !== null && typeof tool.input === 'object' && !Array.isArray(tool.input)
+        ? (tool.input as Record<string, unknown>)
+        : undefined;
+    const query = typeof input?.query === 'string' ? input.query.trim() : '';
+    if (query) return `for “${query}”`;
   }
-  const label = parts.join(' ').trim() || 'Tool activity';
-  rendered ??= label.charAt(0).toUpperCase() + label.slice(1);
-  reportPresentationOverride({
-    kind: 'tool-name-humanization',
-    entityId: name,
-    serverValue: name,
-    rendered,
-    issue: PRESENTATION_OVERRIDE_REGISTRY['tool-name-humanization'].issue,
-  });
-  return rendered;
+  return subject?.target === 'file' && /^\d[\d,]*\s+bytes?$/iu.test(summary) ? summary : undefined;
 }
 
-interface ToolIntent {
-  present: string;
-  progressive: string;
-  past: string;
-  includeOutput?: boolean;
+const DECLARED_TOOL_STATUSES = new Set<ClioStatusValue>([
+  'succeeded',
+  'failed',
+  'degraded',
+  'cancelled',
+  'denied',
+]);
+
+/** Semantic outcome declared by the tool result, with transport state as fallback. */
+export function getToolStatus(tool: ToolInvocation): ClioStatusValue {
+  const declared = tool.presentation?.status;
+  return declared && DECLARED_TOOL_STATUSES.has(declared as ClioStatusValue)
+    ? (declared as ClioStatusValue)
+    : tool.state;
 }
 
-function toolIntent(tool: ToolInvocation): ToolIntent | undefined {
-  const name = tool.name.toLowerCase();
-  const input = asRecord(tool.input);
-  const path = firstString(input, ['path', 'file_path', 'filename', 'target']);
-  const subject = path ? fileName(path) : undefined;
+/** Compact operation label with the same qualifying subject used by the transcript row. */
+export function getToolActivityTitle(tool: ToolInvocation): string {
+  const action = tool.presentation?.action || tool.title || tool.name;
+  const subject = tool.presentation?.blocks.find(
+    (block) =>
+      block.id === tool.presentation?.subject && (block.type === 'link' || block.type === 'text'),
+  );
+  const label = subject?.label?.trim();
+  return label ? `${action} (${label})` : action;
+}
 
-  if (/(^|[_.-])read([_.-]|$)/.test(name) && /(file|fs)/.test(name)) {
-    return verbIntent('Read', 'Reading', 'Read', subject);
-  }
-  if (/(^|[_.-])(write|edit|patch|update)([_.-]|$)/.test(name) && /(file|fs)/.test(name)) {
-    return verbIntent('Update', 'Updating', 'Updated', subject);
-  }
-  if (/(^|[_.-])(delete|remove)([_.-]|$)/.test(name) && /(file|fs)/.test(name)) {
-    return verbIntent('Remove', 'Removing', 'Removed', subject);
-  }
-  if (/(shell|bash|command|exec)/.test(name)) {
-    const command = firstString(input, ['command', 'cmd', 'script']);
-    return verbIntent(
-      'Run',
-      'Running',
-      'Ran',
-      command ? truncate(normalize(command), 72) : 'command',
-    );
-  }
-  if (/(search|query)/.test(name)) {
-    const query = firstString(input, ['query', 'q', 'pattern', 'search']);
-    return {
-      ...verbIntent('Search for', 'Searching for', 'Searched for', query),
-      includeOutput: true,
-    };
-  }
-  if (/(^|[_.-])create([_.-]|$)/.test(name) && /artifact/.test(name)) {
-    const artifactName = firstString(input, ['name', 'path', 'filename']);
-    return verbIntent(
-      'Create',
-      'Creating',
-      'Created',
-      artifactName ? fileName(artifactName) : 'artifact',
-    );
-  }
-  if (name === 'create_a2ui_surface') {
-    return verbIntent('Create', 'Creating', 'Created', 'analysis view');
-  }
-  return undefined;
+/** An undeclared tool keeps its actual identifier as the fallback label. */
+export function humanizeToolName(name: string): string {
+  return name;
 }
 
 export function formatToolDuration(durationMs: number): string {
-  return formatDuration(durationMs, 'tenths');
-}
-
-function verbIntent(
-  presentVerb: string,
-  progressiveVerb: string,
-  pastVerb: string,
-  subject = '',
-): ToolIntent {
-  const suffix = subject ? ` ${subject}` : '';
-  return {
-    past: `${pastVerb}${suffix}`,
-    present: `${presentVerb}${suffix}`,
-    progressive: `${progressiveVerb}${suffix}`,
-  };
-}
-
-function summarizeOutput(value: unknown): string | undefined {
-  if (typeof value === 'string') {
-    const normalized = normalize(value);
-    if (!normalized) return undefined;
-    if (normalized.startsWith('{') || normalized.startsWith('[')) {
-      try {
-        return summarizeOutput(JSON.parse(normalized));
-      } catch {
-        // Preserve non-JSON tool output as a bounded human-readable excerpt.
-      }
-    }
-    return truncate(normalized, SUMMARY_TRUNCATE_CHARS);
-  }
-  const output = asRecord(value);
-  if (!output) return undefined;
-  for (const key of ['message', 'detail', 'result']) {
-    if (typeof output[key] === 'string' && output[key]) {
-      return truncate(normalize(output[key]), SUMMARY_TRUNCATE_CHARS);
-    }
-  }
-  if (typeof output.summary === 'string' && output.summary) {
-    return truncate(normalize(output.summary), SUMMARY_TRUNCATE_CHARS);
-  }
-
-  const structured = summarizeStructuredOutput(output);
-  if (structured) return structured;
-
-  for (const key of ['path', 'status']) {
-    if (typeof output[key] === 'string' && output[key]) {
-      return truncate(normalize(output[key]), SUMMARY_TRUNCATE_CHARS);
-    }
-  }
-  const count = ['count', 'total', 'matches', 'items'].find(
-    (key) => typeof output[key] === 'number',
-  );
-  return count ? `${String(output[count])} ${count === 'items' ? 'items' : 'results'}.` : undefined;
-}
-
-function summarizeStructuredOutput(output: Record<string, unknown>): string | undefined {
-  const summary = asRecord(output.summary);
-  const status = firstString(output, ['status', 'state', 'outcome'])?.toLowerCase();
-  const explicitRunCount = firstNumber(output, ['run_count', 'runs_completed']);
-  const nestedRunCount = firstNumber(summary, ['run_count', 'runs_completed']);
-  const arrayRunCount = Array.isArray(output.runs) ? output.runs.length : undefined;
-  const runCount = explicitRunCount ?? nestedRunCount ?? arrayRunCount;
-  const parts: string[] = [];
-
-  if (runCount !== undefined && runCount > 0) {
-    parts.push(
-      ['completed', 'complete', 'succeeded', 'success'].includes(status ?? '')
-        ? `${runCount} ${runCount === 1 ? 'run' : 'runs'} completed`
-        : `${runCount} ${runCount === 1 ? 'run' : 'runs'} recorded`,
-    );
-  }
-
-  if (typeof output.quarantined === 'boolean') {
-    parts.push(output.quarantined ? 'quarantine active' : 'quarantine cleared');
-  }
-
-  if (summary) {
-    for (const [key, metric] of Object.entries(summary)) {
-      if (['run_count', 'runs_completed'].includes(key) || typeof metric !== 'number') continue;
-      parts.push(`${humanizeMetricKey(key)} ${formatMetric(metric)}`);
-      if (parts.length >= 3) break;
-    }
-  }
-
-  return parts.length ? `${parts.join(', ')}.` : undefined;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
-}
-
-function firstString(
-  value: Record<string, unknown> | undefined,
-  keys: readonly string[],
-): string | undefined {
-  for (const key of keys) {
-    if (typeof value?.[key] === 'string' && value[key]) return value[key];
-  }
-  return undefined;
-}
-
-function firstNumber(
-  value: Record<string, unknown> | undefined,
-  keys: readonly string[],
-): number | undefined {
-  for (const key of keys) {
-    const candidate = value?.[key];
-    if (typeof candidate === 'number' && Number.isFinite(candidate)) return candidate;
-  }
-  return undefined;
-}
-
-function humanizeMetricKey(key: string): string {
-  const label = key.replace(/_avg$/u, '').replace(/_/gu, ' ');
-  return label.charAt(0).toLowerCase() + label.slice(1);
-}
-
-function formatMetric(value: number): string {
-  if (Number.isInteger(value)) return String(value);
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
-}
-
-function fileName(path: string): string {
-  return (
-    path
-      .split(/[\\/]+/)
-      .filter(Boolean)
-      .at(-1) ?? path
-  );
-}
-
-function normalize(value: string): string {
-  return value.replace(/\s+/g, ' ').trim();
+  return formatDuration(durationMs);
 }

@@ -1,6 +1,11 @@
 import { queryKeys } from '@/lib/query-keys';
 import { INFRASTRUCTURE_POLL_MS } from '@/lib/runtime-limits';
-import type { McpServerDefinition, RelayStatus, ServiceIntegrationHealth } from '@clio/core/v3';
+import type {
+  EffectiveAgentTool,
+  McpServerDefinition,
+  RelayStatus,
+  ServiceIntegrationHealth,
+} from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRightIcon,
@@ -22,6 +27,7 @@ import { ClioStatus, type ClioStatusValue } from '@/components/clio/status';
 import { humanizeProtocolValue } from '@/components/clio/presentation-labels';
 import { RelayConnectionDialog } from '@/components/clio/relay-settings';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
+import { ManagedServices } from '@/components/clio/managed-services';
 import {
   Frame,
   FrameDescription,
@@ -80,11 +86,18 @@ export function InfrastructurePage() {
     queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal, { sessionId }),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
+  const toolset = useQuery({
+    enabled: Boolean(sessionId),
+    queryKey: queryKeys.key('session-toolset', settings.endpoint, sessionId),
+    queryFn: ({ signal }) => repository.effectiveAgentToolset(sessionId ?? '', signal),
+    refetchInterval: INFRASTRUCTURE_POLL_MS,
+  });
   const webSearchConfiguration = useQuery({
     queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
     queryFn: ({ signal }) => repository.mcpConfiguration('web', signal),
   });
-  const error = health.error ?? relay.error ?? servers.error ?? webSearchConfiguration.error;
+  const error =
+    health.error ?? relay.error ?? servers.error ?? toolset.error ?? webSearchConfiguration.error;
   const foundationIssues =
     health.data?.integrations.filter(
       (integration) => integrationStatus(integration.status) !== 'healthy',
@@ -122,7 +135,7 @@ export function InfrastructurePage() {
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Set up</p>
             <h1 className="mt-2 text-4xl font-semibold tracking-tight">Agent capabilities</h1>
             <p className="mt-2 max-w-2xl text-muted-foreground">
-              Add research tools or remote computers, then see what this agent can use.
+              See what this agent can use, then configure the services that supply more tools.
             </p>
           </div>
           <Button asChild variant="outline">
@@ -146,6 +159,8 @@ export function InfrastructurePage() {
             </AlertDescription>
           </Alert>
         ) : null}
+
+        <ManagedServices />
 
         <section aria-label="Add capabilities" className="mt-8 grid gap-4 md:grid-cols-2">
           <SetupCard
@@ -190,14 +205,51 @@ export function InfrastructurePage() {
           />
         </section>
 
+        {sessionId ? (
+          <Frame className="mt-6" spacing="sm">
+            <FrameHeader>
+              <FrameTitle className="flex items-center gap-2">
+                <WrenchIcon aria-hidden="true" className="size-4 text-primary" /> Available to this
+                agent
+              </FrameTitle>
+              <FrameDescription>
+                The exact toolset recorded when this session's agent was built.
+              </FrameDescription>
+            </FrameHeader>
+            <FramePanel className="p-0">
+              {toolset.isPending ? (
+                <div className="grid gap-2 p-4">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : toolset.data ? (
+                <EffectiveToolset tools={toolset.data.tools} />
+              ) : (
+                <p className="p-5 text-sm text-muted-foreground">
+                  This session has not recorded an effective toolset yet.
+                </p>
+              )}
+            </FramePanel>
+            {toolset.data ? (
+              <FrameFooter>
+                <p className="text-xs text-muted-foreground">
+                  {toolset.data.tools.length} tools recorded for{' '}
+                  {toolset.data.agentId || 'this agent'}
+                </p>
+              </FrameFooter>
+            ) : null}
+          </Frame>
+        ) : null}
+
         <Frame className="mt-6" spacing="sm">
           <FrameHeader>
             <FrameTitle className="flex items-center gap-2">
-              <WrenchIcon aria-hidden="true" className="size-4 text-primary" /> Agent tools (MCP)
+              <CableIcon aria-hidden="true" className="size-4 text-primary" /> Connected tool
+              services
             </FrameTitle>
             <FrameDescription>
-              MCP services give agents specific tools. Built-in tools ship with the agent; external
-              MCPs add scientific data, search, or applications.
+              Service readiness and advertised catalogs are shown separately from the tools attached
+              to this session.
             </FrameDescription>
           </FrameHeader>
           <FramePanel className="p-0">
@@ -321,6 +373,78 @@ export function InfrastructurePage() {
   );
 }
 
+const TOOL_SOURCE_GROUPS = [
+  {
+    source: 'gateway',
+    title: 'Workspace access',
+    description: 'Files and commands exposed through the workspace gateway.',
+  },
+  {
+    source: 'spawn-runtime',
+    title: 'Child coordination',
+    description: 'Start, inspect, message, wait for, and collect child work.',
+  },
+  {
+    source: 'native',
+    title: 'Session operations',
+    description: 'Planning, work state, resources, memory, interactions, and session controls.',
+  },
+] as const;
+
+function EffectiveToolset({ tools }: { tools: EffectiveAgentTool[] }) {
+  const known = new Set(TOOL_SOURCE_GROUPS.map((group) => group.source));
+  const groups = [
+    ...TOOL_SOURCE_GROUPS.map((group) => ({
+      ...group,
+      tools: tools.filter((tool) => tool.source === group.source),
+    })),
+    {
+      source: 'connected',
+      title: 'Connected services',
+      description: 'Tools supplied by an attached service or agent blueprint.',
+      tools: tools.filter(
+        (tool) => !known.has(tool.source as (typeof TOOL_SOURCE_GROUPS)[number]['source']),
+      ),
+    },
+  ].filter((group) => group.tools.length);
+
+  return (
+    <div className="divide-y">
+      {groups.map((group) => (
+        <section key={group.source}>
+          <div className="flex flex-wrap items-baseline justify-between gap-2 bg-muted/30 px-4 py-2.5">
+            <div>
+              <h2 className="text-sm font-medium">{group.title}</h2>
+              <p className="text-xs text-muted-foreground">{group.description}</p>
+            </div>
+            <span className="text-xs tabular-nums text-muted-foreground">
+              {group.tools.length} {group.tools.length === 1 ? 'tool' : 'tools'}
+            </span>
+          </div>
+          <ul className="grid sm:grid-cols-2 lg:grid-cols-3">
+            {group.tools.map((tool) => (
+              <li
+                className="min-w-0 border-t px-4 py-2 first:border-t-0 sm:first:border-t"
+                key={tool.name}
+              >
+                <p className="truncate text-sm font-medium" title={tool.title}>
+                  {tool.title}
+                </p>
+                <code
+                  className="block truncate text-[11px] text-muted-foreground"
+                  title={tool.name}
+                >
+                  {tool.name}
+                </code>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function SetupCard({
   action,
   description,
@@ -395,7 +519,7 @@ function ServiceRow({ server }: { server: McpServerDefinition }) {
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {serviceDescription(server)}
-          {toolCount ? ` · ${toolCount}` : ''}
+          {toolCount ? <span className="ml-2">{toolCount}</span> : null}
         </p>
       </div>
       <ClioStatus detail={server.error} label={status.label} value={status.value} />

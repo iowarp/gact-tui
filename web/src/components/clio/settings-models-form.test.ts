@@ -10,6 +10,7 @@ const preset: LanguageModelPreset = {
   id: 'lm_studio',
   label: 'LM Studio',
   provider: 'lm_studio',
+  provider_id: 'lm_studio',
   api_base: 'http://127.0.0.1:1234/v1',
   suggested_model: 'qwen3-coder',
   requires_api_key: false,
@@ -39,6 +40,7 @@ describe('seedModelSettings', () => {
       maxTokens: '8192',
       modelId: 'qwen3-coder',
       parallel: '',
+      providerOptions: {},
       temperature: '0.3',
     });
   });
@@ -95,6 +97,8 @@ describe('modelSettingsUpdate', () => {
   it('submits only the provider identity when nothing else was edited', () => {
     expect(modelSettingsUpdate({ preset, seeded, values: seeded })).toEqual({
       provider: 'lm_studio',
+      provider_id: 'lm_studio',
+      provider_options: {},
       api_base: 'http://127.0.0.1:1234/v1',
       model: 'qwen3-coder',
     });
@@ -121,6 +125,8 @@ describe('modelSettingsUpdate', () => {
 
     expect(update).toEqual({
       provider: 'lm_studio',
+      provider_id: 'lm_studio',
+      provider_options: {},
       api_base: 'http://127.0.0.1:1234/v1',
       model: 'qwen3-next',
     });
@@ -148,6 +154,8 @@ describe('modelSettingsUpdate', () => {
       }),
     ).toEqual({
       provider: 'lm_studio',
+      provider_id: 'lm_studio',
+      provider_options: {},
       api_base: 'http://127.0.0.1:1234/v1',
       model: 'qwen3-coder',
       api_key: 'secret',
@@ -168,8 +176,47 @@ describe('modelSettingsUpdate', () => {
       }),
     ).toEqual({
       provider: 'lm_studio',
+      provider_id: 'lm_studio',
+      provider_options: {},
       api_base: 'http://127.0.0.1:1234/v1',
       model: 'qwen3-coder',
+    });
+  });
+
+  it('submits stable provider identity and typed LiteLLM options', () => {
+    const azure = {
+      ...preset,
+      id: 'azure_openai',
+      provider: 'openai',
+      provider_id: 'azure_openai',
+      configuration_fields: [
+        {
+          id: 'api_version',
+          label: 'API version',
+          required: true,
+        },
+      ],
+    } satisfies LanguageModelPreset;
+    const azureSeeded = seedModelSettings({
+      configuration,
+      preset: azure,
+      presetIsActive: false,
+    });
+
+    expect(
+      modelSettingsUpdate({
+        preset: azure,
+        seeded: azureSeeded,
+        values: {
+          ...azureSeeded,
+          modelId: 'deployment',
+          providerOptions: { api_version: '2024-10-21' },
+        },
+      }),
+    ).toMatchObject({
+      provider: 'openai',
+      provider_id: 'azure_openai',
+      provider_options: { api_version: '2024-10-21' },
     });
   });
 });
@@ -177,9 +224,15 @@ describe('modelSettingsUpdate', () => {
 describe('providerSupportsRuntimeSizing', () => {
   it('offers runtime sizing only for a model served on the connected agent', () => {
     expect(providerSupportsRuntimeSizing({ ...preset, provider: 'lm_studio' })).toBe(true);
-    expect(providerSupportsRuntimeSizing({ ...preset, provider: 'vllm' })).toBe(true);
-    expect(providerSupportsRuntimeSizing({ ...preset, provider: 'ollama' })).toBe(true);
-    expect(providerSupportsRuntimeSizing({ ...preset, provider: 'codex' })).toBe(false);
+    expect(
+      providerSupportsRuntimeSizing({ ...preset, provider: 'vllm', provider_id: 'vllm' }),
+    ).toBe(true);
+    expect(
+      providerSupportsRuntimeSizing({ ...preset, provider: 'ollama', provider_id: 'ollama' }),
+    ).toBe(true);
+    expect(
+      providerSupportsRuntimeSizing({ ...preset, provider: 'codex', provider_id: 'codex' }),
+    ).toBe(false);
     expect(providerSupportsRuntimeSizing(undefined)).toBe(false);
   });
 });

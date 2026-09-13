@@ -1,12 +1,17 @@
 package ui
 
 import (
+	tea "charm.land/bubbletea/v2"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/JaimeCernuda/gact-tui/contract/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/client"
 )
 
 func TestCollapseForPreview_ShortPassesThrough(t *testing.T) {
@@ -317,6 +322,122 @@ func TestFindBulkyPartForSelectedShortToolResultShowsDetails(t *testing.T) {
 		if strings.Contains(ref.fullText, raw) {
 			t.Fatalf("tool result detail should avoid raw label %q:\n%s", raw, ref.fullText)
 		}
+	}
+}
+
+func TestSelectedDeclaredResultUsesSemanticContent(t *testing.T) {
+	p := gact.Part{ID: "result", Type: gact.PartTypeToolResult, CallID: "call", ToolName: "arbitrary",
+		Presentation: &gact.ToolPresentation{Blocks: []gact.ToolPresentationBlock{{ID: "body", Type: "markdown", Text: "Readable child report"}}},
+		Content:      []gact.Part{{Type: gact.PartTypeText, Text: `{"output":"raw wall"}`}},
+	}
+	message := gact.Message{ID: "message", Role: gact.RoleAssistant, Parts: []gact.Part{p}}
+	ref, ok := findBulkyPartForSelected(message, 0, []gact.Message{message}, 0)
+	if !ok || !strings.Contains(ref.fullText, "Readable child report") || strings.Contains(ref.fullText, "raw wall") {
+		t.Fatalf("declared result must open readable content, got %#v", ref)
+	}
+}
+
+func TestDeclaredResultPagingAndTechnicalDisclosure(t *testing.T) {
+	var cursors []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/sessions/s1/tools/c1/presentation/body" {
+			t.Errorf("wrong scope: %s", r.URL.Path)
+		}
+		cursor := r.URL.Query().Get("cursor")
+		cursors = append(cursors, cursor)
+		if cursor == "0" {
+			_, _ = w.Write([]byte(`{"text":"α🙂","cursor":0,"next_cursor":2,"total_chars":4}`))
+		} else {
+			_, _ = w.Write([]byte(`{"text":"β终","cursor":2,"next_cursor":null,"total_chars":4}`))
+		}
+	}))
+	defer server.Close()
+	a := New(server.URL)
+	a.session.sessions = []gact.Session{{ID: "s1"}}
+	a.session.selected = 0
+	p := gact.Part{ID: "p1", Type: gact.PartTypeToolResult, CallID: "c1", ToolName: "arbitrary",
+		Presentation: &gact.ToolPresentation{Action: "Collect", Blocks: []gact.ToolPresentationBlock{{ID: "body", Type: "markdown", Text: "tail", ContentRef: &gact.PresentationContentRef{SessionID: "s1", CallID: "c1", BlockID: "body", Cursor: 2, TotalChars: 4}}}},
+		Content:      []gact.Part{{Type: gact.PartTypeText, Text: `{"private":"technical only"}`}},
+	}
+	a.conversation.messages = []gact.Message{{ID: "m1", Role: gact.RoleAssistant, Parts: []gact.Part{p}}}
+	a.conversation.bodySelMsgIdx, a.conversation.bodySelPartIdx = 0, 0
+	cmd := a.detail.openModal()
+	if cmd == nil || !strings.Contains(a.detail.ref.fullText, "Loading complete result") {
+		t.Fatal("opening a paged result must load its content")
+	}
+	msg := cmd().(declaredResultLoadedMsg)
+	if msg.err != nil {
+		t.Fatal(msg.err)
+	}
+	a.dispatchUpdateMessage(msg)
+	if strings.Join(cursors, ",") != "0,2" || a.detail.ref.fullText != "α🙂β终" {
+		t.Fatalf("pages not reconstructed: %v, %q", cursors, a.detail.ref.fullText)
+	}
+	if p.Presentation.Blocks[0].Text != "tail" {
+		t.Fatal("viewer modified retained observation")
+	}
+	a.detail.handleKey(tea.KeyPressMsg{Code: 't', Text: "t"})
+	if !strings.Contains(a.detail.ref.fullText, "technical only") {
+		t.Fatal("technical disclosure unavailable")
+	}
+	a.detail.handleKey(tea.KeyPressMsg{Code: 't', Text: "t"})
+	if a.detail.ref.fullText != "α🙂β终" {
+		t.Fatal("result toggle lost content")
+	}
+	a.detail.close()
+	a.dispatchUpdateMessage(msg)
+	if a.detail.visible || a.detail.ref != nil {
+		t.Fatal("late response reopened closed viewer")
+	}
+}
+
+func TestDeclaredResultRejectsWrongScopeAndBrokenCursor(t *testing.T) {
+	for _, wrongScope := range []bool{false, true} {
+		t.Run(map[bool]string{false: "cursor", true: "scope"}[wrongScope], func(t *testing.T) {
+			calls := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				_, _ = w.Write([]byte(`{"text":"bad","cursor":1,"next_cursor":1,"total_chars":8}`))
+			}))
+			defer server.Close()
+			a := New(server.URL)
+			a.session.sessions = []gact.Session{{ID: "s1"}}
+			a.session.selected = 0
+			sid := "s1"
+			if wrongScope {
+				sid = "foreign"
+			}
+			p := gact.Part{ID: "p", CallID: "call", Presentation: &gact.ToolPresentation{Blocks: []gact.ToolPresentationBlock{{ID: "body", Type: "text", Text: "preview", ContentRef: &gact.PresentationContentRef{SessionID: sid, CallID: "call", BlockID: "body"}}}}}
+			ref := declaredResultRef("m", p)
+			a.detail.open(&ref)
+			msg := a.detail.loadDeclaredResult()().(declaredResultLoadedMsg)
+			if msg.err == nil {
+				t.Fatal("invalid content was accepted")
+			}
+			if wrongScope && calls != 0 {
+				t.Fatal("requested foreign session")
+			}
+			a.dispatchUpdateMessage(msg)
+			if !strings.Contains(a.detail.ref.fullText, "preview") || !strings.Contains(a.detail.ref.fullText, "Unable to load") {
+				t.Fatal("error must preserve preview and explain failure")
+			}
+		})
+	}
+}
+
+func TestPresentationDeltaAfterTailSnapshotDoesNotDuplicate(t *testing.T) {
+	a := New("http://unused")
+	var part gact.Part
+	if err := json.Unmarshal([]byte(`{"call_id":"c","presentation":{"blocks":[{"id":"terminal","type":"terminal","text":"tail","stream_offset":9000}]}}`), &part); err != nil {
+		t.Fatal(err)
+	}
+	a.conversation.messages = []gact.Message{{ID: "m", Parts: []gact.Part{part}}}
+	event := client.SSEEvent{Payload: map[string]any{"payload": map[string]any{"call_id": "c", "block_id": "terminal", "offset": 9000, "text": "🙂end"}}}
+	a.conversation.applyToolPresentationDelta(event)
+	a.conversation.applyToolPresentationDelta(event)
+	block := a.conversation.messages[0].Parts[0].Presentation.Blocks[0]
+	if block.Text != "tail🙂end" || block.StreamOffset == nil || *block.StreamOffset != 9004 {
+		t.Fatalf("wrong accumulated state: %#v", block)
 	}
 }
 
