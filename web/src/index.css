@@ -179,6 +179,49 @@
   }
 }
 
+/* @a2ui/react 0.10.2 emits the stable `chip`/`selected` hooks but its
+   ChoicePicker CSS-module names are absent from the published bundle. Keep the
+   official component interactive while giving its choices and selected state a
+   visible CLIO treatment inside generated surfaces only. */
+[id^='a2ui-surface-'] .chip {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  margin: 0.375rem 0.375rem 0 0;
+  padding: 0.375rem 0.625rem;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--card-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+[id^='a2ui-surface-'] .chip:hover {
+  border-color: color-mix(in oklch, var(--primary) 65%, var(--border));
+  background: var(--accent);
+}
+
+[id^='a2ui-surface-'] .chip[aria-pressed='true'],
+[id^='a2ui-surface-'] .chip.selected {
+  border-color: var(--primary);
+  background: color-mix(in oklch, var(--primary) 18%, var(--card));
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 22%, transparent);
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+[id^='a2ui-surface-'] .chip:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
 .clio-grid {
   background-image: linear-gradient(
       to right,
