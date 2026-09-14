@@ -1,4 +1,4 @@
-import type { Message as DomainMessage } from '@clio/core/v3';
+import type { McpAppIdentity, Message as DomainMessage } from '@clio/core/v3';
 import { AlertTriangleIcon, ArrowDownIcon, GitBranchIcon, LoaderCircleIcon } from 'lucide-react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -25,6 +25,10 @@ import {
 const VIRTUALIZATION_THRESHOLD = 80;
 export type { ClioConversationProps, ConversationMessageRowProps } from './conversation-types';
 
+interface ActiveMcpApp {
+  id: string;
+  identity: McpAppIdentity;
+}
 
 function isProjectionOnlyA2UIMessage(message: DomainMessage): boolean {
   return (
@@ -88,12 +92,32 @@ function ConversationBody({
       ),
     [messages],
   );
-  const activeMcpAppId = useMemo(
-    () =>
-      messages.flatMap((message) => message.blocks).findLast((block) => block.type === 'mcp_app')
-        ?.app_instance_id,
-    [messages],
-  );
+  const activeMcpApp = useMemo<ActiveMcpApp | undefined>(() => {
+    for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+      const message = messages[messageIndex];
+      const block = message?.blocks.findLast((candidate) => candidate.type === 'mcp_app');
+      if (block?.type === 'mcp_app' && message) {
+        return {
+          id: block.app_instance_id,
+          identity: {
+            appInstanceId: block.app_instance_id,
+            dataRef: block.data_ref,
+            sessionId: message.session_id,
+          },
+        };
+      }
+    }
+    return undefined;
+  }, [messages]);
+  const activeMcpAppId = activeMcpApp?.id;
+  const previousActiveMcpApp = useRef(activeMcpApp);
+  useEffect(() => {
+    if (!activeMcpApp) return;
+    const previous = previousActiveMcpApp.current;
+    previousActiveMcpApp.current = activeMcpApp;
+    if (!previous || previous.id === activeMcpApp.id || !entities.mcpAppRepository) return;
+    void entities.mcpAppRepository.closeMcpApp(previous.identity).catch(() => undefined);
+  }, [activeMcpApp, entities.mcpAppRepository]);
   const detachedSurfaces = useMemo(
     () =>
       Object.values(entities.surfaces)

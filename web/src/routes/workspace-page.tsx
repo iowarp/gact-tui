@@ -4,8 +4,8 @@ import type {
   RunState,
   WorkspaceReference,
 } from '@clio/core/v3';
-import { AnimatePresence, LayoutGroup, m } from 'motion/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, LayoutGroup, m, useIsPresent } from 'motion/react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
@@ -48,6 +48,28 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
+
+function TranscriptPresenceSurface({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className: string;
+}) {
+  const isPresent = useIsPresent();
+  return (
+    <m.div
+      animate={{ opacity: 1 }}
+      aria-hidden={!isPresent}
+      className={className}
+      exit={{ opacity: 0 }}
+      inert={!isPresent}
+      initial={{ opacity: 0 }}
+    >
+      {children}
+    </m.div>
+  );
+}
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -671,11 +693,8 @@ export function WorkspacePage() {
           <LayoutGroup id={`session-layout:${sessionId}`}>
             <AnimatePresence initial={false} mode="popLayout">
               {showConversationWelcome ? (
-                <m.div
-                  animate={{ opacity: 1 }}
+                <TranscriptPresenceSurface
                   className="clio-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-8 sm:px-6"
-                  exit={{ opacity: 0 }}
-                  initial={{ opacity: 0 }}
                   key="welcome"
                 >
                   <div className="flex min-h-full items-center">
@@ -689,15 +708,9 @@ export function WorkspacePage() {
                       {renderComposer('welcome')}
                     </ClioConversationWelcome>
                   </div>
-                </m.div>
+                </TranscriptPresenceSurface>
               ) : (
-                <m.div
-                  animate={{ opacity: 1 }}
-                  className="min-h-0 flex-1"
-                  exit={{ opacity: 0 }}
-                  initial={{ opacity: 0 }}
-                  key="conversation"
-                >
+                <TranscriptPresenceSurface className="min-h-0 flex-1" key="conversation">
                   <WorkspaceLiveConversation
                     artifacts={artifacts}
                     bottomInset={dockedComposerHeight}
@@ -737,7 +750,7 @@ export function WorkspacePage() {
                     sessionId={sessionId}
                     subagents={subagents}
                   />
-                </m.div>
+                </TranscriptPresenceSurface>
               )}
             </AnimatePresence>
             <WorkspaceActionAlerts

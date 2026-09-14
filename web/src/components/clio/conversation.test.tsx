@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ClioRepository, Message as DomainMessage } from '@clio/core/v3';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -49,7 +50,6 @@ function renderConversation(element: ReactElement) {
     </AppearanceProvider>,
   );
 }
-
 
 describe('ClioConversation recovery actions', () => {
   it('keeps a structured context reference visible and clickable in the sent message', async () => {
@@ -551,5 +551,63 @@ describe('ClioConversation recovery actions', () => {
 
     expect(screen.queryByText('Response unavailable')).not.toBeInTheDocument();
     expect(screen.getByText('This session has no messages')).toBeInTheDocument();
+  });
+
+  it('closes only an app superseded inside the session, not the active app on navigation', async () => {
+    const closeMcpApp = vi.fn(async () => undefined);
+    const repository = {
+      closeMcpApp,
+      mcpAppDescriptor: vi.fn(() => new Promise(() => undefined)),
+    } as unknown as ClioRepository;
+    const appMessage = (id: string, appInstanceId: string, createdAt: string): DomainMessage => ({
+      id,
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: createdAt,
+      blocks: [
+        {
+          id: `${id}_part`,
+          type: 'mcp_app',
+          app_instance_id: appInstanceId,
+          data_ref: `${appInstanceId}_data`,
+          mime_type: 'text/html;profile=mcp-app',
+          resource_uri: 'ui://fixture/panel',
+          source_server: 'fixture',
+          tool_name: 'fixture_open',
+        },
+      ],
+    });
+    const first = appMessage('message_app_1', 'app_1', '2026-09-14T12:00:00Z');
+    const second = appMessage('message_app_2', 'app_2', '2026-09-14T12:01:00Z');
+    const scene = (messages: DomainMessage[]) => (
+      <AppearanceProvider>
+        <ConversationDisplayProvider>
+          <ClioConversation
+            artifacts={{}}
+            mcpAppRepository={repository}
+            messages={messages}
+            subagents={{}}
+            surfaces={{}}
+            tasks={{}}
+            tools={{}}
+          />
+        </ConversationDisplayProvider>
+      </AppearanceProvider>
+    );
+    const view = render(scene([first]));
+
+    view.rerender(scene([first, second]));
+
+    await waitFor(() =>
+      expect(closeMcpApp).toHaveBeenCalledWith({
+        appInstanceId: 'app_1',
+        dataRef: 'app_1_data',
+        sessionId: 'session_1',
+      }),
+    );
+    view.unmount();
+    expect(closeMcpApp).not.toHaveBeenCalledWith(
+      expect.objectContaining({ appInstanceId: 'app_2' }),
+    );
   });
 });
