@@ -55,6 +55,7 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+          GOWORK: "off"
           EXPECTED_REVISION: ${{ github.sha }}
         run: |
           ext=""
