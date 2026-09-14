@@ -4,6 +4,52 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.0] — 2026-09-13
+
+The React workspace release paired with clio-agent v0.9.2. It replaces the old
+single-purpose web shell with the same session, tool, resource, artifact,
+interaction, and observability model across the browser and desktop host.
+
+### Added
+
+- A complete workspace shell for projects and sessions, with streamed turns,
+  reviewable file changes, plan approval and execution, attachments, durable
+  artifacts, resource readers, workspace memory, and child-agent navigation.
+- Native MCP 2026-07-28 interactions, including elicitation, multi-round tool
+  input, durable task progress, cancellation, prompts, and embedded MCP Apps.
+- A2UI 0.9.1 surfaces with trusted components, form actions, agent-submit
+  actions, narrow-layout support, and persisted reload behavior.
+- Session evidence views for files, changes, artifacts, plans, sources,
+  workflows, child agents, timelines, hierarchical Gantt execution, and
+  provenance graphs.
+- Desktop-managed provider and service deployment for local and remote hosts,
+  secure credentials, live provider discovery, and vLLM reasoning parsers.
+
+### Changed
+
+- Tool rows render the server-declared presentation contract. Arguments and
+  results are visually distinct, long output is bounded with explicit expansion,
+  resource and memory results use semantic layouts, and technical payloads stay
+  behind the information control.
+- Child work uses causal Spawn, Observe, Message, Wait, and Collect rows with
+  stable task identity, readable status, and direct navigation to child sessions.
+- Files and artifacts open in durable side-panel tabs rather than replacing the
+  current session. Artifact lists are compact, independently scrollable, and do
+  not pre-render every document.
+- Provider refresh results are grouped by provider and keep tool availability
+  distinct from live service health.
+
+### Fixed
+
+- Reloaded sessions retain compaction checkpoints, child activity, rich tool
+  results, and the final answer without reconstructing contradictory client state.
+- Resource conversion, search, structure, and read operations identify their
+  input and outcome instead of dumping unlabeled transport text.
+- Workspace-memory results use internal navigation and bounded, individually
+  expandable matches instead of forcing a full-page reload.
+- The compaction activity row identifies the checkpoint and exposes its summary
+  preview without presenting it as transcript deletion.
+
 ## [0.9.7] — 2026-07-13
 
 The desktop-sidecar restoration release. Pairs with clio-agent v0.7.0.
