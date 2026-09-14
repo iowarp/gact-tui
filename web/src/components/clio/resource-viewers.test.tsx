@@ -8,6 +8,7 @@ import { ArtifactView, BlueprintFileEditor } from './resource-viewers';
 const { repository } = vi.hoisted(() => ({
   repository: {
     readAgentBlueprintFile: vi.fn(),
+    readArtifactBytesFor: vi.fn(),
     readArtifactTextFor: vi.fn(),
     writeAgentBlueprintFile: vi.fn(),
   },
@@ -124,5 +125,33 @@ describe('ArtifactView', () => {
     expect(heading.closest('article')).toHaveClass('min-w-0');
     expect(document.querySelector('[data-language="markdown"]')).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent('# HDF5 report');
+  });
+
+  it('renders an SVG figure through the image viewer', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    repository.readArtifactBytesFor.mockResolvedValue(
+      new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+    );
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ArtifactView
+          artifact={{
+            id: 'artifact_figure',
+            session_id: 'session_1',
+            workspace_id: 'workspace_1',
+            name: 'scan-speed.svg',
+            media_type: 'image/svg+xml',
+            size: 54,
+            uri: 'artifact://workspace_1/scan-speed.svg@v1',
+          }}
+          files={[]}
+          workspaceId="workspace_1"
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByLabelText('Zoomable image scan-speed.svg')).toBeVisible();
+    expect(screen.queryByText('Preview unavailable')).not.toBeInTheDocument();
   });
 });

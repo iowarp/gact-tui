@@ -625,13 +625,15 @@ function isTextArtifact(mediaType: string, name: string): boolean {
 
 function isImageArtifact(mediaType: string, name: string): boolean {
   return (
-    ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'].includes(mediaType) ||
+    ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml'].includes(
+      mediaType,
+    ) ||
     isImagePath(name)
   );
 }
 
 function isImagePath(path: string): boolean {
-  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif'].includes(
+  return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg'].includes(
     path.split('.').at(-1)?.toLowerCase() ?? '',
   );
 }
