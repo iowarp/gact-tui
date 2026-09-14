@@ -110,6 +110,23 @@ export function WorkspaceLoading({
   );
 }
 
+export function WorkspaceHydrating({ label = 'Opening conversation' }: { label?: string }) {
+  return (
+    <section
+      aria-label="Conversation loading"
+      aria-live="polite"
+      className="grid h-full min-h-0 place-items-center bg-background p-6"
+    >
+      <div className="grid justify-items-center gap-3 text-center">
+        <ClioStatus label={label} value="connecting" />
+        <p className="max-w-sm text-sm text-muted-foreground">
+          Restoring saved messages now. Newer messages will appear as they arrive.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export function WorkspaceStatusStrip({
   activeWorkCount,
   cost,

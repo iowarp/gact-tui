@@ -20,7 +20,7 @@ import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
 import { SessionWorkSummary } from '@/components/clio/session-work';
 import {
-  WorkspaceLoading,
+  WorkspaceHydrating,
   WorkspaceUnavailable,
   WorkspaceTranscriptAlerts,
   WorkspaceActionAlerts,
@@ -264,7 +264,45 @@ export function WorkspacePage() {
     !session &&
     (capabilities.isPending || workspaces.isPending || sessions.isPending || allSessions.isPending)
   ) {
-    return <WorkspaceLoading />;
+    const rememberedSession = navigationSessions.find((candidate) => candidate.id === sessionId);
+    return (
+      <>
+        <ClioCommandMenu onOpenResource={revealWorkbench} />
+        <ClioAppShell
+          navigation={
+            <ClioNavigation
+              activeSessionId={sessionId}
+              activeWorkspaceId={workspaceId}
+              actions={navigationActions}
+              attentions={sessionAttentions}
+              blueprints={agentBlueprints.data ?? []}
+              endpoint={settings.endpoint}
+              onOpenWorkspaceFiles={() => revealWorkbench({ kind: 'resources', section: 'files' })}
+              sessions={navigationSessions}
+              workspaces={workspaces.data ?? []}
+            />
+          }
+          contextBar={
+            <div className="min-w-0 truncate text-sm font-medium">
+              {rememberedSession?.title ?? 'Opening conversation'}
+            </div>
+          }
+          statusStrip={
+            <WorkspaceLiveStatusStrip
+              activeWorkCount={workspaceRouteState.countActiveWork(runs, tasks, tools)}
+              a2uiVersions={capabilities.data?.a2ui_versions}
+              gactVersions={capabilities.data?.gact_versions}
+              service={capabilities.data?.service}
+              sessionId={sessionId}
+              streamError={streamError}
+            />
+          }
+          workbench={<div aria-label="Workspace canvas loading" className="h-full bg-background" />}
+        >
+          <WorkspaceHydrating />
+        </ClioAppShell>
+      </>
+    );
   }
   if (queryError && !session) {
     return (

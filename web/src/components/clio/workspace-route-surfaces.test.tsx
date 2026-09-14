@@ -2,7 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
-import { WorkspaceStatusStrip } from './workspace-route-surfaces';
+import { WorkspaceHydrating, WorkspaceStatusStrip } from './workspace-route-surfaces';
 
 afterEach(cleanup);
 
@@ -52,5 +52,17 @@ describe('WorkspaceStatusStrip', () => {
       'Recovery checkpoint point-1849',
     );
     expect(screen.getByText('2 active items')).toBeVisible();
+  });
+});
+
+describe('WorkspaceHydrating', () => {
+  it('keeps loading state inside the conversation pane', () => {
+    render(<WorkspaceHydrating />);
+
+    const surface = screen.getByRole('region', { name: 'Conversation loading' });
+    expect(surface).toBeVisible();
+    expect(surface).toHaveClass('h-full', 'min-h-0');
+    expect(surface).not.toHaveClass('min-h-dvh');
+    expect(screen.getByText(/messages will appear as they arrive/iu)).toBeVisible();
   });
 });
