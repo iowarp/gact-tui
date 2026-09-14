@@ -124,28 +124,16 @@ beforeEach(() => {
 });
 
 describe('useWorkspaceData stream ownership', () => {
-  it('reserves the browser request channel while idle and opens the cursor stream when running', async () => {
+  it('keeps the focused-session stream open between turns', async () => {
     mocks.repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: ['0.3'] });
     const idle = renderWorkspaceData();
-
-    await waitFor(() =>
-      expect(mocks.useSessionLiveStream).toHaveBeenLastCalledWith(
-        expect.objectContaining({ enabled: false, sessionId: 'sess_1' }),
-      ),
-    );
-    idle.unmount();
-
-    mocks.repository.sessions.mockResolvedValue([
-      { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'running' },
-    ]);
-    const running = renderWorkspaceData();
 
     await waitFor(() =>
       expect(mocks.useSessionLiveStream).toHaveBeenLastCalledWith(
         expect.objectContaining({ enabled: true, sessionId: 'sess_1' }),
       ),
     );
-    running.unmount();
+    idle.unmount();
   });
 });
 
