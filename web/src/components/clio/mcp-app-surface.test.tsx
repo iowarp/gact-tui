@@ -142,7 +142,7 @@ describe('McpAppSurface', () => {
     expect(container).not.toHaveTextContent('private app html');
   });
 
-  it('bridges requests to the exact app and closes it once on teardown', async () => {
+  it('bridges requests to the exact app and keeps it durable on teardown', async () => {
     const client = repository();
     const view = render(<McpAppSurface {...props} appInstanceId="app_2" repository={client} />);
     const iframe = await screen.findByTitle<HTMLIFrameElement>(
@@ -194,7 +194,7 @@ describe('McpAppSurface', () => {
     );
 
     view.unmount();
-    await waitFor(() => expect(client.closeMcpApp).toHaveBeenCalledTimes(1));
+    expect(client.closeMcpApp).not.toHaveBeenCalled();
   });
 
   it('contains a same-origin sandbox error instead of mounting it', async () => {
@@ -242,7 +242,7 @@ describe('McpAppSurface', () => {
     expect(client.closeMcpApp).not.toHaveBeenCalled();
   });
 
-  it('removes the replaced iframe and closes only the replaced app', async () => {
+  it('removes the replaced iframe without treating a render replacement as closure', async () => {
     const client = repository();
     const view = render(<McpAppSurface {...props} appInstanceId="app_4" repository={client} />);
     const first = await screen.findByTitle<HTMLIFrameElement>('vigil_open_viewer interactive view');
@@ -263,15 +263,6 @@ describe('McpAppSurface', () => {
     );
     expect(second).toHaveAttribute('data-mcp-app-iframe', 'app_5');
     expect(document.querySelector('[data-mcp-app-iframe="app_4"]')).not.toBeInTheDocument();
-    await waitFor(() =>
-      expect(client.closeMcpApp).toHaveBeenCalledWith({
-        sessionId: 'sess_1',
-        appInstanceId: 'app_4',
-        dataRef: 'opaque-ref',
-      }),
-    );
-    expect(client.closeMcpApp).not.toHaveBeenCalledWith(
-      expect.objectContaining({ appInstanceId: 'app_5' }),
-    );
+    expect(client.closeMcpApp).not.toHaveBeenCalled();
   });
 });

@@ -21,7 +21,6 @@ type McpAppClient = Pick<
   | 'readMcpAppResource'
   | 'updateMcpAppModelContext'
   | 'postMcpAppMessage'
-  | 'closeMcpApp'
 >;
 
 interface JsonRpcMessage {
@@ -32,9 +31,6 @@ interface JsonRpcMessage {
   result?: unknown;
   error?: { code: number; message: string };
 }
-
-const pendingCloses = new Map<string, ReturnType<typeof setTimeout>>();
-const closedApps = new Set<string>();
 
 export interface McpAppSurfaceProps {
   appInstanceId: string;
@@ -72,7 +68,6 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
     }),
     [props.appInstanceId, props.dataRef, props.sessionId],
   );
-  const identityKey = `${identity.sessionId}:${identity.appInstanceId}:${identity.dataRef}`;
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [descriptor, setDescriptor] = useState<McpAppDescriptor>();
   const [error, setError] = useState('');
@@ -93,11 +88,6 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
   }, []);
 
   useEffect(() => {
-    const pending = pendingCloses.get(identityKey);
-    if (pending) {
-      clearTimeout(pending);
-      pendingCloses.delete(identityKey);
-    }
     const controller = new AbortController();
     void loadDescriptor(props.repository, identity, controller.signal)
       .then((next) => {
@@ -107,7 +97,6 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
       .catch((thrown) => {
         if (!controller.signal.aborted) {
           if (isEndedAppError(thrown)) {
-            closedApps.add(identityKey);
             setEnded(true);
           } else {
             setError(thrown instanceof Error ? thrown.message : String(thrown));
@@ -115,7 +104,7 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
         }
       });
     return () => controller.abort();
-  }, [identity, identityKey, props.repository, props.resourceUri]);
+  }, [identity, props.repository, props.resourceUri]);
 
   useLayoutEffect(() => {
     if (!descriptor) return;
@@ -232,22 +221,6 @@ function McpAppSurfaceInstance(props: McpAppSurfaceProps) {
       });
     };
   }, [descriptor, identity, props.appInstanceId, props.repository]);
-
-  useEffect(
-    () => () => {
-      if (closedApps.has(identityKey)) return;
-      const pending = setTimeout(() => {
-        pendingCloses.delete(identityKey);
-        if (closedApps.has(identityKey)) return;
-        closedApps.add(identityKey);
-        void props.repository.closeMcpApp(identity).catch(() => {
-          closedApps.delete(identityKey);
-        });
-      }, 0);
-      pendingCloses.set(identityKey, pending);
-    },
-    [identity, identityKey, props.repository],
-  );
 
   if (ended) {
     return <McpAppHistoryLine sourceServer={props.sourceServer} toolName={props.toolName} />;
