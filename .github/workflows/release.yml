@@ -61,13 +61,24 @@ jobs:
           ext=""
           if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
           out="gact-${GOOS}-${GOARCH}${ext}"
-          go build -trimpath -ldflags "-s -w" -o "../$out" .
+          version_pkg="github.com/JaimeCernuda/gact-tui/tui/internal/version"
+          build_time="$(git show -s --format=%cI "$EXPECTED_REVISION")"
+          ldflags="-s -w"
+          ldflags+=" -X ${version_pkg}.Release=${GITHUB_REF_NAME}"
+          ldflags+=" -X ${version_pkg}.BuildRevision=${EXPECTED_REVISION}"
+          ldflags+=" -X ${version_pkg}.BuildTime=${build_time}"
+          ldflags+=" -X ${version_pkg}.BuildDirty=false"
+          go build -trimpath -ldflags "$ldflags" -o "../$out" .
           (cd .. && sha256sum "$out" > "$out.sha256")
           if [ "$GOOS" = "linux" ] && [ "$GOARCH" = "amd64" ]; then
             chmod +x "../$out"
             version_output="$("../$out" version)"
             printf '%s\n' "$version_output"
             expected_short="${EXPECTED_REVISION:0:12}"
+            if ! printf '%s\n' "$version_output" | grep -q "gact ${GITHUB_REF_NAME}"; then
+              echo "release build version mismatch: expected ${GITHUB_REF_NAME}" >&2
+              exit 1
+            fi
             if ! printf '%s\n' "$version_output" | grep -q "revision: ${expected_short}"; then
               echo "release build revision mismatch: expected ${expected_short}" >&2
               exit 1
