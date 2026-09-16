@@ -6,7 +6,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mocks = vi.hoisted(() => ({
   connect: vi.fn(async () => undefined),
+  credentialsReady: true,
   forget: vi.fn(async () => undefined),
+  inTauri: false,
+  managedConnectionReady: false,
   recents: [] as Array<{ endpoint: string; label?: string }>,
   repository: {
     allSessions: vi.fn(),
@@ -18,6 +21,8 @@ const mocks = vi.hoisted(() => ({
   resolveConnection: vi.fn(),
 }));
 
+vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => mocks.inTauri }));
+
 vi.mock('@/lib/connection', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/connection')>();
   return { ...actual, createRepository: () => mocks.repository };
@@ -26,8 +31,8 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({
     settings: { endpoint: 'http://127.0.0.1:8788', label: 'Contained' },
     recents: mocks.recents,
-    credentialsReady: true,
-    managedConnectionReady: false,
+    credentialsReady: mocks.credentialsReady,
+    managedConnectionReady: mocks.managedConnectionReady,
     credentialError: undefined,
     resolveConnection: mocks.resolveConnection,
     connect: mocks.connect,
@@ -42,6 +47,9 @@ beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
   clearConnectionOutcomes();
+  mocks.credentialsReady = true;
+  mocks.inTauri = false;
+  mocks.managedConnectionReady = false;
   mocks.recents = [];
   mocks.resolveConnection.mockResolvedValue({
     endpoint: 'http://127.0.0.1:8788',
@@ -73,6 +81,31 @@ beforeEach(() => {
     title: 'New conversation',
     message_count: 0,
   });
+});
+
+it('shows managed startup instead of asking desktop users for a connection address', () => {
+  mocks.inTauri = true;
+  mocks.credentialsReady = false;
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(screen.getByText('Starting Agent Workspace…')).toBeVisible();
+  expect(
+    screen.getByText(
+      'The bundled service is starting and will connect automatically. No connection address is required.',
+    ),
+  ).toBeVisible();
+  expect(screen.queryByLabelText('Connection address')).not.toBeInTheDocument();
 });
 
 it('separates saved services from new connection fields and exposes the endpoint', async () => {

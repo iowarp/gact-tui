@@ -16,6 +16,7 @@
 //   TAURI_DRIVER=/path/to/tauri-driver{.exe}
 //   TAURI_NATIVE_DRIVER=/path/to/WebKitWebDriver or msedgedriver.exe
 //   CLIO_DESKTOP_SCREENSHOT_DIR=/path/to/screenshots
+//   CLIO_DESKTOP_MANAGED_MODE=1 (exercise a bundled app's private backend)
 //
 // Run: TAURI_E2E=1 pnpm --filter @clio/desktop test:webview
 
@@ -76,6 +77,7 @@ const TAURI_DRIVER = process.env['TAURI_DRIVER'] ?? defaultTauriDriver;
 const SCREENSHOT_DIR =
   process.env['CLIO_DESKTOP_SCREENSHOT_DIR'] ?? resolve(root, '..', 'web', 'screenshots', 'audit');
 const CHAT_ONLY = process.env['TAURI_E2E_CHAT_ONLY'] === '1';
+const MANAGED_MODE = process.env['CLIO_DESKTOP_MANAGED_MODE'] === '1';
 const BACKEND_URL = process.env['CLIO_DESKTOP_BACKEND_URL'] ?? 'http://127.0.0.1:17800';
 const WORKSPACE_ID = process.env['CLIO_DESKTOP_WORKSPACE_ID'] ?? 'ws_default';
 const PORT = 4444;
@@ -107,10 +109,10 @@ const DRIVER_READY_TIMEOUT_MS = 10_000;
 // The native app's supervisor attaches through CLIO_GACT_URL / CLIO_PORT.
 // Keep the WebView test's backend fixture URL and the launched app's attach
 // target in lockstep so the test never seeds one backend and inspects another.
-if (!process.env['CLIO_GACT_URL']) {
+if (!MANAGED_MODE && !process.env['CLIO_GACT_URL']) {
   process.env['CLIO_GACT_URL'] = BACKEND_URL;
 }
-if (!process.env['CLIO_PORT']) {
+if (!MANAGED_MODE && !process.env['CLIO_PORT']) {
   try {
     const parsed = new URL(BACKEND_URL);
     if (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost') {
@@ -514,6 +516,43 @@ async function readEndpointHandoff(sid) {
   return j.value ?? {};
 }
 
+async function readSupervisorDiagnostics(sid) {
+  const j = await execute(
+    sid,
+    'return new Promise((resolve) => {' +
+      '  const invoke = window.__TAURI_INTERNALS__?.invoke;' +
+      "  if (typeof invoke !== 'function') { resolve({ error: 'Tauri invoke unavailable' }); return; }" +
+      "  Promise.all([invoke('get_backend'), invoke('read_logs').catch((error) => String(error))])" +
+      '    .then(([handle, logs]) => resolve({ handle, logs }))' +
+      '    .catch((error) => resolve({ error: String(error) }));' +
+      '});',
+  );
+  return j.value ?? {};
+}
+
+async function assertManagedStartupSurface(sid) {
+  if (!MANAGED_MODE) return;
+  const j = await execute(
+    sid,
+    `return {` +
+      `  hasShell: !!document.querySelector('${SHELL_SELECTOR}'),` +
+      "  text: document.body?.innerText || ''" +
+      `};`,
+  );
+  const state = j.value ?? {};
+  if (state.hasShell) return;
+  assert.match(
+    state.text ?? '',
+    /bundled service is starting and will connect automatically/i,
+    `managed startup did not explain automatic connection: ${JSON.stringify(state)}`,
+  );
+  assert.doesNotMatch(
+    state.text ?? '',
+    /connection address/i,
+    `managed startup exposed the manual connection form: ${JSON.stringify(state)}`,
+  );
+}
+
 const trimSlash = (value) => String(value ?? '').replace(/\/$/, '');
 
 /**
@@ -526,7 +565,11 @@ async function assertEndpointHandoff(sid, timeoutMs) {
   let handoff;
   for (;;) {
     handoff = await readEndpointHandoff(sid);
-    if (!handoff.error && handoff.status === 'ready' && (handoff.sessionLinks ?? []).length > 0) {
+    if (
+      !handoff.error &&
+      handoff.status === 'ready' &&
+      (MANAGED_MODE || (handoff.sessionLinks ?? []).length > 0)
+    ) {
       break;
     }
     if (Date.now() > deadline) break;
@@ -541,18 +584,33 @@ async function assertEndpointHandoff(sid, timeoutMs) {
     `Tauri IPC internals missing: ${JSON.stringify(handoff)}`,
   );
   assert.equal(handoff.status, 'ready', `backend handle not ready: ${JSON.stringify(handoff)}`);
-  assert.equal(
-    trimSlash(handoff.url),
-    trimSlash(BACKEND_URL),
-    `app was handed ${handoff.url}, expected ${BACKEND_URL}`,
-  );
+  if (MANAGED_MODE) {
+    const endpoint = new URL(handoff.url);
+    assert.ok(
+      endpoint.hostname === '127.0.0.1' || endpoint.hostname === 'localhost',
+      `managed backend is not local: ${JSON.stringify(handoff)}`,
+    );
+    assert.ok(Number(endpoint.port) > 0, `managed backend has no port: ${JSON.stringify(handoff)}`);
+    assert.ok(
+      handoff.tokenLength > 0,
+      `managed backend did not hand off a bearer token: ${JSON.stringify(handoff)}`,
+    );
+  } else {
+    assert.equal(
+      trimSlash(handoff.url),
+      trimSlash(BACKEND_URL),
+      `app was handed ${handoff.url}, expected ${BACKEND_URL}`,
+    );
+  }
   // Session links can only exist if the app consumed the handle's URL AND its
   // bearer token (empty on the attach path, which the server's localhost trust
   // scheme accepts) to fetch from that backend through the Rust transport.
-  assert.ok(
-    (handoff.sessionLinks ?? []).length > 0,
-    `no session from the handed-off backend is reachable: ${JSON.stringify(handoff)}`,
-  );
+  if (!MANAGED_MODE) {
+    assert.ok(
+      (handoff.sessionLinks ?? []).length > 0,
+      `no session from the handed-off backend is reachable: ${JSON.stringify(handoff)}`,
+    );
+  }
   return handoff;
 }
 
@@ -599,15 +657,22 @@ test(
     let sid;
     try {
       ({ driver, sid } = await startSessionWithRecovery());
+      await assertManagedStartupSurface(sid);
 
-      // The app boots, the supervisor attaches to :17800, the WebView loads
-      // the chat shell. Generous window for boot + attach + agent-ready.
-      await waitFor(sid, SHELL_SELECTOR, 30_000).catch(async (error) => {
+      // The app boots, the supervisor either attaches to the configured
+      // service or starts its bundled private backend, and the WebView loads
+      // the chat shell. Managed first launch gets a wider startup budget.
+      await waitFor(sid, SHELL_SELECTOR, MANAGED_MODE ? 110_000 : 30_000).catch(async (error) => {
         await screenshot(sid, 'desktop-webview-boot-failure');
         const diagnostics = await sendDiagnostics(sid).catch((diagnosticError) => ({
           diagnosticError: String(diagnosticError),
         }));
-        throw new Error(`${error.message}; diagnostics=${JSON.stringify(diagnostics)}`);
+        const supervisor = await readSupervisorDiagnostics(sid).catch((supervisorError) => ({
+          supervisorError: String(supervisorError),
+        }));
+        throw new Error(
+          `${error.message}; diagnostics=${JSON.stringify(diagnostics)}; supervisor=${JSON.stringify(supervisor)}`,
+        );
       });
 
       await waitForPaintedShell(sid);
