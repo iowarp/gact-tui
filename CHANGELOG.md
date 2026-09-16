@@ -4,6 +4,20 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.1] — 2026-09-16
+
+### Fixed
+
+- Bundled desktop builds now show an explicit automatic-start screen while the
+  private CLIO service selects its ephemeral port and becomes ready. The app no
+  longer asks users for a connection address during this managed startup.
+
+### Changed
+
+- The native WebView gate can exercise the packaged managed-service path with
+  no fixed backend URL, verifies the private endpoint and bearer-token handoff,
+  and captures supervisor state and boot logs on failure.
+
 ## [0.11.0] — 2026-09-13
 
 The React workspace release paired with clio-agent v0.9.2. It replaces the old
@@ -55,6 +69,7 @@ interaction, and observability model across the browser and desktop host.
 The desktop-sidecar restoration release. Pairs with clio-agent v0.7.0.
 
 ### Fixed
+
 - **Desktop sidecar launcher found on real installs** (#309): tauri-bundler
   strips the target-triple suffix when packaging `externalBin`, but the
   supervisor looked only for the suffixed dev name next to the executable —
@@ -63,6 +78,7 @@ The desktop-sidecar restoration release. Pairs with clio-agent v0.7.0.
   added; unit tests cover both layouts.
 
 ### Changed
+
 - **Generic self-describing bundled runtime** (#311): a bundled backend is a
   `gact-runtime/` dir shipping a `runtime.json` manifest
   (`{"schema":1,"exec":[...],"env":{}}`) that the launcher execs with zero
@@ -71,6 +87,7 @@ The desktop-sidecar restoration release. Pairs with clio-agent v0.7.0.
   present-but-broken manifest is a hard typed error, never a fallthrough.
 
 ### Removed
+
 - `build-clio-runtime.{sh,ps1,mjs}` — the embedding brand builds its own
   runtime (moved to iowarp/clio-agent `install/build-gact-runtime.*`);
   apps.yml exercises the generic packing with a stub runtime.
@@ -82,6 +99,7 @@ The desktop-sidecar restoration release. Pairs with clio-agent v0.7.0.
 > clio-agent release pipeline instead). Recorded for the tag history.
 
 ### Changed
+
 - Thinking-level control surface (#307): typed `thinking_level` plumbed
   through the web provider settings at contract parity with clio-agent
   v0.6.x (`off|low|medium|high`, effective-value reporting).
@@ -97,6 +115,7 @@ CI-impossible) — validated end-to-end against the live CLIO backend
 running EarthScope.
 
 ### Changed
+
 - **TUI renders the server's clean stream verbatim.** The orchestration
   "placeholder" chrome the client used to synthesize is stripped at web
   parity, so a delegation turn renders the same nested
@@ -104,14 +123,16 @@ running EarthScope.
   client-side scaffolding (#233, #300).
 
 ### Removed
+
 - **Client-side `workflow_state` part fabricator deleted.** clio never
   emits `workflow_state` at message level (it rides real `expert_handoff`
   parts), so the synthetic evidence part the TUI fabricated was pure
   client invention — now gone. `reasoning_log` promotion is retained (the
-  server *does* emit it message-level with no backing part for
+  server _does_ emit it message-level with no backing part for
   reasoning-capable models) (#233, #301).
 
 ### Contract
+
 - **`GET /messages` pagination is now a normative contract.** `limit`
   absent → full ledger; `limit<=0` or non-numeric → 422; unknown `before`
   → 404; `before` resolves against the unfiltered ledger before system
@@ -122,6 +143,7 @@ running EarthScope.
   `Drift_ParentSessionFilter`) (#232, #298, #302).
 
 ### Notes
+
 - The two residual #232 boxes are **owner decisions**, each tracked in its
   own issue: Go wire-type ownership / codegen (#254 — a decision-ready
   design + spike is posted there) and the single server-side dedup owner
@@ -134,16 +156,19 @@ protocol as it stands after the P0 hardening wave and the protocol-
 convergence work that followed the 0.2 line.
 
 ### Added
+
 - Config-aware CLI backend resolution: `resolveCLIBackend` reads
   `config.json` and surfaces a structured `reason` (e.g.
   `config_load_error`) instead of failing silently (#230).
 
 ### Changed
+
 - SSE parsing brought to WHATWG conformance — leading-space stripping
   and multi-line `data:` accumulation handled per spec, replacing the
   ad-hoc line parser (#252).
 
 ### Notes
+
 - **Gap 0.2.2 – 0.9.3 is not retro-documented.** The project versioned
   ahead of this changelog across the P0 wave and protocol convergence;
   those intermediate releases were not captured here at the time. For
@@ -157,6 +182,7 @@ The "lab-ready" release. Pairs with clio-agent v0.3.1 — every advertised
 capability is verified end-to-end through the TUI against the live CLIO.
 
 ### Added
+
 - `/mcp`, `/tools`, `/catalog`, `/skills`, `/agents-list` registered as
   builtin slash-commands in the palette so the user can discover them
   without remembering the magic string. Each routes to its
@@ -168,12 +194,14 @@ capability is verified end-to-end through the TUI against the live CLIO.
   visible in the `/mcp` modal.
 
 ### Notes
+
 - Test golden `TestView_PaletteOpen.golden` regenerated to include
   the new builtin commands.
 
 ## [0.2.0] — 2026-04-25
 
 ### Added
+
 - GACT contract bumped to **v0.2** (`contractVersion = "0.2"` and
   `binaryVersion = "0.2.0"` in `tui/main.go`).
 - `/doctor` modal grew a **Capabilities** scorecard tab next to the
@@ -192,6 +220,7 @@ capability is verified end-to-end through the TUI against the live CLIO.
   per-turn without a full session reload.
 
 ### Changed
+
 - `applyPartCompleted` reads `final_text` from the
   `message.part.completed` payload and replaces the buffered
   streamed text with the parsed clean answer once the part is done.
@@ -205,6 +234,7 @@ capability is verified end-to-end through the TUI against the live CLIO.
     turn deltas added to the running total.
 
 ### Fixed
+
 - Workspaces no longer hard-required by `Ctrl+N` against backends
   that advertise `capabilities.workspaces=false` (CLIO defaults the
   empty workspace_id to `ws_default` server-side).
@@ -215,6 +245,7 @@ capability is verified end-to-end through the TUI against the live CLIO.
 ## [0.1.0] — 2026-04-15
 
 Initial GACT v0.1 release.
+
 - Bubbletea/v2 + lipgloss/v2 TUI with sidebar (sessions + context),
   conversation pane, input pane, modal-based settings/help/palette/
   doctor/metrics/lm-config.

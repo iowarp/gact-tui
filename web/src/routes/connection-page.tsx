@@ -100,6 +100,7 @@ export function ConnectionPage() {
   const connectionIntent = searchParams.get('intent');
   const shouldConnectAutomatically =
     (recents.length > 0 || managedConnectionReady) && connectionIntent !== 'connect';
+  const waitingForManagedService = inTauri() && !credentialsReady && connectionIntent !== 'connect';
 
   const mutation = useMutation({
     mutationFn: async (candidate: ConnectionSettings) => {
@@ -239,6 +240,15 @@ export function ConnectionPage() {
   const logoSource =
     brand.logoImage ??
     (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null);
+
+  if (waitingForManagedService) {
+    return (
+      <WorkspaceLoading
+        description="The bundled service is starting and will connect automatically. No connection address is required."
+        label={`Starting ${brand.name}…`}
+      />
+    );
+  }
 
   if (
     shouldConnectAutomatically &&
