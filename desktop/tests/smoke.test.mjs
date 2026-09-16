@@ -11,6 +11,18 @@ import assert from 'node:assert/strict';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
+test('desktop release versions stay synchronized', () => {
+  const packageVersion = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version;
+  const tauriVersion = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'),
+  ).version;
+  const cargo = readFileSync(resolve(root, 'src-tauri', 'Cargo.toml'), 'utf8');
+  const cargoVersion = cargo.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
+
+  assert.equal(tauriVersion, packageVersion, 'Tauri installer version must match package.json');
+  assert.equal(cargoVersion, packageVersion, 'Rust package version must match package.json');
+});
+
 test('tauri.conf.json has the expected fields', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   assert.equal(cfg.productName, 'Agent Workspace');
@@ -34,12 +46,8 @@ test('explicit GACT overlay uses the shared configurable workspace build', () =>
 });
 
 test('CSP is present, localhost-scoped, and identical across config variants', () => {
-  const base = JSON.parse(
-    readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'),
-  );
-  const gact = JSON.parse(
-    readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'),
-  );
+  const base = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  const gact = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'));
 
   const baseCsp = base.app?.security?.csp;
   const gactCsp = gact.app?.security?.csp;
@@ -61,8 +69,16 @@ test('CSP is present, localhost-scoped, and identical across config variants', (
     assert.match(csp, /http:\/\/localhost:\*/, 'connect-src must allow http://localhost:*');
     assert.match(csp, /http:\/\/127\.0\.0\.1:\*/, 'connect-src must allow http://127.0.0.1:*');
     assert.match(csp, /wss?:\/\/localhost:\*/, 'connect-src must allow ws/wss localhost for SSE');
-    assert.doesNotMatch(csp, /connect-src[^;]*\shttp:\/\/\*/, 'connect-src must not use http://* wildcard');
-    assert.doesNotMatch(csp, /connect-src[^;]*\shttps:\/\/\*/, 'connect-src must not use https://* wildcard');
+    assert.doesNotMatch(
+      csp,
+      /connect-src[^;]*\shttp:\/\/\*/,
+      'connect-src must not use http://* wildcard',
+    );
+    assert.doesNotMatch(
+      csp,
+      /connect-src[^;]*\shttps:\/\/\*/,
+      'connect-src must not use https://* wildcard',
+    );
   }
 });
 
@@ -82,22 +98,18 @@ test('default capability JSON is present', () => {
 
 test('tauri.conf.json is neutral and does not bundle a managed sidecar by default', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
-  assert.ok(
-    Array.isArray(cfg.bundle.externalBin),
-    'expected bundle.externalBin to be an array',
-  );
+  assert.ok(Array.isArray(cfg.bundle.externalBin), 'expected bundle.externalBin to be an array');
   assert.deepEqual(cfg.bundle.externalBin, []);
 });
 
 test('updater plugin config is present and consistent across variants', () => {
-  const base = JSON.parse(
-    readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'),
-  );
-  const gact = JSON.parse(
-    readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'),
-  );
+  const base = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  const gact = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'));
 
-  for (const [name, cfg] of [['base', base], ['gact', gact]]) {
+  for (const [name, cfg] of [
+    ['base', base],
+    ['gact', gact],
+  ]) {
     const updater = cfg.plugins?.updater;
     assert.ok(updater, `${name} config must define plugins.updater`);
     assert.ok(
@@ -147,10 +159,7 @@ test('Cargo.toml + lib.rs wire the updater + process plugins', () => {
     readFileSync(resolve(root, 'src-tauri', 'capabilities', 'default.json'), 'utf8'),
   );
   assert.ok(caps.permissions.includes('updater:default'), 'updater:default capability');
-  assert.ok(
-    caps.permissions.includes('process:allow-restart'),
-    'process:allow-restart capability',
-  );
+  assert.ok(caps.permissions.includes('process:allow-restart'), 'process:allow-restart capability');
 });
 
 test('sidecar-launcher Go module declares no workspace tie-in', () => {
@@ -165,10 +174,7 @@ test('sidecar-launcher Go module declares no workspace tie-in', () => {
 test('Tauri SSE path does not fall back to raw browser EventSource', () => {
   const webSrc = resolve(root, '..', 'web', 'src');
   const connection = readFileSync(resolve(webSrc, 'lib', 'connection.ts'), 'utf8');
-  const transport = readFileSync(
-    resolve(webSrc, 'lib', 'transport', 'tauri-transport.ts'),
-    'utf8',
-  );
+  const transport = readFileSync(resolve(webSrc, 'lib', 'transport', 'tauri-transport.ts'), 'utf8');
   assert.match(connection, /inTauri\(\)[\s\S]*new TauriClioTransport/);
   assert.match(transport, /gact_sse_open/);
   assert.match(transport, /Last-Event-ID/);
