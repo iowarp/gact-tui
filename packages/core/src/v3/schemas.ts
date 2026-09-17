@@ -719,6 +719,14 @@ export const a2uiSurfaceSchema = z.object({
   error: z.string().optional(),
 });
 
+export const a2uiActionLifecycleSchema = z.object({
+  surface_id: z.string(),
+  action_name: z.string(),
+  status: forwardCompatibleEnum(['received', 'delivered', 'consumed', 'failed', 'duplicate']),
+  reason: z.string().optional(),
+  occurred_at: z.string(),
+});
+
 export const infrastructureDependencySchema = z.object({
   id: z.string(),
   session_id: z.string(),

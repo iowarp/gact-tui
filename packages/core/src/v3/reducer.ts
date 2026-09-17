@@ -1,6 +1,7 @@
 import type { EntityState, Message, MessageBlock, TransportGap } from './domain.js';
 import type { EventEnvelope } from './schemas.js';
 import {
+  a2uiActionLifecycleSchema,
   a2uiSurfaceSchema,
   approvalRequestSchema,
   artifactSchema,
@@ -40,6 +41,7 @@ export function createEntityState(): EntityState {
     usage: {},
     context: {},
     surfaces: {},
+    a2ui_action_lifecycles: {},
     infrastructure: {},
     active_turns: {},
     responded_turns: {},
@@ -482,6 +484,30 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
         surfaces: {
           ...base.surfaces,
           [payload.surface_id]: { ...surface, state: 'deleted' },
+        },
+      };
+    }
+    case 'a2ui.action.received':
+    case 'a2ui.action.delivered':
+    case 'a2ui.action.consumed':
+    case 'a2ui.action.failed':
+    case 'a2ui.action.duplicate': {
+      // The event NAME is the authoritative status (S5,
+      // docs/design/a2ui-compat-campaign-2026-09.md); the payload only needs
+      // to say which surface/action it is about. `occurred_at` falls back to
+      // the frame's own receipt time when the dispatcher does not send one.
+      const payload = envelope.payload as Record<string, unknown>;
+      const lifecycle = a2uiActionLifecycleSchema.parse({
+        ...payload,
+        status: envelope.type.slice('a2ui.action.'.length),
+        occurred_at: payload.occurred_at ?? frame.receivedAt,
+      });
+      return {
+        ...base,
+        revisions,
+        a2ui_action_lifecycles: {
+          ...base.a2ui_action_lifecycles,
+          [lifecycle.surface_id]: lifecycle,
         },
       };
     }

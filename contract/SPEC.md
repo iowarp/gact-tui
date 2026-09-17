@@ -2703,6 +2703,11 @@ subagent.upserted implemented
 tool.presentation.delta implemented
 tool.upserted implemented
 # spec-only — canonical client state with no reference-backend publisher yet
+a2ui.action.consumed spec-only
+a2ui.action.delivered spec-only
+a2ui.action.duplicate spec-only
+a2ui.action.failed spec-only
+a2ui.action.received spec-only
 artifact.upserted spec-only
 run.upserted spec-only
 task.upserted spec-only
