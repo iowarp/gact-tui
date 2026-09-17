@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { brand } from '@brand';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -106,7 +107,7 @@ it('shows managed startup instead of asking desktop users for a connection addre
     </QueryClientProvider>,
   );
 
-  expect(screen.getByRole('heading', { name: 'Starting CLIO' })).toBeVisible();
+  expect(screen.getByRole('heading', { name: `Starting ${brand.name}` })).toBeVisible();
   expect(screen.getByText('Starting local service')).toBeVisible();
   expect(screen.getByText('Loading the bundled scientific workspace')).toBeVisible();
   expect(screen.getByRole('list', { name: 'Startup progress' })).toBeVisible();
