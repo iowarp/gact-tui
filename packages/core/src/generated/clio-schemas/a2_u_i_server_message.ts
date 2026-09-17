@@ -4,5 +4,11 @@
  *   node schemas-to-ts.mjs --in <schema-dir> --out <ts-dir>
  */
 
-export * from './_models';
-export * from './message-block.schema.js';
+export type {
+  A2UIServerMessage,
+  CreateSurfacePayload,
+  DeleteSurfacePayload,
+  JsonValue,
+  UpdateComponentsPayload,
+  UpdateDataModelPayload,
+} from './_models';

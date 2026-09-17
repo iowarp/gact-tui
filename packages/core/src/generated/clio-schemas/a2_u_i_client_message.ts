@@ -4,5 +4,9 @@
  *   node schemas-to-ts.mjs --in <schema-dir> --out <ts-dir>
  */
 
-export * from './_models';
-export * from './message-block.schema.js';
+export type {
+  A2UIClientAction,
+  A2UIClientMessage,
+  A2UIGenericError,
+  A2UIValidationError,
+} from './_models';

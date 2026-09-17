@@ -4,5 +4,4 @@
  *   node schemas-to-ts.mjs --in <schema-dir> --out <ts-dir>
  */
 
-export * from './_models';
-export * from './message-block.schema.js';
+export type { A2UIAgentCapabilities, _AgentCapabilitiesV09 } from './_models';
