@@ -126,7 +126,18 @@ describe('ClioA2UISurface actions', () => {
 
     expect(await screen.findByText('Interactive surface unavailable')).toBeVisible();
     expect(screen.getAllByText(/accessibility/u)[0]).toBeVisible();
-    expect(consoleError).not.toHaveBeenCalled();
+    // `@a2ui/web_core@0.11.0`'s `MessageProcessor` now logs the schema
+    // validation failure itself (`[A2UI Validation Error] ...`,
+    // `processing/message-processor.js`) before throwing — new, undocumented
+    // library-owned diagnostic noise (absent from the 0.10.6 processor, and
+    // not listed in the 0.11.0 CHANGELOG), unrelated to and not suppressible
+    // from this containment path. Containment (the worded card, no thrown
+    // error reaching React) is still proven; only the "silent" half of this
+    // assertion no longer holds.
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining("[A2UI Validation Error] Component 'Column'"),
+      expect.anything(),
+    );
   });
 
   it('renders an unknown component inline without failing the whole surface', async () => {
@@ -138,7 +149,9 @@ describe('ClioA2UISurface actions', () => {
 
     renderSurface(surface);
 
-    expect(await screen.findByText(/Unknown component: Checkbox/u)).toBeVisible();
+    // 0.11.0 breaking change (@a2ui/react CHANGELOG): the unresolvable-type
+    // message gained the word "type" — `Unknown component type: <type>`.
+    expect(await screen.findByText(/Unknown component type: Checkbox/u)).toBeVisible();
     expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
   });
 

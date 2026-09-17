@@ -4,9 +4,12 @@ import {
   ImageApi,
   VideoApi,
   AudioPlayerApi,
+  OpenUrlApi,
+  childList,
+  componentId,
   createFunctionImplementation,
 } from '@a2ui/web_core/v0_9';
-import type { FunctionImplementation } from '@a2ui/web_core/v0_9';
+import type { FunctionImplementation, ResolvedChildRef } from '@a2ui/web_core/v0_9';
 import {
   A2UI_WORKFLOW_EDGES_MAX,
   A2UI_WORKFLOW_NODES_MAX,
@@ -123,12 +126,28 @@ function UrlBlocked({ message }: { message: string }) {
   );
 }
 
+/**
+ * Resolves one `ChildList`-typed entry back to the plain id `buildChild`
+ * (render-mode) expects. `childList()`/`componentId()` (0.11.x) make the
+ * node layer's resolver track these as real child references — unmarked, an
+ * unresolvable id renders nothing rather than being reported by name — but
+ * the render-mode `buildChild` this file uses still only takes `(id,
+ * basePath?)`, so a resolved `{id, basePath}` object is unwrapped here
+ * instead of threaded through as an opaque node.
+ */
+function childRefId(child: string | ResolvedChildRef): string {
+  return typeof child === 'string' ? child : child.id;
+}
+function childRefBasePath(child: string | ResolvedChildRef): string | undefined {
+  return typeof child === 'string' ? undefined : child.basePath;
+}
+
 const Grid = createComponentImplementation(
   {
     name: 'Grid',
     schema: z
       .object({
-        children: z.array(z.string()),
+        children: childList(),
         columns: z.number().int().min(1).max(12).optional(),
         gap: z.number().min(0).max(12).optional(),
         accessibility,
@@ -143,8 +162,8 @@ const Grid = createComponentImplementation(
       role="group"
       style={{ gridTemplateColumns: `repeat(${props.columns ?? 2}, minmax(0, 1fr))` }}
     >
-      {props.children.map((child: string) => (
-        <div key={child}>{buildChild(child)}</div>
+      {props.children.map((child) => (
+        <div key={childRefId(child)}>{buildChild(childRefId(child), childRefBasePath(child))}</div>
       ))}
     </div>
   ),
@@ -155,7 +174,7 @@ const Frame = createComponentImplementation(
     name: 'Frame',
     schema: z
       .object({
-        child: z.string(),
+        child: componentId(),
         title: CommonSchemas.DynamicString.optional(),
         description: CommonSchemas.DynamicString.optional(),
         accessibility,
@@ -744,6 +763,29 @@ const openArtifactFunction = createFunctionImplementation(
   },
 );
 
+/**
+ * Overrides the official Basic catalog's `openUrl` (`OpenUrlImplementation`,
+ * `@a2ui/web_core`): the library allows both `http:` and `https:` (S8 known
+ * gap, `contract/SPEC.md`), but owner decision 11's allowlist
+ * (`A2UI_ALLOWED_URL_SCHEMES`) excludes plain `http:`. `KERNEL_FUNCTIONS` is
+ * keyed by name, so listing this AFTER `...BASIC_FUNCTIONS` replaces the
+ * library's entry rather than adding a second `openUrl`. A blocked scheme
+ * reports `VALIDATION_FAILED` (the wire-reportable code, unlike
+ * `openArtifact`'s local-only `ARTIFACT_UNAVAILABLE`) since this mirrors the
+ * render-time media guard's own resolved-value check, and never calls
+ * `window.open`.
+ */
+const openUrlFunction = createFunctionImplementation(OpenUrlApi, (args, context) => {
+  const guard = checkA2uiUrlScheme(args.url);
+  if (!guard.ok) {
+    void context.surface.dispatchError({ code: 'VALIDATION_FAILED', message: guard.reason });
+    return;
+  }
+  if (typeof window !== 'undefined' && window.open) {
+    window.open(args.url, '_blank', 'noopener,noreferrer');
+  }
+});
+
 const selectDataFunction = createFunctionImplementation(
   {
     name: 'selectData',
@@ -773,6 +815,7 @@ const focusWorkflowFunction = createFunctionImplementation(
 
 const KERNEL_FUNCTION_LIST: FunctionImplementation[] = [
   ...BASIC_FUNCTIONS,
+  openUrlFunction,
   openArtifactFunction,
   selectDataFunction,
   focusWorkflowFunction,
