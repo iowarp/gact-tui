@@ -725,10 +725,15 @@ export interface TranscriptSnapshot {
   surfaces: A2UISurface[];
 }
 
+export interface A2uiAgentCapabilities {
+  'v0.9': { supportedCatalogIds: string[]; acceptsInlineCatalogs?: boolean };
+}
+
 export interface CapabilityNegotiation {
   service?: { name: string; version: string };
   gact_versions: string[];
   a2ui_versions: string[];
+  a2ui_capabilities?: A2uiAgentCapabilities;
   replay: { supported: boolean; retention?: number };
   capabilities: Record<string, unknown>;
   degradations: Degradation[];

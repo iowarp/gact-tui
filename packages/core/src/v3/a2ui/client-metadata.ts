@@ -30,6 +30,21 @@ export function buildA2uiClientCapabilities(
   return { 'v0.9': { supportedCatalogIds: [...supportedCatalogIds] } };
 }
 
+/**
+ * The capability-generation version stamped on `a2uiClientDataModel`
+ * (vendored `client_data_model.json`'s `version` enum, `["v0.9", "v0.9.1"]`)
+ * — distinct from the per-message envelope `version`, which is `"v0.9.1"`.
+ */
+export const A2UI_CLIENT_DATA_MODEL_VERSION = 'v0.9';
+
+/** Builds `a2uiClientDataModel` from every `sendDataModel` surface's own model, or `undefined` if none. */
+export function buildA2uiClientDataModel(
+  surfaces: Record<string, unknown>,
+): A2uiClientDataModelMetadata | undefined {
+  if (Object.keys(surfaces).length === 0) return undefined;
+  return { version: A2UI_CLIENT_DATA_MODEL_VERSION, surfaces };
+}
+
 export type A2uiClientMetadataProvider = (sessionId: string) => A2uiClientMetadataSnapshot;
 
 let provider: A2uiClientMetadataProvider | undefined;

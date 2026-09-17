@@ -1,6 +1,10 @@
 import { z } from 'zod';
-import { a2uiCatalogRowListSchema, mergeA2uiClientMetadata } from './a2ui/index.js';
-import type { A2uiCatalogRow } from './a2ui/index.js';
+import {
+  a2uiCapabilitiesResponseSchema,
+  a2uiCatalogRowListSchema,
+  mergeA2uiClientMetadata,
+} from './a2ui/index.js';
+import type { A2uiCapabilitiesResponse, A2uiCatalogRow } from './a2ui/index.js';
 import { PresentationRepository } from './presentation-repository.js';
 
 /**
@@ -39,6 +43,25 @@ export class A2uiRepository extends PresentationRepository {
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/catalogs`,
       decode: (value) => a2uiCatalogRowListSchema.parse((value as { catalogs?: unknown }).catalogs),
+      signal,
+    });
+  }
+
+  /**
+   * The negotiation the server itself uses to pick a catalog
+   * (`docs/gact/a2ui-binding.md`): `agent.v0.9.supportedCatalogIds` is the
+   * producible set, preference-ordered — the active blueprint's own pack
+   * catalogs first, then the builtins — used to order the client's own
+   * `a2uiClientCapabilities` advertisement the same way.
+   */
+  public a2uiCapabilities(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<A2uiCapabilitiesResponse> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/capabilities`,
+      decode: (value) => a2uiCapabilitiesResponseSchema.parse(value),
       signal,
     });
   }
