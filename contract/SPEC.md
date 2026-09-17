@@ -2720,6 +2720,16 @@ state. A dropped or malformed frame produces typed degradation/gap state and
 authoritative REST reconciliation; it is never silently reinterpreted as a
 known entity.
 
+**Known gap (S6 adversarial review, tracked for S8):** the official Basic
+catalog's `openUrl` function (`@a2ui/web_core`'s `OpenUrlImplementation`)
+opens any `http:`/`https:` URL — it is a library-provided function, not one of
+the kernel media/artifact components CLIO's own URL-scheme allowlist
+(`checkA2uiUrlScheme`, owner decision 11) wraps, so a bound `openUrl` call can
+navigate to a plain `http:` address the allowlist would otherwise reject for
+`Image`/`Video`/`AudioPlayer`/`clio.artifact.v1`/`openArtifact`. Closing this
+(replacing or wrapping `openUrl` in the kernel function map) is deferred to
+S8 alongside the 0.11.x library upgrade, not fixed in S6.
+
 #### Tool result presentation (normative)
 
 `ToolInvocation.presentation` is optional observer-only metadata with a provider-authored
