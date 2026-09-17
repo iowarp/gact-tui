@@ -115,7 +115,17 @@ describe('ClioA2UISurface actions', () => {
   });
 
   it('contains an invalid historical surface without throwing through React', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // `@a2ui/web_core@0.11.0`'s `MessageProcessor` now ALSO logs the schema
+    // validation failure itself (`[A2UI Validation Error] ...`,
+    // `processing/message-processor.js`) before throwing — new, undocumented,
+    // library-owned diagnostic noise (absent from the 0.10.6 processor, not
+    // listed in the 0.11.0 CHANGELOG), unrelated to and not suppressible from
+    // this containment path. The spy only keeps that noise out of the test
+    // run's own output; this test proves CONTAINMENT (the worded card, no
+    // thrown error reaching React), not whether the library logs — tolerate
+    // the log either way rather than requiring it, since it is the
+    // library's call, not CLIO's.
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const surface = actionSurface('artifact.open', {});
     const update = surface.messages[1] as {
       updateComponents: { components: Array<Record<string, unknown>> };
@@ -126,18 +136,6 @@ describe('ClioA2UISurface actions', () => {
 
     expect(await screen.findByText('Interactive surface unavailable')).toBeVisible();
     expect(screen.getAllByText(/accessibility/u)[0]).toBeVisible();
-    // `@a2ui/web_core@0.11.0`'s `MessageProcessor` now logs the schema
-    // validation failure itself (`[A2UI Validation Error] ...`,
-    // `processing/message-processor.js`) before throwing — new, undocumented
-    // library-owned diagnostic noise (absent from the 0.10.6 processor, and
-    // not listed in the 0.11.0 CHANGELOG), unrelated to and not suppressible
-    // from this containment path. Containment (the worded card, no thrown
-    // error reaching React) is still proven; only the "silent" half of this
-    // assertion no longer holds.
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[A2UI Validation Error] Component 'Column'"),
-      expect.anything(),
-    );
   });
 
   it('renders an unknown component inline without failing the whole surface', async () => {
