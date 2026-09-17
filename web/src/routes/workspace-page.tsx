@@ -368,6 +368,7 @@ export function WorkspacePage() {
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
   const pendingInteractionsPanel = (
     <ClioPendingInteractions
+      actionLifecycles={entities.a2ui_action_lifecycles}
       capabilityError={interactionCapabilityError ?? undefined}
       error={interactionsError ?? undefined}
       interactions={responseTrayInteractions}

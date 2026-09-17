@@ -115,7 +115,17 @@ describe('ClioA2UISurface actions', () => {
   });
 
   it('contains an invalid historical surface without throwing through React', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // `@a2ui/web_core@0.11.0`'s `MessageProcessor` now ALSO logs the schema
+    // validation failure itself (`[A2UI Validation Error] ...`,
+    // `processing/message-processor.js`) before throwing — new, undocumented,
+    // library-owned diagnostic noise (absent from the 0.10.6 processor, not
+    // listed in the 0.11.0 CHANGELOG), unrelated to and not suppressible from
+    // this containment path. The spy only keeps that noise out of the test
+    // run's own output; this test proves CONTAINMENT (the worded card, no
+    // thrown error reaching React), not whether the library logs — tolerate
+    // the log either way rather than requiring it, since it is the
+    // library's call, not CLIO's.
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const surface = actionSurface('artifact.open', {});
     const update = surface.messages[1] as {
       updateComponents: { components: Array<Record<string, unknown>> };
@@ -126,7 +136,6 @@ describe('ClioA2UISurface actions', () => {
 
     expect(await screen.findByText('Interactive surface unavailable')).toBeVisible();
     expect(screen.getAllByText(/accessibility/u)[0]).toBeVisible();
-    expect(consoleError).not.toHaveBeenCalled();
   });
 
   it('renders an unknown component inline without failing the whole surface', async () => {
@@ -138,7 +147,9 @@ describe('ClioA2UISurface actions', () => {
 
     renderSurface(surface);
 
-    expect(await screen.findByText(/Unknown component: Checkbox/u)).toBeVisible();
+    // 0.11.0 breaking change (@a2ui/react CHANGELOG): the unresolvable-type
+    // message gained the word "type" — `Unknown component type: <type>`.
+    expect(await screen.findByText(/Unknown component type: Checkbox/u)).toBeVisible();
     expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
   });
 
@@ -397,5 +408,86 @@ describe('ClioA2UISurface actions', () => {
     await user.type(await screen.findByLabelText('Name'), 'Alice');
 
     expect(button).toBeEnabled();
+  });
+
+  // S8 replay/degradation parity (gact-tui#409 item 3): the processor store
+  // (`processor-store.ts`'s `useA2uiSurfaceModel`) only ever applies NEW
+  // messages past `entry.appliedCount` — a refresh or a cursor reconnect that
+  // hands this component a brand-new `surface` object (new `messages` array
+  // reference) whose already-applied prefix is unchanged never reprocesses
+  // it, so the SurfaceModel's own dataModel (and any local, not-yet-submitted
+  // form state it holds) survives untouched.
+  it('keeps a mid-selection ChoicePicker choice across a refresh and a cursor reconnect', async () => {
+    const user = userEvent.setup();
+    const surfaceId = 'surface-choice-persist';
+    const surface: A2UISurface = {
+      id: surfaceId,
+      session_id: 'sess_1',
+      catalog_id: CLIO_A2UI_CATALOG_ID,
+      protocol_version: '0.9.1',
+      revision: 1,
+      state: 'ready',
+      messages: [
+        { version: 'v0.9.1', createSurface: { surfaceId, catalogId: CLIO_A2UI_CATALOG_ID } },
+        { version: 'v0.9.1', updateDataModel: { surfaceId, path: '/billingPeriod', value: '' } },
+        {
+          version: 'v0.9.1',
+          updateComponents: {
+            surfaceId,
+            components: [
+              {
+                id: 'root',
+                component: 'ChoicePicker',
+                value: { path: '/billingPeriod' },
+                variant: 'mutuallyExclusive',
+                options: [
+                  { label: 'Annual', value: 'annual' },
+                  { label: 'Monthly', value: 'monthly' },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const { update } = renderSurface(surface);
+    const monthly = await screen.findByRole('radio', { name: 'Monthly' });
+    await user.click(monthly);
+    expect(monthly).toBeChecked();
+
+    // Refresh: a REST refetch hands the component a brand-new surface object
+    // and a brand-new `messages` array — deep-cloned, so it is not even the
+    // same array or component objects, only the same logical content.
+    const refreshed: A2UISurface = structuredClone(surface);
+    update(refreshed);
+    expect(screen.getByRole('radio', { name: 'Monthly' })).toBeChecked();
+
+    // Cursor reconnect: the stream resubscribes from an earlier cursor and
+    // the reducer redelivers a fresh `a2ui.surface.upserted` at a NEWER
+    // revision, still carrying the same already-applied message prefix.
+    const reconnected: A2UISurface = { ...structuredClone(surface), revision: 2 };
+    update(reconnected);
+    expect(screen.getByRole('radio', { name: 'Monthly' })).toBeChecked();
+  });
+
+  // S8 replay/degradation parity (gact-tui#409 item 3).
+  it('does not re-send an already-submitted action after a reconnect replays the surface', async () => {
+    const user = userEvent.setup();
+    const surface = actionSurface('form.submit', { selection: 'bounded' });
+
+    const { update } = renderSurface(surface);
+    await user.click(await screen.findByRole('button', { name: 'Open result' }));
+    expect(repository.a2uiAction).toHaveBeenCalledTimes(1);
+
+    // A cursor reconnect redelivers the same surface at a newer revision —
+    // `processMessages` only ever applies NEW messages, and dispatching a
+    // client action is a direct user gesture the processor never replays on
+    // its own, so the mutation must not fire again.
+    update({ ...structuredClone(surface), revision: surface.revision + 1 });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Open result' })).toBeEnabled();
+    });
+    expect(repository.a2uiAction).toHaveBeenCalledTimes(1);
   });
 });

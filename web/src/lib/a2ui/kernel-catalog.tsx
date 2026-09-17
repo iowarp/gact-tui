@@ -1,17 +1,13 @@
 import {
   CommonSchemas,
-  BASIC_FUNCTIONS,
   ImageApi,
   VideoApi,
   AudioPlayerApi,
-  createFunctionImplementation,
+  childList,
+  componentId,
 } from '@a2ui/web_core/v0_9';
-import type { FunctionImplementation } from '@a2ui/web_core/v0_9';
-import {
-  A2UI_WORKFLOW_EDGES_MAX,
-  A2UI_WORKFLOW_NODES_MAX,
-  checkA2uiUrlScheme,
-} from '@clio/core/v3';
+import type { ResolvedChildRef } from '@a2ui/web_core/v0_9';
+import { A2UI_WORKFLOW_EDGES_MAX, A2UI_WORKFLOW_NODES_MAX } from '@clio/core/v3';
 import {
   A2uiSurface,
   Button as A2UIButton,
@@ -66,7 +62,6 @@ import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map';
 import { ClioTimeSeriesCatalogComponent } from '@/components/clio/a2ui-time-series-catalog';
 import { ClioMermaidDiagram } from '@/components/clio/mermaid-diagram';
 import { ClioStatus, type ClioStatusProps } from '@/components/clio/status';
-import { activeA2uiOpenArtifactRuntime } from './kernel-runtime';
 import { useA2uiUrlGuard } from './url-guard';
 
 const ClioA2UICodeView = lazy(() =>
@@ -123,12 +118,28 @@ function UrlBlocked({ message }: { message: string }) {
   );
 }
 
+/**
+ * Resolves one `ChildList`-typed entry back to the plain id `buildChild`
+ * (render-mode) expects. `childList()`/`componentId()` (0.11.x) make the
+ * node layer's resolver track these as real child references — unmarked, an
+ * unresolvable id renders nothing rather than being reported by name — but
+ * the render-mode `buildChild` this file uses still only takes `(id,
+ * basePath?)`, so a resolved `{id, basePath}` object is unwrapped here
+ * instead of threaded through as an opaque node.
+ */
+function childRefId(child: string | ResolvedChildRef): string {
+  return typeof child === 'string' ? child : child.id;
+}
+function childRefBasePath(child: string | ResolvedChildRef): string | undefined {
+  return typeof child === 'string' ? undefined : child.basePath;
+}
+
 const Grid = createComponentImplementation(
   {
     name: 'Grid',
     schema: z
       .object({
-        children: z.array(z.string()),
+        children: childList(),
         columns: z.number().int().min(1).max(12).optional(),
         gap: z.number().min(0).max(12).optional(),
         accessibility,
@@ -143,8 +154,8 @@ const Grid = createComponentImplementation(
       role="group"
       style={{ gridTemplateColumns: `repeat(${props.columns ?? 2}, minmax(0, 1fr))` }}
     >
-      {props.children.map((child: string) => (
-        <div key={child}>{buildChild(child)}</div>
+      {props.children.map((child) => (
+        <div key={childRefId(child)}>{buildChild(childRefId(child), childRefBasePath(child))}</div>
       ))}
     </div>
   ),
@@ -155,7 +166,7 @@ const Frame = createComponentImplementation(
     name: 'Frame',
     schema: z
       .object({
-        child: z.string(),
+        child: componentId(),
         title: CommonSchemas.DynamicString.optional(),
         description: CommonSchemas.DynamicString.optional(),
         accessibility,
@@ -717,70 +728,10 @@ export const KERNEL_COMPONENTS: ReadonlyMap<string, ReactComponentImplementation
   KERNEL_COMPONENT_LIST.map((component) => [component.name, component]),
 );
 
-const openArtifactFunction = createFunctionImplementation(
-  {
-    name: 'openArtifact',
-    returnType: 'void',
-    schema: z.object({ uri: z.string() }),
-  },
-  ({ uri }, context) => {
-    // owner decision 11: the same URL-scheme allowlist the kernel media
-    // components enforce at render, applied here before anything opens.
-    const guard = checkA2uiUrlScheme(uri);
-    if (!guard.ok) {
-      void context.surface.dispatchError({ code: 'ARTIFACT_UNAVAILABLE', message: guard.reason });
-      return;
-    }
-    const runtime = activeA2uiOpenArtifactRuntime();
-    const artifact = runtime?.findArtifact(uri);
-    if (!runtime || !artifact) {
-      void context.surface.dispatchError({
-        code: 'ARTIFACT_UNAVAILABLE',
-        message: 'The requested artifact is not available in this session.',
-      });
-      return;
-    }
-    runtime.onOpenArtifact(artifact);
-  },
-);
-
-const selectDataFunction = createFunctionImplementation(
-  {
-    name: 'selectData',
-    returnType: 'void',
-    schema: z.object({ rowIds: z.array(z.string()), surfaceId: z.string().optional() }),
-  },
-  () => {
-    // No workspace-level row-selection state exists to update yet; the
-    // function still resolves locally and never reaches the server, which is
-    // the feature this replaces (`data.select` used to be a LOCAL_ACTIONS
-    // no-op too — see docs/design/a2ui-compat-campaign-2026-09.md S6).
-  },
-);
-
-const focusWorkflowFunction = createFunctionImplementation(
-  {
-    name: 'focusWorkflow',
-    returnType: 'void',
-    schema: z.object({ stepId: z.string() }),
-  },
-  () => {
-    // Highlighting is driven by the bound `selected` data-model path today
-    // (see the `Workflow` component above); this function resolves locally,
-    // matching the old `workflow.focus` local action's scope.
-  },
-);
-
-const KERNEL_FUNCTION_LIST: FunctionImplementation[] = [
-  ...BASIC_FUNCTIONS,
-  openArtifactFunction,
-  selectDataFunction,
-  focusWorkflowFunction,
-];
-
-/** Every kernel function implementation this renderer has, keyed by name. */
-export const KERNEL_FUNCTIONS: ReadonlyMap<string, FunctionImplementation> = new Map(
-  KERNEL_FUNCTION_LIST.map((fn) => [fn.name, fn]),
-);
+// Catalog function implementations (openUrl/openArtifact/selectData/
+// focusWorkflow) live in kernel-catalog-functions.ts, split out purely for
+// file size (the 800-line CI ratchet) — re-exported here so every existing
+// `from './kernel-catalog'` import keeps working.
+export { KERNEL_FUNCTIONS } from './kernel-catalog-functions';
 
 export { A2uiSurface };

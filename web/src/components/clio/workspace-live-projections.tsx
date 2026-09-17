@@ -19,7 +19,7 @@ function useSessionMessages(sessionId: string): Message[] {
 
 type LiveConversationProps = Omit<
   ClioConversationProps,
-  'artifacts' | 'messages' | 'subagents' | 'surfaces' | 'tasks' | 'tools'
+  'actionLifecycles' | 'artifacts' | 'messages' | 'subagents' | 'surfaces' | 'tasks' | 'tools'
 > & {
   artifacts: readonly Artifact[];
   sessionId: string;
@@ -37,6 +37,7 @@ export function WorkspaceLiveConversation({
   const artifactEntities = useLiveStore((state) => state.entities.artifacts);
   const subagentEntities = useLiveStore((state) => state.entities.subagents);
   const surfaceEntities = useLiveStore((state) => state.entities.surfaces);
+  const actionLifecycles = useLiveStore((state) => state.entities.a2ui_action_lifecycles);
   const tasks = useLiveStore((state) => state.entities.tasks);
   const tools = useLiveStore((state) => state.entities.tools);
   const messages = useMemo(
@@ -75,8 +76,8 @@ export function WorkspaceLiveConversation({
     [subagentEntities, subagentList],
   );
   const entities = useMemo(
-    () => ({ artifacts, subagents, surfaces, tasks, tools }),
-    [artifacts, subagents, surfaces, tasks, tools],
+    () => ({ actionLifecycles, artifacts, subagents, surfaces, tasks, tools }),
+    [actionLifecycles, artifacts, subagents, surfaces, tasks, tools],
   );
   return <ClioConversation {...entities} {...props} messages={messages} />;
 }

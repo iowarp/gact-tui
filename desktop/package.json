@@ -8,6 +8,7 @@
     "typecheck": "echo 'no TS to typecheck — @clio/desktop is a Rust crate; smoke tests are JS' && exit 0",
     "test": "node --test tests/smoke.test.mjs",
     "test:webview": "node --test tests/webview-e2e.test.mjs",
+    "test:corpus": "node --test tests/a2ui-corpus-smoke.test.mjs",
     "fetch-sidecar": "bash scripts/fetch-sidecar.sh",
     "fetch-sidecar:all": "bash scripts/fetch-sidecar.sh --all",
     "gen-brand-backend": "node scripts/gen-brand-backend.mjs",

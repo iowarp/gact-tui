@@ -76,10 +76,11 @@ test('renders the Basic login-form example: text input works and the required ch
   const password = page.getByLabel('Password');
   const submit = page.getByRole('button', { name: 'Sign in' });
 
-  // The button's checks (valid email + password length >= 8) start unsatisfied
-  // — see loginFormExampleMessages() in a2ui-fixtures.mjs for why these are
-  // two independent CheckRules rather than the vendored example's own single
-  // compound and() check.
+  // The button's checks — the vendored example's own compound
+  // `and(email(/email), length(/password, min:8))` (see
+  // loginFormExampleMessages() in a2ui-fixtures.mjs; S8 removed the S6
+  // per-field workaround once @a2ui/web_core@0.11.0 fixed the nested
+  // condition resolution) — start unsatisfied.
   await expect(submit).toBeDisabled();
 
   await email.fill('scientist@earthscope.example');

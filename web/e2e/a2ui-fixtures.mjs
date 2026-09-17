@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -78,38 +78,43 @@ export function a2uiCapabilities() {
  * A2UISurface fixture record for the Playwright A2UI smoke spec.
  *
  * The vendored example's own `login-btn` gates on one compound check —
- * `and(email(/email), length(/password, min:8))` — and is left byte-for-byte
- * untouched (it is checksum-tracked in manifest.json). But
- * `@a2ui/web_core@0.10.6`'s `and`/`or` implementations do not recursively
- * resolve nested `{call, args}` conditions inside their `values` array before
- * testing truthiness, so a NESTED function call is always truthy and
- * `and(...)` always evaluates `true` regardless of its operands (confirmed
- * with the real library, no app code involved: `and(email(""), length("",
- * min:8))` resolves `true` even though each operand alone resolves `false`).
- * That upstream defect is out of scope for this CI fix (bumping
- * `@a2ui/web_core` is a separate, larger change). At RUNTIME ONLY — for this
- * e2e fixture, never touching the vendored file — the compound check is
- * swapped for two independent CheckRules with the same two conditions, which
- * this library resolves correctly, so the smoke spec can still prove "Button
- * disabled until its checks pass" end to end.
+ * `and(email(/email), length(/password, min:8))` — returned byte-for-byte
+ * untouched (it is checksum-tracked in manifest.json).
+ *
+ * S6 found that `@a2ui/web_core@0.10.6`'s `and`/`or` implementations do not
+ * recursively resolve nested `{call, args}` conditions inside their `values`
+ * array before testing truthiness, so a NESTED function call was always
+ * truthy and `and(...)` always evaluated `true` regardless of its operands.
+ * At RUNTIME ONLY the compound check was swapped for two independent
+ * CheckRules with the same two conditions so the smoke spec could still
+ * prove "Button disabled until its checks pass" end to end.
+ *
+ * S8 (0.11.x upgrade) re-verified this with the same standalone repro
+ * pattern (`DataContext.resolveDynamicValue` against a minimal `Catalog` +
+ * `BASIC_FUNCTIONS`, no app code): `and(email(""), length("", min:8))` now
+ * correctly resolves `false` (each operand does too), and the same compound
+ * resolves `true` once both operands are valid — the upstream defect is
+ * FIXED in `@a2ui/web_core@0.11.0`. The workaround is removed; this now
+ * returns the vendored example unmodified.
  */
 export function loginFormExampleMessages() {
-  const messages = structuredClone(readJson('examples/09_login-form.json').messages);
-  for (const message of messages) {
-    const components = message.updateComponents?.components;
-    if (!Array.isArray(components)) continue;
-    const loginButton = components.find((component) => component.id === 'login-btn');
-    if (!loginButton) continue;
-    loginButton.checks = [
-      {
-        condition: { call: 'email', args: { value: { path: '/email' } } },
-        message: 'Please enter a valid email address',
-      },
-      {
-        condition: { call: 'length', args: { value: { path: '/password' }, min: 8 } },
-        message: 'Password must be at least 8 characters long',
-      },
-    ];
-  }
-  return messages;
+  return structuredClone(readJson('examples/09_login-form.json').messages);
+}
+
+/** The Basic catalog's own id, as vendored (`catalogs/basic/catalog.json`). */
+export const BASIC_A2UI_CATALOG_ID = basicFile.catalogId;
+
+/**
+ * The 43 official Basic-catalog examples' `{file, messages}` pairs, sorted by
+ * filename — the same corpus `web/src/test-fixtures/a2ui/v0_9_1/fixtures.ts`
+ * exposes to vitest (`A2UI_BASIC_EXAMPLES`) as a Vite `import.meta.glob`, read
+ * here with plain `fs` since this file runs as a standalone Node script, not
+ * through Vite. Used by the desktop JS smoke (S8 gact-tui#409 item 3) to
+ * prove the packaged bundle renders every example, not just the login form.
+ */
+export function allExampleMessages() {
+  return readdirSync(resolve(FIXTURES_ROOT, 'examples'))
+    .filter((name) => name.endsWith('.json') && name !== 'SOURCE.json')
+    .sort()
+    .map((file) => ({ file, messages: readJson(`examples/${file}`).messages }));
 }

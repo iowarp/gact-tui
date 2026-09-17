@@ -91,6 +91,7 @@ function actionSurface(): A2UISurface {
 function renderPending(
   interactions: PendingInteraction[],
   options: {
+    actionLifecycles?: Record<string, import('@clio/core/v3').A2UIActionLifecycle>;
     disabled?: boolean;
     error?: Error;
     onRefetchSurfaces?: ReturnType<typeof vi.fn>;
@@ -107,6 +108,7 @@ function renderPending(
   ];
   const tree = (
     <ClioPendingInteractions
+      actionLifecycles={options.actionLifecycles}
       disabled={options.disabled}
       error={options.error}
       interactions={interactions}
@@ -159,6 +161,39 @@ describe('ClioPendingInteractions A2UI kind', () => {
     expect(await screen.findByRole('button', { name: 'Submit selection' })).toBeVisible();
     expect(screen.getAllByText('Evidence specialist')).toHaveLength(4);
     expect(repository.a2uiAction).not.toHaveBeenCalled();
+  });
+
+  // S8 gact-tui#409 item 7 (adversarial finding): a cross-session A2UI
+  // surface was the one place with no lifecycle words at all — the footer
+  // (`a2ui-action-lifecycle.tsx`) is wired everywhere else (the main
+  // transcript, the subagent canvas) but this component never threaded
+  // `actionLifecycles` down to its own `ClioA2UISurface`.
+  it("words the surface's own action lifecycle for a cross-session A2UI card", async () => {
+    const surface = actionSurface();
+    renderPending(
+      [
+        pending('a2ui', {
+          id: 'a2ui:sess_child:surface_1',
+          source: { protocol: 'native', surface_id: 'surface_1' },
+          actions: ['form.submit'],
+        }),
+      ],
+      {
+        surfaces: { surface_1: surface },
+        actionLifecycles: {
+          surface_1: {
+            surface_id: 'surface_1',
+            action_name: 'form.submit',
+            status: 'delivered',
+            occurred_at: '2026-09-02T00:00:00Z',
+          },
+        },
+      },
+    );
+
+    expect(
+      await screen.findByText("form.submit delivered to the agent's turn"),
+    ).toBeVisible();
   });
 
   it('routes a child A2UI action through the normalized interaction response', async () => {

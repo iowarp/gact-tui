@@ -37,7 +37,13 @@ export const ClioTimeSeriesCatalogComponent = createComponentImplementation(
         rows: props.series as PlotRow[] | undefined,
         title: props.title,
         xKey: props.xKey,
-        yKeys: props.yKeys,
+        // 0.11.x's generic binder types every `string[]`-shaped prop as a
+        // possible `ChildList` (`ResolveA2uiProp`, structural, not schema-
+        // aware) — these are plot data-series keys, never component ids, and
+        // `yKeys` carries no `componentId()`/`childList()` marker, so the
+        // node layer's own (schema-driven) `extractRefFields` never
+        // classifies it as one; the runtime value stays `string[]`.
+        yKeys: props.yKeys as string[],
       }),
     ),
 );

@@ -23,7 +23,7 @@
     "vitest": "2.1.8"
   },
   "dependencies": {
-    "@a2ui/web_core": "0.10.6",
+    "@a2ui/web_core": "0.11.0",
     "zod": "^3.25.76"
   }
 }

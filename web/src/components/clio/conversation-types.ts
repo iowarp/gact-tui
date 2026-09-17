@@ -1,6 +1,7 @@
 import type {
   ActionCardAction,
   Artifact,
+  A2UIActionLifecycle,
   A2UISurface,
   ClioRepository,
   Message as DomainMessage,
@@ -25,6 +26,14 @@ export interface ClioConversationProps {
   subagents: Record<string, SubagentRun>;
   artifacts: Record<string, Artifact>;
   surfaces: Record<string, A2UISurface>;
+  /**
+   * Server-truth footer state per surface (`a2ui.action.received|delivered|
+   * consumed|failed|duplicate`, dispatcher slice S5), keyed by surface id —
+   * `EntityState.a2ui_action_lifecycles`. Stream-only (no REST snapshot
+   * backs it), so a caller not wired to the live store may omit it; the
+   * footer (`a2ui-action-lifecycle.tsx`) then just stays absent.
+   */
+  actionLifecycles?: Record<string, A2UIActionLifecycle>;
   resources?: Record<string, WorkspaceResource>;
   onActionCardAction?: (action: ActionCardAction) => void | Promise<unknown>;
   onForkFromMessage?: (messageId: string) => void | Promise<unknown>;
