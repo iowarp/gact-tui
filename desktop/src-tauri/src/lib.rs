@@ -14,7 +14,9 @@ mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
 mod infrastructure_setup;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu_spec;
 mod net_util;
 mod plugins;
@@ -167,15 +169,18 @@ pub fn run() {
 
             tray::install_tray(app)?;
 
-            // Native window/app menu (1.0 item 9). Non-predefined items emit
-            // the `clio:menu` event the SolidJS frontend listens for; Quit +
-            // the Edit submenu are predefined and handled natively. The tray
-            // menu above is independent and keeps working.
-            let app_menu = menu::build_menu(app.handle())?;
-            app.set_menu(app_menu)?;
-            app.on_menu_event(|app, ev| {
-                menu::handle_menu_event(app, ev.id().as_ref());
-            });
+            // macOS keeps the native global application menu. Windows and
+            // Linux use the product-owned title bar rendered by the frontend;
+            // installing a native menu there creates a second, dated strip.
+            // The tray menu above is independent and remains available.
+            #[cfg(target_os = "macos")]
+            {
+                let app_menu = menu::build_menu(app.handle())?;
+                app.set_menu(app_menu)?;
+                app.on_menu_event(|app, ev| {
+                    menu::handle_menu_event(app, ev.id().as_ref());
+                });
+            }
 
             Ok(())
         })

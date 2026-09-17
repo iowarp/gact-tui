@@ -35,19 +35,35 @@ Function un.ClioRemoveUserDataPageLeave
 FunctionEnd
 
 !macro CLIO_STOP_MANAGED_RUNTIME
-  nsExec::ExecToLog 'powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$$root=[IO.Path]::GetFullPath(''$INSTDIR''); Get-CimInstance Win32_Process | Where-Object { $$_.ExecutablePath -and [IO.Path]::GetFullPath($$_.ExecutablePath).StartsWith($$root,[StringComparison]::OrdinalIgnoreCase) -and $$_.Name -in @(''clio-desktop.exe'',''clio-agent.exe'',''python.exe'',''clio_run.exe'') } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
-  Sleep 500
+  ; Pass the path through a tiny temporary file instead of interpolating it into
+  ; PowerShell source. The compact encoded command stays below NSIS' command-string
+  ; limit while retaining an executable allowlist and install-root boundary check.
+  FileOpen $0 "$TEMP\clio-desktop-install-root.txt" w
+  FileWrite $0 "$INSTDIR"
+  FileClose $0
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand JAByAD0AKABnAGMAIAAtAFIAYQB3ACAAIgAkAGUAbgB2ADoAVABFAE0AUABcAGMAbABpAG8ALQBkAGUAcwBrAHQAbwBwAC0AaQBuAHMAdABhAGwAbAAtAHIAbwBvAHQALgB0AHgAdAAiACkALgBUAHIAaQBtAEUAbgBkACgAIgBcACIAKQArACIAXAAiADsAZwBjAGkAbQAgAFcAaQBuADMAMgBfAFAAcgBvAGMAZQBzAHMAfAA/AHsAJABfAC4ATgBhAG0AZQAgAC0AaQBuACAAIgBjAGwAaQBvAC0AZABlAHMAawB0AG8AcAAuAGUAeABlACIALAAiAGMAbABpAG8ALQBhAGcAZQBuAHQALgBlAHgAZQAiACwAIgBwAHkAdABoAG8AbgAuAGUAeABlACIALAAiAGMAbABpAG8AXwByAHUAbgAuAGUAeABlACIAIAAtAGEAbgBkACAAJABfAC4ARQB4AGUAYwB1AHQAYQBiAGwAZQBQAGEAdABoACAALQBhAG4AZAAgACgAJABfAC4ARQB4AGUAYwB1AHQAYQBiAGwAZQBQAGEAdABoAC0AcgBlAHAAbABhAGMAZQAiAF4AXABcAFwAXABcAD8AXABcACIALAAiACIAKQAuAFMAdABhAHIAdABzAFcAaQB0AGgAKAAkAHIALAA1ACkAfQB8ACUAewBrAGkAbABsACAALQBJAGQAIAAkAF8ALgBQAHIAbwBjAGUAcwBzAEkAZAAgAC0ARgBvAHIAYwBlACAALQBlAGEAIAAwAH0A' $0
+  Delete "$TEMP\clio-desktop-install-root.txt"
+  Sleep 1500
 !macroend
 
 !macro NSIS_HOOK_PREINSTALL
   !insertmacro CLIO_STOP_MANAGED_RUNTIME
+  ; Bundled resources contain a directory tree that the generated NSIS file
+  ; manifest does not reliably remove. Clear only that owned subtree before an
+  ; upgrade so stale Python packages cannot survive into the new runtime.
+  RMDir /r "$INSTDIR\gact-runtime"
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
   !insertmacro CLIO_STOP_MANAGED_RUNTIME
+  RMDir /r "$INSTDIR\gact-runtime"
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
+  ; Keep this as a final idempotent sweep in case Windows released a loaded
+  ; runtime file only after the generated uninstall section ran.
+  RMDir /r "$INSTDIR\gact-runtime"
+  RMDir "$INSTDIR"
   ${If} $ClioRemoveUserData == ${BST_CHECKED}
     RMDir /r "$LOCALAPPDATA\ai.iowarp.clio.desktop"
     RMDir /r "$APPDATA\ai.iowarp.clio.desktop"

@@ -170,6 +170,13 @@
     min-width: 320px;
     margin: 0;
   }
+  .desktop-content .h-dvh {
+    height: 100%;
+  }
+  .desktop-content .min-h-dvh,
+  .desktop-content .min-h-svh {
+    min-height: 100%;
+  }
   button,
   a,
   input,
