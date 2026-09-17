@@ -65,6 +65,7 @@ export function useWorkspaceData({
   const entityRuns = useLiveStore((state) => state.entities.runs);
   const entitySessions = useLiveStore((state) => state.entities.sessions);
   const entitySurfaces = useLiveStore((state) => state.entities.surfaces);
+  const entityActionLifecycles = useLiveStore((state) => state.entities.a2ui_action_lifecycles);
   const entitySubagents = useLiveStore((state) => state.entities.subagents);
   const entityTasks = useLiveStore((state) => state.entities.tasks);
   const entityTools = useLiveStore((state) => state.entities.tools);
@@ -76,6 +77,7 @@ export function useWorkspaceData({
       runs: entityRuns,
       sessions: entitySessions,
       surfaces: entitySurfaces,
+      a2ui_action_lifecycles: entityActionLifecycles,
       subagents: entitySubagents,
       tasks: entityTasks,
       tools: entityTools,
@@ -87,6 +89,7 @@ export function useWorkspaceData({
       entityRuns,
       entitySessions,
       entitySurfaces,
+      entityActionLifecycles,
       entitySubagents,
       entityTasks,
       entityTools,
