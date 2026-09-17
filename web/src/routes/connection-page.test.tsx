@@ -111,6 +111,7 @@ it('shows managed startup instead of asking desktop users for a connection addre
   expect(screen.getByText('Starting local service')).toBeVisible();
   expect(screen.getByText('Loading the bundled scientific workspace')).toBeVisible();
   expect(screen.getByRole('list', { name: 'Startup progress' })).toBeVisible();
+  expect(screen.getByTestId('desktop-boot-logo')).toHaveClass('translate-x-1', '-translate-y-2');
   expect(screen.queryByLabelText('Connection address')).not.toBeInTheDocument();
 });
 

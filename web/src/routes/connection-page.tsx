@@ -138,7 +138,12 @@ function DesktopBoot({
             />
             <div className="relative grid size-36 place-items-center overflow-hidden rounded-[2.25rem] border border-primary/30 bg-card/45 p-4 shadow-2xl backdrop-blur-xl sm:size-40">
               {logoSource ? (
-                <img alt="" className="size-full object-contain" src={logoSource} />
+                <img
+                  alt=""
+                  className="size-full translate-x-1 -translate-y-2 object-contain"
+                  data-testid="desktop-boot-logo"
+                  src={logoSource}
+                />
               ) : (
                 <span className="font-heading text-6xl font-semibold text-primary">
                   {brand.markGlyph}
