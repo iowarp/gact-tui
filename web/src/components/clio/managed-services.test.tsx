@@ -4,8 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const runtime = vi.hoisted(() => ({ desktop: true }));
 const deployment = vi.hoisted(() => ({
-  managedServices: vi.fn(),
-  preflightTarget: vi.fn(),
+  managedServiceCatalog: vi.fn(),
   runManagedServiceAction: vi.fn(),
   sshProfiles: vi.fn(),
 }));
@@ -63,15 +62,17 @@ function renderServices() {
 
 beforeEach(() => {
   runtime.desktop = true;
-  deployment.preflightTarget.mockResolvedValue({
-    target: 'local',
-    os: 'windows',
-    arch: 'x86_64',
-    accelerator: 'none',
-    docker: true,
-    uv: true,
+  deployment.managedServiceCatalog.mockResolvedValue({
+    facts: {
+      target: 'local',
+      os: 'windows',
+      arch: 'x86_64',
+      accelerator: 'none',
+      docker_available: true,
+      uv_available: true,
+    },
+    services,
   });
-  deployment.managedServices.mockResolvedValue(services);
   deployment.sshProfiles.mockResolvedValue([]);
 });
 
@@ -89,6 +90,23 @@ describe('ManagedServices', () => {
     expect(screen.getByRole('heading', { name: 'CLIO Web Search' })).toBeVisible();
     expect(screen.getByRole('heading', { name: 'CLIO Relay' })).toBeVisible();
     expect(screen.getByLabelText('vLLM Reasoning parser')).toBeVisible();
+    expect(deployment.managedServiceCatalog).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the infrastructure view usable while target inspection is pending', () => {
+    deployment.managedServiceCatalog.mockReturnValue(new Promise(() => undefined));
+    renderServices();
+
+    expect(screen.getByRole('heading', { name: 'Managed services' })).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('Inspecting this computer');
+  });
+
+  it('renders a recoverable error when target inspection fails', async () => {
+    deployment.managedServiceCatalog.mockRejectedValue(new Error('Docker inspection stalled'));
+    renderServices();
+
+    expect(await screen.findByText('Could not inspect this target')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
   });
 
   it('shows connection guidance without deployment controls in browser mode', () => {

@@ -1,7 +1,6 @@
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
-  managedServices,
-  preflightTarget,
+  managedServiceCatalog,
   runManagedServiceAction,
   sshProfiles,
   type ManagedServiceActionInput,
@@ -45,10 +44,9 @@ export function ManagedServices() {
   const catalog = useQuery({
     enabled: desktop && (target === 'local' || Boolean(profile)),
     queryKey: ['managed-service-catalog', target, profile],
-    queryFn: async () => ({
-      facts: await preflightTarget(targetInput),
-      services: await managedServices(targetInput),
-    }),
+    queryFn: () => managedServiceCatalog(targetInput),
+    retry: false,
+    staleTime: 30_000,
   });
   const action = useMutation({
     mutationFn: (input: ManagedServiceActionInput) => runManagedServiceAction(input),
@@ -120,8 +118,26 @@ export function ManagedServices() {
         </Field>
       ) : null}
 
+      {catalog.isPending && catalog.fetchStatus === 'fetching' ? (
+        <Alert className="mt-4" role="status">
+          <ContainerIcon aria-hidden="true" />
+          <AlertTitle>Inspecting this computer</AlertTitle>
+          <AlertDescription>
+            Checking Docker, local runtimes, and available acceleration. You can keep using CLIO
+            while this finishes.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {catalog.error ? (
-        <p className="mt-3 text-sm text-destructive">{catalog.error.message}</p>
+        <Alert className="mt-4" variant="destructive">
+          <AlertTitle>Could not inspect this target</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{catalog.error.message}</p>
+            <Button onClick={() => catalog.refetch()} size="sm" variant="outline">
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
       ) : null}
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {(catalog.data?.services ?? []).map((service) => (

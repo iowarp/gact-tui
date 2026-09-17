@@ -5,7 +5,9 @@ use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 const WEB_IMAGE: &str = "ghcr.io/iowarp/clio-web-search:0.3.0";
 const LLAMA_CPU_IMAGE: &str = "ghcr.io/ggml-org/llama.cpp:server-b10621";
@@ -13,6 +15,8 @@ const LLAMA_VULKAN_IMAGE: &str = "ghcr.io/ggml-org/llama.cpp:server-vulkan-b1062
 const LLAMA_WINDOWS_CPU_ARCHIVE: &str =
     "https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-win-cpu-x64.zip";
 const MAX_LOG_CHARS: usize = 4_000;
+const DISCOVERY_TIMEOUT: Duration = Duration::from_secs(12);
+const DISCOVERY_POLL_INTERVAL: Duration = Duration::from_millis(50);
 // Exact parser names registered by the pinned vLLM v0.28.0 runtime.
 const VLLM_REASONING_PARSERS: &[&str] = &[
     "cohere_command3",
@@ -100,6 +104,12 @@ pub struct ManagedServiceDefinition {
     pub variants: Vec<ServiceVariant>,
     pub configuration_fields: Vec<ServiceConfigField>,
     pub supports_stop: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ManagedServiceCatalog {
+    pub facts: TargetFacts,
+    pub services: Vec<ManagedServiceDefinition>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -614,28 +624,39 @@ pub fn infrastructure_ssh_profiles() -> Result<Vec<SshProfile>, String> {
 
 /// Inspect the selected local or SSH target without installing anything.
 #[tauri::command]
-pub fn infrastructure_preflight(request: ManagedTargetRequest) -> Result<TargetFacts, String> {
-    preflight(&request)
+pub async fn infrastructure_preflight(
+    request: ManagedTargetRequest,
+) -> Result<TargetFacts, String> {
+    tauri::async_runtime::spawn_blocking(move || preflight(&request))
+        .await
+        .map_err(|error| format!("Target inspection stopped unexpectedly: {error}"))?
 }
 
-/// Return the four compiled drivers and their compatible variants.
+/// Inspect the target once and return the four compatible service drivers.
 #[tauri::command]
-pub fn infrastructure_managed_services(
+pub async fn infrastructure_managed_service_catalog(
     request: ManagedTargetRequest,
-) -> Result<Vec<ManagedServiceDefinition>, String> {
-    let facts = preflight(&request)?;
-    Ok(Driver::all()
-        .into_iter()
-        .map(|driver| driver.definition(&facts))
-        .collect())
+) -> Result<ManagedServiceCatalog, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let facts = preflight(&request)?;
+        let services = Driver::all()
+            .into_iter()
+            .map(|driver| driver.definition(&facts))
+            .collect();
+        Ok(ManagedServiceCatalog { facts, services })
+    })
+    .await
+    .map_err(|error| format!("Service inspection stopped unexpectedly: {error}"))?
 }
 
 /// Execute one typed lifecycle action; arbitrary programs and images are impossible.
 #[tauri::command]
-pub fn infrastructure_managed_service_action(
+pub async fn infrastructure_managed_service_action(
     request: ManagedServiceActionRequest,
 ) -> Result<ManagedServiceActionResult, String> {
-    run_action(&request)
+    tauri::async_runtime::spawn_blocking(move || run_action(&request))
+        .await
+        .map_err(|error| format!("Service action stopped unexpectedly: {error}"))?
 }
 
 /// Preserve the existing Web Search dialog while routing it through the driver.
@@ -795,6 +816,54 @@ fn run_target(
     Command::new(program).args(args).output()
 }
 
+fn run_discovery_target(
+    target: &ManagedTargetRequest,
+    program: &str,
+    args: &[&str],
+) -> Result<Output, String> {
+    let (program, args) = target_invocation(target, program, args);
+    output_before_deadline(&program, &args, DISCOVERY_TIMEOUT)
+}
+
+fn output_before_deadline(
+    program: &str,
+    args: &[String],
+    timeout: Duration,
+) -> Result<Output, String> {
+    let mut child = Command::new(program)
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Could not start {program}: {error}"))?;
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => {
+                return child
+                    .wait_with_output()
+                    .map_err(|error| format!("Could not read {program} output: {error}"));
+            }
+            Ok(None) if started.elapsed() < timeout => {
+                thread::sleep(DISCOVERY_POLL_INTERVAL);
+            }
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!(
+                    "{program} did not finish target inspection within {} seconds",
+                    timeout.as_secs()
+                ));
+            }
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("Could not inspect {program}: {error}"));
+            }
+        }
+    }
+}
+
 fn target_invocation(
     target: &ManagedTargetRequest,
     program: &str,
@@ -811,6 +880,10 @@ fn target_invocation(
     (
         "ssh".into(),
         vec![
+            "-o".into(),
+            "BatchMode=yes".into(),
+            "-o".into(),
+            "ConnectTimeout=8".into(),
             target.ssh_profile.clone().unwrap_or_default(),
             "--".into(),
             command,
@@ -819,7 +892,7 @@ fn target_invocation(
 }
 
 fn available(target: &ManagedTargetRequest, program: &str, args: &[&str]) -> bool {
-    run_target(target, program, args)
+    run_discovery_target(target, program, args)
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
@@ -887,7 +960,7 @@ fn probe(
     args: &[&str],
     normalize: fn(&str) -> String,
 ) -> String {
-    run_target(target, program, args)
+    run_discovery_target(target, program, args)
         .map(|o| normalize(&String::from_utf8_lossy(&o.stdout)))
         .unwrap_or_else(|_| "unknown".into())
 }
@@ -919,14 +992,14 @@ fn target_label(target: &ManagedTargetRequest) -> String {
 }
 
 fn windows_has_amd_gpu() -> bool {
+    let args = strings(&[
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "(Get-CimInstance Win32_VideoController).Name",
+    ]);
     env::consts::OS == "windows"
-        && Command::new("powershell")
-            .args([
-                "-NoProfile",
-                "-Command",
-                "(Get-CimInstance Win32_VideoController).Name",
-            ])
-            .output()
+        && output_before_deadline("powershell", &args, DISCOVERY_TIMEOUT)
             .map(|o| {
                 String::from_utf8_lossy(&o.stdout)
                     .to_ascii_lowercase()
@@ -1285,12 +1358,38 @@ mod tests {
             (
                 "ssh".into(),
                 vec![
+                    "-o".into(),
+                    "BatchMode=yes".into(),
+                    "-o".into(),
+                    "ConnectTimeout=8".into(),
                     "gpu-host".into(),
                     "--".into(),
                     format!("'docker' 'pull' '{}'", WEB_IMAGE),
                 ],
             )
         );
+    }
+
+    #[test]
+    fn discovery_commands_are_stopped_after_their_deadline() {
+        #[cfg(target_os = "windows")]
+        let (program, args) = (
+            "powershell",
+            strings(&[
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Start-Sleep -Seconds 10",
+            ]),
+        );
+        #[cfg(not(target_os = "windows"))]
+        let (program, args) = ("sh", strings(&["-c", "sleep 10"]));
+
+        let started = Instant::now();
+        let error = output_before_deadline(program, &args, Duration::from_millis(100)).unwrap_err();
+
+        assert!(error.contains("did not finish target inspection"));
+        assert!(started.elapsed() < Duration::from_secs(3));
     }
 
     #[test]

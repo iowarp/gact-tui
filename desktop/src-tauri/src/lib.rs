@@ -92,7 +92,7 @@ pub fn run() {
             commands::tunnel_open,
             infrastructure_setup::infrastructure_ssh_profiles,
             infrastructure_setup::infrastructure_preflight,
-            infrastructure_setup::infrastructure_managed_services,
+            infrastructure_setup::infrastructure_managed_service_catalog,
             infrastructure_setup::infrastructure_managed_service_action,
             infrastructure_setup::infrastructure_deploy_web_search,
             credentials::credential_store,
