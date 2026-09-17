@@ -2,19 +2,25 @@ import type { A2UISurface } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CLIO_A2UI_CATALOG_ID } from './a2ui-catalog';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CLIO_A2UI_CATALOG_ID, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { ClioA2UISurface } from './a2ui-surface';
 
 const repository = vi.hoisted(() => ({
   a2uiAction: vi.fn().mockResolvedValue({ status: 'accepted' }),
+  a2uiCatalogs: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
+beforeEach(() => {
+  repository.a2uiCatalogs.mockResolvedValue([CLIO_WORKSPACE_CATALOG_ROW]);
+});
+
 afterEach(() => {
   cleanup();
   repository.a2uiAction.mockClear();
+  repository.a2uiCatalogs.mockClear();
   vi.restoreAllMocks();
 });
 
@@ -52,14 +58,11 @@ function actionSurface(name: string, context: Record<string, unknown>): A2UISurf
   };
 }
 
-function renderSurface(
-  surface: A2UISurface,
-  onLocalAction?: Parameters<typeof ClioA2UISurface>[0]['onLocalAction'],
-) {
+function renderSurface(surface: A2UISurface) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <ClioA2UISurface onLocalAction={onLocalAction} surface={surface} />
+      <ClioA2UISurface surface={surface} />
     </QueryClientProvider>,
   );
 }
@@ -77,29 +80,29 @@ describe('ClioA2UISurface actions', () => {
     expect(screen.queryByText('Analysis view')).not.toBeInTheDocument();
   });
 
-  it('does not paint a disconnected surface with the success status', () => {
+  it('does not paint a disconnected surface with the success status', async () => {
     const surface = actionSurface('artifact.open', {});
     surface.state = 'disconnected';
 
     renderSurface(surface);
 
-    const badge = screen.getByText('disconnected').closest('[data-slot="badge"]');
+    const badge = (await screen.findByText('disconnected')).closest('[data-slot="badge"]');
     expect(badge).not.toBeNull();
     expect(badge!.className).not.toContain('text-success');
   });
 
-  it('marks a surface waiting on a user action as needing attention', () => {
+  it('marks a surface waiting on a user action as needing attention', async () => {
     const surface = actionSurface('artifact.open', {});
     surface.state = 'pending_action';
 
     renderSurface(surface);
 
-    const badge = screen.getByText('pending action').closest('[data-slot="badge"]');
+    const badge = (await screen.findByText('pending action')).closest('[data-slot="badge"]');
     expect(badge).not.toBeNull();
     expect(badge!.className).toContain('text-action');
   });
 
-  it('contains an invalid historical surface without throwing through React', () => {
+  it('contains an invalid historical surface without throwing through React', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const surface = actionSurface('artifact.open', {});
     const update = surface.messages[1] as {
@@ -109,12 +112,12 @@ describe('ClioA2UISurface actions', () => {
 
     renderSurface(surface);
 
-    expect(screen.getByText('Interactive surface unavailable')).toBeVisible();
-    expect(screen.getAllByText(/accessibility: Expected object/u)[0]).toBeVisible();
+    expect(await screen.findByText('Interactive surface unavailable')).toBeVisible();
+    expect(screen.getAllByText(/accessibility/u)[0]).toBeVisible();
     expect(consoleError).not.toHaveBeenCalled();
   });
 
-  it('rejects component-name drift at the generated catalog boundary', () => {
+  it('renders an unknown component inline without failing the whole surface', async () => {
     const surface = actionSurface('artifact.open', {});
     const update = surface.messages[1] as {
       updateComponents: { components: Array<Record<string, unknown>> };
@@ -123,29 +126,46 @@ describe('ClioA2UISurface actions', () => {
 
     renderSurface(surface);
 
-    expect(screen.getByText('Interactive surface unavailable')).toBeVisible();
-    expect(screen.getAllByText(/does not satisfy the shared CLIO catalog/u)[0]).toBeVisible();
+    expect(await screen.findByText(/Unknown component: Checkbox/u)).toBeVisible();
+    expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
   });
 
-  it('keeps artifact.open local and never posts it to the server action route', async () => {
+  it('renders a typed failure for an unknown catalogId', async () => {
+    const surface = actionSurface('artifact.open', {});
+    (surface.messages[0] as { createSurface: { catalogId: string } }).createSurface.catalogId =
+      'https://example.test/a2ui/catalogs/not-installed';
+
+    renderSurface(surface);
+
+    expect(await screen.findByText('Interactive surface unavailable')).toBeVisible();
+    expect(screen.getAllByText(/Catalog not found/u)[0]).toBeVisible();
+  });
+
+  it('runs the openArtifact catalog function without any repository call', async () => {
     const user = userEvent.setup();
-    const onLocalAction = vi.fn().mockResolvedValue('result.csv opened in the workspace canvas');
-    renderSurface(actionSurface('artifact.open', { artifact_id: 'artifact_1' }), onLocalAction);
+    const surface = actionSurface('artifact.open', {});
+    const update = surface.messages[1] as {
+      updateComponents: { components: Array<Record<string, unknown>> };
+    };
+    update.updateComponents.components[2] = {
+      id: 'action',
+      component: 'Button',
+      child: 'label',
+      action: { functionCall: { call: 'openArtifact', args: { uri: 'artifact://artifact_1' } } },
+    };
 
-    await user.click(screen.getByRole('button', { name: 'Open result' }));
+    renderSurface(surface);
 
-    expect(onLocalAction).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'artifact.open', context: { artifact_id: 'artifact_1' } }),
-    );
+    await user.click(await screen.findByRole('button', { name: 'Open result' }));
+
     expect(repository.a2uiAction).not.toHaveBeenCalled();
-    expect(await screen.findByText('result.csv opened in the workspace canvas')).toBeVisible();
   });
 
   it('posts registered server actions with the official action envelope', async () => {
     const user = userEvent.setup();
     renderSurface(actionSurface('form.submit', { selection: 'bounded' }));
 
-    await user.click(screen.getByRole('button', { name: 'Open result' }));
+    await user.click(await screen.findByRole('button', { name: 'Open result' }));
 
     expect(repository.a2uiAction).toHaveBeenCalledWith(
       'sess_1',
@@ -160,20 +180,32 @@ describe('ClioA2UISurface actions', () => {
     );
   });
 
-  it('presents accepted protocol actions in plain language', () => {
-    const surface = actionSurface('agent.submit', { prompt: 'Continue' });
-    surface.messages.push({
-      version: 'v0.9.1',
-      updateDataModel: {
-        surfaceId: surface.id,
-        path: '/lastAction',
-        value: { name: 'agent.submit', status: 'accepted' },
-      },
+  it('posts the exact VALIDATION_FAILED envelope for a blocked URL scheme', async () => {
+    const surface = actionSurface('artifact.open', {});
+    const update = surface.messages[1] as {
+      updateComponents: { components: Array<Record<string, unknown>> };
+    };
+    update.updateComponents.components.push({
+      id: 'image',
+      component: 'Image',
+      url: 'javascript:alert(1)',
     });
+    (update.updateComponents.components[0] as { children: string[] }).children.push('image');
 
     renderSurface(surface);
 
-    expect(screen.getByText('Sent to agent')).toBeVisible();
-    expect(screen.queryByText('agent.submit accepted')).not.toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/not an allowed URL scheme/u);
+    expect(repository.a2uiAction).toHaveBeenCalledWith(
+      surface.session_id,
+      {
+        version: 'v0.9.1',
+        error: {
+          code: 'VALIDATION_FAILED',
+          surfaceId: surface.id,
+          path: '/image/url',
+          message: expect.stringContaining('not an allowed URL scheme'),
+        },
+      },
+    );
   });
 });

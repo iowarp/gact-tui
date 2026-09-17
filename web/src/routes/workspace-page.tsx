@@ -32,7 +32,7 @@ import {
   WorkspaceLiveObservabilityView,
   WorkspaceLiveStatusStrip,
 } from '@/components/clio/workspace-live-projections';
-import { useA2UILocalActions } from '@/hooks/use-a2ui-local-actions';
+import { useA2uiOpenArtifactRuntime } from '@/lib/a2ui/kernel-runtime';
 import { useRepository } from '@/hooks/use-repository';
 import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
 import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
@@ -244,7 +244,7 @@ export function WorkspacePage() {
       workspaceResourceEntities,
     ],
   );
-  const handleA2UILocalAction = useA2UILocalActions(entities.artifacts, sessionId, openArtifact);
+  useA2uiOpenArtifactRuntime(entities.artifacts, sessionId, openArtifact);
 
   const {
     actionCard,
@@ -371,7 +371,6 @@ export function WorkspacePage() {
       capabilityError={interactionCapabilityError ?? undefined}
       error={interactionsError ?? undefined}
       interactions={responseTrayInteractions}
-      onA2UILocalAction={handleA2UILocalAction}
       onRefetchSurfaces={refetchInteractionSurfaces}
       onResponse={handleInteractionResponse}
       ownerLabels={interactionOwnerLabels}
@@ -717,7 +716,6 @@ export function WorkspacePage() {
                     error={transcriptError}
                     loading={transcript.isFetching}
                     onActionCardAction={actionCard.mutateAsync}
-                    onA2UILocalAction={handleA2UILocalAction}
                     onOpenArtifact={openArtifact}
                     onOpenFile={openWorkspaceFile}
                     onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}

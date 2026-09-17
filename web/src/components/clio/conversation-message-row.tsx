@@ -368,7 +368,6 @@ export function conversationMessageRowPropsEqual(
     left.retryingMessageId !== right.retryingMessageId ||
     left.cancellingPendingMessageId !== right.cancellingPendingMessageId ||
     left.onActionCardAction !== right.onActionCardAction ||
-    left.onA2UILocalAction !== right.onA2UILocalAction ||
     left.onForkFromMessage !== right.onForkFromMessage ||
     left.onRewindToMessage !== right.onRewindToMessage ||
     left.onRetryMessage !== right.onRetryMessage ||

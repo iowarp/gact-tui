@@ -38,7 +38,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
-import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
+import { ClioA2UISurface } from './a2ui-surface';
 import { respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';
 import {
@@ -59,7 +59,6 @@ export interface ClioPendingInteractionsProps {
   error?: Error;
   /** Failed capability negotiation; legacy responses may remain available. */
   capabilityError?: Error;
-  onA2UILocalAction?: A2UILocalActionHandler;
   onResponse: (
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
@@ -76,7 +75,6 @@ export function ClioPendingInteractions({
   disabled,
   error,
   capabilityError,
-  onA2UILocalAction,
   onResponse,
   onRefetchSurfaces,
 }: ClioPendingInteractionsProps) {
@@ -191,7 +189,6 @@ export function ClioPendingInteractions({
                       disabled={interactionDisabled}
                       interaction={interaction}
                       key={interaction.id}
-                      onLocalAction={onA2UILocalAction}
                       onRefetchSurface={onRefetchSurfaces}
                       onResponse={handleResponse}
                       ownerLabel={ownerLabel}
@@ -661,7 +658,6 @@ function QuestionResponse({
 function A2UIResponse({
   disabled,
   interaction,
-  onLocalAction,
   onRefetchSurface,
   onResponse,
   ownerLabel,
@@ -671,7 +667,6 @@ function A2UIResponse({
 }: {
   disabled?: boolean;
   interaction: PendingInteraction;
-  onLocalAction?: A2UILocalActionHandler;
   onRefetchSurface?: () => void;
   onResponse: ClioPendingInteractionsProps['onResponse'];
   ownerLabel?: string;
@@ -707,7 +702,6 @@ function A2UIResponse({
         <ResponseErrorNotice error={responseError} />
         <A2UISurfaceBody
           interaction={interaction}
-          onLocalAction={onLocalAction}
           onRefetchSurface={onRefetchSurface}
           onResponse={onResponse}
           rawSurface={rawSurface}
@@ -725,13 +719,11 @@ function A2UIResponse({
  */
 function A2UISurfaceBody({
   interaction,
-  onLocalAction,
   onRefetchSurface,
   onResponse,
   rawSurface,
 }: {
   interaction: PendingInteraction;
-  onLocalAction?: A2UILocalActionHandler;
   onRefetchSurface?: () => void;
   onResponse: ClioPendingInteractionsProps['onResponse'];
   rawSurface?: A2UISurface;
@@ -768,7 +760,6 @@ function A2UISurfaceBody({
   }
   return (
     <ClioA2UISurface
-      onLocalAction={onLocalAction}
       onRemoteAction={(message) =>
         onResponse(interaction, {
           correlation: surfaceCorrelation(interaction, rawSurface),
