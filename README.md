@@ -69,4 +69,7 @@ owned by `clio-agent/branding/clio`. See [`branding/README.md`](branding/README.
 The new workspace consumes scoped GACT 0.3 events and A2UI 0.9.1. A2UI is a
 persistent product surface: an agent may author it through a trusted server tool,
 but users receive rendered diagrams, code, plots, tables, evidence, and actions—not
-serialized component JSON.
+serialized component JSON. CLIO implements A2UI v0.9.1: the official message,
+capability, data-model and error schemas, the official Basic catalog plus
+blueprint-declared, pack-installed catalogs, and catalog functions and checks. Not
+supported: A2UI 1.0, inline catalogs, A2A transport, pack-shipped renderer code.
