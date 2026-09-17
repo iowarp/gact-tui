@@ -10,7 +10,12 @@ use std::{
 
 /// Maximum time to wait for /v1/capabilities to return 200 before
 /// declaring the sidecar broken.
-const CAPABILITIES_TIMEOUT: Duration = Duration::from_secs(30);
+///
+/// A first launch must unpack and initialize the bundled Python runtime before
+/// the local API can answer. On a clean Windows installation that cold path can
+/// take slightly longer than 30 seconds, so keep the automatic-connection
+/// screen alive long enough for the supported bundled startup to finish.
+const CAPABILITIES_TIMEOUT: Duration = Duration::from_secs(90);
 /// Health-poll cadence while waiting for capabilities.
 const POLL_INTERVAL: Duration = Duration::from_millis(200);
 /// Per-request timeout for one capabilities probe. Short because the sidecar
@@ -40,4 +45,14 @@ pub(crate) fn probe_capabilities(url: &str, token: &str) -> Result<(), String> {
         CAPABILITIES_TIMEOUT.as_secs(),
         last_err
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cold_bundled_startup_has_a_realistic_readiness_window() {
+        assert_eq!(CAPABILITIES_TIMEOUT, Duration::from_secs(90));
+    }
 }
