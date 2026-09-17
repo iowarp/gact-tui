@@ -4,6 +4,30 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## Unreleased
+
+### Changed
+
+- CLIO implements A2UI v0.9.1: the official message, capability, data-model and
+  error schemas; the official Basic catalog plus blueprint-declared,
+  pack-installed catalogs; catalog functions and checks; validated against the
+  official conformance corpus in browser and desktop. Not supported: A2UI 1.0,
+  inline catalogs, A2A transport, pack-shipped renderer code.
+- Upgraded the A2UI library to `@a2ui/react` 0.11.x and `@a2ui/web_core` 0.11.x.
+- Interactive surfaces now render through a catalog registry, including
+  catalogs the server installs from an agent's pack, instead of a single
+  fixed catalog.
+- Catalog-declared functions (opening a URL or artifact, selecting data,
+  focusing a workflow step) and checks now run client-side, and every
+  surface is validated against its catalog before it renders.
+- Every action taken on an interactive surface (button presses, form
+  submissions, selections) is shown in the transcript as part of the action's
+  lifecycle, from sent through delivered to the agent.
+- A surface that fails validation now posts the error back to the agent as a
+  structured `VALIDATION_FAILED` response instead of silently doing nothing.
+- The desktop build now runs the full A2UI conformance corpus against the
+  packaged bundle in CI, in addition to the browser test suite.
+
 ## [0.11.1] — 2026-09-16
 
 ### Fixed

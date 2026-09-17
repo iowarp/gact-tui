@@ -120,13 +120,13 @@ but every omitted mutation and administration workflow remains open. Route count
 
 | Capability                             | Current state             | Remaining acceptance work                                                          |
 | -------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------- |
-| Official A2UI lifecycle and validation | Implemented, not accepted | Record the coordinated producer branch SHA and complete the final security corpus (S9). |
+| Official A2UI lifecycle and validation | Accepted (A2UI 0.9.1) | Closed by PR #408 (merge `626f5553`, S6 client runtime) and PR #411 (merge `3619a715`, S8 hardening), CI jobs "lint · typecheck · test · build · visual" (vitest corpus `web/src/lib/a2ui/a2ui-corpus.test.tsx` + step "Desktop packaged-bundle A2UI corpus smoke"), "native WebView proof · fixture-backed", "tauri debug · ubuntu-22.04", "tauri debug · windows-latest", coordinated with the producing clio-agent branches PR #1384 (S8, merge `d433b41f`) and PR #1381 (S7, merge `85d3b26c`). |
 | Mermaid diagrams                       | Implemented, not accepted | Dense graph, keyboard/accessibility, invalid source evidence.                      |
 | Code                                   | Implemented, not accepted | Large code and language coverage.                                                  |
 | Tables                                 | Implemented, not accepted | Selection/action semantics and dense data.                                         |
 | Scientific plots                       | Implemented, not accepted | Real NDP/SPOTTER data, zoom/inspection/export interaction.                         |
 | Maps                                   | Implemented, not accepted | Dense geospatial layers, large-point behavior, and Tauri CSP/native validation.    |
-| Action round trip                      | Implemented, not accepted | Client-local canvas/focus browser evidence and final paired branch SHAs.           |
+| Action round trip                      | Implemented, not accepted | Client-local canvas/focus browser evidence (`selectData`/`focusWorkflow` in `web/src/lib/a2ui/kernel-catalog-functions.ts` still resolve as no-ops with no workspace-level selection/highlight state and no test coverage). Final paired branch SHAs: clio-agent PR #1378 (S5 dispatcher, merge `f5d8c7a5`) + PR #1384 (S8, merge `d433b41f`); gact-tui PR #408 (merge `626f5553`) + PR #411 (merge `3619a715`). |
 | MCP Apps                               | Missing, separate path    | Sandboxed protocol implementation; never conflated with A2UI.                      |
 
 **S8 client-side evidence for "Official A2UI lifecycle and validation"** (gact-tui#409,
@@ -174,10 +174,11 @@ companion of clio-agent#1374/#1363; row stays "Implemented, not accepted" — S9
 - Desktop JS smoke: the exact bundle directory `tauri.conf.json`'s `build.frontendDist` names
   renders all 43 examples in a real (non-jsdom) browser with zero console errors
   (`desktop/tests/a2ui-corpus-smoke.test.mjs`, `pnpm --filter @clio/desktop test:corpus`, verified
-  passing twice locally). The
-  real native-WebView smoke (`webview-e2e.test.mjs`, `TAURI_E2E=1`) needs a built
-  `clio-desktop{.exe}` and `tauri-driver`; neither was built in this environment, so that path
-  was not exercised this slice.
+  passing twice locally). The real native-WebView smoke (`webview-e2e.test.mjs`, `TAURI_E2E=1`)
+  needs a built `clio-desktop{.exe}` and `tauri-driver`, which this local environment did not have;
+  on PR #411 (merge `3619a715`) CI ran it: the job "native WebView proof · fixture-backed" and
+  both "tauri debug · ubuntu-22.04" / "tauri debug · windows-latest" builds passed green, so the
+  native-WebView path was exercised on CI even though not locally in this slice.
 
 ## Native desktop and removal gates
 
