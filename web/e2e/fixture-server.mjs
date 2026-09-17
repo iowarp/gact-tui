@@ -9,6 +9,7 @@ import {
   sessionId,
   workspaceId,
 } from './fixture-data.mjs';
+import { a2uiCapabilities, a2uiCatalogRows, loginFormExampleMessages } from './a2ui-fixtures.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -748,6 +749,45 @@ const server = createServer(async (request, response) => {
     sendJson(response, { status: 'started' }, 202);
     return;
   }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-login-form') {
+    // Must match the `surfaceId` embedded in the vendored example's own
+    // createSurface/updateComponents messages (loginFormExampleMessages()) —
+    // the MessageProcessor keys its internal SurfaceModel off that embedded
+    // id, not this envelope's `id`, so a mismatch here makes the processor
+    // build a model under a different key and getSurface(surface.id) never
+    // finds it (renders silently as nothing, no error).
+    const surfaceId = 'gallery-login-form';
+    const surface = {
+      id: surfaceId,
+      session_id: sessionId,
+      catalog_id: 'https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json',
+      protocol_version: '0.9.1',
+      revision: 1,
+      state: 'ready',
+      messages: loginFormExampleMessages(),
+    };
+    publish('a2ui.surface.upserted', surface);
+    sendJson(response, { status: 'published', surface_id: surfaceId }, 202);
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    url.pathname === `/v1/sessions/${sessionId}/a2ui/catalogs`
+  ) {
+    sendJson(response, { catalogs: a2uiCatalogRows() });
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    url.pathname === `/v1/sessions/${sessionId}/a2ui/capabilities`
+  ) {
+    sendJson(response, a2uiCapabilities());
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/v1/capabilities') {
     sendJson(response, {
       ...capabilities,
