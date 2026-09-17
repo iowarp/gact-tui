@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { ClioRepository } from '../repository.js';
+import type { ClioTransport, TransportRequest } from '../transport.js';
 import {
   buildA2uiClientCapabilities,
   checkA2uiUrlScheme,
@@ -6,6 +8,20 @@ import {
   mergeA2uiClientMetadata,
   setA2uiClientMetadataProvider,
 } from './client-metadata.js';
+
+/** A minimal fake transport that records every request body it was asked to send. */
+class RecordingTransport implements ClioTransport {
+  public bodies: unknown[] = [];
+
+  public request<T>(request: TransportRequest<T>): Promise<T> {
+    this.bodies.push(request.body);
+    return Promise.resolve(request.decode({ status: 'accepted' }));
+  }
+
+  public stream(): AsyncIterable<never> {
+    return (async function* () {})();
+  }
+}
 
 afterEach(() => {
   setA2uiClientMetadataProvider(undefined);
@@ -68,21 +84,31 @@ describe('currentA2uiClientMetadata / mergeA2uiClientMetadata', () => {
    * The whole point of registering the provider once in `packages/core` is
    * that browser and Tauri send byte-identical metadata — both transports'
    * repository call sites run this exact same merge, never their own copy.
+   * Proven here on the real ClioRepository with two independent fake
+   * transports (not by calling the merge helper twice by hand).
    */
-  it('produces byte-identical metadata for two independent (fake) transports', () => {
+  it('sends byte-identical a2uiAction bodies through a fake browser transport and a fake Tauri transport', async () => {
     setA2uiClientMetadataProvider(() => ({
       a2uiClientCapabilities: buildA2uiClientCapabilities(['clio-workspace/v1', 'basic']),
     }));
 
-    function fakeTransportSend(sessionId: string, body: Record<string, unknown>) {
-      return { ...body, metadata: mergeA2uiClientMetadata(sessionId, undefined) };
-    }
+    const browserTransport = new RecordingTransport();
+    const tauriTransport = new RecordingTransport();
+    const browserRepository = new ClioRepository(browserTransport);
+    const tauriRepository = new ClioRepository(tauriTransport);
 
-    const browserSent = fakeTransportSend('sess_1', { message: { action: { name: 'form.submit' } } });
-    const tauriSent = fakeTransportSend('sess_1', { message: { action: { name: 'form.submit' } } });
-    expect(browserSent).toEqual(tauriSent);
-    expect(browserSent.metadata).toEqual({
-      a2uiClientCapabilities: { 'v0.9': { supportedCatalogIds: ['clio-workspace/v1', 'basic'] } },
+    const action = { name: 'form.submit', surfaceId: 'surface_1', sourceComponentId: 'btn', timestamp: '2026-09-17T00:00:00Z', context: {} };
+    await browserRepository.a2uiAction('sess_1', { version: 'v0.9.1', action });
+    await tauriRepository.a2uiAction('sess_1', { version: 'v0.9.1', action });
+
+    expect(browserTransport.bodies).toHaveLength(1);
+    expect(browserTransport.bodies[0]).toEqual(tauriTransport.bodies[0]);
+    expect(browserTransport.bodies[0]).toMatchObject({
+      metadata: {
+        a2uiClientCapabilities: {
+          'v0.9': { supportedCatalogIds: ['clio-workspace/v1', 'basic'] },
+        },
+      },
     });
   });
 });

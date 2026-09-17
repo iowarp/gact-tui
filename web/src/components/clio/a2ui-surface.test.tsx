@@ -68,13 +68,15 @@ function actionSurface(name: string, context: Record<string, unknown>): A2UISurf
 
 function renderSurface(surface: A2UISurface) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-  return render(
+  const tree = (next: A2UISurface) => (
     <QueryClientProvider client={client}>
-      <A2uiSessionRegistryOwner sessionId={surface.session_id}>
-        <ClioA2UISurface surface={surface} />
+      <A2uiSessionRegistryOwner sessionId={next.session_id}>
+        <ClioA2UISurface surface={next} />
       </A2uiSessionRegistryOwner>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const utils = render(tree(surface));
+  return { ...utils, update: (next: A2UISurface) => utils.rerender(tree(next)) };
 }
 
 describe('ClioA2UISurface actions', () => {
@@ -298,5 +300,102 @@ describe('ClioA2UISurface actions', () => {
     expect(
       await screen.findByText('The service could not record the rendering problem: 404'),
     ).toBeVisible();
+  });
+
+  it('keeps typed TextField text across an updateDataModel to another path and a server revision bump', async () => {
+    const user = userEvent.setup();
+    const surfaceId = 'surface-text-persist';
+    const surface: A2UISurface = {
+      id: surfaceId,
+      session_id: 'sess_1',
+      catalog_id: CLIO_A2UI_CATALOG_ID,
+      protocol_version: '0.9.1',
+      revision: 1,
+      state: 'ready',
+      messages: [
+        { version: 'v0.9.1', createSurface: { surfaceId, catalogId: CLIO_A2UI_CATALOG_ID } },
+        { version: 'v0.9.1', updateDataModel: { surfaceId, path: '/name', value: '' } },
+        {
+          version: 'v0.9.1',
+          updateComponents: {
+            surfaceId,
+            components: [
+              { id: 'root', component: 'TextField', label: 'Name', value: { path: '/name' } },
+            ],
+          },
+        },
+      ],
+    };
+
+    const { update } = renderSurface(surface);
+    const input = await screen.findByLabelText('Name');
+    await user.type(input, 'Alice');
+    expect(input).toHaveValue('Alice');
+
+    // An unrelated updateDataModel message arrives (same surface id, new
+    // message array reference) — must not disturb the typed text.
+    const withUnrelatedUpdate: A2UISurface = {
+      ...surface,
+      messages: [
+        ...surface.messages,
+        { version: 'v0.9.1', updateDataModel: { surfaceId, path: '/unrelated', value: 'server-value' } },
+      ],
+    };
+    update(withUnrelatedUpdate);
+    expect(screen.getByLabelText('Name')).toHaveValue('Alice');
+
+    // A server a2ui.surface.upserted revision bump — SurfaceBoundary is keyed
+    // on surface.id only (the deleted `${id}:${revision}` remount wiped this).
+    update({ ...withUnrelatedUpdate, revision: 2 });
+    expect(screen.getByLabelText('Name')).toHaveValue('Alice');
+  });
+
+  it('disables a Button with a failing required check until input satisfies it', async () => {
+    const user = userEvent.setup();
+    const surfaceId = 'surface-required-check';
+    const surface: A2UISurface = {
+      id: surfaceId,
+      session_id: 'sess_1',
+      catalog_id: CLIO_A2UI_CATALOG_ID,
+      protocol_version: '0.9.1',
+      revision: 1,
+      state: 'ready',
+      messages: [
+        { version: 'v0.9.1', createSurface: { surfaceId, catalogId: CLIO_A2UI_CATALOG_ID } },
+        { version: 'v0.9.1', updateDataModel: { surfaceId, path: '/name', value: '' } },
+        {
+          version: 'v0.9.1',
+          updateComponents: {
+            surfaceId,
+            components: [
+              { id: 'root', component: 'Column', children: ['field', 'submit', 'label'] },
+              { id: 'field', component: 'TextField', label: 'Name', value: { path: '/name' } },
+              { id: 'label', component: 'Text', text: 'Continue' },
+              {
+                id: 'submit',
+                component: 'Button',
+                child: 'label',
+                action: { event: { name: 'continue', context: {} } },
+                checks: [
+                  {
+                    condition: { call: 'required', args: { value: { path: '/name' } } },
+                    message: 'Name is required',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    renderSurface(surface);
+
+    const button = await screen.findByRole('button', { name: 'Continue' });
+    expect(button).toBeDisabled();
+
+    await user.type(await screen.findByLabelText('Name'), 'Alice');
+
+    expect(button).toBeEnabled();
   });
 });
