@@ -1,0 +1,65 @@
+{
+  "catalogId": "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json",
+  "events": {},
+  "implements": {
+    "AudioPlayer": {
+      "kernel": "AudioPlayer"
+    },
+    "Button": {
+      "kernel": "Button"
+    },
+    "Card": {
+      "kernel": "Card"
+    },
+    "CheckBox": {
+      "kernel": "CheckBox"
+    },
+    "ChoicePicker": {
+      "kernel": "ChoicePicker"
+    },
+    "Column": {
+      "kernel": "Column"
+    },
+    "DateTimeInput": {
+      "kernel": "DateTimeInput"
+    },
+    "Divider": {
+      "kernel": "Divider"
+    },
+    "Icon": {
+      "kernel": "Icon"
+    },
+    "Image": {
+      "kernel": "Image"
+    },
+    "List": {
+      "kernel": "List"
+    },
+    "Modal": {
+      "kernel": "Modal"
+    },
+    "Row": {
+      "kernel": "Row"
+    },
+    "Slider": {
+      "kernel": "Slider"
+    },
+    "Tabs": {
+      "kernel": "Tabs"
+    },
+    "Text": {
+      "kernel": "Text"
+    },
+    "TextField": {
+      "kernel": "TextField"
+    },
+    "Video": {
+      "kernel": "Video"
+    }
+  },
+  "instructions": "instructions.md",
+  "protocolVersion": "0.9.1",
+  "trust": {
+    "source": "builtin"
+  }
+}
