@@ -4,6 +4,7 @@
 //! stdout/stderr so the spawn path can tee boot output into the log.
 
 use std::{
+    ffi::OsString,
     path::Path,
     process::{Command, Stdio},
 };
@@ -14,6 +15,12 @@ use crate::sidecar_setup::CLIO_USER_DIR_ENV;
 use std::os::windows::process::CommandExt;
 
 pub(crate) const LAUNCHER_HOST: &str = "127.0.0.1";
+const ARC_FILE_CAPACITY_ENV: &str = "CLIO_ARC_CTE_FILE_CAPACITY";
+const DESKTOP_ARC_FILE_CAPACITY: &str = "8GB";
+
+fn desktop_arc_file_capacity(configured: Option<OsString>) -> OsString {
+    configured.unwrap_or_else(|| OsString::from(DESKTOP_ARC_FILE_CAPACITY))
+}
 
 pub(crate) fn launcher_spawn_command(
     launcher: &Path,
@@ -42,6 +49,15 @@ pub(crate) fn launcher_spawn_command(
     if let Some(dir) = user_dir {
         command.env(CLIO_USER_DIR_ENV, dir);
     }
+    // The server/operator default is intentionally large (50GB), but applying it
+    // unchanged to a consumer desktop makes first provider setup fail whenever
+    // that much free space is unavailable. Keep an explicit operator override;
+    // otherwise reserve a bounded desktop-sized tier that still leaves room for
+    // the installer and normal user data.
+    command.env(
+        ARC_FILE_CAPACITY_ENV,
+        desktop_arc_file_capacity(std::env::var_os(ARC_FILE_CAPACITY_ENV)),
+    );
     #[cfg(windows)]
     command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     command
@@ -110,6 +126,18 @@ mod tests {
                 .get_envs()
                 .find(|(key, _)| *key == CLIO_USER_DIR_ENV),
             Some((CLIO_USER_DIR_ENV.as_ref(), Some(user_dir.as_os_str())))
+        );
+    }
+
+    #[test]
+    fn desktop_arc_capacity_is_bounded_but_honors_operator_override() {
+        assert_eq!(
+            desktop_arc_file_capacity(None),
+            OsString::from(DESKTOP_ARC_FILE_CAPACITY)
+        );
+        assert_eq!(
+            desktop_arc_file_capacity(Some(OsString::from("24GB"))),
+            OsString::from("24GB")
         );
     }
 }
