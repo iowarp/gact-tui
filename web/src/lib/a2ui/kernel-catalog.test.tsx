@@ -1,13 +1,13 @@
-import { MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9';
+import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { A2uiSurface, CLIO_A2UI_CATALOG_ID, clioA2UICatalog } from './a2ui-catalog';
+import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from './kernel-catalog';
 
-vi.mock('./scientific-map-view', () => ({
+vi.mock('@/components/clio/scientific-map-view', () => ({
   ClioScientificMapView: () => <div data-testid="professional-map-renderer" />,
 }));
 
-vi.mock('./mermaid-diagram', () => ({
+vi.mock('@/components/clio/mermaid-diagram', () => ({
   ClioMermaidDiagram: ({
     accessibilityDescription,
     accessibilityLabel,
@@ -36,15 +36,22 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+const TEST_CATALOG_ID = 'test://kernel-catalog';
+const testCatalog = new Catalog(
+  TEST_CATALOG_ID,
+  [...KERNEL_COMPONENTS.values()],
+  [...KERNEL_FUNCTIONS.values()],
+);
+
 function buildSurface(components: Record<string, unknown>[]) {
   const surfaceId = 'scientific-view';
-  const processor = new MessageProcessor([clioA2UICatalog], async () => undefined, {
+  const processor = new MessageProcessor([testCatalog], async () => undefined, {
     version: 'v0.9.1',
   });
   processor.processMessages([
     {
       version: 'v0.9.1',
-      createSurface: { surfaceId, catalogId: CLIO_A2UI_CATALOG_ID },
+      createSurface: { surfaceId, catalogId: TEST_CATALOG_ID },
     },
     {
       version: 'v0.9.1',
@@ -56,7 +63,7 @@ function buildSurface(components: Record<string, unknown>[]) {
   return surface;
 }
 
-describe('CLIO A2UI scientific catalog', () => {
+describe('CLIO A2UI kernel catalog', () => {
   // The plot is code-split, so both this test and the accessibility sweep below
   // wait on a real dynamic import resolving through Suspense before they can
   // assert anything. The default per-test budget is not enough for that on a

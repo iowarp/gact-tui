@@ -1,0 +1,111 @@
+{
+  "catalogId": "https://iowarp.ai/a2ui/catalogs/clio-workspace/v1",
+  "events": {
+    "approval.respond": {
+      "destination": "permission"
+    },
+    "run.cancel": {
+      "destination": "run"
+    },
+    "run.retry": {
+      "destination": "run"
+    }
+  },
+  "implements": {
+    "Button": {
+      "kernel": "Button"
+    },
+    "CheckBox": {
+      "kernel": "CheckBox"
+    },
+    "ChoicePicker": {
+      "kernel": "ChoicePicker"
+    },
+    "Column": {
+      "kernel": "Column"
+    },
+    "Divider": {
+      "kernel": "Divider"
+    },
+    "Frame": {
+      "kernel": "Frame"
+    },
+    "Grid": {
+      "kernel": "Grid"
+    },
+    "Icon": {
+      "kernel": "Icon"
+    },
+    "Image": {
+      "kernel": "Image"
+    },
+    "List": {
+      "kernel": "List"
+    },
+    "Modal": {
+      "kernel": "Modal"
+    },
+    "Row": {
+      "kernel": "Row"
+    },
+    "Slider": {
+      "kernel": "Slider"
+    },
+    "Tabs": {
+      "kernel": "Tabs"
+    },
+    "Text": {
+      "kernel": "Text"
+    },
+    "TextField": {
+      "kernel": "TextField"
+    },
+    "clio.action-card.v1": {
+      "kernel": "clio.action-card.v1"
+    },
+    "clio.approval.v1": {
+      "kernel": "clio.approval.v1"
+    },
+    "clio.artifact.v1": {
+      "kernel": "clio.artifact.v1"
+    },
+    "clio.callout.v1": {
+      "kernel": "clio.callout.v1"
+    },
+    "clio.code.v1": {
+      "kernel": "clio.code.v1"
+    },
+    "clio.data-table.v1": {
+      "kernel": "clio.data-table.v1"
+    },
+    "clio.diff.v1": {
+      "kernel": "clio.diff.v1"
+    },
+    "clio.map.v1": {
+      "kernel": "clio.map.v1"
+    },
+    "clio.mermaid.v1": {
+      "kernel": "clio.mermaid.v1"
+    },
+    "clio.metric.v1": {
+      "kernel": "clio.metric.v1"
+    },
+    "clio.progress.v1": {
+      "kernel": "clio.progress.v1"
+    },
+    "clio.status.v1": {
+      "kernel": "clio.status.v1"
+    },
+    "clio.time-series.v1": {
+      "kernel": "clio.time-series.v1"
+    },
+    "clio.workflow.v1": {
+      "kernel": "clio.workflow.v1"
+    }
+  },
+  "instructions": "instructions.md",
+  "protocolVersion": "0.9.1",
+  "trust": {
+    "source": "builtin"
+  }
+}

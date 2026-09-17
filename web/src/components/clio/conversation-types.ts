@@ -1,4 +1,3 @@
-import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
 import type {
   ActionCardAction,
   Artifact,
@@ -28,7 +27,6 @@ export interface ClioConversationProps {
   surfaces: Record<string, A2UISurface>;
   resources?: Record<string, WorkspaceResource>;
   onActionCardAction?: (action: ActionCardAction) => void | Promise<unknown>;
-  onA2UILocalAction?: (action: A2uiClientAction) => string | void | Promise<string | void>;
   onForkFromMessage?: (messageId: string) => void | Promise<unknown>;
   forkingMessageId?: string;
   onRewindToMessage?: (messageId: string) => void | Promise<unknown>;

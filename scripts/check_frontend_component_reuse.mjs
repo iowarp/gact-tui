@@ -76,11 +76,15 @@ const requiredImports = {
     '@/components/reui/timeline',
     './artifact-card',
   ],
-  'web/src/components/clio/a2ui-catalog.tsx': [
+  // a2ui-catalog.tsx moved to web/src/lib/a2ui/kernel-catalog.tsx
+  // (docs/design/a2ui-compat-campaign-2026-09.md S6): the registry-driven
+  // catalog wiring lives beside the DOM-free registry it feeds, not under
+  // components/clio.
+  'web/src/lib/a2ui/kernel-catalog.tsx': [
     '@/components/ai-elements/confirmation',
     '@/components/reui/frame',
-    './a2ui-artifact',
-    './a2ui-code-view',
+    '@/components/clio/a2ui-artifact',
+    '@/components/clio/a2ui-code-view',
   ],
   'web/src/components/clio/a2ui-code-view.tsx': ['@/components/ai-elements/code-block'],
   'web/src/components/clio/a2ui-artifact.tsx': ['./artifact-card'],

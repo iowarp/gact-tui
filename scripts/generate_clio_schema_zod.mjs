@@ -11,12 +11,6 @@ const contracts = [
     schema: 'messageBlockGeneratedSchema',
     type: 'MessageBlock',
   },
-  {
-    file: 'a2_u_i_component.json',
-    output: 'a2ui-component.schema.ts',
-    schema: 'a2uiComponentGeneratedSchema',
-    type: 'A2UIComponent',
-  },
 ];
 
 function parseArgs(argv) {
@@ -86,11 +80,10 @@ async function main() {
 
   const barrel = join(args.out, 'index.ts');
   const existing = readFileSync(barrel, 'utf8').trimEnd();
-  writeFileSync(
-    barrel,
-    `${existing}\nexport * from './message-block.schema.js';\nexport * from './a2ui-component.schema.js';\n`,
-    'utf8',
-  );
+  const reexports = contracts
+    .map((contract) => `export * from './${contract.output.replace(/\.ts$/u, '.js')}';`)
+    .join('\n');
+  writeFileSync(barrel, `${existing}\n${reexports}\n`, 'utf8');
 
   for (const entry of readdirSync(args.out, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith('.ts')) continue;

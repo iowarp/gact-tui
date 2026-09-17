@@ -1,5 +1,10 @@
 /** Canonical GACT 0.3 state-bearing event vocabulary. */
 export const GACT_V3_EVENT_TYPES = [
+  'a2ui.action.received',
+  'a2ui.action.delivered',
+  'a2ui.action.consumed',
+  'a2ui.action.failed',
+  'a2ui.action.duplicate',
   'a2ui.surface.deleted',
   'a2ui.surface.upserted',
   'approval.resolved',

@@ -4,160 +4,53 @@
  *   node schemas-to-ts.mjs --in <schema-dir> --out <ts-dir>
  */
 
-export type Name = 'agent.submit' | 'approval.respond' | 'form.submit' | 'run.retry' | 'run.cancel';
+export type Acceptsinlinecatalogs = boolean;
+export type Supportedcatalogids = string[];
+export type Inlinecatalogs = InlineCatalog[] | null;
+export type Catalogid = string;
+export type Description = string | null;
+export type Name = string;
+export type Returntype = 'string' | 'number' | 'boolean' | 'array' | 'object' | 'any' | 'void';
+export type Functions = FunctionDefinition[];
+export type Supportedcatalogids1 = string[];
+export type JsonValue = unknown | undefined;
+export type Version = 'v0.9' | 'v0.9.1';
+export type Name1 = string;
 export type Sourcecomponentid = string;
 export type Surfaceid = string;
 export type Timestamp = string;
-export type Version = 'v0.9.1';
-/**
- * Closed union of every trusted A2UI 0.9.1 catalog component.
- */
-export type A2UIComponent =
-  | TextComponent
-  | IconComponent
-  | ImageComponent
-  | RowComponent
-  | ColumnComponent
-  | GridComponent
-  | ListComponent
-  | FrameComponent
-  | TabsComponent
-  | ModalComponent
-  | DividerComponent
-  | ButtonComponent
-  | CheckBoxComponent
-  | TextFieldComponent
-  | ChoicePickerComponent
-  | SliderComponent
-  | StatusComponent
-  | MetricComponent
-  | ProgressComponent
-  | CalloutComponent
-  | DataTableComponent
-  | TimeSeriesComponent
-  | MermaidComponent
-  | MapComponent
-  | WorkflowComponent
-  | ArtifactComponent
-  | CodeComponent
-  | DiffComponent
-  | ActionCardComponent
-  | ApprovalComponent;
-export type Component = 'Text';
-export type Id = string;
-export type Component1 = 'Icon';
-export type Id1 = string;
-export type Component2 = 'Image';
-export type Id2 = string;
-export type Component3 = 'Row';
-export type Id3 = string;
-export type Component4 = 'Column';
-export type Id4 = string;
-export type Component5 = 'Grid';
-export type Id5 = string;
-export type Component6 = 'List';
-export type Id6 = string;
-export type Component7 = 'Frame';
-export type Id7 = string;
-export type Component8 = 'Tabs';
-export type Id8 = string;
-export type Component9 = 'Modal';
-export type Id9 = string;
-export type Component10 = 'Divider';
-export type Id10 = string;
-export type Component11 = 'Button';
-export type Id11 = string;
-export type Component12 = 'CheckBox';
-export type Id12 = string;
-export type Component13 = 'TextField';
-export type Id13 = string;
-export type Component14 = 'ChoicePicker';
-export type Id14 = string;
-export type Component15 = 'Slider';
-export type Id15 = string;
-export type Component16 = 'clio.status.v1';
-export type Id16 = string;
-export type Component17 = 'clio.metric.v1';
-export type Id17 = string;
-export type Component18 = 'clio.progress.v1';
-export type Id18 = string;
-export type Component19 = 'clio.callout.v1';
-export type Id19 = string;
-export type Component20 = 'clio.data-table.v1';
-export type Id20 = string;
-export type Component21 = 'clio.time-series.v1';
-export type Datauri = string | null;
-export type Id21 = string;
-export type Series =
-  | [
-      {
-        [k: string]: (string | number | number | null) | undefined;
-      },
-      ...{
-        [k: string]: (string | number | number | null) | undefined;
-      }[],
-    ]
-  | null;
-export type Weight21 = number | null;
-export type Xkey = string;
+export type Error = A2UIValidationError | A2UIGenericError | null;
+export type Code = 'VALIDATION_FAILED';
+export type Message = string;
+export type Path = string;
+export type Surfaceid1 = string;
+export type Code1 = string;
+export type Message1 = string;
+export type Surfaceid2 = string;
+export type Version1 = 'v0.9' | 'v0.9.1';
+export type Catalogid1 = string;
+export type Senddatamodel = boolean | null;
+export type Surfaceid3 = string;
+export type Theme1 = {
+  [k: string]: JsonValue | undefined;
+} | null;
+export type Surfaceid4 = string;
 /**
  * @minItems 1
- * @maxItems 5
  */
-export type Ykeys =
-  | [string]
-  | [string, string]
-  | [string, string, string]
-  | [string, string, string, string]
-  | [string, string, string, string, string];
-export type Component22 = 'clio.mermaid.v1';
-export type Id22 = string;
-export type Component23 = 'clio.map.v1';
-export type Id23 = string;
-/**
- * @minItems 1
- * @maxItems 500
- */
-export type Points = [MapPoint, ...MapPoint[]];
-export type Category = string | null;
-export type Detail3 = string | null;
-export type Id24 = string;
-export type Label7 = string;
-export type Latitude = number;
-export type Longitude = number;
-export type Selected = string | null;
-export type Weight23 = number | null;
-export type Component24 = 'clio.workflow.v1';
-export type Label8 = string | null;
-export type Source1 = string;
-export type Target = string;
-/**
- * @maxItems 256
- */
-export type Edges = WorkflowEdge[];
-export type Id25 = string;
-/**
- * @minItems 1
- * @maxItems 128
- */
-export type Nodes = [WorkflowNode, ...WorkflowNode[]];
-export type Detail4 = string | null;
-export type Id26 = string;
-export type Label9 = string;
-export type State2 = string | null;
-export type Selected1 = string | null;
-export type Weight24 = number | null;
-export type Component25 = 'clio.artifact.v1';
-export type Id27 = string;
-export type Component26 = 'clio.code.v1';
-export type Id28 = string;
-export type Component27 = 'clio.diff.v1';
-export type Id29 = string;
-export type Component28 = 'clio.action-card.v1';
-export type Id30 = string;
-export type Component29 = 'clio.approval.v1';
-export type Id31 = string;
-export type Name3 = string;
+export type Components1 = [
+  {
+    [k: string]: JsonValue | undefined;
+  },
+  ...{
+    [k: string]: JsonValue | undefined;
+  }[],
+];
+export type Surfaceid5 = string;
+export type Path1 = string | null;
+export type Surfaceid6 = string;
+export type Version2 = 'v0.9' | 'v0.9.1';
+export type Name2 = string;
 export type Annotation = string;
 export type ArtifactId = string;
 export type CreatedAt = string;
@@ -195,12 +88,30 @@ export type KindWarning = string;
  */
 export type Mechanism = 'harness' | 'tool-schema' | 'change-feed' | 'model' | 'none';
 export type NotIngestedSize = number | null;
-export type Path1 = string;
+export type Path2 = string;
 export type PriorSha256 = string | null;
 export type PriorVersion = number | null;
-export type Version1 = number;
+export type Version3 = number;
 export type Versions = ArtifactVersion[];
 export type WorkspaceId = string;
+export type $Id = string;
+export type $Schema = string;
+export type Catalogid2 = string;
+export type Description1 = string;
+export type Title = string;
+export type Catalogid3 = string;
+export type ContextSchema = {
+  [k: string]: unknown | undefined;
+} | null;
+export type Destination = 'agent' | 'permission' | 'run';
+export type Operation = ('cancel' | 'retry') | null;
+export type Kernel = string;
+export type Presets = {
+  [k: string]: string | undefined;
+} | null;
+export type Instructions = string;
+export type Protocolversion = '0.9.1';
+export type Source = 'builtin' | 'pack';
 export type Arch = string;
 export type ClioVersion = string;
 export type ImageDigest = string;
@@ -241,26 +152,26 @@ export type MessageBlock =
   | RoutingMessageBlock;
 export type AgentId = string | null;
 export type Channel = string | null;
-export type Id32 = string;
+export type Id = string;
 export type Sequence = number | null;
 export type StreamSource = string | null;
 export type Streaming = boolean | null;
-export type Text1 = string;
+export type Text = string;
 export type Type = 'text';
 export type AgentId1 = string | null;
 export type Channel1 = string | null;
 export type DefaultCollapsed = boolean | null;
-export type Id33 = string;
+export type Id1 = string;
 export type ProviderSource = string | null;
 export type Sequence1 = number | null;
-export type Source2 = string | null;
+export type Source1 = string | null;
 export type StreamSource1 = string | null;
 export type Streaming1 = boolean | null;
-export type Text2 = string;
+export type Text1 = string;
 export type Type1 = 'reasoning';
 export type AgentId2 = string | null;
 export type Channel2 = string | null;
-export type Id34 = string;
+export type Id2 = string;
 export type Sequence2 = number | null;
 export type StreamSource2 = string | null;
 export type Thought = string | null;
@@ -268,22 +179,22 @@ export type ToolId = string;
 export type Type2 = 'tool';
 export type AgentId3 = string | null;
 export type Channel3 = string | null;
-export type Detail5 = string | null;
-export type Id35 = string;
+export type Detail = string | null;
+export type Id3 = string;
 export type Sequence3 = number | null;
 export type StreamSource3 = string | null;
-export type Title8 = string;
+export type Title1 = string;
 export type Type3 = 'plan';
 export type AgentId4 = string | null;
 export type Channel4 = string | null;
-export type Id36 = string;
+export type Id4 = string;
 export type Sequence4 = number | null;
 export type StreamSource4 = string | null;
 export type TaskId = string;
 export type Type4 = 'task';
 export type AgentId5 = string | null;
 export type Channel5 = string | null;
-export type Id37 = string;
+export type Id5 = string;
 export type Sequence5 = number | null;
 export type StreamSource5 = string | null;
 export type SubagentId = string;
@@ -291,65 +202,65 @@ export type Type5 = 'subagent';
 export type AgentId6 = string | null;
 export type ArtifactId1 = string;
 export type Channel6 = string | null;
-export type Id38 = string;
+export type Id6 = string;
 export type Sequence6 = number | null;
 export type StreamSource6 = string | null;
 export type Type6 = 'artifact';
 export type HandleId = string | null;
 export type Kind = string;
-export type Reason1 = string | null;
+export type Reason = string | null;
 export type Enabled = boolean;
-export type Id39 = string;
-export type Label10 = string;
-export type Actions2 = ActionCardAction[];
+export type Id7 = string;
+export type Label = string;
+export type Actions = ActionCardAction[];
 export type AgentId7 = string | null;
 export type Channel7 = string | null;
-export type Detail6 = string | null;
-export type Id40 = string;
+export type Detail1 = string | null;
+export type Id8 = string;
 export type Sequence7 = number | null;
-export type Severity2 = string | null;
-export type Source3 = string | null;
-export type Status1 = string | null;
+export type Severity = string | null;
+export type Source2 = string | null;
+export type Status = string | null;
 export type StreamSource7 = string | null;
-export type Title9 = string;
+export type Title2 = string;
 export type Type7 = 'action_card';
 export type AgentId8 = string | null;
 export type Channel8 = string | null;
-export type Id41 = string;
+export type Id9 = string;
 export type Sequence8 = number | null;
 export type StreamSource8 = string | null;
 export type SurfaceId = string;
 export type Type8 = 'a2ui';
 export type AgentId9 = string | null;
 export type Channel9 = string | null;
-export type Id42 = string;
-export type Label11 = string;
+export type Id10 = string;
+export type Label1 = string;
 export type Sequence9 = number | null;
 export type StreamSource9 = string | null;
 export type Type9 = 'citation';
-export type Uri1 = string;
+export type Uri = string;
 export type AgentId10 = string | null;
 export type Channel10 = string | null;
-export type Id43 = string;
-export type Path2 = string;
+export type Id11 = string;
+export type Path3 = string;
 export type Sequence10 = number | null;
 export type StreamSource10 = string | null;
 export type Type10 = 'diff';
 export type UnifiedDiff = string;
 export type AgentId11 = string | null;
 export type Channel11 = string | null;
-export type Code1 = string;
-export type Id44 = string;
-export type Message = string;
+export type Code2 = string;
+export type Id12 = string;
+export type Message2 = string;
 export type Recoverable = boolean;
 export type Sequence11 = number | null;
 export type StreamSource11 = string | null;
 export type Type11 = 'error';
 export type AgentId12 = string | null;
 export type Channel12 = string | null;
-export type Detail7 = string | null;
-export type Id45 = string;
-export type Label12 = string;
+export type Detail2 = string | null;
+export type Id13 = string;
+export type Label2 = string;
 export type Sequence12 = number | null;
 export type StreamSource12 = string | null;
 export type Type12 = 'routing';
@@ -363,19 +274,19 @@ export type CrossWorkspaceBind = boolean;
 export type EdgeEvidence = 'schema-arg' | 'hash-pair' | 'lease-window' | 'authority' | 'assertion';
 export type ExternalRef = string;
 export type FenceProven = boolean;
-export type Name4 = string;
+export type Name3 = string;
 export type NetAt = string;
 export type NetDomain = string;
 export type NetMechanism = string;
 export type NetResolvedIp = string;
 export type Note = string;
-export type Path3 = string;
+export type Path4 = string;
 /**
  * Which side of a transform a provenance edge sits on.
  */
 export type EdgeRole = 'used' | 'generated';
 export type Sha2561 = string | null;
-export type Version2 = number | null;
+export type Version4 = number | null;
 export type AgentId13 = string;
 /**
  * Whether the agent executed or annotated the transform.
@@ -413,10 +324,15 @@ export type WorkspaceId1 = string;
  * Aggregate of all canonical clio-schemas records with shared definitions emitted once. Used to generate TypeScript without duplicate declarations.
  */
 export interface ClioSchemaRegistry {
-  A2UIClientActionMessage?: A2UIClientActionMessage;
-  A2UIComponent?: A2UIComponent;
+  A2UIAgentCapabilities?: A2UIAgentCapabilities;
+  A2UIClientCapabilities?: A2UIClientCapabilities;
+  A2UIClientDataModel?: A2UIClientDataModel;
+  A2UIClientMessage?: A2UIClientMessage;
+  A2UIServerMessage?: A2UIServerMessage;
   ArtifactRecord?: ArtifactRecord;
   ArtifactVersion?: ArtifactVersion;
+  CatalogFile?: CatalogFile;
+  CatalogSidecar?: CatalogSidecar;
   EnvironmentRecord?: EnvironmentRecord;
   IdentityEvidence?: IdentityEvidence;
   Instrument?: Instrument;
@@ -425,19 +341,111 @@ export interface ClioSchemaRegistry {
   TransformRecord?: TransformRecord;
 }
 /**
- * Official 0.9.1 client action envelope with extension-key tolerance.
+ * The server/agent capabilities object, advertised e.g. in an Agent Card.
  */
-export interface A2UIClientActionMessage {
-  action: A2UIClientAction;
-  version: Version;
+export interface A2UIAgentCapabilities {
+  'v0.9': _AgentCapabilitiesV09;
+  [k: string]: unknown | undefined;
+}
+export interface _AgentCapabilitiesV09 {
+  acceptsInlineCatalogs?: Acceptsinlinecatalogs;
+  supportedCatalogIds?: Supportedcatalogids;
   [k: string]: unknown | undefined;
 }
 /**
- * Known client-action fields with tolerated protocol extensions.
+ * The ``a2uiClientCapabilities`` A2A metadata object a client sends.
+ */
+export interface A2UIClientCapabilities {
+  'v0.9': _ClientCapabilitiesV09;
+  [k: string]: unknown | undefined;
+}
+export interface _ClientCapabilitiesV09 {
+  inlineCatalogs?: Inlinecatalogs;
+  supportedCatalogIds: Supportedcatalogids1;
+  [k: string]: unknown | undefined;
+}
+/**
+ * One inline catalog a client bundles into its declared capabilities.
+ *
+ * Matches ``client_capabilities.json#/$defs/Catalog``. Only sent when the
+ * server declares ``acceptsInlineCatalogs: true``.
+ */
+export interface InlineCatalog {
+  catalogId: Catalogid;
+  components?: Components;
+  functions?: Functions;
+  theme?: Theme;
+}
+export interface Components {
+  [k: string]:
+    | (
+        | {
+            [k: string]: unknown | undefined;
+          }
+        | boolean
+      )
+    | undefined;
+}
+/**
+ * Interface metadata for one function in an *inline* catalog.
+ *
+ * Matches ``client_capabilities.json#/$defs/FunctionDefinition`` verbatim.
+ * Not used by :class:`CatalogFile` — see the module docstring.
+ */
+export interface FunctionDefinition {
+  description?: Description;
+  name: Name;
+  parameters: Parameters;
+  returnType: Returntype;
+}
+export interface Parameters {
+  [k: string]: unknown | undefined;
+}
+export interface Theme {
+  [k: string]:
+    | (
+        | {
+            [k: string]: unknown | undefined;
+          }
+        | boolean
+      )
+    | undefined;
+}
+/**
+ * The ``a2uiClientDataModel`` A2A metadata object a client may attach.
+ *
+ * ``surfaces`` is required (``required: ["version", "surfaces"]`` in the
+ * vendored ``client_data_model.json``) — an empty ``{}`` is a valid value,
+ * but the key must be present.
+ */
+export interface A2UIClientDataModel {
+  surfaces: Surfaces;
+  version: Version;
+}
+export interface Surfaces {
+  [k: string]:
+    | {
+        [k: string]: JsonValue | undefined;
+      }
+    | undefined;
+}
+/**
+ * The client->server envelope: ``version`` plus exactly one of ``action``/``error``.
+ */
+export interface A2UIClientMessage {
+  action?: A2UIClientAction | null;
+  error?: Error;
+  version: Version1;
+}
+/**
+ * A client-reported user action. ``name`` is any non-empty string.
+ *
+ * The vendored ``client_to_server.json`` does not forbid extra keys on the
+ * action object, so protocol extensions are tolerated (``extra="allow"``).
  */
 export interface A2UIClientAction {
   context: Context;
-  name: Name;
+  name: Name1;
   sourceComponentId: Sourcecomponentid;
   surfaceId: Surfaceid;
   timestamp: Timestamp;
@@ -446,490 +454,72 @@ export interface A2UIClientAction {
 export interface Context {
   [k: string]: unknown | undefined;
 }
-export interface TextComponent {
-  accessibility?: unknown;
-  component?: Component;
-  id: Id;
-  text: Text;
-  variant?: unknown;
-  weight?: unknown;
+/**
+ * The client's ``VALIDATION_FAILED`` error report. Strict, closed shape.
+ */
+export interface A2UIValidationError {
+  code: Code;
+  message: Message;
+  path: Path;
+  surfaceId: Surfaceid1;
 }
-export interface Text {
+/**
+ * Any other client-reported error. Tolerates protocol extensions.
+ */
+export interface A2UIGenericError {
+  code: Code1;
+  message: Message1;
+  surfaceId: Surfaceid2;
   [k: string]: unknown | undefined;
 }
-export interface IconComponent {
-  accessibility?: unknown;
-  component?: Component1;
-  id: Id1;
-  name: Name1;
-  weight?: unknown;
+/**
+ * The server->client envelope: ``version`` plus exactly one operation.
+ */
+export interface A2UIServerMessage {
+  createSurface?: CreateSurfacePayload | null;
+  deleteSurface?: DeleteSurfacePayload | null;
+  updateComponents?: UpdateComponentsPayload | null;
+  updateDataModel?: UpdateDataModelPayload | null;
+  version: Version2;
 }
-export interface Name1 {
-  [k: string]: unknown | undefined;
+/**
+ * ``createSurface``: begin rendering a new surface against one catalog.
+ */
+export interface CreateSurfacePayload {
+  catalogId: Catalogid1;
+  sendDataModel?: Senddatamodel;
+  surfaceId: Surfaceid3;
+  theme?: Theme1;
 }
-export interface ImageComponent {
-  accessibility?: unknown;
-  component?: Component2;
-  description?: unknown;
-  fit?: unknown;
-  id: Id2;
-  url: Url;
-  variant?: unknown;
-  weight?: unknown;
+/**
+ * ``deleteSurface``: remove a previously created surface.
+ */
+export interface DeleteSurfacePayload {
+  surfaceId: Surfaceid4;
 }
-export interface Url {
-  [k: string]: unknown | undefined;
+/**
+ * ``updateComponents``: replace a surface's component tree.
+ *
+ * Component shape is validated separately, against the surface's catalog
+ * (:func:`clio_schemas.a2ui.validation.catalog_validators`) — not here.
+ */
+export interface UpdateComponentsPayload {
+  components: Components1;
+  surfaceId: Surfaceid5;
 }
-export interface RowComponent {
-  accessibility?: unknown;
-  align?: unknown;
-  children: Children;
-  component?: Component3;
-  id: Id3;
-  justify?: unknown;
-  weight?: unknown;
-}
-export interface Children {
-  [k: string]: unknown | undefined;
-}
-export interface ColumnComponent {
-  accessibility?: unknown;
-  align?: unknown;
-  children: Children1;
-  component?: Component4;
-  id: Id4;
-  justify?: unknown;
-  weight?: unknown;
-}
-export interface Children1 {
-  [k: string]: unknown | undefined;
-}
-export interface GridComponent {
-  accessibility?: unknown;
-  children: Children2;
-  columns: Columns;
-  component?: Component5;
-  gap?: unknown;
-  id: Id5;
-  weight?: unknown;
-}
-export interface Children2 {
-  [k: string]: unknown | undefined;
-}
-export interface Columns {
-  [k: string]: unknown | undefined;
-}
-export interface ListComponent {
-  accessibility?: unknown;
-  align?: unknown;
-  children: Children3;
-  component?: Component6;
-  direction?: unknown;
-  id: Id6;
-  listStyle?: unknown;
-  weight?: unknown;
-}
-export interface Children3 {
-  [k: string]: unknown | undefined;
-}
-export interface FrameComponent {
-  accessibility?: unknown;
-  child: Child;
-  component?: Component7;
-  description?: unknown;
-  id: Id7;
-  title?: unknown;
-  weight?: unknown;
-}
-export interface Child {
-  [k: string]: unknown | undefined;
-}
-export interface TabsComponent {
-  accessibility?: unknown;
-  component?: Component8;
-  id: Id8;
-  tabs: Tabs;
-  weight?: unknown;
-}
-export interface Tabs {
-  [k: string]: unknown | undefined;
-}
-export interface ModalComponent {
-  accessibility?: unknown;
-  component?: Component9;
-  content: Content;
-  id: Id9;
-  trigger: Trigger;
-  weight?: unknown;
-}
-export interface Content {
-  [k: string]: unknown | undefined;
-}
-export interface Trigger {
-  [k: string]: unknown | undefined;
-}
-export interface DividerComponent {
-  accessibility?: unknown;
-  axis?: unknown;
-  component?: Component10;
-  id: Id10;
-  weight?: unknown;
-}
-export interface ButtonComponent {
-  accessibility?: unknown;
-  action?: unknown;
-  checks?: unknown;
-  child: Child1;
-  component?: Component11;
-  id: Id11;
-  isValid?: unknown;
-  validationErrors?: unknown;
-  variant?: unknown;
-  weight?: unknown;
-}
-export interface Child1 {
-  [k: string]: unknown | undefined;
-}
-export interface CheckBoxComponent {
-  accessibility?: unknown;
-  checks?: unknown;
-  component?: Component12;
-  id: Id12;
-  isValid?: unknown;
-  label: Label;
-  validationErrors?: unknown;
-  value: Value;
-  weight?: unknown;
-}
-export interface Label {
-  [k: string]: unknown | undefined;
+/**
+ * ``updateDataModel``: set or delete one path in a surface's data model.
+ *
+ * Per the vendored schema, an *omitted* ``value`` deletes the key at
+ * ``path``; a present ``value`` (including an explicit ``null``) replaces
+ * it. :attr:`value_provided` distinguishes the two cases.
+ */
+export interface UpdateDataModelPayload {
+  path?: Path1;
+  surfaceId: Surfaceid6;
+  value?: Value;
 }
 export interface Value {
-  [k: string]: unknown | undefined;
-}
-export interface TextFieldComponent {
-  accessibility?: unknown;
-  checks?: unknown;
-  component?: Component13;
-  id: Id13;
-  isValid?: unknown;
-  label: Label1;
-  validationErrors?: unknown;
-  validationRegexp?: unknown;
-  value: Value1;
-  variant?: unknown;
-  weight?: unknown;
-}
-export interface Label1 {
-  [k: string]: unknown | undefined;
-}
-export interface Value1 {
-  [k: string]: unknown | undefined;
-}
-export interface ChoicePickerComponent {
-  accessibility?: unknown;
-  checks?: unknown;
-  component?: Component14;
-  displayStyle?: unknown;
-  filterable?: unknown;
-  id: Id14;
-  isValid?: unknown;
-  label: Label2;
-  options: Options;
-  validationErrors?: unknown;
-  value: Value2;
-  variant?: unknown;
-  weight?: unknown;
-}
-export interface Label2 {
-  [k: string]: unknown | undefined;
-}
-export interface Options {
-  [k: string]: unknown | undefined;
-}
-export interface Value2 {
-  [k: string]: unknown | undefined;
-}
-export interface SliderComponent {
-  accessibility?: unknown;
-  checks?: unknown;
-  component?: Component15;
-  id: Id15;
-  isValid?: unknown;
-  label: Label3;
-  max: Max;
-  min: Min;
-  validationErrors?: unknown;
-  value: Value3;
-  weight?: unknown;
-}
-export interface Label3 {
-  [k: string]: unknown | undefined;
-}
-export interface Max {
-  [k: string]: unknown | undefined;
-}
-export interface Min {
-  [k: string]: unknown | undefined;
-}
-export interface Value3 {
-  [k: string]: unknown | undefined;
-}
-export interface StatusComponent {
-  accessibility?: unknown;
-  component?: Component16;
-  detail?: unknown;
-  elapsedMs?: unknown;
-  id: Id16;
-  label: Label4;
-  state: State;
-  weight?: unknown;
-}
-export interface Label4 {
-  [k: string]: unknown | undefined;
-}
-export interface State {
-  [k: string]: unknown | undefined;
-}
-export interface MetricComponent {
-  accessibility?: unknown;
-  component?: Component17;
-  detail?: unknown;
-  id: Id17;
-  label: Label5;
-  trend?: unknown;
-  unit?: unknown;
-  value: Value4;
-  weight?: unknown;
-}
-export interface Label5 {
-  [k: string]: unknown | undefined;
-}
-export interface Value4 {
-  [k: string]: unknown | undefined;
-}
-export interface ProgressComponent {
-  accessibility?: unknown;
-  component?: Component18;
-  detail?: unknown;
-  id: Id18;
-  label: Label6;
-  max?: unknown;
-  state?: unknown;
-  value?: unknown;
-  weight?: unknown;
-}
-export interface Label6 {
-  [k: string]: unknown | undefined;
-}
-export interface CalloutComponent {
-  accessibility?: unknown;
-  action?: unknown;
-  body: Body;
-  component?: Component19;
-  id: Id19;
-  severity: Severity;
-  title: Title1;
-  weight?: unknown;
-}
-export interface Body {
-  [k: string]: unknown | undefined;
-}
-export interface Severity {
-  [k: string]: unknown | undefined;
-}
-export interface Title1 {
-  [k: string]: unknown | undefined;
-}
-export interface DataTableComponent {
-  accessibility?: unknown;
-  action?: unknown;
-  columns: Columns1;
-  component?: Component20;
-  id: Id20;
-  rows: Rows;
-  selection?: unknown;
-  weight?: unknown;
-}
-export interface Columns1 {
-  [k: string]: unknown | undefined;
-}
-export interface Rows {
-  [k: string]: unknown | undefined;
-}
-/**
- * Inline or artifact-backed interactive time-series component.
- */
-export interface TimeSeriesComponent {
-  accessibility?: unknown;
-  component?: Component21;
-  dataUri?: Datauri;
-  id: Id21;
-  series?: Series;
-  title?: unknown;
-  weight?: Weight21;
-  xKey: Xkey;
-  yKeys: Ykeys;
-}
-export interface MermaidComponent {
-  accessibility?: unknown;
-  component?: Component22;
-  id: Id22;
-  source: Source;
-  title?: unknown;
-  weight?: unknown;
-}
-export interface Source {
-  [k: string]: unknown | undefined;
-}
-/**
- * Interactive bounded geospatial component.
- */
-export interface MapComponent {
-  accessibility?: unknown;
-  action?: unknown;
-  actionLabel?: unknown;
-  component?: Component23;
-  id: Id23;
-  points: Points;
-  selected?: Selected;
-  title?: unknown;
-  weight?: Weight23;
-}
-/**
- * One bounded point in the interactive map component.
- */
-export interface MapPoint {
-  category?: Category;
-  detail?: Detail3;
-  id: Id24;
-  label: Label7;
-  latitude: Latitude;
-  longitude: Longitude;
-}
-/**
- * Bounded interactive workflow topology.
- */
-export interface WorkflowComponent {
-  accessibility?: unknown;
-  action?: unknown;
-  component?: Component24;
-  edges: Edges;
-  id: Id25;
-  nodes: Nodes;
-  selected?: Selected1;
-  weight?: Weight24;
-}
-/**
- * One directed relationship in a workflow graph.
- */
-export interface WorkflowEdge {
-  label?: Label8;
-  source: Source1;
-  target: Target;
-}
-/**
- * One node in a bounded workflow graph.
- */
-export interface WorkflowNode {
-  detail?: Detail4;
-  id: Id26;
-  label: Label9;
-  state?: State2;
-}
-export interface ArtifactComponent {
-  accessibility?: unknown;
-  action?: unknown;
-  component?: Component25;
-  id: Id27;
-  mediaType: Mediatype;
-  name: Name2;
-  size?: unknown;
-  uri: Uri;
-  weight?: unknown;
-}
-export interface Mediatype {
-  [k: string]: unknown | undefined;
-}
-export interface Name2 {
-  [k: string]: unknown | undefined;
-}
-export interface Uri {
-  [k: string]: unknown | undefined;
-}
-export interface CodeComponent {
-  accessibility?: unknown;
-  code: Code;
-  component?: Component26;
-  id: Id28;
-  language: Language;
-  title?: unknown;
-  weight?: unknown;
-}
-export interface Code {
-  [k: string]: unknown | undefined;
-}
-export interface Language {
-  [k: string]: unknown | undefined;
-}
-export interface DiffComponent {
-  accessibility?: unknown;
-  action?: unknown;
-  component?: Component27;
-  diff: Diff;
-  id: Id29;
-  path: Path;
-  status?: unknown;
-  weight?: unknown;
-}
-export interface Diff {
-  [k: string]: unknown | undefined;
-}
-export interface Path {
-  [k: string]: unknown | undefined;
-}
-export interface ActionCardComponent {
-  accessibility?: unknown;
-  actions: Actions;
-  body: Body1;
-  component?: Component28;
-  id: Id30;
-  severity: Severity1;
-  title: Title6;
-  weight?: unknown;
-}
-export interface Actions {
-  [k: string]: unknown | undefined;
-}
-export interface Body1 {
-  [k: string]: unknown | undefined;
-}
-export interface Severity1 {
-  [k: string]: unknown | undefined;
-}
-export interface Title6 {
-  [k: string]: unknown | undefined;
-}
-export interface ApprovalComponent {
-  accessibility?: unknown;
-  actions: Actions1;
-  component?: Component29;
-  id: Id31;
-  reason: Reason;
-  risk: Risk;
-  title: Title7;
-  weight?: unknown;
-}
-export interface Actions1 {
-  [k: string]: unknown | undefined;
-}
-export interface Reason {
-  [k: string]: unknown | undefined;
-}
-export interface Risk {
-  [k: string]: unknown | undefined;
-}
-export interface Title7 {
   [k: string]: unknown | undefined;
 }
 /**
@@ -937,7 +527,7 @@ export interface Title7 {
  */
 export interface ArtifactRecord {
   aliases?: Aliases;
-  name: Name3;
+  name: Name2;
   versions?: Versions;
   workspace_id: WorkspaceId;
 }
@@ -958,11 +548,11 @@ export interface ArtifactVersion {
   kind_warning?: KindWarning;
   mechanism?: Mechanism;
   not_ingested_size?: NotIngestedSize;
-  path?: Path1;
+  path?: Path2;
   prior_sha256?: PriorSha256;
   prior_version?: PriorVersion;
   producer?: Producer;
-  version?: Version1;
+  version?: Version3;
 }
 /**
  * The evidence basis on which an artifact's content is pinned.
@@ -976,6 +566,78 @@ export interface IdentityEvidence {
 }
 export interface Producer {
   [k: string]: unknown | undefined;
+}
+/**
+ * One official-shape A2UI catalog document (a ``catalog.json`` file).
+ */
+export interface CatalogFile {
+  $defs?: $Defs;
+  $id: $Id;
+  $schema: $Schema;
+  catalogId: Catalogid2;
+  components: Components2;
+  description: Description1;
+  functions?: Functions1;
+  title: Title;
+}
+export interface $Defs {
+  [k: string]:
+    | {
+        [k: string]: unknown | undefined;
+      }
+    | undefined;
+}
+export interface Components2 {
+  [k: string]:
+    | {
+        [k: string]: unknown | undefined;
+      }
+    | undefined;
+}
+export interface Functions1 {
+  [k: string]:
+    | {
+        [k: string]: unknown | undefined;
+      }
+    | undefined;
+}
+/**
+ * CLIO packaging metadata for one catalog. Never sent on the A2UI wire.
+ */
+export interface CatalogSidecar {
+  catalogId: Catalogid3;
+  events?: Events;
+  implements?: Implements;
+  instructions?: Instructions;
+  protocolVersion: Protocolversion;
+  trust: _Trust;
+}
+export interface Events {
+  [k: string]: _EventRoute | undefined;
+}
+/**
+ * Where one client action name routes, beyond the default agent lane.
+ */
+export interface _EventRoute {
+  context_schema?: ContextSchema;
+  destination?: Destination;
+  operation?: Operation;
+}
+export interface Implements {
+  [k: string]: _Implementation | undefined;
+}
+/**
+ * Which renderer kernel implements one catalog component.
+ */
+export interface _Implementation {
+  kernel: Kernel;
+  presets?: Presets;
+}
+/**
+ * Where a catalog came from, for permission/provenance gating.
+ */
+export interface _Trust {
+  source: Source;
 }
 /**
  * Nested schema for a transform's non-secret execution environment.
@@ -1015,11 +677,11 @@ export interface Args {
 export interface TextMessageBlock {
   agent_id?: AgentId;
   channel?: Channel;
-  id: Id32;
+  id: Id;
   sequence?: Sequence;
   stream_source?: StreamSource;
   streaming?: Streaming;
-  text: Text1;
+  text: Text;
   type: Type;
 }
 /**
@@ -1029,13 +691,13 @@ export interface ReasoningMessageBlock {
   agent_id?: AgentId1;
   channel?: Channel1;
   default_collapsed?: DefaultCollapsed;
-  id: Id33;
+  id: Id1;
   provider_source?: ProviderSource;
   sequence?: Sequence1;
-  source?: Source2;
+  source?: Source1;
   stream_source?: StreamSource1;
   streaming?: Streaming1;
-  text: Text2;
+  text: Text1;
   type: Type1;
 }
 /**
@@ -1044,7 +706,7 @@ export interface ReasoningMessageBlock {
 export interface ToolMessageBlock {
   agent_id?: AgentId2;
   channel?: Channel2;
-  id: Id34;
+  id: Id2;
   sequence?: Sequence2;
   stream_source?: StreamSource2;
   thought?: Thought;
@@ -1057,11 +719,11 @@ export interface ToolMessageBlock {
 export interface PlanMessageBlock {
   agent_id?: AgentId3;
   channel?: Channel3;
-  detail?: Detail5;
-  id: Id35;
+  detail?: Detail;
+  id: Id3;
   sequence?: Sequence3;
   stream_source?: StreamSource3;
-  title: Title8;
+  title: Title1;
   type: Type3;
 }
 /**
@@ -1070,7 +732,7 @@ export interface PlanMessageBlock {
 export interface TaskMessageBlock {
   agent_id?: AgentId4;
   channel?: Channel4;
-  id: Id36;
+  id: Id4;
   sequence?: Sequence4;
   stream_source?: StreamSource4;
   task_id: TaskId;
@@ -1082,7 +744,7 @@ export interface TaskMessageBlock {
 export interface SubagentMessageBlock {
   agent_id?: AgentId5;
   channel?: Channel5;
-  id: Id37;
+  id: Id5;
   sequence?: Sequence5;
   stream_source?: StreamSource5;
   subagent_id: SubagentId;
@@ -1095,7 +757,7 @@ export interface ArtifactMessageBlock {
   agent_id?: AgentId6;
   artifact_id: ArtifactId1;
   channel?: Channel6;
-  id: Id38;
+  id: Id6;
   sequence?: Sequence6;
   stream_source?: StreamSource6;
   type: Type6;
@@ -1104,17 +766,17 @@ export interface ArtifactMessageBlock {
  * Interactive action-card block.
  */
 export interface ActionCardMessageBlock {
-  actions: Actions2;
+  actions: Actions;
   agent_id?: AgentId7;
   channel?: Channel7;
-  detail?: Detail6;
-  id: Id40;
+  detail?: Detail1;
+  id: Id8;
   sequence?: Sequence7;
-  severity?: Severity2;
-  source?: Source3;
-  status?: Status1;
+  severity?: Severity;
+  source?: Source2;
+  status?: Status;
   stream_source?: StreamSource7;
-  title: Title9;
+  title: Title2;
   type: Type7;
 }
 /**
@@ -1123,8 +785,8 @@ export interface ActionCardMessageBlock {
 export interface ActionCardAction {
   behavior: ActionCardBehavior;
   enabled?: Enabled;
-  id: Id39;
-  label: Label10;
+  id: Id7;
+  label: Label;
 }
 /**
  * Registered action-card behavior with forward-compatible parameters.
@@ -1132,7 +794,7 @@ export interface ActionCardAction {
 export interface ActionCardBehavior {
   handle_id?: HandleId;
   kind: Kind;
-  reason?: Reason1;
+  reason?: Reason;
   [k: string]: unknown | undefined;
 }
 /**
@@ -1141,7 +803,7 @@ export interface ActionCardBehavior {
 export interface A2UIMessageBlock {
   agent_id?: AgentId8;
   channel?: Channel8;
-  id: Id41;
+  id: Id9;
   sequence?: Sequence8;
   stream_source?: StreamSource8;
   surface_id: SurfaceId;
@@ -1153,12 +815,12 @@ export interface A2UIMessageBlock {
 export interface CitationMessageBlock {
   agent_id?: AgentId9;
   channel?: Channel9;
-  id: Id42;
-  label: Label11;
+  id: Id10;
+  label: Label1;
   sequence?: Sequence9;
   stream_source?: StreamSource9;
   type: Type9;
-  uri: Uri1;
+  uri: Uri;
 }
 /**
  * Unified file diff.
@@ -1166,8 +828,8 @@ export interface CitationMessageBlock {
 export interface DiffMessageBlock {
   agent_id?: AgentId10;
   channel?: Channel10;
-  id: Id43;
-  path: Path2;
+  id: Id11;
+  path: Path3;
   sequence?: Sequence10;
   stream_source?: StreamSource10;
   type: Type10;
@@ -1179,9 +841,9 @@ export interface DiffMessageBlock {
 export interface ErrorMessageBlock {
   agent_id?: AgentId11;
   channel?: Channel11;
-  code: Code1;
-  id: Id44;
-  message: Message;
+  code: Code2;
+  id: Id12;
+  message: Message2;
   recoverable: Recoverable;
   sequence?: Sequence11;
   stream_source?: StreamSource11;
@@ -1193,9 +855,9 @@ export interface ErrorMessageBlock {
 export interface RoutingMessageBlock {
   agent_id?: AgentId12;
   channel?: Channel12;
-  detail?: Detail7;
-  id: Id45;
-  label: Label12;
+  detail?: Detail2;
+  id: Id13;
+  label: Label2;
   sequence?: Sequence12;
   stream_source?: StreamSource12;
   type: Type12;
@@ -1211,16 +873,16 @@ export interface ProvEdge {
   evidence: EdgeEvidence;
   external_ref?: ExternalRef;
   fence_proven?: FenceProven;
-  name?: Name4;
+  name?: Name3;
   net_at?: NetAt;
   net_domain?: NetDomain;
   net_mechanism?: NetMechanism;
   net_resolved_ip?: NetResolvedIp;
   note?: Note;
-  path?: Path3;
+  path?: Path4;
   role: EdgeRole;
   sha256?: Sha2561;
-  version?: Version2;
+  version?: Version4;
 }
 /**
  * One coarse transform keyed by the observer call id.

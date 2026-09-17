@@ -38,6 +38,7 @@ import {
 import { ArtifactPreviewRepository } from './artifact-preview-repository.js';
 import { QueuedMessageReorderConflictError } from './composer-conflicts.js';
 import { decodeComposerRows } from './composer-decoding.js';
+import { mergeA2uiClientMetadata } from './a2ui/index.js';
 import { TransportError } from './transport.js';
 
 export interface CreateQueuedMessageInput {
@@ -78,10 +79,11 @@ export class ComposerRepository extends ArtifactPreviewRepository {
     input: MessageSubmissionInput,
     signal?: AbortSignal,
   ): Promise<MessageAcceptance> {
+    const metadata = mergeA2uiClientMetadata(sessionId, input.metadata, { includeDataModel: true });
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages`,
-      body: input,
+      body: metadata ? { ...input, metadata } : input,
       decode: (value) => messageAcceptanceSchema.parse(value),
       signal,
     });

@@ -1,22 +1,23 @@
 import {
   A2UI_VERSION,
-  a2uiComponentSchema,
+  type A2UIActionLifecycle,
   type A2UISurface as DomainSurface,
 } from '@clio/core/v3';
-import { brand } from '@brand';
 import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
-import { MessageProcessor, type A2uiClientAction, type A2uiMessage } from '@a2ui/web_core/v0_9';
-import { useMutation } from '@tanstack/react-query';
-import { AlertTriangleIcon, BoxesIcon } from 'lucide-react';
-import { Component, useCallback, useMemo, useState, type ErrorInfo, type ReactNode } from 'react';
+import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangleIcon, BoxesIcon, Loader2Icon } from 'lucide-react';
+import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
-import { findLastSurfaceAction } from '@/lib/a2ui-state';
-import { A2uiSurface, clioA2UICatalog } from './a2ui-catalog';
+import { A2uiSurface } from '@/lib/a2ui/kernel-catalog';
+import { useA2uiCatalogRegistry, useA2uiSurfaceModel } from '@/lib/a2ui/processor-store';
+import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
+import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 
-function SurfaceFailure({ error }: { error: Error }) {
+function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
   return (
     <section
       aria-label="Interactive agent surface unavailable"
@@ -28,11 +29,11 @@ function SurfaceFailure({ error }: { error: Error }) {
         <ClioStatus className="ml-auto" label="Failed safely" value="failed" />
       </div>
       <p className="px-4 py-3 text-xs text-muted-foreground">
-        {error.message} The conversation remains available, and no action was taken by this view.
+        {message} The conversation remains available, and no action was taken by this view.
       </p>
       <details className="border-t border-destructive/20 px-4 py-2 text-xs text-muted-foreground">
         <summary className="cursor-pointer">Validation detail</summary>
-        <p className="mt-2 font-mono">{error.message}</p>
+        <p className="mt-2 font-mono">{detail ?? message}</p>
       </details>
     </section>
   );
@@ -59,11 +60,13 @@ class SurfaceBoundary extends Component<SurfaceBoundaryProps, SurfaceBoundarySta
   }
 
   public render(): ReactNode {
-    return this.state.error ? <SurfaceFailure error={this.state.error} /> : this.props.children;
+    return this.state.error ? (
+      <SurfaceFailure message={this.state.error.message} />
+    ) : (
+      this.props.children
+    );
   }
 }
-
-const LOCAL_ACTIONS = new Set(['artifact.open', 'data.select', 'workflow.focus']);
 
 /** Every declared surface state keeps its own honest status; none defaults to success. */
 function surfaceStatusValue(state: DomainSurface['state']): ClioStatusValue {
@@ -92,48 +95,34 @@ function surfaceStatusValue(state: DomainSurface['state']): ClioStatusValue {
   }
 }
 
-function validateSurfaceComponents(messages: unknown[]): A2uiMessage[] {
-  return messages.map((message, messageIndex) => {
-    if (typeof message !== 'object' || message === null) return message as A2uiMessage;
-    const update = Reflect.get(message, 'updateComponents');
-    if (typeof update !== 'object' || update === null) return message as A2uiMessage;
-    const components = Reflect.get(update, 'components');
-    if (!Array.isArray(components)) return message as A2uiMessage;
-    components.forEach((component, componentIndex) => {
-      const result = a2uiComponentSchema.safeParse(component);
-      if (!result.success) {
-        const detail = result.error.issues[0]?.message || 'unknown schema violation';
-        throw new Error(
-          `A2UI component ${componentIndex + 1} in update ${messageIndex + 1} does not satisfy the shared CLIO catalog: ${detail}`,
-        );
-      }
-    });
-    return message as A2uiMessage;
-  });
-}
-
-export type A2UILocalActionHandler = (
-  action: A2uiClientAction,
-) => string | void | Promise<string | void>;
-
 export type A2UIRemoteActionHandler = (message: {
   version: string;
   action: A2uiClientAction;
 }) => Promise<void>;
 
 function ClioA2UISurfaceContent({
-  onLocalAction,
+  actionLifecycle,
   onRemoteAction,
   surface,
 }: {
-  onLocalAction?: A2UILocalActionHandler;
+  /**
+   * Owed by dispatcher slice S5 (docs/design/a2ui-compat-campaign-2026-09.md):
+   * once the server emits `a2ui.action.*` events and a caller threads
+   * `EntityState.a2ui_action_lifecycles[surface.id]` down to this component,
+   * passing it here renders the server-truth footer
+   * (`a2ui-action-lifecycle.tsx`). No caller wires it yet.
+   */
+  actionLifecycle?: A2UIActionLifecycle;
   onRemoteAction?: A2UIRemoteActionHandler;
   surface: DomainSurface;
 }) {
   const repository = useRepository();
-  const [localActionPending, setLocalActionPending] = useState(false);
-  const [localActionStatus, setLocalActionStatus] = useState<string>();
-  const [localActionError, setLocalActionError] = useState<string>();
+  const queryClient = useQueryClient();
+  const { registry, catalogs, isLoading: catalogsLoading } = useA2uiCatalogRegistry(
+    surface.session_id,
+  );
+  const [validationPostFailure, setValidationPostFailure] = useState<string>();
+  const [localNotice, setLocalNotice] = useState<string>();
   const { error, isPending, mutateAsync } = useMutation({
     mutationFn: async (clientAction: A2uiClientAction) => {
       const message = { version: `v${A2UI_VERSION}`, action: clientAction };
@@ -150,58 +139,105 @@ function ClioA2UISurfaceContent({
   });
   const handleAction = useCallback(
     async (clientAction: A2uiClientAction) => {
-      if (LOCAL_ACTIONS.has(clientAction.name)) {
-        setLocalActionError(undefined);
-        if (!onLocalAction) {
-          setLocalActionError(`${clientAction.name} is unavailable in this workspace.`);
-          return;
-        }
-        setLocalActionPending(true);
-        try {
-          const status = await onLocalAction(clientAction);
-          setLocalActionStatus(status || `${clientAction.name} completed locally`);
-        } catch (localError) {
-          setLocalActionError(
-            localError instanceof Error ? localError.message : `${clientAction.name} failed`,
-          );
-        } finally {
-          setLocalActionPending(false);
-        }
-        return;
-      }
       await mutateAsync(clientAction);
     },
-    [mutateAsync, onLocalAction],
+    [mutateAsync],
   );
-  const processedSurface = useMemo(() => {
-    try {
-      const processor = new MessageProcessor([clioA2UICatalog], handleAction, {
-        version: `v${A2UI_VERSION}`,
+  const handleValidationFailed = useCallback(
+    async (validationError: { code: string; path?: string; message: string }) => {
+      // Only a real VALIDATION_FAILED belongs on the wire (owner decision
+      // 11); a local resolution problem (e.g. openArtifact's own failure,
+      // dispatched the same way) is worded in this card and never posted.
+      if (validationError.code !== 'VALIDATION_FAILED') {
+        setLocalNotice(validationError.message);
+        return;
+      }
+      setValidationPostFailure(undefined);
+      try {
+        await repository.a2uiAction(surface.session_id, {
+          version: `v${A2UI_VERSION}`,
+          error: {
+            code: validationError.code,
+            surfaceId: surface.id,
+            path: validationError.path ?? '',
+            message: validationError.message,
+          },
+        });
+      } catch (postError) {
+        // S5 has not landed the error door server-side yet (a 404 today);
+        // never an unhandled rejection — worded in the card, typed locally.
+        setValidationPostFailure(
+          postError instanceof Error ? postError.message : 'The request could not be completed.',
+        );
+      }
+    },
+    [repository, surface.id, surface.session_id],
+  );
+  const { model, failure } = useA2uiSurfaceModel(
+    surface,
+    catalogs,
+    catalogsLoading,
+    handleAction,
+    handleValidationFailed,
+  );
+  const reportUrlViolation = useCallback(
+    (componentId: string, propName: string, message: string) => {
+      void model?.dispatchError({
+        code: 'VALIDATION_FAILED',
+        path: `/${componentId}/${propName}`,
+        message,
       });
-      processor.processMessages(validateSurfaceComponents(surface.messages));
-      return { model: processor.model.getSurface(surface.id) };
-    } catch (processingError) {
-      return {
-        error:
-          processingError instanceof Error
-            ? processingError
-            : new Error('The interactive surface could not be validated.'),
-      };
-    }
-  }, [handleAction, surface.id, surface.messages]);
-  const lastAction = useMemo(() => findLastSurfaceAction(surface.messages), [surface.messages]);
-  const surfaceBusy = isPending || localActionPending || surface.state !== 'ready';
-  const surfaceKind = useMemo(() => a2uiSurfaceKind(surface.messages), [surface.messages]);
+    },
+    [model],
+  );
+  const surfaceKind = a2uiSurfaceKind(surface.messages);
+  const surfaceBusy = isPending || surface.state !== 'ready';
+  const unresolvedCatalogId =
+    failure && !catalogsLoading && registry.get(surface.catalog_id) === undefined
+      ? surface.catalog_id
+      : undefined;
 
-  if (processedSurface.error) return <SurfaceFailure error={processedSurface.error} />;
+  // The registry is refetched exactly once per (surface, catalogId) so a
+  // catalog installed moments ago (e.g. a pack just activated) resolves
+  // without a manual retry — an effect, never during render, per this
+  // codebase's "no ref/query access during render" rule.
+  useEffect(() => {
+    if (!unresolvedCatalogId) return;
+    void queryClient.invalidateQueries({ queryKey: ['a2ui-catalogs', surface.session_id] });
+  }, [unresolvedCatalogId, queryClient, surface.session_id]);
+
+  if (failure) {
+    // An unresolvable/unknown catalog gets its own worded card — the
+    // catalogId URI is technical detail (CLAUDE.md: never product copy) and
+    // stays out of the primary message, in the hidden detail section only.
+    if (unresolvedCatalogId) {
+      const reason = registry.reasonFor(unresolvedCatalogId);
+      return (
+        <SurfaceFailure
+          detail={reason ? `${reason.code}: ${reason.detail}` : failure.message}
+          message="This view uses a catalog this workspace does not have installed."
+        />
+      );
+    }
+    return <SurfaceFailure message={failure.message} />;
+  }
   if (surface.error || surface.state === 'failed') {
     return (
-      <SurfaceFailure
-        error={new Error(surface.error || 'The service reported that this surface failed.')}
-      />
+      <SurfaceFailure message={surface.error || 'The service reported that this surface failed.'} />
     );
   }
-  if (!processedSurface.model || surface.state === 'deleted') return null;
+  if (surface.state === 'deleted') return null;
+  if (!model) {
+    if (catalogsLoading) {
+      return (
+        <div className="flex items-center gap-2 rounded-xl border bg-card/70 px-4 py-3 text-xs text-muted-foreground">
+          <Loader2Icon aria-hidden="true" className="size-3.5 animate-spin" />
+          Resolving the interactive catalog for this session…
+        </div>
+      );
+    }
+    return null;
+  }
   return (
     <section
       aria-label={`Generated UI, ${surfaceKind}`}
@@ -216,75 +252,47 @@ function ClioA2UISurfaceContent({
         {surfaceBusy ? (
           <ClioStatus
             className="ml-auto"
-            label={
-              isPending
-                ? 'Sending action'
-                : localActionPending
-                  ? 'Applying local action'
-                  : surface.state.replaceAll('_', ' ')
-            }
-            value={isPending || localActionPending ? 'running' : surfaceStatusValue(surface.state)}
+            label={isPending ? 'Sending action' : surface.state.replaceAll('_', ' ')}
+            value={isPending ? 'running' : surfaceStatusValue(surface.state)}
           />
         ) : null}
       </div>
       <div className="p-3 [--a2ui-tabs-content-padding:0]">
         <MarkdownContext.Provider value={renderMarkdown}>
-          <A2uiSurface surface={processedSurface.model} />
+          <A2uiUrlViolationProvider value={reportUrlViolation}>
+            <A2uiSurface surface={model} />
+          </A2uiUrlViolationProvider>
         </MarkdownContext.Provider>
       </div>
-      {isPending || localActionPending || localActionStatus || lastAction ? (
-        <div aria-live="polite" className="border-t px-4 py-2 text-xs">
-          <ClioStatus
-            label={
-              isPending
-                ? `Sending action to ${brand.name}`
-                : localActionPending
-                  ? 'Applying action in this workspace'
-                  : localActionStatus || acceptedActionLabel(lastAction?.name)
-            }
-            value={isPending || localActionPending ? 'running' : 'completed'}
-          />
-        </div>
+      <ClioA2UIActionLifecycle lifecycle={actionLifecycle} />
+      {localNotice ? (
+        <p className="border-t px-4 py-2 text-xs text-destructive">{localNotice}</p>
       ) : null}
-      {error || localActionError ? (
+      {validationPostFailure ? (
         <p className="border-t px-4 py-2 text-xs text-destructive">
-          {localActionError || error?.message}
+          The service could not record the rendering problem: {validationPostFailure}
         </p>
+      ) : null}
+      {error ? (
+        <p className="border-t px-4 py-2 text-xs text-destructive">{error.message}</p>
       ) : null}
     </section>
   );
 }
 
-function acceptedActionLabel(name: string | undefined): string {
-  switch (name) {
-    case 'agent.submit':
-      return 'Sent to agent';
-    case 'form.submit':
-      return 'Form response accepted';
-    case 'approval.respond':
-      return 'Approval response accepted';
-    case 'run.retry':
-      return 'Retry requested';
-    case 'run.cancel':
-      return 'Cancellation requested';
-    default:
-      return 'Action accepted';
-  }
-}
-
 export function ClioA2UISurface({
-  onLocalAction,
+  actionLifecycle,
   onRemoteAction,
   surface,
 }: {
-  onLocalAction?: A2UILocalActionHandler;
+  actionLifecycle?: A2UIActionLifecycle;
   onRemoteAction?: A2UIRemoteActionHandler;
   surface: DomainSurface;
 }) {
   return (
-    <SurfaceBoundary key={`${surface.id}:${surface.revision}`}>
+    <SurfaceBoundary key={surface.id}>
       <ClioA2UISurfaceContent
-        onLocalAction={onLocalAction}
+        actionLifecycle={actionLifecycle}
         onRemoteAction={onRemoteAction}
         surface={surface}
       />

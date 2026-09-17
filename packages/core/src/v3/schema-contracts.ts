@@ -1,17 +1,19 @@
-export { a2uiComponentGeneratedSchema as a2uiComponentSchema } from '../generated/clio-schemas/a2ui-component.schema.js';
-export type { A2UIComponent as SchemaA2UIComponent } from '../generated/clio-schemas/_models.js';
-
 /**
- * Payload caps carried by the generated A2UI component contract.
+ * Payload caps carried by the CLIO workspace catalog file (0.9.1).
  *
- * The generated schema states each cap inline, so a renderer that wants to
- * declare the same bound has to name a number. These constants are that number,
- * declared once and locked to the generated schema by
- * `schema-contracts.test.ts` — change a cap upstream and the test fails rather
- * than letting a client schema drift away from the wire contract.
+ * The A2UI catalogs registry (`GET /v1/sessions/{sid}/a2ui/catalogs`) is the
+ * runtime source of truth for these bounds now that the closed generated
+ * component union is gone (S1/S6, docs/design/a2ui-compat-campaign-2026-09.md)
+ * — the catalog file states each cap inline as JSON Schema `maxItems`/
+ * `maxLength`. A renderer that wants to declare the same bound as a static
+ * zod cap has to name a number; these constants are that number, declared
+ * once and locked to the vendored `clio-workspace/v1` catalog fixture by
+ * `schema-contracts.test.ts` — change a cap in clio-schemas and the test
+ * fails rather than letting a client schema drift away from the wire
+ * contract.
  *
- * Do not edit these to change behavior: they describe the contract, they do not
- * define it. Regenerate from `clio-schemas` and update them to match.
+ * Do not edit these to change behavior: they describe the contract, they do
+ * not define it. Regenerate from `clio-schemas` and update them to match.
  */
 
 /** Points accepted by one `clio.map.v1` surface. Unit: points. */

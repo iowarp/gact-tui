@@ -20,6 +20,14 @@ export const provenanceSchema = z.object({
   reason: z.string().optional(),
 });
 
+/** The official agent-capabilities object (`docs/gact/a2ui-binding.md`), installed scope. */
+export const a2uiCapabilitiesSchema = z.object({
+  'v0.9': z.object({
+    supportedCatalogIds: z.array(z.string()),
+    acceptsInlineCatalogs: z.boolean().optional(),
+  }),
+});
+
 export const capabilitiesSchema = z.object({
   service: z
     .object({
@@ -29,6 +37,7 @@ export const capabilitiesSchema = z.object({
     .optional(),
   gact_versions: z.array(z.string()),
   a2ui_versions: z.array(z.string()).default([]),
+  a2ui_capabilities: a2uiCapabilitiesSchema.optional(),
   replay: z.object({
     supported: z.boolean(),
     retention: z.number().int().nonnegative().optional(),
@@ -718,6 +727,8 @@ export const a2uiSurfaceSchema = z.object({
   messages: z.array(z.unknown()),
   error: z.string().optional(),
 });
+
+export { a2uiActionLifecycleSchema } from './a2ui/lifecycle.js';
 
 export const infrastructureDependencySchema = z.object({
   id: z.string(),

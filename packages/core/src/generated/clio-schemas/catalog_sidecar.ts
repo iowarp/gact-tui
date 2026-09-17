@@ -4,4 +4,4 @@
  *   node schemas-to-ts.mjs --in <schema-dir> --out <ts-dir>
  */
 
-export type { A2UIClientAction, A2UIClientActionMessage } from './_models';
+export type { CatalogSidecar, _EventRoute, _Implementation, _Trust } from './_models';

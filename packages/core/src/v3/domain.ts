@@ -1,3 +1,4 @@
+import type { A2UIActionLifecycle } from './a2ui/lifecycle.js';
 import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { MessageBlock } from './message-domain.js';
 import type { ProviderState } from './provider-domain.js';
@@ -724,10 +725,15 @@ export interface TranscriptSnapshot {
   surfaces: A2UISurface[];
 }
 
+export interface A2uiAgentCapabilities {
+  'v0.9': { supportedCatalogIds: string[]; acceptsInlineCatalogs?: boolean };
+}
+
 export interface CapabilityNegotiation {
   service?: { name: string; version: string };
   gact_versions: string[];
   a2ui_versions: string[];
+  a2ui_capabilities?: A2uiAgentCapabilities;
   replay: { supported: boolean; retention?: number };
   capabilities: Record<string, unknown>;
   degradations: Degradation[];
@@ -754,6 +760,7 @@ export interface EntityState {
   usage: Record<string, UsageSnapshot>;
   context: Record<string, ContextSnapshot>;
   surfaces: Record<string, A2UISurface>;
+  a2ui_action_lifecycles: Record<string, A2UIActionLifecycle>;
   infrastructure: Record<string, InfrastructureDependency>;
   active_turns: Record<string, string>;
   responded_turns: Record<string, string>;

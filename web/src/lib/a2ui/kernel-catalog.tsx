@@ -1,14 +1,27 @@
-import { Catalog, CommonSchemas } from '@a2ui/web_core/v0_9';
-import { A2UI_WORKFLOW_EDGES_MAX, A2UI_WORKFLOW_NODES_MAX } from '@clio/core/v3';
+import {
+  CommonSchemas,
+  BASIC_FUNCTIONS,
+  ImageApi,
+  VideoApi,
+  AudioPlayerApi,
+  createFunctionImplementation,
+} from '@a2ui/web_core/v0_9';
+import type { FunctionImplementation } from '@a2ui/web_core/v0_9';
+import {
+  A2UI_WORKFLOW_EDGES_MAX,
+  A2UI_WORKFLOW_NODES_MAX,
+  checkA2uiUrlScheme,
+} from '@clio/core/v3';
 import {
   A2uiSurface,
   Button as A2UIButton,
   CheckBox,
   ChoicePicker,
   Column,
+  DateTimeInput,
+  Card,
   Divider,
   Icon,
-  Image,
   List,
   Modal,
   Row,
@@ -19,8 +32,8 @@ import {
   createComponentImplementation,
   type ReactComponentImplementation,
 } from '@a2ui/react/v0_9';
-import { GitCompareArrowsIcon, ShieldAlertIcon } from 'lucide-react';
-import { lazy, Suspense } from 'react';
+import { GitCompareArrowsIcon, ImageOffIcon, ShieldAlertIcon } from 'lucide-react';
+import { lazy, Suspense, type CSSProperties } from 'react';
 import { z } from 'zod';
 import {
   Confirmation,
@@ -46,19 +59,21 @@ import {
   a2uiAccessibilityLabel,
   a2uiAccessibilityProps,
   type A2UIAccessibility,
-} from './a2ui-accessibility';
-import { ClioDataTable, type ClioDataColumn, type ClioDataRow } from './data-table';
-import { ClioArtifactCatalogComponent } from './a2ui-artifact';
-import { ClioMapCatalogComponent } from './a2ui-map';
-import { ClioTimeSeriesCatalogComponent } from './a2ui-time-series-catalog';
-import { ClioMermaidDiagram } from './mermaid-diagram';
-import { ClioStatus, type ClioStatusProps } from './status';
+} from '@/components/clio/a2ui-accessibility';
+import { ClioDataTable, type ClioDataColumn, type ClioDataRow } from '@/components/clio/data-table';
+import { ClioArtifactCatalogComponent } from '@/components/clio/a2ui-artifact';
+import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map';
+import { ClioTimeSeriesCatalogComponent } from '@/components/clio/a2ui-time-series-catalog';
+import { ClioMermaidDiagram } from '@/components/clio/mermaid-diagram';
+import { ClioStatus, type ClioStatusProps } from '@/components/clio/status';
+import { activeA2uiOpenArtifactRuntime } from './kernel-runtime';
+import { useA2uiUrlGuard } from './url-guard';
 
 const ClioA2UICodeView = lazy(() =>
-  import('./a2ui-code-view').then((module) => ({ default: module.ClioA2UICodeView })),
+  import('@/components/clio/a2ui-code-view').then((module) => ({
+    default: module.ClioA2UICodeView,
+  })),
 );
-
-export const CLIO_A2UI_CATALOG_ID = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
 
 const accessibility = CommonSchemas.AccessibilityAttributes.optional();
 const weight = z.number().optional();
@@ -89,6 +104,23 @@ function a2uiStatusValue(value: string): ClioStatusProps['value'] {
   return statusValues.has(value as ClioStatusProps['value'])
     ? (value as ClioStatusProps['value'])
     : 'unavailable';
+}
+
+/**
+ * Renders in place of a kernel media component whose resolved URL failed the
+ * scheme allowlist (owner decision 11). The failure is local to this one
+ * component — the rest of the surface keeps rendering.
+ */
+function UrlBlocked({ message }: { message: string }) {
+  return (
+    <div
+      className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+      role="alert"
+    >
+      <ImageOffIcon aria-hidden="true" className="size-3.5 shrink-0" />
+      <span>{message}</span>
+    </div>
+  );
 }
 
 const Grid = createComponentImplementation(
@@ -423,7 +455,7 @@ const Workflow = createComponentImplementation(
 );
 
 function RenderedCode({
-  accessibility,
+  accessibility: componentAccessibility,
   code,
   language,
   title,
@@ -436,7 +468,7 @@ function RenderedCode({
   return (
     <Suspense fallback={<div className="h-24 animate-pulse rounded-lg bg-muted" />}>
       <ClioA2UICodeView
-        accessibility={accessibility}
+        accessibility={componentAccessibility}
         code={code}
         language={language}
         title={title}
@@ -594,13 +626,65 @@ const Approval = createComponentImplementation(
   ),
 );
 
-const components: ReactComponentImplementation[] = [
+// --- Guarded media kernel components (owner decision 11) -----------------
+// Image/Video/AudioPlayer reuse the OFFICIAL basic-catalog schemas
+// (`@a2ui/web_core`'s `ImageApi`/`VideoApi`/`AudioPlayerApi`) so bound props
+// resolve identically to the library's own components; only the render is
+// CLIO's, so a resolved URL can be checked before anything is mounted.
+
+const IMAGE_OBJECT_FIT: Record<string, NonNullable<CSSProperties['objectFit']>> = {
+  contain: 'contain',
+  cover: 'cover',
+  fill: 'fill',
+  none: 'none',
+  scaleDown: 'scale-down',
+};
+
+const Image = createComponentImplementation(ImageApi, ({ props, context }) => {
+  const guard = useA2uiUrlGuard(context.componentModel.id, 'url', props.url);
+  if (!guard.ok) return <UrlBlocked message={guard.message} />;
+  return (
+    <img
+      alt={props.description ?? ''}
+      className="max-w-full rounded-md"
+      src={props.url}
+      style={{ objectFit: IMAGE_OBJECT_FIT[props.fit ?? 'cover'] }}
+    />
+  );
+});
+
+const Video = createComponentImplementation(VideoApi, ({ props, context }) => {
+  const guard = useA2uiUrlGuard(context.componentModel.id, 'url', props.url);
+  if (!guard.ok) return <UrlBlocked message={guard.message} />;
+  return (
+    // eslint-disable-next-line jsx-a11y/media-has-caption -- protocol carries no caption track
+    <video
+      aria-label={a2uiAccessibilityLabel(props.accessibility)}
+      className="w-full rounded-md"
+      controls
+      src={props.url}
+    />
+  );
+});
+
+const AudioPlayer = createComponentImplementation(AudioPlayerApi, ({ props, context }) => {
+  const guard = useA2uiUrlGuard(context.componentModel.id, 'url', props.url);
+  if (!guard.ok) return <UrlBlocked message={guard.message} />;
+  return <audio aria-label={props.description} className="w-full" controls src={props.url} />;
+});
+
+// --- Kernel maps ------------------------------------------------------------
+
+const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   Text,
   Image,
   Icon,
+  Video,
+  AudioPlayer,
   Row,
   Column,
   List,
+  Card,
   Tabs,
   Modal,
   Divider,
@@ -609,6 +693,7 @@ const components: ReactComponentImplementation[] = [
   CheckBox,
   ChoicePicker,
   Slider,
+  DateTimeInput,
   Grid,
   Frame,
   Status,
@@ -627,7 +712,75 @@ const components: ReactComponentImplementation[] = [
   Approval,
 ];
 
-// This protocol registry is intentionally exported beside its private render implementations.
-// oxlint-disable-next-line react/only-export-components
-export const clioA2UICatalog = new Catalog(CLIO_A2UI_CATALOG_ID, components);
+/** Every kernel component implementation this renderer has, keyed by its own name. */
+export const KERNEL_COMPONENTS: ReadonlyMap<string, ReactComponentImplementation> = new Map(
+  KERNEL_COMPONENT_LIST.map((component) => [component.name, component]),
+);
+
+const openArtifactFunction = createFunctionImplementation(
+  {
+    name: 'openArtifact',
+    returnType: 'void',
+    schema: z.object({ uri: z.string() }),
+  },
+  ({ uri }, context) => {
+    // owner decision 11: the same URL-scheme allowlist the kernel media
+    // components enforce at render, applied here before anything opens.
+    const guard = checkA2uiUrlScheme(uri);
+    if (!guard.ok) {
+      void context.surface.dispatchError({ code: 'ARTIFACT_UNAVAILABLE', message: guard.reason });
+      return;
+    }
+    const runtime = activeA2uiOpenArtifactRuntime();
+    const artifact = runtime?.findArtifact(uri);
+    if (!runtime || !artifact) {
+      void context.surface.dispatchError({
+        code: 'ARTIFACT_UNAVAILABLE',
+        message: 'The requested artifact is not available in this session.',
+      });
+      return;
+    }
+    runtime.onOpenArtifact(artifact);
+  },
+);
+
+const selectDataFunction = createFunctionImplementation(
+  {
+    name: 'selectData',
+    returnType: 'void',
+    schema: z.object({ rowIds: z.array(z.string()), surfaceId: z.string().optional() }),
+  },
+  () => {
+    // No workspace-level row-selection state exists to update yet; the
+    // function still resolves locally and never reaches the server, which is
+    // the feature this replaces (`data.select` used to be a LOCAL_ACTIONS
+    // no-op too — see docs/design/a2ui-compat-campaign-2026-09.md S6).
+  },
+);
+
+const focusWorkflowFunction = createFunctionImplementation(
+  {
+    name: 'focusWorkflow',
+    returnType: 'void',
+    schema: z.object({ stepId: z.string() }),
+  },
+  () => {
+    // Highlighting is driven by the bound `selected` data-model path today
+    // (see the `Workflow` component above); this function resolves locally,
+    // matching the old `workflow.focus` local action's scope.
+  },
+);
+
+const KERNEL_FUNCTION_LIST: FunctionImplementation[] = [
+  ...BASIC_FUNCTIONS,
+  openArtifactFunction,
+  selectDataFunction,
+  focusWorkflowFunction,
+];
+
+/** Every kernel function implementation this renderer has, keyed by name. */
+export const KERNEL_FUNCTIONS: ReadonlyMap<string, FunctionImplementation> = new Map(
+  KERNEL_FUNCTION_LIST.map((fn) => [fn.name, fn]),
+);
+
 export { A2uiSurface };
