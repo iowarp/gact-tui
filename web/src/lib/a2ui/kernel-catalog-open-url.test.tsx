@@ -1,10 +1,35 @@
+import type { A2UISurface } from '@clio/core/v3';
 import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CLIO_A2UI_CATALOG_ID, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
+import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
+import { ClioA2UISurface } from '@/components/clio/a2ui-surface';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from './kernel-catalog';
+
+const repository = vi.hoisted(() => ({
+  a2uiAction: vi.fn().mockResolvedValue({ status: 'accepted' }),
+  a2uiCatalogs: vi.fn(),
+  a2uiCapabilities: vi.fn(),
+}));
+
+vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+
+beforeEach(() => {
+  repository.a2uiCatalogs.mockResolvedValue([CLIO_WORKSPACE_CATALOG_ROW]);
+  repository.a2uiCapabilities.mockResolvedValue({
+    agent: { 'v0.9': { supportedCatalogIds: [CLIO_WORKSPACE_CATALOG_ROW.catalogId] } },
+    client: null,
+    selection: null,
+  });
+});
 
 afterEach(() => {
   cleanup();
+  repository.a2uiAction.mockClear();
+  repository.a2uiCatalogs.mockClear();
+  repository.a2uiCapabilities.mockClear();
   vi.restoreAllMocks();
 });
 
@@ -41,6 +66,47 @@ function buildOpenUrlSurface(url: string) {
   const surface = processor.model.getSurface(surfaceId);
   if (!surface) throw new Error('Expected the test surface to exist');
   return surface;
+}
+
+function openUrlA2uiSurface(url: string): A2UISurface {
+  const surfaceId = 'open-url-a2ui-surface';
+  return {
+    id: surfaceId,
+    session_id: 'sess_1',
+    catalog_id: CLIO_A2UI_CATALOG_ID,
+    protocol_version: '0.9.1',
+    revision: 1,
+    state: 'ready',
+    messages: [
+      { version: 'v0.9.1', createSurface: { surfaceId, catalogId: CLIO_A2UI_CATALOG_ID } },
+      {
+        version: 'v0.9.1',
+        updateComponents: {
+          surfaceId,
+          components: [
+            {
+              id: 'root',
+              component: 'Button',
+              child: 'label',
+              action: { functionCall: { call: 'openUrl', args: { url } } },
+            },
+            { id: 'label', component: 'Text', text: 'Open' },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+function renderA2uiSurface(surface: A2UISurface) {
+  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <A2uiSessionRegistryOwner sessionId={surface.session_id}>
+        <ClioA2UISurface surface={surface} />
+      </A2uiSessionRegistryOwner>
+    </QueryClientProvider>,
+  );
 }
 
 /**
@@ -92,5 +158,52 @@ describe('kernel openUrl allowlist (owner decision 11)', () => {
 
     expect(openSpy).not.toHaveBeenCalled();
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: 'VALIDATION_FAILED' }));
+  });
+});
+
+/**
+ * The `onError` cases above prove the kernel function itself. This describe
+ * renders through `ClioA2UISurface` (the real wrapper, `a2ui-surface.tsx`) so
+ * a blocked click is proven where a person actually sees it: words in the
+ * DOM, not only a subscribed spy — S8 gact-tui#409 item 1 adversarial
+ * finding ("a blocked openUrl click is silent").
+ */
+describe('kernel openUrl allowlist — rendered card (owner decision 11)', () => {
+  it('opens an allowed https: URL without any local notice', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    renderA2uiSurface(openUrlA2uiSurface('https://iowarp.ai/docs'));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+
+    expect(openSpy).toHaveBeenCalledWith('https://iowarp.ai/docs', '_blank', 'noopener,noreferrer');
+    expect(screen.queryByText(/not an allowed URL scheme/u)).not.toBeInTheDocument();
+  });
+
+  it('words a blocked http: click in the card instead of leaving it silent', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    renderA2uiSurface(openUrlA2uiSurface('http://iowarp.ai/docs'));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText(/"http:" is not an allowed URL scheme/u)).toBeVisible();
+  });
+
+  it('still posts the VALIDATION_FAILED report to the wire alongside the worded notice', async () => {
+    vi.spyOn(window, 'open').mockImplementation(() => null);
+    const surface = openUrlA2uiSurface('http://iowarp.ai/docs');
+    renderA2uiSurface(surface);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+
+    await screen.findByText(/"http:" is not an allowed URL scheme/u);
+    expect(repository.a2uiAction).toHaveBeenCalledWith(surface.session_id, {
+      version: 'v0.9.1',
+      error: expect.objectContaining({
+        code: 'VALIDATION_FAILED',
+        surfaceId: surface.id,
+        message: expect.stringContaining('"http:" is not an allowed URL scheme'),
+      }),
+    });
   });
 });

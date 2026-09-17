@@ -106,11 +106,12 @@ function ClioA2UISurfaceContent({
   surface,
 }: {
   /**
-   * Owed by dispatcher slice S5 (docs/design/a2ui-compat-campaign-2026-09.md):
-   * once the server emits `a2ui.action.*` events and a caller threads
-   * `EntityState.a2ui_action_lifecycles[surface.id]` down to this component,
-   * passing it here renders the server-truth footer
-   * (`a2ui-action-lifecycle.tsx`). No caller wires it yet.
+   * The server-truth footer's data (dispatcher slice S5,
+   * `docs/design/a2ui-compat-campaign-2026-09.md`): `a2ui.action.*` events
+   * folded into `EntityState.a2ui_action_lifecycles[surface.id]` and threaded
+   * down by the caller (S8 gact-tui#409 item 2 — the main transcript, the
+   * subagent canvas, and `pending-interactions.tsx`'s cross-session surfaces
+   * all wire it). Rendered by the footer, `a2ui-action-lifecycle.tsx`.
    */
   actionLifecycle?: A2UIActionLifecycle;
   onRemoteAction?: A2UIRemoteActionHandler;
@@ -151,6 +152,17 @@ function ClioA2UISurfaceContent({
       if (validationError.code !== 'VALIDATION_FAILED') {
         setLocalNotice(validationError.message);
         return;
+      }
+      // A render-time report (the Image/Video/AudioPlayer URL-scheme guard)
+      // carries a `path` and already renders its own inline notice in place
+      // of the component (`UrlBlocked`) — wording it again here would be a
+      // redundant second copy. A function-level report with no single
+      // component to replace (e.g. openUrl's own scheme guard,
+      // `kernel-catalog-functions.ts`) has no such inline notice, so it is
+      // worded here too — a blocked click must never look like it silently
+      // did nothing (S8 gact-tui#409 item 1, adversarial finding).
+      if (!validationError.path) {
+        setLocalNotice(validationError.message);
       }
       setValidationPostFailure(undefined);
       try {
