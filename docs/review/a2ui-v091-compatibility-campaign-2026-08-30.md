@@ -1,6 +1,6 @@
 # Campaign: Make CLIO an A2UI 0.9.1-Compatible Agent and Renderer
 
-**Status:** PROPOSED — owner-directed campaign, 2026-08-30  
+**Status:** SUPERSEDED by clio-agent `docs/design/a2ui-compat-campaign-2026-09.md` (2026-09-16)  
 **Target protocol:** A2UI `0.9.1` (wire spelling `v0.9.1`) over GACT `0.3`  
 **Primary repositories:** `clio-agent`, `gact-tui`, `clio-schemas`, and
 `clio-agent-marketplace`  
