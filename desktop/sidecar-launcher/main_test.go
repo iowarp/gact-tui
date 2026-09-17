@@ -280,6 +280,7 @@ func TestSpawnEnvCarriesManifestEnvAndToken(t *testing.T) {
 		"RUNTIME_EXTRA=yes",
 		envBearer + "=secret-token",
 		envGactContractVer + "=0.2",
+		envBootHeartbeat + "=1",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("spawn env missing %q", want)
