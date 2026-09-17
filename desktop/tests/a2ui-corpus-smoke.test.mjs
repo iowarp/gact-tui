@@ -18,7 +18,10 @@
 // and Chromium available to @playwright/test (resolved from the web
 // workspace's node_modules — @playwright/test is not itself a
 // @clio/desktop dependency, so it is imported by its resolved file path
-// rather than a bare specifier).
+// rather than a bare specifier). A missing precondition FAILS this test
+// (assert.fail, non-zero exit) — it does not silently skip. The one
+// explicit opt-out for a local run with no build is
+// CLIO_DESKTOP_SMOKE_SKIP=1, which prints a typed reason and skips.
 //
 // Run: node --test tests/a2ui-corpus-smoke.test.mjs
 
@@ -143,24 +146,47 @@ async function terminate(child) {
   ]);
 }
 
-const frontendDist = resolveFrontendDist();
-const playwrightEntry = resolvePlaywright();
-const missing = [];
-if (frontendDist !== distDir) {
-  missing.push(`frontendDist resolved to ${frontendDist}, expected ${distDir}`);
+// The ONLY graceful way out of this gate: a person explicitly opts out of a
+// local run with no build, with a typed reason printed so it never reads as
+// "passed." Every other precondition failure below is a real gate failure
+// (assert.fail, non-zero exit) — a check that can only ever SKIP is not a
+// gate (S8 gact-tui#409 item 2, adversarial finding).
+const skipRequested = process.env.CLIO_DESKTOP_SMOKE_SKIP === '1';
+if (skipRequested) {
+  console.log(
+    'CLIO_DESKTOP_SMOKE_SKIP=1: skipping the packaged-bundle corpus smoke by explicit local opt-out (no web/dist build required).',
+  );
 }
-if (!existsSync(distDir) || !existsSync(resolve(distDir, 'index.html'))) {
-  missing.push(`no built bundle at ${distDir} (run: pnpm --filter @clio/workspace build)`);
-}
-if (!playwrightEntry) {
-  missing.push('@playwright/test is not resolvable from the web workspace');
-}
-const enabled = missing.length === 0;
 
 test(
   'the packaged frontend bundle renders all 43 A2UI examples',
-  { skip: !enabled ? `missing: ${missing.join('; ')}` : false, timeout: 120_000 },
+  // 180s, not 120s: a loaded machine running this alongside other suites has
+  // been observed taking ~110-120s just for the real chromium launch +
+  // scroll loop, before any precondition failure would even be possible.
+  { skip: skipRequested, timeout: 180_000 },
   async () => {
+    const frontendDist = resolveFrontendDist();
+    if (frontendDist !== distDir) {
+      assert.fail(
+        `tauri.conf.json's build.frontendDist resolved to ${frontendDist}, expected ${distDir} — the desktop config and this smoke have drifted apart.`,
+      );
+    }
+    if (!existsSync(distDir)) {
+      assert.fail(
+        `no built bundle directory at ${distDir}. Run: pnpm --filter @clio/workspace build`,
+      );
+    }
+    if (!existsSync(resolve(distDir, 'index.html'))) {
+      assert.fail(
+        `${distDir} exists but has no index.html — an incomplete or stale build. Run: pnpm --filter @clio/workspace build`,
+      );
+    }
+    const playwrightEntry = resolvePlaywright();
+    if (!playwrightEntry) {
+      assert.fail(
+        '@playwright/test is not resolvable from the web workspace. Run: pnpm install in web/',
+      );
+    }
     const { chromium } = (await import(pathToFileURL(playwrightEntry).href)).default;
 
     const fixture = spawnAndCapture('node', ['e2e/fixture-server.mjs'], {
