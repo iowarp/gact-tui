@@ -181,3 +181,39 @@ describe('a2uiClientDataModel aggregation (S6 item 3)', () => {
     ).toBeUndefined();
   });
 });
+
+describe('graceful degradation when the registry routes 404 (S6 adversarial review item 2a)', () => {
+  it('fetches each route exactly once, advertises the two well-known ids, and records the reason', async () => {
+    const notFound = () => Promise.reject(new Error('404'));
+    repository.a2uiCatalogs.mockImplementation(notFound);
+    repository.a2uiCapabilities.mockImplementation(notFound);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <A2uiSessionRegistryOwner sessionId="sess_old_server">
+          <div>no A2UI support here</div>
+        </A2uiSessionRegistryOwner>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      const metadata = mergeA2uiClientMetadata('sess_old_server', undefined);
+      expect(metadata?.a2uiClientCapabilities).toMatchObject({
+        'v0.9': {
+          supportedCatalogIds: [
+            'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1',
+            'https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json',
+          ],
+        },
+      });
+    });
+
+    // Give any retry timer a chance to fire before asserting the count.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(repository.a2uiCatalogs).toHaveBeenCalledTimes(1);
+    expect(repository.a2uiCapabilities).toHaveBeenCalledTimes(1);
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+});

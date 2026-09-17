@@ -1,4 +1,6 @@
 import {
+  A2UI_BASIC_CATALOG_ID,
+  A2UI_CLIO_WORKSPACE_CATALOG_ID,
   buildA2uiClientCapabilities,
   buildA2uiClientDataModel,
   orderSupportedCatalogIds,
@@ -20,12 +22,16 @@ import {
   collectA2uiClientDataModelSurfaces,
   disposeA2uiSessionRegistry,
   loadA2uiSessionCatalogs,
+  markA2uiSessionRouteUnavailable,
   registerA2uiSurfaceProcessor,
   registrySnapshotSync,
   unregisterA2uiSurfaceProcessor,
   useA2uiRegistrySnapshot,
   type A2uiRegistrySnapshot,
 } from './registry-store';
+
+/** The client's own best-effort advertisement when the registry routes 404/501 (S6 item 2a). */
+const WELL_KNOWN_CATALOG_IDS = [A2UI_CLIO_WORKSPACE_CATALOG_ID, A2UI_BASIC_CATALOG_ID];
 
 /**
  * OWNER — call exactly once per open session, from the session's own data
@@ -41,24 +47,42 @@ import {
 export function useA2uiSessionRegistry(sessionId: string): void {
   const repository = useRepository();
 
-  const { data: rows, isLoading: rowsLoading } = useQuery({
+  const {
+    data: rows,
+    isLoading: rowsLoading,
+    isError: rowsErrored,
+  } = useQuery({
     queryKey: ['a2ui-catalogs', sessionId],
     queryFn: ({ signal }) => repository.a2uiCatalogs(sessionId, signal),
     enabled: Boolean(sessionId),
     staleTime: 60_000,
+    retry: false,
   });
 
-  const { data: capabilities } = useQuery({
+  const { data: capabilities, isError: capabilitiesErrored } = useQuery({
     queryKey: ['a2ui-capabilities', sessionId],
     queryFn: ({ signal }) => repository.a2uiCapabilities(sessionId, signal),
     enabled: Boolean(sessionId),
     staleTime: 60_000,
+    retry: false,
   });
+
+  const routeUnavailable = rowsErrored || capabilitiesErrored;
 
   useLayoutEffect(() => {
     if (!sessionId) return;
+    if (routeUnavailable) {
+      // Handled once here, not thrown further: an older server without A2UI
+      // support degrades to the client's own well-known catalog ids, never a
+      // retry loop or a console error.
+      markA2uiSessionRouteUnavailable(
+        sessionId,
+        'The session server does not support the A2UI catalog registry routes.',
+      );
+      return;
+    }
     loadA2uiSessionCatalogs(sessionId, rows, rowsLoading && !rows);
-  }, [sessionId, rows, rowsLoading]);
+  }, [sessionId, rows, rowsLoading, routeUnavailable]);
 
   useLayoutEffect(() => {
     if (!sessionId) return undefined;
@@ -76,7 +100,9 @@ export function useA2uiSessionRegistry(sessionId: string): void {
       // A plain callback invoked outside React (not a hook), so it reads the
       // shared store through its non-hook accessor.
       const resolvedIds = registrySnapshotSync(sessionId).registry.supportedCatalogIds();
-      const orderedIds = orderSupportedCatalogIds(resolvedIds, preferenceOrder);
+      const orderedIds = routeUnavailable
+        ? WELL_KNOWN_CATALOG_IDS
+        : orderSupportedCatalogIds(resolvedIds, preferenceOrder);
       const dataModelSurfaces = collectA2uiClientDataModelSurfaces(sessionId);
       return {
         a2uiClientCapabilities: buildA2uiClientCapabilities(orderedIds),
@@ -84,7 +110,7 @@ export function useA2uiSessionRegistry(sessionId: string): void {
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, rows, capabilities]);
+  }, [sessionId, rows, capabilities, routeUnavailable]);
 }
 
 /**

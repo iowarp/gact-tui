@@ -63,7 +63,20 @@ export interface A2uiKernelRegistry<T extends ComponentApi> {
 export type A2uiCatalogUnresolvedReasonCode =
   | 'catalog_component_unimplemented'
   | 'catalog_function_unimplemented'
-  | 'catalog_row_missing_file';
+  | 'catalog_row_missing_file'
+  | 'a2ui_catalog_route_unavailable';
+
+/**
+ * The official Basic catalog's own id (protocol-stable — not derived from any
+ * server) and CLIO's own workspace catalog id (stable, pre-registry
+ * constant). Used only as the client's best-effort advertisement when
+ * `GET .../a2ui/catalogs` or `.../a2ui/capabilities` is unavailable (an older
+ * server, S6 adversarial review item 2a) — the client cannot know that
+ * server's actual catalog rows, but these two ids are the protocol/CLIO
+ * defaults every renderer of this vintage would still recognize by name.
+ */
+export const A2UI_BASIC_CATALOG_ID = 'https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json';
+export const A2UI_CLIO_WORKSPACE_CATALOG_ID = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
 
 /** A typed, worded reason a catalog row could not become a renderable catalog. */
 export interface A2uiCatalogUnresolvedReason {
@@ -252,6 +265,26 @@ export class A2uiCatalogRegistry<T extends ComponentApi> {
       this.reasons.set(row.catalogId, result.reason);
     }
     return result;
+  }
+
+  /**
+   * The registry route(s) this session's server answered with (a non-2xx
+   * other than "row missing/unresolvable") are unavailable — an older
+   * server, S6 adversarial review item 2a. Clears any resolved catalogs
+   * (there is no row data to resolve from) and records the typed reason
+   * against the well-known ids, so a surface that later names one still gets
+   * `reasonFor()` instead of a bare "not found". Idempotent: calling this
+   * again just re-records the same reason, never compounds.
+   */
+  public markRouteUnavailable(
+    detail: string,
+    wellKnownCatalogIds: readonly string[] = [A2UI_CLIO_WORKSPACE_CATALOG_ID, A2UI_BASIC_CATALOG_ID],
+  ): void {
+    this.resolved.clear();
+    this.reasons.clear();
+    for (const catalogId of wellKnownCatalogIds) {
+      this.reasons.set(catalogId, { code: 'a2ui_catalog_route_unavailable', catalogId, detail });
+    }
   }
 
   public get(catalogId: string): Catalog<T> | undefined {

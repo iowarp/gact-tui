@@ -66,6 +66,19 @@ export function loadA2uiSessionCatalogs(
   notify(entry);
 }
 
+/**
+ * OWNER only: the session's `GET .../a2ui/catalogs` or `.../a2ui/capabilities`
+ * route is unavailable (an older server, S6 adversarial review item 2a) —
+ * records the typed reason on the shared registry instead of leaving it
+ * empty with no explanation, and notifies consumers once.
+ */
+export function markA2uiSessionRouteUnavailable(sessionId: string, detail: string): void {
+  const entry = entryFor(sessionId);
+  entry.registry.markRouteUnavailable(detail);
+  entry.snapshot = { registry: entry.registry, catalogs: entry.registry.catalogs(), isLoading: false };
+  notify(entry);
+}
+
 /** OWNER only: called when the session closes (`useA2uiSessionRegistry` unmounts). */
 export function disposeA2uiSessionRegistry(sessionId: string): void {
   sessions.delete(sessionId);
