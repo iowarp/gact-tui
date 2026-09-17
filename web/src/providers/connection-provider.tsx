@@ -20,7 +20,7 @@ import {
   readConnectionCredential,
   storeConnectionCredential,
 } from '@/tauri/secure-credentials';
-import { waitForManagedBackend } from '@/tauri/managed-backend';
+import { waitForManagedBackend, type ManagedBackendStatus } from '@/tauri/managed-backend';
 
 const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
 /**
@@ -35,6 +35,7 @@ interface ConnectionContextValue {
   recents: SavedConnection[];
   credentialsReady: boolean;
   managedConnectionReady: boolean;
+  managedBackendStatus?: ManagedBackendStatus;
   credentialError?: string;
   resolveConnection: (settings: ConnectionSettings) => Promise<ConnectionSettings>;
   connect: (settings: ConnectionSettings) => Promise<void>;
@@ -82,6 +83,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   }));
   const [credentialsReady, setCredentialsReady] = useState(() => !inTauri());
   const [managedConnectionReady, setManagedConnectionReady] = useState(false);
+  const [managedBackendStatus, setManagedBackendStatus] = useState<ManagedBackendStatus>();
   const [credentialError, setCredentialError] = useState<string>();
   /** The supervisor's address is allocated per launch, so it is never remembered. */
   const managedEndpoint = useRef<string | undefined>(undefined);
@@ -89,7 +91,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     if (!inTauri()) return;
     let cancelled = false;
-    void waitForManagedBackend()
+    void waitForManagedBackend({ onStatus: setManagedBackendStatus })
       .then((handle) => {
         if (cancelled) return;
         const endpoint = normalizeEndpoint(handle.url);
@@ -165,6 +167,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       recents,
       credentialsReady,
       managedConnectionReady,
+      managedBackendStatus,
       credentialError,
       resolveConnection,
       connect,
@@ -176,6 +179,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       credentialsReady,
       forget,
       managedConnectionReady,
+      managedBackendStatus,
       recents,
       resolveConnection,
       settings,

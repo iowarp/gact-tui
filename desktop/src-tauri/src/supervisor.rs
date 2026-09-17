@@ -27,7 +27,7 @@ use std::{path::PathBuf, thread};
 use crate::supervisor_boot::{boot_attach_only, boot_sidecar};
 pub use crate::supervisor_launcher::locate_launcher;
 use crate::supervisor_state::SupervisorState;
-use crate::supervisor_types::{BackendHandle, BackendStatus};
+use crate::supervisor_types::{BackendHandle, BackendStartupStage, BackendStatus};
 
 /// Internal state owned by the Tauri runtime.
 pub struct Supervisor {
@@ -118,7 +118,9 @@ impl Supervisor {
                 return;
             }
         };
-        self.state.set_status(BackendStatus::Starting);
+        self.state.set_status(BackendStatus::Starting(
+            BackendStartupStage::CheckingExisting,
+        ));
         self.start(launcher);
     }
 

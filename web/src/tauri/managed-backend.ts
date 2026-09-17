@@ -1,7 +1,7 @@
 import { MANAGED_BACKEND_POLL_MS, MANAGED_BACKEND_READY_TIMEOUT_MS } from '@/lib/runtime-limits';
 
 export type ManagedBackendStatus =
-  | { kind: 'starting' }
+  | { kind: 'starting'; detail: 'checking_existing' | 'starting_service' }
   | { kind: 'ready' }
   | { kind: 'needs_install' }
   | { kind: 'error'; detail: string };
@@ -13,6 +13,7 @@ export interface ManagedBackendHandle {
 }
 
 interface ManagedBackendOptions {
+  onStatus?: (status: ManagedBackendStatus) => void;
   pollIntervalMs?: number;
   timeoutMs?: number;
 }
@@ -36,6 +37,7 @@ export async function waitForManagedBackend(
 
   for (;;) {
     const handle = await getManagedBackend();
+    options.onStatus?.(handle.status);
     if (handle.status.kind === 'ready') return handle;
     if (handle.status.kind === 'error') {
       throw new Error(handle.status.detail || 'The managed CLIO service could not start.');

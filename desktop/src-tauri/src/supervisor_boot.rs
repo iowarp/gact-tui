@@ -14,7 +14,7 @@ use crate::supervisor_attach::try_attach_existing;
 use crate::supervisor_boot_log::{boot_log_line, reset_boot_log};
 use crate::supervisor_spawn::{spawn_and_probe, SpawnError};
 use crate::supervisor_state::SupervisorState;
-use crate::supervisor_types::BackendStatus;
+use crate::supervisor_types::{BackendStartupStage, BackendStatus};
 
 pub(crate) fn boot_sidecar(
     state: SupervisorState,
@@ -27,6 +27,9 @@ pub(crate) fn boot_sidecar(
     reset_boot_log("boot");
 
     // 1. Attach to an existing local server if reachable.
+    state.set_status(BackendStatus::Starting(
+        BackendStartupStage::CheckingExisting,
+    ));
     if let Some(handle) = try_attach_existing() {
         boot_log_line("attached to an existing backend on the conventional port");
         state.set_handle(handle);
@@ -34,6 +37,9 @@ pub(crate) fn boot_sidecar(
     }
 
     // 2. Otherwise spawn our own.
+    state.set_status(BackendStatus::Starting(
+        BackendStartupStage::StartingService,
+    ));
     if let Some(dir) = working_dir.as_deref() {
         boot_log_line(&format!("managed backend workspace={dir:?}"));
     }

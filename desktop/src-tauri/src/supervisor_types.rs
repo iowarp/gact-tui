@@ -12,9 +12,16 @@ pub struct BackendHandle {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BackendStartupStage {
+    CheckingExisting,
+    StartingService,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "kind", content = "detail")]
 pub enum BackendStatus {
-    Starting,
+    Starting(BackendStartupStage),
     Ready,
     /// The bundled launcher resolved no `clio-agent-gact` (it exited with
     /// [`crate::supervisor_spawn::LAUNCHER_EXIT_NOT_FOUND`]). The frontend reacts by auto-running
@@ -26,7 +33,7 @@ pub enum BackendStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::{BackendHandle, BackendStatus};
+    use super::{BackendHandle, BackendStartupStage, BackendStatus};
 
     #[test]
     fn backend_handle_serializes_round_trip() {
@@ -47,7 +54,10 @@ mod tests {
     #[test]
     fn backend_status_kind_tags_are_stable() {
         let cases = [
-            (BackendStatus::Starting, r#"{"kind":"starting"}"#),
+            (
+                BackendStatus::Starting(BackendStartupStage::CheckingExisting),
+                r#"{"kind":"starting","detail":"checking_existing"}"#,
+            ),
             (BackendStatus::Ready, r#"{"kind":"ready"}"#),
             (BackendStatus::NeedsInstall, r#"{"kind":"needs_install"}"#),
         ];

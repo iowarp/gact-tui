@@ -13,7 +13,11 @@ describe('managed Tauri backend', () => {
 
   it('polls the supervisor until its discovered endpoint is ready', async () => {
     mocks.invoke
-      .mockResolvedValueOnce({ url: '', bearer_token: '', status: { kind: 'starting' } })
+      .mockResolvedValueOnce({
+        url: '',
+        bearer_token: '',
+        status: { kind: 'starting', detail: 'checking_existing' },
+      })
       .mockResolvedValueOnce({
         url: 'http://127.0.0.1:17800',
         bearer_token: 'native-token',
@@ -32,7 +36,11 @@ describe('managed Tauri backend', () => {
     mocks.invoke
       .mockResolvedValueOnce({ url: '', bearer_token: '', status: { kind: 'needs_install' } })
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce({ url: '', bearer_token: '', status: { kind: 'starting' } })
+      .mockResolvedValueOnce({
+        url: '',
+        bearer_token: '',
+        status: { kind: 'starting', detail: 'starting_service' },
+      })
       .mockResolvedValueOnce({
         url: 'http://127.0.0.1:17800',
         bearer_token: '',

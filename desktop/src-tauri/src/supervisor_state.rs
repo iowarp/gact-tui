@@ -12,7 +12,7 @@ use std::{
 
 use crate::supervisor_boot_log::boot_log_line;
 use crate::supervisor_shutdown::reap_child_tree;
-use crate::supervisor_types::{BackendHandle, BackendStatus};
+use crate::supervisor_types::{BackendHandle, BackendStartupStage, BackendStatus};
 
 /// Lock a `Mutex` while recovering from poisoning.
 ///
@@ -45,7 +45,7 @@ impl SupervisorState {
                 handle: BackendHandle {
                     url: String::new(),
                     bearer_token: String::new(),
-                    status: BackendStatus::Starting,
+                    status: BackendStatus::Starting(BackendStartupStage::CheckingExisting),
                 },
                 child: None,
             })),
@@ -117,7 +117,10 @@ mod tests {
         let handle = state.snapshot();
         assert!(handle.url.is_empty());
         assert!(handle.bearer_token.is_empty());
-        assert!(matches!(handle.status, BackendStatus::Starting));
+        assert!(matches!(
+            handle.status,
+            BackendStatus::Starting(BackendStartupStage::CheckingExisting)
+        ));
     }
 
     #[test]
