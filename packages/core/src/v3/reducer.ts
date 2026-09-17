@@ -496,18 +496,24 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       // docs/design/a2ui-compat-campaign-2026-09.md); the payload only needs
       // to say which surface/action it is about. `occurred_at` falls back to
       // the frame's own receipt time when the dispatcher does not send one.
+      // A lifecycle event is best-effort UI, never load-bearing state: a
+      // payload the lenient schema still can't make sense of (missing
+      // surface_id, or both action_name and action) is dropped like any
+      // other frame this reducer does not model — no throw, no gap, no
+      // banked revision.
       const payload = envelope.payload as Record<string, unknown>;
-      const lifecycle = a2uiActionLifecycleSchema.parse({
+      const result = a2uiActionLifecycleSchema.safeParse({
         ...payload,
         status: envelope.type.slice('a2ui.action.'.length),
         occurred_at: payload.occurred_at ?? frame.receivedAt,
       });
+      if (!result.success) return base;
       return {
         ...base,
         revisions,
         a2ui_action_lifecycles: {
           ...base.a2ui_action_lifecycles,
-          [lifecycle.surface_id]: lifecycle,
+          [result.data.surface_id]: result.data,
         },
       };
     }

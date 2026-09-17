@@ -16,6 +16,8 @@ export type A2UIActionLifecycleStatus =
 export interface A2UIActionLifecycle {
   surface_id: string;
   action_name: string;
+  source_component_id?: string;
+  action_id?: string;
   status: A2UIActionLifecycleStatus;
   reason?: string;
   occurred_at: string;
