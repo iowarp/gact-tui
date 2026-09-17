@@ -134,7 +134,14 @@ companion of clio-agent#1374/#1363; row stays "Implemented, not accepted" — S9
 
 - Library upgrade `@a2ui/react` 0.10.2 → 0.11.1, `@a2ui/web_core` 0.10.6 → 0.11.0 (`web/package.json`,
   `packages/core/package.json`); the 43-example corpus suite
-  (`web/src/lib/a2ui/a2ui-corpus.test.tsx`) and the full S6 suite pass unmodified against it.
+  (`web/src/lib/a2ui/a2ui-corpus.test.tsx`) and the full S6 suite pass unmodified against it. New
+  transitive runtime dependencies pulled in by the bump (`pnpm-lock.yaml`, confirmed absent
+  before it): `lit@3.3.3`, `lit-element@4.2.2`, `lit-html@3.3.3`, `@lit/context@1.1.6` — the Basic
+  catalog's Web Component surface `@a2ui/web_core` now ships alongside the React one gact-tui
+  actually uses. Measured bundle-size delta (isolated worktree build at the pre-upgrade commit vs.
+  this branch, `web/dist`, same 497 files both sides): total dist +23.7 KB raw (20,944,442 →
+  20,968,159 bytes); the main entry chunk +15.4 KB raw / ~+4.2 KB gzip (1,595,573 → 1,610,988
+  bytes, ~493.2 → ~497.4 kB gzip).
 - The S6-documented `and()`/`or()` nested-condition defect is fixed upstream in 0.11.0 — reverified
   with the same standalone `DataContext.resolveDynamicValue` repro pattern (no app code); the e2e
   per-field workaround is removed (`web/e2e/a2ui-fixtures.mjs`, `loginFormExampleMessages()` now
@@ -149,10 +156,21 @@ companion of clio-agent#1374/#1363; row stays "Implemented, not accepted" — S9
   state and that the optimistic "Sending action" header shows only while pending
   (`web/e2e/a2ui-action-lifecycle.spec.ts`).
 - Replay/degradation parity: the uninstalled-catalog placeholder card was already covered
-  (`a2ui-surface.test.tsx`, unaffected by the upgrade); new coverage proves a mid-selection
-  `ChoicePicker` choice survives both a refresh and a cursor reconnect that redeliver the
-  surface's own messages, and that a reconnect never re-sends an already-submitted action
-  (`web/src/components/clio/a2ui-surface.test.tsx`).
+  (`a2ui-surface.test.tsx`, unaffected by the upgrade). Prop-level coverage proves the
+  processor store's `appliedCount` prefix-replay mechanism directly — a mid-selection
+  `ChoicePicker` choice survives a hand-updated `surface` prop (refresh/revision-bump shape)
+  and a reconnect never re-sends an already-submitted action
+  (`web/src/components/clio/a2ui-surface.test.tsx`). Store-level coverage proves the same
+  invariant through the real pipeline — `useLiveStore.applyFrames` streaming
+  `a2ui.surface.upserted`, a `stream.gap` frame, then `reconcileSnapshots` with a REST
+  transcript whose message count differs (one extra / one fewer than the streamed prefix):
+  the processor store neither re-applies the already-seen prefix (double-apply) nor drops a
+  genuinely new tail message (skip), typed TextField text survives both directions, and no
+  action POST fires across the whole gap/reconcile sequence
+  (`web/src/lib/a2ui/processor-store-reconcile.test.tsx`). A gap reconcile also remaps any
+  resident, non-terminal `a2ui_action_lifecycles` entry to the schema's own `unknown` status —
+  stream-only data a REST snapshot never carries, so left alone it could read "received"
+  forever after a reconnect (`web/src/store/live-store.ts`, `live-store.test.ts`).
 - Desktop JS smoke: the exact bundle directory `tauri.conf.json`'s `build.frontendDist` names
   renders all 43 examples in a real (non-jsdom) browser with zero console errors
   (`desktop/tests/a2ui-corpus-smoke.test.mjs`, `pnpm --filter @clio/desktop test:corpus`, verified
