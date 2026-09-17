@@ -4,6 +4,15 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2] — 2026-09-16
+
+### Fixed
+
+- Bundled desktop first launch now allows the private CLIO backend up to 90
+  seconds to complete its cold Python-runtime initialization. This prevents a
+  healthy backend that needs slightly more than 30 seconds from being replaced
+  by the manual connection screen.
+
 ## [0.11.1] — 2026-09-16
 
 ### Fixed
