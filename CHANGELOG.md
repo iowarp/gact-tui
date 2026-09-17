@@ -10,6 +10,7 @@ UI aren't tracked.
 
 - Hide the managed backend process tree on Windows while preserving its persisted boot log.
 - Run managed desktop backends from a stable app-data workspace instead of inheriting the launcher's current directory.
+- Keep desktop workspaces, sessions, and installed blueprints in the app's own durable user-state directory instead of mixing them with CLI and test profiles.
 
 ## [0.11.1.1] — 2026-09-16
 

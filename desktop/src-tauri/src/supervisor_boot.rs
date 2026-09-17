@@ -20,6 +20,7 @@ pub(crate) fn boot_sidecar(
     state: SupervisorState,
     launcher: PathBuf,
     working_dir: Option<PathBuf>,
+    user_dir: Option<PathBuf>,
 ) {
     // Fresh transcript for this boot attempt so a later failure's
     // "Open logs" shows only the relevant run.
@@ -33,7 +34,13 @@ pub(crate) fn boot_sidecar(
     }
 
     // 2. Otherwise spawn our own.
-    let outcome = spawn_and_probe(&launcher, working_dir.as_deref());
+    if let Some(dir) = working_dir.as_deref() {
+        boot_log_line(&format!("managed backend workspace={dir:?}"));
+    }
+    if let Some(dir) = user_dir.as_deref() {
+        boot_log_line(&format!("managed backend user_dir={dir:?}"));
+    }
+    let outcome = spawn_and_probe(&launcher, working_dir.as_deref(), user_dir.as_deref());
     match outcome {
         Ok((handle, child)) => {
             state.set_handle_and_child(handle, child);
