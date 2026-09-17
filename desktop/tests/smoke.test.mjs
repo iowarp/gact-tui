@@ -111,6 +111,11 @@ test('bundled installer stops only its managed process tree before replacement o
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
   assert.match(hooks, /NSIS_HOOK_PREINSTALL/);
   assert.match(hooks, /NSIS_HOOK_PREUNINSTALL/);
+  assert.match(hooks, /NSIS_HOOK_POSTUNINSTALL/);
+  assert.match(hooks, /Also remove CLIO settings, sessions, and local data/);
+  assert.match(hooks, /\$LOCALAPPDATA\\ai\.iowarp\.clio\.desktop/);
+  assert.match(hooks, /\$APPDATA\\ai\.iowarp\.clio\.desktop/);
+  assert.match(hooks, /\$ClioRemoveUserData == \$\{BST_CHECKED\}/);
   assert.match(hooks, /StartsWith\(\$\$root/);
   assert.match(hooks, /clio-desktop\.exe/);
   assert.match(hooks, /clio-agent\.exe/);
