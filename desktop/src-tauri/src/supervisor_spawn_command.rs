@@ -16,7 +16,12 @@ use std::os::windows::process::CommandExt;
 
 pub(crate) const LAUNCHER_HOST: &str = "127.0.0.1";
 const ARC_FILE_CAPACITY_ENV: &str = "CLIO_ARC_CTE_FILE_CAPACITY";
-const DESKTOP_ARC_FILE_CAPACITY: &str = "8GB";
+// clio-core currently materializes the Windows file-tier backing file at the
+// 1 GiB desktop arena size. Advertising a larger capacity makes the next boot's
+// safety preflight reject that retained file as undersized, so a successful
+// first run silently degrades to LocalFS after restart. Keep the managed
+// desktop's declared capacity aligned with the file clio-core actually creates.
+const DESKTOP_ARC_FILE_CAPACITY: &str = "1GB";
 
 fn desktop_arc_file_capacity(configured: Option<OsString>) -> OsString {
     configured.unwrap_or_else(|| OsString::from(DESKTOP_ARC_FILE_CAPACITY))
