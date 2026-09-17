@@ -773,6 +773,38 @@ const server = createServer(async (request, response) => {
   }
 
   if (
+    request.method === 'POST' &&
+    url.pathname === `/v1/sessions/${sessionId}/a2ui/actions`
+  ) {
+    // Only acknowledges receipt (the `isPending` mutation this resolves is
+    // what gates the surface header's optimistic "Sending action" label,
+    // S8 gact-tui#409 item 2) — the S5 lifecycle events a real dispatcher
+    // would publish off the back of this are published explicitly by the
+    // test via /__test/a2ui-action-lifecycle, for deterministic ordering.
+    // The short delay keeps the mutation observably pending for that test.
+    await readJson(request);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    sendJson(response, { status: 'accepted' }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-action-lifecycle') {
+    // Publishes one `a2ui.action.<status>` server-truth lifecycle event
+    // (dispatcher slice S5) for the footer e2e (S8 gact-tui#409 item 2):
+    // `{surface_id, action_name, status, reason?, source_component_id?,
+    // action_id?, state?, delivery?}` — `status` selects the event name,
+    // everything else rides through as the payload verbatim.
+    const { status, ...payload } = await readJson(request);
+    if (typeof status !== 'string' || !status) {
+      sendJson(response, { error: 'status is required' }, 400);
+      return;
+    }
+    publish(`a2ui.action.${status}`, payload);
+    sendJson(response, { status: 'published' }, 202);
+    return;
+  }
+
+  if (
     request.method === 'GET' &&
     url.pathname === `/v1/sessions/${sessionId}/a2ui/catalogs`
   ) {

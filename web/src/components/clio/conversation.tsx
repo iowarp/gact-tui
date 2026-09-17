@@ -419,7 +419,11 @@ function ConversationBody({
             className={`mx-auto grid w-full gap-4 px-5 pb-8 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
           >
             {detachedSurfaces.map((surface) => (
-              <DeferredA2UISurface key={surface.id} surface={surface} />
+              <DeferredA2UISurface
+                actionLifecycle={entities.actionLifecycles?.[surface.id]}
+                key={surface.id}
+                surface={surface}
+              />
             ))}
           </div>
         ) : null}

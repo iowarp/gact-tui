@@ -1,4 +1,10 @@
-import type { A2UISurface, Artifact, MessageBlock, WorkspaceReference } from '@clio/core/v3';
+import type {
+  A2UIActionLifecycle,
+  A2UISurface,
+  Artifact,
+  MessageBlock,
+  WorkspaceReference,
+} from '@clio/core/v3';
 import {
   AlertTriangleIcon,
   ExternalLinkIcon,
@@ -43,7 +49,13 @@ import { toolOutputDiffKey } from './declared-diff-key';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
-export function DeferredA2UISurface({ surface }: { surface: A2UISurface }) {
+export function DeferredA2UISurface({
+  actionLifecycle,
+  surface,
+}: {
+  actionLifecycle?: A2UIActionLifecycle;
+  surface: A2UISurface;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   // Mount once so the reserved geometry is measured before a completed surface
   // can be suspended. This prevents the transcript from jumping when an older
@@ -88,7 +100,9 @@ export function DeferredA2UISurface({ surface }: { surface: A2UISurface }) {
       ref={hostRef}
       style={renderSurface ? undefined : { minHeight: reservedHeight }}
     >
-      {renderSurface ? <ClioA2UISurface surface={surface} /> : null}
+      {renderSurface ? (
+        <ClioA2UISurface actionLifecycle={actionLifecycle} surface={surface} />
+      ) : null}
     </div>
   );
 }
@@ -107,6 +121,7 @@ function MessageBlockView({
   subagents,
   artifacts,
   surfaces,
+  actionLifecycles,
   resources,
   onActionCardAction,
   onOpenArtifact,
@@ -223,7 +238,10 @@ function MessageBlockView({
       return surface?.state === 'deleted' ? (
         <ClioStatus label="Interactive surface removed" value="cancelled" />
       ) : surface ? (
-        <DeferredA2UISurface surface={surface} />
+        <DeferredA2UISurface
+          actionLifecycle={actionLifecycles?.[block.surface_id]}
+          surface={surface}
+        />
       ) : (
         <ClioStatus label="Interactive surface unavailable" value="unavailable" />
       );
