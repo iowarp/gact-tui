@@ -111,3 +111,73 @@ describe('session-lifetime A2UI registry (S6 adversarial review, BLOCKING)', () 
     });
   });
 });
+
+describe('a2uiClientDataModel aggregation (S6 item 3)', () => {
+  function dataModelSurface(id: string, sessionId: string, sendDataModel: boolean): A2UISurface {
+    return {
+      id,
+      session_id: sessionId,
+      catalog_id: CLIO_A2UI_CATALOG_ID,
+      protocol_version: '0.9.1',
+      revision: 1,
+      state: 'ready',
+      messages: [
+        {
+          version: 'v0.9.1',
+          createSurface: { surfaceId: id, catalogId: CLIO_A2UI_CATALOG_ID, sendDataModel },
+        },
+        {
+          version: 'v0.9.1',
+          updateComponents: {
+            surfaceId: id,
+            components: [{ id: 'root', component: 'TextField', label: 'Name', value: 'Alice' }],
+          },
+        },
+      ],
+    };
+  }
+
+  it('is present when a live surface was created with sendDataModel: true', async () => {
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <A2uiSessionRegistryOwner sessionId="sess_dm_present">
+          <ClioA2UISurface surface={dataModelSurface('surface_dm', 'sess_dm_present', true)} />
+        </A2uiSessionRegistryOwner>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByLabelText('Name');
+    await waitFor(() => {
+      const metadata = mergeA2uiClientMetadata('sess_dm_present', undefined, {
+        includeDataModel: true,
+      });
+      expect(metadata?.a2uiClientDataModel).toMatchObject({
+        version: 'v0.9',
+        surfaces: { surface_dm: expect.anything() },
+      });
+    });
+  });
+
+  it('is absent when no live surface requested sendDataModel', async () => {
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <A2uiSessionRegistryOwner sessionId="sess_dm_absent">
+          <ClioA2UISurface surface={dataModelSurface('surface_dm2', 'sess_dm_absent', false)} />
+        </A2uiSessionRegistryOwner>
+      </QueryClientProvider>,
+    );
+
+    await screen.findByLabelText('Name');
+    await waitFor(() =>
+      expect(
+        mergeA2uiClientMetadata('sess_dm_absent', undefined)?.a2uiClientCapabilities,
+      ).toBeDefined(),
+    );
+    expect(
+      mergeA2uiClientMetadata('sess_dm_absent', undefined, { includeDataModel: true })
+        ?.a2uiClientDataModel,
+    ).toBeUndefined();
+  });
+});
