@@ -9,7 +9,12 @@ import {
   sessionId,
   workspaceId,
 } from './fixture-data.mjs';
-import { a2uiCapabilities, a2uiCatalogRows, loginFormExampleMessages } from './a2ui-fixtures.mjs';
+import {
+  a2uiCapabilities,
+  a2uiCatalogRows,
+  allExampleMessages,
+  loginFormExampleMessages,
+} from './a2ui-fixtures.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -785,6 +790,35 @@ const server = createServer(async (request, response) => {
     await readJson(request);
     await new Promise((resolve) => setTimeout(resolve, 250));
     sendJson(response, { status: 'accepted' }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-corpus') {
+    // Publishes all 43 vendored Basic-catalog examples as detached surfaces
+    // (no owning message, same as /__test/a2ui-login-form) — the desktop JS
+    // smoke (S8 gact-tui#409 item 3) drives this to prove the packaged
+    // bundle renders the whole official corpus, not just one example. Each
+    // surface's `id`/`catalog_id` come from its own vendored createSurface
+    // message, exactly like the single-example handler above.
+    const examples = allExampleMessages();
+    const surfaceIds = [];
+    for (const example of examples) {
+      const first = example.messages[0];
+      const surfaceId = first?.createSurface?.surfaceId;
+      const catalogId = first?.createSurface?.catalogId;
+      if (!surfaceId || !catalogId) continue;
+      surfaceIds.push(surfaceId);
+      publish('a2ui.surface.upserted', {
+        id: surfaceId,
+        session_id: sessionId,
+        catalog_id: catalogId,
+        protocol_version: '0.9.1',
+        revision: 1,
+        state: 'ready',
+        messages: example.messages,
+      });
+    }
+    sendJson(response, { status: 'published', count: surfaceIds.length, surface_ids: surfaceIds }, 202);
     return;
   }
 

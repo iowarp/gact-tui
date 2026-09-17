@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -99,4 +99,22 @@ export function a2uiCapabilities() {
  */
 export function loginFormExampleMessages() {
   return structuredClone(readJson('examples/09_login-form.json').messages);
+}
+
+/** The Basic catalog's own id, as vendored (`catalogs/basic/catalog.json`). */
+export const BASIC_A2UI_CATALOG_ID = basicFile.catalogId;
+
+/**
+ * The 43 official Basic-catalog examples' `{file, messages}` pairs, sorted by
+ * filename — the same corpus `web/src/test-fixtures/a2ui/v0_9_1/fixtures.ts`
+ * exposes to vitest (`A2UI_BASIC_EXAMPLES`) as a Vite `import.meta.glob`, read
+ * here with plain `fs` since this file runs as a standalone Node script, not
+ * through Vite. Used by the desktop JS smoke (S8 gact-tui#409 item 3) to
+ * prove the packaged bundle renders every example, not just the login form.
+ */
+export function allExampleMessages() {
+  return readdirSync(resolve(FIXTURES_ROOT, 'examples'))
+    .filter((name) => name.endsWith('.json') && name !== 'SOURCE.json')
+    .sort()
+    .map((file) => ({ file, messages: readJson(`examples/${file}`).messages }));
 }

@@ -120,7 +120,7 @@ but every omitted mutation and administration workflow remains open. Route count
 
 | Capability                             | Current state             | Remaining acceptance work                                                          |
 | -------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------- |
-| Official A2UI lifecycle and validation | Implemented, not accepted | Record the coordinated producer branch SHA and complete the final security corpus. |
+| Official A2UI lifecycle and validation | Implemented, not accepted | Record the coordinated producer branch SHA and complete the final security corpus (S9). |
 | Mermaid diagrams                       | Implemented, not accepted | Dense graph, keyboard/accessibility, invalid source evidence.                      |
 | Code                                   | Implemented, not accepted | Large code and language coverage.                                                  |
 | Tables                                 | Implemented, not accepted | Selection/action semantics and dense data.                                         |
@@ -128,6 +128,38 @@ but every omitted mutation and administration workflow remains open. Route count
 | Maps                                   | Implemented, not accepted | Dense geospatial layers, large-point behavior, and Tauri CSP/native validation.    |
 | Action round trip                      | Implemented, not accepted | Client-local canvas/focus browser evidence and final paired branch SHAs.           |
 | MCP Apps                               | Missing, separate path    | Sandboxed protocol implementation; never conflated with A2UI.                      |
+
+**S8 client-side evidence for "Official A2UI lifecycle and validation"** (gact-tui#409,
+companion of clio-agent#1374/#1363; row stays "Implemented, not accepted" — S9 owns the flip):
+
+- Library upgrade `@a2ui/react` 0.10.2 → 0.11.1, `@a2ui/web_core` 0.10.6 → 0.11.0 (`web/package.json`,
+  `packages/core/package.json`); the 43-example corpus suite
+  (`web/src/lib/a2ui/a2ui-corpus.test.tsx`) and the full S6 suite pass unmodified against it.
+- The S6-documented `and()`/`or()` nested-condition defect is fixed upstream in 0.11.0 — reverified
+  with the same standalone `DataContext.resolveDynamicValue` repro pattern (no app code); the e2e
+  per-field workaround is removed (`web/e2e/a2ui-fixtures.mjs`, `loginFormExampleMessages()` now
+  returns the vendored example byte-for-byte).
+- Owner decision 11's URL-scheme allowlist is now enforced on `openUrl` (the official Basic
+  catalog's implementation permits `http:`) by overriding it in the kernel function map
+  (`web/src/lib/a2ui/kernel-catalog.tsx`), with unit coverage for the allowed/blocked cases
+  (`web/src/lib/a2ui/kernel-catalog-open-url.test.tsx`).
+- The lifecycle footer (`a2ui-action-lifecycle.tsx`, built in S6) is wired into the transcript
+  surface with real data (`EntityState.a2ui_action_lifecycles`, threaded through
+  `ClioConversationProps.actionLifecycles`); a fixture-server e2e proves worded text for every
+  state and that the optimistic "Sending action" header shows only while pending
+  (`web/e2e/a2ui-action-lifecycle.spec.ts`).
+- Replay/degradation parity: the uninstalled-catalog placeholder card was already covered
+  (`a2ui-surface.test.tsx`, unaffected by the upgrade); new coverage proves a mid-selection
+  `ChoicePicker` choice survives both a refresh and a cursor reconnect that redeliver the
+  surface's own messages, and that a reconnect never re-sends an already-submitted action
+  (`web/src/components/clio/a2ui-surface.test.tsx`).
+- Desktop JS smoke: the exact bundle directory `tauri.conf.json`'s `build.frontendDist` names
+  renders all 43 examples in a real (non-jsdom) browser with zero console errors
+  (`desktop/tests/a2ui-corpus-smoke.test.mjs`, `pnpm --filter @clio/desktop test:corpus`, verified
+  passing twice locally). The
+  real native-WebView smoke (`webview-e2e.test.mjs`, `TAURI_E2E=1`) needs a built
+  `clio-desktop{.exe}` and `tauri-driver`; neither was built in this environment, so that path
+  was not exercised this slice.
 
 ## Native desktop and removal gates
 
