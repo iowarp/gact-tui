@@ -93,6 +93,35 @@ describe('ManagedServices', () => {
     expect(deployment.managedServiceCatalog).toHaveBeenCalledTimes(1);
   });
 
+  it('explains why a service cannot be installed on the selected target', async () => {
+    deployment.managedServiceCatalog.mockResolvedValue({
+      facts: {
+        target: 'local',
+        os: 'windows',
+        arch: 'x86_64',
+        accelerator: 'none',
+        docker_available: false,
+        uv_available: true,
+      },
+      services: services.map((service) =>
+        service.id === 'web_search'
+          ? {
+              ...service,
+              recommended_variant: '',
+              variants: service.variants.map((variant) => ({
+                ...variant,
+                compatible: false,
+                reason: 'Requires Docker.',
+              })),
+            }
+          : service,
+      ),
+    });
+    renderServices();
+
+    expect(await screen.findByText('Requires Docker.')).toBeVisible();
+  });
+
   it('keeps the infrastructure view usable while target inspection is pending', () => {
     deployment.managedServiceCatalog.mockReturnValue(new Promise(() => undefined));
     renderServices();

@@ -194,6 +194,9 @@ function ServiceCard({
   variant: string;
 }) {
   const compatible = service.variants.filter((item) => item.compatible);
+  const incompatibilityReasons = Array.from(
+    new Set(service.variants.filter((item) => !item.compatible).map((item) => item.reason)),
+  );
   const missing = service.configuration_fields.some(
     (field) => field.required && !configuration[field.id]?.trim(),
   );
@@ -215,7 +218,14 @@ function ServiceCard({
           </SelectContent>
         </Select>
       ) : (
-        <p className="mt-3 text-sm text-warning">No compatible pinned build was detected.</p>
+        <div className="mt-3 text-sm text-warning">
+          <p>No compatible pinned build was detected.</p>
+          {incompatibilityReasons.map((reason) => (
+            <p className="text-xs text-muted-foreground" key={reason}>
+              {reason}
+            </p>
+          ))}
+        </div>
       )}
       {service.configuration_fields.map((field) =>
         field.options?.length ? (
