@@ -1,6 +1,6 @@
 {
   "name": "@clio/workspace-root",
-  "version": "0.11.2",
+  "version": "0.11.1+patch.1",
   "private": true,
   "description": "CLIO web workspace and Tauri desktop host",
   "scripts": {
