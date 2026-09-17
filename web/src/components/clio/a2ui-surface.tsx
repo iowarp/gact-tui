@@ -12,6 +12,7 @@ import { AlertTriangleIcon, BoxesIcon } from 'lucide-react';
 import { Component, useCallback, useMemo, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { findLastSurfaceAction } from '@/lib/a2ui-state';
+import { cn } from '@/lib/utils';
 import { A2uiSurface, clioA2UICatalog } from './a2ui-catalog';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
@@ -122,13 +123,17 @@ export type A2UIRemoteActionHandler = (message: {
 }) => Promise<void>;
 
 function ClioA2UISurfaceContent({
+  chrome,
   onLocalAction,
   onRemoteAction,
   surface,
+  viewport,
 }: {
+  chrome: 'framed' | 'bare';
   onLocalAction?: A2UILocalActionHandler;
   onRemoteAction?: A2UIRemoteActionHandler;
   surface: DomainSurface;
+  viewport: 'inline' | 'fullscreen';
 }) {
   const repository = useRepository();
   const [localActionPending, setLocalActionPending] = useState(false);
@@ -202,6 +207,59 @@ function ClioA2UISurfaceContent({
     );
   }
   if (!processedSurface.model || surface.state === 'deleted') return null;
+  const renderedSurface = (
+    <div
+      className={
+        chrome === 'bare'
+          ? '[--a2ui-tabs-content-padding:0]'
+          : 'p-3 [--a2ui-tabs-content-padding:0]'
+      }
+    >
+      <MarkdownContext.Provider value={renderMarkdown}>
+        <A2uiSurface surface={processedSurface.model} />
+      </MarkdownContext.Provider>
+    </div>
+  );
+  const surfaceFeedback = (
+    <>
+      {isPending || localActionPending || localActionStatus || lastAction ? (
+        <div aria-live="polite" className="border-t px-4 py-2 text-xs">
+          <ClioStatus
+            label={
+              isPending
+                ? `Sending action to ${brand.name}`
+                : localActionPending
+                  ? 'Applying action in this workspace'
+                  : localActionStatus || acceptedActionLabel(lastAction?.name)
+            }
+            value={isPending || localActionPending ? 'running' : 'completed'}
+          />
+        </div>
+      ) : null}
+      {error || localActionError ? (
+        <p className="border-t px-4 py-2 text-xs text-destructive">
+          {localActionError || error?.message}
+        </p>
+      ) : null}
+    </>
+  );
+  if (chrome === 'bare') {
+    return (
+      <section
+        aria-label={`Interactive surface, ${surfaceKind}`}
+        className={cn(
+          'scroll-m-8 min-w-0 focus:outline-2 focus:outline-offset-2 focus:outline-primary',
+          viewport === 'fullscreen' &&
+            'min-h-full [&_[data-slot=a2ui-map]]:h-[calc(100dvh-7rem)] [&_[data-slot=a2ui-map]>[data-slot=frame]]:h-full',
+        )}
+        id={a2uiSurfaceDomId(surface.id)}
+        tabIndex={-1}
+      >
+        {renderedSurface}
+        {surfaceFeedback}
+      </section>
+    );
+  }
   return (
     <section
       aria-label={`Generated UI, ${surfaceKind}`}
@@ -227,30 +285,8 @@ function ClioA2UISurfaceContent({
           />
         ) : null}
       </div>
-      <div className="p-3 [--a2ui-tabs-content-padding:0]">
-        <MarkdownContext.Provider value={renderMarkdown}>
-          <A2uiSurface surface={processedSurface.model} />
-        </MarkdownContext.Provider>
-      </div>
-      {isPending || localActionPending || localActionStatus || lastAction ? (
-        <div aria-live="polite" className="border-t px-4 py-2 text-xs">
-          <ClioStatus
-            label={
-              isPending
-                ? `Sending action to ${brand.name}`
-                : localActionPending
-                  ? 'Applying action in this workspace'
-                  : localActionStatus || acceptedActionLabel(lastAction?.name)
-            }
-            value={isPending || localActionPending ? 'running' : 'completed'}
-          />
-        </div>
-      ) : null}
-      {error || localActionError ? (
-        <p className="border-t px-4 py-2 text-xs text-destructive">
-          {localActionError || error?.message}
-        </p>
-      ) : null}
+      {renderedSurface}
+      {surfaceFeedback}
     </section>
   );
 }
@@ -273,20 +309,26 @@ function acceptedActionLabel(name: string | undefined): string {
 }
 
 export function ClioA2UISurface({
+  chrome = 'framed',
   onLocalAction,
   onRemoteAction,
   surface,
+  viewport = 'inline',
 }: {
+  chrome?: 'framed' | 'bare';
   onLocalAction?: A2UILocalActionHandler;
   onRemoteAction?: A2UIRemoteActionHandler;
   surface: DomainSurface;
+  viewport?: 'inline' | 'fullscreen';
 }) {
   return (
     <SurfaceBoundary key={`${surface.id}:${surface.revision}`}>
       <ClioA2UISurfaceContent
+        chrome={chrome}
         onLocalAction={onLocalAction}
         onRemoteAction={onRemoteAction}
         surface={surface}
+        viewport={viewport}
       />
     </SurfaceBoundary>
   );

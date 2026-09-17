@@ -631,6 +631,55 @@ describe('ClioPendingInteractions', () => {
     expect(repository.a2uiAction).not.toHaveBeenCalled();
   });
 
+  it('flattens a pending A2UI surface and can open it in a full-window view', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('a2ui', {
+      id: 'a2ui:sess_child:surface_1',
+      prompt: 'Choose an observed EarthScope station',
+      source: { protocol: 'native', surface_id: 'surface_1' },
+      actions: ['form.submit'],
+    });
+    renderPending([interaction], { surfaces: { surface_1: actionSurface() } });
+
+    expect(screen.queryByText('Generated UI')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Resize interactive surface' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Open interactive surface full screen' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeVisible();
+    expect(dialog).toHaveTextContent('Choose an observed EarthScope station');
+    expect(screen.getByRole('button', { name: 'Submit selection' })).toBeVisible();
+  });
+
+  it('lets pointer and keyboard users resize a pending A2UI viewport', async () => {
+    const user = userEvent.setup();
+    const interaction = pending('a2ui', {
+      id: 'a2ui:sess_child:surface_1',
+      source: { protocol: 'native', surface_id: 'surface_1' },
+      actions: ['form.submit'],
+    });
+    renderPending([interaction], { surfaces: { surface_1: actionSurface() } });
+
+    const resize = screen.getByRole('button', { name: 'Resize interactive surface' });
+    const viewport = screen
+      .getByRole('button', { name: 'Submit selection' })
+      .closest('[data-slot="a2ui-response-viewport"]');
+    expect(viewport).toHaveStyle({ height: '480px' });
+
+    Object.assign(resize, {
+      setPointerCapture: vi.fn(),
+      hasPointerCapture: vi.fn(() => true),
+      releasePointerCapture: vi.fn(),
+    });
+    fireEvent.pointerDown(resize, { buttons: 1, clientY: 200, pointerId: 1 });
+    fireEvent.pointerMove(resize, { buttons: 1, clientY: 240, pointerId: 1 });
+    fireEvent.pointerUp(resize, { clientY: 240, pointerId: 1 });
+    expect(viewport).toHaveStyle({ height: '520px' });
+
+    await user.click(resize);
+    expect(viewport).toHaveStyle({ height: '552px' });
+  });
+
   it("falls back to the interaction's invocation_id when the surface has no part_id", async () => {
     const user = userEvent.setup();
     const surface: A2UISurface = { ...actionSurface(), part_id: undefined };
@@ -662,7 +711,7 @@ describe('ClioPendingInteractions', () => {
 
     const panel = screen
       .getByRole('button', { name: 'Submit selection' })
-      .closest('[data-slot="frame-panel"]');
+      .closest('[data-slot="a2ui-response-viewport"]');
     expect(panel).toHaveClass('opacity-70');
     expect(panel).not.toHaveClass('opacity-60');
   });

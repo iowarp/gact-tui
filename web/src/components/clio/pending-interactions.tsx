@@ -1,12 +1,14 @@
 import type { A2UISurface, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import {
   AlertTriangleIcon,
+  GripHorizontalIcon,
   LoaderCircleIcon,
+  Maximize2Icon,
   MessageCircleQuestionIcon,
   RotateCcwIcon,
   ShieldQuestionIcon,
 } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { type PointerEvent as ReactPointerEvent, useCallback, useRef, useState } from 'react';
 import {
   Confirmation,
   ConfirmationAction,
@@ -25,6 +27,7 @@ import {
 import { Frame, FramePanel } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
   Field,
   FieldContent,
@@ -91,6 +94,7 @@ export function ClioPendingInteractions({
     (interaction) =>
       interaction.status === 'pending' && interaction.requires_human_response !== false,
   );
+  const hasInteractiveSurface = pending.some((interaction) => interaction.kind === 'a2ui');
   const handleResponse = useCallback(
     async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
       if (responseInFlight.current.has(interaction.id)) return;
@@ -139,7 +143,10 @@ export function ClioPendingInteractions({
         </QueueSectionTrigger>
         <QueueSectionContent className="flex min-h-0 flex-col">
           <ScrollArea
-            className="max-h-[min(22rem,40dvh)] min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50"
+            className={cn(
+              'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
+              hasInteractiveSurface ? 'max-h-[72dvh]' : 'max-h-[min(22rem,40dvh)]',
+            )}
             scrollHideDelay={500}
             type="hover"
             viewportProps={{
@@ -679,41 +686,130 @@ function A2UIResponse({
   responseError?: Error;
   showOwner: boolean;
 }) {
-  return (
-    <Frame
-      className="min-w-0 self-stretch border-violet-500/25 bg-violet-500/[0.04]"
-      data-interaction-kind={interaction.kind}
-      dense
-      spacing="sm"
-    >
-      <InteractionFrameHeader
-        interaction={interaction}
-        onCancel={
-          (interaction.actions ?? []).includes('cancel')
-            ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
-            : undefined
+  const [fullscreen, setFullscreen] = useState(false);
+  const maximumViewportHeight = () => Math.max(320, Math.floor(window.innerHeight * 0.72));
+  const [viewportHeight, setViewportHeight] = useState(() =>
+    Math.min(480, maximumViewportHeight()),
+  );
+  const resizeStart = useRef<{ y: number; height: number } | null>(null);
+  const resizeViewport = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const start = resizeStart.current;
+    if (!start || event.buttons === 0) return;
+    const maximumHeight = maximumViewportHeight();
+    setViewportHeight(
+      Math.min(maximumHeight, Math.max(320, start.height + event.clientY - start.y)),
+    );
+  };
+  const stopResizing = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    resizeStart.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+  const controls = (
+    <>
+      <Button
+        aria-label="Resize interactive surface"
+        className="cursor-ns-resize touch-none"
+        onClick={() =>
+          setViewportHeight((current) =>
+            current < maximumViewportHeight() ? maximumViewportHeight() : 320,
+          )
         }
-        ownerLabel={ownerLabel}
-        showOwner={showOwner}
-      />
-      <FramePanel
-        className={cn(
-          'p-2',
-          // 0.7, not 0.5/0.6, is this repo's WCAG AA contrast floor for a
-          // dimmed-but-readable disabled surface (see reui/sortable.tsx).
-          disabled && 'pointer-events-none opacity-70',
-        )}
+        onPointerCancel={stopResizing}
+        onPointerDown={(event) => {
+          resizeStart.current = { y: event.clientY, height: viewportHeight };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={resizeViewport}
+        onPointerUp={stopResizing}
+        size="icon-sm"
+        title="Drag or activate to resize interactive surface"
+        type="button"
+        variant="ghost"
       >
-        <ResponseErrorNotice error={responseError} />
-        <A2UISurfaceBody
+        <GripHorizontalIcon aria-hidden="true" />
+      </Button>
+      <Button
+        aria-label="Open interactive surface full screen"
+        onClick={() => setFullscreen(true)}
+        size="icon-sm"
+        title="Open full screen"
+        type="button"
+        variant="ghost"
+      >
+        <Maximize2Icon aria-hidden="true" />
+      </Button>
+    </>
+  );
+  return (
+    <>
+      <Frame
+        className="min-w-0 self-stretch rounded-none bg-transparent p-0"
+        data-interaction-kind={interaction.kind}
+        dense
+        spacing="sm"
+        variant="ghost"
+      >
+        <InteractionFrameHeader
+          actions={controls}
+          disabled={disabled}
           interaction={interaction}
-          onLocalAction={onLocalAction}
-          onRefetchSurface={onRefetchSurface}
-          onResponse={onResponse}
-          rawSurface={rawSurface}
+          onCancel={
+            (interaction.actions ?? []).includes('cancel')
+              ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
+              : undefined
+          }
+          ownerLabel={ownerLabel}
+          showOwner={showOwner}
         />
-      </FramePanel>
-    </Frame>
+        <div
+          className={cn(
+            'min-h-80 min-w-0 overflow-auto overscroll-contain border-t border-border/60',
+            // 0.7, not 0.5/0.6, is this repo's WCAG AA contrast floor for a
+            // dimmed-but-readable disabled surface (see reui/sortable.tsx).
+            disabled && 'pointer-events-none opacity-70',
+          )}
+          data-slot="a2ui-response-viewport"
+          style={{ height: viewportHeight }}
+        >
+          <ResponseErrorNotice error={responseError} />
+          {fullscreen ? null : (
+            <A2UISurfaceBody
+              chrome="bare"
+              interaction={interaction}
+              onLocalAction={onLocalAction}
+              onRefetchSurface={onRefetchSurface}
+              onResponse={onResponse}
+              rawSurface={rawSurface}
+            />
+          )}
+        </div>
+      </Frame>
+      <Dialog onOpenChange={setFullscreen} open={fullscreen}>
+        <DialogContent
+          aria-describedby={undefined}
+          className="grid h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg p-0 sm:max-w-none"
+        >
+          <DialogTitle className="border-b px-4 py-3 pr-12 text-sm">
+            {interaction.prompt ?? interaction.title ?? 'Interactive surface'}
+          </DialogTitle>
+          <div className="min-h-0 overflow-auto overscroll-contain p-3">
+            {fullscreen ? (
+              <A2UISurfaceBody
+                chrome="bare"
+                interaction={interaction}
+                onLocalAction={onLocalAction}
+                onRefetchSurface={onRefetchSurface}
+                onResponse={onResponse}
+                rawSurface={rawSurface}
+                viewport="fullscreen"
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -724,17 +820,21 @@ function A2UIResponse({
  * session is a security-relevant rejection, not a slow read.
  */
 function A2UISurfaceBody({
+  chrome = 'framed',
   interaction,
   onLocalAction,
   onRefetchSurface,
   onResponse,
   rawSurface,
+  viewport = 'inline',
 }: {
+  chrome?: 'framed' | 'bare';
   interaction: PendingInteraction;
   onLocalAction?: A2UILocalActionHandler;
   onRefetchSurface?: () => void;
   onResponse: ClioPendingInteractionsProps['onResponse'];
   rawSurface?: A2UISurface;
+  viewport?: 'inline' | 'fullscreen';
 }) {
   if (!interaction.source.surface_id) {
     return (
@@ -768,6 +868,7 @@ function A2UISurfaceBody({
   }
   return (
     <ClioA2UISurface
+      chrome={chrome}
       onLocalAction={onLocalAction}
       onRemoteAction={(message) =>
         onResponse(interaction, {
@@ -776,6 +877,7 @@ function A2UISurfaceBody({
         })
       }
       surface={rawSurface}
+      viewport={viewport}
     />
   );
 }
