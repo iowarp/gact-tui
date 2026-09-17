@@ -104,6 +104,7 @@ func runChild(rt *resolvedRuntime, args cliArgs) int {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = spawnEnv(rt, args)
+	configureChild(cmd)
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "sidecar-launcher: failed to spawn %s: %v\n", argv[0], err)
 		return exitExecFailed

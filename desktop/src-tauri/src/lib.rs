@@ -135,6 +135,18 @@ pub fn run() {
                 let _ = sidecar_setup::install_bundled_runtime_env(&resource_dir);
             }
 
+            let desktop_workspace = app
+                .path()
+                .app_local_data_dir()
+                .map_err(|error| format!("resolve desktop app-data directory: {error}"))
+                .and_then(|app_data| {
+                    sidecar_setup::prepare_desktop_workspace(&app_data)
+                        .map_err(|error| format!("prepare desktop workspace: {error}"))
+                })?;
+            supervisor_boot_log::boot_log_line(&format!(
+                "managed backend workspace={desktop_workspace:?}"
+            ));
+
             // Kick off the backend boot — AFTER the env var above so a spawned
             // launcher sees it. Managed brands locate + spawn the bundled
             // launcher (a missing one is an Error card); connect-mode brands
@@ -143,7 +155,8 @@ pub fn run() {
             // message instead of treating the absent launcher as a failure.
             {
                 let sup = app.state::<Mutex<Supervisor>>();
-                let sup = supervisor_state::lock_recover(&sup);
+                let mut sup = supervisor_state::lock_recover(&sup);
+                sup.set_working_dir(desktop_workspace);
                 if brand_backend::is_managed_install() {
                     match supervisor::locate_launcher() {
                         Ok(launcher) => sup.start(launcher),

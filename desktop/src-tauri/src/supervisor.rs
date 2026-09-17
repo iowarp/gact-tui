@@ -32,6 +32,7 @@ use crate::supervisor_types::{BackendHandle, BackendStatus};
 /// Internal state owned by the Tauri runtime.
 pub struct Supervisor {
     state: SupervisorState,
+    working_dir: Option<PathBuf>,
 }
 
 impl Supervisor {
@@ -41,7 +42,13 @@ impl Supervisor {
     pub fn new() -> Self {
         Self {
             state: SupervisorState::new_starting(),
+            working_dir: None,
         }
+    }
+
+    /// Sets the stable workspace used by a managed desktop backend.
+    pub fn set_working_dir(&mut self, working_dir: PathBuf) {
+        self.working_dir = Some(working_dir);
     }
 
     /// Reads the current backend handle (cheap clone of a small struct).
@@ -65,8 +72,9 @@ impl Supervisor {
     /// in play without us needing to mirror their env.
     pub fn start(&self, launcher: PathBuf) {
         let state = self.state.clone();
+        let working_dir = self.working_dir.clone();
         thread::spawn(move || {
-            boot_sidecar(state, launcher);
+            boot_sidecar(state, launcher, working_dir);
         });
     }
 
@@ -150,7 +158,7 @@ mod tests {
                 return;
             }
         };
-        let (handle, child) = match spawn_and_probe(&launcher) {
+        let (handle, child) = match spawn_and_probe(&launcher, None) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("skip: spawn failed (no resolvable clio-agent-gact?): {e:?}");

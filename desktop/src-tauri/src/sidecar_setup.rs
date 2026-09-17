@@ -28,6 +28,16 @@ pub(crate) fn model_cache_dir(app_cache_dir: &Path) -> PathBuf {
     app_cache_dir.join("huggingface")
 }
 
+pub(crate) fn desktop_workspace_dir(app_local_data_dir: &Path) -> PathBuf {
+    app_local_data_dir.join("workspace")
+}
+
+pub(crate) fn prepare_desktop_workspace(app_local_data_dir: &Path) -> io::Result<PathBuf> {
+    let workspace = desktop_workspace_dir(app_local_data_dir);
+    fs::create_dir_all(&workspace)?;
+    Ok(workspace)
+}
+
 /// Configure one persistent model cache for this OS user and packaged app.
 ///
 /// Tauri's app cache directory is keyed by the bundle identifier, so the cache
@@ -105,6 +115,12 @@ mod tests {
     fn model_cache_is_scoped_to_the_platform_app_cache() {
         let cache = Path::new("platform-cache");
         assert_eq!(model_cache_dir(cache), cache.join("huggingface"));
+    }
+
+    #[test]
+    fn desktop_workspace_is_scoped_to_platform_app_data() {
+        let app_data = Path::new("platform-data");
+        assert_eq!(desktop_workspace_dir(app_data), app_data.join("workspace"));
     }
 
     /// Both branches in one test: these are process-wide environment variables,

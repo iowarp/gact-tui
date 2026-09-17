@@ -45,7 +45,10 @@ impl From<String> for SpawnError {
     }
 }
 
-pub(crate) fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), SpawnError> {
+pub(crate) fn spawn_and_probe(
+    launcher: &Path,
+    working_dir: Option<&Path>,
+) -> Result<(BackendHandle, Child), SpawnError> {
     let port = pick_free_port().map_err(|e| format!("port allocation failed: {e}"))?;
     let token = generate_token();
     let url = format!("http://{LAUNCHER_HOST}:{port}");
@@ -53,7 +56,7 @@ pub(crate) fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child),
     boot_log_line(&format!(
         "spawning launcher {launcher:?} on {LAUNCHER_HOST}:{port}"
     ));
-    let mut command = launcher_spawn_command(launcher, port, &token);
+    let mut command = launcher_spawn_command(launcher, port, &token, working_dir);
 
     #[cfg(unix)]
     {

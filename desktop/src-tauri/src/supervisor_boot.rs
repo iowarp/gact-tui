@@ -16,7 +16,11 @@ use crate::supervisor_spawn::{spawn_and_probe, SpawnError};
 use crate::supervisor_state::SupervisorState;
 use crate::supervisor_types::BackendStatus;
 
-pub(crate) fn boot_sidecar(state: SupervisorState, launcher: PathBuf) {
+pub(crate) fn boot_sidecar(
+    state: SupervisorState,
+    launcher: PathBuf,
+    working_dir: Option<PathBuf>,
+) {
     // Fresh transcript for this boot attempt so a later failure's
     // "Open logs" shows only the relevant run.
     reset_boot_log("boot");
@@ -29,7 +33,7 @@ pub(crate) fn boot_sidecar(state: SupervisorState, launcher: PathBuf) {
     }
 
     // 2. Otherwise spawn our own.
-    let outcome = spawn_and_probe(&launcher);
+    let outcome = spawn_and_probe(&launcher, working_dir.as_deref());
     match outcome {
         Ok((handle, child)) => {
             state.set_handle_and_child(handle, child);
