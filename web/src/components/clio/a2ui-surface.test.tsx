@@ -4,23 +4,31 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLIO_A2UI_CATALOG_ID, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
+import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
 import { ClioA2UISurface } from './a2ui-surface';
 
 const repository = vi.hoisted(() => ({
   a2uiAction: vi.fn().mockResolvedValue({ status: 'accepted' }),
   a2uiCatalogs: vi.fn(),
+  a2uiCapabilities: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 beforeEach(() => {
   repository.a2uiCatalogs.mockResolvedValue([CLIO_WORKSPACE_CATALOG_ROW]);
+  repository.a2uiCapabilities.mockResolvedValue({
+    agent: { 'v0.9': { supportedCatalogIds: [CLIO_WORKSPACE_CATALOG_ROW.catalogId] } },
+    client: null,
+    selection: null,
+  });
 });
 
 afterEach(() => {
   cleanup();
   repository.a2uiAction.mockClear();
   repository.a2uiCatalogs.mockClear();
+  repository.a2uiCapabilities.mockClear();
   vi.restoreAllMocks();
 });
 
@@ -62,7 +70,9 @@ function renderSurface(surface: A2UISurface) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <ClioA2UISurface surface={surface} />
+      <A2uiSessionRegistryOwner sessionId={surface.session_id}>
+        <ClioA2UISurface surface={surface} />
+      </A2uiSessionRegistryOwner>
     </QueryClientProvider>,
   );
 }

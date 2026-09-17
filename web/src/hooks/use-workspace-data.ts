@@ -28,6 +28,7 @@ import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
+import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { useRepository } from './use-repository';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
@@ -54,6 +55,11 @@ export function useWorkspaceData({
 }: UseWorkspaceDataInput) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
+  // Owns the A2UI catalog registry + client-metadata advertisement for this
+  // session's whole lifetime — a surface mounting/unmounting must never
+  // clear it (docs/design/a2ui-compat-campaign-2026-09.md S6 adversarial
+  // review, BLOCKING). Surfaces only ever consume it (a2ui-surface.tsx).
+  useA2uiSessionRegistry(sessionId);
   const entityArtifacts = useLiveStore((state) => state.entities.artifacts);
   const entityContext = useLiveStore((state) => state.entities.context);
   const entityRuns = useLiveStore((state) => state.entities.runs);

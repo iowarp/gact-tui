@@ -4,6 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLIO_A2UI_CATALOG_ID, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
+import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
 import { ClioPendingInteractions } from './pending-interactions';
 
 // Split out of pending-interactions.test.tsx by behavior (CLIO-owned
@@ -13,18 +14,25 @@ import { ClioPendingInteractions } from './pending-interactions';
 const repository = vi.hoisted(() => ({
   a2uiAction: vi.fn().mockResolvedValue({ status: 'accepted' }),
   a2uiCatalogs: vi.fn(),
+  a2uiCapabilities: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 beforeEach(() => {
   repository.a2uiCatalogs.mockResolvedValue([CLIO_WORKSPACE_CATALOG_ROW]);
+  repository.a2uiCapabilities.mockResolvedValue({
+    agent: { 'v0.9': { supportedCatalogIds: [CLIO_WORKSPACE_CATALOG_ROW.catalogId] } },
+    client: null,
+    selection: null,
+  });
 });
 
 afterEach(() => {
   cleanup();
   repository.a2uiAction.mockClear();
   repository.a2uiCatalogs.mockClear();
+  repository.a2uiCapabilities.mockClear();
 });
 
 function pending(
@@ -94,18 +102,29 @@ function renderPending(
 ) {
   const onResponse = options.onResponse ?? vi.fn(async () => undefined);
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const sessionIds = [
+    ...new Set(Object.values(options.surfaces ?? {}).map((surface) => surface.session_id)),
+  ];
+  const tree = (
+    <ClioPendingInteractions
+      disabled={options.disabled}
+      error={options.error}
+      interactions={interactions}
+      onRefetchSurfaces={options.onRefetchSurfaces}
+      onResponse={onResponse}
+      ownerLabels={options.ownerLabels ?? { sess_child: 'Evidence specialist' }}
+      surfaces={options.surfaces}
+      viewedSessionId={options.viewedSessionId ?? 'sess_root'}
+    />
+  );
   render(
     <QueryClientProvider client={client}>
-      <ClioPendingInteractions
-        disabled={options.disabled}
-        error={options.error}
-        interactions={interactions}
-        onRefetchSurfaces={options.onRefetchSurfaces}
-        onResponse={onResponse}
-        ownerLabels={options.ownerLabels ?? { sess_child: 'Evidence specialist' }}
-        surfaces={options.surfaces}
-        viewedSessionId={options.viewedSessionId ?? 'sess_root'}
-      />
+      {sessionIds.reduceRight(
+        (children, sessionId) => (
+          <A2uiSessionRegistryOwner sessionId={sessionId}>{children}</A2uiSessionRegistryOwner>
+        ),
+        tree,
+      )}
     </QueryClientProvider>,
   );
   return onResponse;

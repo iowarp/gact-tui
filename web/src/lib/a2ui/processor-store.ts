@@ -1,6 +1,7 @@
 import {
-  A2uiCatalogRegistry,
   buildA2uiClientCapabilities,
+  buildA2uiClientDataModel,
+  orderSupportedCatalogIds,
   setA2uiClientMetadataProvider,
 } from '@clio/core/v3';
 import type { A2UISurface } from '@clio/core/v3';
@@ -13,60 +14,92 @@ import {
 } from '@a2ui/web_core/v0_9';
 import type { ReactComponentImplementation } from '@a2ui/react/v0_9';
 import { useQuery } from '@tanstack/react-query';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
-import { KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from './kernel-catalog';
-import { wrapKernelComponentWithPresets } from './kernel-presets';
-
-const KERNEL = { components: KERNEL_COMPONENTS, functions: KERNEL_FUNCTIONS };
+import {
+  collectA2uiClientDataModelSurfaces,
+  disposeA2uiSessionRegistry,
+  loadA2uiSessionCatalogs,
+  registerA2uiSurfaceProcessor,
+  registrySnapshotSync,
+  unregisterA2uiSurfaceProcessor,
+  useA2uiRegistrySnapshot,
+  type A2uiRegistrySnapshot,
+} from './registry-store';
 
 /**
- * Resolves this session's producible catalogs against the kernel and
- * advertises `supportedCatalogIds` for every repository door
- * (`packages/core/src/v3/a2ui/client-metadata.ts`) for as long as a surface
- * from this session is mounted.
+ * OWNER — call exactly once per open session, from the session's own data
+ * hook (`web/src/hooks/use-workspace-data.ts`), never from a surface. Fetches
+ * this session's catalogs and its agent capability preference order, resolves
+ * them into the session-lifetime registry (`registry-store.ts`), and
+ * registers the ONE client-metadata provider for every repository door —
+ * alive for as long as the session itself is open, not tied to whether any
+ * surface happens to be mounted right now (S6 adversarial review, BLOCKING:
+ * a surface scrolling away must never clear the advertisement, and a session
+ * with no surface at all must still advertise on its first message).
  */
-export function useA2uiCatalogRegistry(sessionId: string): {
-  registry: A2uiCatalogRegistry<ReactComponentImplementation>;
-  catalogs: Catalog<ReactComponentImplementation>[];
-  isLoading: boolean;
-} {
+export function useA2uiSessionRegistry(sessionId: string): void {
   const repository = useRepository();
-  // Lazy `useState` initializer: created once, never touched again except
-  // through its own methods (never reassigned), so this is not a "ref read
-  // during render" — it is ordinary state identity.
-  const [registry] = useState(
-    () => new A2uiCatalogRegistry<ReactComponentImplementation>(KERNEL, wrapKernelComponentWithPresets),
-  );
 
-  const { data: rows, isLoading } = useQuery({
+  const { data: rows, isLoading: rowsLoading } = useQuery({
     queryKey: ['a2ui-catalogs', sessionId],
     queryFn: ({ signal }) => repository.a2uiCatalogs(sessionId, signal),
     enabled: Boolean(sessionId),
     staleTime: 60_000,
   });
 
-  const catalogs = useMemo(() => {
-    registry.load(rows ?? []);
-    return registry.catalogs();
-  }, [registry, rows]);
+  const { data: capabilities } = useQuery({
+    queryKey: ['a2ui-capabilities', sessionId],
+    queryFn: ({ signal }) => repository.a2uiCapabilities(sessionId, signal),
+    enabled: Boolean(sessionId),
+    staleTime: 60_000,
+  });
 
   useLayoutEffect(() => {
-    const supportedCatalogIds = registry.supportedCatalogIds();
-    setA2uiClientMetadataProvider((requestedSessionId) =>
-      requestedSessionId === sessionId
-        ? { a2uiClientCapabilities: buildA2uiClientCapabilities(supportedCatalogIds) }
-        : {},
-    );
-    return () => setA2uiClientMetadataProvider(undefined);
-  }, [sessionId, registry, catalogs]);
+    if (!sessionId) return;
+    loadA2uiSessionCatalogs(sessionId, rows, rowsLoading && !rows);
+  }, [sessionId, rows, rowsLoading]);
 
-  return { registry, catalogs, isLoading: isLoading && !rows };
+  useLayoutEffect(() => {
+    if (!sessionId) return undefined;
+    return () => {
+      setA2uiClientMetadataProvider(undefined);
+      disposeA2uiSessionRegistry(sessionId);
+    };
+  }, [sessionId]);
+
+  useLayoutEffect(() => {
+    if (!sessionId) return;
+    const preferenceOrder = capabilities?.agent['v0.9'].supportedCatalogIds ?? [];
+    setA2uiClientMetadataProvider((requestedSessionId) => {
+      if (requestedSessionId !== sessionId) return {};
+      // A plain callback invoked outside React (not a hook), so it reads the
+      // shared store through its non-hook accessor.
+      const resolvedIds = registrySnapshotSync(sessionId).registry.supportedCatalogIds();
+      const orderedIds = orderSupportedCatalogIds(resolvedIds, preferenceOrder);
+      const dataModelSurfaces = collectA2uiClientDataModelSurfaces(sessionId);
+      return {
+        a2uiClientCapabilities: buildA2uiClientCapabilities(orderedIds),
+        a2uiClientDataModel: buildA2uiClientDataModel(dataModelSurfaces),
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, rows, capabilities]);
+}
+
+/**
+ * CONSUMER — read the session-lifetime registry a surface's session already
+ * has open. Never fetches, never registers the metadata provider, and is
+ * unaffected by any other surface mounting or unmounting.
+ */
+export function useA2uiCatalogRegistry(sessionId: string): A2uiRegistrySnapshot {
+  return useA2uiRegistrySnapshot(sessionId);
 }
 
 export interface A2uiProcessorFailure {
-  code: 'processor_error';
+  code: 'processor_error' | 'catalog_unresolved';
   message: string;
+  reason?: { code: string; detail: string };
 }
 
 export interface A2uiProcessorResult {
@@ -94,7 +127,9 @@ const EMPTY_RESULT: A2uiProcessorResult = {};
  * `surface.dispatchError` (the URL-scheme guard, `checks`, or any other
  * client-detected violation) reaches the server the same way a processor
  * throw during `processMessages` reaches the UI: one pipe, no duplicate
- * wiring.
+ * wiring. The processor also registers itself with the session-lifetime
+ * registry store so the ONE metadata provider can aggregate
+ * `getClientDataModel()` across every live `sendDataModel` surface (S6 item 3).
  *
  * All mutable state lives behind a ref and is only ever touched inside
  * `useLayoutEffect` (never during the render body itself) so the surface's
@@ -116,10 +151,11 @@ export function useA2uiSurfaceModel(
     return () => {
       entryRef.current?.errorUnsubscribe();
       entryRef.current = undefined;
+      unregisterA2uiSurfaceProcessor(surface.session_id, surface.id);
     };
     // Torn down only when the surface identity itself changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surface.id]);
+  }, [surface.id, surface.session_id]);
 
   useLayoutEffect(() => {
     // The registry has not resolved this session's catalogs yet — an empty
@@ -143,6 +179,7 @@ export function useA2uiSurfaceModel(
         errorSubscribed: false,
         errorUnsubscribe: () => undefined,
       };
+      registerA2uiSurfaceProcessor(surface.session_id, surface.id, processor);
     }
     const entry = entryRef.current;
 
