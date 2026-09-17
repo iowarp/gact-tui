@@ -62,3 +62,39 @@ it('shows saved service addresses and prevents selecting an unavailable service'
   await user.click(offline);
   expect(onConnect).not.toHaveBeenCalled();
 });
+
+it('explains the active service status when its indicator is hovered', async () => {
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter>
+      <SidebarProvider>
+        <NavigationHeader
+          activeLabel="This device"
+          connectionAvailabilities={{
+            'http://127.0.0.1:8788': {
+              state: 'degraded',
+              label: 'Limited',
+              detail: 'No model is selected yet.',
+            },
+          }}
+          currentPath="/"
+          endpoint="http://127.0.0.1:8788"
+          onConnect={vi.fn()}
+          onImportSession={vi.fn()}
+          onNewSession={vi.fn()}
+          onNewWorkspace={vi.fn()}
+          onOpenArchived={vi.fn()}
+          recentConnections={[{ endpoint: 'http://127.0.0.1:8788', label: 'This device' }]}
+        />
+      </SidebarProvider>
+    </MemoryRouter>,
+  );
+
+  await user.hover(
+    screen.getByRole('img', {
+      name: 'Service status: Limited. No model is selected yet.',
+    }),
+  );
+
+  expect(await screen.findByText('No model is selected yet.')).toBeVisible();
+});
