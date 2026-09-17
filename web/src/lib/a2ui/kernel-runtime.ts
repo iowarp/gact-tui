@@ -22,6 +22,19 @@ export interface A2uiOpenArtifactRuntime {
   onOpenArtifact: (artifact: Artifact) => void;
 }
 
+/**
+ * The bare id inside an `artifact://artifact_XXX` URI, mirroring
+ * `a2ui-artifact.tsx`'s own extraction — `openArtifact`'s sole declared arg
+ * is `uri` (the official catalog function contract), so matching "by id" (as
+ * the deleted `use-a2ui-local-actions.ts` did against `artifact_id` /
+ * `artifactId` / `id` context keys) means deriving the id from the URI the
+ * same way, not accepting extra undeclared args.
+ */
+function artifactIdFromUri(uri: string): string | undefined {
+  const value = uri.startsWith('artifact://') ? uri.slice('artifact://'.length) : uri;
+  return value.startsWith('artifact_') && !value.includes('/') ? value : undefined;
+}
+
 let activeRuntime: A2uiOpenArtifactRuntime | undefined;
 
 export function setActiveA2uiOpenArtifactRuntime(
@@ -47,10 +60,14 @@ export function useA2uiOpenArtifactRuntime(
   useEffect(() => {
     const runtime: A2uiOpenArtifactRuntime = {
       sessionId,
-      findArtifact: (uri) =>
-        Object.values(artifacts).find(
-          (candidate) => candidate.session_id === sessionId && candidate.uri === uri,
-        ),
+      findArtifact: (uri) => {
+        const id = artifactIdFromUri(uri);
+        return Object.values(artifacts).find(
+          (candidate) =>
+            candidate.session_id === sessionId &&
+            (candidate.uri === uri || (id !== undefined && candidate.id === id)),
+        );
+      },
       onOpenArtifact,
     };
     setActiveA2uiOpenArtifactRuntime(runtime);

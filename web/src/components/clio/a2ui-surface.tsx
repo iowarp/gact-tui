@@ -6,9 +6,9 @@ import {
 import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
 import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangleIcon, BoxesIcon, Loader2Icon } from 'lucide-react';
-import { Component, useCallback, type ErrorInfo, type ReactNode } from 'react';
+import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { A2uiSurface } from '@/lib/a2ui/kernel-catalog';
 import { useA2uiCatalogRegistry, useA2uiSurfaceModel } from '@/lib/a2ui/processor-store';
@@ -17,7 +17,7 @@ import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 
-function SurfaceFailure({ message }: { message: string }) {
+function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
   return (
     <section
       aria-label="Interactive agent surface unavailable"
@@ -33,7 +33,7 @@ function SurfaceFailure({ message }: { message: string }) {
       </p>
       <details className="border-t border-destructive/20 px-4 py-2 text-xs text-muted-foreground">
         <summary className="cursor-pointer">Validation detail</summary>
-        <p className="mt-2 font-mono">{message}</p>
+        <p className="mt-2 font-mono">{detail ?? message}</p>
       </details>
     </section>
   );
@@ -117,7 +117,12 @@ function ClioA2UISurfaceContent({
   surface: DomainSurface;
 }) {
   const repository = useRepository();
-  const { catalogs, isLoading: catalogsLoading } = useA2uiCatalogRegistry(surface.session_id);
+  const queryClient = useQueryClient();
+  const { registry, catalogs, isLoading: catalogsLoading } = useA2uiCatalogRegistry(
+    surface.session_id,
+  );
+  const [validationPostFailure, setValidationPostFailure] = useState<string>();
+  const [localNotice, setLocalNotice] = useState<string>();
   const { error, isPending, mutateAsync } = useMutation({
     mutationFn: async (clientAction: A2uiClientAction) => {
       const message = { version: `v${A2UI_VERSION}`, action: clientAction };
@@ -139,16 +144,32 @@ function ClioA2UISurfaceContent({
     [mutateAsync],
   );
   const handleValidationFailed = useCallback(
-    (validationError: { code: string; path?: string; message: string }) => {
-      void repository.a2uiAction(surface.session_id, {
-        version: `v${A2UI_VERSION}`,
-        error: {
-          code: validationError.code,
-          surfaceId: surface.id,
-          path: validationError.path ?? '',
-          message: validationError.message,
-        },
-      });
+    async (validationError: { code: string; path?: string; message: string }) => {
+      // Only a real VALIDATION_FAILED belongs on the wire (owner decision
+      // 11); a local resolution problem (e.g. openArtifact's own failure,
+      // dispatched the same way) is worded in this card and never posted.
+      if (validationError.code !== 'VALIDATION_FAILED') {
+        setLocalNotice(validationError.message);
+        return;
+      }
+      setValidationPostFailure(undefined);
+      try {
+        await repository.a2uiAction(surface.session_id, {
+          version: `v${A2UI_VERSION}`,
+          error: {
+            code: validationError.code,
+            surfaceId: surface.id,
+            path: validationError.path ?? '',
+            message: validationError.message,
+          },
+        });
+      } catch (postError) {
+        // S5 has not landed the error door server-side yet (a 404 today);
+        // never an unhandled rejection — worded in the card, typed locally.
+        setValidationPostFailure(
+          postError instanceof Error ? postError.message : 'The request could not be completed.',
+        );
+      }
     },
     [repository, surface.id, surface.session_id],
   );
@@ -171,8 +192,35 @@ function ClioA2UISurfaceContent({
   );
   const surfaceKind = a2uiSurfaceKind(surface.messages);
   const surfaceBusy = isPending || surface.state !== 'ready';
+  const unresolvedCatalogId =
+    failure && !catalogsLoading && registry.get(surface.catalog_id) === undefined
+      ? surface.catalog_id
+      : undefined;
 
-  if (failure) return <SurfaceFailure message={failure.message} />;
+  // The registry is refetched exactly once per (surface, catalogId) so a
+  // catalog installed moments ago (e.g. a pack just activated) resolves
+  // without a manual retry — an effect, never during render, per this
+  // codebase's "no ref/query access during render" rule.
+  useEffect(() => {
+    if (!unresolvedCatalogId) return;
+    void queryClient.invalidateQueries({ queryKey: ['a2ui-catalogs', surface.session_id] });
+  }, [unresolvedCatalogId, queryClient, surface.session_id]);
+
+  if (failure) {
+    // An unresolvable/unknown catalog gets its own worded card — the
+    // catalogId URI is technical detail (CLAUDE.md: never product copy) and
+    // stays out of the primary message, in the hidden detail section only.
+    if (unresolvedCatalogId) {
+      const reason = registry.reasonFor(unresolvedCatalogId);
+      return (
+        <SurfaceFailure
+          detail={reason ? `${reason.code}: ${reason.detail}` : failure.message}
+          message="This view uses a catalog this workspace does not have installed."
+        />
+      );
+    }
+    return <SurfaceFailure message={failure.message} />;
+  }
   if (surface.error || surface.state === 'failed') {
     return (
       <SurfaceFailure message={surface.error || 'The service reported that this surface failed.'} />
@@ -217,6 +265,14 @@ function ClioA2UISurfaceContent({
         </MarkdownContext.Provider>
       </div>
       <ClioA2UIActionLifecycle lifecycle={actionLifecycle} />
+      {localNotice ? (
+        <p className="border-t px-4 py-2 text-xs text-destructive">{localNotice}</p>
+      ) : null}
+      {validationPostFailure ? (
+        <p className="border-t px-4 py-2 text-xs text-destructive">
+          The service could not record the rendering problem: {validationPostFailure}
+        </p>
+      ) : null}
       {error ? (
         <p className="border-t px-4 py-2 text-xs text-destructive">{error.message}</p>
       ) : null}

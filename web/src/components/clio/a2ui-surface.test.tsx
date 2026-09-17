@@ -1,6 +1,6 @@
 import type { A2UISurface } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLIO_A2UI_CATALOG_ID, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
@@ -140,15 +140,27 @@ describe('ClioA2UISurface actions', () => {
     expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
   });
 
-  it('renders a typed failure for an unknown catalogId', async () => {
+  it('renders a typed failure for an unknown catalogId without leaking the catalog URI as product copy', async () => {
+    const unknownCatalogId = 'https://example.test/a2ui/catalogs/not-installed';
     const surface = actionSurface('artifact.open', {});
+    surface.catalog_id = unknownCatalogId;
     (surface.messages[0] as { createSurface: { catalogId: string } }).createSurface.catalogId =
-      'https://example.test/a2ui/catalogs/not-installed';
+      unknownCatalogId;
 
     renderSurface(surface);
 
     expect(await screen.findByText('Interactive surface unavailable')).toBeVisible();
-    expect(screen.getAllByText(/Catalog not found/u)[0]).toBeVisible();
+    // Visible, primary product copy — worded, no catalog URI.
+    const primaryCopy = screen.getByText(
+      /This view uses a catalog this workspace does not have installed\./u,
+    );
+    expect(primaryCopy).toBeVisible();
+    expect(primaryCopy.textContent).not.toContain(unknownCatalogId);
+    // The URI is allowed only inside the hidden "Validation detail" technical section.
+    expect(screen.queryByText('Validation detail')).toBeInTheDocument();
+    // The registry is refetched exactly once so a catalog installed moments
+    // ago resolves without a manual retry.
+    await waitFor(() => expect(repository.a2uiCatalogs).toHaveBeenCalledTimes(2));
   });
 
   it('runs the openArtifact catalog function without any repository call', async () => {
@@ -168,6 +180,50 @@ describe('ClioA2UISurface actions', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Open result' }));
 
+    expect(repository.a2uiAction).not.toHaveBeenCalled();
+  });
+
+  it('renders a worded failure when openArtifact has no runtime or artifact to open', async () => {
+    const user = userEvent.setup();
+    const surface = actionSurface('artifact.open', {});
+    const update = surface.messages[1] as {
+      updateComponents: { components: Array<Record<string, unknown>> };
+    };
+    update.updateComponents.components[2] = {
+      id: 'action',
+      component: 'Button',
+      child: 'label',
+      action: { functionCall: { call: 'openArtifact', args: { uri: 'artifact://artifact_missing' } } },
+    };
+
+    renderSurface(surface);
+
+    await user.click(await screen.findByRole('button', { name: 'Open result' }));
+
+    expect(
+      await screen.findByText('The requested artifact is not available in this session.'),
+    ).toBeVisible();
+    expect(repository.a2uiAction).not.toHaveBeenCalled();
+  });
+
+  it('applies the URL scheme guard to openArtifact before opening anything', async () => {
+    const user = userEvent.setup();
+    const surface = actionSurface('artifact.open', {});
+    const update = surface.messages[1] as {
+      updateComponents: { components: Array<Record<string, unknown>> };
+    };
+    update.updateComponents.components[2] = {
+      id: 'action',
+      component: 'Button',
+      child: 'label',
+      action: { functionCall: { call: 'openArtifact', args: { uri: 'javascript:alert(1)' } } },
+    };
+
+    renderSurface(surface);
+
+    await user.click(await screen.findByRole('button', { name: 'Open result' }));
+
+    expect(await screen.findByText(/not an allowed URL scheme/u)).toBeVisible();
     expect(repository.a2uiAction).not.toHaveBeenCalled();
   });
 
@@ -217,5 +273,30 @@ describe('ClioA2UISurface actions', () => {
         },
       },
     );
+  });
+
+  it('renders a worded state when the service cannot record a VALIDATION_FAILED report', async () => {
+    repository.a2uiAction.mockImplementation((_sessionId: string, message: unknown) => {
+      if (message && typeof message === 'object' && 'error' in message) {
+        return Promise.reject(new Error('404'));
+      }
+      return Promise.resolve({ status: 'accepted' });
+    });
+    const surface = actionSurface('artifact.open', {});
+    const update = surface.messages[1] as {
+      updateComponents: { components: Array<Record<string, unknown>> };
+    };
+    update.updateComponents.components.push({
+      id: 'image',
+      component: 'Image',
+      url: 'javascript:alert(1)',
+    });
+    (update.updateComponents.components[0] as { children: string[] }).children.push('image');
+
+    renderSurface(surface);
+
+    expect(
+      await screen.findByText('The service could not record the rendering problem: 404'),
+    ).toBeVisible();
   });
 });

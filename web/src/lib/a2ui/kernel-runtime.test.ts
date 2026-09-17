@@ -32,4 +32,18 @@ describe('useA2uiOpenArtifactRuntime', () => {
     renderHook(() => useA2uiOpenArtifactRuntime({ [artifact.id]: artifact }, 'sess_other', () => undefined));
     expect(activeA2uiOpenArtifactRuntime()?.findArtifact('artifact://artifact_1')).toBeUndefined();
   });
+
+  it('also matches by the id encoded in an artifact:// URI when .uri differs (S6 item 6)', () => {
+    // The deleted use-a2ui-local-actions.ts matched by uri OR an
+    // artifact_id/artifactId/id context key; openArtifact's sole declared
+    // arg is uri, so the id fallback is derived from the artifact:// scheme.
+    const renamed: Artifact = { ...artifact, id: 'artifact_2', uri: 'resource://unrelated-path' };
+    renderHook(() => useA2uiOpenArtifactRuntime({ [renamed.id]: renamed }, 'sess_1', () => undefined));
+
+    expect(activeA2uiOpenArtifactRuntime()?.findArtifact('artifact://artifact_2')).toEqual(renamed);
+    expect(activeA2uiOpenArtifactRuntime()?.findArtifact('resource://unrelated-path')).toEqual(
+      renamed,
+    );
+    expect(activeA2uiOpenArtifactRuntime()?.findArtifact('artifact://artifact_9')).toBeUndefined();
+  });
 });

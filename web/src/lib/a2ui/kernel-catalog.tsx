@@ -7,7 +7,11 @@ import {
   createFunctionImplementation,
 } from '@a2ui/web_core/v0_9';
 import type { FunctionImplementation } from '@a2ui/web_core/v0_9';
-import { A2UI_WORKFLOW_EDGES_MAX, A2UI_WORKFLOW_NODES_MAX } from '@clio/core/v3';
+import {
+  A2UI_WORKFLOW_EDGES_MAX,
+  A2UI_WORKFLOW_NODES_MAX,
+  checkA2uiUrlScheme,
+} from '@clio/core/v3';
 import {
   A2uiSurface,
   Button as A2UIButton,
@@ -719,10 +723,23 @@ const openArtifactFunction = createFunctionImplementation(
     returnType: 'void',
     schema: z.object({ uri: z.string() }),
   },
-  ({ uri }) => {
+  ({ uri }, context) => {
+    // owner decision 11: the same URL-scheme allowlist the kernel media
+    // components enforce at render, applied here before anything opens.
+    const guard = checkA2uiUrlScheme(uri);
+    if (!guard.ok) {
+      void context.surface.dispatchError({ code: 'ARTIFACT_UNAVAILABLE', message: guard.reason });
+      return;
+    }
     const runtime = activeA2uiOpenArtifactRuntime();
     const artifact = runtime?.findArtifact(uri);
-    if (!runtime || !artifact) return;
+    if (!runtime || !artifact) {
+      void context.surface.dispatchError({
+        code: 'ARTIFACT_UNAVAILABLE',
+        message: 'The requested artifact is not available in this session.',
+      });
+      return;
+    }
     runtime.onOpenArtifact(artifact);
   },
 );

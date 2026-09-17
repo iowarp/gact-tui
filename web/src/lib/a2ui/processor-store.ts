@@ -97,9 +97,8 @@ export function useA2uiCatalogRegistry(sessionId: string): A2uiRegistrySnapshot 
 }
 
 export interface A2uiProcessorFailure {
-  code: 'processor_error' | 'catalog_unresolved';
+  code: 'processor_error';
   message: string;
-  reason?: { code: string; detail: string };
 }
 
 export interface A2uiProcessorResult {
