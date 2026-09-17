@@ -120,6 +120,7 @@ test('bundled installer stops only its managed process tree before replacement o
   assert.match(hooks, /clio-desktop\.exe/);
   assert.match(hooks, /clio-agent\.exe/);
   assert.match(hooks, /python\.exe/);
+  assert.match(hooks, /clio_run\.exe/);
   assert.doesNotMatch(hooks, /taskkill[^\r\n]*\/IM/i, 'must not kill unrelated user processes');
 });
 

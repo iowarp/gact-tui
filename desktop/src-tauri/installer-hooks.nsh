@@ -35,7 +35,7 @@ Function un.ClioRemoveUserDataPageLeave
 FunctionEnd
 
 !macro CLIO_STOP_MANAGED_RUNTIME
-  nsExec::ExecToLog 'powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$$root=[IO.Path]::GetFullPath(''$INSTDIR''); Get-CimInstance Win32_Process | Where-Object { $$_.ExecutablePath -and [IO.Path]::GetFullPath($$_.ExecutablePath).StartsWith($$root,[StringComparison]::OrdinalIgnoreCase) -and $$_.Name -in @(''clio-desktop.exe'',''clio-agent.exe'',''python.exe'') } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
+  nsExec::ExecToLog 'powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "$$root=[IO.Path]::GetFullPath(''$INSTDIR''); Get-CimInstance Win32_Process | Where-Object { $$_.ExecutablePath -and [IO.Path]::GetFullPath($$_.ExecutablePath).StartsWith($$root,[StringComparison]::OrdinalIgnoreCase) -and $$_.Name -in @(''clio-desktop.exe'',''clio-agent.exe'',''python.exe'',''clio_run.exe'') } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"'
   Sleep 500
 !macroend
 
