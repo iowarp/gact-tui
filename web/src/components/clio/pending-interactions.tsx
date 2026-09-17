@@ -691,16 +691,19 @@ function A2UIResponse({
   const [viewportHeight, setViewportHeight] = useState(() =>
     Math.min(480, maximumViewportHeight()),
   );
-  const resizeStart = useRef<{ y: number; height: number } | null>(null);
+  const resizeStart = useRef<{ y: number; height: number; moved: boolean } | null>(null);
+  const suppressResizeClick = useRef(false);
   const resizeViewport = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const start = resizeStart.current;
     if (!start || event.buttons === 0) return;
+    if (Math.abs(event.clientY - start.y) > 2) start.moved = true;
     const maximumHeight = maximumViewportHeight();
     setViewportHeight(
       Math.min(maximumHeight, Math.max(320, start.height + event.clientY - start.y)),
     );
   };
   const stopResizing = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    suppressResizeClick.current = resizeStart.current?.moved ?? false;
     resizeStart.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -711,14 +714,18 @@ function A2UIResponse({
       <Button
         aria-label="Resize interactive surface"
         className="cursor-ns-resize touch-none"
-        onClick={() =>
+        onClick={() => {
+          if (suppressResizeClick.current) {
+            suppressResizeClick.current = false;
+            return;
+          }
           setViewportHeight((current) =>
             current < maximumViewportHeight() ? maximumViewportHeight() : 320,
-          )
-        }
+          );
+        }}
         onPointerCancel={stopResizing}
         onPointerDown={(event) => {
-          resizeStart.current = { y: event.clientY, height: viewportHeight };
+          resizeStart.current = { y: event.clientY, height: viewportHeight, moved: false };
           event.currentTarget.setPointerCapture(event.pointerId);
         }}
         onPointerMove={resizeViewport}

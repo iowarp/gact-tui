@@ -676,7 +676,12 @@ describe('ClioPendingInteractions', () => {
     fireEvent.pointerUp(resize, { clientY: 240, pointerId: 1 });
     expect(viewport).toHaveStyle({ height: '520px' });
 
-    await user.click(resize);
+    // Browsers synthesize a click after the pointer is released. It must not
+    // undo the drag; the next deliberate activation still toggles the size.
+    fireEvent.click(resize);
+    expect(viewport).toHaveStyle({ height: '520px' });
+    resize.focus();
+    await user.keyboard('{Enter}');
     expect(viewport).toHaveStyle({ height: '552px' });
   });
 
