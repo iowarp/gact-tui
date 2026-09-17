@@ -102,6 +102,22 @@ test('tauri.conf.json is neutral and does not bundle a managed sidecar by defaul
   assert.deepEqual(cfg.bundle.externalBin, []);
 });
 
+test('bundled installer stops only its managed process tree before replacement or removal', () => {
+  const cfg = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'tauri.bundled.conf.json'), 'utf8'),
+  );
+  assert.equal(cfg.bundle.windows.nsis.installerHooks, 'installer-hooks.nsh');
+
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  assert.match(hooks, /NSIS_HOOK_PREINSTALL/);
+  assert.match(hooks, /NSIS_HOOK_PREUNINSTALL/);
+  assert.match(hooks, /StartsWith\(\$\$root/);
+  assert.match(hooks, /clio-desktop\.exe/);
+  assert.match(hooks, /clio-agent\.exe/);
+  assert.match(hooks, /python\.exe/);
+  assert.doesNotMatch(hooks, /taskkill[^\r\n]*\/IM/i, 'must not kill unrelated user processes');
+});
+
 test('updater plugin config is present and consistent across variants', () => {
   const base = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   const gact = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'));
