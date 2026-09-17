@@ -76,6 +76,12 @@ jobs:
         run: pnpm --dir web exec playwright install --with-deps chromium
       - name: Browser e2e, accessibility, and visual baselines
         run: pnpm --dir web test:e2e
+      # S8 (gact-tui#409): the exact bundle desktop packages must render all
+      # 43 vendored A2UI examples. Needs web/dist (built above) and the
+      # Chromium installed for the e2e step; it fails, never skips, when
+      # either is missing.
+      - name: Desktop packaged-bundle A2UI corpus smoke
+        run: pnpm --filter @clio/desktop test:corpus
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v4
