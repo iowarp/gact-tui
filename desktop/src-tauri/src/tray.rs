@@ -4,8 +4,8 @@
 //! the future home for native session badges once the wire exposes them.
 
 use tauri::menu::{Menu, MenuItem};
-use tauri::tray::TrayIconBuilder;
-use tauri::{Manager, Runtime};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{AppHandle, Manager, Runtime};
 
 use crate::menu;
 
@@ -15,6 +15,19 @@ const QUIT_ID: &str = "quit";
 
 pub(crate) fn tray_show_label(product_name: &str) -> String {
     format!("Show {}", menu::short_app_name(product_name))
+}
+
+pub(crate) fn tray_quit_label(product_name: &str) -> String {
+    format!("Quit {}", menu::short_app_name(product_name))
+}
+
+/// Restore and focus the existing main window.
+pub(crate) fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+    }
 }
 
 /// Install the platform tray icon and its small Show/Quit menu.
@@ -31,22 +44,35 @@ pub(crate) fn install_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()>
         true,
         None::<&str>,
     )?;
-    let quit = MenuItem::with_id(app, QUIT_ID, "Quit", true, None::<&str>)?;
+    let quit = MenuItem::with_id(
+        app,
+        QUIT_ID,
+        tray_quit_label(&product_name),
+        true,
+        None::<&str>,
+    )?;
     let menu = Menu::with_items(app, &[&show, &quit])?;
     TrayIconBuilder::with_id(TRAY_ID)
-        .tooltip(product_name)
+        .tooltip(format!("{product_name}: running"))
         .menu(&menu)
         .on_menu_event(|app, ev| match ev.id().as_ref() {
-            SHOW_ID => {
-                if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.show();
-                    let _ = w.set_focus();
-                }
-            }
+            SHOW_ID => show_main_window(app),
             QUIT_ID => {
                 app.exit(0);
             }
             _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if matches!(
+                event,
+                TrayIconEvent::Click {
+                    button: MouseButton::Left,
+                    button_state: MouseButtonState::Up,
+                    ..
+                }
+            ) {
+                show_main_window(tray.app_handle());
+            }
         })
         .build(app)?;
     Ok(())
@@ -61,5 +87,8 @@ mod tests {
         assert_eq!(tray_show_label("CLIO Desktop"), "Show CLIO");
         assert_eq!(tray_show_label("GACT Desktop"), "Show GACT");
         assert_eq!(tray_show_label("Other Product"), "Show Other Product");
+        assert_eq!(tray_quit_label("CLIO Desktop"), "Quit CLIO");
+        assert_eq!(tray_quit_label("GACT Desktop"), "Quit GACT");
+        assert_eq!(tray_quit_label("Other Product"), "Quit Other Product");
     }
 }

@@ -23,6 +23,7 @@ tauri-plugin-updater = "2"
 # Relaunch the app after an in-place update installs (the updater leaves the
 # running process in place on macOS/Linux; `relaunch()` boots the new binary).
 tauri-plugin-process = "2"
+tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Lifecycle supervisor (Wave 0c) + the gact_http command (post-tag bridge)

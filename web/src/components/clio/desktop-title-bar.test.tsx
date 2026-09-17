@@ -34,7 +34,7 @@ describe('DesktopTitleBar', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('offers navigation and real native window controls', async () => {
+  it('offers navigation and keeps close lifecycle choices explicit', async () => {
     const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => undefined);
     const historyForward = vi.spyOn(window.history, 'forward').mockImplementation(() => undefined);
     renderTitleBar();
@@ -46,13 +46,26 @@ describe('DesktopTitleBar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Maximize or restore' }));
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Keep CLIO running?');
+    expect(runDesktopWindowAction).not.toHaveBeenCalledWith('close');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep running' }));
+
     expect(historyBack).toHaveBeenCalledOnce();
     expect(historyForward).toHaveBeenCalledOnce();
     await waitFor(() => {
       expect(runDesktopWindowAction).toHaveBeenNthCalledWith(1, 'minimize');
       expect(runDesktopWindowAction).toHaveBeenNthCalledWith(2, 'toggleMaximize');
-      expect(runDesktopWindowAction).toHaveBeenNthCalledWith(3, 'close');
+      expect(runDesktopWindowAction).toHaveBeenNthCalledWith(3, 'hide');
     });
+  });
+
+  it('can quit CLIO and its local services from the close prompt', async () => {
+    renderTitleBar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Quit CLIO' }));
+
+    await waitFor(() => expect(runDesktopWindowAction).toHaveBeenCalledWith('quit'));
   });
 
   it('routes overflow actions through the existing application workflows', async () => {

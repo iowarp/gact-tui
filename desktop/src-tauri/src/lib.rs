@@ -61,6 +61,11 @@ pub fn run() {
     let state = Mutex::new(supervisor);
 
     let app = tauri::Builder::default()
+        // A second launch restores the existing tray-resident process instead
+        // of booting another managed backend beside it.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            tray::show_main_window(app);
+        }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         // Auto-update: pulls the signed latest.json marker from GitHub
@@ -185,19 +190,15 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                if let Some(state) = window.app_handle().try_state::<Mutex<Supervisor>>() {
-                    // lock_recover, not plain lock(): a poisoned mutex here
-                    // would silently skip child reaping and leak the sidecar
-                    // process tree on exit.
-                    supervisor_state::lock_recover(&state).shutdown();
+            match event {
+                // Window close means "continue in the tray." Explicit Quit
+                // exits the application and reaches the teardown path below.
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    let _ = window.hide();
                 }
-                if let Some(tm) = window.app_handle().try_state::<TunnelManager>() {
-                    tm.shutdown_all();
-                }
-                if let Some(sse) = window.app_handle().try_state::<sse_registry::SseRegistry>() {
-                    sse.stop_all();
-                }
+                tauri::WindowEvent::Destroyed => shutdown_owned_services(window.app_handle()),
+                _ => {}
             }
         })
         .build(tauri::generate_context!());
@@ -209,9 +210,31 @@ pub fn run() {
             std::process::exit(1);
         }
     };
-    app.run(|app_handle, event| {
-        if matches!(event, tauri::RunEvent::Resumed) {
+    app.run(|app_handle, event| match event {
+        tauri::RunEvent::Resumed => {
             let _ = app_handle.emit(DESKTOP_RESUMED_EVENT, ());
         }
+        tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+            shutdown_owned_services(app_handle);
+        }
+        _ => {}
     });
+}
+
+/// Tear down every process and stream owned by this desktop process.
+///
+/// This is intentionally idempotent because native shutdown can deliver both
+/// `ExitRequested` and a final window-destroyed event.
+fn shutdown_owned_services(app: &tauri::AppHandle) {
+    if let Some(state) = app.try_state::<Mutex<Supervisor>>() {
+        // lock_recover, not plain lock(): a poisoned mutex here would silently
+        // skip child reaping and leak the sidecar process tree on exit.
+        supervisor_state::lock_recover(&state).shutdown();
+    }
+    if let Some(tm) = app.try_state::<TunnelManager>() {
+        tm.shutdown_all();
+    }
+    if let Some(sse) = app.try_state::<sse_registry::SseRegistry>() {
+        sse.stop_all();
+    }
 }

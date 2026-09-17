@@ -13,7 +13,18 @@ import {
   SettingsIcon,
   XIcon,
 } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -51,7 +62,7 @@ function WindowButton({
   danger = false,
   label,
 }: {
-  action: Exclude<DesktopWindowAction, 'toggleFullscreen'>;
+  action: Extract<DesktopWindowAction, 'minimize' | 'toggleMaximize'>;
   children: React.ReactNode;
   danger?: boolean;
   label: string;
@@ -77,6 +88,7 @@ function WindowButton({
 
 /** Product-owned chrome for the frameless Tauri window. */
 export function DesktopTitleBar() {
+  const [closePromptOpen, setClosePromptOpen] = useState(false);
   if (!inTauri()) return null;
   const logo = logoSource();
 
@@ -125,7 +137,7 @@ export function DesktopTitleBar() {
               About {brand.wordmark}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => void runWindowAction('close')}>
+            <DropdownMenuItem variant="destructive" onSelect={() => void runWindowAction('quit')}>
               <XIcon aria-hidden="true" />
               Quit {brand.wordmark}
             </DropdownMenuItem>
@@ -184,10 +196,39 @@ export function DesktopTitleBar() {
         <WindowButton action="toggleMaximize" label="Maximize or restore">
           <Maximize2Icon aria-hidden="true" className="size-3.5" />
         </WindowButton>
-        <WindowButton action="close" danger label="Close">
-          <XIcon aria-hidden="true" className="size-4" />
-        </WindowButton>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              aria-label="Close"
+              className="grid h-10 w-12 place-items-center text-muted-foreground transition-colors hover:bg-destructive hover:text-white"
+              onClick={() => setClosePromptOpen(true)}
+              type="button"
+            >
+              <XIcon aria-hidden="true" className="size-4" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Close or keep running</TooltipContent>
+        </Tooltip>
       </div>
+      <AlertDialog onOpenChange={setClosePromptOpen} open={closePromptOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Keep CLIO running?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Keep CLIO available in the system tray (Windows hidden icons), or quit and stop its
+              local services. Ongoing work can continue only while CLIO is running.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => void runWindowAction('hide')}>
+              Keep running
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={() => void runWindowAction('quit')} variant="destructive">
+              Quit CLIO
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   );
 }
