@@ -1,6 +1,6 @@
 {
   "productName": "Agent Workspace Desktop",
-  "agentName": "Agent Workspace",
+  "agentName": "Agent",
   "mode": "connect",
   "sidecarName": "",
   "attachPort": 17800,
