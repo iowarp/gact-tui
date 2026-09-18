@@ -181,7 +181,18 @@ export type ModelSelectorLogoProps = Omit<
     | (string & {});
 };
 
-const locallyBundledProviderLogos = new Set(["anthropic", "llama", "lmstudio", "openai"]);
+const locallyBundledProviderLogos = new Set([
+  "amazon-bedrock",
+  "anthropic",
+  "azure",
+  "generic",
+  "google",
+  "llama",
+  "lmstudio",
+  "nvidia",
+  "openai",
+  "openrouter",
+]);
 
 export const ModelSelectorLogo = ({
   provider,
@@ -190,7 +201,7 @@ export const ModelSelectorLogo = ({
 }: ModelSelectorLogoProps) => {
   const source = locallyBundledProviderLogos.has(provider)
     ? `/provider-logos/${provider}.svg`
-    : `https://models.dev/logos/${provider}.svg`;
+    : "/provider-logos/generic.svg";
 
   return (
     <img
@@ -198,6 +209,10 @@ export const ModelSelectorLogo = ({
       alt={`${provider} logo`}
       className={cn("size-3 dark:invert", className)}
       height={12}
+      onError={(event) => {
+        event.currentTarget.onerror = null;
+        event.currentTarget.src = "/provider-logos/generic.svg";
+      }}
       src={source}
       width={12}
     />
