@@ -17,6 +17,7 @@
     "notification:default",
     "dialog:allow-open",
     "updater:default",
+    "process:allow-exit",
     "process:allow-restart"
   ]
 }

@@ -219,6 +219,10 @@ pub fn run() {
         tauri::RunEvent::Resumed => {
             let _ = app_handle.emit(DESKTOP_RESUMED_EVENT, ());
         }
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Reopen { .. } => {
+            tray::show_main_window(app_handle);
+        }
         tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
             shutdown_owned_services(app_handle);
         }

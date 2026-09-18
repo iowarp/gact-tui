@@ -69,6 +69,30 @@ test('desktop variants use product-owned frameless chrome with scoped window con
   assert.match(libRs, /cfg\(target_os = "macos"\)[\s\S]*app\.set_menu\(app_menu\)/);
 });
 
+test('desktop close, reopen, and quit lifecycle stays explicit', () => {
+  const libRs = readFileSync(resolve(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
+  assert.match(
+    libRs,
+    /tauri_plugin_single_instance::init[\s\S]*tray::show_main_window/,
+    'a second launch must restore the existing tray-resident window',
+  );
+  assert.match(
+    libRs,
+    /WindowEvent::CloseRequested[\s\S]*api\.prevent_close\(\)[\s\S]*window\.hide\(\)/,
+    'window close must keep the managed service alive in the tray',
+  );
+  assert.match(
+    libRs,
+    /RunEvent::ExitRequested[\s\S]*shutdown_owned_services/,
+    'explicit application exit must stop owned services',
+  );
+  assert.match(
+    libRs,
+    /cfg\(target_os = "macos"\)[\s\S]*RunEvent::Reopen[\s\S]*tray::show_main_window/,
+    'macOS dock reopen must restore the hidden main window',
+  );
+});
+
 test('CSP is present, localhost-scoped, and identical across config variants', () => {
   const base = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   const gact = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'));
@@ -217,6 +241,7 @@ test('Cargo.toml + lib.rs wire the updater + process plugins', () => {
     readFileSync(resolve(root, 'src-tauri', 'capabilities', 'default.json'), 'utf8'),
   );
   assert.ok(caps.permissions.includes('updater:default'), 'updater:default capability');
+  assert.ok(caps.permissions.includes('process:allow-exit'), 'process:allow-exit capability');
   assert.ok(caps.permissions.includes('process:allow-restart'), 'process:allow-restart capability');
 });
 

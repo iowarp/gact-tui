@@ -143,6 +143,22 @@ mod tests {
         assert!(matches!(handle.status, BackendStatus::Ready));
     }
 
+    #[test]
+    fn shutdown_does_not_mutate_an_attached_backend_handle() {
+        let state = SupervisorState::new_starting();
+        state.set_handle(BackendHandle {
+            url: "http://127.0.0.1:17800".into(),
+            bearer_token: String::new(),
+            status: BackendStatus::Ready,
+        });
+
+        state.shutdown();
+
+        let handle = state.snapshot();
+        assert_eq!(handle.url, "http://127.0.0.1:17800");
+        assert!(matches!(handle.status, BackendStatus::Ready));
+    }
+
     /// Spawn a quiet long-running child the test can use as a stand-in for
     /// the launcher process.
     fn spawn_sleeper() -> Child {
@@ -229,6 +245,35 @@ mod tests {
         assert!(
             second_alive,
             "new child (pid {second_pid}) must not be reaped by its own registration"
+        );
+    }
+
+    #[test]
+    fn shutdown_reaps_the_recorded_owned_child() {
+        use std::time::{Duration, Instant};
+
+        let state = SupervisorState::new_starting();
+        let child = spawn_sleeper();
+        let child_pid = child.id();
+        state.set_handle_and_child(
+            BackendHandle {
+                url: "http://127.0.0.1:52341".into(),
+                bearer_token: "owned-token".into(),
+                status: BackendStatus::Ready,
+            },
+            child,
+        );
+        assert!(pid_alive(child_pid), "sanity: owned child should be alive");
+
+        state.shutdown();
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while pid_alive(child_pid) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(
+            !pid_alive(child_pid),
+            "owned child (pid {child_pid}) survived supervisor shutdown"
         );
     }
 
