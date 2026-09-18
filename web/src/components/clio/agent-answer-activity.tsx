@@ -1,5 +1,6 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import {
+  ArrowDownToLineIcon,
   ArrowUpToLineIcon,
   BotIcon,
   CircleAlertIcon,
@@ -11,10 +12,42 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import { ClioStatus, type ClioStatusValue } from './status';
+import { focusFirstFocusable, pendingInteractionDomId } from './interaction-control';
 import { humanizeProtocolValue } from './presentation-labels';
 import { TechnicalDetails } from './technical-details';
 import { isAgentMcpInteraction, questionInteractionRequestLabel } from './agent-answer-domain';
+
+/**
+ * Scrolls the transcript reader straight to this interaction's card in the
+ * pending-response tray and focuses its first control — the "link semantics"
+ * alternative to hunting for a small, buried card. Only rendered while the
+ * interaction is actually pending; it disappears the moment it is answered.
+ */
+function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
+  return (
+    <Button
+      className="h-auto gap-1 p-0 text-xs"
+      onClick={() => {
+        const target = document.getElementById(pendingInteractionDomId(interaction.id));
+        if (!target) return;
+        // `block: 'nearest'` is a no-op when the card is already fully
+        // visible — the browser only scrolls when it actually has to, which
+        // is exactly "scroll it into view, or just focus it if it's already
+        // there."
+        target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        focusFirstFocusable(target);
+      }}
+      size="sm"
+      type="button"
+      variant="link"
+    >
+      <ArrowDownToLineIcon aria-hidden="true" className="size-3.5" />
+      Answer below
+    </Button>
+  );
+}
 
 /** Quiet lifecycle attribution for a question routed to an agent. */
 export function AgentAnswerActivity({
@@ -151,6 +184,9 @@ export function AgentAnswerActivity({
           {fallbackPending ? (
             <ActivityStep icon={RouteIcon} title="Routed to you">
               The request remains available in the response stack.
+              <div className="mt-1">
+                <AnswerBelowLink interaction={interaction} />
+              </div>
             </ActivityStep>
           ) : null}
           {fallbackAnswered ? (
@@ -225,7 +261,9 @@ function HumanQuestionActivity({
       data-turn-activity={`interaction:${interaction.id}`}
     >
       {interaction.status === 'pending' ? (
-        <ActivityStep icon={RouteIcon} title="Waiting for your response" />
+        <ActivityStep icon={RouteIcon} title="Waiting for your response">
+          <AnswerBelowLink interaction={interaction} />
+        </ActivityStep>
       ) : (
         <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : 'Agent asked'}>
           {interaction.prompt}

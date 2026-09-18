@@ -33,7 +33,7 @@ import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
 import type { A2UILocalActionHandler } from './a2ui-surface';
-import { respondFromControl } from './interaction-control';
+import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';
 import {
   OwnerAttribution,
@@ -271,7 +271,9 @@ function PermissionResponse({
       approval={{ id: interaction.id }}
       className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 border-action/20 bg-background/70"
       data-interaction-kind={interaction.kind}
+      id={pendingInteractionDomId(interaction.id)}
       state="approval-requested"
+      tabIndex={-1}
     >
       <ShieldQuestionIcon aria-hidden="true" className="mt-0.5 size-4 text-action" />
       <ConfirmationTitle className="min-w-0">
@@ -436,7 +438,9 @@ function QuestionResponse({
       )}
       data-interaction-kind={interaction.kind}
       dense
+      id={pendingInteractionDomId(interaction.id)}
       spacing="sm"
+      tabIndex={-1}
     >
       <InteractionFrameHeader
         disabled={disabled}
