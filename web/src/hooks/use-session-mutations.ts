@@ -187,7 +187,11 @@ export function useSessionMutations({
   const ensureAgentReady = async (providerId: string, modelId: string) => {
     if (modelConfiguration?.configured) return;
 
-    const configuration = modelConfiguration ?? (await repository.languageModelConfiguration());
+    // The cache can be stale — another client may have bound a live agent
+    // since it was last read. Always re-check against the server before
+    // deciding to PUT, or this can swap out a provider someone else just
+    // configured.
+    const configuration = await repository.languageModelConfiguration();
     if (configuration.configured) return;
 
     const preset = configuration.presets.find(
@@ -200,7 +204,12 @@ export function useSessionMutations({
       throw new Error(`Connect ${preset.label} in Settings before starting a session.`);
     }
     if (preset.requires_api_key) {
-      throw new Error(`Connect ${preset.label} in Settings before starting a session.`);
+      // Already authenticated, but this flow never fabricates or resubmits
+      // credentials on the caller's behalf — the switch has to happen where
+      // the key material already lives.
+      throw new Error(
+        `The ${preset.label} provider must be applied in Settings › Models before starting a session.`,
+      );
     }
 
     const result = await repository.updateLanguageModelConfiguration({
@@ -213,8 +222,11 @@ export function useSessionMutations({
     if (result.state === 'configuring') {
       const ready = await repository.waitLanguageModelConfiguration();
       if (!ready.configured || ready.state === 'error') {
+        // The server puts the human-readable text in status_message and the
+        // short code in error — surface the text first so the user does not
+        // just see "config_error".
         throw new Error(
-          ready.error || ready.status_message || 'CLIO could not start the provider.',
+          ready.status_message || ready.error || 'CLIO could not start the provider.',
         );
       }
     }

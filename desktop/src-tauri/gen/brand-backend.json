@@ -1,4 +1,5 @@
 {
+  "productName": "Agent Workspace",
   "mode": "connect",
   "sidecarName": "",
   "attachPort": 17800,

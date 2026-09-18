@@ -1,4 +1,4 @@
-import type { PendingInteraction, Session } from '@clio/core/v3';
+import type { LanguageModelConfiguration, PendingInteraction, Session } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { StrictMode, type ReactNode } from 'react';
@@ -141,7 +141,42 @@ describe('useSessionMutations send identity', () => {
     ).toBeLessThan(mocks.repository.submitMessage.mock.invocationCallOrder[0]);
   });
 
-  it('does not invent credentials for an unconnected API-key provider', async () => {
+  it('surfaces the human-readable wait failure instead of the bare error code', async () => {
+    mocks.repository.languageModelConfiguration.mockResolvedValue({
+      configured: false,
+      presets: [
+        {
+          api_base: 'codex://sdk',
+          id: 'codex',
+          is_authenticated: true,
+          label: 'OpenAI Codex (subscription)',
+          provider: 'codex',
+          provider_id: 'codex',
+          requires_api_key: false,
+        },
+      ],
+    });
+    mocks.repository.updateLanguageModelConfiguration.mockResolvedValue({
+      configured: false,
+      state: 'configuring',
+    });
+    // The server puts the short code in `error` and the human text in
+    // `status_message`; the thrown message must prefer the latter.
+    mocks.repository.waitLanguageModelConfiguration.mockResolvedValue({
+      configured: false,
+      state: 'error',
+      error: 'config_error',
+      status_message: 'Codex CLI was not found on PATH.',
+    });
+    const { result } = renderMutations();
+
+    await expect(result.current.send.mutateAsync(draft)).rejects.toThrow(
+      'Codex CLI was not found on PATH.',
+    );
+    expect(mocks.repository.submitMessage).not.toHaveBeenCalled();
+  });
+
+  it('does not invent credentials for an already-authenticated API-key provider', async () => {
     mocks.repository.languageModelConfiguration.mockResolvedValue({
       configured: false,
       presets: [
@@ -168,10 +203,82 @@ describe('useSessionMutations send identity', () => {
     );
 
     await expect(result.current.send.mutateAsync(draft)).rejects.toThrow(
+      'The Example provider provider must be applied in Settings › Models before starting a session.',
+    );
+    expect(mocks.repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+    expect(mocks.repository.submitMessage).not.toHaveBeenCalled();
+  });
+
+  it('asks to connect an unauthenticated provider instead of claiming it needs re-applying', async () => {
+    mocks.repository.languageModelConfiguration.mockResolvedValue({
+      configured: false,
+      presets: [
+        {
+          api_base: 'https://api.example.test/v1',
+          id: 'example',
+          is_authenticated: false,
+          label: 'Example provider',
+          provider: 'openai',
+          provider_id: 'example',
+          requires_api_key: true,
+        },
+      ],
+    });
+    const { result } = renderHook(
+      () =>
+        useSessionMutations({
+          activeModel: 'example-model',
+          activeProvider: 'example',
+          sessionId: 'sess_1',
+          workspaceId: 'ws_1',
+        }),
+      { wrapper },
+    );
+
+    await expect(result.current.send.mutateAsync(draft)).rejects.toThrow(
       'Connect Example provider in Settings before starting a session.',
     );
     expect(mocks.repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
     expect(mocks.repository.submitMessage).not.toHaveBeenCalled();
+  });
+
+  it('rechecks a stale cached model configuration instead of trusting it was never updated', async () => {
+    // The hook was handed a stale "not configured" snapshot — another
+    // client may have bound a live agent since it was read. The fresh
+    // server read below says otherwise, so ensureAgentReady must trust that
+    // over the stale prop and skip straight to sending.
+    const staleCache: LanguageModelConfiguration = {
+      configured: false,
+      provider: '',
+      api_base: '',
+      model: '',
+      presets: [],
+    };
+    mocks.repository.languageModelConfiguration.mockResolvedValue({
+      configured: true,
+      provider: 'codex',
+      api_base: 'codex://sdk',
+      model: 'gpt-5.6-luna',
+      presets: [],
+    });
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
+    const { result } = renderHook(
+      () =>
+        useSessionMutations({
+          activeModel: 'gpt-5.6-luna',
+          activeProvider: 'codex',
+          modelConfiguration: staleCache,
+          sessionId: 'sess_1',
+          workspaceId: 'ws_1',
+        }),
+      { wrapper },
+    );
+
+    await result.current.send.mutateAsync(draft);
+
+    expect(mocks.repository.languageModelConfiguration).toHaveBeenCalled();
+    expect(mocks.repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+    expect(mocks.repository.submitMessage).toHaveBeenCalledTimes(1);
   });
 
   it('reuses one idempotency key while the same draft is being retried', async () => {
