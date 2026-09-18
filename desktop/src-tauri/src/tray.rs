@@ -21,6 +21,10 @@ pub(crate) fn tray_quit_label(product_name: &str) -> String {
     format!("Quit {}", menu::short_app_name(product_name))
 }
 
+pub(crate) fn tray_tooltip_label(product_name: &str) -> String {
+    format!("{}: running", menu::short_app_name(product_name))
+}
+
 /// Restore and focus the existing main window.
 pub(crate) fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
@@ -52,8 +56,11 @@ pub(crate) fn install_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()>
         None::<&str>,
     )?;
     let menu = Menu::with_items(app, &[&show, &quit])?;
-    TrayIconBuilder::with_id(TRAY_ID)
-        .tooltip(format!("{product_name}: running"))
+    let mut tray = TrayIconBuilder::with_id(TRAY_ID);
+    if let Some(icon) = app.default_window_icon() {
+        tray = tray.icon(icon.clone());
+    }
+    tray.tooltip(tray_tooltip_label(&product_name))
         .menu(&menu)
         .on_menu_event(|app, ev| match ev.id().as_ref() {
             SHOW_ID => show_main_window(app),
@@ -91,5 +98,6 @@ mod tests {
         assert_eq!(tray_quit_label("CLIO Desktop"), "Quit CLIO");
         assert_eq!(tray_quit_label("GACT Desktop"), "Quit GACT");
         assert_eq!(tray_quit_label("Other Product"), "Quit Other Product");
+        assert_eq!(tray_tooltip_label("CLIO Desktop"), "CLIO: running");
     }
 }

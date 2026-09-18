@@ -154,11 +154,16 @@ let raw;
 try {
   raw = JSON.parse(readFileSync(brandPath, 'utf8'));
 } catch (err) {
-  console.error(`gen-brand-backend: cannot read brand "${profile}" at ${brandPath}: ${err.message}`);
+  console.error(
+    `gen-brand-backend: cannot read brand "${profile}" at ${brandPath}: ${err.message}`,
+  );
   process.exit(1);
 }
 
-const resolved = resolveBackend(raw);
+const resolved = {
+  productName: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : profile,
+  ...resolveBackend(raw),
+};
 
 const outPath = outPathArg
   ? resolve(outPathArg)

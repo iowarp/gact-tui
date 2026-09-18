@@ -8,12 +8,14 @@ import {
 } from '@/tauri/infrastructure-setup';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  ChevronDownIcon,
   ContainerIcon,
   CpuIcon,
+  ExternalLinkIcon,
   LaptopIcon,
   PackageOpenIcon,
+  RefreshCwIcon,
   ServerIcon,
+  TriangleAlertIcon,
 } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -27,7 +29,6 @@ import {
 } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -47,7 +48,15 @@ type ServiceAction = ManagedServiceActionInput['action'];
 const MODEL_PROVIDER_IDS = new Set<ManagedServiceDefinition['id']>(['vllm', 'llama_cpp']);
 
 /** Desktop controls for CLIO-managed providers and supporting resources. */
-export function ManagedServices() {
+export function ManagedServices({
+  onConnectWebSearch,
+  webSearchConnected = false,
+  webSearchConnecting = false,
+}: {
+  onConnectWebSearch?: (remoteUrl: string) => void;
+  webSearchConnected?: boolean;
+  webSearchConnecting?: boolean;
+}) {
   const desktop = inTauri();
   const [target, setTarget] = useState<Target>('local');
   const [profile, setProfile] = useState('');
@@ -83,7 +92,10 @@ export function ManagedServices() {
     onSuccess: async (result) => {
       setResults((current) => ({
         ...current,
-        [result.service_id]: result.logs || `${result.action} completed on ${result.target}.`,
+        [result.service_id]:
+          result.action === 'status'
+            ? ''
+            : result.logs || `${result.action} completed on ${result.target}.`,
       }));
       await catalog.refetch();
     },
@@ -151,6 +163,23 @@ export function ManagedServices() {
         }))
       }
       onVariant={(value) => setVariants((current) => ({ ...current, [service.id]: value }))}
+      connectionAction={
+        service.id === 'web_search' && service.state === 'running'
+          ? {
+              label: webSearchConnected
+                ? 'View tools'
+                : webSearchConnecting
+                  ? 'Connecting…'
+                  : 'Connect to CLIO',
+              onSelect:
+                webSearchConnected || !service.connection_url
+                  ? undefined
+                  : () => onConnectWebSearch?.(service.connection_url!),
+              pending: webSearchConnecting,
+              to: webSearchConnected ? '/infrastructure/tools' : undefined,
+            }
+          : undefined
+      }
       result={results[service.id]}
       service={service}
       variant={variants[service.id] ?? service.recommended_variant}
@@ -158,183 +187,204 @@ export function ManagedServices() {
   );
 
   return (
-    <Frame aria-labelledby="managed-services-title" className="mt-6" spacing="sm">
-      <FrameHeader className="flex-row flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <FrameTitle
-            aria-level={2}
-            className="flex items-center gap-2"
-            id="managed-services-title"
-            role="heading"
-          >
-            <ContainerIcon aria-hidden="true" className="size-4 text-primary" />
-            Managed infrastructure
-          </FrameTitle>
-          <FrameDescription>
-            Inspect this computer or a saved SSH host, then manage only the capabilities you need.
-          </FrameDescription>
-        </div>
-        {catalog.data ? (
-          <p className="text-xs text-muted-foreground">
-            {catalog.data.facts.os} · {catalog.data.facts.arch} · {catalog.data.facts.accelerator}{' '}
-            accelerator
-          </p>
-        ) : null}
-      </FrameHeader>
+    <section aria-labelledby="managed-services-title" className="mt-8 space-y-10">
+      <div className="relative overflow-hidden border-y bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.12),transparent_42%)] py-6">
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-px bg-primary" />
+        <div className="grid gap-6 px-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(24rem,1.2fr)] lg:items-center">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
+              Deployment target
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold" id="managed-services-title">
+              Where should this capability run?
+            </h2>
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+              Choose this device or a saved SSH host. CLIO inspects the target before showing what
+              can be installed, connected, or operated there.
+            </p>
+            {catalog.data ? (
+              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground">
+                <span>{catalog.data.facts.os}</span>
+                <span>{catalog.data.facts.arch}</span>
+                <span>{catalog.data.facts.accelerator} accelerator</span>
+                <span>
+                  {catalog.data.facts.docker_available
+                    ? 'Docker ready'
+                    : catalog.data.facts.docker_installed
+                      ? 'Docker installed, engine stopped'
+                      : 'Docker not installed'}
+                </span>
+              </div>
+            ) : null}
+            <Button
+              className="mt-4"
+              disabled={catalog.isFetching}
+              onClick={() => catalog.refetch()}
+              size="sm"
+              variant="ghost"
+            >
+              {catalog.isFetching ? <Spinner aria-hidden="true" /> : <RefreshCwIcon />}
+              Inspect again
+            </Button>
+          </div>
 
-      <FramePanel>
-        <RadioGroup
-          className="flex flex-wrap gap-4"
-          onValueChange={(value) => setTarget(value as Target)}
-          value={target}
-        >
-          <TargetChoice icon={LaptopIcon} label="This computer" value="local" />
-          <TargetChoice icon={ServerIcon} label="SSH host" value="ssh" />
-        </RadioGroup>
-        {target === 'ssh' ? (
-          <Field className="mt-3 max-w-sm">
-            <FieldLabel htmlFor="managed-service-ssh">SSH host</FieldLabel>
-            <Select onValueChange={setProfile} value={profile}>
-              <SelectTrigger id="managed-service-ssh">
-                <SelectValue placeholder="Choose a saved SSH profile" />
+          <div className="space-y-3">
+            <RadioGroup
+              className="grid gap-2 sm:grid-cols-2"
+              onValueChange={(value) => setTarget(value as Target)}
+              value={target}
+            >
+              <TargetChoice
+                description="Install and run services on this device"
+                icon={LaptopIcon}
+                label="This computer"
+                selected={target === 'local'}
+                value="local"
+              />
+              <TargetChoice
+                description="Use a computer already saved in SSH"
+                icon={ServerIcon}
+                label="Remote host"
+                selected={target === 'ssh'}
+                value="ssh"
+              />
+            </RadioGroup>
+            {target === 'ssh' ? (
+              <Field>
+                <FieldLabel htmlFor="managed-service-ssh">Saved SSH host</FieldLabel>
+                <Select onValueChange={setProfile} value={profile}>
+                  <SelectTrigger id="managed-service-ssh">
+                    <SelectValue placeholder="Choose a host" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(profiles.data ?? []).map((item) => (
+                      <SelectItem key={item.name} value={item.name}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {catalog.isPending && catalog.fetchStatus === 'fetching' ? (
+        <InspectionProgress profile={profile} target={target} />
+      ) : null}
+      {catalog.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Could not inspect {targetLabel(target, profile)}</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{catalog.error.message}</p>
+            <Button onClick={() => catalog.refetch()} size="sm" variant="outline">
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <CapabilitySection
+        description="Add one local model runtime only when this target needs it. Existing providers stay in Settings."
+        icon={CpuIcon}
+        title="Model runtime"
+      >
+        <div className="grid gap-4 border-y py-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.8fr)] lg:items-end">
+          <div className="flex items-start justify-between gap-4 lg:pr-8">
+            <div>
+              <FieldLabel htmlFor="managed-provider-enabled">
+                Manage a model runtime with CLIO
+              </FieldLabel>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Leave this off when you already use Codex, Claude, or another configured provider.
+                Those connections live in{' '}
+                <Link className="text-primary hover:underline" to="/settings/providers">
+                  Models
+                </Link>
+                .
+              </p>
+            </div>
+            <Switch
+              checked={managedProvidersEnabled}
+              id="managed-provider-enabled"
+              onCheckedChange={setManagedProvidersEnabled}
+            />
+          </div>
+          <Field>
+            <FieldLabel htmlFor="managed-provider-choice">Runtime</FieldLabel>
+            <Select
+              disabled={!managedProvidersEnabled || !providers.length}
+              onValueChange={setSelectedProvider}
+              value={selectedProvider}
+            >
+              <SelectTrigger id="managed-provider-choice">
+                <SelectValue placeholder="Choose a compatible runtime" />
               </SelectTrigger>
               <SelectContent>
-                {(profiles.data ?? []).map((item) => (
-                  <SelectItem key={item.name} value={item.name}>
-                    {item.name}
+                {providers.map((service) => (
+                  <SelectItem key={service.id} value={service.id}>
+                    {service.label}
+                    {service.variants.some((variant) => variant.compatible)
+                      ? ''
+                      : ' — unavailable on this target'}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Field>
+        </div>
+        {managedProvidersEnabled && provider ? (
+          <div className="border-b">{renderService(provider)}</div>
         ) : null}
+      </CapabilitySection>
 
-        {catalog.isPending && catalog.fetchStatus === 'fetching' ? (
-          <InspectionProgress profile={profile} target={target} />
+      <CapabilitySection
+        description={
+          target === 'local'
+            ? 'Search, document conversion, and other scientific services available on this computer.'
+            : 'Search, document conversion, and remote-work services available on this host.'
+        }
+        icon={PackageOpenIcon}
+        title="Scientific services"
+      >
+        <div className="divide-y border-y">{resources.map(renderService)}</div>
+        {!catalog.isPending && !resources.length ? (
+          <p className="border-y py-6 text-sm text-muted-foreground">
+            Choose a target to see the services CLIO can manage there.
+          </p>
         ) : null}
-        {catalog.error ? (
-          <Alert className="mt-4" variant="destructive">
-            <AlertTitle>Could not inspect {targetLabel(target, profile)}</AlertTitle>
-            <AlertDescription className="space-y-3">
-              <p>{catalog.error.message}</p>
-              <Button onClick={() => catalog.refetch()} size="sm" variant="outline">
-                Try again
-              </Button>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-      </FramePanel>
+      </CapabilitySection>
 
-      <FramePanel className="grid gap-0 py-0">
-        <ManagedGroup
-          description="Run an approved local model server managed by CLIO. Existing providers remain in Settings."
-          icon={CpuIcon}
-          title="Model providers"
-        >
-          <div className="rounded-lg bg-muted/40 p-3">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <FieldLabel htmlFor="managed-provider-enabled">
-                  Enable a CLIO-managed provider
-                </FieldLabel>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  To connect an existing provider, visit{' '}
-                  <Link
-                    className="text-primary underline-offset-4 hover:underline"
-                    to="/settings/providers"
-                  >
-                    Settings › Models
-                  </Link>
-                  .
-                </p>
-              </div>
-              <Switch
-                checked={managedProvidersEnabled}
-                id="managed-provider-enabled"
-                onCheckedChange={setManagedProvidersEnabled}
-              />
-            </div>
-            <Field className="mt-3 max-w-sm">
-              <FieldLabel htmlFor="managed-provider-choice">Provider</FieldLabel>
-              <Select
-                disabled={!managedProvidersEnabled || !providers.length}
-                onValueChange={setSelectedProvider}
-                value={selectedProvider}
-              >
-                <SelectTrigger id="managed-provider-choice">
-                  <SelectValue placeholder="Choose a provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  {providers.map((service) => (
-                    <SelectItem key={service.id} value={service.id}>
-                      {service.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          </div>
-          {managedProvidersEnabled && provider ? (
-            <div className="mt-3 max-w-2xl">{renderService(provider)}</div>
-          ) : null}
-        </ManagedGroup>
-
-        <ManagedGroup
-          defaultOpen
-          description={
-            target === 'local'
-              ? 'Optional search and document services for this computer.'
-              : 'Optional search, document, and remote-work services for this host.'
-          }
-          icon={PackageOpenIcon}
-          title="CLIO resources"
-        >
-          <div className="grid gap-3 md:grid-cols-2">{resources.map(renderService)}</div>
-          {!catalog.isPending && !resources.length ? (
-            <p className="text-sm text-muted-foreground">No managed resources were reported.</p>
-          ) : null}
-        </ManagedGroup>
-      </FramePanel>
-
-      {action.error ? (
-        <p className="mt-3 text-sm text-destructive">{action.error.message}</p>
-      ) : null}
-    </Frame>
+      {action.error ? <p className="text-sm text-destructive">{action.error.message}</p> : null}
+    </section>
   );
 }
 
-function ManagedGroup({
+function CapabilitySection({
   children,
-  defaultOpen = false,
   description,
   icon: Icon,
   title,
 }: {
   children: ReactNode;
-  defaultOpen?: boolean;
   description: string;
   icon: typeof CpuIcon;
   title: string;
 }) {
   return (
-    <Collapsible className="group border-b last:border-b-0" defaultOpen={defaultOpen}>
-      <CollapsibleTrigger asChild>
-        <button className="flex w-full items-center gap-3 p-3 text-left" type="button">
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-            <Icon aria-hidden="true" className="size-4" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium">{title}</span>
-            <span className="block text-xs text-muted-foreground">{description}</span>
-          </span>
-          <ChevronDownIcon
-            aria-hidden="true"
-            className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180"
-          />
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="px-3 pb-4">{children}</CollapsibleContent>
-    </Collapsible>
+    <section>
+      <header className="mb-4 flex items-start gap-3">
+        <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+          <Icon aria-hidden="true" className="size-4" />
+        </span>
+        <div>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        </div>
+      </header>
+      {children}
+    </section>
   );
 }
 
@@ -357,6 +407,7 @@ function InspectionProgress({ profile, target }: { profile: string; target: Targ
 
 function ServiceCard({
   activeAction,
+  connectionAction,
   configuration,
   onAction,
   onConfiguration,
@@ -366,6 +417,7 @@ function ServiceCard({
   variant,
 }: {
   activeAction?: ServiceAction;
+  connectionAction?: { label: string; onSelect?: () => void; pending?: boolean; to?: string };
   configuration: Record<string, string>;
   onAction: (action: ServiceAction) => void;
   onConfiguration: (field: string, value: string) => void;
@@ -375,6 +427,8 @@ function ServiceCard({
   variant: string;
 }) {
   const compatible = service.variants.filter((item) => item.compatible);
+  const installed = service.state === 'running' || service.state === 'stopped';
+  const operable = installed || compatible.length > 0;
   const incompatibilityReasons = Array.from(
     new Set(service.variants.filter((item) => !item.compatible).map((item) => item.reason)),
   );
@@ -388,107 +442,203 @@ function ServiceCard({
         ? ['start', 'status', 'logs']
         : ['install'];
   return (
-    <article className="rounded-lg border bg-card p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-medium">{service.label}</h3>
-          <p className="text-xs text-muted-foreground">{service.description}</p>
+    <article className="grid gap-5 py-6 lg:grid-cols-[minmax(12rem,0.72fr)_minmax(0,1.28fr)]">
+      <div>
+        <div className="flex flex-wrap items-center gap-3">
+          <h3 className="text-base font-semibold">{service.label}</h3>
+          <ServiceState compatible={Boolean(compatible.length)} state={service.state} />
         </div>
-        <ServiceState state={service.state} />
+        <p className="mt-1 max-w-sm text-sm text-muted-foreground">{service.description}</p>
+        {service.connection_url ? (
+          <p className="mt-3 break-all font-mono text-xs text-muted-foreground">
+            {service.connection_url}
+          </p>
+        ) : null}
       </div>
-      {compatible.length ? (
-        <details className="mt-3">
-          <summary className="cursor-pointer text-xs text-muted-foreground">
-            Advanced setup options
-          </summary>
-          <Select onValueChange={onVariant} value={variant}>
-            <SelectTrigger aria-label={`${service.label} version`} className="mt-2">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {compatible.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.label} · {item.version}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </details>
-      ) : (
-        <div className="mt-3 rounded-md bg-muted/40 p-3 text-sm">
-          <p className="font-medium">Setup needs one more prerequisite</p>
-          {incompatibilityReasons.map((reason) => (
-            <p className="mt-1 text-xs text-muted-foreground" key={reason}>
-              {reason}
+
+      <div className="min-w-0 space-y-3">
+        {compatible.length && service.state !== 'running' ? (
+          <details>
+            <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+              Installation options
+            </summary>
+            <Select onValueChange={onVariant} value={variant}>
+              <SelectTrigger aria-label={`${service.label} version`} className="mt-2 max-w-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {compatible.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.label} · {item.version}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </details>
+        ) : !installed ? (
+          <div className="border-l-2 border-destructive py-1 pl-4 text-sm">
+            <p className="flex items-center gap-2 font-medium text-destructive">
+              <TriangleAlertIcon aria-hidden="true" className="size-4" /> Not available on this
+              target
             </p>
-          ))}
-        </div>
-      )}
-      {compatible.length
-        ? service.configuration_fields.map((field) =>
-            field.options?.length ? (
-              <Select
-                key={field.id}
-                onValueChange={(value) => onConfiguration(field.id, value)}
-                value={configuration[field.id]}
+            {incompatibilityReasons.map((reason) => (
+              <p className="mt-1 text-xs text-destructive/90" key={reason}>
+                {reason}
+              </p>
+            ))}
+            {incompatibilityReasons.some((reason) => reason.includes('Docker')) ? (
+              <a
+                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                href="https://docs.docker.com/desktop/"
+                rel="noreferrer"
+                target="_blank"
               >
-                <SelectTrigger aria-label={`${service.label} ${field.label}`} className="mt-2">
-                  <SelectValue placeholder={field.placeholder} />
-                </SelectTrigger>
-                <SelectContent>
-                  {field.options.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                aria-label={`${service.label} ${field.label}`}
-                className="mt-2"
-                key={field.id}
-                onChange={(event) => onConfiguration(field.id, event.target.value)}
-                placeholder={field.placeholder}
-                required={field.required}
-                value={configuration[field.id] ?? ''}
-              />
-            ),
-          )
-        : null}
-      {compatible.length ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {actions.map((name) => (
-            <Button
-              disabled={Boolean(activeAction) || !variant || (name === 'start' && missing)}
-              key={name}
-              onClick={() => onAction(name)}
-              size="sm"
-              variant={name === 'start' ? 'default' : 'outline'}
-            >
-              {activeAction === name ? <Spinner aria-hidden="true" /> : null}
-              {activeAction === name ? `${actionLabel(name)}…` : actionLabel(name)}
-            </Button>
-          ))}
-        </div>
-      ) : null}
-      {result ? (
-        <pre
-          aria-live="polite"
-          className="mt-3 max-h-28 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs"
-        >
-          {result}
-        </pre>
-      ) : null}
+                Docker Desktop guide <ExternalLinkIcon aria-hidden="true" className="size-3" />
+              </a>
+            ) : null}
+          </div>
+        ) : null}
+
+        {compatible.length && service.state !== 'running'
+          ? service.configuration_fields.map((field) =>
+              field.options?.length ? (
+                <Select
+                  key={field.id}
+                  onValueChange={(value) => onConfiguration(field.id, value)}
+                  value={configuration[field.id]}
+                >
+                  <SelectTrigger aria-label={`${service.label} ${field.label}`}>
+                    <SelectValue placeholder={field.placeholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {field.options.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : field.id === 'model_path' ? (
+                <ModelFileField
+                  key={field.id}
+                  label={`${service.label} ${field.label}`}
+                  onChange={(value) => onConfiguration(field.id, value)}
+                  placeholder={field.placeholder}
+                  required={field.required}
+                  value={configuration[field.id] ?? ''}
+                />
+              ) : (
+                <Input
+                  aria-label={`${service.label} ${field.label}`}
+                  key={field.id}
+                  onChange={(event) => onConfiguration(field.id, event.target.value)}
+                  placeholder={field.placeholder}
+                  required={field.required}
+                  value={configuration[field.id] ?? ''}
+                />
+              ),
+            )
+          : null}
+
+        {service.state === 'running' && service.id === 'web_search' && !service.connection_url ? (
+          <p className="text-sm text-destructive">CLIO could not determine this service address.</p>
+        ) : null}
+
+        {operable ? (
+          <div className="flex flex-wrap gap-2">
+            {connectionAction?.to ? (
+              <Button asChild size="sm">
+                <Link to={connectionAction.to}>{connectionAction.label}</Link>
+              </Button>
+            ) : connectionAction?.onSelect ? (
+              <Button
+                disabled={connectionAction.pending}
+                onClick={connectionAction.onSelect}
+                size="sm"
+              >
+                {connectionAction.pending ? <Spinner aria-hidden="true" /> : null}
+                {connectionAction.label}
+              </Button>
+            ) : null}
+            {actions.map((name) => (
+              <Button
+                disabled={Boolean(activeAction) || !variant || (name === 'start' && missing)}
+                key={name}
+                onClick={() => onAction(name)}
+                size="sm"
+                variant={name === 'start' ? 'default' : 'outline'}
+              >
+                {activeAction === name ? <Spinner aria-hidden="true" /> : null}
+                {activeAction === name ? `${actionLabel(name)}…` : actionLabel(name)}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+
+        {result ? (
+          <pre
+            aria-live="polite"
+            className="max-h-28 overflow-auto whitespace-pre-wrap border-l-2 border-primary/40 py-1 pl-3 text-xs text-muted-foreground"
+          >
+            {result}
+          </pre>
+        ) : null}
+      </div>
     </article>
   );
 }
 
-function ServiceState({ state }: { state: ManagedServiceDefinition['state'] }) {
+function ServiceState({
+  compatible,
+  state,
+}: {
+  compatible: boolean;
+  state: ManagedServiceDefinition['state'];
+}) {
   if (state === 'running') return <ClioStatus label="Running" value="healthy" />;
   if (state === 'stopped') return <ClioStatus label="Stopped" value="degraded" />;
+  if (!compatible) return <ClioStatus label="Unavailable here" value="unavailable" />;
   if (state === 'not_installed') return <ClioStatus label="Not installed" value="unavailable" />;
   return <ClioStatus label="Optional" value="unavailable" />;
+}
+
+function ModelFileField({
+  label,
+  onChange,
+  placeholder,
+  required,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  required: boolean;
+  value: string;
+}) {
+  const choose = async () => {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({
+      directory: false,
+      filters: [{ name: 'GGUF model', extensions: ['gguf'] }],
+      multiple: false,
+      title: 'Choose a GGUF model',
+    });
+    if (typeof selected === 'string') onChange(selected);
+  };
+  return (
+    <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <Input
+        aria-label={label}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        required={required}
+        value={value}
+      />
+      <Button onClick={() => void choose()} type="button" variant="outline">
+        Choose GGUF file
+      </Button>
+    </div>
+  );
 }
 
 function actionLabel(action: ServiceAction): string {
@@ -507,21 +657,31 @@ function targetLabel(target: Target, profile: string): string {
 }
 
 function TargetChoice({
+  description,
   icon: Icon,
   label,
+  selected,
   value,
 }: {
+  description: string;
   icon: typeof LaptopIcon;
   label: string;
+  selected: boolean;
   value: Target;
 }) {
   return (
     <FieldLabel
-      className="flex cursor-pointer items-center gap-2"
+      className={`group grid cursor-pointer grid-cols-[auto_1fr] gap-x-3 border p-4 transition-colors hover:border-primary/60 ${
+        selected ? 'border-primary bg-primary/8' : 'border-border bg-background/60'
+      }`}
       htmlFor={`managed-target-${value}`}
     >
-      <RadioGroupItem id={`managed-target-${value}`} value={value} />
-      <Icon aria-hidden="true" className="size-4" /> {label}
+      <RadioGroupItem className="sr-only" id={`managed-target-${value}`} value={value} />
+      <span className="row-span-2 grid size-9 place-items-center rounded-full bg-muted text-muted-foreground group-hover:text-primary">
+        <Icon aria-hidden="true" className="size-4" />
+      </span>
+      <span className="font-medium">{label}</span>
+      <span className="text-xs font-normal text-muted-foreground">{description}</span>
     </FieldLabel>
   );
 }

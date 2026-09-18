@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
+import type { ComponentProps } from 'react';
 
 const runtime = vi.hoisted(() => ({ desktop: true }));
 const deployment = vi.hoisted(() => ({
@@ -31,6 +32,7 @@ const services = serviceLabels.map<ManagedServiceDefinition>(([id, label]) => ({
   recommended_variant: `${id}-default`,
   supports_stop: id !== 'relay',
   state: id === 'web_search' ? 'running' : 'not_installed',
+  connection_url: id === 'web_search' ? 'http://127.0.0.1:8089' : undefined,
   configuration_fields: [],
   variants: [
     {
@@ -55,11 +57,11 @@ services[0].configuration_fields = [
   },
 ];
 
-function renderServices() {
+function renderServices(props: ComponentProps<typeof ManagedServices> = {}) {
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
-        <ManagedServices />
+        <ManagedServices {...props} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -74,11 +76,19 @@ beforeEach(() => {
       arch: 'x86_64',
       accelerator: 'none',
       docker_available: true,
+      docker_installed: true,
       uv_available: true,
     },
     services,
   });
   deployment.sshProfiles.mockResolvedValue([]);
+  deployment.runManagedServiceAction.mockResolvedValue({
+    service_id: 'web_search',
+    action: 'status',
+    target: 'this computer',
+    status: 'ok',
+    logs: 'running',
+  });
 });
 
 afterEach(() => {
@@ -91,17 +101,18 @@ describe('ManagedServices', () => {
     const user = userEvent.setup();
     renderServices();
 
-    expect(await screen.findByRole('heading', { name: 'Managed infrastructure' })).toBeVisible();
-    expect(screen.getByText('CLIO resources')).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { name: 'Where should this capability run?' }),
+    ).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Scientific services' })).toBeVisible();
     expect(await screen.findByRole('heading', { name: 'CLIO Web Search' })).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'CLIO Relay' })).not.toBeInTheDocument();
     expect(screen.getByText('Running')).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'vLLM' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /Model providers/u }));
-    expect(screen.getByLabelText('Provider')).toBeDisabled();
-    await user.click(screen.getByLabelText('Enable a CLIO-managed provider'));
-    await user.click(screen.getByLabelText('Provider'));
+    expect(screen.getByLabelText('Runtime')).toBeDisabled();
+    await user.click(screen.getByLabelText('Manage a model runtime with CLIO'));
+    await user.click(screen.getByLabelText('Runtime'));
     await user.click(screen.getByRole('option', { name: 'vLLM' }));
     expect(screen.getByRole('heading', { name: 'vLLM' })).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'llama.cpp' })).not.toBeInTheDocument();
@@ -117,12 +128,14 @@ describe('ManagedServices', () => {
         arch: 'x86_64',
         accelerator: 'none',
         docker_available: false,
+        docker_installed: false,
         uv_available: true,
       },
       services: services.map((service) =>
         service.id === 'web_search'
           ? {
               ...service,
+              state: 'not_installed' as const,
               recommended_variant: '',
               variants: service.variants.map((variant) => ({
                 ...variant,
@@ -135,14 +148,31 @@ describe('ManagedServices', () => {
     });
     renderServices();
 
-    expect(await screen.findByText('Requires Docker.')).toBeVisible();
+    expect(await screen.findByText('Not available on this target')).toBeVisible();
+    expect(screen.getByText('Requires Docker.')).toHaveClass('text-destructive/90');
+  });
+
+  it('connects a running service to CLIO without repeating its state as command output', async () => {
+    const user = userEvent.setup();
+    const connect = vi.fn();
+    renderServices({ onConnectWebSearch: connect, webSearchConnected: false });
+
+    expect(await screen.findByRole('button', { name: 'Connect to CLIO' })).toBeVisible();
+    expect(screen.getAllByText('Running')).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Connect to CLIO' }));
+    expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
+    await user.click(screen.getByRole('button', { name: 'Check status' }));
+    expect(await screen.findAllByText('Running')).toHaveLength(1);
+    expect(screen.queryByText('running')).not.toBeInTheDocument();
   });
 
   it('keeps the infrastructure view usable while target inspection is pending', () => {
     deployment.managedServiceCatalog.mockReturnValue(new Promise(() => undefined));
     renderServices();
 
-    expect(screen.getByRole('heading', { name: 'Managed infrastructure' })).toBeVisible();
+    expect(
+      screen.getByRole('heading', { name: 'Where should this capability run?' }),
+    ).toBeVisible();
     expect(screen.getByText('Inspecting this computer')).toBeVisible();
   });
 
@@ -159,6 +189,7 @@ describe('ManagedServices', () => {
               arch: 'x86_64',
               accelerator: 'none',
               docker_available: true,
+              docker_installed: true,
               uv_available: true,
             },
             services,
@@ -166,8 +197,8 @@ describe('ManagedServices', () => {
     );
     renderServices();
 
-    await user.click(screen.getByRole('radio', { name: 'SSH host' }));
-    await user.click(await screen.findByRole('combobox', { name: 'SSH host' }));
+    await user.click(screen.getByRole('radio', { name: /Remote host/u }));
+    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
     await user.click(screen.getByRole('option', { name: 'homelab' }));
 
     expect(await screen.findByText('Connecting to homelab')).toBeVisible();

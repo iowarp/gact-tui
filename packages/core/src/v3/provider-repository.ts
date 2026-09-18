@@ -124,4 +124,13 @@ export class ProviderRepository extends ContextRepository {
       signal,
     });
   }
+
+  public waitLanguageModelConfiguration(signal?: AbortSignal): Promise<LanguageModelConfiguration> {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/providers/lm/wait',
+      decode: (value) => languageModelConfigurationSchema.parse(value),
+      signal,
+    });
+  }
 }

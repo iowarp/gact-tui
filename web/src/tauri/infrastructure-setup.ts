@@ -28,6 +28,7 @@ export type TargetFacts = {
   arch: string;
   accelerator: string;
   docker_available: boolean;
+  docker_installed: boolean;
   uv_available: boolean;
 };
 
@@ -54,6 +55,7 @@ export type ManagedServiceDefinition = {
   }>;
   supports_stop: boolean;
   state: 'running' | 'stopped' | 'not_installed' | 'unknown';
+  connection_url?: string | null;
 };
 
 export type ManagedServiceCatalog = {

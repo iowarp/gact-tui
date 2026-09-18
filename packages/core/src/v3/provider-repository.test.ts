@@ -118,6 +118,25 @@ describe('ClioRepository provider contracts', () => {
     });
   });
 
+  it('normalizes the service zero max-token sentinel to an unset limit', async () => {
+    const transport = new RecordingTransport([
+      {
+        configured: false,
+        provider: 'lm_studio',
+        api_base: 'http://127.0.0.1:1234/v1',
+        model: '',
+        max_tokens: 0,
+        presets: [],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.languageModelConfiguration()).resolves.toMatchObject({
+      configured: false,
+      max_tokens: undefined,
+    });
+  });
+
   it('runs a report-only provider handshake with an explicit refresh', async () => {
     const report = {
       models: [{ id: 'gpt-5.6-luna', context_window: 400000 }],

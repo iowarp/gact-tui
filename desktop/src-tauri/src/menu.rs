@@ -50,9 +50,9 @@ pub struct MenuActionPayload {
 /// Brand overlays update `productName`; native menus and tray labels should
 /// derive from that same value instead of hardcoding the CLIO reference brand.
 pub fn native_app_name<R: Runtime>(app: &AppHandle<R>) -> String {
-    app.config()
-        .product_name
-        .clone()
+    crate::brand_backend::product_name()
+        .map(str::to_owned)
+        .or_else(|| app.config().product_name.clone())
         .unwrap_or_else(|| app.package_info().name.clone())
 }
 

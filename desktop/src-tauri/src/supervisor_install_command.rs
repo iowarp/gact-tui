@@ -118,9 +118,8 @@ mod tests {
             windows_url:
                 "https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.ps1"
                     .to_string(),
-            unix_url:
-                "https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh"
-                    .to_string(),
+            unix_url: "https://raw.githubusercontent.com/iowarp/clio-agent/main/install/install.sh"
+                .to_string(),
             repo_label: "github.com/iowarp/clio-agent".to_string(),
         }
     }
@@ -255,6 +254,9 @@ mod tests {
     fn connect_mode_install_command_is_noop() {
         // The embedded default brand is connect-mode (no install block).
         let (program, _args) = install_command_versioned(false, None);
-        assert_eq!(program, "true", "connect-mode must not run a real installer");
+        assert_eq!(
+            program, "true",
+            "connect-mode must not run a real installer"
+        );
     }
 }

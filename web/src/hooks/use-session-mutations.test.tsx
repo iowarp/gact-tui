@@ -11,11 +11,14 @@ const mocks = vi.hoisted(() => ({
     answerQuestion: vi.fn(async () => ({})),
     cancelQuestion: vi.fn(async () => ({})),
     createQueuedMessage: vi.fn(),
+    languageModelConfiguration: vi.fn(),
     pendingSteers: vi.fn(async () => []),
     queuedMessages: vi.fn(async () => []),
     respondPermission: vi.fn(async () => undefined),
     submitMessage: vi.fn(),
+    updateLanguageModelConfiguration: vi.fn(),
     updateSession: vi.fn(),
+    waitLanguageModelConfiguration: vi.fn(),
   },
   replaceSnapshots: vi.fn(),
 }));
@@ -64,7 +67,10 @@ const behavior = {
 
 const draft: SessionSendInput = { behavior, delivery: 'start', text: 'Check the station table.' };
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.repository.languageModelConfiguration.mockResolvedValue({ configured: true });
+});
 
 function renderMutations(session?: Session) {
   return renderHook(
@@ -98,6 +104,76 @@ function renderMutationsWithClient(client: QueryClient) {
 }
 
 describe('useSessionMutations send identity', () => {
+  it('starts CLIO with the selected subscription provider before the first message', async () => {
+    mocks.repository.languageModelConfiguration.mockResolvedValue({
+      configured: false,
+      presets: [
+        {
+          api_base: 'codex://sdk',
+          id: 'codex',
+          is_authenticated: true,
+          label: 'OpenAI Codex (subscription)',
+          provider: 'codex',
+          provider_id: 'codex',
+          requires_api_key: false,
+        },
+      ],
+    });
+    mocks.repository.updateLanguageModelConfiguration.mockResolvedValue({
+      configured: true,
+      state: 'ready',
+    });
+    mocks.repository.submitMessage.mockResolvedValue({ message_id: 'message_1' });
+    const { result } = renderMutations();
+
+    await result.current.send.mutateAsync(draft);
+
+    expect(mocks.repository.updateLanguageModelConfiguration).toHaveBeenCalledWith({
+      api_base: 'codex://sdk',
+      model: 'gpt-5.6-luna',
+      provider: 'codex',
+      provider_id: 'codex',
+      provider_options: {},
+    });
+    expect(mocks.repository.submitMessage).toHaveBeenCalledTimes(1);
+    expect(
+      mocks.repository.updateLanguageModelConfiguration.mock.invocationCallOrder[0],
+    ).toBeLessThan(mocks.repository.submitMessage.mock.invocationCallOrder[0]);
+  });
+
+  it('does not invent credentials for an unconnected API-key provider', async () => {
+    mocks.repository.languageModelConfiguration.mockResolvedValue({
+      configured: false,
+      presets: [
+        {
+          api_base: 'https://api.example.test/v1',
+          id: 'example',
+          is_authenticated: true,
+          label: 'Example provider',
+          provider: 'openai',
+          provider_id: 'example',
+          requires_api_key: true,
+        },
+      ],
+    });
+    const { result } = renderHook(
+      () =>
+        useSessionMutations({
+          activeModel: 'example-model',
+          activeProvider: 'example',
+          sessionId: 'sess_1',
+          workspaceId: 'ws_1',
+        }),
+      { wrapper },
+    );
+
+    await expect(result.current.send.mutateAsync(draft)).rejects.toThrow(
+      'Connect Example provider in Settings before starting a session.',
+    );
+    expect(mocks.repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+    expect(mocks.repository.submitMessage).not.toHaveBeenCalled();
+  });
+
   it('reuses one idempotency key while the same draft is being retried', async () => {
     mocks.repository.submitMessage.mockRejectedValue(new Error('connection interrupted'));
     const { result } = renderMutations();

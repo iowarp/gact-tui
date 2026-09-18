@@ -625,10 +625,12 @@ function NotificationSettings() {
 }
 
 function SettingsSection({
+  blueprintId,
   section,
   sessionId,
   workspaceId,
 }: {
+  blueprintId?: string;
   section: string;
   sessionId?: string;
   workspaceId?: string;
@@ -637,7 +639,7 @@ function SettingsSection({
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
   if (section === 'providers') return <ModelsSettings />;
   if (section === 'agents') return <AgentSettings />;
-  if (section === 'blueprints') return <BlueprintSettings />;
+  if (section === 'blueprints') return <BlueprintSettings initialBlueprintId={blueprintId} />;
   if (section === 'expert-packs') return <ExpertPackSettings initialWorkspaceId={workspaceId} />;
   if (section === 'tools') return <ToolsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'prompts') return <PromptsCommandsSettings initialWorkspaceId={workspaceId} />;
@@ -731,6 +733,7 @@ export function SettingsPage() {
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
+  const blueprintId = new URLSearchParams(location.search).get('blueprint') || undefined;
   return (
     <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
@@ -754,7 +757,12 @@ export function SettingsPage() {
           ))}
         </nav>
         <section className="min-w-0 pb-16">
-          <SettingsSection section={section} sessionId={sessionId} workspaceId={workspaceId} />
+          <SettingsSection
+            blueprintId={blueprintId}
+            section={section}
+            sessionId={sessionId}
+            workspaceId={workspaceId}
+          />
         </section>
       </div>
     </main>

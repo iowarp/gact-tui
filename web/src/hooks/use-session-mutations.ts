@@ -4,6 +4,7 @@ import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
 import { SendIdentities, sendFingerprint } from '@/lib/send-identity';
 import type {
   ComposerMessagePart,
+  LanguageModelConfiguration,
   MessageBehavior,
   MessageDelivery,
   PendingInteraction,
@@ -34,6 +35,7 @@ import { respondToLegacyInteraction } from '@/lib/pending-interaction-contract';
 interface UseSessionMutationsInput {
   activeModel?: string;
   activeProvider?: string;
+  modelConfiguration?: LanguageModelConfiguration;
   session?: Session;
   sessionId: string;
   workspaceId: string;
@@ -72,6 +74,7 @@ interface ActionCardInput {
 export function useSessionMutations({
   activeModel,
   activeProvider,
+  modelConfiguration,
   session,
   sessionId,
   workspaceId,
@@ -181,6 +184,44 @@ export function useSessionMutations({
   );
 
   const sendIdentities = useRef(new SendIdentities());
+  const ensureAgentReady = async (providerId: string, modelId: string) => {
+    if (modelConfiguration?.configured) return;
+
+    const configuration = modelConfiguration ?? (await repository.languageModelConfiguration());
+    if (configuration.configured) return;
+
+    const preset = configuration.presets.find(
+      (candidate) => candidate.id === providerId || candidate.provider_id === providerId,
+    );
+    if (!preset) {
+      throw new Error(`The ${providerId} provider is not available on this CLIO installation.`);
+    }
+    if (!preset.is_authenticated) {
+      throw new Error(`Connect ${preset.label} in Settings before starting a session.`);
+    }
+    if (preset.requires_api_key) {
+      throw new Error(`Connect ${preset.label} in Settings before starting a session.`);
+    }
+
+    const result = await repository.updateLanguageModelConfiguration({
+      api_base: preset.api_base ?? '',
+      model: modelId,
+      provider: preset.provider,
+      provider_id: preset.provider_id ?? preset.id,
+      provider_options: {},
+    });
+    if (result.state === 'configuring') {
+      const ready = await repository.waitLanguageModelConfiguration();
+      if (!ready.configured || ready.state === 'error') {
+        throw new Error(
+          ready.error || ready.status_message || 'CLIO could not start the provider.',
+        );
+      }
+    }
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
+    });
+  };
   const reconcileTurnMode = async (behavior: MessageBehavior) => {
     if (!session) return;
     const mode = sessionModeForExecution(behavior.execution_mode);
@@ -201,6 +242,7 @@ export function useSessionMutations({
       const provider = value.provider ?? activeProvider;
       const model = value.model ?? activeModel;
       if (!provider || !model) throw new Error('Choose an available provider and model.');
+      await ensureAgentReady(provider, model);
       const identity = sendIdentities.current.forSend(sendFingerprint(value));
 
       const uploaded = value.files?.length

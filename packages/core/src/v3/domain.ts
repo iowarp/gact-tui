@@ -560,6 +560,8 @@ export interface ToolCatalogItem {
   owner?: string;
   tags: string[];
   visible_to: string[];
+  input_schema: Record<string, unknown>;
+  output_schema: Record<string, unknown>;
 }
 
 export interface McpServerDefinition {

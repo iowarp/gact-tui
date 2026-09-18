@@ -72,6 +72,7 @@ pub struct TargetFacts {
     pub arch: String,
     pub accelerator: String,
     pub docker_available: bool,
+    pub docker_installed: bool,
     pub uv_available: bool,
 }
 
@@ -108,6 +109,9 @@ pub struct ManagedServiceDefinition {
     /// separate from compatibility: a supported service may already be
     /// running, stopped, or not installed at all.
     pub state: String,
+    /// Direct endpoint for a discovered running service, when that service can
+    /// be attached to CLIO without reopening deployment setup.
+    pub connection_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -277,7 +281,11 @@ impl Driver {
                     "0.3.0",
                     WEB_IMAGE,
                     docker,
-                    "Requires Docker.",
+                    if facts.docker_installed {
+                        "Docker Desktop is installed but its engine is not running. Start Docker Desktop, then inspect this computer again."
+                    } else {
+                        "Docker is not installed."
+                    },
                 )],
                 vec![field(
                     "contact_email",
@@ -649,6 +657,9 @@ pub async fn infrastructure_managed_service_catalog(
             .map(|driver| {
                 let mut definition = driver.definition(&facts);
                 definition.state = observed_service_state(driver, &facts, &container_states);
+                if driver == Driver::WebSearch && definition.state == "running" {
+                    definition.connection_url = web_search_connection_url(&request);
+                }
                 definition
             })
             .collect();
@@ -758,47 +769,56 @@ fn preflight(request: &ManagedTargetRequest) -> Result<TargetFacts, String> {
     // appear frozen because every unavailable runtime could consume its own
     // discovery deadline. The bounded commands still stop individually, while
     // the user now waits for the slowest probe rather than their sum.
-    let (os, arch, docker_available, uv_available, nvidia_available, rocm_available) =
-        thread::scope(|scope| {
-            let os = scope.spawn(|| {
-                if request.target == "local" {
-                    normalize_os(env::consts::OS)
-                } else {
-                    probe(request, "uname", &["-s"], normalize_os)
-                }
-            });
-            let arch = scope.spawn(|| {
-                if request.target == "local" {
-                    normalize_arch(env::consts::ARCH)
-                } else {
-                    probe(request, "uname", &["-m"], normalize_arch)
-                }
-            });
-            let docker = scope.spawn(|| {
-                available(
-                    request,
-                    "docker",
-                    &["version", "--format", "{{.Server.Version}}"],
-                )
-            });
-            let uv = scope.spawn(|| available(request, "uv", &["--version"]));
-            let nvidia = scope.spawn(|| {
-                available(
-                    request,
-                    "nvidia-smi",
-                    &["--query-gpu=name", "--format=csv,noheader"],
-                )
-            });
-            let rocm = scope.spawn(|| available(request, "rocminfo", &["--version"]));
-            (
-                os.join().unwrap_or_else(|_| "unknown".into()),
-                arch.join().unwrap_or_else(|_| "unknown".into()),
-                docker.join().unwrap_or(false),
-                uv.join().unwrap_or(false),
-                nvidia.join().unwrap_or(false),
-                rocm.join().unwrap_or(false),
+    let (
+        os,
+        arch,
+        docker_installed,
+        docker_available,
+        uv_available,
+        nvidia_available,
+        rocm_available,
+    ) = thread::scope(|scope| {
+        let os = scope.spawn(|| {
+            if request.target == "local" {
+                normalize_os(env::consts::OS)
+            } else {
+                probe(request, "uname", &["-s"], normalize_os)
+            }
+        });
+        let arch = scope.spawn(|| {
+            if request.target == "local" {
+                normalize_arch(env::consts::ARCH)
+            } else {
+                probe(request, "uname", &["-m"], normalize_arch)
+            }
+        });
+        let docker_installed = scope.spawn(|| available(request, "docker", &["--version"]));
+        let docker = scope.spawn(|| {
+            available(
+                request,
+                "docker",
+                &["version", "--format", "{{.Server.Version}}"],
             )
         });
+        let uv = scope.spawn(|| available(request, "uv", &["--version"]));
+        let nvidia = scope.spawn(|| {
+            available(
+                request,
+                "nvidia-smi",
+                &["--query-gpu=name", "--format=csv,noheader"],
+            )
+        });
+        let rocm = scope.spawn(|| available(request, "rocminfo", &["--version"]));
+        (
+            os.join().unwrap_or_else(|_| "unknown".into()),
+            arch.join().unwrap_or_else(|_| "unknown".into()),
+            docker_installed.join().unwrap_or(false),
+            docker.join().unwrap_or(false),
+            uv.join().unwrap_or(false),
+            nvidia.join().unwrap_or(false),
+            rocm.join().unwrap_or(false),
+        )
+    });
     let accelerator = if nvidia_available {
         "nvidia"
     } else if rocm_available || request.target == "local" && windows_has_amd_gpu() {
@@ -812,6 +832,7 @@ fn preflight(request: &ManagedTargetRequest) -> Result<TargetFacts, String> {
         arch,
         accelerator: accelerator.into(),
         docker_available,
+        docker_installed,
         uv_available,
     })
 }
@@ -901,7 +922,7 @@ fn target_invocation(
     args: &[&str],
 ) -> (String, Vec<String>) {
     if target.target == "local" {
-        return (program.into(), strings(args));
+        return (resolved_local_program(program), strings(args));
     }
     let command = std::iter::once(program)
         .chain(args.iter().copied())
@@ -922,13 +943,54 @@ fn target_invocation(
     )
 }
 
+fn resolved_local_program(program: &str) -> String {
+    resolved_local_program_from(program, &docker_install_candidates())
+}
+
+/// Well-known absolute paths a local Docker install may live at, outside
+/// whatever the shell's `PATH` happens to resolve. Checked in order; the
+/// first that exists as a real file wins.
+fn docker_install_candidates() -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(program_files) = env::var_os("ProgramFiles") {
+        candidates.push(
+            PathBuf::from(program_files)
+                .join("Docker")
+                .join("Docker")
+                .join("resources")
+                .join("bin")
+                .join("docker.exe"),
+        );
+    }
+    candidates.extend([
+        PathBuf::from("/usr/local/bin/docker"),
+        PathBuf::from("/opt/homebrew/bin/docker"),
+        PathBuf::from("/usr/bin/docker"),
+    ]);
+    candidates
+}
+
+/// Pure resolver split out from [`resolved_local_program`] so tests can
+/// supply a controlled candidate list instead of depending on whether the
+/// machine running the suite happens to have Docker Desktop installed.
+fn resolved_local_program_from(program: &str, candidates: &[PathBuf]) -> String {
+    if program != "docker" {
+        return program.into();
+    }
+    candidates
+        .iter()
+        .find(|candidate| candidate.is_file())
+        .map(|candidate| candidate.to_string_lossy().into_owned())
+        .unwrap_or_else(|| program.into())
+}
+
 fn available(target: &ManagedTargetRequest, program: &str, args: &[&str]) -> bool {
     run_discovery_target(target, program, args)
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
 fn local_available(program: &str, args: &[&str]) -> bool {
-    Command::new(program)
+    Command::new(resolved_local_program(program))
         .args(args)
         .output()
         .map(|o| o.status.success())
@@ -1194,7 +1256,40 @@ fn definition(
         configuration_fields: fields,
         supports_stop,
         state: "unknown".into(),
+        connection_url: None,
     }
+}
+
+fn web_search_connection_url(target: &ManagedTargetRequest) -> Option<String> {
+    let detected_hostname = if target.target == "ssh" {
+        let profile_name = target.ssh_profile.as_deref()?;
+        ssh_config_path()
+            .and_then(|path| fs::read_to_string(path).ok())
+            .and_then(|contents| {
+                parse_ssh_profiles(&contents)
+                    .into_iter()
+                    .find(|profile| profile.name.eq_ignore_ascii_case(profile_name))
+                    .and_then(|profile| profile.hostname)
+            })
+    } else {
+        None
+    };
+    web_search_connection_url_for_host(target, detected_hostname.as_deref())
+}
+
+fn web_search_connection_url_for_host(
+    target: &ManagedTargetRequest,
+    detected_hostname: Option<&str>,
+) -> Option<String> {
+    let host = match target.target.as_str() {
+        "local" => "127.0.0.1",
+        "ssh" => {
+            let profile_name = target.ssh_profile.as_deref()?;
+            detected_hostname.unwrap_or(profile_name)
+        }
+        _ => return None,
+    };
+    Some(format!("http://{host}:8089"))
 }
 
 fn validate_target(target: &ManagedTargetRequest) -> Result<(), String> {
@@ -1304,6 +1399,7 @@ mod tests {
             arch: "x86_64".into(),
             accelerator: accelerator.into(),
             docker_available: true,
+            docker_installed: true,
             uv_available: true,
         }
     }
@@ -1316,6 +1412,44 @@ mod tests {
             variant_id: variant.into(),
             configuration: BTreeMap::new(),
         }
+    }
+
+    #[test]
+    fn discovered_web_search_uses_the_selected_targets_reachable_address() {
+        let local = ManagedTargetRequest {
+            target: "local".into(),
+            ssh_profile: None,
+        };
+        assert_eq!(
+            web_search_connection_url_for_host(&local, None).as_deref(),
+            Some("http://127.0.0.1:8089")
+        );
+
+        let remote = ManagedTargetRequest {
+            target: "ssh".into(),
+            ssh_profile: Some("homelab".into()),
+        };
+        assert_eq!(
+            web_search_connection_url_for_host(&remote, Some("10.0.0.102")).as_deref(),
+            Some("http://10.0.0.102:8089")
+        );
+    }
+
+    #[test]
+    fn web_search_distinguishes_a_stopped_docker_engine_from_a_missing_install() {
+        let mut stopped = facts("windows", "none");
+        stopped.docker_available = false;
+        let stopped_definition = Driver::WebSearch.definition(&stopped);
+        assert!(stopped_definition.variants[0]
+            .reason
+            .contains("installed but its engine is not running"));
+
+        stopped.docker_installed = false;
+        let missing_definition = Driver::WebSearch.definition(&stopped);
+        assert_eq!(
+            missing_definition.variants[0].reason,
+            "Docker is not installed."
+        );
     }
 
     #[test]
@@ -1447,13 +1581,19 @@ mod tests {
 
     #[test]
     fn builds_distinct_local_and_ssh_invocations() {
+        // Uses a program name other than the literal "docker": that name is
+        // special-cased by resolved_local_program to prefer a real install
+        // path when one exists on the host, which would make this assertion
+        // depend on whether the machine running the suite has Docker Desktop
+        // installed. See resolved_local_program_from's own tests below for
+        // coverage of that resolution behavior with controlled candidates.
         let local = ManagedTargetRequest {
             target: "local".into(),
             ssh_profile: None,
         };
         assert_eq!(
-            target_invocation(&local, "docker", &["pull", WEB_IMAGE]),
-            ("docker".into(), strings(&["pull", WEB_IMAGE]))
+            target_invocation(&local, "docker-compose", &["pull", WEB_IMAGE]),
+            ("docker-compose".into(), strings(&["pull", WEB_IMAGE]))
         );
 
         let remote = ManagedTargetRequest {
@@ -1475,6 +1615,42 @@ mod tests {
                 ],
             )
         );
+    }
+
+    #[test]
+    fn resolved_local_program_falls_back_to_plain_docker_when_no_candidate_exists() {
+        let candidates = [
+            PathBuf::from("Z:\\definitely-not-a-real-clio-test-path\\docker.exe"),
+            PathBuf::from("/definitely/not/a/real/clio/test/path/docker"),
+        ];
+        assert_eq!(resolved_local_program_from("docker", &candidates), "docker");
+        // Non-docker programs never consult the filesystem at all.
+        assert_eq!(
+            resolved_local_program_from("docker-compose", &candidates),
+            "docker-compose"
+        );
+    }
+
+    #[test]
+    fn resolved_local_program_prefers_a_real_known_install_when_present() {
+        static UNIQUE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let unique = UNIQUE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let dir = env::temp_dir().join(format!(
+            "clio-desktop-test-docker-{}-{unique}",
+            std::process::id(),
+        ));
+        fs::create_dir_all(&dir).expect("create test candidate dir");
+        let real = dir.join("docker.exe");
+        fs::write(&real, b"").expect("write fake docker binary");
+        let candidates = [
+            PathBuf::from("Z:\\definitely-not-a-real-clio-test-path\\docker.exe"),
+            real.clone(),
+        ];
+        assert_eq!(
+            resolved_local_program_from("docker", &candidates),
+            real.to_string_lossy()
+        );
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

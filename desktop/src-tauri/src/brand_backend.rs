@@ -20,8 +20,10 @@ use serde::Deserialize;
 use std::sync::OnceLock;
 
 /// The embedded brand descriptor, baked in at compile time.
-const BRAND_BACKEND_JSON: &str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/gen/brand-backend.json"));
+const BRAND_BACKEND_JSON: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/gen/brand-backend.json"
+));
 
 /// The resolved backend block for the active brand. `mode == "managed"` means
 /// the supervisor may spawn/install a sidecar; `mode == "connect"` means
@@ -32,6 +34,9 @@ const BRAND_BACKEND_JSON: &str =
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrandBackend {
+    /// Native product label from the selected brand profile.
+    #[serde(default)]
+    pub product_name: String,
     /// `"managed"` (spawn/install a sidecar) or `"connect"` (attach-only).
     pub mode: String,
     /// externalBin stem — installed as `<sidecar_name>{.exe}` (tauri-bundler
@@ -90,6 +95,12 @@ pub(crate) fn is_managed_install() -> bool {
     bb.mode == "managed" && bb.install.is_some()
 }
 
+/// Product label compiled from the selected brand profile, when available.
+pub(crate) fn product_name() -> Option<&'static str> {
+    let value = brand_backend().product_name.trim();
+    (!value.is_empty()).then_some(value)
+}
+
 /// The user-facing error for a connect-mode brand when no backend answers the
 /// attach probe. Names the brand's repo label (never a vendor literal) and the
 /// override env vars, telling the user to start that backend themselves.
@@ -133,7 +144,10 @@ mod tests {
     #[test]
     fn connect_mode_error_is_brand_neutral() {
         let msg = connect_mode_error();
-        assert!(msg.contains("GACT_PORT") && msg.contains("GACT_URL"), "got: {msg}");
+        assert!(
+            msg.contains("GACT_PORT") && msg.contains("GACT_URL"),
+            "got: {msg}"
+        );
         assert!(
             !msg.to_lowercase().contains("clio"),
             "connect error must not name a vendor, got: {msg}"

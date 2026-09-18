@@ -126,7 +126,12 @@ export const languageModelConfigurationSchema = z.object({
   api_base: z.string(),
   model: z.string(),
   temperature: z.number().optional(),
-  max_tokens: z.number().int().positive().optional(),
+  max_tokens: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .transform((value) => (value === 0 ? undefined : value)),
   thinking_level: z
     .string()
     .nullish()
@@ -498,6 +503,8 @@ export const toolCatalogItemSchema = z.object({
   owner: z.string().optional(),
   tags: z.array(z.string()).default([]),
   visible_to: z.array(z.string()).default([]),
+  input_schema: z.record(z.string(), z.unknown()).default({}),
+  output_schema: z.record(z.string(), z.unknown()).default({}),
 });
 
 export const mcpServerDefinitionSchema = z.object({
