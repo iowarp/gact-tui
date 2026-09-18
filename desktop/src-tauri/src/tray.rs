@@ -64,10 +64,11 @@ pub(crate) fn install_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()>
         .menu(&menu)
         .on_menu_event(|app, ev| match ev.id().as_ref() {
             SHOW_ID => show_main_window(app),
-            QUIT_ID => {
-                crate::shutdown_owned_services(app);
-                app.exit(0);
-            }
+            // Routes through the single guarded quit path so this can never
+            // double-teardown against the other entry points (native close
+            // prompt, hamburger Quit, macOS menu Quit, quit_clio) that also
+            // funnel through `request_quit`.
+            QUIT_ID => crate::request_quit(app),
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -99,5 +100,46 @@ mod tests {
         assert_eq!(tray_quit_label("GACT Desktop"), "Quit GACT");
         assert_eq!(tray_quit_label("Other Product"), "Quit Other Product");
         assert_eq!(tray_tooltip_label("CLIO Desktop"), "CLIO: running");
+    }
+
+    /// Tray Quit must route through the single guarded quit path
+    /// (`crate::request_quit`), never call `shutdown_owned_services`/
+    /// `app.exit` directly — otherwise it can double-teardown against the
+    /// other entry points (native close prompt, hamburger Quit, macOS menu
+    /// Quit, `quit_clio`) that also funnel through `request_quit`.
+    ///
+    /// Exercising the real `on_menu_event` closure needs a live Tauri
+    /// `AppHandle`; `tauri::test::mock_app` pulls in wry, which fails to
+    /// link into `cargo test --lib` on Windows here with
+    /// STATUS_ENTRYPOINT_NOT_FOUND for the WHOLE test binary (see the
+    /// module doc in `menu.rs`) — so this asserts the wiring structurally
+    /// against this file's own source, the same way
+    /// `desktop/tests/smoke.test.mjs` checks `lib.rs`.
+    #[test]
+    fn quit_menu_item_routes_through_request_quit() {
+        // Slice off everything from `#[cfg(test)]` onward first: this test's
+        // own source text also contains the literal "QUIT_ID =>" (right
+        // here), which would otherwise be the second match for `.split` and
+        // shift `.nth(1)` onto the wrong segment.
+        let source = include_str!("tray.rs");
+        let production_source = source
+            .split("#[cfg(test)]")
+            .next()
+            .expect("file must have a production section before #[cfg(test)]");
+        let quit_arm = production_source
+            .split("QUIT_ID =>")
+            .nth(1)
+            .expect("a QUIT_ID match arm must exist in on_menu_event");
+        let arm_end = quit_arm.find(",\n").unwrap_or(quit_arm.len());
+        let quit_arm_body = &quit_arm[..arm_end];
+        assert!(
+            quit_arm_body.contains("crate::request_quit"),
+            "QUIT_ID must call crate::request_quit(app), got: {quit_arm_body:?}"
+        );
+        assert!(
+            !quit_arm_body.contains("shutdown_owned_services") && !quit_arm_body.contains("app.exit"),
+            "QUIT_ID must not call shutdown_owned_services/app.exit directly — \
+             request_quit owns that sequencing, got: {quit_arm_body:?}"
+        );
     }
 }

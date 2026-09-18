@@ -14,10 +14,12 @@
 //!
 //! `<action-id>` is one of the [`crate::menu_spec::Item::Action`] ids in
 //! [`crate::menu_spec::MENU_SPEC`].
-//! Predefined items (Quit + the whole Edit menu) carry native behavior and
-//! emit no event. Fullscreen is handled natively in Rust (see
+//! Predefined items (the whole Edit menu) carry native OS behavior and emit
+//! no event. Fullscreen is handled natively in Rust (see
 //! [`handle_menu_event`]) AND mirrored as a `fullscreen` event so the
-//! frontend can keep its own UI chrome in sync.
+//! frontend can keep its own UI chrome in sync. Quit is actionable but,
+//! like fullscreen, handled entirely natively — via `crate::request_quit` —
+//! and never emitted to the JS bridge at all (see `handle_menu_event`).
 //!
 //! ## Why a declarative spec
 //!
@@ -69,7 +71,6 @@ fn build_predefined<R: Runtime>(
     kind: Predefined,
 ) -> tauri::Result<PredefinedMenuItem<R>> {
     match kind {
-        Predefined::Quit => PredefinedMenuItem::quit(app, Some("Quit")),
         Predefined::Undo => PredefinedMenuItem::undo(app, None),
         Predefined::Redo => PredefinedMenuItem::redo(app, None),
         Predefined::Cut => PredefinedMenuItem::cut(app, None),
@@ -117,12 +118,25 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
 /// Handle a menu activation: emit the [`MENU_EVENT`] for actionable items and
 /// toggle native fullscreen for the `fullscreen` action.
 ///
-/// Predefined items (Quit + Edit) never reach an actionable branch here; the
-/// OS performs their behavior and `action_for_id` returns `None`.
+/// Predefined Edit items never reach an actionable branch here; the OS
+/// performs their behavior and `action_for_id` returns `None`. Quit is
+/// actionable but handled entirely natively (see below) and never emitted
+/// to the JS bridge — there is nothing for the frontend to do once teardown
+/// has started.
 pub fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, id: &str) {
     let Some(action) = action_for_id(id) else {
         return;
     };
+
+    // The macOS app-menu Quit (and its Cmd+Q accelerator) is one of the quit
+    // entry points `crate::request_quit` guards against double teardown for.
+    // It runs the same native hide+reap+exit as the tray Quit item, bypassing
+    // the frontend close prompt entirely — matching prior native-Quit
+    // behavior — so it must never fall through to the generic emit below.
+    if action == "quit" {
+        crate::request_quit(app);
+        return;
+    }
 
     // Fullscreen is also actioned natively so it works even if the frontend
     // hasn't registered a listener yet; the event still fires so the web UI

@@ -51,11 +51,50 @@ mod tray;
 mod workspace_terminal;
 
 use ssh::TunnelManager;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::thread;
+use std::time::Duration;
 use supervisor::Supervisor;
 use tauri::{Emitter, Manager};
 
 const DESKTOP_RESUMED_EVENT: &str = "clio:desktop-resumed";
+
+/// Emitted to the main window when a native close request (Alt+F4, the OS
+/// close box, the traffic-light close button) arrives, so the frontend can
+/// open the same "Keep CLIO running?" prompt the title-bar close button and
+/// hamburger Quit use. Native close never auto-quits or auto-hides on its
+/// own anymore — the prompt decides.
+const CLOSE_REQUESTED_EVENT: &str = "clio:close-requested";
+
+/// How long `CloseRequested` waits for the frontend to ack the prompt (via
+/// the `close_prompt_shown` command) before assuming no listener is mounted
+/// — an unloaded or crashed WebView — and falling back to hiding the window
+/// outright. Keeps Alt+F4 / the OS close box safe even when the web layer
+/// never answers.
+const CLOSE_PROMPT_ACK_TIMEOUT: Duration = Duration::from_millis(500);
+
+/// Whether the frontend has acknowledged the most recently emitted
+/// [`CLOSE_REQUESTED_EVENT`] by calling `close_prompt_shown`.
+static CLOSE_PROMPT_ACKED: AtomicBool = AtomicBool::new(false);
+
+/// Guards every quit entry point — native `ExitRequested`/`Exit`/`Destroyed`,
+/// the tray Quit item, the hamburger/title-bar Quit action, the macOS app
+/// menu Quit, and the `quit_clio` command — so the owned process tree is
+/// reaped exactly once no matter which path gets there first or how many
+/// exit events the OS delivers on the way out.
+static QUIT_STARTED: AtomicBool = AtomicBool::new(false);
+
+/// Atomically claims the single quit attempt for this process.
+///
+/// Returns `true` for the caller that actually gets to run teardown, `false`
+/// for every later caller (including the `ExitRequested`/`Exit`/`Destroyed`
+/// events that `request_quit`'s own `app.exit(0)` goes on to trigger). A free
+/// function, not a method on an `AppHandle`, so it is unit-testable without
+/// booting a real Tauri runtime.
+fn claim_quit() -> bool {
+    !QUIT_STARTED.swap(true, Ordering::SeqCst)
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -109,7 +148,8 @@ pub fn run() {
             sse_bridge::gact_sse_close,
             plugins::exec_plugin,
             workspace_terminal::open_workspace_terminal,
-            quit_clio
+            quit_clio,
+            close_prompt_shown
         ])
         .setup(|app| {
             // Resolve + remember the persisted boot-log path FIRST so the
@@ -197,13 +237,28 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             match event {
-                // Window close means "continue in the tray." Explicit Quit
-                // exits the application and reaches the teardown path below.
+                // Native close (Alt+F4, the OS close box, the traffic light)
+                // never auto-quits or auto-hides by itself: it opens the same
+                // confirmation prompt the title-bar close button and
+                // hamburger Quit use, via CLOSE_REQUESTED_EVENT. A 500ms
+                // fallback covers a WebView that never mounts a listener.
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     api.prevent_close();
-                    let _ = window.hide();
+                    CLOSE_PROMPT_ACKED.store(false, Ordering::SeqCst);
+                    let app_handle = window.app_handle().clone();
+                    let _ = app_handle.emit(CLOSE_REQUESTED_EVENT, ());
+                    thread::spawn(move || {
+                        thread::sleep(CLOSE_PROMPT_ACK_TIMEOUT);
+                        if !CLOSE_PROMPT_ACKED.load(Ordering::SeqCst) {
+                            if let Some(window) = app_handle.get_webview_window("main") {
+                                let _ = window.hide();
+                            }
+                        }
+                    });
                 }
-                tauri::WindowEvent::Destroyed => shutdown_owned_services(window.app_handle()),
+                // Native window destruction is one of the quit entry points
+                // request_quit guards against double teardown.
+                tauri::WindowEvent::Destroyed => request_quit(window.app_handle()),
                 _ => {}
             }
         })
@@ -225,16 +280,42 @@ pub fn run() {
             tray::show_main_window(app_handle);
         }
         tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
-            shutdown_owned_services(app_handle);
+            request_quit(app_handle);
         }
         _ => {}
     });
 }
 
+/// The one quit path every entry point funnels through: the title-bar/
+/// hamburger "Quit CLIO" action (via `quit_clio`), the tray Quit item, the
+/// macOS app-menu Quit, and the native `ExitRequested`/`Exit`/`Destroyed`
+/// events Tauri delivers once this function's own `app.exit(0)` unwinds the
+/// runtime.
+///
+/// Hides the main window immediately — so the app disappears from the screen
+/// right away even though reaping the owned process tree can take up to
+/// `GRACEFUL_SHUTDOWN_STALL` — then tears down on a background thread and
+/// exits once that finishes. Guarded by [`claim_quit`]: only the first
+/// caller across the whole process does any of this; every later call is a
+/// no-op, which is what makes running it from every entry point (rather than
+/// threading a "did we already quit" flag through each of them) safe.
+pub(crate) fn request_quit<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if !claim_quit() {
+        return;
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
+    let app_handle = app.clone();
+    thread::spawn(move || {
+        shutdown_owned_services(&app_handle);
+        app_handle.exit(0);
+    });
+}
+
 /// Tear down every process and stream owned by this desktop process.
 ///
-/// This is intentionally idempotent because native shutdown can deliver both
-/// `ExitRequested` and a final window-destroyed event.
+/// Called exactly once per process, from inside [`request_quit`]'s guard.
 pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(state) = app.try_state::<Mutex<Supervisor>>() {
         // lock_recover, not plain lock(): a poisoned mutex here would silently
@@ -249,14 +330,64 @@ pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<
     }
 }
 
-/// Stop processes owned by this desktop instance before exiting the shell.
+/// Product-owned Quit action, invoked from the title-bar/hamburger close
+/// prompt's "Quit CLIO" button.
 ///
-/// The process plugin's direct `exit` path can terminate the WebView before
-/// Tauri delivers `RunEvent::ExitRequested`, so the product-owned Quit action
-/// uses this command to make teardown an explicit, awaited part of the user
-/// action.
+/// Returns immediately — `request_quit` only hides the window and spawns the
+/// teardown before coming back — so the frontend's `invoke()` promise
+/// resolves right away instead of racing `GRACEFUL_SHUTDOWN_STALL`. Before
+/// this, quitting synchronously ran teardown on the command's own thread, so
+/// a slow shutdown could make the invoke look rejected on a perfectly normal
+/// quit and trip the "could not update the desktop window" toast.
 #[tauri::command]
 fn quit_clio(app: tauri::AppHandle) {
-    shutdown_owned_services(&app);
-    app.exit(0);
+    request_quit(&app);
+}
+
+/// Frontend ack for [`CLOSE_REQUESTED_EVENT`]: called once the close
+/// confirmation prompt has mounted, so the native 500ms fallback (which
+/// exists only for an unloaded or crashed WebView) does not race a slow but
+/// healthy render and hide the window out from under an open dialog.
+#[tauri::command]
+fn close_prompt_shown() {
+    CLOSE_PROMPT_ACKED.store(true, Ordering::SeqCst);
+}
+
+#[cfg(test)]
+mod quit_guard_tests {
+    use super::claim_quit;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    /// A private, non-static reimplementation of the `QUIT_STARTED` guard so
+    /// the idempotency contract can be verified without racing the real
+    /// process-wide static across parallel `cargo test` threads.
+    fn claim_quit_on(guard: &AtomicBool) -> bool {
+        !guard.swap(true, Ordering::SeqCst)
+    }
+
+    #[test]
+    fn quit_guard_is_idempotent() {
+        let guard = AtomicBool::new(false);
+        assert!(
+            claim_quit_on(&guard),
+            "the first claim must win and be allowed to run teardown"
+        );
+        assert!(
+            !claim_quit_on(&guard),
+            "every later claim (ExitRequested/Exit/Destroyed after app.exit) must be refused"
+        );
+        assert!(
+            !claim_quit_on(&guard),
+            "repeated later claims stay refused"
+        );
+    }
+
+    /// Smoke-test the real process-wide static once: it starts unclaimed in
+    /// a fresh process and flips permanently on first use. Other tests never
+    /// touch `QUIT_STARTED`, so this is not racy against them.
+    #[test]
+    fn real_quit_guard_claims_once() {
+        assert!(claim_quit(), "QUIT_STARTED must start false");
+        assert!(!claim_quit(), "QUIT_STARTED must latch true after the first claim");
+    }
 }

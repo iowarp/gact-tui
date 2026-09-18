@@ -20,3 +20,14 @@ export async function runDesktopWindowAction(action: DesktopWindowAction): Promi
   }
   await desktopWindow[action]();
 }
+
+/**
+ * Ack that the close-confirmation prompt is now on screen, in response to a
+ * native `clio:close-requested` event. Tells the Rust side's 500ms fallback
+ * (which exists only for an unloaded or crashed WebView) not to hide the
+ * window out from under an open dialog.
+ */
+export async function ackClosePromptShown(): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('close_prompt_shown');
+}

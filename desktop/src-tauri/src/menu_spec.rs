@@ -10,16 +10,20 @@ pub enum Item {
         label: &'static str,
         accel: Option<&'static str>,
     },
-    /// A predefined OS item (native clipboard / quit behavior, no event).
+    /// A predefined OS item (native clipboard/undo behavior, no event).
     Predefined(Predefined),
     /// A visual separator.
     Separator,
 }
 
 /// The subset of Tauri predefined menu items this menu uses.
+///
+/// Quit is deliberately NOT here: `PredefinedMenuItem::quit` runs the native
+/// OS quit sequence directly, bypassing `request_quit`'s teardown guard (the
+/// bug this menu used to have on macOS). Quit is a plain `Item::Action`
+/// (id `"quit"`) below, handled natively in `handle_menu_event`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Predefined {
-    Quit,
     Undo,
     Redo,
     Cut,
@@ -65,7 +69,14 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
                 accel: Some("CmdOrCtrl+Comma"),
             },
             Item::Separator,
-            Item::Predefined(Predefined::Quit),
+            // Native-only: handled in `handle_menu_event` by calling
+            // `crate::request_quit` directly, never dispatched to the JS
+            // `clio:menu` bridge (see `NATIVE_ONLY_ACTION_IDS` in the tests).
+            Item::Action {
+                id: "quit",
+                label: "Quit",
+                accel: Some("CmdOrCtrl+Q"),
+            },
         ],
     },
     SubmenuSpec {
@@ -136,7 +147,11 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
 ];
 
 /// Map a menu item id to its action-id, or `None` for predefined items
-/// (Quit, Undo/Redo/Cut/Copy/Paste/Select-All) and any unknown id.
+/// (Undo/Redo/Cut/Copy/Paste/Select-All) and any unknown id.
+///
+/// Quit resolves to `Some("quit")` like any other [`Item::Action`] — it is
+/// actionable, just handled entirely natively (never dispatched to the JS
+/// bridge; see `handle_menu_event` in `menu.rs`).
 ///
 /// Action ids are identical to their menu item ids, so this returns the
 /// interned `&'static str` straight out of [`MENU_SPEC`] when `id` matches an

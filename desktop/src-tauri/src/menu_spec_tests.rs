@@ -30,8 +30,22 @@ fn all_action_ids() -> Vec<&'static str> {
         .collect()
 }
 
-/// Table-driven: every actionable item id maps to its action-id and the
-/// action-id set is exactly the documented contract.
+/// Action ids handled entirely natively in Rust and never dispatched to the
+/// JS `clio:menu` bridge — see `handle_menu_event`. Deliberately absent from
+/// `menu-actions.json`, which is specifically the JS dispatcher's contract.
+const NATIVE_ONLY_ACTION_IDS: &[&str] = &["quit"];
+
+/// [`all_action_ids`] filtered down to the ids actually bridged to JS, for
+/// comparison against the shared `menu-actions.json` contract.
+fn bridged_action_ids() -> Vec<&'static str> {
+    all_action_ids()
+        .into_iter()
+        .filter(|id| !NATIVE_ONLY_ACTION_IDS.contains(id))
+        .collect()
+}
+
+/// Table-driven: every actionable, JS-bridged item id maps to its action-id
+/// and the bridged action-id set is exactly the documented contract.
 #[test]
 fn action_map_covers_every_actionable_item() {
     let expected = expected_actions();
@@ -45,9 +59,26 @@ fn action_map_covers_every_actionable_item() {
 
     let expected_refs: Vec<&str> = expected.iter().map(String::as_str).collect();
     assert_eq!(
-        all_action_ids(),
+        bridged_action_ids(),
         expected_refs,
-        "MENU_SPEC action ids drifted from the shared menu-actions.json contract"
+        "MENU_SPEC's JS-bridged action ids drifted from the shared menu-actions.json contract"
+    );
+}
+
+/// Quit resolves to an action (unlike predefined/unknown ids below) but is
+/// handled entirely natively via `request_quit`, so it must stay out of the
+/// JS-bridged `menu-actions.json` contract.
+#[test]
+fn quit_is_a_native_only_action_not_bridged_to_js() {
+    assert_eq!(action_for_id("quit"), Some("quit"));
+    assert!(
+        all_action_ids().contains(&"quit"),
+        "quit must be a real Item::Action in MENU_SPEC"
+    );
+    assert!(
+        !expected_actions().iter().any(|id| id == "quit"),
+        "quit must stay out of menu-actions.json: request_quit handles it natively, \
+         it is never dispatched to the JS clio:menu bridge"
     );
 }
 
@@ -55,7 +86,6 @@ fn action_map_covers_every_actionable_item() {
 #[test]
 fn predefined_and_unknown_ids_have_no_action() {
     for id in [
-        "quit",
         "undo",
         "redo",
         "cut",
@@ -94,9 +124,11 @@ fn spec_has_four_submenus_with_expected_item_counts() {
     }
 }
 
-/// Edit is entirely predefined (native clipboard/undo), and Quit lives in File.
+/// Edit is entirely predefined (native clipboard/undo), and Quit lives in
+/// File as a native-only action (not `Item::Predefined` — see
+/// `Predefined`'s doc comment for why).
 #[test]
-fn edit_is_all_predefined_and_quit_is_predefined() {
+fn edit_is_all_predefined_and_quit_is_a_native_action() {
     let edit = MENU_SPEC.iter().find(|s| s.title == "Edit").unwrap();
     assert!(
         edit.items
@@ -113,8 +145,8 @@ fn edit_is_all_predefined_and_quit_is_predefined() {
     assert!(
         file.items
             .iter()
-            .any(|i| matches!(i, Item::Predefined(Predefined::Quit))),
-        "File must contain the predefined Quit item"
+            .any(|i| matches!(i, Item::Action { id, .. } if *id == "quit")),
+        "File must contain the native quit action"
     );
 }
 
@@ -131,6 +163,7 @@ fn accelerators_match_contract() {
         ("command-palette", "CmdOrCtrl+K"),
         ("keyboard-shortcuts", "CmdOrCtrl+/"),
         ("fullscreen", "F11"),
+        ("quit", "CmdOrCtrl+Q"),
     ];
     for (id, accel) in want {
         let found = MENU_SPEC

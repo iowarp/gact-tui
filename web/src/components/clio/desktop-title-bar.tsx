@@ -13,7 +13,7 @@ import {
   SettingsIcon,
   XIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -37,8 +37,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { listenForCloseRequested } from '@/tauri/desktop-lifecycle';
 import { dispatchMenuAction } from '@/tauri/menu-actions';
-import { runDesktopWindowAction, type DesktopWindowAction } from '@/tauri/desktop-window';
+import {
+  ackClosePromptShown,
+  runDesktopWindowAction,
+  type DesktopWindowAction,
+} from '@/tauri/desktop-window';
 
 function logoSource(): string | null {
   return (
@@ -52,7 +57,13 @@ async function runWindowAction(action: DesktopWindowAction): Promise<void> {
     await runDesktopWindowAction(action);
   } catch (error) {
     console.error(`Desktop window action failed: ${action}`, error);
-    toast.error('CLIO could not update the desktop window.');
+    // Quit tears the app down regardless of whether this promise resolves —
+    // request_quit hides the window and spawns teardown on a background
+    // thread before returning, so a slow or "rejected" invoke here is
+    // expected, not a failure. A toast on a perfectly normal quit would be
+    // spurious.
+    if (action === 'quit') return;
+    toast.error(`${brand.wordmark} could not update the desktop window.`);
   }
 }
 
@@ -89,6 +100,36 @@ function WindowButton({
 /** Product-owned chrome for the frameless Tauri window. */
 export function DesktopTitleBar() {
   const [closePromptOpen, setClosePromptOpen] = useState(false);
+
+  // Native close (Alt+F4, the OS close box, the traffic light) opens the
+  // same confirmation prompt as the title-bar close button and hamburger
+  // Quit, rather than auto-hiding or auto-quitting. `listenForCloseRequested`
+  // no-ops outside Tauri, so this effect is safe to run unconditionally
+  // (hooks must run in the same order every render — see the early return
+  // below).
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listenForCloseRequested(() => {
+      setClosePromptOpen(true);
+      // Acks immediately: React's state update is already scheduled, well
+      // within the 500ms native fallback window, so there is no need to
+      // wait for the dialog to actually paint before telling Rust the
+      // frontend is handling this close request.
+      void ackClosePromptShown();
+    }).then(
+      (dispose) => {
+        if (disposed) dispose();
+        else unlisten = dispose;
+      },
+      () => undefined,
+    );
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
+
   if (!inTauri()) return null;
   const logo = logoSource();
 
@@ -211,7 +252,10 @@ export function DesktopTitleBar() {
         </Tooltip>
       </div>
       <AlertDialog onOpenChange={setClosePromptOpen} open={closePromptOpen}>
-        <AlertDialogContent onBackdropClick={() => setClosePromptOpen(false)}>
+        <AlertDialogContent
+          onBackdropClick={() => setClosePromptOpen(false)}
+          onEscapeKeyDown={() => setClosePromptOpen(false)}
+        >
           <AlertDialogCancel
             aria-label="Dismiss close prompt"
             className="absolute right-2 top-2 text-muted-foreground"
