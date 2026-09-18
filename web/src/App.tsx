@@ -53,7 +53,9 @@ export default function App() {
     else navigate('/settings/about');
   });
   useEffect(() => {
-    document.title = brand.name;
+    // Title comes from index.html's brand-driven <title> (vite-plugin-brand.ts's
+    // transformIndexHtml) now, not a runtime patch here — no route in this
+    // app currently overrides it with a session-specific title.
     for (const [token, value] of Object.entries(brand.themeTokens)) {
       document.documentElement.style.setProperty(token, value);
     }

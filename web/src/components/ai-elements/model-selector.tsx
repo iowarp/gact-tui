@@ -12,6 +12,7 @@ import {
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { ComponentProps, ReactNode } from 'react';
+import { GENERIC_PROVIDER_LOGO_ID, providerLogoSvgs } from './provider-logo-svgs';
 
 export type ModelSelectorProps = ComponentProps<typeof Dialog>;
 
@@ -152,39 +153,30 @@ export type ModelSelectorLogoProps = Omit<ComponentProps<'span'>, 'children'> & 
     | (string & {});
 };
 
-const providerMarks: Record<string, { label: string; className: string }> = {
-  'amazon-bedrock': { label: 'AWS', className: 'bg-[#ff9900]/15 text-[#ff9900]' },
-  anthropic: { label: 'A', className: 'bg-[#d97757]/15 text-[#d97757]' },
-  azure: { label: 'AZ', className: 'bg-[#0078d4]/15 text-[#38a7ff]' },
-  google: { label: 'G', className: 'bg-[#4285f4]/15 text-[#5d9bff]' },
-  llama: { label: 'L', className: 'bg-[#6b8afd]/15 text-[#8ca4ff]' },
-  lmstudio: { label: 'LM', className: 'bg-violet-500/15 text-violet-400' },
-  nvidia: { label: 'NV', className: 'bg-[#76b900]/15 text-[#8ed000]' },
-  openai: { label: '◎', className: 'bg-emerald-500/15 text-emerald-400' },
-  openrouter: { label: 'OR', className: 'bg-sky-500/15 text-sky-400' },
-};
-
 export const ModelSelectorLogo = ({ provider, className, ...props }: ModelSelectorLogoProps) => {
-  const mark = providerMarks[provider] ?? {
-    label: provider.slice(0, 2).toUpperCase(),
-    className: 'bg-muted text-muted-foreground',
-  };
+  // Object.hasOwn guards this lookup against an arbitrary provider string
+  // ("constructor", "toString", "__proto__", ...) resolving to an inherited
+  // Object.prototype member instead of falling back to the generic mark.
+  const svg = Object.hasOwn(providerLogoSvgs, provider)
+    ? providerLogoSvgs[provider]
+    : providerLogoSvgs[GENERIC_PROVIDER_LOGO_ID];
 
   return (
     <span
       {...props}
       aria-label={`${provider} logo`}
       className={cn(
-        'inline-grid size-5 shrink-0 place-items-center rounded-md text-[8px] font-bold leading-none',
-        mark.className,
+        'inline-grid size-5 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground [&_svg]:size-3.5',
         className,
       )}
       data-provider-logo=""
+      // Inlining our own packaged, build-time-bundled SVG source (never user
+      // input) is what lets fill="currentColor" pick up the surrounding
+      // theme color; see provider-logo-svgs.ts.
+      dangerouslySetInnerHTML={{ __html: svg }}
       role="img"
       title={`${provider} provider`}
-    >
-      {mark.label}
-    </span>
+    />
   );
 };
 

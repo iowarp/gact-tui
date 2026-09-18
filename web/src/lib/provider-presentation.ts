@@ -55,27 +55,40 @@ export function providerSummary(
   );
 }
 
+/**
+ * Provider ids that resolve to DIFFERENT artwork than their own name (an
+ * alias, a shared vendor mark for a family of ids, or a neutral fallback for
+ * a mark this workspace cannot license — see
+ * web/public/provider-logos/README.md for what each file is and why). A
+ * provider id absent from this table resolves to artwork of the SAME name
+ * (see `providerLogoId`'s fallback) — e.g. `mistral` -> `mistral.svg`.
+ */
+export const providerLogoIds: Record<string, string> = {
+  aws_bedrock: 'amazon-bedrock',
+  azure_openai: 'azure',
+  bedrock: 'amazon-bedrock',
+  codex: 'openai',
+  claude_code: 'anthropic',
+  gemini: 'google',
+  google_gemini: 'google',
+  google_vertex: 'google',
+  // llama.cpp has no official mark to license — the generic fallback,
+  // not a fabricated glyph.
+  llama_cpp: 'generic',
+  lm_studio: 'lmstudio',
+  nvidia_nim: 'nvidia',
+  ollama: 'ollama',
+  openrouter: 'openrouter',
+  vertex_ai: 'google',
+  vllm: 'vllm',
+  // Argonne/ALCF's logo is not open-licensed — generic fallback, not the
+  // unrelated OpenAI mark this table used to point at.
+  argonne_metis: 'generic',
+  argonne_sophia: 'generic',
+  argonne_local_vllm: 'generic',
+};
+
 /** Map CLIO provider identities to artwork packaged with the workspace. */
 export function providerLogoId(providerId: string): string {
-  const logoIds: Record<string, string> = {
-    aws_bedrock: 'amazon-bedrock',
-    azure_openai: 'azure',
-    bedrock: 'amazon-bedrock',
-    codex: 'openai',
-    claude_code: 'anthropic',
-    gemini: 'google',
-    google_gemini: 'google',
-    google_vertex: 'google',
-    llama_cpp: 'llama',
-    lm_studio: 'lmstudio',
-    nvidia_nim: 'nvidia',
-    ollama: 'llama',
-    openrouter: 'openrouter',
-    vertex_ai: 'google',
-    vllm: 'generic',
-    argonne_metis: 'openai',
-    argonne_sophia: 'openai',
-    argonne_local_vllm: 'generic',
-  };
-  return logoIds[providerId] ?? providerId;
+  return providerLogoIds[providerId] ?? providerId;
 }
