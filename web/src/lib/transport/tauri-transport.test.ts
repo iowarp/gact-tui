@@ -87,6 +87,25 @@ class ErrorBridge extends FakeBridge {
   }
 }
 
+class UnavailableHealthBridge extends FakeBridge {
+  public override async invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+    if (command === 'gact_http') {
+      this.calls.push({ command, args });
+      return {
+        status: 503,
+        status_text: 'Service Unavailable',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          healthy: false,
+          overall_status: 'unavailable',
+          integrations: [],
+        }),
+      } as T;
+    }
+    return super.invoke(command, args);
+  }
+}
+
 class BinaryBridge extends FakeBridge {
   public override async invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
     if (command === 'gact_http') {
@@ -178,6 +197,22 @@ describe('TauriClioTransport', () => {
       code: 'custody_not_cas',
       details: { fetch_via: '/v1/workspaces/ws_1/files/read?path=answer.ts' },
     });
+  });
+
+  it('decodes an explicitly accepted non-success domain response', async () => {
+    const transport = new TauriClioTransport({
+      endpoint: 'http://127.0.0.1:8787',
+      bridge: new UnavailableHealthBridge(),
+    });
+
+    await expect(
+      transport.request({
+        method: 'GET',
+        path: '/v1/health',
+        acceptStatuses: [503],
+        decode: (value) => value,
+      }),
+    ).resolves.toEqual({ healthy: false, overall_status: 'unavailable', integrations: [] });
   });
 
   it('decodes native base64 bodies into the original binary bytes', async () => {

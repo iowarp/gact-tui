@@ -96,8 +96,7 @@ export function InfrastructurePage() {
     queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
     queryFn: ({ signal }) => repository.mcpConfiguration('web', signal),
   });
-  const error =
-    health.error ?? relay.error ?? servers.error ?? toolset.error ?? webSearchConfiguration.error;
+  const error = health.error ?? relay.error ?? servers.error ?? webSearchConfiguration.error;
   const foundationIssues =
     health.data?.integrations.filter(
       (integration) => integrationStatus(integration.status) !== 'healthy',

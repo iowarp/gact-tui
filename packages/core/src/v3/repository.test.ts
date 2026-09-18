@@ -163,6 +163,8 @@ describe('ClioRepository interaction contracts', () => {
     expect(serviceHealth.tool_hooks_installed).toBeUndefined();
     expect((await repository.runtimeMetrics()).tokens.cache_read_total).toBe(0);
 
+    expect(transport.requests[5]?.acceptStatuses).toEqual([503]);
+
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
       { method: 'GET', path: '/v1/expert-packs' },
       { method: 'GET', path: '/v1/policies' },

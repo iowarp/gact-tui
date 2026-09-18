@@ -154,6 +154,17 @@ function renderPage(from = '/workspaces/ws_factorio/sessions/sess_demo') {
 }
 
 describe('InfrastructurePage', () => {
+  it('keeps a missing session toolset in its section instead of raising a page-wide error', async () => {
+    repository.effectiveAgentToolset.mockRejectedValueOnce(new Error('session not found'));
+
+    renderPage();
+
+    expect(await screen.findByText('This session has not recorded an effective toolset yet.')).toBeVisible();
+    expect(
+      screen.queryByRole('heading', { name: 'Some infrastructure details are unavailable' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('presents user outcomes while identifying built-in MCP services', async () => {
     renderPage();
 

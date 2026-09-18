@@ -409,6 +409,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/health',
+      acceptStatuses: [503],
       decode: (input) => serviceHealthSchema.parse(input),
       signal,
     });
