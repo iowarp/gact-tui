@@ -61,18 +61,16 @@ import { PresentationRepository } from './presentation-repository.js';
 /**
  * Artifact records requested per page while walking a session's registry.
  * Unit: records. Larger pages mean fewer round trips; the backend caps the
- * value it will honour, so raising this alone does not widen a page.
  */
 const ARTIFACT_PAGE_SIZE = 200;
 /**
- * Pages the walk will follow before it stops and reports a truncated listing.
- * Unit: pages. A runaway backstop against a backend that keeps handing back
- * cursors: at the page size above this is a ceiling of 20,000 records, far
- * past any real session. Reaching it is reported as `page_cap_reached`, never
+ * Pages the walk follows before reporting a truncated listing. Unit: pages.
+ * A runaway backstop against a backend that keeps handing back
+ * cursors: at the page size above this is a ceiling of 20,000 records, far past
+ * any real session. Reaching it is reported as `page_cap_reached`, never
  * silently swallowed.
  */
 const MAX_ARTIFACT_PAGES = 100;
-
 export class ClioRepository extends PresentationRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
@@ -419,7 +417,6 @@ export class ClioRepository extends PresentationRepository {
     });
     return result.tools as ToolCatalogItem[];
   }
-
   public async agents(signal?: AbortSignal): Promise<AgentDefinition[]> {
     const result = await this.transport.request({
       method: 'GET',
