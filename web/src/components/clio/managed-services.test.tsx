@@ -184,9 +184,15 @@ describe('ManagedServices', () => {
 
   it('shows connection guidance without deployment controls in browser mode', () => {
     runtime.desktop = false;
-    renderServices();
+    const { container } = renderServices();
 
-    expect(screen.getByText('Service deployment is available in CLIO Desktop')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'Managed infrastructure' })).toBeVisible();
+    expect(screen.getByText('Connection mode')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Open model settings' })).toHaveAttribute(
+      'href',
+      '/settings/providers',
+    );
+    expect(container.querySelector('[data-slot="frame"]')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Install' })).not.toBeInTheDocument();
   });
 });

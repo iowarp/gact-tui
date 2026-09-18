@@ -18,6 +18,13 @@ import {
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
+import {
+  Frame,
+  FrameDescription,
+  FrameHeader,
+  FramePanel,
+  FrameTitle,
+} from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -88,14 +95,30 @@ export function ManagedServices() {
 
   if (!desktop) {
     return (
-      <Alert className="mt-6">
-        <ContainerIcon aria-hidden="true" />
-        <AlertTitle>Service deployment is available in CLIO Desktop</AlertTitle>
-        <AlertDescription>
-          This browser can connect to existing model, search, and Relay services. Open the installed
-          desktop app to inspect a machine and deploy a supported version.
-        </AlertDescription>
-      </Alert>
+      <Frame className="mt-6" spacing="sm">
+        <FrameHeader>
+          <FrameTitle aria-level={2} className="flex items-center gap-2" role="heading">
+            <ContainerIcon aria-hidden="true" className="size-4 text-primary" /> Managed
+            infrastructure
+          </FrameTitle>
+          <FrameDescription>
+            Connect services here. Installing and operating services on a computer is available in
+            CLIO Desktop.
+          </FrameDescription>
+        </FrameHeader>
+        <FramePanel className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium">Connection mode</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This browser can use existing model, search, and Relay services without managing the
+              host that runs them.
+            </p>
+          </div>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/settings/providers">Open model settings</Link>
+          </Button>
+        </FramePanel>
+      </Frame>
     );
   }
 
@@ -131,18 +154,21 @@ export function ManagedServices() {
   );
 
   return (
-    <section
-      aria-labelledby="managed-services-title"
-      className="mt-6 rounded-xl border bg-card p-4"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="font-medium" id="managed-services-title">
+    <Frame aria-labelledby="managed-services-title" className="mt-6" spacing="sm">
+      <FrameHeader className="flex-row flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <FrameTitle
+            aria-level={2}
+            className="flex items-center gap-2"
+            id="managed-services-title"
+            role="heading"
+          >
+            <ContainerIcon aria-hidden="true" className="size-4 text-primary" />
             Managed infrastructure
-          </h2>
-          <p className="text-sm text-muted-foreground">
+          </FrameTitle>
+          <FrameDescription>
             Inspect this computer or a saved SSH host, then manage only the capabilities you need.
-          </p>
+          </FrameDescription>
         </div>
         {catalog.data ? (
           <p className="text-xs text-muted-foreground">
@@ -150,56 +176,58 @@ export function ManagedServices() {
             accelerator
           </p>
         ) : null}
-      </div>
+      </FrameHeader>
 
-      <RadioGroup
-        className="mt-4 flex flex-wrap gap-4"
-        onValueChange={(value) => setTarget(value as Target)}
-        value={target}
-      >
-        <TargetChoice icon={LaptopIcon} label="This computer" value="local" />
-        <TargetChoice icon={ServerIcon} label="SSH host" value="ssh" />
-      </RadioGroup>
-      {target === 'ssh' ? (
-        <Field className="mt-3 max-w-sm">
-          <FieldLabel htmlFor="managed-service-ssh">SSH host</FieldLabel>
-          <Select onValueChange={setProfile} value={profile}>
-            <SelectTrigger id="managed-service-ssh">
-              <SelectValue placeholder="Choose a saved SSH profile" />
-            </SelectTrigger>
-            <SelectContent>
-              {(profiles.data ?? []).map((item) => (
-                <SelectItem key={item.name} value={item.name}>
-                  {item.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-      ) : null}
+      <FramePanel>
+        <RadioGroup
+          className="flex flex-wrap gap-4"
+          onValueChange={(value) => setTarget(value as Target)}
+          value={target}
+        >
+          <TargetChoice icon={LaptopIcon} label="This computer" value="local" />
+          <TargetChoice icon={ServerIcon} label="SSH host" value="ssh" />
+        </RadioGroup>
+        {target === 'ssh' ? (
+          <Field className="mt-3 max-w-sm">
+            <FieldLabel htmlFor="managed-service-ssh">SSH host</FieldLabel>
+            <Select onValueChange={setProfile} value={profile}>
+              <SelectTrigger id="managed-service-ssh">
+                <SelectValue placeholder="Choose a saved SSH profile" />
+              </SelectTrigger>
+              <SelectContent>
+                {(profiles.data ?? []).map((item) => (
+                  <SelectItem key={item.name} value={item.name}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : null}
 
-      {catalog.isPending && catalog.fetchStatus === 'fetching' ? (
-        <InspectionProgress profile={profile} target={target} />
-      ) : null}
-      {catalog.error ? (
-        <Alert className="mt-4" variant="destructive">
-          <AlertTitle>Could not inspect {targetLabel(target, profile)}</AlertTitle>
-          <AlertDescription className="space-y-3">
-            <p>{catalog.error.message}</p>
-            <Button onClick={() => catalog.refetch()} size="sm" variant="outline">
-              Try again
-            </Button>
-          </AlertDescription>
-        </Alert>
-      ) : null}
+        {catalog.isPending && catalog.fetchStatus === 'fetching' ? (
+          <InspectionProgress profile={profile} target={target} />
+        ) : null}
+        {catalog.error ? (
+          <Alert className="mt-4" variant="destructive">
+            <AlertTitle>Could not inspect {targetLabel(target, profile)}</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>{catalog.error.message}</p>
+              <Button onClick={() => catalog.refetch()} size="sm" variant="outline">
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+      </FramePanel>
 
-      <div className="mt-4 grid gap-3">
+      <FramePanel className="grid gap-0 py-0">
         <ManagedGroup
           description="Run an approved local model server managed by CLIO. Existing providers remain in Settings."
           icon={CpuIcon}
           title="Model providers"
         >
-          <div className="rounded-lg border bg-muted/20 p-3">
+          <div className="rounded-lg bg-muted/40 p-3">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <FieldLabel htmlFor="managed-provider-enabled">
@@ -258,12 +286,12 @@ export function ManagedServices() {
             <p className="text-sm text-muted-foreground">No managed resources were reported.</p>
           ) : null}
         </ManagedGroup>
-      </div>
+      </FramePanel>
 
       {action.error ? (
         <p className="mt-3 text-sm text-destructive">{action.error.message}</p>
       ) : null}
-    </section>
+    </Frame>
   );
 }
 
@@ -281,7 +309,7 @@ function ManagedGroup({
   title: string;
 }) {
   return (
-    <Collapsible className="group rounded-lg border" defaultOpen={defaultOpen}>
+    <Collapsible className="group border-b last:border-b-0" defaultOpen={defaultOpen}>
       <CollapsibleTrigger asChild>
         <button className="flex w-full items-center gap-3 p-3 text-left" type="button">
           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
@@ -297,7 +325,7 @@ function ManagedGroup({
           />
         </button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="border-t p-3">{children}</CollapsibleContent>
+      <CollapsibleContent className="px-3 pb-4">{children}</CollapsibleContent>
     </Collapsible>
   );
 }
