@@ -330,7 +330,9 @@ export function ClioComposer({
   useLayoutEffect(() => {
     const element = rootRef.current;
     if (variant !== 'docked' || !element || !onHeightChange) return;
-    const reportHeight = () => onHeightChange(Math.ceil(element.getBoundingClientRect().height));
+    // Layout animations transform the composer visually while it moves. Measure
+    // its layout box so the transcript inset never captures a transient scale.
+    const reportHeight = () => onHeightChange(Math.ceil(element.offsetHeight));
     reportHeight();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(reportHeight);
