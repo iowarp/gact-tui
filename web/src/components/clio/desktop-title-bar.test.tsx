@@ -1,0 +1,101 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MENU_ACTION_EVENT } from '@/tauri/menu-actions';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { DesktopTitleBar } from './desktop-title-bar';
+
+const runDesktopWindowAction = vi.hoisted(() => vi.fn(async () => undefined));
+
+vi.mock('@/tauri/desktop-window', () => ({
+  runDesktopWindowAction,
+}));
+
+describe('DesktopTitleBar', () => {
+  const renderTitleBar = () =>
+    render(
+      <TooltipProvider>
+        <DesktopTitleBar />
+      </TooltipProvider>,
+    );
+
+  beforeEach(() => {
+    Object.assign(window, { __TAURI_INTERNALS__: {} });
+    runDesktopWindowAction.mockClear();
+  });
+
+  afterEach(() => {
+    cleanup();
+    Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+  });
+
+  it('stays out of the browser experience', () => {
+    Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+    const { container } = renderTitleBar();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('offers navigation and keeps close lifecycle choices explicit', async () => {
+    const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => undefined);
+    const historyForward = vi.spyOn(window.history, 'forward').mockImplementation(() => undefined);
+    renderTitleBar();
+
+    expect(screen.getByRole('banner', { name: /desktop controls/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Go back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Go forward' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Minimize' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Maximize or restore' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Keep CLIO running?');
+    expect(runDesktopWindowAction).not.toHaveBeenCalledWith('close');
+    fireEvent.click(screen.getByRole('button', { name: 'Keep running' }));
+
+    expect(historyBack).toHaveBeenCalledOnce();
+    expect(historyForward).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(runDesktopWindowAction).toHaveBeenNthCalledWith(1, 'minimize');
+      expect(runDesktopWindowAction).toHaveBeenNthCalledWith(2, 'toggleMaximize');
+      expect(runDesktopWindowAction).toHaveBeenNthCalledWith(3, 'hide');
+    });
+  });
+
+  it('can quit CLIO and its local services from the close prompt', async () => {
+    renderTitleBar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Quit CLIO' }));
+
+    await waitFor(() => expect(runDesktopWindowAction).toHaveBeenCalledWith('quit'));
+  });
+
+  it('dismisses the close prompt from its close button or backdrop without hiding CLIO', () => {
+    const { container } = renderTitleBar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss close prompt' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    const backdrop = container.ownerDocument.querySelector('[data-slot="alert-dialog-overlay"]');
+    expect(backdrop).not.toBeNull();
+    fireEvent.click(backdrop as Element);
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(runDesktopWindowAction).not.toHaveBeenCalled();
+  });
+
+  it('routes overflow actions through the existing application workflows', async () => {
+    const action = vi.fn();
+    window.addEventListener(MENU_ACTION_EVENT, action);
+    renderTitleBar();
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /settings/i }));
+
+    expect(action).toHaveBeenCalledOnce();
+    const dispatchedEvent = action.mock.calls[0]?.[0];
+    expect(dispatchedEvent).toBeDefined();
+    expect((dispatchedEvent as CustomEvent).detail).toBe('open-settings');
+    window.removeEventListener(MENU_ACTION_EVENT, action);
+  });
+});

@@ -12,6 +12,7 @@ pub(crate) const BUNDLED_RUNTIME_ENV: &str = "GACT_BUNDLED_RUNTIME_DIR";
 pub(crate) const HF_HOME_ENV: &str = "HF_HOME";
 pub(crate) const HF_HUB_CACHE_ENV: &str = "HF_HUB_CACHE";
 pub(crate) const HF_XET_CACHE_ENV: &str = "HF_XET_CACHE";
+pub(crate) const CLIO_USER_DIR_ENV: &str = "CLIO_USER_DIR";
 
 pub(crate) fn bundled_runtime_dir(resource_dir: &Path) -> Option<PathBuf> {
     let runtime = resource_dir.join("gact-runtime");
@@ -26,6 +27,26 @@ pub(crate) fn install_bundled_runtime_env(resource_dir: &Path) -> Option<PathBuf
 
 pub(crate) fn model_cache_dir(app_cache_dir: &Path) -> PathBuf {
     app_cache_dir.join("huggingface")
+}
+
+pub(crate) fn desktop_workspace_dir(app_local_data_dir: &Path) -> PathBuf {
+    app_local_data_dir.join("workspace")
+}
+
+pub(crate) fn prepare_desktop_workspace(app_local_data_dir: &Path) -> io::Result<PathBuf> {
+    let workspace = desktop_workspace_dir(app_local_data_dir);
+    fs::create_dir_all(&workspace)?;
+    Ok(workspace)
+}
+
+pub(crate) fn desktop_user_dir(app_local_data_dir: &Path) -> PathBuf {
+    app_local_data_dir.join("clio-user")
+}
+
+pub(crate) fn prepare_desktop_user_dir(app_local_data_dir: &Path) -> io::Result<PathBuf> {
+    let user_dir = desktop_user_dir(app_local_data_dir);
+    fs::create_dir_all(&user_dir)?;
+    Ok(user_dir)
 }
 
 /// Configure one persistent model cache for this OS user and packaged app.
@@ -105,6 +126,18 @@ mod tests {
     fn model_cache_is_scoped_to_the_platform_app_cache() {
         let cache = Path::new("platform-cache");
         assert_eq!(model_cache_dir(cache), cache.join("huggingface"));
+    }
+
+    #[test]
+    fn desktop_workspace_is_scoped_to_platform_app_data() {
+        let app_data = Path::new("platform-data");
+        assert_eq!(desktop_workspace_dir(app_data), app_data.join("workspace"));
+    }
+
+    #[test]
+    fn desktop_user_state_is_scoped_to_platform_app_data() {
+        let app_data = Path::new("platform-data");
+        assert_eq!(desktop_user_dir(app_data), app_data.join("clio-user"));
     }
 
     /// Both branches in one test: these are process-wide environment variables,

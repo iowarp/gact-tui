@@ -48,6 +48,7 @@ const (
 	exitExecFailed     = 3
 	envBearer          = "CLIO_AUTH_TOKEN"
 	envGactContractVer = "CLIO_GACT_CONTRACT"
+	envBootHeartbeat   = "CLIO_DESKTOP_BOOT_HEARTBEAT"
 )
 
 type cliArgs struct {
@@ -89,10 +90,11 @@ func spawnEnv(rt *resolvedRuntime, args cliArgs) []string {
 	return append(env,
 		envBearer+"="+args.token,
 		envGactContractVer+"=0.2",
+		envBootHeartbeat+"=1",
 		// Force the (typically Python) backend to flush stdout/stderr
 		// unbuffered so its boot transcript is teed into the boot log in
 		// real time. A block-buffered pipe otherwise strands the startup
-		// output when a failing boot is killed at the probe timeout — the
+		// output when a failing boot is killed after a no-progress stall — the
 		// "connection refused, zero backend output" symptom.
 		"PYTHONUNBUFFERED=1",
 	)
@@ -104,6 +106,7 @@ func runChild(rt *resolvedRuntime, args cliArgs) int {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = spawnEnv(rt, args)
+	configureChild(cmd)
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "sidecar-launcher: failed to spawn %s: %v\n", argv[0], err)
 		return exitExecFailed

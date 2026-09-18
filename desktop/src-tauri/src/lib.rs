@@ -14,7 +14,10 @@ mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
 mod infrastructure_setup;
+mod installer_options;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu;
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu_spec;
 mod net_util;
 mod plugins;
@@ -45,6 +48,7 @@ mod supervisor_spawn_command;
 mod supervisor_state;
 mod supervisor_types;
 mod tray;
+mod workspace_terminal;
 
 use ssh::TunnelManager;
 use std::sync::Mutex;
@@ -59,6 +63,11 @@ pub fn run() {
     let state = Mutex::new(supervisor);
 
     let app = tauri::Builder::default()
+        // A second launch restores the existing tray-resident process instead
+        // of booting another managed backend beside it.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            tray::show_main_window(app);
+        }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
         // Auto-update: pulls the signed latest.json marker from GitHub
@@ -85,9 +94,11 @@ pub fn run() {
             commands::tunnel_open,
             infrastructure_setup::infrastructure_ssh_profiles,
             infrastructure_setup::infrastructure_preflight,
-            infrastructure_setup::infrastructure_managed_services,
+            infrastructure_setup::infrastructure_managed_service_catalog,
             infrastructure_setup::infrastructure_managed_service_action,
             infrastructure_setup::infrastructure_deploy_web_search,
+            installer_options::read_installer_options,
+            installer_options::complete_installer_web_search,
             credentials::credential_store,
             credentials::credential_read,
             credentials::credential_delete,
@@ -96,7 +107,9 @@ pub fn run() {
             gact_http::gact_http,
             sse_bridge::gact_sse_open,
             sse_bridge::gact_sse_close,
-            plugins::exec_plugin
+            plugins::exec_plugin,
+            workspace_terminal::open_workspace_terminal,
+            quit_clio
         ])
         .setup(|app| {
             // Resolve + remember the persisted boot-log path FIRST so the
@@ -135,6 +148,15 @@ pub fn run() {
                 let _ = sidecar_setup::install_bundled_runtime_env(&resource_dir);
             }
 
+            let app_data = app
+                .path()
+                .app_local_data_dir()
+                .map_err(|error| format!("resolve desktop app-data directory: {error}"))?;
+            let desktop_workspace = sidecar_setup::prepare_desktop_workspace(&app_data)
+                .map_err(|error| format!("prepare desktop workspace: {error}"))?;
+            let desktop_user_dir = sidecar_setup::prepare_desktop_user_dir(&app_data)
+                .map_err(|error| format!("prepare desktop user state: {error}"))?;
+
             // Kick off the backend boot — AFTER the env var above so a spawned
             // launcher sees it. Managed brands locate + spawn the bundled
             // launcher (a missing one is an Error card); connect-mode brands
@@ -143,7 +165,9 @@ pub fn run() {
             // message instead of treating the absent launcher as a failure.
             {
                 let sup = app.state::<Mutex<Supervisor>>();
-                let sup = supervisor_state::lock_recover(&sup);
+                let mut sup = supervisor_state::lock_recover(&sup);
+                sup.set_working_dir(desktop_workspace);
+                sup.set_user_dir(desktop_user_dir);
                 if brand_backend::is_managed_install() {
                     match supervisor::locate_launcher() {
                         Ok(launcher) => sup.start(launcher),
@@ -156,32 +180,31 @@ pub fn run() {
 
             tray::install_tray(app)?;
 
-            // Native window/app menu (1.0 item 9). Non-predefined items emit
-            // the `clio:menu` event the SolidJS frontend listens for; Quit +
-            // the Edit submenu are predefined and handled natively. The tray
-            // menu above is independent and keeps working.
-            let app_menu = menu::build_menu(app.handle())?;
-            app.set_menu(app_menu)?;
-            app.on_menu_event(|app, ev| {
-                menu::handle_menu_event(app, ev.id().as_ref());
-            });
+            // macOS keeps the native global application menu. Windows and
+            // Linux use the product-owned title bar rendered by the frontend;
+            // installing a native menu there creates a second, dated strip.
+            // The tray menu above is independent and remains available.
+            #[cfg(target_os = "macos")]
+            {
+                let app_menu = menu::build_menu(app.handle())?;
+                app.set_menu(app_menu)?;
+                app.on_menu_event(|app, ev| {
+                    menu::handle_menu_event(app, ev.id().as_ref());
+                });
+            }
 
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                if let Some(state) = window.app_handle().try_state::<Mutex<Supervisor>>() {
-                    // lock_recover, not plain lock(): a poisoned mutex here
-                    // would silently skip child reaping and leak the sidecar
-                    // process tree on exit.
-                    supervisor_state::lock_recover(&state).shutdown();
+            match event {
+                // Window close means "continue in the tray." Explicit Quit
+                // exits the application and reaches the teardown path below.
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    let _ = window.hide();
                 }
-                if let Some(tm) = window.app_handle().try_state::<TunnelManager>() {
-                    tm.shutdown_all();
-                }
-                if let Some(sse) = window.app_handle().try_state::<sse_registry::SseRegistry>() {
-                    sse.stop_all();
-                }
+                tauri::WindowEvent::Destroyed => shutdown_owned_services(window.app_handle()),
+                _ => {}
             }
         })
         .build(tauri::generate_context!());
@@ -193,9 +216,47 @@ pub fn run() {
             std::process::exit(1);
         }
     };
-    app.run(|app_handle, event| {
-        if matches!(event, tauri::RunEvent::Resumed) {
+    app.run(|app_handle, event| match event {
+        tauri::RunEvent::Resumed => {
             let _ = app_handle.emit(DESKTOP_RESUMED_EVENT, ());
         }
+        #[cfg(target_os = "macos")]
+        tauri::RunEvent::Reopen { .. } => {
+            tray::show_main_window(app_handle);
+        }
+        tauri::RunEvent::ExitRequested { .. } | tauri::RunEvent::Exit => {
+            shutdown_owned_services(app_handle);
+        }
+        _ => {}
     });
+}
+
+/// Tear down every process and stream owned by this desktop process.
+///
+/// This is intentionally idempotent because native shutdown can deliver both
+/// `ExitRequested` and a final window-destroyed event.
+pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(state) = app.try_state::<Mutex<Supervisor>>() {
+        // lock_recover, not plain lock(): a poisoned mutex here would silently
+        // skip child reaping and leak the sidecar process tree on exit.
+        supervisor_state::lock_recover(&state).shutdown();
+    }
+    if let Some(tm) = app.try_state::<TunnelManager>() {
+        tm.shutdown_all();
+    }
+    if let Some(sse) = app.try_state::<sse_registry::SseRegistry>() {
+        sse.stop_all();
+    }
+}
+
+/// Stop processes owned by this desktop instance before exiting the shell.
+///
+/// The process plugin's direct `exit` path can terminate the WebView before
+/// Tauri delivers `RunEvent::ExitRequested`, so the product-owned Quit action
+/// uses this command to make teardown an explicit, awaited part of the user
+/// action.
+#[tauri::command]
+fn quit_clio(app: tauri::AppHandle) {
+    shutdown_owned_services(&app);
+    app.exit(0);
 }

@@ -662,7 +662,7 @@ describe('ClioPendingInteractions', () => {
 
     const panel = screen
       .getByRole('button', { name: 'Submit selection' })
-      .closest('[data-slot="frame-panel"]');
+      .closest('[data-slot="a2ui-response-viewport"]');
     expect(panel).toHaveClass('opacity-70');
     expect(panel).not.toHaveClass('opacity-60');
   });

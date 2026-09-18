@@ -6,6 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
 import { WorkspacePage } from '@/routes/workspace-page';
+import { DesktopTitleBar } from '@/components/clio/desktop-title-bar';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 
 const ConnectionPage = lazy(() =>
   import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
@@ -42,6 +44,7 @@ function UnknownRouteRedirect() {
 
 export default function App() {
   const navigate = useNavigate();
+  const desktopHost = inTauri();
   useNativeMenuBridge();
   useMenuAction('open-settings', () => navigate('/settings/appearance'));
   useMenuAction('about', () => navigate('/settings/about'));
@@ -60,7 +63,7 @@ export default function App() {
     }
   }, []);
 
-  return (
+  const appContent = (
     <>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
@@ -74,5 +77,13 @@ export default function App() {
       </Suspense>
       <Toaster closeButton richColors />
     </>
+  );
+
+  if (!desktopHost) return appContent;
+  return (
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background">
+      <DesktopTitleBar />
+      <div className="desktop-content min-h-0 flex-1 overflow-hidden">{appContent}</div>
+    </div>
   );
 }

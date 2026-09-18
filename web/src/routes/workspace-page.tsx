@@ -48,6 +48,8 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import { openWorkspaceTerminal } from '@/tauri/workspace-terminal';
 
 function TranscriptPresenceSurface({
   children,
@@ -133,6 +135,7 @@ export function WorkspacePage() {
     () => allSessions.data ?? sessions.data ?? [],
     [allSessions.data, sessions.data],
   );
+  const activeWorkspace = workspaces.data?.find((workspace) => workspace.id === workspaceId);
   const sessionAttentions = useMemo(
     () => buildSessionAttentionMap(navigationSessions, attentionInteractions),
     [attentionInteractions, navigationSessions],
@@ -570,6 +573,22 @@ export function WorkspacePage() {
               await sessionHistory.fork.mutateAsync(undefined);
             }}
             onOpenBlueprint={(blueprint) => revealWorkbench({ kind: 'blueprint', blueprint })}
+            onOpenTerminal={
+              inTauri() && activeWorkspace?.path
+                ? async () => {
+                    try {
+                      await openWorkspaceTerminal(activeWorkspace.path);
+                    } catch (error) {
+                      toast.error('Could not open the workspace terminal', {
+                        description:
+                          error instanceof Error
+                            ? error.message
+                            : 'No supported terminal could be started.',
+                      });
+                    }
+                  }
+                : undefined
+            }
             onReturnToParent={(parent) =>
               navigate(
                 `/workspaces/${encodeURIComponent(parent.workspace_id)}/sessions/${encodeURIComponent(parent.id)}`,

@@ -53,6 +53,12 @@ export type ManagedServiceDefinition = {
     options?: string[];
   }>;
   supports_stop: boolean;
+  state: 'running' | 'stopped' | 'not_installed' | 'unknown';
+};
+
+export type ManagedServiceCatalog = {
+  facts: TargetFacts;
+  services: ManagedServiceDefinition[];
 };
 
 export type ManagedServiceActionInput = ManagedTargetInput & {
@@ -93,13 +99,17 @@ export async function preflightTarget(input: ManagedTargetInput): Promise<Target
   return invoke<TargetFacts>('infrastructure_preflight', { request: input });
 }
 
-/** Return the compiled service drivers and their compatible variants. */
-export async function managedServices(
+/** Inspect the target once and return its compiled service drivers. */
+export async function managedServiceCatalog(
   input: ManagedTargetInput,
-): Promise<ManagedServiceDefinition[]> {
-  if (!inTauri()) return [];
+): Promise<ManagedServiceCatalog> {
+  if (!inTauri()) {
+    throw new Error('Service inspection is available in the installed desktop app.');
+  }
   const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<ManagedServiceDefinition[]>('infrastructure_managed_services', { request: input });
+  return invoke<ManagedServiceCatalog>('infrastructure_managed_service_catalog', {
+    request: input,
+  });
 }
 
 /** Run one allowlisted action for one managed service. */

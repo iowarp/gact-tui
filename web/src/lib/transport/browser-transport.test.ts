@@ -78,6 +78,23 @@ describe('BrowserClioTransport', () => {
     });
   });
 
+  it('decodes an explicitly accepted non-success domain response', async () => {
+    const body = { healthy: false, overall_status: 'unavailable', integrations: [] };
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(body, { status: 503, statusText: 'Unavailable' }));
+    const transport = new BrowserClioTransport({ endpoint: 'http://clio.test:8787', fetcher });
+
+    await expect(
+      transport.request({
+        method: 'GET',
+        path: '/v1/health',
+        acceptStatuses: [503],
+        decode: (value) => value,
+      }),
+    ).resolves.toEqual(body);
+  });
+
   it('preserves FastAPI detail-wrapped errors for typed recovery', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       Response.json(

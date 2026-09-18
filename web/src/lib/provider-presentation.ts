@@ -55,16 +55,27 @@ export function providerSummary(
   );
 }
 
-/** Map CLIO provider identities to models.dev artwork used by AI Elements. */
+/** Map CLIO provider identities to artwork packaged with the workspace. */
 export function providerLogoId(providerId: string): string {
   const logoIds: Record<string, string> = {
+    aws_bedrock: 'amazon-bedrock',
+    azure_openai: 'azure',
+    bedrock: 'amazon-bedrock',
     codex: 'openai',
     claude_code: 'anthropic',
+    gemini: 'google',
+    google_gemini: 'google',
+    google_vertex: 'google',
+    llama_cpp: 'llama',
     lm_studio: 'lmstudio',
+    nvidia_nim: 'nvidia',
     ollama: 'llama',
+    openrouter: 'openrouter',
+    vertex_ai: 'google',
+    vllm: 'generic',
     argonne_metis: 'openai',
     argonne_sophia: 'openai',
-    argonne_local_vllm: 'openai',
+    argonne_local_vllm: 'generic',
   };
   return logoIds[providerId] ?? providerId;
 }

@@ -3,6 +3,30 @@ import { RecordingTransport } from './recording-transport.test-helper.js';
 import { ClioRepository } from './repository.js';
 
 describe('ClioRepository interaction contracts', () => {
+  it('accepts the null server id used by built-in catalog tools', async () => {
+    const transport = new RecordingTransport([
+      {
+        tools: [
+          {
+            id: 'fs_read_file',
+            name: 'fs_read_file',
+            title: 'Read file',
+            description: 'Read a workspace file.',
+            source: 'builtin',
+            server_id: null,
+            tags: [],
+            visible_to: [],
+          },
+        ],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.catalogTools()).resolves.toEqual([
+      expect.objectContaining({ id: 'fs_read_file', server_id: undefined }),
+    ]);
+  });
+
   it('preserves the server or MCP supplied title for tool activity', async () => {
     const transport = new RecordingTransport([
       {
@@ -162,6 +186,8 @@ describe('ClioRepository interaction contracts', () => {
     expect(serviceHealth.integrations[0]?.status).toBe('ready');
     expect(serviceHealth.tool_hooks_installed).toBeUndefined();
     expect((await repository.runtimeMetrics()).tokens.cache_read_total).toBe(0);
+
+    expect(transport.requests[5]?.acceptStatuses).toEqual([503]);
 
     expect(transport.requests.map(({ method, path }) => ({ method, path }))).toEqual([
       { method: 'GET', path: '/v1/expert-packs' },

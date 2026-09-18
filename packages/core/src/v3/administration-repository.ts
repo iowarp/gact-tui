@@ -146,6 +146,7 @@ const serviceHealthSchema = z.object({
         .string()
         .nullish()
         .transform((value) => value ?? undefined),
+      required: z.boolean().default(true),
     }),
   ),
   tool_hooks_installed: z
@@ -409,6 +410,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
     return this.transport.request({
       method: 'GET',
       path: '/v1/health',
+      acceptStatuses: [503],
       decode: (input) => serviceHealthSchema.parse(input),
       signal,
     });

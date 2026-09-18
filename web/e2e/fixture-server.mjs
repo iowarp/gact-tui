@@ -19,6 +19,7 @@ const streamBlockId = 'block_stream';
 let permissionPending = true;
 let questionPending = true;
 let mcpV2UiDemo = false;
+let a2uiMapDemo = false;
 let mcpAppGeneration = 1;
 let mcpAppToolCalls = 0;
 let mcpAppModelContextUpdates = 0;
@@ -460,6 +461,104 @@ function mcpV2Interactions() {
   return interactions.filter((interaction) => !resolvedInteractionIds.has(interaction.id));
 }
 
+function earthScopeMapSurface() {
+  return {
+    id: 'surface_earthscope_map',
+    session_id: sessionId,
+    run_id: 'run_earthscope_map',
+    message_id: 'message_earthscope_map',
+    part_id: 'part_earthscope_map',
+    catalog_id: 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1',
+    protocol_version: '0.9.1',
+    revision: 1,
+    state: 'ready',
+    messages: [
+      {
+        version: 'v0.9.1',
+        createSurface: {
+          surfaceId: 'surface_earthscope_map',
+          catalogId: 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1',
+        },
+      },
+      {
+        version: 'v0.9.1',
+        updateComponents: {
+          surfaceId: 'surface_earthscope_map',
+          components: [
+            { id: 'root', component: 'Column', children: ['map'] },
+            {
+              id: 'map',
+              component: 'clio.map.v1',
+              title: 'Five nearest observed EarthScope GNSS stations',
+              accessibility: {
+                label: 'Nearest EarthScope GNSS stations',
+                description: 'Five observed stations near Palm Springs, California',
+              },
+              points: [
+                {
+                  id: 'PSAP',
+                  label: '1. PSAP — 4.3195 km',
+                  latitude: 33.823,
+                  longitude: -116.549,
+                  category: 'nearest',
+                },
+                {
+                  id: 'SGPS',
+                  label: '2. SGPS — 17.3602 km',
+                  latitude: 33.744,
+                  longitude: -116.71,
+                  category: 'near',
+                },
+                {
+                  id: 'COTD',
+                  label: '3. COTD — 17.4931 km',
+                  latitude: 33.732,
+                  longitude: -116.386,
+                  category: 'near',
+                },
+                {
+                  id: 'DHLG',
+                  label: '4. DHLG — 24.1020 km',
+                  latitude: 33.9,
+                  longitude: -116.73,
+                  category: 'near',
+                },
+                {
+                  id: 'P494',
+                  label: '5. P494 — 31.8040 km',
+                  latitude: 33.66,
+                  longitude: -116.31,
+                  category: 'near',
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+function earthScopeMapInteractions() {
+  return [
+    {
+      id: 'a2ui:sess_flat_ndp:surface_earthscope_map',
+      kind: 'a2ui',
+      owner_session_id: sessionId,
+      attended_session_id: sessionId,
+      status: 'pending',
+      title: 'Choose an EarthScope station',
+      prompt: 'Choose one observed station to continue.',
+      requires_human_response: true,
+      audience: 'human',
+      source: { protocol: 'native', surface_id: 'surface_earthscope_map' },
+      created_at: observedAt,
+      actions: ['form.submit', 'cancel'],
+      payload: { revision: 1 },
+    },
+  ].filter((interaction) => !resolvedInteractionIds.has(interaction.id));
+}
+
 /** Apply the CORS and version headers used by every fixture response. */
 function commonHeaders(contentType = 'application/json') {
   return {
@@ -706,6 +805,16 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-map-demo') {
+    const body = await readJson(request);
+    a2uiMapDemo = body.enabled !== false;
+    permissionPending = !a2uiMapDemo;
+    questionPending = !a2uiMapDemo;
+    resolvedInteractionIds = new Set();
+    sendJson(response, { status: a2uiMapDemo ? 'ready' : 'disabled' }, 202);
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/__test/mcp-v2-ui-replace') {
     mcpAppGeneration = 2;
     sendJson(response, { status: 'replaced' }, 202);
@@ -753,7 +862,7 @@ const server = createServer(async (request, response) => {
       ...capabilities,
       capabilities: {
         ...capabilities.capabilities,
-        ...(mcpV2UiDemo ? { x_clio_interactions: true } : {}),
+        ...(mcpV2UiDemo || a2uiMapDemo ? { x_clio_interactions: true } : {}),
       },
     });
     return;
@@ -860,7 +969,7 @@ const server = createServer(async (request, response) => {
           created_at: observedAt,
         },
       ],
-      surfaces: [],
+      surfaces: a2uiMapDemo ? [earthScopeMapSurface()] : [],
     });
     return;
   }
@@ -1063,17 +1172,19 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (
-    mcpV2UiDemo &&
+    (mcpV2UiDemo || a2uiMapDemo) &&
     request.method === 'GET' &&
     url.pathname === `/v1/sessions/${sessionId}/interactions`
   ) {
-    sendJson(response, { interactions: mcpV2Interactions() });
+    sendJson(response, {
+      interactions: a2uiMapDemo ? earthScopeMapInteractions() : mcpV2Interactions(),
+    });
     return;
   }
   const interactionResponseMatch = url.pathname.match(
     new RegExp(`^/v1/sessions/${sessionId}/interactions/([^/]+)/respond$`),
   );
-  if (mcpV2UiDemo && request.method === 'POST' && interactionResponseMatch) {
+  if ((mcpV2UiDemo || a2uiMapDemo) && request.method === 'POST' && interactionResponseMatch) {
     const interactionId = decodeURIComponent(interactionResponseMatch[1]);
     const body = await readJson(request);
     resolvedInteractionIds.add(interactionId);

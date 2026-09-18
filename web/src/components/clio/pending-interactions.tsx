@@ -1,11 +1,5 @@
 import type { A2UISurface, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
-import {
-  AlertTriangleIcon,
-  LoaderCircleIcon,
-  MessageCircleQuestionIcon,
-  RotateCcwIcon,
-  ShieldQuestionIcon,
-} from 'lucide-react';
+import { MessageCircleQuestionIcon, ShieldQuestionIcon } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import {
   Confirmation,
@@ -38,7 +32,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
-import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
+import type { A2UILocalActionHandler } from './a2ui-surface';
 import { respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';
 import {
@@ -47,6 +41,7 @@ import {
   ResponseErrorNotice,
 } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
+import { PendingA2UIResponse } from './pending-a2ui-response';
 import { StructuredQuestionResponse, UrlConsentResponse } from './question-interaction-forms';
 
 export interface ClioPendingInteractionsProps {
@@ -91,6 +86,7 @@ export function ClioPendingInteractions({
     (interaction) =>
       interaction.status === 'pending' && interaction.requires_human_response !== false,
   );
+  const hasInteractiveSurface = pending.some((interaction) => interaction.kind === 'a2ui');
   const handleResponse = useCallback(
     async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
       if (responseInFlight.current.has(interaction.id)) return;
@@ -139,7 +135,10 @@ export function ClioPendingInteractions({
         </QueueSectionTrigger>
         <QueueSectionContent className="flex min-h-0 flex-col">
           <ScrollArea
-            className="max-h-[min(22rem,40dvh)] min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50"
+            className={cn(
+              'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
+              hasInteractiveSurface ? 'max-h-[72dvh]' : 'max-h-[min(22rem,40dvh)]',
+            )}
             scrollHideDelay={500}
             type="hover"
             viewportProps={{
@@ -187,7 +186,7 @@ export function ClioPendingInteractions({
                       surfaces[surfaceId])
                     : undefined;
                   return (
-                    <A2UIResponse
+                    <PendingA2UIResponse
                       disabled={interactionDisabled}
                       interaction={interaction}
                       key={interaction.id}
@@ -656,144 +655,4 @@ function QuestionResponse({
       </FramePanel>
     </Frame>
   );
-}
-
-function A2UIResponse({
-  disabled,
-  interaction,
-  onLocalAction,
-  onRefetchSurface,
-  onResponse,
-  ownerLabel,
-  rawSurface,
-  responseError,
-  showOwner,
-}: {
-  disabled?: boolean;
-  interaction: PendingInteraction;
-  onLocalAction?: A2UILocalActionHandler;
-  onRefetchSurface?: () => void;
-  onResponse: ClioPendingInteractionsProps['onResponse'];
-  ownerLabel?: string;
-  rawSurface?: A2UISurface;
-  responseError?: Error;
-  showOwner: boolean;
-}) {
-  return (
-    <Frame
-      className="min-w-0 self-stretch border-violet-500/25 bg-violet-500/[0.04]"
-      data-interaction-kind={interaction.kind}
-      dense
-      spacing="sm"
-    >
-      <InteractionFrameHeader
-        interaction={interaction}
-        onCancel={
-          (interaction.actions ?? []).includes('cancel')
-            ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
-            : undefined
-        }
-        ownerLabel={ownerLabel}
-        showOwner={showOwner}
-      />
-      <FramePanel
-        className={cn(
-          'p-2',
-          // 0.7, not 0.5/0.6, is this repo's WCAG AA contrast floor for a
-          // dimmed-but-readable disabled surface (see reui/sortable.tsx).
-          disabled && 'pointer-events-none opacity-70',
-        )}
-      >
-        <ResponseErrorNotice error={responseError} />
-        <A2UISurfaceBody
-          interaction={interaction}
-          onLocalAction={onLocalAction}
-          onRefetchSurface={onRefetchSurface}
-          onResponse={onResponse}
-          rawSurface={rawSurface}
-        />
-      </FramePanel>
-    </Frame>
-  );
-}
-
-/**
- * "Interactive view is loading." collapsed three distinct realities into one
- * message. Only the first is transient — the other two will never resolve by
- * waiting, and telling them apart matters: a surface addressed to a different
- * session is a security-relevant rejection, not a slow read.
- */
-function A2UISurfaceBody({
-  interaction,
-  onLocalAction,
-  onRefetchSurface,
-  onResponse,
-  rawSurface,
-}: {
-  interaction: PendingInteraction;
-  onLocalAction?: A2UILocalActionHandler;
-  onRefetchSurface?: () => void;
-  onResponse: ClioPendingInteractionsProps['onResponse'];
-  rawSurface?: A2UISurface;
-}) {
-  if (!interaction.source.surface_id) {
-    return (
-      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
-        <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
-        This interactive view has no surface to open.
-      </p>
-    );
-  }
-  if (rawSurface && rawSurface.session_id !== interaction.owner_session_id) {
-    return (
-      <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
-        <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
-        This interactive view was rejected: it was addressed to a different session.
-      </p>
-    );
-  }
-  if (!rawSurface) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <LoaderCircleIcon aria-hidden="true" className="size-4 shrink-0 motion-safe:animate-spin" />
-        <span className="flex-1">Interactive view is loading.</span>
-        {onRefetchSurface ? (
-          <Button onClick={onRefetchSurface} size="sm" type="button" variant="ghost">
-            <RotateCcwIcon aria-hidden="true" />
-            Retry
-          </Button>
-        ) : null}
-      </div>
-    );
-  }
-  return (
-    <ClioA2UISurface
-      onLocalAction={onLocalAction}
-      onRemoteAction={(message) =>
-        onResponse(interaction, {
-          correlation: surfaceCorrelation(interaction, rawSurface),
-          message,
-        })
-      }
-      surface={rawSurface}
-    />
-  );
-}
-
-/**
- * The A2UI message identity a response answers, for the server's own
- * correlation — dropped entirely on this path before, unlike the surface's
- * own direct action mutation (a2ui-surface.tsx), which always sent it. The
- * surface's own run/message/part ids are authoritative; the interaction's
- * invocation_id is the only signal left once those are unavailable.
- */
-function surfaceCorrelation(
-  interaction: PendingInteraction,
-  surface: A2UISurface,
-): { run_id?: string; message_id?: string; part_id?: string } {
-  return {
-    run_id: surface.run_id,
-    message_id: surface.message_id,
-    part_id: surface.part_id ?? interaction.source.invocation_id,
-  };
 }

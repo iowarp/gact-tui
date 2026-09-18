@@ -14,14 +14,22 @@ use crate::supervisor_attach::try_attach_existing;
 use crate::supervisor_boot_log::{boot_log_line, reset_boot_log};
 use crate::supervisor_spawn::{spawn_and_probe, SpawnError};
 use crate::supervisor_state::SupervisorState;
-use crate::supervisor_types::BackendStatus;
+use crate::supervisor_types::{BackendStartupStage, BackendStatus};
 
-pub(crate) fn boot_sidecar(state: SupervisorState, launcher: PathBuf) {
+pub(crate) fn boot_sidecar(
+    state: SupervisorState,
+    launcher: PathBuf,
+    working_dir: Option<PathBuf>,
+    user_dir: Option<PathBuf>,
+) {
     // Fresh transcript for this boot attempt so a later failure's
     // "Open logs" shows only the relevant run.
     reset_boot_log("boot");
 
     // 1. Attach to an existing local server if reachable.
+    state.set_status(BackendStatus::Starting(
+        BackendStartupStage::CheckingExisting,
+    ));
     if let Some(handle) = try_attach_existing() {
         boot_log_line("attached to an existing backend on the conventional port");
         state.set_handle(handle);
@@ -29,7 +37,16 @@ pub(crate) fn boot_sidecar(state: SupervisorState, launcher: PathBuf) {
     }
 
     // 2. Otherwise spawn our own.
-    let outcome = spawn_and_probe(&launcher);
+    state.set_status(BackendStatus::Starting(
+        BackendStartupStage::StartingService,
+    ));
+    if let Some(dir) = working_dir.as_deref() {
+        boot_log_line(&format!("managed backend workspace={dir:?}"));
+    }
+    if let Some(dir) = user_dir.as_deref() {
+        boot_log_line(&format!("managed backend user_dir={dir:?}"));
+    }
+    let outcome = spawn_and_probe(&launcher, working_dir.as_deref(), user_dir.as_deref());
     match outcome {
         Ok((handle, child)) => {
             state.set_handle_and_child(handle, child);

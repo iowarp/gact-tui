@@ -43,6 +43,54 @@ test('explicit GACT overlay uses the shared configurable workspace build', () =>
   assert.equal(cfg.app.windows[0].height, 900);
   assert.equal(cfg.app.windows[0].minWidth, 960);
   assert.equal(cfg.app.windows[0].minHeight, 600);
+  assert.equal(cfg.app.windows[0].decorations, false);
+});
+
+test('desktop variants use product-owned frameless chrome with scoped window controls', () => {
+  const base = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  const gact = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'));
+  assert.equal(base.app.windows[0].decorations, false);
+  assert.equal(gact.app.windows[0].decorations, false);
+
+  const caps = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'capabilities', 'default.json'), 'utf8'),
+  );
+  for (const permission of [
+    'core:window:allow-close',
+    'core:window:allow-is-fullscreen',
+    'core:window:allow-set-fullscreen',
+    'core:window:allow-start-dragging',
+    'core:window:allow-toggle-maximize',
+  ]) {
+    assert.ok(caps.permissions.includes(permission), `${permission} capability`);
+  }
+
+  const libRs = readFileSync(resolve(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
+  assert.match(libRs, /cfg\(target_os = "macos"\)[\s\S]*app\.set_menu\(app_menu\)/);
+});
+
+test('desktop close, reopen, and quit lifecycle stays explicit', () => {
+  const libRs = readFileSync(resolve(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
+  assert.match(
+    libRs,
+    /tauri_plugin_single_instance::init[\s\S]*tray::show_main_window/,
+    'a second launch must restore the existing tray-resident window',
+  );
+  assert.match(
+    libRs,
+    /WindowEvent::CloseRequested[\s\S]*api\.prevent_close\(\)[\s\S]*window\.hide\(\)/,
+    'window close must keep the managed service alive in the tray',
+  );
+  assert.match(
+    libRs,
+    /RunEvent::ExitRequested[\s\S]*shutdown_owned_services/,
+    'explicit application exit must stop owned services',
+  );
+  assert.match(
+    libRs,
+    /cfg\(target_os = "macos"\)[\s\S]*RunEvent::Reopen[\s\S]*tray::show_main_window/,
+    'macOS dock reopen must restore the hidden main window',
+  );
 });
 
 test('CSP is present, localhost-scoped, and identical across config variants', () => {
@@ -102,6 +150,40 @@ test('tauri.conf.json is neutral and does not bundle a managed sidecar by defaul
   assert.deepEqual(cfg.bundle.externalBin, []);
 });
 
+test('bundled installer stops only its managed process tree before replacement or removal', () => {
+  const cfg = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'tauri.bundled.conf.json'), 'utf8'),
+  );
+  assert.equal(cfg.bundle.windows.nsis.installerHooks, 'installer-hooks.nsh');
+
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  assert.match(hooks, /NSIS_HOOK_PREINSTALL/);
+  assert.match(hooks, /NSIS_HOOK_PREUNINSTALL/);
+  assert.match(hooks, /NSIS_HOOK_POSTUNINSTALL/);
+  assert.match(hooks, /Also remove CLIO settings, sessions, and local data/);
+  assert.match(hooks, /\$LOCALAPPDATA\\ai\.iowarp\.clio\.desktop/);
+  assert.match(hooks, /\$APPDATA\\ai\.iowarp\.clio\.desktop/);
+  assert.match(hooks, /\$ClioRemoveUserData == \$\{BST_CHECKED\}/);
+  assert.match(hooks, /FileWrite \$0 "\$INSTDIR"/);
+  assert.match(hooks, /clio-desktop-install-root\.txt/);
+  assert.match(hooks, /ExecWait '"\$SYSDIR\\WindowsPowerShell\\v1\.0\\powershell\.exe"/);
+  assert.match(hooks, /-EncodedCommand/);
+  const encoded = hooks.match(/-EncodedCommand ([A-Za-z0-9+/=]+)/)?.[1];
+  assert.ok(encoded, 'expected an encoded process-cleanup command');
+  const cleanup = Buffer.from(encoded, 'base64').toString('utf16le');
+  assert.ok(encoded.length < 900, 'cleanup command must stay below the NSIS string limit');
+  assert.match(cleanup, /clio-desktop-install-root\.txt/);
+  assert.match(cleanup, /StartsWith\(\$r,5\)/);
+  assert.match(cleanup, /clio-desktop/);
+  assert.match(cleanup, /clio-agent/);
+  assert.match(cleanup, /python/);
+  assert.match(cleanup, /clio_run/);
+  assert.doesNotMatch(hooks, /taskkill[^\r\n]*\/IM/i, 'must not kill unrelated user processes');
+  const runtimeRemovals = hooks.match(/RMDir \/r "\$INSTDIR\\gact-runtime"/g) ?? [];
+  assert.equal(runtimeRemovals.length, 3, 'upgrade and uninstall must remove the bundled runtime');
+  assert.match(hooks, /NSIS_HOOK_POSTUNINSTALL[\s\S]*RMDir "\$INSTDIR"/);
+});
+
 test('updater plugin config is present and consistent across variants', () => {
   const base = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   const gact = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.gact.conf.json'), 'utf8'));
@@ -159,6 +241,7 @@ test('Cargo.toml + lib.rs wire the updater + process plugins', () => {
     readFileSync(resolve(root, 'src-tauri', 'capabilities', 'default.json'), 'utf8'),
   );
   assert.ok(caps.permissions.includes('updater:default'), 'updater:default capability');
+  assert.ok(caps.permissions.includes('process:allow-exit'), 'process:allow-exit capability');
   assert.ok(caps.permissions.includes('process:allow-restart'), 'process:allow-restart capability');
 });
 

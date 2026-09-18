@@ -68,7 +68,7 @@ export function ClioScientificMap({
   const selectedPoint = points.find((point) => point.id === selectedId);
 
   return (
-    <div className="min-w-0" ref={surfaceRef}>
+    <div className="min-w-0" data-slot="a2ui-map" ref={surfaceRef}>
       <Frame
         {...a2uiAccessibilityProps(accessibility)}
         aria-label={a2uiAccessibilityLabel(accessibility) ?? `${title} map`}

@@ -15,6 +15,7 @@
         "minWidth": 960,
         "minHeight": 600,
         "resizable": true,
+        "decorations": false,
         "fullscreen": false,
         "transparent": false
       }
@@ -37,9 +38,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": [
-        "https://github.com/iowarp/gact-tui/releases/latest/download/latest.json"
-      ],
+      "endpoints": ["https://github.com/iowarp/gact-tui/releases/latest/download/latest.json"],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgyQ0FBOEYyMjFFMDQzQ0YKUldUUFErQWg4cWpLZ2o3SkxUSEU2QU1kd3F3dmdYU2llbHdnZVArSzhkbnJEb1RoZTZZd09UOXEK",
       "windows": {
         "installMode": "passive"

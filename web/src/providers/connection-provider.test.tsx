@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   store: vi.fn(),
   remove: vi.fn(),
   waitForManagedBackend: vi.fn(),
+  finishInstallerInfrastructure: vi.fn(),
 }));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
@@ -18,6 +19,9 @@ vi.mock('@/tauri/secure-credentials', () => ({
 }));
 vi.mock('@/tauri/managed-backend', () => ({
   waitForManagedBackend: mocks.waitForManagedBackend,
+}));
+vi.mock('@/lib/installer-infrastructure', () => ({
+  finishInstallerInfrastructure: mocks.finishInstallerInfrastructure,
 }));
 
 import { ConnectionProvider, useConnectionSettings } from './connection-provider';
@@ -86,6 +90,8 @@ describe('connection provider credentials', () => {
     mocks.store.mockReset();
     mocks.remove.mockReset();
     mocks.waitForManagedBackend.mockReset();
+    mocks.finishInstallerInfrastructure.mockReset();
+    mocks.finishInstallerInfrastructure.mockResolvedValue(undefined);
   });
 
   afterEach(cleanup);
@@ -134,6 +140,10 @@ describe('connection provider credentials', () => {
       expect(screen.getByLabelText('resolved token')).toHaveTextContent('none');
     });
     expect(mocks.waitForManagedBackend).toHaveBeenCalledOnce();
+    expect(mocks.finishInstallerInfrastructure).toHaveBeenCalledWith({
+      endpoint: 'http://127.0.0.1:17800',
+      token: undefined,
+    });
     expect(mocks.read).not.toHaveBeenCalled();
   });
 

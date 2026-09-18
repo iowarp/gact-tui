@@ -12,7 +12,7 @@ use std::{
 
 use crate::supervisor_boot_log::boot_log_line;
 use crate::supervisor_shutdown::reap_child_tree;
-use crate::supervisor_types::{BackendHandle, BackendStatus};
+use crate::supervisor_types::{BackendHandle, BackendStartupStage, BackendStatus};
 
 /// Lock a `Mutex` while recovering from poisoning.
 ///
@@ -45,7 +45,7 @@ impl SupervisorState {
                 handle: BackendHandle {
                     url: String::new(),
                     bearer_token: String::new(),
-                    status: BackendStatus::Starting,
+                    status: BackendStatus::Starting(BackendStartupStage::CheckingExisting),
                 },
                 child: None,
             })),
@@ -117,7 +117,10 @@ mod tests {
         let handle = state.snapshot();
         assert!(handle.url.is_empty());
         assert!(handle.bearer_token.is_empty());
-        assert!(matches!(handle.status, BackendStatus::Starting));
+        assert!(matches!(
+            handle.status,
+            BackendStatus::Starting(BackendStartupStage::CheckingExisting)
+        ));
     }
 
     #[test]
@@ -137,6 +140,22 @@ mod tests {
         let handle = state.snapshot();
         assert_eq!(handle.url, "http://127.0.0.1:17800");
         assert_eq!(handle.bearer_token, "token");
+        assert!(matches!(handle.status, BackendStatus::Ready));
+    }
+
+    #[test]
+    fn shutdown_does_not_mutate_an_attached_backend_handle() {
+        let state = SupervisorState::new_starting();
+        state.set_handle(BackendHandle {
+            url: "http://127.0.0.1:17800".into(),
+            bearer_token: String::new(),
+            status: BackendStatus::Ready,
+        });
+
+        state.shutdown();
+
+        let handle = state.snapshot();
+        assert_eq!(handle.url, "http://127.0.0.1:17800");
         assert!(matches!(handle.status, BackendStatus::Ready));
     }
 
@@ -226,6 +245,35 @@ mod tests {
         assert!(
             second_alive,
             "new child (pid {second_pid}) must not be reaped by its own registration"
+        );
+    }
+
+    #[test]
+    fn shutdown_reaps_the_recorded_owned_child() {
+        use std::time::{Duration, Instant};
+
+        let state = SupervisorState::new_starting();
+        let child = spawn_sleeper();
+        let child_pid = child.id();
+        state.set_handle_and_child(
+            BackendHandle {
+                url: "http://127.0.0.1:52341".into(),
+                bearer_token: "owned-token".into(),
+                status: BackendStatus::Ready,
+            },
+            child,
+        );
+        assert!(pid_alive(child_pid), "sanity: owned child should be alive");
+
+        state.shutdown();
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while pid_alive(child_pid) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(
+            !pid_alive(child_pid),
+            "owned child (pid {child_pid}) survived supervisor shutdown"
         );
     }
 

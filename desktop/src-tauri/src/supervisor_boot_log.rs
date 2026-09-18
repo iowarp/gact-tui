@@ -50,6 +50,13 @@ pub(crate) fn boot_log_path() -> Option<PathBuf> {
     BOOT_LOG_PATH.lock().ok().and_then(|g| g.clone())
 }
 
+/// Current boot-transcript size, used as a monotone startup-progress marker.
+pub(crate) fn boot_log_size() -> Option<u64> {
+    fs::metadata(boot_log_path()?)
+        .ok()
+        .map(|metadata| metadata.len())
+}
+
 /// Truncate the boot log so the next attempt starts a fresh transcript.
 /// Writes a single header line with the supplied phase label. No-op when
 /// the path is unset (tests) or the file can't be opened.
@@ -133,7 +140,10 @@ mod tests {
         // reset again truncates the prior content.
         reset_boot_log("repair");
         let body2 = fs::read_to_string(&path).expect("boot log re-written");
-        assert!(body2.starts_with("=== backend repair log ==="), "got: {body2}");
+        assert!(
+            body2.starts_with("=== backend repair log ==="),
+            "got: {body2}"
+        );
         assert!(
             !body2.contains("line one"),
             "reset must truncate, got: {body2}"

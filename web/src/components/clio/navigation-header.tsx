@@ -25,6 +25,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { SavedConnection } from '@/lib/connection';
 import {
   connectionAvailability,
@@ -69,7 +70,11 @@ export function NavigationHeader({
         <SidebarMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <SidebarMenuButton className="h-11" size="lg" tooltip={`${brand.name} service`}>
+              <SidebarMenuButton
+                className="h-11"
+                size="lg"
+                tooltip={`${brand.name}: ${activeAvailability.label}. ${activeAvailability.detail}`}
+              >
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
                   {logoSource ? (
                     <img alt="" className="size-7 object-contain" src={logoSource} />
@@ -82,18 +87,30 @@ export function NavigationHeader({
                 <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
-                    <span
-                      aria-hidden="true"
-                      className={`size-1.5 shrink-0 rounded-full ${
-                        activeAvailability.state === 'healthy'
-                          ? 'bg-success'
-                          : activeAvailability.state === 'degraded'
-                            ? 'bg-warning'
-                            : activeAvailability.state === 'unavailable'
-                              ? 'bg-muted-foreground/45'
-                              : 'bg-info'
-                      }`}
-                    />
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            aria-label={`Service status: ${activeAvailability.label}. ${activeAvailability.detail}`}
+                            className={`size-1.5 shrink-0 rounded-full ${
+                              activeAvailability.state === 'healthy'
+                                ? 'bg-success'
+                                : activeAvailability.state === 'degraded'
+                                  ? 'bg-warning'
+                                  : activeAvailability.state === 'unavailable'
+                                    ? 'bg-muted-foreground/45'
+                                    : 'bg-info'
+                            }`}
+                            role="img"
+                            title={`${activeAvailability.label}: ${activeAvailability.detail}`}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent align="start" className="max-w-72" side="bottom">
+                          <span className="font-medium">{activeAvailability.label}</span>
+                          <span>{activeAvailability.detail}</span>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </span>
                   <span className="truncate text-[11px] text-muted-foreground">
                     {connectionPlaceLabel(endpoint, activeLabel)}

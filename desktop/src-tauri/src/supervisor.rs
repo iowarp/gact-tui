@@ -27,11 +27,13 @@ use std::{path::PathBuf, thread};
 use crate::supervisor_boot::{boot_attach_only, boot_sidecar};
 pub use crate::supervisor_launcher::locate_launcher;
 use crate::supervisor_state::SupervisorState;
-use crate::supervisor_types::{BackendHandle, BackendStatus};
+use crate::supervisor_types::{BackendHandle, BackendStartupStage, BackendStatus};
 
 /// Internal state owned by the Tauri runtime.
 pub struct Supervisor {
     state: SupervisorState,
+    working_dir: Option<PathBuf>,
+    user_dir: Option<PathBuf>,
 }
 
 impl Supervisor {
@@ -41,7 +43,19 @@ impl Supervisor {
     pub fn new() -> Self {
         Self {
             state: SupervisorState::new_starting(),
+            working_dir: None,
+            user_dir: None,
         }
+    }
+
+    /// Sets the stable workspace used by a managed desktop backend.
+    pub fn set_working_dir(&mut self, working_dir: PathBuf) {
+        self.working_dir = Some(working_dir);
+    }
+
+    /// Sets the persistent user-state root used by a managed desktop backend.
+    pub fn set_user_dir(&mut self, user_dir: PathBuf) {
+        self.user_dir = Some(user_dir);
     }
 
     /// Reads the current backend handle (cheap clone of a small struct).
@@ -65,8 +79,10 @@ impl Supervisor {
     /// in play without us needing to mirror their env.
     pub fn start(&self, launcher: PathBuf) {
         let state = self.state.clone();
+        let working_dir = self.working_dir.clone();
+        let user_dir = self.user_dir.clone();
         thread::spawn(move || {
-            boot_sidecar(state, launcher);
+            boot_sidecar(state, launcher, working_dir, user_dir);
         });
     }
 
@@ -102,7 +118,9 @@ impl Supervisor {
                 return;
             }
         };
-        self.state.set_status(BackendStatus::Starting);
+        self.state.set_status(BackendStatus::Starting(
+            BackendStartupStage::CheckingExisting,
+        ));
         self.start(launcher);
     }
 
@@ -150,7 +168,7 @@ mod tests {
                 return;
             }
         };
-        let (handle, child) = match spawn_and_probe(&launcher) {
+        let (handle, child) = match spawn_and_probe(&launcher, None, None) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("skip: spawn failed (no resolvable clio-agent-gact?): {e:?}");
