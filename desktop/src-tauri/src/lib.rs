@@ -255,6 +255,17 @@ pub fn run() {
                     menu::handle_menu_event(app, ev.id().as_ref());
                 });
             }
+            // Defense in depth: nothing above should ever install a native
+            // menu outside macOS — Tauri does not install a default one on
+            // its own — but a debug build catches it immediately if a
+            // future change reintroduces one. The whole point of the
+            // product-owned title bar (`desktop-title-bar.tsx`) is that
+            // Windows and Linux never draw a second, OS-owned menu strip.
+            #[cfg(not(target_os = "macos"))]
+            debug_assert!(
+                app.menu().is_none(),
+                "a native menu must never be installed outside macOS"
+            );
 
             Ok(())
         })

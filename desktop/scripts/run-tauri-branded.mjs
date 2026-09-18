@@ -36,15 +36,44 @@ const desktopDir = resolve(scriptDir, '..');
 const tauriDir = resolve(desktopDir, 'src-tauri');
 const require = createRequire(import.meta.url);
 
+// An array is "mergeable" (element-by-index, not wholesale-replaced) only
+// when every entry is a plain object — Tauri's `app.windows` is the one
+// array in the whole config shaped that way (a list of window configs, each
+// independently patchable). Arrays of primitives (icon lists, bundle
+// targets, CSP origins, ...) stay RFC 7396 merge-patch: the overlay
+// replaces the base array wholesale, since there is no "same object" on
+// each side to reconcile index-by-index.
+function isMergeableObjectArray(value) {
+  return (
+    value.length > 0 &&
+    value.every((item) => item !== null && typeof item === 'object' && !Array.isArray(item))
+  );
+}
+
 export function mergeConfig(base, overlay) {
   if (
     base === null ||
     overlay === null ||
-    Array.isArray(base) ||
-    Array.isArray(overlay) ||
     typeof base !== 'object' ||
     typeof overlay !== 'object'
   ) {
+    return overlay;
+  }
+  if (Array.isArray(base) || Array.isArray(overlay)) {
+    if (
+      Array.isArray(base) &&
+      Array.isArray(overlay) &&
+      isMergeableObjectArray(base) &&
+      isMergeableObjectArray(overlay)
+    ) {
+      // Two overlays each patching the SAME window entry (e.g. a brand
+      // overlay setting title/identifier and a macOS overlay setting
+      // decorations/titleBarStyle) must not clobber one another — see
+      // tauri.macos.conf.json and resolveNativeBrandOverlay's callers.
+      return base
+        .map((item, index) => (index in overlay ? mergeConfig(item, overlay[index]) : item))
+        .concat(overlay.slice(base.length));
+    }
     return overlay;
   }
 
@@ -91,9 +120,21 @@ function main(argv) {
   }
 
   const brandOverlay = resolveNativeBrandOverlay();
-  const overlays = [brandOverlay, ...mergePaths.map((path) => resolve(path))].filter(
-    Boolean,
-  );
+  // macOS keeps its native traffic lights (decorations: true + titleBarStyle:
+  // Overlay), which every brand's own overlay leaves at decorations: false —
+  // so this must be merged in LAST, after the brand overlay, or the brand's
+  // full `windows` entry would win outright (an RFC 7396 array replace) and
+  // silently strip the traffic lights back out on macOS. See
+  // mergeConfig's element-wise handling of `app.windows` above, which lets
+  // this patch just those three fields without touching the brand's own
+  // title/identifier on the same window entry.
+  const macosOverlay =
+    process.platform === 'darwin' ? resolve(tauriDir, 'tauri.macos.conf.json') : null;
+  const overlays = [
+    brandOverlay,
+    ...mergePaths.map((path) => resolve(path)),
+    macosOverlay,
+  ].filter(Boolean);
   let configArgs = [];
   if (overlays.length === 1) {
     configArgs = ['--config', overlays[0]];

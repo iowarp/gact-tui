@@ -145,9 +145,24 @@ export interface ClioStatusProps {
   detail?: string;
   className?: string;
   compact?: boolean;
+  /**
+   * Suppress the native `title` tooltip this component renders by default.
+   * Set this when the caller wraps `ClioStatus` in its own richer Tooltip
+   * (e.g. one disclosing endpoint/transport/version detail) — without it,
+   * the native browser tooltip and the custom one would both appear,
+   * stacked on top of each other.
+   */
+  suppressNativeTitle?: boolean;
 }
 
-export function ClioStatus({ value, label, detail, className, compact = false }: ClioStatusProps) {
+export function ClioStatus({
+  value,
+  label,
+  detail,
+  className,
+  compact = false,
+  suppressNativeTitle = false,
+}: ClioStatusProps) {
   const presentation = statusPresentation[value];
   const Icon = presentation.icon;
   const accessibleLabel = label ?? presentation.label;
@@ -161,7 +176,9 @@ export function ClioStatus({ value, label, detail, className, compact = false }:
           className,
         )}
         role="status"
-        title={detail ? `${accessibleLabel}: ${detail}` : accessibleLabel}
+        title={
+          suppressNativeTitle ? undefined : detail ? `${accessibleLabel}: ${detail}` : accessibleLabel
+        }
       >
         <Icon
           aria-hidden="true"

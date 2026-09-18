@@ -70,7 +70,6 @@ export function ClioNavigation({
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
   const importInputRef = useRef<HTMLInputElement>(null);
-  const activeSession = sessions.find((session) => session.id === activeSessionId);
 
   const openNewSession = (workspaceId = activeWorkspaceId) => {
     setCreateWorkspaceId(workspaceId);
@@ -104,15 +103,12 @@ export function ClioNavigation({
     }
   };
 
+  // 'import-session' and 'export-session' used to also be reachable via the
+  // native File menu (removed — see menu_spec.rs's application-menu trim);
+  // the direct paths below (the header's import button, per-session export)
+  // already cover them, so no useMenuAction registration is needed for
+  // either.
   useMenuAction('new-session', () => openNewSession());
-  useMenuAction('import-session', () => importInputRef.current?.click());
-  useMenuAction('export-session', () => {
-    if (!activeSession) return toast.error('No active session to export');
-    runNavigationAction(
-      () => downloadSession(activeSession.id, activeSession.title),
-      'Session export downloaded',
-    );
-  });
   useEffect(() => {
     const open = () => openNewSession();
     window.addEventListener('clio:new-session', open);

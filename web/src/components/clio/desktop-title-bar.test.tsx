@@ -1,7 +1,10 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { StreamState } from '@clio/core/v3';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { brand } from '@brand';
 import { MENU_ACTION_EVENT } from '@/tauri/menu-actions';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { useDesktopTitleStore } from '@/store/desktop-title';
 import { DesktopTitleBar } from './desktop-title-bar';
 
 const runDesktopWindowAction = vi.hoisted(() => vi.fn(async () => undefined));
@@ -13,6 +16,11 @@ const listenForCloseFallbackHidden = vi.hoisted(() =>
   vi.fn(async (_onHidden: () => void) => () => undefined),
 );
 const toastError = vi.hoisted(() => vi.fn());
+const isMacOS = vi.hoisted(() => vi.fn(() => false));
+const liveStreamState = vi.hoisted(() => ({ current: 'live' as StreamState }));
+const capabilitiesService = vi.hoisted(() => ({
+  current: { name: 'clio-agent-gact', version: '1.2.3' } as { name: string; version: string } | undefined,
+}));
 
 vi.mock('@/tauri/desktop-window', () => ({
   runDesktopWindowAction,
@@ -25,6 +33,23 @@ vi.mock('@/tauri/desktop-lifecycle', () => ({
 }));
 
 vi.mock('sonner', () => ({ toast: { error: toastError } }));
+
+vi.mock('@/lib/platform', () => ({ isMacOS }));
+
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
+}));
+
+vi.mock('@/hooks/use-workspace-capabilities', () => ({
+  useWorkspaceCapabilities: () => ({
+    capabilities: { data: { service: capabilitiesService.current } },
+  }),
+}));
+
+vi.mock('@/store/live-store', () => ({
+  useLiveStore: (selector: (state: { entities: { stream: string } }) => unknown) =>
+    selector({ entities: { stream: liveStreamState.current } }),
+}));
 
 describe('DesktopTitleBar', () => {
   const renderTitleBar = () =>
@@ -43,6 +68,10 @@ describe('DesktopTitleBar', () => {
     listenForCloseFallbackHidden.mockClear();
     listenForCloseFallbackHidden.mockImplementation(async () => () => undefined);
     toastError.mockClear();
+    isMacOS.mockReturnValue(false);
+    liveStreamState.current = 'live';
+    capabilitiesService.current = { name: 'clio-agent-gact', version: '1.2.3' };
+    useDesktopTitleStore.getState().clearTitleContext();
   });
 
   afterEach(() => {
@@ -50,7 +79,7 @@ describe('DesktopTitleBar', () => {
     Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
   });
 
-  it('stays out of the browser experience', () => {
+  it('title_bar_hidden_in_browser: stays out of the browser experience', () => {
     Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
     const { container } = renderTitleBar();
     expect(container).toBeEmptyDOMElement();
@@ -199,5 +228,82 @@ describe('DesktopTitleBar', () => {
     expect(dispatchedEvent).toBeDefined();
     expect((dispatchedEvent as CustomEvent).detail).toBe('open-settings');
     window.removeEventListener(MENU_ACTION_EVENT, action);
+  });
+
+  it('opens the application menu on Alt+Space, same as the hamburger', () => {
+    renderTitleBar();
+
+    expect(screen.queryByRole('menuitem', { name: /settings/i })).not.toBeInTheDocument();
+    fireEvent.keyDown(window, { altKey: true, code: 'Space' });
+
+    expect(screen.getByRole('menuitem', { name: /settings/i })).toBeInTheDocument();
+  });
+
+  it('title_bar_shows_session_context: shows workspace › session with the blueprint badge once a route writes it', () => {
+    useDesktopTitleStore.getState().setTitleContext({
+      blueprint: 'EarthScope (Flat / Haiku)',
+      session: 'NDP flatness run',
+      workspace: 'flat-ndp',
+    });
+    renderTitleBar();
+
+    expect(screen.getByText('flat-ndp')).toBeInTheDocument();
+    expect(screen.getByText('NDP flatness run')).toBeInTheDocument();
+    expect(screen.getByText('EarthScope (Flat / Haiku)')).toBeInTheDocument();
+  });
+
+  it('falls back to the product name on a route that never writes title context', () => {
+    renderTitleBar();
+
+    // The left section always carries the brand mark + wordmark; scope to
+    // the centre context region specifically so this asserts its OWN
+    // fallback, not the always-present left-section brand block.
+    expect(
+      within(screen.getByTestId('desktop-title-context')).getByText(brand.wordmark),
+    ).toBeInTheDocument();
+  });
+
+  it('title_bar_shows_connection_state_with_tooltip: the health dot discloses endpoint, transport, and backend version on hover', async () => {
+    liveStreamState.current = 'reconnecting';
+    renderTitleBar();
+
+    const dot = screen.getByRole('status', { name: 'Reconnecting' });
+    fireEvent.pointerEnter(dot);
+    fireEvent.focus(dot);
+
+    expect(await screen.findByText('http://127.0.0.1:8787')).toBeInTheDocument();
+    expect(screen.getByText('Transport: Bridge')).toBeInTheDocument();
+    expect(screen.getByText('Backend: clio-agent-gact 1.2.3')).toBeInTheDocument();
+  });
+
+  it('shows the backend as unknown until capabilities resolve', async () => {
+    capabilitiesService.current = undefined;
+    renderTitleBar();
+
+    const dot = screen.getByRole('status', { name: 'Live' });
+    fireEvent.pointerEnter(dot);
+    fireEvent.focus(dot);
+
+    expect(await screen.findByText('Backend: Unknown')).toBeInTheDocument();
+  });
+
+  it('window_controls_present_on_windows_linux_only: hides the custom window controls on macOS, where native traffic lights apply', () => {
+    isMacOS.mockReturnValue(true);
+    renderTitleBar();
+
+    expect(screen.queryByRole('button', { name: 'Minimize' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Maximize or restore' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+    // The connection health indicator is not window chrome, so it still renders.
+    expect(screen.getByRole('status', { name: 'Live' })).toBeInTheDocument();
+  });
+
+  it('shows the custom window controls on Windows/Linux', () => {
+    isMacOS.mockReturnValue(false);
+    renderTitleBar();
+
+    expect(screen.getByRole('button', { name: 'Minimize' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Maximize or restore' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
 });

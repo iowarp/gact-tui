@@ -49,6 +49,7 @@ import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { openWorkspaceTerminal } from '@/tauri/workspace-terminal';
 
 function TranscriptPresenceSurface({
@@ -137,6 +138,11 @@ export function WorkspacePage() {
     [allSessions.data, sessions.data],
   );
   const activeWorkspace = workspaces.data?.find((workspace) => workspace.id === workspaceId);
+  useDesktopTitleSync({
+    blueprint: activeBlueprint?.display_name,
+    session: session?.title,
+    workspace: activeWorkspace?.display_name,
+  });
   const sessionAttentions = useMemo(
     () => buildSessionAttentionMap(navigationSessions, attentionInteractions),
     [attentionInteractions, navigationSessions],

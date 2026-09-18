@@ -118,3 +118,52 @@ test('brand and bundle overlays merge without dropping native identity', () => {
     },
   );
 });
+
+test('a macOS overlay patches the same window entry without dropping the brand title', () => {
+  // Mirrors the real chain: base config, then the brand overlay (sets
+  // title/decorations), then tauri.macos.conf.json merged in LAST (sets
+  // decorations/titleBarStyle/hiddenTitle for the traffic lights). Neither
+  // side's window fields should clobber the other's.
+  const base = {
+    app: {
+      windows: [
+        {
+          title: 'Agent Workspace',
+          width: 1440,
+          height: 900,
+          decorations: false,
+        },
+      ],
+    },
+  };
+  const brandOverlay = {
+    productName: 'CLIO Desktop',
+    app: { windows: [{ title: 'CLIO Desktop' }] },
+  };
+  const macosOverlay = {
+    app: {
+      windows: [{ decorations: true, titleBarStyle: 'Overlay', hiddenTitle: true }],
+    },
+  };
+
+  const merged = mergeConfig(mergeConfig(base, brandOverlay), macosOverlay);
+
+  assert.deepEqual(merged.app.windows, [
+    {
+      title: 'CLIO Desktop',
+      width: 1440,
+      height: 900,
+      decorations: true,
+      titleBarStyle: 'Overlay',
+      hiddenTitle: true,
+    },
+  ]);
+});
+
+test('arrays of primitives still replace wholesale, unlike app.windows', () => {
+  assert.deepEqual(
+    mergeConfig({ bundle: { icon: ['a.ico', 'b.ico', 'c.ico'] } }, { bundle: { icon: ['only.ico'] } })
+      .bundle.icon,
+    ['only.ico'],
+  );
+});

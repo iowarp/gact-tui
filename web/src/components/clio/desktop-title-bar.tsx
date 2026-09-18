@@ -36,7 +36,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { DesktopTitleContext } from '@/components/clio/desktop-title-context';
+import { DesktopTitleHealth } from '@/components/clio/desktop-title-health';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { isMacOS } from '@/lib/platform';
+import { cn } from '@/lib/utils';
 import { listenForCloseFallbackHidden, listenForCloseRequested } from '@/tauri/desktop-lifecycle';
 import { dispatchMenuAction } from '@/tauri/menu-actions';
 import {
@@ -44,6 +48,12 @@ import {
   runDesktopWindowAction,
   type DesktopWindowAction,
 } from '@/tauri/desktop-window';
+
+// macOS keeps its native traffic lights (top-left); the bar's left section
+// is padded clear of them so the hamburger/brand block never sits under
+// natively-drawn chrome. Matches the traffic-light cluster's rough width
+// plus margin — see tauri.macos.conf.json's titleBarStyle: Overlay.
+const MACOS_TRAFFIC_LIGHT_CLEARANCE = 'pl-20';
 
 function logoSource(): string | null {
   return (
@@ -100,6 +110,8 @@ function WindowButton({
 /** Product-owned chrome for the frameless Tauri window. */
 export function DesktopTitleBar() {
   const [closePromptOpen, setClosePromptOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [macOS] = useState(isMacOS);
 
   // Native close (Alt+F4, the OS close box, the traffic light) opens the
   // same confirmation prompt as the title-bar close button and hamburger
@@ -149,6 +161,21 @@ export function DesktopTitleBar() {
     };
   }, []);
 
+  // Alt+Space is the conventional Windows/Linux "open the window's system
+  // menu" shortcut; the hamburger IS that menu here, so it answers to the
+  // same key. Also registered unconditionally, ahead of the early return,
+  // for the same hooks-order reason as the effect above.
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.altKey && event.code === 'Space') {
+        event.preventDefault();
+        setMenuOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
   if (!inTauri()) return null;
   const logo = logoSource();
 
@@ -157,8 +184,13 @@ export function DesktopTitleBar() {
       aria-label={`${brand.name} desktop controls`}
       className="relative z-50 flex h-10 shrink-0 select-none items-stretch border-b border-border/70 bg-background/95 text-foreground shadow-xs backdrop-blur"
     >
-      <div className="flex items-center gap-0.5 px-1.5">
-        <DropdownMenu>
+      <div
+        className={cn(
+          'flex items-center gap-0.5 px-1.5',
+          macOS && MACOS_TRAFFIC_LIGHT_CLEARANCE,
+        )}
+      >
+        <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
           <DropdownMenuTrigger asChild>
             <Button aria-label="Open application menu" size="icon-sm" variant="ghost">
               <MoreHorizontalIcon aria-hidden="true" />
@@ -204,6 +236,17 @@ export function DesktopTitleBar() {
           </DropdownMenuContent>
         </DropdownMenu>
         <div aria-hidden="true" className="mx-1 h-4 w-px bg-border" />
+        <span className="grid size-5 place-items-center rounded-md bg-primary/12 text-primary">
+          {logo ? (
+            <img alt="" className="size-4 object-contain" draggable={false} src={logo} />
+          ) : (
+            <span aria-hidden="true" className="text-[10px] font-semibold">
+              {brand.markGlyph}
+            </span>
+          )}
+        </span>
+        <span className="text-xs font-medium">{brand.wordmark}</span>
+        <div aria-hidden="true" className="mx-1 h-4 w-px bg-border" />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -232,43 +275,33 @@ export function DesktopTitleBar() {
         </Tooltip>
       </div>
 
-      <div
-        className="flex min-w-0 flex-1 items-center justify-center gap-2 text-xs font-medium text-muted-foreground"
-        data-tauri-drag-region
-        onDoubleClick={() => void runWindowAction('toggleMaximize')}
-      >
-        <span className="grid size-5 place-items-center rounded-md bg-primary/12 text-primary">
-          {logo ? (
-            <img alt="" className="size-4 object-contain" draggable={false} src={logo} />
-          ) : (
-            <span aria-hidden="true" className="text-[10px] font-semibold">
-              {brand.markGlyph}
-            </span>
-          )}
-        </span>
-        <span data-tauri-drag-region>{brand.wordmark}</span>
-      </div>
+      <DesktopTitleContext onDoubleClick={() => void runWindowAction('toggleMaximize')} />
 
-      <div className="flex items-stretch">
-        <WindowButton action="minimize" label="Minimize">
-          <MinusIcon aria-hidden="true" className="size-4" />
-        </WindowButton>
-        <WindowButton action="toggleMaximize" label="Maximize or restore">
-          <Maximize2Icon aria-hidden="true" className="size-3.5" />
-        </WindowButton>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              aria-label="Close"
-              className="grid h-10 w-12 place-items-center text-muted-foreground transition-colors hover:bg-destructive hover:text-white"
-              onClick={() => setClosePromptOpen(true)}
-              type="button"
-            >
-              <XIcon aria-hidden="true" className="size-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Close or keep running</TooltipContent>
-        </Tooltip>
+      <div className="flex items-stretch gap-1 px-2">
+        <DesktopTitleHealth />
+        {macOS ? null : (
+          <>
+            <WindowButton action="minimize" label="Minimize">
+              <MinusIcon aria-hidden="true" className="size-4" />
+            </WindowButton>
+            <WindowButton action="toggleMaximize" label="Maximize or restore">
+              <Maximize2Icon aria-hidden="true" className="size-3.5" />
+            </WindowButton>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  aria-label="Close"
+                  className="grid h-10 w-12 place-items-center text-muted-foreground transition-colors hover:bg-destructive hover:text-white"
+                  onClick={() => setClosePromptOpen(true)}
+                  type="button"
+                >
+                  <XIcon aria-hidden="true" className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Close or keep running</TooltipContent>
+            </Tooltip>
+          </>
+        )}
       </div>
       <AlertDialog onOpenChange={setClosePromptOpen} open={closePromptOpen}>
         <AlertDialogContent
