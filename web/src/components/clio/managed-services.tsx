@@ -7,10 +7,20 @@ import {
   type ManagedServiceDefinition,
 } from '@/tauri/infrastructure-setup';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ContainerIcon, LaptopIcon, ServerIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+  ChevronDownIcon,
+  ContainerIcon,
+  CpuIcon,
+  LaptopIcon,
+  PackageOpenIcon,
+  ServerIcon,
+} from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { ClioStatus } from '@/components/clio/status';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -21,14 +31,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
+import { Switch } from '@/components/ui/switch';
 
 type Target = 'local' | 'ssh';
+type ServiceAction = ManagedServiceActionInput['action'];
 
-/** Compact desktop-only controls for the four compiled service drivers. */
+const MODEL_PROVIDER_IDS = new Set<ManagedServiceDefinition['id']>(['vllm', 'llama_cpp']);
+
+/** Desktop controls for CLIO-managed providers and supporting resources. */
 export function ManagedServices() {
   const desktop = inTauri();
   const [target, setTarget] = useState<Target>('local');
   const [profile, setProfile] = useState('');
+  const [managedProvidersEnabled, setManagedProvidersEnabled] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState('');
   const [variants, setVariants] = useState<Record<string, string>>({});
   const [configuration, setConfiguration] = useState<Record<string, Record<string, string>>>({});
   const [results, setResults] = useState<Record<string, string>>({});
@@ -50,12 +67,24 @@ export function ManagedServices() {
   });
   const action = useMutation({
     mutationFn: (input: ManagedServiceActionInput) => runManagedServiceAction(input),
-    onSuccess: (result) =>
+    onMutate: (input) => {
+      setResults((current) => ({
+        ...current,
+        [input.service_id]: `${actionLabel(input.action)} in progress on ${targetLabel(target, profile)}…`,
+      }));
+    },
+    onSuccess: async (result) => {
       setResults((current) => ({
         ...current,
         [result.service_id]: result.logs || `${result.action} completed on ${result.target}.`,
-      })),
+      }));
+      await catalog.refetch();
+    },
   });
+  const services = catalog.data?.services ?? [];
+  const providers = services.filter((service) => MODEL_PROVIDER_IDS.has(service.id));
+  const resources = services.filter((service) => !MODEL_PROVIDER_IDS.has(service.id));
+  const provider = providers.find((service) => service.id === selectedProvider);
 
   if (!desktop) {
     return (
@@ -70,6 +99,37 @@ export function ManagedServices() {
     );
   }
 
+  const renderService = (service: ManagedServiceDefinition) => (
+    <ServiceCard
+      activeAction={
+        action.isPending && action.variables?.service_id === service.id
+          ? action.variables.action
+          : undefined
+      }
+      configuration={configuration[service.id] ?? {}}
+      key={service.id}
+      onAction={(requestedAction) =>
+        action.mutate({
+          ...targetInput,
+          service_id: service.id,
+          action: requestedAction,
+          variant_id: variants[service.id] ?? service.recommended_variant,
+          configuration: configuration[service.id] ?? {},
+        })
+      }
+      onConfiguration={(field, value) =>
+        setConfiguration((current) => ({
+          ...current,
+          [service.id]: { ...current[service.id], [field]: value },
+        }))
+      }
+      onVariant={(value) => setVariants((current) => ({ ...current, [service.id]: value }))}
+      result={results[service.id]}
+      service={service}
+      variant={variants[service.id] ?? service.recommended_variant}
+    />
+  );
+
   return (
     <section
       aria-labelledby="managed-services-title"
@@ -78,10 +138,10 @@ export function ManagedServices() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="font-medium" id="managed-services-title">
-            Managed services
+            Managed infrastructure
           </h2>
           <p className="text-sm text-muted-foreground">
-            Choose this computer or an SSH host. CLIO recommends only compatible pinned builds.
+            Inspect this computer or a saved SSH host, then manage only the capabilities you need.
           </p>
         </div>
         {catalog.data ? (
@@ -119,18 +179,11 @@ export function ManagedServices() {
       ) : null}
 
       {catalog.isPending && catalog.fetchStatus === 'fetching' ? (
-        <Alert className="mt-4" role="status">
-          <ContainerIcon aria-hidden="true" />
-          <AlertTitle>Inspecting this computer</AlertTitle>
-          <AlertDescription>
-            Checking Docker, local runtimes, and available acceleration. You can keep using CLIO
-            while this finishes.
-          </AlertDescription>
-        </Alert>
+        <InspectionProgress profile={profile} target={target} />
       ) : null}
       {catalog.error ? (
         <Alert className="mt-4" variant="destructive">
-          <AlertTitle>Could not inspect this target</AlertTitle>
+          <AlertTitle>Could not inspect {targetLabel(target, profile)}</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>{catalog.error.message}</p>
             <Button onClick={() => catalog.refetch()} size="sm" variant="outline">
@@ -139,34 +192,74 @@ export function ManagedServices() {
           </AlertDescription>
         </Alert>
       ) : null}
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {(catalog.data?.services ?? []).map((service) => (
-          <ServiceCard
-            busy={action.isPending && action.variables?.service_id === service.id}
-            configuration={configuration[service.id] ?? {}}
-            key={service.id}
-            onAction={(requestedAction) =>
-              action.mutate({
-                ...targetInput,
-                service_id: service.id,
-                action: requestedAction,
-                variant_id: variants[service.id] ?? service.recommended_variant,
-                configuration: configuration[service.id] ?? {},
-              })
-            }
-            onConfiguration={(field, value) =>
-              setConfiguration((current) => ({
-                ...current,
-                [service.id]: { ...current[service.id], [field]: value },
-              }))
-            }
-            onVariant={(value) => setVariants((current) => ({ ...current, [service.id]: value }))}
-            result={results[service.id]}
-            service={service}
-            variant={variants[service.id] ?? service.recommended_variant}
-          />
-        ))}
+
+      <div className="mt-4 grid gap-3">
+        <ManagedGroup
+          description="Run an approved local model server managed by CLIO. Existing providers remain in Settings."
+          icon={CpuIcon}
+          title="Model providers"
+        >
+          <div className="rounded-lg border bg-muted/20 p-3">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <FieldLabel htmlFor="managed-provider-enabled">
+                  Enable a CLIO-managed provider
+                </FieldLabel>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  To connect an existing provider, visit{' '}
+                  <Link
+                    className="text-primary underline-offset-4 hover:underline"
+                    to="/settings/providers"
+                  >
+                    Settings › Models
+                  </Link>
+                  .
+                </p>
+              </div>
+              <Switch
+                checked={managedProvidersEnabled}
+                id="managed-provider-enabled"
+                onCheckedChange={setManagedProvidersEnabled}
+              />
+            </div>
+            <Field className="mt-3 max-w-sm">
+              <FieldLabel htmlFor="managed-provider-choice">Provider</FieldLabel>
+              <Select
+                disabled={!managedProvidersEnabled || !providers.length}
+                onValueChange={setSelectedProvider}
+                value={selectedProvider}
+              >
+                <SelectTrigger id="managed-provider-choice">
+                  <SelectValue placeholder="Choose a provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers.map((service) => (
+                    <SelectItem key={service.id} value={service.id}>
+                      {service.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          {managedProvidersEnabled && provider ? (
+            <div className="mt-3 max-w-2xl">{renderService(provider)}</div>
+          ) : null}
+        </ManagedGroup>
+
+        <ManagedGroup
+          defaultOpen
+          description="Private services that extend CLIO with search, documents, and remote work."
+          icon={PackageOpenIcon}
+          title="CLIO resources"
+        >
+          <div className="grid gap-3 md:grid-cols-2">{resources.map(renderService)}</div>
+          {!catalog.isPending && !resources.length ? (
+            <p className="text-sm text-muted-foreground">No managed resources were reported.</p>
+          ) : null}
+        </ManagedGroup>
       </div>
+
       {action.error ? (
         <p className="mt-3 text-sm text-destructive">{action.error.message}</p>
       ) : null}
@@ -174,8 +267,60 @@ export function ManagedServices() {
   );
 }
 
+function ManagedGroup({
+  children,
+  defaultOpen = false,
+  description,
+  icon: Icon,
+  title,
+}: {
+  children: ReactNode;
+  defaultOpen?: boolean;
+  description: string;
+  icon: typeof CpuIcon;
+  title: string;
+}) {
+  return (
+    <Collapsible className="group rounded-lg border" defaultOpen={defaultOpen}>
+      <CollapsibleTrigger asChild>
+        <button className="flex w-full items-center gap-3 p-3 text-left" type="button">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+            <Icon aria-hidden="true" className="size-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium">{title}</span>
+            <span className="block text-xs text-muted-foreground">{description}</span>
+          </span>
+          <ChevronDownIcon
+            aria-hidden="true"
+            className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180"
+          />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="border-t p-3">{children}</CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function InspectionProgress({ profile, target }: { profile: string; target: Target }) {
+  const remote = target === 'ssh';
+  const place = targetLabel(target, profile);
+  return (
+    <Alert className="mt-4" role="status">
+      <Spinner aria-hidden="true" />
+      <AlertTitle>{remote ? `Connecting to ${place}` : 'Inspecting this computer'}</AlertTitle>
+      <AlertDescription>
+        {remote
+          ? 'Checking the SSH connection, operating system, Docker, runtimes, acceleration, and existing CLIO services.'
+          : 'Checking the operating system, Docker, local runtimes, acceleration, and existing CLIO services.'}{' '}
+        You can keep using CLIO while this finishes.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 function ServiceCard({
-  busy,
+  activeAction,
   configuration,
   onAction,
   onConfiguration,
@@ -184,9 +329,9 @@ function ServiceCard({
   service,
   variant,
 }: {
-  busy: boolean;
+  activeAction?: ServiceAction;
   configuration: Record<string, string>;
-  onAction: (action: ManagedServiceActionInput['action']) => void;
+  onAction: (action: ServiceAction) => void;
   onConfiguration: (field: string, value: string) => void;
   onVariant: (value: string) => void;
   result?: string;
@@ -201,9 +346,14 @@ function ServiceCard({
     (field) => field.required && !configuration[field.id]?.trim(),
   );
   return (
-    <article className="rounded-lg border p-3">
-      <h3 className="font-medium">{service.label}</h3>
-      <p className="text-xs text-muted-foreground">{service.description}</p>
+    <article className="rounded-lg border bg-card p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-medium">{service.label}</h3>
+          <p className="text-xs text-muted-foreground">{service.description}</p>
+        </div>
+        <ServiceState state={service.state} />
+      </div>
       {compatible.length ? (
         <Select onValueChange={onVariant} value={variant}>
           <SelectTrigger aria-label={`${service.label} version`} className="mt-3">
@@ -260,31 +410,60 @@ function ServiceCard({
       <div className="mt-3 flex flex-wrap gap-2">
         {(['install', 'start', 'status', 'logs'] as const).map((name) => (
           <Button
-            disabled={busy || !variant || (name === 'start' && missing)}
+            disabled={Boolean(activeAction) || !variant || (name === 'start' && missing)}
             key={name}
             onClick={() => onAction(name)}
             size="sm"
             variant={name === 'start' ? 'default' : 'outline'}
           >
-            {name[0].toUpperCase() + name.slice(1)}
+            {activeAction === name ? <Spinner aria-hidden="true" /> : null}
+            {activeAction === name ? `${actionLabel(name)}…` : actionLabel(name)}
           </Button>
         ))}
         {service.supports_stop ? (
           <Button
-            disabled={busy || !variant}
+            disabled={Boolean(activeAction) || !variant}
             onClick={() => onAction('stop')}
             size="sm"
             variant="outline"
           >
-            Stop
+            {activeAction === 'stop' ? <Spinner aria-hidden="true" /> : null}
+            {activeAction === 'stop' ? 'Stopping…' : 'Stop'}
           </Button>
         ) : null}
       </div>
       {result ? (
-        <pre className="mt-3 max-h-28 overflow-auto whitespace-pre-wrap text-xs">{result}</pre>
+        <pre
+          aria-live="polite"
+          className="mt-3 max-h-28 overflow-auto whitespace-pre-wrap rounded-md bg-muted/40 p-2 text-xs"
+        >
+          {result}
+        </pre>
       ) : null}
     </article>
   );
+}
+
+function ServiceState({ state }: { state: ManagedServiceDefinition['state'] }) {
+  if (state === 'running') return <ClioStatus label="Running" value="healthy" />;
+  if (state === 'stopped') return <ClioStatus label="Stopped" value="degraded" />;
+  if (state === 'not_installed') return <ClioStatus label="Not installed" value="unavailable" />;
+  return <ClioStatus label="Not checked" value="unknown" />;
+}
+
+function actionLabel(action: ServiceAction): string {
+  const labels: Record<ServiceAction, string> = {
+    install: 'Install',
+    start: 'Start',
+    status: 'Check status',
+    logs: 'View logs',
+    stop: 'Stop',
+  };
+  return labels[action];
+}
+
+function targetLabel(target: Target, profile: string): string {
+  return target === 'local' ? 'this computer' : profile || 'the SSH host';
 }
 
 function TargetChoice({

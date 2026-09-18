@@ -53,6 +53,7 @@ export type ManagedServiceDefinition = {
     options?: string[];
   }>;
   supports_stop: boolean;
+  state: 'running' | 'stopped' | 'not_installed' | 'unknown';
 };
 
 export type ManagedServiceCatalog = {

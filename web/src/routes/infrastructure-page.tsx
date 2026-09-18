@@ -128,7 +128,7 @@ export function InfrastructurePage() {
   });
 
   return (
-    <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
+    <main className="clio-scrollbar h-dvh min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>

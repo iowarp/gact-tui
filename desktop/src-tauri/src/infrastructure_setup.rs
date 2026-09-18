@@ -104,6 +104,10 @@ pub struct ManagedServiceDefinition {
     pub variants: Vec<ServiceVariant>,
     pub configuration_fields: Vec<ServiceConfigField>,
     pub supports_stop: bool,
+    /// Observed lifecycle state on the selected target. This is intentionally
+    /// separate from compatibility: a supported service may already be
+    /// running, stopped, or not installed at all.
+    pub state: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -639,9 +643,14 @@ pub async fn infrastructure_managed_service_catalog(
 ) -> Result<ManagedServiceCatalog, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let facts = preflight(&request)?;
+        let container_states = inspect_container_states(&request, &facts);
         let services = Driver::all()
             .into_iter()
-            .map(|driver| driver.definition(&facts))
+            .map(|driver| {
+                let mut definition = driver.definition(&facts);
+                definition.state = observed_service_state(driver, &facts, &container_states);
+                definition
+            })
             .collect();
         Ok(ManagedServiceCatalog { facts, services })
     })
@@ -919,6 +928,56 @@ fn container_running(target: &ManagedTargetRequest, name: &str) -> Result<bool, 
     })
     .map_err(|error| format!("Docker could not be started: {error}"))
 }
+
+/// Read every known container state in one bounded Docker call. A failed
+/// discovery leaves the state unknown without hiding the service catalog.
+fn inspect_container_states(
+    target: &ManagedTargetRequest,
+    facts: &TargetFacts,
+) -> BTreeMap<String, String> {
+    if !facts.docker_available {
+        return BTreeMap::new();
+    }
+    let Ok(output) = run_discovery_target(
+        target,
+        "docker",
+        &["ps", "-a", "--format", "{{.Names}}\t{{.State}}"],
+    ) else {
+        return BTreeMap::new();
+    };
+    if !output.status.success() {
+        return BTreeMap::new();
+    }
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(|line| line.split_once('\t'))
+        .map(|(name, state)| (name.trim().to_string(), state.trim().to_ascii_lowercase()))
+        .collect()
+}
+
+fn observed_service_state(
+    driver: Driver,
+    facts: &TargetFacts,
+    containers: &BTreeMap<String, String>,
+) -> String {
+    let container = match driver {
+        Driver::Vllm => Some("clio-vllm"),
+        Driver::LlamaCpp if facts.os != "windows" || facts.target != "This computer" => {
+            Some("clio-llama-cpp")
+        }
+        Driver::WebSearch => Some("clio-web-search"),
+        Driver::LlamaCpp | Driver::Relay => None,
+    };
+    let Some(container) = container else {
+        return "unknown".into();
+    };
+    match containers.get(container).map(String::as_str) {
+        Some("running") => "running".into(),
+        Some(_) => "stopped".into(),
+        None if facts.docker_available => "not_installed".into(),
+        None => "unknown".into(),
+    }
+}
 fn local(program: &str, args: &[&str]) -> CommandSpec {
     CommandSpec {
         program: program.into(),
@@ -1112,6 +1171,7 @@ fn definition(
         variants,
         configuration_fields: fields,
         supports_stop,
+        state: "unknown".into(),
     }
 }
 
@@ -1234,6 +1294,31 @@ mod tests {
             variant_id: variant.into(),
             configuration: BTreeMap::new(),
         }
+    }
+
+    #[test]
+    fn observed_container_state_distinguishes_running_stopped_and_absent_resources() {
+        let mut containers = BTreeMap::new();
+        containers.insert("clio-web-search".into(), "running".into());
+        containers.insert("clio-llama-cpp".into(), "exited".into());
+        let linux = facts("linux", "none");
+
+        assert_eq!(
+            observed_service_state(Driver::WebSearch, &linux, &containers),
+            "running"
+        );
+        assert_eq!(
+            observed_service_state(Driver::LlamaCpp, &linux, &containers),
+            "stopped"
+        );
+        assert_eq!(
+            observed_service_state(Driver::Vllm, &linux, &containers),
+            "not_installed"
+        );
+        assert_eq!(
+            observed_service_state(Driver::Relay, &linux, &containers),
+            "unknown"
+        );
     }
 
     #[test]

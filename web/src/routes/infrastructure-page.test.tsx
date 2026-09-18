@@ -157,6 +157,7 @@ describe('InfrastructurePage', () => {
   it('presents user outcomes while identifying built-in MCP services', async () => {
     renderPage();
 
+    expect(screen.getByRole('main')).toHaveClass('h-dvh', 'overflow-y-auto');
     expect(await screen.findByRole('heading', { name: 'Agent capabilities' })).toBeVisible();
     expect(await screen.findByText('Available to this agent')).toBeVisible();
     expect(screen.getByText('Workspace access')).toBeVisible();
