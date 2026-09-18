@@ -1,5 +1,5 @@
 import type { AgentBlueprintReference, Session } from '@clio/core/v3';
-import { ArrowLeftIcon, GitBranchIcon } from 'lucide-react';
+import { ArrowLeftIcon, GitBranchIcon, SquareTerminalIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClioSessionActions } from './session-actions';
 
@@ -11,6 +11,7 @@ export interface ClioSessionContextBarProps {
   onCompact: () => Promise<void>;
   onFork: () => Promise<void>;
   onOpenBlueprint: (blueprint: AgentBlueprintReference) => void;
+  onOpenTerminal?: () => Promise<void>;
   onShare: (ttlSeconds: number) => Promise<string>;
   onReturnToParent: (session: Session) => void;
   onUndo: () => Promise<void>;
@@ -24,6 +25,7 @@ export function ClioSessionContextBar({
   onCompact,
   onFork,
   onOpenBlueprint,
+  onOpenTerminal,
   onShare,
   onReturnToParent,
   onUndo,
@@ -85,6 +87,18 @@ export function ClioSessionContextBar({
         onUndo={onUndo}
         title={session?.title ?? 'session'}
       />
+      {onOpenTerminal ? (
+        <Button
+          aria-label="Open terminal in workspace"
+          className="shrink-0"
+          onClick={() => void onOpenTerminal()}
+          size="icon-xs"
+          title="Open terminal in workspace"
+          variant="ghost"
+        >
+          <SquareTerminalIcon aria-hidden="true" />
+        </Button>
+      ) : null}
       {session?.branch ? (
         <span className="hidden items-center gap-1 font-mono text-[10px] text-muted-foreground lg:flex">
           <GitBranchIcon aria-hidden="true" className="size-3" />

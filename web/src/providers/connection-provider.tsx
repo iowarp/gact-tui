@@ -21,6 +21,7 @@ import {
   storeConnectionCredential,
 } from '@/tauri/secure-credentials';
 import { waitForManagedBackend, type ManagedBackendStatus } from '@/tauri/managed-backend';
+import { finishInstallerInfrastructure } from '@/lib/installer-infrastructure';
 
 const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
 /**
@@ -99,6 +100,12 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         setSettings({ endpoint, token: handle.bearer_token || undefined });
         setManagedConnectionReady(true);
         setCredentialError(undefined);
+        void finishInstallerInfrastructure({
+          endpoint,
+          token: handle.bearer_token || undefined,
+        }).catch((error: unknown) => {
+          console.error('Could not finish install-selected infrastructure', error);
+        });
       })
       .catch((error: unknown) => {
         if (cancelled) return;

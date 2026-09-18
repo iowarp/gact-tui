@@ -14,6 +14,7 @@ mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
 mod infrastructure_setup;
+mod installer_options;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -47,6 +48,7 @@ mod supervisor_spawn_command;
 mod supervisor_state;
 mod supervisor_types;
 mod tray;
+mod workspace_terminal;
 
 use ssh::TunnelManager;
 use std::sync::Mutex;
@@ -95,6 +97,8 @@ pub fn run() {
             infrastructure_setup::infrastructure_managed_service_catalog,
             infrastructure_setup::infrastructure_managed_service_action,
             infrastructure_setup::infrastructure_deploy_web_search,
+            installer_options::read_installer_options,
+            installer_options::complete_installer_web_search,
             credentials::credential_store,
             credentials::credential_read,
             credentials::credential_delete,
@@ -103,7 +107,8 @@ pub fn run() {
             gact_http::gact_http,
             sse_bridge::gact_sse_open,
             sse_bridge::gact_sse_close,
-            plugins::exec_plugin
+            plugins::exec_plugin,
+            workspace_terminal::open_workspace_terminal
         ])
         .setup(|app| {
             // Resolve + remember the persisted boot-log path FIRST so the

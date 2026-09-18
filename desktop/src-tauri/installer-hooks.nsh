@@ -7,6 +7,7 @@
 
 Var ClioRemoveUserDataCheckbox
 Var ClioRemoveUserData
+Var ClioInstallWebSearch
 
 ; Keep user-owned sessions and settings by default, but make a genuinely clean
 ; uninstall an explicit, visible choice.  This page is part of the uninstaller
@@ -52,6 +53,77 @@ FunctionEnd
   ; manifest does not reliably remove. Clear only that owned subtree before an
   ; upgrade so stale Python packages cannot survive into the new runtime.
   RMDir /r "$INSTDIR\gact-runtime"
+
+  ; A normal fresh install recommends the private search/document service and
+  ; lets the user opt out. Silent updates preserve the previous choice and do
+  ; not repeat infrastructure work.
+  StrCpy $ClioInstallWebSearch "0"
+  ${If} $PassiveMode <> 1
+  ${AndIf} $UpdateMode <> 1
+    MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON1 "Install the recommended CLIO Search service? It adds private web search, PDF reading, scholarly metadata, and traceable sources. Docker Desktop must already be installed and running. You can also install or manage it later from Infrastructure." IDYES clio_web_search_yes IDNO clio_web_search_no
+    clio_web_search_yes:
+      StrCpy $ClioInstallWebSearch "1"
+      Goto clio_web_search_choice_done
+    clio_web_search_no:
+      StrCpy $ClioInstallWebSearch "0"
+    clio_web_search_choice_done:
+    CreateDirectory "$LOCALAPPDATA\ai.iowarp.clio.desktop"
+    FileOpen $0 "$LOCALAPPDATA\ai.iowarp.clio.desktop\installer-options.json" w
+    ${If} $ClioInstallWebSearch == "1"
+      FileWrite $0 '{$\"version$\":1,$\"web_search$\":true,$\"web_search_status$\":$\"pending$\"}'
+    ${Else}
+      FileWrite $0 '{$\"version$\":1,$\"web_search$\":false,$\"web_search_status$\":$\"not_requested$\"}'
+    ${EndIf}
+    FileClose $0
+  ${EndIf}
+!macroend
+
+!macro NSIS_HOOK_POSTINSTALL
+  ${If} $ClioInstallWebSearch == "1"
+    DetailPrint "Checking Docker for the recommended CLIO Search service..."
+    nsExec::ExecToStack 'docker info'
+    Pop $0
+    Pop $1
+    ${If} $0 == 0
+      DetailPrint "Installing CLIO Search (this can take several minutes on a first install)..."
+      nsExec::ExecToStack 'docker pull ghcr.io/iowarp/clio-web-search:0.3.0'
+      Pop $0
+      Pop $1
+      ${If} $0 == 0
+        nsExec::ExecToStack 'docker container inspect clio-web-search'
+        Pop $0
+        Pop $1
+        ${If} $0 == 0
+          nsExec::ExecToStack 'docker start clio-web-search'
+        ${Else}
+          nsExec::ExecToStack 'docker run --detach --name clio-web-search --restart unless-stopped --publish 127.0.0.1:8089:8080 --publish 127.0.0.1:8090:6379 --volume clio-web-search-data:/var/lib/clio-web-search ghcr.io/iowarp/clio-web-search:0.3.0'
+        ${EndIf}
+        Pop $0
+        Pop $1
+        ${If} $0 == 0
+          FileOpen $2 "$LOCALAPPDATA\ai.iowarp.clio.desktop\installer-options.json" w
+          FileWrite $2 '{$\"version$\":1,$\"web_search$\":true,$\"web_search_status$\":$\"deployed$\"}'
+          FileClose $2
+          DetailPrint "CLIO Search is installed and running."
+        ${Else}
+          FileOpen $2 "$LOCALAPPDATA\ai.iowarp.clio.desktop\installer-options.json" w
+          FileWrite $2 '{$\"version$\":1,$\"web_search$\":true,$\"web_search_status$\":$\"needs_attention$\"}'
+          FileClose $2
+          DetailPrint "CLIO Search needs attention. Finish setup later from Infrastructure."
+        ${EndIf}
+      ${Else}
+        FileOpen $2 "$LOCALAPPDATA\ai.iowarp.clio.desktop\installer-options.json" w
+        FileWrite $2 '{$\"version$\":1,$\"web_search$\":true,$\"web_search_status$\":$\"needs_attention$\"}'
+        FileClose $2
+        DetailPrint "CLIO Search could not be downloaded. Finish setup later from Infrastructure."
+      ${EndIf}
+    ${Else}
+      FileOpen $2 "$LOCALAPPDATA\ai.iowarp.clio.desktop\installer-options.json" w
+      FileWrite $2 '{$\"version$\":1,$\"web_search$\":true,$\"web_search_status$\":$\"needs_attention$\"}'
+      FileClose $2
+      DetailPrint "Docker is unavailable. Finish CLIO Search setup later from Infrastructure."
+    ${EndIf}
+  ${EndIf}
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
