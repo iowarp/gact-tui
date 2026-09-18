@@ -1,17 +1,4 @@
 {
-  "$comment": "Single source of truth for native desktop menu action ids. Rust embeds and asserts this file; the React dispatcher derives its action set from it.",
-  "actions": [
-    "new-session",
-    "import-session",
-    "export-session",
-    "open-settings",
-    "toggle-inspector",
-    "toggle-sessions",
-    "cycle-density",
-    "command-palette",
-    "keyboard-shortcuts",
-    "fullscreen",
-    "help-docs",
-    "about"
-  ]
+  "$comment": "Single source of truth for the ids the JS product-action bus (dispatchMenuAction/useMenuAction) recognizes. Rust embeds this file and asserts that every id MENU_SPEC bridges from the native macOS menu is one of these (a subset, not an exact match) — see menu_spec_tests.rs. This file may list MORE ids than the native menu bridges: the product-owned title bar's hamburger app menu (desktop-title-bar.tsx) dispatches some of these directly, on every platform, independent of whether a native menu exists.",
+  "actions": ["new-session", "open-settings", "help-docs", "about"]
 }

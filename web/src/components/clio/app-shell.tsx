@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/sheet';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useMenuAction } from '@/tauri/menu-actions';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 
 export interface ClioAppShellProps {
@@ -33,11 +32,14 @@ function DesktopNavigationLayout({
   children: ReactNode;
   collapseForWorkbench: boolean;
 }) {
+  // 'toggle-sessions' used to also be reachable via the native View menu
+  // (removed — see menu_spec.rs's application-menu trim); `SidebarTrigger`
+  // below already calls `useSidebar().toggleSidebar` directly, including
+  // its own keyboard shortcut, so no useMenuAction registration is needed.
   const { open, setOpen } = useSidebar();
   const panelRef = useRef<PanelImperativeHandle>(null);
   const restoreNavigationRef = useRef(false);
   const previousCollapseForWorkbenchRef = useRef(false);
-  useMenuAction('toggle-sessions', () => setOpen(!open));
 
   useEffect(() => {
     const wasCollapsedForWorkbench = previousCollapseForWorkbenchRef.current;
@@ -141,7 +143,10 @@ export function ClioAppShell({
     if (!panel) return;
     setWorkbenchOpen(!panel.isCollapsed());
   }, [setWorkbenchOpen]);
-  useMenuAction('toggle-inspector', toggleWorkbench);
+  // 'toggle-inspector' used to also be reachable via the native View menu
+  // (removed — see menu_spec.rs's application-menu trim); the Ctrl+Shift+B
+  // shortcut and the PanelRightIcon button below already call
+  // `toggleWorkbench` directly, so no useMenuAction registration is needed.
 
   useEffect(() => {
     if (!desktopWorkbench) return;

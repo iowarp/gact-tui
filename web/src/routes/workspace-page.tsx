@@ -48,7 +48,9 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
+import { showsBaseAgent } from '@/lib/session-state';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { openWorkspaceTerminal } from '@/tauri/workspace-terminal';
 
 function TranscriptPresenceSurface({
@@ -180,6 +182,14 @@ export function WorkspacePage() {
     openWorkspaceResource,
     revealWorkbench,
   } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
+  useDesktopTitleSync({
+    blueprint: activeBlueprint?.display_name,
+    onOpenBlueprint: () =>
+      activeBlueprint && revealWorkbench({ kind: 'blueprint', blueprint: activeBlueprint }),
+    session: session?.title,
+    showsBaseAgent: showsBaseAgent(session, activeBlueprint),
+    workspace: activeWorkspace?.display_name,
+  });
   const requestedWorkflowId = searchParams.get('workflow');
   const openedWorkflowId = useRef<string | undefined>(undefined);
   useEffect(() => {

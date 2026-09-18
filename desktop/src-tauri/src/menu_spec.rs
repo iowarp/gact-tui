@@ -22,6 +22,9 @@ pub enum Item {
 /// OS quit sequence directly, bypassing `request_quit`'s teardown guard (the
 /// bug this menu used to have on macOS). Quit is a plain `Item::Action`
 /// (id `"quit"`) below, handled natively in `handle_menu_event`.
+///
+/// `Hide` / `HideOthers` / `ShowAll` are the standard macOS "hide group" —
+/// every native Cocoa app menu carries all three together, never just one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Predefined {
     Undo,
@@ -30,9 +33,12 @@ pub enum Predefined {
     Copy,
     Paste,
     SelectAll,
+    Hide,
+    HideOthers,
+    ShowAll,
 }
 
-/// A top-level submenu (File / Edit / View / Help).
+/// A top-level submenu (the macOS application menu / Edit).
 #[derive(Clone, Copy, Debug)]
 pub struct SubmenuSpec {
     pub title: &'static str,
@@ -43,35 +49,43 @@ pub struct SubmenuSpec {
 ///
 /// `build_menu` interprets this; the tests assert against it directly. Edit
 /// this and both the runtime menu and the tests move together.
+///
+/// This menu is macOS-only (see the `#[cfg(target_os = "macos")]` gate
+/// around `app.set_menu` in `lib.rs`) and deliberately holds only the two
+/// submenus macOS itself expects an app to own: the application menu (About
+/// / Settings / the hide group / Quit) and Edit (native clipboard/undo).
+/// Everything that used to live in File/View/Help is reachable through the
+/// product-owned title bar's hamburger menu instead, on every platform —
+/// see `web/src/components/clio/desktop-title-bar.tsx`.
 pub const MENU_SPEC: &[SubmenuSpec] = &[
     SubmenuSpec {
-        title: "File",
+        // macOS replaces this title with the running app's own display name
+        // at render time regardless of what string is set here (standard
+        // Cocoa application-menu behavior) — "App" only names the spec
+        // entry for the tests below; it is never shown on screen.
+        title: "App",
         items: &[
+            // Dynamic label ("About <App>"), built in `build_menu`.
             Item::Action {
-                id: "new-session",
-                label: "New Session",
-                accel: Some("CmdOrCtrl+N"),
-            },
-            Item::Action {
-                id: "import-session",
-                label: "Import Session…",
+                id: "about",
+                label: "About",
                 accel: None,
-            },
-            Item::Action {
-                id: "export-session",
-                label: "Export Session",
-                accel: Some("CmdOrCtrl+S"),
             },
             Item::Separator,
             Item::Action {
                 id: "open-settings",
-                label: "Settings",
+                label: "Settings…",
                 accel: Some("CmdOrCtrl+Comma"),
             },
+            Item::Separator,
+            Item::Predefined(Predefined::Hide),
+            Item::Predefined(Predefined::HideOthers),
+            Item::Predefined(Predefined::ShowAll),
             Item::Separator,
             // Native-only: handled in `handle_menu_event` by calling
             // `crate::request_quit` directly, never dispatched to the JS
             // `clio:menu` bridge (see `NATIVE_ONLY_ACTION_IDS` in the tests).
+            // Dynamic label ("Quit <App>"), built in `build_menu`.
             Item::Action {
                 id: "quit",
                 label: "Quit",
@@ -90,58 +104,6 @@ pub const MENU_SPEC: &[SubmenuSpec] = &[
             Item::Predefined(Predefined::Copy),
             Item::Predefined(Predefined::Paste),
             Item::Predefined(Predefined::SelectAll),
-        ],
-    },
-    SubmenuSpec {
-        title: "View",
-        items: &[
-            Item::Action {
-                id: "toggle-inspector",
-                label: "Toggle Workspace Resources",
-                accel: Some("CmdOrCtrl+I"),
-            },
-            Item::Action {
-                id: "toggle-sessions",
-                label: "Toggle Navigation",
-                accel: Some("CmdOrCtrl+Shift+B"),
-            },
-            Item::Action {
-                id: "cycle-density",
-                label: "Cycle Density",
-                accel: Some("Ctrl+O"),
-            },
-            Item::Separator,
-            Item::Action {
-                id: "command-palette",
-                label: "Command Palette",
-                accel: Some("CmdOrCtrl+K"),
-            },
-            Item::Action {
-                id: "keyboard-shortcuts",
-                label: "Keyboard Shortcuts",
-                accel: Some("CmdOrCtrl+/"),
-            },
-            Item::Separator,
-            Item::Action {
-                id: "fullscreen",
-                label: "Fullscreen",
-                accel: Some("F11"),
-            },
-        ],
-    },
-    SubmenuSpec {
-        title: "Help",
-        items: &[
-            Item::Action {
-                id: "help-docs",
-                label: "Documentation",
-                accel: None,
-            },
-            Item::Action {
-                id: "about",
-                label: "About",
-                accel: None,
-            },
         ],
     },
 ];
