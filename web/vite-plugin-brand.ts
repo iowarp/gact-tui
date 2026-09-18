@@ -131,6 +131,11 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
 const VIRTUAL_ID = '@brand';
 const RESOLVED_ID = '\0@brand';
 
+/** The build-time-emitted / dev-served path for the brand's own favicon. */
+const BRAND_FAVICON_PATH = '/brand-favicon.svg';
+/** The tracked, product-neutral fallback shipped in web/public. */
+const NEUTRAL_FAVICON_PATH = '/favicon.svg';
+
 export function brandPlugin(brandingRoot: string, profile: string): Plugin {
   let cached: ResolvedBrand | undefined;
   const getBrand = () => (cached ??= loadBrand(brandingRoot, profile));
@@ -145,6 +150,40 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
         ? `export const brand = ${JSON.stringify(getBrand())}; export default brand;`
         : null;
     },
+    // Brand-drives the document <title> and favicon so a reload never falls
+    // back to the tracked-default HTML's own hardcoded values (previously
+    // "web" / /favicon.svg — the ONLY favicon path at all, since nothing
+    // patched it at runtime, so it survived every reload regardless of
+    // brand). index.html carries neither a <title> nor a favicon <link> of
+    // its own any more; both come from here, for both dev and build.
+    transformIndexHtml() {
+      const brand = getBrand();
+      return [
+        { tag: 'title', children: brand.name, injectTo: 'head' },
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'icon',
+            type: 'image/svg+xml',
+            href: brand.logoSvg ? BRAND_FAVICON_PATH : NEUTRAL_FAVICON_PATH,
+          },
+          injectTo: 'head',
+        },
+      ];
+    },
+    // Build: emit the brand's logo as the favicon asset transformIndexHtml
+    // just linked to. Skipped when the brand declares no logoSvg — the HTML
+    // already points at the neutral tracked favicon.svg instead, which vite
+    // copies from public/ on its own.
+    generateBundle() {
+      const brand = getBrand();
+      if (!brand.logoSvg) return;
+      this.emitFile({
+        type: 'asset',
+        fileName: BRAND_FAVICON_PATH.slice(1),
+        source: brand.logoSvg,
+      });
+    },
     configureServer(server) {
       const profileDirectory = resolve(brandingRoot, profile);
       server.watcher.add(profileDirectory);
@@ -153,6 +192,22 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
         cached = undefined;
         const module = server.moduleGraph.getModuleById(RESOLVED_ID);
         if (module) void server.reloadModule(module);
+      });
+      // Dev: serve the same favicon transformIndexHtml links to. Registered
+      // directly (not returned) so it runs ahead of vite's internal static
+      // middleware — there is no real file at this path to conflict with.
+      server.middlewares.use((req, res, next) => {
+        if (req.url !== BRAND_FAVICON_PATH) {
+          next();
+          return;
+        }
+        const brand = getBrand();
+        if (!brand.logoSvg) {
+          next();
+          return;
+        }
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.end(brand.logoSvg);
       });
     },
   };
