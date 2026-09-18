@@ -342,10 +342,10 @@ export function DesktopTitleBar() {
             <XIcon aria-hidden="true" className="size-4" />
           </AlertDialogCancel>
           <AlertDialogHeader>
-            <AlertDialogTitle>Keep {vocab.agent} running?</AlertDialogTitle>
+            <AlertDialogTitle>Keep {vocab.product} running?</AlertDialogTitle>
             <AlertDialogDescription>
-              Keep {vocab.agent} available in the system tray (Windows hidden icons), or quit and
-              stop its local services. Ongoing work can continue only while {vocab.agent} is
+              Keep {vocab.product} available in the system tray (Windows hidden icons), or quit
+              and stop its local services. Ongoing work can continue only while {vocab.product} is
               running.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -354,7 +354,7 @@ export function DesktopTitleBar() {
               Keep running
             </AlertDialogCancel>
             <AlertDialogAction onClick={() => void runWindowAction('quit')} variant="destructive">
-              Quit {vocab.agent}
+              Quit {vocab.product}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -497,7 +497,7 @@ function clioDomainForName(name: string): string | undefined {
       /^(create_plan|update_plan|plan_|create_todo|update_todo|write_todos|create_goal|update_goal|goal_|schedule_|cron_)/u,
       'Planning',
     ],
-    [/^(create_a2ui|update_a2ui|a2ui_|raise_alert_card)/u, PROTOCOL.a2ui],
+    [/^(create_a2ui|update_a2ui|a2ui_|raise_alert_card)/u, `${PROTOCOL.a2ui} surfaces`],
     [/^(provider_|refresh_provider)/u, 'Models'],
     [/^(workflow_|run_workflow)/u, 'Workflows'],
   ];

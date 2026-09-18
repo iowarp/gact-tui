@@ -272,7 +272,7 @@ function ClioA2UISurfaceContent({
     >
       <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2 text-xs">
         <BoxesIcon aria-hidden="true" className="size-3.5 text-primary" />
-        <span className="font-medium">Generated UI</span>
+        <span className="font-medium">{PROTOCOL.a2ui} surface</span>
         <span className="text-muted-foreground">{surfaceKind}</span>
         {surfaceBusy ? (
           <ClioStatus

@@ -29,7 +29,7 @@ export function TechnicalDetails({
     <details className={cn('group', className)}>
       <summary
         className={cn(
-          'flex w-fit cursor-pointer list-none items-center gap-1 font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+          'flex w-fit cursor-pointer list-none items-center gap-1 font-medium text-muted-foreground outline-none [&::-webkit-details-marker]:hidden hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
           summaryClassName,
         )}
       >

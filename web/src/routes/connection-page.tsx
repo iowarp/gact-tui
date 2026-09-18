@@ -64,7 +64,7 @@ import {
   latestConnectionSessionTarget,
 } from '@/lib/connection-target';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { vocab } from '@/lib/brand-vocabulary';
+import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
 import { lastWorkspaceRoute, rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import type { ManagedBackendStatus } from '@/tauri/managed-backend';
@@ -253,7 +253,7 @@ export function ConnectionPage() {
       const capabilities = await repository.capabilities();
       if (!capabilities.gact_versions.includes(PROTOCOL_VERSION)) {
         throw new Error(
-          `This workspace requires GACT ${PROTOCOL_VERSION}; the service offers ${capabilities.gact_versions.join(', ') || 'no GACT versions'}.`,
+          `This workspace requires ${PROTOCOL.gact} ${PROTOCOL_VERSION}; the service offers ${capabilities.gact_versions.join(', ') || `no ${PROTOCOL.gact} versions`}.`,
         );
       }
       const [workspaces, sessions] = await Promise.all([

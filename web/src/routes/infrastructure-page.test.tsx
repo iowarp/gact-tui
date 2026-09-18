@@ -244,7 +244,7 @@ describe('InfrastructurePage', () => {
     expect(screen.getByRole('main')).toHaveClass('h-dvh', 'overflow-y-auto');
     expect(await screen.findByRole('heading', { name: 'Tools', level: 1 })).toBeVisible();
     expect(screen.getByRole('navigation', { name: 'Infrastructure sections' })).toBeVisible();
-    expect(screen.getByRole('link', { name: brand.name })).toBeVisible();
+    expect(screen.getByRole('link', { name: brand.agentName })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Services' })).toBeVisible();
   });

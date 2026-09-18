@@ -116,7 +116,7 @@ export function DesktopSettings() {
         {!desktop ? (
           <FrameFooter className="items-start">
             <p className="text-sm text-muted-foreground">
-              Open this {vocab.workspace} in {vocab.product} to use native integrations.
+              Open {vocab.product} to use native integrations.
             </p>
           </FrameFooter>
         ) : null}

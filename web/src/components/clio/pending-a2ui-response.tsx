@@ -10,6 +10,7 @@ import { type PointerEvent as ReactPointerEvent, useRef, useState } from 'react'
 import { Frame } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
 import { respondFromControl } from './interaction-control';
@@ -158,7 +159,7 @@ export function PendingA2UIResponse({
           className="grid h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg p-0 sm:max-w-none"
         >
           <DialogTitle className="border-b px-4 py-3 pr-12 text-sm">
-            {interaction.prompt ?? interaction.title ?? 'Interactive surface'}
+            {interaction.prompt ?? interaction.title ?? `${PROTOCOL.a2ui} surface`}
           </DialogTitle>
           <div className="min-h-0 overflow-auto overscroll-contain p-3">
             {fullscreen ? (
@@ -201,7 +202,7 @@ function A2UISurfaceBody({
     return (
       <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
         <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
-        This interactive view has no surface to open.
+        This response has no {PROTOCOL.a2ui} surface to open.
       </p>
     );
   }
@@ -209,7 +210,7 @@ function A2UISurfaceBody({
     return (
       <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
         <AlertTriangleIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warning" />
-        This interactive view was rejected: it was addressed to a different session.
+        This {PROTOCOL.a2ui} surface was rejected: it was addressed to a different session.
       </p>
     );
   }
@@ -217,7 +218,7 @@ function A2UISurfaceBody({
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <LoaderCircleIcon aria-hidden="true" className="size-4 shrink-0 motion-safe:animate-spin" />
-        <span className="flex-1">Interactive view is loading.</span>
+        <span className="flex-1">{PROTOCOL.a2ui} surface is loading.</span>
         {onRefetchSurface ? (
           <Button onClick={onRefetchSurface} size="sm" type="button" variant="ghost">
             <RotateCcwIcon aria-hidden="true" />

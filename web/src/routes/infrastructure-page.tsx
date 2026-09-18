@@ -257,7 +257,7 @@ export function InfrastructurePage() {
                 <CatalogToolset servers={servers.data ?? []} tools={tools.data} />
               ) : (
                 <p className="rounded-xl border p-6 text-sm text-muted-foreground">
-                  {capitalize(vocab.agent)} has not reported any tools.
+                  {vocab.agent} has not reported any tools.
                 </p>
               )}
             </div>
@@ -524,12 +524,12 @@ function clioServiceDescription(
   foundationIssues: number,
 ): string {
   if (!health) return `Checking ${vocab.agent}.`;
-  if (!health.healthy) return `${capitalize(vocab.agent)} needs attention.`;
+  if (!health.healthy) return `${vocab.agent} needs attention.`;
   if (foundationIssues === 1) return 'Running with 1 supporting service needing attention.';
   if (foundationIssues > 1) {
     return `Running with ${foundationIssues} supporting services needing attention.`;
   }
-  return `${capitalize(vocab.agent)} is running normally.`;
+  return `${vocab.agent} is running normally.`;
 }
 
 function foundationSummary(integration: ServiceIntegrationHealth): string {

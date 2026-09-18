@@ -84,7 +84,7 @@ import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { vocab } from '@/lib/brand-vocabulary';
+import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   type AttentionSoundMode,
@@ -692,7 +692,7 @@ function AboutSettings() {
               value={capabilities.data?.gact_versions.join(', ') || 'Unavailable'}
             />
             <AboutValue
-              label="Interactive views"
+              label={`${PROTOCOL.a2ui} surfaces`}
               value={capabilities.data?.a2ui_versions.join(', ') || 'Unavailable'}
             />
           </dl>

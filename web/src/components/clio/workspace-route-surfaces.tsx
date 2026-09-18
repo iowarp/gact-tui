@@ -221,15 +221,15 @@ function WorkspaceVersionMenu({
         <PopoverHeader>
           <PopoverTitle>Product versions</PopoverTitle>
           <PopoverDescription>
-            Installed {vocab.workspace} and versions reported by the selected {vocab.agent}{' '}
+            Installed {vocab.product} and versions reported by the selected {vocab.agent}{' '}
             service.
           </PopoverDescription>
         </PopoverHeader>
         <dl className="grid gap-1">
           <VersionRow
-            detail={`Installed web and desktop ${vocab.workspace}`}
+            detail={`Installed web and desktop ${vocab.product}`}
             icon={<BoxesIcon aria-hidden="true" />}
-            label={capitalize(vocab.workspace)}
+            label={capitalize(vocab.product)}
             value={workspaceVersion}
           />
           <VersionRow
