@@ -154,7 +154,12 @@ export type ModelSelectorLogoProps = Omit<ComponentProps<'span'>, 'children'> & 
 };
 
 export const ModelSelectorLogo = ({ provider, className, ...props }: ModelSelectorLogoProps) => {
-  const svg = providerLogoSvgs[provider] ?? providerLogoSvgs[GENERIC_PROVIDER_LOGO_ID];
+  // Object.hasOwn guards this lookup against an arbitrary provider string
+  // ("constructor", "toString", "__proto__", ...) resolving to an inherited
+  // Object.prototype member instead of falling back to the generic mark.
+  const svg = Object.hasOwn(providerLogoSvgs, provider)
+    ? providerLogoSvgs[provider]
+    : providerLogoSvgs[GENERIC_PROVIDER_LOGO_ID];
 
   return (
     <span

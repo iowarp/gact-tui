@@ -41,10 +41,45 @@ function makeIco(frames) {
   return Buffer.concat([header, ...entries]);
 }
 
-function makeIcns(length = 24) {
-  const buffer = Buffer.alloc(length);
+// A real ICNS carries one or more TLV chunks after its 8-byte header (4-byte
+// ASCII type + 4-byte big-endian length, length INCLUDING that header).
+// `makeIcns()` embeds one minimal "ic10" image chunk by default — the
+// smallest fixture that satisfies assertIcnsHeader's "at least one image
+// chunk" requirement — sized to keep the previous default 24-byte total.
+// Pass `{ length: 8 }` for a header with zero chunks (the F1 fixture below).
+const ICNS_CHUNK_TYPE = 'ic10';
+const ICNS_CHUNK_LENGTH = 16; // 8-byte chunk header + 8 dummy payload bytes
+
+function makeIcns({ length } = {}) {
+  const totalLength = length ?? 8 + ICNS_CHUNK_LENGTH;
+  const buffer = Buffer.alloc(totalLength);
   buffer.write('icns', 0, 'ascii');
-  buffer.writeUInt32BE(buffer.length, 4);
+  buffer.writeUInt32BE(totalLength, 4);
+  if (totalLength >= 8 + ICNS_CHUNK_LENGTH) {
+    buffer.write(ICNS_CHUNK_TYPE, 8, 'ascii');
+    buffer.writeUInt32BE(ICNS_CHUNK_LENGTH, 12);
+  }
+  return buffer;
+}
+
+/**
+ * A minimal, real-shaped ICO: ICONDIR (6 bytes) + one ICONDIRENTRY (16
+ * bytes) = 22 bytes total, with NO room for the entry's own image bytes.
+ * The entry declares a 256x256 frame whose data (`dwBytesInRes` at
+ * offset+8, `dwImageOffset` at offset+12) starts exactly at EOF and is 40
+ * bytes long — so it necessarily overruns the file. F1 fixture.
+ */
+function makeTruncatedIco() {
+  const buffer = Buffer.alloc(22);
+  buffer.writeUInt16LE(1, 2); // type: icon
+  buffer.writeUInt16LE(1, 4); // 1 entry
+  const entry = 6;
+  buffer.writeUInt8(0, entry); // width byte 0 => 256
+  buffer.writeUInt8(0, entry + 1); // height byte 0 => 256
+  buffer.writeUInt16LE(1, entry + 4); // color planes
+  buffer.writeUInt16LE(32, entry + 6); // bits per pixel
+  buffer.writeUInt32LE(40, entry + 8); // dwBytesInRes
+  buffer.writeUInt32LE(22, entry + 12); // dwImageOffset — at EOF, plus size overflows
   return buffer;
 }
 
@@ -80,9 +115,22 @@ afterEach(() => {
   tmpDir = undefined;
 });
 
-test('a complete synthetic icon set passes every check', () => {
+test('a complete synthetic icon set passes every check (icon.icns not required by the tracked neutral config)', () => {
   const dir = writeIconSet();
   const { ok, results } = checkIconSet(dir);
+
+  assert.equal(ok, true);
+  assert.equal(results.length, 5);
+  assert.ok(results.every((result) => result.ok));
+  assert.ok(
+    !results.some((result) => result.file === 'icon.icns'),
+    'the tracked base tauri.conf.json never names icon.icns, so it is not checked by default',
+  );
+});
+
+test('with requireIcns: true, a complete set including a valid icns passes all six checks', () => {
+  const dir = writeIconSet();
+  const { ok, results } = checkIconSet(dir, { requireIcns: true });
 
   assert.equal(ok, true);
   assert.equal(results.length, 6);
@@ -125,34 +173,70 @@ test('rejects icon.ico when no frame is 256x256', () => {
 
 test('rejects a corrupt icon.icns (bad magic, declared length overruns the file)', () => {
   const dir = writeIconSet({ 'icon.icns': Buffer.from('not an icns at all, way too short') });
-  const { ok, results } = checkIconSet(dir);
+  const { ok, results } = checkIconSet(dir, { requireIcns: true });
 
   assert.equal(ok, false);
   const failure = results.find((result) => result.file === 'icon.icns');
   assert.match(failure.detail, /missing the "icns" magic/);
 });
 
+// F1: an ICNS whose declared length carries zero chunks (or chunks, but none
+// of them an actual image type) is an icon file with no icon in it.
+test('rejects an icon.icns with a declared length but zero chunks', () => {
+  const dir = writeIconSet({ 'icon.icns': makeIcns({ length: 8 }) });
+  const { ok, results } = checkIconSet(dir, { requireIcns: true });
+
+  assert.equal(ok, false);
+  const failure = results.find((result) => result.file === 'icon.icns');
+  assert.match(failure.detail, /no image chunk found/);
+});
+
+// F1: an ICO whose single 256x256 entry's own declared image data (offset +
+// size) extends past the end of the file — a header that "parses" while
+// pointing at truncated or absent pixel data.
+test('rejects a 22-byte ICO whose single 256x256 entry points past EOF', () => {
+  const dir = writeIconSet({ 'icon.ico': makeTruncatedIco() });
+  const { ok, results } = checkIconSet(dir);
+
+  assert.equal(ok, false);
+  const failure = results.find((result) => result.file === 'icon.ico');
+  assert.match(failure.detail, /extends past end of file \(22 bytes\)/);
+});
+
 test('reports a missing file as "missing", not a stack trace', () => {
   const dir = writeIconSet({ 'icon.icns': null });
-  const { ok, results } = checkIconSet(dir);
+  const { ok, results } = checkIconSet(dir, { requireIcns: true });
 
   assert.equal(ok, false);
   const failure = results.find((result) => result.file === 'icon.icns');
   assert.equal(failure.detail, 'missing');
 });
 
-test('the CLI accepts a directory argument and exits non-zero on a real gap', () => {
+test('the CLI accepts a directory argument and, with --require-icns, exits non-zero on a real gap', () => {
   const dir = writeIconSet({ 'icon.icns': null });
-  const result = spawnSync(process.execPath, [scriptPath, dir], { encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [scriptPath, dir, '--require-icns'], {
+    encoding: 'utf8',
+  });
 
   assert.equal(result.status, 1);
   assert.match(result.stdout, /FAIL icon\.icns: missing/);
 });
 
-test('the CLI exits zero for a complete set', () => {
+test('the CLI exits zero for a complete set (icon.icns not required by default)', () => {
   const dir = writeIconSet();
   const result = spawnSync(process.execPath, [scriptPath, dir], { encoding: 'utf8' });
 
   assert.equal(result.status, 0);
   assert.match(result.stdout, /complete icon set/);
+  assert.ok(!result.stdout.includes('icon.icns'));
+});
+
+test('the CLI --require-icns flag exits zero for a complete set including a valid icns', () => {
+  const dir = writeIconSet();
+  const result = spawnSync(process.execPath, [scriptPath, dir, '--require-icns'], {
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /ok\s+icon\.icns: ok/);
 });

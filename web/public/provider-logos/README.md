@@ -7,7 +7,12 @@ approximation of a vendor's mark. All files are inlined via `?raw` imports
 adapts to light/dark theme; each SVG's root element carries
 `fill="currentColor"` and `aria-hidden="true"` (the accessible name comes
 from the wrapping `<span role="img" aria-label>` in `ModelSelectorLogo`, not
-from the inlined markup).
+from the inlined markup). Any upstream `<title>`/`<desc>` element is stripped
+on import: once inlined into the DOM, a `<title>` becomes real visible/
+tooltip text sitting right next to the provider's own accessible label (and
+can collide with it, e.g. two "LM Studio" matches in the same dialog) — the
+wrapping span's `aria-label` is the ONLY accessible name this markup should
+carry. `provider-logo-svgs.test.ts` asserts no registered SVG contains one.
 
 ## simple-icons (CC0)
 

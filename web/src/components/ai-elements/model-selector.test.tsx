@@ -31,4 +31,19 @@ describe('ModelSelectorLogo', () => {
     const genericMark = screen.getByRole('img', { name: 'generic logo' });
     expect(unknownMarkup).toBe(genericMark.innerHTML);
   });
+
+  it('falls_back_to_generic_for_prototype_property_names: a provider id shaped like an Object.prototype member never resolves through the prototype chain', () => {
+    const { unmount } = render(<ModelSelectorLogo provider="constructor" />);
+    const protoMark = screen.getByRole('img', { name: 'constructor logo' });
+    // Object.hasOwn guards the lookup: an ungated `providerLogoSvgs['constructor']`
+    // would return the Object constructor function, and dangerouslySetInnerHTML
+    // would stringify it instead of falling back to the generic mark's SVG.
+    expect(protoMark.innerHTML).not.toContain('function');
+    const protoMarkup = protoMark.innerHTML;
+    unmount();
+
+    render(<ModelSelectorLogo provider="generic" />);
+    const genericMark = screen.getByRole('img', { name: 'generic logo' });
+    expect(protoMarkup).toBe(genericMark.innerHTML);
+  });
 });

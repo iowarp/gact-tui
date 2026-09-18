@@ -12,15 +12,27 @@
 // installer. This script gives that workflow (or any brand's icon
 // directory) something to run BEFORE the bundler, on an explicit path.
 //
+// icon.icns (macOS) is checked ONLY when required: the tracked, neutral
+// gact-tui icon set is ICO-only (desktop/src-tauri/tauri.conf.json's own
+// bundle.icon list never names one), so the default run of this script
+// against that set never demands a .icns. A brand that ships one (e.g.
+// clio-agent's branding/clio/icons/icon.icns, referenced by its OWN
+// tauri.clio.conf.json overlay's bundle.icon) opts in with --require-icns —
+// that overlay lives in the embedding project, not here, so this script
+// cannot discover it by reading a config path alone.
+//
 // Usage:
-//   node scripts/check-brand-icons.mjs [icons-dir]
+//   node scripts/check-brand-icons.mjs [icons-dir] [--require-icns]
 //   icons-dir defaults to src-tauri/icons relative to this script.
+//   --require-icns forces the icon.icns check regardless of the base
+//   tauri.conf.json's bundle.icon list.
 import { readFileSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ICONS_DIR = resolve(__dirname, '..', 'src-tauri', 'icons');
+const BASE_TAURI_CONF_PATH = resolve(__dirname, '..', 'src-tauri', 'tauri.conf.json');
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const ICNS_MAGIC = 'icns';
@@ -49,7 +61,11 @@ function readPngDimensions(buffer) {
 
 /**
  * Read an ICO's frame dimensions from its ICONDIR + ICONDIRENTRY headers.
- * Each 16-byte ICONDIRENTRY's width/height bytes use 0 to mean 256.
+ * Each 16-byte ICONDIRENTRY's width/height bytes use 0 to mean 256. Also
+ * validates that the entry's own image data — `dwBytesInRes` at offset+8
+ * (its byte length) and `dwImageOffset` at offset+12 (where it starts) —
+ * actually fits inside the file; a header can otherwise "pass" while
+ * pointing at truncated or entirely absent pixel data.
  * @param {Buffer} buffer
  * @returns {{ width: number; height: number }[]}
  */
@@ -65,14 +81,29 @@ function readIcoFrames(buffer) {
     if (offset + 16 > buffer.length) throw new Error(`truncated ICONDIRENTRY #${i}`);
     const rawWidth = buffer.readUInt8(offset);
     const rawHeight = buffer.readUInt8(offset + 1);
+    const bytesInRes = buffer.readUInt32LE(offset + 8);
+    const imageOffset = buffer.readUInt32LE(offset + 12);
+    if (imageOffset + bytesInRes > buffer.length) {
+      throw new Error(
+        `ICONDIRENTRY #${i} image data (offset ${imageOffset}, ${bytesInRes} bytes) extends past end of file (${buffer.length} bytes)`,
+      );
+    }
     frames.push({ width: rawWidth === 0 ? 256 : rawWidth, height: rawHeight === 0 ? 256 : rawHeight });
   }
   return frames;
 }
 
+/** ICNS chunk types that carry actual image data (Apple's "Icon Image" family). */
+const ICNS_IMAGE_CHUNK_TYPES = new Set(['ic08', 'ic09', 'ic10', 'ic11', 'ic12', 'ic13', 'ic14']);
+
 /**
- * Validate an ICNS file's header: the 4-byte "icns" magic, then a 4-byte
- * big-endian total length that must fit inside the actual file.
+ * Validate an ICNS file: the 4-byte "icns" magic, a 4-byte big-endian total
+ * length that must fit inside the actual file, then every TLV chunk from
+ * byte 8 to that declared length — each an 8-byte header (4-byte ASCII
+ * type + 4-byte big-endian length, length INCLUDING that header) followed
+ * by its payload. A declared length with zero chunks, or with chunks but no
+ * recognized image type among them, is an icon file with no actual icon in
+ * it — rejected here rather than left for the bundler to discover.
  * @param {Buffer} buffer
  */
 function assertIcnsHeader(buffer) {
@@ -83,6 +114,27 @@ function assertIcnsHeader(buffer) {
   if (declaredLength < 8 || declaredLength > buffer.length) {
     throw new Error(
       `declared length ${declaredLength} does not fit the file (${buffer.length} bytes)`,
+    );
+  }
+  let offset = 8;
+  let hasImageChunk = false;
+  while (offset < declaredLength) {
+    if (offset + 8 > declaredLength) {
+      throw new Error(`truncated chunk header at byte ${offset}`);
+    }
+    const chunkType = buffer.toString('ascii', offset, offset + 4);
+    const chunkLength = buffer.readUInt32BE(offset + 4);
+    if (chunkLength < 8 || offset + chunkLength > declaredLength) {
+      throw new Error(
+        `chunk "${chunkType}" at byte ${offset} declares length ${chunkLength}, which does not fit`,
+      );
+    }
+    if (ICNS_IMAGE_CHUNK_TYPES.has(chunkType)) hasImageChunk = true;
+    offset += chunkLength;
+  }
+  if (!hasImageChunk) {
+    throw new Error(
+      'no image chunk found (expected one of ic08/ic09/ic10/ic11/ic12/ic13/ic14)',
     );
   }
 }
@@ -140,20 +192,45 @@ const REQUIREMENTS = [
       }
     },
   },
-  {
-    file: 'icon.icns',
-    check: assertIcnsHeader,
-  },
 ];
+
+/** The macOS icon requirement — only checked when `requireIcns` resolves true. */
+const ICNS_REQUIREMENT = { file: 'icon.icns', check: assertIcnsHeader };
+
+/**
+ * Whether the tracked base tauri.conf.json's `bundle.icon` list names an
+ * icon.icns entry. Reads THIS repo's own base config only — a brand's
+ * overlay (merged in at build time, and typically owned by the embedding
+ * project) is not consulted, which is why `--require-icns` / the
+ * `requireIcns` option exists as an explicit override for a caller checking
+ * a brand's icon directory directly.
+ * @returns {boolean}
+ */
+function baseConfigRequiresIcns() {
+  try {
+    const config = JSON.parse(readFileSync(BASE_TAURI_CONF_PATH, 'utf8'));
+    const icons = config?.bundle?.icon;
+    return (
+      Array.isArray(icons) &&
+      icons.some((entry) => typeof entry === 'string' && entry.endsWith('icon.icns'))
+    );
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Check every required icon in `iconsDir`. Pure/testable: never touches
  * process.exit or stdout — callers decide what to do with the results.
  * @param {string} iconsDir
+ * @param {{ requireIcns?: boolean }} [options] `requireIcns` defaults to
+ *   whether the base tauri.conf.json's bundle.icon list names icon.icns
+ *   (false for the tracked neutral gact set — it is ICO-only).
  * @returns {{ ok: boolean; results: CheckResult[] }}
  */
-export function checkIconSet(iconsDir) {
-  const results = REQUIREMENTS.map(({ file, check }) => {
+export function checkIconSet(iconsDir, { requireIcns = baseConfigRequiresIcns() } = {}) {
+  const requirements = requireIcns ? [...REQUIREMENTS, ICNS_REQUIREMENT] : REQUIREMENTS;
+  const results = requirements.map(({ file, check }) => {
     const path = resolve(iconsDir, file);
     try {
       const stats = statSync(path);
@@ -172,8 +249,13 @@ export function checkIconSet(iconsDir) {
 }
 
 function main(argv) {
-  const iconsDir = argv[0] ? resolve(argv[0]) : DEFAULT_ICONS_DIR;
-  const { ok, results } = checkIconSet(iconsDir);
+  const requireIcnsFlag = argv.includes('--require-icns');
+  const positional = argv.filter((arg) => arg !== '--require-icns');
+  const iconsDir = positional[0] ? resolve(positional[0]) : DEFAULT_ICONS_DIR;
+  const { ok, results } = checkIconSet(
+    iconsDir,
+    requireIcnsFlag ? { requireIcns: true } : undefined,
+  );
   for (const result of results) {
     console.log(`${result.ok ? 'ok  ' : 'FAIL'} ${result.file}: ${result.detail}`);
   }
