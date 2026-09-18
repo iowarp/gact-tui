@@ -252,6 +252,97 @@ describe('DesktopTitleBar', () => {
     expect(screen.getByText('EarthScope (Flat / Haiku)')).toBeInTheDocument();
   });
 
+  it('the title context region is a deep Tauri drag region, so clicking its text (not just its padding) drags', () => {
+    useDesktopTitleStore.getState().setTitleContext({
+      blueprint: 'EarthScope (Flat / Haiku)',
+      session: 'NDP flatness run',
+      workspace: 'flat-ndp',
+    });
+    renderTitleBar();
+
+    expect(screen.getByTestId('desktop-title-context')).toHaveAttribute(
+      'data-tauri-drag-region',
+      'deep',
+    );
+  });
+
+  it('double-clicking the title context no longer toggles maximize itself — Tauri handles it natively', () => {
+    renderTitleBar();
+
+    fireEvent.doubleClick(screen.getByTestId('desktop-title-context'));
+
+    expect(runDesktopWindowAction).not.toHaveBeenCalledWith('toggleMaximize');
+  });
+
+  it('blueprint_badge_opens_blueprint: clicking the blueprint badge calls the route-supplied opener', () => {
+    const onOpenBlueprint = vi.fn();
+    useDesktopTitleStore.getState().setTitleContext({
+      blueprint: 'EarthScope (Flat / Haiku)',
+      onOpenBlueprint,
+      session: 'NDP flatness run',
+      workspace: 'flat-ndp',
+    });
+    renderTitleBar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'EarthScope (Flat / Haiku)' }));
+
+    expect(onOpenBlueprint).toHaveBeenCalledOnce();
+  });
+
+  it('shows_base_agent_state: shows "Base agent" instead of a badge when the route says there is no blueprint', () => {
+    useDesktopTitleStore.getState().setTitleContext({
+      session: 'NDP flatness run',
+      showsBaseAgent: true,
+      workspace: 'flat-ndp',
+    });
+    renderTitleBar();
+
+    const titleContext = within(screen.getByTestId('desktop-title-context'));
+    expect(titleContext.getByText('Base agent')).toBeInTheDocument();
+    expect(titleContext.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('neither a blueprint badge nor "Base agent" renders when the route has not resolved either', () => {
+    useDesktopTitleStore.getState().setTitleContext({
+      session: 'NDP flatness run',
+      workspace: 'flat-ndp',
+    });
+    renderTitleBar();
+
+    expect(screen.queryByText('Base agent')).not.toBeInTheDocument();
+  });
+
+  it('shortcuts_bind_new_session_settings_fullscreen: Ctrl+N, Ctrl+comma, and F11 all work on Windows/Linux', () => {
+    const action = vi.fn();
+    window.addEventListener(MENU_ACTION_EVENT, action);
+    renderTitleBar();
+
+    fireEvent.keyDown(window, { ctrlKey: true, key: 'n' });
+    fireEvent.keyDown(window, { ctrlKey: true, key: ',' });
+    fireEvent.keyDown(window, { key: 'F11' });
+
+    expect(action).toHaveBeenCalledTimes(2);
+    expect(action).toHaveBeenNthCalledWith(1, expect.objectContaining({ detail: 'new-session' }));
+    expect(action).toHaveBeenNthCalledWith(2, expect.objectContaining({ detail: 'open-settings' }));
+    expect(runDesktopWindowAction).toHaveBeenCalledWith('toggleFullscreen');
+    window.removeEventListener(MENU_ACTION_EVENT, action);
+  });
+
+  it('shortcuts also answer to Cmd on macOS, where the hamburger shows ⌘ glyphs', async () => {
+    isMacOS.mockReturnValue(true);
+    const action = vi.fn();
+    window.addEventListener(MENU_ACTION_EVENT, action);
+    renderTitleBar();
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Open application menu' }));
+    expect(await screen.findByRole('menuitem', { name: /new session/i })).toHaveTextContent('⌘N');
+    expect(screen.getByRole('menuitem', { name: /settings/i })).toHaveTextContent('⌘,');
+
+    fireEvent.keyDown(window, { key: 'n', metaKey: true });
+    expect(action).toHaveBeenCalledWith(expect.objectContaining({ detail: 'new-session' }));
+    window.removeEventListener(MENU_ACTION_EVENT, action);
+  });
+
   it('falls back to the product name on a route that never writes title context', () => {
     renderTitleBar();
 

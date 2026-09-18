@@ -19,7 +19,13 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 
-import { mergeConfig, resolveNativeBrandOverlay } from '../scripts/run-tauri-branded.mjs';
+import {
+  mergeConfig,
+  mergeOverlayPaths,
+  parseArgv,
+  resolveNativeBrandOverlay,
+  resolveOverlayPaths,
+} from '../scripts/run-tauri-branded.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..', '..');
@@ -166,4 +172,86 @@ test('arrays of primitives still replace wholesale, unlike app.windows', () => {
       .bundle.icon,
     ['only.ico'],
   );
+});
+
+test('the element-wise merge is keyed on the exact app.windows path, not "any array of objects"', () => {
+  // Same shape as app.windows (an array of plain objects) but at a
+  // different path — must still replace wholesale, not merge by index.
+  const merged = mergeConfig(
+    { plugins: { somePlugin: { targets: [{ id: 'a', keep: true }, { id: 'b' }] } } },
+    { plugins: { somePlugin: { targets: [{ id: 'only' }] } } },
+  );
+  assert.deepEqual(merged.plugins.somePlugin.targets, [{ id: 'only' }]);
+
+  // app.windows itself still merges element-wise at its real path.
+  const withWindows = mergeConfig(
+    { app: { windows: [{ title: 'Base', decorations: false }] } },
+    { app: { windows: [{ decorations: true }] } },
+  );
+  assert.deepEqual(withWindows.app.windows, [{ title: 'Base', decorations: true }]);
+});
+
+test('parseArgv folds a caller --config into the overlay list instead of forwarding it', () => {
+  assert.deepEqual(
+    parseArgv(['build', '--config', '/tmp/ci.conf.json', '--bundles', 'dmg']),
+    { tauriArgs: ['build', '--bundles', 'dmg'], extraOverlayPaths: ['/tmp/ci.conf.json'] },
+  );
+
+  // The legacy trailing `--merge-config <path>...` form still works and
+  // composes with a leading `--config`.
+  assert.deepEqual(
+    parseArgv(['build', '--config', 'a.json', '--merge-config', 'b.json', 'c.json']),
+    { tauriArgs: ['build'], extraOverlayPaths: ['a.json', 'b.json', 'c.json'] },
+  );
+});
+
+// Regression for #417's macOS DMG gap: clio-agent's bundles workflow calls
+// `pnpm --filter @clio/desktop tauri build --config "$cfg"` UNCHANGED — a
+// plain `--config`, not `--merge-config`. Because desktop/package.json now
+// points the "tauri" script at this wrapper instead of the raw CLI, that
+// caller-supplied config must still end up folded in alongside the brand
+// overlay, and — on darwin — the macOS traffic-light overlay must always be
+// merged in LAST, after both, so it is never lost regardless of what the
+// caller's own --config sets.
+test('a caller --config folds into the overlay chain, and the macOS overlay always wins last on darwin', () => {
+  const localConfigPath = resolve(repoRoot, 'brand.config.local.json');
+  const suspendedPath = resolve(repoRoot, `.brand.config.local.json.suspended-${process.pid}`);
+  const hadLocalOverride = existsSync(localConfigPath);
+  if (hadLocalOverride) renameSync(localConfigPath, suspendedPath);
+  const tmpRoot = mkdtempSync(resolve(tmpdir(), 'gact-tui-tauri-config-'));
+  try {
+    // The default (no-override) profile is "gact", whose native overlay
+    // (src-tauri/tauri.gact.conf.json) sets app.windows[0].decorations: false
+    // — the same shape any real brand overlay has.
+    const extraConfigPath = resolve(tmpRoot, 'ci-extra.conf.json');
+    writeFileSync(
+      extraConfigPath,
+      `${JSON.stringify({ identifier: 'ci.extra.identifier' }, null, 2)}\n`,
+    );
+
+    const { tauriArgs, extraOverlayPaths } = parseArgv([
+      'build',
+      '--config',
+      extraConfigPath,
+      '--bundles',
+      'dmg',
+    ]);
+    assert.deepEqual(tauriArgs, ['build', '--bundles', 'dmg']);
+    assert.deepEqual(extraOverlayPaths, [extraConfigPath]);
+
+    const darwinOverlays = resolveOverlayPaths({ extraOverlayPaths, platform: 'darwin' });
+    const darwinMerged = mergeOverlayPaths(darwinOverlays);
+    assert.equal(darwinMerged.identifier, 'ci.extra.identifier');
+    assert.equal(darwinMerged.app.windows[0].decorations, true);
+    assert.equal(darwinMerged.app.windows[0].titleBarStyle, 'Overlay');
+
+    const linuxOverlays = resolveOverlayPaths({ extraOverlayPaths, platform: 'linux' });
+    const linuxMerged = mergeOverlayPaths(linuxOverlays);
+    assert.equal(linuxMerged.identifier, 'ci.extra.identifier');
+    assert.equal(linuxMerged.app.windows[0].decorations, false);
+    assert.equal(linuxMerged.app.windows[0].titleBarStyle, undefined);
+  } finally {
+    rmSync(tmpRoot, { recursive: true, force: true });
+    if (hadLocalOverride) renameSync(suspendedPath, localConfigPath);
+  }
 });

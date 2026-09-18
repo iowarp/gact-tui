@@ -4,6 +4,14 @@ export interface DesktopTitleContext {
   workspace?: string;
   session?: string;
   blueprint?: string;
+  /** Mirrors `showsBaseAgent` (`@/lib/session-state`) for the current route's
+   * session/blueprint, so the badge can show the "Base agent" fallback the
+   * same way the in-page session context bar does. */
+  showsBaseAgent?: boolean;
+  /** Opens the active blueprint the same way the in-page session context
+   * bar's blueprint button does; undefined when there is none to open
+   * (`blueprint` unset, or the route never wires this in). */
+  onOpenBlueprint?: () => void;
 }
 
 interface DesktopTitleStore {

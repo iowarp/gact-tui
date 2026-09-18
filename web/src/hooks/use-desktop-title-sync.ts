@@ -5,6 +5,8 @@ export interface DesktopTitleSyncInput {
   workspace?: string;
   session?: string;
   blueprint?: string;
+  showsBaseAgent?: boolean;
+  onOpenBlueprint?: () => void;
 }
 
 /**
@@ -16,12 +18,26 @@ export interface DesktopTitleSyncInput {
  * survives a navigation to a route that never calls this (the title bar
  * then falls back to the product name on its own).
  */
-export function useDesktopTitleSync({ blueprint, session, workspace }: DesktopTitleSyncInput): void {
+export function useDesktopTitleSync({
+  blueprint,
+  onOpenBlueprint,
+  session,
+  showsBaseAgent,
+  workspace,
+}: DesktopTitleSyncInput): void {
   const setTitleContext = useDesktopTitleStore((state) => state.setTitleContext);
   const clearTitleContext = useDesktopTitleStore((state) => state.clearTitleContext);
 
   useEffect(() => {
-    setTitleContext({ blueprint, session, workspace });
+    setTitleContext({ blueprint, onOpenBlueprint, session, showsBaseAgent, workspace });
     return () => clearTitleContext();
-  }, [blueprint, clearTitleContext, session, setTitleContext, workspace]);
+  }, [
+    blueprint,
+    clearTitleContext,
+    onOpenBlueprint,
+    session,
+    setTitleContext,
+    showsBaseAgent,
+    workspace,
+  ]);
 }

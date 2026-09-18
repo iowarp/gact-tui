@@ -20,6 +20,21 @@ describe('useDesktopTitleSync', () => {
     });
   });
 
+  it('also writes showsBaseAgent and the blueprint opener through, for the title bar badge', () => {
+    const onOpenBlueprint = () => undefined;
+    renderHook(() =>
+      useDesktopTitleSync({
+        onOpenBlueprint,
+        session: 'NDP demo',
+        showsBaseAgent: true,
+        workspace: 'flat-ndp',
+      }),
+    );
+
+    expect(useDesktopTitleStore.getState().context.showsBaseAgent).toBe(true);
+    expect(useDesktopTitleStore.getState().context.onOpenBlueprint).toBe(onOpenBlueprint);
+  });
+
   it('re-syncs when the input changes across renders', () => {
     const { rerender } = renderHook(
       (props: Parameters<typeof useDesktopTitleSync>[0]) => useDesktopTitleSync(props),

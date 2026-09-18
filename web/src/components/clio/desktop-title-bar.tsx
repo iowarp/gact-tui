@@ -163,13 +163,37 @@ export function DesktopTitleBar() {
 
   // Alt+Space is the conventional Windows/Linux "open the window's system
   // menu" shortcut; the hamburger IS that menu here, so it answers to the
-  // same key. Also registered unconditionally, ahead of the early return,
-  // for the same hooks-order reason as the effect above.
+  // same key. New session / Settings / fullscreen are bound here too: the
+  // hamburger advertises Ctrl N / Ctrl , / F11 as their shortcuts, but
+  // nothing bound them on Windows/Linux, and trimming the native macOS menu
+  // down to About/Settings/hide-group/Quit (see menu_spec.rs) dropped its
+  // Cmd+N item along with it — so this is now the ONLY binding for new
+  // session and fullscreen on every platform, and macOS's native Cmd+Comma
+  // accelerator (which still exists) simply overlaps harmlessly with this
+  // one (`dispatchMenuAction`/settings navigation are idempotent). Also
+  // registered unconditionally, ahead of the early return, for the same
+  // hooks-order reason as the effect above.
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       if (event.altKey && event.code === 'Space') {
         event.preventDefault();
         setMenuOpen(true);
+        return;
+      }
+      const primaryModifier = event.metaKey || event.ctrlKey;
+      if (primaryModifier && event.key.toLowerCase() === 'n') {
+        event.preventDefault();
+        dispatchMenuAction('new-session');
+        return;
+      }
+      if (primaryModifier && event.key === ',') {
+        event.preventDefault();
+        dispatchMenuAction('open-settings');
+        return;
+      }
+      if (event.key === 'F11') {
+        event.preventDefault();
+        void runWindowAction('toggleFullscreen');
       }
     };
     window.addEventListener('keydown', handleKey);
@@ -202,12 +226,12 @@ export function DesktopTitleBar() {
             <DropdownMenuItem onSelect={() => dispatchMenuAction('new-session')}>
               <PlusIcon aria-hidden="true" />
               New session
-              <DropdownMenuShortcut>Ctrl N</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{macOS ? '⌘N' : 'Ctrl N'}</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => dispatchMenuAction('open-settings')}>
               <SettingsIcon aria-hidden="true" />
               Settings
-              <DropdownMenuShortcut>Ctrl ,</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{macOS ? '⌘,' : 'Ctrl ,'}</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => window.location.reload()}>
               <RotateCwIcon aria-hidden="true" />
@@ -275,7 +299,7 @@ export function DesktopTitleBar() {
         </Tooltip>
       </div>
 
-      <DesktopTitleContext onDoubleClick={() => void runWindowAction('toggleMaximize')} />
+      <DesktopTitleContext />
 
       <div className="flex items-stretch gap-1 px-2">
         <DesktopTitleHealth />

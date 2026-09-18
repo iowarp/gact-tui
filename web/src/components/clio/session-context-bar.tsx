@@ -1,6 +1,7 @@
 import type { AgentBlueprintReference, Session } from '@clio/core/v3';
 import { ArrowLeftIcon, GitBranchIcon, SquareTerminalIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { showsBaseAgent } from '@/lib/session-state';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { ClioSessionActions } from './session-actions';
 
@@ -31,12 +32,7 @@ export function ClioSessionContextBar({
   onReturnToParent,
   onUndo,
 }: ClioSessionContextBarProps) {
-  const showsBaseAgent = Boolean(
-    session &&
-      !session.parent_session_id &&
-      !activeBlueprint &&
-      (!session.agent_id || session.agent_id === 'main'),
-  );
+  const isBaseAgent = showsBaseAgent(session, activeBlueprint);
 
   return (
     <div className="flex min-w-0 items-center gap-2 overflow-hidden">
@@ -78,7 +74,7 @@ export function ClioSessionContextBar({
                 <span className="truncate">{activeBlueprint.display_name}</span>
               </Button>
             </>
-          ) : showsBaseAgent ? (
+          ) : isBaseAgent ? (
             <>
               <span aria-hidden="true" className="shrink-0 text-muted-foreground">
                 /
