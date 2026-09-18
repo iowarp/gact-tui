@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { listenForCloseRequested } from '@/tauri/desktop-lifecycle';
+import { listenForCloseFallbackHidden, listenForCloseRequested } from '@/tauri/desktop-lifecycle';
 import { dispatchMenuAction } from '@/tauri/menu-actions';
 import {
   ackClosePromptShown,
@@ -109,24 +109,43 @@ export function DesktopTitleBar() {
   // below).
   useEffect(() => {
     let disposed = false;
-    let unlisten: (() => void) | undefined;
-    void listenForCloseRequested(() => {
+    let unlistenRequested: (() => void) | undefined;
+    let unlistenFallbackHidden: (() => void) | undefined;
+
+    void listenForCloseRequested((seq) => {
       setClosePromptOpen(true);
-      // Acks immediately: React's state update is already scheduled, well
-      // within the 500ms native fallback window, so there is no need to
-      // wait for the dialog to actually paint before telling Rust the
-      // frontend is handling this close request.
-      void ackClosePromptShown();
+      // Acks with THIS request's seq immediately: React's state update is
+      // already scheduled, well within the 500ms native fallback window, so
+      // there is no need to wait for the dialog to actually paint. The seq
+      // round-trip (not a single global ack flag) is what lets a fast
+      // repeat — e.g. Alt+F4 pressed twice — correlate correctly instead of
+      // a late ack for an older request being mistaken for this one, or
+      // suppressing the fallback for a newer, still-unhandled one.
+      void ackClosePromptShown(seq);
     }).then(
       (dispose) => {
         if (disposed) dispose();
-        else unlisten = dispose;
+        else unlistenRequested = dispose;
       },
       () => undefined,
     );
+
+    // The native side hid the window itself because this specific request
+    // went unacknowledged for 500ms (an unloaded/crashed WebView). Clear the
+    // prompt so a later Show doesn't resurface a stale confirmation dialog
+    // over a window the user never got to interact with.
+    void listenForCloseFallbackHidden(() => setClosePromptOpen(false)).then(
+      (dispose) => {
+        if (disposed) dispose();
+        else unlistenFallbackHidden = dispose;
+      },
+      () => undefined,
+    );
+
     return () => {
       disposed = true;
-      unlisten?.();
+      unlistenRequested?.();
+      unlistenFallbackHidden?.();
     };
   }, []);
 

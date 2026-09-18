@@ -1,9 +1,16 @@
 //! Shutdown: the final stage of the sidecar lifecycle.
 //!
 //! Reaps the launcher and its sidecar descendants as a process tree
-//! (SIGTERM-then-SIGKILL grace, a live re-walk + `TerminateProcess` on
+//! (SIGTERM-then-SIGKILL grace, with a poll for the process GROUP to empty
+//! out on Unix; a pinned-handle + live-re-walk union + `TerminateProcess` on
 //! Windows) so spawned clio-agent processes don't leak when the app exits or
 //! restarts.
+//!
+//! The PID-reuse defense here (pinning a held `OpenProcess` handle per
+//! descendant, gating every kill on its creation time) is Windows-only.
+//! Unix signals the whole process GROUP by id (`kill(-pgid, ...)`), which
+//! has no equivalent per-PID identity-confusion hazard: a reused PID that
+//! joined a DIFFERENT process group cannot receive a signal aimed at ours.
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -14,13 +21,16 @@ use std::{
 
 #[cfg(windows)]
 use windows_sys::Win32::{
-    Foundation::{CloseHandle, INVALID_HANDLE_VALUE},
+    Foundation::{CloseHandle, FILETIME, HANDLE, INVALID_HANDLE_VALUE, STILL_ACTIVE},
     System::{
         Diagnostics::ToolHelp::{
             CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
             TH32CS_SNAPPROCESS,
         },
-        Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE},
+        Threading::{
+            GetExitCodeProcess, GetProcessTimes, OpenProcess, TerminateProcess,
+            PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
+        },
     },
 };
 
@@ -32,6 +42,20 @@ const SHUTDOWN_GRACE: Duration = Duration::from_secs(3);
 /// normal logs. Only a server that stops making progress for this whole window
 /// reaches the process-tree fallback.
 const GRACEFUL_SHUTDOWN_STALL: Duration = Duration::from_secs(30);
+/// How long the Unix path polls for the process GROUP to empty out after
+/// SIGTERM before escalating to SIGKILL. Longer than `SHUTDOWN_GRACE` (which
+/// only waits for the launcher itself) because a worker trapping SIGTERM to
+/// flush state needs a real chance to exit on its own.
+#[cfg(unix)]
+const UNIX_GROUP_EMPTY_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// SYNCHRONIZE (0x00100000): a standard Windows access right reused across
+/// object types. windows-sys only exposes a generated constant for it under
+/// `Storage::FileSystem` even though it is valid on a process handle too
+/// (MSDN "Standard Access Rights") — defined locally rather than pulling in
+/// an unrelated crate feature for one constant.
+#[cfg(windows)]
+const SYNCHRONIZE: u32 = 0x0010_0000;
 
 /// A single process observed in a process-tree snapshot: just enough
 /// parent/child linkage plus the executable name to walk descendants and
@@ -58,7 +82,13 @@ pub(crate) struct ProcessEntry {
 /// callers decide separately whether it should die via last-client release.
 ///
 /// Pure: takes the snapshot as data rather than capturing it itself, so
-/// tests can feed a synthetic tree instead of a real one.
+/// tests can feed a synthetic tree instead of a real one. A snapshot only
+/// reflects processes alive AT THE MOMENT IT WAS TAKEN — a descendant whose
+/// intermediate parent has since exited is unreachable from any LATER
+/// snapshot, however "descendant" is defined structurally here. Callers that
+/// need to survive a dying intermediate must walk a snapshot taken before it
+/// exited (see the pre-drain snapshot + pinning in
+/// `reap_child_tree_with_shutdown`).
 #[cfg_attr(not(windows), allow(dead_code))]
 pub(crate) fn owned_descendants(snapshot: &[ProcessEntry], roots: &[u32]) -> Vec<u32> {
     let mut by_parent: HashMap<u32, Vec<&ProcessEntry>> = HashMap::new();
@@ -81,6 +111,52 @@ pub(crate) fn owned_descendants(snapshot: &[ProcessEntry], roots: &[u32]) -> Vec
         }
     }
     descendants
+}
+
+/// A shutdown-time kill candidate together with the identity data needed to
+/// decide whether it is safe to kill: its own creation time, gated against
+/// the launcher's, so a PID that a `parent_pid` field merely appears to
+/// match — because it was reused, or because Windows never invalidates a
+/// dead process's stale `parent_pid` record — is never treated as ours.
+#[cfg_attr(not(windows), allow(dead_code))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct KillCandidate {
+    pub pid: u32,
+    pub created_at: u64,
+}
+
+/// Pure decision: which candidate PIDs are safe to kill.
+///
+/// `pinned` are descendants discovered by walking the PRE-DRAIN snapshot
+/// (taken before the graceful wait, while everything — including any
+/// intermediate that later exits — was still alive) and pinned with a held
+/// `OpenProcess` handle for the whole wait; that handle blocks PID reuse for
+/// exactly the PIDs we care about, which is the only way to still target a
+/// grandchild whose intermediate parent has since exited. `live_walk` are
+/// descendants found by re-walking a FRESH snapshot at kill time, which
+/// catches anything spawned after the pre-drain snapshot but carries no
+/// pin — a reused PID could slip in here.
+///
+/// Every candidate, pinned or not, is gated the same way: its own creation
+/// time must be no earlier than `launcher_created_at`, since nothing in our
+/// tree can have been created before the launcher itself started. This is
+/// what catches BOTH a reused live-walk PID and a pre-existing orphan whose
+/// stale `parent_pid` field happens to collide with the launcher's
+/// (possibly also reused) PID — the latter can appear in `pinned` too, since
+/// the pre-drain walk uses the same `parent_pid` matching.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub(crate) fn kill_candidates(
+    pinned: &[KillCandidate],
+    live_walk: &[KillCandidate],
+    launcher_created_at: u64,
+) -> Vec<u32> {
+    let mut targets: Vec<u32> = Vec::new();
+    for candidate in pinned.iter().chain(live_walk.iter()) {
+        if candidate.created_at >= launcher_created_at && !targets.contains(&candidate.pid) {
+            targets.push(candidate.pid);
+        }
+    }
+    targets
 }
 
 /// Ask an owned GACT server to unwind gracefully before forcing its process
@@ -121,6 +197,18 @@ pub(crate) fn reap_owned_child_tree(mut child: Child, handle: &BackendHandle) {
 }
 
 fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandle>) {
+    // Windows: capture the launcher's own creation time and pin the
+    // PRE-DRAIN descendant topology — BEFORE the graceful wait, while
+    // everything is still alive — for the whole rest of this call. See the
+    // `kill_candidates` doc comment for why both pieces exist.
+    #[cfg(windows)]
+    let launcher_created_at = windows_process_created_at(child.id()).unwrap_or(0);
+    #[cfg(windows)]
+    let pinned: Vec<PinnedProcess> = owned_descendants(&windows_process_snapshot(), &[child.id()])
+        .into_iter()
+        .filter_map(windows_pin_process)
+        .collect();
+
     let graceful_requested =
         handle.is_some_and(|h| request_graceful_shutdown(&h.url, &h.bearer_token));
 
@@ -129,15 +217,12 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
         loop {
             let launcher_exited = matches!(child.try_wait(), Ok(Some(_)));
             if launcher_exited {
-                // R1: re-walk the tree fresh from the launcher's PID instead
-                // of trusting a snapshot taken before this wait — the open
-                // `Child` handle keeps that PID unreusable for the lifetime
-                // of this function, and orphaned grandchildren still carry
-                // it as `parent_pid` even after the launcher itself exits,
-                // so this stays correct with zero stale-PID risk.
+                // R1: identity-checked via the pinned handles + a fresh
+                // live re-walk rather than trusting the pre-drain snapshot
+                // alone — see `windows_everything_gone`.
                 #[cfg(windows)]
                 {
-                    if windows_owned_descendants_now(child.id()).is_empty() {
+                    if windows_everything_gone(&pinned, child.id()) {
                         return;
                     }
                 }
@@ -161,28 +246,67 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
         }
     }
 
-    // Windows: force only this desktop's launcher/backend descendants, via a
-    // fresh live re-walk (see the R1 note above — never the pre-drain
-    // snapshot). The host-global clio_run daemon can appear beneath the
-    // backend in the process tree even though independent CLIO clients also
-    // own it; `owned_descendants` already spares its subtree so this cannot
-    // corrupt those clients. Preserve it and let the backend's runtime-client
-    // release decide whether the shared daemon is last-one-out.
+    // Windows: union the pinned pre-drain descendants (still alive, still
+    // identity-verified by the held handle) with a fresh live re-walk (for
+    // anything spawned since the pre-drain snapshot), then gate every kill
+    // on creation time — see `kill_candidates`. `owned_descendants` already
+    // spares the clio_run.exe subtree, so this cannot corrupt independent
+    // CLIO clients sharing that host-global daemon.
     #[cfg(windows)]
     {
-        let mut targets = windows_owned_descendants_now(child.id());
+        let pinned_candidates: Vec<KillCandidate> = pinned
+            .iter()
+            .filter(|p| windows_handle_is_alive(p.handle))
+            .map(|p| KillCandidate {
+                pid: p.pid,
+                created_at: p.created_at,
+            })
+            .collect();
+        let live_walk: Vec<KillCandidate> = windows_owned_descendants_now(child.id())
+            .into_iter()
+            .filter_map(windows_kill_candidate)
+            .collect();
+        let mut targets = kill_candidates(&pinned_candidates, &live_walk, launcher_created_at);
         targets.sort_unstable();
-        targets.dedup();
+        // Reverse-numeric order is a cheap best-effort bias toward killing
+        // deeper descendants first (PIDs tend to increase with spawn order,
+        // NOT a guaranteed topological/tree order — Windows recycles PIDs,
+        // so this can be wrong). It only reduces, never eliminates,
+        // transient "parent already gone" noise; every target is killed
+        // regardless of order, so correctness never depends on it.
         for pid in targets.into_iter().rev() {
-            windows_terminate(pid);
+            match pinned.iter().find(|p| p.pid == pid) {
+                // Terminate through the ALREADY-HELD handle: guaranteed to
+                // be the exact process object pinned at the top of this
+                // function, never a fresh OpenProcess-by-PID race against a
+                // PID reused in the meantime.
+                Some(pinned_process) => unsafe {
+                    TerminateProcess(pinned_process.handle, 1);
+                },
+                None => windows_terminate(pid),
+            }
         }
         let _ = child.kill();
+        // `pinned`'s handles close here as the Vec drops at end of scope.
     }
     // Unix: spawn_and_probe places the launcher and its descendants into a
-    // dedicated process group. Kill that group so workers cannot outlive the
-    // Tauri shell.
+    // dedicated process group. SIGTERM the whole group, then poll for it to
+    // actually empty out — `kill(-pgid, 0)` reports ESRCH once every member
+    // has exited — for up to UNIX_GROUP_EMPTY_TIMEOUT before escalating to
+    // SIGKILL. A worker trapping SIGTERM to flush state needs a real chance
+    // to exit on its own; killing only the launcher's own PID would leave
+    // the rest of the group behind.
     #[cfg(unix)]
-    terminate_process_group(child.id(), libc::SIGTERM);
+    {
+        terminate_process_group(child.id(), libc::SIGTERM);
+        let deadline = Instant::now() + UNIX_GROUP_EMPTY_TIMEOUT;
+        while Instant::now() < deadline && !unix_process_group_is_empty(child.id()) {
+            thread::sleep(Duration::from_millis(100));
+        }
+        if !unix_process_group_is_empty(child.id()) {
+            terminate_process_group(child.id(), libc::SIGKILL);
+        }
+    }
 
     #[cfg(not(any(windows, unix)))]
     let _ = child.kill();
@@ -190,14 +314,8 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
     let deadline = Instant::now() + SHUTDOWN_GRACE;
     loop {
         match child.try_wait() {
-            Ok(Some(_)) => {
-                #[cfg(unix)]
-                terminate_process_group(child.id(), libc::SIGKILL);
-                break;
-            }
+            Ok(Some(_)) => break,
             Ok(None) if Instant::now() >= deadline => {
-                #[cfg(unix)]
-                terminate_process_group(child.id(), libc::SIGKILL);
                 let _ = child.kill();
                 let _ = child.wait();
                 break;
@@ -239,12 +357,128 @@ fn windows_process_snapshot() -> Vec<ProcessEntry> {
     processes
 }
 
-/// Fresh, live descendants of `launcher_pid` — see the R1 note in
-/// [`reap_child_tree_with_shutdown`] for why this is always re-walked rather
-/// than reusing any earlier snapshot.
+/// Fresh, live descendants of `launcher_pid` from a snapshot taken right
+/// now. Cannot, by construction, reach a descendant whose intermediate
+/// parent has already exited — see the `pinned` pre-drain walk in
+/// `reap_child_tree_with_shutdown` for that case.
 #[cfg(windows)]
 fn windows_owned_descendants_now(launcher_pid: u32) -> Vec<u32> {
     owned_descendants(&windows_process_snapshot(), &[launcher_pid])
+}
+
+/// A held `OpenProcess` handle for a descendant discovered in the pre-drain
+/// snapshot, plus its creation time captured at pin time (a process's
+/// creation time never changes, so one read up front is enough). Holding
+/// the handle for the struct's whole lifetime blocks Windows from reusing
+/// this PID for an unrelated process while we still care about it.
+#[cfg(windows)]
+struct PinnedProcess {
+    handle: HANDLE,
+    pid: u32,
+    created_at: u64,
+}
+
+#[cfg(windows)]
+impl Drop for PinnedProcess {
+    fn drop(&mut self) {
+        unsafe {
+            CloseHandle(self.handle);
+        }
+    }
+}
+
+/// Open and pin `pid` for the caller's lifetime, capturing its creation
+/// time. Returns `None` if the process is already gone or access is denied
+/// — best-effort, matching the rest of this module.
+#[cfg(windows)]
+fn windows_pin_process(pid: u32) -> Option<PinnedProcess> {
+    let handle = unsafe {
+        OpenProcess(
+            PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE,
+            0,
+            pid,
+        )
+    };
+    if handle.is_null() {
+        return None;
+    }
+    match windows_handle_created_at(handle) {
+        Some(created_at) => Some(PinnedProcess {
+            handle,
+            pid,
+            created_at,
+        }),
+        None => {
+            unsafe {
+                CloseHandle(handle);
+            }
+            None
+        }
+    }
+}
+
+/// One-shot creation-time lookup for a PID we do NOT hold a pin for (used
+/// for the launcher itself — already pinned by the owning `Child` — and for
+/// live-walk candidates at kill time). Opens a short-lived query-only
+/// handle and closes it immediately.
+#[cfg(windows)]
+fn windows_process_created_at(pid: u32) -> Option<u64> {
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if handle.is_null() {
+        return None;
+    }
+    let created_at = windows_handle_created_at(handle);
+    unsafe {
+        CloseHandle(handle);
+    }
+    created_at
+}
+
+#[cfg(windows)]
+fn windows_handle_created_at(handle: HANDLE) -> Option<u64> {
+    let mut creation = FILETIME {
+        dwLowDateTime: 0,
+        dwHighDateTime: 0,
+    };
+    let mut exit = creation;
+    let mut kernel = creation;
+    let mut user = creation;
+    let ok = unsafe { GetProcessTimes(handle, &mut creation, &mut exit, &mut kernel, &mut user) };
+    if ok == 0 {
+        return None;
+    }
+    Some(((creation.dwHighDateTime as u64) << 32) | creation.dwLowDateTime as u64)
+}
+
+/// Whether a pinned handle's process is still running, via
+/// `GetExitCodeProcess` rather than re-snapshotting — precise and does not
+/// need `SYNCHRONIZE`/`WaitForSingleObject`.
+#[cfg(windows)]
+fn windows_handle_is_alive(handle: HANDLE) -> bool {
+    let mut exit_code: u32 = 0;
+    let ok = unsafe { GetExitCodeProcess(handle, &mut exit_code) };
+    ok != 0 && exit_code == STILL_ACTIVE as u32
+}
+
+/// A live-walk-discovered PID together with its creation time, or `None` if
+/// it has already exited by the time we query it (races a fast-exiting
+/// process; safe to just drop such a candidate — nothing to kill).
+#[cfg(windows)]
+fn windows_kill_candidate(pid: u32) -> Option<KillCandidate> {
+    windows_process_created_at(pid).map(|created_at| KillCandidate { pid, created_at })
+}
+
+/// Everything we would need to kill is already gone: every pinned
+/// descendant has exited AND a fresh live re-walk from `launcher_pid` finds
+/// nothing new. Checked from the held handles directly (not a snapshot), so
+/// it is precise for the set we pinned; the live re-walk exists only to
+/// catch something spawned after the pre-drain snapshot.
+#[cfg(windows)]
+fn windows_everything_gone(pinned: &[PinnedProcess], launcher_pid: u32) -> bool {
+    if pinned.iter().any(|p| windows_handle_is_alive(p.handle)) {
+        return false;
+    }
+    windows_owned_descendants_now(launcher_pid).is_empty()
 }
 
 #[cfg(windows)]
@@ -268,6 +502,16 @@ fn terminate_process_group(pid: u32, signal: libc::c_int) {
     }
 }
 
+/// Whether the process group `pid` leads has no members left. `kill(pid, 0)`
+/// sends no signal but still validates existence: ESRCH means nothing in
+/// that group answers any more.
+#[cfg(unix)]
+fn unix_process_group_is_empty(pid: u32) -> bool {
+    let pgid = pid as libc::pid_t;
+    let result = unsafe { libc::kill(-pgid, 0) };
+    result == -1 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,6 +524,10 @@ mod tests {
             parent_pid,
             pid,
         }
+    }
+
+    fn candidate(pid: u32, created_at: u64) -> KillCandidate {
+        KillCandidate { pid, created_at }
     }
 
     #[test]
@@ -308,6 +556,28 @@ mod tests {
     }
 
     #[test]
+    fn owned_descendants_spares_clio_run_when_it_is_a_grandchild() {
+        // clio_run.exe is NOT a direct child of the launcher here — it hangs
+        // off an ordinary intermediate (worker.exe) two levels down. It and
+        // its own subtree must still be spared; the intermediate itself must
+        // still be included.
+        let snapshot = vec![
+            entry(201, 100, "worker.exe"),
+            entry(400, 201, "clio_run.exe"),
+            entry(401, 400, "clio_run_child.exe"),
+        ];
+
+        let mut descendants = owned_descendants(&snapshot, &[100]);
+        descendants.sort_unstable();
+
+        assert_eq!(
+            descendants,
+            vec![201],
+            "clio_run.exe and its subtree must be spared even several levels deep"
+        );
+    }
+
+    #[test]
     fn owned_descendants_ignores_pid_not_in_tree() {
         let snapshot = vec![
             entry(201, 100, "worker.exe"),
@@ -329,6 +599,60 @@ mod tests {
     #[test]
     fn owned_descendants_empty_snapshot_yields_no_descendants() {
         assert!(owned_descendants(&[], &[100]).is_empty());
+    }
+
+    #[test]
+    fn kill_candidates_includes_pinned_orphaned_grandchild() {
+        // 500 is what USED to be a direct child of the launcher (already
+        // exited by kill time — not represented here, since `pinned` only
+        // ever holds what the pre-drain walk found and we still hold a
+        // handle for); 600 is ITS child, discovered via that same pre-drain
+        // walk and still alive. A live-at-kill-time-only walk could never
+        // find 600 (500 is gone), but the pinned pre-drain set still has it.
+        let pinned = vec![candidate(500, 200), candidate(600, 210)];
+        let live_walk: Vec<KillCandidate> = vec![];
+
+        let mut targets = kill_candidates(&pinned, &live_walk, 100);
+        targets.sort_unstable();
+
+        assert_eq!(
+            targets,
+            vec![500, 600],
+            "a pinned orphaned grandchild must still be targeted even though its \
+             intermediate parent already exited"
+        );
+    }
+
+    #[test]
+    fn kill_candidates_excludes_a_stale_parent_pid_collision() {
+        let pinned: Vec<KillCandidate> = vec![];
+        let live_walk = vec![
+            // Created BEFORE the launcher (100): a pre-existing orphan whose
+            // stale parent_pid field happens to collide with the launcher's
+            // (possibly reused) PID. Not actually ours.
+            candidate(700, 50),
+            // Created after the launcher: a legitimate descendant.
+            candidate(701, 150),
+        ];
+
+        let targets = kill_candidates(&pinned, &live_walk, 100);
+
+        assert_eq!(
+            targets,
+            vec![701],
+            "a candidate created before the launcher must be spared — its parent_pid \
+             match is a stale-PID collision, not a real descendant"
+        );
+    }
+
+    #[test]
+    fn kill_candidates_dedups_a_pid_present_in_both_sets() {
+        let pinned = vec![candidate(500, 200)];
+        let live_walk = vec![candidate(500, 200)];
+
+        let targets = kill_candidates(&pinned, &live_walk, 100);
+
+        assert_eq!(targets, vec![500]);
     }
 
     /// Spawn a one-shot local HTTP stub that replies with `status_line` to

@@ -5,9 +5,12 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { DesktopTitleBar } from './desktop-title-bar';
 
 const runDesktopWindowAction = vi.hoisted(() => vi.fn(async () => undefined));
-const ackClosePromptShown = vi.hoisted(() => vi.fn(async () => undefined));
+const ackClosePromptShown = vi.hoisted(() => vi.fn(async (_seq: number) => undefined));
 const listenForCloseRequested = vi.hoisted(() =>
-  vi.fn(async (_onCloseRequested: () => void) => () => undefined),
+  vi.fn(async (_onCloseRequested: (seq: number) => void) => () => undefined),
+);
+const listenForCloseFallbackHidden = vi.hoisted(() =>
+  vi.fn(async (_onHidden: () => void) => () => undefined),
 );
 const toastError = vi.hoisted(() => vi.fn());
 
@@ -18,6 +21,7 @@ vi.mock('@/tauri/desktop-window', () => ({
 
 vi.mock('@/tauri/desktop-lifecycle', () => ({
   listenForCloseRequested,
+  listenForCloseFallbackHidden,
 }));
 
 vi.mock('sonner', () => ({ toast: { error: toastError } }));
@@ -36,6 +40,8 @@ describe('DesktopTitleBar', () => {
     ackClosePromptShown.mockClear();
     listenForCloseRequested.mockClear();
     listenForCloseRequested.mockImplementation(async () => () => undefined);
+    listenForCloseFallbackHidden.mockClear();
+    listenForCloseFallbackHidden.mockImplementation(async () => () => undefined);
     toastError.mockClear();
   });
 
@@ -143,18 +149,41 @@ describe('DesktopTitleBar', () => {
     expect(runDesktopWindowAction).not.toHaveBeenCalled();
   });
 
-  it('native_close_request_opens_prompt: a native close request opens the same prompt and acks it', async () => {
+  it('native_close_request_opens_prompt: a native close request opens the same prompt and acks its seq', async () => {
     renderTitleBar();
 
     await waitFor(() => expect(listenForCloseRequested).toHaveBeenCalledTimes(1));
-    const onCloseRequested = listenForCloseRequested.mock.calls[0]?.[0] as () => void;
+    const onCloseRequested = listenForCloseRequested.mock.calls[0]?.[0];
     expect(onCloseRequested).toBeTypeOf('function');
 
-    act(() => onCloseRequested());
+    act(() => onCloseRequested?.(7));
 
     expect(screen.getByRole('alertdialog')).toHaveTextContent('Keep CLIO running?');
+    // Correlated by seq, not a bare boolean flag — see the fix for the
+    // Alt+F4-pressed-twice race.
     expect(ackClosePromptShown).toHaveBeenCalledOnce();
+    expect(ackClosePromptShown).toHaveBeenCalledWith(7);
     expect(runDesktopWindowAction).not.toHaveBeenCalled();
+  });
+
+  it('a native fallback-hide notice clears a stale prompt instead of leaving it rendered', async () => {
+    renderTitleBar();
+
+    await waitFor(() => expect(listenForCloseRequested).toHaveBeenCalledTimes(1));
+    const onCloseRequested = listenForCloseRequested.mock.calls[0]?.[0];
+    act(() => onCloseRequested?.(1));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    await waitFor(() => expect(listenForCloseFallbackHidden).toHaveBeenCalledTimes(1));
+    const onFallbackHidden = listenForCloseFallbackHidden.mock.calls[0]?.[0];
+    expect(onFallbackHidden).toBeTypeOf('function');
+
+    // Rust hid the window itself because this request's 500ms ack window
+    // lapsed (an unloaded/crashed WebView) — the frontend must not keep
+    // showing a confirmation dialog nobody can see.
+    act(() => onFallbackHidden?.());
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
   it('routes overflow actions through the existing application workflows', async () => {
