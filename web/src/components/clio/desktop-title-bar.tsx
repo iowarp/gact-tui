@@ -211,7 +211,15 @@ export function DesktopTitleBar() {
         </Tooltip>
       </div>
       <AlertDialog onOpenChange={setClosePromptOpen} open={closePromptOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent onBackdropClick={() => setClosePromptOpen(false)}>
+          <AlertDialogCancel
+            aria-label="Dismiss close prompt"
+            className="absolute right-2 top-2 text-muted-foreground"
+            size="icon-sm"
+            variant="ghost"
+          >
+            <XIcon aria-hidden="true" className="size-4" />
+          </AlertDialogCancel>
           <AlertDialogHeader>
             <AlertDialogTitle>Keep CLIO running?</AlertDialogTitle>
             <AlertDialogDescription>

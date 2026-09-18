@@ -68,6 +68,22 @@ describe('DesktopTitleBar', () => {
     await waitFor(() => expect(runDesktopWindowAction).toHaveBeenCalledWith('quit'));
   });
 
+  it('dismisses the close prompt from its close button or backdrop without hiding CLIO', () => {
+    const { container } = renderTitleBar();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss close prompt' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    const backdrop = container.ownerDocument.querySelector('[data-slot="alert-dialog-overlay"]');
+    expect(backdrop).not.toBeNull();
+    fireEvent.click(backdrop as Element);
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(runDesktopWindowAction).not.toHaveBeenCalled();
+  });
+
   it('routes overflow actions through the existing application workflows', async () => {
     const action = vi.fn();
     window.addEventListener(MENU_ACTION_EVENT, action);
