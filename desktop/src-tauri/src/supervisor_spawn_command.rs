@@ -16,6 +16,7 @@ use std::os::windows::process::CommandExt;
 
 pub(crate) const LAUNCHER_HOST: &str = "127.0.0.1";
 const ARC_FILE_CAPACITY_ENV: &str = "CLIO_ARC_CTE_FILE_CAPACITY";
+const DESKTOP_MANAGED_ENV: &str = "CLIO_DESKTOP_MANAGED";
 // clio-core currently materializes the Windows file-tier backing file at the
 // 1 GiB desktop arena size. Advertising a larger capacity makes the next boot's
 // safety preflight reject that retained file as undersized, so a successful
@@ -63,6 +64,9 @@ pub(crate) fn launcher_spawn_command(
         ARC_FILE_CAPACITY_ENV,
         desktop_arc_file_capacity(std::env::var_os(ARC_FILE_CAPACITY_ENV)),
     );
+    // Enables the bearer-authenticated graceful-shutdown route. Generic and
+    // independently started GACT servers never expose that lifecycle control.
+    command.env(DESKTOP_MANAGED_ENV, "1");
     #[cfg(windows)]
     command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     command

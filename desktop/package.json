@@ -6,16 +6,16 @@
   "scripts": {
     "lint": "echo 'no JS/TS lint for @clio/desktop (Rust crate via cargo)' && exit 0",
     "typecheck": "echo 'no TS to typecheck — @clio/desktop is a Rust crate; smoke tests are JS' && exit 0",
-    "test": "node --test tests/smoke.test.mjs",
+    "test": "node --test tests/smoke.test.mjs tests/tauri-brand.test.mjs",
     "test:webview": "node --test tests/webview-e2e.test.mjs",
     "fetch-sidecar": "bash scripts/fetch-sidecar.sh",
     "fetch-sidecar:all": "bash scripts/fetch-sidecar.sh --all",
     "gen-brand-backend": "node scripts/gen-brand-backend.mjs",
     "tauri": "tauri",
-    "tauri:dev": "pnpm gen-brand-backend && pnpm fetch-sidecar && tauri dev",
-    "tauri:build": "pnpm gen-brand-backend && pnpm fetch-sidecar && tauri build",
-    "tauri:build:debug": "pnpm gen-brand-backend && pnpm fetch-sidecar && tauri build --debug --no-bundle",
-    "tauri:build:bundled": "pnpm gen-brand-backend && pnpm fetch-sidecar && tauri build --config src-tauri/tauri.bundled.conf.json"
+    "tauri:dev": "pnpm gen-brand-backend && pnpm fetch-sidecar && node scripts/run-tauri-branded.mjs dev",
+    "tauri:build": "pnpm gen-brand-backend && pnpm fetch-sidecar && node scripts/run-tauri-branded.mjs build",
+    "tauri:build:debug": "pnpm gen-brand-backend && pnpm fetch-sidecar && node scripts/run-tauri-branded.mjs build --debug --no-bundle",
+    "tauri:build:bundled": "pnpm gen-brand-backend && pnpm fetch-sidecar && node scripts/run-tauri-branded.mjs build --merge-config src-tauri/tauri.bundled.conf.json"
   },
   "dependencies": {
     "@clio/workspace": "workspace:*",

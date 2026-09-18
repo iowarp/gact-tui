@@ -11,7 +11,7 @@ use std::{
 };
 
 use crate::supervisor_boot_log::boot_log_line;
-use crate::supervisor_shutdown::reap_child_tree;
+use crate::supervisor_shutdown::reap_owned_child_tree;
 use crate::supervisor_types::{BackendHandle, BackendStartupStage, BackendStatus};
 
 /// Lock a `Mutex` while recovering from poisoning.
@@ -80,23 +80,33 @@ impl SupervisorState {
     pub fn set_handle_and_child(&self, handle: BackendHandle, child: Child) {
         let displaced = {
             let mut guard = lock_recover(&self.inner);
+            let previous_handle = guard.handle.clone();
             guard.handle = handle;
-            guard.child.replace(child)
+            guard
+                .child
+                .replace(child)
+                .map(|stale| (stale, previous_handle))
         };
-        if let Some(stale) = displaced {
+        if let Some((stale, previous_handle)) = displaced {
             boot_log_line(&format!(
                 "warning: reaping displaced sidecar child (pid {}); reason=superseded_boot — \
                  a newer boot registered its child while this one was still recorded",
                 stale.id()
             ));
-            reap_child_tree(stale);
+            reap_owned_child_tree(stale, &previous_handle);
         }
     }
 
     pub fn shutdown(&self) {
-        let mut guard = lock_recover(&self.inner);
-        if let Some(child) = guard.child.take() {
-            reap_child_tree(child);
+        let owned = {
+            let mut guard = lock_recover(&self.inner);
+            guard
+                .child
+                .take()
+                .map(|child| (child, guard.handle.clone()))
+        };
+        if let Some((child, handle)) = owned {
+            reap_owned_child_tree(child, &handle);
         }
     }
 }

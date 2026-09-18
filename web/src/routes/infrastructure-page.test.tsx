@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -10,6 +10,7 @@ const repository = vi.hoisted(() => ({
   mcpServers: vi.fn(),
   effectiveAgentToolset: vi.fn(),
   catalogTools: vi.fn(),
+  tools: vi.fn(),
   mcpConfiguration: vi.fn(),
   configureMcpServer: vi.fn(),
   removeMcpConfiguration: vi.fn(),
@@ -97,13 +98,82 @@ beforeEach(() => {
       },
     ],
   });
-  repository.catalogTools.mockResolvedValue([
-    { id: 'create_artifact', name: 'create_artifact', title: 'Create artifact', source: 'builtin' },
+  repository.tools.mockResolvedValue([
+    {
+      id: 'create_artifact',
+      name: 'create_artifact',
+      title: 'Create artifact',
+      description: 'Creates a durable workspace artifact.',
+      source: 'builtin',
+      tags: [],
+      visible_to: [],
+      input_schema: {
+        type: 'object',
+        required: ['title'],
+        properties: { title: { type: 'string', description: 'Artifact title.' } },
+      },
+      output_schema: {
+        type: 'object',
+        properties: { artifact_id: { type: 'string', description: 'Created artifact identity.' } },
+      },
+    },
     {
       id: 'memory_search_sessions',
       name: 'memory_search_sessions',
       title: 'Search memory',
       source: 'builtin',
+      tags: [],
+      visible_to: [],
+      input_schema: {},
+      output_schema: {},
+    },
+    {
+      id: 'ndp_search',
+      name: 'ndp_search',
+      title: 'Search NDP',
+      description: 'Searches the National Data Platform catalog.',
+      server_id: 'session_mcp_sess_demo_ndp',
+      source: 'agent_blueprint_mcp_descriptor',
+      tags: [],
+      visible_to: [],
+      input_schema: {
+        type: 'object',
+        properties: { query: { type: 'string' } },
+      },
+      output_schema: { type: 'object' },
+    },
+  ]);
+  repository.catalogTools.mockResolvedValue([
+    {
+      id: 'create_artifact',
+      name: 'create_artifact',
+      title: 'Create artifact',
+      description: 'Creates a durable workspace artifact.',
+      source: 'builtin',
+      tags: [],
+      visible_to: [],
+      input_schema: {},
+      output_schema: {},
+    },
+    {
+      id: 'memory_search_sessions',
+      name: 'memory_search_sessions',
+      title: 'Search memory',
+      source: 'builtin',
+      tags: [],
+      visible_to: [],
+      input_schema: {},
+      output_schema: {},
+    },
+    {
+      id: 'create_plan',
+      name: 'create_plan',
+      title: 'Create plan',
+      source: 'builtin',
+      tags: [],
+      visible_to: [],
+      input_schema: { type: 'object' },
+      output_schema: { type: 'object' },
     },
   ]);
   repository.mcpConfiguration.mockResolvedValue({
@@ -138,7 +208,10 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-function renderPage(from = '/workspaces/ws_factorio/sessions/sess_demo') {
+function renderPage(
+  from = '/workspaces/ws_factorio/sessions/sess_demo',
+  section: 'agent' | 'tools' | 'services' = 'services',
+) {
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
@@ -147,7 +220,7 @@ function renderPage(from = '/workspaces/ws_factorio/sessions/sess_demo') {
       <MemoryRouter
         initialEntries={[
           {
-            pathname: '/infrastructure',
+            pathname: `/infrastructure/${section}`,
             state: {
               endpoint: 'http://127.0.0.1:8788',
               from,
@@ -156,7 +229,7 @@ function renderPage(from = '/workspaces/ws_factorio/sessions/sess_demo') {
         ]}
       >
         <Routes>
-          <Route element={<InfrastructurePage />} path="/infrastructure" />
+          <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -164,150 +237,45 @@ function renderPage(from = '/workspaces/ws_factorio/sessions/sess_demo') {
 }
 
 describe('InfrastructurePage', () => {
-  it('keeps a missing session toolset in its section instead of raising a page-wide error', async () => {
-    repository.effectiveAgentToolset.mockRejectedValueOnce(new Error('session not found'));
-
-    renderPage();
-
-    expect(await screen.findByText('Built-in CLIO tools')).toBeVisible();
-    expect(
-      screen.queryByRole('heading', { name: 'Some infrastructure details are unavailable' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('presents user outcomes while identifying built-in MCP services', async () => {
-    renderPage();
+  it('separates agent, tools, and services while opening on the requested section', async () => {
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'tools');
 
     expect(screen.getByRole('main')).toHaveClass('h-dvh', 'overflow-y-auto');
-    expect(await screen.findByRole('heading', { name: 'CLIO capabilities' })).toBeVisible();
-    expect(await screen.findByText('Available to this agent')).toBeVisible();
-    expect(screen.getByText('Workspace access')).toBeVisible();
-    expect(screen.getByText('Child coordination')).toBeVisible();
-    expect(screen.getByText('Session operations')).toBeVisible();
-    expect(screen.getByText('Search memory')).toBeVisible();
-    expect(screen.getByText('3 tools recorded for main')).toBeVisible();
-    expect(screen.getByText('Connected tool services')).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Research and documents' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'Remote computers' })).toBeVisible();
-    expect(await screen.findAllByText('Built-in MCP')).toHaveLength(2);
-    expect(await screen.findByText('Files')).toBeVisible();
-    expect(await screen.findByText('Commands')).toBeVisible();
-    expect(await screen.findByText('EarthScope Skills')).toBeVisible();
-    expect(await screen.findByText('Starts on use')).toBeVisible();
-    expect(repository.mcpServers).toHaveBeenCalledWith('ws_factorio', expect.any(AbortSignal), {
-      sessionId: 'sess_demo',
-    });
-    expect(repository.effectiveAgentToolset).toHaveBeenCalledWith(
-      'sess_demo',
-      expect.any(AbortSignal),
+    expect(await screen.findByRole('heading', { name: 'Tools', level: 1 })).toBeVisible();
+    expect(screen.getByRole('navigation', { name: 'Infrastructure sections' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Agent' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Services' })).toBeVisible();
+  });
+
+  it('shows typed contracts for CLIO tools and tools from installed MCPs', async () => {
+    const user = userEvent.setup();
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'tools');
+
+    expect(await screen.findByText('3 built in')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Built-in 3' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
     );
-  });
-
-  it('groups only the servers this session actually owns', async () => {
-    renderPage();
-
-    // `fs` and `shell` carry no session_id at all. Comparing `undefined` against
-    // an absent session once put every shared service under the session's own
-    // heading — the exact inversion of what the grouping is for.
-    const shared = (await screen.findByText('Shared tools')).closest('section');
-    expect(shared).not.toBeNull();
-    expect(within(shared!).getByText('Files')).toBeVisible();
-    expect(within(shared!).getByText('Commands')).toBeVisible();
-
-    const session = screen.getByText('EarthScope Skills').closest('section');
-    expect(within(session!).getByText('ndp')).toBeVisible();
-    expect(within(session!).queryByText('Files')).not.toBeInTheDocument();
-  });
-
-  it('lists services ungrouped when no session is in view', async () => {
-    renderPage('/workspaces/ws_factorio');
-
-    expect(await screen.findByText('Files')).toBeVisible();
-    expect(screen.queryByText('Shared tools')).not.toBeInTheDocument();
-    expect(screen.queryByText('Session tools')).not.toBeInTheDocument();
-    expect(repository.mcpServers).toHaveBeenCalledWith(
-      undefined,
-      expect.any(AbortSignal),
-      // No session in the return route means none is asked for, so nothing the
-      // service answers with can be attributed to one.
-      { sessionId: undefined },
+    expect(screen.getByRole('button', { name: /Create plan/u })).not.toBeVisible();
+    await user.click(screen.getByText('Planning'));
+    expect(screen.getByRole('button', { name: /Create plan/u })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Create artifact/u }));
+    expect(screen.getByText('Creates a durable workspace artifact.')).toBeVisible();
+    expect(screen.getByText('Inputs')).toBeVisible();
+    expect(screen.getByText('title')).toBeVisible();
+    expect(screen.getByText('required')).toBeVisible();
+    expect(screen.getByText('Returns')).toBeVisible();
+    expect(screen.getByText('artifact_id')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'MCP 1' }));
+    expect(screen.getAllByText('EarthScope Skills')).toHaveLength(2);
+    expect(screen.getByText('Session')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'EarthScope Skills' })).toHaveAttribute(
+      'href',
+      '/settings/blueprints?blueprint=earthscope-single-agent',
     );
-  });
-
-  it('says so when the service ignored the session it was asked about', async () => {
-    repository.mcpServers.mockResolvedValue([
-      {
-        id: 'mcp_fs',
-        name: 'fs',
-        status: 'ready',
-        transport: 'in_process',
-        tools_count: 3,
-        tools: [],
-        spec: {},
-      },
-    ]);
-
-    renderPage();
-
-    expect(
-      await screen.findByText(
-        'This service did not report which session each tool belongs to, so they are not grouped.',
-      ),
-    ).toBeVisible();
-    expect(screen.queryByText('Shared tools')).not.toBeInTheDocument();
-  });
-
-  it('describes and names a service from what the service itself reported', async () => {
-    repository.mcpServers.mockResolvedValue([
-      {
-        id: 'session_mcp_sess_demo_ndp',
-        name: 'ndp',
-        status: 'ready',
-        transport: 'stdio',
-        tools_count: 4,
-        tools: [],
-        session_id: 'sess_demo',
-        spec: { title: 'Station catalog', description: 'Answers about seismic stations' },
-      },
-    ]);
-
-    renderPage();
-
-    expect(await screen.findByText('Station catalog')).toBeVisible();
-    expect(screen.getByText(/Answers about seismic stations/u)).toBeVisible();
-    // The client used to carry demo copy for a fixed set of server names. A
-    // service the client has never heard of must not be described from a
-    // hardcoded table, and one that describes itself must not be overridden.
-    expect(screen.queryByText(/EarthScope station and product data/u)).not.toBeInTheDocument();
-  });
-
-  it('shows a failed service its own status word rather than a generic degrade', async () => {
-    repository.mcpServers.mockResolvedValue([
-      {
-        id: 'mcp_broken',
-        name: 'broken',
-        status: 'start_failed',
-        transport: 'stdio',
-        tools_count: 0,
-        tools: [],
-        error: 'The command exited with status 127.',
-        spec: {},
-      },
-    ]);
-
-    renderPage();
-
-    expect(await screen.findByText('Start failed')).toBeVisible();
-    expect(screen.queryByText('Degraded')).not.toBeInTheDocument();
-  });
-
-  it('counts every listed service in the footer, including one with no tools', async () => {
-    renderPage();
-
-    expect(await screen.findByText('2 of 3 ready')).toBeVisible();
-    // A ready service that exposes zero tools is a real, reportable state; the
-    // falsy check that hid it made "no tools" indistinguishable from "unknown".
-    expect(screen.getAllByText(/0 tools/u).some((row) => row.textContent === '0 tools')).toBe(true);
+    expect(repository.tools).toHaveBeenCalled();
+    expect(repository.catalogTools).toHaveBeenCalled();
   });
 
   it('says why the relay is degraded in the relay’s own words', async () => {
@@ -325,6 +293,28 @@ describe('InfrastructurePage', () => {
     // "Needs attention" is a severity, not an explanation. The service already
     // said what is wrong; withholding it makes the card a dead end.
     expect(screen.getByText('The relay rejected the stored credential (401).')).toBeVisible();
+  });
+
+  it('keeps missing execution protection visible as a required problem', async () => {
+    repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      integrations: [
+        {
+          name: 'sandbox',
+          status: 'degraded',
+          required: false,
+          summary: 'No OS write-confinement.',
+          details: {},
+        },
+      ],
+    });
+
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+
+    expect(await screen.findByText('Protected execution')).toBeVisible();
+    expect(screen.getAllByText('Needs attention')).not.toHaveLength(0);
+    expect(screen.queryByText('Optional')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'CLIO agent' })).not.toBeInTheDocument();
   });
 
   it('falls back to the relay’s typed reason when it sent no prose detail', async () => {
@@ -355,7 +345,7 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('button', { name: /Set up web search/u }));
+    await user.click(await screen.findByRole('button', { name: /Connect web search/u }));
     expect(screen.queryByRole('radio')).not.toBeInTheDocument();
     expect(screen.getByText('Connect an existing service')).toBeVisible();
     expect(
@@ -403,7 +393,7 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('button', { name: /Retry setup/u }));
+    await user.click(await screen.findByRole('button', { name: /Repair connection/u }));
     expect(await screen.findByDisplayValue('http://offline:8089')).toBeVisible();
     expect(screen.getByText('Configuration saved, service unavailable')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Retry connection' })).toBeVisible();
@@ -414,7 +404,7 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole('button', { name: /Set up web search/u }));
+    await user.click(await screen.findByRole('button', { name: /Connect web search/u }));
     expect(screen.getByRole('dialog')).toHaveClass('top-[10dvh]', 'translate-y-0', 'sm:max-w-2xl');
     await user.click(screen.getByRole('button', { name: 'Close' }));
 

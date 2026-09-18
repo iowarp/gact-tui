@@ -118,6 +118,53 @@ describe('ClioRepository provider contracts', () => {
     });
   });
 
+  it('normalizes the service zero max-token sentinel to an unset limit', async () => {
+    const transport = new RecordingTransport([
+      {
+        configured: false,
+        provider: 'lm_studio',
+        api_base: 'http://127.0.0.1:1234/v1',
+        model: '',
+        max_tokens: 0,
+        presets: [],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.languageModelConfiguration()).resolves.toMatchObject({
+      configured: false,
+      max_tokens: undefined,
+    });
+  });
+
+  it('waits for the LM provider with a request budget that outlives the server-side wait', async () => {
+    const transport = new RecordingTransport([
+      {
+        configured: true,
+        provider: 'codex',
+        api_base: 'codex://app-server',
+        model: 'gpt-5.6-luna',
+        presets: [],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.waitLanguageModelConfiguration()).resolves.toMatchObject({
+      configured: true,
+      provider: 'codex',
+    });
+    expect(transport.requests[0]).toMatchObject({
+      method: 'GET',
+      // The server caps `timeout` at 600s; request it explicitly rather than
+      // relying on the server's 60s default.
+      path: '/v1/providers/lm/wait?timeout=600',
+      // Only a transport that enforces its own timeout honours this (the
+      // desktop Tauri bridge's default is 30s, well short of a 600s wait);
+      // the browser transport ignores it and leaves the wait to fetch/abort.
+      timeoutMs: 610_000,
+    });
+  });
+
   it('runs a report-only provider handshake with an explicit refresh', async () => {
     const report = {
       models: [{ id: 'gpt-5.6-luna', context_window: 400000 }],

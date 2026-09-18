@@ -171,7 +171,8 @@ fn a_body_on_the_ceiling_still_succeeds() {
         Duration::ZERO,
     );
 
-    let response = gact_http(req("GET", stub.url("/v1/small"), None)).expect("a small body is fine");
+    let response =
+        gact_http(req("GET", stub.url("/v1/small"), None)).expect("a small body is fine");
 
     assert_eq!(response.status, 200);
     assert_eq!(response.body.len(), body.len());

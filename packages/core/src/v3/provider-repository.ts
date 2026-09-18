@@ -15,6 +15,16 @@ import {
 import { languageModelConfigurationSchema } from './schemas.js';
 import { ContextRepository } from './context-repository.js';
 
+/**
+ * Whole-request budget for `GET /v1/providers/lm/wait`. The server blocks
+ * server-side for up to its own `timeout` query parameter (capped at 600s);
+ * the request-level budget must outlive that or a transport that enforces
+ * its own timeout (the desktop Tauri bridge's default is 30s) cuts the
+ * connection out from under a still-configuring provider.
+ */
+const LM_WAIT_SERVER_TIMEOUT_S = 600;
+const LM_WAIT_REQUEST_TIMEOUT_MS = 610_000;
+
 /** Provider discovery, model catalog, handshake, and active-model configuration. */
 export class ProviderRepository extends ContextRepository {
   public async providers(signal?: AbortSignal): Promise<ProviderDefinition[]> {
@@ -121,6 +131,19 @@ export class ProviderRepository extends ContextRepository {
       path: '/v1/providers/lm',
       body: input,
       decode: (value) => languageModelConfigurationSchema.parse(value),
+      signal,
+    });
+  }
+
+  public waitLanguageModelConfiguration(signal?: AbortSignal): Promise<LanguageModelConfiguration> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/providers/lm/wait?timeout=${LM_WAIT_SERVER_TIMEOUT_S}`,
+      decode: (value) => languageModelConfigurationSchema.parse(value),
+      // Only a transport that enforces its own timeout (the desktop bridge)
+      // honours this; the browser transport leaves the wait to the abort
+      // signal. Either way it must exceed the server's own wait budget above.
+      timeoutMs: LM_WAIT_REQUEST_TIMEOUT_MS,
       signal,
     });
   }

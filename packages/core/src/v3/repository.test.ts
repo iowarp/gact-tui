@@ -16,6 +16,12 @@ describe('ClioRepository interaction contracts', () => {
             server_id: null,
             tags: [],
             visible_to: [],
+            input_schema: {
+              type: 'object',
+              required: ['path'],
+              properties: { path: { type: 'string', description: 'Workspace-relative path.' } },
+            },
+            output_schema: { type: 'object', properties: { text: { type: 'string' } } },
           },
         ],
       },
@@ -23,7 +29,12 @@ describe('ClioRepository interaction contracts', () => {
     const repository = new ClioRepository(transport);
 
     await expect(repository.catalogTools()).resolves.toEqual([
-      expect.objectContaining({ id: 'fs_read_file', server_id: undefined }),
+      expect.objectContaining({
+        id: 'fs_read_file',
+        server_id: undefined,
+        input_schema: expect.objectContaining({ required: ['path'] }),
+        output_schema: expect.objectContaining({ type: 'object' }),
+      }),
     ]);
   });
 

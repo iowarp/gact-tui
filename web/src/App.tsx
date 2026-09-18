@@ -70,7 +70,7 @@ export default function App() {
           <Route element={<ConnectionPage />} path="/" />
           <Route element={<WorkspacePage />} path="/workspaces/:workspaceId/sessions/:sessionId" />
           <Route element={<RunsPage />} path="/runs" />
-          <Route element={<InfrastructurePage />} path="/infrastructure" />
+          <Route element={<InfrastructurePage />} path="/infrastructure/:section?" />
           <Route element={<SettingsPage />} path="/settings/:section" />
           <Route element={<UnknownRouteRedirect />} path="*" />
         </Routes>
