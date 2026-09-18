@@ -410,6 +410,16 @@ export class ClioRepository extends PresentationRepository {
     return result.tools as ToolCatalogItem[];
   }
 
+  public async catalogTools(signal?: AbortSignal): Promise<ToolCatalogItem[]> {
+    const result = await this.transport.request({
+      method: 'GET',
+      path: '/v1/catalog/tools',
+      decode: (value) => toolCatalogSchema.parse(value),
+      signal,
+    });
+    return result.tools as ToolCatalogItem[];
+  }
+
   public async agents(signal?: AbortSignal): Promise<AgentDefinition[]> {
     const result = await this.transport.request({
       method: 'GET',

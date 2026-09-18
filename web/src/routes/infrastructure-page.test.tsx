@@ -9,6 +9,7 @@ const repository = vi.hoisted(() => ({
   relayStatus: vi.fn(),
   mcpServers: vi.fn(),
   effectiveAgentToolset: vi.fn(),
+  catalogTools: vi.fn(),
   mcpConfiguration: vi.fn(),
   configureMcpServer: vi.fn(),
   removeMcpConfiguration: vi.fn(),
@@ -96,6 +97,15 @@ beforeEach(() => {
       },
     ],
   });
+  repository.catalogTools.mockResolvedValue([
+    { id: 'create_artifact', name: 'create_artifact', title: 'Create artifact', source: 'builtin' },
+    {
+      id: 'memory_search_sessions',
+      name: 'memory_search_sessions',
+      title: 'Search memory',
+      source: 'builtin',
+    },
+  ]);
   repository.mcpConfiguration.mockResolvedValue({
     name: 'web',
     configured: false,
@@ -159,7 +169,7 @@ describe('InfrastructurePage', () => {
 
     renderPage();
 
-    expect(await screen.findByText('This session has not recorded an effective toolset yet.')).toBeVisible();
+    expect(await screen.findByText('Built-in CLIO tools')).toBeVisible();
     expect(
       screen.queryByRole('heading', { name: 'Some infrastructure details are unavailable' }),
     ).not.toBeInTheDocument();
@@ -169,7 +179,7 @@ describe('InfrastructurePage', () => {
     renderPage();
 
     expect(screen.getByRole('main')).toHaveClass('h-dvh', 'overflow-y-auto');
-    expect(await screen.findByRole('heading', { name: 'Agent capabilities' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'CLIO capabilities' })).toBeVisible();
     expect(await screen.findByText('Available to this agent')).toBeVisible();
     expect(screen.getByText('Workspace access')).toBeVisible();
     expect(screen.getByText('Child coordination')).toBeVisible();
@@ -297,7 +307,7 @@ describe('InfrastructurePage', () => {
     expect(await screen.findByText('2 of 3 ready')).toBeVisible();
     // A ready service that exposes zero tools is a real, reportable state; the
     // falsy check that hid it made "no tools" indistinguishable from "unknown".
-    expect(screen.getByText(/0 tools/u)).toBeVisible();
+    expect(screen.getAllByText(/0 tools/u).some((row) => row.textContent === '0 tools')).toBe(true);
   });
 
   it('says why the relay is degraded in the relay’s own words', async () => {

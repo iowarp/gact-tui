@@ -66,19 +66,21 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   const items = useMemo<InfrastructureItem[]>(() => {
     const integrationWarnings =
       health.data?.integrations.filter(
-        (integration) => !['ready', 'healthy', 'live'].includes(integration.status),
+        (integration) =>
+          integration.required !== false &&
+          !['ready', 'healthy', 'live', 'skipped'].includes(integration.status),
       ).length ?? 0;
     const agentState: InfrastructureItem = health.isPending
       ? {
           id: 'agent-service',
-          label: 'Agent service',
+          label: 'CLIO',
           state: 'checking',
           stateLabel: 'Checking',
         }
       : health.error || !health.data?.healthy
         ? {
             id: 'agent-service',
-            label: 'Agent service',
+            label: 'CLIO',
             state: 'failed',
             stateLabel: 'Unavailable',
             detail: health.error?.message,
@@ -86,14 +88,14 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
         : integrationWarnings
           ? {
               id: 'agent-service',
-              label: 'Agent service',
+              label: 'CLIO',
               state: 'degraded',
               stateLabel: 'Warning',
               detail: `${integrationWarnings} supporting ${integrationWarnings === 1 ? 'service needs' : 'services need'} attention`,
             }
           : {
               id: 'agent-service',
-              label: 'Agent service',
+              label: 'CLIO',
               state: 'healthy',
               stateLabel: 'Ready',
             };
@@ -174,7 +176,10 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   return (
     <Collapsible asChild onOpenChange={setOpen} open={open}>
       <SidebarMenuItem>
-        <SidebarMenuButton asChild tooltip={`Infrastructure status: ${overall.stateLabel}`}>
+        <SidebarMenuButton
+          asChild
+          tooltip={`Infrastructure: ${overall.stateLabel}. ${overall.detail || infrastructureSummary(items)}`}
+        >
           <Link
             aria-label={`Infrastructure: ${overall.stateLabel}`}
             state={{ endpoint, from }}
@@ -322,6 +327,14 @@ function aggregateInfrastructureState(items: readonly InfrastructureItem[]): Inf
     };
   }
   return { id: 'infrastructure', label: 'Infrastructure', state: 'healthy', stateLabel: 'Ready' };
+}
+
+function infrastructureSummary(items: readonly InfrastructureItem[]): string {
+  const active = items.filter((item) => item.state !== 'unavailable');
+  if (!active.length) return 'No optional services are connected.';
+  const attention = active.filter((item) => ['failed', 'degraded'].includes(item.state));
+  if (!attention.length) return 'CLIO and connected services are ready.';
+  return attention.map((item) => `${item.label}: ${item.stateLabel}`).join('; ');
 }
 
 function InfrastructureStateIcon({ state }: { state: InfrastructureState }) {

@@ -639,6 +639,7 @@ export interface ServiceIntegrationHealth {
   config_source?: string;
   next_action?: string;
   endpoint?: string;
+  required?: boolean;
 }
 
 export interface ServiceHealth {

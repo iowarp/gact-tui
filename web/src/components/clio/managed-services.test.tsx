@@ -94,7 +94,7 @@ describe('ManagedServices', () => {
     expect(await screen.findByRole('heading', { name: 'Managed infrastructure' })).toBeVisible();
     expect(screen.getByText('CLIO resources')).toBeVisible();
     expect(await screen.findByRole('heading', { name: 'CLIO Web Search' })).toBeVisible();
-    expect(screen.getByRole('heading', { name: 'CLIO Relay' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'CLIO Relay' })).not.toBeInTheDocument();
     expect(screen.getByText('Running')).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'vLLM' })).not.toBeInTheDocument();
 

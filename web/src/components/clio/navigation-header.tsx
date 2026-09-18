@@ -25,12 +25,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { SavedConnection } from '@/lib/connection';
 import {
   connectionAvailability,
@@ -75,7 +70,11 @@ export function NavigationHeader({
         <SidebarMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <SidebarMenuButton className="h-11" size="lg" tooltip={`${brand.name} service`}>
+              <SidebarMenuButton
+                className="h-11"
+                size="lg"
+                tooltip={`${brand.name}: ${activeAvailability.label}. ${activeAvailability.detail}`}
+              >
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
                   {logoSource ? (
                     <img alt="" className="size-7 object-contain" src={logoSource} />
@@ -103,6 +102,7 @@ export function NavigationHeader({
                                     : 'bg-info'
                             }`}
                             role="img"
+                            title={`${activeAvailability.label}: ${activeAvailability.detail}`}
                           />
                         </TooltipTrigger>
                         <TooltipContent align="start" className="max-w-72" side="bottom">

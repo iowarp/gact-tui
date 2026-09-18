@@ -108,7 +108,8 @@ pub fn run() {
             sse_bridge::gact_sse_open,
             sse_bridge::gact_sse_close,
             plugins::exec_plugin,
-            workspace_terminal::open_workspace_terminal
+            workspace_terminal::open_workspace_terminal,
+            quit_clio
         ])
         .setup(|app| {
             // Resolve + remember the persisted boot-log path FIRST so the
@@ -234,7 +235,7 @@ pub fn run() {
 ///
 /// This is intentionally idempotent because native shutdown can deliver both
 /// `ExitRequested` and a final window-destroyed event.
-fn shutdown_owned_services(app: &tauri::AppHandle) {
+pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(state) = app.try_state::<Mutex<Supervisor>>() {
         // lock_recover, not plain lock(): a poisoned mutex here would silently
         // skip child reaping and leak the sidecar process tree on exit.
@@ -246,4 +247,16 @@ fn shutdown_owned_services(app: &tauri::AppHandle) {
     if let Some(sse) = app.try_state::<sse_registry::SseRegistry>() {
         sse.stop_all();
     }
+}
+
+/// Stop processes owned by this desktop instance before exiting the shell.
+///
+/// The process plugin's direct `exit` path can terminate the WebView before
+/// Tauri delivers `RunEvent::ExitRequested`, so the product-owned Quit action
+/// uses this command to make teardown an explicit, awaited part of the user
+/// action.
+#[tauri::command]
+fn quit_clio(app: tauri::AppHandle) {
+    shutdown_owned_services(&app);
+    app.exit(0);
 }

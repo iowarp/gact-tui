@@ -488,7 +488,10 @@ export const toolCatalogItemSchema = z.object({
   name: z.string(),
   title: z.string().optional(),
   description: z.string().optional(),
-  server_id: z.string().optional(),
+  server_id: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
   source: z.string().optional(),
   status: z.string().optional(),
   enabled: z.boolean().optional(),

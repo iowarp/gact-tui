@@ -58,6 +58,7 @@ pub(crate) fn install_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()>
         .on_menu_event(|app, ev| match ev.id().as_ref() {
             SHOW_ID => show_main_window(app),
             QUIT_ID => {
+                crate::shutdown_owned_services(app);
                 app.exit(0);
             }
             _ => {}

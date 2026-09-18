@@ -90,7 +90,11 @@ export function ManagedServices() {
   });
   const services = catalog.data?.services ?? [];
   const providers = services.filter((service) => MODEL_PROVIDER_IDS.has(service.id));
-  const resources = services.filter((service) => !MODEL_PROVIDER_IDS.has(service.id));
+  const resources = services.filter(
+    (service) =>
+      !MODEL_PROVIDER_IDS.has(service.id) &&
+      (target === 'ssh' || !service.label.toLowerCase().includes('relay')),
+  );
   const provider = providers.find((service) => service.id === selectedProvider);
 
   if (!desktop) {
@@ -277,7 +281,11 @@ export function ManagedServices() {
 
         <ManagedGroup
           defaultOpen
-          description="Private services that extend CLIO with search, documents, and remote work."
+          description={
+            target === 'local'
+              ? 'Optional search and document services for this computer.'
+              : 'Optional search, document, and remote-work services for this host.'
+          }
           icon={PackageOpenIcon}
           title="CLIO resources"
         >
@@ -373,6 +381,12 @@ function ServiceCard({
   const missing = service.configuration_fields.some(
     (field) => field.required && !configuration[field.id]?.trim(),
   );
+  const actions: ServiceAction[] =
+    service.state === 'running'
+      ? ['status', 'logs', ...(service.supports_stop ? (['stop'] as const) : [])]
+      : service.state === 'stopped'
+        ? ['start', 'status', 'logs']
+        : ['install'];
   return (
     <article className="rounded-lg border bg-card p-3">
       <div className="flex items-start justify-between gap-3">
@@ -383,83 +397,81 @@ function ServiceCard({
         <ServiceState state={service.state} />
       </div>
       {compatible.length ? (
-        <Select onValueChange={onVariant} value={variant}>
-          <SelectTrigger aria-label={`${service.label} version`} className="mt-3">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {compatible.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.label} · {item.version}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <details className="mt-3">
+          <summary className="cursor-pointer text-xs text-muted-foreground">
+            Advanced setup options
+          </summary>
+          <Select onValueChange={onVariant} value={variant}>
+            <SelectTrigger aria-label={`${service.label} version`} className="mt-2">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {compatible.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.label} · {item.version}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </details>
       ) : (
-        <div className="mt-3 text-sm text-warning">
-          <p>No compatible pinned build was detected.</p>
+        <div className="mt-3 rounded-md bg-muted/40 p-3 text-sm">
+          <p className="font-medium">Setup needs one more prerequisite</p>
           {incompatibilityReasons.map((reason) => (
-            <p className="text-xs text-muted-foreground" key={reason}>
+            <p className="mt-1 text-xs text-muted-foreground" key={reason}>
               {reason}
             </p>
           ))}
         </div>
       )}
-      {service.configuration_fields.map((field) =>
-        field.options?.length ? (
-          <Select
-            key={field.id}
-            onValueChange={(value) => onConfiguration(field.id, value)}
-            value={configuration[field.id]}
-          >
-            <SelectTrigger aria-label={`${service.label} ${field.label}`} className="mt-2">
-              <SelectValue placeholder={field.placeholder} />
-            </SelectTrigger>
-            <SelectContent>
-              {field.options.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <Input
-            aria-label={`${service.label} ${field.label}`}
-            className="mt-2"
-            key={field.id}
-            onChange={(event) => onConfiguration(field.id, event.target.value)}
-            placeholder={field.placeholder}
-            required={field.required}
-            value={configuration[field.id] ?? ''}
-          />
-        ),
-      )}
-      <div className="mt-3 flex flex-wrap gap-2">
-        {(['install', 'start', 'status', 'logs'] as const).map((name) => (
-          <Button
-            disabled={Boolean(activeAction) || !variant || (name === 'start' && missing)}
-            key={name}
-            onClick={() => onAction(name)}
-            size="sm"
-            variant={name === 'start' ? 'default' : 'outline'}
-          >
-            {activeAction === name ? <Spinner aria-hidden="true" /> : null}
-            {activeAction === name ? `${actionLabel(name)}…` : actionLabel(name)}
-          </Button>
-        ))}
-        {service.supports_stop ? (
-          <Button
-            disabled={Boolean(activeAction) || !variant}
-            onClick={() => onAction('stop')}
-            size="sm"
-            variant="outline"
-          >
-            {activeAction === 'stop' ? <Spinner aria-hidden="true" /> : null}
-            {activeAction === 'stop' ? 'Stopping…' : 'Stop'}
-          </Button>
-        ) : null}
-      </div>
+      {compatible.length
+        ? service.configuration_fields.map((field) =>
+            field.options?.length ? (
+              <Select
+                key={field.id}
+                onValueChange={(value) => onConfiguration(field.id, value)}
+                value={configuration[field.id]}
+              >
+                <SelectTrigger aria-label={`${service.label} ${field.label}`} className="mt-2">
+                  <SelectValue placeholder={field.placeholder} />
+                </SelectTrigger>
+                <SelectContent>
+                  {field.options.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                aria-label={`${service.label} ${field.label}`}
+                className="mt-2"
+                key={field.id}
+                onChange={(event) => onConfiguration(field.id, event.target.value)}
+                placeholder={field.placeholder}
+                required={field.required}
+                value={configuration[field.id] ?? ''}
+              />
+            ),
+          )
+        : null}
+      {compatible.length ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {actions.map((name) => (
+            <Button
+              disabled={Boolean(activeAction) || !variant || (name === 'start' && missing)}
+              key={name}
+              onClick={() => onAction(name)}
+              size="sm"
+              variant={name === 'start' ? 'default' : 'outline'}
+            >
+              {activeAction === name ? <Spinner aria-hidden="true" /> : null}
+              {activeAction === name ? `${actionLabel(name)}…` : actionLabel(name)}
+            </Button>
+          ))}
+        </div>
+      ) : null}
       {result ? (
         <pre
           aria-live="polite"
@@ -476,7 +488,7 @@ function ServiceState({ state }: { state: ManagedServiceDefinition['state'] }) {
   if (state === 'running') return <ClioStatus label="Running" value="healthy" />;
   if (state === 'stopped') return <ClioStatus label="Stopped" value="degraded" />;
   if (state === 'not_installed') return <ClioStatus label="Not installed" value="unavailable" />;
-  return <ClioStatus label="Not checked" value="unknown" />;
+  return <ClioStatus label="Optional" value="unavailable" />;
 }
 
 function actionLabel(action: ServiceAction): string {

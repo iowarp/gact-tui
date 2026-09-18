@@ -5,6 +5,7 @@ import type {
   McpServerDefinition,
   RelayStatus,
   ServiceIntegrationHealth,
+  ToolCatalogItem,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -42,6 +43,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   returnRouteFromState,
   sessionIdFromRoute,
@@ -57,6 +59,7 @@ import {
 } from '@/lib/mcp-service-presentation';
 
 export function InfrastructurePage() {
+  const desktop = inTauri();
   const location = useLocation();
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -92,6 +95,11 @@ export function InfrastructurePage() {
     queryFn: ({ signal }) => repository.effectiveAgentToolset(sessionId ?? '', signal),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
+  const catalogTools = useQuery({
+    queryKey: queryKeys.key('tools', settings.endpoint, 'builtin-catalog'),
+    queryFn: ({ signal }) => repository.catalogTools(signal),
+    refetchInterval: INFRASTRUCTURE_POLL_MS,
+  });
   const webSearchConfiguration = useQuery({
     queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
     queryFn: ({ signal }) => repository.mcpConfiguration('web', signal),
@@ -99,7 +107,8 @@ export function InfrastructurePage() {
   const error = health.error ?? relay.error ?? servers.error ?? webSearchConfiguration.error;
   const foundationIssues =
     health.data?.integrations.filter(
-      (integration) => integrationStatus(integration.status) !== 'healthy',
+      (integration) =>
+        integration.required !== false && integrationStatus(integration.status) !== 'healthy',
     ).length ?? 0;
   const webSearch = servers.data?.find(isWebSearchServer);
   const webSearchReady =
@@ -132,9 +141,9 @@ export function InfrastructurePage() {
         <header className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Set up</p>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight">Agent capabilities</h1>
+            <h1 className="mt-2 text-4xl font-semibold tracking-tight">CLIO capabilities</h1>
             <p className="mt-2 max-w-2xl text-muted-foreground">
-              See what this agent can use, then configure the services that supply more tools.
+              See what CLIO can use, then add only the services you need.
             </p>
           </div>
           <Button asChild variant="outline">
@@ -161,48 +170,50 @@ export function InfrastructurePage() {
 
         <ManagedServices />
 
-        <section aria-label="Add capabilities" className="mt-8 grid gap-4 md:grid-cols-2">
-          <SetupCard
-            action={
-              webSearchReady
-                ? 'View MCP'
-                : webSearchConfigured
-                  ? 'Retry setup'
-                  : 'Set up web search'
-            }
-            description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
-            icon={BookOpenCheckIcon}
-            onAction={() => setWebSearchOpen(true)}
-            status={webSearchReady ? 'healthy' : webSearchConfigured ? 'degraded' : 'unavailable'}
-            statusLabel={
-              webSearchReady ? 'Ready' : webSearchConfigured ? 'Needs attention' : 'Not set up'
-            }
-            title="Research and documents"
-            to={webSearchReady ? '/settings/tools' : undefined}
-          />
-          <SetupCard
-            action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}
-            description="Run and follow work on lab computers or clusters through CLIO Relay."
-            detail={relay.data?.reachable ? undefined : relayDegradationDetail(relay.data)}
-            icon={NetworkIcon}
-            onAction={() => setRelayOpen(true)}
-            status={
-              relay.data?.reachable
-                ? 'healthy'
-                : relay.data?.configured
-                  ? 'degraded'
-                  : 'unavailable'
-            }
-            statusLabel={
-              relay.data?.reachable
-                ? 'Ready'
-                : relay.data?.configured
-                  ? 'Needs attention'
-                  : 'Not set up'
-            }
-            title="Remote computers"
-          />
-        </section>
+        {!desktop ? (
+          <section aria-label="Add capabilities" className="mt-8 grid gap-4 md:grid-cols-2">
+            <SetupCard
+              action={
+                webSearchReady
+                  ? 'View MCP'
+                  : webSearchConfigured
+                    ? 'Retry setup'
+                    : 'Set up web search'
+              }
+              description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
+              icon={BookOpenCheckIcon}
+              onAction={() => setWebSearchOpen(true)}
+              status={webSearchReady ? 'healthy' : webSearchConfigured ? 'degraded' : 'unavailable'}
+              statusLabel={
+                webSearchReady ? 'Ready' : webSearchConfigured ? 'Needs attention' : 'Not set up'
+              }
+              title="Research and documents"
+              to={webSearchReady ? '/settings/tools' : undefined}
+            />
+            <SetupCard
+              action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}
+              description="Run and follow work on lab computers or clusters through CLIO Relay."
+              detail={relay.data?.reachable ? undefined : relayDegradationDetail(relay.data)}
+              icon={NetworkIcon}
+              onAction={() => setRelayOpen(true)}
+              status={
+                relay.data?.reachable
+                  ? 'healthy'
+                  : relay.data?.configured
+                    ? 'degraded'
+                    : 'unavailable'
+              }
+              statusLabel={
+                relay.data?.reachable
+                  ? 'Ready'
+                  : relay.data?.configured
+                    ? 'Needs attention'
+                    : 'Not set up'
+              }
+              title="Remote computers"
+            />
+          </section>
+        ) : null}
 
         {sessionId ? (
           <Frame className="mt-6" spacing="sm">
@@ -223,17 +234,20 @@ export function InfrastructurePage() {
                 </div>
               ) : toolset.data ? (
                 <EffectiveToolset tools={toolset.data.tools} />
+              ) : catalogTools.data?.length ? (
+                <CatalogToolset tools={catalogTools.data} />
               ) : (
                 <p className="p-5 text-sm text-muted-foreground">
-                  This session has not recorded an effective toolset yet.
+                  CLIO has not reported its tool catalog yet.
                 </p>
               )}
             </FramePanel>
-            {toolset.data ? (
+            {toolset.data || catalogTools.data?.length ? (
               <FrameFooter>
                 <p className="text-xs text-muted-foreground">
-                  {toolset.data.tools.length} tools recorded for{' '}
-                  {toolset.data.agentId || 'this agent'}
+                  {toolset.data
+                    ? `${toolset.data.tools.length} tools recorded for ${toolset.data.agentId || 'this agent'}`
+                    : `${catalogTools.data?.length ?? 0} built-in CLIO tools; session-specific tools appear after the agent starts`}
                 </p>
               </FrameFooter>
             ) : null}
@@ -313,9 +327,9 @@ export function InfrastructurePage() {
           <FrameHeader>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <FrameTitle>Agent service</FrameTitle>
+                <FrameTitle>CLIO</FrameTitle>
                 <FrameDescription>
-                  {agentServiceDescription(health.data, foundationIssues)}
+                  {clioServiceDescription(health.data, foundationIssues)}
                 </FrameDescription>
               </div>
               <ClioStatus
@@ -444,6 +458,34 @@ function EffectiveToolset({ tools }: { tools: EffectiveAgentTool[] }) {
   );
 }
 
+function CatalogToolset({ tools }: { tools: ToolCatalogItem[] }) {
+  return (
+    <details className="group" open>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 bg-muted/30 px-4 py-3">
+        <span>
+          <span className="block text-sm font-medium">Built-in CLIO tools</span>
+          <span className="block text-xs text-muted-foreground">
+            Files, commands, planning, memory, resources, artifacts, and agent coordination.
+          </span>
+        </span>
+        <span className="text-xs tabular-nums text-muted-foreground">{tools.length} tools</span>
+      </summary>
+      <ul className="grid border-t sm:grid-cols-2 lg:grid-cols-3">
+        {tools.map((tool) => (
+          <li className="min-w-0 border-b px-4 py-2" key={tool.name}>
+            <p className="truncate text-sm font-medium" title={tool.title || tool.name}>
+              {tool.title || tool.name.replaceAll('_', ' ')}
+            </p>
+            <code className="block truncate text-[11px] text-muted-foreground" title={tool.name}>
+              {tool.name}
+            </code>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function SetupCard({
   action,
   description,
@@ -507,22 +549,49 @@ function ServiceRow({ server }: { server: McpServerDefinition }) {
   const status = serviceStatus(server);
   const toolCount = serviceToolCount(server);
   return (
-    <div className="flex min-w-0 items-center gap-3 px-4 py-3">
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-        <ServiceIcon server={server} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate text-sm font-medium">{serviceTitle(server)}</p>
-          <Badge variant="outline">{serviceOwnership(server)}</Badge>
+    <details className="group">
+      <summary className="flex min-w-0 cursor-pointer list-none items-center gap-3 px-4 py-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+          <ServiceIcon server={server} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-medium">{serviceTitle(server)}</p>
+            <Badge variant="outline">{serviceOwnership(server)}</Badge>
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {serviceDescription(server)}
+            {toolCount ? <span className="ml-2">{toolCount}</span> : null}
+          </p>
         </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {serviceDescription(server)}
-          {toolCount ? <span className="ml-2">{toolCount}</span> : null}
-        </p>
+        <ClioStatus detail={server.error} label={status.label} value={status.value} />
+        <span
+          aria-hidden="true"
+          className="text-muted-foreground transition-transform group-open:rotate-180"
+        >
+          ⌄
+        </span>
+      </summary>
+      <div className="border-t bg-muted/20 px-4 py-3">
+        {server.tools.length ? (
+          <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+            {server.tools.map((tool) => (
+              <li
+                className="truncate font-mono text-xs text-muted-foreground"
+                key={tool}
+                title={tool}
+              >
+                {tool}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            This service reported {server.tools_count} tools, but did not include their names.
+          </p>
+        )}
       </div>
-      <ClioStatus detail={server.error} label={status.label} value={status.value} />
-    </div>
+    </details>
   );
 }
 
@@ -561,7 +630,14 @@ function FoundationRow({ integration }: { integration: ServiceIntegrationHealth 
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {foundationTitle(integration.name)}
         </span>
-        <ClioStatus label={integrationStatusLabel(status)} value={status} />
+        <ClioStatus
+          label={
+            integration.required === false && status !== 'healthy'
+              ? 'Optional'
+              : integrationStatusLabel(status)
+          }
+          value={integration.required === false && status !== 'healthy' ? 'unavailable' : status}
+        />
       </summary>
       <div className="mt-3 border-t pt-3 text-xs leading-5 text-muted-foreground">
         <p>{summary}</p>
@@ -592,7 +668,7 @@ function FoundationRow({ integration }: { integration: ServiceIntegrationHealth 
 }
 
 function integrationStatus(status: string): ClioStatusValue {
-  if (['ready', 'healthy', 'live'].includes(status)) return 'healthy';
+  if (['ready', 'healthy', 'live', 'skipped'].includes(status)) return 'healthy';
   if (['degraded', 'warning', 'reconnecting'].includes(status)) return 'degraded';
   return 'unavailable';
 }
@@ -603,17 +679,17 @@ function integrationStatusLabel(status: ClioStatusValue): string {
   return 'Unavailable';
 }
 
-function agentServiceDescription(
+function clioServiceDescription(
   health: { healthy: boolean } | undefined,
   foundationIssues: number,
 ): string {
-  if (!health) return 'Checking the connected agent service.';
-  if (!health.healthy) return 'The connected agent service needs attention.';
+  if (!health) return 'Checking CLIO.';
+  if (!health.healthy) return 'CLIO needs attention.';
   if (foundationIssues === 1) return 'Running with 1 supporting service needing attention.';
   if (foundationIssues > 1) {
     return `Running with ${foundationIssues} supporting services needing attention.`;
   }
-  return 'The connected agent service is running normally.';
+  return 'CLIO is running normally.';
 }
 
 function foundationSummary(integration: ServiceIntegrationHealth): string {
@@ -632,6 +708,8 @@ function foundationSummary(integration: ServiceIntegrationHealth): string {
   };
   const degraded: Record<string, string> = {
     arc: 'Conversation memory is using a limited local fallback.',
+    sandbox:
+      'Extra operating-system confinement is not enabled. CLIO still applies workspace access rules and records out-of-workspace attempts.',
     child_parentage: 'Some background processes are no longer attached to this agent service.',
   };
   if (integrationStatus(integration.status) === 'healthy') {
@@ -644,6 +722,7 @@ function foundationAction(
   integration: ServiceIntegrationHealth,
 ): { description: string; label: string; to: string } | undefined {
   if (integrationStatus(integration.status) === 'healthy') return undefined;
+  if (integration.required === false) return undefined;
   if (integration.name === 'arc') {
     return {
       description: 'Use the full conversation-memory service to restore complete agent behavior.',

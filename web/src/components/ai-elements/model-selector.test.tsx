@@ -1,26 +1,22 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { ModelSelectorLogo } from './model-selector';
 
 describe('ModelSelectorLogo', () => {
-  it('uses packaged provider artwork without a network dependency', () => {
+  it('renders provider marks without a network or asset-path dependency', () => {
     render(<ModelSelectorLogo provider="amazon-bedrock" />);
 
-    expect(screen.getByRole('img', { name: 'amazon-bedrock logo' })).toHaveAttribute(
-      'src',
-      '/provider-logos/amazon-bedrock.svg',
-    );
+    expect(screen.getByRole('img', { name: 'amazon-bedrock logo' })).toHaveTextContent('AWS');
   });
 
-  it('uses the packaged generic artwork for unknown providers and failed assets', () => {
+  it('uses a compact text mark for providers without a dedicated mark', () => {
     const { rerender } = render(<ModelSelectorLogo provider="future-provider" />);
     const unknown = screen.getByRole('img', { name: 'future-provider logo' });
-    expect(unknown).toHaveAttribute('src', '/provider-logos/generic.svg');
+    expect(unknown).toHaveTextContent('FU');
 
     rerender(<ModelSelectorLogo provider="google" />);
     const known = screen.getByRole('img', { name: 'google logo' });
-    fireEvent.error(known);
-    expect(known).toHaveAttribute('src', '/provider-logos/generic.svg');
+    expect(known).toHaveTextContent('G');
   });
 });

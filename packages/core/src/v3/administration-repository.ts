@@ -146,6 +146,7 @@ const serviceHealthSchema = z.object({
         .string()
         .nullish()
         .transform((value) => value ?? undefined),
+      required: z.boolean().default(true),
     }),
   ),
   tool_hooks_installed: z

@@ -8,8 +8,8 @@ export type DesktopWindowAction =
 /** Execute a window action through Tauri without loading its API in web builds. */
 export async function runDesktopWindowAction(action: DesktopWindowAction): Promise<void> {
   if (action === 'quit') {
-    const { exit } = await import('@tauri-apps/plugin-process');
-    await exit(0);
+    const { invoke } = await import('@tauri-apps/api/core');
+    await invoke('quit_clio');
     return;
   }
   const { getCurrentWindow } = await import('@tauri-apps/api/window');
