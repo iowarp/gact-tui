@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
+import { vocab } from '@/lib/brand-vocabulary';
 
 type Target = 'local' | 'ssh';
 type ServiceAction = ManagedServiceActionInput['action'];
@@ -118,8 +119,8 @@ export function ManagedServices({
             infrastructure
           </FrameTitle>
           <FrameDescription>
-            Connect services here. Installing and operating services on a computer is available in
-            CLIO Desktop.
+            Connect services here. Installing and operating services on a computer is available in{' '}
+            {vocab.product}.
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="flex flex-wrap items-center justify-between gap-4">
@@ -170,7 +171,7 @@ export function ManagedServices({
                 ? 'View tools'
                 : webSearchConnecting
                   ? 'Connecting…'
-                  : 'Connect to CLIO',
+                  : `Connect to ${vocab.agent}`,
               onSelect:
                 webSearchConnected || !service.connection_url
                   ? undefined
@@ -199,8 +200,8 @@ export function ManagedServices({
               Where should this capability run?
             </h2>
             <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-              Choose this device or a saved SSH host. CLIO inspects the target before showing what
-              can be installed, connected, or operated there.
+              Choose this device or a saved SSH host. {vocab.agent} inspects the target before
+              showing what can be installed, connected, or operated there.
             </p>
             {catalog.data ? (
               <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground">
@@ -294,7 +295,7 @@ export function ManagedServices({
           <div className="flex items-start justify-between gap-4 lg:pr-8">
             <div>
               <FieldLabel htmlFor="managed-provider-enabled">
-                Manage a model runtime with CLIO
+                Manage a model runtime with {vocab.agent}
               </FieldLabel>
               <p className="mt-1 text-sm text-muted-foreground">
                 Leave this off when you already use Codex, Claude, or another configured provider.
@@ -351,7 +352,7 @@ export function ManagedServices({
         <div className="divide-y border-y">{resources.map(renderService)}</div>
         {!catalog.isPending && !resources.length ? (
           <p className="border-y py-6 text-sm text-muted-foreground">
-            Choose a target to see the services CLIO can manage there.
+            Choose a target to see the services {vocab.agent} can manage there.
           </p>
         ) : null}
       </CapabilitySection>
@@ -397,9 +398,9 @@ function InspectionProgress({ profile, target }: { profile: string; target: Targ
       <AlertTitle>{remote ? `Connecting to ${place}` : 'Inspecting this computer'}</AlertTitle>
       <AlertDescription>
         {remote
-          ? 'Checking the SSH connection, operating system, Docker, runtimes, acceleration, and existing CLIO services.'
-          : 'Checking the operating system, Docker, local runtimes, acceleration, and existing CLIO services.'}{' '}
-        You can keep using CLIO while this finishes.
+          ? `Checking the SSH connection, operating system, Docker, runtimes, acceleration, and existing ${vocab.agent} services.`
+          : `Checking the operating system, Docker, local runtimes, acceleration, and existing ${vocab.agent} services.`}{' '}
+        You can keep using {vocab.agent} while this finishes.
       </AlertDescription>
     </Alert>
   );
@@ -541,7 +542,9 @@ function ServiceCard({
           : null}
 
         {service.state === 'running' && service.id === 'web_search' && !service.connection_url ? (
-          <p className="text-sm text-destructive">CLIO could not determine this service address.</p>
+          <p className="text-sm text-destructive">
+            {vocab.agent} could not determine this service address.
+          </p>
         ) : null}
 
         {operable ? (

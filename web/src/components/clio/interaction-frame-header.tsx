@@ -5,6 +5,7 @@ import { FrameHeader, FrameTitle } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { OwnerAttribution } from './pending-interaction-notices';
+import { TechnicalDetails } from './technical-details';
 
 interface InteractionFrameHeaderProps {
   interaction: PendingInteraction;
@@ -49,10 +50,9 @@ export function InteractionFrameHeader({
               The specialist could not answer this, so it needs you.
             </p>
             {interaction.fallback_detail ? (
-              <details className="mt-1 text-xs text-muted-foreground">
-                <summary className="cursor-pointer">Technical details</summary>
+              <TechnicalDetails className="mt-1 text-xs text-muted-foreground" title="Technical details">
                 <code>{interaction.fallback_detail}</code>
-              </details>
+              </TechnicalDetails>
             ) : null}
           </>
         ) : null}

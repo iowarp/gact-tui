@@ -37,6 +37,15 @@ pub struct BrandBackend {
     /// Native product label from the selected brand profile.
     #[serde(default)]
     pub product_name: String,
+    /// What the running agent is called in first-person UI copy (e.g. a
+    /// "Keep {agent_name} running?" quit-confirmation prompt — today that
+    /// prompt is JS-side, in `web/src/lib/brand-vocabulary.ts`'s `vocab.agent`,
+    /// which resolves the SAME brand.json field independently; this
+    /// embedded copy exists for native call sites that need it without a
+    /// round trip through the webview). Defaults to the brand's bare `name`
+    /// when the brand declares no explicit `agentName`.
+    #[serde(default)]
+    pub agent_name: String,
     /// `"managed"` (spawn/install a sidecar) or `"connect"` (attach-only).
     pub mode: String,
     /// externalBin stem — installed as `<sidecar_name>{.exe}` (tauri-bundler
@@ -101,6 +110,19 @@ pub(crate) fn product_name() -> Option<&'static str> {
     (!value.is_empty()).then_some(value)
 }
 
+/// The running agent's first-person label compiled from the selected brand
+/// profile, when available (e.g. for "Keep {agent_name} running?" prompts).
+///
+/// No native call site uses this yet — that prompt is JS-side today (see
+/// the `agent_name` field doc). Kept as a real, tested accessor (parity with
+/// [`product_name`]) for the first native first-person copy that needs it,
+/// rather than leaving the field reachable only through `Debug`.
+#[allow(dead_code)]
+pub(crate) fn agent_name() -> Option<&'static str> {
+    let value = brand_backend().agent_name.trim();
+    (!value.is_empty()).then_some(value)
+}
+
 /// The user-facing error for a connect-mode brand when no backend answers the
 /// attach probe. Names the brand's repo label (never a vendor literal) and the
 /// override env vars, telling the user to start that backend themselves.
@@ -137,6 +159,15 @@ mod tests {
         assert_eq!(bb.attach_port_env, "GACT_PORT");
         assert_eq!(bb.attach_url_env, "GACT_URL");
         assert_eq!(bb.attach_port, 17800);
+    }
+
+    /// `agent_name()` reads the generator-emitted `agentName` field (the
+    /// vocabulary counterpart to `product_name()`), defaulted by the
+    /// generator to the brand's bare `name` when a brand declares no
+    /// explicit override.
+    #[test]
+    fn agent_name_reads_the_embedded_vocabulary_field() {
+        assert_eq!(agent_name(), Some("Agent Workspace"));
     }
 
     /// The connect-mode error names the override env vars and never a hardcoded

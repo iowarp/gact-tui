@@ -275,7 +275,7 @@ describe('ClioConversation activity and interactive surfaces', () => {
     );
 
     expect(screen.getByText('Interactive surface removed')).toBeInTheDocument();
-    expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
+    expect(screen.queryByText('A2UI protocol surface unavailable')).not.toBeInTheDocument();
   });
 
   it('leaves a pending interactive surface to the response stack and hides empty routing noise', () => {

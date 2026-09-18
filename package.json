@@ -4,10 +4,11 @@
   "private": true,
   "description": "CLIO web workspace and Tauri desktop host",
   "scripts": {
-    "lint": "node scripts/check_presentation_overrides.mjs && node scripts/check_frontend_component_reuse.mjs && node scripts/check_frontend_file_size.mjs && pnpm -r --workspace-concurrency=1 lint",
+    "lint": "node scripts/check_presentation_overrides.mjs && node scripts/check_frontend_component_reuse.mjs && node scripts/check_frontend_file_size.mjs && node scripts/check_brand_literals.mjs && pnpm -r --workspace-concurrency=1 lint",
     "check:presentation-overrides": "node scripts/check_presentation_overrides.mjs",
     "check:frontend-reuse": "node scripts/check_frontend_component_reuse.mjs",
     "check:frontend-size": "node scripts/check_frontend_file_size.mjs",
+    "check:brand-literals": "node scripts/check_brand_literals.mjs",
     "typecheck": "pnpm -r --workspace-concurrency=1 typecheck",
     "test": "pnpm -r --workspace-concurrency=1 test",
     "build": "pnpm --filter @clio/core build && pnpm --filter @clio/workspace build",

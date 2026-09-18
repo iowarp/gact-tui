@@ -1,4 +1,5 @@
 import { MANAGED_BACKEND_POLL_MS, MANAGED_BACKEND_READY_TIMEOUT_MS } from '@/lib/runtime-limits';
+import { vocab } from '@/lib/brand-vocabulary';
 
 export type ManagedBackendStatus =
   | { kind: 'starting'; detail: 'checking_existing' | 'starting_service' }
@@ -40,14 +41,14 @@ export async function waitForManagedBackend(
     options.onStatus?.(handle.status);
     if (handle.status.kind === 'ready') return handle;
     if (handle.status.kind === 'error') {
-      throw new Error(handle.status.detail || 'The managed CLIO service could not start.');
+      throw new Error(handle.status.detail || `The managed ${vocab.agent} service could not start.`);
     }
     if (handle.status.kind === 'needs_install' && !installStarted) {
       installStarted = true;
       await invokeManagedBackend<void>('install_clio');
     }
     if (Date.now() >= deadline) {
-      throw new Error('The managed CLIO service did not become ready in time.');
+      throw new Error(`The managed ${vocab.agent} service did not become ready in time.`);
     }
     await new Promise<void>((resolve) => {
       window.setTimeout(resolve, pollIntervalMs);

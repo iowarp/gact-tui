@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { ClioStatus, type ClioStatusValue } from '@/components/clio/status';
 import { humanizeProtocolValue } from '@/components/clio/presentation-labels';
 import { RelayConnectionDialog } from '@/components/clio/relay-settings';
+import { TechnicalDetails } from '@/components/clio/technical-details';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import { ManagedServices } from '@/components/clio/managed-services';
 import { Frame, FrameFooter, FramePanel } from '@/components/reui/frame';
@@ -34,6 +35,7 @@ import { CatalogToolset } from '@/components/clio/catalog-toolset';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { webSearchMcpArgs } from '@/lib/web-search-service';
 import {
   returnRouteFromState,
@@ -169,7 +171,7 @@ export function InfrastructurePage() {
         >
           <Button asChild className="mb-4 justify-start" variant="ghost">
             <Link to={workspaceRoute}>
-              <ChevronLeftIcon aria-hidden="true" /> Workspace
+              <ChevronLeftIcon aria-hidden="true" /> {capitalize(vocab.workspace)}
             </Link>
           </Button>
           {INFRASTRUCTURE_SECTIONS.map(({ id, icon: SectionIcon, label }) => (
@@ -235,11 +237,11 @@ export function InfrastructurePage() {
               <NetworkIcon aria-hidden="true" />
               <AlertTitle>This section could not load completely</AlertTitle>
               <AlertDescription>
-                The connected CLIO service did not return all of the requested information.
-                <details className="mt-2 text-xs">
-                  <summary className="cursor-pointer">Technical details</summary>
+                The connected {vocab.agent} service did not return all of the requested
+                information.
+                <TechnicalDetails className="mt-2 text-xs" title="Technical details">
                   <p className="mt-1 break-words font-mono">{error.message}</p>
-                </details>
+                </TechnicalDetails>
               </AlertDescription>
             </Alert>
           ) : null}
@@ -255,7 +257,7 @@ export function InfrastructurePage() {
                 <CatalogToolset servers={servers.data ?? []} tools={tools.data} />
               ) : (
                 <p className="rounded-xl border p-6 text-sm text-muted-foreground">
-                  CLIO has not reported any tools.
+                  {capitalize(vocab.agent)} has not reported any tools.
                 </p>
               )}
             </div>
@@ -371,23 +373,21 @@ type InfrastructureSection = 'agent' | 'tools' | 'services';
 const INFRASTRUCTURE_SECTIONS = [
   {
     id: 'agent',
-    label: 'Agent',
+    label: vocab.agent,
     icon: BotIcon,
-    description: 'Confirm that CLIO itself and the components it depends on are ready.',
+    description: `Confirm that ${vocab.agent} itself and the components it depends on are ready.`,
   },
   {
     id: 'tools',
     label: 'Tools',
     icon: WrenchIcon,
-    description:
-      'Inspect every CLIO and MCP tool, including its accepted inputs and returned data.',
+    description: `Inspect every ${vocab.agent} and MCP tool, including its accepted inputs and returned data.`,
   },
   {
     id: 'services',
     label: 'Services',
     icon: CableIcon,
-    description:
-      'Install, connect, operate, and verify the services that give CLIO more capabilities.',
+    description: `Install, connect, operate, and verify the services that give ${vocab.agent} more capabilities.`,
   },
 ] as const;
 
@@ -487,15 +487,14 @@ function FoundationRow({ integration }: { integration: ServiceIntegrationHealth 
           </div>
         ) : null}
         {integration.summary || integration.detail || integration.config_source ? (
-          <details className="mt-2">
-            <summary className="cursor-pointer text-muted-foreground">Technical details</summary>
+          <TechnicalDetails className="mt-2" title="Technical details">
             <div className="mt-2 grid gap-1 break-words font-mono text-[10px]">
               {integration.summary || integration.detail ? (
                 <p>{integration.summary || integration.detail}</p>
               ) : null}
               {integration.config_source ? <p>{integration.config_source}</p> : null}
             </div>
-          </details>
+          </TechnicalDetails>
         ) : null}
       </div>
     </details>
@@ -524,13 +523,13 @@ function clioServiceDescription(
   health: { healthy: boolean } | undefined,
   foundationIssues: number,
 ): string {
-  if (!health) return 'Checking CLIO.';
-  if (!health.healthy) return 'CLIO needs attention.';
+  if (!health) return `Checking ${vocab.agent}.`;
+  if (!health.healthy) return `${capitalize(vocab.agent)} needs attention.`;
   if (foundationIssues === 1) return 'Running with 1 supporting service needing attention.';
   if (foundationIssues > 1) {
     return `Running with ${foundationIssues} supporting services needing attention.`;
   }
-  return 'CLIO is running normally.';
+  return `${capitalize(vocab.agent)} is running normally.`;
 }
 
 function foundationSummary(integration: ServiceIntegrationHealth): string {
@@ -549,8 +548,7 @@ function foundationSummary(integration: ServiceIntegrationHealth): string {
   };
   const degraded: Record<string, string> = {
     arc: 'Conversation memory is using a limited local fallback.',
-    sandbox:
-      'Extra operating-system confinement is not enabled. CLIO still applies workspace access rules and records out-of-workspace attempts.',
+    sandbox: `Extra operating-system confinement is not enabled. ${vocab.agent} still applies ${vocab.workspace} access rules and records out-of-${vocab.workspace} attempts.`,
     child_parentage: 'Some background processes are no longer attached to this agent service.',
   };
   if (integrationStatus(integration.status) === 'healthy') {

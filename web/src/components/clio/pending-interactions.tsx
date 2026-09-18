@@ -43,6 +43,7 @@ import {
 import { PlanExitResponse } from './plan-exit-interaction';
 import { PendingA2UIResponse } from './pending-a2ui-response';
 import { StructuredQuestionResponse, UrlConsentResponse } from './question-interaction-forms';
+import { TechnicalDetails } from './technical-details';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
@@ -287,8 +288,7 @@ function PermissionResponse({
         ) : null}
         <ResponseErrorNotice error={responseError} />
         {toolName || toolCall?.input !== undefined ? (
-          <details className="mt-2 text-xs text-muted-foreground">
-            <summary className="cursor-pointer">Technical details</summary>
+          <TechnicalDetails className="mt-2 text-xs text-muted-foreground" title="Technical details">
             {toolName ? <p className="mt-1 font-mono">{toolName}</p> : null}
             {toolCall?.input === undefined ? null : (
               <CodeBlock
@@ -299,7 +299,7 @@ function PermissionResponse({
                 <CodeBlockCopyButton aria-label="Copy protected action details" />
               </CodeBlock>
             )}
-          </details>
+          </TechnicalDetails>
         ) : null}
       </ConfirmationTitle>
       <ConfirmationRequest>

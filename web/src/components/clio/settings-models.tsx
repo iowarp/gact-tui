@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { providerAvailability } from '@/lib/provider-availability';
 import { readProviderCredential, storeProviderCredential } from '@/tauri/secure-credentials';
 import { providerDisplayName, providerSummary } from '@/lib/provider-presentation';
+import { vocab } from '@/lib/brand-vocabulary';
 import {
   modelSettingsUpdate,
   presetIsActive,
@@ -458,8 +459,8 @@ function ModelsSettingsContent({
                 value={values.apiKey}
               />
               <FieldDescription>
-                Credentials are sent to the connected CLIO backend and are never read back into the
-                browser.
+                Credentials are sent to the connected {vocab.agent} backend and are never read back
+                into the browser.
               </FieldDescription>
             </Field>
           ) : null}

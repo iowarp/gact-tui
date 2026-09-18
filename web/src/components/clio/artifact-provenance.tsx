@@ -22,6 +22,7 @@ import {
   projectArtifactResearchProvenance,
 } from './artifact-research-provenance';
 import { ClioStatus } from './status';
+import { TechnicalDetails } from './technical-details';
 import { ClioExecutionProvenanceGraph } from './workflow-execution-graph';
 
 export function ArtifactProvenance({
@@ -204,14 +205,15 @@ function Unavailable({
     <div className="rounded-lg border border-dashed p-3">
       <p className="text-sm font-medium">{label}</p>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">{message}</p>
-      <details className="mt-2 text-xs text-muted-foreground">
-        <summary className="w-fit cursor-pointer select-none rounded-sm font-medium outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-          Technical details
-        </summary>
+      <TechnicalDetails
+        className="mt-2 text-xs text-muted-foreground"
+        summaryClassName="rounded-sm focus-visible:ring-2 focus-visible:ring-ring"
+        title="Technical details"
+      >
         <code className="mt-2 block break-all rounded-md bg-muted/60 p-2 font-mono text-[10px]">
           {detail}
         </code>
-      </details>
+      </TechnicalDetails>
     </div>
   );
 }

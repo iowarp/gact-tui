@@ -64,6 +64,7 @@ import {
   latestConnectionSessionTarget,
 } from '@/lib/connection-target';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { vocab } from '@/lib/brand-vocabulary';
 import { lastWorkspaceRoute, rememberWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import type { ManagedBackendStatus } from '@/tauri/managed-backend';
@@ -77,7 +78,7 @@ type DesktopBootStage =
 const desktopBootCopy: Record<DesktopBootStage, { detail: string; label: string }> = {
   checking_existing: {
     label: 'Checking this device',
-    detail: 'Looking for a local CLIO service',
+    detail: `Looking for a local ${vocab.agent} service`,
   },
   starting_service: {
     label: 'Starting local service',
@@ -85,7 +86,7 @@ const desktopBootCopy: Record<DesktopBootStage, { detail: string; label: string 
   },
   installing_runtime: {
     label: 'Installing local runtime',
-    detail: 'Preparing CLIO for first use',
+    detail: `Preparing ${vocab.agent} for first use`,
   },
   opening_workspace: {
     label: 'Opening workspace',

@@ -97,7 +97,7 @@ describe('DesktopTitleBar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Maximize or restore' }));
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('Keep CLIO running?');
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(`Keep ${brand.agentName} running?`);
     expect(runDesktopWindowAction).not.toHaveBeenCalledWith('close');
     fireEvent.click(screen.getByRole('button', { name: 'Keep running' }));
 
@@ -125,7 +125,7 @@ describe('DesktopTitleBar', () => {
     renderTitleBar();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Quit CLIO' }));
+    fireEvent.click(screen.getByRole('button', { name: `Quit ${brand.agentName}` }));
 
     await waitFor(() => expect(runDesktopWindowAction).toHaveBeenCalledWith('quit'));
   });
@@ -135,7 +135,7 @@ describe('DesktopTitleBar', () => {
     renderTitleBar();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Quit CLIO' }));
+    fireEvent.click(screen.getByRole('button', { name: `Quit ${brand.agentName}` }));
 
     await waitFor(() => expect(runDesktopWindowAction).toHaveBeenCalledWith('quit'));
     expect(toastError).not.toHaveBeenCalled();
@@ -187,7 +187,7 @@ describe('DesktopTitleBar', () => {
 
     act(() => onCloseRequested?.(7));
 
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('Keep CLIO running?');
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(`Keep ${brand.agentName} running?`);
     // Correlated by seq, not a bare boolean flag — see the fix for the
     // Alt+F4-pressed-twice race.
     expect(ackClosePromptShown).toHaveBeenCalledOnce();

@@ -18,6 +18,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { PROTOCOL, capitalize, vocab } from '@/lib/brand-vocabulary';
+import { TechnicalDetails } from '@/components/clio/technical-details';
 
 interface ToolDomain {
   id: string;
@@ -327,13 +329,14 @@ function ToolContract({ tool }: { tool: ToolCatalogItem }) {
         title="Returns"
       />
 
-      <details className="border-t py-4 text-xs">
-        <summary className="cursor-pointer font-medium text-muted-foreground">
-          Provider metadata and raw schemas
-        </summary>
+      <TechnicalDetails
+        className="border-t py-4 text-xs"
+        summaryClassName="font-medium"
+        title="Provider metadata and raw schemas"
+      >
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
           <Metadata label="Source" value={tool.source || 'Not reported'} />
-          <Metadata label="MCP or domain" value={tool.server_id || 'CLIO'} />
+          <Metadata label="MCP or domain" value={tool.server_id || vocab.agent} />
           <Metadata label="Owner" value={tool.owner || 'Not reported'} />
           <Metadata label="Visible to" value={tool.visible_to.join(', ') || 'Not restricted'} />
         </dl>
@@ -344,7 +347,7 @@ function ToolContract({ tool }: { tool: ToolCatalogItem }) {
             2,
           )}
         </pre>
-      </details>
+      </TechnicalDetails>
     </article>
   );
 }
@@ -447,7 +450,7 @@ function toolBundles(
     bundles.push({
       id: 'builtin',
       title: 'Built-in',
-      description: 'Capabilities included with CLIO.',
+      description: `Capabilities included with ${vocab.agent}.`,
       domains: [...clio.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([title, domainTools]) => ({
@@ -485,7 +488,7 @@ function clioDomain(tool: ToolCatalogItem): string {
 
 function clioDomainForName(name: string): string | undefined {
   const groups: Array<[RegExp, string]> = [
-    [/^(fs_|shell_)/u, 'Workspace'],
+    [/^(fs_|shell_)/u, capitalize(vocab.workspace)],
     [/^(workspace_resource_|resource_)/u, 'Resources'],
     [/^memory_/u, 'Memory'],
     [/^(spawn_|observe_|wait_agent|get_agent|send_message|message_agent|loop_wakeup)/u, 'Agents'],
@@ -494,7 +497,7 @@ function clioDomainForName(name: string): string | undefined {
       /^(create_plan|update_plan|plan_|create_todo|update_todo|write_todos|create_goal|update_goal|goal_|schedule_|cron_)/u,
       'Planning',
     ],
-    [/^(create_a2ui|update_a2ui|a2ui_|raise_alert_card)/u, 'Interactive views'],
+    [/^(create_a2ui|update_a2ui|a2ui_|raise_alert_card)/u, PROTOCOL.a2ui],
     [/^(provider_|refresh_provider)/u, 'Models'],
     [/^(workflow_|run_workflow)/u, 'Workflows'],
   ];
@@ -502,7 +505,7 @@ function clioDomainForName(name: string): string | undefined {
 }
 
 function toolDomainTitle(tool: ToolCatalogItem): string {
-  return clioDomainForName(tool.name) || humanize(tool.server_id?.replace(/^mcp_/u, '') || 'CLIO');
+  return clioDomainForName(tool.name) || humanize(tool.server_id?.replace(/^mcp_/u, '') || vocab.agent);
 }
 
 function serverTitle(server: McpServerDefinition | undefined, fallback: string): string {
@@ -523,7 +526,7 @@ function isBuiltinMcp(server: McpServerDefinition): boolean {
 }
 
 function domainDescription(server: McpServerDefinition): string | undefined {
-  if (isBuiltinMcp(server)) return 'Included with CLIO and available in this workspace.';
+  if (isBuiltinMcp(server)) return `Included with ${vocab.agent} and available in this ${vocab.workspace}.`;
   return serverDescription(server);
 }
 
