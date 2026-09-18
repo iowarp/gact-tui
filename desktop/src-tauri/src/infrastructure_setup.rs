@@ -754,32 +754,54 @@ fn run_action(request: &ManagedServiceActionRequest) -> Result<ManagedServiceAct
 
 fn preflight(request: &ManagedTargetRequest) -> Result<TargetFacts, String> {
     validate_target(request)?;
-    let (os, arch) = if request.target == "local" {
-        (
-            normalize_os(env::consts::OS),
-            normalize_arch(env::consts::ARCH),
-        )
-    } else {
-        (
-            probe(request, "uname", &["-s"], normalize_os),
-            probe(request, "uname", &["-m"], normalize_arch),
-        )
-    };
-    let docker_available = available(
-        request,
-        "docker",
-        &["version", "--format", "{{.Server.Version}}"],
-    );
-    let uv_available = available(request, "uv", &["--version"]);
-    let accelerator = if available(
-        request,
-        "nvidia-smi",
-        &["--query-gpu=name", "--format=csv,noheader"],
-    ) {
+    // These probes are independent. Running them serially made an SSH target
+    // appear frozen because every unavailable runtime could consume its own
+    // discovery deadline. The bounded commands still stop individually, while
+    // the user now waits for the slowest probe rather than their sum.
+    let (os, arch, docker_available, uv_available, nvidia_available, rocm_available) =
+        thread::scope(|scope| {
+            let os = scope.spawn(|| {
+                if request.target == "local" {
+                    normalize_os(env::consts::OS)
+                } else {
+                    probe(request, "uname", &["-s"], normalize_os)
+                }
+            });
+            let arch = scope.spawn(|| {
+                if request.target == "local" {
+                    normalize_arch(env::consts::ARCH)
+                } else {
+                    probe(request, "uname", &["-m"], normalize_arch)
+                }
+            });
+            let docker = scope.spawn(|| {
+                available(
+                    request,
+                    "docker",
+                    &["version", "--format", "{{.Server.Version}}"],
+                )
+            });
+            let uv = scope.spawn(|| available(request, "uv", &["--version"]));
+            let nvidia = scope.spawn(|| {
+                available(
+                    request,
+                    "nvidia-smi",
+                    &["--query-gpu=name", "--format=csv,noheader"],
+                )
+            });
+            let rocm = scope.spawn(|| available(request, "rocminfo", &["--version"]));
+            (
+                os.join().unwrap_or_else(|_| "unknown".into()),
+                arch.join().unwrap_or_else(|_| "unknown".into()),
+                docker.join().unwrap_or(false),
+                uv.join().unwrap_or(false),
+                nvidia.join().unwrap_or(false),
+                rocm.join().unwrap_or(false),
+            )
+        });
+    let accelerator = if nvidia_available {
         "nvidia"
-    } else if available(request, "rocminfo", &["--version"])
-        || request.target == "local" && windows_has_amd_gpu()
-    {
+    } else if rocm_available || request.target == "local" && windows_has_amd_gpu() {
         "amd"
     } else {
         "none"
