@@ -20,3 +20,17 @@ export async function runDesktopWindowAction(action: DesktopWindowAction): Promi
   }
   await desktopWindow[action]();
 }
+
+/**
+ * Ack that the close-confirmation prompt is now on screen, in response to a
+ * native `clio:close-requested` event carrying this `seq`. Tells the Rust
+ * side's 500ms fallback for THIS SAME close request (correlated by `seq`,
+ * not a single global flag — a fast repeat like Alt+F4 pressed twice must
+ * not let a late ack for an older request suppress the fallback for a
+ * newer, still-unhandled one) not to hide the window out from under an open
+ * dialog.
+ */
+export async function ackClosePromptShown(seq: number): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('close_prompt_shown', { seq });
+}

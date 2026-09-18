@@ -69,27 +69,119 @@ test('desktop variants use product-owned frameless chrome with scoped window con
   assert.match(libRs, /cfg\(target_os = "macos"\)[\s\S]*app\.set_menu\(app_menu\)/);
 });
 
-test('desktop close, reopen, and quit lifecycle stays explicit', () => {
+test('desktop close, reopen, and quit lifecycle route through one guarded request_quit path', () => {
   const libRs = readFileSync(resolve(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
   assert.match(
     libRs,
     /tauri_plugin_single_instance::init[\s\S]*tray::show_main_window/,
     'a second launch must restore the existing tray-resident window',
   );
+
+  // Native close (Alt+F4 / OS close box / traffic light) must hand off to
+  // the frontend's confirmation prompt instead of auto-hiding outright —
+  // the old unconditional hide never gave the prompt a chance to appear.
   assert.match(
     libRs,
-    /WindowEvent::CloseRequested[\s\S]*api\.prevent_close\(\)[\s\S]*window\.hide\(\)/,
-    'window close must keep the managed service alive in the tray',
+    /WindowEvent::CloseRequested[\s\S]*api\.prevent_close\(\)[\s\S]*CLOSE_REQUESTED_EVENT/,
+    'native close must prevent the default close and emit CLOSE_REQUESTED_EVENT for the frontend prompt',
   );
   assert.match(
     libRs,
-    /RunEvent::ExitRequested[\s\S]*shutdown_owned_services/,
-    'explicit application exit must stop owned services',
+    /CLOSE_PROMPT_ACK_TIMEOUT[\s\S]*CLOSE_PROMPT_ACKED_SEQ[\s\S]*\.hide\(\)/,
+    'an unacknowledged close prompt must still fall back to hiding the window (keeps Alt+F4 safe against an unloaded WebView)',
   );
+
+  // Every quit entry point funnels through the single guarded request_quit
+  // path (idempotent via claim_quit/QUIT_STARTED) rather than each one
+  // reaping services and exiting on its own — that duplication is exactly
+  // what let native shutdown double-teardown.
+  assert.match(
+    libRs,
+    /fn request_quit[\s\S]*claim_quit\(\)[\s\S]*shutdown_owned_services[\s\S]*\.exit\(0\)/,
+    'request_quit must be the single guarded teardown+exit path',
+  );
+  assert.match(
+    libRs,
+    /WindowEvent::Destroyed => request_quit/,
+    'native window destruction must route through request_quit',
+  );
+  assert.match(
+    libRs,
+    /fn quit_clio[\s\S]{0,120}request_quit/,
+    'the quit_clio command must route through request_quit',
+  );
+
+  // Scope the two run() match arms precisely (rather than a loosely-bounded
+  // scan) since their doc comments are long enough that a small character
+  // budget would miss real content, and an unbounded one would spill past
+  // the arm into unrelated later code (e.g. request_quit's own
+  // thread::spawn, a few dozen lines below Exit).
+  const exitRequestedArm = libRs.match(
+    /ExitRequested \{ code, api, \.\. \} => \{([\s\S]*?)\n\s*tauri::RunEvent::Exit/,
+  )?.[1];
+  assert.ok(exitRequestedArm, 'RunEvent::ExitRequested { code, api, .. } arm must exist');
+  assert.match(
+    exitRequestedArm,
+    /request_quit\(app_handle\)/,
+    'RunEvent::ExitRequested must route through request_quit',
+  );
+  // A native "last window closed" ExitRequested (code: None — distinct from
+  // OUR OWN AppHandle::exit(), which always carries Some(code)) must be
+  // blocked so the event loop doesn't tear down mid-reap; request_quit's own
+  // exit(0) must never be blocked the same way.
+  assert.match(
+    exitRequestedArm,
+    /code\.is_none\(\)[\s\S]*api\.prevent_exit\(\)/,
+    'ExitRequested must call prevent_exit() only when code.is_none()',
+  );
+
+  const exitArm = libRs.match(/RunEvent::Exit => \{([\s\S]*?)\n\s*_ => \{\}/)?.[1];
+  assert.ok(exitArm, 'RunEvent::Exit arm must exist');
+  // RunEvent::Exit is the true last event Tauri delivers — some native exit
+  // paths (Windows logoff/shutdown, macOS Dock Quit/session logout) skip
+  // ExitRequested and deliver ONLY this, and the process can terminate the
+  // instant the callback returns. Teardown here must run synchronously
+  // behind claim_quit(), not on a spawned thread, or it may never finish.
+  assert.match(
+    exitArm,
+    /if claim_quit\(\)\s*\{[\s\S]*shutdown_owned_services\(app_handle\)/,
+    'RunEvent::Exit must run shutdown_owned_services synchronously behind claim_quit()',
+  );
+  assert.doesNotMatch(
+    exitArm,
+    /thread::spawn/,
+    'RunEvent::Exit must not defer teardown to a background thread — nothing waits for it after this event',
+  );
+
+  // The SSE bridge holds an open reader against the GACT server shutdown_owned_services
+  // is about to ask to unwind; stopping it first means the server never has
+  // to wait out its own connection-close grace on a reader we were killing
+  // anyway.
+  assert.match(
+    libRs,
+    /fn shutdown_owned_services[\s\S]*sse\.stop_all\(\)[\s\S]*Supervisor>>\(\)[\s\S]*\.shutdown\(\)/,
+    'shutdown_owned_services must stop the SSE bridge before asking the supervisor/backend to shut down',
+  );
+
   assert.match(
     libRs,
     /cfg\(target_os = "macos"\)[\s\S]*RunEvent::Reopen[\s\S]*tray::show_main_window/,
     'macOS dock reopen must restore the hidden main window',
+  );
+});
+
+test('tray Quit routes through the single guarded request_quit path', () => {
+  // Secondary/lightweight: the primary coverage is the pure
+  // tray_action_for() mapping unit-tested in tray.rs (cargo test), which
+  // together with the closure's two-arm match (visible by inspection) is
+  // what actually guarantees this wiring. This just double-checks the
+  // literal call site didn't regress to an inline shutdown_owned_services
+  // call.
+  const trayRs = readFileSync(resolve(root, 'src-tauri', 'src', 'tray.rs'), 'utf8');
+  assert.match(
+    trayRs,
+    /TrayAction::Quit\)\s*=>\s*crate::request_quit\(app\)/,
+    'tray Quit must route through crate::request_quit',
   );
 });
 

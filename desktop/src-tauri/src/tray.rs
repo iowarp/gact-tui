@@ -13,6 +13,26 @@ pub(crate) const TRAY_ID: &str = "clio-tray";
 const SHOW_ID: &str = "show";
 const QUIT_ID: &str = "quit";
 
+/// The tray menu's two possible actions, decoupled from the Tauri menu-event
+/// closure so the id→action mapping is unit-testable without a live
+/// `AppHandle` (`tauri::test::mock_app` pulls in wry, which fails to link
+/// into `cargo test --lib` on Windows here — see the module doc in
+/// `menu.rs`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TrayAction {
+    Show,
+    Quit,
+}
+
+/// Map a tray menu item id to its action, or `None` for anything else.
+pub(crate) fn tray_action_for(id: &str) -> Option<TrayAction> {
+    match id {
+        SHOW_ID => Some(TrayAction::Show),
+        QUIT_ID => Some(TrayAction::Quit),
+        _ => None,
+    }
+}
+
 pub(crate) fn tray_show_label(product_name: &str) -> String {
     format!("Show {}", menu::short_app_name(product_name))
 }
@@ -62,13 +82,14 @@ pub(crate) fn install_tray<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()>
     }
     tray.tooltip(tray_tooltip_label(&product_name))
         .menu(&menu)
-        .on_menu_event(|app, ev| match ev.id().as_ref() {
-            SHOW_ID => show_main_window(app),
-            QUIT_ID => {
-                crate::shutdown_owned_services(app);
-                app.exit(0);
-            }
-            _ => {}
+        .on_menu_event(|app, ev| match tray_action_for(ev.id().as_ref()) {
+            Some(TrayAction::Show) => show_main_window(app),
+            // Routes through the single guarded quit path so this can never
+            // double-teardown against the other entry points (native close
+            // prompt, hamburger Quit, macOS menu Quit, quit_clio) that also
+            // funnel through `request_quit`.
+            Some(TrayAction::Quit) => crate::request_quit(app),
+            None => {}
         })
         .on_tray_icon_event(|tray, event| {
             if matches!(
@@ -99,5 +120,20 @@ mod tests {
         assert_eq!(tray_quit_label("GACT Desktop"), "Quit GACT");
         assert_eq!(tray_quit_label("Other Product"), "Quit Other Product");
         assert_eq!(tray_tooltip_label("CLIO Desktop"), "CLIO: running");
+    }
+
+    /// The tray menu id→action mapping the `on_menu_event` closure dispatches
+    /// on. This is what actually guarantees Quit routes through
+    /// `crate::request_quit` rather than some inline double-teardown: the
+    /// closure has exactly two match arms (`Show`, `Quit`) and no third way
+    /// to reach `request_quit`, so once this mapping is right the closure's
+    /// wiring — visible by inspection, four lines, and covered a second time
+    /// by the `smoke.test.mjs` source check — cannot silently drift from it.
+    #[test]
+    fn tray_action_for_maps_show_and_quit() {
+        assert_eq!(tray_action_for(SHOW_ID), Some(TrayAction::Show));
+        assert_eq!(tray_action_for(QUIT_ID), Some(TrayAction::Quit));
+        assert_eq!(tray_action_for("bogus"), None);
+        assert_eq!(tray_action_for(""), None);
     }
 }
