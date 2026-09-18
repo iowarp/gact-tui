@@ -4,16 +4,24 @@ import {
   GripHorizontalIcon,
   LoaderCircleIcon,
   Maximize2Icon,
+  Minimize2Icon,
+  MoveDiagonal2Icon,
   RotateCcwIcon,
 } from 'lucide-react';
 import { type PointerEvent as ReactPointerEvent, useRef, useState } from 'react';
-import { Frame } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
+import {
+  clampViewportHeight,
+  initialViewportHeight,
+  maxViewportHeight,
+  MIN_VIEWPORT_HEIGHT,
+  persistViewportHeight,
+} from './a2ui-response-viewport-resize';
 import { ClioA2UISurface, type A2UILocalActionHandler } from './a2ui-surface';
-import { respondFromControl } from './interaction-control';
+import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';
 import { ResponseErrorNotice } from './pending-interaction-notices';
 
@@ -34,7 +42,7 @@ interface PendingA2UIResponseProps {
   showOwner: boolean;
 }
 
-/** Presents a pending interactive surface without duplicating its own content chrome. */
+/** Presents a pending interactive surface as the tray's only bordered box — no nested chrome of its own. */
 export function PendingA2UIResponse({
   disabled,
   interaction,
@@ -47,22 +55,28 @@ export function PendingA2UIResponse({
   showOwner,
 }: PendingA2UIResponseProps) {
   const [fullscreen, setFullscreen] = useState(false);
-  const maximumViewportHeight = () => Math.max(320, Math.floor(window.innerHeight * 0.72));
+  // The surface id is this card's identity across renders and across visits —
+  // the interaction id changes with the response cycle, so it is a fallback
+  // only, never the first choice.
+  const surfaceKey = interaction.source.surface_id ?? interaction.id;
   const [viewportHeight, setViewportHeight] = useState(() =>
-    Math.min(480, maximumViewportHeight()),
+    initialViewportHeight(surfaceKey, window.innerHeight),
   );
   const resizeStart = useRef<{ y: number; height: number; moved: boolean } | null>(null);
   const suppressResizeClick = useRef(false);
-  const resizeViewport = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const beginResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    resizeStart.current = { y: event.clientY, height: viewportHeight, moved: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const updateResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const start = resizeStart.current;
     if (!start || event.buttons === 0) return;
     if (Math.abs(event.clientY - start.y) > 2) start.moved = true;
-    const maximumHeight = maximumViewportHeight();
-    setViewportHeight(
-      Math.min(maximumHeight, Math.max(320, start.height + event.clientY - start.y)),
-    );
+    const next = clampViewportHeight(start.height + event.clientY - start.y, window.innerHeight);
+    setViewportHeight(next);
+    persistViewportHeight(surfaceKey, next);
   };
-  const stopResizing = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const endResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
     suppressResizeClick.current = resizeStart.current?.moved ?? false;
     resizeStart.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -79,17 +93,17 @@ export function PendingA2UIResponse({
             suppressResizeClick.current = false;
             return;
           }
-          setViewportHeight((current) =>
-            current < maximumViewportHeight() ? maximumViewportHeight() : 320,
-          );
+          setViewportHeight((current) => {
+            const max = maxViewportHeight(window.innerHeight);
+            const next = current < max ? max : MIN_VIEWPORT_HEIGHT;
+            persistViewportHeight(surfaceKey, next);
+            return next;
+          });
         }}
-        onPointerCancel={stopResizing}
-        onPointerDown={(event) => {
-          resizeStart.current = { y: event.clientY, height: viewportHeight, moved: false };
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={resizeViewport}
-        onPointerUp={stopResizing}
+        onPointerCancel={endResize}
+        onPointerDown={beginResize}
+        onPointerMove={updateResize}
+        onPointerUp={endResize}
         size="icon-sm"
         title="Drag or activate to resize interactive surface"
         type="button"
@@ -111,12 +125,12 @@ export function PendingA2UIResponse({
   );
   return (
     <>
-      <Frame
-        className="min-w-0 self-stretch rounded-none bg-transparent p-0"
+      <div
+        className="flex min-w-0 flex-col self-stretch"
         data-interaction-kind={interaction.kind}
-        dense
-        spacing="sm"
-        variant="ghost"
+        data-slot="pending-a2ui"
+        id={pendingInteractionDomId(interaction.id)}
+        tabIndex={-1}
       >
         <InteractionFrameHeader
           actions={controls}
@@ -130,37 +144,65 @@ export function PendingA2UIResponse({
           ownerLabel={ownerLabel}
           showOwner={showOwner}
         />
-        <div
-          className={cn(
-            'min-h-80 min-w-0 overflow-auto overscroll-contain border-t border-border/60',
-            // 0.7, not 0.5/0.6, is this repo's WCAG AA contrast floor for a
-            // dimmed-but-readable disabled surface (see reui/sortable.tsx).
-            disabled && 'pointer-events-none opacity-70',
-          )}
-          data-slot="a2ui-response-viewport"
-          style={{ height: viewportHeight }}
-        >
-          <ResponseErrorNotice error={responseError} />
-          {fullscreen ? null : (
-            <A2UISurfaceBody
-              chrome="bare"
-              interaction={interaction}
-              onLocalAction={onLocalAction}
-              onRefetchSurface={onRefetchSurface}
-              onResponse={onResponse}
-              rawSurface={rawSurface}
-            />
-          )}
+        <div className="relative min-w-0" data-slot="a2ui-response-viewport-wrapper">
+          <div
+            className={cn(
+              'min-h-60 min-w-0 overflow-auto overscroll-contain',
+              // 0.7, not 0.5/0.6, is this repo's WCAG AA contrast floor for a
+              // dimmed-but-readable disabled surface (see reui/sortable.tsx).
+              disabled && 'pointer-events-none opacity-70',
+            )}
+            data-slot="a2ui-response-viewport"
+            // The map (and any other wheel-driven catalog component) owns
+            // wheel input inside this viewport. Without this, a wheel over
+            // the map — even one the map itself does not use for scroll —
+            // can bubble to the tray's own ScrollArea and hijack the scroll
+            // the reader meant for the map.
+            onWheel={(event) => event.stopPropagation()}
+            style={{ height: viewportHeight }}
+          >
+            <ResponseErrorNotice error={responseError} />
+            {fullscreen ? null : (
+              <A2UISurfaceBody
+                chrome="bare"
+                interaction={interaction}
+                onLocalAction={onLocalAction}
+                onRefetchSurface={onRefetchSurface}
+                onResponse={onResponse}
+                rawSurface={rawSurface}
+              />
+            )}
+          </div>
+          <button
+            aria-label="Corner resize handle"
+            className="absolute bottom-1 right-1 z-10 flex size-6 touch-none cursor-nwse-resize items-center justify-center rounded-md bg-muted/70 text-muted-foreground opacity-70 backdrop-blur-sm transition-opacity hover:opacity-100 hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+            data-slot="a2ui-response-corner-resize"
+            onPointerCancel={endResize}
+            onPointerDown={beginResize}
+            onPointerMove={updateResize}
+            onPointerUp={endResize}
+            title="Drag to resize interactive surface"
+            type="button"
+          >
+            <MoveDiagonal2Icon aria-hidden="true" className="size-3.5" />
+          </button>
         </div>
-      </Frame>
+      </div>
       <Dialog onOpenChange={setFullscreen} open={fullscreen}>
         <DialogContent
           aria-describedby={undefined}
           className="grid h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-none grid-rows-[auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-lg p-0 sm:max-w-none"
+          showCloseButton={false}
         >
-          <DialogTitle className="border-b px-4 py-3 pr-12 text-sm">
-            {interaction.prompt ?? interaction.title ?? `${PROTOCOL.a2ui} surface`}
-          </DialogTitle>
+          <div className="flex items-center justify-between gap-2 border-b px-4 py-3">
+            <DialogTitle className="min-w-0 truncate text-sm">
+              {interaction.prompt ?? interaction.title ?? `${PROTOCOL.a2ui} surface`}
+            </DialogTitle>
+            <Button onClick={() => setFullscreen(false)} size="sm" type="button" variant="ghost">
+              <Minimize2Icon aria-hidden="true" />
+              Exit full screen
+            </Button>
+          </div>
           <div className="min-h-0 overflow-auto overscroll-contain p-3">
             {fullscreen ? (
               <A2UISurfaceBody
