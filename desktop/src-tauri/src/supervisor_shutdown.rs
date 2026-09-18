@@ -20,6 +20,9 @@ use std::{
 };
 
 #[cfg(windows)]
+use std::os::windows::io::AsRawHandle;
+
+#[cfg(windows)]
 use windows_sys::Win32::{
     Foundation::{CloseHandle, FILETIME, HANDLE, INVALID_HANDLE_VALUE, STILL_ACTIVE},
     System::{
@@ -201,12 +204,21 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
     // PRE-DRAIN descendant topology — BEFORE the graceful wait, while
     // everything is still alive — for the whole rest of this call. See the
     // `kill_candidates` doc comment for why both pieces exist.
+    //
+    // Read off the ALREADY-HELD `Child` handle (never a fresh
+    // OpenProcess-by-PID): `child` is the exact process object we spawned,
+    // so there is no PID-reuse gap to guard against here, unlike every
+    // other creation-time read in this module. `None` means the read
+    // failed (see the Windows kill block below for how that degrades the
+    // gate rather than silently disabling it).
     #[cfg(windows)]
-    let launcher_created_at = windows_process_created_at(child.id()).unwrap_or(0);
+    let launcher_created_at = windows_handle_created_at(child.as_raw_handle() as HANDLE);
     #[cfg(windows)]
     let pinned: Vec<PinnedProcess> = owned_descendants(&windows_process_snapshot(), &[child.id()])
         .into_iter()
-        .filter_map(windows_pin_process)
+        .filter_map(|pid| {
+            windows_pin_process(pid, PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE)
+        })
         .collect();
 
     let graceful_requested =
@@ -262,12 +274,54 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
                 created_at: p.created_at,
             })
             .collect();
-        let live_walk: Vec<KillCandidate> = windows_owned_descendants_now(child.id())
-            .into_iter()
-            .filter_map(windows_kill_candidate)
-            .collect();
-        let mut targets = kill_candidates(&pinned_candidates, &live_walk, launcher_created_at);
-        targets.sort_unstable();
+
+        // `launcher_created_at` gates every candidate below — see
+        // `kill_candidates`. When it could not be read, the live walk is
+        // skipped entirely: a live-walk PID carries no identity pin of its
+        // own, so without the creation-time gate there is nothing left to
+        // tell a real descendant from a reused PID (silently defaulting the
+        // gate to "always pass" would be exactly the silent-fallback bug
+        // this module exists to avoid). The pinned set stays safe to kill
+        // either way — each entry is terminated through the exact handle
+        // captured at pre-drain pin time, never re-resolved by PID.
+        let (targets, live_pinned): (Vec<u32>, Vec<PinnedProcess>) = match launcher_created_at {
+            Some(created_at) => {
+                // Opened ONCE per live-walk PID with TERMINATE +
+                // QUERY_LIMITED_INFORMATION and held through the kill below,
+                // so the creation-time read and the terminate act on the
+                // SAME handle — never a second OpenProcess-by-PID, which
+                // would reopen a fresh (and possibly PID-reused) process in
+                // the gap between the read and the kill.
+                let live_pinned: Vec<PinnedProcess> = windows_owned_descendants_now(child.id())
+                    .into_iter()
+                    .filter_map(|pid| {
+                        windows_pin_process(pid, PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION)
+                    })
+                    .collect();
+                let live_candidates: Vec<KillCandidate> = live_pinned
+                    .iter()
+                    .map(|p| KillCandidate {
+                        pid: p.pid,
+                        created_at: p.created_at,
+                    })
+                    .collect();
+                let mut targets = kill_candidates(&pinned_candidates, &live_candidates, created_at);
+                targets.sort_unstable();
+                (targets, live_pinned)
+            }
+            None => {
+                eprintln!(
+                    "[supervisor_shutdown] could not read the launcher's own creation time; \
+                     the creation-time gate is unavailable this shutdown — killing only the \
+                     pre-drain pinned descendants (identity-verified via their held handles), \
+                     the fresh live-walk set is skipped"
+                );
+                let mut targets: Vec<u32> = pinned_candidates.iter().map(|c| c.pid).collect();
+                targets.sort_unstable();
+                (targets, Vec::new())
+            }
+        };
+
         // Reverse-numeric order is a cheap best-effort bias toward killing
         // deeper descendants first (PIDs tend to increase with spawn order,
         // NOT a guaranteed topological/tree order — Windows recycles PIDs,
@@ -275,19 +329,26 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
         // transient "parent already gone" noise; every target is killed
         // regardless of order, so correctness never depends on it.
         for pid in targets.into_iter().rev() {
-            match pinned.iter().find(|p| p.pid == pid) {
-                // Terminate through the ALREADY-HELD handle: guaranteed to
-                // be the exact process object pinned at the top of this
-                // function, never a fresh OpenProcess-by-PID race against a
-                // PID reused in the meantime.
-                Some(pinned_process) => unsafe {
-                    TerminateProcess(pinned_process.handle, 1);
+            // Terminate through the ALREADY-HELD handle — either the one
+            // pinned at the top of this function or the one opened for the
+            // live walk above — guaranteed to be the exact process object
+            // identified, never a fresh OpenProcess-by-PID race against a
+            // PID reused in the meantime.
+            let handle = pinned
+                .iter()
+                .find(|p| p.pid == pid)
+                .map(|p| p.handle)
+                .or_else(|| live_pinned.iter().find(|p| p.pid == pid).map(|p| p.handle));
+            match handle {
+                Some(h) => unsafe {
+                    TerminateProcess(h, 1);
                 },
                 None => windows_terminate(pid),
             }
         }
         let _ = child.kill();
-        // `pinned`'s handles close here as the Vec drops at end of scope.
+        // `pinned` and `live_pinned`'s handles close here as they drop at
+        // end of scope.
     }
     // Unix: spawn_and_probe places the launcher and its descendants into a
     // dedicated process group. SIGTERM the whole group, then poll for it to
@@ -296,13 +357,28 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
     // SIGKILL. A worker trapping SIGTERM to flush state needs a real chance
     // to exit on its own; killing only the launcher's own PID would leave
     // the rest of the group behind.
+    //
+    // `child` (the launcher itself) must be reaped with `try_wait` as part
+    // of this poll: an un-reaped launcher stays a zombie, and a zombie is
+    // still a live process-group member as far as `kill(-pgid, 0)` is
+    // concerned (it only reports ESRCH once EVERY member, zombies
+    // included, is gone). Without this, a launcher that exits cleanly right
+    // after SIGTERM would sit as a zombie for the rest of the poll, the
+    // loop would never observe the group as empty, and every shutdown would
+    // burn the full UNIX_GROUP_EMPTY_TIMEOUT and escalate to SIGKILL
+    // regardless of whether the group actually needed it.
     #[cfg(unix)]
     {
         terminate_process_group(child.id(), libc::SIGTERM);
         let deadline = Instant::now() + UNIX_GROUP_EMPTY_TIMEOUT;
-        while Instant::now() < deadline && !unix_process_group_is_empty(child.id()) {
+        loop {
+            let _ = child.try_wait();
+            if Instant::now() >= deadline || unix_process_group_is_empty(child.id()) {
+                break;
+            }
             thread::sleep(Duration::from_millis(100));
         }
+        let _ = child.try_wait();
         if !unix_process_group_is_empty(child.id()) {
             terminate_process_group(child.id(), libc::SIGKILL);
         }
@@ -387,18 +463,19 @@ impl Drop for PinnedProcess {
     }
 }
 
-/// Open and pin `pid` for the caller's lifetime, capturing its creation
-/// time. Returns `None` if the process is already gone or access is denied
-/// — best-effort, matching the rest of this module.
+/// Open and pin `pid` for the caller's lifetime with the given access mask,
+/// capturing its creation time. Returns `None` if the process is already
+/// gone or access is denied — best-effort, matching the rest of this
+/// module.
+///
+/// Callers pass exactly the access bits they need: the pre-drain walk holds
+/// `SYNCHRONIZE` too (for a possible future wait), the live walk at kill
+/// time only needs `TERMINATE | QUERY_LIMITED_INFORMATION` since it reads
+/// the creation time and terminates through this same handle and nothing
+/// else — see the Windows kill block in `reap_child_tree_with_shutdown`.
 #[cfg(windows)]
-fn windows_pin_process(pid: u32) -> Option<PinnedProcess> {
-    let handle = unsafe {
-        OpenProcess(
-            PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE,
-            0,
-            pid,
-        )
-    };
+fn windows_pin_process(pid: u32, access: u32) -> Option<PinnedProcess> {
+    let handle = unsafe { OpenProcess(access, 0, pid) };
     if handle.is_null() {
         return None;
     }
@@ -415,23 +492,6 @@ fn windows_pin_process(pid: u32) -> Option<PinnedProcess> {
             None
         }
     }
-}
-
-/// One-shot creation-time lookup for a PID we do NOT hold a pin for (used
-/// for the launcher itself — already pinned by the owning `Child` — and for
-/// live-walk candidates at kill time). Opens a short-lived query-only
-/// handle and closes it immediately.
-#[cfg(windows)]
-fn windows_process_created_at(pid: u32) -> Option<u64> {
-    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
-    if handle.is_null() {
-        return None;
-    }
-    let created_at = windows_handle_created_at(handle);
-    unsafe {
-        CloseHandle(handle);
-    }
-    created_at
 }
 
 #[cfg(windows)]
@@ -458,14 +518,6 @@ fn windows_handle_is_alive(handle: HANDLE) -> bool {
     let mut exit_code: u32 = 0;
     let ok = unsafe { GetExitCodeProcess(handle, &mut exit_code) };
     ok != 0 && exit_code == STILL_ACTIVE as u32
-}
-
-/// A live-walk-discovered PID together with its creation time, or `None` if
-/// it has already exited by the time we query it (races a fast-exiting
-/// process; safe to just drop such a candidate — nothing to kill).
-#[cfg(windows)]
-fn windows_kill_candidate(pid: u32) -> Option<KillCandidate> {
-    windows_process_created_at(pid).map(|created_at| KillCandidate { pid, created_at })
 }
 
 /// Everything we would need to kill is already gone: every pinned
