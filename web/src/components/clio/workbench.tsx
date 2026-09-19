@@ -46,6 +46,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import { cn } from '@/lib/utils';
+import { closeEmbeddedTerminalTab } from '@/tauri/workspace-terminal';
 import type { SubagentOpenTarget } from './subagent-card';
 import { useWorkspaceCanvasVisibility } from './workspace-canvas-visibility-context';
 import { WorkbenchTabErrorBoundary } from './workbench-tab-error-boundary';
@@ -280,8 +281,14 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
     }, []);
     const closeTab = (tabId: string) => {
       const index = tabs.findIndex((tab) => tab.id === tabId);
+      const closed = tabs[index];
       const next = tabs.filter((tab) => tab.id !== tabId);
       setTabs(next);
+      // The pty and its xterm instance live in the module-level registry,
+      // keyed by tab id — a closed tab is the one place that registry
+      // entry is ever explicitly torn down (a mere unmount, e.g. switching
+      // tabs, must not kill a running job).
+      if (closed && closed.kind === 'terminal') void closeEmbeddedTerminalTab(closed.id);
       if (activeTabId === tabId) {
         setActiveTabId(next[Math.max(0, index - 1)]?.id ?? '');
       }

@@ -298,7 +298,7 @@ export function WorkbenchTabContent({
     case 'workflow':
       return <ClioWorkflowCanvasView onOpenSubagent={onOpenSubagent} subagents={subagents} tool={tab.tool} />;
     case 'terminal':
-      return <WorkspaceTerminalPanel cwd={tab.cwd} key={tab.id} sessionId={tab.sessionId} />;
+      return <WorkspaceTerminalPanel cwd={tab.cwd} sessionId={tab.sessionId} tabId={tab.id} />;
     default:
       return assertNever(tab);
   }

@@ -2,7 +2,15 @@
 //!
 //! Mirrors `sse_stream.rs`'s shape: generic over the sink so the loop is
 //! testable with an in-memory `Read` instead of a real pty, and production
-//! passes a closure that forwards to a Tauri event emit.
+//! passes a closure that forwards to a Tauri event emit. This loop ONLY
+//! reads and hands off data — it has no opinion on why the read ended
+//! (EOF, error, or `stop`) and never decides the child's exit code or
+//! whether an exit event should fire. On Windows, ConPTY keeps the output
+//! pipe open until `ClosePseudoConsole` runs, so a shell that exits on its
+//! own does NOT make this loop's `read` return — that detection is the
+//! waiter thread's job (`terminal_pty.rs`), which watches `child.wait()`
+//! (the real process, not the pipe) and drops the pty's master to unblock
+//! this loop once the child is confirmed dead.
 
 use std::io::Read;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -24,15 +32,23 @@ pub(crate) enum TerminalDropReason {
 }
 
 /// Read from `reader` until EOF, a transport error, or `stop` is set,
-/// handing each chunk to `emit`. Backlog is bounded to exactly one
-/// in-flight chunk: the loop never issues another `read` until `emit`
-/// returns, so nothing can pile up between the pty and its consumer.
+/// handing each chunk to `emit`.
+///
+/// On the Rust side, the loop never issues another `read` until the
+/// current chunk has been handed to `emit` — so at most one chunk is ever
+/// "in flight" between a `read` and its hand-off here. That is NOT a
+/// backpressure guarantee end to end: in production `emit` posts a Tauri
+/// event (`AppHandle::emit`), which returns once the event is queued for
+/// the webview, not once the frontend has actually processed it, and
+/// Tauri's IPC channel can still buffer faster than the renderer drains
+/// it. This bound only prevents the PTY-READ SIDE from racing ahead of
+/// itself; it says nothing about frontend consumption.
 ///
 /// `on_drop` is called (instead of `emit`) for a chunk read after `stop`
 /// was already flipped, so the caller can log the typed reason — see
 /// [`TerminalDropReason`] — instead of the chunk vanishing silently.
 pub(crate) fn run_terminal_reader<R, E, D>(
-    id: u64,
+    id: &str,
     mut reader: R,
     stop: &AtomicBool,
     mut emit: E,
@@ -40,7 +56,7 @@ pub(crate) fn run_terminal_reader<R, E, D>(
 ) where
     R: Read,
     E: FnMut(TerminalChunk),
-    D: FnMut(u64, TerminalDropReason, usize),
+    D: FnMut(&str, TerminalDropReason, usize),
 {
     let mut buf = [0u8; 8192];
     loop {
@@ -48,7 +64,7 @@ pub(crate) fn run_terminal_reader<R, E, D>(
             break;
         }
         match reader.read(&mut buf) {
-            Ok(0) => break, // EOF — the child's side of the pty closed.
+            Ok(0) => break, // EOF — the pty's master side was closed (see module docs).
             Ok(n) => {
                 if stop.load(Ordering::Relaxed) {
                     on_drop(id, TerminalDropReason::ConsumerClosed, n);
@@ -76,7 +92,7 @@ mod tests {
         let mut collected = Vec::new();
 
         run_terminal_reader(
-            1,
+            "1",
             reader,
             &stop,
             |chunk| collected.extend_from_slice(&chunk.bytes),
@@ -92,7 +108,7 @@ mod tests {
         let stop = AtomicBool::new(true);
         let mut emitted = false;
 
-        run_terminal_reader(2, reader, &stop, |_| emitted = true, |_, _, _| {});
+        run_terminal_reader("2", reader, &stop, |_| emitted = true, |_, _, _| {});
 
         assert!(!emitted, "a pre-stopped reader must emit nothing");
     }
@@ -138,14 +154,17 @@ mod tests {
         let mut drops = Vec::new();
 
         run_terminal_reader(
-            7,
+            "7",
             reader,
             &stop,
             |chunk| emitted.push(chunk.bytes),
-            |id, reason, len| drops.push((id, reason, len)),
+            |id, reason, len| drops.push((id.to_string(), reason, len)),
         );
 
         assert_eq!(emitted, vec![b"first".to_vec()]);
-        assert_eq!(drops, vec![(7, TerminalDropReason::ConsumerClosed, 6)]);
+        assert_eq!(
+            drops,
+            vec![("7".to_string(), TerminalDropReason::ConsumerClosed, 6)]
+        );
     }
 }

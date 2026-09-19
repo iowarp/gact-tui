@@ -5,25 +5,59 @@ const mocks = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: mocks.listen }));
 
+const xterm = vi.hoisted(() => {
+  class MockTerminal {
+    static instances: MockTerminal[] = [];
+    cols = 80;
+    rows = 24;
+    element: HTMLDivElement | undefined;
+    write = vi.fn();
+    dispose = vi.fn();
+    loadAddon = vi.fn();
+    onData = vi.fn();
+    open = vi.fn((container: HTMLElement) => {
+      this.element = document.createElement('div');
+      container.appendChild(this.element);
+    });
+    constructor() {
+      MockTerminal.instances.push(this);
+    }
+  }
+  class MockFitAddon {
+    static instances: MockFitAddon[] = [];
+    fit = vi.fn();
+    constructor() {
+      MockFitAddon.instances.push(this);
+    }
+  }
+  return { MockTerminal, MockFitAddon };
+});
+
+vi.mock('@xterm/xterm', () => ({ Terminal: xterm.MockTerminal }));
+vi.mock('@xterm/addon-fit', () => ({ FitAddon: xterm.MockFitAddon }));
+vi.mock('@xterm/xterm/css/xterm.css', () => ({}));
+
 import {
-  closeEmbeddedTerminal,
+  closeEmbeddedTerminalTab,
   closeEmbeddedTerminalsForSession,
-  listenEmbeddedTerminalData,
-  listenEmbeddedTerminalExit,
-  openEmbeddedTerminal,
+  ensureEmbeddedTerminal,
+  getEmbeddedTerminal,
   openWorkspaceTerminal,
-  resizeEmbeddedTerminal,
-  trackEmbeddedTerminal,
-  writeEmbeddedTerminal,
 } from './workspace-terminal';
 
-describe('openWorkspaceTerminal', () => {
-  beforeEach(() => {
-    mocks.invoke.mockReset();
-    mocks.listen.mockReset();
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
-  });
+function resolvedUnlisten() {
+  return Promise.resolve(() => undefined);
+}
 
+beforeEach(() => {
+  mocks.invoke.mockReset();
+  mocks.listen.mockReset();
+  xterm.MockTerminal.instances = [];
+  xterm.MockFitAddon.instances = [];
+  Object.assign(window, { __TAURI_INTERNALS__: {} });
+});
+
+describe('openWorkspaceTerminal', () => {
   it('asks the native shell to open the exact workspace path', async () => {
     mocks.invoke.mockResolvedValue('C:\\science\\palm-springs');
 
@@ -36,111 +70,156 @@ describe('openWorkspaceTerminal', () => {
   });
 });
 
-describe('embedded terminal bindings', () => {
-  beforeEach(() => {
-    mocks.invoke.mockReset();
-    mocks.listen.mockReset();
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
-  });
+describe('ensureEmbeddedTerminal', () => {
+  it('registers the data and exit listeners BEFORE invoking terminal_open', async () => {
+    const order: string[] = [];
+    mocks.listen.mockImplementation((event: string) => {
+      order.push(`listen:${event}`);
+      return resolvedUnlisten();
+    });
+    mocks.invoke.mockImplementation((command: string) => {
+      order.push(`invoke:${command}`);
+      return Promise.resolve(undefined);
+    });
 
-  it('opens a pty rooted at cwd and returns its id', async () => {
-    mocks.invoke.mockResolvedValue({ id: 7 });
-
-    await expect(
-      openEmbeddedTerminal({ cwd: 'C:\\workspace', cols: 80, rows: 24 }),
-    ).resolves.toBe(7);
-    expect(mocks.invoke).toHaveBeenCalledWith('terminal_open', {
-      cwd: 'C:\\workspace',
+    const entry = ensureEmbeddedTerminal({
+      tabId: 'tab-order',
+      sessionId: 'sess_1',
+      cwd: '/workspace/demo',
       cols: 80,
       rows: 24,
-      shell: undefined,
     });
+    await entry.readyPromise;
+
+    expect(order).toEqual([
+      'listen:clio:terminal-data',
+      'listen:clio:terminal-exit',
+      'invoke:terminal_open',
+    ]);
   });
 
-  it('rejects opening outside Tauri', async () => {
-    Object.assign(window, { __TAURI_INTERNALS__: undefined, isTauri: undefined });
-    await expect(
-      openEmbeddedTerminal({ cwd: 'C:\\workspace', cols: 80, rows: 24 }),
-    ).rejects.toThrow(/installed desktop app/);
-  });
-
-  it('writes keystrokes to the given terminal id', async () => {
+  it('is idempotent: a second ensure for the same tab returns the same entry and never reopens', async () => {
+    mocks.listen.mockImplementation(resolvedUnlisten);
     mocks.invoke.mockResolvedValue(undefined);
-    await writeEmbeddedTerminal(7, 'echo hi\r');
-    expect(mocks.invoke).toHaveBeenCalledWith('terminal_write', { id: 7, data: 'echo hi\r' });
-  });
 
-  it('resizes the given terminal id', async () => {
+    const options = {
+      tabId: 'tab-idempotent',
+      sessionId: 'sess_1',
+      cwd: '/workspace/demo',
+      cols: 80,
+      rows: 24,
+    };
+    const first = ensureEmbeddedTerminal(options);
+    await first.readyPromise;
+    const openCallsAfterFirst = mocks.invoke.mock.calls.filter(
+      ([command]) => command === 'terminal_open',
+    ).length;
+    expect(openCallsAfterFirst).toBe(1);
+
+    const second = ensureEmbeddedTerminal(options);
+
+    expect(second).toBe(first);
+    expect(second.term).toBe(first.term);
+    expect(
+      mocks.invoke.mock.calls.filter(([command]) => command === 'terminal_open').length,
+    ).toBe(1);
+  });
+});
+
+describe('closeEmbeddedTerminalTab', () => {
+  it('invokes terminal_close, unlistens, disposes the terminal, and forgets the entry', async () => {
+    const unlistenData = vi.fn();
+    const unlistenExit = vi.fn();
+    mocks.listen
+      .mockImplementationOnce(() => Promise.resolve(unlistenData))
+      .mockImplementationOnce(() => Promise.resolve(unlistenExit));
     mocks.invoke.mockResolvedValue(undefined);
-    await resizeEmbeddedTerminal(7, 120, 40);
-    expect(mocks.invoke).toHaveBeenCalledWith('terminal_resize', { id: 7, cols: 120, rows: 40 });
-  });
 
-  it('closes the given terminal id', async () => {
-    mocks.invoke.mockResolvedValue(undefined);
-    await closeEmbeddedTerminal(7);
-    expect(mocks.invoke).toHaveBeenCalledWith('terminal_close', { id: 7 });
-  });
-
-  it('decodes base64 data events for the exact per-id event name', async () => {
-    let handler: ((event: { payload: { data: string } }) => void) | undefined;
-    mocks.listen.mockImplementation((_event: string, cb: typeof handler) => {
-      handler = cb;
-      return Promise.resolve(() => undefined);
+    const entry = ensureEmbeddedTerminal({
+      tabId: 'tab-close',
+      sessionId: 'sess_1',
+      cwd: '/workspace/demo',
+      cols: 80,
+      rows: 24,
     });
+    await entry.readyPromise;
 
-    const received: Uint8Array[] = [];
-    await listenEmbeddedTerminalData(7, (bytes) => received.push(bytes));
+    await closeEmbeddedTerminalTab('tab-close');
 
-    expect(mocks.listen).toHaveBeenCalledWith('clio:terminal-data:7', expect.any(Function));
-    handler?.({ payload: { data: globalThis.btoa('hello') } });
-    expect(received).toHaveLength(1);
-    expect(new TextDecoder().decode(received[0])).toBe('hello');
+    expect(unlistenData).toHaveBeenCalledTimes(1);
+    expect(unlistenExit).toHaveBeenCalledTimes(1);
+    expect(entry.term?.dispose).toHaveBeenCalledTimes(1);
+    expect(mocks.invoke).toHaveBeenCalledWith('terminal_close', { id: entry.id });
+    expect(getEmbeddedTerminal('tab-close')).toBeUndefined();
   });
 
-  it('notifies exit with the shell exit code for the exact per-id event name', async () => {
-    let handler: ((event: { payload: { code: number | null } }) => void) | undefined;
-    mocks.listen.mockImplementation((_event: string, cb: typeof handler) => {
-      handler = cb;
-      return Promise.resolve(() => undefined);
+  it('unlistens correctly even when close races a still-pending listen', async () => {
+    const dataUnlisten = vi.fn();
+    let resolveDataListen: ((unlisten: () => void) => void) | undefined;
+    mocks.listen.mockImplementationOnce(
+      () =>
+        new Promise<() => void>((resolve) => {
+          resolveDataListen = resolve;
+        }),
+    );
+    mocks.listen.mockImplementation(resolvedUnlisten);
+    mocks.invoke.mockResolvedValue(undefined);
+
+    ensureEmbeddedTerminal({
+      tabId: 'tab-race',
+      sessionId: 'sess_1',
+      cwd: '/workspace/demo',
+      cols: 80,
+      rows: 24,
     });
+    // Deliberately not awaited: close races the still-in-flight open.
+    const closePromise = closeEmbeddedTerminalTab('tab-race');
 
-    const codes: Array<number | null> = [];
-    await listenEmbeddedTerminalExit(7, (code) => codes.push(code));
+    // The dynamic `import('@tauri-apps/api/event')` inside `listenTerminalData`
+    // adds its own microtask hop before the mocked `listen()` is actually
+    // invoked, so `resolveDataListen` is not set the instant `ensure`/`close`
+    // return — wait for it rather than assuming it is already there.
+    await vi.waitUntil(() => resolveDataListen !== undefined);
+    resolveDataListen?.(dataUnlisten);
+    await closePromise;
 
-    expect(mocks.listen).toHaveBeenCalledWith('clio:terminal-exit:7', expect.any(Function));
-    handler?.({ payload: { code: 1 } });
-    expect(codes).toEqual([1]);
+    expect(dataUnlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it('is a no-op for a tab with no tracked terminal', async () => {
+    await expect(closeEmbeddedTerminalTab('tab-never-opened')).resolves.toBeUndefined();
+    expect(mocks.invoke).not.toHaveBeenCalled();
   });
 });
 
 describe('closeEmbeddedTerminalsForSession', () => {
-  beforeEach(() => {
-    mocks.invoke.mockReset();
+  it('closes every terminal tab tracked for the session and leaves other sessions alone', async () => {
+    mocks.listen.mockImplementation(resolvedUnlisten);
     mocks.invoke.mockResolvedValue(undefined);
-    mocks.listen.mockReset();
-    Object.assign(window, { __TAURI_INTERNALS__: {} });
-  });
 
-  it('closes every terminal id tracked for the session and forgets them', async () => {
-    trackEmbeddedTerminal('sess_1', 7);
-    trackEmbeddedTerminal('sess_1', 8);
-    trackEmbeddedTerminal('sess_2', 9);
+    const a = ensureEmbeddedTerminal({
+      tabId: 'terminal:sess_1',
+      sessionId: 'sess_1',
+      cwd: '/workspace/demo',
+      cols: 80,
+      rows: 24,
+    });
+    await a.readyPromise;
+    const b = ensureEmbeddedTerminal({
+      tabId: 'terminal:sess_2',
+      sessionId: 'sess_2',
+      cwd: '/workspace/demo',
+      cols: 80,
+      rows: 24,
+    });
+    await b.readyPromise;
 
     await closeEmbeddedTerminalsForSession('sess_1');
 
-    expect(mocks.invoke).toHaveBeenCalledWith('terminal_close', { id: 7 });
-    expect(mocks.invoke).toHaveBeenCalledWith('terminal_close', { id: 8 });
-    expect(mocks.invoke).not.toHaveBeenCalledWith('terminal_close', { id: 9 });
-
-    // A repeat call for the same session (e.g. a second delete attempt) is
-    // a harmless no-op — nothing left to close.
-    mocks.invoke.mockClear();
-    await closeEmbeddedTerminalsForSession('sess_1');
-    expect(mocks.invoke).not.toHaveBeenCalled();
-
-    await closeEmbeddedTerminalsForSession('sess_2');
-    expect(mocks.invoke).toHaveBeenCalledWith('terminal_close', { id: 9 });
+    expect(mocks.invoke).toHaveBeenCalledWith('terminal_close', { id: a.id });
+    expect(mocks.invoke).not.toHaveBeenCalledWith('terminal_close', { id: b.id });
+    expect(getEmbeddedTerminal('terminal:sess_1')).toBeUndefined();
+    expect(getEmbeddedTerminal('terminal:sess_2')).toBeDefined();
   });
 
   it('is a no-op for a session with no tracked terminals', async () => {
