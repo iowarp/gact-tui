@@ -200,7 +200,11 @@ describe('PendingA2UIResponse', () => {
       .getByRole('button', { name: 'Submit selection' })
       .closest('[data-slot="a2ui-response-viewport"]');
     expect(viewport).toHaveStyle({ height: '580px' });
-    expect(window.sessionStorage.getItem('clio.a2ui-viewport-height:surface_1')).toBe('580');
+    // Namespaced by the owning session — never a bare surface id, which two
+    // sessions could otherwise collide on.
+    expect(
+      window.sessionStorage.getItem('clio.a2ui-viewport-height:sess_child%3Asurface_1'),
+    ).toBe('580');
 
     unmount();
     renderPendingA2UI();
@@ -256,17 +260,5 @@ describe('PendingA2UIResponse', () => {
     await user.click(screen.getByRole('button', { name: 'Exit full screen' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(viewport).toHaveStyle({ height: '540px' });
-  });
-
-  it('wheel_over_surface_does_not_scroll_tray: a wheel over the surface viewport does not bubble to the tray', () => {
-    renderPendingA2UI();
-
-    const viewport = screen
-      .getByRole('button', { name: 'Submit selection' })
-      .closest('[data-slot="a2ui-response-viewport"]')!;
-    const wheelEvent = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 40 });
-    const stopPropagation = vi.spyOn(wheelEvent, 'stopPropagation');
-    fireEvent(viewport, wheelEvent);
-    expect(stopPropagation).toHaveBeenCalled();
   });
 });

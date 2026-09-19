@@ -127,7 +127,7 @@ export function ClioPendingInteractions({
           so they must be mounted and reachable without a preceding expand. The
           trigger still collapses the stack when the reader wants the room back. */}
       <QueueSection className="flex min-h-0 flex-col">
-        <QueueSectionTrigger>
+        <QueueSectionTrigger data-slot="pending-interactions-trigger">
           <QueueSectionLabel
             count={pending.length}
             icon={<MessageCircleQuestionIcon aria-hidden="true" className="size-3.5" />}
@@ -138,7 +138,15 @@ export function ClioPendingInteractions({
           <ScrollArea
             className={cn(
               'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
-              hasInteractiveSurface ? 'max-h-[72dvh]' : 'max-h-[min(22rem,40dvh)]',
+              // An interactive surface's own viewport can grow to 85dvh
+              // (a2ui-response-viewport-resize.ts's MAX_VIEWPORT_HEIGHT_RATIO)
+              // plus its header/controls row; the tray's own cap must clear
+              // that whole card, or the card scrolls a second time inside a
+              // tray that still has room. +3rem covers the header, corner
+              // handle, and card padding above/around the viewport itself.
+              // A dvh-based cap tracks a window resize automatically — no JS
+              // re-clamp needed.
+              hasInteractiveSurface ? 'max-h-[calc(85dvh+3rem)]' : 'max-h-[min(22rem,40dvh)]',
             )}
             scrollHideDelay={500}
             type="hover"
