@@ -4,6 +4,63 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.1] — 2026-09-18
+
+The desktop release paired with clio-agent v0.9.4.1. It closes the bug list
+from the first round of desktop testing: quitting, window chrome, branding,
+the interactive surface, tooling detail, versions and updates, a terminal,
+and the Windows installer.
+
+### Added
+
+- A terminal as a workbench tab, running a real shell in the workspace
+  directory. It survives switching tabs, reports when the shell exits, and is
+  shut down with everything else the app owns when you quit. "Open in system
+  terminal" is still there as the secondary action.
+- A Versions panel in Settings showing the desktop app, the web UI, the agent
+  and the installed blueprint pin, with a button to check for app updates and
+  another to check for blueprint updates.
+- Background update checks at startup and every six hours, with a notification
+  offering to restart into the new version once it has downloaded.
+- An Infrastructure page in the Windows installer for choosing what to set up
+  alongside the app: CLIO Search on by default, a local model runtime off by
+  default, and the bundled tool kit. The page is skipped for silent and update
+  installs.
+- Official logos for the providers the model picker offers, with a neutral
+  fallback for anything unrecognized.
+- A "Set up protected execution" action on the Agent page, so the Windows
+  sandbox can be provisioned from the app instead of being described as
+  optional. The row reports what is actually verified rather than assuming.
+- Tool detail showing a tool's description and its typed inputs and outputs,
+  with built-in tools grouped by the server that provides them and each
+  extension group carrying one badge for where it came from.
+
+### Changed
+
+- One window bar across the whole app: app menu, brand, workspace and session
+  context, connection health with the endpoint and backend version, and the
+  window controls. The operating system menu bar is now macOS-only, where the
+  platform expects it.
+- An interactive question is drawn as a single panel instead of nested boxes.
+  Dragging it taller and opening it full window still work, and the transcript
+  links down to it so a waiting question cannot be missed.
+- Product and protocol names are consistent across the app, and the technical
+  rows that used to sit open are collapsed under their own headings.
+
+### Fixed
+
+- Closing the window asks what you want instead of quitting silently. Escape,
+  the X and the backdrop dismiss the prompt, "Keep running" leaves the app in
+  the tray with the backend and your work intact, and "Quit" tears down
+  everything the app owns exactly once, from the tray, the menu and macOS Quit
+  alike.
+- Quitting no longer raises a spurious error notification on the way out.
+- The brand title and icon survive a page reload instead of reverting.
+- The Windows installer removed application data using a fixed identifier, so a
+  differently branded build cleaned up the wrong folder.
+- Update failures are reported with the reason the updater actually gave rather
+  than a generic message, and a download in progress is shown as progress.
+
 ## [0.11.1.2] — 2026-09-17
 
 ### Fixed
