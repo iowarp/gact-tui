@@ -47,6 +47,8 @@ mod supervisor_spawn;
 mod supervisor_spawn_command;
 mod supervisor_state;
 mod supervisor_types;
+mod terminal_pty;
+mod terminal_reader;
 mod tray;
 mod workspace_terminal;
 
@@ -145,6 +147,7 @@ pub fn run() {
         .manage(state)
         .manage(TunnelManager::new())
         .manage(sse_registry::SseRegistry::new())
+        .manage(terminal_pty::TerminalRegistry::new())
         .invoke_handler(tauri::generate_handler![
             commands::get_backend,
             commands::install_clio,
@@ -171,6 +174,10 @@ pub fn run() {
             sse_bridge::gact_sse_close,
             plugins::exec_plugin,
             workspace_terminal::open_workspace_terminal,
+            terminal_pty::terminal_open,
+            terminal_pty::terminal_write,
+            terminal_pty::terminal_resize,
+            terminal_pty::terminal_close,
             quit_clio,
             restart_clio,
             close_prompt_shown
@@ -405,6 +412,9 @@ pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<
     }
     if let Some(tm) = app.try_state::<TunnelManager>() {
         tm.shutdown_all();
+    }
+    if let Some(terminals) = app.try_state::<terminal_pty::TerminalRegistry>() {
+        terminals.shutdown_all();
     }
 }
 

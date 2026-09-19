@@ -54,9 +54,16 @@ fn terminal_commands(path: &Path) -> Vec<TerminalCommand> {
     }
 }
 
-/// Open an OS terminal rooted at an existing workspace directory.
-#[tauri::command]
-pub fn open_workspace_terminal(path: String) -> Result<String, String> {
+/// Resolve a requested workspace path to a real, existing directory.
+///
+/// This is the one piece of validation the desktop actually has today for
+/// "is this cwd a workspace the desktop knows about": the path must be
+/// non-empty and canonicalize to a directory that exists. There is no
+/// separate allow-listed roots table to consult — [`open_workspace_terminal`]
+/// and the embedded PTY's `terminal_open` command (`terminal_pty.rs`) both
+/// reject on this same check, so an embedded terminal can never be pointed
+/// at a `cwd` the OS-terminal path would have refused.
+pub(crate) fn resolve_workspace_dir(path: &str) -> Result<PathBuf, String> {
     let requested = PathBuf::from(path.trim());
     if requested.as_os_str().is_empty() {
         return Err("The workspace path is empty.".into());
@@ -67,6 +74,13 @@ pub fn open_workspace_terminal(path: String) -> Result<String, String> {
     if !workspace.is_dir() {
         return Err("The workspace path is not a directory.".into());
     }
+    Ok(workspace)
+}
+
+/// Open an OS terminal rooted at an existing workspace directory.
+#[tauri::command]
+pub fn open_workspace_terminal(path: String) -> Result<String, String> {
+    let workspace = resolve_workspace_dir(&path)?;
 
     let mut failures = Vec::new();
     for candidate in terminal_commands(&workspace) {

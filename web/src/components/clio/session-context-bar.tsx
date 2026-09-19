@@ -1,5 +1,5 @@
 import type { AgentBlueprintReference, Session } from '@clio/core/v3';
-import { ArrowLeftIcon, GitBranchIcon, SquareTerminalIcon } from 'lucide-react';
+import { ArrowLeftIcon, GitBranchIcon, TerminalSquareIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { showsBaseAgent } from '@/lib/session-state';
 import { inTauri } from '@/lib/transport/tauri-runtime';
@@ -13,7 +13,12 @@ export interface ClioSessionContextBarProps {
   onCompact: () => Promise<void>;
   onFork: () => Promise<void>;
   onOpenBlueprint: (blueprint: AgentBlueprintReference) => void;
+  /** Reveals the embedded terminal tab. Tauri only — undefined hides the
+   * button entirely (matches every other desktop-only action here). */
   onOpenTerminal?: () => Promise<void>;
+  /** Secondary escape hatch: opens the workspace in the OS's own terminal
+   * app instead of the embedded tab. */
+  onOpenSystemTerminal?: () => Promise<void>;
   onShare: (ttlSeconds: number) => Promise<string>;
   onReturnToParent: (session: Session) => void;
   onUndo: () => Promise<void>;
@@ -28,6 +33,7 @@ export function ClioSessionContextBar({
   onFork,
   onOpenBlueprint,
   onOpenTerminal,
+  onOpenSystemTerminal,
   onShare,
   onReturnToParent,
   onUndo,
@@ -88,6 +94,7 @@ export function ClioSessionContextBar({
         disabled={!session || actionsPending}
         onCompact={onCompact}
         onFork={onFork}
+        onOpenSystemTerminal={onOpenSystemTerminal}
         onShare={onShare}
         onUndo={onUndo}
         title={session?.title ?? 'session'}
@@ -101,7 +108,7 @@ export function ClioSessionContextBar({
           title="Open terminal in workspace"
           variant="ghost"
         >
-          <SquareTerminalIcon aria-hidden="true" />
+          <TerminalSquareIcon aria-hidden="true" />
         </Button>
       ) : null}
       {session?.branch ? (
