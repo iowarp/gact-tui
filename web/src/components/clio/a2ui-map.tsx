@@ -8,7 +8,7 @@ import {
 } from '@clio/core/v3';
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { MapIcon, MapPinIcon } from 'lucide-react';
-import { lazy, Suspense, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import {
   Frame,
@@ -66,6 +66,20 @@ export function ClioScientificMap({
   const surfaceRef = useRef<HTMLDivElement>(null);
   const sideBySide = useContainerQuery(surfaceRef, 700);
   const selectedPoint = points.find((point) => point.id === selectedId);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = canvasRef.current;
+    if (!node) return;
+    // A native, explicitly non-passive listener — not the JSX `onWheel` prop.
+    // React (like the browser default for wheel/touch listeners) treats its
+    // synthetic wheel handler as passive, so `preventDefault()` called from
+    // it is silently ignored (and logs a console warning); only a listener
+    // registered with `{ passive: false }` can actually cancel the browser's
+    // default scroll for this gesture.
+    const preventDefaultScroll = (event: WheelEvent) => event.preventDefault();
+    node.addEventListener('wheel', preventDefaultScroll, { passive: false });
+    return () => node.removeEventListener('wheel', preventDefaultScroll);
+  }, []);
 
   return (
     <div className="min-w-0" data-slot="a2ui-map" ref={surfaceRef}>
@@ -93,6 +107,7 @@ export function ClioScientificMap({
               'min-h-[20rem] overflow-hidden border-b',
               sideBySide && 'border-r border-b-0',
             )}
+            ref={canvasRef}
           >
             <Suspense
               fallback={

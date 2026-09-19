@@ -46,7 +46,11 @@ describe('AgentAnswerActivity: transcript link to the pending tray card', () => 
     const scrollIntoView = vi.fn();
     target!.scrollIntoView = scrollIntoView;
 
-    await user.click(screen.getByRole('button', { name: 'Answer below' }));
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Answer below: Which region should the search cover?',
+      }),
+    );
 
     expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' });
     expect(screen.getByRole('button', { name: 'Send response' })).toHaveFocus();
@@ -55,7 +59,11 @@ describe('AgentAnswerActivity: transcript link to the pending tray card', () => 
   it('link_hidden_when_not_pending', () => {
     renderWithTrayFixture(humanQuestion({ status: 'answered' }));
 
-    expect(screen.queryByRole('button', { name: 'Answer below' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Answer below: Which region should the search cover?',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('link_hidden_when_not_pending: also absent once an agent fallback question is answered', () => {
@@ -68,7 +76,11 @@ describe('AgentAnswerActivity: transcript link to the pending tray card', () => 
     });
     renderWithTrayFixture(answered);
 
-    expect(screen.queryByRole('button', { name: 'Answer below' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', {
+        name: 'Answer below: Which region should the search cover?',
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('offers the link for a pending agent-elicitation fallback routed to a human', () => {
@@ -81,6 +93,10 @@ describe('AgentAnswerActivity: transcript link to the pending tray card', () => 
     });
     renderWithTrayFixture(pendingFallback);
 
-    expect(screen.getByRole('button', { name: 'Answer below' })).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: 'Answer below: Which region should the search cover?',
+      }),
+    ).toBeVisible();
   });
 });

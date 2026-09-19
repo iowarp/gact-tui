@@ -9,6 +9,8 @@ import {
   RotateCcwIcon,
 } from 'lucide-react';
 import { type PointerEvent as ReactPointerEvent, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Frame } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
@@ -57,13 +59,31 @@ export function PendingA2UIResponse({
   const [fullscreen, setFullscreen] = useState(false);
   // The surface id is this card's identity across renders and across visits —
   // the interaction id changes with the response cycle, so it is a fallback
-  // only, never the first choice.
-  const surfaceKey = interaction.source.surface_id ?? interaction.id;
+  // only, never the first choice. Namespaced by the owning session: a bare
+  // surface_id/interaction id is only unique within one session, and two
+  // sessions that happen to reuse the same one must never read or clobber
+  // each other's remembered height.
+  const surfaceKey = `${interaction.owner_session_id}:${interaction.source.surface_id ?? interaction.id}`;
   const [viewportHeight, setViewportHeight] = useState(() =>
     initialViewportHeight(surfaceKey, window.innerHeight),
   );
   const resizeStart = useRef<{ y: number; height: number; moved: boolean } | null>(null);
   const suppressResizeClick = useRef(false);
+  // The one persistent instance of the interactive surface: created once per
+  // render and portaled into whichever host is currently live (inline vs.
+  // fullscreen), so toggling fullscreen never unmounts/remounts it — the
+  // surface's own local state (a map's selection, a form processor) survives
+  // the trip. Two separate <A2UISurfaceBody> call sites would each be a
+  // distinct element in the tree and would remount every toggle.
+  //
+  // State-backed callback refs, not useRef+useEffect: a callback ref fires
+  // synchronously during commit (the same timing as useLayoutEffect), so the
+  // dialog host is already known by the time this same commit's render
+  // settles — an effect-driven read would lag a commit behind, briefly
+  // portaling into last render's (possibly unmounted) target.
+  const [inlineHost, setInlineHost] = useState<HTMLDivElement | null>(null);
+  const [dialogHost, setDialogHost] = useState<HTMLDivElement | null>(null);
+  const portalTarget = fullscreen ? dialogHost : inlineHost;
   const beginResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
     resizeStart.current = { y: event.clientY, height: viewportHeight, moved: false };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -125,12 +145,15 @@ export function PendingA2UIResponse({
   );
   return (
     <>
-      <div
-        className="flex min-w-0 flex-col self-stretch"
+      <Frame
+        className="min-w-0 self-stretch rounded-none bg-transparent p-0"
         data-interaction-kind={interaction.kind}
         data-slot="pending-a2ui"
+        dense
         id={pendingInteractionDomId(interaction.id)}
+        spacing="sm"
         tabIndex={-1}
+        variant="ghost"
       >
         <InteractionFrameHeader
           actions={controls}
@@ -153,25 +176,11 @@ export function PendingA2UIResponse({
               disabled && 'pointer-events-none opacity-70',
             )}
             data-slot="a2ui-response-viewport"
-            // The map (and any other wheel-driven catalog component) owns
-            // wheel input inside this viewport. Without this, a wheel over
-            // the map — even one the map itself does not use for scroll —
-            // can bubble to the tray's own ScrollArea and hijack the scroll
-            // the reader meant for the map.
-            onWheel={(event) => event.stopPropagation()}
             style={{ height: viewportHeight }}
           >
             <ResponseErrorNotice error={responseError} />
-            {fullscreen ? null : (
-              <A2UISurfaceBody
-                chrome="bare"
-                interaction={interaction}
-                onLocalAction={onLocalAction}
-                onRefetchSurface={onRefetchSurface}
-                onResponse={onResponse}
-                rawSurface={rawSurface}
-              />
-            )}
+            {/* Portal host for the inline placement — see `surfaceBody` below. */}
+            <div className="contents" ref={setInlineHost} />
           </div>
           <button
             aria-label="Corner resize handle"
@@ -181,13 +190,18 @@ export function PendingA2UIResponse({
             onPointerDown={beginResize}
             onPointerMove={updateResize}
             onPointerUp={endResize}
+            // Pointer-only duplicate of the header's "Resize interactive
+            // surface" grip, which already gives keyboard users the same
+            // resize behavior (click/Enter/Space to toggle min/max). Leaving
+            // this in the tab order would visit the same affordance twice.
+            tabIndex={-1}
             title="Drag to resize interactive surface"
             type="button"
           >
             <MoveDiagonal2Icon aria-hidden="true" className="size-3.5" />
           </button>
         </div>
-      </div>
+      </Frame>
       <Dialog onOpenChange={setFullscreen} open={fullscreen}>
         <DialogContent
           aria-describedby={undefined}
@@ -204,20 +218,25 @@ export function PendingA2UIResponse({
             </Button>
           </div>
           <div className="min-h-0 overflow-auto overscroll-contain p-3">
-            {fullscreen ? (
-              <A2UISurfaceBody
-                chrome="bare"
-                interaction={interaction}
-                onLocalAction={onLocalAction}
-                onRefetchSurface={onRefetchSurface}
-                onResponse={onResponse}
-                rawSurface={rawSurface}
-                viewport="fullscreen"
-              />
-            ) : null}
+            {/* Portal host for the fullscreen placement — see `surfaceBody` below. */}
+            <div className="contents" ref={setDialogHost} />
           </div>
         </DialogContent>
       </Dialog>
+      {portalTarget
+        ? createPortal(
+            <A2UISurfaceBody
+              chrome="bare"
+              interaction={interaction}
+              onLocalAction={onLocalAction}
+              onRefetchSurface={onRefetchSurface}
+              onResponse={onResponse}
+              rawSurface={rawSurface}
+              viewport={fullscreen ? 'fullscreen' : 'inline'}
+            />,
+            portalTarget,
+          )
+        : null}
     </>
   );
 }

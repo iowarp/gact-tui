@@ -31,17 +31,40 @@ export function clampViewportHeight(height: number, windowInnerHeight: number): 
   return Math.min(maxViewportHeight(windowInnerHeight), Math.max(MIN_VIEWPORT_HEIGHT, height));
 }
 
-/** The height this surface was last resized to in this browser tab, if any. */
+/**
+ * The height this surface was last resized to in this browser tab, if any.
+ *
+ * `sessionStorage` access can throw (Tauri/Chromium `SecurityError` when site
+ * data is blocked, a private window, etc.) — a failed read degrades to "no
+ * remembered height" rather than crashing the resize affordance.
+ */
 export function readPersistedViewportHeight(surfaceKey: string): number | undefined {
-  const raw = window.sessionStorage.getItem(viewportHeightStorageKey(surfaceKey));
-  if (!raw) return undefined;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  try {
+    const raw = window.sessionStorage.getItem(viewportHeightStorageKey(surfaceKey));
+    if (!raw) return undefined;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  } catch (error) {
+    console.warn('a2ui viewport height read skipped reason=session_storage_unavailable', error);
+    return undefined;
+  }
 }
 
-/** Remember a resize for this surface, scoped to this browser tab only (never shared, never read back by the server). */
+/**
+ * Remember a resize for this surface, scoped to this browser tab only (never
+ * shared, never read back by the server). Best-effort: a blocked
+ * `sessionStorage` (see {@link readPersistedViewportHeight}) just means the
+ * next open falls back to the default height, not a thrown error mid-resize.
+ */
 export function persistViewportHeight(surfaceKey: string, height: number): void {
-  window.sessionStorage.setItem(viewportHeightStorageKey(surfaceKey), String(Math.round(height)));
+  try {
+    window.sessionStorage.setItem(
+      viewportHeightStorageKey(surfaceKey),
+      String(Math.round(height)),
+    );
+  } catch (error) {
+    console.warn('a2ui viewport height write skipped reason=session_storage_unavailable', error);
+  }
 }
 
 /** The height to open a surface's viewport at: its remembered height, clamped, or the default. */

@@ -453,6 +453,23 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
   // border between the tray and the map itself.
   await expect(pendingResponses.locator('[data-slot="frame"].border')).toHaveCount(1);
 
+  // A wheel over the map's own canvas must never scroll the page (which
+  // would fight the map for the gesture) — a real browser check, not a
+  // synthetic-event spy, since only a real compositor honors preventDefault.
+  const mapGroup = pendingResponses.getByRole('group', {
+    name: 'Nearest EarthScope GNSS stations',
+  });
+  const mapBox = await mapGroup.boundingBox();
+  expect(mapBox).not.toBeNull();
+  if (mapBox) {
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await page.mouse.move(mapBox.x + mapBox.width / 2, mapBox.y + mapBox.height / 2);
+    await page.mouse.wheel(0, 600);
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBe(scrollBefore);
+  }
+
   const viewport = pendingResponses.locator('[data-slot="a2ui-response-viewport"]');
   const initialHeight = await viewport.evaluate(
     (element) => element.getBoundingClientRect().height,
@@ -469,6 +486,7 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
   await expect(corner).toBeVisible();
   await corner.scrollIntoViewIfNeeded();
   const cornerBox = await corner.boundingBox();
+  expect(cornerBox).not.toBeNull();
   if (cornerBox) {
     const cornerX = cornerBox.x + cornerBox.width / 2;
     const cornerY = cornerBox.y + cornerBox.height / 2;
