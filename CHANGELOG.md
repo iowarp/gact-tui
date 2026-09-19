@@ -4,7 +4,7 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
-## [0.11.2.1] — 2026-09-18
+## [0.11.2.1] — 2026-09-19
 
 The desktop release paired with clio-agent v0.9.4.1. It closes the bug list
 from the first round of desktop testing: quitting, window chrome, branding,
