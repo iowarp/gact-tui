@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,8 +8,12 @@ const repository = vi.hoisted(() => ({
   refreshAgentBlueprintSource: vi.fn(),
 }));
 
+const sonnerMocks = vi.hoisted(() => ({
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+}));
+
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: sonnerMocks.toast }));
 
 import { MarketplaceUpdatesCheck } from './settings-marketplace-updates';
 
@@ -103,5 +107,38 @@ describe('marketplace update check', () => {
     await screen.findByText('Up to date');
     expect(repository.blueprintSourceUpdates).toHaveBeenCalledTimes(2);
     expect(screen.queryByText('Update available')).not.toBeInTheDocument();
+  });
+
+  it('does not double-toast when the post-update re-check itself fails', async () => {
+    const user = userEvent.setup();
+    repository.blueprintSourceUpdates.mockResolvedValueOnce({
+      sources: [
+        {
+          source_id: 'src_4',
+          source: 'https://github.com/iowarp/other-blueprints',
+          ref: 'main',
+          installed_commit: 'aaaa1111',
+          remote_commit: 'bbbb2222',
+          update_available: true,
+          reason: 'update_available',
+        },
+      ],
+      checked_at: '2026-09-18T00:00:00Z',
+    });
+    repository.refreshAgentBlueprintSource.mockResolvedValue({});
+    repository.blueprintSourceUpdates.mockRejectedValueOnce(new Error('re-check unreachable'));
+
+    renderPanel();
+    await user.click(screen.getByRole('button', { name: 'Check marketplace updates' }));
+    expect(await screen.findByText('Update available')).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+
+    // The re-check's own onError already surfaces "re-check unreachable";
+    // applyUpdate's onSuccess must swallow that rejection rather than also
+    // triggering ITS OWN onError for the same underlying failure.
+    await waitFor(() => expect(sonnerMocks.toast.error).toHaveBeenCalledTimes(1));
+    expect(sonnerMocks.toast.error).toHaveBeenCalledWith('re-check unreachable');
+    expect(sonnerMocks.toast.success).toHaveBeenCalledWith('Marketplace source updated');
   });
 });

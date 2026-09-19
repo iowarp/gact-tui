@@ -21,7 +21,12 @@ const mocks = vi.hoisted(() => {
 });
 
 const sonnerMocks = vi.hoisted(() => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
+  toast: Object.assign(vi.fn(), {
+    error: vi.fn(),
+    success: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+  }),
 }));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => true }));
@@ -36,6 +41,7 @@ import {
 import {
   checkForDesktopUpdate,
   describeUpdateError,
+  DESKTOP_UPDATE_TOAST_ID,
   installDesktopUpdate,
   runBackgroundUpdateCheck,
   scheduleBackgroundUpdateCheck,
@@ -67,19 +73,50 @@ describe('desktop updater bridge', () => {
 });
 
 describe('describeUpdateError', () => {
+  // Fixtures are the ACTUAL `Display` strings from the vendored
+  // tauri-plugin-updater 2.10.1 / minisign-verify 0.2.5 crate sources
+  // (src/error.rs, src/lib.rs) -- not guessed or paraphrased.
   it('manifest_404_message', () => {
-    expect(describeUpdateError(new Error('Failed with status code 404 Not Found'))).toBe(
-      'No update manifest published yet',
-    );
-    expect(describeUpdateError(new Error('signature verification failed'))).toBe(
+    expect(
+      describeUpdateError(new Error('Could not fetch a valid release JSON from the remote')),
+    ).toBe('No update manifest published yet');
+  });
+
+  it('maps a platform missing from the manifest to its own message, distinct from a missing manifest', () => {
+    expect(
+      describeUpdateError(
+        new Error('the platform `darwin-aarch64` was not found in the response `platforms` object'),
+      ),
+    ).toBe('No update published for this platform');
+    expect(
+      describeUpdateError(
+        new Error(
+          'None of the fallback platforms `["darwin-aarch64", "darwin-x86_64"]` were found in the response `platforms` object',
+        ),
+      ),
+    ).toBe('No update published for this platform');
+  });
+
+  it('maps both minisign signature failure variants to the same rejection message', () => {
+    expect(describeUpdateError(new Error('The signature verification failed'))).toBe(
       'Update rejected: signature mismatch',
     );
+    expect(
+      describeUpdateError(
+        new Error('The signature was created with a different key than the one provided'),
+      ),
+    ).toBe('Update rejected: signature mismatch');
+  });
+
+  it('falls through to the real message for anything unrecognized, and to a fixed fallback for none', () => {
     expect(describeUpdateError(new Error('network unreachable'))).toBe('network unreachable');
     expect(describeUpdateError('not an Error instance')).toBe('not an Error instance');
   });
 
-  it('surfaces the 404 mapping from a real background check failure instead of a blank result', async () => {
-    mocks.check.mockRejectedValueOnce(new Error('Failed with status code 404: Not Found'));
+  it('surfaces the manifest_404 mapping from a real background check failure instead of a blank result', async () => {
+    mocks.check.mockRejectedValueOnce(
+      new Error('Could not fetch a valid release JSON from the remote'),
+    );
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     await runBackgroundUpdateCheck(BACKGROUND_UPDATE_CHECK_MIN_INTERVAL_MS);
@@ -104,6 +141,32 @@ describe('background update scheduling', () => {
     expect(mocks.check).toHaveBeenCalledTimes(1);
   });
 
+  it('treats a future-dated stored timestamp as "never checked" instead of blocking forever', async () => {
+    // A negative now-minus-stored gap (clock skew, a hand-edited or corrupted
+    // value) must never permanently suppress checking.
+    localStorage.setItem('clio.desktop-update.last-checked', String(Date.now() + 10_000_000));
+
+    await runBackgroundUpdateCheck(Date.now());
+
+    expect(mocks.check).toHaveBeenCalledTimes(1);
+  });
+
+  it('records the manual check path against the same shared clock the background gate reads', async () => {
+    vi.useFakeTimers();
+    try {
+      await checkForDesktopUpdate();
+      expect(mocks.check).toHaveBeenCalledTimes(1);
+
+      // Immediately after a manual check, a background check at "now" must
+      // see it as already covered and skip -- not re-request the feed.
+      await runBackgroundUpdateCheck();
+
+      expect(mocks.check).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('background_check_schedules_and_toasts', async () => {
     vi.useFakeTimers();
     try {
@@ -112,21 +175,74 @@ describe('background update scheduling', () => {
 
       expect(mocks.check).toHaveBeenCalledTimes(1);
       expect(sonnerMocks.toast).toHaveBeenCalledTimes(1);
-      const [message, options] = sonnerMocks.toast.mock.calls[0] as [string, { action: { label: string; onClick: () => void } }];
+      const [message, options] = sonnerMocks.toast.mock.calls[0] as [
+        string,
+        { id: string; action: { label: string; onClick: () => void } },
+      ];
       expect(message).toContain('0.8.0');
+      expect(options.id).toBe(DESKTOP_UPDATE_TOAST_ID);
       expect(options.action.label).toBe('Restart to update');
 
       options.action.onClick();
       await vi.advanceTimersByTimeAsync(0);
+
+      // The toast itself becomes the progress indicator: an initial loading
+      // state, then one update per progress event, all pinned to the same id
+      // so they replace each other instead of stacking.
+      expect(sonnerMocks.toast.loading).toHaveBeenCalledWith('Downloading update…', {
+        id: DESKTOP_UPDATE_TOAST_ID,
+      });
+      expect(sonnerMocks.toast.loading).toHaveBeenCalledWith('Downloading update, 0%', {
+        id: DESKTOP_UPDATE_TOAST_ID,
+      });
+      expect(sonnerMocks.toast.loading).toHaveBeenCalledWith('Downloading update, 40%', {
+        id: DESKTOP_UPDATE_TOAST_ID,
+      });
+      expect(sonnerMocks.toast.loading).toHaveBeenCalledWith('Installing update…', {
+        id: DESKTOP_UPDATE_TOAST_ID,
+      });
       expect(mocks.relaunch).toHaveBeenCalledTimes(1);
+      expect(sonnerMocks.toast.dismiss).toHaveBeenCalledWith(DESKTOP_UPDATE_TOAST_ID);
 
       await vi.advanceTimersByTimeAsync(BACKGROUND_UPDATE_CHECK_INTERVAL_MS);
       expect(mocks.check.mock.calls.length).toBeGreaterThanOrEqual(2);
+      // A re-fire still targets the same stable id, so sonner replaces the
+      // existing toast rather than stacking a second one.
+      for (const [, callOptions] of sonnerMocks.toast.mock.calls as Array<
+        [string, { id: string }]
+      >) {
+        expect(callOptions.id).toBe(DESKTOP_UPDATE_TOAST_ID);
+      }
 
       cleanup();
       mocks.check.mockClear();
       await vi.advanceTimersByTimeAsync(BACKGROUND_UPDATE_CHECK_INTERVAL_MS);
       expect(mocks.check).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('dismisses the progress toast and reports the typed error when installation fails mid-restart', async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.update.downloadAndInstall.mockImplementationOnce(async () => {
+        throw new Error('Could not fetch a valid release JSON from the remote');
+      });
+      const cleanup = scheduleBackgroundUpdateCheck();
+      await vi.advanceTimersByTimeAsync(0);
+      const [, options] = sonnerMocks.toast.mock.calls[0] as [
+        string,
+        { action: { onClick: () => void } },
+      ];
+
+      options.action.onClick();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(sonnerMocks.toast.dismiss).toHaveBeenCalledWith(DESKTOP_UPDATE_TOAST_ID);
+      expect(sonnerMocks.toast.error).toHaveBeenCalledWith('No update manifest published yet');
+      expect(mocks.relaunch).not.toHaveBeenCalled();
+      cleanup();
     } finally {
       vi.useRealTimers();
     }

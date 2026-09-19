@@ -57,7 +57,10 @@ export function MarketplaceUpdatesCheck() {
     mutationFn: (sourceId: string) => repository.refreshAgentBlueprintSource(sourceId),
     onSuccess: async () => {
       toast.success('Marketplace source updated');
-      await check.mutateAsync();
+      // `check`'s own onError already surfaces a failed re-check with its own
+      // toast; swallow the rejection here so it does not also propagate into
+      // THIS mutation's onError and fire a second toast for the same cause.
+      await check.mutateAsync().catch(() => undefined);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -71,9 +74,11 @@ export function MarketplaceUpdatesCheck() {
             {rows === undefined ? (
               'Compare every configured marketplace source against its remote ref.'
             ) : checkedAt ? (
-              <>
-                Checked <ClioRelativeTime compact label="Checked" timestamp={checkedAt} />
-              </>
+              // ClioRelativeTime's own aria-label already reads "Checked <when>" (the
+              // `label` prop below) -- a visible "Checked" prefix here would double up
+              // to "Checked Checked <when>" for assistive tech, since aria-label
+              // replaces rather than appends to the element's visible text.
+              <ClioRelativeTime compact label="Checked" timestamp={checkedAt} />
             ) : (
               `Checked ${rows.length} source${rows.length === 1 ? '' : 's'}`
             )}
