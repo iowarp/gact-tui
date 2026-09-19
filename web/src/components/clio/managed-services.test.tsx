@@ -12,9 +12,11 @@ const deployment = vi.hoisted(() => ({
   runManagedServiceAction: vi.fn(),
   sshProfiles: vi.fn(),
 }));
+const installerInfra = vi.hoisted(() => ({ installerRequestedLlamaCpp: vi.fn() }));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => runtime.desktop }));
 vi.mock('@/tauri/infrastructure-setup', () => deployment);
+vi.mock('@/lib/installer-infrastructure', () => installerInfra);
 
 import { ManagedServices } from './managed-services';
 import type { ManagedServiceDefinition } from '@/tauri/infrastructure-setup';
@@ -83,6 +85,7 @@ beforeEach(() => {
     services,
   });
   deployment.sshProfiles.mockResolvedValue([]);
+  installerInfra.installerRequestedLlamaCpp.mockResolvedValue(false);
   deployment.runManagedServiceAction.mockResolvedValue({
     service_id: 'web_search',
     action: 'status',
@@ -226,5 +229,62 @@ describe('ManagedServices', () => {
     );
     expect(container.querySelector('[data-slot="frame"]')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Install' })).not.toBeInTheDocument();
+  });
+
+  it('surfaces the installer-requested llama.cpp finish-setup banner and wires it to the runtime switch', async () => {
+    installerInfra.installerRequestedLlamaCpp.mockResolvedValue(true);
+    const user = userEvent.setup();
+    renderServices();
+
+    expect(
+      await screen.findByText('Finish setting up your local model runtime'),
+    ).toBeVisible();
+    expect(screen.getByLabelText(`Manage a model runtime with ${brand.agentName}`)).not.toBeChecked();
+
+    await user.click(screen.getByRole('button', { name: 'Finish setup' }));
+
+    expect(screen.getByLabelText(`Manage a model runtime with ${brand.agentName}`)).toBeChecked();
+    expect(await screen.findByRole('heading', { name: 'llama.cpp' })).toBeVisible();
+    // The banner gates on the catalog's actual install state, not the
+    // managedProvidersEnabled switch just toggled above — llama.cpp is still
+    // "not_installed" in the mocked catalog, so it must still be showing.
+    // (Gating on that transient switch instead was the bug: it made the
+    // banner reappear on every visit, forever, regardless of whether the
+    // user had ever actually installed anything.)
+    expect(screen.getByText('Finish setting up your local model runtime')).toBeVisible();
+  });
+
+  it('does not show the finish-setup banner when the installer never recorded a llama.cpp request', async () => {
+    installerInfra.installerRequestedLlamaCpp.mockResolvedValue(false);
+    renderServices();
+
+    await screen.findByRole('heading', { name: 'Where should this capability run?' });
+    expect(
+      screen.queryByText('Finish setting up your local model runtime'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not show the finish-setup banner once llama.cpp is actually installed', async () => {
+    installerInfra.installerRequestedLlamaCpp.mockResolvedValue(true);
+    deployment.managedServiceCatalog.mockResolvedValue({
+      facts: {
+        target: 'local',
+        os: 'windows',
+        arch: 'x86_64',
+        accelerator: 'none',
+        docker_available: true,
+        docker_installed: true,
+        uv_available: true,
+      },
+      services: services.map((service) =>
+        service.id === 'llama_cpp' ? { ...service, state: 'stopped' as const } : service,
+      ),
+    });
+    renderServices();
+
+    await screen.findByRole('heading', { name: 'Where should this capability run?' });
+    expect(
+      screen.queryByText('Finish setting up your local model runtime'),
+    ).not.toBeInTheDocument();
   });
 });

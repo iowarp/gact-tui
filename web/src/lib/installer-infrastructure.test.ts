@@ -18,7 +18,7 @@ vi.mock('@/tauri/installer-options', () => ({
   readInstallerOptions: mocks.read,
 }));
 
-import { finishInstallerInfrastructure } from './installer-infrastructure';
+import { finishInstallerInfrastructure, installerRequestedLlamaCpp } from './installer-infrastructure';
 
 describe('finishInstallerInfrastructure', () => {
   beforeEach(() => {
@@ -26,7 +26,12 @@ describe('finishInstallerInfrastructure', () => {
   });
 
   it('registers an installer-deployed Web Search service', async () => {
-    mocks.read.mockResolvedValue({ version: 1, web_search: true, web_search_status: 'deployed' });
+    mocks.read.mockResolvedValue({
+      schema: 2,
+      web_search: 'deployed',
+      llama_cpp: 'not_requested',
+      clio_kit: 'bundled',
+    });
     mocks.configure.mockResolvedValue({ status: 'ready' });
 
     await finishInstallerInfrastructure({
@@ -54,14 +59,70 @@ describe('finishInstallerInfrastructure', () => {
 
   it('leaves a recoverable notice when Docker was unavailable during installation', async () => {
     mocks.read.mockResolvedValue({
-      version: 1,
-      web_search: true,
-      web_search_status: 'needs_attention',
+      schema: 2,
+      web_search: 'needs_attention',
+      llama_cpp: 'not_requested',
+      clio_kit: 'bundled',
     });
 
     await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
 
     expect(mocks.configure).not.toHaveBeenCalled();
     expect(mocks.warning).toHaveBeenCalledWith('CLIO Search still needs setup', expect.any(Object));
+  });
+
+  it('does nothing when Web Search was never requested', async () => {
+    mocks.read.mockResolvedValue({
+      schema: 2,
+      web_search: 'not_requested',
+      llama_cpp: 'not_requested',
+      clio_kit: 'bundled',
+    });
+
+    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
+
+    expect(mocks.configure).not.toHaveBeenCalled();
+    expect(mocks.warning).not.toHaveBeenCalled();
+    expect(mocks.success).not.toHaveBeenCalled();
+  });
+
+  it('does nothing once Web Search is already configured', async () => {
+    mocks.read.mockResolvedValue({
+      schema: 2,
+      web_search: 'configured',
+      llama_cpp: 'not_requested',
+      clio_kit: 'bundled',
+    });
+
+    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
+
+    expect(mocks.configure).not.toHaveBeenCalled();
+    expect(mocks.warning).not.toHaveBeenCalled();
+  });
+});
+
+describe('installerRequestedLlamaCpp', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('reports true when the installer recorded a llama.cpp request', async () => {
+    mocks.read.mockResolvedValue({
+      schema: 2,
+      web_search: 'not_requested',
+      llama_cpp: 'requested',
+      clio_kit: 'bundled',
+    });
+    await expect(installerRequestedLlamaCpp()).resolves.toBe(true);
+  });
+
+  it('reports false when llama.cpp was not requested', async () => {
+    mocks.read.mockResolvedValue({
+      schema: 2,
+      web_search: 'not_requested',
+      llama_cpp: 'not_requested',
+      clio_kit: 'bundled',
+    });
+    await expect(installerRequestedLlamaCpp()).resolves.toBe(false);
   });
 });
