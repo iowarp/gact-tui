@@ -1,10 +1,13 @@
 import { z } from 'zod';
 import type { AgentBlueprint, AgentBlueprintSource, WorkspaceFileEntry } from './domain.js';
+import type { AgentBlueprintSourceUpdate, AgentBlueprintSourceUpdates } from './blueprint-domain.js';
 import { SessionObservabilityRepository } from './session-observability-repository.js';
 import { agentBlueprintSourceSchema } from './schemas.js';
 import {
   agentBlueprintListSchema,
   agentBlueprintSourceListSchema,
+  agentBlueprintSourceUpdateListSchema,
+  agentBlueprintSourceUpdateSingleSchema,
   workspaceFileListSchema,
 } from './repository-decoders.js';
 
@@ -77,6 +80,42 @@ export class BlueprintRepository extends SessionObservabilityRepository {
         ) as AgentBlueprintSource,
       signal,
     });
+  }
+
+  /**
+   * Checks every marketplace source's installed commit against its remote ref
+   * without applying anything. Each row's `reason` is the typed outcome the
+   * caller renders honestly — `update_available` is `null` whenever the check
+   * itself could not determine an answer (e.g. `git_unavailable`, `timeout`),
+   * never inferred as false.
+   */
+  public async blueprintSourceUpdates(signal?: AbortSignal): Promise<AgentBlueprintSourceUpdates> {
+    const result = await this.transport.request({
+      method: 'GET',
+      path: '/v1/agent-blueprints/sources/updates',
+      decode: (value) => agentBlueprintSourceUpdateListSchema.parse(value),
+      signal,
+    });
+    return result as AgentBlueprintSourceUpdates;
+  }
+
+  /**
+   * The same check as {@link blueprintSourceUpdates}, scoped to one source.
+   * The route wraps its single row under `source` (mirroring the list
+   * route's `{ sources, checked_at }` envelope) rather than returning the row
+   * bare — verified against the live route, not assumed from its name.
+   */
+  public async blueprintSourceUpdate(
+    sourceId: string,
+    signal?: AbortSignal,
+  ): Promise<AgentBlueprintSourceUpdate> {
+    const result = await this.transport.request({
+      method: 'GET',
+      path: `/v1/agent-blueprints/sources/${encodeURIComponent(sourceId)}/updates`,
+      decode: (value) => agentBlueprintSourceUpdateSingleSchema.parse(value),
+      signal,
+    });
+    return result.source as AgentBlueprintSourceUpdate;
   }
 
   public deleteAgentBlueprintSource(sourceId: string, signal?: AbortSignal): Promise<void> {

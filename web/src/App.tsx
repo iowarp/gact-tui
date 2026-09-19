@@ -8,6 +8,8 @@ import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
 import { WorkspacePage } from '@/routes/workspace-page';
 import { DesktopTitleBar } from '@/components/clio/desktop-title-bar';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { scheduleBackgroundUpdateCheck } from '@/tauri/desktop-updater';
+import { useConnectionSettings } from '@/providers/connection-provider';
 
 const ConnectionPage = lazy(() =>
   import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
@@ -45,7 +47,17 @@ function UnknownRouteRedirect() {
 export default function App() {
   const navigate = useNavigate();
   const desktopHost = inTauri();
+  const { credentialsReady } = useConnectionSettings();
   useNativeMenuBridge();
+  useEffect(() => {
+    // "Connected" here means the boot-time connection resolution (managed
+    // backend wait, or the immediate ready state for a manual/browser
+    // connection) has finished — not tied to any one workspace route, so it
+    // survives navigating between sessions without rescheduling. The checker
+    // itself is a no-op outside the installed app.
+    if (!desktopHost || !credentialsReady) return;
+    return scheduleBackgroundUpdateCheck();
+  }, [credentialsReady, desktopHost]);
   useMenuAction('open-settings', () => navigate('/settings/appearance'));
   useMenuAction('about', () => navigate('/settings/about'));
   useMenuAction('help-docs', () => {

@@ -5,45 +5,7 @@ import { toolPresentationSchema } from './presentation-schemas.js';
 
 export * from './message-schemas.js';
 export * from './presentation-schemas.js';
-
-export const degradationSchema = z.object({
-  code: z.string(),
-  reason: z.string(),
-  capability: z.string().optional(),
-  recoverable: z.boolean().default(false),
-});
-
-export const provenanceSchema = z.object({
-  source: forwardCompatibleEnum(['server', 'provider', 'connection', 'unavailable']),
-  observed_at: z.string(),
-  stale: z.boolean(),
-  reason: z.string().optional(),
-});
-
-export const capabilitiesSchema = z.object({
-  service: z
-    .object({
-      name: z.string(),
-      version: z.string(),
-    })
-    .optional(),
-  gact_versions: z.array(z.string()),
-  a2ui_versions: z.array(z.string()).default([]),
-  replay: z.object({
-    supported: z.boolean(),
-    retention: z.number().int().nonnegative().optional(),
-  }),
-  capabilities: z.record(z.string(), z.unknown()),
-  degradations: z.array(degradationSchema).default([]),
-  model_catalog: provenanceSchema,
-  active_model: z
-    .object({
-      provider_id: z.string(),
-      model_id: z.string(),
-      effort: z.string().optional(),
-    })
-    .optional(),
-});
+export * from './capability-schemas.js';
 
 export const providerDefinitionSchema = z.object({
   id: z.string(),
@@ -453,6 +415,35 @@ export const agentBlueprintSourceSchema = z.object({
       }),
     )
     .default([]),
+});
+
+/**
+ * One marketplace source's update check, as reported by
+ * `GET /v1/agent-blueprints/sources/updates` (list) and
+ * `GET /v1/agent-blueprints/sources/{id}/updates` (single row). `reason` is
+ * the typed outcome the UI renders honestly instead of inferring from
+ * `update_available` alone — a server-added reason decodes to `'unknown'`
+ * rather than failing the parse.
+ */
+export const agentBlueprintSourceUpdateSchema = z.object({
+  source_id: z.string(),
+  source: z.string(),
+  ref: z.string().optional(),
+  installed_commit: z.string().optional(),
+  remote_commit: z.string().optional(),
+  update_available: z.boolean().nullable(),
+  reason: forwardCompatibleEnum([
+    'up_to_date',
+    'update_available',
+    'source_not_found',
+    'installed_commit_unknown',
+    'git_unavailable',
+    'ls_remote_failed',
+    'ref_not_found',
+    'timeout',
+    'path_source_not_git',
+  ]),
+  detail: z.string().optional(),
 });
 
 export const relayStatusSchema = z.object({

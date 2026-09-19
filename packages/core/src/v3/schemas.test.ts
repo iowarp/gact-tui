@@ -3,6 +3,7 @@ import {
   A2UI_VERSION,
   a2uiComponentSchema,
   a2uiSurfaceSchema,
+  agentBlueprintSourceUpdateSchema,
   capabilitiesSchema,
   messageBlockSchema,
   messageSchema,
@@ -317,5 +318,81 @@ describe('forward-compatible wire enums', () => {
       x_clio_cancellation: 'cooperative',
       x_clio_document_artifacts: { formats: ['markdown', 'pdf'] },
     });
+  });
+
+  it('parses build versions when the connected service reports a marketplace registry', () => {
+    const result = capabilitiesSchema.parse({
+      gact_versions: ['0.3'],
+      replay: { supported: true },
+      capabilities: {},
+      model_catalog: { source: 'server', observed_at: '2026-09-18T00:00:00Z', stale: false },
+      versions: {
+        clio_agent: '0.9.4.1',
+        backend_build: '2026-09-18+ea49ed17',
+        python: '3.12.6',
+        gact_contract: '0.3',
+        marketplace: {
+          source: 'https://github.com/iowarp/clio-blueprints',
+          ref: 'main',
+          pinned_commit: 'ea49ed17aa',
+          installed_commit: 'ea49ed17aa',
+          source_id: 'src_1',
+        },
+      },
+    });
+
+    expect(result.versions).toEqual({
+      clio_agent: '0.9.4.1',
+      backend_build: '2026-09-18+ea49ed17',
+      python: '3.12.6',
+      gact_contract: '0.3',
+      marketplace: {
+        source: 'https://github.com/iowarp/clio-blueprints',
+        ref: 'main',
+        pinned_commit: 'ea49ed17aa',
+        installed_commit: 'ea49ed17aa',
+        source_id: 'src_1',
+      },
+    });
+  });
+
+  it('leaves versions undefined for a service that predates the field, and marketplace null when unconfigured', () => {
+    const withoutVersions = capabilitiesSchema.parse({
+      gact_versions: ['0.3'],
+      replay: { supported: true },
+      capabilities: {},
+      model_catalog: { source: 'server', observed_at: '2026-09-18T00:00:00Z', stale: false },
+    });
+    expect(withoutVersions.versions).toBeUndefined();
+
+    const withoutMarketplace = capabilitiesSchema.parse({
+      gact_versions: ['0.3'],
+      replay: { supported: true },
+      capabilities: {},
+      model_catalog: { source: 'server', observed_at: '2026-09-18T00:00:00Z', stale: false },
+      versions: { clio_agent: '0.9.4.1', marketplace: null },
+    });
+    expect(withoutMarketplace.versions?.marketplace).toBeNull();
+  });
+
+  it('carries a marketplace source update row, defaulting an unrecognized reason to unknown', () => {
+    const upToDate = agentBlueprintSourceUpdateSchema.parse({
+      source_id: 'src_1',
+      source: 'https://github.com/iowarp/clio-blueprints',
+      ref: 'main',
+      installed_commit: 'ea49ed17aa',
+      remote_commit: 'ea49ed17aa',
+      update_available: false,
+      reason: 'up_to_date',
+    });
+    expect(upToDate).toMatchObject({ update_available: false, reason: 'up_to_date' });
+
+    const unknownAnswer = agentBlueprintSourceUpdateSchema.parse({
+      source_id: 'src_2',
+      source: '/local/blueprints',
+      update_available: null,
+      reason: 'a_future_reason_this_client_has_not_learned_yet',
+    });
+    expect(unknownAnswer).toMatchObject({ update_available: null, reason: 'unknown' });
   });
 });

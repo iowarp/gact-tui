@@ -122,6 +122,22 @@ export const MANAGED_BACKEND_READY_TIMEOUT_MS = 90_000;
 export const UPDATE_CHECK_TIMEOUT_MS = 15_000;
 
 /**
+ * Cadence of the automatic background update check. Unit: milliseconds.
+ * A signed release is not expected more than a few times a week, so this
+ * only needs to notice one within a working day; every check also costs the
+ * update feed a request from every installed desktop app.
+ */
+export const BACKGROUND_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000;
+
+/**
+ * Minimum gap enforced between two background update checks, backed by the
+ * persisted "last checked" timestamp. Unit: milliseconds. Guards against a
+ * burst of checks from window focus, reconnect, and interval firing close
+ * together — never a rate limit on the deliberate "Check for updates" button.
+ */
+export const BACKGROUND_UPDATE_CHECK_MIN_INTERVAL_MS = 60 * 1_000;
+
+/**
  * How long one availability probe waits for a remembered service before it is
  * called unreachable. Unit: milliseconds. Much tighter than an ordinary request
  * budget because the picker probes every saved connection at once and a service

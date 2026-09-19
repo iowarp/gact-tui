@@ -24,6 +24,7 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   checkForDesktopUpdate,
+  describeUpdateError,
   installDesktopUpdate,
   type DesktopUpdateInfo,
   type DesktopUpdateProgress,
@@ -48,10 +49,7 @@ export function DesktopSettings() {
       const update = await checkForDesktopUpdate();
       setUpdateState(update ? { kind: 'available', update } : { kind: 'current' });
     } catch (error) {
-      setUpdateState({
-        kind: 'error',
-        message: error instanceof Error ? error.message : 'The update service did not respond.',
-      });
+      setUpdateState({ kind: 'error', message: describeUpdateError(error) });
     }
   };
 
@@ -66,10 +64,7 @@ export function DesktopSettings() {
         setUpdateState({ kind: 'installing', update, progress }),
       );
     } catch (error) {
-      setUpdateState({
-        kind: 'error',
-        message: error instanceof Error ? error.message : 'The update could not be installed.',
-      });
+      setUpdateState({ kind: 'error', message: describeUpdateError(error) });
     }
   };
 
