@@ -19,6 +19,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { PROTOCOL, capitalize, vocab } from '@/lib/brand-vocabulary';
+import { toolDomainLabel } from '@/lib/tool-domain-labels';
 import { TechnicalDetails } from '@/components/clio/technical-details';
 
 interface ToolDomain {
@@ -483,7 +484,13 @@ function toolBundles(
 }
 
 function clioDomain(tool: ToolCatalogItem): string {
-  return clioDomainForName(tool.name) || humanize(tool.server_id?.replace(/^mcp_/u, '') || 'Other');
+  // The server's own declared domain (#1350) always wins; the name regex
+  // below is the fallback for a tool that declared none.
+  return (
+    toolDomainLabel(tool.domain) ||
+    clioDomainForName(tool.name) ||
+    humanize(tool.server_id?.replace(/^mcp_/u, '') || 'Other')
+  );
 }
 
 function clioDomainForName(name: string): string | undefined {
@@ -505,7 +512,11 @@ function clioDomainForName(name: string): string | undefined {
 }
 
 function toolDomainTitle(tool: ToolCatalogItem): string {
-  return clioDomainForName(tool.name) || humanize(tool.server_id?.replace(/^mcp_/u, '') || vocab.agent);
+  return (
+    toolDomainLabel(tool.domain) ||
+    clioDomainForName(tool.name) ||
+    humanize(tool.server_id?.replace(/^mcp_/u, '') || vocab.agent)
+  );
 }
 
 function serverTitle(server: McpServerDefinition | undefined, fallback: string): string {

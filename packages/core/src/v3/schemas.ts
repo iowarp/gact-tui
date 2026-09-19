@@ -496,6 +496,12 @@ export const toolCatalogItemSchema = z.object({
   visible_to: z.array(z.string()).default([]),
   input_schema: z.record(z.string(), z.unknown()).default({}),
   output_schema: z.record(z.string(), z.unknown()).default({}),
+  // #1350: the server's own functional grouping for the desktop Tools view
+  // (one of the fixed `ToolDomain` tokens, or absent for a dynamic gateway
+  // row). Nullish rather than defaulted — an absent domain is a real "this
+  // tool declared none" answer the client's own name-regex fallback must be
+  // free to fill in, never a value this schema should invent.
+  domain: z.string().nullish(),
 });
 
 export const mcpServerDefinitionSchema = z.object({

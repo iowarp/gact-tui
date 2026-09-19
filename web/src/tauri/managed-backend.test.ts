@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }));
 
-import { waitForManagedBackend } from './managed-backend';
+import { restartClio, waitForManagedBackend } from './managed-backend';
 
 describe('managed Tauri backend', () => {
   beforeEach(() => {
@@ -68,5 +68,12 @@ describe('managed Tauri backend', () => {
     await expect(waitForManagedBackend({ pollIntervalMs: 0 })).rejects.toThrow(
       'Sidecar exited before readiness.',
     );
+  });
+
+  it('invokes the native restart command', async () => {
+    mocks.invoke.mockResolvedValueOnce(undefined);
+
+    await expect(restartClio()).resolves.toBeUndefined();
+    expect(mocks.invoke).toHaveBeenCalledWith('restart_clio');
   });
 });

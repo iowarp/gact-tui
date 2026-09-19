@@ -18,7 +18,11 @@ const repository = vi.hoisted(() => ({
   configureRelay: vi.fn(),
   deleteMcpServer: vi.fn(),
   installMcpServer: vi.fn(),
+  sandboxStatus: vi.fn(),
+  setupSandbox: vi.fn(),
 }));
+const inTauriMock = vi.hoisted(() => vi.fn(() => false));
+const restartClioMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -26,7 +30,8 @@ vi.mock('@/providers/connection-provider', () => ({
     settings: { endpoint: 'http://127.0.0.1:8788', label: 'Contained' },
   }),
 }));
-vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => false }));
+vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: inTauriMock }));
+vi.mock('@/tauri/managed-backend', () => ({ restartClio: restartClioMock }));
 
 import { InfrastructurePage } from './infrastructure-page';
 
@@ -205,6 +210,14 @@ beforeEach(() => {
     tools: [],
     retryable: false,
   });
+  repository.sandboxStatus.mockResolvedValue({
+    name: 'sandbox',
+    status: 'ready',
+    required: true,
+    setup_in_progress: false,
+  });
+  inTauriMock.mockReturnValue(false);
+  restartClioMock.mockClear();
 });
 
 afterEach(cleanup);
@@ -296,26 +309,226 @@ describe('InfrastructurePage', () => {
     expect(screen.getByText('The relay rejected the stored credential (401).')).toBeVisible();
   });
 
-  it('keeps missing execution protection visible as a required problem', async () => {
+  it('keeps missing execution protection visible as a required problem, never "Optional"', async () => {
     repository.serviceHealth.mockResolvedValue({
       healthy: true,
       integrations: [
-        {
-          name: 'sandbox',
-          status: 'degraded',
-          required: false,
-          summary: 'No OS write-confinement.',
-          details: {},
-        },
+        { name: 'sandbox', status: 'degraded', required: true, details: {} },
       ],
+    });
+    repository.sandboxStatus.mockResolvedValue({
+      name: 'sandbox',
+      status: 'degraded',
+      required: true,
+      reason: 'codex_enforcement_unverified',
+      setup_in_progress: false,
     });
 
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
 
     expect(await screen.findByText('Protected execution')).toBeVisible();
-    expect(screen.getAllByText('Needs attention')).not.toHaveLength(0);
+    expect(await screen.findByText('Not verified yet on this computer')).toBeVisible();
     expect(screen.queryByText('Optional')).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'CLIO agent' })).not.toBeInTheDocument();
+  });
+
+  it('offers a "Set up protected execution" fix, not just a label', async () => {
+    const user = userEvent.setup();
+    repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      integrations: [{ name: 'sandbox', status: 'degraded', required: true, details: {} }],
+    });
+    repository.sandboxStatus.mockResolvedValue({
+      name: 'sandbox',
+      status: 'degraded',
+      required: true,
+      reason: 'codex_enforcement_unverified',
+      setup_in_progress: false,
+    });
+
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+
+    await user.click(await screen.findByText('Protected execution'));
+    expect(
+      await screen.findByRole('button', { name: /Set up protected execution/u }),
+    ).toBeVisible();
+  });
+
+  it('invalidates the sandbox row once setup settles, then polls it until the run clears', async () => {
+    const user = userEvent.setup();
+    repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      integrations: [{ name: 'sandbox', status: 'degraded', required: true, details: {} }],
+    });
+    repository.sandboxStatus
+      .mockResolvedValueOnce({
+        name: 'sandbox',
+        status: 'degraded',
+        required: true,
+        reason: 'codex_enforcement_unverified',
+        setup_in_progress: false,
+      })
+      // The GET the mutation's onSettled forces after a 409 — the real
+      // 409 body itself carries none of these desktop-panel fields, only
+      // this dedicated GET does, so this refetch is the only thing that
+      // can ever put the row into its "in progress" state.
+      .mockResolvedValueOnce({
+        name: 'sandbox',
+        status: 'degraded',
+        required: true,
+        reason: 'codex_enforcement_unverified',
+        setup_in_progress: true,
+      })
+      .mockResolvedValue({
+        name: 'sandbox',
+        status: 'ready',
+        required: true,
+        setup_in_progress: false,
+      });
+    // A real 409/501 response body: status/reason/elevated only, no `row`
+    // with setup_in_progress/reason/codex_source for the client to seed a
+    // cache from.
+    repository.setupSandbox.mockResolvedValue({
+      status: 'sandbox_setup_in_progress',
+      reason: 'sandbox_setup_in_progress',
+      elevated: false,
+    });
+
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+
+    await user.click(await screen.findByText('Protected execution'));
+    await user.click(
+      await screen.findByRole('button', { name: /Set up protected execution/u }),
+    );
+    expect(repository.setupSandbox).toHaveBeenCalled();
+    expect(await screen.findByText('Waiting for Windows permission prompt…')).toBeVisible();
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByText('Waiting for Windows permission prompt…'),
+        ).not.toBeInTheDocument(),
+      { timeout: 3_000 },
+    );
+  });
+
+  it('still picks up a running setup after the request itself times out', async () => {
+    const user = userEvent.setup();
+    repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      integrations: [{ name: 'sandbox', status: 'degraded', required: true, details: {} }],
+    });
+    repository.sandboxStatus
+      .mockResolvedValueOnce({
+        name: 'sandbox',
+        status: 'degraded',
+        required: true,
+        reason: 'codex_enforcement_unverified',
+        setup_in_progress: false,
+      })
+      // The setup run is real and still going server-side even though the
+      // desktop bridge's own client-side wait gave up on it — onSettled
+      // fires on a rejection exactly like it does on success, so this GET
+      // still happens and still finds the run.
+      .mockResolvedValueOnce({
+        name: 'sandbox',
+        status: 'degraded',
+        required: true,
+        reason: 'codex_enforcement_unverified',
+        setup_in_progress: true,
+      })
+      .mockResolvedValue({
+        name: 'sandbox',
+        status: 'ready',
+        required: true,
+        setup_in_progress: false,
+      });
+    repository.setupSandbox.mockRejectedValue(new Error('the request timed out'));
+
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+
+    await user.click(await screen.findByText('Protected execution'));
+    await user.click(
+      await screen.findByRole('button', { name: /Set up protected execution/u }),
+    );
+    expect(await screen.findByText('Waiting for Windows permission prompt…')).toBeVisible();
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByText('Waiting for Windows permission prompt…'),
+        ).not.toBeInTheDocument(),
+      { timeout: 3_000 },
+    );
+  });
+
+  it('hides the setup button once the connected service reports 501 (nothing to provision here)', async () => {
+    const user = userEvent.setup();
+    repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      integrations: [{ name: 'sandbox', status: 'degraded', required: true, details: {} }],
+    });
+    repository.sandboxStatus.mockResolvedValue({
+      name: 'sandbox',
+      status: 'degraded',
+      required: true,
+      reason: 'disabled_by_config',
+      setup_in_progress: false,
+    });
+    repository.setupSandbox.mockResolvedValue({
+      status: 'not_windows',
+      reason: 'sandbox_setup_unsupported',
+      elevated: false,
+      row: {
+        name: 'sandbox',
+        status: 'degraded',
+        required: true,
+        reason: 'disabled_by_config',
+        setup_in_progress: false,
+      },
+    });
+
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+
+    await user.click(await screen.findByText('Protected execution'));
+    await user.click(
+      await screen.findByRole('button', { name: /Set up protected execution/u }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /Set up protected execution/u }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it('offers a Restart action once the reason is sandbox_fence_pending_restart', async () => {
+    const user = userEvent.setup();
+    repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      integrations: [{ name: 'sandbox', status: 'degraded', required: true, details: {} }],
+    });
+    repository.sandboxStatus.mockResolvedValue({
+      name: 'sandbox',
+      status: 'degraded',
+      required: true,
+      reason: 'sandbox_fence_pending_restart',
+      setup_in_progress: false,
+    });
+
+    // Browser session (inTauriMock defaults to false): an instruction, not a button that can't act here.
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+    await user.click(await screen.findByText('Protected execution'));
+    expect(await screen.findByText(/Set up, restart/u)).toBeVisible();
+    expect(
+      screen.getByText(/Restart .* to activate protected execution/u),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Restart/u })).not.toBeInTheDocument();
+    cleanup();
+
+    // Desktop session: a real "Restart CLIO" button wired to the restart command.
+    inTauriMock.mockReturnValue(true);
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+    await user.click(await screen.findByText('Protected execution'));
+    await user.click(await screen.findByRole('button', { name: /Restart/u }));
+    expect(restartClioMock).toHaveBeenCalled();
   });
 
   it('falls back to the relay’s typed reason when it sent no prose detail', async () => {

@@ -172,6 +172,7 @@ pub fn run() {
             plugins::exec_plugin,
             workspace_terminal::open_workspace_terminal,
             quit_clio,
+            restart_clio,
             close_prompt_shown
         ])
         .setup(|app| {
@@ -421,6 +422,38 @@ fn quit_clio(app: tauri::AppHandle) {
     request_quit(&app);
 }
 
+/// Whole-app relaunch, invoked from the Infrastructure > Agent "Protected
+/// execution" row once a sandbox setup reports `sandbox_fence_pending_restart`.
+///
+/// A first version of this command called `Supervisor::restart()` directly —
+/// that only respawns the managed backend child on a fresh port with a fresh
+/// bearer token, which the webview never learns (the connection handshake
+/// runs once, at mount, in `connection-provider.tsx`), so every request after
+/// that "restart" failed. Restarting the whole app instead makes the webview
+/// reload from scratch and redo that handshake against whatever the fresh
+/// backend boots with — the only way this button's promise ("the fence is
+/// active now") is actually kept.
+///
+/// Goes through the SAME owned-process teardown as [`quit_clio`] (guarded by
+/// the same [`claim_quit`], so a restart can never race a concurrent quit or
+/// vice versa) before calling [`tauri::AppHandle::restart`], which never
+/// returns — it exits this process with Tauri's own restart exit code and a
+/// fresh instance takes over. Runs on a background thread: `restart()` blocks
+/// the calling thread until the process actually exits (it hands off to the
+/// main event loop and parks), and this is a `#[tauri::command]` — parking
+/// the command's own thread would otherwise stall the invoking webview call
+/// for however long teardown and the runtime's own exit sequencing take.
+#[tauri::command]
+fn restart_clio(app: tauri::AppHandle) {
+    if !claim_quit() {
+        return;
+    }
+    thread::spawn(move || {
+        shutdown_owned_services(&app);
+        app.restart();
+    });
+}
+
 /// Frontend ack for [`CLOSE_REQUESTED_EVENT`]: called once the close
 /// confirmation prompt has mounted for the given `seq` (echoed from the
 /// event payload), so the native 500ms fallback for THAT SAME close request
@@ -459,6 +492,24 @@ mod quit_guard_tests {
         assert!(
             !claim_quit_on(&guard),
             "repeated later claims stay refused"
+        );
+    }
+
+    /// `quit_clio` and `restart_clio` share this exact guard (both call the
+    /// bare `claim_quit()`), so whichever fires first must win the only
+    /// teardown run and the other must see itself refused — neither may ever
+    /// race the other into tearing down owned services twice or into an
+    /// `app.restart()` racing an `app.exit(0)`.
+    #[test]
+    fn quit_and_restart_share_one_guard() {
+        let guard = AtomicBool::new(false);
+        assert!(
+            claim_quit_on(&guard),
+            "whichever of quit_clio/restart_clio the reader triggers first must win the claim"
+        );
+        assert!(
+            !claim_quit_on(&guard),
+            "the other of quit_clio/restart_clio must see the claim already taken and no-op"
         );
     }
 

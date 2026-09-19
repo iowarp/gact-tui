@@ -42,6 +42,13 @@ import {
   sessionIdFromRoute,
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
+import {
+  foundationSummary,
+  foundationTitle,
+  integrationStatus,
+  integrationStatusLabel,
+} from './infrastructure-foundation';
+import { SandboxFoundationRow } from './infrastructure-sandbox-row';
 export function InfrastructurePage() {
   const desktop = inTauri();
   const location = useLocation();
@@ -455,6 +462,10 @@ function SetupCard({
 }
 
 function FoundationRow({ integration }: { integration: ServiceIntegrationHealth }) {
+  // Protected execution alone offers a fix (Set up / Restart) instead of
+  // only explaining the problem, backed by the dedicated sandbox endpoint —
+  // every other row stays the plain /v1/health projection below.
+  if (integration.name === 'sandbox') return <SandboxFoundationRow integration={integration} />;
   const status = integrationStatus(integration.status);
   const summary = foundationSummary(integration);
   const action = foundationAction(integration);
@@ -465,14 +476,7 @@ function FoundationRow({ integration }: { integration: ServiceIntegrationHealth 
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
           {foundationTitle(integration.name)}
         </span>
-        <ClioStatus
-          label={
-            isOptionalIntegration(integration) && status !== 'healthy'
-              ? 'Optional'
-              : integrationStatusLabel(status)
-          }
-          value={isOptionalIntegration(integration) && status !== 'healthy' ? 'unavailable' : status}
-        />
+        <ClioStatus label={integrationStatusLabel(status)} value={status} />
       </summary>
       <div className="mt-3 border-t pt-3 text-xs leading-5 text-muted-foreground">
         <p>{summary}</p>
@@ -501,24 +505,6 @@ function FoundationRow({ integration }: { integration: ServiceIntegrationHealth 
   );
 }
 
-function integrationStatus(status: string): ClioStatusValue {
-  if (['ready', 'healthy', 'live', 'skipped'].includes(status)) return 'healthy';
-  if (['degraded', 'warning', 'reconnecting'].includes(status)) return 'degraded';
-  return 'unavailable';
-}
-
-function integrationStatusLabel(status: ClioStatusValue): string {
-  if (status === 'healthy') return 'Ready';
-  if (status === 'degraded') return 'Needs attention';
-  return 'Unavailable';
-}
-
-function isOptionalIntegration(integration: ServiceIntegrationHealth): boolean {
-  // OS confinement is a safety requirement even when an older backend reports
-  // the advisory file-policy fallback as a legal optional configuration.
-  return integration.required === false && integration.name !== 'sandbox';
-}
-
 function clioServiceDescription(
   health: { healthy: boolean } | undefined,
   foundationIssues: number,
@@ -532,36 +518,14 @@ function clioServiceDescription(
   return `${vocab.agent} is running normally.`;
 }
 
-function foundationSummary(integration: ServiceIntegrationHealth): string {
-  const ready: Record<string, string> = {
-    api: 'The workspace service is available.',
-    arc: 'Conversation memory is available.',
-    gateway: 'Connected tools are available to agents.',
-    file_policy: 'Workspace file access rules are active.',
-    lm_provider: 'The selected language model is ready.',
-    sandbox: 'Protected command and file execution is active.',
-    clio_core: 'The full conversation-memory service is available.',
-    sandbox_conformance: 'Agent processes are using the configured execution protection.',
-    child_reaper: 'Background processes will be cleaned up with the agent service.',
-    child_processes: 'No unexpected background work is running.',
-    child_parentage: 'Background work remains attached to this agent service.',
-  };
-  const degraded: Record<string, string> = {
-    arc: 'Conversation memory is using a limited local fallback.',
-    sandbox: `Extra operating-system confinement is not enabled. ${vocab.agent} still applies ${vocab.workspace} access rules and records out-of-${vocab.workspace} attempts.`,
-    child_parentage: 'Some background processes are no longer attached to this agent service.',
-  };
-  if (integrationStatus(integration.status) === 'healthy') {
-    return ready[integration.name] ?? 'This supporting service is ready.';
-  }
-  return degraded[integration.name] ?? 'This supporting service needs attention.';
-}
-
 function foundationAction(
   integration: ServiceIntegrationHealth,
 ): { description: string; label: string; to: string } | undefined {
   if (integrationStatus(integration.status) === 'healthy') return undefined;
-  if (isOptionalIntegration(integration)) return undefined;
+  // The server is the sole authority on whether an integration's absence
+  // blocks usage — no client-side name-based override. `sandbox` never
+  // reaches here: it renders through SandboxFoundationRow instead.
+  if (integration.required === false) return undefined;
   if (integration.name === 'arc') {
     return {
       description: 'Use the full conversation-memory service to restore complete agent behavior.',
@@ -581,27 +545,6 @@ function foundationAction(
     label: 'System settings',
     to: '/settings/system',
   };
-}
-
-function foundationTitle(name: string): string {
-  const names: Record<string, string> = {
-    api: 'Workspace service',
-    arc: 'Conversation memory',
-    gateway: 'Tool gateway',
-    file_policy: 'Workspace file access',
-    lm_provider: 'Language model provider',
-    sandbox: 'Protected execution',
-    clio_core: 'Memory storage',
-    clio_core_ram_cap: 'Memory working limit',
-    clio_core_liveness: 'Memory service connection',
-    clio_core_daemon_memory: 'Memory service process',
-    cte_cold_tier_disk: 'Stored memory capacity',
-    sandbox_conformance: 'Execution protection coverage',
-    child_reaper: 'Process cleanup',
-    child_processes: 'Background processes',
-    child_parentage: 'Background process ownership',
-  };
-  return names[name] || name.replaceAll('_', ' ').replace(/^./u, (value) => value.toUpperCase());
 }
 
 /**

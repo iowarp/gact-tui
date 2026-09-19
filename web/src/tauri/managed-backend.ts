@@ -28,6 +28,27 @@ export async function getManagedBackend(): Promise<ManagedBackendHandle> {
   return invokeManagedBackend<ManagedBackendHandle>('get_backend');
 }
 
+/**
+ * Relaunch the whole app — not just the managed backend child. Used by the
+ * Infrastructure > Agent "Restart CLIO" button once a sandbox setup run
+ * reports `sandbox_fence_pending_restart`: an MCP tool fleet already spawned
+ * before the just-activated fence isn't covered by it until the backend
+ * restarts.
+ *
+ * A backend-only respawn isn't enough: the fresh child boots on a new port
+ * with a new bearer token, and this webview's connection handshake only
+ * runs once, at mount (`connection-provider.tsx`) — it would never learn
+ * the new coordinates and every request after that "restart" would fail.
+ * The native `restart_clio` command instead tears down through the same
+ * owned-process guard as quitting and calls Tauri's whole-app restart, so
+ * the webview reloads from scratch and redoes that handshake against
+ * whatever the fresh backend boots with. Tauri-only; callers check
+ * `inTauri()` first.
+ */
+export async function restartClio(): Promise<void> {
+  await invokeManagedBackend<void>('restart_clio');
+}
+
 export async function waitForManagedBackend(
   options: ManagedBackendOptions = {},
 ): Promise<ManagedBackendHandle> {
