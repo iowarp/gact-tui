@@ -187,7 +187,7 @@ describe('ClioPendingInteractions', () => {
     expect(
       screen.getByText('The specialist could not answer this, so it needs you.'),
     ).toBeVisible();
-    expect(screen.queryByText('agent_answer_timeout')).not.toBeVisible();
+    expect(screen.queryByText('agent_answer_timeout')).not.toBeInTheDocument();
     expect(screen.getByText('Technical details')).toBeVisible();
   });
 
