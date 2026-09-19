@@ -167,7 +167,7 @@ mod tests {
     /// explicit override.
     #[test]
     fn agent_name_reads_the_embedded_vocabulary_field() {
-        assert_eq!(agent_name(), Some("Agent Workspace"));
+        assert_eq!(agent_name(), Some("Agent"));
     }
 
     /// The connect-mode error names the override env vars and never a hardcoded
