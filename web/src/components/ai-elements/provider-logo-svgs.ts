@@ -11,12 +11,14 @@
 // isolated context and would stay whatever color it was drawn in.
 import amazonBedrock from '../../../public/provider-logos/amazon-bedrock.svg?raw';
 import anthropic from '../../../public/provider-logos/anthropic.svg?raw';
+import argonne from '../../../public/provider-logos/argonne.svg?raw';
 import azure from '../../../public/provider-logos/azure.svg?raw';
 import deepseek from '../../../public/provider-logos/deepseek.svg?raw';
 import generic from '../../../public/provider-logos/generic.svg?raw';
 import google from '../../../public/provider-logos/google.svg?raw';
 import groq from '../../../public/provider-logos/groq.svg?raw';
 import huggingface from '../../../public/provider-logos/huggingface.svg?raw';
+import llamaCpp from '../../../public/provider-logos/llama-cpp.svg?raw';
 import lmstudio from '../../../public/provider-logos/lmstudio.svg?raw';
 import mistral from '../../../public/provider-logos/mistral.svg?raw';
 import nvidia from '../../../public/provider-logos/nvidia.svg?raw';
@@ -38,12 +40,14 @@ export const GENERIC_PROVIDER_LOGO_ID = 'generic';
 export const providerLogoSvgs: Record<string, string> = {
   'amazon-bedrock': amazonBedrock,
   anthropic,
+  argonne,
   azure,
   deepseek,
   [GENERIC_PROVIDER_LOGO_ID]: generic,
   google,
   groq,
   huggingface,
+  'llama-cpp': llamaCpp,
   lmstudio,
   mistral,
   nvidia,
