@@ -162,12 +162,14 @@ mod tests {
     }
 
     /// `agent_name()` reads the generator-emitted `agentName` field (the
-    /// vocabulary counterpart to `product_name()`), defaulted by the
-    /// generator to the brand's bare `name` when a brand declares no
-    /// explicit override.
+    /// vocabulary counterpart to `product_name()`). The tracked neutral
+    /// `gact` profile (`branding/gact/brand.json`) declares an EXPLICIT
+    /// `"agentName": "Agent"` override, so this — not the bare-`name`
+    /// fallback the generator would use for a brand with no override — is
+    /// what the committed `gen/brand-backend.json` default embeds.
     #[test]
     fn agent_name_reads_the_embedded_vocabulary_field() {
-        assert_eq!(agent_name(), Some("Agent Workspace"));
+        assert_eq!(agent_name(), Some("Agent"));
     }
 
     /// The connect-mode error names the override env vars and never a hardcoded
