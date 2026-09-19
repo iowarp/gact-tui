@@ -1,5 +1,6 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import {
+  ArrowDownToLineIcon,
   ArrowUpToLineIcon,
   BotIcon,
   CircleAlertIcon,
@@ -11,10 +12,65 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
 import { ClioStatus, type ClioStatusValue } from './status';
+import { focusFirstFocusable, pendingInteractionDomId } from './interaction-control';
 import { humanizeProtocolValue } from './presentation-labels';
 import { TechnicalDetails } from './technical-details';
 import { isAgentMcpInteraction, questionInteractionRequestLabel } from './agent-answer-domain';
+
+/** The tray section's own collapse trigger (ai-elements/queue.tsx's `QueueSectionTrigger`, given this stable slot by pending-interactions.tsx). */
+const PENDING_TRAY_TRIGGER_SELECTOR = '[data-slot="pending-interactions-trigger"]';
+
+/**
+ * Scrolls the transcript reader straight to this interaction's card in the
+ * pending-response tray and focuses its first control — the "link semantics"
+ * alternative to hunting for a small, buried card. Only rendered while the
+ * interaction is actually pending; it disappears the moment it is answered.
+ * Appears on the full (non-compact) activity row only — the compact row has
+ * no room for it and is not where a reader is expected to act from.
+ */
+function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
+  const label = interaction.prompt ?? interaction.title;
+  return (
+    <Button
+      aria-label={`Answer below: ${label}`}
+      className="h-auto gap-1 p-0 text-xs"
+      onClick={() => {
+        const focusTarget = () => {
+          const target = document.getElementById(pendingInteractionDomId(interaction.id));
+          if (!target) return;
+          // `block: 'nearest'` is a no-op when the card is already fully
+          // visible — the browser only scrolls when it actually has to,
+          // which is exactly "scroll it into view, or just focus it if it's
+          // already there."
+          target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          focusFirstFocusable(target);
+        };
+        // The tray's own section is open by default but the reader may have
+        // collapsed it — its card unmounts with it (ai-elements/queue.tsx's
+        // Collapsible), so `getElementById` above would silently find
+        // nothing. Open it first, the same way clicking its own trigger
+        // would, and give that React state update a paint cycle to actually
+        // mount the card before hunting for it. Already-open (the common
+        // case) skips the wait entirely.
+        const trigger = document.querySelector<HTMLButtonElement>(PENDING_TRAY_TRIGGER_SELECTOR);
+        if (trigger?.getAttribute('aria-expanded') === 'false') {
+          trigger.click();
+          requestAnimationFrame(() => requestAnimationFrame(focusTarget));
+        } else {
+          focusTarget();
+        }
+      }}
+      size="sm"
+      type="button"
+      variant="link"
+    >
+      <ArrowDownToLineIcon aria-hidden="true" className="size-3.5" />
+      Answer below
+    </Button>
+  );
+}
 
 /** Quiet lifecycle attribution for a question routed to an agent. */
 export function AgentAnswerActivity({
@@ -151,6 +207,9 @@ export function AgentAnswerActivity({
           {fallbackPending ? (
             <ActivityStep icon={RouteIcon} title="Routed to you">
               The request remains available in the response stack.
+              <div className="mt-1">
+                <AnswerBelowLink interaction={interaction} />
+              </div>
             </ActivityStep>
           ) : null}
           {fallbackAnswered ? (
@@ -225,7 +284,9 @@ function HumanQuestionActivity({
       data-turn-activity={`interaction:${interaction.id}`}
     >
       {interaction.status === 'pending' ? (
-        <ActivityStep icon={RouteIcon} title="Waiting for your response" />
+        <ActivityStep icon={RouteIcon} title="Waiting for your response">
+          <AnswerBelowLink interaction={interaction} />
+        </ActivityStep>
       ) : (
         <ActivityStep icon={MessageCircleQuestionIcon} title={isMcp ? requestLabel : 'Agent asked'}>
           {interaction.prompt}

@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution, ResponseErrorNotice } from './pending-interaction-notices';
 import { TechnicalDetails } from './technical-details';
 
@@ -186,7 +187,9 @@ function QuestionFrame({ children, ...props }: QuestionSurfaceProps & { children
       className="min-w-0 self-stretch"
       data-interaction-kind={props.interaction.kind}
       dense
+      id={pendingInteractionDomId(props.interaction.id)}
       spacing="sm"
+      tabIndex={-1}
     >
       <FrameHeader className="relative flex-row items-start gap-2 pr-10">
         <MessageCircleQuestionIcon
