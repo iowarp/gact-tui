@@ -1,6 +1,6 @@
 import type { A2UISurface, PendingInteraction } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CLIO_A2UI_CATALOG_ID } from './a2ui-catalog';
@@ -93,6 +93,7 @@ function mapSurface(): A2UISurface {
               title: 'EarthScope stations',
               points: [
                 { id: 'station_1', label: 'Station 1', latitude: 41.88, longitude: -87.63 },
+                { id: 'station_2', label: 'Station 2', latitude: 42.36, longitude: -71.06 },
               ],
             },
           ],
@@ -143,6 +144,36 @@ describe('PendingA2UIResponse', () => {
     const borderedFrames = card!.querySelectorAll('[data-slot="frame"].border');
     expect(borderedFrames).toHaveLength(1);
     expect(screen.getByRole('group', { name: 'EarthScope stations map' })).toBeVisible();
+  });
+
+  it('single_instance_survives_fullscreen: a selection made inline is still selected inside — and after — full screen', async () => {
+    const user = userEvent.setup();
+    renderPendingA2UI(mapSurface());
+
+    // Station 1 is selected by default (the first point); switch to Station 2
+    // before opening full screen so a remount (which would reset to the
+    // catalog component's own default) is actually observable.
+    await user.click(screen.getByRole('button', { name: 'Station 2' }));
+    expect(screen.getByRole('button', { name: 'Station 2' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open interactive surface full screen' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeVisible();
+    // The SAME <ClioScientificMap> instance now renders inside the dialog —
+    // a remount would have reset it back to Station 1.
+    expect(
+      within(dialog).getByRole('button', { name: 'Station 2' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(within(dialog).getByRole('button', { name: 'Exit full screen' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Station 2' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 
   it('lets pointer and keyboard users resize the inline viewport', async () => {
