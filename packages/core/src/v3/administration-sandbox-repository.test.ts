@@ -79,6 +79,9 @@ describe('sandbox administration repository', () => {
       method: 'POST',
       path: '/v1/system/sandbox/setup',
       acceptStatuses: [409, 501],
+      // A UAC elevation prompt can sit unanswered for minutes — this must
+      // not share the transport's ordinary, much shorter default timeout.
+      timeoutMs: 600_000,
     });
   });
 

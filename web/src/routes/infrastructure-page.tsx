@@ -1,5 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
-import { INFRASTRUCTURE_POLL_MS, SANDBOX_SETUP_POLL_MS } from '@/lib/runtime-limits';
+import { INFRASTRUCTURE_POLL_MS } from '@/lib/runtime-limits';
 import type {
   McpServerDefinition,
   RelayStatus,
@@ -13,9 +13,7 @@ import {
   BookOpenCheckIcon,
   CableIcon,
   ChevronLeftIcon,
-  LoaderCircleIcon,
   NetworkIcon,
-  RotateCcwIcon,
   ServerIcon,
   WrenchIcon,
 } from 'lucide-react';
@@ -37,7 +35,6 @@ import { CatalogToolset } from '@/components/clio/catalog-toolset';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { inTauri } from '@/lib/transport/tauri-runtime';
-import { restartClio } from '@/tauri/managed-backend';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { webSearchMcpArgs } from '@/lib/web-search-service';
 import {
@@ -45,6 +42,13 @@ import {
   sessionIdFromRoute,
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
+import {
+  foundationSummary,
+  foundationTitle,
+  integrationStatus,
+  integrationStatusLabel,
+} from './infrastructure-foundation';
+import { SandboxFoundationRow } from './infrastructure-sandbox-row';
 export function InfrastructurePage() {
   const desktop = inTauri();
   const location = useLocation();
@@ -501,167 +505,6 @@ function FoundationRow({ integration }: { integration: ServiceIntegrationHealth 
   );
 }
 
-/** The typed reason tokens (clio_agent.runtime.sandbox / sandbox_codex) this row words specifically. */
-const SANDBOX_REASON_LABELS: Record<string, string> = {
-  codex_enforcement_unverified: 'Not verified yet on this computer',
-  sandbox_fence_pending_restart: `Set up, restart ${vocab.agent} to activate`,
-};
-
-/**
- * "Protected execution": backed by GET /v1/system/sandbox instead of the
- * plain /v1/health entry, because it alone needs the extra desktop-panel
- * fields (`reason`, `setup_in_progress`) and a "Set up protected execution"
- * action (POST /v1/system/sandbox/setup). `integration` (from /v1/health) is
- * the pre-fetch fallback so the row has something honest to show before this
- * row's own query resolves.
- */
-function SandboxFoundationRow({ integration }: { integration: ServiceIntegrationHealth }) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const queryClient = useQueryClient();
-  const desktop = inTauri();
-  const [setupUnsupported, setSetupUnsupported] = useState(false);
-  const [restarting, setRestarting] = useState(false);
-  const sandboxKey = queryKeys.key('sandbox-status', settings.endpoint);
-
-  // Derived, not stored: the row's own setup_in_progress (refreshed by the
-  // poll this same flag enables) is the single source of truth for whether a
-  // setup run is still going — the poll turns itself off the moment a
-  // refetch reports setup_in_progress: false.
-  const sandbox = useQuery({
-    queryKey: sandboxKey,
-    queryFn: ({ signal }) => repository.sandboxStatus(signal),
-    refetchInterval: (query) => (query.state.data?.setup_in_progress ? SANDBOX_SETUP_POLL_MS : false),
-  });
-  const row = sandbox.data;
-  const polling = row?.setup_in_progress ?? false;
-
-  const setup = useMutation({
-    mutationFn: () => repository.setupSandbox(),
-    onSuccess: async (result) => {
-      // 501: nothing to provision on this platform — hide the button rather
-      // than offer a fix that can never work here.
-      if (result.reason === 'sandbox_setup_unsupported') {
-        setSetupUnsupported(true);
-        return;
-      }
-      // 409 (a run already in flight) carries the same typed row as a normal
-      // start — seed the cache with it so the refetchInterval above (which
-      // reads this same cached data) starts polling on this exact render,
-      // not a stale pre-attempt one.
-      if (result.row?.setup_in_progress) {
-        queryClient.setQueryData(sandboxKey, result.row);
-        return;
-      }
-      await queryClient.invalidateQueries({ queryKey: sandboxKey });
-    },
-    onError: (error) =>
-      toast.error('Could not set up protected execution', { description: error.message }),
-  });
-
-  const restart = async () => {
-    setRestarting(true);
-    try {
-      await restartClio();
-    } catch (error) {
-      toast.error(`Could not restart ${vocab.agent}`, {
-        description: error instanceof Error ? error.message : String(error),
-      });
-      setRestarting(false);
-    }
-    // No `finally`: a successful restart tears down and re-establishes this
-    // same connection, so the row simply stays in its "restarting" state
-    // until the page's own reconnect picks the fresh service back up.
-  };
-
-  const status = integrationStatus(row?.status ?? integration.status);
-  const reasonLabel = row?.reason
-    ? (SANDBOX_REASON_LABELS[row.reason] ?? humanizeProtocolValue(row.reason))
-    : undefined;
-  const pendingRestart = row?.reason === 'sandbox_fence_pending_restart';
-  const summary = row?.summary || row?.detail || foundationSummary(integration);
-
-  return (
-    <details className="group px-1 py-3">
-      <summary className="flex cursor-pointer list-none items-center gap-3">
-        <ServerIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">
-          {foundationTitle(integration.name)}
-        </span>
-        <ClioStatus
-          label={reasonLabel ?? integrationStatusLabel(status)}
-          value={status === 'healthy' ? 'healthy' : polling ? 'connecting' : status}
-        />
-      </summary>
-      <div className="mt-3 border-t pt-3 text-xs leading-5 text-muted-foreground">
-        <p>{summary}</p>
-        {status !== 'healthy' && !setupUnsupported ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-foreground">
-            <Button
-              disabled={setup.isPending || polling}
-              onClick={() => setup.mutate()}
-              size="sm"
-              variant="outline"
-            >
-              {setup.isPending || polling ? (
-                <LoaderCircleIcon aria-hidden="true" className="motion-safe:animate-spin" />
-              ) : null}
-              Set up protected execution
-            </Button>
-            {polling ? (
-              <span role="status">Waiting for Windows permission prompt…</span>
-            ) : null}
-          </div>
-        ) : null}
-        {pendingRestart ? (
-          desktop ? (
-            <Button
-              className="mt-2"
-              disabled={restarting}
-              onClick={() => void restart()}
-              size="sm"
-              variant="outline"
-            >
-              <RotateCcwIcon
-                aria-hidden="true"
-                className={restarting ? 'motion-safe:animate-spin' : undefined}
-              />
-              Restart {vocab.agent}
-            </Button>
-          ) : (
-            <p className="mt-2 text-foreground">
-              Restart {vocab.agent} to activate protected execution for background tool processes
-              already running.
-            </p>
-          )
-        ) : null}
-        {integration.summary || integration.detail || integration.config_source ? (
-          <TechnicalDetails className="mt-2" title="Technical details">
-            <div className="mt-2 grid gap-1 break-words font-mono text-[10px]">
-              {integration.summary || integration.detail ? (
-                <p>{integration.summary || integration.detail}</p>
-              ) : null}
-              {integration.config_source ? <p>{integration.config_source}</p> : null}
-            </div>
-          </TechnicalDetails>
-        ) : null}
-      </div>
-    </details>
-  );
-}
-
-function integrationStatus(status: string): ClioStatusValue {
-  if (['ready', 'healthy', 'live', 'skipped'].includes(status)) return 'healthy';
-  if (['degraded', 'warning', 'reconnecting'].includes(status)) return 'degraded';
-  return 'unavailable';
-}
-
-function integrationStatusLabel(status: ClioStatusValue): string {
-  if (status === 'healthy') return 'Ready';
-  if (status === 'degraded') return 'Needs attention';
-  return 'Unavailable';
-}
-
 function clioServiceDescription(
   health: { healthy: boolean } | undefined,
   foundationIssues: number,
@@ -673,31 +516,6 @@ function clioServiceDescription(
     return `Running with ${foundationIssues} supporting services needing attention.`;
   }
   return `${vocab.agent} is running normally.`;
-}
-
-function foundationSummary(integration: ServiceIntegrationHealth): string {
-  const ready: Record<string, string> = {
-    api: 'The workspace service is available.',
-    arc: 'Conversation memory is available.',
-    gateway: 'Connected tools are available to agents.',
-    file_policy: 'Workspace file access rules are active.',
-    lm_provider: 'The selected language model is ready.',
-    sandbox: 'Protected command and file execution is active.',
-    clio_core: 'The full conversation-memory service is available.',
-    sandbox_conformance: 'Agent processes are using the configured execution protection.',
-    child_reaper: 'Background processes will be cleaned up with the agent service.',
-    child_processes: 'No unexpected background work is running.',
-    child_parentage: 'Background work remains attached to this agent service.',
-  };
-  const degraded: Record<string, string> = {
-    arc: 'Conversation memory is using a limited local fallback.',
-    sandbox: `Extra operating-system confinement is not enabled. ${vocab.agent} still applies ${vocab.workspace} access rules and records out-of-${vocab.workspace} attempts.`,
-    child_parentage: 'Some background processes are no longer attached to this agent service.',
-  };
-  if (integrationStatus(integration.status) === 'healthy') {
-    return ready[integration.name] ?? 'This supporting service is ready.';
-  }
-  return degraded[integration.name] ?? 'This supporting service needs attention.';
 }
 
 function foundationAction(
@@ -727,27 +545,6 @@ function foundationAction(
     label: 'System settings',
     to: '/settings/system',
   };
-}
-
-function foundationTitle(name: string): string {
-  const names: Record<string, string> = {
-    api: 'Workspace service',
-    arc: 'Conversation memory',
-    gateway: 'Tool gateway',
-    file_policy: 'Workspace file access',
-    lm_provider: 'Language model provider',
-    sandbox: 'Protected execution',
-    clio_core: 'Memory storage',
-    clio_core_ram_cap: 'Memory working limit',
-    clio_core_liveness: 'Memory service connection',
-    clio_core_daemon_memory: 'Memory service process',
-    cte_cold_tier_disk: 'Stored memory capacity',
-    sandbox_conformance: 'Execution protection coverage',
-    child_reaper: 'Process cleanup',
-    child_processes: 'Background processes',
-    child_parentage: 'Background process ownership',
-  };
-  return names[name] || name.replaceAll('_', ' ').replace(/^./u, (value) => value.toUpperCase());
 }
 
 /**

@@ -19,6 +19,16 @@ import { SessionHistoryRepository } from './session-history-repository.js';
  */
 const MEMORY_EVENT_PAGE_SIZE = 50;
 
+/**
+ * `setupSandbox()`'s request timeout. A Windows UAC elevation prompt can sit
+ * unanswered for minutes — the default transport timeout would abort (and
+ * the desktop bridge would surface a spurious error) while the prompt is
+ * still up and the setup is, in fact, proceeding. Generous like
+ * {@link DOCUMENT_RENDITION_TIMEOUT_MS} for the same reason: a slow-but-real
+ * human-paced wait, not a hung request.
+ */
+const SANDBOX_SETUP_TIMEOUT_MS = 600_000;
+
 const recordSchema = z.record(z.string(), z.unknown());
 const expertPackSchema = z.object({
   id: z.string(),
@@ -492,6 +502,7 @@ export class AdministrationRepository extends SessionHistoryRepository {
       acceptStatuses: [409, 501],
       decode: (input) => sandboxSetupResultSchema.parse(input) as SandboxSetupResult,
       signal,
+      timeoutMs: SANDBOX_SETUP_TIMEOUT_MS,
     });
   }
 

@@ -354,7 +354,7 @@ describe('InfrastructurePage', () => {
     ).toBeVisible();
   });
 
-  it('polls the sandbox row after a 409 (a setup already in flight) until it clears', async () => {
+  it('invalidates the sandbox row once setup settles, then polls it until the run clears', async () => {
     const user = userEvent.setup();
     repository.serviceHealth.mockResolvedValue({
       healthy: true,
@@ -368,23 +368,30 @@ describe('InfrastructurePage', () => {
         reason: 'codex_enforcement_unverified',
         setup_in_progress: false,
       })
+      // The GET the mutation's onSettled forces after a 409 — the real
+      // 409 body itself carries none of these desktop-panel fields, only
+      // this dedicated GET does, so this refetch is the only thing that
+      // can ever put the row into its "in progress" state.
+      .mockResolvedValueOnce({
+        name: 'sandbox',
+        status: 'degraded',
+        required: true,
+        reason: 'codex_enforcement_unverified',
+        setup_in_progress: true,
+      })
       .mockResolvedValue({
         name: 'sandbox',
         status: 'ready',
         required: true,
         setup_in_progress: false,
       });
+    // A real 409/501 response body: status/reason/elevated only, no `row`
+    // with setup_in_progress/reason/codex_source for the client to seed a
+    // cache from.
     repository.setupSandbox.mockResolvedValue({
       status: 'sandbox_setup_in_progress',
       reason: 'sandbox_setup_in_progress',
       elevated: false,
-      row: {
-        name: 'sandbox',
-        status: 'degraded',
-        required: true,
-        reason: 'codex_enforcement_unverified',
-        setup_in_progress: true,
-      },
     });
 
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
@@ -393,8 +400,57 @@ describe('InfrastructurePage', () => {
     await user.click(
       await screen.findByRole('button', { name: /Set up protected execution/u }),
     );
-    expect(await screen.findByText('Waiting for Windows permission prompt…')).toBeVisible();
     expect(repository.setupSandbox).toHaveBeenCalled();
+    expect(await screen.findByText('Waiting for Windows permission prompt…')).toBeVisible();
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByText('Waiting for Windows permission prompt…'),
+        ).not.toBeInTheDocument(),
+      { timeout: 3_000 },
+    );
+  });
+
+  it('still picks up a running setup after the request itself times out', async () => {
+    const user = userEvent.setup();
+    repository.serviceHealth.mockResolvedValue({
+      healthy: true,
+      integrations: [{ name: 'sandbox', status: 'degraded', required: true, details: {} }],
+    });
+    repository.sandboxStatus
+      .mockResolvedValueOnce({
+        name: 'sandbox',
+        status: 'degraded',
+        required: true,
+        reason: 'codex_enforcement_unverified',
+        setup_in_progress: false,
+      })
+      // The setup run is real and still going server-side even though the
+      // desktop bridge's own client-side wait gave up on it — onSettled
+      // fires on a rejection exactly like it does on success, so this GET
+      // still happens and still finds the run.
+      .mockResolvedValueOnce({
+        name: 'sandbox',
+        status: 'degraded',
+        required: true,
+        reason: 'codex_enforcement_unverified',
+        setup_in_progress: true,
+      })
+      .mockResolvedValue({
+        name: 'sandbox',
+        status: 'ready',
+        required: true,
+        setup_in_progress: false,
+      });
+    repository.setupSandbox.mockRejectedValue(new Error('the request timed out'));
+
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
+
+    await user.click(await screen.findByText('Protected execution'));
+    await user.click(
+      await screen.findByRole('button', { name: /Set up protected execution/u }),
+    );
+    expect(await screen.findByText('Waiting for Windows permission prompt…')).toBeVisible();
     await waitFor(
       () =>
         expect(
