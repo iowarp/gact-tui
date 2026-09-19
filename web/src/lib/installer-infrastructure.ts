@@ -6,8 +6,8 @@ import { completeInstallerWebSearch, readInstallerOptions } from '@/tauri/instal
 /** Finish the lightweight agent registration for infrastructure deployed by NSIS. */
 export async function finishInstallerInfrastructure(settings: ConnectionSettings): Promise<void> {
   const options = await readInstallerOptions();
-  if (!options.web_search || options.web_search_status === 'configured') return;
-  if (options.web_search_status !== 'deployed') {
+  if (options.web_search === 'not_requested' || options.web_search === 'configured') return;
+  if (options.web_search !== 'deployed') {
     toast.warning('CLIO Search still needs setup', {
       id: 'installer-web-search-needs-attention',
       description: 'Open Infrastructure when Docker is installed and running to finish setup.',
@@ -34,4 +34,15 @@ export async function finishInstallerInfrastructure(settings: ConnectionSettings
     id: 'installer-web-search-ready',
     description: 'Web search and document reading are available to your agents.',
   });
+}
+
+/**
+ * Whether the desktop installer's Infrastructure page recorded a request to
+ * set up a local model runtime (llama.cpp). No runtime is installed by the
+ * NSIS installer itself — this only tells the Services view whether to show
+ * its "finish setup" prompt for managing one.
+ */
+export async function installerRequestedLlamaCpp(): Promise<boolean> {
+  const options = await readInstallerOptions();
+  return options.llama_cpp === 'requested';
 }

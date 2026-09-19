@@ -253,8 +253,8 @@ test('bundled installer stops only its managed process tree before replacement o
   assert.match(hooks, /NSIS_HOOK_PREUNINSTALL/);
   assert.match(hooks, /NSIS_HOOK_POSTUNINSTALL/);
   assert.match(hooks, /Also remove CLIO settings, sessions, and local data/);
-  assert.match(hooks, /\$LOCALAPPDATA\\ai\.iowarp\.clio\.desktop/);
-  assert.match(hooks, /\$APPDATA\\ai\.iowarp\.clio\.desktop/);
+  assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}/);
+  assert.match(hooks, /\$APPDATA\\\$\{BUNDLEID\}/);
   assert.match(hooks, /\$ClioRemoveUserData == \$\{BST_CHECKED\}/);
   assert.match(hooks, /FileWrite \$0 "\$INSTDIR"/);
   assert.match(hooks, /clio-desktop-install-root\.txt/);
@@ -274,6 +274,72 @@ test('bundled installer stops only its managed process tree before replacement o
   const runtimeRemovals = hooks.match(/RMDir \/r "\$INSTDIR\\gact-runtime"/g) ?? [];
   assert.equal(runtimeRemovals.length, 3, 'upgrade and uninstall must remove the bundled runtime');
   assert.match(hooks, /NSIS_HOOK_POSTUNINSTALL[\s\S]*RMDir "\$INSTDIR"/);
+});
+
+test('installer hooks resolve the app-data folder from the bundle identifier macro, never a hardcoded literal', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  // A brand overlay (e.g. clio-agent's tauri.clio.conf.json) sets its OWN
+  // `identifier`, which becomes ${BUNDLEID} in the generated installer.nsi at
+  // build time. A literal "ai.iowarp.clio.desktop" here would silently clean
+  // up — or fail to clean up — the WRONG app-data folder for any brand whose
+  // identifier differs from gact-tui's own base tauri.conf.json.
+  assert.doesNotMatch(
+    hooks,
+    /ai\.iowarp\.clio\.desktop/,
+    'installer-hooks.nsh must not hardcode a bundle identifier — use ${BUNDLEID}',
+  );
+  assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}\\installer-options\.json/);
+  assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}"/, 'PREINSTALL must create the ${BUNDLEID} folder');
+});
+
+test('installer collects Infrastructure choices via a custom wizard page, not a blocking MessageBox', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  assert.doesNotMatch(
+    hooks,
+    /MB_YESNO/,
+    'the recommended-services prompt must be a nsDialogs page, not a MessageBox',
+  );
+  assert.match(hooks, /Page custom ClioInfrastructurePage ClioInfrastructurePageLeave/);
+  assert.match(hooks, /Function ClioInfrastructurePage\b/);
+  assert.match(hooks, /Function ClioInfrastructurePageLeave/);
+  assert.match(hooks, /CLIO Search \(web search and PDF reading, runs in Docker\)/);
+  assert.match(hooks, /Local model runtime \(llama\.cpp\)/);
+  assert.match(hooks, /Science tool kit \(clio-kit\)/);
+
+  // Web Search defaults on, llama.cpp defaults off, clio-kit is fixed on and
+  // disabled (it always ships bundled — there is nothing to choose).
+  const page = hooks.match(/Function ClioInfrastructurePage\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  assert.match(page, /\$\{NSD_Check\} \$ClioWebSearchCheckbox/);
+  assert.match(page, /\$\{NSD_Uncheck\} \$ClioLlamaCppCheckbox/);
+  assert.match(page, /\$\{NSD_Check\} \$ClioKitCheckbox/);
+  assert.match(page, /EnableWindow \$ClioKitCheckbox 0/);
+});
+
+test('the Infrastructure page is skipped for passive and update installs', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  const page = hooks.match(/Function ClioInfrastructurePage\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  assert.match(page, /\$PassiveMode == 1/);
+  assert.match(page, /\$UpdateMode == 1/);
+  assert.match(page, /Abort/);
+});
+
+test('installer-options.json is always written through the one v2-schema macro', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  const writeCalls = hooks.match(/!insertmacro CLIO_WRITE_INSTALLER_OPTIONS/g) ?? [];
+  // PREINSTALL (1) + POSTINSTALL's four outcome branches (deployed / two
+  // needs_attention branches / docker-unavailable) = 5 call sites, and every
+  // one goes through the same macro rather than a duplicated FileWrite.
+  assert.equal(writeCalls.length, 5);
+  assert.match(hooks, /\$\\"schema\$\\":2/);
+  assert.match(hooks, /\$\\"web_search\$\\":\$\\"'/);
+  assert.match(hooks, /\$\\"llama_cpp\$\\":\$\\"'/);
+  assert.match(hooks, /\$\\"clio_kit\$\\":\$\\"bundled\$\\"/);
+  for (const status of ['pending', 'not_requested', 'deployed', 'needs_attention']) {
+    assert.match(hooks, new RegExp(`StrCpy \\$ClioWebSearchStatus "${status}"`));
+  }
+  for (const status of ['requested', 'not_requested']) {
+    assert.match(hooks, new RegExp(`StrCpy \\$ClioLlamaCppStatus "${status}"`));
+  }
 });
 
 test('updater plugin config is present and consistent across variants', () => {

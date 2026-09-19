@@ -1,4 +1,5 @@
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { installerRequestedLlamaCpp } from '@/lib/installer-infrastructure';
 import {
   managedServiceCatalog,
   runManagedServiceAction,
@@ -74,6 +75,16 @@ export function ManagedServices({
     enabled: desktop,
     queryKey: ['managed-service-ssh-profiles'],
     queryFn: sshProfiles,
+  });
+  // The NSIS installer's Infrastructure page records a llama.cpp request as a
+  // PREFERENCE only — it never installs a runtime itself. When set, this
+  // finishes that intent by pointing the user at the model-runtime controls
+  // already on this page instead of leaving the choice stranded.
+  const installerLlamaCpp = useQuery({
+    enabled: desktop,
+    queryKey: ['installer-options', 'llama-cpp-requested'],
+    queryFn: installerRequestedLlamaCpp,
+    staleTime: Infinity,
   });
   const catalog = useQuery({
     enabled: desktop && (target === 'local' || Boolean(profile)),
@@ -291,6 +302,28 @@ export function ManagedServices({
         icon={CpuIcon}
         title="Model runtime"
       >
+        {installerLlamaCpp.data && !managedProvidersEnabled ? (
+          <Alert className="mb-4">
+            <CpuIcon aria-hidden="true" />
+            <AlertTitle>Finish setting up your local model runtime</AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                {vocab.product} installed llama.cpp support during setup. Turn on model runtime
+                management below to finish configuring it.
+              </span>
+              <Button
+                onClick={() => {
+                  setManagedProvidersEnabled(true);
+                  setSelectedProvider('llama_cpp');
+                }}
+                size="sm"
+                variant="outline"
+              >
+                Finish setup
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : null}
         <div className="grid gap-4 border-y py-5 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,0.8fr)] lg:items-end">
           <div className="flex items-start justify-between gap-4 lg:pr-8">
             <div>
