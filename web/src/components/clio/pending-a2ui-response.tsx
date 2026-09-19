@@ -8,7 +8,13 @@ import {
   MoveDiagonal2Icon,
   RotateCcwIcon,
 } from 'lucide-react';
-import { type PointerEvent as ReactPointerEvent, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { Frame } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
@@ -69,21 +75,36 @@ export function PendingA2UIResponse({
   );
   const resizeStart = useRef<{ y: number; height: number; moved: boolean } | null>(null);
   const suppressResizeClick = useRef(false);
-  // The one persistent instance of the interactive surface: created once per
-  // render and portaled into whichever host is currently live (inline vs.
-  // fullscreen), so toggling fullscreen never unmounts/remounts it — the
-  // surface's own local state (a map's selection, a form processor) survives
-  // the trip. Two separate <A2UISurfaceBody> call sites would each be a
-  // distinct element in the tree and would remount every toggle.
+  // The one persistent instance of the interactive surface. `host` is a
+  // single, DETACHED DOM node created exactly once and portaled into for
+  // the lifetime of this component — its identity (the `createPortal`
+  // container argument) never changes, so React never has cause to
+  // remount the surface subtree inside it. What DOES move is `host`
+  // itself, imperatively, between the inline and fullscreen "contents"
+  // placeholders below (see the layout effect).
   //
-  // State-backed callback refs, not useRef+useEffect: a callback ref fires
-  // synchronously during commit (the same timing as useLayoutEffect), so the
-  // dialog host is already known by the time this same commit's render
-  // settles — an effect-driven read would lag a commit behind, briefly
-  // portaling into last render's (possibly unmounted) target.
+  // The earlier version portaled straight into `fullscreen ? dialogHost :
+  // inlineHost` — a container argument that changes value on the very
+  // render that flips `fullscreen`. React's host-portal reconciliation
+  // keys on that container, so a changed container is a brand-new portal
+  // fiber: the surface (and anything it held — a map's selection, a
+  // form's local processor) unmounted and remounted on every toggle,
+  // which is exactly the bug this component exists to avoid.
+  const [host] = useState(() => {
+    const element = document.createElement('div');
+    element.className = 'contents';
+    return element;
+  });
   const [inlineHost, setInlineHost] = useState<HTMLDivElement | null>(null);
   const [dialogHost, setDialogHost] = useState<HTMLDivElement | null>(null);
-  const portalTarget = fullscreen ? dialogHost : inlineHost;
+  useLayoutEffect(() => {
+    // Fullscreen's own placeholder wins once it exists; until then (the
+    // first commit after opening, before the dialog content has mounted)
+    // the surface stays in the inline placeholder rather than being
+    // detached from the DOM.
+    const target = (fullscreen && dialogHost) || inlineHost;
+    if (target && host.parentElement !== target) target.appendChild(host);
+  }, [fullscreen, inlineHost, dialogHost, host]);
   const beginResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
     resizeStart.current = { y: event.clientY, height: viewportHeight, moved: false };
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -176,7 +197,20 @@ export function PendingA2UIResponse({
               disabled && 'pointer-events-none opacity-70',
             )}
             data-slot="a2ui-response-viewport"
-            style={{ height: viewportHeight }}
+            style={
+              {
+                height: viewportHeight,
+                // A catalog component that wants to fill this card (the map)
+                // cannot reach its own height with a CSS percentage — every
+                // wrapper between here and it (the surface renderer, the
+                // catalog grid) is a plain flow container with no height of
+                // its own, so a percentage chain breaks immediately. A
+                // custom property inherits past all of that regardless, the
+                // same way the fullscreen dialog already sizes the map off
+                // 100dvh instead of a percentage.
+                '--a2ui-inline-surface-height': `${viewportHeight}px`,
+              } as CSSProperties
+            }
           >
             <ResponseErrorNotice error={responseError} />
             {/* Portal host for the inline placement — see `surfaceBody` below. */}
@@ -223,20 +257,18 @@ export function PendingA2UIResponse({
           </div>
         </DialogContent>
       </Dialog>
-      {portalTarget
-        ? createPortal(
-            <A2UISurfaceBody
-              chrome="bare"
-              interaction={interaction}
-              onLocalAction={onLocalAction}
-              onRefetchSurface={onRefetchSurface}
-              onResponse={onResponse}
-              rawSurface={rawSurface}
-              viewport={fullscreen ? 'fullscreen' : 'inline'}
-            />,
-            portalTarget,
-          )
-        : null}
+      {createPortal(
+        <A2UISurfaceBody
+          chrome="bare"
+          interaction={interaction}
+          onLocalAction={onLocalAction}
+          onRefetchSurface={onRefetchSurface}
+          onResponse={onResponse}
+          rawSurface={rawSurface}
+          viewport={fullscreen ? 'fullscreen' : 'inline'}
+        />,
+        host,
+      )}
     </>
   );
 }
