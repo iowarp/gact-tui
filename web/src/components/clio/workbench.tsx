@@ -19,6 +19,7 @@ import {
   Maximize2Icon,
   Minimize2Icon,
   PaperclipIcon,
+  TerminalSquareIcon,
   WorkflowIcon,
   XIcon,
 } from 'lucide-react';
@@ -93,7 +94,8 @@ export type ClioWorkbenchOpenRequest =
   | { kind: 'subagent'; subagent: SubagentRun }
   | { kind: 'workflow'; tool: ToolInvocation }
   | { kind: 'resources'; section?: Exclude<CanvasResourceKind, 'session'> }
-  | { kind: 'session' };
+  | { kind: 'session' }
+  | { kind: 'terminal'; cwd: string };
 
 export interface ClioWorkbenchHandle {
   open: (request: ClioWorkbenchOpenRequest) => void;
@@ -180,6 +182,7 @@ const workbenchTabIcons = {
   blueprint: BoxesIcon,
   subagent: BoxesIcon,
   workflow: WorkflowIcon,
+  terminal: TerminalSquareIcon,
 } satisfies Record<
   WorkbenchTab['kind'],
   ComponentType<{ 'aria-hidden'?: boolean; className?: string }>
@@ -369,6 +372,16 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             return;
           case 'session':
             openTab(sessionTab);
+            return;
+          case 'terminal':
+            openTab({
+              id: `terminal:${sessionId}`,
+              kind: 'terminal',
+              label: 'Terminal',
+              cwd: request.cwd,
+              sessionId,
+              workspaceId,
+            });
             return;
           default:
             assertNever(request);

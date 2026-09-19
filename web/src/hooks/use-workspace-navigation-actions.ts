@@ -6,6 +6,7 @@ import type { ResourceActions } from '@/components/clio/resource-dialogs';
 import { useAvailableSessionNavigation } from '@/hooks/use-available-session-navigation';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { closeEmbeddedTerminalsForSession } from '@/tauri/workspace-terminal';
 
 /**
  * The workspace/session CRUD surface for navigation-owning components (command
@@ -106,6 +107,10 @@ export function useWorkspaceNavigationActions(workspaceId: string, sessionId: st
         await refreshNavigation(targetWorkspaceId);
       },
       deleteSession: async (targetSessionId) => {
+        // Best-effort: an embedded terminal opened under this session must
+        // not outlive it, even if its workbench tab was never explicitly
+        // closed. Never blocks the actual delete on pty teardown.
+        await closeEmbeddedTerminalsForSession(targetSessionId).catch(() => undefined);
         await repository.deleteSession(targetSessionId);
         if (targetSessionId === sessionId) {
           await navigateToAvailableSession();
