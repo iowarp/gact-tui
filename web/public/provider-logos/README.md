@@ -60,11 +60,36 @@ here only to identify the provider.
 
 Upstream: https://github.com/lobehub/lobe-icons
 
+## ggml-org/llama.brand (official llama.cpp brand assets)
+
+`llama-cpp.svg` is the official llama.cpp icon from the ggml-org brand
+repository, `icon/icon-dark.svg` at commit
+[`0708f2327336589bd4d3eba15a95199c318cd771`](https://github.com/ggml-org/llama.brand/tree/0708f2327336589bd4d3eba15a95199c318cd771)
+(used for the `llama_cpp` provider id). The upstream file is drawn in
+`#FAFAFA`; the fill is moved to `currentColor` on the root so it follows the
+theme. The repository publishes the assets as the project's official brand
+kit without a separate license file; the mark remains ggml-org's, used here
+only to identify the provider.
+
+Upstream: https://github.com/ggml-org/llama.brand
+
+## Argonne National Laboratory (public domain)
+
+`argonne.svg` is the coloured triangle mark of the Argonne National
+Laboratory logo, taken from Wikimedia Commons
+[`File:Argonne National Laboratory logo.svg`](https://commons.wikimedia.org/wiki/File:Argonne_National_Laboratory_logo.svg)
+(sha1 `2d9b23ef3bd50df685ccb0baed1636e377b75dee`, licensed there as public
+domain: a work of a U.S. federal laboratory). Only the seven coloured paths of
+the mark are kept and the `viewBox` is cropped to them (`86.7 0 24.2 21`);
+the wordmark is dropped. The colours are the vendor's own and are NOT
+switched to `currentColor` (a multi-colour mark). Used for `argonne_metis`,
+`argonne_sophia` and `argonne_local_vllm`.
+
 ## Neutral (no licensable official mark)
 
 | File | Used for | Why |
 | --- | --- | --- |
-| `generic.svg` | Any unrecognized provider id, plus `llama_cpp` (llama.cpp has no official mark) and `argonne_metis` / `argonne_sophia` / `argonne_local_vllm` (Argonne/ALCF's logo is not open-licensed) | A plain four-point sparkle glyph, hand-drawn for this workspace — explicitly a placeholder, never presented as a vendor mark |
+| `generic.svg` | Any unrecognized provider id | A plain four-point sparkle glyph, hand-drawn for this workspace — explicitly a placeholder, never presented as a vendor mark |
 | `amazon-bedrock.svg`, `azure.svg` | `bedrock` / `aws_bedrock`, `azure_openai` | Pre-existing hand-drawn glyphs, out of scope for this pass (AWS/Azure have no CC0-licensed marks either; left as a follow-up rather than guessed at) |
 
 ## Adding a provider

@@ -33,16 +33,16 @@ describe('providerLogoId', () => {
     ['lm_studio', 'lmstudio'],
     // llama.cpp has no official mark to license — neutral, not a fabricated
     // glyph, and no longer aliased to ollama's real one.
-    ['llama_cpp', 'generic'],
+    ['llama_cpp', 'llama-cpp'],
     ['ollama', 'ollama'],
     ['nvidia_nim', 'nvidia'],
     ['openrouter', 'openrouter'],
     ['vllm', 'vllm'],
     // Argonne/ALCF's mark is not open-licensed — neutral, not the unrelated
     // OpenAI mark this used to resolve to.
-    ['argonne_metis', 'generic'],
-    ['argonne_sophia', 'generic'],
-    ['argonne_local_vllm', 'generic'],
+    ['argonne_metis', 'argonne'],
+    ['argonne_sophia', 'argonne'],
+    ['argonne_local_vllm', 'argonne'],
   ])('maps %s to packaged artwork %s', (provider, expected) => {
     expect(providerLogoId(provider)).toBe(expected);
   });

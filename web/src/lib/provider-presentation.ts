@@ -72,20 +72,18 @@ export const providerLogoIds: Record<string, string> = {
   gemini: 'google',
   google_gemini: 'google',
   google_vertex: 'google',
-  // llama.cpp has no official mark to license — the generic fallback,
-  // not a fabricated glyph.
-  llama_cpp: 'generic',
+  // llama.cpp's official icon from ggml-org/llama.brand (see README).
+  llama_cpp: 'llama-cpp',
   lm_studio: 'lmstudio',
   nvidia_nim: 'nvidia',
   ollama: 'ollama',
   openrouter: 'openrouter',
   vertex_ai: 'google',
   vllm: 'vllm',
-  // Argonne/ALCF's logo is not open-licensed — generic fallback, not the
-  // unrelated OpenAI mark this table used to point at.
-  argonne_metis: 'generic',
-  argonne_sophia: 'generic',
-  argonne_local_vllm: 'generic',
+  // Argonne National Laboratory's triangle mark (public domain, see README).
+  argonne_metis: 'argonne',
+  argonne_sophia: 'argonne',
+  argonne_local_vllm: 'argonne',
 };
 
 /** Map CLIO provider identities to artwork packaged with the workspace. */
