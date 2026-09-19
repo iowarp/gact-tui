@@ -3,6 +3,7 @@ import {
   a2uiSurfaceSchema,
   agentBlueprintSchema,
   agentBlueprintSourceSchema,
+  agentBlueprintSourceUpdateSchema,
   agentDefinitionSchema,
   artifactSchema,
   commandDefinitionSchema,
@@ -196,6 +197,15 @@ export const agentBlueprintListSchema = z.object({
 });
 export const agentBlueprintSourceListSchema = z.object({
   sources: z.array(agentBlueprintSourceSchema).default([]),
+});
+export const agentBlueprintSourceUpdateListSchema = z.object({
+  sources: z.array(agentBlueprintSourceUpdateSchema).default([]),
+  checked_at: z.string().optional(),
+});
+/** `GET /v1/agent-blueprints/sources/{id}/updates` wraps its one row under `source`, mirroring the list route's envelope. */
+export const agentBlueprintSourceUpdateSingleSchema = z.object({
+  source: agentBlueprintSourceUpdateSchema,
+  checked_at: z.string().optional(),
 });
 export const toolCatalogSchema = z.object({ tools: z.array(toolCatalogItemSchema).default([]) });
 export const mcpServerListSchema = z.object({

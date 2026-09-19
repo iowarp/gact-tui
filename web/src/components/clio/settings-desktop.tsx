@@ -7,6 +7,7 @@ import {
   XCircleIcon,
 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   Frame,
   FrameDescription,
@@ -24,6 +25,8 @@ import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   checkForDesktopUpdate,
+  describeUpdateError,
+  DESKTOP_UPDATE_TOAST_ID,
   installDesktopUpdate,
   type DesktopUpdateInfo,
   type DesktopUpdateProgress,
@@ -46,12 +49,17 @@ export function DesktopSettings() {
     setUpdateState({ kind: 'checking' });
     try {
       const update = await checkForDesktopUpdate();
-      setUpdateState(update ? { kind: 'available', update } : { kind: 'current' });
+      if (update) {
+        setUpdateState({ kind: 'available', update });
+      } else {
+        // A manual check that finds the build current outranks a possibly
+        // stale background toast (an earlier "available" reported a version
+        // the person may have already installed some other way) — clear it.
+        toast.dismiss(DESKTOP_UPDATE_TOAST_ID);
+        setUpdateState({ kind: 'current' });
+      }
     } catch (error) {
-      setUpdateState({
-        kind: 'error',
-        message: error instanceof Error ? error.message : 'The update service did not respond.',
-      });
+      setUpdateState({ kind: 'error', message: describeUpdateError(error) });
     }
   };
 
@@ -66,10 +74,7 @@ export function DesktopSettings() {
         setUpdateState({ kind: 'installing', update, progress }),
       );
     } catch (error) {
-      setUpdateState({
-        kind: 'error',
-        message: error instanceof Error ? error.message : 'The update could not be installed.',
-      });
+      setUpdateState({ kind: 'error', message: describeUpdateError(error) });
     }
   };
 

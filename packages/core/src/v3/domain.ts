@@ -3,6 +3,7 @@ import type { MessageBlock } from './message-domain.js';
 import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
 import type { ToolPresentation } from './tool-presentation-domain.js';
+import type { CapabilityVersions } from './capability-domain.js';
 
 export type { ToolPresentation, ToolPresentationBlock } from './tool-presentation-domain.js';
 
@@ -736,6 +737,7 @@ export interface CapabilityNegotiation {
   degradations: Degradation[];
   model_catalog: Provenance;
   active_model?: { provider_id: string; model_id: string; effort?: string };
+  versions?: CapabilityVersions;
 }
 
 export interface EntityState {
