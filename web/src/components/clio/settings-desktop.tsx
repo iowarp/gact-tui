@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { formatBytes } from '@/lib/format';
+import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   checkForDesktopUpdate,
@@ -75,14 +76,14 @@ export function DesktopSettings() {
   return (
     <div className="grid gap-6">
       <SettingsSectionHeading
-        description="Manage operating-system features available in the installed workspace."
+        description={`Manage operating-system features available in ${vocab.product}.`}
         title="Desktop"
       />
       <Frame spacing="lg">
         <FrameHeader>
           <FrameTitle>Desktop integration</FrameTitle>
           <FrameDescription>
-            Native lifecycle and credential features are available only in the installed app.
+            Native lifecycle and credential features are available only in {vocab.product}.
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-4">
@@ -115,7 +116,7 @@ export function DesktopSettings() {
         {!desktop ? (
           <FrameFooter className="items-start">
             <p className="text-sm text-muted-foreground">
-              Open this workspace in the installed desktop app to use native integrations.
+              Open {vocab.product} to use native integrations.
             </p>
           </FrameFooter>
         ) : null}
@@ -124,7 +125,7 @@ export function DesktopSettings() {
         <FrameHeader>
           <FrameTitle>App updates</FrameTitle>
           <FrameDescription>
-            Updates come from the signed release feed configured for this installed product.
+            Updates come from the signed release feed configured for {vocab.product}.
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-4">

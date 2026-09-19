@@ -84,6 +84,7 @@ import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   type AttentionSoundMode,
@@ -446,7 +447,7 @@ function AppearanceSettings() {
               value: 'reduced',
               label: 'Reduce motion',
               icon: AccessibilityIcon,
-              description: 'Removes spatial transitions and indefinite movement in CLIO.',
+              description: `Removes spatial transitions and indefinite movement in ${vocab.agent}.`,
             },
           ].map(({ value, label, icon: MotionIcon, description }) => (
             <FieldLabel htmlFor={`motion-${value}`} key={value}>
@@ -537,7 +538,7 @@ function NotificationSettings() {
   return (
     <div className="grid gap-6">
       <SectionHeading
-        description="Choose how CLIO alerts you when a session is blocked on your approval or answer. The sidebar attention marker remains visible regardless of these preferences."
+        description={`Choose how ${vocab.agent} alerts you when a session is blocked on your approval or answer. The sidebar attention marker remains visible regardless of these preferences.`}
         title="Notifications"
       />
       <ClioSettingsSection
@@ -691,7 +692,7 @@ function AboutSettings() {
               value={capabilities.data?.gact_versions.join(', ') || 'Unavailable'}
             />
             <AboutValue
-              label="Interactive views"
+              label={`${PROTOCOL.a2ui} surfaces`}
               value={capabilities.data?.a2ui_versions.join(', ') || 'Unavailable'}
             />
           </dl>

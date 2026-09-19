@@ -1,4 +1,5 @@
 import type { PendingInteraction, PendingInteractionKind, Session } from '@clio/core/v3';
+import { PROTOCOL } from '@/lib/brand-vocabulary';
 
 export interface SessionAttention {
   sessionId: string;
@@ -112,7 +113,7 @@ export function sessionAttentionLabel(attention: SessionAttention): string {
     countLabel(attention.permissionIds.length, 'permission'),
     countLabel(attention.questionIds.length, 'question'),
     countLabel(attention.mcpTaskInputIds.length, 'task input', 'task inputs'),
-    countLabel(attention.a2uiIds.length, 'interactive view'),
+    countLabel(attention.a2uiIds.length, `${PROTOCOL.a2ui} surface`),
     countLabel(attention.unknownIds.length, 'unrecognized request'),
   ].filter(Boolean);
   if (labels.length <= 1) return labels[0] ?? 'response';

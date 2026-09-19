@@ -51,6 +51,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
+import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioStatus } from './status';
 
@@ -277,7 +278,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
             : undefined;
           const missingScopeId = policy.scope_id && !scopeWorkspace ? policy.scope_id : undefined;
           const scopeName = policy.scope_id
-            ? scopeWorkspace?.display_name || 'Unregistered workspace'
+            ? scopeWorkspace?.display_name || `Unregistered ${vocab.workspace}`
             : `Any ${policy.scope}`;
           return (
             <div
@@ -463,7 +464,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="workspace">Workspace</SelectItem>
+                    <SelectItem value="workspace">{capitalize(vocab.workspace)}</SelectItem>
                     <SelectItem value="session">Session</SelectItem>
                   </SelectContent>
                 </Select>
@@ -471,7 +472,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
               <Field>
                 <FieldLabel>
                   {draft.scope === 'workspace' || draft.kind === 'domain'
-                    ? 'Workspace'
+                    ? capitalize(vocab.workspace)
                     : 'Session ID'}
                 </FieldLabel>
                 {draft.scope === 'workspace' || draft.kind === 'domain' ? (

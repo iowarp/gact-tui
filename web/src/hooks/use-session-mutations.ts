@@ -1,6 +1,7 @@
 import { queryKeys } from '@/lib/query-keys';
 import { invalidateQueriesInBackground } from '@/lib/query-invalidation';
 import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
+import { vocab } from '@/lib/brand-vocabulary';
 import { SendIdentities, sendFingerprint } from '@/lib/send-identity';
 import type {
   ComposerMessagePart,
@@ -198,7 +199,7 @@ export function useSessionMutations({
       (candidate) => candidate.id === providerId || candidate.provider_id === providerId,
     );
     if (!preset) {
-      throw new Error(`The ${providerId} provider is not available on this CLIO installation.`);
+      throw new Error(`The ${providerId} provider is not available on this ${vocab.agent} installation.`);
     }
     if (!preset.is_authenticated) {
       throw new Error(`Connect ${preset.label} in Settings before starting a session.`);
@@ -226,7 +227,7 @@ export function useSessionMutations({
         // short code in error — surface the text first so the user does not
         // just see "config_error".
         throw new Error(
-          ready.status_message || ready.error || 'CLIO could not start the provider.',
+          ready.status_message || ready.error || `${vocab.agent} could not start the provider.`,
         );
       }
     }

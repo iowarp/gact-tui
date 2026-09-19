@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import type { HtmlTagDescriptor, IndexHtmlTransformContext, Plugin, ViteDevServer } from 'vite';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { brandPlugin } from './vite-plugin-brand';
+import { brandPlugin, loadBrand } from './vite-plugin-brand';
 
 const GACT_LOGO_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8"/></svg>';
@@ -169,5 +169,47 @@ describe('brandPlugin', () => {
     const otherPathNext = vi.fn();
     middleware({ url: '/favicon.svg' }, res, otherPathNext);
     expect(otherPathNext).toHaveBeenCalledOnce();
+  });
+});
+
+describe('loadBrand vocabulary fields', () => {
+  it('defaults productName to "${name} Desktop", agentName to name, and workspaceNoun to "workspace"', () => {
+    const root = makeBrandingRoot('acme', { name: 'Acme' });
+
+    const brand = loadBrand(root, 'acme');
+
+    expect(brand.productName).toBe('Acme Desktop');
+    expect(brand.agentName).toBe('Acme');
+    expect(brand.workspaceNoun).toBe('workspace');
+  });
+
+  it('honors an explicit override for each vocabulary field independently', () => {
+    const root = makeBrandingRoot('acme', {
+      name: 'Acme',
+      productName: 'Acme Labs',
+      agentName: 'Ace',
+      workspaceNoun: 'project',
+    });
+
+    const brand = loadBrand(root, 'acme');
+
+    expect(brand.productName).toBe('Acme Labs');
+    expect(brand.agentName).toBe('Ace');
+    expect(brand.workspaceNoun).toBe('project');
+  });
+
+  it('trims whitespace-only overrides back to the default, same as every other brand field', () => {
+    const root = makeBrandingRoot('acme', {
+      name: 'Acme',
+      productName: '   ',
+      agentName: '   ',
+      workspaceNoun: '   ',
+    });
+
+    const brand = loadBrand(root, 'acme');
+
+    expect(brand.productName).toBe('Acme Desktop');
+    expect(brand.agentName).toBe('Acme');
+    expect(brand.workspaceNoun).toBe('workspace');
   });
 });

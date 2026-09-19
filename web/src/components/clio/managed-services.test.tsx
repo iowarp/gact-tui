@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -111,7 +112,7 @@ describe('ManagedServices', () => {
     expect(screen.queryByRole('heading', { name: 'vLLM' })).not.toBeInTheDocument();
 
     expect(screen.getByLabelText('Runtime')).toBeDisabled();
-    await user.click(screen.getByLabelText('Manage a model runtime with CLIO'));
+    await user.click(screen.getByLabelText(`Manage a model runtime with ${brand.agentName}`));
     await user.click(screen.getByLabelText('Runtime'));
     await user.click(screen.getByRole('option', { name: 'vLLM' }));
     expect(screen.getByRole('heading', { name: 'vLLM' })).toBeVisible();
@@ -157,9 +158,9 @@ describe('ManagedServices', () => {
     const connect = vi.fn();
     renderServices({ onConnectWebSearch: connect, webSearchConnected: false });
 
-    expect(await screen.findByRole('button', { name: 'Connect to CLIO' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: `Connect to ${brand.agentName}` })).toBeVisible();
     expect(screen.getAllByText('Running')).toHaveLength(1);
-    await user.click(screen.getByRole('button', { name: 'Connect to CLIO' }));
+    await user.click(screen.getByRole('button', { name: `Connect to ${brand.agentName}` }));
     expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
     await user.click(screen.getByRole('button', { name: 'Check status' }));
     expect(await screen.findAllByText('Running')).toHaveLength(1);
@@ -202,7 +203,7 @@ describe('ManagedServices', () => {
     await user.click(screen.getByRole('option', { name: 'homelab' }));
 
     expect(await screen.findByText('Connecting to homelab')).toBeVisible();
-    expect(screen.getByText(/existing CLIO services/u)).toBeVisible();
+    expect(screen.getByText(new RegExp(`existing ${brand.agentName} services`, 'u'))).toBeVisible();
   });
 
   it('renders a recoverable error when target inspection fails', async () => {

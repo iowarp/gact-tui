@@ -66,6 +66,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { openDocumentWorkingCopy } from '@/tauri/documents';
 import { ClioOnlyOfficeEditor } from './onlyoffice-editor';
 import { ClioStatus } from './status';
+import { TechnicalDetails } from './technical-details';
 
 const directProfiles = new Set(['markdown', 'pdf', 'latex', 'html-static']);
 const ClioDocumentPdfViewer = lazy(() =>
@@ -259,12 +260,13 @@ export function ClioDocumentWorkspace({
                       loaded.
                     </PopoverDescription>
                   </PopoverHeader>
-                  <details className="text-xs text-muted-foreground">
-                    <summary className="cursor-pointer font-medium text-foreground">
-                      Technical details
-                    </summary>
+                  <TechnicalDetails
+                    className="text-xs text-muted-foreground"
+                    summaryClassName="text-foreground"
+                    title="Technical details"
+                  >
                     <code className="mt-1 block break-all">{manifest.error.message}</code>
-                  </details>
+                  </TechnicalDetails>
                 </PopoverContent>
               </Popover>
             ) : null}

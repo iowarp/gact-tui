@@ -189,7 +189,9 @@ describe('ArtifactProvenance', () => {
 
     expect(await screen.findByText('Version history unavailable')).toBeVisible();
     expect(screen.getByText(/saved content remains readable/i)).toBeVisible();
-    expect(screen.getByText('artifact not found: artifact_internal_123')).not.toBeVisible();
+    expect(
+      screen.queryByText('artifact not found: artifact_internal_123'),
+    ).not.toBeInTheDocument();
     await user.click(screen.getByText('Technical details'));
     expect(screen.getByText('artifact not found: artifact_internal_123')).toBeVisible();
     versions.unmount();
@@ -210,7 +212,9 @@ describe('ArtifactProvenance', () => {
       </QueryClientProvider>,
     );
     expect(await screen.findByText('Declared evidence index unavailable')).toBeVisible();
-    expect(screen.getByText('lineage index missing for artifact_internal_123')).not.toBeVisible();
+    expect(
+      screen.queryByText('lineage index missing for artifact_internal_123'),
+    ).not.toBeInTheDocument();
   });
 
   it('keeps research execution visible when the declared evidence index is unavailable', async () => {

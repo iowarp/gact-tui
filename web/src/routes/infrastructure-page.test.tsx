@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -243,7 +244,7 @@ describe('InfrastructurePage', () => {
     expect(screen.getByRole('main')).toHaveClass('h-dvh', 'overflow-y-auto');
     expect(await screen.findByRole('heading', { name: 'Tools', level: 1 })).toBeVisible();
     expect(screen.getByRole('navigation', { name: 'Infrastructure sections' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Agent' })).toBeVisible();
+    expect(screen.getByRole('link', { name: brand.agentName })).toBeVisible();
     expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Services' })).toBeVisible();
   });

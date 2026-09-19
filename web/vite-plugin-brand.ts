@@ -13,6 +13,12 @@ interface RawBrand {
   logoSvg?: string;
   logoImage?: string;
   accent?: string;
+  /** Native product label, e.g. window/app/installer identity. Defaults to `${name} Desktop`. */
+  productName?: string;
+  /** What the running agent is called in first-person UI copy. Defaults to `name`. */
+  agentName?: string;
+  /** The noun for a project/session container, e.g. "workspace". Defaults to "workspace". */
+  workspaceNoun?: string;
   themeTokens?: Record<string, string>;
   landing?: {
     eyebrow?: string;
@@ -38,6 +44,9 @@ export interface ResolvedBrand {
   taglineAccentUrl: string | null;
   markGlyph: string;
   accent: string | null;
+  productName: string;
+  agentName: string;
+  workspaceNoun: string;
   themeTokens: Record<string, string>;
   landing: {
     eyebrow: string;
@@ -104,6 +113,9 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
     taglineAccentUrl: raw.taglineAccentUrl?.trim() || null,
     markGlyph: raw.markGlyph?.trim().slice(0, 1) || name.slice(0, 1).toUpperCase(),
     accent: raw.accent?.trim() || null,
+    productName: raw.productName?.trim() || `${name} Desktop`,
+    agentName: raw.agentName?.trim() || name,
+    workspaceNoun: raw.workspaceNoun?.trim() || 'workspace',
     themeTokens: { ...(raw.themeTokens ?? {}) },
     landing: {
       eyebrow: raw.landing?.eyebrow?.trim() || name,

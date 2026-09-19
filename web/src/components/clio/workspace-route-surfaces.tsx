@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
+import { PROTOCOL, capitalize, describeProtocol, vocab } from '@/lib/brand-vocabulary';
 import { ClioStatus } from './status';
 
 /** Surface failed user actions alongside the composer, independently of stream health. */
@@ -74,7 +75,7 @@ export function WorkspaceUnavailable({ error, onRetry }: { error: string; onRetr
     <main className="grid min-h-dvh place-items-center bg-background p-6">
       <Alert className="max-w-xl" variant="destructive">
         <AlertTriangleIcon aria-hidden="true" />
-        <AlertTitle>Workspace unavailable</AlertTitle>
+        <AlertTitle>{capitalize(vocab.workspace)} unavailable</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
         <div className="mt-4 flex flex-wrap gap-2">
           {onRetry ? (
@@ -152,7 +153,7 @@ export function WorkspaceStatusStrip({
 }) {
   const activeWorkLabel =
     sessionState === 'running'
-      ? `Agent running${activeWorkCount ? ` with ${activeWorkCount} active item${activeWorkCount === 1 ? '' : 's'}` : ''}`
+      ? `${vocab.agent} running${activeWorkCount ? ` with ${activeWorkCount} active item${activeWorkCount === 1 ? '' : 's'}` : ''}`
       : activeWorkCount === 0
         ? 'No active work'
         : `${activeWorkCount} active item${activeWorkCount === 1 ? '' : 's'}`;
@@ -220,30 +221,31 @@ function WorkspaceVersionMenu({
         <PopoverHeader>
           <PopoverTitle>Product versions</PopoverTitle>
           <PopoverDescription>
-            Installed workspace and versions reported by the selected agent service.
+            Installed {vocab.product} and versions reported by the selected {vocab.agent}{' '}
+            service.
           </PopoverDescription>
         </PopoverHeader>
         <dl className="grid gap-1">
           <VersionRow
-            detail="Installed web and desktop workspace"
+            detail={`Installed web and desktop ${vocab.product}`}
             icon={<BoxesIcon aria-hidden="true" />}
-            label="Workspace"
+            label={capitalize(vocab.product)}
             value={workspaceVersion}
           />
           <VersionRow
             detail={service ? 'Reported by the selected endpoint' : 'Not reported by this endpoint'}
             icon={<ServerIcon aria-hidden="true" />}
-            label="Agent service"
+            label={`${vocab.agent} service`}
             value={service?.version || 'Unavailable'}
           />
           <VersionRow
-            detail="Negotiated agent interface"
-            label="Agent interface"
+            detail={describeProtocol('gact')}
+            label={PROTOCOL.gact}
             value={gactVersions[0] || 'Unavailable'}
           />
           <VersionRow
-            detail="Negotiated interactive-view protocol"
-            label="Interactive views"
+            detail={describeProtocol('a2ui')}
+            label={PROTOCOL.a2ui}
             value={a2uiVersions[0] || 'Unavailable'}
           />
         </dl>

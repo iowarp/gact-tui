@@ -41,7 +41,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
+import { vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { TechnicalDetails } from './technical-details';
 import { remoteUrlFromSpec } from './web-search-configuration';
 
 type SetupTarget = 'local' | 'ssh' | 'existing';
@@ -237,7 +239,8 @@ export function WebSearchSetup({
                   </SelectContent>
                 </Select>
                 <FieldDescription>
-                  Read from your OpenSSH config. CLIO uses the same keys and authentication as
+                  Read from your OpenSSH config. {vocab.agent} uses the same keys and
+                  authentication as
                   <code className="mx-1 font-mono">ssh {profileName || 'host'}</code>.
                 </FieldDescription>
                 {profiles.isSuccess && !profiles.data.length ? (
@@ -374,10 +377,9 @@ export function WebSearchSetup({
                 The remote address remains configured across restarts. Start the service or correct
                 the address, then retry.
                 {configuration.data.error ? (
-                  <details className="mt-2 text-xs">
-                    <summary className="cursor-pointer">Technical details</summary>
+                  <TechnicalDetails className="mt-2 text-xs" title="Technical details">
                     <p className="mt-1 break-words font-mono">{configuration.data.error}</p>
-                  </details>
+                  </TechnicalDetails>
                 ) : null}
               </AlertDescription>
             </Alert>

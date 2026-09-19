@@ -39,6 +39,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { DesktopTitleContext } from '@/components/clio/desktop-title-context';
 import { DesktopTitleHealth } from '@/components/clio/desktop-title-health';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { vocab } from '@/lib/brand-vocabulary';
 import { isMacOS } from '@/lib/platform';
 import { cn } from '@/lib/utils';
 import { listenForCloseFallbackHidden, listenForCloseRequested } from '@/tauri/desktop-lifecycle';
@@ -341,10 +342,11 @@ export function DesktopTitleBar() {
             <XIcon aria-hidden="true" className="size-4" />
           </AlertDialogCancel>
           <AlertDialogHeader>
-            <AlertDialogTitle>Keep CLIO running?</AlertDialogTitle>
+            <AlertDialogTitle>Keep {vocab.product} running?</AlertDialogTitle>
             <AlertDialogDescription>
-              Keep CLIO available in the system tray (Windows hidden icons), or quit and stop its
-              local services. Ongoing work can continue only while CLIO is running.
+              Keep {vocab.product} available in the system tray (Windows hidden icons), or quit
+              and stop its local services. Ongoing work can continue only while {vocab.product} is
+              running.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -352,7 +354,7 @@ export function DesktopTitleBar() {
               Keep running
             </AlertDialogCancel>
             <AlertDialogAction onClick={() => void runWindowAction('quit')} variant="destructive">
-              Quit CLIO
+              Quit {vocab.product}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

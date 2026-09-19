@@ -3,7 +3,6 @@ import {
   a2uiComponentSchema,
   type A2UISurface as DomainSurface,
 } from '@clio/core/v3';
-import { brand } from '@brand';
 import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
 import { MessageProcessor, type A2uiClientAction, type A2uiMessage } from '@a2ui/web_core/v0_9';
@@ -12,29 +11,33 @@ import { AlertTriangleIcon, BoxesIcon } from 'lucide-react';
 import { Component, useCallback, useMemo, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { findLastSurfaceAction } from '@/lib/a2ui-state';
+import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { A2uiSurface, clioA2UICatalog } from './a2ui-catalog';
 import { ClioStatus, type ClioStatusValue } from './status';
+import { TechnicalDetails } from './technical-details';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 
 function SurfaceFailure({ error }: { error: Error }) {
   return (
     <section
-      aria-label="Interactive agent surface unavailable"
+      aria-label={`${PROTOCOL.a2ui} surface unavailable`}
       className="overflow-hidden rounded-xl border border-destructive/40 bg-destructive/5"
     >
       <div className="flex items-center gap-2 border-b border-destructive/30 px-4 py-2 text-xs">
         <AlertTriangleIcon aria-hidden="true" className="size-3.5 text-destructive" />
-        <span className="font-medium">Interactive surface unavailable</span>
+        <span className="font-medium">{PROTOCOL.a2ui} surface unavailable</span>
         <ClioStatus className="ml-auto" label="Failed safely" value="failed" />
       </div>
       <p className="px-4 py-3 text-xs text-muted-foreground">
         {error.message} The conversation remains available, and no action was taken by this view.
       </p>
-      <details className="border-t border-destructive/20 px-4 py-2 text-xs text-muted-foreground">
-        <summary className="cursor-pointer">Validation detail</summary>
+      <TechnicalDetails
+        className="border-t border-destructive/20 px-4 py-2 text-xs text-muted-foreground"
+        title={`${PROTOCOL.a2ui} details`}
+      >
         <p className="mt-2 font-mono">{error.message}</p>
-      </details>
+      </TechnicalDetails>
     </section>
   );
 }
@@ -105,7 +108,7 @@ function validateSurfaceComponents(messages: unknown[]): A2uiMessage[] {
       if (!result.success) {
         const detail = result.error.issues[0]?.message || 'unknown schema violation';
         throw new Error(
-          `A2UI component ${componentIndex + 1} in update ${messageIndex + 1} does not satisfy the shared CLIO catalog: ${detail}`,
+          `A2UI component ${componentIndex + 1} in update ${messageIndex + 1} does not satisfy the shared ${vocab.agent} catalog: ${detail}`,
         );
       }
     });
@@ -227,7 +230,7 @@ function ClioA2UISurfaceContent({
           <ClioStatus
             label={
               isPending
-                ? `Sending action to ${brand.name}`
+                ? `Sending action to ${vocab.agent}`
                 : localActionPending
                   ? 'Applying action in this workspace'
                   : localActionStatus || acceptedActionLabel(lastAction?.name)
@@ -246,7 +249,7 @@ function ClioA2UISurfaceContent({
   if (chrome === 'bare') {
     return (
       <section
-        aria-label={`Interactive surface, ${surfaceKind}`}
+        aria-label={`${PROTOCOL.a2ui} surface, ${surfaceKind}`}
         className={cn(
           'scroll-m-8 min-w-0 focus:outline-2 focus:outline-offset-2 focus:outline-primary',
           viewport === 'fullscreen' &&
@@ -262,14 +265,14 @@ function ClioA2UISurfaceContent({
   }
   return (
     <section
-      aria-label={`Generated UI, ${surfaceKind}`}
+      aria-label={`${PROTOCOL.a2ui} surface, ${surfaceKind}`}
       className="scroll-m-8 overflow-hidden rounded-xl border bg-card/70 focus:outline-2 focus:outline-offset-2 focus:outline-primary"
       id={a2uiSurfaceDomId(surface.id)}
       tabIndex={-1}
     >
       <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2 text-xs">
         <BoxesIcon aria-hidden="true" className="size-3.5 text-primary" />
-        <span className="font-medium">Generated UI</span>
+        <span className="font-medium">{PROTOCOL.a2ui} surface</span>
         <span className="text-muted-foreground">{surfaceKind}</span>
         {surfaceBusy ? (
           <ClioStatus

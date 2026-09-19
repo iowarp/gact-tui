@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { CLIO_A2UI_CATALOG_ID } from './a2ui-catalog';
 import { ClioPendingInteractions } from './pending-interactions';
 
@@ -186,7 +187,7 @@ describe('ClioPendingInteractions', () => {
     expect(
       screen.getByText('The specialist could not answer this, so it needs you.'),
     ).toBeVisible();
-    expect(screen.queryByText('agent_answer_timeout')).not.toBeVisible();
+    expect(screen.queryByText('agent_answer_timeout')).not.toBeInTheDocument();
     expect(screen.getByText('Technical details')).toBeVisible();
   });
 
@@ -675,8 +676,8 @@ describe('ClioPendingInteractions', () => {
     });
     renderPending([interaction]);
 
-    expect(screen.getByText('This interactive view has no surface to open.')).toBeVisible();
-    expect(screen.queryByText('Interactive view is loading.')).not.toBeInTheDocument();
+    expect(screen.getByText(`This response has no ${PROTOCOL.a2ui} surface to open.`)).toBeVisible();
+    expect(screen.queryByText(`${PROTOCOL.a2ui} surface is loading.`)).not.toBeInTheDocument();
   });
 
   it('rejects a surface addressed to a different session instead of reading it as loading', () => {
@@ -689,11 +690,9 @@ describe('ClioPendingInteractions', () => {
     renderPending([interaction], { surfaces: { surface_1: foreignSurface } });
 
     expect(
-      screen.getByText(
-        'This interactive view was rejected: it was addressed to a different session.',
-      ),
+      screen.getByText(`This ${PROTOCOL.a2ui} surface was rejected: it was addressed to a different session.`),
     ).toBeVisible();
-    expect(screen.queryByText('Interactive view is loading.')).not.toBeInTheDocument();
+    expect(screen.queryByText(`${PROTOCOL.a2ui} surface is loading.`)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Submit selection' })).not.toBeInTheDocument();
   });
 
@@ -707,7 +706,7 @@ describe('ClioPendingInteractions', () => {
     });
     renderPending([interaction], { onRefetchSurfaces });
 
-    expect(screen.getByText('Interactive view is loading.')).toBeVisible();
+    expect(screen.getByText(`${PROTOCOL.a2ui} surface is loading.`)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRefetchSurfaces).toHaveBeenCalledTimes(1);
   });

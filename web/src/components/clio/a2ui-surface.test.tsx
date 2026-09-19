@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import type { A2UISurface } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -72,7 +73,7 @@ describe('ClioA2UISurface actions', () => {
 
     renderSurface(surface);
 
-    expect(screen.getByText('Interactive surface unavailable')).toBeVisible();
+    expect(screen.getByText('A2UI protocol surface unavailable')).toBeVisible();
     expect(screen.getAllByText(new RegExp(surface.error, 'u'))[0]).toBeVisible();
     expect(screen.queryByText('Analysis view')).not.toBeInTheDocument();
   });
@@ -109,7 +110,7 @@ describe('ClioA2UISurface actions', () => {
 
     renderSurface(surface);
 
-    expect(screen.getByText('Interactive surface unavailable')).toBeVisible();
+    expect(screen.getByText('A2UI protocol surface unavailable')).toBeVisible();
     expect(screen.getAllByText(/accessibility: Expected object/u)[0]).toBeVisible();
     expect(consoleError).not.toHaveBeenCalled();
   });
@@ -123,8 +124,10 @@ describe('ClioA2UISurface actions', () => {
 
     renderSurface(surface);
 
-    expect(screen.getByText('Interactive surface unavailable')).toBeVisible();
-    expect(screen.getAllByText(/does not satisfy the shared CLIO catalog/u)[0]).toBeVisible();
+    expect(screen.getByText('A2UI protocol surface unavailable')).toBeVisible();
+    expect(
+      screen.getAllByText(new RegExp(`does not satisfy the shared ${brand.agentName} catalog`, 'u'))[0],
+    ).toBeVisible();
   });
 
   it('keeps artifact.open local and never posts it to the server action route', async () => {

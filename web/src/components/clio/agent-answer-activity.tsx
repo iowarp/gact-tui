@@ -13,6 +13,7 @@ import {
 import type { ReactNode } from 'react';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { humanizeProtocolValue } from './presentation-labels';
+import { TechnicalDetails } from './technical-details';
 import { isAgentMcpInteraction, questionInteractionRequestLabel } from './agent-answer-domain';
 
 /** Quiet lifecycle attribution for a question routed to an agent. */
@@ -142,10 +143,9 @@ export function AgentAnswerActivity({
           >
             {fallbackDescription(interaction.fallback_detail)}
             {interaction.fallback_detail ? (
-              <details className="mt-1">
-                <summary className="cursor-pointer">Technical details</summary>
+              <TechnicalDetails className="mt-1" title="Technical details">
                 <code>{interaction.fallback_detail}</code>
-              </details>
+              </TechnicalDetails>
             ) : null}
           </ActivityStep>
           {fallbackPending ? (

@@ -2,6 +2,7 @@ import { PROTOCOL_VERSION } from '@clio/core/v3';
 import { useQueries } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { createRepository, type ConnectionSettings, type SavedConnection } from '@/lib/connection';
+import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
@@ -86,7 +87,7 @@ export async function probeConnection(
       return {
         state: 'unavailable',
         label: 'Incompatible',
-        detail: `Requires GACT ${PROTOCOL_VERSION}.`,
+        detail: `Requires ${PROTOCOL.gact} ${PROTOCOL_VERSION}.`,
       };
     }
 

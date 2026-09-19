@@ -15,6 +15,7 @@ import {
   type SavedConnection,
 } from '@/lib/connection';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { vocab } from '@/lib/brand-vocabulary';
 import {
   deleteConnectionCredential,
   readConnectionCredential,
@@ -110,7 +111,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       .catch((error: unknown) => {
         if (cancelled) return;
         setCredentialError(
-          error instanceof Error ? error.message : 'The managed CLIO service is unavailable.',
+          error instanceof Error ? error.message : `The managed ${vocab.agent} service is unavailable.`,
         );
       })
       .finally(() => {
