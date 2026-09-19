@@ -562,6 +562,13 @@ export interface ToolCatalogItem {
   visible_to: string[];
   input_schema: Record<string, unknown>;
   output_schema: Record<string, unknown>;
+  /**
+   * The server's own functional grouping for this tool (#1350) — one of the
+   * fixed `ToolDomain` tokens (see `web/src/lib/tool-domain-labels.ts`), or
+   * absent for a dynamic gateway row the server declared no domain for. A
+   * present value always wins over any client-side name-regex fallback.
+   */
+  domain?: string;
 }
 
 export interface McpServerDefinition {

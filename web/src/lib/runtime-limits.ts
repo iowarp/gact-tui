@@ -62,6 +62,15 @@ export const MANAGED_BACKEND_POLL_MS = 150;
  */
 export const CONNECTION_PROBE_POLL_MS = 30_000;
 
+/**
+ * Poll cadence while waiting out a sandbox setup already in flight
+ * (`sandbox_setup_in_progress`) or watching one this tab just started.
+ * Unit: milliseconds. A one-shot wait for a local, human-paced event (a UAC
+ * elevation prompt) rather than a background watch, so it sits with the
+ * desktop-boot tier, not the slow "notice something changed" tier.
+ */
+export const SANDBOX_SETUP_POLL_MS = 1_000;
+
 // ## Streaming and reconnect backoff
 // The client reconnects a dropped SSE stream with exponential backoff between
 // these two bounds.

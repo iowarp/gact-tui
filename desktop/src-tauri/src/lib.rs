@@ -150,6 +150,7 @@ pub fn run() {
             commands::install_clio,
             commands::repair_clio,
             commands::update_clio,
+            commands::restart_clio,
             commands::open_logs,
             commands::read_logs,
             commands::open_document_path,

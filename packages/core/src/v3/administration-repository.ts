@@ -6,6 +6,7 @@ import type {
   RuntimeMetrics,
   ServiceHealth,
 } from './domain.js';
+import type { SandboxSetupResult, SandboxStatus } from './sandbox-domain.js';
 import type { MemoryEvent, MemoryStatistics } from './memory-domain.js';
 import type { AgentDefinition } from './agent-domain.js';
 import { agentDefinitionSchema } from './schemas.js';
@@ -151,6 +152,54 @@ const serviceHealthSchema = z.object({
   ),
   tool_hooks_installed: z
     .boolean()
+    .nullish()
+    .transform((value) => value ?? undefined),
+});
+const sandboxStatusSchema = z.object({
+  name: z.string().default('sandbox'),
+  status: z.string(),
+  detail: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  summary: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  config_source: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  next_action: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  endpoint: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  required: z.boolean().default(true),
+  reason: z
+    .string()
+    .nullish()
+    .transform((value) => (value ? value : undefined)),
+  setup_in_progress: z.boolean().default(false),
+  codex_source: z
+    .enum(['bundled', 'path'])
+    .nullish()
+    .transform((value) => value ?? undefined),
+});
+const sandboxSetupResultSchema = z.object({
+  status: z.string(),
+  reason: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  elevated: z
+    .boolean()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  row: sandboxStatusSchema
     .nullish()
     .transform((value) => value ?? undefined),
 });
@@ -412,6 +461,36 @@ export class AdministrationRepository extends SessionHistoryRepository {
       path: '/v1/health',
       acceptStatuses: [503],
       decode: (input) => serviceHealthSchema.parse(input),
+      signal,
+    });
+  }
+
+  /** The `sandbox` (protected execution) doctor row alone, with the desktop setup-panel fields `/v1/health` drops. */
+  public sandboxStatus(signal?: AbortSignal): Promise<SandboxStatus> {
+    return this.transport.request({
+      method: 'GET',
+      path: '/v1/system/sandbox',
+      decode: (input) => sandboxStatusSchema.parse(input) as SandboxStatus,
+      signal,
+    });
+  }
+
+  /**
+   * Fire the "Set up protected execution" button. The connected service
+   * returns this same typed shape whether the run started, was refused
+   * because one was already in flight (409, `sandbox_setup_in_progress` —
+   * the caller polls {@link sandboxStatus} until `setup_in_progress` clears),
+   * or the host platform has nothing to provision (501,
+   * `sandbox_setup_unsupported`) — so both are accepted statuses here rather
+   * than thrown `TransportError`s, and the caller always gets a `row` to
+   * show, never a bare failure.
+   */
+  public setupSandbox(signal?: AbortSignal): Promise<SandboxSetupResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: '/v1/system/sandbox/setup',
+      acceptStatuses: [409, 501],
+      decode: (input) => sandboxSetupResultSchema.parse(input) as SandboxSetupResult,
       signal,
     });
   }

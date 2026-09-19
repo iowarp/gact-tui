@@ -60,6 +60,20 @@ pub fn update_clio(app: tauri::AppHandle, target_version: Option<String>) {
     });
 }
 
+/// Restart the managed backend process (reap the current child, re-spawn it).
+///
+/// Driven by the desktop's Infrastructure > Agent "Protected execution" row:
+/// after a Windows sandbox setup run reports `sandbox_fence_pending_restart`
+/// (an MCP tool fleet had already spawned before the fence just activated,
+/// so it isn't covered by it), this is the "Restart CLIO" button's action.
+/// Delegates to the same `Supervisor::restart` the one-swoop install/repair/
+/// update flows already use — no new restart mechanism, just a button that
+/// reaches the existing one directly instead of only after an install.
+#[tauri::command]
+pub fn restart_clio(state: tauri::State<'_, Mutex<Supervisor>>) {
+    lock_recover(&state).restart();
+}
+
 fn run_installer(app: tauri::AppHandle, force: bool) {
     std::thread::spawn(move || {
         let restart_app = app.clone();

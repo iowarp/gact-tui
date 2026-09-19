@@ -28,6 +28,17 @@ export async function getManagedBackend(): Promise<ManagedBackendHandle> {
   return invokeManagedBackend<ManagedBackendHandle>('get_backend');
 }
 
+/**
+ * Restart the managed backend process — reap the current child, re-spawn it.
+ * Used by the Infrastructure > Agent "Restart CLIO" button once a sandbox
+ * setup run reports `sandbox_fence_pending_restart`: an MCP tool fleet
+ * already spawned before the just-activated fence isn't covered by it until
+ * the backend restarts. Tauri-only; callers check `inTauri()` first.
+ */
+export async function restartClio(): Promise<void> {
+  await invokeManagedBackend<void>('restart_clio');
+}
+
 export async function waitForManagedBackend(
   options: ManagedBackendOptions = {},
 ): Promise<ManagedBackendHandle> {
