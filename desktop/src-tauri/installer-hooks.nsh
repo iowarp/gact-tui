@@ -22,6 +22,15 @@ Var ClioLlamaCppStatus
 ; "which button did silent mode press" behavior is ambiguous, and the page's
 ; own function can Abort to skip it for a passive/update run — see
 ; ClioInfrastructurePage below.
+;
+; F2 (accepted, not fixed here): this `Page custom` is textually the FIRST
+; page instruction in the compiled script, since Tauri's template !includes
+; this file before its own `!insertmacro MUI_PAGE_WELCOME` / MUI_PAGE_LICENSE
+; sequence — so ClioInfrastructurePage renders BEFORE Welcome/License, not
+; alongside Directory/InstFiles where a "what should we set up" prompt would
+; more naturally sit. Reordering would require either patching the vendored
+; template or duplicating its whole page sequence in this file; accepted for
+; now as a page-order quirk, not a functional bug.
 Page custom ClioInfrastructurePage ClioInfrastructurePageLeave
 
 Function ClioInfrastructurePage
@@ -29,8 +38,25 @@ Function ClioInfrastructurePage
   ; setup work; a passive (unattended, updater-driven) run is likewise never a
   ; place to ask the user anything. Aborting here — before nsDialogs::Create —
   ; is the standard NSIS way to skip a custom page.
-  ${If} $PassiveMode == 1
-  ${OrIf} $UpdateMode == 1
+  ;
+  ; This must NOT read the template's own PassiveMode / UpdateMode Vars:
+  ; those are declared by Tauri's template AFTER it !includes this file, so a
+  ; reference to them inside a Function body — compiled immediately, at the
+  ; point this file is included, unlike a !macro body which is only compiled
+  ; later at its !insertmacro call site (see NSIS_HOOK_PREINSTALL below,
+  ; where the same names ARE safe to read) — resolves against undeclared
+  ; Vars. makensis only WARNS about that, so the check silently always
+  ; evaluated false and the updater's passive `/P /R /UPDATE` run blocked on
+  ; this page. Read the raw command line instead, via FileFunc.nsh's
+  ; GetOptions (already included by the base template before this file, so
+  ; no !include here — and deliberately not redeclaring those template Vars,
+  ; which would be a duplicate Var error).
+  ${GetOptions} $CMDLINE "/P" $R0
+  ${IfNot} ${Errors}
+    Abort
+  ${EndIf}
+  ${GetOptions} $CMDLINE "/UPDATE" $R0
+  ${IfNot} ${Errors}
     Abort
   ${EndIf}
 

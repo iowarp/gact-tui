@@ -315,11 +315,21 @@ test('installer collects Infrastructure choices via a custom wizard page, not a 
   assert.match(page, /EnableWindow \$ClioKitCheckbox 0/);
 });
 
-test('the Infrastructure page is skipped for passive and update installs', () => {
+test('the Infrastructure page is skipped for passive and update installs, read from the command line', () => {
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
   const page = hooks.match(/Function ClioInfrastructurePage\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
-  assert.match(page, /\$PassiveMode == 1/);
-  assert.match(page, /\$UpdateMode == 1/);
+  // A Function body compiles at !include time, before Tauri's template
+  // declares $PassiveMode/$UpdateMode — referencing those Vars here would
+  // silently always evaluate false (makensis only warns), so the skip must
+  // read the raw command line via GetOptions instead of those template Vars.
+  assert.doesNotMatch(
+    page,
+    /\$PassiveMode|\$UpdateMode/,
+    'ClioInfrastructurePage must not reference $PassiveMode/$UpdateMode — those Vars are not yet declared at the point this Function compiles',
+  );
+  assert.match(page, /\$\{GetOptions\} \$CMDLINE "\/P" \$R0/);
+  assert.match(page, /\$\{GetOptions\} \$CMDLINE "\/UPDATE" \$R0/);
+  assert.match(page, /\$\{IfNot\} \$\{Errors\}/);
   assert.match(page, /Abort/);
 });
 

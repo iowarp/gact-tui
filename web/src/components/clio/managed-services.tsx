@@ -120,6 +120,14 @@ export function ManagedServices({
       (target === 'ssh' || !service.label.toLowerCase().includes('relay')),
   );
   const provider = providers.find((service) => service.id === selectedProvider);
+  // "Installed" mirrors ServiceCard's own definition (running or stopped, as
+  // opposed to never installed). This — not the transient managedProvidersEnabled
+  // switch — is what the finish-setup banner gates on: a useState toggle is
+  // per-visit and would make the banner reappear every time this page loads,
+  // even after the user already finished the installer's llama.cpp request.
+  const llamaCppService = services.find((service) => service.id === 'llama_cpp');
+  const llamaCppInstalled =
+    llamaCppService?.state === 'running' || llamaCppService?.state === 'stopped';
 
   if (!desktop) {
     return (
@@ -302,7 +310,7 @@ export function ManagedServices({
         icon={CpuIcon}
         title="Model runtime"
       >
-        {installerLlamaCpp.data && !managedProvidersEnabled ? (
+        {installerLlamaCpp.data && !llamaCppInstalled ? (
           <Alert className="mb-4">
             <CpuIcon aria-hidden="true" />
             <AlertTitle>Finish setting up your local model runtime</AlertTitle>

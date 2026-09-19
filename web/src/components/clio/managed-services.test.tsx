@@ -244,14 +244,42 @@ describe('ManagedServices', () => {
     await user.click(screen.getByRole('button', { name: 'Finish setup' }));
 
     expect(screen.getByLabelText(`Manage a model runtime with ${brand.agentName}`)).toBeChecked();
-    expect(
-      screen.queryByText('Finish setting up your local model runtime'),
-    ).not.toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'llama.cpp' })).toBeVisible();
+    // The banner gates on the catalog's actual install state, not the
+    // managedProvidersEnabled switch just toggled above — llama.cpp is still
+    // "not_installed" in the mocked catalog, so it must still be showing.
+    // (Gating on that transient switch instead was the bug: it made the
+    // banner reappear on every visit, forever, regardless of whether the
+    // user had ever actually installed anything.)
+    expect(screen.getByText('Finish setting up your local model runtime')).toBeVisible();
   });
 
   it('does not show the finish-setup banner when the installer never recorded a llama.cpp request', async () => {
     installerInfra.installerRequestedLlamaCpp.mockResolvedValue(false);
+    renderServices();
+
+    await screen.findByRole('heading', { name: 'Where should this capability run?' });
+    expect(
+      screen.queryByText('Finish setting up your local model runtime'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not show the finish-setup banner once llama.cpp is actually installed', async () => {
+    installerInfra.installerRequestedLlamaCpp.mockResolvedValue(true);
+    deployment.managedServiceCatalog.mockResolvedValue({
+      facts: {
+        target: 'local',
+        os: 'windows',
+        arch: 'x86_64',
+        accelerator: 'none',
+        docker_available: true,
+        docker_installed: true,
+        uv_available: true,
+      },
+      services: services.map((service) =>
+        service.id === 'llama_cpp' ? { ...service, state: 'stopped' as const } : service,
+      ),
+    });
     renderServices();
 
     await screen.findByRole('heading', { name: 'Where should this capability run?' });
