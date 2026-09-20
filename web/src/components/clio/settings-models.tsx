@@ -221,6 +221,9 @@ function ModelsSettingsContent({
         queryClient.invalidateQueries({
           queryKey: queryKeys.key('capabilities', settings.endpoint),
         }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.providerCatalog(settings.endpoint),
+        }),
       ]);
     },
   });

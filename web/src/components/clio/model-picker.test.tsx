@@ -82,6 +82,7 @@ describe('ClioModelPicker', () => {
 
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'Qwen3');
     expect(screen.getByText('Local vLLM')).toBeVisible();
+    expect(screen.queryByText('Codex')).not.toBeInTheDocument();
     await user.click(screen.getByText('Local vLLM'));
     expect(screen.getByText('Qwen3-VL-32B')).toBeVisible();
     expect(screen.queryByText('Luna')).not.toBeInTheDocument();
@@ -129,6 +130,57 @@ describe('ClioModelPicker', () => {
     expect(screen.queryByText('Luna')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRetryCatalog).toHaveBeenCalledOnce();
+  });
+
+  it('keeps cached choices searchable during a background refresh', async () => {
+    const user = userEvent.setup();
+    const onRetryCatalog = vi.fn();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          catalogRefreshing
+          catalogStatus="ready"
+          onChange={vi.fn()}
+          onRetryCatalog={onRetryCatalog}
+          options={options}
+          provider="codex"
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+
+    expect(screen.getByPlaceholderText('Search providers and models')).toBeVisible();
+    expect(screen.getByText('Codex')).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Refresh Codex provider and models' }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole('status', { name: 'Loading available models' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('refreshes the active provider explicitly without closing the picker', async () => {
+    const user = userEvent.setup();
+    const onRetryCatalog = vi.fn();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          onRetryCatalog={onRetryCatalog}
+          options={options}
+          provider="codex"
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByRole('button', { name: 'Refresh Codex provider and models' }));
+
+    expect(onRetryCatalog).toHaveBeenCalledWith('codex');
+    expect(screen.getByRole('dialog')).toBeVisible();
   });
 
   it('links provider configuration without mixing it into model selection', async () => {

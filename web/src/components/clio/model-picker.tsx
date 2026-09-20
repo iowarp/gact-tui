@@ -34,10 +34,11 @@ import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 
 interface ClioModelPickerProps {
+  catalogRefreshing?: boolean;
   catalogStatus?: 'error' | 'loading' | 'ready';
   model?: string;
   onChange: (choice: ClioModelOption) => void;
-  onRetryCatalog?: () => void;
+  onRetryCatalog?: (providerId?: string) => void;
   options: readonly ClioModelOption[];
   provider?: string;
   title?: string;
@@ -75,6 +76,7 @@ const MODEL_NODE_PREFIX = 'model:';
 
 /** Searchable AI Elements dialog composed with the real ReUI columns cascader. */
 export function ClioModelPicker({
+  catalogRefreshing = false,
   catalogStatus = 'ready',
   model,
   onChange,
@@ -209,6 +211,15 @@ export function ClioModelPicker({
     setShowHidden(false);
   }
 
+  function handleQueryChange(nextQuery: string): void {
+    // A provider path is useful for browsing, but it turns deep search into a
+    // search inside that provider and leaves the old provider pinned beside a
+    // global hit. Start every new search at the root; choosing a result can
+    // then establish the path that remains when the query is cleared.
+    if (nextQuery.trim() && !query.trim()) setPath([]);
+    setQuery(nextQuery);
+  }
+
   function toggleVisibilityManagement(): void {
     const next = !managingVisibility;
     setManagingVisibility(next);
@@ -226,7 +237,7 @@ export function ClioModelPicker({
         {catalogStatus === 'loading' ? (
           <ModelCatalogSkeleton columns={showColumns} />
         ) : catalogStatus === 'error' ? (
-          <ModelCatalogError onRetry={onRetryCatalog} />
+          <ModelCatalogError onRetry={() => onRetryCatalog?.(activeGroup?.id)} />
         ) : (
           <Cascader
             closeOnSelect={false}
@@ -242,7 +253,7 @@ export function ClioModelPicker({
             }}
             maxHeight="100%"
             mode={showColumns ? 'columns' : 'drill'}
-            onInputValueChange={setQuery}
+            onInputValueChange={handleQueryChange}
             onPathChange={(nextPath) => setPath(nextPath)}
             onValueChange={(_value, details) => {
               if (details.node?.data?.kind !== 'model') return;
@@ -279,6 +290,22 @@ export function ClioModelPicker({
                   </div>
                   {activeGroup ? (
                     <div className="flex shrink-0 items-center gap-1">
+                      {onRetryCatalog ? (
+                        <Button
+                          aria-label={`Refresh ${activeGroup.name} provider and models`}
+                          disabled={catalogRefreshing}
+                          onClick={() => onRetryCatalog(activeGroup.id)}
+                          size="icon-sm"
+                          title={`Refresh ${activeGroup.name} provider and models`}
+                          type="button"
+                          variant="ghost"
+                        >
+                          <RefreshCwIcon
+                            aria-hidden="true"
+                            className={catalogRefreshing ? 'animate-spin' : undefined}
+                          />
+                        </Button>
+                      ) : null}
                       <Button
                         aria-label={
                           hiddenProviders.size

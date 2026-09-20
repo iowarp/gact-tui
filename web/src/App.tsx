@@ -10,6 +10,7 @@ import { DesktopTitleBar } from '@/components/clio/desktop-title-bar';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { scheduleBackgroundUpdateCheck } from '@/tauri/desktop-updater';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { useProviderCatalog } from '@/hooks/use-provider-catalog';
 
 const ConnectionPage = lazy(() =>
   import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
@@ -42,6 +43,11 @@ function RouteFallback() {
 
 function UnknownRouteRedirect() {
   return <Navigate replace to="/" />;
+}
+
+function ProviderCatalogWarmup() {
+  useProviderCatalog();
+  return null;
 }
 
 export default function App() {
@@ -80,6 +86,7 @@ export default function App() {
 
   const appContent = (
     <>
+      <ProviderCatalogWarmup />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route element={<ConnectionPage />} path="/" />

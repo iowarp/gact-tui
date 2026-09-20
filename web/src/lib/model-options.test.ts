@@ -304,6 +304,44 @@ describe('buildModelOptions', () => {
       'Unknown (quarantined)',
     ]);
   });
+
+  it('keeps CLI aliases usable when the connected agent reports the runtime ready', () => {
+    const options = buildModelOptions({
+      activeCatalogProvider: 'claude_code',
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'claude_code',
+            name: 'Claude Code (subscription)',
+            kind: 'claude_code',
+            endpoint: 'claude-code://sdk',
+            health: 'ready',
+            models: [catalogModel('sonnet', 'candidate')],
+          }),
+        ],
+      },
+      presets: [
+        {
+          ...lmStudioPreset,
+          id: 'claude_code',
+          label: 'Claude Code (subscription)',
+          provider: 'claude_code',
+          is_authenticated: true,
+          status: 'ready',
+        },
+      ],
+    });
+
+    expect(options).toEqual([
+      expect.objectContaining({
+        providerId: 'claude_code',
+        id: 'sonnet',
+        available: true,
+        availabilityDetail: 'Reported but not verified',
+      }),
+    ]);
+  });
 });
 
 describe('modelAvailabilityLabel', () => {

@@ -64,6 +64,7 @@ export interface ClioComposerProps {
   attachments: boolean;
   provider?: string;
   model?: string;
+  modelCatalogRefreshing?: boolean;
   modelCatalogStatus?: 'error' | 'loading' | 'ready';
   effort?: string;
   executionMode?: MessageBehavior['execution_mode'];
@@ -105,7 +106,7 @@ export interface ClioComposerProps {
   ) => Promise<WorkspaceResourceUploadResult>;
   onStop?: () => void;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
-  onRetryModelCatalog?: () => void;
+  onRetryModelCatalog?: (providerId?: string) => void;
   onHeightChange?: (height: number) => void;
   activityControl?: ReactNode;
   workSummary?: ReactNode;
@@ -145,6 +146,7 @@ export function ClioComposer({
   attachments,
   provider,
   model,
+  modelCatalogRefreshing = false,
   modelCatalogStatus = 'ready',
   effort,
   executionMode = 'execute',
@@ -583,6 +585,7 @@ export function ClioComposer({
               disabled={disabled}
               modelControl={
                 <ClioModelPicker
+                  catalogRefreshing={modelCatalogRefreshing}
                   catalogStatus={modelCatalogStatus}
                   model={selectedOption?.id}
                   onChange={(option) => {

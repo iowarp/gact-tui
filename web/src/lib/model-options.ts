@@ -164,19 +164,28 @@ function liveProviderOptions(
       },
     ];
   }
-  return provider.models.map((model) => ({
-    ...shared,
-    kind: 'model',
-    id: model.model_id,
-    label: conciseModelName(model.model_id),
-    description: model.failure || undefined,
-    available: model.availability === 'available',
-    availabilityDetail:
-      model.availability === 'available'
-        ? undefined
-        : model.failure || modelAvailabilityLabel(model.availability),
-    modalities: model.modalities,
-  }));
+  const providerReady = preset?.status === 'ready' || preset?.is_authenticated === true;
+  const isCliProvider = ['codex', 'claude_code'].includes(provider.kind);
+  return provider.models.map((model) => {
+    // CLI providers cannot enumerate models without an explicit (and for
+    // Claude potentially billed) discovery run. Their built-in aliases remain
+    // candidates, but a runtime the agent reports ready must still be usable;
+    // the first real invocation is the final verification boundary.
+    const usableCandidate = isCliProvider && model.availability === 'candidate' && providerReady;
+    return {
+      ...shared,
+      kind: 'model',
+      id: model.model_id,
+      label: conciseModelName(model.model_id),
+      description: model.failure || undefined,
+      available: model.availability === 'available' || usableCandidate,
+      availabilityDetail:
+        model.availability === 'available'
+          ? undefined
+          : model.failure || modelAvailabilityLabel(model.availability),
+      modalities: model.modalities,
+    };
+  });
 }
 
 function isAuthenticationFailure(failure: string | null | undefined): boolean {

@@ -486,6 +486,7 @@ export function WorkspacePage() {
           focusRequestKey={composerFocusKey}
           key={`composer:${sessionId}:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
           model={activeModel}
+          modelCatalogRefreshing={providerCatalog.isRefreshing}
           modelCatalogStatus={modelCatalogStatus}
           modelOptions={modelOptions}
           pendingInteractions={pendingInteractionsPanel}
@@ -499,7 +500,7 @@ export function WorkspacePage() {
               throw error;
             }
           }}
-          onRetryModelCatalog={() => void providerCatalog.refetch()}
+          onRetryModelCatalog={(providerId) => void providerCatalog.refreshCatalog(providerId)}
           onBehaviorChange={async (behavior) => {
             await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
           }}
