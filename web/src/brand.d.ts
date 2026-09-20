@@ -11,6 +11,8 @@ declare module '@brand' {
     productName: string;
     agentName: string;
     workspaceNoun: string;
+    desktopReleaseUrl: string | null;
+    agentReleaseUrl: string | null;
     themeTokens: Record<string, string>;
     landing: {
       eyebrow: string;

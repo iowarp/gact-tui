@@ -136,6 +136,7 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         // Auto-update: pulls the signed latest.json marker from GitHub
         // releases, verifies it against the `plugins.updater.pubkey` in
         // tauri.conf.json, then downloads + installs on demand. The frontend

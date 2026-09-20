@@ -17,6 +17,7 @@ tauri-build = { version = "2.0", features = [] }
 tauri = { version = "2.0", features = ["tray-icon", "image-png"] }
 tauri-plugin-notification = "2.0"
 tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
 # Auto-update: checks the GitHub-releases latest.json marker, verifies the
 # minisign signature against the configured pubkey, downloads + installs.
 tauri-plugin-updater = "2"

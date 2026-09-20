@@ -14,7 +14,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { useConnectionAvailabilities } from '@/hooks/use-connection-availability';
@@ -24,6 +23,7 @@ import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 import { NavigationHeader } from './navigation-header';
 import { NavigationInfrastructure } from './navigation-infrastructure';
+import { NavigationVersionStatus } from './navigation-version-status';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
@@ -176,20 +176,18 @@ export function ClioNavigation({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="Settings">
+                      <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
+                        <Settings2Icon aria-hidden="true" />
+                        <span>Settings</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <NavigationVersionStatus />
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            <SidebarSeparator className="my-1" />
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Settings">
-                  <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
-                    <Settings2Icon aria-hidden="true" />
-                    <span>Settings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
           </SidebarFooter>
         </nav>
         <SidebarRail />

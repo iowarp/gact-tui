@@ -3,6 +3,53 @@ import { ClioRepository } from './repository.js';
 import { RecordingTransport } from './recording-transport.test-helper.js';
 
 describe('ClioRepository provider contracts', () => {
+  it('starts and completes browser-based provider authentication', async () => {
+    const transport = new RecordingTransport([
+      {
+        provider_id: 'argonne_metis',
+        is_authenticated: false,
+        instructions: 'Continue in Globus.',
+        authorization_url: 'https://auth.globus.org/v2/oauth2/authorize',
+        flow_id: 'flow-123',
+      },
+      {
+        provider_id: 'argonne_metis',
+        is_authenticated: true,
+        instructions: 'ALCF sign-in complete.',
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(
+      repository.authenticateProvider('argonne_metis', { force: true }),
+    ).resolves.toMatchObject({
+      flow_id: 'flow-123',
+      authorization_url: 'https://auth.globus.org/v2/oauth2/authorize',
+    });
+    await expect(
+      repository.completeProviderAuthentication('argonne_metis', {
+        flowId: 'flow-123',
+        authorizationCode: 'code-456',
+      }),
+    ).resolves.toMatchObject({ is_authenticated: true });
+    expect(transport.requests).toMatchObject([
+      {
+        method: 'POST',
+        path: '/v1/providers/argonne_metis/auth',
+        body: { action: 'start', force: true },
+      },
+      {
+        method: 'POST',
+        path: '/v1/providers/argonne_metis/auth',
+        body: {
+          action: 'complete',
+          flow_id: 'flow-123',
+          authorization_code: 'code-456',
+        },
+      },
+    ]);
+  });
+
   it('refreshes the selected provider catalog and preserves server-reported deltas', async () => {
     const result = {
       provider: 'codex',

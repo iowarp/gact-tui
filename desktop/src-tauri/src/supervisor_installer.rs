@@ -6,6 +6,7 @@
 
 use std::{
     io::{BufRead, BufReader},
+    path::Path,
     process::{Command, Stdio},
     sync::{Arc, Mutex},
     thread,
@@ -59,7 +60,92 @@ pub fn install_clio_versioned<R, F>(
         "install"
     });
     let (program, args) = install_command_versioned(force, target_version.as_deref());
+    run_install_command(app, program, args, None, on_success);
+}
 
+/// Upgrade the writable runtime carried by a bundled Windows installation.
+/// Unlike the upstream bootstrap installer, this targets the exact Python
+/// distribution the desktop supervisor launches.
+pub fn update_bundled_clio<R, F>(
+    app: AppHandle<R>,
+    runtime_dir: &Path,
+    target_version: &str,
+    on_success: F,
+) where
+    R: tauri::Runtime,
+    F: FnOnce(),
+{
+    reset_boot_log("update");
+    let version = target_version
+        .trim()
+        .trim_start_matches('v')
+        .replace('+', ".");
+    if version.is_empty()
+        || !version
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '-'))
+    {
+        let _ = app.emit(
+            EVT_INSTALL_FAILED,
+            InstallFailed {
+                code: None,
+                tail: "The requested CLIO version is invalid.".to_string(),
+            },
+        );
+        return;
+    }
+    let executable = if cfg!(windows) { "uv.exe" } else { "uv" };
+    let python = if cfg!(windows) {
+        runtime_dir.join("python/python.exe")
+    } else {
+        runtime_dir.join("python/bin/python3")
+    };
+    let uv = runtime_dir.join(executable);
+    if !uv.is_file() || !python.is_file() {
+        let _ = app.emit(
+            EVT_INSTALL_FAILED,
+            InstallFailed {
+                code: None,
+                tail: format!("The managed CLIO runtime is incomplete at {runtime_dir:?}."),
+            },
+        );
+        return;
+    }
+    let program = uv.to_string_lossy().into_owned();
+    let args = vec![
+        "pip".to_string(),
+        "install".to_string(),
+        "--python".to_string(),
+        python.to_string_lossy().into_owned(),
+        "--upgrade".to_string(),
+        format!("clio-agent=={version}"),
+        "clio-kit==2.10.6".to_string(),
+        "globus-sdk>=3.0.0".to_string(),
+        "dspy==3.3.0b1".to_string(),
+        "fastmcp==4.0.0b5".to_string(),
+        "fastmcp-slim==4.0.0b5".to_string(),
+        "fastmcp-tasks==4.0.0b5".to_string(),
+    ];
+    let verify_script = format!(
+        "import importlib.metadata as m,sys; actual=m.version('clio-agent'); print(actual); sys.exit(0 if actual == '{version}' else 1)"
+    );
+    let verify = Some((
+        python.to_string_lossy().into_owned(),
+        vec!["-c".to_string(), verify_script],
+    ));
+    run_install_command(app, program, args, verify, on_success);
+}
+
+fn run_install_command<R, F>(
+    app: AppHandle<R>,
+    program: String,
+    args: Vec<String>,
+    verify: Option<(String, Vec<String>)>,
+    on_success: F,
+) where
+    R: tauri::Runtime,
+    F: FnOnce(),
+{
     let spawn = Command::new(&program)
         .args(&args)
         .stdin(Stdio::null())
@@ -109,6 +195,35 @@ pub fn install_clio_versioned<R, F>(
 
     match child.wait() {
         Ok(status) if status.success() => {
+            if let Some((verify_program, verify_args)) = verify {
+                match Command::new(&verify_program).args(&verify_args).output() {
+                    Ok(output) if output.status.success() => {
+                        let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                        boot_log_line(&format!("verified managed CLIO runtime {version}"));
+                    }
+                    Ok(output) => {
+                        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                        let _ = app.emit(
+                            EVT_INSTALL_FAILED,
+                            InstallFailed {
+                                code: output.status.code(),
+                                tail: format!("CLIO update verification failed. {detail}"),
+                            },
+                        );
+                        return;
+                    }
+                    Err(error) => {
+                        let _ = app.emit(
+                            EVT_INSTALL_FAILED,
+                            InstallFailed {
+                                code: None,
+                                tail: format!("Could not verify the updated CLIO runtime: {error}"),
+                            },
+                        );
+                        return;
+                    }
+                }
+            }
             // Re-kick the supervisor BEFORE announcing done so the frontend's
             // re-poll of get_backend sees Starting->Ready, not NeedsInstall.
             on_success();

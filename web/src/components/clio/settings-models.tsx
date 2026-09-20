@@ -6,7 +6,7 @@ import type {
   ProviderModelRefreshResult,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRoundIcon, RadioTowerIcon, RefreshCwIcon } from 'lucide-react';
+import { ExternalLinkIcon, KeyRoundIcon, RadioTowerIcon, RefreshCwIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import { providerAvailability } from '@/lib/provider-availability';
 import { readProviderCredential, storeProviderCredential } from '@/tauri/secure-credentials';
 import { providerDisplayName, providerSummary } from '@/lib/provider-presentation';
 import { vocab } from '@/lib/brand-vocabulary';
+import { openExternalUrl } from '@/tauri/external-url';
 import {
   modelSettingsUpdate,
   presetIsActive,
@@ -104,6 +105,12 @@ function ModelsSettingsContent({
   const [refreshResult, setRefreshResult] = useState<ProviderModelRefreshResult>();
   const [handshakeResult, setHandshakeResult] = useState<ProviderHandshake>();
   const [authInstructions, setAuthInstructions] = useState('');
+  const [authFlow, setAuthFlow] = useState<{
+    authorizationUrl: string;
+    flowId: string;
+  }>();
+  const [authorizationCode, setAuthorizationCode] = useState('');
+  const [authLaunchError, setAuthLaunchError] = useState('');
   const selectedPreset = configuration.presets.find((preset) => preset.id === presetId);
 
   // The service is the source of truth for this panel, so a configuration it
@@ -242,7 +249,47 @@ function ModelsSettingsContent({
       if (!presetId) throw new Error('Choose a provider first.');
       return repository.authenticateProvider(presetId, { force: true });
     },
-    onSuccess: (result) => setAuthInstructions(result.instructions),
+    onSuccess: (result) => {
+      setAuthInstructions(result.instructions);
+      if (result.authorization_url && result.flow_id) {
+        setAuthFlow({
+          authorizationUrl: result.authorization_url,
+          flowId: result.flow_id,
+        });
+        setAuthLaunchError('');
+        void openExternalUrl(result.authorization_url).catch((error: unknown) =>
+          setAuthLaunchError(
+            error instanceof Error ? error.message : 'Could not open Globus sign-in.',
+          ),
+        );
+      }
+    },
+  });
+  const completeAuthentication = useMutation({
+    mutationFn: async () => {
+      if (!presetId || !authFlow) throw new Error('Start ALCF sign-in first.');
+      if (!authorizationCode.trim()) throw new Error('Paste the authorization code from Globus.');
+      return repository.completeProviderAuthentication(presetId, {
+        flowId: authFlow.flowId,
+        authorizationCode: authorizationCode.trim(),
+      });
+    },
+    onSuccess: async (result) => {
+      setAuthInstructions(result.instructions);
+      setAuthFlow(undefined);
+      setAuthorizationCode('');
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.providerCatalog(settings.endpoint),
+        }),
+      ]);
+    },
   });
 
   return (
@@ -314,6 +361,60 @@ function ModelsSettingsContent({
             {authInstructions ? (
               <p className="max-w-3xl text-sm text-muted-foreground">{authInstructions}</p>
             ) : null}
+            {authFlow ? (
+              <div
+                aria-label="Complete ALCF sign-in"
+                className="grid max-w-xl gap-3 rounded-lg border border-border bg-muted/20 p-4"
+              >
+                <div>
+                  <p className="font-medium">Finish signing in to ALCF</p>
+                  <p className="text-sm text-muted-foreground">
+                    Sign in with your ALCF identity. Globus will show a one-time code to paste
+                    below; the connected {vocab.agent} stores the resulting token.
+                  </p>
+                </div>
+                <Button
+                  className="w-fit"
+                  onClick={() => {
+                    setAuthLaunchError('');
+                    void openExternalUrl(authFlow.authorizationUrl).catch((error: unknown) =>
+                      setAuthLaunchError(
+                        error instanceof Error ? error.message : 'Could not open Globus sign-in.',
+                      ),
+                    );
+                  }}
+                  variant="outline"
+                >
+                  <ExternalLinkIcon aria-hidden="true" />
+                  Open Globus sign-in
+                </Button>
+                {authLaunchError ? (
+                  <p className="text-sm text-destructive">{authLaunchError}</p>
+                ) : null}
+                <div className="grid gap-1.5">
+                  <label className="text-sm font-medium" htmlFor="alcf-authorization-code">
+                    Authorization code
+                  </label>
+                  <Input
+                    autoComplete="one-time-code"
+                    id="alcf-authorization-code"
+                    onChange={(event) => setAuthorizationCode(event.target.value)}
+                    placeholder="Paste the code from Globus"
+                    value={authorizationCode}
+                  />
+                </div>
+                <Button
+                  className="w-fit"
+                  disabled={!authorizationCode.trim() || completeAuthentication.isPending}
+                  onClick={() => completeAuthentication.mutate()}
+                >
+                  {completeAuthentication.isPending ? 'Completing sign-in…' : 'Complete sign-in'}
+                </Button>
+                {completeAuthentication.error ? (
+                  <p className="text-sm text-destructive">{completeAuthentication.error.message}</p>
+                ) : null}
+              </div>
+            ) : null}
             {refreshResult ? <RefreshResult result={refreshResult} /> : null}
             {handshakeResult ? <HandshakeResult result={handshakeResult} /> : null}
           </>
@@ -337,6 +438,9 @@ function ModelsSettingsContent({
                 setRefreshResult(undefined);
                 setHandshakeResult(undefined);
                 setAuthInstructions('');
+                setAuthFlow(undefined);
+                setAuthorizationCode('');
+                setAuthLaunchError('');
               }}
               value={presetId}
             >

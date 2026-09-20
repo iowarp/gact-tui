@@ -67,6 +67,7 @@ const { configuration, repository } = vi.hoisted(() => {
         generated_at: '2026-08-23T05:00:00Z',
       }),
       authenticateProvider: vi.fn(),
+      completeProviderAuthentication: vi.fn(),
       updateLanguageModelConfiguration: vi.fn(),
     };
   }
@@ -152,8 +153,8 @@ describe('ModelsSettings', () => {
     expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
   });
 
-  it('forces a fresh interactive login when the user signs in to ALCF', async () => {
-    repository.languageModelConfiguration.mockResolvedValueOnce({
+  it('completes ALCF login in-app without asking for a terminal command', async () => {
+    const alcfConfiguration = {
       configured: false,
       provider: 'argonne',
       api_base: 'https://inference-api.alcf.anl.gov/resource_server/metis/api/v1',
@@ -173,12 +174,29 @@ describe('ModelsSettings', () => {
           supports_vision: false,
         },
       ],
+    };
+    repository.languageModelConfiguration.mockResolvedValueOnce(alcfConfiguration);
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      ...alcfConfiguration,
+      presets: alcfConfiguration.presets.map((preset) => ({
+        ...preset,
+        is_authenticated: true,
+        status: 'ready',
+      })),
     });
     repository.authenticateProvider.mockResolvedValueOnce({
       provider_id: 'argonne_metis',
       is_authenticated: false,
-      instructions: 'Complete the ALCF login in the opened terminal.',
+      instructions: 'Continue in Globus, then paste the authorization code here.',
+      authorization_url: 'https://auth.globus.org/v2/oauth2/authorize?state=test',
+      flow_id: 'flow-123',
     });
+    repository.completeProviderAuthentication.mockResolvedValueOnce({
+      provider_id: 'argonne_metis',
+      is_authenticated: true,
+      instructions: 'ALCF sign-in complete. Available models are refreshing.',
+    });
+    const open = vi.spyOn(window, 'open').mockImplementation(() => window);
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -196,7 +214,22 @@ describe('ModelsSettings', () => {
         force: true,
       }),
     );
-    expect(await screen.findByText(/Complete the ALCF login/)).toBeVisible();
+    expect(open).toHaveBeenCalledWith(
+      'https://auth.globus.org/v2/oauth2/authorize?state=test',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    expect(await screen.findByLabelText('Complete ALCF sign-in')).toBeVisible();
+    await user.type(screen.getByLabelText('Authorization code'), 'globus-code');
+    await user.click(screen.getByRole('button', { name: 'Complete sign-in' }));
+    await waitFor(() =>
+      expect(repository.completeProviderAuthentication).toHaveBeenCalledWith('argonne_metis', {
+        flowId: 'flow-123',
+        authorizationCode: 'globus-code',
+      }),
+    );
+    expect(await screen.findByText(/ALCF sign-in complete/)).toBeVisible();
+    expect(screen.queryByText(/interactive terminal|python -m/i)).not.toBeInTheDocument();
   });
 
   it('never writes a maximum token cap the service did not report', async () => {

@@ -4,7 +4,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type PropsWithChildren,
 } from 'react';
@@ -60,6 +59,7 @@ interface ConnectionContextValue {
   recents: SavedConnection[];
   credentialsReady: boolean;
   managedConnectionReady: boolean;
+  isManagedConnection: boolean;
   managedBackendStatus?: ManagedBackendStatus;
   credentialError?: string;
   resolveConnection: (settings: ConnectionSettings) => Promise<ConnectionSettings>;
@@ -138,7 +138,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   const [managedBackendStatus, setManagedBackendStatus] = useState<ManagedBackendStatus>();
   const [credentialError, setCredentialError] = useState<string>();
   /** The supervisor's address is allocated per launch, so it is never remembered. */
-  const managedEndpoint = useRef<string | undefined>(undefined);
+  const [managedEndpoint, setManagedEndpoint] = useState<string>();
 
   useEffect(() => {
     if (!inTauri()) return;
@@ -147,7 +147,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       .then((handle) => {
         if (cancelled) return;
         const endpoint = normalizeEndpoint(handle.url);
-        managedEndpoint.current = endpoint;
+        setManagedEndpoint(endpoint);
         setSettings({ endpoint, token: handle.bearer_token || undefined });
         setManagedConnectionReady(true);
         setCredentialError(undefined);
@@ -202,27 +202,30 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     [managedConnectionReady, settings.endpoint, settings.token],
   );
 
-  const connect = useCallback(async (next: ConnectionSettings): Promise<void> => {
-    const endpoint = normalizeEndpoint(next.endpoint);
-    const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
-    const managed = endpoint === managedEndpoint.current;
-    if (normalized.token && !managed) {
-      await storeConnectionCredential(endpoint, normalized.token);
-    }
-    setCredentialError(undefined);
-    setSettings(normalized);
-    // The supervisor owns the managed address and its token for this launch only;
-    // recording it would evict remembered remote endpoints from the saved list.
-    if (managed) return;
-    setRecents((current) => {
-      const updated = [
-        { endpoint, label: normalized.label, tunnel: normalized.tunnel },
-        ...current.filter((item) => item.endpoint !== endpoint),
-      ].slice(0, RECENT_CONNECTIONS_LIMIT);
-      localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
-      return updated;
-    });
-  }, []);
+  const connect = useCallback(
+    async (next: ConnectionSettings): Promise<void> => {
+      const endpoint = normalizeEndpoint(next.endpoint);
+      const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
+      const managed = endpoint === managedEndpoint;
+      if (normalized.token && !managed) {
+        await storeConnectionCredential(endpoint, normalized.token);
+      }
+      setCredentialError(undefined);
+      setSettings(normalized);
+      // The supervisor owns the managed address and its token for this launch only;
+      // recording it would evict remembered remote endpoints from the saved list.
+      if (managed) return;
+      setRecents((current) => {
+        const updated = [
+          { endpoint, label: normalized.label, tunnel: normalized.tunnel },
+          ...current.filter((item) => item.endpoint !== endpoint),
+        ].slice(0, RECENT_CONNECTIONS_LIMIT);
+        localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    },
+    [managedEndpoint],
+  );
 
   const forget = useCallback(async (endpoint: string): Promise<void> => {
     const normalizedEndpoint = normalizeEndpoint(endpoint);
@@ -240,6 +243,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       recents,
       credentialsReady,
       managedConnectionReady,
+      isManagedConnection: managedConnectionReady && managedEndpoint === settings.endpoint,
       managedBackendStatus,
       credentialError,
       resolveConnection,
@@ -253,6 +257,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       forget,
       managedConnectionReady,
       managedBackendStatus,
+      managedEndpoint,
       recents,
       resolveConnection,
       settings,

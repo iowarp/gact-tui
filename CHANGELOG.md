@@ -4,6 +4,29 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.3] — 2026-09-20
+
+The desktop release paired with clio-agent v0.9.4.3.
+
+### Added
+
+- A compact version indicator beside Infrastructure and Settings opens two
+  branded software rows for the desktop and connected CLIO agent, with their
+  individual versions, release links, and independent or combined updates.
+
+### Changed
+
+- Desktop updates use the lightweight signed installer and preserve the
+  managed CLIO runtime, allowing desktop-only, agent-only, and combined update
+  acceptance paths to be tested independently.
+
+### Fixed
+
+- Bundled CLIO updates now modify and verify the exact writable runtime the
+  desktop launches, then restart with a fresh endpoint and credentials.
+- The update indicator shares the background updater result instead of
+  blocking the version popover on another release-network request.
+
 ## [0.11.2.2] — 2026-09-20
 
 The desktop release paired with clio-agent v0.9.4.2. It completes the live
