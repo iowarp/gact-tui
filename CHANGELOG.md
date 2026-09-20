@@ -4,6 +4,11 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.10] — 2026-09-20
+
+This is the signed update target used to verify Desktop-only, CLIO-only, and
+combined installed updates from the repaired v0.11.2.9 updater.
+
 ## [0.11.2.9] — 2026-09-20
 
 ### Fixed
