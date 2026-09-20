@@ -15,6 +15,7 @@ import {
   PaperclipIcon,
   PlusIcon,
   SearchIcon,
+  TerminalSquareIcon,
 } from 'lucide-react';
 import {
   lazy,
@@ -101,7 +102,13 @@ interface BlueprintBrowserProps {
 }
 
 /** Opens one peer canvas tab instead of nesting unrelated resource types. */
-export function CanvasLauncher({ onOpen }: { onOpen: (kind: CanvasResourceKind) => void }) {
+export function CanvasLauncher({
+  onOpen,
+  onOpenTerminal,
+}: {
+  onOpen: (kind: CanvasResourceKind) => void;
+  onOpenTerminal?: () => void;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -137,9 +144,11 @@ export function CanvasLauncher({ onOpen }: { onOpen: (kind: CanvasResourceKind) 
           <BoxesIcon aria-hidden="true" /> Agent blueprints
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          Terminal
-          <span className="ml-auto text-[10px] text-muted-foreground">Unavailable</span>
+        <DropdownMenuItem disabled={!onOpenTerminal} onSelect={onOpenTerminal}>
+          <TerminalSquareIcon aria-hidden="true" /> Terminal
+          {!onOpenTerminal ? (
+            <span className="ml-auto text-[10px] text-muted-foreground">Unavailable</span>
+          ) : null}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

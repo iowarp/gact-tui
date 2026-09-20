@@ -10,6 +10,7 @@ import {
   PanelTopIcon,
   PlusIcon,
   RotateCwIcon,
+  ServerIcon,
   SettingsIcon,
   XIcon,
 } from 'lucide-react';
@@ -210,10 +211,7 @@ export function DesktopTitleBar() {
       className="relative z-50 flex h-10 shrink-0 select-none items-stretch border-b border-border/70 bg-background/95 text-foreground shadow-xs backdrop-blur"
     >
       <div
-        className={cn(
-          'flex items-center gap-0.5 px-1.5',
-          macOS && MACOS_TRAFFIC_LIGHT_CLEARANCE,
-        )}
+        className={cn('flex items-center gap-0.5 px-1.5', macOS && MACOS_TRAFFIC_LIGHT_CLEARANCE)}
       >
         <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
           <DropdownMenuTrigger asChild>
@@ -228,6 +226,10 @@ export function DesktopTitleBar() {
               <PlusIcon aria-hidden="true" />
               New session
               <DropdownMenuShortcut>{macOS ? '⌘N' : 'Ctrl N'}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => dispatchMenuAction('manage-agent-services')}>
+              <ServerIcon aria-hidden="true" />
+              Connect or deploy {vocab.agent}…
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => dispatchMenuAction('open-settings')}>
               <SettingsIcon aria-hidden="true" />
@@ -344,8 +346,8 @@ export function DesktopTitleBar() {
           <AlertDialogHeader>
             <AlertDialogTitle>Keep {vocab.product} running?</AlertDialogTitle>
             <AlertDialogDescription>
-              Keep {vocab.product} available in the system tray (Windows hidden icons), or quit
-              and stop its local services. Ongoing work can continue only while {vocab.product} is
+              Keep {vocab.product} available in the system tray (Windows hidden icons), or quit and
+              stop its local services. Ongoing work can continue only while {vocab.product} is
               running.
             </AlertDialogDescription>
           </AlertDialogHeader>

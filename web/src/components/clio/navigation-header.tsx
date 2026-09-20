@@ -3,6 +3,7 @@ import {
   ArchiveIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   FolderGit2Icon,
   PlusIcon,
   SearchIcon,
@@ -11,6 +12,7 @@ import {
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
+import { vocab } from '@/lib/brand-vocabulary';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +29,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { SavedConnection } from '@/lib/connection';
+import type { SshTunnelSettings } from '@/tauri/ssh-tunnel';
 import {
   connectionAvailability,
   type ConnectionAvailabilityMap,
@@ -35,6 +38,7 @@ import {
 interface NavigationHeaderProps {
   endpoint: string;
   activeLabel?: string;
+  activeTunnel?: SshTunnelSettings;
   currentPath: string;
   connectionAvailabilities: ConnectionAvailabilityMap;
   recentConnections: readonly SavedConnection[];
@@ -49,6 +53,7 @@ interface NavigationHeaderProps {
 export function NavigationHeader({
   endpoint,
   activeLabel,
+  activeTunnel,
   currentPath,
   connectionAvailabilities,
   recentConnections,
@@ -63,6 +68,7 @@ export function NavigationHeader({
     brand.logoImage ??
     (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null);
   const activeAvailability = connectionAvailability(connectionAvailabilities, endpoint);
+  const otherConnections = recentConnections.filter((recent) => recent.endpoint !== endpoint);
 
   return (
     <SidebarHeader className="gap-2 border-b border-sidebar-border/70 p-2">
@@ -113,7 +119,11 @@ export function NavigationHeader({
                     </TooltipProvider>
                   </span>
                   <span className="truncate text-[11px] text-muted-foreground">
-                    {connectionPlaceLabel(endpoint, activeLabel)}
+                    <AgentConnectionIdentity
+                      endpoint={endpoint}
+                      label={activeLabel}
+                      tunnel={activeTunnel}
+                    />
                   </span>
                 </span>
                 <ChevronDownIcon
@@ -123,14 +133,28 @@ export function NavigationHeader({
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-96">
-              <DropdownMenuLabel>
-                <span className="block">Agent services</span>
+              <DropdownMenuLabel className="space-y-1">
+                <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Connected agent
+                </span>
+                <AgentConnectionIdentity
+                  endpoint={endpoint}
+                  label={activeLabel}
+                  tunnel={activeTunnel}
+                />
                 <span className="block truncate font-mono text-[11px] font-normal text-muted-foreground">
                   {endpoint}
                 </span>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {recentConnections.map((recent) => {
+              {otherConnections.length ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Other agents
+                  </DropdownMenuLabel>
+                </>
+              ) : null}
+              {otherConnections.map((recent) => {
                 const availability = connectionAvailability(
                   connectionAvailabilities,
                   recent.endpoint,
@@ -151,7 +175,11 @@ export function NavigationHeader({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm">
-                        {connectionPlaceLabel(recent.endpoint, recent.label)}
+                        <AgentConnectionIdentity
+                          endpoint={recent.endpoint}
+                          label={recent.label}
+                          tunnel={recent.tunnel}
+                        />
                       </span>
                       <span
                         className="block truncate font-mono text-[11px] text-muted-foreground"
@@ -232,14 +260,72 @@ export function NavigationHeader({
   );
 }
 
-function connectionPlaceLabel(endpoint: string, label?: string): string {
-  if (label?.trim()) return label.trim();
+function AgentConnectionIdentity({
+  endpoint,
+  label,
+  tunnel,
+}: {
+  endpoint: string;
+  label?: string;
+  tunnel?: SshTunnelSettings;
+}) {
+  const location = connectionLocation(endpoint, label, tunnel);
+  const name = connectionAgentName(label, location);
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1">
+      <span className="truncate">{location}</span>
+      <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
+      <span className="shrink-0 font-medium text-foreground">{name}</span>
+    </span>
+  );
+}
+
+function connectionAgentName(label: string | undefined, location: string): string {
+  const trimmed = label?.trim();
+  if (!trimmed) return vocab.agent;
+  const locationLower = location.toLocaleLowerCase();
+  const labelLower = trimmed.toLocaleLowerCase();
+  if (
+    ['this computer', 'this device', 'local'].includes(labelLower) ||
+    labelLower === locationLower
+  ) {
+    return vocab.agent;
+  }
+  const prefix = `${locationLower} `;
+  if (labelLower.startsWith(prefix)) {
+    return trimmed.slice(location.length).trim() || vocab.agent;
+  }
+  return trimmed;
+}
+
+function connectionLocation(endpoint: string, label?: string, tunnel?: SshTunnelSettings): string {
+  const tunnelLocation = tunnel?.profile?.trim() || tunnel?.host.trim();
+  const namedLocation = cleanConnectionLocation(tunnelLocation || label);
+  if (namedLocation) return namedLocation;
   try {
     const hostname = new URL(endpoint).hostname.toLowerCase();
-    return ['127.0.0.1', 'localhost', '::1'].includes(hostname)
-      ? 'This device'
-      : hostname || 'Remote service';
+    return ['127.0.0.1', 'localhost', '::1'].includes(hostname) ? 'Local' : hostname || 'Remote';
   } catch {
-    return 'Connected service';
+    return 'Connected';
   }
+}
+
+function cleanConnectionLocation(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const lower = trimmed.toLocaleLowerCase();
+  if (['this computer', 'this device', 'local'].includes(lower)) return 'Local';
+  const agent = vocab.agent.trim();
+  const agentLower = agent.toLocaleLowerCase();
+  if (lower === agentLower) return undefined;
+  if (lower.endsWith(` ${agentLower}`)) {
+    return trimmed.slice(0, -(agent.length + 1)).trim() || undefined;
+  }
+  return tunnelStyleName(trimmed) ?? trimmed;
+}
+
+function tunnelStyleName(value: string): string | undefined {
+  if (!/^[a-z0-9_-]+$/u.test(value) || /^\d+(?:\.\d+){3}$/u.test(value)) return undefined;
+  const words = value.replace(/[_-]+/gu, ' ');
+  return words.charAt(0).toLocaleUpperCase() + words.slice(1);
 }

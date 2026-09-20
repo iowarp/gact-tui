@@ -63,7 +63,11 @@ fn action_map_covers_every_actionable_item() {
         // actually declares. The reverse direction (below) is what matters:
         // every id MENU_SPEC bridges must be one JSON already knows.
         if let Some(resolved) = action_for_id(id) {
-            assert_eq!(resolved, id.as_str(), "actionable id {id:?} must map to itself");
+            assert_eq!(
+                resolved,
+                id.as_str(),
+                "actionable id {id:?} must map to itself"
+            );
         }
     }
 
@@ -214,13 +218,20 @@ fn app_menu_is_about_settings_hide_group_then_quit_in_order() {
     ));
     assert!(matches!(app_menu.items[7], Item::Separator));
     assert!(matches!(app_menu.items[8], Item::Action { id: "quit", .. }));
-    assert_eq!(app_menu.items.len(), 9, "no items beyond the documented shape");
+    assert_eq!(
+        app_menu.items.len(),
+        9,
+        "no items beyond the documented shape"
+    );
 }
 
 /// Accelerators match the documented contract for the items that have one.
 #[test]
 fn accelerators_match_contract() {
-    let want: &[(&str, &str)] = &[("open-settings", "CmdOrCtrl+Comma"), ("quit", "CmdOrCtrl+Q")];
+    let want: &[(&str, &str)] = &[
+        ("open-settings", "CmdOrCtrl+Comma"),
+        ("quit", "CmdOrCtrl+Q"),
+    ];
     for (id, accel) in want {
         let found = MENU_SPEC
             .iter()
@@ -244,7 +255,9 @@ fn about_has_no_accelerator() {
         .iter()
         .flat_map(|s| s.items.iter())
         .find_map(|i| match i {
-            Item::Action { id: "about", accel, .. } => Some(*accel),
+            Item::Action {
+                id: "about", accel, ..
+            } => Some(*accel),
             _ => None,
         })
         .expect("about must be a real actionable item");

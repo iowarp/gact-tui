@@ -36,7 +36,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
-import { webSearchMcpArgs } from '@/lib/web-search-service';
+import { WEB_MCP_COMMAND, WEB_MCP_ENV, webSearchMcpArgs } from '@/lib/web-search-service';
 import {
   returnRouteFromState,
   sessionIdFromRoute,
@@ -55,7 +55,7 @@ export function InfrastructurePage() {
   const { section } = useParams();
   const currentSection: InfrastructureSection = isInfrastructureSection(section)
     ? section
-    : 'tools';
+    : 'services';
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -103,6 +103,7 @@ export function InfrastructurePage() {
     enabled: currentSection === 'services',
     queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
     queryFn: ({ signal }) => repository.mcpConfiguration('web', signal),
+    refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const error =
     currentSection === 'agent'
@@ -119,33 +120,61 @@ export function InfrastructurePage() {
   const webSearchReady =
     webSearchConfiguration.data?.status === 'ready' || webSearch?.status === 'ready';
   const webSearchConfigured = webSearchConfiguration.data?.configured ?? Boolean(webSearch);
+  const refreshWebSearchQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('mcp-servers', settings.endpoint),
+      }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
+      }),
+    ]);
+  };
   const connectDetectedWebSearch = useMutation({
     mutationFn: (remoteUrl: string) =>
       repository.configureMcpServer('web', {
         name: 'CLIO Web Search',
         transport: 'stdio',
-        command: 'uvx',
+        command: WEB_MCP_COMMAND,
         args: webSearchMcpArgs(remoteUrl),
+        env: WEB_MCP_ENV,
+        always_load: true,
       }),
     onSuccess: async (result) => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('mcp-servers', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
-        }),
-      ]);
+      queryClient.setQueryData(
+        queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
+        result,
+      );
+      await refreshWebSearchQueries();
       if (result.status === 'ready') {
-        toast.success('CLIO Web Search connected');
+        toast.success(`CLIO Web Search connected with ${result.tools_count} tools`);
       } else {
-        toast.warning('CLIO Web Search was attached but is not responding yet');
+        toast.error('CLIO Web Search could not complete the connection', {
+          description: result.error ?? 'The service is saved, but its tools did not respond.',
+        });
       }
     },
     onError: (connectionError) =>
       toast.error('CLIO Web Search could not be connected', {
+        description: connectionError.message,
+      }),
+  });
+  const disconnectWebSearch = useMutation({
+    mutationFn: () => repository.removeMcpConfiguration('web'),
+    onSuccess: async (result) => {
+      queryClient.setQueryData(
+        queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
+        result,
+      );
+      await refreshWebSearchQueries();
+      toast.success('CLIO Web Search disconnected', {
+        description: 'The deployment is still running and can be connected again at any time.',
+      });
+    },
+    onError: (connectionError) =>
+      toast.error('CLIO Web Search could not be disconnected', {
         description: connectionError.message,
       }),
   });
@@ -244,8 +273,7 @@ export function InfrastructurePage() {
               <NetworkIcon aria-hidden="true" />
               <AlertTitle>This section could not load completely</AlertTitle>
               <AlertDescription>
-                The connected {vocab.agent} service did not return all of the requested
-                information.
+                The connected {vocab.agent} service did not return all of the requested information.
                 <TechnicalDetails className="mt-2 text-xs" title="Technical details">
                   <p className="mt-1 break-words font-mono">{error.message}</p>
                 </TechnicalDetails>
@@ -273,23 +301,37 @@ export function InfrastructurePage() {
           {currentSection === 'services' ? (
             <>
               <ManagedServices
+                connectedAgentLabel={settings.label}
+                connectedAgentTunnel={settings.tunnel}
                 onConnectWebSearch={(remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl)}
+                onDisconnectWebSearch={() => disconnectWebSearch.mutate()}
                 webSearchConnected={webSearchReady}
+                webSearchConnection={webSearchConfiguration.data}
                 webSearchConnecting={connectDetectedWebSearch.isPending}
+                webSearchDisconnecting={disconnectWebSearch.isPending}
+                relayStatus={relay.data}
               />
               {!desktop ? (
                 <section aria-label="Add services" className="mt-6 grid gap-4 md:grid-cols-2">
                   <SetupCard
                     action={
-                      webSearchReady
-                        ? 'View tools'
-                        : webSearchConfigured
-                          ? 'Repair connection'
-                          : 'Connect web search'
+                      webSearchReady && webSearchConfiguration.data?.configured
+                        ? disconnectWebSearch.isPending
+                          ? 'Disconnecting…'
+                          : 'Disconnect'
+                        : webSearchReady
+                          ? 'View tools'
+                          : webSearchConfigured
+                            ? 'Repair connection'
+                            : 'Connect web search'
                     }
                     description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
                     icon={BookOpenCheckIcon}
-                    onAction={() => setWebSearchOpen(true)}
+                    onAction={() =>
+                      webSearchReady && webSearchConfiguration.data?.configured
+                        ? disconnectWebSearch.mutate()
+                        : setWebSearchOpen(true)
+                    }
                     status={
                       webSearchReady ? 'healthy' : webSearchConfigured ? 'degraded' : 'unavailable'
                     }
@@ -301,7 +343,11 @@ export function InfrastructurePage() {
                           : 'Not connected'
                     }
                     title="Research and documents"
-                    to={webSearchReady ? '/infrastructure/tools' : undefined}
+                    to={
+                      webSearchReady && !webSearchConfiguration.data?.configured
+                        ? '/infrastructure/tools'
+                        : undefined
+                    }
                   />
                   <SetupCard
                     action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}

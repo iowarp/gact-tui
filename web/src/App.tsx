@@ -59,6 +59,7 @@ export default function App() {
     return scheduleBackgroundUpdateCheck();
   }, [credentialsReady, desktopHost]);
   useMenuAction('open-settings', () => navigate('/settings/appearance'));
+  useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
   useMenuAction('about', () => navigate('/settings/about'));
   useMenuAction('help-docs', () => {
     if (brand.homeUrl) window.open(brand.homeUrl, '_blank', 'noopener,noreferrer');

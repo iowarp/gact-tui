@@ -4,6 +4,48 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.2] — 2026-09-20
+
+The desktop release paired with clio-agent v0.9.4.2. It completes the live
+remote-infrastructure path and the installer/runtime follow-up found during
+release acceptance.
+
+### Added
+
+- Remote CLIO deployment from the connection menu, using a saved SSH profile
+  or a manually entered host with password, key-file, pasted key, or SSH-agent
+  authentication.
+- A per-host install and runtime location for shared systems whose persistent
+  storage is not the login home directory.
+- A connected-services summary that shows what the active CLIO agent is using,
+  where each service runs, and whether its connection is actually ready.
+- CLIO Web Search deployment, status, logs, stop, reconnect, and alternate task
+  backend port controls for local and SSH targets.
+
+### Changed
+
+- Infrastructure opens on Services and uses compact, collapsible service
+  groups with target facts, progress, blockers, and responsive action menus.
+- A same-host remote CLIO agent connects to remote Web Search through loopback;
+  the desktop-facing address remains the reachable SSH-host address.
+- Provider selection uses a smaller two-pane picker with independent scrolling,
+  persistent visibility controls, and provider-owned logos and health details.
+- Bundled Windows runtimes are installed from one compressed payload instead of
+  thousands of installer file operations.
+
+### Fixed
+
+- Remote capability inspection no longer reports transient empty facts while
+  the SSH probe is still running, and vLLM/Docker eligibility follows observed
+  target facts rather than host names.
+- Web Search no longer reports "Connected" from unrelated global
+  configuration; readiness is tied to the selected deployment and active
+  agent.
+- The embedded terminal is available from the canvas menu whenever the desktop
+  host can actually open it.
+- Desktop shutdown preserves independent backends while reaping the owned
+  process tree, terminal children, tunnels, and managed service processes.
+
 ## [0.11.2.1] — 2026-09-19
 
 The desktop release paired with clio-agent v0.9.4.1. It closes the bug list

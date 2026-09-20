@@ -15,6 +15,7 @@ pub struct BackendHandle {
 #[serde(rename_all = "snake_case")]
 pub enum BackendStartupStage {
     CheckingExisting,
+    InstallingRuntime,
     StartingService,
 }
 
@@ -57,6 +58,10 @@ mod tests {
             (
                 BackendStatus::Starting(BackendStartupStage::CheckingExisting),
                 r#"{"kind":"starting","detail":"checking_existing"}"#,
+            ),
+            (
+                BackendStatus::Starting(BackendStartupStage::InstallingRuntime),
+                r#"{"kind":"starting","detail":"installing_runtime"}"#,
             ),
             (BackendStatus::Ready, r#"{"kind":"ready"}"#),
             (BackendStatus::NeedsInstall, r#"{"kind":"needs_install"}"#),

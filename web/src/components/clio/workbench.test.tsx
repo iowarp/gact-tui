@@ -140,6 +140,47 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText('No session artifacts')).toBeVisible();
   });
 
+  it('offers the terminal from the canvas launcher when the workspace terminal is available', async () => {
+    const user = userEvent.setup();
+    const onOpenTerminal = vi.fn();
+    render(
+      <ClioWorkbench
+        artifacts={[]}
+        blueprints={[]}
+        diffs={[]}
+        files={[]}
+        onApplyDiff={vi.fn()}
+        onOpenSubagent={vi.fn()}
+        onOpenTerminal={onOpenTerminal}
+        onRejectDiff={vi.fn()}
+        sessionId="session_parent"
+        sessionView={<p>Session intelligence</p>}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
+    const terminal = screen.getByRole('menuitem', { name: 'Terminal' });
+    expect(terminal).toBeEnabled();
+    expect(screen.queryByText('Unavailable')).not.toBeInTheDocument();
+    await user.click(terminal);
+
+    expect(onOpenTerminal).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the canvas terminal unavailable when the shared terminal action is absent', async () => {
+    const user = userEvent.setup();
+    renderWorkbench();
+
+    await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
+
+    expect(screen.getByRole('menuitem', { name: /Terminal/ })).toHaveAttribute(
+      'data-disabled',
+      '',
+    );
+    expect(screen.getByText('Unavailable')).toBeVisible();
+  });
+
   it('closes a tab by pointer, middle click, or its announced shortcut', async () => {
     const user = userEvent.setup();
     const { container } = renderWorkbench();

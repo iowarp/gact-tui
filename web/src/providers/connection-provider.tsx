@@ -23,6 +23,7 @@ import {
 } from '@/tauri/secure-credentials';
 import { waitForManagedBackend, type ManagedBackendStatus } from '@/tauri/managed-backend';
 import { finishInstallerInfrastructure } from '@/lib/installer-infrastructure';
+import { openSshTunnel, type SshTunnelSettings } from '@/tauri/ssh-tunnel';
 
 const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
 /**
@@ -31,6 +32,28 @@ const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
  * hand-edited localStorage entry cannot grow the picker without limit.
  */
 const RECENT_CONNECTIONS_LIMIT = 5;
+
+function parseTunnel(value: unknown): SshTunnelSettings | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const item = value as Record<string, unknown>;
+  if (
+    typeof item.host !== 'string' ||
+    typeof item.user !== 'string' ||
+    typeof item.remote_port !== 'number' ||
+    typeof item.key_path !== 'string'
+  ) {
+    return undefined;
+  }
+  return {
+    host: item.host,
+    user: item.user,
+    remote_port: item.remote_port,
+    key_path: item.key_path,
+    ...(typeof item.profile === 'string' ? { profile: item.profile } : {}),
+    ...(typeof item.port === 'number' ? { port: item.port } : {}),
+    ...(typeof item.local_port === 'number' ? { local_port: item.local_port } : {}),
+  };
+}
 
 interface ConnectionContextValue {
   settings: ConnectionSettings;
@@ -49,7 +72,7 @@ const ConnectionContext = createContext<ConnectionContextValue | undefined>(unde
 function readRecents(): SavedConnection[] {
   try {
     const value = JSON.parse(localStorage.getItem(RECENT_CONNECTIONS_KEY) ?? '[]') as unknown;
-    return Array.isArray(value)
+    const parsed = Array.isArray(value)
       ? value
           .flatMap((item): SavedConnection[] => {
             if (typeof item === 'string') return [{ endpoint: item }];
@@ -65,6 +88,9 @@ function readRecents(): SavedConnection[] {
                   ...('label' in item && typeof item.label === 'string'
                     ? { label: item.label }
                     : {}),
+                  ...('tunnel' in item && parseTunnel(item.tunnel)
+                    ? { tunnel: parseTunnel(item.tunnel) }
+                    : {}),
                 },
               ];
             }
@@ -72,8 +98,31 @@ function readRecents(): SavedConnection[] {
           })
           .slice(0, RECENT_CONNECTIONS_LIMIT)
       : [];
+    // Desktop builds before managed endpoints became launch-scoped persisted
+    // their random loopback ports as separate "This computer" services. They
+    // are stale process addresses, not distinct agents, and cannot reconnect
+    // after the next launch. Remove those legacy rows while retaining named
+    // tunnels such as a homelab connection that also terminates on loopback.
+    const migrated = parsed.filter((connection) => !isLegacyManagedConnection(connection));
+    if (migrated.length !== parsed.length) {
+      localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(migrated));
+    }
+    return migrated;
   } catch {
     return [];
+  }
+}
+
+function isLegacyManagedConnection(connection: SavedConnection): boolean {
+  if (connection.tunnel) return false;
+  const label = connection.label?.trim().toLocaleLowerCase();
+  if (label !== 'this computer' && label !== 'this device') return false;
+  try {
+    return ['127.0.0.1', 'localhost', '::1'].includes(
+      new URL(connection.endpoint).hostname.toLocaleLowerCase(),
+    );
+  } catch {
+    return false;
   }
 }
 
@@ -82,6 +131,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   const [settings, setSettings] = useState<ConnectionSettings>(() => ({
     endpoint: recents[0]?.endpoint ?? DEFAULT_ENDPOINT,
     label: recents[0]?.label,
+    tunnel: recents[0]?.tunnel,
   }));
   const [credentialsReady, setCredentialsReady] = useState(() => !inTauri());
   const [managedConnectionReady, setManagedConnectionReady] = useState(false);
@@ -111,7 +161,9 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       .catch((error: unknown) => {
         if (cancelled) return;
         setCredentialError(
-          error instanceof Error ? error.message : `The managed ${vocab.agent} service is unavailable.`,
+          error instanceof Error
+            ? error.message
+            : `The managed ${vocab.agent} service is unavailable.`,
         );
       })
       .finally(() => {
@@ -124,8 +176,21 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
 
   const resolveConnection = useCallback(
     async (next: ConnectionSettings): Promise<ConnectionSettings> => {
-      const endpoint = normalizeEndpoint(next.endpoint);
-      const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
+      const tunnelHandle = next.tunnel ? await openSshTunnel(next.tunnel) : undefined;
+      const endpoint = normalizeEndpoint(tunnelHandle?.local_url ?? next.endpoint);
+      const normalized = {
+        ...next,
+        endpoint,
+        label: next.label?.trim() || undefined,
+        ...(next.tunnel
+          ? {
+              tunnel: {
+                ...next.tunnel,
+                local_port: tunnelHandle?.local_port ?? next.tunnel.local_port,
+              },
+            }
+          : {}),
+      };
       if (normalized.token) return normalized;
       if (settings.endpoint === endpoint && settings.token) {
         return { ...normalized, token: settings.token };
@@ -151,7 +216,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     if (managed) return;
     setRecents((current) => {
       const updated = [
-        { endpoint, label: normalized.label },
+        { endpoint, label: normalized.label, tunnel: normalized.tunnel },
         ...current.filter((item) => item.endpoint !== endpoint),
       ].slice(0, RECENT_CONNECTIONS_LIMIT);
       localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));

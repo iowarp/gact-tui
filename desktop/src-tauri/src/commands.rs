@@ -25,6 +25,16 @@ pub fn get_backend(state: tauri::State<'_, Mutex<Supervisor>>) -> BackendHandle 
     lock_recover(&state).snapshot()
 }
 
+/// Retry a failed managed-backend boot without restarting the desktop shell.
+///
+/// A killed or stalled child leaves the supervisor in a typed Error state.
+/// Merely polling that state can never recover it, so explicit user actions
+/// such as "Use local CLIO" call this command before resuming readiness polls.
+#[tauri::command]
+pub fn retry_backend(state: tauri::State<'_, Mutex<Supervisor>>) {
+    lock_recover(&state).restart();
+}
+
 /// First-run "one swoop" install. When `get_backend` reports
 /// `{kind: "needs_install"}` the frontend Splash invokes this command,
 /// which runs the upstream clio-agent installer and streams progress back

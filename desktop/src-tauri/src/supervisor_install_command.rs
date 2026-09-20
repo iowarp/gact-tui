@@ -88,17 +88,24 @@ pub(crate) fn install_command_versioned(
     force: bool,
     target_version: Option<&str>,
 ) -> (String, Vec<String>) {
-    match brand_backend().install.as_ref() {
+    let brand = brand_backend();
+    install_command_for(brand.install.as_ref(), &brand.mode, force, target_version)
+}
+
+fn install_command_for(
+    install: Option<&BrandInstall>,
+    mode: &str,
+    force: bool,
+    target_version: Option<&str>,
+) -> (String, Vec<String>) {
+    match install {
         Some(install) => {
             let git_ref = resolve_ref_with(&install.r#ref, target_version);
             build_install_command(install, &git_ref, force)
         }
         None => (
             "true".to_string(),
-            vec![format!(
-                "connect-mode brand has no installer (mode={})",
-                brand_backend().mode
-            )],
+            vec![format!("connect-mode brand has no installer (mode={mode})")],
         ),
     }
 }
@@ -248,15 +255,16 @@ mod tests {
         assert_eq!(resolve_ref_with(def, Some("release/0.5")), "release/0.5");
     }
 
-    /// The connect-mode default ships no installer: the convenience wrapper
-    /// yields a harmless no-op command rather than panicking.
+    /// A connect-mode brand ships no installer: command construction yields a
+    /// harmless no-op rather than depending on whichever brand was generated
+    /// for the current dev/test invocation.
     #[test]
     fn connect_mode_install_command_is_noop() {
-        // The embedded default brand is connect-mode (no install block).
-        let (program, _args) = install_command_versioned(false, None);
+        let (program, args) = install_command_for(None, "connect", false, None);
         assert_eq!(
             program, "true",
             "connect-mode must not run a real installer"
         );
+        assert!(args[0].contains("mode=connect"));
     }
 }

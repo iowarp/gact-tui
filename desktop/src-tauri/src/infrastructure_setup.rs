@@ -4,12 +4,18 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::ssh_auth::{append_auth_arguments, configure_askpass};
+
 const WEB_IMAGE: &str = "ghcr.io/iowarp/clio-web-search:0.3.0";
+const CLIO_AGENT_VERSION: &str = "0.9.4.2";
+const CLIO_AGENT_PORT: u16 = 17800;
 const LLAMA_CPU_IMAGE: &str = "ghcr.io/ggml-org/llama.cpp:server-b10621";
 const LLAMA_VULKAN_IMAGE: &str = "ghcr.io/ggml-org/llama.cpp:server-vulkan-b10621";
 const LLAMA_WINDOWS_CPU_ARCHIVE: &str =
@@ -17,6 +23,8 @@ const LLAMA_WINDOWS_CPU_ARCHIVE: &str =
 const MAX_LOG_CHARS: usize = 4_000;
 const DISCOVERY_TIMEOUT: Duration = Duration::from_secs(12);
 const DISCOVERY_POLL_INTERVAL: Duration = Duration::from_millis(50);
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 // Exact parser names registered by the pinned vLLM v0.28.0 runtime.
 const VLLM_REASONING_PARSERS: &[&str] = &[
     "cohere_command3",
@@ -52,6 +60,20 @@ const VLLM_REASONING_PARSERS: &[&str] = &[
     "step3p5",
 ];
 
+/// Construct a background command without ever opening a transient console.
+///
+/// Tauri is a GUI process on Windows, so a plain `Command::new` gives console
+/// programs such as Docker, SSH, and PowerShell their own visible window.  The
+/// managed-services page polls and operates those programs frequently; every
+/// launch must therefore use the same hidden-window policy, not just the main
+/// backend sidecar.
+fn background_command(program: impl AsRef<std::ffi::OsStr>) -> Command {
+    let mut command = Command::new(program);
+    #[cfg(windows)]
+    command.creation_flags(CREATE_NO_WINDOW);
+    command
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SshProfile {
     pub name: String,
@@ -59,10 +81,25 @@ pub struct SshProfile {
     pub user: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct ManagedTargetRequest {
     pub target: String,
+    #[serde(default)]
+    pub install_root: Option<String>,
+    #[serde(default)]
     pub ssh_profile: Option<String>,
+    #[serde(default)]
+    pub ssh_host: Option<String>,
+    #[serde(default)]
+    pub ssh_user: Option<String>,
+    #[serde(default)]
+    pub ssh_port: Option<u16>,
+    #[serde(default)]
+    pub ssh_identity_file: Option<String>,
+    #[serde(default)]
+    pub ssh_auth_method: Option<String>,
+    #[serde(default)]
+    pub ssh_credential_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -99,6 +136,9 @@ pub struct ServiceVariant {
 #[derive(Debug, Clone, Serialize)]
 pub struct ManagedServiceDefinition {
     pub id: String,
+    /// Stable UI grouping. Consumers must not infer behavior from labels or
+    /// maintain parallel hard-coded service-id lists.
+    pub category: String,
     pub label: String,
     pub description: String,
     pub recommended_variant: String,
@@ -125,7 +165,20 @@ pub struct ManagedServiceActionRequest {
     pub service_id: String,
     pub action: String,
     pub target: String,
+    #[serde(default)]
     pub ssh_profile: Option<String>,
+    #[serde(default)]
+    pub ssh_host: Option<String>,
+    #[serde(default)]
+    pub ssh_user: Option<String>,
+    #[serde(default)]
+    pub ssh_port: Option<u16>,
+    #[serde(default)]
+    pub ssh_identity_file: Option<String>,
+    #[serde(default)]
+    pub ssh_auth_method: Option<String>,
+    #[serde(default)]
+    pub ssh_credential_id: Option<String>,
     pub variant_id: String,
     #[serde(default)]
     pub configuration: BTreeMap<String, String>,
@@ -143,7 +196,20 @@ pub struct ManagedServiceActionResult {
 #[derive(Debug, Deserialize)]
 pub struct WebSearchDeployRequest {
     pub target: String,
+    #[serde(default)]
     pub ssh_profile: Option<String>,
+    #[serde(default)]
+    pub ssh_host: Option<String>,
+    #[serde(default)]
+    pub ssh_user: Option<String>,
+    #[serde(default)]
+    pub ssh_port: Option<u16>,
+    #[serde(default)]
+    pub ssh_identity_file: Option<String>,
+    #[serde(default)]
+    pub ssh_auth_method: Option<String>,
+    #[serde(default)]
+    pub ssh_credential_id: Option<String>,
     pub contact_email: Option<String>,
 }
 
@@ -151,6 +217,13 @@ pub struct WebSearchDeployRequest {
 pub struct WebSearchDeployResult {
     pub action: String,
     pub target: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ClioDeployResult {
+    pub target: String,
+    pub remote_port: u16,
+    pub status: String,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -186,10 +259,14 @@ impl Driver {
     fn definition(self, facts: &TargetFacts) -> ManagedServiceDefinition {
         let docker = facts.docker_available;
         let linux = facts.os == "linux";
-        let vllm_target_allowed = linux && !facts.target.eq_ignore_ascii_case("homelab");
+        // Compatibility is a property of the inspected machine, not its user-facing
+        // name. A previous release special-cased the profile label `homelab`, which
+        // made the same host change support status when reached through another alias.
+        let vllm_target_allowed = linux;
         match self {
             Self::Vllm => definition(
                 "vllm",
+                "model_runtime",
                 "vLLM",
                 "OpenAI-compatible model serving.",
                 vec![
@@ -199,7 +276,7 @@ impl Driver {
                         "v0.28.0",
                         "vllm/vllm-openai:v0.28.0",
                         docker && vllm_target_allowed && facts.accelerator == "nvidia",
-                        "Requires an approved Linux target and an NVIDIA GPU.",
+                        "Requires Linux, Docker, and an NVIDIA GPU.",
                     ),
                     variant(
                         "rocm",
@@ -207,7 +284,7 @@ impl Driver {
                         "v0.28.0",
                         "vllm/vllm-openai-rocm:v0.28.0",
                         docker && vllm_target_allowed && facts.accelerator == "amd",
-                        "Requires an approved Linux target and a ROCm GPU.",
+                        "Requires Linux, Docker, and an AMD ROCm GPU.",
                     ),
                     variant(
                         "cpu",
@@ -215,7 +292,7 @@ impl Driver {
                         "v0.28.0",
                         "vllm/vllm-openai-cpu:v0.28.0",
                         docker && vllm_target_allowed && facts.arch == "x86_64",
-                        "Requires an approved x86-64 Linux target; CPU serving may be slow.",
+                        "Requires x86-64 Linux and Docker; CPU serving may be slow.",
                     ),
                 ],
                 vec![
@@ -232,6 +309,7 @@ impl Driver {
             ),
             Self::LlamaCpp => definition(
                 "llama_cpp",
+                "model_runtime",
                 "llama.cpp",
                 "Lightweight GGUF model serving.",
                 vec![
@@ -273,6 +351,7 @@ impl Driver {
             ),
             Self::WebSearch => definition(
                 "web_search",
+                "scientific_service",
                 "CLIO Web Search",
                 "Private search and document conversion.",
                 vec![variant(
@@ -287,12 +366,15 @@ impl Driver {
                         "Docker is not installed."
                     },
                 )],
-                vec![field(
-                    "contact_email",
-                    "Publication metadata email",
-                    "scientist@example.org",
-                    false,
-                )],
+                vec![
+                    field(
+                        "contact_email",
+                        "Publication metadata email",
+                        "scientist@example.org",
+                        false,
+                    ),
+                    field("task_backend_port", "Document task port", "8090", false),
+                ],
                 true,
             ),
             Self::Relay => {
@@ -300,6 +382,7 @@ impl Driver {
                     facts.target != "This computer" && local_available("uv", &["--version"]);
                 definition(
                     "relay",
+                    "remote_access",
                     "CLIO Relay",
                     "Deploy and inspect a persistent worker on an SSH cluster.",
                     vec![ServiceVariant {
@@ -337,8 +420,12 @@ impl Driver {
         }
     }
 
-    fn install(self, variant: &ServiceVariant) -> Vec<CommandSpec> {
-        match (self, variant.id.as_str()) {
+    fn install(
+        self,
+        request: &ManagedServiceActionRequest,
+        variant: &ServiceVariant,
+    ) -> Result<Vec<CommandSpec>, String> {
+        let specs = match (self, variant.id.as_str()) {
             (Self::Relay, _) => vec![local(
                 "uv",
                 &[
@@ -361,7 +448,13 @@ impl Driver {
                 ],
             )],
             _ => vec![target("docker", &["pull", &variant.artifact])],
+        };
+        if self != Self::WebSearch {
+            return Ok(specs);
         }
+        let mut specs = specs;
+        specs.extend(self.start(request, variant)?);
+        Ok(specs)
     }
 
     fn start(
@@ -472,13 +565,14 @@ impl Driver {
             Self::WebSearch => {
                 let email = config(request, "contact_email", false)?;
                 validate_email(email)?;
+                let task_backend_port = config_port(request, "task_backend_port", 8090)?;
                 let bind = if request.target == "local" {
                     "127.0.0.1"
                 } else {
                     "0.0.0.0"
                 };
                 let http = format!("{bind}:8089:8080");
-                let cache = format!("{bind}:8090:6379");
+                let task_backend = format!("{bind}:{task_backend_port}:6379");
                 let mut args = strings(&[
                     "run",
                     "--detach",
@@ -489,7 +583,7 @@ impl Driver {
                     "--publish",
                     &http,
                     "--publish",
-                    &cache,
+                    &task_backend,
                     "--volume",
                     "clio-web-search-data:/var/lib/clio-web-search",
                 ]);
@@ -499,6 +593,10 @@ impl Driver {
                         format!("CLIO_WEB_SEARCH_CONTACT_EMAIL={email}"),
                     ]);
                 }
+                args.extend([
+                    "--env".into(),
+                    format!("CLIO_WEB_SEARCH_TASK_BACKEND_PUBLIC_PORT={task_backend_port}"),
+                ]);
                 args.push(variant.artifact.clone());
                 Ok(vec![CommandSpec {
                     program: "docker".into(),
@@ -679,6 +777,83 @@ pub async fn infrastructure_managed_service_action(
         .map_err(|error| format!("Service action stopped unexpectedly: {error}"))?
 }
 
+/// Install the pinned CLIO release on a supported SSH target and start its service.
+///
+/// Local CLIO is owned by the desktop supervisor and deliberately does not use
+/// this path. Remote execution is a fixed, allowlisted installer invocation;
+/// no user-authored command text reaches the remote shell.
+#[tauri::command]
+pub async fn infrastructure_deploy_clio(
+    request: ManagedTargetRequest,
+) -> Result<ClioDeployResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if request.target != "ssh" {
+            return Err("Use the desktop-managed CLIO service on this computer.".into());
+        }
+        let facts = preflight(&request)?;
+        if facts.os != "linux" && facts.os != "macos" {
+            return Err("Remote CLIO deployment currently supports Linux and macOS hosts.".into());
+        }
+        let spec = clio_install_spec(request.install_root.as_deref())?;
+        let logs = run_specs(&request, vec![spec])?;
+        Ok(ClioDeployResult {
+            target: target_label(&request),
+            remote_port: CLIO_AGENT_PORT,
+            status: if logs.to_ascii_lowercase().contains("already") {
+                "ready".into()
+            } else {
+                "installed".into()
+            },
+        })
+    })
+    .await
+    .map_err(|error| format!("CLIO deployment stopped unexpectedly: {error}"))?
+}
+
+fn clio_install_spec(install_root: Option<&str>) -> Result<CommandSpec, String> {
+    let (prefix, bin_dir, data_dir, cte_dir, runtime_dir, launcher) =
+        if let Some(value) = nonempty(install_root) {
+            validate_remote_install_root(value)?;
+            (
+                shell_quote(value),
+                shell_quote(&format!("{value}/bin")),
+                shell_quote(&format!("{value}/data")),
+                shell_quote(&format!("{value}/cte")),
+                shell_quote(&format!("{value}/runtime-state")),
+                shell_quote(&format!("{value}/bin/clio")),
+            )
+        } else {
+            (
+                "\"$HOME/.local/share/clio\"".into(),
+                "\"$HOME/.local/bin\"".into(),
+                "\"$HOME/.local/share/clio/data\"".into(),
+                "\"$HOME/.local/share/clio/cte\"".into(),
+                "\"$HOME/.local/share/clio/runtime-state\"".into(),
+                "\"$HOME/.local/bin/clio\"".into(),
+            )
+        };
+    let script = format!(
+        "export CLIO_VERSION={CLIO_AGENT_VERSION} CLIO_INSTALLER_REF=v{CLIO_AGENT_VERSION} CLIO_PREFIX={prefix} CLIO_BIN_DIR={bin_dir} UV_INSTALL_DIR={bin_dir} UV_PYTHON_INSTALL_DIR={prefix}/uv-python UV_CACHE_DIR={prefix}/uv-cache UV_NO_MODIFY_PATH=1; export PATH=\"$CLIO_BIN_DIR:$HOME/.local/bin:$PATH\"; if ! command -v uv >/dev/null 2>&1; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi && export PATH=\"$CLIO_BIN_DIR:$HOME/.local/bin:$PATH\" && curl -fsSL https://raw.githubusercontent.com/iowarp/clio-agent/v{CLIO_AGENT_VERSION}/install/install.sh | bash && export CLIO_PREFIX={prefix} CLIO_DATA_DIR={data_dir} CLIO_ARC_CTE_DIR={cte_dir} CLIO_RUNTIME_STATE_DIR={runtime_dir} && {launcher} start"
+    );
+    Ok(target_command("bash", &["-lc", &script]))
+}
+
+fn validate_remote_install_root(value: &str) -> Result<(), String> {
+    if value.len() > 1_024 || value.contains(['\0', '\n', '\r']) {
+        return Err("The remote install location is not valid.".into());
+    }
+    if !value.starts_with('/') {
+        return Err("Enter an absolute remote install location beginning with /.".into());
+    }
+    if Path::new(value)
+        .components()
+        .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err("The remote install location cannot contain parent-directory segments.".into());
+    }
+    Ok(())
+}
+
 /// Preserve the existing Web Search dialog while routing it through the driver.
 #[tauri::command]
 pub fn infrastructure_deploy_web_search(
@@ -687,7 +862,14 @@ pub fn infrastructure_deploy_web_search(
     validate_email(request.contact_email.as_deref().unwrap_or(""))?;
     let target_request = ManagedTargetRequest {
         target: request.target.clone(),
+        install_root: None,
         ssh_profile: request.ssh_profile.clone(),
+        ssh_host: request.ssh_host.clone(),
+        ssh_user: request.ssh_user.clone(),
+        ssh_port: request.ssh_port,
+        ssh_identity_file: request.ssh_identity_file.clone(),
+        ssh_auth_method: request.ssh_auth_method.clone(),
+        ssh_credential_id: request.ssh_credential_id.clone(),
     };
     let facts = preflight(&target_request)?;
     let driver = Driver::WebSearch;
@@ -712,6 +894,12 @@ pub fn infrastructure_deploy_web_search(
         action: "start".into(),
         target: request.target,
         ssh_profile: request.ssh_profile,
+        ssh_host: request.ssh_host,
+        ssh_user: request.ssh_user,
+        ssh_port: request.ssh_port,
+        ssh_identity_file: request.ssh_identity_file,
+        ssh_auth_method: request.ssh_auth_method,
+        ssh_credential_id: request.ssh_credential_id,
         variant_id: variant.id.clone(),
         configuration,
     })?;
@@ -724,7 +912,14 @@ pub fn infrastructure_deploy_web_search(
 fn run_action(request: &ManagedServiceActionRequest) -> Result<ManagedServiceActionResult, String> {
     let target = ManagedTargetRequest {
         target: request.target.clone(),
+        install_root: None,
         ssh_profile: request.ssh_profile.clone(),
+        ssh_host: request.ssh_host.clone(),
+        ssh_user: request.ssh_user.clone(),
+        ssh_port: request.ssh_port,
+        ssh_identity_file: request.ssh_identity_file.clone(),
+        ssh_auth_method: request.ssh_auth_method.clone(),
+        ssh_credential_id: request.ssh_credential_id.clone(),
     };
     let facts = preflight(&target)?;
     let driver = Driver::from_id(&request.service_id)
@@ -739,7 +934,15 @@ fn run_action(request: &ManagedServiceActionRequest) -> Result<ManagedServiceAct
         return Err(variant.reason.clone());
     }
     let specs = match request.action.as_str() {
-        "install" => driver.install(variant),
+        "install" => driver.install(request, variant)?,
+        "start" if driver == Driver::WebSearch && container_exists(&target, "clio-web-search")? => {
+            let mut commands = vec![target_command(
+                "docker",
+                &["rm", "--force", "clio-web-search"],
+            )];
+            commands.extend(driver.start(request, variant)?);
+            commands
+        }
         "start"
             if driver.container(&variant.id).is_some()
                 && container_exists(&target, driver.container(&variant.id).unwrap())? =>
@@ -765,6 +968,9 @@ fn run_action(request: &ManagedServiceActionRequest) -> Result<ManagedServiceAct
 
 fn preflight(request: &ManagedTargetRequest) -> Result<TargetFacts, String> {
     validate_target(request)?;
+    if request.target == "ssh" {
+        return remote_preflight(request);
+    }
     // These probes are independent. Running them serially made an SSH target
     // appear frozen because every unavailable runtime could consume its own
     // discovery deadline. The bounded commands still stop individually, while
@@ -780,16 +986,16 @@ fn preflight(request: &ManagedTargetRequest) -> Result<TargetFacts, String> {
     ) = thread::scope(|scope| {
         let os = scope.spawn(|| {
             if request.target == "local" {
-                normalize_os(env::consts::OS)
+                Ok(normalize_os(env::consts::OS))
             } else {
-                probe(request, "uname", &["-s"], normalize_os)
+                required_probe(request, "uname", &["-s"], normalize_os)
             }
         });
         let arch = scope.spawn(|| {
             if request.target == "local" {
-                normalize_arch(env::consts::ARCH)
+                Ok(normalize_arch(env::consts::ARCH))
             } else {
-                probe(request, "uname", &["-m"], normalize_arch)
+                required_probe(request, "uname", &["-m"], normalize_arch)
             }
         });
         let docker_installed = scope.spawn(|| available(request, "docker", &["--version"]));
@@ -810,8 +1016,11 @@ fn preflight(request: &ManagedTargetRequest) -> Result<TargetFacts, String> {
         });
         let rocm = scope.spawn(|| available(request, "rocminfo", &["--version"]));
         (
-            os.join().unwrap_or_else(|_| "unknown".into()),
-            arch.join().unwrap_or_else(|_| "unknown".into()),
+            os.join().unwrap_or_else(|_| {
+                Err("Operating-system inspection stopped unexpectedly.".into())
+            }),
+            arch.join()
+                .unwrap_or_else(|_| Err("Architecture inspection stopped unexpectedly.".into())),
             docker_installed.join().unwrap_or(false),
             docker.join().unwrap_or(false),
             uv.join().unwrap_or(false),
@@ -819,6 +1028,8 @@ fn preflight(request: &ManagedTargetRequest) -> Result<TargetFacts, String> {
             rocm.join().unwrap_or(false),
         )
     });
+    let os = os?;
+    let arch = arch?;
     let accelerator = if nvidia_available {
         "nvidia"
     } else if rocm_available || request.target == "local" && windows_has_amd_gpu() {
@@ -837,11 +1048,88 @@ fn preflight(request: &ManagedTargetRequest) -> Result<TargetFacts, String> {
     })
 }
 
+/// Inspect an SSH target through one bounded login. HPC login nodes commonly
+/// throttle bursts of concurrent SSH sessions; opening one connection per fact
+/// made required probes time out and made optional capabilities flicker between
+/// refreshes. Individual commands are still bounded on hosts that provide the
+/// standard `timeout` utility.
+fn remote_preflight(request: &ManagedTargetRequest) -> Result<TargetFacts, String> {
+    let script = r#"
+run_bounded() {
+  if command -v timeout >/dev/null 2>&1; then timeout 4 "$@"; else "$@"; fi
+}
+printf 'os=%s\n' "$(uname -s)"
+printf 'arch=%s\n' "$(uname -m)"
+if command -v docker >/dev/null 2>&1; then printf 'docker_installed=1\n'; else printf 'docker_installed=0\n'; fi
+if command -v docker >/dev/null 2>&1 && run_bounded docker version --format '{{.Server.Version}}' >/dev/null 2>&1; then printf 'docker_available=1\n'; else printf 'docker_available=0\n'; fi
+if command -v uv >/dev/null 2>&1; then printf 'uv_available=1\n'; else printf 'uv_available=0\n'; fi
+if command -v nvidia-smi >/dev/null 2>&1 && run_bounded nvidia-smi --query-gpu=name --format=csv,noheader >/dev/null 2>&1; then printf 'nvidia_available=1\n'; else printf 'nvidia_available=0\n'; fi
+if command -v rocminfo >/dev/null 2>&1 && run_bounded rocminfo --version >/dev/null 2>&1; then printf 'rocm_available=1\n'; else printf 'rocm_available=0\n'; fi
+"#;
+    let output = run_discovery_target(request, "bash", &["-lc", script])?;
+    if !output.status.success() {
+        let detail = bounded(&String::from_utf8_lossy(&output.stderr));
+        return Err(if detail.is_empty() {
+            format!("Could not inspect {}.", target_label(request))
+        } else {
+            format!("Could not inspect {}: {detail}", target_label(request))
+        });
+    }
+    parse_remote_preflight(request, &String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_remote_preflight(
+    request: &ManagedTargetRequest,
+    stdout: &str,
+) -> Result<TargetFacts, String> {
+    let values = stdout
+        .lines()
+        .filter_map(|line| line.split_once('='))
+        .collect::<BTreeMap<_, _>>();
+    let os = values
+        .get("os")
+        .map(|value| normalize_os(value))
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            format!(
+                "Could not determine the operating system on {}.",
+                target_label(request)
+            )
+        })?;
+    let arch = values
+        .get("arch")
+        .map(|value| normalize_arch(value))
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            format!(
+                "Could not determine the architecture on {}.",
+                target_label(request)
+            )
+        })?;
+    let enabled = |name: &str| values.get(name).is_some_and(|value| *value == "1");
+    let accelerator = if enabled("nvidia_available") {
+        "nvidia"
+    } else if enabled("rocm_available") {
+        "amd"
+    } else {
+        "none"
+    };
+    Ok(TargetFacts {
+        target: target_label(request),
+        os,
+        arch,
+        accelerator: accelerator.into(),
+        docker_available: enabled("docker_available"),
+        docker_installed: enabled("docker_installed"),
+        uv_available: enabled("uv_available"),
+    })
+}
+
 fn run_specs(target: &ManagedTargetRequest, specs: Vec<CommandSpec>) -> Result<String, String> {
     let mut log = String::new();
     for spec in specs {
         let output = if spec.local_only {
-            Command::new(&spec.program).args(&spec.args).output()
+            background_command(&spec.program).args(&spec.args).output()
         } else {
             run_target(
                 target,
@@ -865,7 +1153,15 @@ fn run_target(
     args: &[&str],
 ) -> Result<Output, std::io::Error> {
     let (program, args) = target_invocation(target, program, args);
-    Command::new(program).args(args).output()
+    let mut command = background_command(program);
+    command.args(args);
+    configure_askpass(
+        &mut command,
+        target.ssh_auth_method.as_deref(),
+        target.ssh_credential_id.as_deref(),
+    )
+    .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, error))?;
+    command.output()
 }
 
 fn run_discovery_target(
@@ -874,16 +1170,22 @@ fn run_discovery_target(
     args: &[&str],
 ) -> Result<Output, String> {
     let (program, args) = target_invocation(target, program, args);
-    output_before_deadline(&program, &args, DISCOVERY_TIMEOUT)
+    let mut command = background_command(&program);
+    command.args(&args);
+    configure_askpass(
+        &mut command,
+        target.ssh_auth_method.as_deref(),
+        target.ssh_credential_id.as_deref(),
+    )?;
+    output_before_deadline(command, &program, DISCOVERY_TIMEOUT)
 }
 
 fn output_before_deadline(
+    mut command: Command,
     program: &str,
-    args: &[String],
     timeout: Duration,
 ) -> Result<Output, String> {
-    let mut child = Command::new(program)
-        .args(args)
+    let mut child = command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -929,18 +1231,16 @@ fn target_invocation(
         .map(shell_quote)
         .collect::<Vec<_>>()
         .join(" ");
-    (
-        "ssh".into(),
-        vec![
-            "-o".into(),
-            "BatchMode=yes".into(),
-            "-o".into(),
-            "ConnectTimeout=8".into(),
-            target.ssh_profile.clone().unwrap_or_default(),
-            "--".into(),
-            command,
-        ],
-    )
+    let mut ssh_args = Vec::new();
+    append_auth_arguments(&mut ssh_args, target.ssh_auth_method.as_deref());
+    if let Some(port) = target.ssh_port.filter(|port| *port != 22) {
+        ssh_args.extend(["-p".into(), port.to_string()]);
+    }
+    if let Some(identity) = nonempty(target.ssh_identity_file.as_deref()) {
+        ssh_args.extend(["-i".into(), identity.into()]);
+    }
+    ssh_args.extend([ssh_destination(target), "--".into(), command]);
+    ("ssh".into(), ssh_args)
 }
 
 fn resolved_local_program(program: &str) -> String {
@@ -990,7 +1290,7 @@ fn available(target: &ManagedTargetRequest, program: &str, args: &[&str]) -> boo
         .unwrap_or(false)
 }
 fn local_available(program: &str, args: &[&str]) -> bool {
-    Command::new(resolved_local_program(program))
+    background_command(resolved_local_program(program))
         .args(args)
         .output()
         .map(|o| o.status.success())
@@ -1097,15 +1397,35 @@ fn bounded(value: &str) -> String {
         .trim()
         .to_string()
 }
-fn probe(
+fn required_probe(
     target: &ManagedTargetRequest,
     program: &str,
     args: &[&str],
     normalize: fn(&str) -> String,
-) -> String {
-    run_discovery_target(target, program, args)
-        .map(|o| normalize(&String::from_utf8_lossy(&o.stdout)))
-        .unwrap_or_else(|_| "unknown".into())
+) -> Result<String, String> {
+    let output = run_discovery_target(target, program, args)?;
+    if !output.status.success() {
+        let detail = bounded(&String::from_utf8_lossy(&output.stderr));
+        return Err(if detail.is_empty() {
+            format!("Could not inspect {} on {}.", program, target_label(target))
+        } else {
+            format!(
+                "Could not inspect {} on {}: {}",
+                program,
+                target_label(target),
+                detail
+            )
+        });
+    }
+    let value = normalize(&String::from_utf8_lossy(&output.stdout));
+    if value.trim().is_empty() {
+        return Err(format!(
+            "{} returned no system information for {}.",
+            program,
+            target_label(target)
+        ));
+    }
+    Ok(value)
 }
 fn normalize_os(value: &str) -> String {
     let value = value.trim().to_ascii_lowercase();
@@ -1130,7 +1450,26 @@ fn target_label(target: &ManagedTargetRequest) -> String {
     if target.target == "local" {
         "This computer".into()
     } else {
-        target.ssh_profile.clone().unwrap_or_default()
+        target
+            .ssh_profile
+            .clone()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| ssh_destination(target))
+    }
+}
+
+fn nonempty(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn ssh_destination(target: &ManagedTargetRequest) -> String {
+    if let Some(profile) = nonempty(target.ssh_profile.as_deref()) {
+        return profile.into();
+    }
+    let host = nonempty(target.ssh_host.as_deref()).unwrap_or_default();
+    match nonempty(target.ssh_user.as_deref()) {
+        Some(user) => format!("{user}@{host}"),
+        None => host.into(),
     }
 }
 
@@ -1141,8 +1480,10 @@ fn windows_has_amd_gpu() -> bool {
         "-Command",
         "(Get-CimInstance Win32_VideoController).Name",
     ]);
+    let mut command = background_command("powershell");
+    command.args(&args);
     env::consts::OS == "windows"
-        && output_before_deadline("powershell", &args, DISCOVERY_TIMEOUT)
+        && output_before_deadline(command, "powershell", DISCOVERY_TIMEOUT)
             .map(|o| {
                 String::from_utf8_lossy(&o.stdout)
                     .to_ascii_lowercase()
@@ -1169,6 +1510,23 @@ fn config<'a>(
         return Err(format!("The {key} value is required."));
     }
     Ok(value)
+}
+
+fn config_port(
+    request: &ManagedServiceActionRequest,
+    key: &str,
+    default: u16,
+) -> Result<u16, String> {
+    let value = config(request, key, false)?;
+    if value.is_empty() {
+        return Ok(default);
+    }
+    value.parse::<u16>().map_err(|_| {
+        format!(
+            "{} must be a port between 1 and 65535.",
+            key.replace('_', " ")
+        )
+    })
 }
 
 fn field(id: &str, label: &str, placeholder: &str, required: bool) -> ServiceConfigField {
@@ -1236,6 +1594,7 @@ fn variant(
 }
 fn definition(
     id: &str,
+    category: &str,
     label: &str,
     description: &str,
     variants: Vec<ServiceVariant>,
@@ -1249,6 +1608,7 @@ fn definition(
         .unwrap_or_default();
     ManagedServiceDefinition {
         id: id.into(),
+        category: category.into(),
         label: label.into(),
         description: description.into(),
         recommended_variant,
@@ -1262,15 +1622,19 @@ fn definition(
 
 fn web_search_connection_url(target: &ManagedTargetRequest) -> Option<String> {
     let detected_hostname = if target.target == "ssh" {
-        let profile_name = target.ssh_profile.as_deref()?;
-        ssh_config_path()
-            .and_then(|path| fs::read_to_string(path).ok())
-            .and_then(|contents| {
-                parse_ssh_profiles(&contents)
-                    .into_iter()
-                    .find(|profile| profile.name.eq_ignore_ascii_case(profile_name))
-                    .and_then(|profile| profile.hostname)
-            })
+        if let Some(host) = nonempty(target.ssh_host.as_deref()) {
+            Some(host.into())
+        } else {
+            let profile_name = target.ssh_profile.as_deref()?;
+            ssh_config_path()
+                .and_then(|path| fs::read_to_string(path).ok())
+                .and_then(|contents| {
+                    parse_ssh_profiles(&contents)
+                        .into_iter()
+                        .find(|profile| profile.name.eq_ignore_ascii_case(profile_name))
+                        .and_then(|profile| profile.hostname)
+                })
+        }
     } else {
         None
     };
@@ -1284,8 +1648,9 @@ fn web_search_connection_url_for_host(
     let host = match target.target.as_str() {
         "local" => "127.0.0.1",
         "ssh" => {
-            let profile_name = target.ssh_profile.as_deref()?;
-            detected_hostname.unwrap_or(profile_name)
+            let fallback = nonempty(target.ssh_host.as_deref())
+                .or_else(|| nonempty(target.ssh_profile.as_deref()))?;
+            detected_hostname.unwrap_or(fallback)
         }
         _ => return None,
     };
@@ -1295,12 +1660,37 @@ fn web_search_connection_url_for_host(
 fn validate_target(target: &ManagedTargetRequest) -> Result<(), String> {
     match target.target.as_str() {
         "local" => Ok(()),
-        "ssh" => validate_ssh_profile(
-            target
-                .ssh_profile
-                .as_deref()
-                .ok_or("Choose an SSH profile.")?,
-        ),
+        "ssh" if nonempty(target.ssh_profile.as_deref()).is_some() => {
+            validate_ssh_profile(target.ssh_profile.as_deref().unwrap())
+        }
+        "ssh" => {
+            validate_ssh_host(
+                target
+                    .ssh_host
+                    .as_deref()
+                    .ok_or("Choose or add an SSH host.")?,
+            )?;
+            if let Some(user) = nonempty(target.ssh_user.as_deref()) {
+                validate_ssh_user(user)?;
+            }
+            if matches!(target.ssh_port, Some(0)) {
+                return Err("The SSH port must be between 1 and 65535.".into());
+            }
+            if let Some(identity) = nonempty(target.ssh_identity_file.as_deref()) {
+                if identity.len() > 1_024 || identity.contains(['\0', '\n', '\r']) {
+                    return Err("The SSH identity file path is not valid.".into());
+                }
+            }
+            if let Some(method) = nonempty(target.ssh_auth_method.as_deref()) {
+                if method != "key" && method != "password" {
+                    return Err("SSH authentication must use a key or password.".into());
+                }
+                if method == "password" && nonempty(target.ssh_credential_id.as_deref()).is_none() {
+                    return Err("Save an SSH password before connecting.".into());
+                }
+            }
+            Ok(())
+        }
         _ => Err("Deployment target must be local or ssh.".into()),
     }
 }
@@ -1314,6 +1704,35 @@ fn validate_ssh_profile(value: &str) -> Result<(), String> {
             .all(|c| c.is_ascii_alphanumeric() || "._-@".contains(c))
     {
         Err("The SSH profile name is not valid.".into())
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_ssh_host(value: &str) -> Result<(), String> {
+    let value = value.trim();
+    if value.is_empty()
+        || value.len() > 255
+        || value.starts_with('-')
+        || !value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".:_-%".contains(c))
+    {
+        Err("The SSH host address is not valid.".into())
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_ssh_user(value: &str) -> Result<(), String> {
+    if value.is_empty()
+        || value.len() > 128
+        || value.starts_with('-')
+        || !value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+    {
+        Err("The SSH username is not valid.".into())
     } else {
         Ok(())
     }
@@ -1409,16 +1828,53 @@ mod tests {
             action: "start".into(),
             target: "local".into(),
             ssh_profile: None,
+            ssh_host: None,
+            ssh_user: None,
+            ssh_port: None,
+            ssh_identity_file: None,
+            ssh_auth_method: None,
+            ssh_credential_id: None,
             variant_id: variant.into(),
             configuration: BTreeMap::new(),
         }
     }
 
     #[test]
+    fn parses_one_connection_remote_preflight_facts() {
+        let target = ManagedTargetRequest {
+            target: "ssh".into(),
+            ssh_profile: Some("ares".into()),
+            ..Default::default()
+        };
+        let parsed = parse_remote_preflight(
+            &target,
+            "os=Linux\narch=x86_64\ndocker_installed=1\ndocker_available=1\nuv_available=0\nnvidia_available=1\nrocm_available=0\n",
+        )
+        .expect("remote facts");
+        assert_eq!(parsed.target, "ares");
+        assert_eq!(parsed.os, "linux");
+        assert_eq!(parsed.arch, "x86_64");
+        assert_eq!(parsed.accelerator, "nvidia");
+        assert!(parsed.docker_installed);
+        assert!(parsed.docker_available);
+        assert!(!parsed.uv_available);
+    }
+
+    #[test]
+    fn remote_preflight_requires_identity_facts() {
+        let target = ManagedTargetRequest {
+            target: "ssh".into(),
+            ssh_profile: Some("ares".into()),
+            ..Default::default()
+        };
+        assert!(parse_remote_preflight(&target, "docker_installed=1\n").is_err());
+    }
+
+    #[test]
     fn discovered_web_search_uses_the_selected_targets_reachable_address() {
         let local = ManagedTargetRequest {
             target: "local".into(),
-            ssh_profile: None,
+            ..Default::default()
         };
         assert_eq!(
             web_search_connection_url_for_host(&local, None).as_deref(),
@@ -1428,6 +1884,7 @@ mod tests {
         let remote = ManagedTargetRequest {
             target: "ssh".into(),
             ssh_profile: Some("homelab".into()),
+            ..Default::default()
         };
         assert_eq!(
             web_search_connection_url_for_host(&remote, Some("10.0.0.102")).as_deref(),
@@ -1450,6 +1907,44 @@ mod tests {
             missing_definition.variants[0].reason,
             "Docker is not installed."
         );
+    }
+
+    #[test]
+    fn web_search_deployment_publishes_the_document_task_backend_on_the_managed_port() {
+        let request = request("web_search", "docker");
+        let definition = Driver::WebSearch.definition(&facts("linux", "none"));
+        let specs = Driver::WebSearch
+            .start(&request, &definition.variants[0])
+            .expect("web search deployment command");
+
+        assert_eq!(specs.len(), 1);
+        assert!(specs[0].args.iter().any(|arg| arg == "127.0.0.1:8089:8080"));
+        assert!(specs[0].args.iter().any(|arg| arg == "127.0.0.1:8090:6379"));
+        assert!(specs[0]
+            .args
+            .iter()
+            .any(|arg| { arg == "CLIO_WEB_SEARCH_TASK_BACKEND_PUBLIC_PORT=8090" }));
+        assert!(!specs[0].args.iter().any(|arg| arg == "6379:6379"));
+    }
+
+    #[test]
+    fn web_search_accepts_an_alternate_document_task_port() {
+        let definition = Driver::WebSearch.definition(&facts("linux", "none"));
+        let mut input = request("web_search", "container");
+        input.target = "ssh".into();
+        input
+            .configuration
+            .insert("task_backend_port".into(), "18090".into());
+
+        let specs = Driver::WebSearch
+            .start(&input, &definition.variants[0])
+            .expect("web search deployment command");
+
+        assert!(specs[0].args.iter().any(|arg| arg == "0.0.0.0:18090:6379"));
+        assert!(specs[0]
+            .args
+            .iter()
+            .any(|arg| { arg == "CLIO_WEB_SEARCH_TASK_BACKEND_PUBLIC_PORT=18090" }));
     }
 
     #[test]
@@ -1478,7 +1973,7 @@ mod tests {
     }
 
     #[test]
-    fn vllm_recommends_only_proven_acceleration() {
+    fn vllm_uses_inspected_capabilities_instead_of_host_names() {
         assert_eq!(
             Driver::Vllm
                 .definition(&facts("linux", "nvidia"))
@@ -1492,8 +1987,11 @@ mod tests {
         let mut homelab = facts("linux", "nvidia");
         homelab.target = "homelab".into();
         let homelab = Driver::Vllm.definition(&homelab);
-        assert!(homelab.recommended_variant.is_empty());
-        assert!(homelab.variants.iter().all(|variant| !variant.compatible));
+        assert_eq!(homelab.recommended_variant, "cuda");
+        assert!(homelab
+            .variants
+            .iter()
+            .any(|variant| variant.id == "cpu" && variant.compatible));
     }
 
     #[test]
@@ -1526,7 +2024,9 @@ mod tests {
         let definition = Driver::LlamaCpp.definition(&windows);
         assert_eq!(definition.recommended_variant, "native-windows-cpu");
         let variant = &definition.variants[0];
-        let install = Driver::LlamaCpp.install(variant);
+        let install = Driver::LlamaCpp
+            .install(&request("llama_cpp", "native-windows-cpu"), variant)
+            .unwrap();
         assert_eq!(install[0].program, "powershell");
         assert!(install[0]
             .args
@@ -1541,6 +2041,28 @@ mod tests {
             .args
             .iter()
             .any(|arg| arg.contains("Start-Process")));
+    }
+
+    #[test]
+    fn web_search_install_creates_and_starts_the_managed_container() {
+        let definition = Driver::WebSearch.definition(&facts("linux", "none"));
+        let mut input = request("web_search", "container");
+        input.target = "ssh".into();
+        input.ssh_profile = Some("ares".into());
+        input
+            .configuration
+            .insert("contact_email".into(), "scientist@example.org".into());
+
+        let commands = Driver::WebSearch
+            .install(&input, &definition.variants[0])
+            .expect("Web Search deployment commands");
+
+        assert_eq!(commands.len(), 2);
+        assert_eq!(commands[0].args, strings(&["pull", WEB_IMAGE]));
+        assert_eq!(commands[1].args[0], "run");
+        assert!(commands[1].args.contains(&"clio-web-search".into()));
+        assert!(commands[1].args.contains(&"0.0.0.0:8089:8080".into()));
+        assert!(commands[1].args.contains(&"0.0.0.0:8090:6379".into()));
     }
 
     #[test]
@@ -1577,6 +2099,11 @@ mod tests {
         assert!(validate_ssh_profile("-oProxyCommand=bad").is_err());
         assert!(validate_ssh_profile("host;bad").is_err());
         assert!(validate_ssh_profile("two hosts").is_err());
+        assert!(validate_ssh_host("10.0.0.102").is_ok());
+        assert!(validate_ssh_host("login.example.edu").is_ok());
+        assert!(validate_ssh_host("host;bad").is_err());
+        assert!(validate_ssh_user("alice.smith").is_ok());
+        assert!(validate_ssh_user("alice;bad").is_err());
     }
 
     #[test]
@@ -1589,7 +2116,7 @@ mod tests {
         // coverage of that resolution behavior with controlled candidates.
         let local = ManagedTargetRequest {
             target: "local".into(),
-            ssh_profile: None,
+            ..Default::default()
         };
         assert_eq!(
             target_invocation(&local, "docker-compose", &["pull", WEB_IMAGE]),
@@ -1599,6 +2126,7 @@ mod tests {
         let remote = ManagedTargetRequest {
             target: "ssh".into(),
             ssh_profile: Some("gpu-host".into()),
+            ..Default::default()
         };
         assert_eq!(
             target_invocation(&remote, "docker", &["pull", WEB_IMAGE]),
@@ -1606,15 +2134,72 @@ mod tests {
                 "ssh".into(),
                 vec![
                     "-o".into(),
-                    "BatchMode=yes".into(),
+                    "StrictHostKeyChecking=accept-new".into(),
                     "-o".into(),
                     "ConnectTimeout=8".into(),
+                    "-o".into(),
+                    "BatchMode=yes".into(),
                     "gpu-host".into(),
                     "--".into(),
                     format!("'docker' 'pull' '{}'", WEB_IMAGE),
                 ],
             )
         );
+
+        let manual = ManagedTargetRequest {
+            target: "ssh".into(),
+            ssh_host: Some("10.0.0.102".into()),
+            ssh_user: Some("alice".into()),
+            ssh_port: Some(2222),
+            ssh_identity_file: Some(r"D:\keys\lab key".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            target_invocation(&manual, "uname", &["-s"]),
+            (
+                "ssh".into(),
+                vec![
+                    "-o".into(),
+                    "StrictHostKeyChecking=accept-new".into(),
+                    "-o".into(),
+                    "ConnectTimeout=8".into(),
+                    "-o".into(),
+                    "BatchMode=yes".into(),
+                    "-p".into(),
+                    "2222".into(),
+                    "-i".into(),
+                    r"D:\keys\lab key".into(),
+                    "alice@10.0.0.102".into(),
+                    "--".into(),
+                    "'uname' '-s'".into(),
+                ],
+            )
+        );
+    }
+
+    #[test]
+    fn clio_deployment_is_pinned_and_starts_the_installed_service() {
+        let spec = clio_install_spec(None).expect("default CLIO install spec");
+        assert_eq!(spec.program, "bash");
+        assert_eq!(spec.args[0], "-lc");
+        assert!(spec.args[1].contains("CLIO_VERSION=0.9.4.2"));
+        assert!(spec.args[1].contains("/v0.9.4.2/install/install.sh"));
+        assert!(spec.args[1].contains("CLIO_ARC_CTE_DIR="));
+        assert!(spec.args[1].contains("CLIO_RUNTIME_STATE_DIR="));
+        assert!(spec.args[1].contains("CLIO_DATA_DIR="));
+        assert!(spec.args[1].contains("command -v uv"));
+        assert!(spec.args[1].contains("https://astral.sh/uv/install.sh"));
+        assert!(spec.args[1].contains("UV_PYTHON_INSTALL_DIR="));
+        assert!(spec.args[1].contains("clio\" start"));
+
+        let custom =
+            clio_install_spec(Some("/mnt/common/alice/clio")).expect("custom CLIO install spec");
+        assert!(custom.args[1].contains("'/mnt/common/alice/clio'"));
+        assert!(custom.args[1].contains("'/mnt/common/alice/clio/bin'"));
+        assert!(custom.args[1].contains("'/mnt/common/alice/clio/cte'"));
+        assert!(custom.args[1].contains("'/mnt/common/alice/clio/bin/clio' start"));
+        assert!(clio_install_spec(Some("relative/path")).is_err());
+        assert!(clio_install_spec(Some("/mnt/common/../escape")).is_err());
     }
 
     #[test]
@@ -1669,7 +2254,10 @@ mod tests {
         let (program, args) = ("sh", strings(&["-c", "sleep 10"]));
 
         let started = Instant::now();
-        let error = output_before_deadline(program, &args, Duration::from_millis(100)).unwrap_err();
+        let mut command = background_command(program);
+        command.args(&args);
+        let error =
+            output_before_deadline(command, program, Duration::from_millis(100)).unwrap_err();
 
         assert!(error.contains("did not finish target inspection"));
         assert!(started.elapsed() < Duration::from_secs(3));

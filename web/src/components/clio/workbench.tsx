@@ -76,6 +76,7 @@ export interface ClioWorkbenchProps {
   diffActionPending?: boolean;
   sessionView: ReactNode;
   onApplyDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
+  onOpenTerminal?: () => void;
   onOpenSubagent: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   onRejectDiff: (sessionId: string, workspaceId: string, path: string) => Promise<unknown>;
   subagents?: readonly SubagentRun[];
@@ -212,6 +213,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       diffActionPending,
       sessionView,
       onApplyDiff,
+      onOpenTerminal,
       onOpenSubagent,
       onRejectDiff,
       subagents = [],
@@ -556,7 +558,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 </TabsList>
               </Sortable>
             </div>
-            <CanvasLauncher onOpen={openCanvasResource} />
+            <CanvasLauncher onOpen={openCanvasResource} onOpenTerminal={onOpenTerminal} />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
               className="relative z-10 size-9 shrink-0 rounded-lg"

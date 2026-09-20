@@ -24,13 +24,15 @@ export type InstallerOptions = {
   web_search: WebSearchInstallStatus;
   llama_cpp: LlamaCppInstallStatus;
   clio_kit: 'bundled';
+  provider_families: string;
 };
 
 const DEFAULT_INSTALLER_OPTIONS: InstallerOptions = {
-  schema: 2,
+  schema: 3,
   web_search: 'not_requested',
   llama_cpp: 'not_requested',
   clio_kit: 'bundled',
+  provider_families: 'openai',
 };
 
 /** Read infrastructure choices made in the native desktop installer. */

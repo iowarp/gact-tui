@@ -1,3 +1,4 @@
+import { brand } from '@brand';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -97,4 +98,77 @@ it('explains the active service status when its indicator is hovered', async () 
   );
 
   expect(await screen.findByText('No model is selected yet.')).toBeVisible();
+});
+
+it('shows agent identity as location followed by the branded agent name', async () => {
+  const user = userEvent.setup();
+  render(
+    <MemoryRouter>
+      <SidebarProvider>
+        <NavigationHeader
+          connectionAvailabilities={{}}
+          currentPath="/"
+          endpoint="http://127.0.0.1:49433"
+          onConnect={vi.fn()}
+          onImportSession={vi.fn()}
+          onNewSession={vi.fn()}
+          onNewWorkspace={vi.fn()}
+          onOpenArchived={vi.fn()}
+          recentConnections={[
+            {
+              endpoint: 'http://127.0.0.1:17800',
+              label: 'Homelab CLIO',
+              tunnel: {
+                host: '10.0.0.102',
+                user: 'alice',
+                remote_port: 17_800,
+                key_path: '',
+                profile: 'homelab',
+              },
+            },
+          ]}
+        />
+      </SidebarProvider>
+    </MemoryRouter>,
+  );
+
+  await user.click(screen.getByText('Local'));
+
+  expect(screen.getByText('Connected agent')).toBeVisible();
+  expect(screen.getAllByText('Local')).toHaveLength(2);
+  expect(screen.getByText('Other agents')).toBeVisible();
+  expect(screen.getByText('Homelab')).toBeVisible();
+  expect(screen.getAllByText(brand.agentName).length).toBeGreaterThanOrEqual(3);
+  expect(screen.getByText('http://127.0.0.1:49433')).toBeVisible();
+});
+
+it('uses a user-defined agent name instead of forcing the branded fallback', () => {
+  render(
+    <MemoryRouter>
+      <SidebarProvider>
+        <NavigationHeader
+          activeLabel="Ares Research"
+          activeTunnel={{
+            host: 'ares.cs.iit.edu',
+            user: 'alice',
+            remote_port: 17_800,
+            key_path: '',
+            profile: 'ares',
+          }}
+          connectionAvailabilities={{}}
+          currentPath="/"
+          endpoint="http://127.0.0.1:41849"
+          onConnect={vi.fn()}
+          onImportSession={vi.fn()}
+          onNewSession={vi.fn()}
+          onNewWorkspace={vi.fn()}
+          onOpenArchived={vi.fn()}
+          recentConnections={[]}
+        />
+      </SidebarProvider>
+    </MemoryRouter>,
+  );
+
+  expect(screen.getByText('Ares')).toBeVisible();
+  expect(screen.getByText('Research')).toBeVisible();
 });

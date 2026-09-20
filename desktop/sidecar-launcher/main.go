@@ -34,21 +34,26 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 )
 
+const crashCleanupTimeout = 12 * time.Second
+
 const (
-	exitOK             = 0
-	exitUsage          = 1
-	exitNotFound       = 2
-	exitExecFailed     = 3
-	envBearer          = "CLIO_AUTH_TOKEN"
-	envGactContractVer = "CLIO_GACT_CONTRACT"
-	envBootHeartbeat   = "CLIO_DESKTOP_BOOT_HEARTBEAT"
+	exitOK              = 0
+	exitUsage           = 1
+	exitNotFound        = 2
+	exitExecFailed      = 3
+	envBearer           = "CLIO_AUTH_TOKEN"
+	envGactContractVer  = "CLIO_GACT_CONTRACT"
+	envBootHeartbeat    = "CLIO_DESKTOP_BOOT_HEARTBEAT"
+	envDesktopParentPID = "CLIO_DESKTOP_PARENT_PID"
 )
 
 type cliArgs struct {
@@ -101,6 +106,19 @@ func spawnEnv(rt *resolvedRuntime, args cliArgs) []string {
 }
 
 func runChild(rt *resolvedRuntime, args cliArgs) int {
+	// On Windows the launcher owns a KILL_ON_JOB_CLOSE Job Object before it
+	// starts the backend. That closes the one lifecycle hole the desktop's
+	// graceful supervisor cannot cover: if the desktop (and therefore this
+	// launcher) is terminated abruptly, Windows still reaps the inherited
+	// backend tree instead of leaving a gigabyte-scale Python process behind.
+	if err := installLauncherKillJob(); err != nil {
+		fmt.Fprintf(os.Stderr, "sidecar-launcher: failed to install process cleanup: %v\n", err)
+		return exitExecFailed
+	}
+	if err := monitorDesktopParent(); err != nil {
+		fmt.Fprintf(os.Stderr, "sidecar-launcher: failed to monitor desktop parent: %v\n", err)
+		return exitExecFailed
+	}
 	argv := spawnArgv(rt, args)
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdout = os.Stdout
@@ -111,18 +129,95 @@ func runChild(rt *resolvedRuntime, args cliArgs) int {
 		fmt.Fprintf(os.Stderr, "sidecar-launcher: failed to spawn %s: %v\n", argv[0], err)
 		return exitExecFailed
 	}
+	// The launcher is the reliable owner of startup liveness. Python may spend
+	// long stretches importing native modules while holding the GIL, which can
+	// starve an in-process heartbeat thread even though the child is healthy.
+	// Emit progress from this parent instead so the desktop only treats a truly
+	// dead launcher as stalled.
+	// Keep launcher liveness on stdout, separate from the backend's inherited
+	// stderr stream. On Windows, multiple generations sharing stderr can leave
+	// the supervisor's line reader blocked behind the Python console shim.
+	fmt.Fprintln(os.Stdout, "sidecar-progress: launcher is waiting for backend readiness")
+	waitDone := make(chan error, 1)
+	go func() {
+		waitDone <- cmd.Wait()
+	}()
 	// Bridge child lifecycle to our own — when the child exits, we exit
 	// with the same code. The Tauri supervisor handles SIGTERM and will
 	// signal us if the user closes the window.
-	if err := cmd.Wait(); err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			return exitErr.ExitCode()
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			fmt.Fprintln(os.Stdout, "sidecar-progress: launcher is waiting for backend readiness")
+		case <-desktopParentExited:
+			fmt.Fprintln(os.Stdout, "sidecar-progress: desktop exited; starting crash cleanup")
+			// The backend is still alive until this launcher exits and closes its
+			// KILL_ON_JOB_CLOSE Job Object. Start a breakaway helper first; it waits
+			// for that backend client to disappear, then prunes its registry lease
+			// and stops the shared runtime if no independent CLIO client remains.
+			startCrashCleanupAfterExit(rt)
+			return exitExecFailed
+		case err := <-waitDone:
+			// The Windows console-script shim can translate a force-killed
+			// interpreter into a zero exit status. Cleanup is registry-gated and
+			// idempotent, so run it after every child exit: a graceful backend has
+			// already deregistered, while a crashed one leaves a stale PID lease
+			// that this helper must prune before the shared daemon can stop.
+			fmt.Fprintln(os.Stdout, "sidecar-progress: backend exited; starting crash cleanup")
+			cleanupRuntimeAfterCrash(rt)
+			if err == nil {
+				return exitOK
+			}
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) {
+				return exitErr.ExitCode()
+			}
+			fmt.Fprintf(os.Stderr, "sidecar-launcher: child wait failed: %v\n", err)
+			return exitExecFailed
 		}
-		fmt.Fprintf(os.Stderr, "sidecar-launcher: child wait failed: %v\n", err)
-		return exitExecFailed
 	}
-	return exitOK
+}
+
+func cleanupRuntimeAfterCrash(rt *resolvedRuntime) {
+	ctx, cancel := context.WithTimeout(context.Background(), crashCleanupTimeout)
+	defer cancel()
+	argv := crashCleanupArgv(rt)
+	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(), "CLIO_DESKTOP_BOOT_HEARTBEAT=0", "PYTHONUNBUFFERED=1")
+	for k, v := range rt.Env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+	configureChild(cmd)
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "sidecar-launcher: crash cleanup failed: %v\n", err)
+		return
+	}
+	fmt.Fprintln(os.Stdout, "sidecar-progress: crash cleanup helper exited")
+}
+
+func startCrashCleanupAfterExit(rt *resolvedRuntime) {
+	argv := crashCleanupArgv(rt)
+	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(os.Environ(), "CLIO_DESKTOP_BOOT_HEARTBEAT=0", "PYTHONUNBUFFERED=1")
+	for k, v := range rt.Env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+	configureCrashCleanup(cmd)
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "sidecar-launcher: crash cleanup handoff failed: %v\n", err)
+		return
+	}
+	if err := cmd.Process.Release(); err != nil {
+		fmt.Fprintf(os.Stderr, "sidecar-launcher: crash cleanup helper release failed: %v\n", err)
+		return
+	}
+	fmt.Fprintln(os.Stdout, "sidecar-progress: crash cleanup handed off")
 }
 
 func main() {

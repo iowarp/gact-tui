@@ -2,7 +2,10 @@ import { MANAGED_BACKEND_POLL_MS, MANAGED_BACKEND_READY_TIMEOUT_MS } from '@/lib
 import { vocab } from '@/lib/brand-vocabulary';
 
 export type ManagedBackendStatus =
-  | { kind: 'starting'; detail: 'checking_existing' | 'starting_service' }
+  | {
+      kind: 'starting';
+      detail: 'checking_existing' | 'installing_runtime' | 'starting_service';
+    }
   | { kind: 'ready' }
   | { kind: 'needs_install' }
   | { kind: 'error'; detail: string };
@@ -26,6 +29,11 @@ async function invokeManagedBackend<T>(command: string): Promise<T> {
 
 export async function getManagedBackend(): Promise<ManagedBackendHandle> {
   return invokeManagedBackend<ManagedBackendHandle>('get_backend');
+}
+
+/** Re-run the owned backend spawn pipeline after a typed startup failure. */
+export async function retryManagedBackend(): Promise<void> {
+  await invokeManagedBackend<void>('retry_backend');
 }
 
 /**
@@ -62,7 +70,9 @@ export async function waitForManagedBackend(
     options.onStatus?.(handle.status);
     if (handle.status.kind === 'ready') return handle;
     if (handle.status.kind === 'error') {
-      throw new Error(handle.status.detail || `The managed ${vocab.agent} service could not start.`);
+      throw new Error(
+        handle.status.detail || `The managed ${vocab.agent} service could not start.`,
+      );
     }
     if (handle.status.kind === 'needs_install' && !installStarted) {
       installStarted = true;

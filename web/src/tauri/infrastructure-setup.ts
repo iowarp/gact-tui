@@ -1,4 +1,5 @@
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { vocab } from '@/lib/brand-vocabulary';
 
 export type SshProfile = {
   name: string;
@@ -6,11 +7,21 @@ export type SshProfile = {
   user?: string;
 };
 
+export type SshTargetInput = {
+  ssh_profile?: string;
+  ssh_host?: string;
+  ssh_user?: string;
+  ssh_port?: number;
+  ssh_identity_file?: string;
+  ssh_auth_method?: 'key' | 'password';
+  ssh_credential_id?: string;
+};
+
 export type WebSearchDeployInput = {
   target: 'local' | 'ssh';
-  ssh_profile?: string;
-  contact_email?: string;
-};
+} & SshTargetInput & {
+    contact_email?: string;
+  };
 
 export type WebSearchDeployResult = {
   action: 'created' | 'started' | 'already_running';
@@ -19,7 +30,16 @@ export type WebSearchDeployResult = {
 
 export type ManagedTargetInput = {
   target: 'local' | 'ssh';
-  ssh_profile?: string;
+  /** Optional absolute install/runtime root on the remote host. */
+  install_root?: string;
+} & SshTargetInput;
+
+export type ClioDeployInput = ManagedTargetInput;
+
+export type ClioDeployResult = {
+  target: string;
+  remote_port: number;
+  status: 'installed' | 'ready';
 };
 
 export type TargetFacts = {
@@ -34,6 +54,7 @@ export type TargetFacts = {
 
 export type ManagedServiceDefinition = {
   id: 'vllm' | 'llama_cpp' | 'web_search' | 'relay';
+  category: 'model_runtime' | 'scientific_service' | 'remote_access';
   label: string;
   description: string;
   recommended_variant: string;
@@ -92,6 +113,18 @@ export async function deployWebSearch(input: WebSearchDeployInput): Promise<WebS
   }
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<WebSearchDeployResult>('infrastructure_deploy_web_search', { request: input });
+}
+
+/** Install and start a pinned CLIO agent on an SSH target. */
+export async function deployClio(input: ClioDeployInput): Promise<ClioDeployResult> {
+  if (!inTauri()) {
+    throw new Error(`Remote ${vocab.agent} deployment is available in the installed desktop app.`);
+  }
+  if (input.target !== 'ssh') {
+    throw new Error(`Use the desktop-managed ${vocab.agent} service for this computer.`);
+  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<ClioDeployResult>('infrastructure_deploy_clio', { request: input });
 }
 
 /** Inspect the selected deployment target without changing it. */

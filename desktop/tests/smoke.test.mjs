@@ -247,11 +247,21 @@ test('bundled installer stops only its managed process tree before replacement o
     readFileSync(resolve(root, 'src-tauri', 'tauri.bundled.conf.json'), 'utf8'),
   );
   assert.equal(cfg.bundle.windows.nsis.installerHooks, 'installer-hooks.nsh');
+  const windowsPack = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'tauri.bundled.windows-pack.conf.json'), 'utf8'),
+  );
+  assert.deepEqual(windowsPack.bundle.resources, [
+    'gact-runtime.tar.zst',
+    'gact-runtime.pack.json',
+  ]);
 
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
   assert.match(hooks, /NSIS_HOOK_PREINSTALL/);
   assert.match(hooks, /NSIS_HOOK_PREUNINSTALL/);
   assert.match(hooks, /NSIS_HOOK_POSTUNINSTALL/);
+  assert.match(hooks, /NSIS_HOOK_POSTINSTALL[\s\S]*clio-desktop\.exe" --prepare-runtime/);
+  assert.match(hooks, /CLIO_REMOVE_MANAGED_STORAGE[\s\S]*clio-desktop\.exe" --remove-managed-storage/);
+  assert.match(hooks, /The installation will stop so the application is not left partially configured/);
   assert.match(hooks, /Also remove CLIO settings, sessions, and local data/);
   assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}/);
   assert.match(hooks, /\$APPDATA\\\$\{BUNDLEID\}/);
@@ -272,7 +282,11 @@ test('bundled installer stops only its managed process tree before replacement o
   assert.match(cleanup, /clio_run/);
   assert.doesNotMatch(hooks, /taskkill[^\r\n]*\/IM/i, 'must not kill unrelated user processes');
   const runtimeRemovals = hooks.match(/RMDir \/r "\$INSTDIR\\gact-runtime"/g) ?? [];
-  assert.equal(runtimeRemovals.length, 3, 'upgrade and uninstall must remove the bundled runtime');
+  assert.equal(runtimeRemovals.length, 2, 'upgrade and uninstall must remove the bundled runtime');
+  assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}\\bundled-runtime/);
+  assert.match(hooks, /\$INSTDIR\\data\\clio-user\\data\\cte/);
+  assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}\\clio-user\\data\\cte/);
+  assert.match(hooks, /\$LOCALAPPDATA\\\$\{PRODUCTNAME\}\\gact-runtime/);
   assert.match(hooks, /NSIS_HOOK_POSTUNINSTALL[\s\S]*RMDir "\$INSTDIR"/);
 });
 
@@ -305,6 +319,17 @@ test('installer collects Infrastructure choices via a custom wizard page, not a 
   assert.match(hooks, /CLIO Search \(web search and PDF reading, runs in Docker\)/);
   assert.match(hooks, /Local model runtime \(llama\.cpp\)/);
   assert.match(hooks, /Science tool kit \(clio-kit\)/);
+  assert.match(hooks, /Providers to show in CLIO/);
+  for (const family of [
+    'OpenAI \/ Codex',
+    'Anthropic \/ Claude',
+    'Google AI',
+    'Argonne ALCF',
+    'Local \/ self-hosted',
+    'Other cloud providers',
+  ]) {
+    assert.match(hooks, new RegExp(family));
+  }
 
   // Web Search defaults on, llama.cpp defaults off, clio-kit is fixed on and
   // disabled (it always ships bundled — there is nothing to choose).
@@ -333,17 +358,18 @@ test('the Infrastructure page is skipped for passive and update installs, read f
   assert.match(page, /Abort/);
 });
 
-test('installer-options.json is always written through the one v2-schema macro', () => {
+test('installer-options.json is always written through the one v3-schema macro', () => {
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
   const writeCalls = hooks.match(/!insertmacro CLIO_WRITE_INSTALLER_OPTIONS/g) ?? [];
   // PREINSTALL (1) + POSTINSTALL's four outcome branches (deployed / two
   // needs_attention branches / docker-unavailable) = 5 call sites, and every
   // one goes through the same macro rather than a duplicated FileWrite.
   assert.equal(writeCalls.length, 5);
-  assert.match(hooks, /\$\\"schema\$\\":2/);
+  assert.match(hooks, /\$\\"schema\$\\":3/);
   assert.match(hooks, /\$\\"web_search\$\\":\$\\"'/);
   assert.match(hooks, /\$\\"llama_cpp\$\\":\$\\"'/);
   assert.match(hooks, /\$\\"clio_kit\$\\":\$\\"bundled\$\\"/);
+  assert.match(hooks, /\$\\"provider_families\$\\":\$\\"'/);
   for (const status of ['pending', 'not_requested', 'deployed', 'needs_attention']) {
     assert.match(hooks, new RegExp(`StrCpy \\$ClioWebSearchStatus "${status}"`));
   }

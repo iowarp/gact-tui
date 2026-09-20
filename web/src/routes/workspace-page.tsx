@@ -625,6 +625,7 @@ export function WorkspacePage() {
                 path,
               })
             }
+            onOpenTerminal={terminalActions.onOpenTerminal}
             onOpenSubagent={openSubagent}
             subagents={subagents}
             onRejectDiff={(targetSessionId, targetWorkspaceId, path) =>

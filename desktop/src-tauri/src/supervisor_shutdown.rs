@@ -217,7 +217,10 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
     let pinned: Vec<PinnedProcess> = owned_descendants(&windows_process_snapshot(), &[child.id()])
         .into_iter()
         .filter_map(|pid| {
-            windows_pin_process(pid, PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE)
+            windows_pin_process(
+                pid,
+                PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE,
+            )
         })
         .collect();
 
@@ -295,7 +298,10 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
                 let live_pinned: Vec<PinnedProcess> = windows_owned_descendants_now(child.id())
                     .into_iter()
                     .filter_map(|pid| {
-                        windows_pin_process(pid, PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION)
+                        windows_pin_process(
+                            pid,
+                            PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION,
+                        )
                     })
                     .collect();
                 let live_candidates: Vec<KillCandidate> = live_pinned
@@ -718,7 +724,8 @@ mod tests {
                 // Drain (some of) the request so the client's write doesn't
                 // block; we don't need to parse it for this stub.
                 let _ = stream.read(&mut buf);
-                let response = format!("{status_line}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+                let response =
+                    format!("{status_line}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
                 let _ = stream.write_all(response.as_bytes());
                 let _ = stream.flush();
             }

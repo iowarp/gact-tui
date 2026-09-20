@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -42,6 +42,26 @@ const options = [
 ];
 
 describe('ClioModelPicker', () => {
+  it('applies installer provider visibility after the picker has already mounted', async () => {
+    const user = userEvent.setup();
+    window.localStorage.setItem('clio.hidden-providers.v1', JSON.stringify(['local-vllm']));
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={options}
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    window.localStorage.setItem('clio.hidden-providers.v1', '[]');
+    act(() => window.dispatchEvent(new Event('clio:provider-visibility-changed')));
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+
+    expect(screen.getByText('Local vLLM')).toBeVisible();
+  });
+
   it('searches model names globally while preserving provider and model columns', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
@@ -62,7 +82,7 @@ describe('ClioModelPicker', () => {
 
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'Qwen3');
     expect(screen.getByText('Local vLLM')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /Local vLLM/ }));
+    await user.click(screen.getByText('Local vLLM'));
     expect(screen.getByText('Qwen3-VL-32B')).toBeVisible();
     expect(screen.queryByText('Luna')).not.toBeInTheDocument();
 
@@ -145,11 +165,13 @@ describe('ClioModelPicker', () => {
     await user.click(screen.getByRole('button', { name: 'Change model' }));
     expect(screen.queryByText('Ready')).not.toBeInTheDocument();
 
-    const status = screen.getByLabelText('Codex provider status: Ready');
+    const status = screen.getByRole('button', {
+      name: 'Hide Codex; provider status: Ready',
+    });
     expect(status).toHaveClass('text-success');
     expect(status.querySelector('svg')).toBeInTheDocument();
     await user.hover(status);
-    expect(await screen.findByText('Provider availability')).toBeVisible();
+    expect(await screen.findByText('Visible in this picker')).toBeVisible();
     expect(screen.getByText('Health: Ready')).toBeVisible();
   });
 
@@ -210,7 +232,7 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByRole('button', { name: /ALCF/ }));
+    await user.click(screen.getByText('ALCF'));
     expect(screen.getAllByText('Globus sign-in required')).toHaveLength(1);
     expect(screen.queryByText('Candidate A')).not.toBeInTheDocument();
     expect(screen.queryByText('Candidate B')).not.toBeInTheDocument();
@@ -246,14 +268,22 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByRole('button', { name: /ALCF Metis/ }));
+    await user.click(screen.getByText('ALCF Metis'));
 
     expect(screen.getByText('Stored Globus token could not be refreshed.')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Configure ALCF Metis provider' })).toHaveAttribute(
       'href',
       '/settings/providers?provider=alcf',
     );
-    expect(screen.getByLabelText('ALCF Metis provider status: Unavailable')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Set up ALCF Metis' })).toHaveAttribute(
+      'href',
+      '/settings/providers?provider=alcf',
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Hide ALCF Metis; provider status: Unavailable',
+      }),
+    ).toBeVisible();
   });
 
   it('persists hidden providers and offers a reveal control', async () => {
@@ -270,8 +300,8 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByRole('button', { name: /Local vLLM/ }));
-    await user.click(screen.getByRole('button', { name: 'Hide Local vLLM' }));
+    await user.click(screen.getByText('Local vLLM'));
+    await user.click(screen.getByRole('button', { name: /Hide Local vLLM/ }));
     expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([
       'local-vllm',
     ]);
@@ -283,6 +313,27 @@ describe('ClioModelPicker', () => {
     expect(
       screen.queryByRole('button', { name: 'Show 1 hidden provider' }),
     ).not.toBeInTheDocument();
+  });
+
+  it('uses a compact two-column dialog with an independently scrollable pane per column', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={options}
+          provider="codex"
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveClass('sm:max-w-[56rem]');
+    expect(document.querySelectorAll('[data-slot="cascader-column-bounds"]')).toHaveLength(2);
+    expect(document.querySelectorAll('[data-slot="scroll-area-viewport"]')).toHaveLength(2);
   });
 
   it('windows a provider whose model list runs past the virtualization threshold', async () => {
@@ -334,8 +385,8 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByRole('button', { name: /Local vLLM/ }));
-    await user.click(screen.getByRole('button', { name: 'Hide Local vLLM' }));
+    await user.click(screen.getByText('Local vLLM'));
+    await user.click(screen.getByRole('button', { name: /Hide Local vLLM/ }));
 
     expect(screen.queryByText('Local vLLM')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Show 1 hidden provider' })).toBeVisible();

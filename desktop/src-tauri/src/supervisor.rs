@@ -34,6 +34,8 @@ pub struct Supervisor {
     state: SupervisorState,
     working_dir: Option<PathBuf>,
     user_dir: Option<PathBuf>,
+    runtime_resource_dir: Option<PathBuf>,
+    app_local_data_dir: Option<PathBuf>,
 }
 
 impl Supervisor {
@@ -45,6 +47,8 @@ impl Supervisor {
             state: SupervisorState::new_starting(),
             working_dir: None,
             user_dir: None,
+            runtime_resource_dir: None,
+            app_local_data_dir: None,
         }
     }
 
@@ -56,6 +60,13 @@ impl Supervisor {
     /// Sets the persistent user-state root used by a managed desktop backend.
     pub fn set_user_dir(&mut self, user_dir: PathBuf) {
         self.user_dir = Some(user_dir);
+    }
+
+    /// Sets the read-only bundle resource root and writable per-user data root
+    /// used to materialize a compressed runtime pack before backend startup.
+    pub fn set_bundled_runtime(&mut self, resource_dir: PathBuf, app_local_data_dir: PathBuf) {
+        self.runtime_resource_dir = Some(resource_dir);
+        self.app_local_data_dir = Some(app_local_data_dir);
     }
 
     /// Reads the current backend handle (cheap clone of a small struct).
@@ -81,8 +92,17 @@ impl Supervisor {
         let state = self.state.clone();
         let working_dir = self.working_dir.clone();
         let user_dir = self.user_dir.clone();
+        let runtime_resource_dir = self.runtime_resource_dir.clone();
+        let app_local_data_dir = self.app_local_data_dir.clone();
         thread::spawn(move || {
-            boot_sidecar(state, launcher, working_dir, user_dir);
+            boot_sidecar(
+                state,
+                launcher,
+                working_dir,
+                user_dir,
+                runtime_resource_dir,
+                app_local_data_dir,
+            );
         });
     }
 
@@ -168,7 +188,7 @@ mod tests {
                 return;
             }
         };
-        let (handle, child) = match spawn_and_probe(&launcher, None, None) {
+        let (handle, child) = match spawn_and_probe(&launcher, None, None, None) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("skip: spawn failed (no resolvable clio-agent-gact?): {e:?}");

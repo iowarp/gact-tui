@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   waitForManagedBackend: vi.fn(),
   finishInstallerInfrastructure: vi.fn(),
+  openSshTunnel: vi.fn(),
 }));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
@@ -23,6 +24,9 @@ vi.mock('@/tauri/managed-backend', () => ({
 vi.mock('@/lib/installer-infrastructure', () => ({
   finishInstallerInfrastructure: mocks.finishInstallerInfrastructure,
 }));
+vi.mock('@/tauri/ssh-tunnel', () => ({
+  openSshTunnel: mocks.openSshTunnel,
+}));
 
 import { ConnectionProvider, useConnectionSettings } from './connection-provider';
 
@@ -30,6 +34,7 @@ function ConnectionState() {
   const context = useConnectionSettings();
   const { credentialsReady, credentialError, recents, settings } = context;
   const [resolvedToken, setResolvedToken] = useState('not-resolved');
+  const [resolvedEndpoint, setResolvedEndpoint] = useState('not-resolved');
   const [connectCount, setConnectCount] = useState(0);
   return (
     <div>
@@ -53,10 +58,12 @@ function ConnectionState() {
       </output>
       <output aria-label="recent count">{recents.length}</output>
       <output aria-label="resolved token">{resolvedToken}</output>
+      <output aria-label="resolved endpoint">{resolvedEndpoint}</output>
       <button
         onClick={() =>
           void context.resolveConnection(settings).then((resolved) => {
             setResolvedToken(resolved.token ?? 'none');
+            setResolvedEndpoint(resolved.endpoint);
           })
         }
         type="button"
@@ -91,6 +98,7 @@ describe('connection provider credentials', () => {
     mocks.remove.mockReset();
     mocks.waitForManagedBackend.mockReset();
     mocks.finishInstallerInfrastructure.mockReset();
+    mocks.openSshTunnel.mockReset();
     mocks.finishInstallerInfrastructure.mockResolvedValue(undefined);
   });
 
@@ -107,6 +115,86 @@ describe('connection provider credentials', () => {
 
     expect(screen.getByLabelText('credential state')).toHaveTextContent('ready');
     expect(mocks.read).not.toHaveBeenCalled();
+  });
+
+  it('removes stale desktop loopback endpoints without removing named SSH tunnels', () => {
+    localStorage.setItem(
+      'clio.recent-connections',
+      JSON.stringify([
+        { endpoint: 'http://127.0.0.1:64045', label: 'This computer' },
+        { endpoint: 'http://127.0.0.1:65509', label: 'This device' },
+        {
+          endpoint: 'http://127.0.0.1:17800',
+          label: 'Homelab CLIO',
+          tunnel: {
+            host: '10.0.0.102',
+            user: 'alice',
+            remote_port: 17_800,
+            key_path: '',
+          },
+        },
+      ]),
+    );
+    mocks.inTauri.mockReturnValue(false);
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+
+    expect(screen.getByLabelText('recent count')).toHaveTextContent('1');
+    expect(screen.getByLabelText('active endpoint')).toHaveTextContent(
+      'http://127.0.0.1:17800',
+    );
+    expect(JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')).toEqual([
+      expect.objectContaining({ endpoint: 'http://127.0.0.1:17800', label: 'Homelab CLIO' }),
+    ]);
+  });
+
+  it('reopens a remembered SSH tunnel at its stable local port', async () => {
+    localStorage.setItem(
+      'clio.recent-connections',
+      JSON.stringify([
+        {
+          endpoint: 'http://127.0.0.1:43123',
+          label: 'Homelab',
+          tunnel: {
+            host: '10.0.0.102',
+            user: 'alice',
+            remote_port: 17_800,
+            key_path: '',
+            local_port: 43_123,
+          },
+        },
+      ]),
+    );
+    mocks.inTauri.mockReturnValue(false);
+    mocks.openSshTunnel.mockResolvedValue({
+      local_url: 'http://127.0.0.1:43123',
+      local_port: 43_123,
+    });
+    mocks.read.mockResolvedValue(undefined);
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve active connection' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('resolved endpoint')).toHaveTextContent(
+        'http://127.0.0.1:43123',
+      );
+    });
+    expect(mocks.openSshTunnel).toHaveBeenCalledWith({
+      host: '10.0.0.102',
+      user: 'alice',
+      remote_port: 17_800,
+      key_path: '',
+      local_port: 43_123,
+    });
   });
 
   it('prefers the supervisor endpoint over a remembered installed-app connection', async () => {

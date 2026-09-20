@@ -4,6 +4,7 @@
     "resources": ["gact-runtime/**/*"],
     "windows": {
       "nsis": {
+        "compression": "none",
         "installerHooks": "installer-hooks.nsh"
       }
     }

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use tauri::Manager;
 
 const INSTALLER_OPTIONS_FILE: &str = "installer-options.json";
-const CURRENT_SCHEMA: u8 = 2;
+const CURRENT_SCHEMA: u8 = 3;
 
 /// Infrastructure choices recorded by the NSIS installer's "Infrastructure" page
 /// (see `installer-hooks.nsh`) and read back once the desktop app first connects
@@ -23,6 +23,12 @@ pub struct InstallerOptions {
     pub web_search: String,
     pub llama_cpp: String,
     pub clio_kit: String,
+    #[serde(default = "default_provider_families")]
+    pub provider_families: String,
+}
+
+fn default_provider_families() -> String {
+    "openai".into()
 }
 
 impl Default for InstallerOptions {
@@ -32,6 +38,7 @@ impl Default for InstallerOptions {
             web_search: "not_requested".into(),
             llama_cpp: "not_requested".into(),
             clio_kit: "bundled".into(),
+            provider_families: "openai".into(),
         }
     }
 }
@@ -66,6 +73,7 @@ fn migrate_v1(value: &Value) -> Option<InstallerOptions> {
         web_search,
         llama_cpp: "not_requested".into(),
         clio_kit: "bundled".into(),
+        provider_families: "openai".into(),
     })
 }
 
@@ -150,13 +158,14 @@ mod tests {
     }
 
     #[test]
-    fn installer_options_v2_roundtrip() {
+    fn installer_options_v3_roundtrip() {
         let root = test_root();
         let options = InstallerOptions {
-            schema: 2,
+            schema: 3,
             web_search: "deployed".into(),
             llama_cpp: "requested".into(),
             clio_kit: "bundled".into(),
+            provider_families: "openai,argonne".into(),
         };
         write_options(&root, &options).unwrap();
         assert_eq!(read_options(&root).unwrap(), options);
@@ -171,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn installer_options_v1_migrates_to_v2() {
+    fn installer_options_v1_migrates_to_current() {
         let root = test_root();
         fs::create_dir_all(&root).unwrap();
         fs::write(
@@ -183,10 +192,11 @@ mod tests {
         assert_eq!(
             read_options(&root).unwrap(),
             InstallerOptions {
-                schema: 2,
+                schema: 3,
                 web_search: "deployed".into(),
                 llama_cpp: "not_requested".into(),
                 clio_kit: "bundled".into(),
+                provider_families: "openai".into(),
             }
         );
         let _ = fs::remove_dir_all(root);
@@ -216,6 +226,7 @@ mod tests {
         assert_eq!(migrated.web_search, "not_requested");
         assert_eq!(migrated.llama_cpp, "not_requested");
         assert_eq!(migrated.clio_kit, "bundled");
+        assert_eq!(migrated.provider_families, "openai");
     }
 
     #[test]

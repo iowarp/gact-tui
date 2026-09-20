@@ -14,8 +14,14 @@
  * speak to.
  */
 
-/** clio-kit release the web MCP client is pinned to. */
-export const WEB_MCP_VERSION = '2.10.5';
+/** clio-kit release whose Web Search adapter is bundled by the desktop runtime. */
+export const WEB_MCP_VERSION = '2.10.6';
+
+/** Portable launcher installed remotely and resolved from the bundled runtime locally. */
+export const WEB_MCP_COMMAND = 'clio-kit';
+
+/** Writable state location inside CLIO's already-allowed child-cache root. */
+export const WEB_MCP_ENV = { WEB_STATE_DIR: '.clio-child-cache/web-mcp-state' } as const;
 
 /** Container image the service runs from, tag included. */
 export const WEB_SEARCH_IMAGE = 'ghcr.io/iowarp/clio-web-search:0.3.0';
@@ -35,12 +41,6 @@ export const WEB_SEARCH_HTTP_PORT = 8089;
 /** Container port the HTTP API listens on. */
 export const WEB_SEARCH_HTTP_CONTAINER_PORT = 8080;
 
-/** Host port the cache is published on. */
-export const WEB_SEARCH_CACHE_PORT = 8090;
-
-/** Container port the cache listens on. */
-export const WEB_SEARCH_CACHE_CONTAINER_PORT = 6379;
-
 /** Environment variable carrying the operator's contact address. */
 export const WEB_SEARCH_CONTACT_EMAIL_ENV = 'CLIO_WEB_SEARCH_CONTACT_EMAIL';
 
@@ -52,17 +52,9 @@ export function webSearchUrlForHost(host: string): string {
   return `http://${host}:${WEB_SEARCH_HTTP_PORT}`;
 }
 
-/** Arguments that run the pinned web MCP client against a deployed service. */
+/** Arguments that point the installer-bundled MCP adapter at a deployed service. */
 export function webSearchMcpArgs(remoteUrl: string): string[] {
-  return [
-    '--from',
-    `clio-kit==${WEB_MCP_VERSION}`,
-    'clio-kit',
-    'mcp-server',
-    'web',
-    '--remote-url',
-    remoteUrl,
-  ];
+  return ['mcp-server', 'web', '--remote-url', remoteUrl];
 }
 
 /**
@@ -86,7 +78,6 @@ export function webSearchDeploymentCommand({
   return (
     `${prefix}docker run --detach --name ${WEB_SEARCH_CONTAINER} --restart unless-stopped` +
     ` --publish ${bindAddress}:${WEB_SEARCH_HTTP_PORT}:${WEB_SEARCH_HTTP_CONTAINER_PORT}` +
-    ` --publish ${bindAddress}:${WEB_SEARCH_CACHE_PORT}:${WEB_SEARCH_CACHE_CONTAINER_PORT}` +
     `${email} --volume ${WEB_SEARCH_VOLUME}:${WEB_SEARCH_VOLUME_PATH} ${WEB_SEARCH_IMAGE}`
   );
 }

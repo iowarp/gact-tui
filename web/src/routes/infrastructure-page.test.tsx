@@ -224,7 +224,7 @@ afterEach(cleanup);
 
 function renderPage(
   from = '/workspaces/ws_factorio/sessions/sess_demo',
-  section: 'agent' | 'tools' | 'services' = 'services',
+  section?: 'agent' | 'tools' | 'services',
 ) {
   const client = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
@@ -234,7 +234,7 @@ function renderPage(
       <MemoryRouter
         initialEntries={[
           {
-            pathname: `/infrastructure/${section}`,
+            pathname: section ? `/infrastructure/${section}` : '/infrastructure',
             state: {
               endpoint: 'http://127.0.0.1:8788',
               from,
@@ -251,6 +251,13 @@ function renderPage(
 }
 
 describe('InfrastructurePage', () => {
+  it('opens the services workspace from the bare infrastructure route', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Services', level: 1 })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Services' })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('separates agent, tools, and services while opening on the requested section', async () => {
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'tools');
 
@@ -312,9 +319,7 @@ describe('InfrastructurePage', () => {
   it('keeps missing execution protection visible as a required problem, never "Optional"', async () => {
     repository.serviceHealth.mockResolvedValue({
       healthy: true,
-      integrations: [
-        { name: 'sandbox', status: 'degraded', required: true, details: {} },
-      ],
+      integrations: [{ name: 'sandbox', status: 'degraded', required: true, details: {} }],
     });
     repository.sandboxStatus.mockResolvedValue({
       name: 'sandbox',
@@ -397,9 +402,7 @@ describe('InfrastructurePage', () => {
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
 
     await user.click(await screen.findByText('Protected execution'));
-    await user.click(
-      await screen.findByRole('button', { name: /Set up protected execution/u }),
-    );
+    await user.click(await screen.findByRole('button', { name: /Set up protected execution/u }));
     expect(repository.setupSandbox).toHaveBeenCalled();
     expect(await screen.findByText('Waiting for Windows permission prompt…')).toBeVisible();
     await waitFor(
@@ -447,9 +450,7 @@ describe('InfrastructurePage', () => {
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
 
     await user.click(await screen.findByText('Protected execution'));
-    await user.click(
-      await screen.findByRole('button', { name: /Set up protected execution/u }),
-    );
+    await user.click(await screen.findByRole('button', { name: /Set up protected execution/u }));
     expect(await screen.findByText('Waiting for Windows permission prompt…')).toBeVisible();
     await waitFor(
       () =>
@@ -489,9 +490,7 @@ describe('InfrastructurePage', () => {
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
 
     await user.click(await screen.findByText('Protected execution'));
-    await user.click(
-      await screen.findByRole('button', { name: /Set up protected execution/u }),
-    );
+    await user.click(await screen.findByRole('button', { name: /Set up protected execution/u }));
     await waitFor(() =>
       expect(
         screen.queryByRole('button', { name: /Set up protected execution/u }),
@@ -517,9 +516,7 @@ describe('InfrastructurePage', () => {
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'agent');
     await user.click(await screen.findByText('Protected execution'));
     expect(await screen.findByText(/Set up, restart/u)).toBeVisible();
-    expect(
-      screen.getByText(/Restart .* to activate protected execution/u),
-    ).toBeVisible();
+    expect(screen.getByText(/Restart .* to activate protected execution/u)).toBeVisible();
     expect(screen.queryByRole('button', { name: /Restart/u })).not.toBeInTheDocument();
     cleanup();
 
@@ -574,18 +571,35 @@ describe('InfrastructurePage', () => {
       expect(repository.configureMcpServer).toHaveBeenCalledWith('web', {
         name: 'CLIO Web Search',
         transport: 'stdio',
-        command: 'uvx',
-        args: [
-          '--from',
-          'clio-kit==2.10.5',
-          'clio-kit',
-          'mcp-server',
-          'web',
-          '--remote-url',
-          'http://10.0.0.102:8089',
-        ],
+        command: 'clio-kit',
+        args: ['mcp-server', 'web', '--remote-url', 'http://10.0.0.102:8089'],
+        env: { WEB_STATE_DIR: '.clio-child-cache/web-mcp-state' },
+        always_load: true,
       }),
     );
+    expect(repository.deleteMcpServer).not.toHaveBeenCalled();
+  });
+
+  it('disconnects an explicitly connected Web Search deployment without stopping it', async () => {
+    repository.mcpConfiguration.mockResolvedValue({
+      name: 'web',
+      configured: true,
+      scope: 'user',
+      status: 'ready',
+      transport: 'stdio',
+      tools_count: 3,
+      tools: ['search', 'fetch', 'fetch_events'],
+      spec: {
+        args: ['mcp-server', 'web', '--remote-url', 'http://127.0.0.1:8089'],
+      },
+      retryable: false,
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Disconnect' }));
+
+    await waitFor(() => expect(repository.removeMcpConfiguration).toHaveBeenCalledWith('web'));
     expect(repository.deleteMcpServer).not.toHaveBeenCalled();
   });
 

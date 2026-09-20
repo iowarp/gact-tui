@@ -5,12 +5,29 @@
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TunnelRequest {
+    #[serde(default)]
     pub host: String,
+    #[serde(default)]
     pub user: String,
     pub remote_port: u16,
+    #[serde(default)]
     pub key_path: String,
+    #[serde(default)]
+    pub profile: String,
+    #[serde(default = "default_ssh_port")]
+    pub port: u16,
+    #[serde(default)]
+    pub local_port: Option<u16>,
+    #[serde(default)]
+    pub auth_method: String,
+    #[serde(default)]
+    pub credential_id: String,
+}
+
+const fn default_ssh_port() -> u16 {
+    22
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +52,7 @@ impl std::error::Error for TunnelError {}
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum TunnelErrorCode {
+    InvalidRequest,
     SshNotInstalled,
     PortAllocation,
     SpawnFailed,

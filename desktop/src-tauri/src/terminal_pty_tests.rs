@@ -215,8 +215,13 @@ fn registry_shutdown_kills_children_and_their_descendants() {
             spawned.child,
         )
         .expect("register");
-    let pid = registry.pid("shutdown-test").expect("spawned child has a pid");
-    assert!(pid_alive(pid), "outer child should be alive right after spawn");
+    let pid = registry
+        .pid("shutdown-test")
+        .expect("spawned child has a pid");
+    assert!(
+        pid_alive(pid),
+        "outer child should be alive right after spawn"
+    );
 
     // Wait for the grandchild to appear in the process table.
     let discover_deadline = Instant::now() + Duration::from_secs(10);

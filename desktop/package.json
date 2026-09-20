@@ -17,7 +17,8 @@
     "tauri:dev": "pnpm gen-brand-backend && pnpm fetch-sidecar && node scripts/run-tauri-branded.mjs dev",
     "tauri:build": "pnpm gen-brand-backend && pnpm fetch-sidecar && node scripts/run-tauri-branded.mjs build",
     "tauri:build:debug": "pnpm gen-brand-backend && pnpm fetch-sidecar && node scripts/run-tauri-branded.mjs build --debug --no-bundle",
-    "tauri:build:bundled": "pnpm gen-brand-backend && pnpm fetch-sidecar && node scripts/run-tauri-branded.mjs build --merge-config src-tauri/tauri.bundled.conf.json"
+    "tauri:build:bundled": "pnpm gen-brand-backend && pnpm fetch-sidecar && node scripts/run-tauri-branded.mjs build --merge-config src-tauri/tauri.bundled.conf.json",
+    "tauri:build:bundled:windows-pack": "pnpm gen-brand-backend && pnpm fetch-sidecar && node scripts/run-tauri-branded.mjs build --merge-config src-tauri/tauri.bundled.conf.json src-tauri/tauri.bundled.windows-pack.conf.json"
   },
   "dependencies": {
     "@clio/workspace": "workspace:*",

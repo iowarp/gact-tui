@@ -39,9 +39,7 @@
 //! the sidecar `Supervisor` already give the SSH tunnels and the backend.
 
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use portable_pty::{
-    native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize,
-};
+use portable_pty::{native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize};
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::Path;
@@ -441,7 +439,12 @@ struct TerminalExitPayload {
 /// Reads and emits `clio:terminal-data` until the pty closes. Only reads —
 /// see the module docs for why exit detection lives in [`run_waiter`]
 /// instead.
-fn run_reader(id: String, reader: Box<dyn Read + Send>, stop: Arc<AtomicBool>, app: tauri::AppHandle) {
+fn run_reader(
+    id: String,
+    reader: Box<dyn Read + Send>,
+    stop: Arc<AtomicBool>,
+    app: tauri::AppHandle,
+) {
     run_terminal_reader(
         &id,
         reader,

@@ -23,16 +23,21 @@
 //! the frontend so the AddRemote wizard can render an actionable
 //! message (e.g. "install OpenSSH client").
 
-use std::{process::Child, sync::Mutex};
+use std::{net::TcpListener, process::Child, sync::Mutex};
 
 use crate::net_util::pick_free_port;
+use crate::ssh_auth::configure_askpass;
 use crate::ssh_command::{build_ssh_forward_command, ssh_available};
 use crate::ssh_types::{TunnelError, TunnelErrorCode, TunnelHandle, TunnelRequest};
 
 pub struct TunnelManager {
-    /// (host, child) for active tunnels — keyed by the remote host so the
-    /// supervisor can reap them on shutdown.
-    inner: Mutex<Vec<(String, Child)>>,
+    inner: Mutex<Vec<ActiveTunnel>>,
+}
+
+struct ActiveTunnel {
+    request: TunnelRequest,
+    handle: TunnelHandle,
+    child: Child,
 }
 
 impl TunnelManager {
@@ -49,6 +54,7 @@ impl TunnelManager {
     /// Returns immediately once the child is alive; callers can poll
     /// the local URL for /v1/capabilities like they do with the sidecar.
     pub fn open(&self, req: TunnelRequest) -> Result<TunnelHandle, TunnelError> {
+        validate_request(&req)?;
         if !ssh_available() {
             return Err(TunnelError {
                 code: TunnelErrorCode::SshNotInstalled,
@@ -56,25 +62,61 @@ impl TunnelManager {
             });
         }
 
-        let local_port = pick_free_port().map_err(|e| TunnelError {
-            code: TunnelErrorCode::PortAllocation,
-            message: format!("port allocation failed: {e}"),
-        })?;
+        let mut guard = self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut index = 0;
+        while index < guard.len() {
+            if guard[index].child.try_wait().ok().flatten().is_some() {
+                guard.remove(index);
+                continue;
+            }
+            if guard[index].request == req {
+                return Ok(guard[index].handle.clone());
+            }
+            index += 1;
+        }
+
+        let local_port = match req.local_port {
+            Some(port) if port > 0 => {
+                TcpListener::bind(("127.0.0.1", port)).map_err(|error| TunnelError {
+                    code: TunnelErrorCode::PortAllocation,
+                    message: format!("saved tunnel port {port} is unavailable: {error}"),
+                })?;
+                port
+            }
+            _ => pick_free_port().map_err(|e| TunnelError {
+                code: TunnelErrorCode::PortAllocation,
+                message: format!("port allocation failed: {e}"),
+            })?,
+        };
 
         let mut cmd = build_ssh_forward_command(&req, local_port);
+        configure_askpass(
+            &mut cmd,
+            Some(req.auth_method.as_str()),
+            Some(req.credential_id.as_str()),
+        )
+        .map_err(|message| TunnelError {
+            code: TunnelErrorCode::InvalidRequest,
+            message,
+        })?;
         let child = cmd.spawn().map_err(|e| TunnelError {
             code: TunnelErrorCode::SpawnFailed,
             message: format!("ssh spawn failed: {e}"),
         })?;
 
-        if let Ok(mut guard) = self.inner.lock() {
-            guard.push((req.host.clone(), child));
-        }
-
-        Ok(TunnelHandle {
+        let handle = TunnelHandle {
             local_url: format!("http://127.0.0.1:{local_port}"),
             local_port,
-        })
+        };
+        guard.push(ActiveTunnel {
+            request: req,
+            handle: handle.clone(),
+            child,
+        });
+        Ok(handle)
     }
 
     /// Reap every running tunnel; called on Tauri shutdown.
@@ -83,11 +125,56 @@ impl TunnelManager {
             Ok(g) => g,
             Err(p) => p.into_inner(),
         };
-        for (_, mut child) in guard.drain(..) {
-            let _ = child.kill();
-            let _ = child.wait();
+        for mut tunnel in guard.drain(..) {
+            let _ = tunnel.child.kill();
+            let _ = tunnel.child.wait();
         }
     }
+}
+
+fn validate_request(request: &TunnelRequest) -> Result<(), TunnelError> {
+    let profile = request.profile.trim();
+    let host = request.host.trim();
+    let user = request.user.trim();
+    let valid_profile = !profile.is_empty()
+        && profile.len() <= 128
+        && !profile.starts_with('-')
+        && profile
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "._-@".contains(character));
+    let valid_host = !host.is_empty()
+        && host.len() <= 255
+        && !host.starts_with('-')
+        && host
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || ".:_-%".contains(character));
+    let valid_user = user.is_empty()
+        || user.len() <= 128
+            && !user.starts_with('-')
+            && user
+                .chars()
+                .all(|character| character.is_ascii_alphanumeric() || "._-".contains(character));
+    let valid_key = request.key_path.len() <= 1_024
+        && !request
+            .key_path
+            .chars()
+            .any(|character| matches!(character, '\0' | '\n' | '\r'));
+    let valid_auth = request.auth_method.is_empty()
+        || request.auth_method == "key"
+        || (request.auth_method == "password" && !request.credential_id.trim().is_empty());
+    if request.remote_port == 0
+        || request.port == 0
+        || (!valid_profile && !valid_host)
+        || !valid_user
+        || !valid_key
+        || !valid_auth
+    {
+        return Err(TunnelError {
+            code: TunnelErrorCode::InvalidRequest,
+            message: "the SSH tunnel settings are not valid".into(),
+        });
+    }
+    Ok(())
 }
 
 impl Default for TunnelManager {

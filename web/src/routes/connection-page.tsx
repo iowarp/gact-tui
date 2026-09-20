@@ -12,6 +12,7 @@ import {
   MoreHorizontalIcon,
   PlusIcon,
   ShieldCheckIcon,
+  ServerIcon,
   Trash2Icon,
   TriangleAlertIcon,
 } from 'lucide-react';
@@ -21,6 +22,7 @@ import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-av
 import { Shimmer } from '@/components/ai-elements/shimmer';
 import { ClioStatus } from '@/components/clio/status';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
+import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
 import { reportConnectionOutcome } from '@/lib/connection-outcomes';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -235,6 +237,7 @@ export function ConnectionPage() {
     initialSavedConnection ? '' : (settings.label ?? ''),
   );
   const [token, setToken] = useState('');
+  const [deployOpen, setDeployOpen] = useState(searchParams.get('mode') === 'deploy');
   const selectedConnection = recents.find((recent) => recent.endpoint === selectedEndpoint);
   const availabilities = useConnectionAvailabilities(recents);
   const autoConnectStarted = useRef(false);
@@ -456,8 +459,19 @@ export function ConnectionPage() {
                   : 'Name the service and enter its address.'}
               </p>
             </div>
-            {mutation.isPending ? <ClioStatus value="connecting" /> : null}
+            <div className="flex shrink-0 items-center gap-2">
+              <Button onClick={() => setDeployOpen(true)} size="sm" type="button" variant="outline">
+                <ServerIcon aria-hidden="true" /> Deploy {vocab.agent}
+              </Button>
+              {mutation.isPending ? <ClioStatus value="connecting" /> : null}
+            </div>
           </div>
+
+          <DeployClioDialog
+            onOpenChange={setDeployOpen}
+            onReady={(candidate) => mutation.mutate(candidate)}
+            open={deployOpen}
+          />
 
           {mutation.isSuccess && !mutation.data.target ? (
             <ConnectionEmptyService

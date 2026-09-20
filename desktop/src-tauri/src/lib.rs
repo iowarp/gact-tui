@@ -21,6 +21,7 @@ mod menu;
 mod menu_spec;
 mod net_util;
 mod plugins;
+mod runtime_pack;
 mod sidecar_setup;
 mod sse_bridge;
 mod sse_message;
@@ -30,6 +31,7 @@ mod sse_stream;
 #[cfg(test)]
 mod sse_stream_tests;
 mod ssh;
+mod ssh_auth;
 mod ssh_command;
 mod ssh_types;
 mod supervisor;
@@ -150,6 +152,7 @@ pub fn run() {
         .manage(terminal_pty::TerminalRegistry::new())
         .invoke_handler(tauri::generate_handler![
             commands::get_backend,
+            commands::retry_backend,
             commands::install_clio,
             commands::repair_clio,
             commands::update_clio,
@@ -162,6 +165,7 @@ pub fn run() {
             infrastructure_setup::infrastructure_managed_service_catalog,
             infrastructure_setup::infrastructure_managed_service_action,
             infrastructure_setup::infrastructure_deploy_web_search,
+            infrastructure_setup::infrastructure_deploy_clio,
             installer_options::read_installer_options,
             installer_options::complete_installer_web_search,
             credentials::credential_store,
@@ -169,6 +173,9 @@ pub fn run() {
             credentials::credential_delete,
             credentials::provider_credential_store,
             credentials::provider_credential_read,
+            credentials::ssh_password_store,
+            credentials::ssh_password_delete,
+            credentials::ssh_identity_store,
             gact_http::gact_http,
             sse_bridge::gact_sse_open,
             sse_bridge::gact_sse_close,
@@ -190,46 +197,38 @@ pub fn run() {
             // no-op but never blocks boot.
             let _ = supervisor_boot_log::init_boot_log(app.handle());
 
-            // Model runtimes are large and must not be duplicated per workspace,
-            // release generation, or executable. Tauri resolves a stable,
-            // bundle-scoped cache directory for the current OS user; every
-            // managed child inherits these Hugging Face cache variables.
-            match app.path().app_cache_dir() {
-                Ok(app_cache_dir) => {
-                    if let Err(error) = sidecar_setup::install_model_cache_env(&app_cache_dir) {
-                        supervisor_boot_log::boot_log_line(&format!(
-                            "warning: could not prepare shared model cache: {error}"
-                        ));
-                    }
-                }
-                Err(error) => supervisor_boot_log::boot_log_line(&format!(
-                    "warning: no platform cache directory, so model downloads are not shared: {error}"
-                )),
-            }
-
-            // Make the BUNDLED clio runtime (if this build is the bundled
-            // installer variant) discoverable by the sidecar launcher on
-            // EVERY platform layout. Tauri's resource dir differs per
-            // installer: next-to-exe on Windows, Contents/Resources on
-            // macOS, /usr/lib/<app>/ on Linux deb/rpm — the last of which
-            // the launcher's exe-relative probes (it lives in /usr/bin/)
-            // cannot reach. The launcher is spawned as our child, so it
-            // inherits this env var; it probes it at top priority.
-            if let Ok(resource_dir) = app.path().resource_dir() {
-                let _ = sidecar_setup::install_bundled_runtime_env(&resource_dir);
-            }
-
             let app_data = app
                 .path()
                 .app_local_data_dir()
                 .map_err(|error| format!("resolve desktop app-data directory: {error}"))?;
-            let desktop_workspace = sidecar_setup::prepare_desktop_workspace(&app_data)
+            let resource_dir = app
+                .path()
+                .resource_dir()
+                .map_err(|error| format!("resolve desktop resource directory: {error}"))?;
+            let managed_storage = if brand_backend::is_managed_install() {
+                sidecar_setup::prepare_managed_storage_root(&resource_dir, &app_data)
+                    .map_err(|error| format!("prepare managed storage root: {error}"))?
+            } else {
+                app_data.clone()
+            };
+
+            // Model runtimes are large. On Windows this root follows the
+            // install directory the user selected; elsewhere it remains in
+            // the platform app-data directory.
+            if let Err(error) = sidecar_setup::install_model_cache_env(&managed_storage) {
+                supervisor_boot_log::boot_log_line(&format!(
+                    "warning: could not prepare shared model cache: {error}"
+                ));
+            }
+
+            let desktop_workspace = sidecar_setup::prepare_desktop_workspace(&managed_storage)
                 .map_err(|error| format!("prepare desktop workspace: {error}"))?;
-            let desktop_user_dir = sidecar_setup::prepare_desktop_user_dir(&app_data)
+            let desktop_user_dir = sidecar_setup::prepare_desktop_user_dir(&managed_storage)
                 .map_err(|error| format!("prepare desktop user state: {error}"))?;
 
-            // Kick off the backend boot — AFTER the env var above so a spawned
-            // launcher sees it. Managed brands locate + spawn the bundled
+            // Kick off the backend boot. Managed brands prepare the bundled
+            // runtime on the worker and pass its path directly to the launcher.
+            // They then locate + spawn the bundled
             // launcher (a missing one is an Error card); connect-mode brands
             // (the neutral default) never own a launcher and attach-only to a
             // user-run backend, surfacing a friendly "start your backend"
@@ -239,6 +238,7 @@ pub fn run() {
                 let mut sup = supervisor_state::lock_recover(&sup);
                 sup.set_working_dir(desktop_workspace);
                 sup.set_user_dir(desktop_user_dir);
+                sup.set_bundled_runtime(resource_dir, managed_storage);
                 if brand_backend::is_managed_install() {
                     match supervisor::locate_launcher() {
                         Ok(launcher) => sup.start(launcher),
@@ -361,6 +361,49 @@ pub fn run() {
         }
         _ => {}
     });
+}
+
+/// Print one SSH password for OpenSSH's askpass protocol without exposing it
+/// in the SSH command line or the child process environment.
+pub fn print_ssh_askpass_password(credential_id: &str) -> Result<(), String> {
+    let password = credentials::read_ssh_password(credential_id)?
+        .ok_or_else(|| "No SSH password is saved for this host.".to_string())?;
+    print!("{password}");
+    Ok(())
+}
+
+/// Expand the bundled runtime during the native installer instead of making
+/// the first interactive launch pay that cost.
+///
+/// The executable itself lives in Tauri's Windows resource directory. Managed
+/// storage deliberately lives below that same directory (`data/`) so choosing
+/// a non-system drive in NSIS also moves the Python runtime, CTE arena,
+/// workspace, and model cache off the system drive.
+#[cfg(windows)]
+pub fn prepare_runtime_for_install() -> Result<(), String> {
+    let executable = std::env::current_exe()
+        .map_err(|error| format!("resolve installed desktop executable: {error}"))?;
+    let resource_dir = executable
+        .parent()
+        .ok_or_else(|| format!("installed desktop executable has no parent: {executable:?}"))?;
+    let managed_storage =
+        sidecar_setup::prepare_managed_storage_root(resource_dir, &resource_dir.join("data"))
+            .map_err(|error| format!("prepare installer-managed storage: {error}"))?;
+    runtime_pack::prepare_bundled_runtime(resource_dir, &managed_storage)?
+        .ok_or_else(|| "the installer did not include a bundled CLIO runtime".to_string())?;
+    Ok(())
+}
+
+/// Remove installer-owned runtime, CTE, and model-cache storage without
+/// making NSIS interpret each file in the expanded Python environment.
+#[cfg(windows)]
+pub fn remove_managed_storage_for_uninstall() -> Result<(), String> {
+    let executable = std::env::current_exe()
+        .map_err(|error| format!("resolve installed desktop executable: {error}"))?;
+    let resource_dir = executable
+        .parent()
+        .ok_or_else(|| format!("installed desktop executable has no parent: {executable:?}"))?;
+    runtime_pack::remove_managed_install_storage(resource_dir)
 }
 
 /// The one quit path every entry point funnels through: the title-bar/
@@ -499,10 +542,7 @@ mod quit_guard_tests {
             !claim_quit_on(&guard),
             "every later claim (ExitRequested/Exit/Destroyed after app.exit) must be refused"
         );
-        assert!(
-            !claim_quit_on(&guard),
-            "repeated later claims stay refused"
-        );
+        assert!(!claim_quit_on(&guard), "repeated later claims stay refused");
     }
 
     /// `quit_clio` and `restart_clio` share this exact guard (both call the
@@ -529,6 +569,9 @@ mod quit_guard_tests {
     #[test]
     fn real_quit_guard_claims_once() {
         assert!(claim_quit(), "QUIT_STARTED must start false");
-        assert!(!claim_quit(), "QUIT_STARTED must latch true after the first claim");
+        assert!(
+            !claim_quit(),
+            "QUIT_STARTED must latch true after the first claim"
+        );
     }
 }

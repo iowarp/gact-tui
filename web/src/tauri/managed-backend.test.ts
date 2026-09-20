@@ -4,7 +4,7 @@ const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }));
 
-import { restartClio, waitForManagedBackend } from './managed-backend';
+import { restartClio, retryManagedBackend, waitForManagedBackend } from './managed-backend';
 
 describe('managed Tauri backend', () => {
   beforeEach(() => {
@@ -75,5 +75,12 @@ describe('managed Tauri backend', () => {
 
     await expect(restartClio()).resolves.toBeUndefined();
     expect(mocks.invoke).toHaveBeenCalledWith('restart_clio');
+  });
+
+  it('retries the managed backend spawn pipeline in place', async () => {
+    mocks.invoke.mockResolvedValueOnce(undefined);
+
+    await expect(retryManagedBackend()).resolves.toBeUndefined();
+    expect(mocks.invoke).toHaveBeenCalledWith('retry_backend');
   });
 });

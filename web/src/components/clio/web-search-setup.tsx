@@ -1,4 +1,6 @@
 import {
+  WEB_MCP_COMMAND,
+  WEB_MCP_ENV,
   WEB_SEARCH_DEFAULT_LOCAL_URL,
   webSearchDeploymentCommand,
   webSearchMcpArgs,
@@ -89,7 +91,16 @@ export function WebSearchSetup({
   const selectProfile = (value: string) => {
     setProfileName(value);
     const profile = profiles.data?.find((candidate) => candidate.name === value);
-    if (profile?.hostname) setServiceUrlOverride(webSearchUrlForHost(profile.hostname));
+    const sameHostAsAgent =
+      settings.tunnel?.profile?.toLocaleLowerCase() === value.toLocaleLowerCase();
+    if (sameHostAsAgent) {
+      // The address is consumed by the remote CLIO process, not the desktop.
+      // Loopback is both safer and reliable on SSH-only university hosts where
+      // the service port is intentionally not exposed through the firewall.
+      setServiceUrlOverride(WEB_SEARCH_DEFAULT_LOCAL_URL);
+    } else if (profile?.hostname) {
+      setServiceUrlOverride(webSearchUrlForHost(profile.hostname));
+    }
   };
 
   const refreshMcp = async () => {
@@ -107,8 +118,10 @@ export function WebSearchSetup({
       repository.configureMcpServer('web', {
         name: 'CLIO Web Search',
         transport: 'stdio',
-        command: 'uvx',
+        command: WEB_MCP_COMMAND,
         args: webSearchMcpArgs(serviceUrl.trim()),
+        env: WEB_MCP_ENV,
+        always_load: true,
       }),
     onSuccess: async (result) => {
       await refreshMcp();
@@ -239,8 +252,8 @@ export function WebSearchSetup({
                   </SelectContent>
                 </Select>
                 <FieldDescription>
-                  Read from your OpenSSH config. {vocab.agent} uses the same keys and
-                  authentication as
+                  Read from your OpenSSH config. {vocab.agent} uses the same keys and authentication
+                  as
                   <code className="mx-1 font-mono">ssh {profileName || 'host'}</code>.
                 </FieldDescription>
                 {profiles.isSuccess && !profiles.data.length ? (

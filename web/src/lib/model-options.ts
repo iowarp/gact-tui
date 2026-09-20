@@ -145,6 +145,9 @@ function liveProviderOptions(
     health: provider.health,
   };
   if (!provider.models.length) {
+    const authenticationFailure = isAuthenticationFailure(provider.failure);
+    const needsAuthentication = (preset && !preset.is_authenticated) || authenticationFailure;
+    const isAlcf = /^argonne_/u.test(provider.id) || /\bALCF\b/iu.test(providerName);
     return [
       {
         ...shared,
@@ -153,7 +156,11 @@ function liveProviderOptions(
         label: providerName,
         available: false,
         availabilityDetail:
-          provider.failure || 'This provider reported no models to the connected agent.',
+          (needsAuthentication
+            ? authenticationFailure && isAlcf
+              ? 'Sign in to your ALCF account again.'
+              : providerStatusDetail(preset, `Sign in to ${providerName} to discover its models.`)
+            : provider.failure) || 'This provider reported no models to the connected agent.',
       },
     ];
   }
@@ -170,6 +177,12 @@ function liveProviderOptions(
         : model.failure || modelAvailabilityLabel(model.availability),
     modalities: model.modalities,
   }));
+}
+
+function isAuthenticationFailure(failure: string | null | undefined): boolean {
+  return /(?:\b401\b|unauthori[sz]ed|authentication required|sign[ -]?in required)/iu.test(
+    failure ?? '',
+  );
 }
 
 function matchesProvider(preset: LanguageModelPreset, providerId: string): boolean {

@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { providerLogoSvgs } from '../components/ai-elements/provider-logo-svgs';
+import { providerLogoUrls } from '../components/ai-elements/provider-logo-svgs';
 import { providerLogoId, providerLogoIds } from './provider-presentation';
 
 const publicLogosDir = resolve(
@@ -86,20 +86,20 @@ describe('providerLogoId', () => {
   // that check yet still render nothing (ModelSelectorLogo falls through to
   // the generic mark silently). These two close that gap directly on the
   // runtime registry.
-  it('registry_covers_every_alias_target: every id providerLogoIds resolves to is registered in providerLogoSvgs', () => {
+  it('registry_covers_every_alias_target: every id providerLogoIds resolves to is registered in providerLogoUrls', () => {
     for (const target of Object.values(providerLogoIds)) {
       expect(
-        Object.hasOwn(providerLogoSvgs, target),
-        `${target} is missing a providerLogoSvgs entry in provider-logo-svgs.ts`,
+        Object.hasOwn(providerLogoUrls, target),
+        `${target} is missing a providerLogoUrls entry in provider-logo-svgs.ts`,
       ).toBe(true);
     }
   });
 
-  it('registry_covers_every_packaged_file: every packaged provider-logos/*.svg file is registered in providerLogoSvgs', () => {
+  it('registry_covers_every_packaged_file: every packaged provider-logos/*.svg file is registered in providerLogoUrls', () => {
     for (const id of availableLogoIds()) {
       expect(
-        Object.hasOwn(providerLogoSvgs, id),
-        `${id}.svg ships in web/public/provider-logos/ but has no providerLogoSvgs entry`,
+        Object.hasOwn(providerLogoUrls, id),
+        `${id}.svg ships in web/public/provider-logos/ but has no providerLogoUrls entry`,
       ).toBe(true);
     }
   });

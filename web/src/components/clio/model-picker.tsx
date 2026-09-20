@@ -1,5 +1,5 @@
 import { ActivityIcon, EyeIcon, EyeOffIcon, RefreshCwIcon, SettingsIcon } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ModelSelector,
@@ -29,6 +29,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import type { ClioModelOption } from '@/lib/model-options';
+import { PROVIDER_VISIBILITY_CHANGED_EVENT } from '@/lib/installer-infrastructure';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 
@@ -87,6 +88,12 @@ export function ClioModelPicker({
   const [query, setQuery] = useState('');
   const [showHidden, setShowHidden] = useState(false);
   const [hiddenProviders, setHiddenProviders] = useState<Set<string>>(readHiddenProviders);
+  useEffect(() => {
+    const refreshHiddenProviders = () => setHiddenProviders(readHiddenProviders());
+    window.addEventListener(PROVIDER_VISIBILITY_CHANGED_EVENT, refreshHiddenProviders);
+    return () =>
+      window.removeEventListener(PROVIDER_VISIBILITY_CHANGED_EVENT, refreshHiddenProviders);
+  }, []);
   const showColumns = useMediaQuery('(min-width: 768px)');
   const providers = useMemo(() => {
     const grouped = Object.values(
@@ -115,11 +122,8 @@ export function ClioModelPicker({
     return initialProvider ? [providerNodeValue(initialProvider)] : [];
   });
   const visibleProviders = useMemo(
-    () =>
-      providers.filter(
-        (item) => showHidden || !hiddenProviders.has(item.id) || item.id === provider,
-      ),
-    [hiddenProviders, provider, providers, showHidden],
+    () => providers.filter((item) => showHidden || !hiddenProviders.has(item.id)),
+    [hiddenProviders, providers, showHidden],
   );
   const providerNodes = useMemo<CascaderNode<PickerNodeData>[]>(
     () =>
@@ -185,6 +189,13 @@ export function ClioModelPicker({
     setShowHidden(false);
   }
 
+  function toggleProviderVisibility(node: CascaderNode<PickerNodeData>): void {
+    if (node.data?.kind !== 'provider') return;
+    const group = node.data.group;
+    if (hiddenProviders.has(group.id)) showProvider(group);
+    else hideProvider(group);
+  }
+
   function handleOpenChange(nextOpen: boolean): void {
     setOpen(nextOpen);
     if (nextOpen) {
@@ -200,7 +211,7 @@ export function ClioModelPicker({
     <ModelSelector onOpenChange={handleOpenChange} open={open}>
       <ModelSelectorTrigger asChild>{trigger}</ModelSelectorTrigger>
       <ModelSelectorContent
-        className="h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] overflow-hidden sm:max-w-[66rem]"
+        className="h-[min(38rem,calc(100dvh-2rem))] w-[min(56rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden sm:h-[min(42rem,calc(100dvh-3rem))] sm:max-w-[56rem]"
         commandProps={{ className: 'min-h-0 p-0', shouldFilter: false }}
         title={title}
       >
@@ -236,6 +247,9 @@ export function ClioModelPicker({
               <PickerRowLabel
                 hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
                 node={node}
+                onToggleVisibility={
+                  node.data?.kind === 'provider' ? () => toggleProviderVisibility(node) : undefined
+                }
                 state={state}
               />
             )}
@@ -254,34 +268,6 @@ export function ClioModelPicker({
                   </div>
                   {activeGroup ? (
                     <div className="flex shrink-0 items-center gap-1">
-                      {activeGroup.id !== provider ? (
-                        <Button
-                          aria-label={
-                            hiddenProviders.has(activeGroup.id)
-                              ? `Show ${activeGroup.name}`
-                              : `Hide ${activeGroup.name}`
-                          }
-                          onClick={() =>
-                            hiddenProviders.has(activeGroup.id)
-                              ? showProvider(activeGroup)
-                              : hideProvider(activeGroup)
-                          }
-                          size="icon-sm"
-                          title={
-                            hiddenProviders.has(activeGroup.id)
-                              ? 'Show provider in this picker'
-                              : 'Hide provider from this picker'
-                          }
-                          type="button"
-                          variant="ghost"
-                        >
-                          {hiddenProviders.has(activeGroup.id) ? (
-                            <EyeIcon aria-hidden="true" />
-                          ) : (
-                            <EyeOffIcon aria-hidden="true" />
-                          )}
-                        </Button>
-                      ) : null}
                       <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
                         <Link
                           aria-label={`Configure ${activeGroup.name} provider`}
@@ -301,7 +287,7 @@ export function ClioModelPicker({
               {showColumns ? (
                 <CascaderColumns
                   className="w-full flex-1"
-                  columnWidth="min(32rem, calc((100vw - 3rem) / 2))"
+                  columnWidth="calc(50% - .5px)"
                   maxHeight="100%"
                 >
                   {(column) => <CascaderVirtualColumn column={column} key={column.depth} />}
@@ -314,14 +300,19 @@ export function ClioModelPicker({
               {activeGroup?.detail ? (
                 <div
                   className={cn(
-                    'shrink-0 border-t px-3 py-2 text-xs',
+                    'flex shrink-0 items-center justify-between gap-3 border-t px-3 py-2 text-xs',
                     activeGroup.health === 'degraded'
                       ? 'text-warning-foreground'
                       : 'text-muted-foreground',
                   )}
                   role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
                 >
-                  {activeGroup.detail}
+                  <span>{activeGroup.detail}</span>
+                  {activeGroup.health === 'unavailable' ? (
+                    <Button asChild className="shrink-0" size="sm" variant="secondary">
+                      <Link to={activeGroup.configurationUrl}>Set up {activeGroup.name}</Link>
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
               {hiddenProviders.size ? (
@@ -427,19 +418,22 @@ function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
 function PickerRowLabel({
   hidden,
   node,
+  onToggleVisibility,
 }: {
   hidden: boolean;
   node: CascaderNode<PickerNodeData>;
+  onToggleVisibility?: () => void;
   state: CascaderItemState<PickerNodeData>;
 }) {
   if (node.data?.kind === 'provider') {
     return (
       <span className="flex w-full min-w-0 items-center gap-2">
         <span className="min-w-0 flex-1 truncate text-start font-medium">{node.label}</span>
-        {hidden ? (
-          <EyeOffIcon aria-label="Hidden provider" className="text-muted-foreground" />
-        ) : null}
-        <ProviderHealthIndicator group={node.data.group} />
+        <ProviderVisibilityControl
+          group={node.data.group}
+          hidden={hidden}
+          onToggle={onToggleVisibility}
+        />
       </span>
     );
   }
@@ -456,28 +450,62 @@ function PickerRowLabel({
   );
 }
 
-function ProviderHealthIndicator({ group }: { group: ProviderGroup }) {
+function ProviderVisibilityControl({
+  group,
+  hidden,
+  onToggle,
+}: {
+  group: ProviderGroup;
+  hidden: boolean;
+  onToggle?: () => void;
+}) {
   const presentation = providerHealthPresentation(group.health);
+  const action = hidden ? `Show ${group.name}` : `Hide ${group.name}`;
+  const stopRowAction = (event: { preventDefault(): void; stopPropagation(): void }) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
   return (
     <HoverCard openDelay={180}>
       <HoverCardTrigger asChild>
         <span
-          aria-label={`${group.name} provider status: ${presentation.label}`}
+          aria-label={`${action}; provider status: ${presentation.label}`}
           className={cn(
-            'inline-flex size-5 shrink-0 items-center justify-center',
-            presentation.color,
+            'pointer-events-auto inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+            hidden ? 'text-muted-foreground' : presentation.color,
           )}
-          role="img"
+          data-slot="provider-visibility-toggle"
+          onClick={(event) => {
+            stopRowAction(event);
+            onToggle?.();
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            stopRowAction(event);
+            onToggle?.();
+          }}
+          onMouseDown={stopRowAction}
+          onMouseUp={stopRowAction}
+          role="button"
+          tabIndex={0}
+          title={`${action} in this picker`}
         >
-          <ActivityIcon aria-hidden="true" className="size-4" />
+          {hidden ? (
+            <EyeOffIcon aria-hidden="true" className="size-4" />
+          ) : (
+            <ActivityIcon aria-hidden="true" className="size-4" />
+          )}
         </span>
       </HoverCardTrigger>
       <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">
-        <p className="font-medium">Provider availability</p>
+        <p className="font-medium">
+          {hidden ? 'Hidden from this picker' : 'Visible in this picker'}
+        </p>
         <p>Health: {presentation.label}</p>
         <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
         {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
         {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
+        <p className="text-muted-foreground">Click to {hidden ? 'show' : 'hide'} this provider.</p>
       </HoverCardContent>
     </HoverCard>
   );

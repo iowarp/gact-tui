@@ -272,6 +272,42 @@ func TestSpawnArgvAppendsBindArgsAfterManifestArgs(t *testing.T) {
 	}
 }
 
+func TestCrashCleanupArgvPreservesRuntimeCommand(t *testing.T) {
+	rt := &resolvedRuntime{Argv: []string{"python", "-m", "clio_agent.gact"}}
+	got := crashCleanupArgv(rt)
+	want := []string{"python", "-m", "clio_agent.gact", "--cleanup-runtime-after-crash"}
+	if len(got) != len(want) {
+		t.Fatalf("argv = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("argv[%d] = %q, want %q (all: %v)", i, got[i], want[i], got)
+		}
+	}
+}
+
+func TestWindowsCrashCleanupBypassesConsoleShim(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows console-script shim behavior")
+	}
+	dir := t.TempDir()
+	shim := filepath.Join(dir, "clio-agent-gact.exe")
+	python := filepath.Join(dir, "python.exe")
+	touch(t, shim)
+	touch(t, python)
+
+	got := crashCleanupArgv(&resolvedRuntime{Argv: []string{shim}})
+	want := []string{python, "-m", "clio_agent.gact", "--cleanup-runtime-after-crash"}
+	if len(got) != len(want) {
+		t.Fatalf("argv = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("argv[%d] = %q, want %q (all: %v)", i, got[i], want[i], got)
+		}
+	}
+}
+
 func TestSpawnEnvCarriesManifestEnvAndToken(t *testing.T) {
 	rt := &resolvedRuntime{Argv: []string{"x"}, Env: map[string]string{"RUNTIME_EXTRA": "yes"}}
 	env := spawnEnv(rt, cliArgs{host: "h", port: 1, token: "secret-token"})

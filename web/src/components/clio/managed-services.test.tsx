@@ -1,6 +1,6 @@
 import { brand } from '@brand';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
@@ -17,6 +17,11 @@ const installerInfra = vi.hoisted(() => ({ installerRequestedLlamaCpp: vi.fn() }
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: () => runtime.desktop }));
 vi.mock('@/tauri/infrastructure-setup', () => deployment);
 vi.mock('@/lib/installer-infrastructure', () => installerInfra);
+vi.mock('@/tauri/ssh-credentials', () => ({
+  deleteSshPassword: vi.fn().mockResolvedValue(undefined),
+  storeSshIdentity: vi.fn(),
+  storeSshPassword: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { ManagedServices } from './managed-services';
 import type { ManagedServiceDefinition } from '@/tauri/infrastructure-setup';
@@ -30,6 +35,12 @@ const serviceLabels: Array<[ManagedServiceDefinition['id'], string]> = [
 
 const services = serviceLabels.map<ManagedServiceDefinition>(([id, label]) => ({
   id,
+  category:
+    id === 'vllm' || id === 'llama_cpp'
+      ? 'model_runtime'
+      : id === 'relay'
+        ? 'remote_access'
+        : 'scientific_service',
   label,
   description: `${label} deployment`,
   recommended_variant: `${id}-default`,
@@ -71,6 +82,7 @@ function renderServices(props: ComponentProps<typeof ManagedServices> = {}) {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   runtime.desktop = true;
   deployment.managedServiceCatalog.mockResolvedValue({
     facts: {
@@ -101,6 +113,48 @@ afterEach(() => {
 });
 
 describe('ManagedServices', () => {
+  it('summarizes services attached to the connected agent before deployment controls', async () => {
+    renderServices({
+      connectedAgentLabel: 'Ares Research',
+      connectedAgentTunnel: {
+        host: 'ares.cs.iit.edu',
+        user: 'alice',
+        remote_port: 17_800,
+        key_path: '',
+        profile: 'ares',
+      },
+      relayStatus: {
+        configured: true,
+        host: 'relay.lab.example',
+        mcp_url: 'https://relay.lab.example/mcp',
+        reachable: true,
+        details: {},
+      },
+      webSearchConnected: true,
+      webSearchConnection: {
+        name: 'web',
+        configured: true,
+        scope: 'user',
+        status: 'ready',
+        tools_count: 3,
+        tools: ['fetch', 'fetch_events', 'search'],
+        retryable: false,
+        spec: {
+          args: ['mcp-server', 'web', '--remote-url', 'http://127.0.0.1:8089'],
+        },
+      },
+    });
+
+    expect(screen.getByRole('heading', { name: 'Ares › Research' })).toBeVisible();
+    expect(screen.getByText('http://127.0.0.1:8089')).toBeVisible();
+    expect(screen.getByText('Runs on Ares')).toBeVisible();
+    expect(screen.getByText('Runs on relay.lab.example')).toBeVisible();
+    expect(screen.getByRole('button', { name: /Manage deployments/u })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
   it('separates resources from an opt-in single-provider chooser', async () => {
     const user = userEvent.setup();
     renderServices();
@@ -161,13 +215,221 @@ describe('ManagedServices', () => {
     const connect = vi.fn();
     renderServices({ onConnectWebSearch: connect, webSearchConnected: false });
 
-    expect(await screen.findByRole('button', { name: `Connect to ${brand.agentName}` })).toBeVisible();
+    expect(
+      await screen.findByRole('button', { name: `Connect to ${brand.agentName}` }),
+    ).toBeVisible();
     expect(screen.getAllByText('Running')).toHaveLength(1);
     await user.click(screen.getByRole('button', { name: `Connect to ${brand.agentName}` }));
     expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
     await user.click(screen.getByRole('button', { name: 'Check status' }));
     expect(await screen.findAllByText('Running')).toHaveLength(1);
+    expect(screen.getByText('Status refreshed on this computer.')).toBeVisible();
     expect(screen.queryByText('running')).not.toBeInTheDocument();
+  });
+
+  it('disconnects the selected Web Search deployment instead of routing to tools', async () => {
+    const user = userEvent.setup();
+    const disconnect = vi.fn();
+    renderServices({
+      onDisconnectWebSearch: disconnect,
+      webSearchConnected: true,
+      webSearchConnection: {
+        name: 'web',
+        configured: true,
+        scope: 'user',
+        status: 'ready',
+        transport: 'stdio',
+        tools_count: 3,
+        tools: ['search', 'fetch', 'fetch_events'],
+        spec: {
+          args: ['mcp-server', 'web', '--remote-url', 'http://127.0.0.1:8089'],
+        },
+        retryable: false,
+      },
+    });
+
+    const action = await screen.findByRole('button', { name: 'Disconnect' });
+    expect(screen.queryByRole('link', { name: 'View tools' })).not.toBeInTheDocument();
+    await user.click(action);
+
+    expect(disconnect).toHaveBeenCalledOnce();
+  });
+
+  it('does not call a matching but degraded Web Search configuration connected', async () => {
+    renderServices({
+      webSearchConnected: false,
+      webSearchConnection: {
+        name: 'web',
+        configured: true,
+        scope: 'user',
+        status: 'degraded',
+        transport: 'stdio',
+        tools_count: 0,
+        tools: [],
+        spec: {
+          args: ['mcp-server', 'web', '--remote-url', 'http://127.0.0.1:8089'],
+        },
+        retryable: true,
+        error: 'Web Search document conversion is not ready',
+      },
+    });
+
+    expect(await screen.findByText('Connection needs attention')).toBeVisible();
+    expect(screen.getByText('Web Search document conversion is not ready')).toBeVisible();
+    expect(screen.queryByText(`Connected to ${brand.agentName}`)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `Connect to ${brand.agentName}` })).toBeVisible();
+  });
+
+  it('shows an active status check and a completion result', async () => {
+    let resolveStatus!: (value: {
+      service_id: string;
+      action: string;
+      target: string;
+      status: string;
+      logs: string;
+    }) => void;
+    deployment.runManagedServiceAction.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveStatus = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderServices();
+
+    await user.click(await screen.findByRole('button', { name: 'Check status' }));
+    expect(screen.getByRole('button', { name: 'Checking…' })).toBeDisabled();
+
+    resolveStatus({
+      service_id: 'web_search',
+      action: 'status',
+      target: 'this computer',
+      status: 'ok',
+      logs: 'running',
+    });
+    expect(await screen.findByText('Status refreshed on this computer.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Check status' })).toBeEnabled();
+  });
+
+  it('shows a failed service action inline on the affected service', async () => {
+    deployment.runManagedServiceAction.mockRejectedValueOnce(
+      new Error('Port 8090 is already in use on Ares.'),
+    );
+    const user = userEvent.setup();
+    renderServices();
+
+    await user.click(await screen.findByRole('button', { name: 'Check status' }));
+
+    const error = await screen.findByRole('alert');
+    expect(error).toHaveTextContent('Port 8090 is already in use on Ares.');
+    expect(screen.getByRole('button', { name: 'Check status' })).toBeEnabled();
+  });
+
+  it('shows the real recent log tail in a dedicated scrollable panel', async () => {
+    deployment.runManagedServiceAction.mockResolvedValueOnce({
+      service_id: 'web_search',
+      action: 'logs',
+      target: 'this computer',
+      status: 'ok',
+      logs: 'line one\nline two',
+    });
+    const user = userEvent.setup();
+    renderServices();
+
+    await user.click(await screen.findByRole('button', { name: 'View logs' }));
+
+    const panel = await screen.findByRole('region', { name: 'CLIO Web Search recent logs' });
+    expect(panel).toHaveTextContent('Recent logs');
+    expect(panel).toHaveTextContent('Last 80 lines');
+    expect(panel).toHaveTextContent('line one');
+    expect(panel.querySelector('pre')).toHaveClass('max-h-72', 'overflow-auto');
+  });
+
+  it('does not claim a selected deployment is connected when CLIO points elsewhere', async () => {
+    const connect = vi.fn();
+    const user = userEvent.setup();
+    renderServices({
+      onConnectWebSearch: connect,
+      webSearchConnected: true,
+      webSearchConnection: {
+        name: 'web',
+        configured: true,
+        scope: 'user',
+        status: 'ready',
+        transport: 'stdio',
+        tools_count: 3,
+        tools: ['search', 'fetch', 'fetch_events'],
+        spec: {
+          args: ['mcp-server', 'web', '--remote-url', 'http://10.0.0.102:8089'],
+        },
+        retryable: false,
+      },
+    });
+
+    expect(await screen.findByText('Another Web Search deployment is connected')).toBeVisible();
+    const action = screen.getByRole('button', { name: `Connect to ${brand.agentName}` });
+    await user.click(action);
+    expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
+  });
+
+  it('blocks remote CLIO from connecting to a desktop-local service', async () => {
+    renderServices({
+      connectedAgentLabel: 'Utah CLIO',
+      connectedAgentTunnel: {
+        host: 'utah.example.edu',
+        user: 'alice',
+        remote_port: 17_800,
+        key_path: '',
+      },
+    });
+
+    expect(await screen.findByText('This connection would not be reachable')).toBeVisible();
+    expect(screen.getByText(/Utah CLIO runs remotely/u)).toHaveClass('text-destructive/90');
+    expect(screen.queryByText(`Connected to ${brand.agentName}`)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `Connect to ${brand.agentName}` })).toBeDisabled();
+  });
+
+  it('connects same-host remote CLIO through loopback on that host', async () => {
+    const user = userEvent.setup();
+    const connect = vi.fn();
+    deployment.sshProfiles.mockResolvedValue([
+      { name: 'homelab', hostname: '10.0.0.102', user: 'alice' },
+    ]);
+    deployment.managedServiceCatalog.mockResolvedValue({
+      facts: {
+        target: 'homelab',
+        os: 'linux',
+        arch: 'x86_64',
+        accelerator: 'none',
+        docker_available: true,
+        docker_installed: true,
+        uv_available: true,
+      },
+      services: services.map((service) =>
+        service.id === 'web_search'
+          ? { ...service, connection_url: 'http://10.0.0.102:8089' }
+          : service,
+      ),
+    });
+    renderServices({
+      connectedAgentLabel: 'Homelab CLIO',
+      connectedAgentTunnel: {
+        host: '10.0.0.102',
+        user: 'alice',
+        remote_port: 17_800,
+        key_path: '',
+        profile: 'homelab',
+      },
+      onConnectWebSearch: connect,
+    });
+
+    await user.click(screen.getByRole('radio', { name: /Remote host/u }));
+    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
+    await user.click(screen.getByRole('option', { name: /homelab/u }));
+    await user.click(await screen.findByRole('button', { name: `Connect to ${brand.agentName}` }));
+
+    expect(connect).toHaveBeenCalledWith('http://127.0.0.1:8089');
+    expect(screen.queryByText('This connection would not be reachable')).not.toBeInTheDocument();
   });
 
   it('keeps the infrastructure view usable while target inspection is pending', () => {
@@ -209,6 +471,34 @@ describe('ManagedServices', () => {
     expect(screen.getByText(new RegExp(`existing ${brand.agentName} services`, 'u'))).toBeVisible();
   });
 
+  it('adds a manual SSH host beside imported profiles and uses it for inspection', async () => {
+    const user = userEvent.setup();
+    renderServices();
+
+    await user.click(screen.getByRole('radio', { name: /Remote host/u }));
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+    await user.type(screen.getByLabelText('Address'), 'login.example.edu');
+    await user.clear(screen.getByLabelText('Port'));
+    await user.type(screen.getByLabelText('Port'), '2222');
+    await user.type(screen.getByLabelText('Username'), 'alice');
+    await user.type(screen.getByLabelText('Name'), 'Utah cluster');
+    await user.click(screen.getByRole('button', { name: 'Save host' }));
+
+    await waitFor(() =>
+      expect(deployment.managedServiceCatalog).toHaveBeenLastCalledWith({
+        target: 'ssh',
+        ssh_host: 'login.example.edu',
+        ssh_user: 'alice',
+        ssh_port: 2222,
+        ssh_auth_method: 'key',
+        ssh_credential_id: 'manual:alice@login.example.edu:2222',
+      }),
+    );
+    expect(screen.getByRole('combobox', { name: 'Saved SSH host' })).toHaveTextContent(
+      'Utah cluster',
+    );
+  });
+
   it('renders a recoverable error when target inspection fails', async () => {
     deployment.managedServiceCatalog.mockRejectedValue(new Error('Docker inspection stalled'));
     renderServices();
@@ -236,10 +526,10 @@ describe('ManagedServices', () => {
     const user = userEvent.setup();
     renderServices();
 
+    expect(await screen.findByText('Finish setting up your local model runtime')).toBeVisible();
     expect(
-      await screen.findByText('Finish setting up your local model runtime'),
-    ).toBeVisible();
-    expect(screen.getByLabelText(`Manage a model runtime with ${brand.agentName}`)).not.toBeChecked();
+      screen.getByLabelText(`Manage a model runtime with ${brand.agentName}`),
+    ).not.toBeChecked();
 
     await user.click(screen.getByRole('button', { name: 'Finish setup' }));
 

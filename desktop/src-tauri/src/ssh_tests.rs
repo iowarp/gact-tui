@@ -33,6 +33,11 @@ fn forwards_http_through_a_real_ssh_tunnel() {
             user,
             remote_port,
             key_path,
+            profile: String::new(),
+            port: 22,
+            local_port: None,
+            auth_method: "key".into(),
+            credential_id: String::new(),
         })
         .expect("tunnel open should succeed (ssh on PATH + reachable host)");
 
@@ -90,6 +95,11 @@ fn bad_host_does_not_forward() {
             user: "nobody".into(),
             remote_port: 18900,
             key_path: String::new(),
+            profile: String::new(),
+            port: 22,
+            local_port: None,
+            auth_method: "key".into(),
+            credential_id: String::new(),
         })
         .expect("open() returns Ok once the child is spawned");
 
@@ -124,6 +134,11 @@ fn reaping_stops_forwarding() {
             user,
             remote_port,
             key_path,
+            profile: String::new(),
+            port: 22,
+            local_port: None,
+            auth_method: "key".into(),
+            credential_id: String::new(),
         })
         .expect("tunnel open");
 

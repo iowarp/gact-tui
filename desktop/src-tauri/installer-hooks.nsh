@@ -11,10 +11,18 @@ Var ClioRemoveUserData
 Var ClioWebSearchCheckbox
 Var ClioLlamaCppCheckbox
 Var ClioKitCheckbox
+Var ClioProviderOpenAICheckbox
+Var ClioProviderAnthropicCheckbox
+Var ClioProviderGoogleCheckbox
+Var ClioProviderArgonneCheckbox
+Var ClioProviderLocalCheckbox
+Var ClioProviderOtherCheckbox
 Var ClioInstallWebSearch
 Var ClioInstallLlamaCpp
 Var ClioWebSearchStatus
 Var ClioLlamaCppStatus
+Var ClioProviderFamilies
+Var ClioProviderChoicesCaptured
 
 ; Collect the optional-infrastructure choices as a normal wizard page instead
 ; of a MessageBox fired mid-install: nsDialogs pages are deterministically
@@ -83,10 +91,38 @@ Function ClioInfrastructurePage
   ${NSD_Check} $ClioKitCheckbox
   EnableWindow $ClioKitCheckbox 0
 
+  ${NSD_CreateLabel} 0 84u 100% 12u "Providers to show in CLIO (you can add more later in Models):"
+  Pop $1
+
+  ${NSD_CreateCheckbox} 0 100u 48% 12u "OpenAI / Codex"
+  Pop $ClioProviderOpenAICheckbox
+  ${NSD_Check} $ClioProviderOpenAICheckbox
+
+  ${NSD_CreateCheckbox} 52% 100u 48% 12u "Anthropic / Claude"
+  Pop $ClioProviderAnthropicCheckbox
+  ${NSD_Uncheck} $ClioProviderAnthropicCheckbox
+
+  ${NSD_CreateCheckbox} 0 116u 48% 12u "Google AI"
+  Pop $ClioProviderGoogleCheckbox
+  ${NSD_Uncheck} $ClioProviderGoogleCheckbox
+
+  ${NSD_CreateCheckbox} 52% 116u 48% 12u "Argonne ALCF"
+  Pop $ClioProviderArgonneCheckbox
+  ${NSD_Uncheck} $ClioProviderArgonneCheckbox
+
+  ${NSD_CreateCheckbox} 0 132u 48% 12u "Local / self-hosted"
+  Pop $ClioProviderLocalCheckbox
+  ${NSD_Uncheck} $ClioProviderLocalCheckbox
+
+  ${NSD_CreateCheckbox} 52% 132u 48% 12u "Other cloud providers"
+  Pop $ClioProviderOtherCheckbox
+  ${NSD_Uncheck} $ClioProviderOtherCheckbox
+
   nsDialogs::Show
 FunctionEnd
 
 Function ClioInfrastructurePageLeave
+  StrCpy $ClioProviderChoicesCaptured "1"
   ${NSD_GetState} $ClioWebSearchCheckbox $ClioInstallWebSearch
   ${If} $ClioInstallWebSearch == ${BST_CHECKED}
     StrCpy $ClioInstallWebSearch "1"
@@ -99,6 +135,32 @@ Function ClioInfrastructurePageLeave
     StrCpy $ClioInstallLlamaCpp "1"
   ${Else}
     StrCpy $ClioInstallLlamaCpp "0"
+  ${EndIf}
+
+  StrCpy $ClioProviderFamilies ""
+  ${NSD_GetState} $ClioProviderOpenAICheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $ClioProviderFamilies "openai"
+  ${EndIf}
+  ${NSD_GetState} $ClioProviderAnthropicCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $ClioProviderFamilies "$ClioProviderFamilies,anthropic"
+  ${EndIf}
+  ${NSD_GetState} $ClioProviderGoogleCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $ClioProviderFamilies "$ClioProviderFamilies,google"
+  ${EndIf}
+  ${NSD_GetState} $ClioProviderArgonneCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $ClioProviderFamilies "$ClioProviderFamilies,argonne"
+  ${EndIf}
+  ${NSD_GetState} $ClioProviderLocalCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $ClioProviderFamilies "$ClioProviderFamilies,local"
+  ${EndIf}
+  ${NSD_GetState} $ClioProviderOtherCheckbox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $ClioProviderFamilies "$ClioProviderFamilies,other"
   ${EndIf}
 FunctionEnd
 
@@ -140,8 +202,39 @@ FunctionEnd
   Sleep 1500
 !macroend
 
+; Generated infrastructure is not user-authored session data. Remove it on
+; every uninstall even when the user keeps settings and workspaces. This also
+; sweeps the two historical layouts used by 0.9.4.x so a one-gigabyte CTE arena
+; or an old unpacked runtime cannot survive unnoticed on C:.
+!macro CLIO_REMOVE_MANAGED_STORAGE
+  ; Use the native helper for the large Python tree. It deletes independent
+  ; top-level runtime directories concurrently and stays hidden; the RMDir
+  ; calls below remain as idempotent fallback/sweeps for historical layouts.
+  DetailPrint "Removing the CLIO runtime and generated service data..."
+  nsExec::ExecToStack '"$INSTDIR\clio-desktop.exe" --remove-managed-storage'
+  Pop $0
+  Pop $1
+  RMDir /r "$INSTDIR\gact-runtime"
+  RMDir /r "$INSTDIR\data\bundled-runtime"
+  RMDir /r "$INSTDIR\data\bundled-runtime.installing"
+  RMDir /r "$INSTDIR\data\bundled-runtime.previous"
+  RMDir /r "$INSTDIR\data\clio-user\data\cte"
+  RMDir /r "$INSTDIR\data\huggingface"
+  RMDir /r "$LOCALAPPDATA\${BUNDLEID}\bundled-runtime"
+  RMDir /r "$LOCALAPPDATA\${BUNDLEID}\bundled-runtime.installing"
+  RMDir /r "$LOCALAPPDATA\${BUNDLEID}\bundled-runtime.previous"
+  RMDir /r "$LOCALAPPDATA\${BUNDLEID}\clio-user\data\cte"
+  RMDir /r "$LOCALAPPDATA\${PRODUCTNAME}\gact-runtime"
+  ; Pre-0.9.4 developer/preview builds used these fixed machine-local
+  ; directories outside the product identifier. They contain only generated
+  ; CTE/runtime state, never sessions or user-authored workspace data.
+  RMDir /r "$LOCALAPPDATA\clio-agent-r15-cte"
+  RMDir /r "$LOCALAPPDATA\clio-agent-r15-platform"
+  RMDir /r "$LOCALAPPDATA\clio-agent-r15-runtime"
+!macroend
+
 ; Every write to installer-options.json goes through this one macro so its
-; shape (schema/web_search/llama_cpp/clio_kit) is defined in exactly one place;
+; shape (schema/web_search/llama_cpp/clio_kit/provider_families) is defined here;
 ; callers set $ClioWebSearchStatus / $ClioLlamaCppStatus first. Uses
 ; ${BUNDLEID} — the identifier Tauri actually built this installer with —
 ; rather than a literal, so a brand overlay with a different identifier (see
@@ -150,11 +243,13 @@ FunctionEnd
 !macro CLIO_WRITE_INSTALLER_OPTIONS
   CreateDirectory "$LOCALAPPDATA\${BUNDLEID}"
   FileOpen $2 "$LOCALAPPDATA\${BUNDLEID}\installer-options.json" w
-  FileWrite $2 '{$\"schema$\":2,$\"web_search$\":$\"'
+  FileWrite $2 '{$\"schema$\":3,$\"web_search$\":$\"'
   FileWrite $2 $ClioWebSearchStatus
   FileWrite $2 '$\",$\"llama_cpp$\":$\"'
   FileWrite $2 $ClioLlamaCppStatus
-  FileWrite $2 '$\",$\"clio_kit$\":$\"bundled$\"}'
+  FileWrite $2 '$\",$\"clio_kit$\":$\"bundled$\",$\"provider_families$\":$\"'
+  FileWrite $2 $ClioProviderFamilies
+  FileWrite $2 '$\"}'
   FileClose $2
 !macroend
 
@@ -164,6 +259,12 @@ FunctionEnd
   ; manifest does not reliably remove. Clear only that owned subtree before an
   ; upgrade so stale Python packages cannot survive into the new runtime.
   RMDir /r "$INSTDIR\gact-runtime"
+  ; Sweep generated storage left by the old fixed-name preview installer even
+  ; on a fresh install. This keeps a D: installation from retaining a second
+  ; C:-resident CTE/runtime copy.
+  RMDir /r "$LOCALAPPDATA\clio-agent-r15-cte"
+  RMDir /r "$LOCALAPPDATA\clio-agent-r15-platform"
+  RMDir /r "$LOCALAPPDATA\clio-agent-r15-runtime"
 
   ; A silent update/passive run preserves the previous choice and does not
   ; repeat infrastructure work — ClioInfrastructurePage already Aborted for
@@ -181,6 +282,9 @@ FunctionEnd
     ${If} $ClioInstallLlamaCpp == ""
       StrCpy $ClioInstallLlamaCpp "0"
     ${EndIf}
+    ${If} $ClioProviderChoicesCaptured != "1"
+      StrCpy $ClioProviderFamilies "openai"
+    ${EndIf}
 
     ${If} $ClioInstallWebSearch == "1"
       StrCpy $ClioWebSearchStatus "pending"
@@ -197,6 +301,20 @@ FunctionEnd
 !macroend
 
 !macro NSIS_HOOK_POSTINSTALL
+  ; The runtime is shipped as one zstd archive so NSIS does not spend minutes
+  ; processing tens of thousands of Python files. Expand it here, invisibly,
+  ; before the user can launch CLIO. The executable installs it below $INSTDIR
+  ; so a D: selection includes the runtime, CTE, workspace, and model cache.
+  DetailPrint "Installing the CLIO runtime..."
+  nsExec::ExecToStack '"$INSTDIR\clio-desktop.exe" --prepare-runtime'
+  Pop $0
+  Pop $1
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP|MB_OK "CLIO could not install its bundled runtime. The installation will stop so the application is not left partially configured."
+    Abort
+  ${EndIf}
+  DetailPrint "CLIO runtime installed."
+
   ${If} $ClioInstallWebSearch == "1"
     DetailPrint "Checking Docker for the recommended CLIO Search service..."
     nsExec::ExecToStack 'docker info'
@@ -242,16 +360,17 @@ FunctionEnd
 
 !macro NSIS_HOOK_PREUNINSTALL
   !insertmacro CLIO_STOP_MANAGED_RUNTIME
-  RMDir /r "$INSTDIR\gact-runtime"
+  !insertmacro CLIO_REMOVE_MANAGED_STORAGE
 !macroend
 
 !macro NSIS_HOOK_POSTUNINSTALL
   ; Keep this as a final idempotent sweep in case Windows released a loaded
   ; runtime file only after the generated uninstall section ran.
-  RMDir /r "$INSTDIR\gact-runtime"
-  RMDir "$INSTDIR"
+  !insertmacro CLIO_REMOVE_MANAGED_STORAGE
   ${If} $ClioRemoveUserData == ${BST_CHECKED}
+    RMDir /r "$INSTDIR\data"
     RMDir /r "$LOCALAPPDATA\${BUNDLEID}"
     RMDir /r "$APPDATA\${BUNDLEID}"
   ${EndIf}
+  RMDir "$INSTDIR"
 !macroend

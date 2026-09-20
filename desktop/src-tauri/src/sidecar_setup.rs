@@ -14,15 +14,33 @@ pub(crate) const HF_HUB_CACHE_ENV: &str = "HF_HUB_CACHE";
 pub(crate) const HF_XET_CACHE_ENV: &str = "HF_XET_CACHE";
 pub(crate) const CLIO_USER_DIR_ENV: &str = "CLIO_USER_DIR";
 
+/// Select the root for managed, potentially large desktop state.
+///
+/// A Windows user can deliberately choose a non-system drive in the NSIS
+/// directory page. Keeping the runtime, model cache, workspace, and CTE arena
+/// under that selected directory makes the choice real instead of installing
+/// only the small shell there while silently filling C:. If the chosen install
+/// directory is not writable (for example a machine-wide Program Files
+/// install), fall back to Tauri's per-user data root.
+pub(crate) fn prepare_managed_storage_root(
+    resource_dir: &Path,
+    app_local_data_dir: &Path,
+) -> io::Result<PathBuf> {
+    #[cfg(windows)]
+    {
+        let selected_drive_root = resource_dir.join("data");
+        if fs::create_dir_all(&selected_drive_root).is_ok() {
+            return Ok(selected_drive_root);
+        }
+    }
+
+    fs::create_dir_all(app_local_data_dir)?;
+    Ok(app_local_data_dir.to_path_buf())
+}
+
 pub(crate) fn bundled_runtime_dir(resource_dir: &Path) -> Option<PathBuf> {
     let runtime = resource_dir.join("gact-runtime");
     runtime.is_dir().then_some(runtime)
-}
-
-pub(crate) fn install_bundled_runtime_env(resource_dir: &Path) -> Option<PathBuf> {
-    let runtime = bundled_runtime_dir(resource_dir)?;
-    std::env::set_var(BUNDLED_RUNTIME_ENV, &runtime);
-    Some(runtime)
 }
 
 pub(crate) fn model_cache_dir(app_cache_dir: &Path) -> PathBuf {
@@ -138,6 +156,20 @@ mod tests {
     fn desktop_user_state_is_scoped_to_platform_app_data() {
         let app_data = Path::new("platform-data");
         assert_eq!(desktop_user_dir(app_data), app_data.join("clio-user"));
+    }
+
+    #[test]
+    fn managed_storage_prefers_the_selected_install_directory() {
+        let root = temp_case("managed-storage");
+        let resources = root.join("selected-drive/CLIO Desktop");
+        let fallback = root.join("fallback");
+        fs::create_dir_all(&resources).unwrap();
+        let selected = prepare_managed_storage_root(&resources, &fallback).unwrap();
+        #[cfg(windows)]
+        assert_eq!(selected, resources.join("data"));
+        #[cfg(not(windows))]
+        assert_eq!(selected, fallback);
+        let _ = fs::remove_dir_all(root);
     }
 
     /// Both branches in one test: these are process-wide environment variables,

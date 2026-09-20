@@ -2,16 +2,19 @@ import { ClioRepository } from '@clio/core/v3';
 import { BrowserClioTransport } from './transport/browser-transport';
 import { inTauri } from './transport/tauri-runtime';
 import { TauriClioTransport } from './transport/tauri-transport';
+import type { SshTunnelSettings } from '@/tauri/ssh-tunnel';
 
 export interface ConnectionSettings {
   endpoint: string;
   token?: string;
   label?: string;
+  tunnel?: SshTunnelSettings;
 }
 
 export interface SavedConnection {
   endpoint: string;
   label?: string;
+  tunnel?: SshTunnelSettings;
 }
 
 export const DEFAULT_ENDPOINT = 'http://127.0.0.1:8787';

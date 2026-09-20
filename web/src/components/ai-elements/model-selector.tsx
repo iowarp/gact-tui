@@ -12,7 +12,7 @@ import {
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { ComponentProps, ReactNode } from 'react';
-import { GENERIC_PROVIDER_LOGO_ID, providerLogoSvgs } from './provider-logo-svgs';
+import { GENERIC_PROVIDER_LOGO_ID, providerLogoUrls } from './provider-logo-svgs';
 
 export type ModelSelectorProps = ComponentProps<typeof Dialog>;
 
@@ -157,26 +157,34 @@ export const ModelSelectorLogo = ({ provider, className, ...props }: ModelSelect
   // Object.hasOwn guards this lookup against an arbitrary provider string
   // ("constructor", "toString", "__proto__", ...) resolving to an inherited
   // Object.prototype member instead of falling back to the generic mark.
-  const svg = Object.hasOwn(providerLogoSvgs, provider)
-    ? providerLogoSvgs[provider]
-    : providerLogoSvgs[GENERIC_PROVIDER_LOGO_ID];
+  const logoUrl = Object.hasOwn(providerLogoUrls, provider)
+    ? providerLogoUrls[provider]
+    : providerLogoUrls[GENERIC_PROVIDER_LOGO_ID];
 
   return (
     <span
       {...props}
       aria-label={`${provider} logo`}
       className={cn(
-        'inline-grid size-5 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground [&_svg]:size-3.5',
+        'inline-grid size-5 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground',
         className,
       )}
       data-provider-logo=""
-      // Inlining our own packaged, build-time-bundled SVG source (never user
-      // input) is what lets fill="currentColor" pick up the surrounding
-      // theme color; see provider-logo-svgs.ts.
-      dangerouslySetInnerHTML={{ __html: svg }}
       role="img"
       title={`${provider} provider`}
-    />
+    >
+      <span
+        aria-hidden="true"
+        className="size-3.5 bg-current"
+        data-provider-logo-mask={logoUrl}
+        style={{
+          maskImage: `url(${logoUrl})`,
+          maskPosition: 'center',
+          maskRepeat: 'no-repeat',
+          maskSize: 'contain',
+        }}
+      />
+    </span>
   );
 };
 

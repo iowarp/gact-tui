@@ -48,6 +48,7 @@ pub(crate) fn spawn_and_probe(
     launcher: &Path,
     working_dir: Option<&Path>,
     user_dir: Option<&Path>,
+    bundled_runtime: Option<&Path>,
 ) -> Result<(BackendHandle, Child), SpawnError> {
     let port = pick_free_port().map_err(|e| format!("port allocation failed: {e}"))?;
     let token = generate_token();
@@ -56,7 +57,14 @@ pub(crate) fn spawn_and_probe(
     boot_log_line(&format!(
         "spawning launcher {launcher:?} on {LAUNCHER_HOST}:{port}"
     ));
-    let mut command = launcher_spawn_command(launcher, port, &token, working_dir, user_dir);
+    let mut command = launcher_spawn_command(
+        launcher,
+        port,
+        &token,
+        working_dir,
+        user_dir,
+        bundled_runtime,
+    );
 
     #[cfg(unix)]
     {

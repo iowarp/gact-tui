@@ -53,7 +53,30 @@ impl SupervisorState {
     }
 
     pub fn snapshot(&self) -> BackendHandle {
-        lock_recover(&self.inner).handle.clone()
+        let mut guard = lock_recover(&self.inner);
+        if let Some(child) = guard.child.as_mut() {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let message = format!(
+                        "The desktop-managed CLIO service exited unexpectedly (code {:?}).",
+                        status.code()
+                    );
+                    boot_log_line(&format!(
+                        "managed backend exited after readiness (code {:?})",
+                        status.code()
+                    ));
+                    guard.child = None;
+                    guard.handle.status = BackendStatus::Error(message);
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    boot_log_line(&format!(
+                        "warning: could not inspect managed backend process: {error}"
+                    ));
+                }
+            }
+        }
+        guard.handle.clone()
     }
 
     pub fn set_error(&self, msg: String) {
@@ -167,6 +190,41 @@ mod tests {
         let handle = state.snapshot();
         assert_eq!(handle.url, "http://127.0.0.1:17800");
         assert!(matches!(handle.status, BackendStatus::Ready));
+    }
+
+    #[test]
+    fn snapshot_turns_an_exited_owned_child_into_a_recoverable_error() {
+        use std::thread;
+        use std::time::Duration;
+
+        #[cfg(windows)]
+        let child = std::process::Command::new("cmd")
+            .args(["/C", "exit", "23"])
+            .spawn()
+            .expect("spawn exiting child");
+        #[cfg(not(windows))]
+        let child = std::process::Command::new("sh")
+            .args(["-c", "exit 23"])
+            .spawn()
+            .expect("spawn exiting child");
+
+        let state = SupervisorState::new_starting();
+        state.set_handle_and_child(
+            BackendHandle {
+                url: "http://127.0.0.1:17800".into(),
+                bearer_token: "token".into(),
+                status: BackendStatus::Ready,
+            },
+            child,
+        );
+        thread::sleep(Duration::from_millis(100));
+
+        let handle = state.snapshot();
+        assert!(matches!(
+            handle.status,
+            BackendStatus::Error(ref detail)
+                if detail.contains("exited unexpectedly") && detail.contains("23")
+        ));
     }
 
     /// Spawn a quiet long-running child the test can use as a stand-in for
