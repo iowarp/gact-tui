@@ -165,14 +165,35 @@ describe('ClioModelPicker', () => {
     await user.click(screen.getByRole('button', { name: 'Change model' }));
     expect(screen.queryByText('Ready')).not.toBeInTheDocument();
 
-    const status = screen.getByRole('button', {
-      name: 'Hide Codex; provider status: Ready',
-    });
+    const status = screen.getByTitle('Codex status: Ready');
+    expect(status).toHaveAttribute('aria-hidden', 'true');
     expect(status).toHaveClass('text-success');
     expect(status.querySelector('svg')).toBeInTheDocument();
     await user.hover(status);
-    expect(await screen.findByText('Visible in this picker')).toBeVisible();
+    expect(await screen.findByText('Provider status')).toBeVisible();
     expect(screen.getByText('Health: Ready')).toBeVisible();
+    expect(screen.getByText('Use Manage visibility to show or hide providers.')).toBeVisible();
+  });
+
+  it('does not hide a provider when its heartbeat is clicked outside visibility mode', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={options}
+          provider="codex"
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByTitle('Codex status: Ready'));
+
+    expect(screen.getByText('Codex')).toBeVisible();
+    expect(window.localStorage.getItem('clio.hidden-providers.v1')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Hide Codex/ })).not.toBeInTheDocument();
   });
 
   it('reflows to drill navigation instead of compressing columns on a narrow viewport', async () => {
@@ -279,11 +300,7 @@ describe('ClioModelPicker', () => {
       'href',
       '/settings/providers?provider=alcf',
     );
-    expect(
-      screen.getByRole('button', {
-        name: 'Hide ALCF Metis; provider status: Unavailable',
-      }),
-    ).toBeVisible();
+    expect(screen.getByTitle('ALCF Metis status: Unavailable')).toBeVisible();
   });
 
   it('persists hidden providers and offers a reveal control', async () => {
@@ -300,6 +317,7 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByRole('button', { name: 'Manage provider visibility' }));
     await user.click(screen.getByText('Local vLLM'));
     await user.click(screen.getByRole('button', { name: /Hide Local vLLM/ }));
     expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([
@@ -385,6 +403,7 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByRole('button', { name: 'Manage provider visibility' }));
     await user.click(screen.getByText('Local vLLM'));
     await user.click(screen.getByRole('button', { name: /Hide Local vLLM/ }));
 

@@ -86,6 +86,7 @@ export function ClioModelPicker({
 }: ClioModelPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [managingVisibility, setManagingVisibility] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [hiddenProviders, setHiddenProviders] = useState<Set<string>>(readHiddenProviders);
   useEffect(() => {
@@ -204,7 +205,14 @@ export function ClioModelPicker({
       return;
     }
     setQuery('');
+    setManagingVisibility(false);
     setShowHidden(false);
+  }
+
+  function toggleVisibilityManagement(): void {
+    const next = !managingVisibility;
+    setManagingVisibility(next);
+    setShowHidden(next && hiddenProviders.size > 0);
   }
 
   return (
@@ -246,9 +254,12 @@ export function ClioModelPicker({
             renderLabel={(node, state) => (
               <PickerRowLabel
                 hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
+                managingVisibility={managingVisibility}
                 node={node}
                 onToggleVisibility={
-                  node.data?.kind === 'provider' ? () => toggleProviderVisibility(node) : undefined
+                  managingVisibility && node.data?.kind === 'provider'
+                    ? () => toggleProviderVisibility(node)
+                    : undefined
                 }
                 state={state}
               />
@@ -268,6 +279,30 @@ export function ClioModelPicker({
                   </div>
                   {activeGroup ? (
                     <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        aria-label={
+                          hiddenProviders.size
+                            ? `Manage provider visibility, ${hiddenProviders.size} hidden`
+                            : 'Manage provider visibility'
+                        }
+                        aria-pressed={managingVisibility}
+                        data-slot="provider-visibility-mode"
+                        onClick={toggleVisibilityManagement}
+                        size="icon-sm"
+                        title={
+                          managingVisibility
+                            ? 'Finish managing provider visibility'
+                            : 'Manage provider visibility'
+                        }
+                        type="button"
+                        variant={managingVisibility ? 'secondary' : 'ghost'}
+                      >
+                        {managingVisibility ? (
+                          <EyeOffIcon aria-hidden="true" />
+                        ) : (
+                          <EyeIcon aria-hidden="true" />
+                        )}
+                      </Button>
                       <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
                         <Link
                           aria-label={`Configure ${activeGroup.name} provider`}
@@ -315,7 +350,7 @@ export function ClioModelPicker({
                   ) : null}
                 </div>
               ) : null}
-              {hiddenProviders.size ? (
+              {managingVisibility && hiddenProviders.size ? (
                 <CascaderFooter className="min-h-11 flex-row items-center gap-1 px-2">
                   <div className="flex min-w-0 items-center gap-1">
                     <Button
@@ -417,10 +452,12 @@ function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
 
 function PickerRowLabel({
   hidden,
+  managingVisibility,
   node,
   onToggleVisibility,
 }: {
   hidden: boolean;
+  managingVisibility: boolean;
   node: CascaderNode<PickerNodeData>;
   onToggleVisibility?: () => void;
   state: CascaderItemState<PickerNodeData>;
@@ -432,6 +469,7 @@ function PickerRowLabel({
         <ProviderVisibilityControl
           group={node.data.group}
           hidden={hidden}
+          managingVisibility={managingVisibility}
           onToggle={onToggleVisibility}
         />
       </span>
@@ -453,14 +491,17 @@ function PickerRowLabel({
 function ProviderVisibilityControl({
   group,
   hidden,
+  managingVisibility,
   onToggle,
 }: {
   group: ProviderGroup;
   hidden: boolean;
+  managingVisibility: boolean;
   onToggle?: () => void;
 }) {
   const presentation = providerHealthPresentation(group.health);
   const action = hidden ? `Show ${group.name}` : `Hide ${group.name}`;
+  const interactive = managingVisibility && onToggle !== undefined;
   const stopRowAction = (event: { preventDefault(): void; stopPropagation(): void }) => {
     event.preventDefault();
     event.stopPropagation();
@@ -469,26 +510,31 @@ function ProviderVisibilityControl({
     <HoverCard openDelay={180}>
       <HoverCardTrigger asChild>
         <span
-          aria-label={`${action}; provider status: ${presentation.label}`}
+          {...(interactive
+            ? { 'aria-label': `${action}; provider status: ${presentation.label}` }
+            : { 'aria-hidden': true })}
           className={cn(
-            'pointer-events-auto inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+            'pointer-events-auto inline-flex size-6 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+            interactive ? 'cursor-pointer hover:bg-accent' : 'cursor-help',
             hidden ? 'text-muted-foreground' : presentation.color,
           )}
           data-slot="provider-visibility-toggle"
           onClick={(event) => {
             stopRowAction(event);
-            onToggle?.();
+            if (interactive) onToggle();
           }}
           onKeyDown={(event) => {
             if (event.key !== 'Enter' && event.key !== ' ') return;
             stopRowAction(event);
-            onToggle?.();
+            if (interactive) onToggle();
           }}
           onMouseDown={stopRowAction}
           onMouseUp={stopRowAction}
-          role="button"
-          tabIndex={0}
-          title={`${action} in this picker`}
+          role={interactive ? 'button' : 'presentation'}
+          tabIndex={interactive ? 0 : -1}
+          title={
+            interactive ? `${action} in this picker` : `${group.name} status: ${presentation.label}`
+          }
         >
           {hidden ? (
             <EyeOffIcon aria-hidden="true" className="size-4" />
@@ -499,13 +545,21 @@ function ProviderVisibilityControl({
       </HoverCardTrigger>
       <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">
         <p className="font-medium">
-          {hidden ? 'Hidden from this picker' : 'Visible in this picker'}
+          {interactive
+            ? hidden
+              ? 'Hidden from this picker'
+              : 'Visible in this picker'
+            : 'Provider status'}
         </p>
         <p>Health: {presentation.label}</p>
         <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
         {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
         {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
-        <p className="text-muted-foreground">Click to {hidden ? 'show' : 'hide'} this provider.</p>
+        <p className="text-muted-foreground">
+          {interactive
+            ? `Click to ${hidden ? 'show' : 'hide'} this provider.`
+            : 'Use Manage visibility to show or hide providers.'}
+        </p>
       </HoverCardContent>
     </HoverCard>
   );
