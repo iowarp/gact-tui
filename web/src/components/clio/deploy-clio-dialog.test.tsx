@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { vocab } from '@/lib/brand-vocabulary';
 
 const mocks = vi.hoisted(() => ({
   deployClio: vi.fn(),
@@ -62,8 +63,8 @@ describe('DeployClioDialog', () => {
       status: { kind: 'ready' },
     });
 
-    await user.click(screen.getByRole('button', { name: 'Deploy CLIO' }));
-    await user.click(screen.getByRole('button', { name: 'Use local CLIO' }));
+    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
+    await user.click(screen.getByRole('button', { name: `Use local ${vocab.agent}` }));
 
     await waitFor(() =>
       expect(onReady).toHaveBeenCalledWith({
@@ -89,8 +90,8 @@ describe('DeployClioDialog', () => {
       status: { kind: 'ready' },
     });
 
-    await user.click(screen.getByRole('button', { name: 'Deploy CLIO' }));
-    await user.click(screen.getByRole('button', { name: 'Use local CLIO' }));
+    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
+    await user.click(screen.getByRole('button', { name: `Use local ${vocab.agent}` }));
 
     await waitFor(() => expect(onReady).toHaveBeenCalledOnce());
     expect(mocks.retryManagedBackend).toHaveBeenCalledOnce();
@@ -108,7 +109,7 @@ describe('DeployClioDialog', () => {
       status: 'installed',
     });
 
-    await user.click(screen.getByRole('button', { name: 'Deploy CLIO' }));
+    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
     await user.click(screen.getByRole('radio', { name: /Remote host/u }));
     await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
     await user.click(screen.getByRole('option', { name: /homelab/u }));
@@ -148,7 +149,7 @@ describe('DeployClioDialog', () => {
       status: 'installed',
     });
 
-    await user.click(screen.getByRole('button', { name: 'Deploy CLIO' }));
+    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
     await user.click(screen.getByRole('radio', { name: /Remote host/u }));
     await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
     await user.click(screen.getByRole('option', { name: /homelab/u }));
@@ -173,7 +174,7 @@ describe('DeployClioDialog', () => {
     renderDialog();
     mocks.deployClio.mockRejectedValue('Python 3.12 is required on the remote host.');
 
-    await user.click(screen.getByRole('button', { name: 'Deploy CLIO' }));
+    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
     await user.click(screen.getByRole('radio', { name: /Remote host/u }));
     await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
     await user.click(screen.getByRole('option', { name: /homelab/u }));

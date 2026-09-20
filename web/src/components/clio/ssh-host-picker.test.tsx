@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { vocab } from '@/lib/brand-vocabulary';
 
 const infrastructure = vi.hoisted(() => ({
   preflightTarget: vi.fn(),
@@ -101,7 +102,7 @@ describe('SshHostPicker', () => {
     await user.type(screen.getByLabelText('Address'), 'ares.example.edu');
     await user.click(screen.getByText('Advanced host settings'));
     await user.type(
-      screen.getByLabelText('CLIO install and runtime location'),
+      screen.getByLabelText(`${vocab.agent} install and runtime location`),
       '/mnt/common/alice/clio',
     );
     await user.click(screen.getByRole('button', { name: 'Save host' }));

@@ -117,7 +117,7 @@ it('shows agent identity as location followed by the branded agent name', async 
           recentConnections={[
             {
               endpoint: 'http://127.0.0.1:17800',
-              label: 'Homelab CLIO',
+              label: `Homelab ${brand.agentName}`,
               tunnel: {
                 host: '10.0.0.102',
                 user: 'alice',
