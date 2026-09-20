@@ -112,12 +112,24 @@ pub fn update_bundled_clio<R, F>(
         return;
     }
     let program = uv.to_string_lossy().into_owned();
-    let args = vec![
+    let args = bundled_update_args(&python, &version);
+    let verify_script = bundled_update_verify_script(&version);
+    let verify = Some((
+        python.to_string_lossy().into_owned(),
+        vec!["-c".to_string(), verify_script],
+    ));
+    run_install_command(app, program, args, verify, on_success);
+}
+
+fn bundled_update_args(python: &Path, version: &str) -> Vec<String> {
+    vec![
         "pip".to_string(),
         "install".to_string(),
         "--python".to_string(),
         python.to_string_lossy().into_owned(),
         "--upgrade".to_string(),
+        "--reinstall-package".to_string(),
+        "clio-agent".to_string(),
         format!("clio-agent=={version}"),
         "clio-kit==2.10.6".to_string(),
         "globus-sdk>=3.0.0".to_string(),
@@ -125,15 +137,13 @@ pub fn update_bundled_clio<R, F>(
         "fastmcp==4.0.0b5".to_string(),
         "fastmcp-slim==4.0.0b5".to_string(),
         "fastmcp-tasks==4.0.0b5".to_string(),
-    ];
-    let verify_script = format!(
-        "import importlib.metadata as m,sys; actual=m.version('clio-agent'); print(actual); sys.exit(0 if actual == '{version}' else 1)"
-    );
-    let verify = Some((
-        python.to_string_lossy().into_owned(),
-        vec!["-c".to_string(), verify_script],
-    ));
-    run_install_command(app, program, args, verify, on_success);
+    ]
+}
+
+fn bundled_update_verify_script(version: &str) -> String {
+    format!(
+        "from pathlib import Path; import importlib.util as u,importlib.metadata as m,shutil,sys; spec=u.find_spec('clio_agent'); root=Path(spec.origin).parent if spec and spec.origin else None; metadata=list(root.parent.glob('clio_agent-*.dist-info')) if root else []; target=next((path for path in metadata if path.name.lower() == 'clio_agent-{version}.dist-info'),None); [shutil.rmtree(path,ignore_errors=True) for path in metadata if target and path != target]; [shutil.rmtree(path,ignore_errors=True) for path in root.rglob('__pycache__')] if root else None; import clio_agent; actual=str(getattr(clio_agent,'__version__','')); installed={{d.version for d in m.distributions(name='clio-agent')}}; print(actual); sys.exit(0 if target and actual == '{version}' and installed == {{'{version}'}} else 1)"
+    )
 }
 
 /// Locate the package manager shipped with the relocatable runtime.
@@ -282,8 +292,8 @@ fn stream_lines<R: tauri::Runtime, B: BufRead>(
 
 #[cfg(test)]
 mod tests {
-    use super::bundled_uv_path;
-    use std::fs;
+    use super::{bundled_update_args, bundled_update_verify_script, bundled_uv_path};
+    use std::{fs, path::Path};
 
     #[test]
     fn bundled_uv_path_prefers_the_packaged_bin_directory() {
@@ -309,5 +319,25 @@ mod tests {
         assert_eq!(bundled_uv_path(&root, "uv-test"), root.join("uv-test"));
 
         fs::remove_dir_all(root).expect("remove test runtime");
+    }
+
+    #[test]
+    fn bundled_update_force_reinstalls_clio_agent() {
+        let args = bundled_update_args(Path::new("C:/runtime/python/python.exe"), "0.9.4.9");
+
+        assert!(args
+            .windows(2)
+            .any(|pair| { pair == ["--reinstall-package".to_string(), "clio-agent".to_string()] }));
+        assert!(args.contains(&"clio-agent==0.9.4.9".to_string()));
+    }
+
+    #[test]
+    fn bundled_update_verifies_imported_code_and_unique_distribution() {
+        let script = bundled_update_verify_script("0.9.4.9");
+
+        assert!(script.contains("target and path != target"));
+        assert!(script.contains("root.rglob('__pycache__')"));
+        assert!(script.contains("clio_agent,'__version__'"));
+        assert!(script.contains("installed == {'0.9.4.9'}"));
     }
 }

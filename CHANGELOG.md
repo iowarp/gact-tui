@@ -4,6 +4,14 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.9] — 2026-09-20
+
+### Fixed
+
+- Force-reinstall managed CLIO updates, discard stale package metadata and
+  bytecode left by older bundled runtimes, and verify the version Python
+  actually imports before reporting a successful update.
+
 ## [0.11.2.8] — 2026-09-20
 
 ### Fixed
