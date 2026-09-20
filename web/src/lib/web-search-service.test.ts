@@ -14,7 +14,7 @@ describe('web search deployment contract', () => {
       'docker run --detach --name clio-web-search --restart unless-stopped' +
         ' --publish 127.0.0.1:8089:8080' +
         ' --volume clio-web-search-data:/var/lib/clio-web-search' +
-        ' ghcr.io/iowarp/clio-web-search:0.3.0',
+        ' ghcr.io/iowarp/clio-web-search:0.3.1',
     );
   });
 
@@ -30,7 +30,7 @@ describe('web search deployment contract', () => {
         ' --publish 0.0.0.0:8089:8080' +
         ' --env CLIO_WEB_SEARCH_CONTACT_EMAIL=a+tag@example.org' +
         ' --volume clio-web-search-data:/var/lib/clio-web-search' +
-        ' ghcr.io/iowarp/clio-web-search:0.3.0',
+        ' ghcr.io/iowarp/clio-web-search:0.3.1',
     );
   });
 

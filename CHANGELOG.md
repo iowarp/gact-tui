@@ -4,6 +4,14 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.12] — 2026-09-20
+
+### Fixed
+
+- Deploy CLIO Web Search 0.3.1 so remote services retain clean shutdown
+  semantics and have a working general-search fallback on university and HPC
+  networks where the previous engines are blocked.
+
 ## [0.11.2.11] — 2026-09-20
 
 ### Fixed

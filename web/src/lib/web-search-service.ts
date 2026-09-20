@@ -24,7 +24,7 @@ export const WEB_MCP_COMMAND = 'clio-kit';
 export const WEB_MCP_ENV = { WEB_STATE_DIR: '.clio-child-cache/web-mcp-state' } as const;
 
 /** Container image the service runs from, tag included. */
-export const WEB_SEARCH_IMAGE = 'ghcr.io/iowarp/clio-web-search:0.3.0';
+export const WEB_SEARCH_IMAGE = 'ghcr.io/iowarp/clio-web-search:0.3.1';
 
 /** Container name the desktop host inspects, starts, and creates. */
 export const WEB_SEARCH_CONTAINER = 'clio-web-search';

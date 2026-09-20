@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 use crate::ssh_auth::{append_auth_arguments, configure_askpass};
 
-const WEB_IMAGE: &str = "ghcr.io/iowarp/clio-web-search:0.3.0";
+const WEB_IMAGE: &str = "ghcr.io/iowarp/clio-web-search:0.3.1";
 const CLIO_AGENT_VERSION: &str = "0.9.4.2";
 const CLIO_AGENT_PORT: u16 = 17800;
 const LLAMA_CPU_IMAGE: &str = "ghcr.io/ggml-org/llama.cpp:server-b10621";
@@ -316,7 +316,7 @@ impl Driver {
                     ServiceVariant {
                         id: "native-windows-cpu".into(),
                         label: "Windows CPU (native)".into(),
-                        version: "v0.3.0".into(),
+                        version: "v0.3.1".into(),
                         install_type: "native_archive".into(),
                         artifact: LLAMA_WINDOWS_CPU_ARCHIVE.into(),
                         compatible: facts.target == "This computer"
@@ -327,7 +327,7 @@ impl Driver {
                     variant(
                         "vulkan",
                         "Vulkan",
-                        "v0.3.0",
+                        "v0.3.1",
                         LLAMA_VULKAN_IMAGE,
                         docker && linux && facts.accelerator == "amd",
                         "Requires Linux and a Vulkan-capable AMD GPU.",
@@ -335,7 +335,7 @@ impl Driver {
                     variant(
                         "cpu",
                         "CPU",
-                        "v0.3.0",
+                        "v0.3.1",
                         LLAMA_CPU_IMAGE,
                         docker,
                         "Portable CPU container.",
@@ -357,7 +357,7 @@ impl Driver {
                 vec![variant(
                     "container",
                     "Docker",
-                    "0.3.0",
+                    "0.3.1",
                     WEB_IMAGE,
                     docker,
                     if facts.docker_installed {
