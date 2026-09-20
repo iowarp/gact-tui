@@ -237,7 +237,7 @@ function ModelsSettingsContent({
   const authenticate = useMutation({
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
-      return repository.authenticateProvider(presetId);
+      return repository.authenticateProvider(presetId, { force: true });
     },
     onSuccess: (result) => setAuthInstructions(result.instructions),
   });

@@ -152,6 +152,53 @@ describe('ModelsSettings', () => {
     expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
   });
 
+  it('forces a fresh interactive login when the user signs in to ALCF', async () => {
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      configured: false,
+      provider: 'argonne',
+      api_base: 'https://inference-api.alcf.anl.gov/resource_server/metis/api/v1',
+      model: 'gpt-oss-120b',
+      presets: [
+        {
+          id: 'argonne_metis',
+          label: 'ALCF Metis',
+          provider: 'argonne',
+          api_base: 'https://inference-api.alcf.anl.gov/resource_server/metis/api/v1',
+          suggested_model: 'gpt-oss-120b',
+          requires_api_key: false,
+          is_authenticated: false,
+          auth_method: 'oauth',
+          status: 'auth_required',
+          supports_live_catalog: true,
+          supports_vision: false,
+        },
+      ],
+    });
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'argonne_metis',
+      is_authenticated: false,
+      instructions: 'Complete the ALCF login in the opened terminal.',
+    });
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter initialEntries={['/settings/providers?provider=argonne_metis']}>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Sign in to ALCF Metis' }));
+
+    await waitFor(() =>
+      expect(repository.authenticateProvider).toHaveBeenCalledWith('argonne_metis', {
+        force: true,
+      }),
+    );
+    expect(await screen.findByText(/Complete the ALCF login/)).toBeVisible();
+  });
+
   it('never writes a maximum token cap the service did not report', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
