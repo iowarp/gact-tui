@@ -176,15 +176,15 @@ export function ClioNavigation({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
-                  <SidebarMenuItem>
-                    <SidebarMenuButton asChild tooltip="Settings">
+                  <SidebarMenuItem className="flex items-center gap-1">
+                    <SidebarMenuButton asChild className="min-w-0 flex-1" tooltip="Settings">
                       <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
                         <Settings2Icon aria-hidden="true" />
                         <span>Settings</span>
                       </Link>
                     </SidebarMenuButton>
+                    <NavigationVersionStatus />
                   </SidebarMenuItem>
-                  <NavigationVersionStatus />
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

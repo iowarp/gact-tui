@@ -55,7 +55,9 @@ function renderStatus() {
     <QueryClientProvider client={client}>
       <SidebarProvider>
         <ul>
-          <NavigationVersionStatus />
+          <li>
+            <NavigationVersionStatus />
+          </li>
         </ul>
       </SidebarProvider>
     </QueryClientProvider>,

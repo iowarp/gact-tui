@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { Frame, FramePanel } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { SidebarMenuButton } from '@/components/ui/sidebar';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
@@ -129,92 +129,90 @@ export function NavigationVersionStatus() {
         if (open) void checkForDesktopUpdate().catch(() => undefined);
       }}
     >
-      <SidebarMenuItem>
-        <PopoverTrigger asChild>
-          <SidebarMenuButton aria-label={statusLabel} tooltip={statusLabel}>
-            <VersionStateIcon state={state} />
-            <span className="font-mono text-xs">
-              {displayedDesktopVersion ? `v${displayedDesktopVersion}` : 'Version'}
-            </span>
-          </SidebarMenuButton>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-80" side="right">
-          <VersionCard
-            currentVersion={displayedDesktopVersion}
-            icon={MonitorIcon}
-            label={vocab.product}
-            onOpenRelease={
-              brand.desktopReleaseUrl && displayedDesktopVersion
-                ? () =>
-                    void openExternalUrl(
-                      `${brand.desktopReleaseUrl}/tag/${releaseTag(displayedDesktopVersion)}`,
-                    )
-                : undefined
-            }
-            onUpdate={
-              desktopUpdateAvailable && !agentUpdateAvailable
-                ? () => void performUpdate('desktop')
-                : undefined
-            }
-            state={
-              desktopUpdateAvailable
-                ? 'available'
-                : snapshot.status === 'error'
-                  ? 'error'
-                  : 'current'
-            }
-            targetVersion={desktopUpdateAvailable ? targetVersion : undefined}
-            updating={updating === 'desktop'}
-          />
-          <VersionCard
-            currentVersion={agentVersion}
-            icon={PackageIcon}
-            label={vocab.agent}
-            onOpenRelease={
-              brand.agentReleaseUrl && agentVersion
-                ? () =>
-                    void openExternalUrl(`${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`)
-                : undefined
-            }
-            onUpdate={
-              agentUpdateAvailable && !desktopUpdateAvailable
-                ? () => void performUpdate('agent')
-                : undefined
-            }
-            state={capabilities.isError ? 'error' : agentUpdateAvailable ? 'available' : 'current'}
-            targetVersion={agentUpdateAvailable ? targetVersion : undefined}
-            updating={updating === 'agent'}
-          />
-          {desktopUpdateAvailable && agentUpdateAvailable ? (
-            <div className="grid grid-cols-3 gap-2">
-              <Button
-                disabled={Boolean(updating)}
-                onClick={() => void performUpdate('desktop')}
-                size="sm"
-                variant="outline"
-              >
-                Desktop
-              </Button>
-              <Button
-                disabled={Boolean(updating)}
-                onClick={() => void performUpdate('agent')}
-                size="sm"
-                variant="outline"
-              >
-                {vocab.agent}
-              </Button>
-              <Button
-                disabled={Boolean(updating)}
-                onClick={() => void performUpdate('both')}
-                size="sm"
-              >
-                {updating === 'both' ? <LoaderCircleIcon className="animate-spin" /> : null}
-                Both
-              </Button>
-            </div>
-          ) : null}
-        </PopoverContent>
-      </SidebarMenuItem>
+      <PopoverTrigger asChild>
+        <SidebarMenuButton
+          aria-label={statusLabel}
+          className="w-auto shrink-0 px-2"
+          tooltip={statusLabel}
+        >
+          <VersionStateIcon state={state} />
+          <span className="font-mono text-xs">
+            {displayedDesktopVersion ? `v${displayedDesktopVersion}` : 'Version'}
+          </span>
+        </SidebarMenuButton>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80" side="right">
+        <VersionCard
+          currentVersion={displayedDesktopVersion}
+          icon={MonitorIcon}
+          label={vocab.product}
+          onOpenRelease={
+            brand.desktopReleaseUrl && displayedDesktopVersion
+              ? () =>
+                  void openExternalUrl(
+                    `${brand.desktopReleaseUrl}/tag/${releaseTag(displayedDesktopVersion)}`,
+                  )
+              : undefined
+          }
+          onUpdate={
+            desktopUpdateAvailable && !agentUpdateAvailable
+              ? () => void performUpdate('desktop')
+              : undefined
+          }
+          state={
+            desktopUpdateAvailable ? 'available' : snapshot.status === 'error' ? 'error' : 'current'
+          }
+          targetVersion={desktopUpdateAvailable ? targetVersion : undefined}
+          updating={updating === 'desktop'}
+        />
+        <VersionCard
+          currentVersion={agentVersion}
+          icon={PackageIcon}
+          label={vocab.agent}
+          onOpenRelease={
+            brand.agentReleaseUrl && agentVersion
+              ? () =>
+                  void openExternalUrl(`${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`)
+              : undefined
+          }
+          onUpdate={
+            agentUpdateAvailable && !desktopUpdateAvailable
+              ? () => void performUpdate('agent')
+              : undefined
+          }
+          state={capabilities.isError ? 'error' : agentUpdateAvailable ? 'available' : 'current'}
+          targetVersion={agentUpdateAvailable ? targetVersion : undefined}
+          updating={updating === 'agent'}
+        />
+        {desktopUpdateAvailable && agentUpdateAvailable ? (
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              disabled={Boolean(updating)}
+              onClick={() => void performUpdate('desktop')}
+              size="sm"
+              variant="outline"
+            >
+              Desktop
+            </Button>
+            <Button
+              disabled={Boolean(updating)}
+              onClick={() => void performUpdate('agent')}
+              size="sm"
+              variant="outline"
+            >
+              {vocab.agent}
+            </Button>
+            <Button
+              disabled={Boolean(updating)}
+              onClick={() => void performUpdate('both')}
+              size="sm"
+            >
+              {updating === 'both' ? <LoaderCircleIcon className="animate-spin" /> : null}
+              Both
+            </Button>
+          </div>
+        ) : null}
+      </PopoverContent>
     </Popover>
   );
 }

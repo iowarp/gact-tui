@@ -4,6 +4,13 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.5] — 2026-09-20
+
+### Fixed
+
+- Keep the compact version and update control visible by placing it beside
+  Settings in the sidebar footer, including on shorter desktop windows.
+
 ## [0.11.2.4] — 2026-09-20
 
 The desktop acceptance target paired with clio-agent v0.9.4.4. It is an
