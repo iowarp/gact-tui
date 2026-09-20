@@ -327,9 +327,6 @@ export function WorkspacePage() {
           statusStrip={
             <WorkspaceLiveStatusStrip
               activeWorkCount={workspaceRouteState.countActiveWork(runs, tasks, tools)}
-              a2uiVersions={capabilities.data?.a2ui_versions}
-              gactVersions={capabilities.data?.gact_versions}
-              service={capabilities.data?.service}
               sessionId={sessionId}
               streamError={streamError}
             />
@@ -695,9 +692,6 @@ export function WorkspacePage() {
         statusStrip={
           <WorkspaceLiveStatusStrip
             activeWorkCount={activeWorkCount}
-            a2uiVersions={capabilities.data?.a2ui_versions}
-            gactVersions={capabilities.data?.gact_versions}
-            service={capabilities.data?.service}
             sessionId={sessionId}
             sessionState={session?.state}
             streamError={streamError}

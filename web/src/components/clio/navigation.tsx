@@ -23,7 +23,6 @@ import { ClioArchivedSessionsDialog } from './archived-sessions-dialog';
 import { ClioAttentionCenter, ClioAttentionNotifier } from './attention-center';
 import { NavigationHeader } from './navigation-header';
 import { NavigationInfrastructure } from './navigation-infrastructure';
-import { NavigationVersionStatus } from './navigation-version-status';
 import { ClioResourceDialogs, type ResourceActions, type ResourceTarget } from './resource-dialogs';
 import { WorkspaceEditorDialog } from './workspace-editor-dialog';
 import { WorkspaceNavigation } from './workspace-navigation';
@@ -176,14 +175,13 @@ export function ClioNavigation({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
-                  <SidebarMenuItem className="flex items-center gap-1">
-                    <SidebarMenuButton asChild className="min-w-0 flex-1" tooltip="Settings">
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="Settings">
                       <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
                         <Settings2Icon aria-hidden="true" />
                         <span>Settings</span>
                       </Link>
                     </SidebarMenuButton>
-                    <NavigationVersionStatus />
                   </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>

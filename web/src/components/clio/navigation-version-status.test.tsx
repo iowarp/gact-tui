@@ -37,7 +37,7 @@ vi.mock('@/tauri/external-url', () => ({ openExternalUrl: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
 import { SidebarProvider } from '@/components/ui/sidebar';
-import { NavigationVersionStatus } from './navigation-version-status';
+import { SystemVersionStatus } from './navigation-version-status';
 
 Object.defineProperty(window, 'matchMedia', {
   configurable: true,
@@ -56,7 +56,7 @@ function renderStatus() {
       <SidebarProvider>
         <ul>
           <li>
-            <NavigationVersionStatus />
+            <SystemVersionStatus />
           </li>
         </ul>
       </SidebarProvider>
@@ -77,7 +77,7 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-describe('NavigationVersionStatus', () => {
+describe('SystemVersionStatus', () => {
   it('shows one compact version control and two branded software rows', async () => {
     renderStatus();
 
@@ -88,9 +88,12 @@ describe('NavigationVersionStatus', () => {
     fireEvent.click(trigger);
 
     expect(desktop.check).toHaveBeenCalledOnce();
+    expect(await screen.findByText('System Version')).toBeVisible();
     expect(await screen.findByText('CLIO Desktop')).toBeVisible();
     expect(screen.getByText('CLIO')).toBeVisible();
     expect(screen.getAllByText('v0.9.4.3')).toHaveLength(3);
+    expect(screen.queryByText(/protocol/iu)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Update options' })).not.toBeInTheDocument();
   });
 
   it('offers independent updates and a single combined path', async () => {
@@ -105,9 +108,9 @@ describe('NavigationVersionStatus', () => {
     renderStatus();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Software update available' }));
-    expect(await screen.findByRole('button', { name: 'Both' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Update all' })).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Both' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Update all' }));
     await waitFor(() =>
       expect(updateManagedClio).toHaveBeenCalledWith('v0.9.4.3', { restartApp: false }),
     );

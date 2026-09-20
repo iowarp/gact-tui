@@ -281,7 +281,7 @@ export function ClioModelPicker({
           >
             <CascaderPanel className="h-full min-h-0">
               <CascaderNav>
-                <div className="flex w-full min-w-0 items-center gap-1 pe-8 md:w-1/2 md:pe-0">
+                <div className="flex w-full min-w-0 items-center gap-1 pe-8">
                   <div className="min-w-0 flex-1">
                     <CascaderInput
                       aria-label="Search providers and models"
@@ -306,30 +306,6 @@ export function ClioModelPicker({
                           />
                         </Button>
                       ) : null}
-                      <Button
-                        aria-label={
-                          hiddenProviders.size
-                            ? `Manage provider visibility, ${hiddenProviders.size} hidden`
-                            : 'Manage provider visibility'
-                        }
-                        aria-pressed={managingVisibility}
-                        data-slot="provider-visibility-mode"
-                        onClick={toggleVisibilityManagement}
-                        size="icon-sm"
-                        title={
-                          managingVisibility
-                            ? 'Finish managing provider visibility'
-                            : 'Manage provider visibility'
-                        }
-                        type="button"
-                        variant={managingVisibility ? 'secondary' : 'ghost'}
-                      >
-                        {managingVisibility ? (
-                          <EyeOffIcon aria-hidden="true" />
-                        ) : (
-                          <EyeIcon aria-hidden="true" />
-                        )}
-                      </Button>
                       <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
                         <Link
                           aria-label={`Configure ${activeGroup.name} provider`}
@@ -377,9 +353,31 @@ export function ClioModelPicker({
                   ) : null}
                 </div>
               ) : null}
-              {managingVisibility && hiddenProviders.size ? (
-                <CascaderFooter className="min-h-11 flex-row items-center gap-1 px-2">
-                  <div className="flex min-w-0 items-center gap-1">
+              <CascaderFooter className="min-h-11 flex-row items-center justify-between gap-1 px-2">
+                <div className="flex min-w-0 items-center gap-1">
+                  <Button
+                    aria-label={
+                      managingVisibility
+                        ? 'Finish managing provider visibility'
+                        : hiddenProviders.size
+                          ? `Manage provider visibility, ${hiddenProviders.size} hidden`
+                          : 'Manage provider visibility'
+                    }
+                    aria-pressed={managingVisibility}
+                    data-slot="provider-visibility-mode"
+                    onClick={toggleVisibilityManagement}
+                    size="sm"
+                    type="button"
+                    variant={managingVisibility ? 'secondary' : 'ghost'}
+                  >
+                    {managingVisibility ? (
+                      <EyeOffIcon data-icon="inline-start" />
+                    ) : (
+                      <EyeIcon data-icon="inline-start" />
+                    )}
+                    {managingVisibility ? 'Done' : 'Manage providers'}
+                  </Button>
+                  {hiddenProviders.size ? (
                     <Button
                       aria-label={`Show ${hiddenProviders.size} hidden ${hiddenProviders.size === 1 ? 'provider' : 'providers'}`}
                       aria-pressed={showHidden}
@@ -395,20 +393,20 @@ export function ClioModelPicker({
                       )}
                       Hidden ({hiddenProviders.size})
                     </Button>
-                    {showHidden && hiddenProviders.size ? (
-                      <Button
-                        aria-label="Restore all hidden providers"
-                        onClick={restoreAllProviders}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        Restore all
-                      </Button>
-                    ) : null}
-                  </div>
-                </CascaderFooter>
-              ) : null}
+                  ) : null}
+                  {managingVisibility && showHidden && hiddenProviders.size ? (
+                    <Button
+                      aria-label="Restore all hidden providers"
+                      onClick={restoreAllProviders}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      Restore all
+                    </Button>
+                  ) : null}
+                </div>
+              </CascaderFooter>
               <CascaderStatus />
             </CascaderPanel>
           </Cascader>

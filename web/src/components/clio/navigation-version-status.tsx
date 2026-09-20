@@ -5,15 +5,11 @@ import {
   CircleAlertIcon,
   ExternalLinkIcon,
   LoaderCircleIcon,
-  MonitorIcon,
-  PackageIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
-import { Frame, FramePanel } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { SidebarMenuButton } from '@/components/ui/sidebar';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
@@ -32,7 +28,8 @@ import { restartClio, updateManagedClio } from '@/tauri/managed-backend';
 type VersionState = 'checking' | 'current' | 'available' | 'error';
 type UpdateAction = 'desktop' | 'agent' | 'both';
 
-export function NavigationVersionStatus() {
+/** One bottom-bar control for checking and updating both installed products. */
+export function SystemVersionStatus() {
   const repository = useRepository();
   const { credentialsReady, isManagedConnection, settings } = useConnectionSettings();
   const [desktopVersion, setDesktopVersion] = useState<string>();
@@ -116,35 +113,83 @@ export function NavigationVersionStatus() {
     }
   };
 
+  const recheck = async (): Promise<void> => {
+    await Promise.allSettled([checkForDesktopUpdate(), capabilities.refetch()]);
+  };
+
+  const updateAll = (): void => {
+    if (desktopUpdateAvailable && agentUpdateAvailable) {
+      void performUpdate('both');
+    } else if (desktopUpdateAvailable) {
+      void performUpdate('desktop');
+    } else if (agentUpdateAvailable) {
+      void performUpdate('agent');
+    } else {
+      void recheck();
+    }
+  };
+
   const statusLabel = {
     checking: 'Checking versions',
     current: `${vocab.product} and ${vocab.agent} are up to date`,
     available: 'Software update available',
     error: 'Version status needs attention',
   }[state];
+  const systemActionLabel =
+    state === 'available'
+      ? 'Update all'
+      : state === 'checking'
+        ? 'Checking…'
+        : state === 'error'
+          ? 'Recheck'
+          : 'Up to date';
 
   return (
     <Popover
       onOpenChange={(open) => {
-        if (open) void checkForDesktopUpdate().catch(() => undefined);
+        if (open) void recheck();
       }}
     >
       <PopoverTrigger asChild>
-        <SidebarMenuButton
+        <Button
           aria-label={statusLabel}
-          className="w-auto shrink-0 px-2"
-          tooltip={statusLabel}
+          className="h-6 gap-1.5 px-1.5 font-mono text-[10px] text-muted-foreground"
+          size="xs"
+          title={statusLabel}
+          variant="ghost"
         >
           <VersionStateIcon state={state} />
-          <span className="font-mono text-xs">
-            {displayedDesktopVersion ? `v${displayedDesktopVersion}` : 'Version'}
-          </span>
-        </SidebarMenuButton>
+          <span>{displayedDesktopVersion ? `v${displayedDesktopVersion}` : 'Version'}</span>
+        </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-80" side="right">
-        <VersionCard
+      <PopoverContent align="start" className="w-80 p-3" side="top">
+        <div className="flex items-center justify-between gap-3 border-b pb-3">
+          <span className="font-semibold">System Version</span>
+          <VersionAction
+            disabled={Boolean(updating) || state === 'checking'}
+            label={systemActionLabel}
+            onClick={updateAll}
+            state={state}
+            updating={Boolean(updating)}
+          />
+        </div>
+        <VersionRow
+          currentVersion={agentVersion}
+          label={vocab.agent}
+          onOpenRelease={
+            brand.agentReleaseUrl && agentVersion
+              ? () =>
+                  void openExternalUrl(`${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`)
+              : undefined
+          }
+          onRecheck={() => void recheck()}
+          onUpdate={agentUpdateAvailable ? () => void performUpdate('agent') : undefined}
+          state={capabilities.isError ? 'error' : agentUpdateAvailable ? 'available' : 'current'}
+          targetVersion={agentUpdateAvailable ? targetVersion : undefined}
+          updating={updating === 'agent'}
+        />
+        <VersionRow
           currentVersion={displayedDesktopVersion}
-          icon={MonitorIcon}
           label={vocab.product}
           onOpenRelease={
             brand.desktopReleaseUrl && displayedDesktopVersion
@@ -154,122 +199,96 @@ export function NavigationVersionStatus() {
                   )
               : undefined
           }
-          onUpdate={
-            desktopUpdateAvailable && !agentUpdateAvailable
-              ? () => void performUpdate('desktop')
-              : undefined
-          }
+          onRecheck={() => void recheck()}
+          onUpdate={desktopUpdateAvailable ? () => void performUpdate('desktop') : undefined}
           state={
             desktopUpdateAvailable ? 'available' : snapshot.status === 'error' ? 'error' : 'current'
           }
           targetVersion={desktopUpdateAvailable ? targetVersion : undefined}
           updating={updating === 'desktop'}
         />
-        <VersionCard
-          currentVersion={agentVersion}
-          icon={PackageIcon}
-          label={vocab.agent}
-          onOpenRelease={
-            brand.agentReleaseUrl && agentVersion
-              ? () =>
-                  void openExternalUrl(`${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`)
-              : undefined
-          }
-          onUpdate={
-            agentUpdateAvailable && !desktopUpdateAvailable
-              ? () => void performUpdate('agent')
-              : undefined
-          }
-          state={capabilities.isError ? 'error' : agentUpdateAvailable ? 'available' : 'current'}
-          targetVersion={agentUpdateAvailable ? targetVersion : undefined}
-          updating={updating === 'agent'}
-        />
-        {desktopUpdateAvailable && agentUpdateAvailable ? (
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              disabled={Boolean(updating)}
-              onClick={() => void performUpdate('desktop')}
-              size="sm"
-              variant="outline"
-            >
-              Desktop
-            </Button>
-            <Button
-              disabled={Boolean(updating)}
-              onClick={() => void performUpdate('agent')}
-              size="sm"
-              variant="outline"
-            >
-              {vocab.agent}
-            </Button>
-            <Button
-              disabled={Boolean(updating)}
-              onClick={() => void performUpdate('both')}
-              size="sm"
-            >
-              {updating === 'both' ? <LoaderCircleIcon className="animate-spin" /> : null}
-              Both
-            </Button>
-          </div>
-        ) : null}
       </PopoverContent>
     </Popover>
   );
 }
 
-function VersionCard({
+function VersionRow({
   currentVersion,
-  icon: Icon,
   label,
   onOpenRelease,
+  onRecheck,
   onUpdate,
   state,
   targetVersion,
   updating,
 }: {
   currentVersion?: string;
-  icon: typeof MonitorIcon;
   label: string;
   onOpenRelease?: () => void;
+  onRecheck: () => void;
   onUpdate?: () => void;
   state: Exclude<VersionState, 'checking'>;
   targetVersion?: string;
   updating: boolean;
 }) {
   return (
-    <Frame spacing="sm">
-      <FramePanel className="flex items-center gap-3">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
-          <Icon aria-hidden="true" className="size-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 font-medium">
-            <span className="truncate">{label}</span>
-            <VersionStateIcon state={state} />
-          </div>
-          <p className="font-mono text-xs text-muted-foreground">
-            {currentVersion ? `v${currentVersion}` : 'Unavailable'}
-            {targetVersion ? ` → v${targetVersion}` : ''}
-          </p>
-        </div>
-        {onOpenRelease ? (
-          <Button
-            aria-label={`Open ${label} release`}
-            onClick={onOpenRelease}
-            size="icon-xs"
-            variant="ghost"
-          >
-            <ExternalLinkIcon aria-hidden="true" />
-          </Button>
-        ) : null}
-        {onUpdate ? (
-          <Button disabled={updating} onClick={onUpdate} size="sm">
-            {updating ? <LoaderCircleIcon className="animate-spin" /> : null}
-            Update
-          </Button>
-        ) : null}
-      </FramePanel>
-    </Frame>
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-3 [&:not(:last-child)]:border-b">
+      <button
+        className="flex min-w-0 items-center gap-1.5 text-left font-medium hover:underline disabled:no-underline"
+        disabled={!onOpenRelease}
+        onClick={onOpenRelease}
+        type="button"
+      >
+        <span className="truncate">{label}</span>
+        {onOpenRelease ? <ExternalLinkIcon aria-hidden="true" className="size-3" /> : null}
+      </button>
+      <VersionAction
+        disabled={updating}
+        label={onUpdate ? 'Update' : state === 'error' ? 'Recheck' : 'Up to date'}
+        onClick={onUpdate ?? onRecheck}
+        state={state}
+        updating={updating}
+      />
+      <p className="font-mono text-xs text-muted-foreground">
+        {currentVersion ? `v${currentVersion}` : 'Unavailable'}
+        {targetVersion ? ` → v${targetVersion}` : ''}
+      </p>
+    </div>
+  );
+}
+
+function VersionAction({
+  disabled,
+  label,
+  onClick,
+  state,
+  updating,
+}: {
+  disabled: boolean;
+  label: string;
+  onClick: () => void;
+  state: VersionState;
+  updating: boolean;
+}) {
+  return (
+    <Button
+      className={cn(
+        'gap-1.5',
+        state === 'current' && 'border-success/40 text-success hover:text-success',
+        state === 'available' && 'border-warning/40 text-warning hover:text-warning',
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      size="sm"
+      variant="outline"
+    >
+      {updating || state === 'checking' ? (
+        <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
+      ) : (
+        <VersionStateIcon state={state} />
+      )}
+      {label}
+    </Button>
   );
 }
 

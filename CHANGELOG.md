@@ -4,6 +4,16 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.13] — 2026-09-20
+
+### Fixed
+
+- Consolidate software status into one bottom status-bar control with direct
+  CLIO, Desktop, and combined update actions; remove the duplicate sidebar
+  version and protocol-oriented update detour.
+- Restore provider visibility management to the picker footer, keep Refresh and
+  Configure beside Close, and prevent health indicators from hiding providers.
+
 ## [0.11.2.12] — 2026-09-20
 
 ### Fixed
