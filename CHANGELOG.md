@@ -4,6 +4,14 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.11] — 2026-09-20
+
+### Fixed
+
+- Constrain the desktop workspace to the height remaining below the native
+  title bar, keeping Settings and version controls visible while each route
+  scrolls inside that space.
+
 ## [0.11.2.10] — 2026-09-20
 
 This is the signed update target used to verify Desktop-only, CLIO-only, and

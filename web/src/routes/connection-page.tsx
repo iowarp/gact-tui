@@ -122,7 +122,7 @@ function DesktopBoot({
   }, []);
 
   return (
-    <main className="relative grid min-h-dvh overflow-hidden bg-background text-foreground">
+    <main className="relative grid h-full min-h-0 overflow-hidden bg-background text-foreground">
       <div aria-hidden="true" className="clio-landing-background absolute inset-0 opacity-70" />
       <div
         aria-hidden="true"
@@ -397,9 +397,9 @@ export function ConnectionPage() {
   }
 
   return (
-    <main className="min-h-dvh overflow-hidden bg-background text-foreground">
+    <main className="h-full min-h-0 overflow-y-auto bg-background text-foreground">
       <div aria-hidden="true" className="clio-landing-background absolute inset-0" />
-      <section className="relative mx-auto grid min-h-dvh max-w-7xl items-center gap-12 px-6 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:px-12">
+      <section className="relative mx-auto grid min-h-full max-w-7xl items-center gap-12 px-6 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:px-12">
         <div className="max-w-2xl">
           <div className="mb-10 flex items-center gap-4">
             <div className="grid size-14 place-items-center overflow-hidden rounded-2xl border border-primary/35 bg-card/75 shadow-[0_0_48px_color-mix(in_oklch,var(--primary)_18%,transparent)] backdrop-blur">

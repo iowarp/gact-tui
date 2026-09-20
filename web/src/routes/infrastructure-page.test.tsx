@@ -261,7 +261,7 @@ describe('InfrastructurePage', () => {
   it('separates agent, tools, and services while opening on the requested section', async () => {
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'tools');
 
-    expect(screen.getByRole('main')).toHaveClass('h-dvh', 'overflow-y-auto');
+    expect(screen.getByRole('main')).toHaveClass('h-full', 'min-h-0', 'overflow-y-auto');
     expect(await screen.findByRole('heading', { name: 'Tools', level: 1 })).toBeVisible();
     expect(screen.getByRole('navigation', { name: 'Infrastructure sections' })).toBeVisible();
     expect(screen.getByRole('link', { name: brand.agentName })).toBeVisible();

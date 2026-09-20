@@ -199,7 +199,7 @@ export function InfrastructurePage() {
 
   const sectionDefinition = INFRASTRUCTURE_SECTIONS.find((item) => item.id === currentSection)!;
   return (
-    <main className="clio-scrollbar h-dvh min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
+    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[220px_minmax(0,1fr)]">
         <nav
           aria-label="Infrastructure sections"

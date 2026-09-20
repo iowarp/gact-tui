@@ -30,7 +30,7 @@ function RouteFallback() {
   return (
     <main
       aria-label={`Loading ${brand.name}`}
-      className="grid min-h-svh place-items-center bg-background p-8"
+      className="grid h-full min-h-0 place-items-center bg-background p-8"
     >
       <div className="w-full max-w-md space-y-3">
         <Skeleton className="h-8 w-40" />

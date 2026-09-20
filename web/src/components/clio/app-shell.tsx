@@ -75,8 +75,8 @@ function DesktopNavigationLayout({
   };
 
   return (
-    <main className="h-dvh min-w-0 flex-1">
-      <ResizablePanelGroup className="h-dvh w-full" orientation="horizontal">
+    <main className="h-full min-h-0 min-w-0 flex-1">
+      <ResizablePanelGroup className="h-full min-h-0 w-full" orientation="horizontal">
         <ResizablePanel
           collapsedSize="56px"
           collapsible
@@ -196,7 +196,7 @@ export function ClioAppShell({
   const workspace = (
     <SidebarInset
       asChild
-      className="h-dvh min-w-0 overflow-hidden bg-background md:m-0 md:rounded-none md:shadow-none"
+      className="h-full min-h-0 min-w-0 overflow-hidden bg-background md:m-0 md:rounded-none md:shadow-none"
     >
       <section aria-label="Session workspace">
         {desktopWorkbench ? (
@@ -236,7 +236,7 @@ export function ClioAppShell({
           {workspace}
         </DesktopNavigationLayout>
       ) : (
-        <main className="flex h-dvh w-full">
+        <main className="flex h-full min-h-0 w-full">
           {navigation}
           {workspace}
         </main>

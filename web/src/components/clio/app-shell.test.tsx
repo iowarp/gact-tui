@@ -26,7 +26,7 @@ function installMatchMedia(matches: (query: string) => boolean) {
 }
 
 function renderShell() {
-  render(
+  return render(
     <ClioAppShell
       contextBar={<span>Context</span>}
       navigation={<nav>Navigation</nav>}
@@ -40,6 +40,18 @@ function renderShell() {
 }
 
 describe('ClioAppShell responsive workbench', () => {
+  it('fills its title-bar-constrained parent without adding another viewport height', () => {
+    installMatchMedia((query) => query === '(min-width: 768px)');
+
+    const { container } = renderShell();
+
+    expect(container.querySelector('[data-slot="sidebar-wrapper"]')).toHaveClass(
+      'h-full',
+      'min-h-0',
+    );
+    expect(container.querySelector('.h-dvh')).toBeNull();
+  });
+
   it('uses the sheet workbench at compact desktop widths', () => {
     installMatchMedia((query) => query === '(min-width: 768px)');
 

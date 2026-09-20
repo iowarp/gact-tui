@@ -72,7 +72,7 @@ export function WorkspaceTranscriptAlerts({
 
 export function WorkspaceUnavailable({ error, onRetry }: { error: string; onRetry?: () => void }) {
   return (
-    <main className="grid min-h-dvh place-items-center bg-background p-6">
+    <main className="grid h-full min-h-0 place-items-center bg-background p-6">
       <Alert className="max-w-xl" variant="destructive">
         <AlertTriangleIcon aria-hidden="true" />
         <AlertTitle>{capitalize(vocab.workspace)} unavailable</AlertTitle>
@@ -100,7 +100,7 @@ export function WorkspaceLoading({
   label?: string;
 } = {}) {
   return (
-    <main className="grid min-h-dvh place-items-center bg-background p-6">
+    <main className="grid h-full min-h-0 place-items-center bg-background p-6">
       <div className="grid justify-items-center gap-3 text-center">
         <ClioStatus label={label} value="connecting" />
         {description ? (
