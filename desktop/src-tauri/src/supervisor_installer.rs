@@ -6,7 +6,7 @@
 
 use std::{
     io::{BufRead, BufReader},
-    path::Path,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{Arc, Mutex},
     thread,
@@ -100,7 +100,7 @@ pub fn update_bundled_clio<R, F>(
     } else {
         runtime_dir.join("python/bin/python3")
     };
-    let uv = runtime_dir.join(executable);
+    let uv = bundled_uv_path(runtime_dir, executable);
     if !uv.is_file() || !python.is_file() {
         let _ = app.emit(
             EVT_INSTALL_FAILED,
@@ -134,6 +134,19 @@ pub fn update_bundled_clio<R, F>(
         vec!["-c".to_string(), verify_script],
     ));
     run_install_command(app, program, args, verify, on_success);
+}
+
+/// Locate the package manager shipped with the relocatable runtime.
+///
+/// Runtime builders place `uv` under `bin/` on every platform. Keep the
+/// legacy root fallback so installations produced before that layout was
+/// standardized remain updateable.
+fn bundled_uv_path(runtime_dir: &Path, executable: &str) -> PathBuf {
+    let packaged = runtime_dir.join("bin").join(executable);
+    if packaged.is_file() {
+        return packaged;
+    }
+    runtime_dir.join(executable)
 }
 
 fn run_install_command<R, F>(
@@ -264,5 +277,37 @@ fn stream_lines<R: tauri::Runtime, B: BufRead>(
         boot_log_line(&line);
         record_recent_line(recent, line.clone());
         let _ = app.emit(EVT_INSTALL_PROGRESS, InstallProgress { line });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bundled_uv_path;
+    use std::fs;
+
+    #[test]
+    fn bundled_uv_path_prefers_the_packaged_bin_directory() {
+        let root =
+            std::env::temp_dir().join(format!("clio-bundled-updater-bin-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("bin")).expect("create runtime bin");
+        fs::write(root.join("bin/uv-test"), b"uv").expect("write packaged uv");
+
+        assert_eq!(bundled_uv_path(&root, "uv-test"), root.join("bin/uv-test"));
+
+        fs::remove_dir_all(root).expect("remove test runtime");
+    }
+
+    #[test]
+    fn bundled_uv_path_keeps_the_legacy_root_fallback() {
+        let root =
+            std::env::temp_dir().join(format!("clio-bundled-updater-root-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("create runtime root");
+        fs::write(root.join("uv-test"), b"uv").expect("write legacy uv");
+
+        assert_eq!(bundled_uv_path(&root, "uv-test"), root.join("uv-test"));
+
+        fs::remove_dir_all(root).expect("remove test runtime");
     }
 }

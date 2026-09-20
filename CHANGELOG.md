@@ -4,6 +4,14 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.6] — 2026-09-20
+
+### Fixed
+
+- Update the managed CLIO runtime through the `bin/uv` executable that is
+  actually shipped by every bundled desktop runtime, while retaining support
+  for the legacy root-level layout.
+
 ## [0.11.2.5] — 2026-09-20
 
 ### Fixed
