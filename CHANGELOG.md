@@ -4,6 +4,12 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.4] — 2026-09-20
+
+The desktop acceptance target paired with clio-agent v0.9.4.4. It is an
+intentionally minimal follow-up release used to verify Desktop-only, CLIO-only,
+and combined signed updates from v0.9.4.3 through the installed application.
+
 ## [0.11.2.3] — 2026-09-20
 
 The desktop release paired with clio-agent v0.9.4.3.
