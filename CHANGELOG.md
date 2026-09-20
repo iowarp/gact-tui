@@ -4,6 +4,14 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.8] — 2026-09-20
+
+### Fixed
+
+- Keep the sidebar header and footer at their intended height on short desktop
+  windows so the Settings and version controls remain visible while the
+  workspace list scrolls independently.
+
 ## [0.11.2.7] — 2026-09-20
 
 This is the signed update target used to verify Desktop-only, CLIO-only, and
