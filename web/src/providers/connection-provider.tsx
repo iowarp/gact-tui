@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from 'react';
@@ -22,7 +23,25 @@ import {
 } from '@/tauri/secure-credentials';
 import { waitForManagedBackend, type ManagedBackendStatus } from '@/tauri/managed-backend';
 import { finishInstallerInfrastructure } from '@/lib/installer-infrastructure';
-import { openSshTunnel, type SshTunnelSettings } from '@/tauri/ssh-tunnel';
+import {
+  attachInfrastructureSshTransport,
+  closeInfrastructureSshTransport,
+  recoverInfrastructureSshTransports,
+  sshTransportStatus,
+  type SshTransportStatus,
+} from '@/tauri/ssh-infrastructure-transport';
+import { createRepository } from '@/lib/connection';
+import { SshAuthentication } from '@/components/clio/managed-service-target';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { listen } from '@tauri-apps/api/event';
 
 const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
 /**
@@ -32,26 +51,11 @@ const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
  */
 const RECENT_CONNECTIONS_LIMIT = 5;
 
-function parseTunnel(value: unknown): SshTunnelSettings | undefined {
+function parseInfrastructure(value: unknown): ConnectionSettings['infrastructure'] {
   if (!value || typeof value !== 'object') return undefined;
   const item = value as Record<string, unknown>;
-  if (
-    typeof item.host !== 'string' ||
-    typeof item.user !== 'string' ||
-    typeof item.remote_port !== 'number' ||
-    typeof item.key_path !== 'string'
-  ) {
-    return undefined;
-  }
-  return {
-    host: item.host,
-    user: item.user,
-    remote_port: item.remote_port,
-    key_path: item.key_path,
-    ...(typeof item.profile === 'string' ? { profile: item.profile } : {}),
-    ...(typeof item.port === 'number' ? { port: item.port } : {}),
-    ...(typeof item.local_port === 'number' ? { local_port: item.local_port } : {}),
-  };
+  if (typeof item.targetId !== 'string' || item.serviceId !== 'clio_agent') return undefined;
+  return { targetId: item.targetId, serviceId: 'clio_agent' };
 }
 
 interface ConnectionContextValue {
@@ -88,8 +92,11 @@ function readRecents(): SavedConnection[] {
                   ...('label' in item && typeof item.label === 'string'
                     ? { label: item.label }
                     : {}),
-                  ...('tunnel' in item && parseTunnel(item.tunnel)
-                    ? { tunnel: parseTunnel(item.tunnel) }
+                  ...('location' in item && typeof item.location === 'string'
+                    ? { location: item.location }
+                    : {}),
+                  ...('infrastructure' in item && parseInfrastructure(item.infrastructure)
+                    ? { infrastructure: parseInfrastructure(item.infrastructure) }
                     : {}),
                 },
               ];
@@ -114,7 +121,6 @@ function readRecents(): SavedConnection[] {
 }
 
 function isLegacyManagedConnection(connection: SavedConnection): boolean {
-  if (connection.tunnel) return false;
   const label = connection.label?.trim().toLocaleLowerCase();
   if (label !== 'this computer' && label !== 'this device') return false;
   try {
@@ -131,7 +137,8 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   const [settings, setSettings] = useState<ConnectionSettings>(() => ({
     endpoint: recents[0]?.endpoint ?? DEFAULT_ENDPOINT,
     label: recents[0]?.label,
-    tunnel: recents[0]?.tunnel,
+    location: recents[0]?.location,
+    infrastructure: recents[0]?.infrastructure,
   }));
   const [credentialsReady, setCredentialsReady] = useState(() => !inTauri());
   const [managedConnectionReady, setManagedConnectionReady] = useState(false);
@@ -139,6 +146,12 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   const [credentialError, setCredentialError] = useState<string>();
   /** The supervisor's address is allocated per launch, so it is never remembered. */
   const [managedEndpoint, setManagedEndpoint] = useState<string>();
+  const [pendingSsh, setPendingSsh] = useState<{
+    label: string;
+    targetId: string;
+    status: SshTransportStatus;
+  }>();
+  const cancelledSsh = useRef(new Set<string>());
 
   useEffect(() => {
     if (!inTauri()) return;
@@ -147,13 +160,21 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       .then((handle) => {
         if (cancelled) return;
         const endpoint = normalizeEndpoint(handle.url);
+        const token = handle.bearer_token || undefined;
         setManagedEndpoint(endpoint);
-        setSettings({ endpoint, token: handle.bearer_token || undefined });
+        setSettings({ endpoint, token });
         setManagedConnectionReady(true);
         setCredentialError(undefined);
+        void recoverInfrastructureSshTransports(
+          createRepository({ endpoint, token }),
+          endpoint,
+          token,
+        ).catch((error: unknown) => {
+          console.error('Could not restore managed SSH transports', error);
+        });
         void finishInstallerInfrastructure({
           endpoint,
-          token: handle.bearer_token || undefined,
+          token,
         }).catch((error: unknown) => {
           console.error('Could not finish install-selected infrastructure', error);
         });
@@ -174,22 +195,83 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!inTauri() || !managedConnectionReady || settings.endpoint !== managedEndpoint) return;
+    let stop: (() => void) | undefined;
+    void Promise.resolve().then(async () => {
+      stop = await listen('clio:desktop-resumed', () => {
+        void recoverInfrastructureSshTransports(
+          createRepository(settings),
+          settings.endpoint,
+          settings.token,
+        ).catch((error: unknown) => {
+          console.error('Could not restore managed SSH transports after resume', error);
+        });
+      });
+    });
+    return () => stop?.();
+  }, [managedBackendStatus, managedConnectionReady, managedEndpoint, settings]);
+
   const resolveConnection = useCallback(
     async (next: ConnectionSettings): Promise<ConnectionSettings> => {
-      const tunnelHandle = next.tunnel ? await openSshTunnel(next.tunnel) : undefined;
-      const endpoint = normalizeEndpoint(tunnelHandle?.local_url ?? next.endpoint);
+      if (next.infrastructure) {
+        const handle = await waitForManagedBackend({});
+        const controllerEndpoint = normalizeEndpoint(handle.url);
+        const controllerToken = handle.bearer_token || undefined;
+        const controller = createRepository({
+          endpoint: controllerEndpoint,
+          token: controllerToken,
+        });
+        const target = (await controller.infrastructureTargets()).find(
+          (candidate) => candidate.id === next.infrastructure?.targetId,
+        );
+        if (!target) throw new Error(`The ${vocab.agent}-owned SSH target no longer exists.`);
+        const status = await attachInfrastructureSshTransport(
+          controllerEndpoint,
+          controllerToken,
+          target,
+        );
+        let current = status;
+        if (current.state !== 'connected') {
+          setPendingSsh({ label: target.label, targetId: target.id, status: current });
+          for (let attempt = 0; current.state !== 'connected' && attempt < 3_600; attempt += 1) {
+            if (cancelledSsh.current.delete(current.session_id)) {
+              throw new Error(`SSH authentication for ${target.label} was cancelled.`);
+            }
+            await new Promise((resolve) => window.setTimeout(resolve, 250));
+            try {
+              current = await sshTransportStatus(current.session_id);
+            } catch (error) {
+              await controller.setInfrastructureTransportState(
+                target.id,
+                'reauthentication_required',
+              );
+              setPendingSsh(undefined);
+              throw error;
+            }
+            setPendingSsh({ label: target.label, targetId: target.id, status: current });
+          }
+          setPendingSsh(undefined);
+        }
+        await controller.setInfrastructureTransportState(target.id, current.state);
+        if (current.state !== 'connected')
+          throw new Error(`SSH authentication timed out for ${target.label}.`);
+        await attachInfrastructureSshTransport(controllerEndpoint, controllerToken, target);
+        const catalog = await controller.managedServiceCatalog(target.id);
+        const service = catalog.services.find(
+          (candidate) => candidate.id === next.infrastructure?.serviceId,
+        );
+        if (service?.state !== 'running' || !service.connection_url) {
+          throw new Error(`The managed ${vocab.agent} service is not running on ${target.label}.`);
+        }
+        next = { ...next, endpoint: service.connection_url };
+      }
+      const endpoint = normalizeEndpoint(next.endpoint);
       const normalized = {
         ...next,
         endpoint,
         label: next.label?.trim() || undefined,
-        ...(next.tunnel
-          ? {
-              tunnel: {
-                ...next.tunnel,
-                local_port: tunnelHandle?.local_port ?? next.tunnel.local_port,
-              },
-            }
-          : {}),
+        location: next.location?.trim() || undefined,
       };
       if (normalized.token) return normalized;
       if (settings.endpoint === endpoint && settings.token) {
@@ -205,7 +287,12 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   const connect = useCallback(
     async (next: ConnectionSettings): Promise<void> => {
       const endpoint = normalizeEndpoint(next.endpoint);
-      const normalized = { ...next, endpoint, label: next.label?.trim() || undefined };
+      const normalized = {
+        ...next,
+        endpoint,
+        label: next.label?.trim() || undefined,
+        location: next.location?.trim() || undefined,
+      };
       const managed = endpoint === managedEndpoint;
       if (normalized.token && !managed) {
         await storeConnectionCredential(endpoint, normalized.token);
@@ -217,7 +304,12 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       if (managed) return;
       setRecents((current) => {
         const updated = [
-          { endpoint, label: normalized.label, tunnel: normalized.tunnel },
+          {
+            endpoint,
+            label: normalized.label,
+            location: normalized.location,
+            infrastructure: normalized.infrastructure,
+          },
           ...current.filter((item) => item.endpoint !== endpoint),
         ].slice(0, RECENT_CONNECTIONS_LIMIT);
         localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
@@ -264,7 +356,50 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     ],
   );
 
-  return <ConnectionContext.Provider value={value}>{children}</ConnectionContext.Provider>;
+  return (
+    <ConnectionContext.Provider value={value}>
+      {children}
+      <Dialog
+        onOpenChange={(open) => {
+          if (open || !pendingSsh) return;
+          cancelledSsh.current.add(pendingSsh.status.session_id);
+          void closeInfrastructureSshTransport(pendingSsh.targetId);
+          setPendingSsh(undefined);
+        }}
+        open={Boolean(pendingSsh)}
+      >
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Connect to {pendingSsh?.label}</DialogTitle>
+            <DialogDescription>
+              Respond to the exact prompts from system OpenSSH. Answers are never saved.
+            </DialogDescription>
+          </DialogHeader>
+          {pendingSsh ? (
+            <SshAuthentication
+              output={pendingSsh.status.output}
+              sessionId={pendingSsh.status.session_id}
+              state={pendingSsh.status.state}
+            />
+          ) : null}
+          <DialogFooter>
+            <Button
+              onClick={() => {
+                if (!pendingSsh) return;
+                cancelledSsh.current.add(pendingSsh.status.session_id);
+                void closeInfrastructureSshTransport(pendingSsh.targetId);
+                setPendingSsh(undefined);
+              }}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </ConnectionContext.Provider>
+  );
 }
 
 // Provider and hook intentionally share one private context identity.

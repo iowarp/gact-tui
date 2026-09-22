@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
+import { useLiveStore } from '@/store/live-store';
 import { ModelsSettings } from './settings-models';
 
 const { configuration, repository } = vi.hoisted(() => {
@@ -80,12 +81,15 @@ vi.mock('@/providers/connection-provider', () => ({
 
 afterEach(() => {
   cleanup();
+  useLiveStore.getState().reset();
   vi.clearAllMocks();
-  repository.providerModels.mockResolvedValue({
+  repository.languageModelConfiguration.mockReset().mockResolvedValue(configuration);
+  repository.providerModels.mockReset().mockResolvedValue({
     provider_id: 'codex',
     models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
     source: 'codex_app_server',
   });
+  repository.updateLanguageModelConfiguration.mockReset();
 });
 
 describe('ModelsSettings', () => {
@@ -282,6 +286,93 @@ describe('ModelsSettings', () => {
       api_base: '',
       model: 'gpt-5.6-nova',
     });
+  });
+
+  it('retires stale session and provider catalog state after applying a model', async () => {
+    const endpoint = 'http://127.0.0.1:8787';
+    const staleSession = {
+      id: 'session-1',
+      workspace_id: 'workspace-1',
+      title: 'Existing conversation',
+      state: 'completed',
+      created_at: '2026-09-21T00:00:00Z',
+      updated_at: '2026-09-21T00:00:00Z',
+      provider_id: 'codex',
+      model_id: 'gpt-5.6-luna',
+      mode: 'edit',
+      edit_mode: 'diff',
+      routing_mode: 'auto',
+      approval_mode: 'ask',
+      pinned: false,
+      archived: false,
+    } as const;
+    const claudePreset = {
+      id: 'claude_code',
+      label: 'Claude Code (subscription)',
+      provider: 'claude_code',
+      suggested_model: 'sonnet',
+      requires_api_key: false,
+      is_authenticated: true,
+      supports_live_catalog: true,
+      supports_vision: true,
+    };
+    const selectableConfiguration = {
+      ...configuration,
+      presets: [...configuration.presets, claudePreset],
+    };
+    const nextConfiguration = {
+      ...selectableConfiguration,
+      provider: 'claude_code',
+      model: 'sonnet',
+    };
+    repository.languageModelConfiguration.mockResolvedValueOnce(selectableConfiguration);
+    repository.providerModels.mockImplementation(async (providerId: string) => ({
+      provider_id: providerId,
+      models:
+        providerId === 'claude_code'
+          ? [{ id: 'sonnet', name: 'Claude Sonnet' }]
+          : [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
+      source: `${providerId}_catalog`,
+    }));
+    repository.updateLanguageModelConfiguration.mockResolvedValueOnce(nextConfiguration);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(queryKeys.sessions(endpoint, 'workspace-1'), [staleSession]);
+    queryClient.setQueryData(queryKeys.providerCatalog(endpoint), {
+      authoritative: 'live_handshake',
+      providers: [],
+    });
+    useLiveStore.getState().replaceSnapshots({ sessions: { [staleSession.id]: staleSession } });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('combobox', { name: 'Provider' }));
+    await user.click(await screen.findByRole('option', { name: 'Claude' }));
+    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'Claude Sonnet',
+    );
+    await user.click(screen.getByRole('button', { name: 'Apply provider and model' }));
+
+    await waitFor(() =>
+      expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'claude_code', model: 'sonnet' }),
+      ),
+    );
+    const cachedSession = queryClient.getQueryData<(typeof staleSession)[]>(
+      queryKeys.sessions(endpoint, 'workspace-1'),
+    )?.[0];
+    expect(cachedSession?.provider_id).toBeUndefined();
+    expect(cachedSession?.model_id).toBeUndefined();
+    expect(useLiveStore.getState().entities.sessions[staleSession.id]?.provider_id).toBeUndefined();
+    expect(useLiveStore.getState().entities.sessions[staleSession.id]?.model_id).toBeUndefined();
+    expect(queryClient.getQueryState(queryKeys.providerCatalog(endpoint))?.isInvalidated).toBe(
+      true,
+    );
   });
 
   it('adopts a configuration the service changed, until the person edits the panel', async () => {

@@ -1,15 +1,13 @@
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { installerRequestedLlamaCpp } from '@/lib/installer-infrastructure';
-import type { McpUserConfiguration, RelayStatus } from '@clio/core/v3';
-import {
-  managedServiceCatalog,
-  runManagedServiceAction,
-  type ManagedServiceActionInput,
-  type ManagedServiceDefinition,
-} from '@/tauri/infrastructure-setup';
+import type {
+  McpUserConfiguration,
+  RelayStatus,
+  ServiceActionInput,
+  ManagedServiceDefinition,
+} from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  ContainerIcon,
   CpuIcon,
   LaptopIcon,
   PackageOpenIcon,
@@ -17,19 +15,12 @@ import {
   ServerIcon,
   ChevronDownIcon,
 } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Frame,
-  FrameDescription,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldLabel } from '@/components/ui/field';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { RadioGroup } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -39,8 +30,10 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
+import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
-import { sshHostTarget, type SshHost } from '@/lib/ssh-hosts';
+import type { SshHost } from '@/lib/ssh-hosts';
+import { useConnectionSettings } from '@/providers/connection-provider';
 import { AgentServicesOverview } from './agent-services-overview';
 import {
   ManagedServiceCard,
@@ -50,9 +43,20 @@ import {
 import { WebSearchServiceConnection } from './web-search-service-connection';
 import { webSearchConnectionMatchesTarget } from './web-search-configuration';
 import { SshHostPicker } from './ssh-host-picker';
-import type { SshTunnelSettings } from '@/tauri/ssh-tunnel';
+import {
+  attachInfrastructureSshTransport,
+  sshTransportStatus,
+  type SshTransportStatus,
+} from '@/tauri/ssh-infrastructure-transport';
+import {
+  InspectionProgress,
+  SshAuthentication,
+  TargetChoice,
+  type ManagedTargetKind,
+} from './managed-service-target';
+import { targetLabel, targetMatchesHost, waitForOperation } from './managed-service-target-utils';
 
-type Target = 'local' | 'ssh';
+type Target = ManagedTargetKind;
 /** Desktop controls for CLIO-managed providers and supporting resources. */
 export function ManagedServices({
   onConnectWebSearch,
@@ -61,8 +65,9 @@ export function ManagedServices({
   webSearchConnection,
   webSearchConnecting = false,
   webSearchDisconnecting = false,
-  connectedAgentTunnel,
   connectedAgentLabel,
+  connectedAgentLocation,
+  onConnectExistingService,
   relayStatus,
 }: {
   onConnectWebSearch?: (remoteUrl: string) => void;
@@ -71,24 +76,26 @@ export function ManagedServices({
   webSearchConnection?: McpUserConfiguration;
   webSearchConnecting?: boolean;
   webSearchDisconnecting?: boolean;
-  connectedAgentTunnel?: SshTunnelSettings;
   connectedAgentLabel?: string;
+  connectedAgentLocation?: string;
+  onConnectExistingService?: () => void;
   relayStatus?: RelayStatus;
 }) {
   const desktop = inTauri();
+  const repository = useRepository();
+  const { isManagedConnection, settings } = useConnectionSettings();
   const [target, setTarget] = useState<Target>('local');
+  const [targetId, setTargetId] = useState('local');
   const [sshHost, setSshHost] = useState<SshHost>();
+  const [transportStatus, setTransportStatus] = useState<SshTransportStatus>();
+  const [transportOutput, setTransportOutput] = useState('');
   const [managedProvidersEnabled, setManagedProvidersEnabled] = useState(false);
   const [managerOpen, setManagerOpen] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState('');
   const [variants, setVariants] = useState<Record<string, string>>({});
   const [configuration, setConfiguration] = useState<Record<string, Record<string, string>>>({});
   const [results, setResults] = useState<Record<string, ServiceActionFeedback>>({});
-  const targetInput = useMemo(
-    () => (target === 'ssh' && sshHost ? sshHostTarget(sshHost) : { target }),
-    [sshHost, target],
-  );
-  const targetIdentity = useMemo(() => JSON.stringify(targetInput), [targetInput]);
+  const canManageSshTargets = desktop && isManagedConnection;
   // The NSIS installer's Infrastructure page records a llama.cpp request as a
   // PREFERENCE only — it never installs a runtime itself. When set, this
   // finishes that intent by pointing the user at the model-runtime controls
@@ -99,15 +106,109 @@ export function ManagedServices({
     queryFn: installerRequestedLlamaCpp,
     staleTime: Infinity,
   });
+  const targets = useQuery({
+    queryKey: ['infrastructure-targets', settings.endpoint],
+    queryFn: ({ signal }) => repository.infrastructureTargets(signal),
+    staleTime: 30_000,
+  });
+  const registerTarget = useMutation({
+    mutationFn: async (host: SshHost) => {
+      const definition = {
+        kind: 'ssh' as const,
+        label: host.label,
+        install_root: host.installRoot,
+        ssh: {
+          profile: host.profile ?? '',
+          host: host.host ?? '',
+          user: host.user ?? '',
+          port: host.port,
+          identity_file: host.identityFile ?? '',
+          jump_hosts: host.jumpHosts ?? [],
+          platform: host.platform ?? 'auto',
+        },
+      };
+      const existing = targets.data?.find((candidate) => targetMatchesHost(candidate, host));
+      if (existing) return repository.updateInfrastructureTarget(existing.id, definition);
+      return repository.createInfrastructureTarget(definition);
+    },
+    onSuccess: async (registered) => {
+      setTargetId(registered.id);
+      setTransportOutput('');
+      const status = await attachInfrastructureSshTransport(
+        settings.endpoint,
+        settings.token,
+        registered,
+      );
+      setTransportStatus(status);
+      setTransportOutput(status.output);
+      await repository.setInfrastructureTransportState(registered.id, status.state);
+      await targets.refetch();
+    },
+  });
+  const transportSessionId = transportStatus?.session_id;
+  useEffect(() => {
+    if (!transportSessionId) return;
+    let active = true;
+    const cleanup: Array<() => void> = [];
+    void import('@tauri-apps/api/event').then(async ({ listen }) => {
+      cleanup.push(
+        await listen<{ session_id: string; data: string }>(
+          'clio:ssh-transport-data',
+          ({ payload }) => {
+            if (!active || payload.session_id !== transportSessionId) return;
+            setTransportOutput((current) => `${current}${payload.data}`.slice(-32_000));
+          },
+        ),
+      );
+      cleanup.push(
+        await listen<{ session_id: string; state: SshTransportStatus['state'] }>(
+          'clio:ssh-transport-state',
+          ({ payload }) => {
+            if (!active || payload.session_id !== transportSessionId) return;
+            setTransportStatus((current) =>
+              current ? { ...current, state: payload.state } : current,
+            );
+            void repository.setInfrastructureTransportState(targetId, payload.state);
+            if (payload.state === 'connected') {
+              void repository.infrastructureTargets().then(async (rows) => {
+                const current = rows.find((row) => row.id === targetId);
+                if (!current) return;
+                const status = await attachInfrastructureSshTransport(
+                  settings.endpoint,
+                  settings.token,
+                  current,
+                );
+                if (active) setTransportStatus(status);
+              });
+            }
+          },
+        ),
+      );
+      const snapshot = await sshTransportStatus(transportSessionId);
+      if (active) {
+        setTransportStatus(snapshot);
+        setTransportOutput(snapshot.output);
+      }
+    });
+    return () => {
+      active = false;
+      cleanup.forEach((stop) => stop());
+    };
+  }, [repository, settings.endpoint, settings.token, targetId, transportSessionId]);
   const catalog = useQuery({
-    enabled: desktop && (target === 'local' || Boolean(sshHost)),
-    queryKey: ['managed-service-catalog', targetIdentity],
-    queryFn: () => managedServiceCatalog(targetInput),
+    enabled:
+      target === 'local' ||
+      Boolean(sshHost && targetId !== 'local' && transportStatus?.state === 'connected'),
+    queryKey: ['managed-service-catalog', settings.endpoint, targetId],
+    queryFn: ({ signal }) => repository.managedServiceCatalog(targetId, signal),
     retry: false,
     staleTime: 30_000,
   });
   const action = useMutation({
-    mutationFn: (input: ManagedServiceActionInput) => runManagedServiceAction(input),
+    mutationFn: async (input: ServiceActionInput & { service_id: string }) => {
+      const operation = await repository.runManagedServiceAction(input.service_id, input);
+      return waitForOperation(repository, operation);
+    },
     onMutate: (input) => {
       setResults((current) => {
         const next = { ...current };
@@ -122,10 +223,10 @@ export function ManagedServices({
           action: result.action as ServiceAction,
           text:
             result.action === 'status'
-              ? `Status refreshed on ${result.target}.`
+              ? 'Status refreshed.'
               : result.action === 'logs'
                 ? result.logs.trim() || 'No recent log output.'
-                : result.logs || `${result.action} completed on ${result.target}.`,
+                : result.logs || `${result.action} completed.`,
         },
       }));
       await catalog.refetch();
@@ -157,43 +258,10 @@ export function ManagedServices({
   const llamaCppInstalled =
     llamaCppService?.state === 'running' || llamaCppService?.state === 'stopped';
 
-  if (!desktop) {
-    return (
-      <Frame className="mt-6" spacing="sm">
-        <FrameHeader>
-          <FrameTitle aria-level={2} className="flex items-center gap-2" role="heading">
-            <ContainerIcon aria-hidden="true" className="size-4 text-primary" /> Managed
-            infrastructure
-          </FrameTitle>
-          <FrameDescription>
-            Connect services here. Installing and operating services on a computer is available in{' '}
-            {vocab.product}.
-          </FrameDescription>
-        </FrameHeader>
-        <FramePanel className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium">Connection mode</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              This browser can use existing model, search, and Relay services without managing the
-              host that runs them.
-            </p>
-          </div>
-          <Button asChild size="sm" variant="outline">
-            <Link to="/settings/providers">Open model settings</Link>
-          </Button>
-        </FramePanel>
-      </Frame>
-    );
-  }
-
   const renderService = (service: ManagedServiceDefinition) => {
-    const agentConnectionUrl =
-      service.id === 'web_search'
-        ? webSearchAgentUrl(service.connection_url, target, sshHost, connectedAgentTunnel)
-        : service.connection_url;
+    const agentConnectionUrl = service.connection_url;
     const webSearchTargetConnected =
       service.id === 'web_search' &&
-      !connectionBlocker(target, sshHost, connectedAgentTunnel) &&
       webSearchConnectionMatchesTarget(webSearchConnected, webSearchConnection, agentConnectionUrl);
     return (
       <ManagedServiceCard
@@ -215,8 +283,8 @@ export function ManagedServices({
         key={service.id}
         onAction={(requestedAction) =>
           action.mutate({
-            ...targetInput,
             service_id: service.id,
+            target_id: targetId,
             action: requestedAction,
             variant_id: variants[service.id] ?? service.recommended_variant,
             configuration: configuration[service.id] ?? {},
@@ -241,13 +309,11 @@ export function ManagedServices({
                     : `Connect to ${vocab.agent}`,
                 onSelect: webSearchTargetConnected
                   ? onDisconnectWebSearch
-                  : !agentConnectionUrl || connectionBlocker(target, sshHost, connectedAgentTunnel)
+                  : !agentConnectionUrl
                     ? undefined
                     : () => onConnectWebSearch?.(agentConnectionUrl),
                 pending: webSearchTargetConnected ? webSearchDisconnecting : webSearchConnecting,
-                blockedReason: webSearchTargetConnected
-                  ? undefined
-                  : connectionBlocker(target, sshHost, connectedAgentTunnel, connectedAgentLabel),
+                blockedReason: undefined,
               }
             : undefined
         }
@@ -262,13 +328,19 @@ export function ManagedServices({
     <section aria-labelledby="agent-services-title" className="mt-8 space-y-6">
       <AgentServicesOverview
         agentLabel={connectedAgentLabel}
-        agentTunnel={connectedAgentTunnel}
-        onDisconnectWebSearch={onDisconnectWebSearch}
+        agentLocation={connectedAgentLocation}
         relay={relayStatus}
         webSearch={webSearchConnection}
         webSearchConnected={webSearchConnected}
-        webSearchDisconnecting={webSearchDisconnecting}
       />
+
+      {onConnectExistingService ? (
+        <div className="flex justify-end">
+          <Button onClick={onConnectExistingService} type="button" variant="outline">
+            Connect existing service…
+          </Button>
+        </div>
+      ) : null}
 
       <section className="border-y">
         <button
@@ -301,8 +373,9 @@ export function ManagedServices({
                     Where should this capability run?
                   </h2>
                   <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-                    Choose this device or a saved SSH host. {vocab.agent} inspects the target before
-                    showing what can be installed, connected, or operated there.
+                    {canManageSshTargets
+                      ? `Choose this computer or another computer over SSH. ${vocab.agent} owns the target and every managed deployment.`
+                      : `Deploy directly on this ${vocab.agent}’s computer. The existing ${vocab.agent} connection carries every lifecycle request.`}
                   </p>
                   {catalog.data ? (
                     <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground">
@@ -332,29 +405,97 @@ export function ManagedServices({
 
                 <div className="space-y-3">
                   <RadioGroup
-                    className="grid gap-2 sm:grid-cols-2"
-                    onValueChange={(value) => setTarget(value as Target)}
+                    className={`grid gap-2 ${canManageSshTargets ? 'sm:grid-cols-2' : ''}`}
+                    onValueChange={(value) => {
+                      const next = value as Target;
+                      setTarget(next);
+                      if (next === 'local') {
+                        setTargetId('local');
+                        setSshHost(undefined);
+                      }
+                    }}
                     value={target}
                   >
                     <TargetChoice
-                      description="Install and run services on this device"
+                      description={
+                        canManageSshTargets
+                          ? 'Install and run services on this computer'
+                          : `Install and run services beside this ${vocab.agent}`
+                      }
                       icon={LaptopIcon}
-                      label="This computer"
+                      label={
+                        canManageSshTargets ? 'This computer' : `This ${vocab.agent}’s computer`
+                      }
                       selected={target === 'local'}
                       value="local"
                     />
-                    <TargetChoice
-                      description="Use a computer already saved in SSH"
-                      icon={ServerIcon}
-                      label="Remote host"
-                      selected={target === 'ssh'}
-                      value="ssh"
-                    />
+                    {canManageSshTargets ? (
+                      <TargetChoice
+                        description={`Let ${vocab.agent} manage a computer reached through Desktop SSH`}
+                        icon={ServerIcon}
+                        label="Another computer…"
+                        selected={target === 'ssh'}
+                        value="ssh"
+                      />
+                    ) : null}
                   </RadioGroup>
                   {target === 'ssh' ? (
                     <Field>
                       <FieldLabel>Saved SSH host</FieldLabel>
-                      <SshHostPicker onChange={setSshHost} value={sshHost} />
+                      <SshHostPicker
+                        onChange={(host) => {
+                          setSshHost(host);
+                          if (host) registerTarget.mutate(host);
+                        }}
+                        value={sshHost}
+                      />
+                      {registerTarget.error ? (
+                        <p className="text-xs text-destructive">{registerTarget.error.message}</p>
+                      ) : null}
+                      {sshHost ? (
+                        <div className="flex items-center justify-between gap-3 text-xs">
+                          <span
+                            className={
+                              transportStatus?.state === 'connected'
+                                ? 'text-success'
+                                : transportStatus?.state === 'reauthentication_required'
+                                  ? 'text-warning'
+                                  : 'text-muted-foreground'
+                            }
+                            role="status"
+                          >
+                            {registerTarget.isPending
+                              ? 'Reconnecting'
+                              : transportStateLabel(
+                                  transportStatus?.state ??
+                                    targets.data?.find((item) => item.id === targetId)
+                                      ?.transport_state ??
+                                    'state_unknown',
+                                )}
+                          </span>
+                          {transportStatus &&
+                          ['disconnected', 'state_unknown'].includes(transportStatus.state) ? (
+                            <Button
+                              onClick={() => registerTarget.mutate(sshHost)}
+                              size="sm"
+                              type="button"
+                              variant="outline"
+                            >
+                              Connect
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {transportStatus &&
+                      ['reauthentication_required', 'reconnecting'].includes(
+                        transportStatus.state,
+                      ) ? (
+                        <SshAuthentication
+                          output={transportOutput}
+                          sessionId={transportStatus.session_id}
+                          state={transportStatus.state}
+                        />
+                      ) : null}
                     </Field>
                   ) : null}
                 </div>
@@ -485,6 +626,16 @@ export function ManagedServices({
   );
 }
 
+function transportStateLabel(state: SshTransportStatus['state']): string {
+  return {
+    connected: 'Connected',
+    reconnecting: 'Reconnecting',
+    reauthentication_required: 'Reauthentication required',
+    disconnected: 'Disconnected',
+    state_unknown: 'State unknown',
+  }[state];
+}
+
 function CapabilitySection({
   children,
   description,
@@ -509,110 +660,5 @@ function CapabilitySection({
       </header>
       {children}
     </section>
-  );
-}
-
-function InspectionProgress({ host, target }: { host?: SshHost; target: Target }) {
-  const remote = target === 'ssh';
-  const place = targetLabel(target, host);
-  return (
-    <Alert className="mt-4" role="status">
-      <Spinner aria-hidden="true" />
-      <AlertTitle>{remote ? `Connecting to ${place}` : 'Inspecting this computer'}</AlertTitle>
-      <AlertDescription>
-        {remote
-          ? `Checking the SSH connection, operating system, Docker, runtimes, acceleration, and existing ${vocab.agent} services.`
-          : `Checking the operating system, Docker, local runtimes, acceleration, and existing ${vocab.agent} services.`}{' '}
-        You can keep using {vocab.agent} while this finishes.
-      </AlertDescription>
-    </Alert>
-  );
-}
-
-function targetLabel(target: Target, host?: SshHost): string {
-  return target === 'local' ? 'this computer' : host?.label || 'the SSH host';
-}
-
-function sameSshTarget(host: SshHost | undefined, tunnel: SshTunnelSettings): boolean {
-  if (!host) return false;
-  if (host.profile && tunnel.profile) {
-    return host.profile.toLowerCase() === tunnel.profile.toLowerCase();
-  }
-  return (
-    Boolean(host.host && tunnel.host) &&
-    host.host?.toLowerCase() === tunnel.host.toLowerCase() &&
-    host.port === (tunnel.port ?? 22) &&
-    (host.user ?? '') === tunnel.user
-  );
-}
-
-/**
- * Resolve the service address from the connected agent's network perspective.
- * The desktop reaches an SSH deployment through its host address, while a CLIO
- * agent running on that exact host should use loopback and avoid depending on
- * firewall, Docker publication, or campus routing rules.
- */
-function webSearchAgentUrl(
-  discoveredUrl: string | null | undefined,
-  target: Target,
-  host: SshHost | undefined,
-  connectedAgentTunnel?: SshTunnelSettings,
-): string | undefined {
-  if (!discoveredUrl) return undefined;
-  if (target !== 'ssh' || !connectedAgentTunnel || !sameSshTarget(host, connectedAgentTunnel)) {
-    return discoveredUrl;
-  }
-  try {
-    const url = new URL(discoveredUrl);
-    url.hostname = '127.0.0.1';
-    return url.toString().replace(/\/$/u, '');
-  } catch {
-    return discoveredUrl;
-  }
-}
-
-function connectionBlocker(
-  target: Target,
-  host: SshHost | undefined,
-  connectedAgentTunnel?: SshTunnelSettings,
-  connectedAgentLabel = vocab.agent,
-): string | undefined {
-  if (!connectedAgentTunnel) return undefined;
-  if (target === 'local') {
-    return `${connectedAgentLabel} runs remotely, so it cannot use a service bound to this desktop. Choose the same remote host as the connected ${vocab.agent}.`;
-  }
-  if (!sameSshTarget(host, connectedAgentTunnel)) {
-    return `${connectedAgentLabel} can connect only to services on its own remote host. Choose that host, or connect a local ${vocab.agent} first.`;
-  }
-  return undefined;
-}
-
-function TargetChoice({
-  description,
-  icon: Icon,
-  label,
-  selected,
-  value,
-}: {
-  description: string;
-  icon: typeof LaptopIcon;
-  label: string;
-  selected: boolean;
-  value: Target;
-}) {
-  return (
-    <FieldLabel
-      className={`group grid cursor-pointer grid-cols-[auto_1fr] gap-x-3 border p-4 transition-colors hover:border-primary/60 ${
-        selected ? 'border-primary bg-primary/8' : 'border-border bg-background/60'
-      }`}
-      htmlFor={`managed-target-${value}`}
-    >
-      <RadioGroupItem className="sr-only" id={`managed-target-${value}`} value={value} />
-      <span className="row-span-2 grid size-9 place-items-center rounded-full bg-muted text-muted-foreground group-hover:text-primary">
-        <Icon aria-hidden="true" className="size-4" />
-      </span>
-      <span className="font-medium">{label}</span>
-      <span className="text-xs font-normal text-muted-foreground">{description}</span>
-    </FieldLabel>
   );
 }

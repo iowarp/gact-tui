@@ -7,6 +7,7 @@ import {
 } from '@clio/core/v3';
 import { create } from 'zustand';
 import { reduceFramesContained } from '@/lib/streaming/frame-reduction';
+import { withoutEntitySessionModelReferences } from '@/lib/session-model-state';
 
 /**
  * Stream gaps kept for diagnostics. Unit: gap records.
@@ -26,6 +27,7 @@ interface LiveStore {
   replaceSnapshots: (snapshot: Partial<EntityState>) => void;
   mergeSnapshots: (snapshot: Partial<EntityState>) => void;
   reconcileSnapshots: (snapshot: Partial<EntityState>) => void;
+  clearSessionModelReferences: () => void;
   reset: () => void;
 }
 
@@ -127,6 +129,13 @@ export const useLiveStore = create<LiveStore>((set) => ({
         processed_cursors: [],
       },
       error: undefined,
+    })),
+  clearSessionModelReferences: () =>
+    set((state) => ({
+      entities: {
+        ...state.entities,
+        sessions: withoutEntitySessionModelReferences(state.entities.sessions),
+      },
     })),
   reset: () => set({ entities: createEntityState(), frameGaps: [], error: undefined }),
 }));

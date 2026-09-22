@@ -35,8 +35,8 @@
 //! Every terminal is reaped from [`TerminalRegistry::shutdown_all`], called
 //! from `shutdown_owned_services` in `lib.rs` on both the graceful quit path
 //! and the native `RunEvent::Exit` path, so a shell can never outlive the
-//! desktop process — the same owned-process guarantee `TunnelManager` and
-//! the sidecar `Supervisor` already give the SSH tunnels and the backend.
+//! desktop process — the same owned-process guarantee the SSH transport
+//! registry and sidecar `Supervisor` give their child processes.
 
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use portable_pty::{native_pty_system, Child, ChildKiller, CommandBuilder, MasterPty, PtySize};

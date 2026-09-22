@@ -1,7 +1,4 @@
-import type { ManagedTargetInput, SshProfile } from '@/tauri/infrastructure-setup';
-
-const SAVED_SSH_HOSTS_KEY = 'clio.saved-ssh-hosts.v1';
-const SAVED_SSH_HOSTS_LIMIT = 24;
+import type { SshProfile } from '@/tauri/ssh-profiles';
 
 export type SshHost = {
   id: string;
@@ -11,9 +8,10 @@ export type SshHost = {
   user?: string;
   port: number;
   identityFile?: string;
-  authMethod?: 'key' | 'password';
-  credentialId?: string;
+  jumpHosts?: string[];
+  platform?: 'auto' | 'linux' | 'windows';
   installRoot?: string;
+  managed?: boolean;
 };
 
 function cleanOptional(value: unknown): string | undefined {
@@ -26,76 +24,21 @@ function validPort(value: unknown): number {
     : 22;
 }
 
-function parseSavedHost(value: unknown): SshHost | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const item = value as Record<string, unknown>;
-  const id = cleanOptional(item.id);
-  const label = cleanOptional(item.label);
-  const host = cleanOptional(item.host);
-  if (!id || !label || !host) return undefined;
-  return {
-    id,
-    label,
-    host,
-    user: cleanOptional(item.user),
-    port: validPort(item.port),
-    identityFile: cleanOptional(item.identityFile),
-    authMethod: item.authMethod === 'password' ? 'password' : 'key',
-    credentialId: cleanOptional(item.credentialId) ?? id,
-    installRoot: cleanOptional(item.installRoot),
-  };
-}
-
-/** Read manually saved SSH hosts. Authentication secrets are never stored here. */
-export function readSavedSshHosts(): SshHost[] {
-  try {
-    const value = JSON.parse(window.localStorage.getItem(SAVED_SSH_HOSTS_KEY) ?? '[]') as unknown;
-    return Array.isArray(value)
-      ? value.flatMap((item) => {
-          const parsed = parseSavedHost(item);
-          return parsed ? [parsed] : [];
-        })
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-/** Persist one manual SSH host without replacing profiles imported from OpenSSH. */
-export function saveSshHost(host: SshHost): SshHost[] {
-  const saved = [host, ...readSavedSshHosts().filter((item) => item.id !== host.id)].slice(
-    0,
-    SAVED_SSH_HOSTS_LIMIT,
-  );
-  window.localStorage.setItem(SAVED_SSH_HOSTS_KEY, JSON.stringify(saved));
-  return saved;
-}
-
 /** Convert OpenSSH config entries into the same picker model as manual hosts. */
 export function profileSshHosts(profiles: readonly SshProfile[]): SshHost[] {
   return profiles.map((profile) => ({
     id: `profile:${profile.name}`,
-    label: profile.name,
+    label: profile.label || profile.name,
     profile: profile.name,
     host: profile.hostname,
     user: profile.user,
-    port: 22,
+    port: profile.port ?? 22,
+    identityFile: profile.identity_file,
+    jumpHosts: profile.jump_hosts ?? [],
+    platform: profile.platform ?? 'auto',
+    installRoot: profile.install_root,
+    managed: profile.managed ?? false,
   }));
-}
-
-/** Build the native deployment target without shell-composed user input. */
-export function sshHostTarget(host: SshHost): ManagedTargetInput {
-  return {
-    target: 'ssh',
-    ...(host.profile ? { ssh_profile: host.profile } : {}),
-    ...(host.host ? { ssh_host: host.host } : {}),
-    ...(host.user ? { ssh_user: host.user } : {}),
-    ...(host.port !== 22 ? { ssh_port: host.port } : {}),
-    ...(host.identityFile ? { ssh_identity_file: host.identityFile } : {}),
-    ...(host.installRoot ? { install_root: host.installRoot } : {}),
-    ssh_auth_method: host.authMethod ?? 'key',
-    ssh_credential_id: host.credentialId ?? host.id,
-  };
 }
 
 export function sshHostDestination(host: SshHost): string {
@@ -106,7 +49,6 @@ export function sshHostDestination(host: SshHost): string {
 export function createSavedSshHost(input: {
   host: string;
   identityFile?: string;
-  authMethod?: 'key' | 'password';
   label?: string;
   installRoot?: string;
   port?: number;
@@ -124,8 +66,8 @@ export function createSavedSshHost(input: {
     user,
     port,
     identityFile: cleanOptional(input.identityFile),
-    authMethod: input.authMethod ?? 'key',
-    credentialId: `manual:${destination}:${port}`,
+    jumpHosts: [],
+    platform: 'auto',
     installRoot: cleanOptional(input.installRoot),
   };
 }

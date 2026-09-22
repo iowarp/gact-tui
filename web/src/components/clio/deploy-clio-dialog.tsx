@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { LaptopIcon, ServerIcon, TriangleAlertIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,14 +17,21 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { ConnectionSettings } from '@/lib/connection';
 import { vocab } from '@/lib/brand-vocabulary';
-import { sshHostTarget, type SshHost } from '@/lib/ssh-hosts';
-import { deployClio } from '@/tauri/infrastructure-setup';
+import { type SshHost } from '@/lib/ssh-hosts';
 import {
   getManagedBackend,
   retryManagedBackend,
   waitForManagedBackend,
 } from '@/tauri/managed-backend';
-import { sshTunnelForHost } from '@/tauri/ssh-tunnel';
+import { useRepository } from '@/hooks/use-repository';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import {
+  attachInfrastructureSshTransport,
+  sshTransportStatus,
+  type SshTransportStatus,
+} from '@/tauri/ssh-infrastructure-transport';
+import { SshAuthentication } from './managed-service-target';
+import { targetMatchesHost, waitForOperation } from './managed-service-target-utils';
 import { SshHostPicker } from './ssh-host-picker';
 
 type DeployTarget = 'local' | 'ssh';
@@ -42,6 +49,10 @@ export function DeployClioDialog({
   const [target, setTarget] = useState<DeployTarget>('local');
   const [host, setHost] = useState<SshHost>();
   const [remoteInstallRoot, setRemoteInstallRoot] = useState('');
+  const [transportStatus, setTransportStatus] = useState<SshTransportStatus>();
+  const [transportOutput, setTransportOutput] = useState('');
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
   const deployment = useMutation({
@@ -56,17 +67,63 @@ export function DeployClioDialog({
           endpoint: handle.url,
           token: handle.bearer_token || undefined,
           label: 'This computer',
+          location: 'Local',
         };
       }
       if (!host) throw new Error(`Choose or add the computer where ${vocab.agent} should run.`);
-      const result = await deployClio({
-        ...sshHostTarget(host),
-        ...(remoteInstallRoot.trim() ? { install_root: remoteInstallRoot.trim() } : {}),
-      });
-      return {
-        endpoint: `http://127.0.0.1:${result.remote_port}`,
+      const targets = await repository.infrastructureTargets();
+      const definition = {
+        kind: 'ssh' as const,
         label: host.label,
-        tunnel: sshTunnelForHost(host, result.remote_port),
+        install_root: remoteInstallRoot.trim() || host.installRoot,
+        ssh: {
+          profile: host.profile,
+          host: host.host,
+          user: host.user,
+          port: host.port,
+          jump_hosts: host.jumpHosts,
+          identity_file: host.identityFile,
+          platform: host.platform,
+        },
+      };
+      const existing = targets.find((candidate) => targetMatchesHost(candidate, host));
+      const registered = existing
+        ? await repository.updateInfrastructureTarget(existing.id, definition)
+        : await repository.createInfrastructureTarget(definition);
+      let status = await attachInfrastructureSshTransport(
+        settings.endpoint,
+        settings.token,
+        registered,
+      );
+      setTransportStatus(status);
+      setTransportOutput(status.output);
+      for (let attempt = 0; status.state !== 'connected' && attempt < 3_600; attempt += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 250));
+        status = await sshTransportStatus(status.session_id);
+        setTransportStatus(status);
+        setTransportOutput(status.output);
+      }
+      if (status.state !== 'connected')
+        throw new Error(`SSH connection to ${host.label} timed out.`);
+      await repository.setInfrastructureTransportState(registered.id, 'connected');
+      await attachInfrastructureSshTransport(settings.endpoint, settings.token, registered);
+      const operation = await repository.runManagedServiceAction('clio_agent', {
+        target_id: registered.id,
+        action: 'install',
+        variant_id: 'released',
+        configuration: {},
+      });
+      await waitForOperation(repository, operation);
+      const catalog = await repository.managedServiceCatalog(registered.id);
+      const service = catalog.services.find((candidate) => candidate.id === 'clio_agent');
+      if (!service?.connection_url) {
+        throw new Error(`The deployed ${vocab.agent} did not publish a connection address.`);
+      }
+      return {
+        endpoint: service.connection_url,
+        label: vocab.agent,
+        location: host.label,
+        infrastructure: { targetId: registered.id, serviceId: 'clio_agent' },
       };
     },
     onSuccess: (settings) => {
@@ -74,6 +131,37 @@ export function DeployClioDialog({
       onReady(settings);
     },
   });
+
+  const transportSessionId = transportStatus?.session_id;
+  useEffect(() => {
+    if (!transportSessionId) return;
+    let active = true;
+    let stopData: (() => void) | undefined;
+    let stopState: (() => void) | undefined;
+    void import('@tauri-apps/api/event').then(async ({ listen }) => {
+      stopData = await listen<{ session_id: string; data: string }>(
+        'clio:ssh-transport-data',
+        ({ payload }) => {
+          if (!active || payload.session_id !== transportSessionId) return;
+          setTransportOutput((current) => `${current}${payload.data}`.slice(-32_000));
+        },
+      );
+      stopState = await listen<{ session_id: string; state: SshTransportStatus['state'] }>(
+        'clio:ssh-transport-state',
+        ({ payload }) => {
+          if (!active || payload.session_id !== transportSessionId) return;
+          setTransportStatus((current) =>
+            current ? { ...current, state: payload.state } : current,
+          );
+        },
+      );
+    });
+    return () => {
+      active = false;
+      stopData?.();
+      stopState?.();
+    };
+  }, [transportSessionId]);
 
   return (
     <Dialog onOpenChange={setOpen} open={open}>
@@ -159,6 +247,14 @@ export function DeployClioDialog({
                 : String(deployment.error)}
             </AlertDescription>
           </Alert>
+        ) : null}
+
+        {transportStatus && transportStatus.state !== 'connected' ? (
+          <SshAuthentication
+            output={transportOutput}
+            sessionId={transportStatus.session_id}
+            state={transportStatus.state}
+          />
         ) : null}
 
         <DialogFooter>

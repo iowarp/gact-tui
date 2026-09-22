@@ -3,8 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   complete: vi.fn(),
   configure: vi.fn(),
+  infrastructureOperation: vi.fn(),
   languageModelConfiguration: vi.fn(),
+  managedServiceCatalog: vi.fn(),
   read: vi.fn(),
+  runManagedServiceAction: vi.fn(),
   success: vi.fn(),
   updateLanguageModelConfiguration: vi.fn(),
   waitLanguageModelConfiguration: vi.fn(),
@@ -16,7 +19,10 @@ vi.mock('@/lib/connection', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/connection')>()),
   createRepository: () => ({
     configureMcpServer: mocks.configure,
+    infrastructureOperation: mocks.infrastructureOperation,
     languageModelConfiguration: mocks.languageModelConfiguration,
+    managedServiceCatalog: mocks.managedServiceCatalog,
+    runManagedServiceAction: mocks.runManagedServiceAction,
     updateLanguageModelConfiguration: mocks.updateLanguageModelConfiguration,
     waitLanguageModelConfiguration: mocks.waitLanguageModelConfiguration,
   }),
@@ -37,6 +43,15 @@ describe('finishInstallerInfrastructure', () => {
     vi.clearAllMocks();
     window.localStorage.clear();
     mocks.languageModelConfiguration.mockResolvedValue({ configured: true, presets: [] });
+    mocks.managedServiceCatalog.mockResolvedValue({
+      services: [
+        {
+          id: 'web_search',
+          state: 'running',
+          variants: [{ id: 'docker', compatible: true }],
+        },
+      ],
+    });
   });
 
   it('starts an authenticated provider selected by the installer', async () => {
@@ -189,6 +204,15 @@ describe('finishInstallerInfrastructure', () => {
       web_search: 'needs_attention',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
+    });
+    mocks.managedServiceCatalog.mockResolvedValue({
+      services: [
+        {
+          id: 'web_search',
+          state: 'not_installed',
+          variants: [{ id: 'docker', compatible: false, reason: 'Docker is not available.' }],
+        },
+      ],
     });
 
     await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });

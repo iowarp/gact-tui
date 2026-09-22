@@ -2,29 +2,24 @@ import type { McpUserConfiguration, RelayStatus } from '@clio/core/v3';
 import { Button } from '@/components/ui/button';
 import { ClioStatus } from '@/components/clio/status';
 import { vocab } from '@/lib/brand-vocabulary';
-import type { SshTunnelSettings } from '@/tauri/ssh-tunnel';
 import { remoteUrlFromSpec } from './web-search-configuration';
 
 /** Compact topology for services attached to the currently connected agent. */
 export function AgentServicesOverview({
   agentLabel,
-  agentTunnel,
-  onDisconnectWebSearch,
+  agentLocation,
   relay,
   webSearch,
   webSearchConnected,
-  webSearchDisconnecting,
 }: {
   agentLabel?: string;
-  agentTunnel?: SshTunnelSettings;
-  onDisconnectWebSearch?: () => void;
+  agentLocation?: string;
   relay?: RelayStatus;
   webSearch?: McpUserConfiguration;
   webSearchConnected: boolean;
-  webSearchDisconnecting: boolean;
 }) {
   const webSearchUrl = remoteUrlFromSpec(webSearch?.spec);
-  const agent = agentIdentity(agentLabel, agentTunnel);
+  const agent = agentIdentity(agentLabel, agentLocation);
   return (
     <section aria-labelledby="agent-services-title" className="border-y">
       <header className="flex flex-wrap items-end justify-between gap-3 py-4">
@@ -43,23 +38,14 @@ export function AgentServicesOverview({
       </header>
       <div className="divide-y border-t">
         <ServiceConnectionRow
-          action={
-            webSearch?.configured && onDisconnectWebSearch
-              ? {
-                  disabled: webSearchDisconnecting,
-                  label: webSearchDisconnecting ? 'Disconnecting…' : 'Disconnect',
-                  onSelect: onDisconnectWebSearch,
-                }
-              : undefined
-          }
           detail={webSearchUrl ?? 'No service address configured'}
-          location={serviceLocation(webSearchUrl, agentTunnel)}
+          location={serviceLocation(webSearchUrl, agentLocation)}
           name={`${vocab.agent} Web Search`}
           status={
             webSearchConnected
               ? 'Connected'
               : webSearch?.configured
-                ? 'Needs attention'
+                ? 'Unavailable'
                 : 'Not connected'
           }
           statusValue={
@@ -67,11 +53,11 @@ export function AgentServicesOverview({
           }
         />
         <ServiceConnectionRow
-          detail={relay?.mcp_url ?? relay?.detail ?? 'No service address configured'}
-          location={relay?.host ?? serviceLocation(relay?.mcp_url, agentTunnel)}
+          detail={relay?.mcp_url ?? 'No service address configured'}
+          location={relay?.host ?? serviceLocation(relay?.mcp_url, agentLocation)}
           name={`${vocab.agent} Relay`}
           status={
-            relay?.reachable ? 'Connected' : relay?.configured ? 'Needs attention' : 'Not connected'
+            relay?.reachable ? 'Connected' : relay?.configured ? 'Unavailable' : 'Not connected'
           }
           statusValue={
             relay?.reachable ? 'healthy' : relay?.configured ? 'degraded' : 'unavailable'
@@ -118,8 +104,8 @@ function ServiceConnectionRow({
   );
 }
 
-function agentIdentity(label?: string, tunnel?: SshTunnelSettings): string {
-  const rawLocation = tunnel?.profile?.trim() || tunnel?.host.trim() || 'Local';
+function agentIdentity(label?: string, location?: string): string {
+  const rawLocation = location?.trim() || 'Local';
   const normalizedLocation = rawLocation === '127.0.0.1' ? 'Local' : displayName(rawLocation);
   const trimmedLabel = label?.trim();
   const name =
@@ -131,12 +117,12 @@ function agentIdentity(label?: string, tunnel?: SshTunnelSettings): string {
   return `${normalizedLocation} › ${name}`;
 }
 
-function serviceLocation(url: string | undefined, tunnel?: SshTunnelSettings): string {
+function serviceLocation(url: string | undefined, agentLabel?: string): string {
   if (!url) return '—';
   try {
     const hostname = new URL(url).hostname;
     if (['127.0.0.1', 'localhost', '::1'].includes(hostname.toLocaleLowerCase())) {
-      return displayName(tunnel?.profile?.trim() || tunnel?.host.trim() || 'this computer');
+      return displayName(agentLabel?.trim() || 'this computer');
     }
     return hostname;
   } catch {

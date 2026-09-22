@@ -12,6 +12,21 @@ import { completeInstallerWebSearch, readInstallerOptions } from '@/tauri/instal
 const WEB_SEARCH_CONNECT_ATTEMPTS = 6;
 const WEB_SEARCH_CONNECT_RETRY_MS = 2_000;
 
+async function waitForInfrastructureOperation(
+  repository: ReturnType<typeof createRepository>,
+  operationId: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < 600; attempt += 1) {
+    const operation = await repository.infrastructureOperation(operationId);
+    if (operation.state === 'succeeded') return;
+    if (operation.state === 'failed' || operation.state === 'cancelled') {
+      throw new Error(operation.error || operation.progress || 'CLIO Search installation failed.');
+    }
+    await wait(500);
+  }
+  throw new Error('CLIO Search installation is still running.');
+}
+
 // Families can expose several choices in the picker, but only providers that
 // need no secret or per-host fields are safe to activate automatically.  The
 // order is intentional: it follows the installer's default family order and
@@ -90,12 +105,24 @@ export async function finishInstallerInfrastructure(settings: ConnectionSettings
   const repository = createRepository(settings);
   await activateInstallerProvider(repository, selectedFamilies);
   if (options.web_search === 'not_requested' || options.web_search === 'configured') return;
-  if (options.web_search !== 'deployed') {
+  const catalog = await repository.managedServiceCatalog('local');
+  const service = catalog.services.find((candidate) => candidate.id === 'web_search');
+  const variant = service?.variants.find((candidate) => candidate.compatible);
+  if (!service || !variant) {
     toast.warning('CLIO Search still needs setup', {
       id: 'installer-web-search-needs-attention',
-      description: 'Open Infrastructure when Docker is installed and running to finish setup.',
+      description: service?.variants[0]?.reason || 'Open Infrastructure to inspect this computer.',
     });
     return;
+  }
+  if (service.state !== 'running') {
+    const operation = await repository.runManagedServiceAction('web_search', {
+      target_id: 'local',
+      action: service.state === 'stopped' ? 'start' : 'install',
+      variant_id: variant.id,
+      configuration: {},
+    });
+    await waitForInfrastructureOperation(repository, operation.id);
   }
   let result = await repository.configureMcpServer('web', {
     name: 'CLIO Web Search',

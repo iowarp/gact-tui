@@ -2,13 +2,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    if let Ok(credential_id) = std::env::var("CLIO_SSH_ASKPASS_CREDENTIAL") {
-        if let Err(error) = clio_desktop_lib::print_ssh_askpass_password(&credential_id) {
-            eprintln!("{error}");
-            std::process::exit(1);
-        }
-        return;
-    }
     #[cfg(windows)]
     if std::env::args_os().any(|arg| arg == "--prepare-runtime") {
         if let Err(error) = clio_desktop_lib::prepare_runtime_for_install() {

@@ -13,7 +13,6 @@ mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
-mod infrastructure_setup;
 mod installer_options;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu;
@@ -30,10 +29,8 @@ mod sse_registry;
 mod sse_stream;
 #[cfg(test)]
 mod sse_stream_tests;
-mod ssh;
-mod ssh_auth;
-mod ssh_command;
-mod ssh_types;
+mod ssh_profiles;
+mod ssh_transport;
 mod supervisor;
 mod supervisor_attach;
 mod supervisor_boot;
@@ -54,7 +51,6 @@ mod terminal_reader;
 mod tray;
 mod workspace_terminal;
 
-use ssh::TunnelManager;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::thread;
@@ -148,7 +144,7 @@ pub fn run() {
         // after the updater finishes (relaunch() in desktop-updater.ts).
         .plugin(tauri_plugin_process::init())
         .manage(state)
-        .manage(TunnelManager::new())
+        .manage(ssh_transport::SshTransportRegistry::new())
         .manage(sse_registry::SseRegistry::new())
         .manage(terminal_pty::TerminalRegistry::new())
         .invoke_handler(tauri::generate_handler![
@@ -160,13 +156,16 @@ pub fn run() {
             commands::open_logs,
             commands::read_logs,
             commands::open_document_path,
-            commands::tunnel_open,
-            infrastructure_setup::infrastructure_ssh_profiles,
-            infrastructure_setup::infrastructure_preflight,
-            infrastructure_setup::infrastructure_managed_service_catalog,
-            infrastructure_setup::infrastructure_managed_service_action,
-            infrastructure_setup::infrastructure_deploy_web_search,
-            infrastructure_setup::infrastructure_deploy_clio,
+            ssh_transport::ssh_transport_open,
+            ssh_transport::ssh_transport_status,
+            ssh_transport::ssh_transport_write,
+            ssh_transport::ssh_transport_exec,
+            ssh_transport::ssh_transport_forward,
+            ssh_transport::ssh_transport_close,
+            ssh_profiles::ssh_profiles_list,
+            ssh_profiles::ssh_profile_save,
+            ssh_profiles::ssh_profile_set_hidden,
+            ssh_profiles::ssh_profile_delete,
             installer_options::read_installer_options,
             installer_options::complete_installer_web_search,
             credentials::credential_store,
@@ -174,8 +173,6 @@ pub fn run() {
             credentials::credential_delete,
             credentials::provider_credential_store,
             credentials::provider_credential_read,
-            credentials::ssh_password_store,
-            credentials::ssh_password_delete,
             credentials::ssh_identity_store,
             gact_http::gact_http,
             sse_bridge::gact_sse_open,
@@ -364,15 +361,6 @@ pub fn run() {
     });
 }
 
-/// Print one SSH password for OpenSSH's askpass protocol without exposing it
-/// in the SSH command line or the child process environment.
-pub fn print_ssh_askpass_password(credential_id: &str) -> Result<(), String> {
-    let password = credentials::read_ssh_password(credential_id)?
-        .ok_or_else(|| "No SSH password is saved for this host.".to_string())?;
-    print!("{password}");
-    Ok(())
-}
-
 /// Expand the bundled runtime during the native installer instead of making
 /// the first interactive launch pay that cost.
 ///
@@ -454,8 +442,8 @@ pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<
         // skip child reaping and leak the sidecar process tree on exit.
         supervisor_state::lock_recover(&state).shutdown();
     }
-    if let Some(tm) = app.try_state::<TunnelManager>() {
-        tm.shutdown_all();
+    if let Some(transports) = app.try_state::<ssh_transport::SshTransportRegistry>() {
+        transports.shutdown_all();
     }
     if let Some(terminals) = app.try_state::<terminal_pty::TerminalRegistry>() {
         terminals.shutdown_all();

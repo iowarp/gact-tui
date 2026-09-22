@@ -1,10 +1,30 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
-  CheckCircle2Icon,
+  DndContext,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  KeyboardSensor,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  GripVerticalIcon,
+  EyeOffIcon,
   FileKey2Icon,
   PlusIcon,
   ServerIcon,
+  Trash2Icon,
   TriangleAlertIcon,
+  XIcon,
 } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -33,14 +53,16 @@ import {
 import {
   createSavedSshHost,
   profileSshHosts,
-  readSavedSshHosts,
-  saveSshHost,
   sshHostDestination,
-  sshHostTarget,
   type SshHost,
 } from '@/lib/ssh-hosts';
-import { preflightTarget, sshProfiles } from '@/tauri/infrastructure-setup';
-import { deleteSshPassword, storeSshIdentity, storeSshPassword } from '@/tauri/ssh-credentials';
+import { storeSshIdentity } from '@/tauri/ssh-credentials';
+import {
+  deleteSshProfile,
+  listSshProfiles,
+  saveSshProfile,
+  setSshProfileHidden,
+} from '@/tauri/ssh-profiles';
 
 export function SshHostPicker({
   onChange,
@@ -51,10 +73,9 @@ export function SshHostPicker({
 }) {
   const profiles = useQuery({
     queryKey: ['managed-service-ssh-profiles'],
-    queryFn: sshProfiles,
+    queryFn: listSshProfiles,
     staleTime: 60_000,
   });
-  const [saved, setSaved] = useState(readSavedSshHosts);
   const [open, setOpen] = useState(false);
   const [host, setHost] = useState('');
   const [user, setUser] = useState('');
@@ -62,25 +83,26 @@ export function SshHostPicker({
   const [port, setPort] = useState('22');
   const [identityFile, setIdentityFile] = useState('');
   const [privateKey, setPrivateKey] = useState('');
-  const [password, setPassword] = useState('');
   const [installRoot, setInstallRoot] = useState('');
+  const [jumpHost, setJumpHost] = useState('');
+  const [jumpHosts, setJumpHosts] = useState<string[]>([]);
+  const [platform, setPlatform] = useState<'auto' | 'linux' | 'windows'>('auto');
   const [authMethod, setAuthMethod] = useState<'key' | 'password'>('key');
   const [authError, setAuthError] = useState<string>();
   const [saving, setSaving] = useState(false);
-  const [draft, setDraft] = useState<SshHost>();
-  const options = useMemo(
-    () => [...profileSshHosts(profiles.data ?? []), ...saved],
-    [profiles.data, saved],
+  const options = useMemo(() => profileSshHosts(profiles.data ?? []), [profiles.data]);
+  const visibleOptions = useMemo(
+    () =>
+      value && !options.some((candidate) => candidate.id === value.id)
+        ? [value, ...options]
+        : options,
+    [options, value],
   );
-  const test = useMutation({
-    mutationFn: (candidate: SshHost) => preflightTarget(sshHostTarget(candidate)),
-  });
 
   const buildDraft = (): SshHost =>
     createSavedSshHost({
       host,
       identityFile,
-      authMethod,
       label,
       installRoot,
       port: Number(port),
@@ -89,14 +111,8 @@ export function SshHostPicker({
 
   const prepareDraft = async (): Promise<SshHost> => {
     let candidate = buildDraft();
-    if (authMethod === 'password') {
-      if (!password) throw new Error('Enter the SSH password.');
-      await storeSshPassword(candidate.credentialId!, password);
-      return candidate;
-    }
-    await deleteSshPassword(candidate.credentialId!);
     if (privateKey.trim()) {
-      const storedPath = await storeSshIdentity(candidate.credentialId!, privateKey);
+      const storedPath = await storeSshIdentity(candidate.id, privateKey);
       candidate = { ...candidate, identityFile: storedPath };
     }
     return candidate;
@@ -108,10 +124,24 @@ export function SshHostPicker({
     setAuthError(undefined);
     try {
       const candidate = await prepareDraft();
-      const updated = saveSshHost(candidate);
-      setSaved(updated);
-      onChange(candidate);
-      setPassword('');
+      const profile = await saveSshProfile({
+        name: profileName(candidate.label, candidate.host ?? ''),
+        label: candidate.label,
+        hostname: candidate.host ?? '',
+        user: candidate.user ?? '',
+        port: candidate.port,
+        identity_file: candidate.identityFile ?? '',
+        jump_hosts: jumpHosts,
+        platform,
+        install_root: candidate.installRoot ?? '',
+        managed_identity: Boolean(privateKey.trim()),
+      });
+      await profiles.refetch();
+      onChange({
+        ...profileSshHosts([profile])[0],
+        label: candidate.label,
+        installRoot: candidate.installRoot,
+      });
       setPrivateKey('');
       setOpen(false);
     } catch (error) {
@@ -137,14 +167,14 @@ export function SshHostPicker({
   return (
     <div className="flex items-center gap-2">
       <Select
-        onValueChange={(id) => onChange(options.find((candidate) => candidate.id === id))}
+        onValueChange={(id) => onChange(visibleOptions.find((candidate) => candidate.id === id))}
         value={value?.id ?? ''}
       >
         <SelectTrigger aria-label="Saved SSH host" className="min-w-0 flex-1">
           <SelectValue placeholder="Choose a host" />
         </SelectTrigger>
         <SelectContent>
-          {options.map((candidate) => (
+          {visibleOptions.map((candidate) => (
             <SelectItem key={candidate.id} value={candidate.id}>
               <span className="flex min-w-0 items-center gap-2">
                 <ServerIcon aria-hidden="true" className="size-3.5 shrink-0" />
@@ -160,6 +190,23 @@ export function SshHostPicker({
         </SelectContent>
       </Select>
 
+      {value ? (
+        <Button
+          aria-label={value.managed ? `Delete ${value.label}` : `Hide ${value.label}`}
+          onClick={async () => {
+            if (value.managed && value.profile) await deleteSshProfile(value.profile);
+            else if (value.profile) await setSshProfileHidden(value.profile, true);
+            onChange(undefined);
+            await profiles.refetch();
+          }}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          {value.managed ? <Trash2Icon aria-hidden="true" /> : <EyeOffIcon aria-hidden="true" />}
+        </Button>
+      ) : null}
+
       <Dialog onOpenChange={setOpen} open={open}>
         <DialogTrigger asChild>
           <Button aria-label="Add SSH host" size="icon" type="button" variant="outline">
@@ -171,8 +218,8 @@ export function SshHostPicker({
             <DialogHeader>
               <DialogTitle>Add an SSH host</DialogTitle>
               <DialogDescription>
-                Use a host without editing your OpenSSH config. Choose password or key
-                authentication, then test it before saving.
+                Save a non-secret OpenSSH target. Passwords, Duo, security keys, Kerberos, and
+                rolling credentials are requested interactively by system OpenSSH.
               </DialogDescription>
             </DialogHeader>
 
@@ -233,19 +280,10 @@ export function SshHostPicker({
                 <TabsTrigger value="key">Key</TabsTrigger>
               </TabsList>
               <TabsContent className="pt-2" value="password">
-                <Field>
-                  <FieldLabel htmlFor="ssh-host-password">Password</FieldLabel>
-                  <Input
-                    autoComplete="current-password"
-                    id="ssh-host-password"
-                    onChange={(event) => setPassword(event.target.value)}
-                    type="password"
-                    value={password}
-                  />
-                  <FieldDescription>
-                    Stored in the operating-system credential vault, never in the host list.
-                  </FieldDescription>
-                </Field>
+                <p className="text-sm text-muted-foreground">
+                  OpenSSH will show the server’s exact interactive prompts when this target is
+                  connected. {vocab.agent} does not save the answers.
+                </p>
               </TabsContent>
               <TabsContent className="space-y-3 pt-2" value="key">
                 <Field>
@@ -279,6 +317,48 @@ export function SshHostPicker({
                 Advanced host settings
               </summary>
               <Field className="mt-3">
+                <FieldLabel>Jump hosts</FieldLabel>
+                <FieldDescription>
+                  Add any ProxyJump chain in connection order. Drag rows to reorder it.
+                </FieldDescription>
+                <div className="mt-2 flex gap-2">
+                  <Input
+                    aria-label="Jump host"
+                    onChange={(event) => setJumpHost(event.target.value)}
+                    placeholder="gateway.example.edu"
+                    value={jumpHost}
+                  />
+                  <Button
+                    disabled={!jumpHost.trim()}
+                    onClick={() => {
+                      setJumpHosts((current) => [...current, jumpHost.trim()]);
+                      setJumpHost('');
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    Add
+                  </Button>
+                </div>
+                <JumpHostChain onChange={setJumpHosts} value={jumpHosts} />
+              </Field>
+              <Field className="mt-3">
+                <FieldLabel htmlFor="ssh-host-platform">Remote platform</FieldLabel>
+                <Select
+                  onValueChange={(value) => setPlatform(value as typeof platform)}
+                  value={platform}
+                >
+                  <SelectTrigger id="ssh-host-platform">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Detect automatically</SelectItem>
+                    <SelectItem value="linux">Linux / macOS shell</SelectItem>
+                    <SelectItem value="windows">Windows PowerShell</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field className="mt-3">
                 <FieldLabel htmlFor="ssh-host-install-root">
                   {vocab.agent} install and runtime location
                 </FieldLabel>
@@ -304,52 +384,94 @@ export function SshHostPicker({
               </Alert>
             ) : null}
 
-            {test.isSuccess ? (
-              <Alert>
-                <CheckCircle2Icon aria-hidden="true" />
-                <AlertTitle>Connection succeeded</AlertTitle>
-                <AlertDescription>
-                  {test.data.os} · {test.data.arch} · Docker{' '}
-                  {test.data.docker_available ? 'ready' : 'not running'}
-                </AlertDescription>
-              </Alert>
-            ) : null}
-            {test.error ? (
-              <Alert variant="destructive">
-                <TriangleAlertIcon aria-hidden="true" />
-                <AlertTitle>Could not connect</AlertTitle>
-                <AlertDescription>{test.error.message}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            <DialogFooter className="sm:justify-between">
-              <Button
-                disabled={!host.trim() || test.isPending || saving}
-                onClick={async () => {
-                  setAuthError(undefined);
-                  try {
-                    const candidate = await prepareDraft();
-                    setDraft(candidate);
-                    test.mutate(candidate);
-                  } catch (error) {
-                    setAuthError(error instanceof Error ? error.message : String(error));
-                  }
-                }}
-                type="button"
-                variant="outline"
-              >
-                {test.isPending && draft ? `Testing ${draft.label}…` : 'Test connection'}
-              </Button>
-              <Button
-                disabled={!host.trim() || saving || (authMethod === 'password' && !password)}
-                type="submit"
-              >
+            <DialogFooter>
+              <Button disabled={!host.trim() || saving} type="submit">
                 {saving ? 'Saving…' : 'Save host'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function profileName(label: string, host: string): string {
+  const source = label.trim() || host.trim();
+  const slug = source
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9._-]+/gu, '-')
+    .replace(/^-+|-+$/gu, '')
+    .toLocaleLowerCase();
+  return slug || `clio-host-${Date.now()}`;
+}
+
+function JumpHostChain({
+  onChange,
+  value,
+}: {
+  onChange: (value: string[]) => void;
+  value: string[];
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const dragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return;
+    const from = value.indexOf(String(active.id));
+    const to = value.indexOf(String(over.id));
+    if (from >= 0 && to >= 0) onChange(arrayMove(value, from, to));
+  };
+  if (!value.length) return null;
+  return (
+    <DndContext collisionDetection={closestCenter} onDragEnd={dragEnd} sensors={sensors}>
+      <SortableContext items={value} strategy={verticalListSortingStrategy}>
+        <div className="mt-2 space-y-2">
+          {value.map((host) => (
+            <JumpHostRow
+              host={host}
+              key={host}
+              onRemove={() => onChange(value.filter((candidate) => candidate !== host))}
+            />
+          ))}
+        </div>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function JumpHostRow({ host, onRemove }: { host: string; onRemove: () => void }) {
+  // oxlint-disable react/refs -- dnd-kit intentionally returns ref-backed drag props for rendering.
+  const sortable = useSortable({ id: host });
+  return (
+    <div
+      className="flex items-center gap-2 border bg-background px-2 py-1.5 text-sm"
+      ref={sortable.setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(sortable.transform),
+        transition: sortable.transition,
+      }}
+    >
+      <button
+        aria-label={`Drag ${host} to reorder`}
+        className="cursor-grab text-muted-foreground"
+        type="button"
+        {...sortable.attributes}
+        {...sortable.listeners}
+      >
+        <GripVerticalIcon aria-hidden="true" className="size-4" />
+      </button>
+      <span className="min-w-0 flex-1 truncate font-mono text-xs">{host}</span>
+      <Button
+        aria-label={`Remove ${host}`}
+        onClick={onRemove}
+        size="icon-sm"
+        type="button"
+        variant="ghost"
+      >
+        <XIcon aria-hidden="true" />
+      </Button>
     </div>
   );
 }

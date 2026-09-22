@@ -315,46 +315,13 @@ FunctionEnd
   ${EndIf}
   DetailPrint "CLIO runtime installed."
 
+  ; Infrastructure choices are requests, not Desktop-owned service actions.
+  ; The managed CLIO applies this request after its API is ready, using the
+  ; same durable driver, progress, recovery, and ownership model as the UI.
   ${If} $ClioInstallWebSearch == "1"
-    DetailPrint "Checking Docker for the recommended CLIO Search service..."
-    nsExec::ExecToStack 'docker info'
-    Pop $0
-    Pop $1
-    ${If} $0 == 0
-      DetailPrint "Installing CLIO Search (this can take several minutes on a first install)..."
-      nsExec::ExecToStack 'docker pull ghcr.io/iowarp/clio-web-search:0.3.0'
-      Pop $0
-      Pop $1
-      ${If} $0 == 0
-        nsExec::ExecToStack 'docker container inspect clio-web-search'
-        Pop $0
-        Pop $1
-        ${If} $0 == 0
-          nsExec::ExecToStack 'docker start clio-web-search'
-        ${Else}
-          nsExec::ExecToStack 'docker run --detach --name clio-web-search --restart unless-stopped --publish 127.0.0.1:8089:8080 --publish 127.0.0.1:8090:6379 --volume clio-web-search-data:/var/lib/clio-web-search ghcr.io/iowarp/clio-web-search:0.3.0'
-        ${EndIf}
-        Pop $0
-        Pop $1
-        ${If} $0 == 0
-          StrCpy $ClioWebSearchStatus "deployed"
-          !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
-          DetailPrint "CLIO Search is installed and running."
-        ${Else}
-          StrCpy $ClioWebSearchStatus "needs_attention"
-          !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
-          DetailPrint "CLIO Search needs attention. Finish setup later from Infrastructure."
-        ${EndIf}
-      ${Else}
-        StrCpy $ClioWebSearchStatus "needs_attention"
-        !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
-        DetailPrint "CLIO Search could not be downloaded. Finish setup later from Infrastructure."
-      ${EndIf}
-    ${Else}
-      StrCpy $ClioWebSearchStatus "needs_attention"
-      !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
-      DetailPrint "Docker is unavailable. Finish CLIO Search setup later from Infrastructure."
-    ${EndIf}
+    StrCpy $ClioWebSearchStatus "requested"
+    !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
+    DetailPrint "CLIO Search will be installed by CLIO on first launch."
   ${EndIf}
 !macroend
 

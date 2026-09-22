@@ -317,7 +317,8 @@ export function InfrastructurePage() {
             <>
               <ManagedServices
                 connectedAgentLabel={settings.label}
-                connectedAgentTunnel={settings.tunnel}
+                connectedAgentLocation={settings.location}
+                onConnectExistingService={() => setWebSearchOpen(true)}
                 onConnectWebSearch={(remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl)}
                 onDisconnectWebSearch={() => disconnectWebSearch.mutate()}
                 webSearchConnected={webSearchReady}

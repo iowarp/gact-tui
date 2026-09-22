@@ -125,7 +125,7 @@ export function ClioNavigation({
         <nav aria-label="Workspace navigation" className="flex h-full min-w-0 flex-1 flex-col">
           <NavigationHeader
             activeLabel={settings.label}
-            activeTunnel={settings.tunnel}
+            activeLocation={settings.location}
             attentionControl={
               <ClioAttentionCenter
                 activeSessionId={activeSessionId}

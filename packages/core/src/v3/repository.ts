@@ -56,7 +56,7 @@ import {
   readTextPath,
 } from './artifact-custody.js';
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
-import { PresentationRepository } from './presentation-repository.js';
+import { InfrastructureRepository } from './infrastructure-repository.js';
 
 /**
  * Artifact records requested per page while walking a session's registry.
@@ -71,7 +71,7 @@ const ARTIFACT_PAGE_SIZE = 200;
  * silently swallowed.
  */
 const MAX_ARTIFACT_PAGES = 100;
-export class ClioRepository extends PresentationRepository {
+export class ClioRepository extends InfrastructureRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }

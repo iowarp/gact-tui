@@ -24,6 +24,8 @@ import { Input } from '@/components/ui/input';
 import { providerAvailability } from '@/lib/provider-availability';
 import { readProviderCredential, storeProviderCredential } from '@/tauri/secure-credentials';
 import { providerDisplayName, providerSummary } from '@/lib/provider-presentation';
+import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
+import { useLiveStore } from '@/store/live-store';
 import { vocab } from '@/lib/brand-vocabulary';
 import { openExternalUrl } from '@/tauri/external-url';
 import {
@@ -84,6 +86,7 @@ function ModelsSettingsContent({
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
+  const clearSessionModelReferences = useLiveStore((state) => state.clearSessionModelReferences);
   const { settings } = useConnectionSettings();
   const [searchParams] = useSearchParams();
   const requestedProvider = searchParams.get('provider');
@@ -203,9 +206,17 @@ function ModelsSettingsContent({
         queryKeys.key('language-model-configuration', settings.endpoint),
         next,
       );
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.key('capabilities', settings.endpoint),
-      });
+      clearCachedSessionModelReferences(queryClient, settings.endpoint);
+      clearSessionModelReferences();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.capabilities(settings.endpoint) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.providerModels(settings.endpoint) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.key('sessions', settings.endpoint) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('session-defaults', settings.endpoint),
+        }),
+      ]);
     },
   });
   const refreshModels = useMutation({

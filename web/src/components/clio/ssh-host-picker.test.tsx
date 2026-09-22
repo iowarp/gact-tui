@@ -4,17 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { vocab } from '@/lib/brand-vocabulary';
 
-const infrastructure = vi.hoisted(() => ({
-  preflightTarget: vi.fn(),
-  sshProfiles: vi.fn(),
+const profiles = vi.hoisted(() => ({
+  listSshProfiles: vi.fn(),
+  saveSshProfile: vi.fn(),
+  deleteSshProfile: vi.fn(),
+  setSshProfileHidden: vi.fn(),
 }));
 const credentials = vi.hoisted(() => ({
-  deleteSshPassword: vi.fn(),
   storeSshIdentity: vi.fn(),
-  storeSshPassword: vi.fn(),
 }));
 
-vi.mock('@/tauri/infrastructure-setup', () => infrastructure);
+vi.mock('@/tauri/ssh-profiles', () => profiles);
 vi.mock('@/tauri/ssh-credentials', () => credentials);
 
 import { SshHostPicker } from './ssh-host-picker';
@@ -32,11 +32,18 @@ function renderPicker(onChange = vi.fn()) {
 
 beforeEach(() => {
   localStorage.clear();
-  infrastructure.sshProfiles.mockResolvedValue([]);
-  infrastructure.preflightTarget.mockResolvedValue({ os: 'linux', arch: 'x86_64' });
-  credentials.deleteSshPassword.mockResolvedValue(undefined);
+  profiles.listSshProfiles.mockResolvedValue([]);
+  profiles.saveSshProfile.mockImplementation(async (input) => ({
+    name: input.name,
+    hostname: input.hostname,
+    user: input.user,
+    port: input.port,
+    identity_file: input.identity_file || undefined,
+    jump_hosts: input.jump_hosts,
+    platform: input.platform,
+    managed: true,
+  }));
   credentials.storeSshIdentity.mockResolvedValue('/protected/id_ed25519');
-  credentials.storeSshPassword.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -56,17 +63,15 @@ describe('SshHostPicker', () => {
     expect(screen.queryByText(/advanced authentication/i)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Password' }));
-    expect(screen.getByLabelText('Password', { selector: 'input' })).toHaveAttribute(
-      'type',
-      'password',
-    );
+    expect(screen.getByText(/requested interactively by system OpenSSH/u)).toBeVisible();
+    expect(screen.queryByLabelText('Password', { selector: 'input' })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Key' }));
     expect(screen.getByLabelText('Paste a private key')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Choose key file' })).toBeVisible();
   });
 
-  it('stores password authentication in the operating-system vault before saving', async () => {
+  it('saves only non-secret host metadata for interactive authentication', async () => {
     const user = userEvent.setup();
     const { onChange } = renderPicker();
 
@@ -74,24 +79,19 @@ describe('SshHostPicker', () => {
     await user.type(screen.getByLabelText('Address'), '10.0.0.102');
     await user.type(screen.getByLabelText('Username'), 'alice');
     await user.click(screen.getByRole('tab', { name: 'Password' }));
-    await user.type(screen.getByLabelText('Password', { selector: 'input' }), 'vault-only-secret');
     await user.click(screen.getByRole('button', { name: 'Save host' }));
 
-    await waitFor(() =>
-      expect(credentials.storeSshPassword).toHaveBeenCalledWith(
-        'manual:alice@10.0.0.102:22',
-        'vault-only-secret',
-      ),
-    );
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        authMethod: 'password',
-        credentialId: 'manual:alice@10.0.0.102:22',
         host: '10.0.0.102',
         user: 'alice',
       }),
     );
-    expect(localStorage.getItem('clio.saved-ssh-hosts.v1')).not.toContain('vault-only-secret');
+    expect(profiles.saveSshProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ hostname: '10.0.0.102', user: 'alice' }),
+    );
+    expect(JSON.stringify(profiles.saveSshProfile.mock.calls)).not.toContain('password');
   });
 
   it('saves an optional persistent CLIO install and runtime location with the host', async () => {
@@ -107,9 +107,13 @@ describe('SshHostPicker', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Save host' }));
 
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ installRoot: '/mnt/common/alice/clio' }),
+    await waitFor(() =>
+      expect(onChange).toHaveBeenCalledWith(
+        expect.objectContaining({ installRoot: '/mnt/common/alice/clio' }),
+      ),
     );
-    expect(localStorage.getItem('clio.saved-ssh-hosts.v1')).toContain('/mnt/common/alice/clio');
+    expect(profiles.saveSshProfile).toHaveBeenCalledWith(
+      expect.not.objectContaining({ installRoot: expect.anything() }),
+    );
   });
 });

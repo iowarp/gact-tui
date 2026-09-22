@@ -148,10 +148,34 @@ describe('live store snapshot merges', () => {
   });
 
   it('drops a row the snapshot no longer lists when the stream never wrote it', () => {
-    useLiveStore.getState().mergeSnapshots({ sessions: { sess_2: restSession('sess_2', 'queued') } });
-    useLiveStore.getState().mergeSnapshots({ sessions: { sess_3: restSession('sess_3', 'queued') } });
+    useLiveStore
+      .getState()
+      .mergeSnapshots({ sessions: { sess_2: restSession('sess_2', 'queued') } });
+    useLiveStore
+      .getState()
+      .mergeSnapshots({ sessions: { sess_3: restSession('sess_3', 'queued') } });
 
     expect(Object.keys(useLiveStore.getState().entities.sessions)).toEqual(['sess_3']);
+  });
+
+  it('clears stale model overrides without disturbing the rest of each session', () => {
+    useLiveStore.getState().replaceSnapshots({
+      sessions: {
+        sess_1: {
+          ...restSession('sess_1', 'completed'),
+          provider_id: 'codex',
+          model_id: 'gpt-5.6-luna',
+        },
+      },
+    });
+
+    useLiveStore.getState().clearSessionModelReferences();
+
+    expect(useLiveStore.getState().entities.sessions.sess_1).toEqual({
+      ...restSession('sess_1', 'completed'),
+      provider_id: undefined,
+      model_id: undefined,
+    });
   });
 });
 

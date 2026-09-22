@@ -9,8 +9,6 @@ use std::{
     process::Command,
 };
 
-use crate::ssh::TunnelManager;
-use crate::ssh_types::{TunnelHandle, TunnelRequest};
 use crate::supervisor::Supervisor;
 use crate::supervisor_boot_log;
 use crate::supervisor_boot_log_open;
@@ -195,13 +193,4 @@ mod document_path_tests {
             "C:/workspace/.clio/agent/documents/working-copies/untrusted/brief.docx"
         )));
     }
-}
-
-/// Open an SSH tunnel for an `ssh-tunnel` backend entry.
-#[tauri::command]
-pub fn tunnel_open(
-    request: TunnelRequest,
-    tunnels: tauri::State<'_, TunnelManager>,
-) -> Result<TunnelHandle, String> {
-    tunnels.open(request).map_err(|e| e.to_string())
 }

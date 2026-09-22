@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { recordById } from '@/lib/entities';
 import { queryKeys } from '@/lib/query-keys';
 import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
+import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { FrameBatcher } from '@/lib/streaming/frame-batcher';
 import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
 import { streamNoticeForFrame } from '@/lib/streaming/stream-notices';
@@ -32,6 +33,7 @@ export function useSessionLiveStream({
   const streamState = useLiveStore((state) => state.entities.stream);
   const streamError = useLiveStore((state) => state.error);
   const applyFrames = useLiveStore((state) => state.applyFrames);
+  const clearSessionModelReferences = useLiveStore((state) => state.clearSessionModelReferences);
   const reconcileSnapshots = useLiveStore((state) => state.reconcileSnapshots);
   const setStreamError = useLiveStore((state) => state.setStreamError);
   const setStreamState = useLiveStore((state) => state.setStreamState);
@@ -137,6 +139,10 @@ export function useSessionLiveStream({
           )) {
             reconnectDelay = STREAM_RECONNECT_BASE_MS;
             setStreamState('live');
+            if (frame.eventName === 'lm.provider.changed') {
+              clearCachedSessionModelReferences(queryClient, settings.endpoint);
+              clearSessionModelReferences();
+            }
             batcher.push(frame);
             if (frame.eventName === 'message.completed') {
               batcher.flush();
@@ -179,6 +185,7 @@ export function useSessionLiveStream({
     };
   }, [
     applyFrames,
+    clearSessionModelReferences,
     documentVisible,
     enabled,
     initialCursor,
@@ -374,6 +381,9 @@ export function queryInvalidationKeysForEvent({
       queryKeys.providerModels(endpoint),
       queryKeys.providerCatalog(endpoint),
     );
+  }
+  if (eventName === 'lm.provider.changed') {
+    keys.push(queryKeys.key('sessions', endpoint), queryKeys.key('session-defaults', endpoint));
   }
   if (isPendingSteerEvent(eventName)) {
     keys.push(queryKeys.pendingSteers(endpoint, sessionId));

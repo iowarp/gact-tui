@@ -4,6 +4,30 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.14] — 2026-09-22
+
+### Added
+
+- Add contextual CLIO-owned service targets, managed and external service
+  lifecycles, durable progress/logs, configurable install roots, and recovery
+  states to Infrastructure.
+- Add reusable interactive system-OpenSSH transport with manual or imported
+  profiles, keys, arbitrary ProxyJump chains, and native password/MFA prompts.
+
+### Changed
+
+- Render workspace files from media types, stream binary/PDF previews, and
+  expose uploaded source working copies in the active workspace.
+
+### Fixed
+
+- Reuse SSH sessions across probes and operations, reconcile services after a
+  dropped connection without redeploying, and avoid a second SSH login for a
+  service running beside the connected remote CLIO.
+- Close sibling composer menus when another behavior control opens, keep
+  provider/model changes synchronized, and preserve remote structured file
+  references.
+
 ## [0.11.2.13] — 2026-09-20
 
 ### Fixed

@@ -29,7 +29,6 @@ import {
 } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { SavedConnection } from '@/lib/connection';
-import type { SshTunnelSettings } from '@/tauri/ssh-tunnel';
 import {
   connectionAvailability,
   type ConnectionAvailabilityMap,
@@ -38,7 +37,7 @@ import {
 interface NavigationHeaderProps {
   endpoint: string;
   activeLabel?: string;
-  activeTunnel?: SshTunnelSettings;
+  activeLocation?: string;
   currentPath: string;
   connectionAvailabilities: ConnectionAvailabilityMap;
   recentConnections: readonly SavedConnection[];
@@ -53,7 +52,7 @@ interface NavigationHeaderProps {
 export function NavigationHeader({
   endpoint,
   activeLabel,
-  activeTunnel,
+  activeLocation,
   currentPath,
   connectionAvailabilities,
   recentConnections,
@@ -122,7 +121,7 @@ export function NavigationHeader({
                     <AgentConnectionIdentity
                       endpoint={endpoint}
                       label={activeLabel}
-                      tunnel={activeTunnel}
+                      location={activeLocation}
                     />
                   </span>
                 </span>
@@ -140,7 +139,7 @@ export function NavigationHeader({
                 <AgentConnectionIdentity
                   endpoint={endpoint}
                   label={activeLabel}
-                  tunnel={activeTunnel}
+                  location={activeLocation}
                 />
                 <span className="block truncate font-mono text-[11px] font-normal text-muted-foreground">
                   {endpoint}
@@ -178,7 +177,7 @@ export function NavigationHeader({
                         <AgentConnectionIdentity
                           endpoint={recent.endpoint}
                           label={recent.label}
-                          tunnel={recent.tunnel}
+                          location={recent.location}
                         />
                       </span>
                       <span
@@ -263,17 +262,17 @@ export function NavigationHeader({
 function AgentConnectionIdentity({
   endpoint,
   label,
-  tunnel,
+  location,
 }: {
   endpoint: string;
   label?: string;
-  tunnel?: SshTunnelSettings;
+  location?: string;
 }) {
-  const location = connectionLocation(endpoint, label, tunnel);
-  const name = connectionAgentName(label, location);
+  const displayLocation = connectionLocation(endpoint, location);
+  const name = connectionAgentName(label, displayLocation);
   return (
     <span className="inline-flex min-w-0 items-center gap-1">
-      <span className="truncate">{location}</span>
+      <span className="truncate">{displayLocation}</span>
       <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
       <span className="shrink-0 font-medium text-foreground">{name}</span>
     </span>
@@ -298,9 +297,8 @@ function connectionAgentName(label: string | undefined, location: string): strin
   return trimmed;
 }
 
-function connectionLocation(endpoint: string, label?: string, tunnel?: SshTunnelSettings): string {
-  const tunnelLocation = tunnel?.profile?.trim() || tunnel?.host.trim();
-  const namedLocation = cleanConnectionLocation(tunnelLocation || label);
+function connectionLocation(endpoint: string, label?: string): string {
+  const namedLocation = cleanConnectionLocation(label);
   if (namedLocation) return namedLocation;
   try {
     const hostname = new URL(endpoint).hostname.toLowerCase();
