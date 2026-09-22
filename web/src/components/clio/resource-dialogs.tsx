@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
+import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioPathPicker } from './path-picker';
 import {
@@ -164,7 +165,8 @@ function CreateResourceDialog({
       if (createKind === 'workspace') {
         const trimmedPath = rootPath.trim();
         await actions.createWorkspace({
-          name: workspaceName.trim() || trimmedPath.split(/[\\/]+/).at(-1) || 'Workspace',
+          name:
+            workspaceName.trim() || trimmedPath.split(/[\\/]+/).at(-1) || capitalize(vocab.workspace),
           rootPath: trimmedPath,
         });
       } else {
@@ -201,7 +203,7 @@ function CreateResourceDialog({
         >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="session">Session</TabsTrigger>
-            <TabsTrigger value="workspace">Workspace</TabsTrigger>
+            <TabsTrigger value="workspace">{capitalize(vocab.workspace)}</TabsTrigger>
           </TabsList>
           <div className="min-h-0 overflow-y-auto">
             <TabsContent className="mt-0 data-[state=inactive]:hidden" forceMount value="workspace">
@@ -252,7 +254,9 @@ function CreateResourceDialog({
             onClick={() => void submit()}
             type="button"
           >
-            {pending ? 'Creating…' : `Create ${createKind}`}
+            {pending
+              ? 'Creating…'
+              : `Create ${createKind === 'workspace' ? vocab.workspace : createKind}`}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -276,7 +280,7 @@ function WorkspaceFields({
   return (
     <FieldGroup>
       <Field>
-        <FieldLabel htmlFor="new-workspace-name">Workspace name</FieldLabel>
+        <FieldLabel htmlFor="new-workspace-name">{capitalize(vocab.workspace)} name</FieldLabel>
         <Input
           autoFocus
           id="new-workspace-name"
@@ -284,10 +288,10 @@ function WorkspaceFields({
           placeholder="EarthScope analysis"
           value={name}
         />
-        <FieldDescription>The short name shown throughout the workspace.</FieldDescription>
+        <FieldDescription>The short name shown throughout the {vocab.workspace}.</FieldDescription>
       </Field>
       <Field>
-        <FieldLabel>Workspace folder</FieldLabel>
+        <FieldLabel>{capitalize(vocab.workspace)} folder</FieldLabel>
         <ClioPathPicker
           knownFolders={workspaces.flatMap((workspace) =>
             (workspace.source_folders?.length
@@ -306,11 +310,11 @@ function WorkspaceFields({
             })),
           )}
           onChange={onPathChange}
-          placeholder="Choose the workspace folder"
+          placeholder={`Choose the ${vocab.workspace} folder`}
           value={path}
         />
         <FieldDescription>
-          This becomes the workspace boundary. Files on disk are not moved.
+          This becomes the {vocab.workspace} boundary. Files on disk are not moved.
         </FieldDescription>
       </Field>
     </FieldGroup>
@@ -348,10 +352,10 @@ function SessionFields(props: SessionFieldsProps) {
         />
       </Field>
       <Field>
-        <FieldLabel htmlFor="new-session-workspace">Workspace</FieldLabel>
+        <FieldLabel htmlFor="new-session-workspace">{capitalize(vocab.workspace)}</FieldLabel>
         <Select onValueChange={props.onWorkspaceIdChange} value={props.workspaceId}>
           <SelectTrigger id="new-session-workspace">
-            <SelectValue placeholder="Choose a workspace" />
+            <SelectValue placeholder={`Choose a ${vocab.workspace}`} />
           </SelectTrigger>
           <SelectContent>
             {props.workspaces.map((workspace) => (

@@ -14,7 +14,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { useConnectionAvailabilities } from '@/hooks/use-connection-availability';
@@ -70,7 +69,6 @@ export function ClioNavigation({
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [workspaceEditorId, setWorkspaceEditorId] = useState<string>();
   const importInputRef = useRef<HTMLInputElement>(null);
-  const activeSession = sessions.find((session) => session.id === activeSessionId);
 
   const openNewSession = (workspaceId = activeWorkspaceId) => {
     setCreateWorkspaceId(workspaceId);
@@ -104,15 +102,12 @@ export function ClioNavigation({
     }
   };
 
+  // 'import-session' and 'export-session' used to also be reachable via the
+  // native File menu (removed — see menu_spec.rs's application-menu trim);
+  // the direct paths below (the header's import button, per-session export)
+  // already cover them, so no useMenuAction registration is needed for
+  // either.
   useMenuAction('new-session', () => openNewSession());
-  useMenuAction('import-session', () => importInputRef.current?.click());
-  useMenuAction('export-session', () => {
-    if (!activeSession) return toast.error('No active session to export');
-    runNavigationAction(
-      () => downloadSession(activeSession.id, activeSession.title),
-      'Session export downloaded',
-    );
-  });
   useEffect(() => {
     const open = () => openNewSession();
     window.addEventListener('clio:new-session', open);
@@ -130,6 +125,7 @@ export function ClioNavigation({
         <nav aria-label="Workspace navigation" className="flex h-full min-w-0 flex-1 flex-col">
           <NavigationHeader
             activeLabel={settings.label}
+            activeLocation={settings.location}
             attentionControl={
               <ClioAttentionCenter
                 activeSessionId={activeSessionId}
@@ -179,20 +175,17 @@ export function ClioNavigation({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="Settings">
+                      <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
+                        <Settings2Icon aria-hidden="true" />
+                        <span>Settings</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            <SidebarSeparator className="my-1" />
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Settings">
-                  <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
-                    <Settings2Icon aria-hidden="true" />
-                    <span>Settings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
           </SidebarFooter>
         </nav>
         <SidebarRail />

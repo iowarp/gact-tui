@@ -27,7 +27,9 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution, ResponseErrorNotice } from './pending-interaction-notices';
+import { TechnicalDetails } from './technical-details';
 
 interface QuestionSurfaceProps {
   interaction: PendingInteraction;
@@ -185,7 +187,9 @@ function QuestionFrame({ children, ...props }: QuestionSurfaceProps & { children
       className="min-w-0 self-stretch"
       data-interaction-kind={props.interaction.kind}
       dense
+      id={pendingInteractionDomId(props.interaction.id)}
       spacing="sm"
+      tabIndex={-1}
     >
       <FrameHeader className="relative flex-row items-start gap-2 pr-10">
         <MessageCircleQuestionIcon
@@ -207,10 +211,12 @@ function QuestionFrame({ children, ...props }: QuestionSurfaceProps & { children
                 The specialist could not answer this, so it needs you.
               </p>
               {props.interaction.fallback_detail ? (
-                <details className="mt-1 text-xs text-muted-foreground">
-                  <summary className="cursor-pointer">Technical details</summary>
+                <TechnicalDetails
+                  className="mt-1 text-xs text-muted-foreground"
+                  title="Technical details"
+                >
                   <code>{props.interaction.fallback_detail}</code>
-                </details>
+                </TechnicalDetails>
               ) : null}
             </>
           ) : null}

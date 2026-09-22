@@ -4,6 +4,7 @@ import type { MessageBlock } from './message-domain.js';
 import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
 import type { ToolPresentation } from './tool-presentation-domain.js';
+import type { CapabilityNegotiation } from './capability-domain.js';
 
 export type { ToolPresentation, ToolPresentationBlock } from './tool-presentation-domain.js';
 
@@ -409,8 +410,12 @@ export interface ContextSnapshot {
 
 export interface WorkspaceFileEntry {
   path: string;
+  display_path?: string;
   type: WireValue<'file' | 'dir'>;
   internal: boolean;
+  media_type?: string;
+  source?: WireValue<'workspace' | 'managed_input'>;
+  resource_id?: string;
   size?: number;
   modified?: string;
 }
@@ -561,6 +566,15 @@ export interface ToolCatalogItem {
   owner?: string;
   tags: string[];
   visible_to: string[];
+  input_schema: Record<string, unknown>;
+  output_schema: Record<string, unknown>;
+  /**
+   * The server's own functional grouping for this tool (#1350) — one of the
+   * fixed `ToolDomain` tokens (see `web/src/lib/tool-domain-labels.ts`), or
+   * absent for a dynamic gateway row the server declared no domain for. A
+   * present value always wins over any client-side name-regex fallback.
+   */
+  domain?: string;
 }
 
 export interface McpServerDefinition {
@@ -640,6 +654,7 @@ export interface ServiceIntegrationHealth {
   config_source?: string;
   next_action?: string;
   endpoint?: string;
+  required?: boolean;
 }
 
 export interface ServiceHealth {
@@ -725,22 +740,6 @@ export interface TranscriptSnapshot {
   surfaces: A2UISurface[];
 }
 
-export interface A2uiAgentCapabilities {
-  'v0.9': { supportedCatalogIds: string[]; acceptsInlineCatalogs?: boolean };
-}
-
-export interface CapabilityNegotiation {
-  service?: { name: string; version: string };
-  gact_versions: string[];
-  a2ui_versions: string[];
-  a2ui_capabilities?: A2uiAgentCapabilities;
-  replay: { supported: boolean; retention?: number };
-  capabilities: Record<string, unknown>;
-  degradations: Degradation[];
-  model_catalog: Provenance;
-  active_model?: { provider_id: string; model_id: string; effort?: string };
-}
-
 export interface EntityState {
   connection?: Connection;
   capabilities?: CapabilityNegotiation;
@@ -770,6 +769,7 @@ export interface EntityState {
   gaps: TransportGap[];
 }
 export type { ActionCardAction, MessageBlock, MessageBlockContext } from './message-domain.js';
+export type { A2uiAgentCapabilities, CapabilityNegotiation } from './capability-domain.js';
 export type {
   CommandDefinition,
   PromptDefinition,

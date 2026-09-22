@@ -5,3 +5,5 @@ gen/schemas/
 # Built on demand by the embedding brand's build script (e.g.
 # iowarp/clio-agent install/build-gact-runtime.{sh,ps1}); never committed.
 gact-runtime/
+gact-runtime.tar.zst
+gact-runtime.pack.json

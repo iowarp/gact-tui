@@ -39,6 +39,7 @@ import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import type { ClioConversationProps } from './conversation-types';
 import { ConversationProcessSequence } from './conversation-process-sequence';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
+import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { referenceKindIcon } from './composer-reference-presentation';
 import { humanizeProtocolValue } from './presentation-labels';
 import { ClioStatus } from './status';
@@ -95,7 +96,7 @@ export function DeferredA2UISurface({
   const renderSurface = live || nearViewport;
   return (
     <div
-      aria-label="Generated UI surface"
+      aria-label={`${PROTOCOL.a2ui} surface`}
       data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
       ref={hostRef}
       style={renderSurface ? undefined : { minHeight: reservedHeight }}
@@ -236,14 +237,14 @@ function MessageBlockView({
       );
       if (ownsPendingResponse) return null;
       return surface?.state === 'deleted' ? (
-        <ClioStatus label="Interactive surface removed" value="cancelled" />
+        <ClioStatus label={`${PROTOCOL.a2ui} surface removed`} value="cancelled" />
       ) : surface ? (
         <DeferredA2UISurface
           actionLifecycle={actionLifecycles?.[block.surface_id]}
           surface={surface}
         />
       ) : (
-        <ClioStatus label="Interactive surface unavailable" value="unavailable" />
+        <ClioStatus label={`${PROTOCOL.a2ui} surface unavailable`} value="unavailable" />
       );
     }
     case 'mcp_app':

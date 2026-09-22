@@ -1,6 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { AgentDefinition, ToolCatalogItem } from '@clio/core/v3';
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery } from '@tanstack/react-query';
 import { ChevronDownIcon, Settings2Icon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
@@ -114,6 +114,15 @@ export function AgentEditorDialog({
   const catalogModelsByProvider = Object.fromEntries(
     authenticatedPresets.map((preset, index) => [preset.id, modelCatalogs[index]?.data?.models]),
   );
+  const refreshCatalog = useMutation({
+    mutationFn: async (providerId?: string) => {
+      if (providerId) await repository.refreshProviderModels([providerId]);
+      await Promise.all([
+        modelConfiguration.refetch(),
+        ...modelCatalogs.map((catalog) => catalog.refetch()),
+      ]);
+    },
+  });
   const selectedCatalogError =
     modelCatalogs[authenticatedPresets.findIndex((preset) => preset.id === selectedPreset?.id)]
       ?.error;
@@ -125,9 +134,11 @@ export function AgentEditorDialog({
     presets: modelConfiguration.data?.presets ?? [],
   });
   const modelCatalogStatus =
-    modelConfiguration.isFetching || modelCatalogs.some((catalog) => catalog.isFetching)
+    (modelConfiguration.isPending && !modelConfiguration.data) ||
+    modelCatalogs.some((catalog) => catalog.isPending && !catalog.data)
       ? 'loading'
-      : modelConfiguration.isError || modelCatalogs.some((catalog) => catalog.isError)
+      : (modelConfiguration.isError && !modelConfiguration.data) ||
+          modelCatalogs.some((catalog) => catalog.isError && !catalog.data)
         ? 'error'
         : 'ready';
   const selectedChoice = modelOptions.find(
@@ -207,6 +218,11 @@ export function AgentEditorDialog({
               <Field>
                 <FieldLabel>Preferred model</FieldLabel>
                 <ClioModelPicker
+                  catalogRefreshing={
+                    refreshCatalog.isPending ||
+                    modelConfiguration.isFetching ||
+                    modelCatalogs.some((catalog) => catalog.isFetching)
+                  }
                   catalogStatus={modelCatalogStatus}
                   model={effectiveModel}
                   onChange={(choice) => {
@@ -217,10 +233,7 @@ export function AgentEditorDialog({
                     }));
                     setCustomSource(false);
                   }}
-                  onRetryCatalog={() => {
-                    void modelConfiguration.refetch();
-                    for (const catalog of modelCatalogs) void catalog.refetch();
-                  }}
+                  onRetryCatalog={(providerId) => refreshCatalog.mutate(providerId)}
                   options={modelOptions}
                   provider={effectiveProvider}
                   trigger={

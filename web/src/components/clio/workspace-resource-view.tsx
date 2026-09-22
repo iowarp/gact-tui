@@ -51,6 +51,7 @@ import {
 import { ClioStatus } from './status';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 import { WorkspaceResourceRemoveAction } from './workspace-resource-remove';
+import { WorkspaceResourceCopyAction } from './workspace-resource-copy';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
 
 const PdfResourceViewer = lazy(() =>
@@ -215,6 +216,7 @@ export function WorkspaceResourceView({ resource, workspaceId }: WorkspaceResour
           </p>
         </div>
         <ClioStatus value={resourceStateStatus(resource.state)} />
+        <WorkspaceResourceCopyAction resource={resource} workspaceId={workspaceId} />
         <WorkspaceResourceRemoveAction resource={resource} workspaceId={workspaceId} />
       </header>
 

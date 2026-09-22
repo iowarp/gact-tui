@@ -1,6 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
 import { Input } from '@/components/ui/input';
-import { brand } from '@brand';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   AccessibilityIcon,
@@ -51,6 +50,7 @@ import { ScheduleSettings } from '@/components/clio/settings-schedules';
 import { SessionDefaultsSettings } from '@/components/clio/settings-session-defaults';
 import { ModelsSettings } from '@/components/clio/settings-models';
 import { DesktopSettings } from '@/components/clio/settings-desktop';
+import { AboutSettings } from '@/components/clio/settings-about';
 import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
 import { MemorySettings } from '@/components/clio/settings-memory';
 import { SettingsSectionHeading as SectionHeading } from '@/components/clio/settings-section-heading';
@@ -83,7 +83,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
-import { inTauri } from '@/lib/transport/tauri-runtime';
+import { vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   type AttentionSoundMode,
@@ -446,7 +446,7 @@ function AppearanceSettings() {
               value: 'reduced',
               label: 'Reduce motion',
               icon: AccessibilityIcon,
-              description: 'Removes spatial transitions and indefinite movement in CLIO.',
+              description: `Removes spatial transitions and indefinite movement in ${vocab.agent}.`,
             },
           ].map(({ value, label, icon: MotionIcon, description }) => (
             <FieldLabel htmlFor={`motion-${value}`} key={value}>
@@ -537,7 +537,7 @@ function NotificationSettings() {
   return (
     <div className="grid gap-6">
       <SectionHeading
-        description="Choose how CLIO alerts you when a session is blocked on your approval or answer. The sidebar attention marker remains visible regardless of these preferences."
+        description={`Choose how ${vocab.agent} alerts you when a session is blocked on your approval or answer. The sidebar attention marker remains visible regardless of these preferences.`}
         title="Notifications"
       />
       <ClioSettingsSection
@@ -625,10 +625,12 @@ function NotificationSettings() {
 }
 
 function SettingsSection({
+  blueprintId,
   section,
   sessionId,
   workspaceId,
 }: {
+  blueprintId?: string;
   section: string;
   sessionId?: string;
   workspaceId?: string;
@@ -637,7 +639,7 @@ function SettingsSection({
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
   if (section === 'providers') return <ModelsSettings />;
   if (section === 'agents') return <AgentSettings />;
-  if (section === 'blueprints') return <BlueprintSettings />;
+  if (section === 'blueprints') return <BlueprintSettings initialBlueprintId={blueprintId} />;
   if (section === 'expert-packs') return <ExpertPackSettings initialWorkspaceId={workspaceId} />;
   if (section === 'tools') return <ToolsSettings initialWorkspaceId={workspaceId} />;
   if (section === 'prompts') return <PromptsCommandsSettings initialWorkspaceId={workspaceId} />;
@@ -652,75 +654,6 @@ function SettingsSection({
   return <AppearanceSettings />;
 }
 
-function AboutSettings() {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const capabilities = useQuery({
-    queryKey: queryKeys.key('capabilities', settings.endpoint),
-    queryFn: ({ signal }) => repository.capabilities(signal),
-  });
-  const activeModel = capabilities.data?.active_model;
-  return (
-    <div className="grid gap-6">
-      <SectionHeading
-        description={`Product identity comes from the active brand profile. Service versions and model identity below are reported by ${new URL(settings.endpoint).host}.`}
-        title={`About ${brand.name}`}
-      />
-      <Frame spacing="sm">
-        <FramePanel>
-          <dl className="grid gap-4 text-sm sm:grid-cols-2">
-            <AboutValue label="Product" value={brand.name} />
-            <AboutValue label="Runtime" value={inTauri() ? 'Desktop application' : 'Web browser'} />
-            <AboutValue label="Connected service" value={new URL(settings.endpoint).host} />
-            <AboutValue
-              label="Agent service version"
-              value={capabilities.data?.service?.version || 'Unavailable'}
-            />
-            <AboutValue
-              label="Active model"
-              value={
-                activeModel
-                  ? `${activeModel.provider_id}, ${activeModel.model_id}${activeModel.effort ? `, ${activeModel.effort}` : ''}`
-                  : 'Unavailable'
-              }
-            />
-            <AboutValue
-              label="Workspace protocol"
-              value={capabilities.data?.gact_versions.join(', ') || 'Unavailable'}
-            />
-            <AboutValue
-              label="Interactive views"
-              value={capabilities.data?.a2ui_versions.join(', ') || 'Unavailable'}
-            />
-          </dl>
-          {capabilities.error ? (
-            <Alert className="mt-4" variant="destructive">
-              <AlertTitle>Service details unavailable</AlertTitle>
-              <AlertDescription>{capabilities.error.message}</AlertDescription>
-            </Alert>
-          ) : null}
-        </FramePanel>
-      </Frame>
-      {brand.homeUrl ? (
-        <Button asChild className="w-fit" variant="outline">
-          <a href={brand.homeUrl} rel="noreferrer" target="_blank">
-            Product website
-          </a>
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-function AboutValue({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
-      <dd className="mt-1 break-words">{value}</dd>
-    </div>
-  );
-}
-
 export function SettingsPage() {
   const { section = 'appearance' } = useParams();
   const location = useLocation();
@@ -731,8 +664,9 @@ export function SettingsPage() {
   const workspaceRoute = returnRouteFromState(location.state, settings.endpoint);
   const workspaceId = workspaceIdFromRoute(workspaceRoute);
   const sessionId = sessionIdFromRoute(workspaceRoute);
+  const blueprintId = new URLSearchParams(location.search).get('blueprint') || undefined;
   return (
-    <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
+    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
         <nav aria-label="Settings sections" className="grid content-start gap-1 md:sticky md:top-8">
           <Button asChild className="mb-4 justify-start" variant="ghost">
@@ -754,7 +688,12 @@ export function SettingsPage() {
           ))}
         </nav>
         <section className="min-w-0 pb-16">
-          <SettingsSection section={section} sessionId={sessionId} workspaceId={workspaceId} />
+          <SettingsSection
+            blueprintId={blueprintId}
+            section={section}
+            sessionId={sessionId}
+            workspaceId={workspaceId}
+          />
         </section>
       </div>
     </main>

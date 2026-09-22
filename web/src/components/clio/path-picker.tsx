@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 
 export interface PathChoice {
@@ -131,8 +132,8 @@ export function ClioPathPicker({
               </FileTree>
             ) : (
               <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">
-                This service has not exposed any folders yet. Enter a path manually, or use CLIO
-                Desktop for native folder browsing.
+                This service has not exposed any folders yet. Enter a path manually, or use{' '}
+                {vocab.product} for native folder browsing.
               </div>
             )}
           </ScrollArea>

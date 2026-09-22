@@ -38,6 +38,20 @@ describe('providerAvailability', () => {
     });
   });
 
+  it('distinguishes a missing provider runtime from account sign-in', () => {
+    expect(
+      providerAvailability(undefined, {
+        ...preset,
+        status: 'install_required',
+        status_message: 'Claude Code support is not installed on the connected agent.',
+      }),
+    ).toEqual({
+      label: 'Install needed',
+      value: 'unavailable',
+      detail: 'Claude Code support is not installed on the connected agent.',
+    });
+  });
+
   it('does not expose environment variable names as sign-in instructions', () => {
     expect(
       providerAvailability(undefined, {

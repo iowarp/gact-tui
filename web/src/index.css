@@ -161,14 +161,19 @@
   html {
     @apply font-sans antialiased;
     color-scheme: light;
+    height: 100%;
   }
   html.dark {
     color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground;
+    height: 100%;
     min-width: 320px;
     margin: 0;
+  }
+  #root {
+    height: 100%;
   }
   button,
   a,

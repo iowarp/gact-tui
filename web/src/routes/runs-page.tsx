@@ -70,6 +70,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
+import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import {
   workspaceLabels,
   workspaceLabelText,
@@ -153,8 +154,8 @@ function buildRows(
     const parentSession = sessionsById.get(run.parent_session_id);
     const workspaceId = targetSession?.workspace_id ?? parentSession?.workspace_id;
     const workspaceLabelFields = workspaceId
-      ? (labels.get(workspaceId) ?? { name: 'Workspace unavailable', qualifiers: [] })
-      : { name: 'Workspace unavailable', qualifiers: [] };
+      ? (labels.get(workspaceId) ?? { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] })
+      : { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] };
     return {
       handleId: run.handle_id,
       taskId: run.task_id,
@@ -200,8 +201,8 @@ export function buildWorkflowRows(
       const session = sessionsById.get(tool.session_id);
       const workspaceId = session?.workspace_id;
       const workspaceLabelFields = workspaceId
-        ? (labels.get(workspaceId) ?? { name: 'Workspace unavailable', qualifiers: [] })
-        : { name: 'Workspace unavailable', qualifiers: [] };
+        ? (labels.get(workspaceId) ?? { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] })
+        : { name: `${capitalize(vocab.workspace)} unavailable`, qualifiers: [] };
       return [
         {
           handleId: tool.id,
@@ -415,7 +416,9 @@ export function RunsPage() {
       },
       {
         accessorKey: 'workspaceLabel',
-        header: ({ column }) => <DataGridColumnHeader column={column} title="Workspace" />,
+        header: ({ column }) => (
+          <DataGridColumnHeader column={column} title={capitalize(vocab.workspace)} />
+        ),
         cell: ({ row }) => (
           <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-sm">
             <span>{row.original.workspaceLabelFields.name}</span>
@@ -426,7 +429,7 @@ export function RunsPage() {
             ))}
           </span>
         ),
-        meta: { headerTitle: 'Workspace' },
+        meta: { headerTitle: capitalize(vocab.workspace) },
       },
       {
         accessorKey: 'updatedAt',
@@ -474,7 +477,7 @@ export function RunsPage() {
   const workflowFailures = workflowTranscripts.filter((query) => query.isError).length;
 
   return (
-    <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
+    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -488,7 +491,7 @@ export function RunsPage() {
           </div>
           <Button asChild variant="outline">
             <Link to={returnRouteFromState(location.state, settings.endpoint)}>
-              <ChevronLeftIcon aria-hidden="true" /> Workspace
+              <ChevronLeftIcon aria-hidden="true" /> {capitalize(vocab.workspace)}
             </Link>
           </Button>
         </div>

@@ -150,7 +150,10 @@ describe('ClioDocumentWorkspace', () => {
     expect(screen.getByText(/original registered revision could not be loaded/u)).toBeVisible();
     expect(screen.getByText('Fallback preview')).toBeVisible();
     expect(screen.queryByText('Checking document capabilities…')).not.toBeInTheDocument();
-    expect(screen.getByText('Technical details').closest('details')).not.toHaveAttribute('open');
+    expect(screen.getByRole('button', { name: 'Technical details' })).toHaveAttribute(
+      'data-state',
+      'closed',
+    );
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 

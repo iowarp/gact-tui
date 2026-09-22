@@ -1,4 +1,5 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { brand } from '@brand';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -10,6 +11,10 @@ const mocks = vi.hoisted(() => ({
   forget: vi.fn(async () => undefined),
   inTauri: false,
   managedConnectionReady: false,
+  managedBackendStatus: undefined as
+    | { kind: 'starting'; detail: 'checking_existing' | 'starting_service' }
+    | { kind: 'needs_install' }
+    | undefined,
   recents: [] as Array<{ endpoint: string; label?: string }>,
   repository: {
     allSessions: vi.fn(),
@@ -33,6 +38,7 @@ vi.mock('@/providers/connection-provider', () => ({
     recents: mocks.recents,
     credentialsReady: mocks.credentialsReady,
     managedConnectionReady: mocks.managedConnectionReady,
+    managedBackendStatus: mocks.managedBackendStatus,
     credentialError: undefined,
     resolveConnection: mocks.resolveConnection,
     connect: mocks.connect,
@@ -50,6 +56,7 @@ beforeEach(() => {
   mocks.credentialsReady = true;
   mocks.inTauri = false;
   mocks.managedConnectionReady = false;
+  mocks.managedBackendStatus = undefined;
   mocks.recents = [];
   mocks.resolveConnection.mockResolvedValue({
     endpoint: 'http://127.0.0.1:8788',
@@ -86,6 +93,7 @@ beforeEach(() => {
 it('shows managed startup instead of asking desktop users for a connection address', () => {
   mocks.inTauri = true;
   mocks.credentialsReady = false;
+  mocks.managedBackendStatus = { kind: 'starting', detail: 'starting_service' };
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
@@ -99,12 +107,11 @@ it('shows managed startup instead of asking desktop users for a connection addre
     </QueryClientProvider>,
   );
 
-  expect(screen.getByText('Starting Agent Workspace…')).toBeVisible();
-  expect(
-    screen.getByText(
-      'The bundled service is starting and will connect automatically. No connection address is required.',
-    ),
-  ).toBeVisible();
+  expect(screen.getByRole('heading', { name: `Starting ${brand.name}` })).toBeVisible();
+  expect(screen.getByText('Starting local service')).toBeVisible();
+  expect(screen.getByText('Loading the bundled scientific workspace')).toBeVisible();
+  expect(screen.getByRole('list', { name: 'Startup progress' })).toBeVisible();
+  expect(screen.getByTestId('desktop-boot-logo')).toHaveClass('translate-x-1', '-translate-y-2');
   expect(screen.queryByLabelText('Connection address')).not.toBeInTheDocument();
 });
 

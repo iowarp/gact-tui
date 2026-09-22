@@ -127,7 +127,10 @@ export class TauriClioTransport implements ClioTransport {
       );
     }
     if (request.signal?.aborted) throw abortError();
-    if (response.status < 200 || response.status >= 300) {
+    if (
+      (response.status < 200 || response.status >= 300) &&
+      !request.acceptStatuses?.includes(response.status)
+    ) {
       const error = decodeErrorBody(decodeResponseText(response));
       throw new TransportError(
         error.message || `Request failed with ${response.status} ${response.status_text}`,

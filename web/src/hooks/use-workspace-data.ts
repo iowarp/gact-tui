@@ -10,7 +10,6 @@ import {
   ACTIVE_SESSION_POLL_MS,
   PENDING_INTERACTIONS_FANOUT_CAP,
   PENDING_INTERACTIONS_FANOUT_STALE_TIME_MS,
-  PROVIDER_CATALOG_STALE_TIME_MS,
 } from '@/lib/runtime-limits';
 import { sessionArtifactEntities, sessionArtifactVersionEntities } from '@/lib/session-artifacts';
 import {
@@ -32,6 +31,7 @@ import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { useRepository } from './use-repository';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
+import { useProviderCatalog } from './use-provider-catalog';
 import { useSessionLiveStream } from './use-session-live-stream';
 import { useSessionObservability } from './use-session-observability';
 import { useWorkspaceCapabilities } from './use-workspace-capabilities';
@@ -98,7 +98,10 @@ export function useWorkspaceData({
   );
   const mergeSnapshots = useLiveStore((state) => state.mergeSnapshots);
   const { capabilities, modelConfiguration } = useWorkspaceCapabilities();
-  const reloadWorkspaces = useMemo(() => readReloadWorkspaces(settings.endpoint), [settings.endpoint]);
+  const reloadWorkspaces = useMemo(
+    () => readReloadWorkspaces(settings.endpoint),
+    [settings.endpoint],
+  );
   const reloadSessions = useMemo(
     () => readReloadSessions(settings.endpoint, workspaceId),
     [settings.endpoint, workspaceId],
@@ -438,11 +441,7 @@ export function useWorkspaceData({
     queryFn: ({ signal }) => repository.providerModels(activeCatalogProvider, signal),
     enabled: Boolean(activeCatalogProvider),
   });
-  const providerCatalog = useQuery({
-    queryKey: queryKeys.providerCatalog(settings.endpoint),
-    queryFn: ({ signal }) => repository.providerCatalog(false, signal),
-    staleTime: PROVIDER_CATALOG_STALE_TIME_MS,
-  });
+  const providerCatalog = useProviderCatalog();
   const modelOptions = buildModelOptions({
     activeCatalogProvider,
     activeModel,
@@ -451,11 +450,12 @@ export function useWorkspaceData({
     providerCatalog: providerCatalog.data,
     presets: modelConfiguration.data?.presets ?? [],
   });
-  const modelCatalogStatus: 'error' | 'loading' | 'ready' = providerCatalog.isFetching
-    ? 'loading'
-    : providerCatalog.isError
-      ? 'error'
-      : 'ready';
+  const modelCatalogStatus: 'error' | 'loading' | 'ready' =
+    providerCatalog.isPending && !providerCatalog.data
+      ? 'loading'
+      : providerCatalog.isError && !providerCatalog.data
+        ? 'error'
+        : 'ready';
 
   return {
     activeBlueprint,

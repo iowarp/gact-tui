@@ -1,6 +1,8 @@
 import type { AgentBlueprintReference, Session } from '@clio/core/v3';
-import { ArrowLeftIcon, GitBranchIcon } from 'lucide-react';
+import { ArrowLeftIcon, GitBranchIcon, TerminalSquareIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { showsBaseAgent } from '@/lib/session-state';
+import { inTauri } from '@/lib/transport/tauri-runtime';
 import { ClioSessionActions } from './session-actions';
 
 export interface ClioSessionContextBarProps {
@@ -11,6 +13,12 @@ export interface ClioSessionContextBarProps {
   onCompact: () => Promise<void>;
   onFork: () => Promise<void>;
   onOpenBlueprint: (blueprint: AgentBlueprintReference) => void;
+  /** Reveals the embedded terminal tab. Tauri only — undefined hides the
+   * button entirely (matches every other desktop-only action here). */
+  onOpenTerminal?: () => Promise<void>;
+  /** Secondary escape hatch: opens the workspace in the OS's own terminal
+   * app instead of the embedded tab. */
+  onOpenSystemTerminal?: () => Promise<void>;
   onShare: (ttlSeconds: number) => Promise<string>;
   onReturnToParent: (session: Session) => void;
   onUndo: () => Promise<void>;
@@ -24,16 +32,13 @@ export function ClioSessionContextBar({
   onCompact,
   onFork,
   onOpenBlueprint,
+  onOpenTerminal,
+  onOpenSystemTerminal,
   onShare,
   onReturnToParent,
   onUndo,
 }: ClioSessionContextBarProps) {
-  const showsBaseAgent = Boolean(
-    session &&
-      !session.parent_session_id &&
-      !activeBlueprint &&
-      (!session.agent_id || session.agent_id === 'main'),
-  );
+  const isBaseAgent = showsBaseAgent(session, activeBlueprint);
 
   return (
     <div className="flex min-w-0 items-center gap-2 overflow-hidden">
@@ -49,42 +54,63 @@ export function ClioSessionContextBar({
           <ArrowLeftIcon aria-hidden="true" />
         </Button>
       ) : null}
-      <div className="flex min-w-0 items-center gap-1.5">
-        <h1 className="truncate text-base font-medium">
-          {session?.title ?? 'Session unavailable'}
-        </h1>
-        {activeBlueprint ? (
-          <>
-            <span aria-hidden="true" className="shrink-0 text-muted-foreground">
-              /
-            </span>
-            <Button
-              className="h-7 min-w-0 max-w-full justify-start px-1.5 text-xs font-normal text-muted-foreground"
-              onClick={() => onOpenBlueprint(activeBlueprint)}
-              size="xs"
-              title={`Open ${activeBlueprint.display_name}`}
-              variant="ghost"
-            >
-              <span className="truncate">{activeBlueprint.display_name}</span>
-            </Button>
-          </>
-        ) : showsBaseAgent ? (
-          <>
-            <span aria-hidden="true" className="shrink-0 text-muted-foreground">
-              /
-            </span>
-            <span className="truncate px-1.5 text-xs text-muted-foreground">Base agent</span>
-          </>
-        ) : null}
-      </div>
+      {/* The desktop title bar's centre already shows `workspace › session`
+          plus the blueprint badge (see DesktopTitleContext /
+          useDesktopTitleStore) when running in Tauri, so this in-page
+          duplicate of the same heading is hidden there — the actions to
+          its right (fork/compact/share/undo/terminal) are NOT chrome, so
+          they still render regardless of host. */}
+      {inTauri() ? null : (
+        <div className="flex min-w-0 items-center gap-1.5">
+          <h1 className="truncate text-base font-medium">
+            {session?.title ?? 'Session unavailable'}
+          </h1>
+          {activeBlueprint ? (
+            <>
+              <span aria-hidden="true" className="shrink-0 text-muted-foreground">
+                /
+              </span>
+              <Button
+                className="h-7 min-w-0 max-w-full justify-start px-1.5 text-xs font-normal text-muted-foreground"
+                onClick={() => onOpenBlueprint(activeBlueprint)}
+                size="xs"
+                title={`Open ${activeBlueprint.display_name}`}
+                variant="ghost"
+              >
+                <span className="truncate">{activeBlueprint.display_name}</span>
+              </Button>
+            </>
+          ) : isBaseAgent ? (
+            <>
+              <span aria-hidden="true" className="shrink-0 text-muted-foreground">
+                /
+              </span>
+              <span className="truncate px-1.5 text-xs text-muted-foreground">Base agent</span>
+            </>
+          ) : null}
+        </div>
+      )}
       <ClioSessionActions
         disabled={!session || actionsPending}
         onCompact={onCompact}
         onFork={onFork}
+        onOpenSystemTerminal={onOpenSystemTerminal}
         onShare={onShare}
         onUndo={onUndo}
         title={session?.title ?? 'session'}
       />
+      {onOpenTerminal ? (
+        <Button
+          aria-label="Open terminal in workspace"
+          className="shrink-0"
+          onClick={() => void onOpenTerminal()}
+          size="icon-xs"
+          title="Open terminal in workspace"
+          variant="ghost"
+        >
+          <TerminalSquareIcon aria-hidden="true" />
+        </Button>
+      ) : null}
       {session?.branch ? (
         <span className="hidden items-center gap-1 font-mono text-[10px] text-muted-foreground lg:flex">
           <GitBranchIcon aria-hidden="true" className="size-3" />

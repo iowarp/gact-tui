@@ -6,8 +6,14 @@ import type {
   ProviderModelRefreshResult,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRoundIcon, RadioTowerIcon, RefreshCwIcon } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import {
+  DownloadIcon,
+  ExternalLinkIcon,
+  KeyRoundIcon,
+  RadioTowerIcon,
+  RefreshCwIcon,
+} from 'lucide-react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
@@ -24,7 +30,13 @@ import { Input } from '@/components/ui/input';
 import { providerAvailability } from '@/lib/provider-availability';
 import { readProviderCredential, storeProviderCredential } from '@/tauri/secure-credentials';
 import { providerDisplayName, providerSummary } from '@/lib/provider-presentation';
+import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
+import { useLiveStore } from '@/store/live-store';
+import { vocab } from '@/lib/brand-vocabulary';
+import { openExternalUrl } from '@/tauri/external-url';
 import {
+  canApplyProvider,
+  modelSettingsOptions,
   modelSettingsUpdate,
   presetIsActive,
   providerSupportsRuntimeSizing,
@@ -36,6 +48,7 @@ import {
 } from './settings-models-form';
 import { ClioSettingsSection } from './settings-section';
 import { SettingsSectionHeading } from './settings-section-heading';
+import { HandshakeResult, RefreshResult } from './settings-models-results';
 import { ClioStatus } from './status';
 
 export function ModelsSettings() {
@@ -82,6 +95,7 @@ function ModelsSettingsContent({
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
+  const clearSessionModelReferences = useLiveStore((state) => state.clearSessionModelReferences);
   const { settings } = useConnectionSettings();
   const [searchParams] = useSearchParams();
   const requestedProvider = searchParams.get('provider');
@@ -103,12 +117,14 @@ function ModelsSettingsContent({
   const [refreshResult, setRefreshResult] = useState<ProviderModelRefreshResult>();
   const [handshakeResult, setHandshakeResult] = useState<ProviderHandshake>();
   const [authInstructions, setAuthInstructions] = useState('');
+  const [authFlow, setAuthFlow] = useState<{
+    authorizationUrl: string;
+    flowId: string;
+  }>();
+  const [authorizationCode, setAuthorizationCode] = useState('');
+  const [authLaunchError, setAuthLaunchError] = useState('');
   const selectedPreset = configuration.presets.find((preset) => preset.id === presetId);
 
-  // The service is the source of truth for this panel, so a configuration it
-  // reports while the panel is open replaces what the panel is showing — unless
-  // the person is part-way through setting something, which a refetch must
-  // never throw away.
   if (configuration !== seenConfiguration) {
     setSeenConfiguration(configuration);
     if (!edited) {
@@ -144,28 +160,21 @@ function ModelsSettingsContent({
   });
   const selectedAvailability = providerAvailability(selectedProvider, selectedPreset);
   const supportsRuntimeControls = providerSupportsRuntimeSizing(selectedPreset);
-  const missingRequiredOption = selectedPreset?.configuration_fields?.some(
-    (field) => field.required && !values.providerOptions[field.id]?.trim(),
-  );
-  const providerReadyForApply = Boolean(
-    selectedPreset &&
-      !missingRequiredOption &&
-      (selectedPreset.is_authenticated ||
-        (selectedPreset.requires_api_key && (values.apiKey || storedCredential.data)) ||
-        selectedPreset.auth_method === 'none'),
-  );
+  const providerReadyForApply = canApplyProvider(selectedPreset, values, storedCredential.data);
   const models = useQuery({
     queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
     queryFn: ({ signal }) => repository.providerModels(presetId, signal),
     enabled: Boolean(presetId && selectedPreset?.is_authenticated),
   });
-  const modelOptions = useMemo(() => {
-    const catalog = models.data?.models ?? [];
-    if (catalog.length) return catalog;
-    return [...new Set([values.modelId, selectedPreset?.suggested_model].filter(Boolean))].map(
-      (id) => ({ id: id as string, name: id as string }),
-    );
-  }, [models.data?.models, selectedPreset?.suggested_model, values.modelId]);
+  const modelOptions = modelSettingsOptions({
+    catalog: models.data?.models ?? [],
+    configuration,
+    modelId: values.modelId,
+    preset: selectedPreset,
+  });
+  const selectedModelIsCandidate = modelOptions.some(
+    (model) => model.id === values.modelId && model.availability === 'candidate',
+  );
 
   const save = useMutation({
     mutationFn: async () => {
@@ -188,16 +197,22 @@ function ModelsSettingsContent({
       return repository.updateLanguageModelConfiguration(update);
     },
     onSuccess: async (next) => {
-      // What was applied is now the service's own state, so the panel goes back
-      // to following it.
       setEdited(false);
       queryClient.setQueryData(
         queryKeys.key('language-model-configuration', settings.endpoint),
         next,
       );
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.key('capabilities', settings.endpoint),
-      });
+      clearCachedSessionModelReferences(queryClient, settings.endpoint);
+      clearSessionModelReferences();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.capabilities(settings.endpoint) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.providerModels(settings.endpoint) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.key('sessions', settings.endpoint) }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('session-defaults', settings.endpoint),
+        }),
+      ]);
     },
   });
   const refreshModels = useMutation({
@@ -220,25 +235,125 @@ function ModelsSettingsContent({
         queryClient.invalidateQueries({
           queryKey: queryKeys.key('capabilities', settings.endpoint),
         }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.providerCatalog(settings.endpoint),
+        }),
       ]);
     },
   });
   const handshake = useMutation({
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
-      return repository.providerHandshake(presetId, {
+      const result = await repository.providerHandshake(presetId, {
         apiBase: values.apiBase,
         refresh: true,
       });
+      const catalog =
+        result.connectivity === 'ok' && result.auth === 'ok'
+          ? await repository.providerModels(presetId)
+          : undefined;
+      return { result, catalog };
     },
-    onSuccess: setHandshakeResult,
+    onSuccess: async ({ result, catalog }) => {
+      setHandshakeResult(result);
+      if (catalog) {
+        queryClient.setQueryData(
+          queryKeys.key('provider-models', settings.endpoint, presetId),
+          catalog,
+        );
+        if (catalog.default_model) edit({ modelId: catalog.default_model });
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
+      ]);
+    },
+  });
+  const installProvider = useMutation({
+    mutationFn: async () => {
+      if (!presetId) throw new Error('Choose a provider first.');
+      await repository.installProviderSupport(presetId);
+      const result = await repository.providerHandshake(presetId, {
+        apiBase: values.apiBase,
+        refresh: true,
+      });
+      const catalog =
+        result.connectivity === 'ok' && result.auth === 'ok'
+          ? await repository.providerModels(presetId)
+          : undefined;
+      return { result, catalog };
+    },
+    onSuccess: async ({ result, catalog }) => {
+      setHandshakeResult(result);
+      if (catalog) {
+        queryClient.setQueryData(
+          queryKeys.key('provider-models', settings.endpoint, presetId),
+          catalog,
+        );
+        if (catalog.default_model) edit({ modelId: catalog.default_model });
+      }
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
+      ]);
+    },
   });
   const authenticate = useMutation({
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
-      return repository.authenticateProvider(presetId);
+      return repository.authenticateProvider(presetId, { force: true });
     },
-    onSuccess: (result) => setAuthInstructions(result.instructions),
+    onSuccess: (result) => {
+      setAuthInstructions(result.instructions);
+      if (result.authorization_url && result.flow_id) {
+        setAuthFlow({
+          authorizationUrl: result.authorization_url,
+          flowId: result.flow_id,
+        });
+        setAuthLaunchError('');
+        void openExternalUrl(result.authorization_url).catch((error: unknown) =>
+          setAuthLaunchError(
+            error instanceof Error ? error.message : 'Could not open Globus sign-in.',
+          ),
+        );
+      }
+    },
+  });
+  const completeAuthentication = useMutation({
+    mutationFn: async () => {
+      if (!presetId || !authFlow) throw new Error('Start ALCF sign-in first.');
+      if (!authorizationCode.trim()) throw new Error('Paste the authorization code from Globus.');
+      return repository.completeProviderAuthentication(presetId, {
+        flowId: authFlow.flowId,
+        authorizationCode: authorizationCode.trim(),
+      });
+    },
+    onSuccess: async (result) => {
+      setAuthInstructions(result.instructions);
+      setAuthFlow(undefined);
+      setAuthorizationCode('');
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.providerCatalog(settings.endpoint),
+        }),
+      ]);
+    },
   });
 
   return (
@@ -253,7 +368,9 @@ function ModelsSettingsContent({
           <>
             <div className="flex flex-wrap items-center gap-3">
               <Button
-                disabled={!providerReadyForApply || !values.modelId || save.isPending}
+                disabled={
+                  !providerReadyForApply || !values.modelId || selectedModelIsCandidate || save.isPending
+                }
                 onClick={() => save.mutate()}
               >
                 {save.isPending ? 'Applying…' : 'Apply provider and model'}
@@ -268,6 +385,17 @@ function ModelsSettingsContent({
                   {authenticate.isPending
                     ? 'Opening sign-in…'
                     : `Sign in to ${providerDisplayName(selectedPreset)}`}
+                </Button>
+              ) : null}
+              {selectedPreset?.provider === 'claude_code' &&
+              selectedPreset.status === 'install_required' ? (
+                <Button
+                  disabled={installProvider.isPending}
+                  onClick={() => installProvider.mutate()}
+                  variant="outline"
+                >
+                  <DownloadIcon aria-hidden="true" />
+                  {installProvider.isPending ? 'Installing Claude Code…' : 'Install Claude Code'}
                 </Button>
               ) : null}
               <Button
@@ -304,11 +432,68 @@ function ModelsSettingsContent({
             {handshake.error ? (
               <p className="text-sm text-destructive">{handshake.error.message}</p>
             ) : null}
+            {installProvider.error ? (
+              <p className="text-sm text-destructive">{installProvider.error.message}</p>
+            ) : null}
             {authenticate.error ? (
               <p className="text-sm text-destructive">{authenticate.error.message}</p>
             ) : null}
             {authInstructions ? (
               <p className="max-w-3xl text-sm text-muted-foreground">{authInstructions}</p>
+            ) : null}
+            {authFlow ? (
+              <div
+                aria-label="Complete ALCF sign-in"
+                className="grid max-w-xl gap-3 rounded-lg border border-border bg-muted/20 p-4"
+              >
+                <div>
+                  <p className="font-medium">Finish signing in to ALCF</p>
+                  <p className="text-sm text-muted-foreground">
+                    Sign in with your ALCF identity. Globus will show a one-time code to paste
+                    below; the connected {vocab.agent} stores the resulting token.
+                  </p>
+                </div>
+                <Button
+                  className="w-fit"
+                  onClick={() => {
+                    setAuthLaunchError('');
+                    void openExternalUrl(authFlow.authorizationUrl).catch((error: unknown) =>
+                      setAuthLaunchError(
+                        error instanceof Error ? error.message : 'Could not open Globus sign-in.',
+                      ),
+                    );
+                  }}
+                  variant="outline"
+                >
+                  <ExternalLinkIcon aria-hidden="true" />
+                  Open Globus sign-in
+                </Button>
+                {authLaunchError ? (
+                  <p className="text-sm text-destructive">{authLaunchError}</p>
+                ) : null}
+                <div className="grid gap-1.5">
+                  <label className="text-sm font-medium" htmlFor="alcf-authorization-code">
+                    Authorization code
+                  </label>
+                  <Input
+                    autoComplete="one-time-code"
+                    id="alcf-authorization-code"
+                    onChange={(event) => setAuthorizationCode(event.target.value)}
+                    placeholder="Paste the code from Globus"
+                    value={authorizationCode}
+                  />
+                </div>
+                <Button
+                  className="w-fit"
+                  disabled={!authorizationCode.trim() || completeAuthentication.isPending}
+                  onClick={() => completeAuthentication.mutate()}
+                >
+                  {completeAuthentication.isPending ? 'Completing sign-in…' : 'Complete sign-in'}
+                </Button>
+                {completeAuthentication.error ? (
+                  <p className="text-sm text-destructive">{completeAuthentication.error.message}</p>
+                ) : null}
+              </div>
             ) : null}
             {refreshResult ? <RefreshResult result={refreshResult} /> : null}
             {handshakeResult ? <HandshakeResult result={handshakeResult} /> : null}
@@ -333,6 +518,9 @@ function ModelsSettingsContent({
                 setRefreshResult(undefined);
                 setHandshakeResult(undefined);
                 setAuthInstructions('');
+                setAuthFlow(undefined);
+                setAuthorizationCode('');
+                setAuthLaunchError('');
               }}
               value={presetId}
             >
@@ -346,7 +534,11 @@ function ModelsSettingsContent({
                       <span className="truncate">{providerDisplayName(preset)}</span>
                       {!preset.is_authenticated ? (
                         <span className="shrink-0 text-xs text-muted-foreground">
-                          Sign-in needed
+                          {preset.status === 'install_required'
+                            ? 'Install needed'
+                            : preset.status === 'auth_check_required'
+                              ? 'Check required'
+                              : 'Sign-in needed'}
                         </span>
                       ) : null}
                     </span>
@@ -370,8 +562,13 @@ function ModelsSettingsContent({
               </SelectTrigger>
               <SelectContent>
                 {modelOptions.map((model) => (
-                  <SelectItem key={model.id} value={model.id}>
+                  <SelectItem
+                    disabled={model.availability === 'candidate'}
+                    key={model.id}
+                    value={model.id}
+                  >
                     {model.name ?? ('label' in model ? model.label : undefined) ?? model.id}
+                    {model.availability === 'candidate' ? ' (check provider to verify)' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -379,9 +576,13 @@ function ModelsSettingsContent({
             <FieldDescription title={models.isError ? models.error.message : models.data?.source}>
               {models.isError
                 ? 'Available models could not be loaded. Retry the catalog check or keep the suggested model.'
-                : models.data?.source
-                  ? 'Available models were checked by the connected agent.'
-                  : 'Using the configured model.'}
+                : models.data?.source === 'static_catalog'
+                  ? 'Candidate models only; check the provider to verify account availability.'
+                  : models.data?.staleness
+                    ? 'Previously discovered models; check the provider to verify current availability.'
+                    : models.data?.source
+                      ? 'Available models were checked by the connected agent.'
+                      : 'Using the configured model.'}
             </FieldDescription>
           </Field>
           <Field>
@@ -458,8 +659,8 @@ function ModelsSettingsContent({
                 value={values.apiKey}
               />
               <FieldDescription>
-                Credentials are sent to the connected CLIO backend and are never read back into the
-                browser.
+                Credentials are sent to the connected {vocab.agent} backend and are never read back
+                into the browser.
               </FieldDescription>
             </Field>
           ) : null}
@@ -582,28 +783,6 @@ function ModelsSettingsContent({
   );
 }
 
-function HandshakeResult({ result }: { result: ProviderHandshake }) {
-  const healthy =
-    result.connectivity === 'ok' && ['ok', 'not_required', 'deferred'].includes(result.auth);
-  return (
-    <div className="grid gap-1 text-sm">
-      <ClioStatus
-        label={healthy ? 'Provider ready' : 'Provider needs attention'}
-        value={healthy ? 'healthy' : 'degraded'}
-      />
-      <p className="text-muted-foreground">
-        {result.error ??
-          `Connection ${readableState(result.connectivity)}, sign-in ${readableState(result.auth)}, ${result.models.length} model${result.models.length === 1 ? '' : 's'}`}
-      </p>
-      <p className="text-xs text-muted-foreground" title={`Reported source: ${result.source}`}>
-        {result.latency_ms === undefined
-          ? `Checked ${readableTimestamp(result.generated_at)} by the connected agent.`
-          : `Checked ${readableTimestamp(result.generated_at)} in ${Math.round(result.latency_ms)} ms.`}
-      </p>
-    </div>
-  );
-}
-
 function readableState(value: string) {
   return value.replaceAll('_', ' ');
 }
@@ -617,31 +796,4 @@ const REASONING_EFFORT_LABELS: Record<ReasoningEffort, string> = {
 
 function reasoningEffortLabel(level: ReasoningEffort): string {
   return REASONING_EFFORT_LABELS[level];
-}
-
-function RefreshResult({ result }: { result: ProviderModelRefreshResult }) {
-  return (
-    <div className="grid gap-1 text-sm">
-      <ClioStatus
-        label={result.failed_reason ? 'Catalog check failed' : 'Catalog refreshed'}
-        value={result.failed_reason ? 'degraded' : 'healthy'}
-      />
-      <p className="text-muted-foreground">
-        {result.failed_reason ??
-          `${result.discovered.length} available model${result.discovered.length === 1 ? '' : 's'}, ${result.added.length} added, ${result.removed.length} removed`}
-      </p>
-      <p className="text-xs text-muted-foreground" title={`Reported source: ${result.source}`}>
-        Checked {readableTimestamp(result.generated_at)} by the connected agent.
-      </p>
-    </div>
-  );
-}
-
-function readableTimestamp(value: string): string {
-  const timestamp = new Date(value);
-  return Number.isNaN(timestamp.getTime())
-    ? 'at an unavailable time'
-    : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
-        timestamp,
-      );
 }

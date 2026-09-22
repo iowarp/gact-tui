@@ -105,10 +105,7 @@ mod tests {
         // tauri-bundler strips the triple when installing an externalBin —
         // the FIRST candidate must be the stripped name (iowarp/gact-tui#309).
         assert_eq!(installed, format!("clio-agent{ext}"));
-        assert_eq!(
-            dev,
-            format!("clio-agent-{}{ext}", host_target_triple())
-        );
+        assert_eq!(dev, format!("clio-agent-{}{ext}", host_target_triple()));
     }
 
     #[test]

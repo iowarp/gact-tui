@@ -1,5 +1,5 @@
 import { ActivityIcon, EyeIcon, EyeOffIcon, RefreshCwIcon, SettingsIcon } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ModelSelector,
@@ -29,14 +29,16 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import type { ClioModelOption } from '@/lib/model-options';
+import { PROVIDER_VISIBILITY_CHANGED_EVENT } from '@/lib/installer-infrastructure';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 
 interface ClioModelPickerProps {
+  catalogRefreshing?: boolean;
   catalogStatus?: 'error' | 'loading' | 'ready';
   model?: string;
   onChange: (choice: ClioModelOption) => void;
-  onRetryCatalog?: () => void;
+  onRetryCatalog?: (providerId?: string) => void;
   options: readonly ClioModelOption[];
   provider?: string;
   title?: string;
@@ -74,6 +76,7 @@ const MODEL_NODE_PREFIX = 'model:';
 
 /** Searchable AI Elements dialog composed with the real ReUI columns cascader. */
 export function ClioModelPicker({
+  catalogRefreshing = false,
   catalogStatus = 'ready',
   model,
   onChange,
@@ -85,8 +88,15 @@ export function ClioModelPicker({
 }: ClioModelPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [managingVisibility, setManagingVisibility] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [hiddenProviders, setHiddenProviders] = useState<Set<string>>(readHiddenProviders);
+  useEffect(() => {
+    const refreshHiddenProviders = () => setHiddenProviders(readHiddenProviders());
+    window.addEventListener(PROVIDER_VISIBILITY_CHANGED_EVENT, refreshHiddenProviders);
+    return () =>
+      window.removeEventListener(PROVIDER_VISIBILITY_CHANGED_EVENT, refreshHiddenProviders);
+  }, []);
   const showColumns = useMediaQuery('(min-width: 768px)');
   const providers = useMemo(() => {
     const grouped = Object.values(
@@ -111,15 +121,11 @@ export function ClioModelPicker({
     });
   }, [options]);
   const [path, setPath] = useState<string[]>(() => {
-    const initialProvider = provider ?? providers[0]?.id;
-    return initialProvider ? [providerNodeValue(initialProvider)] : [];
+    return provider ? [providerNodeValue(provider)] : [];
   });
   const visibleProviders = useMemo(
-    () =>
-      providers.filter(
-        (item) => showHidden || !hiddenProviders.has(item.id) || item.id === provider,
-      ),
-    [hiddenProviders, provider, providers, showHidden],
+    () => providers.filter((item) => showHidden || !hiddenProviders.has(item.id)),
+    [hiddenProviders, providers, showHidden],
   );
   const providerNodes = useMemo<CascaderNode<PickerNodeData>[]>(
     () =>
@@ -157,8 +163,7 @@ export function ClioModelPicker({
       })),
     [visibleProviders],
   );
-  const activeGroup =
-    providers.find((item) => providerNodeValue(item.id) === path[0]) ?? visibleProviders[0];
+  const activeGroup = providers.find((item) => providerNodeValue(item.id) === path[0]);
   const selectedChoice = options.find(
     (choice) => choice.available && choice.providerId === provider && choice.id === model,
   );
@@ -185,29 +190,52 @@ export function ClioModelPicker({
     setShowHidden(false);
   }
 
+  function toggleProviderVisibility(node: CascaderNode<PickerNodeData>): void {
+    if (node.data?.kind !== 'provider') return;
+    const group = node.data.group;
+    if (hiddenProviders.has(group.id)) showProvider(group);
+    else hideProvider(group);
+  }
+
   function handleOpenChange(nextOpen: boolean): void {
     setOpen(nextOpen);
     if (nextOpen) {
-      const preferred = providers.find((item) => item.id === provider) ?? visibleProviders[0];
-      if (preferred) setPath([providerNodeValue(preferred.id)]);
+      const preferred = providers.find((item) => item.id === provider);
+      setPath(preferred ? [providerNodeValue(preferred.id)] : []);
       return;
     }
     setQuery('');
+    setManagingVisibility(false);
     setShowHidden(false);
+  }
+
+  function handleQueryChange(nextQuery: string): void {
+    // A provider path is useful for browsing, but it turns deep search into a
+    // search inside that provider and leaves the old provider pinned beside a
+    // global hit. Start every new search at the root; choosing a result can
+    // then establish the path that remains when the query is cleared.
+    if (nextQuery.trim() && !query.trim()) setPath([]);
+    setQuery(nextQuery);
+  }
+
+  function toggleVisibilityManagement(): void {
+    const next = !managingVisibility;
+    setManagingVisibility(next);
+    setShowHidden(next && hiddenProviders.size > 0);
   }
 
   return (
     <ModelSelector onOpenChange={handleOpenChange} open={open}>
       <ModelSelectorTrigger asChild>{trigger}</ModelSelectorTrigger>
       <ModelSelectorContent
-        className="h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] overflow-hidden sm:max-w-[66rem]"
+        className="h-[min(38rem,calc(100dvh-2rem))] w-[min(56rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden sm:h-[min(42rem,calc(100dvh-3rem))] sm:max-w-[56rem]"
         commandProps={{ className: 'min-h-0 p-0', shouldFilter: false }}
         title={title}
       >
         {catalogStatus === 'loading' ? (
           <ModelCatalogSkeleton columns={showColumns} />
         ) : catalogStatus === 'error' ? (
-          <ModelCatalogError onRetry={onRetryCatalog} />
+          <ModelCatalogError onRetry={() => onRetryCatalog?.(activeGroup?.id)} />
         ) : (
           <Cascader
             closeOnSelect={false}
@@ -223,7 +251,7 @@ export function ClioModelPicker({
             }}
             maxHeight="100%"
             mode={showColumns ? 'columns' : 'drill'}
-            onInputValueChange={setQuery}
+            onInputValueChange={handleQueryChange}
             onPathChange={(nextPath) => setPath(nextPath)}
             onValueChange={(_value, details) => {
               if (details.node?.data?.kind !== 'model') return;
@@ -235,7 +263,13 @@ export function ClioModelPicker({
             renderLabel={(node, state) => (
               <PickerRowLabel
                 hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
+                managingVisibility={managingVisibility}
                 node={node}
+                onToggleVisibility={
+                  managingVisibility && node.data?.kind === 'provider'
+                    ? () => toggleProviderVisibility(node)
+                    : undefined
+                }
                 state={state}
               />
             )}
@@ -245,7 +279,7 @@ export function ClioModelPicker({
           >
             <CascaderPanel className="h-full min-h-0">
               <CascaderNav>
-                <div className="flex w-full min-w-0 items-center gap-1 pe-8 md:w-1/2 md:pe-0">
+                <div className="flex w-full min-w-0 items-center gap-1 pe-8">
                   <div className="min-w-0 flex-1">
                     <CascaderInput
                       aria-label="Search providers and models"
@@ -254,32 +288,20 @@ export function ClioModelPicker({
                   </div>
                   {activeGroup ? (
                     <div className="flex shrink-0 items-center gap-1">
-                      {activeGroup.id !== provider ? (
+                      {onRetryCatalog ? (
                         <Button
-                          aria-label={
-                            hiddenProviders.has(activeGroup.id)
-                              ? `Show ${activeGroup.name}`
-                              : `Hide ${activeGroup.name}`
-                          }
-                          onClick={() =>
-                            hiddenProviders.has(activeGroup.id)
-                              ? showProvider(activeGroup)
-                              : hideProvider(activeGroup)
-                          }
+                          aria-label={`Refresh ${activeGroup.name} provider and models`}
+                          disabled={catalogRefreshing}
+                          onClick={() => onRetryCatalog(activeGroup.id)}
                           size="icon-sm"
-                          title={
-                            hiddenProviders.has(activeGroup.id)
-                              ? 'Show provider in this picker'
-                              : 'Hide provider from this picker'
-                          }
+                          title={`Refresh ${activeGroup.name} provider and models`}
                           type="button"
                           variant="ghost"
                         >
-                          {hiddenProviders.has(activeGroup.id) ? (
-                            <EyeIcon aria-hidden="true" />
-                          ) : (
-                            <EyeOffIcon aria-hidden="true" />
-                          )}
+                          <RefreshCwIcon
+                            aria-hidden="true"
+                            className={catalogRefreshing ? 'animate-spin' : undefined}
+                          />
                         </Button>
                       ) : null}
                       <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
@@ -301,7 +323,7 @@ export function ClioModelPicker({
               {showColumns ? (
                 <CascaderColumns
                   className="w-full flex-1"
-                  columnWidth="min(32rem, calc((100vw - 3rem) / 2))"
+                  columnWidth="calc(50% - .5px)"
                   maxHeight="100%"
                 >
                   {(column) => <CascaderVirtualColumn column={column} key={column.depth} />}
@@ -314,19 +336,46 @@ export function ClioModelPicker({
               {activeGroup?.detail ? (
                 <div
                   className={cn(
-                    'shrink-0 border-t px-3 py-2 text-xs',
+                    'flex shrink-0 items-center justify-between gap-3 border-t px-3 py-2 text-xs',
                     activeGroup.health === 'degraded'
                       ? 'text-warning-foreground'
                       : 'text-muted-foreground',
                   )}
                   role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
                 >
-                  {activeGroup.detail}
+                  <span>{activeGroup.detail}</span>
+                  {activeGroup.health === 'unavailable' ? (
+                    <Button asChild className="shrink-0" size="sm" variant="secondary">
+                      <Link to={activeGroup.configurationUrl}>Set up {activeGroup.name}</Link>
+                    </Button>
+                  ) : null}
                 </div>
               ) : null}
-              {hiddenProviders.size ? (
-                <CascaderFooter className="min-h-11 flex-row items-center gap-1 px-2">
-                  <div className="flex min-w-0 items-center gap-1">
+              <CascaderFooter className="min-h-11 flex-row items-center justify-between gap-1 px-2">
+                <div className="flex min-w-0 items-center gap-1">
+                  <Button
+                    aria-label={
+                      managingVisibility
+                        ? 'Finish managing provider visibility'
+                        : hiddenProviders.size
+                          ? `Manage provider visibility, ${hiddenProviders.size} hidden`
+                          : 'Manage provider visibility'
+                    }
+                    aria-pressed={managingVisibility}
+                    data-slot="provider-visibility-mode"
+                    onClick={toggleVisibilityManagement}
+                    size="sm"
+                    type="button"
+                    variant={managingVisibility ? 'secondary' : 'ghost'}
+                  >
+                    {managingVisibility ? (
+                      <EyeOffIcon data-icon="inline-start" />
+                    ) : (
+                      <EyeIcon data-icon="inline-start" />
+                    )}
+                    {managingVisibility ? 'Done' : 'Manage providers'}
+                  </Button>
+                  {hiddenProviders.size ? (
                     <Button
                       aria-label={`Show ${hiddenProviders.size} hidden ${hiddenProviders.size === 1 ? 'provider' : 'providers'}`}
                       aria-pressed={showHidden}
@@ -342,20 +391,20 @@ export function ClioModelPicker({
                       )}
                       Hidden ({hiddenProviders.size})
                     </Button>
-                    {showHidden && hiddenProviders.size ? (
-                      <Button
-                        aria-label="Restore all hidden providers"
-                        onClick={restoreAllProviders}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        Restore all
-                      </Button>
-                    ) : null}
-                  </div>
-                </CascaderFooter>
-              ) : null}
+                  ) : null}
+                  {managingVisibility && showHidden && hiddenProviders.size ? (
+                    <Button
+                      aria-label="Restore all hidden providers"
+                      onClick={restoreAllProviders}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      Restore all
+                    </Button>
+                  ) : null}
+                </div>
+              </CascaderFooter>
               <CascaderStatus />
             </CascaderPanel>
           </Cascader>
@@ -426,20 +475,26 @@ function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
 
 function PickerRowLabel({
   hidden,
+  managingVisibility,
   node,
+  onToggleVisibility,
 }: {
   hidden: boolean;
+  managingVisibility: boolean;
   node: CascaderNode<PickerNodeData>;
+  onToggleVisibility?: () => void;
   state: CascaderItemState<PickerNodeData>;
 }) {
   if (node.data?.kind === 'provider') {
     return (
       <span className="flex w-full min-w-0 items-center gap-2">
         <span className="min-w-0 flex-1 truncate text-start font-medium">{node.label}</span>
-        {hidden ? (
-          <EyeOffIcon aria-label="Hidden provider" className="text-muted-foreground" />
-        ) : null}
-        <ProviderHealthIndicator group={node.data.group} />
+        <ProviderVisibilityControl
+          group={node.data.group}
+          hidden={hidden}
+          managingVisibility={managingVisibility}
+          onToggle={onToggleVisibility}
+        />
       </span>
     );
   }
@@ -456,28 +511,78 @@ function PickerRowLabel({
   );
 }
 
-function ProviderHealthIndicator({ group }: { group: ProviderGroup }) {
+function ProviderVisibilityControl({
+  group,
+  hidden,
+  managingVisibility,
+  onToggle,
+}: {
+  group: ProviderGroup;
+  hidden: boolean;
+  managingVisibility: boolean;
+  onToggle?: () => void;
+}) {
   const presentation = providerHealthPresentation(group.health);
+  const action = hidden ? `Show ${group.name}` : `Hide ${group.name}`;
+  const interactive = managingVisibility && onToggle !== undefined;
+  const stopRowAction = (event: { preventDefault(): void; stopPropagation(): void }) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
   return (
     <HoverCard openDelay={180}>
       <HoverCardTrigger asChild>
         <span
-          aria-label={`${group.name} provider status: ${presentation.label}`}
+          {...(interactive
+            ? { 'aria-label': `${action}; provider status: ${presentation.label}` }
+            : { 'aria-hidden': true })}
           className={cn(
-            'inline-flex size-5 shrink-0 items-center justify-center',
-            presentation.color,
+            'pointer-events-auto inline-flex size-6 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+            interactive ? 'cursor-pointer hover:bg-accent' : 'cursor-help',
+            hidden ? 'text-muted-foreground' : presentation.color,
           )}
-          role="img"
+          data-slot="provider-visibility-toggle"
+          onClick={(event) => {
+            stopRowAction(event);
+            if (interactive) onToggle();
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            stopRowAction(event);
+            if (interactive) onToggle();
+          }}
+          onMouseDown={stopRowAction}
+          onMouseUp={stopRowAction}
+          role={interactive ? 'button' : 'presentation'}
+          tabIndex={interactive ? 0 : -1}
+          title={
+            interactive ? `${action} in this picker` : `${group.name} status: ${presentation.label}`
+          }
         >
-          <ActivityIcon aria-hidden="true" className="size-4" />
+          {hidden ? (
+            <EyeOffIcon aria-hidden="true" className="size-4" />
+          ) : (
+            <ActivityIcon aria-hidden="true" className="size-4" />
+          )}
         </span>
       </HoverCardTrigger>
       <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">
-        <p className="font-medium">Provider availability</p>
+        <p className="font-medium">
+          {interactive
+            ? hidden
+              ? 'Hidden from this picker'
+              : 'Visible in this picker'
+            : 'Provider status'}
+        </p>
         <p>Health: {presentation.label}</p>
         <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
         {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
         {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
+        <p className="text-muted-foreground">
+          {interactive
+            ? `Click to ${hidden ? 'show' : 'hide'} this provider.`
+            : 'Use Manage visibility to show or hide providers.'}
+        </p>
       </HoverCardContent>
     </HoverCard>
   );

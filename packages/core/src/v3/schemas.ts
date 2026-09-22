@@ -5,54 +5,7 @@ import { toolPresentationSchema } from './presentation-schemas.js';
 
 export * from './message-schemas.js';
 export * from './presentation-schemas.js';
-
-export const degradationSchema = z.object({
-  code: z.string(),
-  reason: z.string(),
-  capability: z.string().optional(),
-  recoverable: z.boolean().default(false),
-});
-
-export const provenanceSchema = z.object({
-  source: forwardCompatibleEnum(['server', 'provider', 'connection', 'unavailable']),
-  observed_at: z.string(),
-  stale: z.boolean(),
-  reason: z.string().optional(),
-});
-
-/** The official agent-capabilities object (`docs/gact/a2ui-binding.md`), installed scope. */
-export const a2uiCapabilitiesSchema = z.object({
-  'v0.9': z.object({
-    supportedCatalogIds: z.array(z.string()),
-    acceptsInlineCatalogs: z.boolean().optional(),
-  }),
-});
-
-export const capabilitiesSchema = z.object({
-  service: z
-    .object({
-      name: z.string(),
-      version: z.string(),
-    })
-    .optional(),
-  gact_versions: z.array(z.string()),
-  a2ui_versions: z.array(z.string()).default([]),
-  a2ui_capabilities: a2uiCapabilitiesSchema.optional(),
-  replay: z.object({
-    supported: z.boolean(),
-    retention: z.number().int().nonnegative().optional(),
-  }),
-  capabilities: z.record(z.string(), z.unknown()),
-  degradations: z.array(degradationSchema).default([]),
-  model_catalog: provenanceSchema,
-  active_model: z
-    .object({
-      provider_id: z.string(),
-      model_id: z.string(),
-      effort: z.string().optional(),
-    })
-    .optional(),
-});
+export * from './capability-schemas.js';
 
 export const providerDefinitionSchema = z.object({
   id: z.string(),
@@ -67,6 +20,7 @@ export const providerDefinitionSchema = z.object({
 
 export const providerModelSchema = z.object({
   id: z.string(),
+  availability: z.enum(['available', 'candidate']).optional(),
   name: z
     .string()
     .nullish()
@@ -135,7 +89,12 @@ export const languageModelConfigurationSchema = z.object({
   api_base: z.string(),
   model: z.string(),
   temperature: z.number().optional(),
-  max_tokens: z.number().int().positive().optional(),
+  max_tokens: z
+    .number()
+    .int()
+    .nonnegative()
+    .optional()
+    .transform((value) => (value === 0 ? undefined : value)),
   thinking_level: z
     .string()
     .nullish()
@@ -408,8 +367,12 @@ export const turnAttemptSchema = z.object({
 
 export const workspaceFileEntrySchema = z.object({
   path: z.string(),
+  display_path: z.string().optional(),
   type: forwardCompatibleEnum(['file', 'dir']),
   internal: z.boolean().default(false),
+  media_type: z.string().optional(),
+  source: forwardCompatibleEnum(['workspace', 'managed_input']).optional(),
+  resource_id: z.string().optional(),
   size: z.number().int().nonnegative().optional(),
   modified: z.string().optional(),
 });
@@ -459,6 +422,35 @@ export const agentBlueprintSourceSchema = z.object({
     .default([]),
 });
 
+/**
+ * One marketplace source's update check, as reported by
+ * `GET /v1/agent-blueprints/sources/updates` (list) and
+ * `GET /v1/agent-blueprints/sources/{id}/updates` (single row). `reason` is
+ * the typed outcome the UI renders honestly instead of inferring from
+ * `update_available` alone — a server-added reason decodes to `'unknown'`
+ * rather than failing the parse.
+ */
+export const agentBlueprintSourceUpdateSchema = z.object({
+  source_id: z.string(),
+  source: z.string(),
+  ref: z.string().optional(),
+  installed_commit: z.string().optional(),
+  remote_commit: z.string().optional(),
+  update_available: z.boolean().nullable(),
+  reason: forwardCompatibleEnum([
+    'up_to_date',
+    'update_available',
+    'source_not_found',
+    'installed_commit_unknown',
+    'git_unavailable',
+    'ls_remote_failed',
+    'ref_not_found',
+    'timeout',
+    'path_source_not_git',
+  ]),
+  detail: z.string().optional(),
+});
+
 export const relayStatusSchema = z.object({
   configured: z.boolean(),
   mcp_url: z
@@ -497,13 +489,24 @@ export const toolCatalogItemSchema = z.object({
   name: z.string(),
   title: z.string().optional(),
   description: z.string().optional(),
-  server_id: z.string().optional(),
+  server_id: z
+    .string()
+    .nullish()
+    .transform((value) => value ?? undefined),
   source: z.string().optional(),
   status: z.string().optional(),
   enabled: z.boolean().optional(),
   owner: z.string().optional(),
   tags: z.array(z.string()).default([]),
   visible_to: z.array(z.string()).default([]),
+  input_schema: z.record(z.string(), z.unknown()).default({}),
+  output_schema: z.record(z.string(), z.unknown()).default({}),
+  // #1350: the server's own functional grouping for the desktop Tools view
+  // (one of the fixed `ToolDomain` tokens, or absent for a dynamic gateway
+  // row). Nullish rather than defaulted — an absent domain is a real "this
+  // tool declared none" answer the client's own name-regex fallback must be
+  // free to fill in, never a value this schema should invent.
+  domain: z.string().nullish(),
 });
 
 export const mcpServerDefinitionSchema = z.object({

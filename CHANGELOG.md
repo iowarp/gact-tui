@@ -28,6 +28,257 @@ UI aren't tracked.
 - The desktop build now runs the full A2UI conformance corpus against the
   packaged bundle in CI, in addition to the browser test suite.
 
+## [0.11.2.15] — 2026-09-22
+
+### Changed
+
+- Put the ordered SSH jump-host route directly on deployment and
+  Infrastructure target pickers, with draggable steps, saved-profile choices,
+  per-step configuration, and a visible add-jump action.
+
+### Fixed
+
+- Remove the misleading Password/Key mode selector: system OpenSSH now owns
+  every interactive password, Duo, Kerberos, security-key, and rolling-code
+  prompt while an optional key remains an explicit override.
+- Add a real interactive **Test connection** action that exercises the same
+  OpenSSH PTY and ProxyJump route used by deployment.
+
+## [0.11.2.14] — 2026-09-22
+
+### Added
+
+- Add contextual CLIO-owned service targets, managed and external service
+  lifecycles, durable progress/logs, configurable install roots, and recovery
+  states to Infrastructure.
+- Add reusable interactive system-OpenSSH transport with manual or imported
+  profiles, keys, arbitrary ProxyJump chains, and native password/MFA prompts.
+
+### Changed
+
+- Render workspace files from media types, stream binary/PDF previews, and
+  expose uploaded source working copies in the active workspace.
+
+### Fixed
+
+- Reuse SSH sessions across probes and operations, reconcile services after a
+  dropped connection without redeploying, and avoid a second SSH login for a
+  service running beside the connected remote CLIO.
+- Close sibling composer menus when another behavior control opens, keep
+  provider/model changes synchronized, and preserve remote structured file
+  references.
+
+## [0.11.2.13] — 2026-09-20
+
+### Fixed
+
+- Consolidate software status into one bottom status-bar control with direct
+  CLIO, Desktop, and combined update actions; remove the duplicate sidebar
+  version and protocol-oriented update detour.
+- Restore provider visibility management to the picker footer, keep Refresh and
+  Configure beside Close, and prevent health indicators from hiding providers.
+
+## [0.11.2.12] — 2026-09-20
+
+### Fixed
+
+- Deploy CLIO Web Search 0.3.1 so remote services retain clean shutdown
+  semantics and have a working general-search fallback on university and HPC
+  networks where the previous engines are blocked.
+
+## [0.11.2.11] — 2026-09-20
+
+### Fixed
+
+- Constrain the desktop workspace to the height remaining below the native
+  title bar, keeping Settings and version controls visible while each route
+  scrolls inside that space.
+
+## [0.11.2.10] — 2026-09-20
+
+This is the signed update target used to verify Desktop-only, CLIO-only, and
+combined installed updates from the repaired v0.11.2.9 updater.
+
+## [0.11.2.9] — 2026-09-20
+
+### Fixed
+
+- Force-reinstall managed CLIO updates, discard stale package metadata and
+  bytecode left by older bundled runtimes, and verify the version Python
+  actually imports before reporting a successful update.
+
+## [0.11.2.8] — 2026-09-20
+
+### Fixed
+
+- Keep the sidebar header and footer at their intended height on short desktop
+  windows so the Settings and version controls remain visible while the
+  workspace list scrolls independently.
+
+## [0.11.2.7] — 2026-09-20
+
+This is the signed update target used to verify Desktop-only, CLIO-only, and
+combined installed updates from the repaired v0.11.2.6 updater.
+
+## [0.11.2.6] — 2026-09-20
+
+### Fixed
+
+- Update the managed CLIO runtime through the `bin/uv` executable that is
+  actually shipped by every bundled desktop runtime, while retaining support
+  for the legacy root-level layout.
+
+## [0.11.2.5] — 2026-09-20
+
+### Fixed
+
+- Keep the compact version and update control visible by placing it beside
+  Settings in the sidebar footer, including on shorter desktop windows.
+
+## [0.11.2.4] — 2026-09-20
+
+The desktop acceptance target paired with clio-agent v0.9.4.4. It is an
+intentionally minimal follow-up release used to verify Desktop-only, CLIO-only,
+and combined signed updates from v0.9.4.3 through the installed application.
+
+## [0.11.2.3] — 2026-09-20
+
+The desktop release paired with clio-agent v0.9.4.3.
+
+### Added
+
+- A compact version indicator beside Infrastructure and Settings opens two
+  branded software rows for the desktop and connected CLIO agent, with their
+  individual versions, release links, and independent or combined updates.
+
+### Changed
+
+- Desktop updates use the lightweight signed installer and preserve the
+  managed CLIO runtime, allowing desktop-only, agent-only, and combined update
+  acceptance paths to be tested independently.
+
+### Fixed
+
+- Bundled CLIO updates now modify and verify the exact writable runtime the
+  desktop launches, then restart with a fresh endpoint and credentials.
+- The update indicator shares the background updater result instead of
+  blocking the version popover on another release-network request.
+
+## [0.11.2.2] — 2026-09-20
+
+The desktop release paired with clio-agent v0.9.4.2. It completes the live
+remote-infrastructure path and the installer/runtime follow-up found during
+release acceptance.
+
+### Added
+
+- Remote CLIO deployment from the connection menu, using a saved SSH profile
+  or a manually entered host with password, key-file, pasted key, or SSH-agent
+  authentication.
+- A per-host install and runtime location for shared systems whose persistent
+  storage is not the login home directory.
+- A connected-services summary that shows what the active CLIO agent is using,
+  where each service runs, and whether its connection is actually ready.
+- CLIO Web Search deployment, status, logs, stop, reconnect, and alternate task
+  backend port controls for local and SSH targets.
+
+### Changed
+
+- Infrastructure opens on Services and uses compact, collapsible service
+  groups with target facts, progress, blockers, and responsive action menus.
+- A same-host remote CLIO agent connects to remote Web Search through loopback;
+  the desktop-facing address remains the reachable SSH-host address.
+- Provider selection uses a smaller two-pane picker with independent scrolling,
+  persistent visibility controls, and provider-owned logos and health details.
+- Bundled Windows runtimes are installed from one compressed payload instead of
+  thousands of installer file operations.
+
+### Fixed
+
+- Remote capability inspection no longer reports transient empty facts while
+  the SSH probe is still running, and vLLM/Docker eligibility follows observed
+  target facts rather than host names.
+- Web Search no longer reports "Connected" from unrelated global
+  configuration; readiness is tied to the selected deployment and active
+  agent.
+- The embedded terminal is available from the canvas menu whenever the desktop
+  host can actually open it.
+- Desktop shutdown preserves independent backends while reaping the owned
+  process tree, terminal children, tunnels, and managed service processes.
+
+## [0.11.2.1] — 2026-09-19
+
+The desktop release paired with clio-agent v0.9.4.1. It closes the bug list
+from the first round of desktop testing: quitting, window chrome, branding,
+the interactive surface, tooling detail, versions and updates, a terminal,
+and the Windows installer.
+
+### Added
+
+- A terminal as a workbench tab, running a real shell in the workspace
+  directory. It survives switching tabs, reports when the shell exits, and is
+  shut down with everything else the app owns when you quit. "Open in system
+  terminal" is still there as the secondary action.
+- A Versions panel in Settings showing the desktop app, the web UI, the agent
+  and the installed blueprint pin, with a button to check for app updates and
+  another to check for blueprint updates.
+- Background update checks at startup and every six hours, with a notification
+  offering to restart into the new version once it has downloaded.
+- An Infrastructure page in the Windows installer for choosing what to set up
+  alongside the app: CLIO Search on by default, a local model runtime off by
+  default, and the bundled tool kit. The page is skipped for silent and update
+  installs.
+- Official logos for the providers the model picker offers, with a neutral
+  fallback for anything unrecognized.
+- A "Set up protected execution" action on the Agent page, so the Windows
+  sandbox can be provisioned from the app instead of being described as
+  optional. The row reports what is actually verified rather than assuming.
+- Tool detail showing a tool's description and its typed inputs and outputs,
+  with built-in tools grouped by the server that provides them and each
+  extension group carrying one badge for where it came from.
+
+### Changed
+
+- One window bar across the whole app: app menu, brand, workspace and session
+  context, connection health with the endpoint and backend version, and the
+  window controls. The operating system menu bar is now macOS-only, where the
+  platform expects it.
+- An interactive question is drawn as a single panel instead of nested boxes.
+  Dragging it taller and opening it full window still work, and the transcript
+  links down to it so a waiting question cannot be missed.
+- Product and protocol names are consistent across the app, and the technical
+  rows that used to sit open are collapsed under their own headings.
+
+### Fixed
+
+- Closing the window asks what you want instead of quitting silently. Escape,
+  the X and the backdrop dismiss the prompt, "Keep running" leaves the app in
+  the tray with the backend and your work intact, and "Quit" tears down
+  everything the app owns exactly once, from the tray, the menu and macOS Quit
+  alike.
+- Quitting no longer raises a spurious error notification on the way out.
+- The brand title and icon survive a page reload instead of reverting.
+- The Windows installer removed application data using a fixed identifier, so a
+  differently branded build cleaned up the wrong folder.
+- Update failures are reported with the reason the updater actually gave rather
+  than a generic message, and a download in progress is shown as progress.
+
+## [0.11.1.2] — 2026-09-17
+
+### Fixed
+
+- Hide the managed backend process tree on Windows while preserving its persisted boot log.
+- Run managed desktop backends from a stable app-data workspace instead of inheriting the launcher's current directory.
+- Keep desktop workspaces, sessions, and installed blueprints in the app's own durable user-state directory instead of mixing them with CLI and test profiles.
+
+## [0.11.1.1] — 2026-09-16
+
+### Fixed
+
+- Bundled desktop startup keeps the 30-second readiness contract. CLIO's
+  release packaging now prepares Python bytecode before installation so users
+  do not pay that one-time runtime cost when opening the app.
+
 ## [0.11.1] — 2026-09-16
 
 ### Fixed

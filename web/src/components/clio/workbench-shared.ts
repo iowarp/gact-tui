@@ -68,6 +68,14 @@ export type WorkbenchTab =
       label: string;
       tool: ToolInvocation;
       workspaceId: string;
+    }
+  | {
+      id: string;
+      kind: 'terminal';
+      label: string;
+      cwd: string;
+      sessionId: string;
+      workspaceId: string;
     };
 
 export function fileName(path: string): string {

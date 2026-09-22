@@ -5,59 +5,58 @@ import type {
   McpServerDefinition,
   RelayStatus,
   ServiceIntegrationHealth,
+  ToolCatalogItem,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRightIcon,
+  BotIcon,
   BookOpenCheckIcon,
   CableIcon,
   ChevronLeftIcon,
-  Globe2Icon,
-  HardDriveIcon,
   NetworkIcon,
-  PlusIcon,
   ServerIcon,
-  TerminalSquareIcon,
   WrenchIcon,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioStatus, type ClioStatusValue } from '@/components/clio/status';
 import { humanizeProtocolValue } from '@/components/clio/presentation-labels';
 import { RelayConnectionDialog } from '@/components/clio/relay-settings';
+import { TechnicalDetails } from '@/components/clio/technical-details';
 import { WebSearchSetup } from '@/components/clio/web-search-setup';
 import { ManagedServices } from '@/components/clio/managed-services';
-import {
-  Frame,
-  FrameDescription,
-  FrameFooter,
-  FrameHeader,
-  FramePanel,
-  FrameTitle,
-} from '@/components/reui/frame';
+import { Frame, FrameFooter, FramePanel } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CatalogToolset } from '@/components/clio/catalog-toolset';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import { capitalize, vocab } from '@/lib/brand-vocabulary';
+import { WEB_MCP_COMMAND, WEB_MCP_ENV, webSearchMcpArgs } from '@/lib/web-search-service';
 import {
   returnRouteFromState,
   sessionIdFromRoute,
   workspaceIdFromRoute,
 } from '@/lib/workspace-route-memory';
 import {
-  groupSessionServices,
-  sessionAgentName,
-  serviceDescription,
-  serviceStatus,
-  serviceTitle,
-  serviceToolCount,
-} from '@/lib/mcp-service-presentation';
-
+  foundationSummary,
+  foundationTitle,
+  integrationStatus,
+  integrationStatusLabel,
+} from './infrastructure-foundation';
+import { SandboxFoundationRow } from './infrastructure-sandbox-row';
 export function InfrastructurePage() {
+  const desktop = inTauri();
   const location = useLocation();
+  const { section } = useParams();
+  const currentSection: InfrastructureSection = isInfrastructureSection(section)
+    ? section
+    : 'services';
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -67,16 +66,19 @@ export function InfrastructurePage() {
   const [relayOpen, setRelayOpen] = useState(false);
   const [webSearchOpen, setWebSearchOpen] = useState(false);
   const health = useQuery({
+    enabled: currentSection === 'agent',
     queryKey: queryKeys.key('service-health', settings.endpoint),
     queryFn: ({ signal }) => repository.serviceHealth(signal),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const relay = useQuery({
+    enabled: currentSection === 'services',
     queryKey: queryKeys.key('relay-status', settings.endpoint),
     queryFn: ({ signal }) => repository.relayStatus(signal),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const servers = useQuery({
+    enabled: currentSection === 'tools' || currentSection === 'services',
     queryKey: queryKeys.key(
       'mcp-servers',
       settings.endpoint,
@@ -86,28 +88,111 @@ export function InfrastructurePage() {
     queryFn: ({ signal }) => repository.mcpServers(workspaceId, signal, { sessionId }),
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
-  const toolset = useQuery({
-    enabled: Boolean(sessionId),
+  const tools = useQuery({
+    enabled: currentSection === 'tools',
+    queryKey: queryKeys.key('tools', settings.endpoint, 'complete-catalog'),
+    queryFn: async ({ signal }) => {
+      const [builtins, live] = await Promise.all([
+        repository.catalogTools(signal),
+        repository.tools(signal),
+      ]);
+      return mergeToolCatalogs(builtins, live);
+    },
+    refetchInterval: INFRASTRUCTURE_POLL_MS,
+  });
+  const effectiveToolset = useQuery({
+    enabled: currentSection === 'tools' && Boolean(sessionId),
     queryKey: queryKeys.key('session-toolset', settings.endpoint, sessionId),
-    queryFn: ({ signal }) => repository.effectiveAgentToolset(sessionId ?? '', signal),
+    queryFn: async ({ signal }) =>
+      sessionId ? ((await repository.effectiveAgentToolset(sessionId, signal)) ?? null) : null,
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const webSearchConfiguration = useQuery({
+    enabled: currentSection === 'services',
     queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
     queryFn: ({ signal }) => repository.mcpConfiguration('web', signal),
+    refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
   const error =
-    health.error ?? relay.error ?? servers.error ?? toolset.error ?? webSearchConfiguration.error;
+    currentSection === 'agent'
+      ? health.error
+      : currentSection === 'tools'
+        ? (effectiveToolset.error ?? tools.error ?? servers.error)
+        : (relay.error ?? servers.error ?? webSearchConfiguration.error);
+  const displayedTools = sessionId
+    ? effectiveToolset.data
+      ? effectiveToolCatalog(effectiveToolset.data.tools, tools.data ?? [], servers.data ?? [])
+      : []
+    : (tools.data ?? []);
+  const toolsPending =
+    tools.isPending || servers.isPending || (Boolean(sessionId) && effectiveToolset.isPending);
   const foundationIssues =
     health.data?.integrations.filter(
-      (integration) => integrationStatus(integration.status) !== 'healthy',
+      (integration) =>
+        integration.required !== false && integrationStatus(integration.status) !== 'healthy',
     ).length ?? 0;
   const webSearch = servers.data?.find(isWebSearchServer);
   const webSearchReady =
     webSearchConfiguration.data?.status === 'ready' || webSearch?.status === 'ready';
   const webSearchConfigured = webSearchConfiguration.data?.configured ?? Boolean(webSearch);
-  const grouping = groupSessionServices(servers.data, sessionId);
-  const agentName = sessionAgentName(grouping.sessionServers);
+  const refreshWebSearchQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('mcp-servers', settings.endpoint),
+      }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('tools', settings.endpoint) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.key('agents', settings.endpoint) }),
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
+      }),
+    ]);
+  };
+  const connectDetectedWebSearch = useMutation({
+    mutationFn: (remoteUrl: string) =>
+      repository.configureMcpServer('web', {
+        name: 'CLIO Web Search',
+        transport: 'stdio',
+        command: WEB_MCP_COMMAND,
+        args: webSearchMcpArgs(remoteUrl),
+        env: WEB_MCP_ENV,
+        always_load: true,
+      }),
+    onSuccess: async (result) => {
+      queryClient.setQueryData(
+        queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
+        result,
+      );
+      await refreshWebSearchQueries();
+      if (result.status === 'ready') {
+        toast.success(`CLIO Web Search connected with ${result.tools_count} tools`);
+      } else {
+        toast.error('CLIO Web Search could not complete the connection', {
+          description: result.error ?? 'The service is saved, but its tools did not respond.',
+        });
+      }
+    },
+    onError: (connectionError) =>
+      toast.error('CLIO Web Search could not be connected', {
+        description: connectionError.message,
+      }),
+  });
+  const disconnectWebSearch = useMutation({
+    mutationFn: () => repository.removeMcpConfiguration('web'),
+    onSuccess: async (result) => {
+      queryClient.setQueryData(
+        queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
+        result,
+      );
+      await refreshWebSearchQueries();
+      toast.success('CLIO Web Search disconnected', {
+        description: 'The deployment is still running and can be connected again at any time.',
+      });
+    },
+    onError: (connectionError) =>
+      toast.error('CLIO Web Search could not be disconnected', {
+        description: connectionError.message,
+      }),
+  });
   const relayConnect = useMutation({
     mutationFn: (input: Parameters<typeof repository.configureRelay>[0]) =>
       repository.configureRelay(input),
@@ -127,198 +212,56 @@ export function InfrastructurePage() {
     onError: (connectionError) => toast.error(connectionError.message),
   });
 
+  const sectionDefinition = INFRASTRUCTURE_SECTIONS.find((item) => item.id === currentSection)!;
   return (
-    <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
-      <div className="mx-auto max-w-6xl">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">Set up</p>
-            <h1 className="mt-2 text-4xl font-semibold tracking-tight">Agent capabilities</h1>
-            <p className="mt-2 max-w-2xl text-muted-foreground">
-              See what this agent can use, then configure the services that supply more tools.
-            </p>
-          </div>
-          <Button asChild variant="outline">
+    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
+      <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[220px_minmax(0,1fr)]">
+        <nav
+          aria-label="Infrastructure sections"
+          className="grid content-start gap-1 md:sticky md:top-8"
+        >
+          <Button asChild className="mb-4 justify-start" variant="ghost">
             <Link to={workspaceRoute}>
-              <ChevronLeftIcon aria-hidden="true" /> Workspace
+              <ChevronLeftIcon aria-hidden="true" /> {capitalize(vocab.workspace)}
             </Link>
           </Button>
-        </header>
-
-        {error ? (
-          <Alert className="mt-6" variant="destructive">
-            <NetworkIcon aria-hidden="true" />
-            <AlertTitle>Some infrastructure details are unavailable</AlertTitle>
-            <AlertDescription>
-              The connected service returned details this workspace could not read. The remaining
-              live infrastructure is still shown below.
-              <details className="mt-2 text-xs">
-                <summary className="cursor-pointer">Technical details</summary>
-                <p className="mt-1 break-words font-mono">{error.message}</p>
-              </details>
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        <ManagedServices />
-
-        <section aria-label="Add capabilities" className="mt-8 grid gap-4 md:grid-cols-2">
-          <SetupCard
-            action={
-              webSearchReady
-                ? 'View MCP'
-                : webSearchConfigured
-                  ? 'Retry setup'
-                  : 'Set up web search'
-            }
-            description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
-            icon={BookOpenCheckIcon}
-            onAction={() => setWebSearchOpen(true)}
-            status={webSearchReady ? 'healthy' : webSearchConfigured ? 'degraded' : 'unavailable'}
-            statusLabel={
-              webSearchReady ? 'Ready' : webSearchConfigured ? 'Needs attention' : 'Not set up'
-            }
-            title="Research and documents"
-            to={webSearchReady ? '/settings/tools' : undefined}
-          />
-          <SetupCard
-            action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}
-            description="Run and follow work on lab computers or clusters through CLIO Relay."
-            detail={relay.data?.reachable ? undefined : relayDegradationDetail(relay.data)}
-            icon={NetworkIcon}
-            onAction={() => setRelayOpen(true)}
-            status={
-              relay.data?.reachable
-                ? 'healthy'
-                : relay.data?.configured
-                  ? 'degraded'
-                  : 'unavailable'
-            }
-            statusLabel={
-              relay.data?.reachable
-                ? 'Ready'
-                : relay.data?.configured
-                  ? 'Needs attention'
-                  : 'Not set up'
-            }
-            title="Remote computers"
-          />
-        </section>
-
-        {sessionId ? (
-          <Frame className="mt-6" spacing="sm">
-            <FrameHeader>
-              <FrameTitle className="flex items-center gap-2">
-                <WrenchIcon aria-hidden="true" className="size-4 text-primary" /> Available to this
-                agent
-              </FrameTitle>
-              <FrameDescription>
-                The exact toolset recorded when this session's agent was built.
-              </FrameDescription>
-            </FrameHeader>
-            <FramePanel className="p-0">
-              {toolset.isPending ? (
-                <div className="grid gap-2 p-4">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : toolset.data ? (
-                <EffectiveToolset tools={toolset.data.tools} />
-              ) : (
-                <p className="p-5 text-sm text-muted-foreground">
-                  This session has not recorded an effective toolset yet.
-                </p>
-              )}
-            </FramePanel>
-            {toolset.data ? (
-              <FrameFooter>
-                <p className="text-xs text-muted-foreground">
-                  {toolset.data.tools.length} tools recorded for{' '}
-                  {toolset.data.agentId || 'this agent'}
-                </p>
-              </FrameFooter>
-            ) : null}
-          </Frame>
-        ) : null}
-
-        <Frame className="mt-6" spacing="sm">
-          <FrameHeader>
-            <FrameTitle className="flex items-center gap-2">
-              <CableIcon aria-hidden="true" className="size-4 text-primary" /> Connected tool
-              services
-            </FrameTitle>
-            <FrameDescription>
-              Service readiness and advertised catalogs are shown separately from the tools attached
-              to this session.
-            </FrameDescription>
-          </FrameHeader>
-          <FramePanel className="p-0">
-            {servers.isPending ? (
-              <div className="grid gap-2 p-4">
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            ) : grouping.allServers.length ? (
-              <div className="divide-y">
-                {grouping.sessionIgnored ? (
-                  <p className="px-4 py-2.5 text-xs text-muted-foreground" role="status">
-                    This service did not report which session each tool belongs to, so they are not
-                    grouped.
-                  </p>
-                ) : null}
-                {grouping.grouped ? (
-                  <>
-                    {grouping.sessionServers.length ? (
-                      <ServiceGroup
-                        description="This session"
-                        servers={grouping.sessionServers}
-                        title={agentName || 'Session tools'}
-                      />
-                    ) : null}
-                    {grouping.sharedServers.length ? (
-                      <ServiceGroup
-                        description="Built in or added to the agent service"
-                        servers={grouping.sharedServers}
-                        title="Shared tools"
-                      />
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="divide-y">
-                    {grouping.allServers.map((server) => (
-                      <ServiceRow key={server.id} server={server} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="p-5 text-sm text-muted-foreground">
-                No MCP services are connected yet.
-              </p>
-            )}
-          </FramePanel>
-          <FrameFooter className="flex-row flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">
-              {grouping.allServers.filter((server) => server.status === 'ready').length} of{' '}
-              {grouping.allServers.length} ready
-            </p>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/settings/tools">
-                <PlusIcon aria-hidden="true" /> Manage MCP services
+          {INFRASTRUCTURE_SECTIONS.map(({ id, icon: SectionIcon, label }) => (
+            <Button
+              asChild
+              className="justify-start"
+              key={id}
+              variant={id === currentSection ? 'secondary' : 'ghost'}
+            >
+              <Link
+                aria-current={id === currentSection ? 'page' : undefined}
+                state={location.state}
+                to={`/infrastructure/${id}`}
+              >
+                <SectionIcon aria-hidden="true" /> {label}
               </Link>
             </Button>
-          </FrameFooter>
-        </Frame>
+          ))}
+        </nav>
 
-        <Frame className="mt-6 scroll-mt-6" id="foundations" spacing="sm">
-          <FrameHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <FrameTitle>Agent service</FrameTitle>
-                <FrameDescription>
-                  {agentServiceDescription(health.data, foundationIssues)}
-                </FrameDescription>
+        <section className="min-w-0 pb-16">
+          <header className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
+                Infrastructure
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <h1 className="text-4xl font-semibold tracking-tight">{sectionDefinition.label}</h1>
+                {currentSection === 'tools' && !toolsPending ? (
+                  <Badge variant="secondary">{displayedTools.length} available</Badge>
+                ) : null}
               </div>
+              <p className="mt-2 max-w-3xl text-muted-foreground">
+                {currentSection === 'agent'
+                  ? clioServiceDescription(health.data, foundationIssues)
+                  : sectionDefinition.description}
+              </p>
+            </div>
+            {currentSection === 'agent' ? (
               <ClioStatus
                 label={
                   health.isPending
@@ -335,114 +278,233 @@ export function InfrastructurePage() {
                       : 'degraded'
                 }
               />
+            ) : null}
+          </header>
+
+          {error ? (
+            <Alert className="mt-6" variant="destructive">
+              <NetworkIcon aria-hidden="true" />
+              <AlertTitle>This section could not load completely</AlertTitle>
+              <AlertDescription>
+                The connected {vocab.agent} service did not return all of the requested information.
+                <TechnicalDetails className="mt-2 text-xs" title="Technical details">
+                  <p className="mt-1 break-words font-mono">{error.message}</p>
+                </TechnicalDetails>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {currentSection === 'tools' ? (
+            <div className="mt-6">
+              {toolsPending ? (
+                <div aria-label="Loading tool catalog" className="grid gap-3" role="status">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-[32rem] w-full" />
+                </div>
+              ) : displayedTools.length ? (
+                <CatalogToolset servers={servers.data ?? []} tools={displayedTools} />
+              ) : (
+                <p className="rounded-xl border p-6 text-sm text-muted-foreground">
+                  {sessionId
+                    ? `This session has not recorded an effective ${vocab.agent} toolset yet.`
+                    : `${vocab.agent} has not reported any tools.`}
+                </p>
+              )}
             </div>
-          </FrameHeader>
-          <FramePanel>
-            <details>
-              <summary className="cursor-pointer text-sm font-medium">Supporting services</summary>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Runtime components used by the agent itself. Most users do not need to change these.
-              </p>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          ) : null}
+
+          {currentSection === 'services' ? (
+            <>
+              <ManagedServices
+                connectedAgentLabel={settings.label}
+                connectedAgentLocation={settings.location}
+                onConnectExistingService={() => setWebSearchOpen(true)}
+                onConnectWebSearch={(remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl)}
+                onDisconnectWebSearch={() => disconnectWebSearch.mutate()}
+                webSearchConnected={webSearchReady}
+                webSearchConnection={webSearchConfiguration.data}
+                webSearchConnecting={connectDetectedWebSearch.isPending}
+                webSearchDisconnecting={disconnectWebSearch.isPending}
+                relayStatus={relay.data}
+              />
+              {!desktop ? (
+                <section aria-label="Add services" className="mt-6 grid gap-4 md:grid-cols-2">
+                  <SetupCard
+                    action={
+                      webSearchReady && webSearchConfiguration.data?.configured
+                        ? disconnectWebSearch.isPending
+                          ? 'Disconnecting…'
+                          : 'Disconnect'
+                        : webSearchReady
+                          ? 'View tools'
+                          : webSearchConfigured
+                            ? 'Repair connection'
+                            : 'Connect web search'
+                    }
+                    description="Search the web, read PDFs, and preserve scholarly sources with CLIO Web Search."
+                    icon={BookOpenCheckIcon}
+                    onAction={() =>
+                      webSearchReady && webSearchConfiguration.data?.configured
+                        ? disconnectWebSearch.mutate()
+                        : setWebSearchOpen(true)
+                    }
+                    status={
+                      webSearchReady ? 'healthy' : webSearchConfigured ? 'degraded' : 'unavailable'
+                    }
+                    statusLabel={
+                      webSearchReady
+                        ? 'Connected'
+                        : webSearchConfigured
+                          ? 'Needs attention'
+                          : 'Not connected'
+                    }
+                    title="Research and documents"
+                    to={
+                      webSearchReady && !webSearchConfiguration.data?.configured
+                        ? '/infrastructure/tools'
+                        : undefined
+                    }
+                  />
+                  <SetupCard
+                    action={relay.data?.configured ? 'Edit connection' : 'Connect Relay'}
+                    description="Run and follow work on lab computers or clusters through CLIO Relay."
+                    detail={relay.data?.reachable ? undefined : relayDegradationDetail(relay.data)}
+                    icon={NetworkIcon}
+                    onAction={() => setRelayOpen(true)}
+                    status={
+                      relay.data?.reachable
+                        ? 'healthy'
+                        : relay.data?.configured
+                          ? 'degraded'
+                          : 'unavailable'
+                    }
+                    statusLabel={
+                      relay.data?.reachable
+                        ? 'Connected'
+                        : relay.data?.configured
+                          ? 'Needs attention'
+                          : 'Not connected'
+                    }
+                    title="Remote computers"
+                  />
+                </section>
+              ) : null}
+            </>
+          ) : null}
+
+          {currentSection === 'agent' ? (
+            <div className="mt-6 border-y">
+              <div className="divide-y">
                 {(health.data?.integrations ?? []).map((integration) => (
                   <FoundationRow integration={integration} key={integration.name} />
                 ))}
               </div>
-              {!health.data?.integrations.length ? (
-                <p className="mt-3 text-sm text-muted-foreground">
-                  No supporting-service details were reported.
+              {!health.isPending && !health.data?.integrations.length ? (
+                <p className="p-5 text-sm text-muted-foreground">
+                  No supporting-component details were reported.
                 </p>
               ) : null}
-            </details>
-          </FramePanel>
-        </Frame>
+            </div>
+          ) : null}
 
-        <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
-        {relayOpen ? (
-          <RelayConnectionDialog
-            error={relayConnect.error?.message}
-            onOpenChange={setRelayOpen}
-            onSubmit={(input) => relayConnect.mutate(input)}
-            open
-            pending={relayConnect.isPending}
-            value={relay.data}
-          />
-        ) : null}
+          <WebSearchSetup onOpenChange={setWebSearchOpen} open={webSearchOpen} />
+          {relayOpen ? (
+            <RelayConnectionDialog
+              error={relayConnect.error?.message}
+              onOpenChange={setRelayOpen}
+              onSubmit={(input) => relayConnect.mutate(input)}
+              open
+              pending={relayConnect.isPending}
+              value={relay.data}
+            />
+          ) : null}
+        </section>
       </div>
     </main>
   );
 }
 
-const TOOL_SOURCE_GROUPS = [
+function mergeToolCatalogs(
+  builtins: ToolCatalogItem[],
+  live: ToolCatalogItem[],
+): ToolCatalogItem[] {
+  const merged = new Map<string, ToolCatalogItem>();
+  for (const tool of builtins) merged.set(tool.name, tool);
+  for (const tool of live) {
+    const baseline = merged.get(tool.name);
+    merged.set(tool.name, baseline ? { ...baseline, ...tool } : tool);
+  }
+  return [...merged.values()];
+}
+
+/**
+ * Project the global catalog onto the toolset the selected session actually received.
+ *
+ * The effective-toolset trace is authoritative for availability. Catalog rows only
+ * enrich those recorded tools with contracts and labels; they must never make a tool
+ * appear available to a session that did not mount it.
+ */
+function effectiveToolCatalog(
+  effectiveTools: readonly EffectiveAgentTool[],
+  catalog: readonly ToolCatalogItem[],
+  servers: readonly McpServerDefinition[],
+): ToolCatalogItem[] {
+  const catalogByName = new Map(catalog.map((tool) => [tool.name, tool]));
+  const serverBySource = new Map<string, McpServerDefinition>();
+  for (const server of servers) {
+    serverBySource.set(server.id.toLocaleLowerCase(), server);
+    serverBySource.set(server.name.toLocaleLowerCase(), server);
+  }
+
+  const projected = new Map<string, ToolCatalogItem>();
+  for (const effective of effectiveTools) {
+    const baseline = catalogByName.get(effective.name);
+    const server = serverBySource.get(effective.source.toLocaleLowerCase());
+    projected.set(effective.name, {
+      id: baseline?.id ?? effective.name,
+      name: effective.name,
+      title: effective.title || baseline?.title,
+      description: baseline?.description,
+      server_id: server?.id ?? baseline?.server_id,
+      source: effective.source || baseline?.source,
+      status: baseline?.status ?? 'available',
+      enabled: true,
+      owner: baseline?.owner,
+      tags: baseline?.tags ?? [],
+      visible_to: baseline?.visible_to ?? [],
+      input_schema: baseline?.input_schema ?? {},
+      output_schema: baseline?.output_schema ?? {},
+      domain: baseline?.domain,
+    });
+  }
+  return [...projected.values()];
+}
+
+type InfrastructureSection = 'agent' | 'tools' | 'services';
+
+const INFRASTRUCTURE_SECTIONS = [
   {
-    source: 'gateway',
-    title: 'Workspace access',
-    description: 'Files and commands exposed through the workspace gateway.',
+    id: 'agent',
+    label: vocab.agent,
+    icon: BotIcon,
+    description: `Confirm that ${vocab.agent} itself and the components it depends on are ready.`,
   },
   {
-    source: 'spawn-runtime',
-    title: 'Child coordination',
-    description: 'Start, inspect, message, wait for, and collect child work.',
+    id: 'tools',
+    label: 'Tools',
+    icon: WrenchIcon,
+    description: `Inspect the tools available to the selected session. Provider contracts are shown when reported.`,
   },
   {
-    source: 'native',
-    title: 'Session operations',
-    description: 'Planning, work state, resources, memory, interactions, and session controls.',
+    id: 'services',
+    label: 'Services',
+    icon: CableIcon,
+    description: `Install, connect, operate, and verify the services that give ${vocab.agent} more capabilities.`,
   },
 ] as const;
 
-function EffectiveToolset({ tools }: { tools: EffectiveAgentTool[] }) {
-  const known = new Set(TOOL_SOURCE_GROUPS.map((group) => group.source));
-  const groups = [
-    ...TOOL_SOURCE_GROUPS.map((group) => ({
-      ...group,
-      tools: tools.filter((tool) => tool.source === group.source),
-    })),
-    {
-      source: 'connected',
-      title: 'Connected services',
-      description: 'Tools supplied by an attached service or agent blueprint.',
-      tools: tools.filter(
-        (tool) => !known.has(tool.source as (typeof TOOL_SOURCE_GROUPS)[number]['source']),
-      ),
-    },
-  ].filter((group) => group.tools.length);
-
-  return (
-    <div className="divide-y">
-      {groups.map((group) => (
-        <section key={group.source}>
-          <div className="flex flex-wrap items-baseline justify-between gap-2 bg-muted/30 px-4 py-2.5">
-            <div>
-              <h2 className="text-sm font-medium">{group.title}</h2>
-              <p className="text-xs text-muted-foreground">{group.description}</p>
-            </div>
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {group.tools.length} {group.tools.length === 1 ? 'tool' : 'tools'}
-            </span>
-          </div>
-          <ul className="grid sm:grid-cols-2 lg:grid-cols-3">
-            {group.tools.map((tool) => (
-              <li
-                className="min-w-0 border-t px-4 py-2 first:border-t-0 sm:first:border-t"
-                key={tool.name}
-              >
-                <p className="truncate text-sm font-medium" title={tool.title}>
-                  {tool.title}
-                </p>
-                <code
-                  className="block truncate text-[11px] text-muted-foreground"
-                  title={tool.name}
-                >
-                  {tool.name}
-                </code>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
-    </div>
-  );
+function isInfrastructureSection(value: string | undefined): value is InfrastructureSection {
+  return value === 'agent' || value === 'tools' || value === 'services';
 }
 
 function SetupCard({
@@ -504,59 +566,16 @@ function SetupCard({
   );
 }
 
-function ServiceRow({ server }: { server: McpServerDefinition }) {
-  const status = serviceStatus(server);
-  const toolCount = serviceToolCount(server);
-  return (
-    <div className="flex min-w-0 items-center gap-3 px-4 py-3">
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
-        <ServiceIcon server={server} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate text-sm font-medium">{serviceTitle(server)}</p>
-          <Badge variant="outline">{serviceOwnership(server)}</Badge>
-        </div>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {serviceDescription(server)}
-          {toolCount ? <span className="ml-2">{toolCount}</span> : null}
-        </p>
-      </div>
-      <ClioStatus detail={server.error} label={status.label} value={status.value} />
-    </div>
-  );
-}
-
-function ServiceGroup({
-  description,
-  servers,
-  title,
-}: {
-  description: string;
-  servers: McpServerDefinition[];
-  title: string;
-}) {
-  return (
-    <section>
-      <div className="border-b bg-muted/30 px-4 py-2.5">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
-      </div>
-      <div className="divide-y">
-        {servers.map((server) => (
-          <ServiceRow key={server.id} server={server} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function FoundationRow({ integration }: { integration: ServiceIntegrationHealth }) {
+  // Protected execution alone offers a fix (Set up / Restart) instead of
+  // only explaining the problem, backed by the dedicated sandbox endpoint —
+  // every other row stays the plain /v1/health projection below.
+  if (integration.name === 'sandbox') return <SandboxFoundationRow integration={integration} />;
   const status = integrationStatus(integration.status);
   const summary = foundationSummary(integration);
   const action = foundationAction(integration);
   return (
-    <details className="group rounded-xl border bg-card px-3 py-2.5">
+    <details className="group px-1 py-3">
       <summary className="flex cursor-pointer list-none items-center gap-3">
         <ServerIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium">
@@ -577,74 +596,41 @@ function FoundationRow({ integration }: { integration: ServiceIntegrationHealth 
           </div>
         ) : null}
         {integration.summary || integration.detail || integration.config_source ? (
-          <details className="mt-2">
-            <summary className="cursor-pointer text-muted-foreground">Technical details</summary>
+          <TechnicalDetails className="mt-2" title="Technical details">
             <div className="mt-2 grid gap-1 break-words font-mono text-[10px]">
               {integration.summary || integration.detail ? (
                 <p>{integration.summary || integration.detail}</p>
               ) : null}
               {integration.config_source ? <p>{integration.config_source}</p> : null}
             </div>
-          </details>
+          </TechnicalDetails>
         ) : null}
       </div>
     </details>
   );
 }
 
-function integrationStatus(status: string): ClioStatusValue {
-  if (['ready', 'healthy', 'live'].includes(status)) return 'healthy';
-  if (['degraded', 'warning', 'reconnecting'].includes(status)) return 'degraded';
-  return 'unavailable';
-}
-
-function integrationStatusLabel(status: ClioStatusValue): string {
-  if (status === 'healthy') return 'Ready';
-  if (status === 'degraded') return 'Needs attention';
-  return 'Unavailable';
-}
-
-function agentServiceDescription(
+function clioServiceDescription(
   health: { healthy: boolean } | undefined,
   foundationIssues: number,
 ): string {
-  if (!health) return 'Checking the connected agent service.';
-  if (!health.healthy) return 'The connected agent service needs attention.';
+  if (!health) return `Checking ${vocab.agent}.`;
+  if (!health.healthy) return `${vocab.agent} needs attention.`;
   if (foundationIssues === 1) return 'Running with 1 supporting service needing attention.';
   if (foundationIssues > 1) {
     return `Running with ${foundationIssues} supporting services needing attention.`;
   }
-  return 'The connected agent service is running normally.';
-}
-
-function foundationSummary(integration: ServiceIntegrationHealth): string {
-  const ready: Record<string, string> = {
-    api: 'The workspace service is available.',
-    arc: 'Conversation memory is available.',
-    gateway: 'Connected tools are available to agents.',
-    file_policy: 'Workspace file access rules are active.',
-    lm_provider: 'The selected language model is ready.',
-    sandbox: 'Protected command and file execution is active.',
-    clio_core: 'The full conversation-memory service is available.',
-    sandbox_conformance: 'Agent processes are using the configured execution protection.',
-    child_reaper: 'Background processes will be cleaned up with the agent service.',
-    child_processes: 'No unexpected background work is running.',
-    child_parentage: 'Background work remains attached to this agent service.',
-  };
-  const degraded: Record<string, string> = {
-    arc: 'Conversation memory is using a limited local fallback.',
-    child_parentage: 'Some background processes are no longer attached to this agent service.',
-  };
-  if (integrationStatus(integration.status) === 'healthy') {
-    return ready[integration.name] ?? 'This supporting service is ready.';
-  }
-  return degraded[integration.name] ?? 'This supporting service needs attention.';
+  return `${vocab.agent} is running normally.`;
 }
 
 function foundationAction(
   integration: ServiceIntegrationHealth,
 ): { description: string; label: string; to: string } | undefined {
   if (integrationStatus(integration.status) === 'healthy') return undefined;
+  // The server is the sole authority on whether an integration's absence
+  // blocks usage — no client-side name-based override. `sandbox` never
+  // reaches here: it renders through SandboxFoundationRow instead.
+  if (integration.required === false) return undefined;
   if (integration.name === 'arc') {
     return {
       description: 'Use the full conversation-memory service to restore complete agent behavior.',
@@ -666,27 +652,6 @@ function foundationAction(
   };
 }
 
-function foundationTitle(name: string): string {
-  const names: Record<string, string> = {
-    api: 'Workspace service',
-    arc: 'Conversation memory',
-    gateway: 'Tool gateway',
-    file_policy: 'Workspace file access',
-    lm_provider: 'Language model provider',
-    sandbox: 'Protected execution',
-    clio_core: 'Memory storage',
-    clio_core_ram_cap: 'Memory working limit',
-    clio_core_liveness: 'Memory service connection',
-    clio_core_daemon_memory: 'Memory service process',
-    cte_cold_tier_disk: 'Stored memory capacity',
-    sandbox_conformance: 'Execution protection coverage',
-    child_reaper: 'Process cleanup',
-    child_processes: 'Background processes',
-    child_parentage: 'Background process ownership',
-  };
-  return names[name] || name.replaceAll('_', ' ').replace(/^./u, (value) => value.toUpperCase());
-}
-
 /**
  * Why the relay is not reachable, as the relay put it.
  *
@@ -699,23 +664,6 @@ function relayDegradationDetail(status: RelayStatus | undefined): string | undef
   if (status.detail?.trim()) return status.detail;
   if (!status.reason?.trim()) return undefined;
   return humanizeProtocolValue(status.reason);
-}
-
-function serviceOwnership(server: McpServerDefinition): string {
-  if (server.transport === 'in_process') return 'Built-in MCP';
-  if (server.source === 'agent_blueprint') return 'Blueprint MCP';
-  return 'External MCP';
-}
-
-function ServiceIcon({ server }: { server: McpServerDefinition }) {
-  if (['fs', 'filesystem'].includes(server.id) || ['fs', 'filesystem'].includes(server.name)) {
-    return <HardDriveIcon aria-hidden="true" className="size-4" />;
-  }
-  if (server.id === 'shell' || server.name === 'shell') {
-    return <TerminalSquareIcon aria-hidden="true" className="size-4" />;
-  }
-  if (isWebSearchServer(server)) return <Globe2Icon aria-hidden="true" className="size-4" />;
-  return <CableIcon aria-hidden="true" className="size-4" />;
 }
 
 function isWebSearchServer(server: McpServerDefinition): boolean {

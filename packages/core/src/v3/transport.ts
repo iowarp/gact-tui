@@ -7,6 +7,12 @@ export interface TransportRequest<T> {
   rawBody?: Uint8Array;
   headers?: Record<string, string>;
   responseType?: 'json' | 'text' | 'bytes';
+  /**
+   * Non-success statuses whose response body is still an authoritative domain
+   * payload. For example, the health endpoint returns its structured report
+   * with HTTP 503 when a dependency needs attention.
+   */
+  acceptStatuses?: readonly number[];
   decode: (value: unknown) => T;
   signal?: AbortSignal;
   /**

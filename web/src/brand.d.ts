@@ -8,6 +8,11 @@ declare module '@brand' {
     taglineAccentUrl: string | null;
     markGlyph: string;
     accent: string | null;
+    productName: string;
+    agentName: string;
+    workspaceNoun: string;
+    desktopReleaseUrl: string | null;
+    agentReleaseUrl: string | null;
     themeTokens: Record<string, string>;
     landing: {
       eyebrow: string;

@@ -55,16 +55,38 @@ export function providerSummary(
   );
 }
 
-/** Map CLIO provider identities to models.dev artwork used by AI Elements. */
+/**
+ * Provider ids that resolve to DIFFERENT artwork than their own name (an
+ * alias, a shared vendor mark for a family of ids, or a neutral fallback for
+ * a mark this workspace cannot license — see
+ * web/public/provider-logos/README.md for what each file is and why). A
+ * provider id absent from this table resolves to artwork of the SAME name
+ * (see `providerLogoId`'s fallback) — e.g. `mistral` -> `mistral.svg`.
+ */
+export const providerLogoIds: Record<string, string> = {
+  aws_bedrock: 'amazon-bedrock',
+  azure_openai: 'azure',
+  bedrock: 'amazon-bedrock',
+  codex: 'openai',
+  claude_code: 'anthropic',
+  gemini: 'google',
+  google_gemini: 'google',
+  google_vertex: 'google',
+  // llama.cpp's official icon from ggml-org/llama.brand (see README).
+  llama_cpp: 'llama-cpp',
+  lm_studio: 'lmstudio',
+  nvidia_nim: 'nvidia',
+  ollama: 'ollama',
+  openrouter: 'openrouter',
+  vertex_ai: 'google',
+  vllm: 'vllm',
+  // Argonne National Laboratory's triangle mark (public domain, see README).
+  argonne_metis: 'argonne',
+  argonne_sophia: 'argonne',
+  argonne_local_vllm: 'argonne',
+};
+
+/** Map CLIO provider identities to artwork packaged with the workspace. */
 export function providerLogoId(providerId: string): string {
-  const logoIds: Record<string, string> = {
-    codex: 'openai',
-    claude_code: 'anthropic',
-    lm_studio: 'lmstudio',
-    ollama: 'llama',
-    argonne_metis: 'openai',
-    argonne_sophia: 'openai',
-    argonne_local_vllm: 'openai',
-  };
-  return logoIds[providerId] ?? providerId;
+  return providerLogoIds[providerId] ?? providerId;
 }

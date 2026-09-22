@@ -26,7 +26,7 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
   public render(): ReactNode {
     if (!this.state.error) return this.props.children;
     return (
-      <main className="grid min-h-dvh place-items-center bg-background p-6 text-foreground">
+      <main className="grid h-full min-h-0 place-items-center bg-background p-6 text-foreground">
         <section
           aria-labelledby="workspace-error-title"
           className="w-full max-w-lg rounded-xl border border-destructive/40 bg-card p-6 shadow-lg"

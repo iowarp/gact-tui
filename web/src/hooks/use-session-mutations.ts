@@ -1,9 +1,11 @@
 import { queryKeys } from '@/lib/query-keys';
 import { invalidateQueriesInBackground } from '@/lib/query-invalidation';
 import { ACTIVE_SESSION_POLL_MS } from '@/lib/runtime-limits';
+import { vocab } from '@/lib/brand-vocabulary';
 import { SendIdentities, sendFingerprint } from '@/lib/send-identity';
 import type {
   ComposerMessagePart,
+  LanguageModelConfiguration,
   MessageBehavior,
   MessageDelivery,
   PendingInteraction,
@@ -34,6 +36,7 @@ import { respondToLegacyInteraction } from '@/lib/pending-interaction-contract';
 interface UseSessionMutationsInput {
   activeModel?: string;
   activeProvider?: string;
+  modelConfiguration?: LanguageModelConfiguration;
   session?: Session;
   sessionId: string;
   workspaceId: string;
@@ -72,6 +75,7 @@ interface ActionCardInput {
 export function useSessionMutations({
   activeModel,
   activeProvider,
+  modelConfiguration,
   session,
   sessionId,
   workspaceId,
@@ -181,6 +185,56 @@ export function useSessionMutations({
   );
 
   const sendIdentities = useRef(new SendIdentities());
+  const ensureAgentReady = async (providerId: string, modelId: string) => {
+    if (modelConfiguration?.configured) return;
+
+    // The cache can be stale — another client may have bound a live agent
+    // since it was last read. Always re-check against the server before
+    // deciding to PUT, or this can swap out a provider someone else just
+    // configured.
+    const configuration = await repository.languageModelConfiguration();
+    if (configuration.configured) return;
+
+    const preset = configuration.presets.find(
+      (candidate) => candidate.id === providerId || candidate.provider_id === providerId,
+    );
+    if (!preset) {
+      throw new Error(`The ${providerId} provider is not available on this ${vocab.agent} installation.`);
+    }
+    if (!preset.is_authenticated) {
+      throw new Error(`Connect ${preset.label} in Settings before starting a session.`);
+    }
+    if (preset.requires_api_key) {
+      // Already authenticated, but this flow never fabricates or resubmits
+      // credentials on the caller's behalf — the switch has to happen where
+      // the key material already lives.
+      throw new Error(
+        `The ${preset.label} provider must be applied in Settings › Models before starting a session.`,
+      );
+    }
+
+    const result = await repository.updateLanguageModelConfiguration({
+      api_base: preset.api_base ?? '',
+      model: modelId,
+      provider: preset.provider,
+      provider_id: preset.provider_id ?? preset.id,
+      provider_options: {},
+    });
+    if (result.state === 'configuring') {
+      const ready = await repository.waitLanguageModelConfiguration();
+      if (!ready.configured || ready.state === 'error') {
+        // The server puts the human-readable text in status_message and the
+        // short code in error — surface the text first so the user does not
+        // just see "config_error".
+        throw new Error(
+          ready.status_message || ready.error || `${vocab.agent} could not start the provider.`,
+        );
+      }
+    }
+    await queryClient.invalidateQueries({
+      queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
+    });
+  };
   const reconcileTurnMode = async (behavior: MessageBehavior) => {
     if (!session) return;
     const mode = sessionModeForExecution(behavior.execution_mode);
@@ -201,6 +255,7 @@ export function useSessionMutations({
       const provider = value.provider ?? activeProvider;
       const model = value.model ?? activeModel;
       if (!provider || !model) throw new Error('Choose an available provider and model.');
+      await ensureAgentReady(provider, model);
       const identity = sendIdentities.current.forSend(sendFingerprint(value));
 
       const uploaded = value.files?.length

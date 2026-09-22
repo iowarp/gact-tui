@@ -204,6 +204,68 @@ describe('buildModelOptions', () => {
     ]);
   });
 
+  it('turns an unauthenticated ALCF catalog failure into a sign-in action', () => {
+    const options = buildModelOptions({
+      activeCatalogProvider: '',
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'argonne_metis',
+            name: 'ALCF Metis',
+            health: 'unavailable',
+            failure: "model discovery failed: Client error '401 Unauthorized'",
+            models: [],
+          }),
+        ],
+      },
+      presets: [
+        {
+          ...lmStudioPreset,
+          id: 'argonne_metis',
+          label: 'ALCF Metis',
+          provider: 'argonne',
+          is_authenticated: false,
+          status: 'auth_required',
+          status_message: 'stored Globus token could not be refreshed; authenticate ALCF',
+        },
+      ],
+    });
+
+    expect(options[0]?.availabilityDetail).toBe('Sign in to your ALCF account again.');
+  });
+
+  it('does not leak an ALCF 401 when the preset still reports a stale authenticated state', () => {
+    const options = buildModelOptions({
+      activeCatalogProvider: '',
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'argonne_metis',
+            name: 'ALCF Metis',
+            health: 'unavailable',
+            failure:
+              "model discovery failed: Client error '401 Unauthorized' for url 'https://example.invalid/models'",
+            models: [],
+          }),
+        ],
+      },
+      presets: [
+        {
+          ...lmStudioPreset,
+          id: 'argonne_metis',
+          label: 'ALCF Metis',
+          provider: 'argonne',
+          is_authenticated: true,
+          status: 'ready',
+        },
+      ],
+    });
+
+    expect(options[0]?.availabilityDetail).toBe('Sign in to your ALCF account again.');
+  });
+
   it('uses the name the service reports for a provider it has never heard of', () => {
     const [option] = buildModelOptions({
       activeCatalogProvider: '',
@@ -240,6 +302,44 @@ describe('buildModelOptions', () => {
     expect(options.map((option) => option.availabilityDetail)).toEqual([
       'Reported but not verified',
       'Unknown (quarantined)',
+    ]);
+  });
+
+  it('keeps CLI aliases usable when the connected agent reports the runtime ready', () => {
+    const options = buildModelOptions({
+      activeCatalogProvider: 'claude_code',
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'claude_code',
+            name: 'Claude Code (subscription)',
+            kind: 'claude_code',
+            endpoint: 'claude-code://sdk',
+            health: 'ready',
+            models: [catalogModel('sonnet', 'candidate')],
+          }),
+        ],
+      },
+      presets: [
+        {
+          ...lmStudioPreset,
+          id: 'claude_code',
+          label: 'Claude Code (subscription)',
+          provider: 'claude_code',
+          is_authenticated: true,
+          status: 'ready',
+        },
+      ],
+    });
+
+    expect(options).toEqual([
+      expect.objectContaining({
+        providerId: 'claude_code',
+        id: 'sonnet',
+        available: true,
+        availabilityDetail: 'Reported but not verified',
+      }),
     ]);
   });
 });

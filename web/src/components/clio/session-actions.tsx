@@ -1,4 +1,5 @@
 import {
+  ExternalLinkIcon,
   GitForkIcon,
   MoreHorizontalIcon,
   PackageOpenIcon,
@@ -31,6 +32,9 @@ export interface ClioSessionActionsProps {
   disabled?: boolean;
   onFork: () => Promise<void>;
   onCompact: () => Promise<void>;
+  /** Secondary escape hatch to the OS's own terminal app. Undefined hides
+   * the menu item (browser hosts, or a workspace with no known path). */
+  onOpenSystemTerminal?: () => Promise<void>;
   onShare: (ttlSeconds: number) => Promise<string>;
   onUndo: () => Promise<void>;
 }
@@ -40,6 +44,7 @@ export function ClioSessionActions({
   disabled,
   onFork,
   onCompact,
+  onOpenSystemTerminal,
   onShare,
   onUndo,
 }: ClioSessionActionsProps) {
@@ -85,6 +90,14 @@ export function ClioSessionActions({
           <DropdownMenuItem className="whitespace-nowrap" onSelect={() => setSharing(true)}>
             <Share2Icon aria-hidden="true" /> Share read-only link
           </DropdownMenuItem>
+          {onOpenSystemTerminal ? (
+            <DropdownMenuItem
+              className="whitespace-nowrap"
+              onSelect={() => void onOpenSystemTerminal()}
+            >
+              <ExternalLinkIcon aria-hidden="true" /> Open in system terminal
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="whitespace-nowrap"

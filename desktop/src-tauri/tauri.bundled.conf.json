@@ -1,6 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
-    "resources": ["gact-runtime/**/*"]
+    "resources": ["gact-runtime/**/*"],
+    "windows": {
+      "nsis": {
+        "compression": "none",
+        "installerHooks": "installer-hooks.nsh"
+      }
+    }
   }
 }

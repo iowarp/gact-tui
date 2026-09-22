@@ -1,5 +1,6 @@
 import type { PendingInteraction, Session } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
+import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { buildSessionAttentionMap, sessionAttentionLabel } from './session-attention';
 
 const baseSession: Session = {
@@ -114,7 +115,7 @@ describe('session attention', () => {
       total: 4,
     });
     expect(sessionAttentionLabel(attention)).toBe(
-      '1 permission, 1 question, 1 task input and 1 interactive view',
+      `1 permission, 1 question, 1 task input and 1 ${PROTOCOL.a2ui} surface`,
     );
   });
 

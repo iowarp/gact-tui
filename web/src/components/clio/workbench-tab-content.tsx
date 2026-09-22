@@ -14,6 +14,7 @@ import { WorkspaceResourceBrowser } from './workspace-resource-browser';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 import { ClioWorkflowCanvasView } from './workflow-canvas-view';
 import { ArtifactBrowser, BlueprintBrowser, BlueprintView, FileBrowser } from './workbench-resource-browser';
+import { WorkspaceTerminalPanel } from './workspace-terminal-panel';
 import { assertNever, fileName, loadResourceViewers, type WorkbenchTab } from './workbench-shared';
 
 const ArtifactView = lazy(() =>
@@ -296,6 +297,8 @@ export function WorkbenchTabContent({
       );
     case 'workflow':
       return <ClioWorkflowCanvasView onOpenSubagent={onOpenSubagent} subagents={subagents} tool={tab.tool} />;
+    case 'terminal':
+      return <WorkspaceTerminalPanel cwd={tab.cwd} sessionId={tab.sessionId} tabId={tab.id} />;
     default:
       return assertNever(tab);
   }

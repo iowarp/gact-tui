@@ -40,6 +40,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioRelativeTime } from './relative-time';
 import { ClioStatus } from './status';
+import { TechnicalDetails } from './technical-details';
 
 /** Manage the connected agent's process-local remote execution service. */
 export function RelaySettings() {
@@ -413,13 +414,12 @@ function RelayGuidance({ value }: { value: RelayStatus }) {
   return value.reachable ? (
     <div className="grid gap-2 text-sm text-muted-foreground">
       <p>Remote jobs and artifacts are available to this agent.</p>
-      <details>
-        <summary className="cursor-pointer">Technical details</summary>
+      <TechnicalDetails title="Technical details">
         <dl className="mt-2 grid gap-1 break-all font-mono text-xs">
           <div>Control: {value.mcp_url ?? 'Unavailable'}</div>
           <div>Jobs and artifacts: {value.http_url ?? 'Unavailable'}</div>
         </dl>
-      </details>
+      </TechnicalDetails>
     </div>
   ) : null;
 }

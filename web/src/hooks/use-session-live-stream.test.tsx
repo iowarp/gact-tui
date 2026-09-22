@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
     entities: { cursor: undefined as string | undefined, stream: 'offline' },
     error: undefined,
     applyFrames: vi.fn(),
+    clearSessionModelReferences: vi.fn(),
     reconcileSnapshots: vi.fn(),
     setStreamError: vi.fn(),
     setStreamState: vi.fn(),
@@ -21,7 +22,11 @@ const mocks = vi.hoisted(() => {
     { getState: vi.fn(() => storeState) },
   );
   return {
-    queryClient: { invalidateQueries: vi.fn(async () => undefined), setQueryData: vi.fn() },
+    queryClient: {
+      invalidateQueries: vi.fn(async () => undefined),
+      setQueriesData: vi.fn(),
+      setQueryData: vi.fn(),
+    },
     repository,
     resume: undefined as (() => void) | undefined,
     storeState,
@@ -76,6 +81,8 @@ describe('useSessionLiveStream resume recovery', () => {
     mocks.queryClient.invalidateQueries.mockResolvedValue(undefined);
     mocks.resume = undefined;
     mocks.storeState.setStreamState.mockReset();
+    mocks.storeState.clearSessionModelReferences.mockReset();
+    mocks.queryClient.setQueriesData.mockReset();
     mocks.toast.error.mockReset();
     mocks.repository.stream.mockImplementation(async function* (
       _scope: unknown,
@@ -256,6 +263,52 @@ describe('useSessionLiveStream resume recovery', () => {
         workspaceId: 'ws_1',
       }),
     ).toContainEqual(['provider-catalog', 'http://127.0.0.1:8790']);
+  });
+
+  it('retires stale session model projections when another client changes the provider', async () => {
+    mocks.repository.stream.mockImplementation(async function* (
+      _scope: unknown,
+      _cursor: unknown,
+      signal: AbortSignal,
+    ) {
+      yield {
+        cursor: '78',
+        eventName: 'lm.provider.changed',
+        receivedAt: '2026-09-21T12:00:00Z',
+        data: {
+          protocol_version: '0.3',
+          type: 'lm.provider.changed',
+          occurred_at: '2026-09-21T12:00:00Z',
+          scope: { connection_id: 'active', workspace_id: 'ws_1', session_id: 'sess_1' },
+          entity_id: 'provider',
+          entity_revision: 78,
+          payload: { provider_id: 'claude_code', model: 'sonnet' },
+        },
+      };
+      await new Promise<void>((resolve) => {
+        if (signal.aborted) resolve();
+        else signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+    });
+
+    const { unmount } = renderHook(() =>
+      useSessionLiveStream({ enabled: true, sessionId: 'sess_1', workspaceId: 'ws_1' }),
+    );
+
+    await waitFor(() => expect(mocks.storeState.clearSessionModelReferences).toHaveBeenCalled());
+    expect(mocks.queryClient.setQueriesData).toHaveBeenCalledWith(
+      { queryKey: ['sessions', 'http://127.0.0.1:8790'] },
+      expect.any(Function),
+    );
+    const keys = queryInvalidationKeysForEvent({
+      endpoint: 'http://127.0.0.1:8790',
+      eventName: 'lm.provider.changed',
+      sessionId: 'sess_1',
+      workspaceId: 'ws_1',
+    });
+    expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790']);
+    expect(keys).toContainEqual(['session-defaults', 'http://127.0.0.1:8790']);
+    unmount();
   });
 
   it('refreshes the queue when an automatic promotion fails', () => {

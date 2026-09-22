@@ -7,6 +7,7 @@ import {
   XCircleIcon,
 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   Frame,
   FrameDescription,
@@ -20,9 +21,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { formatBytes } from '@/lib/format';
+import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import {
   checkForDesktopUpdate,
+  describeUpdateError,
+  DESKTOP_UPDATE_TOAST_ID,
   installDesktopUpdate,
   type DesktopUpdateInfo,
   type DesktopUpdateProgress,
@@ -45,12 +49,17 @@ export function DesktopSettings() {
     setUpdateState({ kind: 'checking' });
     try {
       const update = await checkForDesktopUpdate();
-      setUpdateState(update ? { kind: 'available', update } : { kind: 'current' });
+      if (update) {
+        setUpdateState({ kind: 'available', update });
+      } else {
+        // A manual check that finds the build current outranks a possibly
+        // stale background toast (an earlier "available" reported a version
+        // the person may have already installed some other way) — clear it.
+        toast.dismiss(DESKTOP_UPDATE_TOAST_ID);
+        setUpdateState({ kind: 'current' });
+      }
     } catch (error) {
-      setUpdateState({
-        kind: 'error',
-        message: error instanceof Error ? error.message : 'The update service did not respond.',
-      });
+      setUpdateState({ kind: 'error', message: describeUpdateError(error) });
     }
   };
 
@@ -65,24 +74,21 @@ export function DesktopSettings() {
         setUpdateState({ kind: 'installing', update, progress }),
       );
     } catch (error) {
-      setUpdateState({
-        kind: 'error',
-        message: error instanceof Error ? error.message : 'The update could not be installed.',
-      });
+      setUpdateState({ kind: 'error', message: describeUpdateError(error) });
     }
   };
 
   return (
     <div className="grid gap-6">
       <SettingsSectionHeading
-        description="Manage operating-system features available in the installed workspace."
+        description={`Manage operating-system features available in ${vocab.product}.`}
         title="Desktop"
       />
       <Frame spacing="lg">
         <FrameHeader>
           <FrameTitle>Desktop integration</FrameTitle>
           <FrameDescription>
-            Native lifecycle and credential features are available only in the installed app.
+            Native lifecycle and credential features are available only in {vocab.product}.
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-4">
@@ -115,7 +121,7 @@ export function DesktopSettings() {
         {!desktop ? (
           <FrameFooter className="items-start">
             <p className="text-sm text-muted-foreground">
-              Open this workspace in the installed desktop app to use native integrations.
+              Open {vocab.product} to use native integrations.
             </p>
           </FrameFooter>
         ) : null}
@@ -124,7 +130,7 @@ export function DesktopSettings() {
         <FrameHeader>
           <FrameTitle>App updates</FrameTitle>
           <FrameDescription>
-            Updates come from the signed release feed configured for this installed product.
+            Updates come from the signed release feed configured for {vocab.product}.
           </FrameDescription>
         </FrameHeader>
         <FramePanel className="grid gap-4">

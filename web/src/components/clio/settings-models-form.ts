@@ -14,7 +14,53 @@
  *     reasoning level, the token cap, or the local runtime's sizing.
  */
 
-import type { LanguageModelConfiguration, LanguageModelPreset } from '@clio/core/v3';
+import type { LanguageModelConfiguration, LanguageModelPreset, ProviderModel } from '@clio/core/v3';
+
+/** Keep configured models visible, but never promote unverified candidates. */
+export function modelSettingsOptions({
+  catalog,
+  configuration,
+  modelId,
+  preset,
+}: {
+  catalog: readonly ProviderModel[];
+  configuration: LanguageModelConfiguration;
+  modelId: string;
+  preset?: LanguageModelPreset;
+}): ProviderModel[] {
+  const subscription = preset && ['codex', 'claude_code'].includes(preset.provider);
+  const configured =
+    subscription &&
+    presetIsActive(configuration, preset) &&
+    modelId &&
+    !catalog.some((model) => model.id === modelId)
+      ? [{ id: modelId, name: modelId, availability: 'candidate' as const }]
+      : [];
+  if (catalog.length || subscription) return [...configured, ...catalog];
+  return [...new Set([modelId, preset?.suggested_model].filter(Boolean))].map((id) => ({
+    id: id as string,
+    name: id as string,
+  }));
+}
+
+/** Only verified subscription providers and complete credentials can be applied. */
+export function canApplyProvider(
+  preset: LanguageModelPreset | undefined,
+  values: ModelSettingsValues,
+  storedCredential?: string,
+): boolean {
+  if (!preset) return false;
+  if (
+    preset.configuration_fields?.some(
+      (field) => field.required && !values.providerOptions[field.id]?.trim(),
+    )
+  ) return false;
+  return Boolean(
+    preset.is_authenticated ||
+      (preset.requires_api_key && (values.apiKey || storedCredential)) ||
+      (preset.auth_method === 'none' && !['codex', 'claude_code'].includes(preset.provider)),
+  );
+}
 
 export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high';
 

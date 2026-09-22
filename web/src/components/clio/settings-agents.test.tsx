@@ -190,9 +190,13 @@ describe('AgentSettings', () => {
     await user.click(await screen.findByRole('button', { name: 'New agent' }));
     expect(screen.queryByRole('textbox', { name: 'Provider identifier' })).not.toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: 'Preferred model' }));
-    await user.click(await screen.findByRole('button', { name: /Claude/ }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Claude, 1 item, submenu' }),
+    );
     expect(await screen.findByRole('option', { name: /Claude Sonnet/ })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: /OpenAI Codex/ }));
+    await user.click(
+      screen.getByRole('button', { name: 'OpenAI Codex, 1 item, submenu' }),
+    );
     expect(screen.getByRole('option', { name: /GPT-5.6-Luna/ })).toBeVisible();
   });
 

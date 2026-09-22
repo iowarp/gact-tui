@@ -64,6 +64,7 @@ export interface ClioComposerProps {
   attachments: boolean;
   provider?: string;
   model?: string;
+  modelCatalogRefreshing?: boolean;
   modelCatalogStatus?: 'error' | 'loading' | 'ready';
   effort?: string;
   executionMode?: MessageBehavior['execution_mode'];
@@ -105,7 +106,7 @@ export interface ClioComposerProps {
   ) => Promise<WorkspaceResourceUploadResult>;
   onStop?: () => void;
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
-  onRetryModelCatalog?: () => void;
+  onRetryModelCatalog?: (providerId?: string) => void;
   onHeightChange?: (height: number) => void;
   activityControl?: ReactNode;
   workSummary?: ReactNode;
@@ -145,6 +146,7 @@ export function ClioComposer({
   attachments,
   provider,
   model,
+  modelCatalogRefreshing = false,
   modelCatalogStatus = 'ready',
   effort,
   executionMode = 'execute',
@@ -330,7 +332,9 @@ export function ClioComposer({
   useLayoutEffect(() => {
     const element = rootRef.current;
     if (variant !== 'docked' || !element || !onHeightChange) return;
-    const reportHeight = () => onHeightChange(Math.ceil(element.getBoundingClientRect().height));
+    // Layout animations transform the composer visually while it moves. Measure
+    // its layout box so the transcript inset never captures a transient scale.
+    const reportHeight = () => onHeightChange(Math.ceil(element.offsetHeight));
     reportHeight();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(reportHeight);
@@ -581,6 +585,7 @@ export function ClioComposer({
               disabled={disabled}
               modelControl={
                 <ClioModelPicker
+                  catalogRefreshing={modelCatalogRefreshing}
                   catalogStatus={modelCatalogStatus}
                   model={selectedOption?.id}
                   onChange={(option) => {

@@ -9,7 +9,7 @@ import {
   RefreshCwIcon,
   Trash2Icon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Frame,
@@ -56,7 +56,7 @@ function SectionHeading({ title, description }: { title: string; description: st
   );
 }
 
-export function BlueprintSettings() {
+export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?: string }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -64,6 +64,7 @@ export function BlueprintSettings() {
   const [selectedBlueprint, setSelectedBlueprint] = useState<AgentBlueprint>();
   const [deleteBlueprint, setDeleteBlueprint] = useState<AgentBlueprint>();
   const [deleteSource, setDeleteSource] = useState<AgentBlueprintSource>();
+  const openedDeepLink = useRef(false);
   const blueprints = useQuery({
     queryKey: queryKeys.key('agent-blueprints', settings.endpoint, 'settings'),
     queryFn: ({ signal }) => repository.agentBlueprints(undefined, signal),
@@ -147,6 +148,13 @@ export function BlueprintSettings() {
   });
   const installedBlueprints = blueprints.data?.filter((blueprint) => blueprint.kind !== 'pack');
   const installedIds = new Set(installedBlueprints?.map((blueprint) => blueprint.id));
+  useEffect(() => {
+    if (!initialBlueprintId || openedDeepLink.current || !installedBlueprints) return;
+    openedDeepLink.current = true;
+    setSelectedBlueprint(
+      installedBlueprints.find((blueprint) => blueprint.id === initialBlueprintId),
+    );
+  }, [initialBlueprintId, installedBlueprints]);
 
   return (
     <div className="grid gap-6">

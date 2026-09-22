@@ -157,6 +157,7 @@ export interface WorkspaceResource {
   created_at: string;
   updated_at: string;
   completed_at: string;
+  workspace_path?: string;
   mime_mismatch: boolean;
   processing?: WorkspaceResourceProcessing;
   idempotent_replay?: boolean;

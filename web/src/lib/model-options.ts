@@ -145,6 +145,9 @@ function liveProviderOptions(
     health: provider.health,
   };
   if (!provider.models.length) {
+    const authenticationFailure = isAuthenticationFailure(provider.failure);
+    const needsAuthentication = (preset && !preset.is_authenticated) || authenticationFailure;
+    const isAlcf = /^argonne_/u.test(provider.id) || /\bALCF\b/iu.test(providerName);
     return [
       {
         ...shared,
@@ -153,23 +156,42 @@ function liveProviderOptions(
         label: providerName,
         available: false,
         availabilityDetail:
-          provider.failure || 'This provider reported no models to the connected agent.',
+          (needsAuthentication
+            ? authenticationFailure && isAlcf
+              ? 'Sign in to your ALCF account again.'
+              : providerStatusDetail(preset, `Sign in to ${providerName} to discover its models.`)
+            : provider.failure) || 'This provider reported no models to the connected agent.',
       },
     ];
   }
-  return provider.models.map((model) => ({
-    ...shared,
-    kind: 'model',
-    id: model.model_id,
-    label: conciseModelName(model.model_id),
-    description: model.failure || undefined,
-    available: model.availability === 'available',
-    availabilityDetail:
-      model.availability === 'available'
-        ? undefined
-        : model.failure || modelAvailabilityLabel(model.availability),
-    modalities: model.modalities,
-  }));
+  const providerReady = preset?.status === 'ready' || preset?.is_authenticated === true;
+  const isCliProvider = ['codex', 'claude_code'].includes(provider.kind);
+  return provider.models.map((model) => {
+    // CLI providers cannot enumerate models without an explicit (and for
+    // Claude potentially billed) discovery run. Their built-in aliases remain
+    // candidates, but a runtime the agent reports ready must still be usable;
+    // the first real invocation is the final verification boundary.
+    const usableCandidate = isCliProvider && model.availability === 'candidate' && providerReady;
+    return {
+      ...shared,
+      kind: 'model',
+      id: model.model_id,
+      label: conciseModelName(model.model_id),
+      description: model.failure || undefined,
+      available: model.availability === 'available' || usableCandidate,
+      availabilityDetail:
+        model.availability === 'available'
+          ? undefined
+          : model.failure || modelAvailabilityLabel(model.availability),
+      modalities: model.modalities,
+    };
+  });
+}
+
+function isAuthenticationFailure(failure: string | null | undefined): boolean {
+  return /(?:\b401\b|unauthori[sz]ed|authentication required|sign[ -]?in required)/iu.test(
+    failure ?? '',
+  );
 }
 
 function matchesProvider(preset: LanguageModelPreset, providerId: string): boolean {

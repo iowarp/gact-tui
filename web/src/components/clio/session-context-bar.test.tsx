@@ -84,4 +84,69 @@ describe('ClioSessionContextBar', () => {
 
     expect(screen.queryByText('Base agent')).not.toBeInTheDocument();
   });
+
+  it('opens a native terminal for the active workspace when available', async () => {
+    const user = userEvent.setup();
+    const onOpenTerminal = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ClioSessionContextBar
+        actionsPending={false}
+        onCompact={vi.fn()}
+        onFork={vi.fn()}
+        onOpenBlueprint={vi.fn()}
+        onOpenTerminal={onOpenTerminal}
+        onReturnToParent={vi.fn()}
+        onShare={vi.fn()}
+        onUndo={vi.fn()}
+        session={session}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Open terminal in workspace' }));
+
+    expect(onOpenTerminal).toHaveBeenCalledOnce();
+  });
+
+  it('hides the native terminal action when it is unavailable', () => {
+    render(
+      <ClioSessionContextBar
+        actionsPending={false}
+        onCompact={vi.fn()}
+        onFork={vi.fn()}
+        onOpenBlueprint={vi.fn()}
+        onReturnToParent={vi.fn()}
+        onShare={vi.fn()}
+        onUndo={vi.fn()}
+        session={session}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Open terminal in workspace' })).toBeNull();
+  });
+
+  it('hides its own session-title heading inside Tauri, where the desktop title bar already shows it', () => {
+    Object.assign(window, { __TAURI_INTERNALS__: {} });
+    try {
+      render(
+        <ClioSessionContextBar
+          actionsPending={false}
+          activeBlueprint={blueprint}
+          onCompact={vi.fn()}
+          onFork={vi.fn()}
+          onOpenBlueprint={vi.fn()}
+          onReturnToParent={vi.fn()}
+          onShare={vi.fn()}
+          onUndo={vi.fn()}
+          session={session}
+        />,
+      );
+
+      expect(screen.queryByRole('heading', { name: session.title })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'EarthScope (Flat / Haiku)' })).not.toBeInTheDocument();
+      // The actions beside it are not chrome, so they still render.
+      expect(screen.getByRole('button', { name: `Actions for ${session.title}` })).toBeInTheDocument();
+    } finally {
+      Reflect.deleteProperty(window, '__TAURI_INTERNALS__');
+    }
+  });
 });

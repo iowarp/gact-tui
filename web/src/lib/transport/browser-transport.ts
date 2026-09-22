@@ -95,7 +95,7 @@ export class BrowserClioTransport implements ClioTransport {
         'network_unavailable',
       );
     }
-    if (!response.ok) {
+    if (!response.ok && !request.acceptStatuses?.includes(response.status)) {
       const error = await decodeErrorResponse(response);
       throw new TransportError(
         error.message || `Request failed with ${response.status} ${response.statusText}`,

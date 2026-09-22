@@ -3,6 +3,7 @@ import {
   ArchiveIcon,
   CheckIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   FolderGit2Icon,
   PlusIcon,
   SearchIcon,
@@ -11,6 +12,7 @@ import {
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
+import { vocab } from '@/lib/brand-vocabulary';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +27,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { SavedConnection } from '@/lib/connection';
 import {
   connectionAvailability,
@@ -34,6 +37,7 @@ import {
 interface NavigationHeaderProps {
   endpoint: string;
   activeLabel?: string;
+  activeLocation?: string;
   currentPath: string;
   connectionAvailabilities: ConnectionAvailabilityMap;
   recentConnections: readonly SavedConnection[];
@@ -48,6 +52,7 @@ interface NavigationHeaderProps {
 export function NavigationHeader({
   endpoint,
   activeLabel,
+  activeLocation,
   currentPath,
   connectionAvailabilities,
   recentConnections,
@@ -62,6 +67,7 @@ export function NavigationHeader({
     brand.logoImage ??
     (brand.logoSvg ? `data:image/svg+xml,${encodeURIComponent(brand.logoSvg)}` : null);
   const activeAvailability = connectionAvailability(connectionAvailabilities, endpoint);
+  const otherConnections = recentConnections.filter((recent) => recent.endpoint !== endpoint);
 
   return (
     <SidebarHeader className="gap-2 border-b border-sidebar-border/70 p-2">
@@ -69,7 +75,11 @@ export function NavigationHeader({
         <SidebarMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <SidebarMenuButton className="h-11" size="lg" tooltip={`${brand.name} service`}>
+              <SidebarMenuButton
+                className="h-11"
+                size="lg"
+                tooltip={`${brand.name}: ${activeAvailability.label}. ${activeAvailability.detail}`}
+              >
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
                   {logoSource ? (
                     <img alt="" className="size-7 object-contain" src={logoSource} />
@@ -82,21 +92,37 @@ export function NavigationHeader({
                 <span className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate font-heading font-semibold">{brand.wordmark}</span>
-                    <span
-                      aria-hidden="true"
-                      className={`size-1.5 shrink-0 rounded-full ${
-                        activeAvailability.state === 'healthy'
-                          ? 'bg-success'
-                          : activeAvailability.state === 'degraded'
-                            ? 'bg-warning'
-                            : activeAvailability.state === 'unavailable'
-                              ? 'bg-muted-foreground/45'
-                              : 'bg-info'
-                      }`}
-                    />
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            aria-label={`Service status: ${activeAvailability.label}. ${activeAvailability.detail}`}
+                            className={`size-1.5 shrink-0 rounded-full ${
+                              activeAvailability.state === 'healthy'
+                                ? 'bg-success'
+                                : activeAvailability.state === 'degraded'
+                                  ? 'bg-warning'
+                                  : activeAvailability.state === 'unavailable'
+                                    ? 'bg-muted-foreground/45'
+                                    : 'bg-info'
+                            }`}
+                            role="img"
+                            title={`${activeAvailability.label}: ${activeAvailability.detail}`}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent align="start" className="max-w-72" side="bottom">
+                          <span className="font-medium">{activeAvailability.label}</span>
+                          <span>{activeAvailability.detail}</span>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </span>
                   <span className="truncate text-[11px] text-muted-foreground">
-                    {connectionPlaceLabel(endpoint, activeLabel)}
+                    <AgentConnectionIdentity
+                      endpoint={endpoint}
+                      label={activeLabel}
+                      location={activeLocation}
+                    />
                   </span>
                 </span>
                 <ChevronDownIcon
@@ -106,14 +132,28 @@ export function NavigationHeader({
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-96">
-              <DropdownMenuLabel>
-                <span className="block">Agent services</span>
+              <DropdownMenuLabel className="space-y-1">
+                <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Connected agent
+                </span>
+                <AgentConnectionIdentity
+                  endpoint={endpoint}
+                  label={activeLabel}
+                  location={activeLocation}
+                />
                 <span className="block truncate font-mono text-[11px] font-normal text-muted-foreground">
                   {endpoint}
                 </span>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {recentConnections.map((recent) => {
+              {otherConnections.length ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="py-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Other agents
+                  </DropdownMenuLabel>
+                </>
+              ) : null}
+              {otherConnections.map((recent) => {
                 const availability = connectionAvailability(
                   connectionAvailabilities,
                   recent.endpoint,
@@ -134,7 +174,11 @@ export function NavigationHeader({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm">
-                        {connectionPlaceLabel(recent.endpoint, recent.label)}
+                        <AgentConnectionIdentity
+                          endpoint={recent.endpoint}
+                          label={recent.label}
+                          location={recent.location}
+                        />
                       </span>
                       <span
                         className="block truncate font-mono text-[11px] text-muted-foreground"
@@ -215,14 +259,71 @@ export function NavigationHeader({
   );
 }
 
-function connectionPlaceLabel(endpoint: string, label?: string): string {
-  if (label?.trim()) return label.trim();
+function AgentConnectionIdentity({
+  endpoint,
+  label,
+  location,
+}: {
+  endpoint: string;
+  label?: string;
+  location?: string;
+}) {
+  const displayLocation = connectionLocation(endpoint, location);
+  const name = connectionAgentName(label, displayLocation);
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1">
+      <span className="truncate">{displayLocation}</span>
+      <ChevronRightIcon aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
+      <span className="shrink-0 font-medium text-foreground">{name}</span>
+    </span>
+  );
+}
+
+function connectionAgentName(label: string | undefined, location: string): string {
+  const trimmed = label?.trim();
+  if (!trimmed) return vocab.agent;
+  const locationLower = location.toLocaleLowerCase();
+  const labelLower = trimmed.toLocaleLowerCase();
+  if (
+    ['this computer', 'this device', 'local'].includes(labelLower) ||
+    labelLower === locationLower
+  ) {
+    return vocab.agent;
+  }
+  const prefix = `${locationLower} `;
+  if (labelLower.startsWith(prefix)) {
+    return trimmed.slice(location.length).trim() || vocab.agent;
+  }
+  return trimmed;
+}
+
+function connectionLocation(endpoint: string, label?: string): string {
+  const namedLocation = cleanConnectionLocation(label);
+  if (namedLocation) return namedLocation;
   try {
     const hostname = new URL(endpoint).hostname.toLowerCase();
-    return ['127.0.0.1', 'localhost', '::1'].includes(hostname)
-      ? 'This device'
-      : hostname || 'Remote service';
+    return ['127.0.0.1', 'localhost', '::1'].includes(hostname) ? 'Local' : hostname || 'Remote';
   } catch {
-    return 'Connected service';
+    return 'Connected';
   }
+}
+
+function cleanConnectionLocation(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const lower = trimmed.toLocaleLowerCase();
+  if (['this computer', 'this device', 'local'].includes(lower)) return 'Local';
+  const agent = vocab.agent.trim();
+  const agentLower = agent.toLocaleLowerCase();
+  if (lower === agentLower) return undefined;
+  if (lower.endsWith(` ${agentLower}`)) {
+    return trimmed.slice(0, -(agent.length + 1)).trim() || undefined;
+  }
+  return tunnelStyleName(trimmed) ?? trimmed;
+}
+
+function tunnelStyleName(value: string): string | undefined {
+  if (!/^[a-z0-9_-]+$/u.test(value) || /^\d+(?:\.\d+){3}$/u.test(value)) return undefined;
+  const words = value.replace(/[_-]+/gu, ' ');
+  return words.charAt(0).toLocaleUpperCase() + words.slice(1);
 }

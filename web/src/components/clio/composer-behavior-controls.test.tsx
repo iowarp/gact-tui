@@ -1,5 +1,5 @@
 import type { MessageBehavior } from '@clio/core/v3';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
@@ -74,5 +74,27 @@ describe('ClioComposerBehaviorControls', () => {
 
     await user.click(screen.getByRole('menuitemradio', { name: 'high' }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ reasoning_effort: 'high' }));
+  });
+
+  it('keeps only the most recently opened behavior menu visible', async () => {
+    const user = userEvent.setup();
+    renderControls();
+
+    await user.click(screen.getByRole('button', { name: 'Reasoning effort: medium' }));
+    expect(screen.getByRole('menu')).toHaveTextContent('Reasoning effort');
+
+    fireEvent.pointerDown(
+      screen.getByRole('button', { hidden: true, name: 'Execution mode: Execute' }),
+      { button: 0, ctrlKey: false },
+    );
+    expect(screen.getByRole('menu')).toHaveTextContent('Execution mode');
+    expect(screen.queryByText('Reasoning effort')).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(
+      screen.getByRole('button', { hidden: true, name: 'Confirmation policy: Ask first' }),
+      { button: 0, ctrlKey: false },
+    );
+    expect(screen.getByRole('menu')).toHaveTextContent('Confirmation policy');
+    expect(screen.queryByText('Execution mode')).not.toBeInTheDocument();
   });
 });

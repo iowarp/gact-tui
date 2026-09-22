@@ -7,6 +7,7 @@ import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConversationDisplayProvider } from '@/providers/conversation-display-provider';
 import { AppearanceProvider } from '@/providers/appearance-provider';
+import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { ClioConversation } from './conversation';
 
 const virtualizerMocks = vi.hoisted(() => ({ scrollToIndex: vi.fn() }));
@@ -274,8 +275,8 @@ describe('ClioConversation activity and interactive surfaces', () => {
       />,
     );
 
-    expect(screen.getByText('Interactive surface removed')).toBeInTheDocument();
-    expect(screen.queryByText('Interactive surface unavailable')).not.toBeInTheDocument();
+    expect(screen.getByText(`${PROTOCOL.a2ui} surface removed`)).toBeInTheDocument();
+    expect(screen.queryByText(`${PROTOCOL.a2ui} surface unavailable`)).not.toBeInTheDocument();
   });
 
   it('leaves a pending interactive surface to the response stack and hides empty routing noise', () => {

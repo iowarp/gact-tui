@@ -11,8 +11,8 @@ use std::{
 };
 
 use crate::supervisor_boot_log::boot_log_line;
-use crate::supervisor_shutdown::reap_child_tree;
-use crate::supervisor_types::{BackendHandle, BackendStatus};
+use crate::supervisor_shutdown::reap_owned_child_tree;
+use crate::supervisor_types::{BackendHandle, BackendStartupStage, BackendStatus};
 
 /// Lock a `Mutex` while recovering from poisoning.
 ///
@@ -45,7 +45,7 @@ impl SupervisorState {
                 handle: BackendHandle {
                     url: String::new(),
                     bearer_token: String::new(),
-                    status: BackendStatus::Starting,
+                    status: BackendStatus::Starting(BackendStartupStage::CheckingExisting),
                 },
                 child: None,
             })),
@@ -53,7 +53,30 @@ impl SupervisorState {
     }
 
     pub fn snapshot(&self) -> BackendHandle {
-        lock_recover(&self.inner).handle.clone()
+        let mut guard = lock_recover(&self.inner);
+        if let Some(child) = guard.child.as_mut() {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let message = format!(
+                        "The desktop-managed CLIO service exited unexpectedly (code {:?}).",
+                        status.code()
+                    );
+                    boot_log_line(&format!(
+                        "managed backend exited after readiness (code {:?})",
+                        status.code()
+                    ));
+                    guard.child = None;
+                    guard.handle.status = BackendStatus::Error(message);
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    boot_log_line(&format!(
+                        "warning: could not inspect managed backend process: {error}"
+                    ));
+                }
+            }
+        }
+        guard.handle.clone()
     }
 
     pub fn set_error(&self, msg: String) {
@@ -80,23 +103,33 @@ impl SupervisorState {
     pub fn set_handle_and_child(&self, handle: BackendHandle, child: Child) {
         let displaced = {
             let mut guard = lock_recover(&self.inner);
+            let previous_handle = guard.handle.clone();
             guard.handle = handle;
-            guard.child.replace(child)
+            guard
+                .child
+                .replace(child)
+                .map(|stale| (stale, previous_handle))
         };
-        if let Some(stale) = displaced {
+        if let Some((stale, previous_handle)) = displaced {
             boot_log_line(&format!(
                 "warning: reaping displaced sidecar child (pid {}); reason=superseded_boot — \
                  a newer boot registered its child while this one was still recorded",
                 stale.id()
             ));
-            reap_child_tree(stale);
+            reap_owned_child_tree(stale, &previous_handle);
         }
     }
 
     pub fn shutdown(&self) {
-        let mut guard = lock_recover(&self.inner);
-        if let Some(child) = guard.child.take() {
-            reap_child_tree(child);
+        let owned = {
+            let mut guard = lock_recover(&self.inner);
+            guard
+                .child
+                .take()
+                .map(|child| (child, guard.handle.clone()))
+        };
+        if let Some((child, handle)) = owned {
+            reap_owned_child_tree(child, &handle);
         }
     }
 }
@@ -117,7 +150,10 @@ mod tests {
         let handle = state.snapshot();
         assert!(handle.url.is_empty());
         assert!(handle.bearer_token.is_empty());
-        assert!(matches!(handle.status, BackendStatus::Starting));
+        assert!(matches!(
+            handle.status,
+            BackendStatus::Starting(BackendStartupStage::CheckingExisting)
+        ));
     }
 
     #[test]
@@ -138,6 +174,57 @@ mod tests {
         assert_eq!(handle.url, "http://127.0.0.1:17800");
         assert_eq!(handle.bearer_token, "token");
         assert!(matches!(handle.status, BackendStatus::Ready));
+    }
+
+    #[test]
+    fn shutdown_does_not_mutate_an_attached_backend_handle() {
+        let state = SupervisorState::new_starting();
+        state.set_handle(BackendHandle {
+            url: "http://127.0.0.1:17800".into(),
+            bearer_token: String::new(),
+            status: BackendStatus::Ready,
+        });
+
+        state.shutdown();
+
+        let handle = state.snapshot();
+        assert_eq!(handle.url, "http://127.0.0.1:17800");
+        assert!(matches!(handle.status, BackendStatus::Ready));
+    }
+
+    #[test]
+    fn snapshot_turns_an_exited_owned_child_into_a_recoverable_error() {
+        use std::thread;
+        use std::time::Duration;
+
+        #[cfg(windows)]
+        let child = std::process::Command::new("cmd")
+            .args(["/C", "exit", "23"])
+            .spawn()
+            .expect("spawn exiting child");
+        #[cfg(not(windows))]
+        let child = std::process::Command::new("sh")
+            .args(["-c", "exit 23"])
+            .spawn()
+            .expect("spawn exiting child");
+
+        let state = SupervisorState::new_starting();
+        state.set_handle_and_child(
+            BackendHandle {
+                url: "http://127.0.0.1:17800".into(),
+                bearer_token: "token".into(),
+                status: BackendStatus::Ready,
+            },
+            child,
+        );
+        thread::sleep(Duration::from_millis(100));
+
+        let handle = state.snapshot();
+        assert!(matches!(
+            handle.status,
+            BackendStatus::Error(ref detail)
+                if detail.contains("exited unexpectedly") && detail.contains("23")
+        ));
     }
 
     /// Spawn a quiet long-running child the test can use as a stand-in for
@@ -226,6 +313,35 @@ mod tests {
         assert!(
             second_alive,
             "new child (pid {second_pid}) must not be reaped by its own registration"
+        );
+    }
+
+    #[test]
+    fn shutdown_reaps_the_recorded_owned_child() {
+        use std::time::{Duration, Instant};
+
+        let state = SupervisorState::new_starting();
+        let child = spawn_sleeper();
+        let child_pid = child.id();
+        state.set_handle_and_child(
+            BackendHandle {
+                url: "http://127.0.0.1:52341".into(),
+                bearer_token: "owned-token".into(),
+                status: BackendStatus::Ready,
+            },
+            child,
+        );
+        assert!(pid_alive(child_pid), "sanity: owned child should be alive");
+
+        state.shutdown();
+
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while pid_alive(child_pid) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        assert!(
+            !pid_alive(child_pid),
+            "owned child (pid {child_pid}) survived supervisor shutdown"
         );
     }
 

@@ -66,7 +66,7 @@ describe('composer reference listing honesty', () => {
     );
     renderMenu();
 
-    const collapsed = await screen.findByRole('button', { name: 'Expand Local files' });
+    const collapsed = await screen.findByRole('button', { name: 'Expand Workspace files' });
     // The group's query has not run yet, so its count is unknown — not zero.
     expect(collapsed).toHaveTextContent('…');
     expect(collapsed).not.toHaveTextContent('0');
@@ -85,7 +85,9 @@ describe('composer reference listing honesty', () => {
     ]);
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Collapse Local files' })).toHaveTextContent('1'),
+      expect(screen.getByRole('button', { name: 'Collapse Workspace files' })).toHaveTextContent(
+        '1',
+      ),
     );
   });
 

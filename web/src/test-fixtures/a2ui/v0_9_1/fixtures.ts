@@ -1,4 +1,5 @@
 import type { A2uiCatalogRow } from '@clio/core/v3';
+import { vocab } from '@/lib/brand-vocabulary';
 import basicCatalogFile from './catalogs/basic/catalog.json';
 import basicCatalogSidecar from './catalogs/basic/catalog.clio.json';
 import clioWorkspaceCatalogFile from './catalogs/clio-workspace/v1/catalog.json';
@@ -35,7 +36,7 @@ export const CLIO_WORKSPACE_CATALOG_ROW: A2uiCatalogRow = {
   sidecar: clioWorkspaceCatalogSidecar as A2uiCatalogRow['sidecar'],
   producible: true,
   file: clioWorkspaceCatalogFile as A2uiCatalogRow['file'],
-  instructions: 'Renders CLIO scientific workspace components.',
+  instructions: `Renders ${vocab.agent} scientific workspace components.`,
 };
 
 export const CLIO_A2UI_CATALOG_ID = CLIO_WORKSPACE_CATALOG_ROW.catalogId;

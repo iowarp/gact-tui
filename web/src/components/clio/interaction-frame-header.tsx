@@ -1,14 +1,18 @@
 import type { PendingInteraction } from '@clio/core/v3';
 import { BoxesIcon, ClipboardPenLineIcon, MessageCircleQuestionIcon, XIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { FrameHeader, FrameTitle } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { OwnerAttribution } from './pending-interaction-notices';
+import { TechnicalDetails } from './technical-details';
 
 interface InteractionFrameHeaderProps {
   interaction: PendingInteraction;
   ownerLabel?: string;
   showOwner: boolean;
   onCancel?: () => void;
+  actions?: ReactNode;
   disabled?: boolean;
 }
 
@@ -18,6 +22,7 @@ export function InteractionFrameHeader({
   ownerLabel,
   showOwner,
   onCancel,
+  actions,
   disabled,
 }: InteractionFrameHeaderProps) {
   const isPlanExit = interaction.source.tool_name === 'plan_exit';
@@ -28,7 +33,7 @@ export function InteractionFrameHeader({
         ? BoxesIcon
         : MessageCircleQuestionIcon;
   return (
-    <FrameHeader className="relative flex-row items-start gap-2 pr-10">
+    <FrameHeader className={cn('relative flex-row items-start gap-2', actions ? 'pr-28' : 'pr-10')}>
       <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-action" />
       <div className="min-w-0 flex-1">
         <FrameTitle
@@ -45,25 +50,28 @@ export function InteractionFrameHeader({
               The specialist could not answer this, so it needs you.
             </p>
             {interaction.fallback_detail ? (
-              <details className="mt-1 text-xs text-muted-foreground">
-                <summary className="cursor-pointer">Technical details</summary>
+              <TechnicalDetails className="mt-1 text-xs text-muted-foreground" title="Technical details">
                 <code>{interaction.fallback_detail}</code>
-              </details>
+              </TechnicalDetails>
             ) : null}
           </>
         ) : null}
       </div>
-      {onCancel ? (
-        <Button
-          aria-label="Cancel question"
-          className="absolute right-2 top-1"
-          disabled={disabled}
-          onClick={onCancel}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <XIcon aria-hidden="true" />
-        </Button>
+      {actions || onCancel ? (
+        <div className="absolute right-2 top-1 flex items-center gap-0.5">
+          {actions}
+          {onCancel ? (
+            <Button
+              aria-label="Cancel question"
+              disabled={disabled}
+              onClick={onCancel}
+              size="icon-sm"
+              variant="ghost"
+            >
+              <XIcon aria-hidden="true" />
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </FrameHeader>
   );

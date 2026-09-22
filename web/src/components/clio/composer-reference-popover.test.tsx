@@ -212,10 +212,10 @@ describe('composer reference popover contract', () => {
 
     const search = await openPicker(user);
 
-    await user.click(await screen.findByRole('button', { name: 'Expand Local files' }));
+    await user.click(await screen.findByRole('button', { name: 'Expand Workspace files' }));
     await waitFor(() => expect(search).toHaveFocus());
 
-    await user.click(screen.getByRole('button', { name: 'Collapse Local files' }));
+    await user.click(screen.getByRole('button', { name: 'Collapse Workspace files' }));
     await waitFor(() => expect(search).toHaveFocus());
   });
 
@@ -225,7 +225,7 @@ describe('composer reference popover contract', () => {
     renderComposer();
 
     await user.type(composerEditor(), '@');
-    await user.click(await screen.findByRole('button', { name: 'Expand Local files' }));
+    await user.click(await screen.findByRole('button', { name: 'Expand Workspace files' }));
 
     await waitFor(() => expect(composerEditor()).toHaveFocus());
   });

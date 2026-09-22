@@ -256,7 +256,7 @@ describe('ClioPendingInteractions A2UI kind', () => {
     renderPending([interaction], { disabled: true, surfaces: { surface_1: surface } });
 
     const panel = (await screen.findByRole('button', { name: 'Submit selection' })).closest(
-      '[data-slot="frame-panel"]',
+      '[data-slot="a2ui-response-viewport"]',
     );
     expect(panel).toHaveClass('opacity-70');
     expect(panel).not.toHaveClass('opacity-60');
@@ -270,8 +270,8 @@ describe('ClioPendingInteractions A2UI kind', () => {
     });
     renderPending([interaction]);
 
-    expect(screen.getByText('This interactive view has no surface to open.')).toBeVisible();
-    expect(screen.queryByText('Interactive view is loading.')).not.toBeInTheDocument();
+    expect(screen.getByText(/This response has no .* surface to open\./u)).toBeVisible();
+    expect(screen.queryByText(/surface is loading\./u)).not.toBeInTheDocument();
   });
 
   it('rejects a surface addressed to a different session instead of reading it as loading', () => {
@@ -284,11 +284,9 @@ describe('ClioPendingInteractions A2UI kind', () => {
     renderPending([interaction], { surfaces: { surface_1: foreignSurface } });
 
     expect(
-      screen.getByText(
-        'This interactive view was rejected: it was addressed to a different session.',
-      ),
+      screen.getByText(/surface was rejected: it was addressed to a different session\./u),
     ).toBeVisible();
-    expect(screen.queryByText('Interactive view is loading.')).not.toBeInTheDocument();
+    expect(screen.queryByText(/surface is loading\./u)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Submit selection' })).not.toBeInTheDocument();
   });
 
@@ -302,7 +300,7 @@ describe('ClioPendingInteractions A2UI kind', () => {
     });
     renderPending([interaction], { onRefetchSurfaces });
 
-    expect(screen.getByText('Interactive view is loading.')).toBeVisible();
+    expect(screen.getByText(/surface is loading\./u)).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
     expect(onRefetchSurfaces).toHaveBeenCalledTimes(1);
   });

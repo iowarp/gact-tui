@@ -15,6 +15,7 @@ import {
   PaperclipIcon,
   PlusIcon,
   SearchIcon,
+  TerminalSquareIcon,
 } from 'lucide-react';
 import {
   lazy,
@@ -101,7 +102,13 @@ interface BlueprintBrowserProps {
 }
 
 /** Opens one peer canvas tab instead of nesting unrelated resource types. */
-export function CanvasLauncher({ onOpen }: { onOpen: (kind: CanvasResourceKind) => void }) {
+export function CanvasLauncher({
+  onOpen,
+  onOpenTerminal,
+}: {
+  onOpen: (kind: CanvasResourceKind) => void;
+  onOpenTerminal?: () => void;
+}) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -137,9 +144,11 @@ export function CanvasLauncher({ onOpen }: { onOpen: (kind: CanvasResourceKind) 
           <BoxesIcon aria-hidden="true" /> Agent blueprints
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          Terminal
-          <span className="ml-auto text-[10px] text-muted-foreground">Unavailable</span>
+        <DropdownMenuItem disabled={!onOpenTerminal} onSelect={onOpenTerminal}>
+          <TerminalSquareIcon aria-hidden="true" /> Terminal
+          {!onOpenTerminal ? (
+            <span className="ml-auto text-[10px] text-muted-foreground">Unavailable</span>
+          ) : null}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -166,7 +175,10 @@ export function FileBrowser({
         ? files.filter(
             (entry) =>
               entry.type === 'file' &&
-              entry.path.replace(/\\/gu, '/').toLocaleLowerCase().includes(normalizedQuery),
+              `${entry.display_path ?? ''} ${entry.path}`
+                .replace(/\\/gu, '/')
+                .toLocaleLowerCase()
+                .includes(normalizedQuery),
           )
         : files,
     [files, normalizedQuery],
@@ -245,6 +257,8 @@ export function FileBrowser({
             {previewPath ? (
               <Suspense fallback={<ResourceLoading label="Loading file" />}>
                 <WorkspaceFileView
+                  key={previewPath}
+                  mediaType={activeFile?.media_type}
                   path={previewPath}
                   size={activeFile?.size}
                   workspaceId={workspaceId}
@@ -548,7 +562,7 @@ interface WorkspaceFileNode {
 function buildFileTree(entries: readonly WorkspaceFileEntry[]): WorkspaceFileNode[] {
   const roots = new Map<string, WorkspaceFileNode>();
   for (const entry of entries) {
-    const parts = entry.path.split(/[\\/]+/).filter(Boolean);
+    const parts = (entry.display_path ?? entry.path).split(/[\\/]+/).filter(Boolean);
     let children = roots;
     parts.forEach((name, index) => {
       const isLeaf = index === parts.length - 1;

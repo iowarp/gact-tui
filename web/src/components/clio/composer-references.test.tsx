@@ -47,7 +47,7 @@ describe('composer reference presentation', () => {
     );
 
     const artifacts = await screen.findByRole('button', { name: 'Collapse Artifacts' });
-    const localFiles = screen.getByRole('button', { name: 'Collapse Local files' });
+    const localFiles = screen.getByRole('button', { name: 'Collapse Workspace files' });
     const sources = await screen.findByRole('button', { name: 'Collapse Sources' });
     expect(artifacts.compareDocumentPosition(localFiles) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,

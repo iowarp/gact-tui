@@ -69,9 +69,11 @@ mod tests {
             .expect("serialize event");
         assert_eq!(event, r#"{"kind":"event","data":"{\"type\":\"x\"}"}"#);
 
-        let event_with_id =
-            serde_json::to_string(&SseMessage::event(r#"{"type":"x"}"#.into(), Some("42".into())))
-                .expect("serialize event with id");
+        let event_with_id = serde_json::to_string(&SseMessage::event(
+            r#"{"type":"x"}"#.into(),
+            Some("42".into()),
+        ))
+        .expect("serialize event with id");
         assert_eq!(
             event_with_id,
             r#"{"kind":"event","data":"{\"type\":\"x\"}","id":"42"}"#

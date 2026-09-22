@@ -10,26 +10,74 @@
 use std::path::PathBuf;
 
 use crate::brand_backend::connect_mode_error;
+use crate::runtime_pack::prepare_bundled_runtime;
 use crate::supervisor_attach::try_attach_existing;
 use crate::supervisor_boot_log::{boot_log_line, reset_boot_log};
 use crate::supervisor_spawn::{spawn_and_probe, SpawnError};
 use crate::supervisor_state::SupervisorState;
-use crate::supervisor_types::BackendStatus;
+use crate::supervisor_types::{BackendStartupStage, BackendStatus};
 
-pub(crate) fn boot_sidecar(state: SupervisorState, launcher: PathBuf) {
+pub(crate) fn boot_sidecar(
+    state: SupervisorState,
+    launcher: PathBuf,
+    working_dir: Option<PathBuf>,
+    user_dir: Option<PathBuf>,
+    runtime_resource_dir: Option<PathBuf>,
+    app_local_data_dir: Option<PathBuf>,
+) {
     // Fresh transcript for this boot attempt so a later failure's
     // "Open logs" shows only the relevant run.
     reset_boot_log("boot");
 
     // 1. Attach to an existing local server if reachable.
+    state.set_status(BackendStatus::Starting(
+        BackendStartupStage::CheckingExisting,
+    ));
     if let Some(handle) = try_attach_existing() {
         boot_log_line("attached to an existing backend on the conventional port");
         state.set_handle(handle);
         return;
     }
 
-    // 2. Otherwise spawn our own.
-    let outcome = spawn_and_probe(&launcher);
+    // 2. Otherwise prepare the bundled runtime. Windows bundles carry one
+    // compressed archive instead of tens of thousands of NSIS file entries.
+    let bundled_runtime = match (
+        runtime_resource_dir.as_deref(),
+        app_local_data_dir.as_deref(),
+    ) {
+        (Some(resource_dir), Some(app_data_dir)) => {
+            state.set_status(BackendStatus::Starting(
+                BackendStartupStage::InstallingRuntime,
+            ));
+            match prepare_bundled_runtime(resource_dir, app_data_dir) {
+                Ok(runtime) => runtime,
+                Err(error) => {
+                    let message = format!("prepare bundled runtime: {error}");
+                    boot_log_line(&message);
+                    state.set_status(BackendStatus::Error(message));
+                    return;
+                }
+            }
+        }
+        _ => None,
+    };
+
+    // 3. Spawn our own.
+    state.set_status(BackendStatus::Starting(
+        BackendStartupStage::StartingService,
+    ));
+    if let Some(dir) = working_dir.as_deref() {
+        boot_log_line(&format!("managed backend workspace={dir:?}"));
+    }
+    if let Some(dir) = user_dir.as_deref() {
+        boot_log_line(&format!("managed backend user_dir={dir:?}"));
+    }
+    let outcome = spawn_and_probe(
+        &launcher,
+        working_dir.as_deref(),
+        user_dir.as_deref(),
+        bundled_runtime.as_deref(),
+    );
     match outcome {
         Ok((handle, child)) => {
             state.set_handle_and_child(handle, child);

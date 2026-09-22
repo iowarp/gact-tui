@@ -20,8 +20,10 @@ use serde::Deserialize;
 use std::sync::OnceLock;
 
 /// The embedded brand descriptor, baked in at compile time.
-const BRAND_BACKEND_JSON: &str =
-    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/gen/brand-backend.json"));
+const BRAND_BACKEND_JSON: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/gen/brand-backend.json"
+));
 
 /// The resolved backend block for the active brand. `mode == "managed"` means
 /// the supervisor may spawn/install a sidecar; `mode == "connect"` means
@@ -32,6 +34,18 @@ const BRAND_BACKEND_JSON: &str =
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BrandBackend {
+    /// Native product label from the selected brand profile.
+    #[serde(default)]
+    pub product_name: String,
+    /// What the running agent is called in first-person UI copy (e.g. a
+    /// "Keep {agent_name} running?" quit-confirmation prompt — today that
+    /// prompt is JS-side, in `web/src/lib/brand-vocabulary.ts`'s `vocab.agent`,
+    /// which resolves the SAME brand.json field independently; this
+    /// embedded copy exists for native call sites that need it without a
+    /// round trip through the webview). Defaults to the brand's bare `name`
+    /// when the brand declares no explicit `agentName`.
+    #[serde(default)]
+    pub agent_name: String,
     /// `"managed"` (spawn/install a sidecar) or `"connect"` (attach-only).
     pub mode: String,
     /// externalBin stem — installed as `<sidecar_name>{.exe}` (tauri-bundler
@@ -90,6 +104,25 @@ pub(crate) fn is_managed_install() -> bool {
     bb.mode == "managed" && bb.install.is_some()
 }
 
+/// Product label compiled from the selected brand profile, when available.
+pub(crate) fn product_name() -> Option<&'static str> {
+    let value = brand_backend().product_name.trim();
+    (!value.is_empty()).then_some(value)
+}
+
+/// The running agent's first-person label compiled from the selected brand
+/// profile, when available (e.g. for "Keep {agent_name} running?" prompts).
+///
+/// No native call site uses this yet — that prompt is JS-side today (see
+/// the `agent_name` field doc). Kept as a real, tested accessor (parity with
+/// [`product_name`]) for the first native first-person copy that needs it,
+/// rather than leaving the field reachable only through `Debug`.
+#[allow(dead_code)]
+pub(crate) fn agent_name() -> Option<&'static str> {
+    let value = brand_backend().agent_name.trim();
+    (!value.is_empty()).then_some(value)
+}
+
 /// The user-facing error for a connect-mode brand when no backend answers the
 /// attach probe. Names the brand's repo label (never a vendor literal) and the
 /// override env vars, telling the user to start that backend themselves.
@@ -128,12 +161,26 @@ mod tests {
         assert_eq!(bb.attach_port, 17800);
     }
 
+    /// `agent_name()` reads the generator-emitted `agentName` field (the
+    /// vocabulary counterpart to `product_name()`). The tracked neutral
+    /// `gact` profile (`branding/gact/brand.json`) declares an EXPLICIT
+    /// `"agentName": "Agent"` override, so this — not the bare-`name`
+    /// fallback the generator would use for a brand with no override — is
+    /// what the committed `gen/brand-backend.json` default embeds.
+    #[test]
+    fn agent_name_reads_the_embedded_vocabulary_field() {
+        assert_eq!(agent_name(), Some("Agent"));
+    }
+
     /// The connect-mode error names the override env vars and never a hardcoded
     /// vendor; with no repo label it falls back to a generic phrase.
     #[test]
     fn connect_mode_error_is_brand_neutral() {
         let msg = connect_mode_error();
-        assert!(msg.contains("GACT_PORT") && msg.contains("GACT_URL"), "got: {msg}");
+        assert!(
+            msg.contains("GACT_PORT") && msg.contains("GACT_URL"),
+            "got: {msg}"
+        );
         assert!(
             !msg.to_lowercase().contains("clio"),
             "connect error must not name a vendor, got: {msg}"

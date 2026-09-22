@@ -44,14 +44,16 @@ function AlertDialogOverlay({
 
 function AlertDialogContent({
   className,
+  onBackdropClick,
   size = "default",
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
   size?: "default" | "sm"
+  onBackdropClick?: React.MouseEventHandler<HTMLDivElement>
 }) {
   return (
     <AlertDialogPortal>
-      <AlertDialogOverlay />
+      <AlertDialogOverlay onClick={onBackdropClick} />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         data-size={size}

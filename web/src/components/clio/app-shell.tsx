@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/sheet';
 import { SidebarInset, SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useMenuAction } from '@/tauri/menu-actions';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 
 export interface ClioAppShellProps {
@@ -33,11 +32,14 @@ function DesktopNavigationLayout({
   children: ReactNode;
   collapseForWorkbench: boolean;
 }) {
+  // 'toggle-sessions' used to also be reachable via the native View menu
+  // (removed — see menu_spec.rs's application-menu trim); `SidebarTrigger`
+  // below already calls `useSidebar().toggleSidebar` directly, including
+  // its own keyboard shortcut, so no useMenuAction registration is needed.
   const { open, setOpen } = useSidebar();
   const panelRef = useRef<PanelImperativeHandle>(null);
   const restoreNavigationRef = useRef(false);
   const previousCollapseForWorkbenchRef = useRef(false);
-  useMenuAction('toggle-sessions', () => setOpen(!open));
 
   useEffect(() => {
     const wasCollapsedForWorkbench = previousCollapseForWorkbenchRef.current;
@@ -73,8 +75,8 @@ function DesktopNavigationLayout({
   };
 
   return (
-    <main className="h-dvh min-w-0 flex-1">
-      <ResizablePanelGroup className="h-dvh w-full" orientation="horizontal">
+    <main className="h-full min-h-0 min-w-0 flex-1">
+      <ResizablePanelGroup className="h-full min-h-0 w-full" orientation="horizontal">
         <ResizablePanel
           collapsedSize="56px"
           collapsible
@@ -141,7 +143,10 @@ export function ClioAppShell({
     if (!panel) return;
     setWorkbenchOpen(!panel.isCollapsed());
   }, [setWorkbenchOpen]);
-  useMenuAction('toggle-inspector', toggleWorkbench);
+  // 'toggle-inspector' used to also be reachable via the native View menu
+  // (removed — see menu_spec.rs's application-menu trim); the Ctrl+Shift+B
+  // shortcut and the PanelRightIcon button below already call
+  // `toggleWorkbench` directly, so no useMenuAction registration is needed.
 
   useEffect(() => {
     if (!desktopWorkbench) return;
@@ -191,7 +196,7 @@ export function ClioAppShell({
   const workspace = (
     <SidebarInset
       asChild
-      className="h-dvh min-w-0 overflow-hidden bg-background md:m-0 md:rounded-none md:shadow-none"
+      className="h-full min-h-0 min-w-0 overflow-hidden bg-background md:m-0 md:rounded-none md:shadow-none"
     >
       <section aria-label="Session workspace">
         {desktopWorkbench ? (
@@ -231,7 +236,7 @@ export function ClioAppShell({
           {workspace}
         </DesktopNavigationLayout>
       ) : (
-        <main className="flex h-dvh w-full">
+        <main className="flex h-full min-h-0 w-full">
           {navigation}
           {workspace}
         </main>

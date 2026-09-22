@@ -62,6 +62,15 @@ export const MANAGED_BACKEND_POLL_MS = 150;
  */
 export const CONNECTION_PROBE_POLL_MS = 30_000;
 
+/**
+ * Poll cadence while waiting out a sandbox setup already in flight
+ * (`sandbox_setup_in_progress`) or watching one this tab just started.
+ * Unit: milliseconds. A one-shot wait for a local, human-paced event (a UAC
+ * elevation prompt) rather than a background watch, so it sits with the
+ * desktop-boot tier, not the slow "notice something changed" tier.
+ */
+export const SANDBOX_SETUP_POLL_MS = 1_000;
+
 // ## Streaming and reconnect backoff
 // The client reconnects a dropped SSE stream with exponential backoff between
 // these two bounds.
@@ -120,6 +129,22 @@ export const MANAGED_BACKEND_READY_TIMEOUT_MS = 90_000;
  * slow or unreachable update feed cannot hang the Settings panel.
  */
 export const UPDATE_CHECK_TIMEOUT_MS = 15_000;
+
+/**
+ * Cadence of the automatic background update check. Unit: milliseconds.
+ * A signed release is not expected more than a few times a week, so this
+ * only needs to notice one within a working day; every check also costs the
+ * update feed a request from every installed desktop app.
+ */
+export const BACKGROUND_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1_000;
+
+/**
+ * Minimum gap enforced between two background update checks, backed by the
+ * persisted "last checked" timestamp. Unit: milliseconds. Guards against a
+ * burst of checks from window focus, reconnect, and interval firing close
+ * together — never a rate limit on the deliberate "Check for updates" button.
+ */
+export const BACKGROUND_UPDATE_CHECK_MIN_INTERVAL_MS = 60 * 1_000;
 
 /**
  * How long one availability probe waits for a remembered service before it is

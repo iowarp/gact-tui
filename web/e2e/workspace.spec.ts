@@ -431,6 +431,108 @@ test('renders dense flat-NDP semantics with accessible interactions', async ({ p
   await expect(page.getByText('Which evidence view should remain primary?')).toHaveCount(0);
 });
 
+test('keeps a pending EarthScope map flat, resizable, and available full-window', async ({
+  page,
+}) => {
+  const seeded = await page.request.post(`${fixtureEndpoint}/__test/a2ui-map-demo`, {
+    data: { enabled: true },
+  });
+  expect(seeded.ok()).toBe(true);
+
+  await page.goto('/');
+  await expect(page).toHaveURL(new RegExp(`${workspaceUrl}$`));
+  const pendingResponses = page.getByRole('region', { name: 'Agent needs your response' });
+  await expect(
+    pendingResponses.getByText('Choose one observed station to continue.'),
+  ).toBeVisible();
+  await expect(pendingResponses.getByText('Generated UI')).toHaveCount(0);
+  await expect(
+    pendingResponses.getByRole('group', { name: 'Nearest EarthScope GNSS stations' }),
+  ).toBeVisible();
+  // Four boxes flattened to one: only the map's own Frame keeps a real
+  // border between the tray and the map itself.
+  await expect(pendingResponses.locator('[data-slot="frame"].border')).toHaveCount(1);
+
+  // A wheel over the map's own canvas must never scroll the page (which
+  // would fight the map for the gesture) — a real browser check, not a
+  // synthetic-event spy, since only a real compositor honors preventDefault.
+  const mapGroup = pendingResponses.getByRole('group', {
+    name: 'Nearest EarthScope GNSS stations',
+  });
+  const mapBox = await mapGroup.boundingBox();
+  expect(mapBox).not.toBeNull();
+  if (mapBox) {
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await page.mouse.move(mapBox.x + mapBox.width / 2, mapBox.y + mapBox.height / 2);
+    await page.mouse.wheel(0, 600);
+    await expect
+      .poll(() => page.evaluate(() => window.scrollY))
+      .toBe(scrollBefore);
+  }
+
+  const viewport = pendingResponses.locator('[data-slot="a2ui-response-viewport"]');
+  const initialHeight = await viewport.evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+  await pendingResponses.getByRole('button', { name: 'Resize interactive surface' }).click();
+  await expect
+    .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeGreaterThan(initialHeight);
+
+  const griped = await viewport.evaluate((element) => element.getBoundingClientRect().height);
+  const corner = pendingResponses.getByRole('button', {
+    name: 'Corner resize handle',
+  });
+  await expect(corner).toBeVisible();
+  await corner.scrollIntoViewIfNeeded();
+  const cornerBox = await corner.boundingBox();
+  expect(cornerBox).not.toBeNull();
+  if (cornerBox) {
+    const cornerX = cornerBox.x + cornerBox.width / 2;
+    const cornerY = cornerBox.y + cornerBox.height / 2;
+    await page.mouse.move(cornerX, cornerY);
+    await page.mouse.down();
+    await page.mouse.move(cornerX, cornerY - 15, { steps: 5 });
+    await page.mouse.move(cornerX, cornerY - 30, { steps: 5 });
+    await page.mouse.up();
+    await expect
+      .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
+      .toBeLessThan(griped);
+  }
+  const beforeFullscreenHeight = await viewport.evaluate(
+    (element) => element.getBoundingClientRect().height,
+  );
+
+  await pendingResponses
+    .getByRole('button', { name: 'Open interactive surface full screen' })
+    .click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Choose one observed station to continue.');
+  await expect(
+    dialog.getByRole('group', { name: 'Nearest EarthScope GNSS stations' }),
+  ).toBeVisible();
+  const dialogBounds = await dialog.boundingBox();
+  const mapBounds = await dialog
+    .getByRole('group', { name: 'Nearest EarthScope GNSS stations' })
+    .boundingBox();
+  const pageSize = page.viewportSize();
+  expect(dialogBounds?.width ?? 0).toBeGreaterThan((pageSize?.width ?? 0) * 0.9);
+  expect(dialogBounds?.height ?? 0).toBeGreaterThan((pageSize?.height ?? 0) * 0.9);
+  expect(mapBounds?.height ?? 0).toBeGreaterThan((pageSize?.height ?? 0) * 0.75);
+
+  await page.getByRole('button', { name: 'Exit full screen' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  // The inline viewport keeps whatever height it had before fullscreen —
+  // fullscreen never resets it.
+  await expect
+    .poll(() => viewport.evaluate((element) => element.getBoundingClientRect().height))
+    .toBe(beforeFullscreenHeight);
+  const reset = await page.request.post(`${fixtureEndpoint}/__test/a2ui-map-demo`, {
+    data: { enabled: false },
+  });
+  expect(reset.ok()).toBe(true);
+});
+
 test('keeps navigation and workspace canvas accessible on mobile with reduced motion', async ({
   page,
 }) => {

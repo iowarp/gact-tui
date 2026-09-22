@@ -25,6 +25,7 @@ export type McpConfigurationInput =
       command: string;
       args: string[];
       env?: Record<string, string>;
+      always_load?: boolean;
       name?: string;
     };
 

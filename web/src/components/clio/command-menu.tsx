@@ -29,7 +29,6 @@ import { SEARCH_DEBOUNCE_MS } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { ClioRelativeTime } from './relative-time';
 import { useLiveStore } from '@/store/live-store';
-import { useMenuAction } from '@/tauri/menu-actions';
 
 /**
  * How many results each command-menu group shows. Unit: entries per group.
@@ -89,7 +88,10 @@ export function ClioCommandMenu({
     enabled: open && serverQuery.length >= 2 && Boolean(workspaceId),
   });
 
-  useMenuAction('command-palette', () => setOpen((value) => !value));
+  // 'command-palette' used to also be reachable via the native View menu
+  // (removed — see menu_spec.rs's application-menu trim); the Ctrl/Cmd+K
+  // listener below already toggles the palette directly, so no
+  // useMenuAction registration is needed.
   useEffect(() => {
     const openMenu = () => setOpen(true);
     const handleKey = (event: KeyboardEvent) => {

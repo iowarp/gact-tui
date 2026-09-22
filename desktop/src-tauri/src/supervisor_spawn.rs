@@ -17,7 +17,7 @@ use std::io;
 
 use crate::net_util::pick_free_port;
 use crate::supervisor_boot_log::boot_log_line;
-use crate::supervisor_probe::probe_capabilities;
+use crate::supervisor_probe::{probe_capabilities, ProbeError};
 use crate::supervisor_spawn_command::{launcher_spawn_command, LAUNCHER_HOST};
 use crate::supervisor_types::{BackendHandle, BackendStatus};
 
@@ -34,8 +34,7 @@ pub(crate) const LAUNCHER_EXIT_NOT_FOUND: i32 = 2;
 pub(crate) enum SpawnError {
     /// The launcher exited with [`LAUNCHER_EXIT_NOT_FOUND`]: no clio install.
     NeedsInstall,
-    /// Any other failure (port allocation, spawn failure, probe timeout while
-    /// the launcher is still running, ...).
+    /// Any other failure (port allocation, spawn failure, startup stall, ...).
     Other(String),
 }
 
@@ -45,7 +44,12 @@ impl From<String> for SpawnError {
     }
 }
 
-pub(crate) fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child), SpawnError> {
+pub(crate) fn spawn_and_probe(
+    launcher: &Path,
+    working_dir: Option<&Path>,
+    user_dir: Option<&Path>,
+    bundled_runtime: Option<&Path>,
+) -> Result<(BackendHandle, Child), SpawnError> {
     let port = pick_free_port().map_err(|e| format!("port allocation failed: {e}"))?;
     let token = generate_token();
     let url = format!("http://{LAUNCHER_HOST}:{port}");
@@ -53,7 +57,14 @@ pub(crate) fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child),
     boot_log_line(&format!(
         "spawning launcher {launcher:?} on {LAUNCHER_HOST}:{port}"
     ));
-    let mut command = launcher_spawn_command(launcher, port, &token);
+    let mut command = launcher_spawn_command(
+        launcher,
+        port,
+        &token,
+        working_dir,
+        user_dir,
+        bundled_runtime,
+    );
 
     #[cfg(unix)]
     {
@@ -83,7 +94,7 @@ pub(crate) fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child),
         thread::spawn(move || tee_to_boot_log(BufReader::new(err)));
     }
 
-    match probe_capabilities(&url, &token) {
+    match probe_capabilities(&url, &token, &mut child) {
         Ok(()) => {
             boot_log_line("sidecar answered /v1/capabilities — backend ready");
             Ok((
@@ -95,38 +106,27 @@ pub(crate) fn spawn_and_probe(launcher: &Path) -> Result<(BackendHandle, Child),
                 child,
             ))
         }
-        Err(probe_err) => {
-            // The probe failed. Distinguish "the launcher already exited 2
-            // because clio isn't installed" (-> NeedsInstall, one-swoop) from
-            // any other failure (-> Error). The launcher mirrors clio's exit
-            // code, so a still-running child means clio is up but unhealthy.
-            // Record the distinction in the boot log — otherwise every failure
-            // looks identical ("connection refused") and is undiagnosable.
+        Err(ProbeError::Exited(status)) if status.code() == Some(LAUNCHER_EXIT_NOT_FOUND) => {
+            boot_log_line("launcher exited 2 (backend not found) — routing to first-run install");
+            Err(SpawnError::NeedsInstall)
+        }
+        Err(ProbeError::Exited(status)) => {
+            let message = format!(
+                "launcher exited early (code {:?}) before the backend answered /v1/capabilities",
+                status.code()
+            );
+            boot_log_line(&message);
+            Err(SpawnError::Other(message))
+        }
+        Err(ProbeError::Failed(probe_err)) => {
             boot_log_line(&format!("probe gave up: {probe_err}"));
-            match child.try_wait() {
-                Ok(Some(status)) if status.code() == Some(LAUNCHER_EXIT_NOT_FOUND) => {
-                    boot_log_line(
-                        "launcher exited 2 (backend not found) — routing to first-run install",
-                    );
-                    Err(SpawnError::NeedsInstall)
-                }
-                Ok(Some(status)) => {
-                    boot_log_line(&format!(
-                        "launcher exited early (code {:?}) before the backend answered /v1/capabilities",
-                        status.code()
-                    ));
-                    Err(SpawnError::Other(probe_err))
-                }
-                _ => {
-                    boot_log_line(
-                        "launcher still running but the backend never answered /v1/capabilities within the probe window; terminating",
-                    );
-                    // Best-effort reap so a half-started launcher isn't leaked.
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    Err(SpawnError::Other(probe_err))
-                }
-            }
+            boot_log_line(
+                "launcher is still running but its startup transcript stalled; terminating",
+            );
+            // Best-effort reap so a half-started launcher isn't leaked.
+            let _ = child.kill();
+            let _ = child.wait();
+            Err(SpawnError::Other(probe_err))
         }
     }
 }

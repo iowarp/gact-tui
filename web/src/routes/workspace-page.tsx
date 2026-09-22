@@ -44,10 +44,13 @@ import { useComposerDraft } from '@/hooks/use-composer-draft';
 import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
+import { useWorkspaceTerminalActions } from '@/hooks/use-workspace-terminal-actions';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { buildSessionAttentionMap } from '@/lib/session-attention';
 import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
+import { showsBaseAgent } from '@/lib/session-state';
+import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 
 function TranscriptPresenceSurface({
   children,
@@ -108,6 +111,7 @@ export function WorkspacePage() {
     interactionSurfaces,
     refetchInteractionSurfaces,
     modelOptions,
+    modelConfiguration,
     modelCatalogStatus,
     parentSession,
     providerCatalog,
@@ -133,6 +137,7 @@ export function WorkspacePage() {
     () => allSessions.data ?? sessions.data ?? [],
     [allSessions.data, sessions.data],
   );
+  const activeWorkspace = workspaces.data?.find((workspace) => workspace.id === workspaceId);
   const sessionAttentions = useMemo(
     () => buildSessionAttentionMap(navigationSessions, attentionInteractions),
     [attentionInteractions, navigationSessions],
@@ -176,6 +181,15 @@ export function WorkspacePage() {
     openWorkspaceResource,
     revealWorkbench,
   } = useWorkbenchNavigation({ allSessions: allSessions.data ?? [], workspaceId });
+  const terminalActions = useWorkspaceTerminalActions(activeWorkspace?.path, revealWorkbench);
+  useDesktopTitleSync({
+    blueprint: activeBlueprint?.display_name,
+    onOpenBlueprint: () =>
+      activeBlueprint && revealWorkbench({ kind: 'blueprint', blueprint: activeBlueprint }),
+    session: session?.title,
+    showsBaseAgent: showsBaseAgent(session, activeBlueprint),
+    workspace: activeWorkspace?.display_name,
+  });
   const requestedWorkflowId = searchParams.get('workflow');
   const openedWorkflowId = useRef<string | undefined>(undefined);
   useEffect(() => {
@@ -264,6 +278,7 @@ export function WorkspacePage() {
   } = useSessionMutations({
     activeModel,
     activeProvider,
+    modelConfiguration: modelConfiguration.data,
     session,
     sessionId,
     workspaceId,
@@ -312,9 +327,6 @@ export function WorkspacePage() {
           statusStrip={
             <WorkspaceLiveStatusStrip
               activeWorkCount={workspaceRouteState.countActiveWork(runs, tasks, tools)}
-              a2uiVersions={capabilities.data?.a2ui_versions}
-              gactVersions={capabilities.data?.gact_versions}
-              service={capabilities.data?.service}
               sessionId={sessionId}
               streamError={streamError}
             />
@@ -471,6 +483,7 @@ export function WorkspacePage() {
           focusRequestKey={composerFocusKey}
           key={`composer:${sessionId}:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
           model={activeModel}
+          modelCatalogRefreshing={providerCatalog.isRefreshing}
           modelCatalogStatus={modelCatalogStatus}
           modelOptions={modelOptions}
           pendingInteractions={pendingInteractionsPanel}
@@ -484,7 +497,7 @@ export function WorkspacePage() {
               throw error;
             }
           }}
-          onRetryModelCatalog={() => void providerCatalog.refetch()}
+          onRetryModelCatalog={(providerId) => void providerCatalog.refreshCatalog(providerId)}
           onBehaviorChange={async (behavior) => {
             await updateSessionBehavior.mutateAsync(sessionPatchForMessageBehavior(behavior));
           }}
@@ -570,6 +583,8 @@ export function WorkspacePage() {
               await sessionHistory.fork.mutateAsync(undefined);
             }}
             onOpenBlueprint={(blueprint) => revealWorkbench({ kind: 'blueprint', blueprint })}
+            onOpenSystemTerminal={terminalActions.onOpenSystemTerminal}
+            onOpenTerminal={terminalActions.onOpenTerminal}
             onReturnToParent={(parent) =>
               navigate(
                 `/workspaces/${encodeURIComponent(parent.workspace_id)}/sessions/${encodeURIComponent(parent.id)}`,
@@ -608,6 +623,7 @@ export function WorkspacePage() {
                 path,
               })
             }
+            onOpenTerminal={terminalActions.onOpenTerminal}
             onOpenSubagent={openSubagent}
             subagents={subagents}
             onRejectDiff={(targetSessionId, targetWorkspaceId, path) =>
@@ -676,9 +692,6 @@ export function WorkspacePage() {
         statusStrip={
           <WorkspaceLiveStatusStrip
             activeWorkCount={activeWorkCount}
-            a2uiVersions={capabilities.data?.a2ui_versions}
-            gactVersions={capabilities.data?.gact_versions}
-            service={capabilities.data?.service}
             sessionId={sessionId}
             sessionState={session?.state}
             streamError={streamError}

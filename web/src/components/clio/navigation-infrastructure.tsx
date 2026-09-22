@@ -22,6 +22,7 @@ import {
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
 import { useRepository } from '@/hooks/use-repository';
+import { vocab } from '@/lib/brand-vocabulary';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { workspaceIdFromRoute } from '@/lib/workspace-route-memory';
@@ -66,19 +67,21 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   const items = useMemo<InfrastructureItem[]>(() => {
     const integrationWarnings =
       health.data?.integrations.filter(
-        (integration) => !['ready', 'healthy', 'live'].includes(integration.status),
+        (integration) =>
+          integration.required !== false &&
+          !['ready', 'healthy', 'live', 'skipped'].includes(integration.status),
       ).length ?? 0;
     const agentState: InfrastructureItem = health.isPending
       ? {
           id: 'agent-service',
-          label: 'Agent service',
+          label: vocab.agent,
           state: 'checking',
           stateLabel: 'Checking',
         }
       : health.error || !health.data?.healthy
         ? {
             id: 'agent-service',
-            label: 'Agent service',
+            label: vocab.agent,
             state: 'failed',
             stateLabel: 'Unavailable',
             detail: health.error?.message,
@@ -86,14 +89,14 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
         : integrationWarnings
           ? {
               id: 'agent-service',
-              label: 'Agent service',
+              label: vocab.agent,
               state: 'degraded',
               stateLabel: 'Warning',
               detail: `${integrationWarnings} supporting ${integrationWarnings === 1 ? 'service needs' : 'services need'} attention`,
             }
           : {
               id: 'agent-service',
-              label: 'Agent service',
+              label: vocab.agent,
               state: 'healthy',
               stateLabel: 'Ready',
             };
@@ -174,7 +177,10 @@ export function NavigationInfrastructure({ endpoint, from }: NavigationInfrastru
   return (
     <Collapsible asChild onOpenChange={setOpen} open={open}>
       <SidebarMenuItem>
-        <SidebarMenuButton asChild tooltip={`Infrastructure status: ${overall.stateLabel}`}>
+        <SidebarMenuButton
+          asChild
+          tooltip={`Infrastructure: ${overall.stateLabel}. ${overall.detail || infrastructureSummary(items)}`}
+        >
           <Link
             aria-label={`Infrastructure: ${overall.stateLabel}`}
             state={{ endpoint, from }}
@@ -322,6 +328,14 @@ function aggregateInfrastructureState(items: readonly InfrastructureItem[]): Inf
     };
   }
   return { id: 'infrastructure', label: 'Infrastructure', state: 'healthy', stateLabel: 'Ready' };
+}
+
+function infrastructureSummary(items: readonly InfrastructureItem[]): string {
+  const active = items.filter((item) => item.state !== 'unavailable');
+  if (!active.length) return 'No optional services are connected.';
+  const attention = active.filter((item) => ['failed', 'degraded'].includes(item.state));
+  if (!attention.length) return `${vocab.agent} and connected services are ready.`;
+  return attention.map((item) => `${item.label}: ${item.stateLabel}`).join('; ');
 }
 
 function InfrastructureStateIcon({ state }: { state: InfrastructureState }) {

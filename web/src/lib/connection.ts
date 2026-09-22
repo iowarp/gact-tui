@@ -7,11 +7,21 @@ export interface ConnectionSettings {
   endpoint: string;
   token?: string;
   label?: string;
+  location?: string;
+  infrastructure?: InfrastructureConnection;
 }
 
 export interface SavedConnection {
   endpoint: string;
   label?: string;
+  location?: string;
+  infrastructure?: InfrastructureConnection;
+}
+
+/** Durable ownership reference for a CLIO service reached through local CLIO infrastructure. */
+export interface InfrastructureConnection {
+  targetId: string;
+  serviceId: 'clio_agent';
 }
 
 export const DEFAULT_ENDPOINT = 'http://127.0.0.1:8787';

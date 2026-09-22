@@ -18,9 +18,13 @@ type AuthMethod string
 
 const (
 	// AuthMethodNone — provider needs no credentials (lm_studio /
-	// ollama on localhost, codex via the CLI subscription, and local
+	// ollama on localhost and local
 	// OpenAI-compatible vLLM servers that accept the literal "EMPTY" key).
 	AuthMethodNone AuthMethod = "none"
+
+	// AuthMethodSubscription — a local SDK/CLI reuses an account subscription,
+	// but the account must still be signed in and verified before use.
+	AuthMethodSubscription AuthMethod = "subscription"
 
 	// AuthMethodAPIKey — user pastes a long-lived API key (Anthropic,
 	// OpenAI, OpenRouter, and any other cloud provider behind a
@@ -52,7 +56,7 @@ func WrapProvider(p Provider) AuthProvider {
 func (a AuthProvider) Method() AuthMethod {
 	for _, raw := range a.AuthMethods {
 		switch m := AuthMethod(raw); m {
-		case AuthMethodOAuth, AuthMethodAPIKey, AuthMethodNone:
+		case AuthMethodOAuth, AuthMethodAPIKey, AuthMethodSubscription, AuthMethodNone:
 			return m
 		}
 	}
@@ -67,7 +71,7 @@ func (a AuthProvider) NeedsLogin() bool {
 		return false
 	}
 	switch a.Method() {
-	case AuthMethodOAuth, AuthMethodAPIKey:
+	case AuthMethodOAuth, AuthMethodAPIKey, AuthMethodSubscription:
 		return true
 	default:
 		return false

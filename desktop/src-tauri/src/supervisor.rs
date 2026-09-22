@@ -27,11 +27,15 @@ use std::{path::PathBuf, thread};
 use crate::supervisor_boot::{boot_attach_only, boot_sidecar};
 pub use crate::supervisor_launcher::locate_launcher;
 use crate::supervisor_state::SupervisorState;
-use crate::supervisor_types::{BackendHandle, BackendStatus};
+use crate::supervisor_types::{BackendHandle, BackendStartupStage, BackendStatus};
 
 /// Internal state owned by the Tauri runtime.
 pub struct Supervisor {
     state: SupervisorState,
+    working_dir: Option<PathBuf>,
+    user_dir: Option<PathBuf>,
+    runtime_resource_dir: Option<PathBuf>,
+    app_local_data_dir: Option<PathBuf>,
 }
 
 impl Supervisor {
@@ -41,7 +45,36 @@ impl Supervisor {
     pub fn new() -> Self {
         Self {
             state: SupervisorState::new_starting(),
+            working_dir: None,
+            user_dir: None,
+            runtime_resource_dir: None,
+            app_local_data_dir: None,
         }
+    }
+
+    /// Sets the stable workspace used by a managed desktop backend.
+    pub fn set_working_dir(&mut self, working_dir: PathBuf) {
+        self.working_dir = Some(working_dir);
+    }
+
+    /// Sets the persistent user-state root used by a managed desktop backend.
+    pub fn set_user_dir(&mut self, user_dir: PathBuf) {
+        self.user_dir = Some(user_dir);
+    }
+
+    /// Sets the read-only bundle resource root and writable per-user data root
+    /// used to materialize a compressed runtime pack before backend startup.
+    pub fn set_bundled_runtime(&mut self, resource_dir: PathBuf, app_local_data_dir: PathBuf) {
+        self.runtime_resource_dir = Some(resource_dir);
+        self.app_local_data_dir = Some(app_local_data_dir);
+    }
+
+    /// Writable runtime selected for this installed desktop, when one exists.
+    pub fn managed_runtime_dir(&self) -> Option<PathBuf> {
+        self.app_local_data_dir
+            .as_ref()
+            .map(|root| root.join("bundled-runtime/gact-runtime"))
+            .filter(|runtime| runtime.join("runtime.json").is_file())
     }
 
     /// Reads the current backend handle (cheap clone of a small struct).
@@ -65,8 +98,19 @@ impl Supervisor {
     /// in play without us needing to mirror their env.
     pub fn start(&self, launcher: PathBuf) {
         let state = self.state.clone();
+        let working_dir = self.working_dir.clone();
+        let user_dir = self.user_dir.clone();
+        let runtime_resource_dir = self.runtime_resource_dir.clone();
+        let app_local_data_dir = self.app_local_data_dir.clone();
         thread::spawn(move || {
-            boot_sidecar(state, launcher);
+            boot_sidecar(
+                state,
+                launcher,
+                working_dir,
+                user_dir,
+                runtime_resource_dir,
+                app_local_data_dir,
+            );
         });
     }
 
@@ -102,7 +146,9 @@ impl Supervisor {
                 return;
             }
         };
-        self.state.set_status(BackendStatus::Starting);
+        self.state.set_status(BackendStatus::Starting(
+            BackendStartupStage::CheckingExisting,
+        ));
         self.start(launcher);
     }
 
@@ -150,7 +196,7 @@ mod tests {
                 return;
             }
         };
-        let (handle, child) = match spawn_and_probe(&launcher) {
+        let (handle, child) = match spawn_and_probe(&launcher, None, None, None) {
             Ok(v) => v,
             Err(e) => {
                 eprintln!("skip: spawn failed (no resolvable clio-agent-gact?): {e:?}");

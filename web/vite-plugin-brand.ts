@@ -13,6 +13,18 @@ interface RawBrand {
   logoSvg?: string;
   logoImage?: string;
   accent?: string;
+  /** Native product label, e.g. window/app/installer identity. Defaults to `${name} Desktop`. */
+  productName?: string;
+  /** What the running agent is called in first-person UI copy. Defaults to `name`. */
+  agentName?: string;
+  /** The noun for a project/session container, e.g. "workspace". Defaults to "workspace". */
+  workspaceNoun?: string;
+  /** Release index for the installed desktop product. */
+  desktopReleaseUrl?: string;
+  /** Release index for the connected agent service. */
+  agentReleaseUrl?: string;
+  /** Legacy shared release index; used as the default for both products. */
+  releaseUrl?: string;
   themeTokens?: Record<string, string>;
   landing?: {
     eyebrow?: string;
@@ -38,6 +50,11 @@ export interface ResolvedBrand {
   taglineAccentUrl: string | null;
   markGlyph: string;
   accent: string | null;
+  productName: string;
+  agentName: string;
+  workspaceNoun: string;
+  desktopReleaseUrl: string | null;
+  agentReleaseUrl: string | null;
   themeTokens: Record<string, string>;
   landing: {
     eyebrow: string;
@@ -104,6 +121,11 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
     taglineAccentUrl: raw.taglineAccentUrl?.trim() || null,
     markGlyph: raw.markGlyph?.trim().slice(0, 1) || name.slice(0, 1).toUpperCase(),
     accent: raw.accent?.trim() || null,
+    productName: raw.productName?.trim() || `${name} Desktop`,
+    agentName: raw.agentName?.trim() || name,
+    workspaceNoun: raw.workspaceNoun?.trim() || 'workspace',
+    desktopReleaseUrl: raw.desktopReleaseUrl?.trim() || raw.releaseUrl?.trim() || null,
+    agentReleaseUrl: raw.agentReleaseUrl?.trim() || raw.releaseUrl?.trim() || null,
     themeTokens: { ...(raw.themeTokens ?? {}) },
     landing: {
       eyebrow: raw.landing?.eyebrow?.trim() || name,
@@ -131,6 +153,11 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
 const VIRTUAL_ID = '@brand';
 const RESOLVED_ID = '\0@brand';
 
+/** The build-time-emitted / dev-served path for the brand's own favicon. */
+const BRAND_FAVICON_PATH = '/brand-favicon.svg';
+/** The tracked, product-neutral fallback shipped in web/public. */
+const NEUTRAL_FAVICON_PATH = '/favicon.svg';
+
 export function brandPlugin(brandingRoot: string, profile: string): Plugin {
   let cached: ResolvedBrand | undefined;
   const getBrand = () => (cached ??= loadBrand(brandingRoot, profile));
@@ -145,6 +172,40 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
         ? `export const brand = ${JSON.stringify(getBrand())}; export default brand;`
         : null;
     },
+    // Brand-drives the document <title> and favicon so a reload never falls
+    // back to the tracked-default HTML's own hardcoded values (previously
+    // "web" / /favicon.svg — the ONLY favicon path at all, since nothing
+    // patched it at runtime, so it survived every reload regardless of
+    // brand). index.html carries neither a <title> nor a favicon <link> of
+    // its own any more; both come from here, for both dev and build.
+    transformIndexHtml() {
+      const brand = getBrand();
+      return [
+        { tag: 'title', children: brand.name, injectTo: 'head' },
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'icon',
+            type: 'image/svg+xml',
+            href: brand.logoSvg ? BRAND_FAVICON_PATH : NEUTRAL_FAVICON_PATH,
+          },
+          injectTo: 'head',
+        },
+      ];
+    },
+    // Build: emit the brand's logo as the favicon asset transformIndexHtml
+    // just linked to. Skipped when the brand declares no logoSvg — the HTML
+    // already points at the neutral tracked favicon.svg instead, which vite
+    // copies from public/ on its own.
+    generateBundle() {
+      const brand = getBrand();
+      if (!brand.logoSvg) return;
+      this.emitFile({
+        type: 'asset',
+        fileName: BRAND_FAVICON_PATH.slice(1),
+        source: brand.logoSvg,
+      });
+    },
     configureServer(server) {
       const profileDirectory = resolve(brandingRoot, profile);
       server.watcher.add(profileDirectory);
@@ -153,6 +214,22 @@ export function brandPlugin(brandingRoot: string, profile: string): Plugin {
         cached = undefined;
         const module = server.moduleGraph.getModuleById(RESOLVED_ID);
         if (module) void server.reloadModule(module);
+      });
+      // Dev: serve the same favicon transformIndexHtml links to. Registered
+      // directly (not returned) so it runs ahead of vite's internal static
+      // middleware — there is no real file at this path to conflict with.
+      server.middlewares.use((req, res, next) => {
+        if (req.url !== BRAND_FAVICON_PATH) {
+          next();
+          return;
+        }
+        const brand = getBrand();
+        if (!brand.logoSvg) {
+          next();
+          return;
+        }
+        res.setHeader('Content-Type', 'image/svg+xml');
+        res.end(brand.logoSvg);
       });
     },
   };

@@ -6,6 +6,7 @@ import {
   ShieldQuestionIcon,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { PROTOCOL } from '@/lib/brand-vocabulary';
 import type { SessionAttention } from '@/lib/session-attention';
 
 interface SessionAttentionIndicatorsProps {
@@ -46,7 +47,7 @@ export function SessionAttentionIndicators({
       {a2uiCount ? (
         <Badge variant="outline">
           <BoxesIcon aria-hidden="true" data-icon="inline-start" />
-          {a2uiCount === 1 ? 'Interactive view' : `${a2uiCount} interactive views`}
+          {a2uiCount === 1 ? `${PROTOCOL.a2ui} surface` : `${a2uiCount} ${PROTOCOL.a2ui} surfaces`}
         </Badge>
       ) : null}
       {unknownCount ? (
