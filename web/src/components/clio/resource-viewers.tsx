@@ -1,30 +1,22 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { brand } from '@brand';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import AceEditor from 'react-ace';
-import 'ace-builds/src-noconflict/mode-json';
-import 'ace-builds/src-noconflict/mode-markdown';
-import 'ace-builds/src-noconflict/mode-python';
-import 'ace-builds/src-noconflict/mode-sh';
-import 'ace-builds/src-noconflict/mode-text';
-import 'ace-builds/src-noconflict/mode-toml';
-import 'ace-builds/src-noconflict/mode-yaml';
-import 'ace-builds/src-noconflict/theme-github';
-import 'ace-builds/src-noconflict/theme-one_dark';
+import { useQuery } from '@tanstack/react-query';
 import {
   BoxIcon,
+  CopyIcon,
+  DownloadIcon,
+  ExternalLinkIcon,
+  FileIcon,
   FileCode2Icon,
   ImageIcon,
   LocateFixedIcon,
   Maximize2Icon,
   Minimize2Icon,
-  SaveIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react';
-import { useTheme } from 'next-themes';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CodeBlock,
@@ -44,7 +36,6 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -54,6 +45,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { useObjectUrl } from '@/hooks/use-object-url';
 import { formatBytes } from '@/lib/format';
 import { languageForPath } from '@/lib/code-language';
+import { isTextMediaType } from '@/lib/media-types';
 import { INLINE_PREVIEW_MAX_BYTES } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
 import { ClioCsvView } from './csv-view';
@@ -67,15 +59,46 @@ export function WorkspaceFileView({
   workspaceId,
   path,
   size,
+  mediaType,
 }: {
   workspaceId: string;
   path: string;
   size?: number;
+  mediaType?: string;
 }) {
-  return isImagePath(path) ? (
-    <WorkspaceImageView path={path} workspaceId={workspaceId} />
-  ) : (
-    <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} />
+  const detected = mediaType || inferredWorkspaceMediaType(path);
+  if (detected === 'application/pdf') {
+    return <WorkspacePdfView path={path} workspaceId={workspaceId} />;
+  }
+  if (detected.startsWith('image/')) {
+    return <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />;
+  }
+  if (isTextMediaType(detected)) {
+    return <WorkspaceTextView path={path} size={size} workspaceId={workspaceId} />;
+  }
+  return (
+    <WorkspaceBinaryView mediaType={detected} path={path} size={size} workspaceId={workspaceId} />
+  );
+}
+
+const WorkspacePdfViewer = lazy(() =>
+  import('./document-pdf-viewer').then((module) => ({ default: module.ClioDocumentPdfViewer })),
+);
+
+function WorkspacePdfView({ workspaceId, path }: { workspaceId: string; path: string }) {
+  const { settings } = useConnectionSettings();
+  const url = `${settings.endpoint.replace(/\/$/u, '')}/v1/workspaces/${encodeURIComponent(workspaceId)}/files/read?path=${encodeURIComponent(path)}`;
+  const source = useMemo(
+    () => ({
+      url,
+      ...(settings.token ? { httpHeaders: { Authorization: `Bearer ${settings.token}` } } : {}),
+    }),
+    [settings.token, url],
+  );
+  return (
+    <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
+      <WorkspacePdfViewer name={fileName(path)} onSelection={() => undefined} source={source} />
+    </Suspense>
   );
 }
 
@@ -100,7 +123,15 @@ function WorkspaceTextView({
   return <TextResourceView content={content.data} error={content.error?.message} path={path} />;
 }
 
-function WorkspaceImageView({ workspaceId, path }: { workspaceId: string; path: string }) {
+function WorkspaceImageView({
+  workspaceId,
+  path,
+  mediaType,
+}: {
+  workspaceId: string;
+  path: string;
+  mediaType: string;
+}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const content = useQuery({
@@ -111,156 +142,91 @@ function WorkspaceImageView({ workspaceId, path }: { workspaceId: string; path: 
     <ImageResourceView
       bytes={content.data}
       error={content.error?.message}
-      mediaType={imageMediaType(path)}
+      mediaType={mediaType}
       name={fileName(path)}
     />
   );
 }
 
-/** Edits one server-owned blueprint source file with a real code editor and explicit save. */
-export function BlueprintFileEditor({
-  blueprintId,
+function WorkspaceBinaryView({
   workspaceId,
-  sessionId,
   path,
+  mediaType,
+  size,
 }: {
-  blueprintId: string;
   workspaceId: string;
-  sessionId: string;
   path: string;
+  mediaType: string;
+  size?: number;
 }) {
   const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  const queryClient = useQueryClient();
-  const { resolvedTheme } = useTheme();
-  const queryKey = ['blueprint-file', blueprintId, workspaceId, sessionId, path] as const;
-  const content = useQuery({
-    queryKey,
-    queryFn: ({ signal }) =>
-      repository.readAgentBlueprintFile(blueprintId, path, { workspaceId, sessionId }, signal),
-  });
-  const [draft, setDraft] = useState('');
-  const [baseline, setBaseline] = useState('');
-  const [loadedPath, setLoadedPath] = useState('');
-  const [validation, setValidation] = useState<{ errors: string[]; warnings: string[] }>({
-    errors: [],
-    warnings: [],
-  });
-  const activeDraft = loadedPath === path ? draft : (content.data ?? '');
-  const activeBaseline = loadedPath === path ? baseline : (content.data ?? '');
-  const dirty = activeDraft !== activeBaseline;
-  const updateDraft = (next: string) => {
-    if (loadedPath !== path) {
-      setLoadedPath(path);
-      setBaseline(content.data ?? '');
+  const [busy, setBusy] = useState<'download' | 'open'>();
+
+  const load = async (mode: 'download' | 'open') => {
+    setBusy(mode);
+    try {
+      const bytes = await repository.readWorkspaceFileBytes(workspaceId, path);
+      const url = URL.createObjectURL(
+        new Blob([Uint8Array.from(bytes).buffer], { type: mediaType }),
+      );
+      if (mode === 'open') {
+        window.open(url, '_blank', 'noopener,noreferrer');
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName(path);
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `Could not ${mode} ${fileName(path)}`);
+    } finally {
+      setBusy(undefined);
     }
-    setDraft(next);
   };
 
-  const save = useMutation({
-    mutationFn: (next: string) =>
-      repository.writeAgentBlueprintFile(blueprintId, path, next, { workspaceId, sessionId }),
-    onSuccess: async (result, next) => {
-      queryClient.setQueryData(queryKey, next);
-      setBaseline(next);
-      setValidation({
-        errors: result.validation_errors,
-        warnings: result.validation_warnings,
-      });
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key(
-            'blueprint-files',
-            settings.endpoint,
-            blueprintId,
-            workspaceId,
-            sessionId,
-          ),
-        }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('agent-blueprints') }),
-      ]);
-      toast.success(`Saved ${fileName(path)}`);
-    },
-    onError: (error) => toast.error(error.message),
-  });
-
-  if (content.error)
-    return (
-      <div className="p-4">
-        <ResourceUnavailable detail={content.error.message} label="Blueprint source unavailable" />
-      </div>
-    );
-  if (content.data === undefined)
-    return <ResourceLoading className="p-4" label={`Loading ${fileName(path)}`} />;
-
   return (
-    <section aria-label={`Edit ${path}`} className="flex h-full min-h-0 flex-col bg-background">
-      <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
-        <FileCode2Icon aria-hidden="true" className="size-4 text-primary" />
-        <span className="min-w-0 flex-1 truncate font-mono text-xs">{path}</span>
-        {dirty ? (
-          <Badge variant="secondary">Unsaved</Badge>
-        ) : (
-          <Badge variant="outline">Saved</Badge>
-        )}
-      </div>
-      <div className="min-h-0 flex-1">
-        <AceEditor
-          aria-label={`Blueprint source ${path}`}
-          editorProps={{ $blockScrolling: true }}
-          fontSize={13}
-          height="100%"
-          mode={aceModeForPath(path)}
-          name={`blueprint-editor-${blueprintId}-${path}`}
-          onChange={updateDraft}
-          setOptions={{
-            enableBasicAutocompletion: true,
-            enableLiveAutocompletion: false,
-            highlightActiveLine: true,
-            showFoldWidgets: true,
-            showPrintMargin: false,
-            tabSize: 2,
-            useSoftTabs: true,
-            useWorker: false,
-          }}
-          theme={resolvedTheme === 'light' ? 'github' : 'one_dark'}
-          value={activeDraft}
-          width="100%"
-        />
-      </div>
-      <div className="flex min-h-14 shrink-0 items-center gap-3 border-t px-3 py-2">
-        <div aria-live="polite" className="min-w-0 flex-1 text-xs">
-          {save.error ? <p className="text-destructive">{save.error.message}</p> : null}
-          {validation.errors.length ? (
-            <p className="truncate text-destructive">
-              Saved with {validation.errors.length} validation issue
-              {validation.errors.length === 1 ? '' : 's'}
-            </p>
-          ) : validation.warnings.length ? (
-            <p className="truncate text-amber-500">
-              Saved with {validation.warnings.length} warning
-              {validation.warnings.length === 1 ? '' : 's'}
-            </p>
-          ) : (
-            <p className="text-muted-foreground">
-              {dirty
-                ? 'Review the source, then save it to the connected service.'
-                : 'Source is saved.'}
-            </p>
-          )}
-        </div>
-        <Button
-          className="h-10 min-w-28 px-5"
-          disabled={!dirty || save.isPending}
-          onClick={() => save.mutate(activeDraft)}
-        >
-          <SaveIcon aria-hidden="true" />
-          {save.isPending ? 'Saving' : 'Save'}
-        </Button>
-      </div>
-    </section>
+    <div className="grid h-full place-items-center p-6">
+      <Empty className="max-w-lg border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <FileIcon aria-hidden="true" />
+          </EmptyMedia>
+          <EmptyTitle>{fileName(path)}</EmptyTitle>
+          <EmptyDescription>
+            {mediaType} · {size === undefined ? 'Size unavailable' : formatBytes(size)}
+          </EmptyDescription>
+          <p className="break-all font-mono text-xs text-muted-foreground">{path}</p>
+          <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <Button disabled={Boolean(busy)} onClick={() => void load('open')} size="sm">
+              <ExternalLinkIcon aria-hidden="true" />
+              {busy === 'open' ? 'Opening…' : 'Open'}
+            </Button>
+            <Button
+              disabled={Boolean(busy)}
+              onClick={() => void load('download')}
+              size="sm"
+              variant="outline"
+            >
+              <DownloadIcon aria-hidden="true" />
+              {busy === 'download' ? 'Downloading…' : 'Download'}
+            </Button>
+            <Button
+              onClick={() => void navigator.clipboard.writeText(path)}
+              size="sm"
+              variant="outline"
+            >
+              <CopyIcon aria-hidden="true" /> Copy path
+            </Button>
+          </div>
+        </EmptyHeader>
+      </Empty>
+    </div>
   );
 }
+
+export { BlueprintFileEditor } from './blueprint-file-editor';
 
 export function ArtifactView({
   artifact,
@@ -578,22 +544,6 @@ function fileName(path: string): string {
   );
 }
 
-function aceModeForPath(path: string): string {
-  const extension = path.split('.').at(-1)?.toLowerCase();
-  return (
-    {
-      json: 'json',
-      md: 'markdown',
-      markdown: 'markdown',
-      py: 'python',
-      sh: 'sh',
-      toml: 'toml',
-      yaml: 'yaml',
-      yml: 'yaml',
-    }[extension ?? ''] ?? 'text'
-  );
-}
-
 function isTextArtifact(mediaType: string, name: string): boolean {
   return (
     mediaType.startsWith('text/') ||
@@ -627,8 +577,7 @@ function isImageArtifact(mediaType: string, name: string): boolean {
   return (
     ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/svg+xml'].includes(
       mediaType,
-    ) ||
-    isImagePath(name)
+    ) || isImagePath(name)
   );
 }
 
@@ -707,4 +656,14 @@ function imageMediaType(path: string): string {
   if (extension === 'webp') return 'image/webp';
   if (extension === 'avif') return 'image/avif';
   return 'image/png';
+}
+
+function inferredWorkspaceMediaType(path: string): string {
+  const extension = path.split('.').at(-1)?.toLowerCase();
+  if (extension === 'pdf') return 'application/pdf';
+  if (isImagePath(path)) return imageMediaType(path);
+  if (extension === 'json') return 'application/json';
+  if (extension === 'xml') return 'application/xml';
+  if (isTextArtifact('', path)) return 'text/plain';
+  return 'application/octet-stream';
 }

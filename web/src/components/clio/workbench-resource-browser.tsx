@@ -175,7 +175,10 @@ export function FileBrowser({
         ? files.filter(
             (entry) =>
               entry.type === 'file' &&
-              entry.path.replace(/\\/gu, '/').toLocaleLowerCase().includes(normalizedQuery),
+              `${entry.display_path ?? ''} ${entry.path}`
+                .replace(/\\/gu, '/')
+                .toLocaleLowerCase()
+                .includes(normalizedQuery),
           )
         : files,
     [files, normalizedQuery],
@@ -254,6 +257,8 @@ export function FileBrowser({
             {previewPath ? (
               <Suspense fallback={<ResourceLoading label="Loading file" />}>
                 <WorkspaceFileView
+                  key={previewPath}
+                  mediaType={activeFile?.media_type}
                   path={previewPath}
                   size={activeFile?.size}
                   workspaceId={workspaceId}
@@ -557,7 +562,7 @@ interface WorkspaceFileNode {
 function buildFileTree(entries: readonly WorkspaceFileEntry[]): WorkspaceFileNode[] {
   const roots = new Map<string, WorkspaceFileNode>();
   for (const entry of entries) {
-    const parts = entry.path.split(/[\\/]+/).filter(Boolean);
+    const parts = (entry.display_path ?? entry.path).split(/[\\/]+/).filter(Boolean);
     let children = roots;
     parts.forEach((name, index) => {
       const isLeaf = index === parts.length - 1;

@@ -29,11 +29,13 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 export function ClioDocumentPdfViewer({
   bytes,
+  source,
   fit = 'width',
   name,
   onSelection,
 }: {
-  bytes: Uint8Array;
+  bytes?: Uint8Array;
+  source?: { url: string; httpHeaders?: Record<string, string> };
   fit?: 'page' | 'width';
   name: string;
   onSelection: (anchor: DocumentAnchor) => void;
@@ -50,7 +52,15 @@ export function ClioDocumentPdfViewer({
   // pdf.js transfers a typed array it is handed to its worker thread, which
   // detaches the caller's buffer — and these bytes are the cached resource
   // preview other surfaces read. One copy per document, never per render.
-  const file = useMemo(() => ({ data: new Uint8Array(bytes) }), [bytes]);
+  const file = useMemo(
+    () =>
+      bytes
+        ? { data: new Uint8Array(bytes) }
+        : source
+          ? { url: source.url, httpHeaders: source.httpHeaders }
+          : undefined,
+    [bytes, source],
+  );
 
   useEffect(() => {
     const host = hostRef.current;
@@ -87,9 +97,7 @@ export function ClioDocumentPdfViewer({
   // until one exists, and a measurement taken at a different width or zoom is
   // discarded rather than trusted at the new geometry.
   const pageWidth =
-    fit === 'page'
-      ? fitPdfPageWidth({ hostWidth, viewportHeight: scroll.viewport })
-      : hostWidth;
+    fit === 'page' ? fitPdfPageWidth({ hostWidth, viewportHeight: scroll.viewport }) : hostWidth;
   const geometry = `${pageWidth}:${scale}`;
   const measurePage = useCallback(
     (element: HTMLDivElement | null) => {

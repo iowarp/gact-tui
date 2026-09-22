@@ -1,15 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ArtifactView, BlueprintFileEditor } from './resource-viewers';
+import { ArtifactView, BlueprintFileEditor, WorkspaceFileView } from './resource-viewers';
 
 const { repository } = vi.hoisted(() => ({
   repository: {
     readAgentBlueprintFile: vi.fn(),
     readArtifactBytesFor: vi.fn(),
     readArtifactTextFor: vi.fn(),
+    readWorkspaceFile: vi.fn(),
+    readWorkspaceFileBytes: vi.fn(),
     writeAgentBlueprintFile: vi.fn(),
   },
 }));
@@ -48,6 +50,11 @@ vi.mock('react-ace', () => ({
 vi.mock('./document-workspace', () => ({
   ClioDocumentWorkspace: ({ fallbackPreview }: { fallbackPreview: ReactNode }) => (
     <>{fallbackPreview}</>
+  ),
+}));
+vi.mock('./document-pdf-viewer', () => ({
+  ClioDocumentPdfViewer: ({ name, source }: { name: string; source: { url: string } }) => (
+    <div aria-label={`PDF ${name}`}>{source.url}</div>
   ),
 }));
 
@@ -153,5 +160,81 @@ describe('ArtifactView', () => {
 
     expect(await screen.findByLabelText('Zoomable image scan-speed.svg')).toBeVisible();
     expect(screen.queryByText('Preview unavailable')).not.toBeInTheDocument();
+  });
+});
+
+describe('WorkspaceFileView', () => {
+  function renderFile(view: ReactNode) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(<QueryClientProvider client={queryClient}>{view}</QueryClientProvider>);
+  }
+
+  it('routes a remote PDF to PDF.js by media type without downloading it as text', async () => {
+    renderFile(
+      <WorkspaceFileView
+        mediaType="application/pdf"
+        path="reports/remote paper.pdf"
+        size={50_000_000}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    const viewer = await screen.findByLabelText('PDF remote paper.pdf');
+    expect(viewer).toHaveTextContent(
+      'http://127.0.0.1:8790/v1/workspaces/workspace_1/files/read?path=reports%2Fremote%20paper.pdf',
+    );
+    expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
+    expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
+  });
+
+  it('presents unsupported binary metadata and controls instead of a code block', () => {
+    renderFile(
+      <WorkspaceFileView
+        mediaType="application/x-hdf5"
+        path="data/run.h5"
+        size={4096}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.getByText('run.h5')).toBeVisible();
+    expect(screen.getByText(/application\/x-hdf5/u)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Open' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Download' })).toBeVisible();
+    expect(document.querySelector('pre code')).not.toBeInTheDocument();
+    expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
+  });
+
+  it('aborts the previous text preview when selection changes', async () => {
+    let firstSignal: AbortSignal | undefined;
+    repository.readWorkspaceFile.mockImplementation(
+      (_workspaceId: string, path: string, signal: AbortSignal) => {
+        if (path === 'first.txt') {
+          firstSignal = signal;
+          return new Promise<string>((_resolve, reject) => {
+            signal.addEventListener('abort', () =>
+              reject(new DOMException('Aborted', 'AbortError')),
+            );
+          });
+        }
+        return Promise.resolve('second file');
+      },
+    );
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const rendered = render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceFileView mediaType="text/plain" path="first.txt" workspaceId="workspace_1" />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(firstSignal).toBeDefined());
+
+    rendered.rerender(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceFileView mediaType="text/plain" path="second.txt" workspaceId="workspace_1" />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByText('second file');
+    expect(firstSignal?.aborted).toBe(true);
   });
 });

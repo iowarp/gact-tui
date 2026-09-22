@@ -409,8 +409,12 @@ export interface ContextSnapshot {
 
 export interface WorkspaceFileEntry {
   path: string;
+  display_path?: string;
   type: WireValue<'file' | 'dir'>;
   internal: boolean;
+  media_type?: string;
+  source?: WireValue<'workspace' | 'managed_input'>;
+  resource_id?: string;
   size?: number;
   modified?: string;
 }

@@ -6,6 +6,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceResourceCarousel, WorkspaceResourceView } from './workspace-resource-view';
 
 const repository = vi.hoisted(() => ({
+  copyResource: vi.fn().mockResolvedValue({
+    id: 'resource_2',
+    workspace_id: 'workspace_2',
+    name: 'paper.pdf',
+  }),
   deleteResource: vi.fn().mockResolvedValue(undefined),
   resourceDeliveries: vi.fn().mockResolvedValue([]),
   resourceDerivatives: vi.fn().mockResolvedValue({
@@ -42,6 +47,10 @@ const repository = vi.hoisted(() => ({
     resource_id: 'resource_1',
     revision: 1,
   }),
+  workspaces: vi.fn().mockResolvedValue([
+    { id: 'workspace_1', name: 'Current', display_name: 'Current' },
+    { id: 'workspace_2', name: 'Destination', display_name: 'Destination' },
+  ]),
 }));
 
 afterEach(() => {
@@ -190,6 +199,29 @@ describe('WorkspaceResourceView', () => {
     await user.click(screen.getByRole('button', { name: 'Remove resource' }));
 
     expect(repository.deleteResource).toHaveBeenCalledWith('workspace_1', 'resource_1');
+  });
+
+  it('copies a ready resource to another workspace owned by the connected agent', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <WorkspaceResourceView resource={resource} workspaceId="workspace_1" />
+      </QueryClientProvider>,
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Copy paper.pdf to another workspace' }),
+    );
+    await user.click(await screen.findByLabelText('Destination workspace'));
+    await user.click(await screen.findByRole('option', { name: 'Destination' }));
+    await user.click(screen.getByRole('button', { name: 'Copy resource' }));
+
+    expect(repository.copyResource).toHaveBeenCalledWith(
+      'workspace_1',
+      'resource_1',
+      'workspace_2',
+    );
   });
 
   it('loads the first structured node instead of leaving a disabled query skeleton', async () => {

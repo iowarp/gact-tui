@@ -366,8 +366,12 @@ export const turnAttemptSchema = z.object({
 
 export const workspaceFileEntrySchema = z.object({
   path: z.string(),
+  display_path: z.string().optional(),
   type: forwardCompatibleEnum(['file', 'dir']),
   internal: z.boolean().default(false),
+  media_type: z.string().optional(),
+  source: forwardCompatibleEnum(['workspace', 'managed_input']).optional(),
+  resource_id: z.string().optional(),
   size: z.number().int().nonnegative().optional(),
   modified: z.string().optional(),
 });
