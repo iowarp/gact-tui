@@ -15,6 +15,11 @@ export type SshTransportStatus = {
   output: string;
 };
 
+export type SshConnectionTest = {
+  targetId: string;
+  status: SshTransportStatus;
+};
+
 type CommandResult = { exit_code: number; stdout: string; stderr: string };
 type BridgeMessage =
   | { type: 'exec'; request_id: string; command: Record<string, unknown> }
@@ -34,6 +39,26 @@ type ActiveBridge = {
 };
 
 const bridges = new Map<string, ActiveBridge>();
+
+/** Open the same interactive OpenSSH PTY used by deployment, without attaching it to CLIO. */
+export async function openSshConnectionTest(route: SshRoute): Promise<SshConnectionTest> {
+  if (!inTauri()) throw new Error(`Interactive SSH testing requires ${vocab.product}.`);
+  const targetId = `ssh-test-${crypto.randomUUID()}`;
+  const { invoke } = await import('@tauri-apps/api/core');
+  const status = await invoke<SshTransportStatus>('ssh_transport_open', {
+    request: { target_id: targetId, route, interactive: true },
+  });
+  return { targetId, status };
+}
+
+/** Close an isolated connection test without disturbing a compatible shared transport. */
+export async function closeSshConnectionTest(test: SshConnectionTest): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('ssh_transport_close', {
+    sessionId: test.status.session_id,
+    targetId: test.targetId,
+  });
+}
 
 /** Start or reuse system OpenSSH and attach its narrow execution bridge to the agent. */
 export async function attachInfrastructureSshTransport(

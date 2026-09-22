@@ -34,7 +34,11 @@ class FakeWebSocket {
 
 Object.assign(globalThis, { WebSocket: FakeWebSocket });
 
-import { recoverInfrastructureSshTransports } from './ssh-infrastructure-transport';
+import {
+  closeSshConnectionTest,
+  openSshConnectionTest,
+  recoverInfrastructureSshTransports,
+} from './ssh-infrastructure-transport';
 
 const target = {
   id: 'homelab-recovery',
@@ -70,6 +74,30 @@ beforeEach(() => native.invoke.mockReset());
 afterEach(() => vi.useRealTimers());
 
 describe('SSH infrastructure recovery', () => {
+  it('tests a route through the same interactive native transport and closes it cleanly', async () => {
+    native.invoke.mockResolvedValueOnce({
+      session_id: 'ssh-test-session',
+      state: 'reauthentication_required',
+      reused: false,
+      output: 'Password:',
+    });
+
+    const test = await openSshConnectionTest(target.ssh);
+    expect(native.invoke).toHaveBeenCalledWith('ssh_transport_open', {
+      request: {
+        interactive: true,
+        route: target.ssh,
+        target_id: expect.stringMatching(/^ssh-test-/u),
+      },
+    });
+
+    await closeSshConnectionTest(test);
+    expect(native.invoke).toHaveBeenLastCalledWith('ssh_transport_close', {
+      sessionId: 'ssh-test-session',
+      targetId: test.targetId,
+    });
+  });
+
   it('reattaches silently and reconciles services without replaying lifecycle actions', async () => {
     native.invoke.mockImplementation(async (command: string) => ({
       session_id: 'ssh-recovery',

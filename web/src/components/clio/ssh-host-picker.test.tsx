@@ -13,9 +13,16 @@ const profiles = vi.hoisted(() => ({
 const credentials = vi.hoisted(() => ({
   storeSshIdentity: vi.fn(),
 }));
+const transport = vi.hoisted(() => ({
+  openSshConnectionTest: vi.fn(),
+  closeSshConnectionTest: vi.fn(),
+  sshTransportStatus: vi.fn(),
+  writeSshTransport: vi.fn(),
+}));
 
 vi.mock('@/tauri/ssh-profiles', () => profiles);
 vi.mock('@/tauri/ssh-credentials', () => credentials);
+vi.mock('@/tauri/ssh-infrastructure-transport', () => transport);
 
 import { SshHostPicker } from './ssh-host-picker';
 
@@ -44,6 +51,16 @@ beforeEach(() => {
     managed: true,
   }));
   credentials.storeSshIdentity.mockResolvedValue('/protected/id_ed25519');
+  transport.openSshConnectionTest.mockResolvedValue({
+    targetId: 'ssh-test-host',
+    status: {
+      session_id: 'ssh-test-session',
+      state: 'connected',
+      reused: false,
+      output: '__CLIO_SSH_READY__',
+    },
+  });
+  transport.closeSshConnectionTest.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -52,23 +69,20 @@ afterEach(() => {
 });
 
 describe('SshHostPicker', () => {
-  it('presents password and key as first-class authentication tabs', async () => {
+  it('uses interactive OpenSSH without presenting password as a stored authentication mode', async () => {
     const user = userEvent.setup();
     renderPicker();
 
     await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
 
-    expect(screen.getByRole('tab', { name: 'Password' })).toBeVisible();
-    expect(screen.getByRole('tab', { name: 'Key' })).toBeVisible();
-    expect(screen.queryByText(/advanced authentication/i)).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('tab', { name: 'Password' }));
-    expect(screen.getByText(/requested interactively by system OpenSSH/u)).toBeVisible();
+    expect(screen.queryByRole('tab', { name: 'Password' })).not.toBeInTheDocument();
+    expect(screen.getByText('OpenSSH authentication')).toBeVisible();
+    expect(screen.getByText(/prompts come directly from system OpenSSH/u)).toBeVisible();
     expect(screen.queryByLabelText('Password', { selector: 'input' })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('tab', { name: 'Key' }));
     expect(screen.getByLabelText('Paste a private key')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Choose key file' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Test connection' })).toBeVisible();
+    expect(screen.getByText('Connection route')).toBeVisible();
   });
 
   it('saves only non-secret host metadata for interactive authentication', async () => {
@@ -78,7 +92,6 @@ describe('SshHostPicker', () => {
     await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
     await user.type(screen.getByLabelText('Address'), '10.0.0.102');
     await user.type(screen.getByLabelText('Username'), 'alice');
-    await user.click(screen.getByRole('tab', { name: 'Password' }));
     await user.click(screen.getByRole('button', { name: 'Save host' }));
 
     await waitFor(() => expect(onChange).toHaveBeenCalled());
@@ -114,6 +127,32 @@ describe('SshHostPicker', () => {
     );
     expect(profiles.saveSshProfile).toHaveBeenCalledWith(
       expect.not.objectContaining({ installRoot: expect.anything() }),
+    );
+  });
+
+  it('tests the configured route through the real interactive transport contract', async () => {
+    const user = userEvent.setup();
+    renderPicker();
+
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+    await user.type(screen.getByLabelText('Address'), 'notchpeak1.chpc.utah.edu');
+    await user.type(screen.getByLabelText('Username'), 'u1282901');
+    await user.type(screen.getByLabelText('Jump host'), 'chpc-gateway');
+    await user.click(screen.getByRole('button', { name: 'Add jump' }));
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await screen.findByText('Connection succeeded');
+    expect(transport.openSshConnectionTest).toHaveBeenCalledWith({
+      profile: '',
+      host: 'notchpeak1.chpc.utah.edu',
+      user: 'u1282901',
+      port: 22,
+      jump_hosts: ['chpc-gateway'],
+      identity_file: '',
+      platform: 'auto',
+    });
+    expect(transport.closeSshConnectionTest).toHaveBeenCalledWith(
+      expect.objectContaining({ targetId: 'ssh-test-host' }),
     );
   });
 });

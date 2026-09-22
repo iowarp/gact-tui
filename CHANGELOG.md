@@ -4,6 +4,22 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## [0.11.2.15] — 2026-09-22
+
+### Changed
+
+- Put the ordered SSH jump-host route directly on deployment and
+  Infrastructure target pickers, with draggable steps, saved-profile choices,
+  per-step configuration, and a visible add-jump action.
+
+### Fixed
+
+- Remove the misleading Password/Key mode selector: system OpenSSH now owns
+  every interactive password, Duo, Kerberos, security-key, and rolling-code
+  prompt while an optional key remains an explicit override.
+- Add a real interactive **Test connection** action that exercises the same
+  OpenSSH PTY and ProxyJump route used by deployment.
+
 ## [0.11.2.14] — 2026-09-22
 
 ### Added
