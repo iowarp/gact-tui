@@ -118,6 +118,26 @@ export class ProviderRepository extends ContextRepository {
     });
   }
 
+  public installProviderSupport(
+    providerId: string,
+    signal?: AbortSignal,
+  ): Promise<{ provider_id: string; installed: boolean; instructions: string }> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/install`,
+      body: {},
+      decode: (value) =>
+        z
+          .object({
+            provider_id: z.string(),
+            installed: z.boolean(),
+            instructions: z.string(),
+          })
+          .parse(value),
+      signal,
+    });
+  }
+
   public completeProviderAuthentication(
     providerId: string,
     input: { flowId: string; authorizationCode: string },

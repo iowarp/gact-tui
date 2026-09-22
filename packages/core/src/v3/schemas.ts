@@ -20,6 +20,7 @@ export const providerDefinitionSchema = z.object({
 
 export const providerModelSchema = z.object({
   id: z.string(),
+  availability: z.enum(['available', 'candidate']).optional(),
   name: z
     .string()
     .nullish()

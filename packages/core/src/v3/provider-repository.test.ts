@@ -3,6 +3,27 @@ import { ClioRepository } from './repository.js';
 import { RecordingTransport } from './recording-transport.test-helper.js';
 
 describe('ClioRepository provider contracts', () => {
+  it('installs optional provider support on the connected agent', async () => {
+    const transport = new RecordingTransport([
+      {
+        provider_id: 'claude_code',
+        installed: true,
+        instructions: 'Check the provider to verify sign-in.',
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.installProviderSupport('claude_code')).resolves.toMatchObject({
+      provider_id: 'claude_code',
+      installed: true,
+    });
+    expect(transport.requests[0]).toMatchObject({
+      method: 'POST',
+      path: '/v1/providers/claude_code/install',
+      body: {},
+    });
+  });
+
   it('starts and completes browser-based provider authentication', async () => {
     const transport = new RecordingTransport([
       {

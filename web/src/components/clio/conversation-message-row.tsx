@@ -51,6 +51,9 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     typeof message.error_info?.error === 'string' ? message.error_info.error : undefined;
   const emptyResponseErrorMessage =
     typeof message.error_info?.message === 'string' ? message.error_info.message : undefined;
+  const emptyResponseWasClientCancelled =
+    emptyResponseErrorCode === 'cancelled' ||
+    emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client';
   const canRetry =
     message.role === 'assistant' &&
     (message.blocks.length === 0 ||
@@ -233,17 +236,24 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
             )}
           >
             {message.blocks.length === 0 && message.role === 'assistant' ? (
-              <Alert variant="destructive">
+              <Alert
+                className={cn(emptyResponseWasClientCancelled && 'w-fit')}
+                variant="destructive"
+              >
                 <AlertTriangleIcon aria-hidden="true" />
-                <AlertTitle>
-                  {emptyResponseErrorCode === 'server_restart_interrupted'
-                    ? 'Response interrupted'
-                    : 'Response unavailable'}
+                <AlertTitle className={cn(emptyResponseWasClientCancelled && 'whitespace-nowrap')}>
+                  {emptyResponseWasClientCancelled
+                    ? 'Response cancelled'
+                    : emptyResponseErrorCode === 'server_restart_interrupted'
+                      ? 'Response interrupted'
+                      : 'Response unavailable'}
                 </AlertTitle>
-                <AlertDescription>
-                  {emptyResponseErrorMessage ??
-                    'No response content was recorded for this turn. You can retry the response.'}
-                </AlertDescription>
+                {!emptyResponseWasClientCancelled ? (
+                  <AlertDescription>
+                    {emptyResponseErrorMessage ??
+                      'No response content was recorded for this turn. You can retry the response.'}
+                  </AlertDescription>
+                ) : null}
               </Alert>
             ) : message.role === 'assistant' && turn.iterations.length > 0 ? (
               <>

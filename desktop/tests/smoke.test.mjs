@@ -260,8 +260,14 @@ test('bundled installer stops only its managed process tree before replacement o
   assert.match(hooks, /NSIS_HOOK_PREUNINSTALL/);
   assert.match(hooks, /NSIS_HOOK_POSTUNINSTALL/);
   assert.match(hooks, /NSIS_HOOK_POSTINSTALL[\s\S]*clio-desktop\.exe" --prepare-runtime/);
-  assert.match(hooks, /CLIO_REMOVE_MANAGED_STORAGE[\s\S]*clio-desktop\.exe" --remove-managed-storage/);
-  assert.match(hooks, /The installation will stop so the application is not left partially configured/);
+  assert.match(
+    hooks,
+    /CLIO_REMOVE_MANAGED_STORAGE[\s\S]*clio-desktop\.exe" --remove-managed-storage/,
+  );
+  assert.match(
+    hooks,
+    /The installation will stop so the application is not left partially configured/,
+  );
   assert.match(hooks, /Also remove CLIO settings, sessions, and local data/);
   assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}/);
   assert.match(hooks, /\$APPDATA\\\$\{BUNDLEID\}/);
@@ -303,74 +309,98 @@ test('installer hooks resolve the app-data folder from the bundle identifier mac
     'installer-hooks.nsh must not hardcode a bundle identifier — use ${BUNDLEID}',
   );
   assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}\\installer-options\.json/);
-  assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}"/, 'PREINSTALL must create the ${BUNDLEID} folder');
+  assert.match(
+    hooks,
+    /\$LOCALAPPDATA\\\$\{BUNDLEID\}"/,
+    'PREINSTALL must create the ${BUNDLEID} folder',
+  );
 });
 
-test('installer collects Infrastructure choices via a custom wizard page, not a blocking MessageBox', () => {
+test('installer separates Infrastructure and individual provider choices into unclipped wizard pages', () => {
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
   assert.doesNotMatch(
     hooks,
     /MB_YESNO/,
-    'the recommended-services prompt must be a nsDialogs page, not a MessageBox',
+    'setup choices must use nsDialogs pages, not a MessageBox',
   );
   assert.match(hooks, /Page custom ClioInfrastructurePage ClioInfrastructurePageLeave/);
+  assert.match(hooks, /Page custom ClioProvidersPage ClioProvidersPageLeave/);
   assert.match(hooks, /Function ClioInfrastructurePage\b/);
   assert.match(hooks, /Function ClioInfrastructurePageLeave/);
+  assert.match(hooks, /Function ClioProvidersPage\b/);
+  assert.match(hooks, /Function ClioProvidersPageLeave/);
   assert.match(hooks, /CLIO Search \(web search and PDF reading, runs in Docker\)/);
   assert.match(hooks, /Local model runtime \(llama\.cpp\)/);
   assert.match(hooks, /Science tool kit \(clio-kit\)/);
-  assert.match(hooks, /Providers to show in CLIO/);
-  for (const family of [
-    'OpenAI \/ Codex',
-    'Anthropic \/ Claude',
-    'Google AI',
-    'Argonne ALCF',
-    'Local \/ self-hosted',
-    'Other cloud providers',
+  for (const provider of [
+    'OpenAI Codex',
+    'Claude Code',
+    'OpenAI API',
+    'Anthropic API',
+    'Google Gemini',
+    'Google Vertex AI',
+    'LM Studio',
+    'Ollama',
+    'llama.cpp',
+    'vLLM',
+    'Sophia',
+    'Metis',
+    'Azure OpenAI',
+    'Amazon Bedrock',
+    'NVIDIA NIM',
+    'OpenRouter',
   ]) {
-    assert.match(hooks, new RegExp(family));
+    assert.ok(hooks.includes(provider), `missing individual provider choice: ${provider}`);
   }
+  assert.doesNotMatch(hooks, /OpenAI \/ Codex|Anthropic \/ Claude/);
 
-  // Web Search defaults on, llama.cpp defaults off, clio-kit is fixed on and
-  // disabled (it always ships bundled — there is nothing to choose).
-  const page = hooks.match(/Function ClioInfrastructurePage\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
-  assert.match(page, /\$\{NSD_Check\} \$ClioWebSearchCheckbox/);
-  assert.match(page, /\$\{NSD_Uncheck\} \$ClioLlamaCppCheckbox/);
-  assert.match(page, /\$\{NSD_Check\} \$ClioKitCheckbox/);
-  assert.match(page, /EnableWindow \$ClioKitCheckbox 0/);
-});
+  const infrastructurePage =
+    hooks.match(/Function ClioInfrastructurePage\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  assert.match(infrastructurePage, /\$\{NSD_Check\} \$ClioWebSearchCheckbox/);
+  assert.match(infrastructurePage, /\$\{NSD_Uncheck\} \$ClioLlamaCppCheckbox/);
+  assert.match(infrastructurePage, /\$\{NSD_Check\} \$ClioKitCheckbox/);
+  assert.match(infrastructurePage, /EnableWindow \$ClioKitCheckbox 0/);
+  assert.doesNotMatch(infrastructurePage, /ClioProvider\w+Checkbox/);
 
-test('the Infrastructure page is skipped for passive and update installs, read from the command line', () => {
-  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
-  const page = hooks.match(/Function ClioInfrastructurePage\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
-  // A Function body compiles at !include time, before Tauri's template
-  // declares $PassiveMode/$UpdateMode — referencing those Vars here would
-  // silently always evaluate false (makensis only warns), so the skip must
-  // read the raw command line via GetOptions instead of those template Vars.
-  assert.doesNotMatch(
-    page,
-    /\$PassiveMode|\$UpdateMode/,
-    'ClioInfrastructurePage must not reference $PassiveMode/$UpdateMode — those Vars are not yet declared at the point this Function compiles',
+  const providersPage = hooks.match(/Function ClioProvidersPage\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  assert.match(providersPage, /\$\{NSD_Check\} \$ClioProviderCodexCheckbox/);
+  assert.match(providersPage, /\$\{NSD_Check\} \$ClioProviderOpenAICheckbox/);
+  assert.match(providersPage, /\$\{NSD_Uncheck\} \$ClioProviderClaudeCodeCheckbox/);
+  assert.match(providersPage, /\$\{NSD_Uncheck\} \$ClioProviderAnthropicCheckbox/);
+  assert.equal((providersPage.match(/\$\{WM_SETFONT\}/g) ?? []).length, 5);
+  const verticalPositions = [
+    ...providersPage.matchAll(/NSD_Create(?:Label|Checkbox)\}\s+\S+\s+(\d+)u/g),
+  ].map((match) => Number(match[1]));
+  assert.ok(verticalPositions.length > 0);
+  assert.ok(
+    Math.max(...verticalPositions) <= 120,
+    'provider controls must remain above the NSIS footer',
   );
-  assert.match(page, /\$\{GetOptions\} \$CMDLINE "\/P" \$R0/);
-  assert.match(page, /\$\{GetOptions\} \$CMDLINE "\/UPDATE" \$R0/);
-  assert.match(page, /\$\{IfNot\} \$\{Errors\}/);
-  assert.match(page, /Abort/);
 });
 
-test('installer-options.json is always written through the one v3-schema macro', () => {
+test('the setup pages are skipped for passive and update installs', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  const skipMacro =
+    hooks.match(/!macro CLIO_SKIP_SETUP_PAGE_IF_UNATTENDED([\s\S]*?)!macroend/)?.[1] ?? '';
+  assert.doesNotMatch(skipMacro, /\$PassiveMode|\$UpdateMode/);
+  assert.match(skipMacro, /\$\{GetOptions\} \$CMDLINE "\/P" \$R0/);
+  assert.match(skipMacro, /\$\{GetOptions\} \$CMDLINE "\/UPDATE" \$R0/);
+  assert.match(skipMacro, /\$\{IfNot\} \$\{Errors\}/);
+  assert.match(skipMacro, /Abort/);
+  const skipCalls = hooks.match(/!insertmacro CLIO_SKIP_SETUP_PAGE_IF_UNATTENDED/g) ?? [];
+  assert.equal(skipCalls.length, 2);
+});
+
+test('installer-options.json is always written through the one v4-schema macro', () => {
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
   const writeCalls = hooks.match(/!insertmacro CLIO_WRITE_INSTALLER_OPTIONS/g) ?? [];
-  // PREINSTALL (1) + POSTINSTALL's four outcome branches (deployed / two
-  // needs_attention branches / docker-unavailable) = 5 call sites, and every
-  // one goes through the same macro rather than a duplicated FileWrite.
-  assert.equal(writeCalls.length, 5);
-  assert.match(hooks, /\$\\"schema\$\\":3/);
+  assert.equal(writeCalls.length, 2);
+  assert.match(hooks, /\$\\"schema\$\\":4/);
   assert.match(hooks, /\$\\"web_search\$\\":\$\\"'/);
   assert.match(hooks, /\$\\"llama_cpp\$\\":\$\\"'/);
   assert.match(hooks, /\$\\"clio_kit\$\\":\$\\"bundled\$\\"/);
-  assert.match(hooks, /\$\\"provider_families\$\\":\$\\"'/);
-  for (const status of ['pending', 'not_requested', 'deployed', 'needs_attention']) {
+  assert.match(hooks, /\$\\"provider_ids\$\\":\$\\"'/);
+  for (const status of ['pending', 'not_requested']) {
     assert.match(hooks, new RegExp(`StrCpy \\$ClioWebSearchStatus "${status}"`));
   }
   for (const status of ['requested', 'not_requested']) {

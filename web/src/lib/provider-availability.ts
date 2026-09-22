@@ -42,6 +42,20 @@ export function providerAvailability(
       detail: providerStatusDetail(preset, 'Run a provider check to verify availability.'),
     };
   }
+  if (preset?.status === 'auth_check_required') {
+    return {
+      label: 'Not checked',
+      value: 'degraded',
+      detail: providerStatusDetail(preset, 'Run a provider check to verify sign-in.'),
+    };
+  }
+  if (preset?.status === 'install_required') {
+    return {
+      label: 'Install needed',
+      value: 'unavailable',
+      detail: providerStatusDetail(preset, `${providerName(preset)} is not installed.`),
+    };
+  }
   if (preset?.status === 'unavailable') {
     return {
       label: 'Unavailable',

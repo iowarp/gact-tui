@@ -529,6 +529,40 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
   });
 
+  it('renders a client-cancelled response as one compact line', () => {
+    renderConversation(
+      <ClioConversation
+        artifacts={{}}
+        messages={[
+          {
+            id: 'message_client_cancelled',
+            session_id: 'session_1',
+            role: 'assistant',
+            created_at: '2026-09-22T09:30:00Z',
+            blocks: [],
+            stop_reason: 'error',
+            error_info: {
+              error: 'cancelled',
+              message: 'turn cancelled by client',
+              recoverable: true,
+            },
+          },
+        ]}
+        onRetryMessage={() => undefined}
+        subagents={{}}
+        surfaces={{}}
+        tasks={{}}
+        tools={{}}
+      />,
+    );
+
+    const notice = screen.getByText('Response cancelled').closest('[role="alert"]');
+    expect(notice).toHaveClass('w-fit');
+    expect(notice?.querySelector('[data-slot="alert-title"]')).toHaveClass('whitespace-nowrap');
+    expect(notice?.querySelector('[data-slot="alert-description"]')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Retry response' })).toBeEnabled();
+  });
+
   it('does not render projection-only A2UI updates as missing assistant responses', () => {
     renderConversation(
       <ClioConversation

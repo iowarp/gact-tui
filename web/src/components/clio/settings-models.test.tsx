@@ -21,6 +21,7 @@ const { configuration, repository } = vi.hoisted(() => {
         provider: 'codex',
         suggested_model: 'gpt-5.6-luna',
         requires_api_key: false,
+        auth_method: 'subscription',
         is_authenticated: true,
         supports_live_catalog: true,
         supports_vision: true,
@@ -63,9 +64,14 @@ const { configuration, repository } = vi.hoisted(() => {
         models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
         source: 'codex_app_server',
         connectivity: 'ok',
-        auth: 'not_required',
+        auth: 'ok',
         latency_ms: 18.4,
         generated_at: '2026-08-23T05:00:00Z',
+      }),
+      installProviderSupport: vi.fn().mockResolvedValue({
+        provider_id: 'claude_code',
+        installed: true,
+        instructions: 'installed',
       }),
       authenticateProvider: vi.fn(),
       completeProviderAuthentication: vi.fn(),
@@ -93,6 +99,94 @@ afterEach(() => {
 });
 
 describe('ModelsSettings', () => {
+  it('offers Claude Code installation instead of claiming the provider is ready', async () => {
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      configured: false,
+      provider: '',
+      api_base: '',
+      model: '',
+      thinking_level: 'medium',
+      presets: [
+        {
+          id: 'claude_code',
+          label: 'Claude Code',
+          provider: 'claude_code',
+          api_base: 'claude-code://sdk',
+          suggested_model: '',
+          requires_api_key: false,
+          auth_method: 'subscription',
+          is_authenticated: false,
+          status: 'install_required',
+          status_message: 'Claude Code support is not installed on the connected agent.',
+          supports_live_catalog: false,
+          supports_vision: true,
+        },
+      ],
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/settings/providers?provider=claude_code']}>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    const install = await screen.findByRole('button', { name: 'Install Claude Code' });
+    expect(screen.getByRole('button', { name: 'Apply provider and model' })).toBeDisabled();
+    expect(screen.getAllByText('Install needed')).not.toHaveLength(0);
+    await user.click(install);
+    await waitFor(() =>
+      expect(repository.installProviderSupport).toHaveBeenCalledWith('claude_code'),
+    );
+    expect(repository.providerHandshake).toHaveBeenCalledWith('claude_code', {
+      apiBase: 'claude-code://sdk',
+      refresh: true,
+    });
+  });
+
+  it('does not allow unverified Codex credentials to be applied', async () => {
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      configured: false,
+      provider: '',
+      api_base: '',
+      model: '',
+      thinking_level: 'medium',
+      presets: [
+        {
+          id: 'codex',
+          label: 'Codex',
+          provider: 'codex',
+          api_base: 'codex://sdk',
+          suggested_model: '',
+          requires_api_key: false,
+          auth_method: 'subscription',
+          is_authenticated: false,
+          status: 'auth_check_required',
+          status_message: 'Codex credentials are present but have not been validated',
+          supports_live_catalog: false,
+          supports_vision: true,
+        },
+      ],
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter initialEntries={['/settings/providers?provider=codex']}>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Apply provider and model' })).toBeDisabled();
+    expect(screen.getAllByText('Not checked')).not.toHaveLength(0);
+  });
+
   it('preserves the authoritative configured model when opened for its provider', async () => {
     repository.languageModelConfiguration.mockResolvedValueOnce({
       configured: true,
@@ -155,6 +249,29 @@ describe('ModelsSettings', () => {
     expect(screen.getByText(/1 available model, 0 added, 0 removed/)).toBeVisible();
     expect(screen.getByText(/Checked .* by the connected agent/)).toBeVisible();
     expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
+  });
+
+  it('does not let an unverified catalog candidate become an applied model', async () => {
+    repository.providerModels.mockResolvedValueOnce({
+      provider_id: 'codex',
+      models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna', availability: 'candidate' }],
+      source: 'github_catalog',
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'gpt-5.6-luna',
+    );
+    expect(screen.getByRole('button', { name: 'Apply provider and model' })).toBeDisabled();
   });
 
   it('completes ALCF login in-app without asking for a terminal command', async () => {
@@ -432,7 +549,7 @@ describe('ModelsSettings', () => {
       }),
     );
     expect(await screen.findByText('Provider ready')).toBeVisible();
-    expect(screen.getByText(/Connection ok, sign-in not required, 1 model/)).toBeVisible();
+    expect(screen.getByText(/Connection ok, sign-in ok, 1 model/)).toBeVisible();
     expect(screen.getByText(/Checked .* in 18 ms/)).toBeVisible();
     expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();

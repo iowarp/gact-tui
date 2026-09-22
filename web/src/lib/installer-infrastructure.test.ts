@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   complete: vi.fn(),
   configure: vi.fn(),
   infrastructureOperation: vi.fn(),
+  installProviderSupport: vi.fn(),
   languageModelConfiguration: vi.fn(),
   managedServiceCatalog: vi.fn(),
   read: vi.fn(),
@@ -20,6 +21,7 @@ vi.mock('@/lib/connection', async (importOriginal) => ({
   createRepository: () => ({
     configureMcpServer: mocks.configure,
     infrastructureOperation: mocks.infrastructureOperation,
+    installProviderSupport: mocks.installProviderSupport,
     languageModelConfiguration: mocks.languageModelConfiguration,
     managedServiceCatalog: mocks.managedServiceCatalog,
     runManagedServiceAction: mocks.runManagedServiceAction,
@@ -43,6 +45,11 @@ describe('finishInstallerInfrastructure', () => {
     vi.clearAllMocks();
     window.localStorage.clear();
     mocks.languageModelConfiguration.mockResolvedValue({ configured: true, presets: [] });
+    mocks.installProviderSupport.mockResolvedValue({
+      provider_id: 'claude_code',
+      installed: true,
+      instructions: 'installed',
+    });
     mocks.managedServiceCatalog.mockResolvedValue({
       services: [
         {
@@ -54,80 +61,29 @@ describe('finishInstallerInfrastructure', () => {
     });
   });
 
-  it('starts an authenticated provider selected by the installer', async () => {
+  it('makes installer-selected providers visible without activating one', async () => {
     mocks.read.mockResolvedValue({
-      schema: 3,
+      schema: 4,
       web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
-      provider_families: 'openai',
+      provider_ids: 'codex,openai',
     });
-    mocks.languageModelConfiguration.mockResolvedValue({
-      configured: false,
-      presets: [
-        {
-          id: 'codex',
-          provider_id: 'codex',
-          provider: 'codex',
-          api_base: 'codex://sdk',
-          suggested_model: 'gpt-5.5',
-          is_authenticated: true,
-          requires_api_key: false,
-          configuration_fields: [],
-        },
-      ],
-    });
-    mocks.updateLanguageModelConfiguration.mockResolvedValue({
-      configured: true,
-      state: 'ready',
-    });
-
     await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
 
-    expect(mocks.updateLanguageModelConfiguration).toHaveBeenCalledWith({
-      api_base: 'codex://sdk',
-      model: 'gpt-5.5',
-      provider: 'codex',
-      provider_id: 'codex',
-      provider_options: {},
-    });
+    expect(mocks.languageModelConfiguration).not.toHaveBeenCalled();
+    expect(mocks.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+    expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).not.toEqual(
+      expect.arrayContaining(['codex', 'openai']),
+    );
     expect(mocks.configure).not.toHaveBeenCalled();
   });
 
-  it('guides the user when an installer-selected provider still needs sign-in', async () => {
-    mocks.read.mockResolvedValue({
-      schema: 3,
-      web_search: 'not_requested',
-      llama_cpp: 'not_requested',
-      clio_kit: 'bundled',
-      provider_families: 'argonne',
-    });
-    mocks.languageModelConfiguration.mockResolvedValue({
-      configured: false,
-      presets: [
-        {
-          id: 'argonne_metis',
-          provider_id: 'argonne_metis',
-          provider: 'argonne',
-          suggested_model: 'gpt-oss-120b',
-          is_authenticated: false,
-          requires_api_key: false,
-          configuration_fields: [],
-        },
-      ],
-    });
-
-    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
-
-    expect(mocks.updateLanguageModelConfiguration).not.toHaveBeenCalled();
-    expect(mocks.warning).toHaveBeenCalledWith(
-      'Your selected model provider needs sign-in',
-      expect.any(Object),
+  it('repairs a stale hidden-provider list even when the provider marker already matches', () => {
+    window.localStorage.setItem(
+      'clio.installer-provider-ids.v3',
+      'argonne_metis,argonne_sophia,codex,openai',
     );
-  });
-
-  it('repairs a stale hidden-provider list even when the family marker already matches', () => {
-    window.localStorage.setItem('clio.installer-provider-families.v2', 'argonne,openai');
     window.localStorage.setItem(
       'clio.hidden-providers.v1',
       JSON.stringify(['argonne_metis', 'argonne_sophia', 'anthropic']),
@@ -135,20 +91,58 @@ describe('finishInstallerInfrastructure', () => {
     const changed = vi.fn();
     window.addEventListener('clio:provider-visibility-changed', changed, { once: true });
 
-    applyInstallerProviderVisibility('openai,argonne');
+    applyInstallerProviderVisibility('codex,openai,argonne_sophia,argonne_metis');
 
     const hidden = JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]');
     expect(hidden).not.toEqual(expect.arrayContaining(['argonne_sophia', 'argonne_metis']));
     expect(changed).toHaveBeenCalledOnce();
   });
 
+  it('keeps Anthropic API and Claude Code as independent visibility choices', () => {
+    applyInstallerProviderVisibility('anthropic');
+
+    const hidden = JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]');
+    expect(hidden).not.toContain('anthropic');
+    expect(hidden).toContain('claude_code');
+  });
+
+  it('installs Claude Code support when the installer selected it', async () => {
+    mocks.read.mockResolvedValue({
+      schema: 4,
+      web_search: 'not_requested',
+      llama_cpp: 'not_requested',
+      clio_kit: 'bundled',
+      provider_ids: 'claude_code',
+    });
+
+    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
+
+    expect(mocks.installProviderSupport).toHaveBeenCalledWith('claude_code');
+    expect(mocks.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('honors an explicit choice to show no providers', async () => {
+    mocks.read.mockResolvedValue({
+      schema: 4,
+      web_search: 'not_requested',
+      llama_cpp: 'not_requested',
+      clio_kit: 'bundled',
+      provider_ids: '',
+    });
+
+    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
+
+    const hidden = JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]');
+    expect(hidden).toEqual(expect.arrayContaining(['codex', 'openai', 'anthropic', 'claude_code']));
+  });
+
   it('registers an installer-deployed Web Search service', async () => {
     mocks.read.mockResolvedValue({
-      schema: 3,
+      schema: 4,
       web_search: 'deployed',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
-      provider_families: 'openai,argonne',
+      provider_ids: 'codex,openai,argonne_sophia,argonne_metis',
     });
     mocks.configure.mockResolvedValue({ status: 'ready' });
 
@@ -167,8 +161,8 @@ describe('finishInstallerInfrastructure', () => {
     });
     expect(mocks.complete).toHaveBeenCalledOnce();
     expect(mocks.success).toHaveBeenCalledWith('CLIO Search is ready', expect.any(Object));
-    expect(window.localStorage.getItem('clio.installer-provider-families.v2')).toBe(
-      'argonne,openai',
+    expect(window.localStorage.getItem('clio.installer-provider-ids.v3')).toBe(
+      'argonne_metis,argonne_sophia,codex,openai',
     );
     expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).not.toEqual(
       expect.arrayContaining(['argonne_sophia', 'argonne_metis']),
@@ -178,11 +172,11 @@ describe('finishInstallerInfrastructure', () => {
   it('waits for an installer-started Web Search service before asking the user to intervene', async () => {
     vi.useFakeTimers();
     mocks.read.mockResolvedValue({
-      schema: 3,
+      schema: 4,
       web_search: 'deployed',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
-      provider_families: 'openai',
+      provider_ids: 'codex,openai',
     });
     mocks.configure
       .mockResolvedValueOnce({ status: 'degraded', error: 'service is still starting' })

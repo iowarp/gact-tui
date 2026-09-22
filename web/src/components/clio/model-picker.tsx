@@ -121,8 +121,7 @@ export function ClioModelPicker({
     });
   }, [options]);
   const [path, setPath] = useState<string[]>(() => {
-    const initialProvider = provider ?? providers[0]?.id;
-    return initialProvider ? [providerNodeValue(initialProvider)] : [];
+    return provider ? [providerNodeValue(provider)] : [];
   });
   const visibleProviders = useMemo(
     () => providers.filter((item) => showHidden || !hiddenProviders.has(item.id)),
@@ -164,8 +163,7 @@ export function ClioModelPicker({
       })),
     [visibleProviders],
   );
-  const activeGroup =
-    providers.find((item) => providerNodeValue(item.id) === path[0]) ?? visibleProviders[0];
+  const activeGroup = providers.find((item) => providerNodeValue(item.id) === path[0]);
   const selectedChoice = options.find(
     (choice) => choice.available && choice.providerId === provider && choice.id === model,
   );
@@ -202,8 +200,8 @@ export function ClioModelPicker({
   function handleOpenChange(nextOpen: boolean): void {
     setOpen(nextOpen);
     if (nextOpen) {
-      const preferred = providers.find((item) => item.id === provider) ?? visibleProviders[0];
-      if (preferred) setPath([providerNodeValue(preferred.id)]);
+      const preferred = providers.find((item) => item.id === provider);
+      setPath(preferred ? [providerNodeValue(preferred.id)] : []);
       return;
     }
     setQuery('');

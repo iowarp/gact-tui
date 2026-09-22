@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use tauri::Manager;
 
 const INSTALLER_OPTIONS_FILE: &str = "installer-options.json";
-const CURRENT_SCHEMA: u8 = 3;
+const CURRENT_SCHEMA: u8 = 4;
 
 /// Infrastructure choices recorded by the NSIS installer's "Infrastructure" page
 /// (see `installer-hooks.nsh`) and read back once the desktop app first connects
@@ -16,19 +16,20 @@ const CURRENT_SCHEMA: u8 = 3;
 /// carries both "wasn't asked for" and "false" in a single value. `llama_cpp` and
 /// `clio_kit` are new in v2: the installer records a preference only (no llama.cpp
 /// binary ships with the installer), and `clio_kit` is always "bundled" since the
-/// science tool kit always ships in the installer image.
+/// science tool kit always ships in the installer image. v4 records individual
+/// provider ids instead of coupling distinct products into provider families.
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub struct InstallerOptions {
     pub schema: u8,
     pub web_search: String,
     pub llama_cpp: String,
     pub clio_kit: String,
-    #[serde(default = "default_provider_families")]
-    pub provider_families: String,
+    #[serde(default = "default_provider_ids")]
+    pub provider_ids: String,
 }
 
-fn default_provider_families() -> String {
-    "openai".into()
+fn default_provider_ids() -> String {
+    "codex,openai".into()
 }
 
 impl Default for InstallerOptions {
@@ -38,7 +39,7 @@ impl Default for InstallerOptions {
             web_search: "not_requested".into(),
             llama_cpp: "not_requested".into(),
             clio_kit: "bundled".into(),
-            provider_families: "openai".into(),
+            provider_ids: default_provider_ids(),
         }
     }
 }
@@ -49,10 +50,10 @@ fn options_path(root: &Path) -> PathBuf {
 
 /// Recognize a v1 installer-options.json (`{"version":1,"web_search":bool,
 /// "web_search_status":str}`, written by installers before the Infrastructure
-/// page existed) and migrate it into the current v2 shape. v1 predates the
-/// llama.cpp / clio-kit choices, so those take their v2 defaults. Returns `None`
+/// page existed) and migrate it into the current shape. v1 predates the
+/// llama.cpp / clio-kit choices, so those take their defaults. Returns `None`
 /// for anything that is not recognizably v1, so the caller falls through to a
-/// direct v2 parse.
+/// direct schema migration or parse.
 ///
 /// This is a pure data transform — no filesystem access — so it stays directly
 /// unit-testable, and the migration itself is a named, tested function rather
@@ -73,7 +74,61 @@ fn migrate_v1(value: &Value) -> Option<InstallerOptions> {
         web_search,
         llama_cpp: "not_requested".into(),
         clio_kit: "bundled".into(),
-        provider_families: "openai".into(),
+        provider_ids: default_provider_ids(),
+    })
+}
+
+fn expand_legacy_provider_families(families: &str) -> String {
+    let mut providers = Vec::new();
+    for family in families.split(',').map(str::trim) {
+        let members: &[&str] = match family {
+            "openai" => &["codex", "openai"],
+            "anthropic" => &["anthropic", "claude_code"],
+            "google" => &["gemini", "vertex_ai"],
+            "argonne" => &["argonne_sophia", "argonne_metis"],
+            "local" => &["lm_studio", "ollama", "llama_cpp", "vllm"],
+            "other" => &["azure_openai", "bedrock", "nvidia_nim", "openrouter"],
+            _ => &[],
+        };
+        for provider in members {
+            if !providers.contains(provider) {
+                providers.push(*provider);
+            }
+        }
+    }
+    providers.join(",")
+}
+
+fn migrate_pre_v4(value: &Value) -> Option<InstallerOptions> {
+    let schema = value.get("schema").and_then(Value::as_u64)?;
+    if schema >= u64::from(CURRENT_SCHEMA) {
+        return None;
+    }
+    let web_search = value
+        .get("web_search")
+        .and_then(Value::as_str)
+        .unwrap_or("not_requested")
+        .to_string();
+    let llama_cpp = value
+        .get("llama_cpp")
+        .and_then(Value::as_str)
+        .unwrap_or("not_requested")
+        .to_string();
+    let clio_kit = value
+        .get("clio_kit")
+        .and_then(Value::as_str)
+        .unwrap_or("bundled")
+        .to_string();
+    let families = value
+        .get("provider_families")
+        .and_then(Value::as_str)
+        .unwrap_or("openai");
+    Some(InstallerOptions {
+        schema: CURRENT_SCHEMA,
+        web_search,
+        llama_cpp,
+        clio_kit,
+        provider_ids: expand_legacy_provider_families(families),
     })
 }
 
@@ -81,6 +136,9 @@ fn parse_options(contents: &str) -> Result<InstallerOptions, String> {
     let value: Value = serde_json::from_str(contents)
         .map_err(|error| format!("Installer choices are not valid: {error}"))?;
     if let Some(migrated) = migrate_v1(&value) {
+        return Ok(migrated);
+    }
+    if let Some(migrated) = migrate_pre_v4(&value) {
         return Ok(migrated);
     }
     serde_json::from_value(value)
@@ -158,14 +216,14 @@ mod tests {
     }
 
     #[test]
-    fn installer_options_v3_roundtrip() {
+    fn installer_options_v4_roundtrip() {
         let root = test_root();
         let options = InstallerOptions {
-            schema: 3,
+            schema: 4,
             web_search: "deployed".into(),
             llama_cpp: "requested".into(),
             clio_kit: "bundled".into(),
-            provider_families: "openai,argonne".into(),
+            provider_ids: "codex,openai,argonne_sophia".into(),
         };
         write_options(&root, &options).unwrap();
         assert_eq!(read_options(&root).unwrap(), options);
@@ -192,11 +250,11 @@ mod tests {
         assert_eq!(
             read_options(&root).unwrap(),
             InstallerOptions {
-                schema: 3,
+                schema: 4,
                 web_search: "deployed".into(),
                 llama_cpp: "not_requested".into(),
                 clio_kit: "bundled".into(),
-                provider_families: "openai".into(),
+                provider_ids: "codex,openai".into(),
             }
         );
         let _ = fs::remove_dir_all(root);
@@ -226,7 +284,7 @@ mod tests {
         assert_eq!(migrated.web_search, "not_requested");
         assert_eq!(migrated.llama_cpp, "not_requested");
         assert_eq!(migrated.clio_kit, "bundled");
-        assert_eq!(migrated.provider_families, "openai");
+        assert_eq!(migrated.provider_ids, "codex,openai");
     }
 
     #[test]
@@ -240,6 +298,20 @@ mod tests {
         )
         .unwrap();
         assert!(migrate_v1(&value).is_none());
+    }
+
+    #[test]
+    fn v3_provider_families_migrate_to_individual_provider_ids() {
+        let value: Value = serde_json::from_str(
+            r#"{"schema":3,"web_search":"not_requested","llama_cpp":"not_requested","clio_kit":"bundled","provider_families":"anthropic,argonne"}"#,
+        )
+        .unwrap();
+        let migrated = migrate_pre_v4(&value).expect("recognized as pre-v4");
+        assert_eq!(migrated.schema, 4);
+        assert_eq!(
+            migrated.provider_ids,
+            "anthropic,claude_code,argonne_sophia,argonne_metis"
+        );
     }
 
     #[test]
