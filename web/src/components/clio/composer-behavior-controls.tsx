@@ -14,6 +14,7 @@ import {
 import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
 
 const REASONING_EFFORTS = ['off', 'low', 'medium', 'high', 'xhigh'] as const;
+type BehaviorMenu = 'approval' | 'effort' | 'mode';
 
 interface ClioComposerBehaviorControlsProps {
   behavior: MessageBehavior;
@@ -39,6 +40,10 @@ export function ClioComposerBehaviorControls({
   // Once an effort is chosen here the reported value is answered, so the
   // control stops naming it.
   const [effortChosen, setEffortChosen] = useState(false);
+  const [openMenu, setOpenMenu] = useState<BehaviorMenu>();
+  const setMenuOpen = (menu: BehaviorMenu, open: boolean) => {
+    setOpenMenu((current) => (open ? menu : current === menu ? undefined : current));
+  };
   const unknownEffort = effortChosen ? undefined : unrecognizedEffort;
   const selectedMode = SESSION_MODE_OPTIONS.find(
     (option) => toExecutionMode(option.value) === behavior.execution_mode,
@@ -60,7 +65,10 @@ export function ClioComposerBehaviorControls({
       className="h-7 max-w-full [&>[data-slot=button]]:h-7"
     >
       {modelControl}
-      <DropdownMenu>
+      <DropdownMenu
+        onOpenChange={(open) => setMenuOpen('effort', open)}
+        open={openMenu === 'effort'}
+      >
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`Reasoning effort: ${effortLabel}`}
@@ -102,7 +110,7 @@ export function ClioComposerBehaviorControls({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <DropdownMenu>
+      <DropdownMenu onOpenChange={(open) => setMenuOpen('mode', open)} open={openMenu === 'mode'}>
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`Execution mode: ${modeLabel}`}
@@ -138,7 +146,10 @@ export function ClioComposerBehaviorControls({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <DropdownMenu>
+      <DropdownMenu
+        onOpenChange={(open) => setMenuOpen('approval', open)}
+        open={openMenu === 'approval'}
+      >
         <DropdownMenuTrigger asChild>
           <Button
             aria-label={`Confirmation policy: ${approvalLabel}`}
