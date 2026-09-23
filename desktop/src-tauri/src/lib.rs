@@ -46,6 +46,7 @@ mod supervisor_spawn;
 mod supervisor_spawn_command;
 mod supervisor_state;
 mod supervisor_types;
+mod supervisor_update_verify;
 mod terminal_pty;
 mod terminal_reader;
 mod tray;
