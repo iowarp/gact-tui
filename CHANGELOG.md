@@ -6,6 +6,17 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.17] — 2026-09-23
+
+### Fixed
+
+- Updating CLIO from the desktop no longer reports success for a service that
+  cannot start. After installing the new version, the desktop now starts the
+  updated service once to check it; if it fails, the update is reported as
+  failed with the error, instead of the app later showing "launcher exited
+  early" when it reconnects. The check runs without opening a console window,
+  and its output is saved to the startup log.
+
 ## [0.11.2.16] — 2026-09-23
 
 ### Fixed
