@@ -4,9 +4,11 @@
 //! that cannot start: the 0.9.4.14 -> 0.9.4.15 update kept the previous
 //! release's dependency bytecode, so the backend died on import and the app
 //! only showed "launcher exited early" on reconnect. Verification therefore
-//! runs the real entry point, not just a version probe: the update is reported
-//! as done only when `python -m clio_agent.gact --help` imports the complete
-//! application from the runtime directory, exactly as the launcher starts it.
+//! runs the launcher's entry point, not just a version probe: the update is
+//! reported as done only when `python -m clio_agent.gact --help` imports the
+//! complete application (every route module) through the same interpreter and
+//! module path the launcher uses. It proves the import graph, which is what an
+//! in-place upgrade can break; it does not bind a port or start the server.
 
 use std::{
     path::{Path, PathBuf},
@@ -54,7 +56,7 @@ pub(crate) fn bundled_update_verify_steps(
                 "--help".to_string(),
             ],
             cwd: Some(runtime_dir.to_path_buf()),
-            failure: "The updated CLIO service does not start.",
+            failure: "The updated CLIO service cannot load.",
         },
     ]
 }
@@ -109,7 +111,7 @@ pub(crate) fn run_verify_steps(steps: &[VerifyStep]) -> Result<(), VerifyFailure
             }
         }
     }
-    boot_log_line("verified the updated CLIO service imports and starts");
+    boot_log_line("verified the updated CLIO service loads (full application import)");
     Ok(())
 }
 
@@ -165,7 +167,7 @@ mod tests {
             shell_step("exit 0", "first"),
             shell_step(
                 "echo ImportError: cannot import name 1>&2 && exit 1",
-                "The updated CLIO service does not start.",
+                "The updated CLIO service cannot load.",
             ),
         ];
 
@@ -174,7 +176,7 @@ mod tests {
         assert_eq!(failure.code, Some(1));
         assert!(failure
             .tail
-            .starts_with("The updated CLIO service does not start."));
+            .starts_with("The updated CLIO service cannot load."));
         assert!(failure.tail.contains("ImportError: cannot import name"));
     }
 

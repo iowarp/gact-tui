@@ -160,12 +160,19 @@ fn run_install_command<R, F>(
     R: tauri::Runtime,
     F: FnOnce(),
 {
-    let spawn = Command::new(&program)
+    let mut command = Command::new(&program);
+    command
         .args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn();
+        .stderr(Stdio::piped());
+    // Output is piped into the progress stream; never flash a console window.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+    }
+    let spawn = command.spawn();
 
     let mut child = match spawn {
         Ok(c) => c,
