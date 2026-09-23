@@ -16,6 +16,7 @@ import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
 import { cn } from '@/lib/utils';
 import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
 import { ClioStatus, type ClioStatusValue } from './status';
+import { TechnicalDetails } from './technical-details';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 
 function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
@@ -32,10 +33,12 @@ function SurfaceFailure({ detail, message }: { detail?: string; message: string 
       <p className="px-4 py-3 text-xs text-muted-foreground">
         {message} The conversation remains available, and no action was taken by this view.
       </p>
-      <details className="border-t border-destructive/20 px-4 py-2 text-xs text-muted-foreground">
-        <summary className="cursor-pointer">Validation detail</summary>
+      <TechnicalDetails
+        className="border-t border-destructive/20 px-4 py-2 text-xs text-muted-foreground"
+        title="Validation detail"
+      >
         <p className="mt-2 font-mono">{detail ?? message}</p>
-      </details>
+      </TechnicalDetails>
     </section>
   );
 }

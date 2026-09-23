@@ -24,7 +24,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
-import { respondFromControl } from './interaction-control';
+import { cn } from '@/lib/utils';
+import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import { PendingA2UIResponse } from './pending-a2ui-response';
 import { QuestionResponse } from './pending-interaction-question-response';
 import {
@@ -33,6 +34,7 @@ import {
   ResponseErrorNotice,
 } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
+import { TechnicalDetails } from './technical-details';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
@@ -83,6 +85,7 @@ export function ClioPendingInteractions({
     (interaction) =>
       interaction.status === 'pending' && interaction.requires_human_response !== false,
   );
+  const hasInteractiveSurface = pending.some((interaction) => interaction.kind === 'a2ui');
   const handleResponse = useCallback(
     async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
       if (responseInFlight.current.has(interaction.id)) return;
@@ -122,7 +125,7 @@ export function ClioPendingInteractions({
           so they must be mounted and reachable without a preceding expand. The
           trigger still collapses the stack when the reader wants the room back. */}
       <QueueSection className="flex min-h-0 flex-col">
-        <QueueSectionTrigger>
+        <QueueSectionTrigger data-slot="pending-interactions-trigger">
           <QueueSectionLabel
             count={pending.length}
             icon={<MessageCircleQuestionIcon aria-hidden="true" className="size-3.5" />}
@@ -131,7 +134,18 @@ export function ClioPendingInteractions({
         </QueueSectionTrigger>
         <QueueSectionContent className="flex min-h-0 flex-col">
           <ScrollArea
-            className="max-h-[min(22rem,40dvh)] min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50"
+            className={cn(
+              'min-h-0 w-full shrink [&_[data-orientation=vertical]]:w-1.5 [&_[data-slot=scroll-area-scrollbar]]:opacity-50',
+              // An interactive surface's own viewport can grow to 85dvh
+              // (a2ui-response-viewport-resize.ts's MAX_VIEWPORT_HEIGHT_RATIO)
+              // plus its header/controls row; the tray's own cap must clear
+              // that whole card, or the card scrolls a second time inside a
+              // tray that still has room. +3rem covers the header, corner
+              // handle, and card padding above/around the viewport itself.
+              // A dvh-based cap tracks a window resize automatically — no JS
+              // re-clamp needed.
+              hasInteractiveSurface ? 'max-h-[calc(85dvh+3rem)]' : 'max-h-[min(22rem,40dvh)]',
+            )}
             scrollHideDelay={500}
             type="hover"
             viewportProps={{
@@ -263,7 +277,9 @@ function PermissionResponse({
       approval={{ id: interaction.id }}
       className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 border-action/20 bg-background/70"
       data-interaction-kind={interaction.kind}
+      id={pendingInteractionDomId(interaction.id)}
       state="approval-requested"
+      tabIndex={-1}
     >
       <ShieldQuestionIcon aria-hidden="true" className="mt-0.5 size-4 text-action" />
       <ConfirmationTitle className="min-w-0">
@@ -280,8 +296,10 @@ function PermissionResponse({
         ) : null}
         <ResponseErrorNotice error={responseError} />
         {toolName || toolCall?.input !== undefined ? (
-          <details className="mt-2 text-xs text-muted-foreground">
-            <summary className="cursor-pointer">Technical details</summary>
+          <TechnicalDetails
+            className="mt-2 text-xs text-muted-foreground"
+            title="Technical details"
+          >
             {toolName ? <p className="mt-1 font-mono">{toolName}</p> : null}
             {toolCall?.input === undefined ? null : (
               <CodeBlock
@@ -292,7 +310,7 @@ function PermissionResponse({
                 <CodeBlockCopyButton aria-label="Copy protected action details" />
               </CodeBlock>
             )}
-          </details>
+          </TechnicalDetails>
         ) : null}
       </ConfirmationTitle>
       <ConfirmationRequest>

@@ -13,7 +13,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { respondFromControl } from './interaction-control';
+import { pendingInteractionDomId, respondFromControl } from './interaction-control';
 import { InteractionFrameHeader } from './interaction-frame-header';
 import { ResponseErrorNotice } from './pending-interaction-notices';
 import { StructuredQuestionResponse, UrlConsentResponse } from './question-interaction-forms';
@@ -93,7 +93,9 @@ export function QuestionResponse({
       )}
       data-interaction-kind={interaction.kind}
       dense
+      id={pendingInteractionDomId(interaction.id)}
       spacing="sm"
+      tabIndex={-1}
     >
       <InteractionFrameHeader
         disabled={disabled}
