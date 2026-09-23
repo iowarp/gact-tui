@@ -42,6 +42,7 @@ export const providerModelCatalogSchema = z.object({
   source: z.string().optional(),
   default_model: z.string().optional(),
   generated_at: z.string().optional(),
+  staleness: z.record(z.unknown()).optional(),
   error: z.string().optional(),
 });
 export const providerModelRefreshResultSchema = z.object({

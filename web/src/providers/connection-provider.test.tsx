@@ -9,10 +9,18 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   waitForManagedBackend: vi.fn(),
   finishInstallerInfrastructure: vi.fn(),
-  openSshTunnel: vi.fn(),
+  recoverInfrastructureSshTransports: vi.fn(),
+  attachInfrastructureSshTransport: vi.fn(),
+  sshTransportStatus: vi.fn(),
+  closeInfrastructureSshTransport: vi.fn(),
+  createRepository: vi.fn(),
+  infrastructureTargets: vi.fn(),
+  setInfrastructureTransportState: vi.fn(),
+  managedServiceCatalog: vi.fn(),
 }));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
+vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn().mockResolvedValue(vi.fn()) }));
 vi.mock('@/tauri/secure-credentials', () => ({
   readConnectionCredential: mocks.read,
   storeConnectionCredential: mocks.store,
@@ -24,8 +32,15 @@ vi.mock('@/tauri/managed-backend', () => ({
 vi.mock('@/lib/installer-infrastructure', () => ({
   finishInstallerInfrastructure: mocks.finishInstallerInfrastructure,
 }));
-vi.mock('@/tauri/ssh-tunnel', () => ({
-  openSshTunnel: mocks.openSshTunnel,
+vi.mock('@/tauri/ssh-infrastructure-transport', () => ({
+  recoverInfrastructureSshTransports: mocks.recoverInfrastructureSshTransports,
+  attachInfrastructureSshTransport: mocks.attachInfrastructureSshTransport,
+  sshTransportStatus: mocks.sshTransportStatus,
+  closeInfrastructureSshTransport: mocks.closeInfrastructureSshTransport,
+}));
+vi.mock('@/lib/connection', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/connection')>()),
+  createRepository: mocks.createRepository,
 }));
 
 import { ConnectionProvider, useConnectionSettings } from './connection-provider';
@@ -98,8 +113,23 @@ describe('connection provider credentials', () => {
     mocks.remove.mockReset();
     mocks.waitForManagedBackend.mockReset();
     mocks.finishInstallerInfrastructure.mockReset();
-    mocks.openSshTunnel.mockReset();
+    mocks.recoverInfrastructureSshTransports.mockReset();
+    mocks.attachInfrastructureSshTransport.mockReset();
+    mocks.sshTransportStatus.mockReset();
+    mocks.closeInfrastructureSshTransport.mockReset();
+    mocks.createRepository.mockReset();
+    mocks.infrastructureTargets.mockReset();
+    mocks.setInfrastructureTransportState.mockReset();
+    mocks.managedServiceCatalog.mockReset();
     mocks.finishInstallerInfrastructure.mockResolvedValue(undefined);
+    mocks.recoverInfrastructureSshTransports.mockResolvedValue(undefined);
+    mocks.closeInfrastructureSshTransport.mockResolvedValue(undefined);
+    mocks.setInfrastructureTransportState.mockResolvedValue(undefined);
+    mocks.createRepository.mockReturnValue({
+      infrastructureTargets: mocks.infrastructureTargets,
+      setInfrastructureTransportState: mocks.setInfrastructureTransportState,
+      managedServiceCatalog: mocks.managedServiceCatalog,
+    });
   });
 
   afterEach(cleanup);
@@ -144,35 +174,54 @@ describe('connection provider credentials', () => {
     );
 
     expect(screen.getByLabelText('recent count')).toHaveTextContent('1');
-    expect(screen.getByLabelText('active endpoint')).toHaveTextContent(
-      'http://127.0.0.1:17800',
-    );
+    expect(screen.getByLabelText('active endpoint')).toHaveTextContent('http://127.0.0.1:17800');
     expect(JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')).toEqual([
       expect.objectContaining({ endpoint: 'http://127.0.0.1:17800', label: 'Homelab CLIO' }),
     ]);
   });
 
-  it('reopens a remembered SSH tunnel at its stable local port', async () => {
+  it('resolves a remembered remote CLIO through its owning infrastructure record', async () => {
     localStorage.setItem(
       'clio.recent-connections',
       JSON.stringify([
         {
           endpoint: 'http://127.0.0.1:43123',
           label: 'Homelab',
-          tunnel: {
-            host: '10.0.0.102',
-            user: 'alice',
-            remote_port: 17_800,
-            key_path: '',
-            local_port: 43_123,
-          },
+          infrastructure: { targetId: 'homelab', serviceId: 'clio_agent' },
         },
       ]),
     );
     mocks.inTauri.mockReturnValue(false);
-    mocks.openSshTunnel.mockResolvedValue({
-      local_url: 'http://127.0.0.1:43123',
-      local_port: 43_123,
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: 'controller-token',
+    });
+    mocks.infrastructureTargets.mockResolvedValue([
+      {
+        id: 'homelab',
+        label: 'Homelab',
+        kind: 'ssh',
+        transport_state: 'state_unknown',
+        auto_reconnect: true,
+        install_root: '',
+        ssh: { profile: 'homelab' },
+      },
+    ]);
+    mocks.attachInfrastructureSshTransport.mockResolvedValue({
+      session_id: 'ssh-homelab',
+      state: 'connected',
+      reused: true,
+      output: '',
+    });
+    mocks.managedServiceCatalog.mockResolvedValue({
+      facts: {},
+      services: [
+        {
+          id: 'clio_agent',
+          state: 'running',
+          connection_url: 'http://127.0.0.1:43123',
+        },
+      ],
     });
     mocks.read.mockResolvedValue(undefined);
 
@@ -188,13 +237,65 @@ describe('connection provider credentials', () => {
         'http://127.0.0.1:43123',
       );
     });
-    expect(mocks.openSshTunnel).toHaveBeenCalledWith({
-      host: '10.0.0.102',
-      user: 'alice',
-      remote_port: 17_800,
-      key_path: '',
-      local_port: 43_123,
+    expect(mocks.attachInfrastructureSshTransport).toHaveBeenCalledTimes(2);
+    expect(mocks.setInfrastructureTransportState).toHaveBeenCalledWith('homelab', 'connected');
+  });
+
+  it('shows exact OpenSSH output while a remembered target needs reauthentication', async () => {
+    localStorage.setItem(
+      'clio.recent-connections',
+      JSON.stringify([
+        {
+          endpoint: 'http://127.0.0.1:43123',
+          label: 'Utah',
+          infrastructure: { targetId: 'utah', serviceId: 'clio_agent' },
+        },
+      ]),
+    );
+    mocks.inTauri.mockReturnValue(false);
+    mocks.waitForManagedBackend.mockResolvedValue({ url: 'http://127.0.0.1:17800' });
+    mocks.infrastructureTargets.mockResolvedValue([
+      {
+        id: 'utah',
+        label: 'Utah',
+        kind: 'ssh',
+        transport_state: 'reauthentication_required',
+        auto_reconnect: true,
+        install_root: '',
+        ssh: { profile: 'utah' },
+      },
+    ]);
+    mocks.attachInfrastructureSshTransport.mockResolvedValue({
+      session_id: 'ssh-utah',
+      state: 'reauthentication_required',
+      reused: false,
+      output: 'Password:\nPasscode or option (1-3):',
     });
+    mocks.sshTransportStatus.mockResolvedValue({
+      session_id: 'ssh-utah',
+      state: 'connected',
+      reused: true,
+      output: 'Password:\nPasscode or option (1-3):',
+    });
+    mocks.managedServiceCatalog.mockResolvedValue({
+      facts: {},
+      services: [{ id: 'clio_agent', state: 'running', connection_url: 'http://127.0.0.1:43123' }],
+    });
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve active connection' }));
+
+    expect(await screen.findByRole('heading', { name: 'Connect to Utah' })).toBeVisible();
+    expect(screen.getByText(/Passcode or option/u)).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByLabelText('resolved endpoint')).toHaveTextContent(
+        'http://127.0.0.1:43123',
+      ),
+    );
   });
 
   it('prefers the supervisor endpoint over a remembered installed-app connection', async () => {

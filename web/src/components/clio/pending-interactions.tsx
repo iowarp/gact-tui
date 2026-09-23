@@ -1,4 +1,9 @@
-import type { A2UISurface, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
+import type {
+  A2UIActionLifecycle,
+  A2UISurface,
+  PendingInteraction,
+  PendingInteractionResponse,
+} from '@clio/core/v3';
 import { MessageCircleQuestionIcon, ShieldQuestionIcon } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import {
@@ -16,38 +21,32 @@ import {
   QueueSectionLabel,
   QueueSectionTrigger,
 } from '@/components/ai-elements/queue';
-import { Frame, FramePanel } from '@/components/reui/frame';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-  FieldTitle,
-} from '@/components/ui/field';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
 import type { PermissionAction } from '@/lib/pending-interaction-contract';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { cn } from '@/lib/utils';
-import type { A2UILocalActionHandler } from './a2ui-surface';
 import { pendingInteractionDomId, respondFromControl } from './interaction-control';
-import { InteractionFrameHeader } from './interaction-frame-header';
+import { PendingA2UIResponse } from './pending-a2ui-response';
+import { QuestionResponse } from './pending-interaction-question-response';
 import {
   OwnerAttribution,
   PendingSurfaceNotices,
   ResponseErrorNotice,
 } from './pending-interaction-notices';
 import { PlanExitResponse } from './plan-exit-interaction';
-import { PendingA2UIResponse } from './pending-a2ui-response';
-import { StructuredQuestionResponse, UrlConsentResponse } from './question-interaction-forms';
 import { TechnicalDetails } from './technical-details';
 
 export interface ClioPendingInteractionsProps {
   interactions: readonly PendingInteraction[];
   surfaces?: Readonly<Record<string, A2UISurface>>;
+  /**
+   * Server-truth footer state per surface id (`EntityState.a2ui_action_lifecycles`,
+   * dispatcher slice S5) — the same map the main transcript and subagent canvas
+   * already read from the live store. A cross-session surface with no open
+   * stream simply has no entry here yet, which the footer already renders as
+   * "no lifecycle known" (nothing), not an error.
+   */
+  actionLifecycles?: Readonly<Record<string, A2UIActionLifecycle>>;
   ownerLabels?: Readonly<Record<string, string>>;
   /** The session on screen; every other owner gets attributed. */
   viewedSessionId: string;
@@ -55,7 +54,6 @@ export interface ClioPendingInteractionsProps {
   error?: Error;
   /** Failed capability negotiation; legacy responses may remain available. */
   capabilityError?: Error;
-  onA2UILocalAction?: A2UILocalActionHandler;
   onResponse: (
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
@@ -67,12 +65,12 @@ export interface ClioPendingInteractionsProps {
 export function ClioPendingInteractions({
   interactions,
   surfaces = {},
+  actionLifecycles = {},
   ownerLabels = {},
   viewedSessionId,
   disabled,
   error,
   capabilityError,
-  onA2UILocalAction,
   onResponse,
   onRefetchSurfaces,
 }: ClioPendingInteractionsProps) {
@@ -196,10 +194,10 @@ export function ClioPendingInteractions({
                     : undefined;
                   return (
                     <PendingA2UIResponse
+                      actionLifecycle={rawSurface ? actionLifecycles[rawSurface.id] : undefined}
                       disabled={interactionDisabled}
                       interaction={interaction}
                       key={interaction.id}
-                      onLocalAction={onA2UILocalAction}
                       onRefetchSurface={onRefetchSurfaces}
                       onResponse={handleResponse}
                       ownerLabel={ownerLabel}
@@ -298,7 +296,10 @@ function PermissionResponse({
         ) : null}
         <ResponseErrorNotice error={responseError} />
         {toolName || toolCall?.input !== undefined ? (
-          <TechnicalDetails className="mt-2 text-xs text-muted-foreground" title="Technical details">
+          <TechnicalDetails
+            className="mt-2 text-xs text-muted-foreground"
+            title="Technical details"
+          >
             {toolName ? <p className="mt-1 font-mono">{toolName}</p> : null}
             {toolCall?.input === undefined ? null : (
               <CodeBlock
@@ -378,293 +379,3 @@ const KNOWN_PERMISSION_ACTIONS: ReadonlySet<string> = new Set<PermissionAction>(
   'allow_session',
   'allow',
 ]);
-
-function QuestionResponse({
-  interaction,
-  disabled,
-  onResponse,
-  ownerLabel,
-  responseError,
-  showOwner,
-}: {
-  interaction: PendingInteraction;
-  disabled?: boolean;
-  onResponse: ClioPendingInteractionsProps['onResponse'];
-  ownerLabel?: string;
-  responseError?: Error;
-  showOwner: boolean;
-}) {
-  const [answer, setAnswer] = useState('');
-  const [selection, setSelection] = useState('');
-  const [multiSelection, setMultiSelection] = useState<string[]>([]);
-  const [optionComments, setOptionComments] = useState<Record<string, string>>({});
-  if (interaction.payload?.mode === 'url') {
-    return (
-      <UrlConsentResponse
-        disabled={disabled}
-        interaction={interaction}
-        onResponse={onResponse}
-        ownerLabel={ownerLabel}
-        responseError={responseError}
-        showOwner={showOwner}
-      />
-    );
-  }
-  if (interaction.payload?.mode === 'form' && interaction.payload.fields?.length) {
-    return (
-      <StructuredQuestionResponse
-        disabled={disabled}
-        interaction={interaction}
-        onResponse={onResponse}
-        ownerLabel={ownerLabel}
-        responseError={responseError}
-        showOwner={showOwner}
-      />
-    );
-  }
-  const options = interaction.payload?.options ?? [];
-  const usesOptions = options.length > 0;
-  const usesMulti = interaction.payload?.question_kind === 'multi_choice';
-  const allowsFreeform = interaction.payload?.allow_freeform === true;
-  const freeformValue = `${interaction.id}:freeform`;
-  const usesFreeform = !usesOptions || selection === freeformValue;
-  const canAnswer = (interaction.actions ?? []).includes('answer');
-  const canSubmit =
-    canAnswer &&
-    (usesMulti
-      ? multiSelection.length > 0
-      : usesOptions
-        ? Boolean(selection) && (!usesFreeform || Boolean(answer.trim()))
-        : Boolean(answer.trim()));
-  const selectedComment = optionComments[selection]?.trim() ?? '';
-
-  return (
-    <Frame
-      className={cn(
-        'min-w-0 self-stretch',
-        interaction.kind === 'mcp_task_input' && 'border-accent-foreground/15 bg-accent/25',
-      )}
-      data-interaction-kind={interaction.kind}
-      dense
-      id={pendingInteractionDomId(interaction.id)}
-      spacing="sm"
-      tabIndex={-1}
-    >
-      <InteractionFrameHeader
-        disabled={disabled}
-        interaction={interaction}
-        onCancel={
-          (interaction.actions ?? []).includes('cancel')
-            ? () => respondFromControl(onResponse(interaction, { action: 'cancel' }))
-            : undefined
-        }
-        ownerLabel={ownerLabel}
-        showOwner={showOwner}
-      />
-      <FramePanel className="min-w-0 overflow-hidden">
-        <ResponseErrorNotice error={responseError} />
-        {!canAnswer ? (
-          <p className="text-sm text-muted-foreground">Input controls are not available yet.</p>
-        ) : usesMulti ? (
-          <div className="grid gap-2" data-slot="checkbox-group">
-            {options.map((option) => {
-              const value = option.value || option.label;
-              const selected = multiSelection.includes(value);
-              return (
-                <div className="rounded-lg border" key={value}>
-                  <FieldLabel htmlFor={`${interaction.id}-${value}`}>
-                    <Field orientation="horizontal">
-                      <Checkbox
-                        aria-label={option.label}
-                        checked={selected}
-                        disabled={disabled}
-                        id={`${interaction.id}-${value}`}
-                        onCheckedChange={(checked) =>
-                          setMultiSelection((current) =>
-                            checked === true
-                              ? [...current, value]
-                              : current.filter((item) => item !== value),
-                          )
-                        }
-                      />
-                      <FieldContent>
-                        <FieldTitle>{option.label}</FieldTitle>
-                        {option.description ? (
-                          <FieldDescription>{option.description}</FieldDescription>
-                        ) : null}
-                      </FieldContent>
-                    </Field>
-                  </FieldLabel>
-                  {selected ? (
-                    <div className="grid gap-1 border-t border-border/60 px-2.5 py-2">
-                      <FieldLabel htmlFor={`${interaction.id}-${value}-comment`}>
-                        Comment on {option.label} (optional)
-                      </FieldLabel>
-                      <Textarea
-                        aria-label={`Comment on ${option.label}`}
-                        className="min-h-12 resize-y field-sizing-fixed"
-                        disabled={disabled}
-                        id={`${interaction.id}-${value}-comment`}
-                        onChange={(event) =>
-                          setOptionComments((current) => ({
-                            ...current,
-                            [value]: event.target.value,
-                          }))
-                        }
-                        rows={2}
-                        value={optionComments[value] ?? ''}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        ) : usesOptions ? (
-          <RadioGroup disabled={disabled} onValueChange={setSelection} value={selection}>
-            {options.map((option) => {
-              const value = option.value || option.label;
-              const selected = selection === value;
-              return (
-                <div
-                  className={cn(
-                    'rounded-lg border transition-colors hover:bg-muted/50',
-                    selected &&
-                      'border-primary/30 bg-primary/5 dark:border-primary/20 dark:bg-primary/10',
-                  )}
-                  key={value}
-                >
-                  <FieldLabel
-                    className="has-[>[data-slot=field]]:rounded-none has-[>[data-slot=field]]:border-0 has-[>[data-slot=field]]:hover:bg-transparent has-data-checked:bg-transparent dark:has-data-checked:bg-transparent"
-                    htmlFor={`${interaction.id}-${value}`}
-                  >
-                    <Field orientation="horizontal">
-                      <RadioGroupItem
-                        aria-label={option.label}
-                        id={`${interaction.id}-${value}`}
-                        value={value}
-                      />
-                      <FieldContent>
-                        <FieldTitle>{option.label}</FieldTitle>
-                        {option.description ? (
-                          <FieldDescription>{option.description}</FieldDescription>
-                        ) : null}
-                      </FieldContent>
-                    </Field>
-                  </FieldLabel>
-                  {selected ? (
-                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1 border-t border-border/60 px-2.5 py-2">
-                      <FieldLabel
-                        className="w-auto text-xs font-normal text-muted-foreground"
-                        htmlFor={`${interaction.id}-${value}-comment`}
-                      >
-                        Comment on {option.label} (optional)
-                      </FieldLabel>
-                      <Textarea
-                        aria-label={`Comment on ${option.label}`}
-                        className="min-h-12 w-full resize-y field-sizing-fixed bg-background/60"
-                        disabled={disabled}
-                        id={`${interaction.id}-${value}-comment`}
-                        onChange={(event) =>
-                          setOptionComments((current) => ({
-                            ...current,
-                            [value]: event.target.value,
-                          }))
-                        }
-                        placeholder="Add context for the agent"
-                        rows={2}
-                        value={optionComments[value] ?? ''}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-            {allowsFreeform ? (
-              <div
-                className={cn(
-                  'rounded-lg border transition-colors hover:bg-muted/50',
-                  selection === freeformValue &&
-                    'border-primary/30 bg-primary/5 dark:border-primary/20 dark:bg-primary/10',
-                )}
-              >
-                <FieldLabel htmlFor={`${interaction.id}-freeform`}>
-                  <Field orientation="horizontal">
-                    <RadioGroupItem
-                      aria-label="Something else"
-                      id={`${interaction.id}-freeform`}
-                      value={freeformValue}
-                    />
-                    <FieldContent>
-                      <FieldTitle>Something else</FieldTitle>
-                      <FieldDescription>Provide a different answer.</FieldDescription>
-                    </FieldContent>
-                  </Field>
-                </FieldLabel>
-                {selection === freeformValue ? (
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1 border-t border-border/60 px-2.5 py-2">
-                    <FieldLabel htmlFor={`${interaction.id}-answer`}>Your response</FieldLabel>
-                    <Textarea
-                      className="w-full resize-y field-sizing-fixed"
-                      disabled={disabled}
-                      id={`${interaction.id}-answer`}
-                      onChange={(event) => setAnswer(event.target.value)}
-                      placeholder="Type your response"
-                      value={answer}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </RadioGroup>
-        ) : (
-          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
-            <FieldLabel htmlFor={`${interaction.id}-answer`}>Your response</FieldLabel>
-            <Textarea
-              className="block w-full min-w-0 resize-y field-sizing-fixed"
-              id={`${interaction.id}-answer`}
-              onChange={(event) => setAnswer(event.target.value)}
-              placeholder="Type your response"
-              value={answer}
-            />
-          </div>
-        )}
-        {canAnswer ? (
-          <div className="mt-4 flex justify-end">
-            <Button
-              disabled={disabled || !canSubmit}
-              onClick={() =>
-                respondFromControl(
-                  onResponse(
-                    interaction,
-                    usesMulti
-                      ? {
-                          action: 'answer',
-                          selected_options: multiSelection,
-                          metadata: {
-                            option_comments: Object.fromEntries(
-                              multiSelection
-                                .map((value) => [value, optionComments[value]?.trim()] as const)
-                                .filter((entry) => Boolean(entry[1])),
-                            ),
-                          },
-                        }
-                      : usesOptions && !usesFreeform
-                        ? {
-                            action: 'answer',
-                            selected_options: [selection],
-                            ...(selectedComment ? { answer: selectedComment } : {}),
-                          }
-                        : { action: 'answer', answer: answer.trim() },
-                  ),
-                )
-              }
-            >
-              Send response
-            </Button>
-          </div>
-        ) : null}
-      </FramePanel>
-    </Frame>
-  );
-}

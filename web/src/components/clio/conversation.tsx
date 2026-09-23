@@ -420,8 +420,8 @@ function ConversationBody({
           >
             {detachedSurfaces.map((surface) => (
               <DeferredA2UISurface
+                actionLifecycle={entities.actionLifecycles?.[surface.id]}
                 key={surface.id}
-                onLocalAction={entities.onA2UILocalAction}
                 surface={surface}
               />
             ))}

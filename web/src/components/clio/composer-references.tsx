@@ -32,7 +32,7 @@ const groups: Array<{
   label: string;
 }> = [
   { defaultOpen: true, kinds: ['artifact'], label: 'Artifacts' },
-  { defaultOpen: false, kinds: ['workspace_file'], label: 'Local files' },
+  { defaultOpen: false, kinds: ['workspace_file'], label: 'Workspace files' },
   // Uploaded files and tool-observed evidence have different wire identities, but both are
   // user-facing sources. Artifacts remain reserved for generated or registered outputs.
   { defaultOpen: true, kinds: ['resource', 'evidence_source'], label: 'Sources' },
@@ -129,7 +129,7 @@ export function ClioComposerReferenceMenu({
     staleTime: QUERY_STALE_TIME_MS,
   });
   const localFiles = useQuery({
-    enabled: Boolean(workspaceId) && !isSearching && openGroups['Local files'],
+    enabled: Boolean(workspaceId) && !isSearching && openGroups['Workspace files'],
     queryKey: queryKeys.workspaceReferences(settings.endpoint, workspaceId, '', 'workspace_file'),
     queryFn: ({ signal }) =>
       repository.workspaceReferences(workspaceId, { kinds: ['workspace_file'] }, signal),
@@ -242,7 +242,7 @@ export function ClioComposerReferenceMenu({
         </PromptInputCommandEmpty>
         {groups.map((group) => {
           const matches = rows.filter((row) => group.kinds.includes(row.kind));
-          const alwaysVisible = group.label === 'Artifacts' || group.label === 'Local files';
+          const alwaysVisible = group.label === 'Artifacts' || group.label === 'Workspace files';
           if (!matches.length && !alwaysVisible) return null;
           const open = isSearching || openGroups[group.label];
           return (
@@ -270,7 +270,7 @@ export function ClioComposerReferenceMenu({
                       <span>{group.label}</span>
                     </span>
                     <span className="text-muted-foreground">
-                      {group.label === 'Local files' && !localFiles.isFetched
+                      {group.label === 'Workspace files' && !localFiles.isFetched
                         ? '…'
                         : matches.length}
                     </span>

@@ -9,8 +9,6 @@ use std::{
     process::Command,
 };
 
-use crate::ssh::TunnelManager;
-use crate::ssh_types::{TunnelHandle, TunnelRequest};
 use crate::supervisor::Supervisor;
 use crate::supervisor_boot_log;
 use crate::supervisor_boot_log_open;
@@ -52,21 +50,46 @@ pub fn repair_clio(app: tauri::AppHandle) {
     run_installer(app, true);
 }
 
-/// Update the clio-agent runtime to a specific released version. Driven by the
-/// version-badge update panel's Backend row: it re-runs the upstream installer
-/// pinned to `target_version` (a release tag like `v0.5.2`) with the force flag
-/// so the new ref is checked out over the existing install. A null/empty
-/// target falls back to the default `develop` ref.
+/// Update the exact CLIO runtime owned by this desktop installation.
+/// Bundled installs are upgraded in place; legacy/lightweight installs use
+/// the upstream bootstrap installer. The caller chooses whether this update
+/// restarts immediately (CLIO-only) or lets a following desktop update perform
+/// the single combined restart.
 #[tauri::command]
-pub fn update_clio(app: tauri::AppHandle, target_version: Option<String>) {
+pub fn update_clio(
+    app: tauri::AppHandle,
+    target_version: Option<String>,
+    restart_app: Option<bool>,
+) {
     let target = target_version.filter(|v| !v.trim().is_empty());
+    let runtime = app
+        .try_state::<Mutex<Supervisor>>()
+        .and_then(|state| lock_recover(&state).managed_runtime_dir());
+    if let Some(state) = app.try_state::<Mutex<Supervisor>>() {
+        lock_recover(&state).shutdown();
+    }
     std::thread::spawn(move || {
-        let restart_app = app.clone();
-        supervisor_installer::install_clio_versioned(app, true, target, move || {
-            if let Some(state) = restart_app.try_state::<Mutex<Supervisor>>() {
-                lock_recover(&state).restart();
+        let after_update = {
+            let app = app.clone();
+            move || {
+                if restart_app.unwrap_or(true) {
+                    // Let the verified-success event reach the webview before
+                    // replacing the process.  This keeps the agent-only path
+                    // observable instead of making a healthy restart look like
+                    // a dropped update request.
+                    std::thread::spawn(move || {
+                        std::thread::sleep(std::time::Duration::from_millis(250));
+                        app.restart();
+                    });
+                }
             }
-        });
+        };
+        match (runtime, target.as_deref()) {
+            (Some(runtime), Some(version)) => {
+                supervisor_installer::update_bundled_clio(app, &runtime, version, after_update)
+            }
+            _ => supervisor_installer::install_clio_versioned(app, true, target, after_update),
+        }
     });
 }
 
@@ -170,13 +193,4 @@ mod document_path_tests {
             "C:/workspace/.clio/agent/documents/working-copies/untrusted/brief.docx"
         )));
     }
-}
-
-/// Open an SSH tunnel for an `ssh-tunnel` backend entry.
-#[tauri::command]
-pub fn tunnel_open(
-    request: TunnelRequest,
-    tunnels: tauri::State<'_, TunnelManager>,
-) -> Result<TunnelHandle, String> {
-    tunnels.open(request).map_err(|e| e.to_string())
 }

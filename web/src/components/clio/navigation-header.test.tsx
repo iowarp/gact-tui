@@ -118,13 +118,7 @@ it('shows agent identity as location followed by the branded agent name', async 
             {
               endpoint: 'http://127.0.0.1:17800',
               label: `Homelab ${brand.agentName}`,
-              tunnel: {
-                host: '10.0.0.102',
-                user: 'alice',
-                remote_port: 17_800,
-                key_path: '',
-                profile: 'homelab',
-              },
+              location: 'Homelab',
             },
           ]}
         />
@@ -148,13 +142,7 @@ it('uses a user-defined agent name instead of forcing the branded fallback', () 
       <SidebarProvider>
         <NavigationHeader
           activeLabel="Ares Research"
-          activeTunnel={{
-            host: 'ares.cs.iit.edu',
-            user: 'alice',
-            remote_port: 17_800,
-            key_path: '',
-            profile: 'ares',
-          }}
+          activeLocation="Ares"
           connectionAvailabilities={{}}
           currentPath="/"
           endpoint="http://127.0.0.1:41849"

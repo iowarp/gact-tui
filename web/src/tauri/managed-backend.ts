@@ -22,9 +22,12 @@ interface ManagedBackendOptions {
   timeoutMs?: number;
 }
 
-async function invokeManagedBackend<T>(command: string): Promise<T> {
+async function invokeManagedBackend<T>(
+  command: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
   const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<T>(command);
+  return args ? invoke<T>(command, args) : invoke<T>(command);
 }
 
 export async function getManagedBackend(): Promise<ManagedBackendHandle> {
@@ -55,6 +58,41 @@ export async function retryManagedBackend(): Promise<void> {
  */
 export async function restartClio(): Promise<void> {
   await invokeManagedBackend<void>('restart_clio');
+}
+
+interface InstallFailure {
+  code?: number;
+  tail?: string;
+}
+
+/** Update the desktop-owned CLIO runtime and resolve only after verification succeeds. */
+export async function updateManagedClio(
+  targetVersion: string,
+  options: { restartApp: boolean },
+): Promise<void> {
+  const { listen } = await import('@tauri-apps/api/event');
+  let removeDone: (() => void) | undefined;
+  let removeFailed: (() => void) | undefined;
+  let resolveUpdate!: () => void;
+  let rejectUpdate!: (error: Error) => void;
+  const completed = new Promise<void>((resolve, reject) => {
+    resolveUpdate = resolve;
+    rejectUpdate = reject;
+  });
+  try {
+    removeDone = await listen('clio:install-done', () => resolveUpdate());
+    removeFailed = await listen<InstallFailure>('clio:install-failed', (event) => {
+      rejectUpdate(new Error(event.payload.tail || `${vocab.agent} update failed.`));
+    });
+    await invokeManagedBackend<void>('update_clio', {
+      targetVersion,
+      restartApp: options.restartApp,
+    });
+    await completed;
+  } finally {
+    removeDone?.();
+    removeFailed?.();
+  }
 }
 
 export async function waitForManagedBackend(

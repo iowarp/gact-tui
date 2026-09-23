@@ -32,7 +32,7 @@ import {
   WorkspaceLiveObservabilityView,
   WorkspaceLiveStatusStrip,
 } from '@/components/clio/workspace-live-projections';
-import { useA2UILocalActions } from '@/hooks/use-a2ui-local-actions';
+import { useA2uiOpenArtifactRuntime } from '@/lib/a2ui/kernel-runtime';
 import { useRepository } from '@/hooks/use-repository';
 import { useSessionHistoryActions } from '@/hooks/use-session-history-actions';
 import { useSessionDiffActions } from '@/hooks/use-session-diff-actions';
@@ -258,7 +258,7 @@ export function WorkspacePage() {
       workspaceResourceEntities,
     ],
   );
-  const handleA2UILocalAction = useA2UILocalActions(entities.artifacts, sessionId, openArtifact);
+  useA2uiOpenArtifactRuntime(entities.artifacts, sessionId, openArtifact);
 
   const {
     actionCard,
@@ -327,9 +327,6 @@ export function WorkspacePage() {
           statusStrip={
             <WorkspaceLiveStatusStrip
               activeWorkCount={workspaceRouteState.countActiveWork(runs, tasks, tools)}
-              a2uiVersions={capabilities.data?.a2ui_versions}
-              gactVersions={capabilities.data?.gact_versions}
-              service={capabilities.data?.service}
               sessionId={sessionId}
               streamError={streamError}
             />
@@ -383,10 +380,10 @@ export function WorkspacePage() {
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
   const pendingInteractionsPanel = (
     <ClioPendingInteractions
+      actionLifecycles={entities.a2ui_action_lifecycles}
       capabilityError={interactionCapabilityError ?? undefined}
       error={interactionsError ?? undefined}
       interactions={responseTrayInteractions}
-      onA2UILocalAction={handleA2UILocalAction}
       onRefetchSurfaces={refetchInteractionSurfaces}
       onResponse={handleInteractionResponse}
       ownerLabels={interactionOwnerLabels}
@@ -695,9 +692,6 @@ export function WorkspacePage() {
         statusStrip={
           <WorkspaceLiveStatusStrip
             activeWorkCount={activeWorkCount}
-            a2uiVersions={capabilities.data?.a2ui_versions}
-            gactVersions={capabilities.data?.gact_versions}
-            service={capabilities.data?.service}
             sessionId={sessionId}
             sessionState={session?.state}
             streamError={streamError}
@@ -736,7 +730,6 @@ export function WorkspacePage() {
                     error={transcriptError}
                     loading={transcript.isFetching}
                     onActionCardAction={actionCard.mutateAsync}
-                    onA2UILocalAction={handleA2UILocalAction}
                     onOpenArtifact={openArtifact}
                     onOpenFile={openWorkspaceFile}
                     onOpenWork={() => revealWorkbench({ kind: 'resources', section: 'work' })}

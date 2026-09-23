@@ -188,6 +188,7 @@ export function ClioSubagentCanvasView({
       ) : null}
       <div className="min-h-0 flex-1">
         <ClioConversation
+          actionLifecycles={entities.a2ui_action_lifecycles}
           artifacts={entities.artifacts}
           error={transcript.error?.message}
           loading={transcript.isPending}

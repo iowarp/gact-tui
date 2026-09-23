@@ -7,6 +7,7 @@ import {
 } from '@clio/core/v3';
 import { create } from 'zustand';
 import { reduceFramesContained } from '@/lib/streaming/frame-reduction';
+import { withoutEntitySessionModelReferences } from '@/lib/session-model-state';
 
 /**
  * Stream gaps kept for diagnostics. Unit: gap records.
@@ -26,6 +27,7 @@ interface LiveStore {
   replaceSnapshots: (snapshot: Partial<EntityState>) => void;
   mergeSnapshots: (snapshot: Partial<EntityState>) => void;
   reconcileSnapshots: (snapshot: Partial<EntityState>) => void;
+  clearSessionModelReferences: () => void;
   reset: () => void;
 }
 
@@ -80,6 +82,39 @@ function mergeEntityMap(
   return merged;
 }
 
+/** `a2ui.action.*` statuses that will never change again — see below. */
+const TERMINAL_A2UI_LIFECYCLE_STATUSES = new Set(['consumed', 'failed', 'duplicate']);
+
+/**
+ * `a2ui_action_lifecycles` (the action-lifecycle footer's data) is
+ * stream-only — no REST endpoint returns it, so a `reconcileSnapshots`
+ * snapshot never carries it, and the plain `{...state.entities, ...snapshot}`
+ * spread below would otherwise leave a non-terminal status (`received`/
+ * `delivered`) exactly as it was before the gap: a footer reading "received"
+ * could show that forever after a reconnect, even though the true status may
+ * have moved on or the events may simply never arrive again (S8 gact-tui#409
+ * item 4, adversarial finding). A reconcile is the client's only honest
+ * admission that it lost the thread — resident non-terminal entries are
+ * remapped to the schema's own `unknown` status, which the footer already
+ * renders as words ("... status unknown", `a2ui-action-lifecycle.tsx`).
+ * Terminal statuses are left alone: they are true regardless of a gap.
+ */
+function markNonTerminalA2uiLifecyclesUnknown(
+  lifecycles: EntityState['a2ui_action_lifecycles'],
+): EntityState['a2ui_action_lifecycles'] {
+  const entries = Object.entries(lifecycles);
+  if (entries.every(([, lifecycle]) => TERMINAL_A2UI_LIFECYCLE_STATUSES.has(lifecycle.status))) {
+    return lifecycles;
+  }
+  return Object.fromEntries(
+    entries.map(([surfaceId, lifecycle]) =>
+      TERMINAL_A2UI_LIFECYCLE_STATUSES.has(lifecycle.status)
+        ? [surfaceId, lifecycle]
+        : [surfaceId, { ...lifecycle, status: 'unknown' as const }],
+    ),
+  );
+}
+
 export const useLiveStore = create<LiveStore>((set) => ({
   entities: createEntityState(),
   frameGaps: [],
@@ -123,10 +158,20 @@ export const useLiveStore = create<LiveStore>((set) => ({
       entities: {
         ...state.entities,
         ...snapshot,
+        a2ui_action_lifecycles: markNonTerminalA2uiLifecyclesUnknown(
+          state.entities.a2ui_action_lifecycles,
+        ),
         cursor: undefined,
         processed_cursors: [],
       },
       error: undefined,
+    })),
+  clearSessionModelReferences: () =>
+    set((state) => ({
+      entities: {
+        ...state.entities,
+        sessions: withoutEntitySessionModelReferences(state.entities.sessions),
+      },
     })),
   reset: () => set({ entities: createEntityState(), frameGaps: [], error: undefined }),
 }));

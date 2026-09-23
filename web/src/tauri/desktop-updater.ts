@@ -30,7 +30,33 @@ export interface DesktopUpdateProgress {
   finished: boolean;
 }
 
+export type DesktopUpdateSnapshot =
+  | { status: 'unknown' | 'checking' | 'current' }
+  | { status: 'available'; update: DesktopUpdateInfo }
+  | { status: 'error'; message: string };
+
 let availableUpdate: Update | null = null;
+let updateSnapshot: DesktopUpdateSnapshot = { status: 'unknown' };
+const updateListeners = new Set<(snapshot: DesktopUpdateSnapshot) => void>();
+
+function publishUpdateSnapshot(snapshot: DesktopUpdateSnapshot): void {
+  updateSnapshot = snapshot;
+  for (const listener of updateListeners) listener(snapshot);
+}
+
+/** Read the last result shared by startup checks, Settings, and the navigation badge. */
+export function getDesktopUpdateSnapshot(): DesktopUpdateSnapshot {
+  return updateSnapshot;
+}
+
+/** Subscribe without causing an additional network request. */
+export function subscribeDesktopUpdate(
+  listener: (snapshot: DesktopUpdateSnapshot) => void,
+): () => void {
+  updateListeners.add(listener);
+  listener(updateSnapshot);
+  return () => updateListeners.delete(listener);
+}
 
 /**
  * Persists the "last checked" clock across app restarts, written by every
@@ -111,20 +137,28 @@ function writeLastCheckedAt(value: number): void {
 export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null> {
   if (!inTauri()) throw new Error('App updates are available only in the installed desktop app.');
   writeLastCheckedAt(Date.now());
-  if (availableUpdate) {
-    await availableUpdate.close();
-    availableUpdate = null;
+  publishUpdateSnapshot({ status: 'checking' });
+  try {
+    if (availableUpdate) {
+      await availableUpdate.close();
+      availableUpdate = null;
+    }
+    const { check } = await import('@tauri-apps/plugin-updater');
+    availableUpdate = await check({ timeout: UPDATE_CHECK_TIMEOUT_MS });
+    const update = availableUpdate
+      ? {
+          currentVersion: availableUpdate.currentVersion,
+          version: availableUpdate.version,
+          date: availableUpdate.date,
+          body: availableUpdate.body,
+        }
+      : null;
+    publishUpdateSnapshot(update ? { status: 'available', update } : { status: 'current' });
+    return update;
+  } catch (error) {
+    publishUpdateSnapshot({ status: 'error', message: describeUpdateError(error) });
+    throw error;
   }
-  const { check } = await import('@tauri-apps/plugin-updater');
-  availableUpdate = await check({ timeout: UPDATE_CHECK_TIMEOUT_MS });
-  return availableUpdate
-    ? {
-        currentVersion: availableUpdate.currentVersion,
-        version: availableUpdate.version,
-        date: availableUpdate.date,
-        body: availableUpdate.body,
-      }
-    : null;
 }
 
 /** Install the update returned by the most recent check and relaunch into it. */
@@ -157,7 +191,10 @@ export async function installDesktopUpdate(
 function describeUpdateProgress(progress: DesktopUpdateProgress): string {
   if (progress.finished) return 'Installing update…';
   if (progress.totalBytes && progress.totalBytes > 0) {
-    const percent = Math.min(100, Math.round((progress.downloadedBytes / progress.totalBytes) * 100));
+    const percent = Math.min(
+      100,
+      Math.round((progress.downloadedBytes / progress.totalBytes) * 100),
+    );
     return `Downloading update, ${percent}%`;
   }
   return `Downloading update, ${formatBytes(progress.downloadedBytes)} received`;
@@ -240,6 +277,9 @@ export async function runBackgroundUpdateCheck(now: number = Date.now()): Promis
 export function scheduleBackgroundUpdateCheck(): () => void {
   if (!inTauri()) return () => {};
   void runBackgroundUpdateCheck();
-  const timer = setInterval(() => void runBackgroundUpdateCheck(), BACKGROUND_UPDATE_CHECK_INTERVAL_MS);
+  const timer = setInterval(
+    () => void runBackgroundUpdateCheck(),
+    BACKGROUND_UPDATE_CHECK_INTERVAL_MS,
+  );
   return () => clearInterval(timer);
 }

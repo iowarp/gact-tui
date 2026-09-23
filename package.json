@@ -1,10 +1,11 @@
 {
   "name": "@clio/workspace-root",
-  "version": "0.11.2+patch.2",
+  "version": "0.11.2+patch.16",
   "private": true,
   "description": "CLIO web workspace and Tauri desktop host",
   "scripts": {
-    "lint": "node scripts/check_presentation_overrides.mjs && node scripts/check_frontend_component_reuse.mjs && node scripts/check_frontend_file_size.mjs && node scripts/check_brand_literals.mjs && pnpm -r --workspace-concurrency=1 lint",
+    "lint": "node scripts/check_presentation_overrides.mjs && node scripts/check_frontend_component_reuse.mjs && node scripts/check_frontend_file_size.mjs && node scripts/check_brand_literals.mjs && node scripts/check_infrastructure_ownership.mjs && pnpm -r --workspace-concurrency=1 lint",
+    "check:infrastructure-ownership": "node scripts/check_infrastructure_ownership.mjs",
     "check:presentation-overrides": "node scripts/check_presentation_overrides.mjs",
     "check:frontend-reuse": "node scripts/check_frontend_component_reuse.mjs",
     "check:frontend-size": "node scripts/check_frontend_file_size.mjs",

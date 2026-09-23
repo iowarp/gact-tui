@@ -14,7 +14,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarSeparator,
 } from '@/components/ui/sidebar';
 import { useSwitchConnection } from '@/hooks/use-switch-connection';
 import { useConnectionAvailabilities } from '@/hooks/use-connection-availability';
@@ -126,7 +125,7 @@ export function ClioNavigation({
         <nav aria-label="Workspace navigation" className="flex h-full min-w-0 flex-1 flex-col">
           <NavigationHeader
             activeLabel={settings.label}
-            activeTunnel={settings.tunnel}
+            activeLocation={settings.location}
             attentionControl={
               <ClioAttentionCenter
                 activeSessionId={activeSessionId}
@@ -176,20 +175,17 @@ export function ClioNavigation({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                   <NavigationInfrastructure endpoint={endpoint} from={location.pathname} />
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild tooltip="Settings">
+                      <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
+                        <Settings2Icon aria-hidden="true" />
+                        <span>Settings</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
-            <SidebarSeparator className="my-1" />
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Settings">
-                  <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
-                    <Settings2Icon aria-hidden="true" />
-                    <span>Settings</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
           </SidebarFooter>
         </nav>
         <SidebarRail />

@@ -666,7 +666,7 @@ export function SettingsPage() {
   const sessionId = sessionIdFromRoute(workspaceRoute);
   const blueprintId = new URLSearchParams(location.search).get('blueprint') || undefined;
   return (
-    <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
+    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[240px_minmax(0,1fr)]">
         <nav aria-label="Settings sections" className="grid content-start gap-1 md:sticky md:top-8">
           <Button asChild className="mb-4 justify-start" variant="ghost">

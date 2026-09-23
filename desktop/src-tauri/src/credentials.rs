@@ -6,7 +6,6 @@ use tauri::{AppHandle, Manager};
 
 const CREDENTIAL_SERVICE: &str = "ai.iowarp.gact.desktop.connection";
 const PROVIDER_CREDENTIAL_SERVICE: &str = "ai.iowarp.gact.desktop.provider";
-const SSH_PASSWORD_CREDENTIAL_SERVICE: &str = "ai.iowarp.clio.desktop.ssh.password";
 
 fn credential_entry(endpoint: &str) -> Result<Entry, String> {
     let account = credential_account(endpoint)?;
@@ -69,22 +68,6 @@ fn ssh_credential_account(credential_id: &str) -> Result<&str, String> {
         return Err("A valid SSH credential identity is required.".to_string());
     }
     Ok(account)
-}
-
-fn ssh_password_entry(credential_id: &str) -> Result<Entry, String> {
-    Entry::new(
-        SSH_PASSWORD_CREDENTIAL_SERVICE,
-        ssh_credential_account(credential_id)?,
-    )
-    .map_err(credential_error)
-}
-
-pub(crate) fn read_ssh_password(credential_id: &str) -> Result<Option<String>, String> {
-    match ssh_password_entry(credential_id)?.get_password() {
-        Ok(secret) => Ok(Some(secret)),
-        Err(Error::NoEntry) => Ok(None),
-        Err(error) => Err(credential_error(error)),
-    }
 }
 
 fn store(endpoint: &str, secret: &str) -> Result<(), String> {
@@ -164,34 +147,6 @@ pub async fn provider_credential_read(
         match provider_entry(&provider_id, &api_base)?.get_password() {
             Ok(secret) => Ok(Some(secret)),
             Err(Error::NoEntry) => Ok(None),
-            Err(error) => Err(credential_error(error)),
-        }
-    })
-    .await
-    .map_err(|error| format!("Secure credential storage task failed: {error}"))?
-}
-
-/// Save an SSH password in the current user's operating-system credential vault.
-#[tauri::command]
-pub async fn ssh_password_store(credential_id: String, secret: String) -> Result<(), String> {
-    if secret.is_empty() {
-        return Err("An empty SSH password cannot be stored.".to_string());
-    }
-    tauri::async_runtime::spawn_blocking(move || {
-        ssh_password_entry(&credential_id)?
-            .set_password(&secret)
-            .map_err(credential_error)
-    })
-    .await
-    .map_err(|error| format!("Secure credential storage task failed: {error}"))?
-}
-
-/// Delete a saved SSH password without changing the host definition.
-#[tauri::command]
-pub async fn ssh_password_delete(credential_id: String) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        match ssh_password_entry(&credential_id)?.delete_credential() {
-            Ok(()) | Err(Error::NoEntry) => Ok(()),
             Err(error) => Err(credential_error(error)),
         }
     })

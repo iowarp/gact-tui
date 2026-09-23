@@ -85,21 +85,27 @@ beforeEach(() => {
     sessionId: 'sess_demo',
     tools: [
       {
-        name: 'fs_read_file',
-        title: 'Read File',
-        source: 'gateway',
+        name: 'create_artifact',
+        title: 'Create artifact',
+        source: 'native',
         representation: 'row',
       },
       {
-        name: 'wait_agent_tasks',
-        title: 'Wait',
-        source: 'spawn-runtime',
+        name: 'create_plan',
+        title: 'Create plan',
+        source: 'native',
         representation: 'row',
       },
       {
         name: 'memory_search_sessions',
         title: 'Search memory',
         source: 'native',
+        representation: 'row',
+      },
+      {
+        name: 'ndp_search',
+        title: 'Search NDP',
+        source: 'ndp',
         representation: 'row',
       },
     ],
@@ -132,21 +138,6 @@ beforeEach(() => {
       visible_to: [],
       input_schema: {},
       output_schema: {},
-    },
-    {
-      id: 'ndp_search',
-      name: 'ndp_search',
-      title: 'Search NDP',
-      description: 'Searches the National Data Platform catalog.',
-      server_id: 'session_mcp_sess_demo_ndp',
-      source: 'agent_blueprint_mcp_descriptor',
-      tags: [],
-      visible_to: [],
-      input_schema: {
-        type: 'object',
-        properties: { query: { type: 'string' } },
-      },
-      output_schema: { type: 'object' },
     },
   ]);
   repository.catalogTools.mockResolvedValue([
@@ -261,7 +252,7 @@ describe('InfrastructurePage', () => {
   it('separates agent, tools, and services while opening on the requested section', async () => {
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'tools');
 
-    expect(screen.getByRole('main')).toHaveClass('h-dvh', 'overflow-y-auto');
+    expect(screen.getByRole('main')).toHaveClass('h-full', 'min-h-0', 'overflow-y-auto');
     expect(await screen.findByRole('heading', { name: 'Tools', level: 1 })).toBeVisible();
     expect(screen.getByRole('navigation', { name: 'Infrastructure sections' })).toBeVisible();
     expect(screen.getByRole('link', { name: brand.agentName })).toBeVisible();
@@ -273,7 +264,7 @@ describe('InfrastructurePage', () => {
     const user = userEvent.setup();
     renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'tools');
 
-    expect(await screen.findByText('3 built in')).toBeVisible();
+    expect(await screen.findByText('4 available')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Built-in 3' })).toHaveAttribute(
       'aria-pressed',
       'true',
@@ -289,6 +280,7 @@ describe('InfrastructurePage', () => {
     expect(screen.getByText('Returns')).toBeVisible();
     expect(screen.getByText('artifact_id')).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'MCP 1' }));
+    expect(screen.getByRole('button', { name: /Search NDP/u })).toBeVisible();
     expect(screen.getAllByText('EarthScope Skills')).toHaveLength(2);
     expect(screen.getByText('Session')).toBeVisible();
     expect(screen.getByRole('link', { name: 'EarthScope Skills' })).toHaveAttribute(
@@ -297,6 +289,23 @@ describe('InfrastructurePage', () => {
     );
     expect(repository.tools).toHaveBeenCalled();
     expect(repository.catalogTools).toHaveBeenCalled();
+    expect(repository.effectiveAgentToolset).toHaveBeenCalledWith(
+      'sess_demo',
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('does not fall back to the global catalog before a session records its toolset', async () => {
+    repository.effectiveAgentToolset.mockResolvedValue(undefined);
+
+    renderPage('/workspaces/ws_factorio/sessions/sess_demo', 'tools');
+
+    expect(
+      await screen.findByText(
+        `This session has not recorded an effective ${brand.agentName} toolset yet.`,
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Create artifact/u })).not.toBeInTheDocument();
   });
 
   it('says why the relay is degraded in the relay’s own words', async () => {

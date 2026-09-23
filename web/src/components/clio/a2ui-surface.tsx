@@ -1,42 +1,43 @@
 import {
   A2UI_VERSION,
-  a2uiComponentSchema,
+  type A2UIActionLifecycle,
   type A2UISurface as DomainSurface,
 } from '@clio/core/v3';
 import { renderMarkdown } from '@a2ui/markdown-it';
 import { MarkdownContext } from '@a2ui/react/v0_9';
-import { MessageProcessor, type A2uiClientAction, type A2uiMessage } from '@a2ui/web_core/v0_9';
-import { useMutation } from '@tanstack/react-query';
-import { AlertTriangleIcon, BoxesIcon } from 'lucide-react';
-import { Component, useCallback, useMemo, useState, type ErrorInfo, type ReactNode } from 'react';
+import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangleIcon, BoxesIcon, Loader2Icon } from 'lucide-react';
+import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useRepository } from '@/hooks/use-repository';
-import { findLastSurfaceAction } from '@/lib/a2ui-state';
-import { PROTOCOL, vocab } from '@/lib/brand-vocabulary';
+import { A2uiSurface } from '@/lib/a2ui/kernel-catalog';
+import { useA2uiCatalogRegistry, useA2uiSurfaceModel } from '@/lib/a2ui/processor-store';
+import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
 import { cn } from '@/lib/utils';
-import { A2uiSurface, clioA2UICatalog } from './a2ui-catalog';
+import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { TechnicalDetails } from './technical-details';
 import { a2uiSurfaceDomId, a2uiSurfaceKind } from './a2ui-presentation';
 
-function SurfaceFailure({ error }: { error: Error }) {
+function SurfaceFailure({ detail, message }: { detail?: string; message: string }) {
   return (
     <section
-      aria-label={`${PROTOCOL.a2ui} surface unavailable`}
+      aria-label="Interactive agent surface unavailable"
       className="overflow-hidden rounded-xl border border-destructive/40 bg-destructive/5"
     >
       <div className="flex items-center gap-2 border-b border-destructive/30 px-4 py-2 text-xs">
         <AlertTriangleIcon aria-hidden="true" className="size-3.5 text-destructive" />
-        <span className="font-medium">{PROTOCOL.a2ui} surface unavailable</span>
+        <span className="font-medium">Interactive surface unavailable</span>
         <ClioStatus className="ml-auto" label="Failed safely" value="failed" />
       </div>
       <p className="px-4 py-3 text-xs text-muted-foreground">
-        {error.message} The conversation remains available, and no action was taken by this view.
+        {message} The conversation remains available, and no action was taken by this view.
       </p>
       <TechnicalDetails
         className="border-t border-destructive/20 px-4 py-2 text-xs text-muted-foreground"
-        title={`${PROTOCOL.a2ui} details`}
+        title="Validation detail"
       >
-        <p className="mt-2 font-mono">{error.message}</p>
+        <p className="mt-2 font-mono">{detail ?? message}</p>
       </TechnicalDetails>
     </section>
   );
@@ -63,11 +64,13 @@ class SurfaceBoundary extends Component<SurfaceBoundaryProps, SurfaceBoundarySta
   }
 
   public render(): ReactNode {
-    return this.state.error ? <SurfaceFailure error={this.state.error} /> : this.props.children;
+    return this.state.error ? (
+      <SurfaceFailure message={this.state.error.message} />
+    ) : (
+      this.props.children
+    );
   }
 }
-
-const LOCAL_ACTIONS = new Set(['artifact.open', 'data.select', 'workflow.focus']);
 
 /** Every declared surface state keeps its own honest status; none defaults to success. */
 function surfaceStatusValue(state: DomainSurface['state']): ClioStatusValue {
@@ -96,42 +99,34 @@ function surfaceStatusValue(state: DomainSurface['state']): ClioStatusValue {
   }
 }
 
-function validateSurfaceComponents(messages: unknown[]): A2uiMessage[] {
-  return messages.map((message, messageIndex) => {
-    if (typeof message !== 'object' || message === null) return message as A2uiMessage;
-    const update = Reflect.get(message, 'updateComponents');
-    if (typeof update !== 'object' || update === null) return message as A2uiMessage;
-    const components = Reflect.get(update, 'components');
-    if (!Array.isArray(components)) return message as A2uiMessage;
-    components.forEach((component, componentIndex) => {
-      const result = a2uiComponentSchema.safeParse(component);
-      if (!result.success) {
-        const detail = result.error.issues[0]?.message || 'unknown schema violation';
-        throw new Error(
-          `A2UI component ${componentIndex + 1} in update ${messageIndex + 1} does not satisfy the shared ${vocab.agent} catalog: ${detail}`,
-        );
-      }
-    });
-    return message as A2uiMessage;
-  });
-}
-
-export type A2UILocalActionHandler = (
-  action: A2uiClientAction,
-) => string | void | Promise<string | void>;
-
 export type A2UIRemoteActionHandler = (message: {
   version: string;
   action: A2uiClientAction;
 }) => Promise<void>;
 
+export type A2UILocalActionHandler = (
+  action: A2uiClientAction,
+) => string | void | Promise<string | void>;
+
+const LEGACY_LOCAL_ACTIONS = new Set(['artifact.open', 'data.select', 'workflow.focus']);
+
 function ClioA2UISurfaceContent({
+  actionLifecycle,
   chrome,
   onLocalAction,
   onRemoteAction,
   surface,
   viewport,
 }: {
+  /**
+   * The server-truth footer's data (dispatcher slice S5,
+   * `docs/design/a2ui-compat-campaign-2026-09.md`): `a2ui.action.*` events
+   * folded into `EntityState.a2ui_action_lifecycles[surface.id]` and threaded
+   * down by the caller (S8 gact-tui#409 item 2 — the main transcript, the
+   * subagent canvas, and `pending-interactions.tsx`'s cross-session surfaces
+   * all wire it). Rendered by the footer, `a2ui-action-lifecycle.tsx`.
+   */
+  actionLifecycle?: A2UIActionLifecycle;
   chrome: 'framed' | 'bare';
   onLocalAction?: A2UILocalActionHandler;
   onRemoteAction?: A2UIRemoteActionHandler;
@@ -139,9 +134,14 @@ function ClioA2UISurfaceContent({
   viewport: 'inline' | 'fullscreen';
 }) {
   const repository = useRepository();
+  const queryClient = useQueryClient();
+  const { registry, catalogs, isLoading: catalogsLoading } = useA2uiCatalogRegistry(
+    surface.session_id,
+  );
+  const [validationPostFailure, setValidationPostFailure] = useState<string>();
+  const [localNotice, setLocalNotice] = useState<string>();
   const [localActionPending, setLocalActionPending] = useState(false);
   const [localActionStatus, setLocalActionStatus] = useState<string>();
-  const [localActionError, setLocalActionError] = useState<string>();
   const { error, isPending, mutateAsync } = useMutation({
     mutationFn: async (clientAction: A2uiClientAction) => {
       const message = { version: `v${A2UI_VERSION}`, action: clientAction };
@@ -158,18 +158,18 @@ function ClioA2UISurfaceContent({
   });
   const handleAction = useCallback(
     async (clientAction: A2uiClientAction) => {
-      if (LOCAL_ACTIONS.has(clientAction.name)) {
-        setLocalActionError(undefined);
+      if (LEGACY_LOCAL_ACTIONS.has(clientAction.name)) {
         if (!onLocalAction) {
-          setLocalActionError(`${clientAction.name} is unavailable in this workspace.`);
+          setLocalNotice(`${clientAction.name} is unavailable in this workspace.`);
           return;
         }
+        setLocalNotice(undefined);
         setLocalActionPending(true);
         try {
           const status = await onLocalAction(clientAction);
           setLocalActionStatus(status || `${clientAction.name} completed locally`);
         } catch (localError) {
-          setLocalActionError(
+          setLocalNotice(
             localError instanceof Error ? localError.message : `${clientAction.name} failed`,
           );
         } finally {
@@ -181,75 +181,145 @@ function ClioA2UISurfaceContent({
     },
     [mutateAsync, onLocalAction],
   );
-  const processedSurface = useMemo(() => {
-    try {
-      const processor = new MessageProcessor([clioA2UICatalog], handleAction, {
-        version: `v${A2UI_VERSION}`,
+  const handleValidationFailed = useCallback(
+    async (validationError: { code: string; path?: string; message: string }) => {
+      // Only a real VALIDATION_FAILED belongs on the wire (owner decision
+      // 11); a local resolution problem (e.g. openArtifact's own failure,
+      // dispatched the same way) is worded in this card and never posted.
+      if (validationError.code !== 'VALIDATION_FAILED') {
+        setLocalNotice(validationError.message);
+        return;
+      }
+      // A render-time report (the Image/Video/AudioPlayer URL-scheme guard)
+      // carries a `path` and already renders its own inline notice in place
+      // of the component (`UrlBlocked`) — wording it again here would be a
+      // redundant second copy. A function-level report with no single
+      // component to replace (e.g. openUrl's own scheme guard,
+      // `kernel-catalog-functions.ts`) has no such inline notice, so it is
+      // worded here too — a blocked click must never look like it silently
+      // did nothing (S8 gact-tui#409 item 1, adversarial finding).
+      if (!validationError.path) {
+        setLocalNotice(validationError.message);
+      }
+      setValidationPostFailure(undefined);
+      try {
+        await repository.a2uiAction(surface.session_id, {
+          version: `v${A2UI_VERSION}`,
+          error: {
+            code: validationError.code,
+            surfaceId: surface.id,
+            path: validationError.path ?? '',
+            message: validationError.message,
+          },
+        });
+      } catch (postError) {
+        // S5 has not landed the error door server-side yet (a 404 today);
+        // never an unhandled rejection — worded in the card, typed locally.
+        setValidationPostFailure(
+          postError instanceof Error ? postError.message : 'The request could not be completed.',
+        );
+      }
+    },
+    [repository, surface.id, surface.session_id],
+  );
+  const { model, failure } = useA2uiSurfaceModel(
+    surface,
+    catalogs,
+    catalogsLoading,
+    handleAction,
+    handleValidationFailed,
+  );
+  const reportUrlViolation = useCallback(
+    (componentId: string, propName: string, message: string) => {
+      void model?.dispatchError({
+        code: 'VALIDATION_FAILED',
+        path: `/${componentId}/${propName}`,
+        message,
       });
-      processor.processMessages(validateSurfaceComponents(surface.messages));
-      return { model: processor.model.getSurface(surface.id) };
-    } catch (processingError) {
-      return {
-        error:
-          processingError instanceof Error
-            ? processingError
-            : new Error('The interactive surface could not be validated.'),
-      };
-    }
-  }, [handleAction, surface.id, surface.messages]);
-  const lastAction = useMemo(() => findLastSurfaceAction(surface.messages), [surface.messages]);
+    },
+    [model],
+  );
+  const surfaceKind = a2uiSurfaceKind(surface.messages);
   const surfaceBusy = isPending || localActionPending || surface.state !== 'ready';
-  const surfaceKind = useMemo(() => a2uiSurfaceKind(surface.messages), [surface.messages]);
+  const unresolvedCatalogId =
+    failure && !catalogsLoading && registry.get(surface.catalog_id) === undefined
+      ? surface.catalog_id
+      : undefined;
 
-  if (processedSurface.error) return <SurfaceFailure error={processedSurface.error} />;
+  // The registry is refetched exactly once per (surface, catalogId) so a
+  // catalog installed moments ago (e.g. a pack just activated) resolves
+  // without a manual retry — an effect, never during render, per this
+  // codebase's "no ref/query access during render" rule.
+  useEffect(() => {
+    if (!unresolvedCatalogId) return;
+    void queryClient.invalidateQueries({ queryKey: ['a2ui-catalogs', surface.session_id] });
+  }, [unresolvedCatalogId, queryClient, surface.session_id]);
+
+  if (failure) {
+    // An unresolvable/unknown catalog gets its own worded card — the
+    // catalogId URI is technical detail (CLAUDE.md: never product copy) and
+    // stays out of the primary message, in the hidden detail section only.
+    if (unresolvedCatalogId) {
+      const reason = registry.reasonFor(unresolvedCatalogId);
+      return (
+        <SurfaceFailure
+          detail={reason ? `${reason.code}: ${reason.detail}` : failure.message}
+          message="This view uses a catalog this workspace does not have installed."
+        />
+      );
+    }
+    return <SurfaceFailure message={failure.message} />;
+  }
   if (surface.error || surface.state === 'failed') {
     return (
-      <SurfaceFailure
-        error={new Error(surface.error || 'The service reported that this surface failed.')}
-      />
+      <SurfaceFailure message={surface.error || 'The service reported that this surface failed.'} />
     );
   }
-  if (!processedSurface.model || surface.state === 'deleted') return null;
+  if (surface.state === 'deleted') return null;
+  if (!model) {
+    if (catalogsLoading) {
+      return (
+        <div className="flex items-center gap-2 rounded-xl border bg-card/70 px-4 py-3 text-xs text-muted-foreground">
+          <Loader2Icon aria-hidden="true" className="size-3.5 animate-spin" />
+          Resolving the interactive catalog for this session…
+        </div>
+      );
+    }
+    return null;
+  }
   const renderedSurface = (
-    <div
-      className={
-        chrome === 'bare'
-          ? '[--a2ui-tabs-content-padding:0]'
-          : 'p-3 [--a2ui-tabs-content-padding:0]'
-      }
-    >
+    <div className={chrome === 'bare' ? '[--a2ui-tabs-content-padding:0]' : 'p-3 [--a2ui-tabs-content-padding:0]'}>
       <MarkdownContext.Provider value={renderMarkdown}>
-        <A2uiSurface surface={processedSurface.model} />
+        <A2uiUrlViolationProvider value={reportUrlViolation}>
+          <A2uiSurface surface={model} />
+        </A2uiUrlViolationProvider>
       </MarkdownContext.Provider>
     </div>
   );
   const surfaceFeedback = (
     <>
-      {isPending || localActionPending || localActionStatus || lastAction ? (
+      <ClioA2UIActionLifecycle lifecycle={actionLifecycle} />
+      {localActionPending || localActionStatus ? (
         <div aria-live="polite" className="border-t px-4 py-2 text-xs">
           <ClioStatus
-            label={
-              isPending
-                ? `Sending action to ${vocab.agent}`
-                : localActionPending
-                  ? 'Applying action in this workspace'
-                  : localActionStatus || acceptedActionLabel(lastAction?.name)
-            }
-            value={isPending || localActionPending ? 'running' : 'completed'}
+            label={localActionPending ? 'Applying action in this workspace' : localActionStatus || 'Action completed'}
+            value={localActionPending ? 'running' : 'completed'}
           />
         </div>
       ) : null}
-      {error || localActionError ? (
+      {localNotice ? <p className="border-t px-4 py-2 text-xs text-destructive">{localNotice}</p> : null}
+      {validationPostFailure ? (
         <p className="border-t px-4 py-2 text-xs text-destructive">
-          {localActionError || error?.message}
+          The service could not record the rendering problem: {validationPostFailure}
         </p>
       ) : null}
+      {error ? <p className="border-t px-4 py-2 text-xs text-destructive">{error.message}</p> : null}
     </>
   );
   if (chrome === 'bare') {
     return (
       <section
-        aria-label={`${PROTOCOL.a2ui} surface, ${surfaceKind}`}
+        aria-label={`Generated UI, ${surfaceKind}`}
         className={cn(
           'scroll-m-8 min-w-0 focus:outline-2 focus:outline-offset-2 focus:outline-primary',
           viewport === 'fullscreen' &&
@@ -265,26 +335,20 @@ function ClioA2UISurfaceContent({
   }
   return (
     <section
-      aria-label={`${PROTOCOL.a2ui} surface, ${surfaceKind}`}
+      aria-label={`Generated UI, ${surfaceKind}`}
       className="scroll-m-8 overflow-hidden rounded-xl border bg-card/70 focus:outline-2 focus:outline-offset-2 focus:outline-primary"
       id={a2uiSurfaceDomId(surface.id)}
       tabIndex={-1}
     >
       <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2 text-xs">
         <BoxesIcon aria-hidden="true" className="size-3.5 text-primary" />
-        <span className="font-medium">{PROTOCOL.a2ui} surface</span>
+        <span className="font-medium">Generated UI</span>
         <span className="text-muted-foreground">{surfaceKind}</span>
         {surfaceBusy ? (
           <ClioStatus
             className="ml-auto"
-            label={
-              isPending
-                ? 'Sending action'
-                : localActionPending
-                  ? 'Applying local action'
-                  : surface.state.replaceAll('_', ' ')
-            }
-            value={isPending || localActionPending ? 'running' : surfaceStatusValue(surface.state)}
+            label={isPending ? 'Sending action' : surface.state.replaceAll('_', ' ')}
+            value={isPending ? 'running' : surfaceStatusValue(surface.state)}
           />
         ) : null}
       </div>
@@ -294,30 +358,15 @@ function ClioA2UISurfaceContent({
   );
 }
 
-function acceptedActionLabel(name: string | undefined): string {
-  switch (name) {
-    case 'agent.submit':
-      return 'Sent to agent';
-    case 'form.submit':
-      return 'Form response accepted';
-    case 'approval.respond':
-      return 'Approval response accepted';
-    case 'run.retry':
-      return 'Retry requested';
-    case 'run.cancel':
-      return 'Cancellation requested';
-    default:
-      return 'Action accepted';
-  }
-}
-
 export function ClioA2UISurface({
+  actionLifecycle,
   chrome = 'framed',
   onLocalAction,
   onRemoteAction,
   surface,
   viewport = 'inline',
 }: {
+  actionLifecycle?: A2UIActionLifecycle;
   chrome?: 'framed' | 'bare';
   onLocalAction?: A2UILocalActionHandler;
   onRemoteAction?: A2UIRemoteActionHandler;
@@ -325,8 +374,9 @@ export function ClioA2UISurface({
   viewport?: 'inline' | 'fullscreen';
 }) {
   return (
-    <SurfaceBoundary key={`${surface.id}:${surface.revision}`}>
+    <SurfaceBoundary key={surface.id}>
       <ClioA2UISurfaceContent
+        actionLifecycle={actionLifecycle}
         chrome={chrome}
         onLocalAction={onLocalAction}
         onRemoteAction={onRemoteAction}

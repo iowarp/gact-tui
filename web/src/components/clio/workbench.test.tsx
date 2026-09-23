@@ -174,10 +174,7 @@ describe('ClioWorkbench canvas', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open a canvas tab' }));
 
-    expect(screen.getByRole('menuitem', { name: /Terminal/ })).toHaveAttribute(
-      'data-disabled',
-      '',
-    );
+    expect(screen.getByRole('menuitem', { name: /Terminal/ })).toHaveAttribute('data-disabled', '');
     expect(screen.getByText('Unavailable')).toBeVisible();
   });
 
@@ -503,6 +500,34 @@ describe('ClioWorkbench canvas', () => {
       path,
       expect.any(AbortSignal),
     );
+  });
+
+  it('shows managed workspace inputs under the Sources group without exposing the rest of .clio', async () => {
+    const user = userEvent.setup();
+    render(
+      <FileBrowser
+        files={[
+          {
+            path: '.clio/inputs/res_abc/paper.pdf',
+            display_path: 'Sources/res_abc/paper.pdf',
+            type: 'file',
+            internal: false,
+            source: 'managed_input',
+            resource_id: 'res_abc',
+            media_type: 'application/pdf',
+            size: 1024,
+          },
+        ]}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.queryByText('.clio')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Expand folder Sources' }));
+    await user.click(screen.getByRole('button', { name: 'Expand folder res_abc' }));
+    expect(screen.getByRole('treeitem', { name: 'paper.pdf' })).toBeVisible();
   });
 
   it('delivers a requested tab when a compact canvas mounts after the request', () => {

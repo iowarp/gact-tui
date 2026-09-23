@@ -1,6 +1,7 @@
 import { queryKeys } from '@/lib/query-keys';
 import { INFRASTRUCTURE_POLL_MS } from '@/lib/runtime-limits';
 import type {
+  EffectiveAgentTool,
   McpServerDefinition,
   RelayStatus,
   ServiceIntegrationHealth,
@@ -99,6 +100,13 @@ export function InfrastructurePage() {
     },
     refetchInterval: INFRASTRUCTURE_POLL_MS,
   });
+  const effectiveToolset = useQuery({
+    enabled: currentSection === 'tools' && Boolean(sessionId),
+    queryKey: queryKeys.key('session-toolset', settings.endpoint, sessionId),
+    queryFn: async ({ signal }) =>
+      sessionId ? ((await repository.effectiveAgentToolset(sessionId, signal)) ?? null) : null,
+    refetchInterval: INFRASTRUCTURE_POLL_MS,
+  });
   const webSearchConfiguration = useQuery({
     enabled: currentSection === 'services',
     queryKey: queryKeys.key('mcp-configuration', settings.endpoint, 'web'),
@@ -109,8 +117,15 @@ export function InfrastructurePage() {
     currentSection === 'agent'
       ? health.error
       : currentSection === 'tools'
-        ? (tools.error ?? servers.error)
+        ? (effectiveToolset.error ?? tools.error ?? servers.error)
         : (relay.error ?? servers.error ?? webSearchConfiguration.error);
+  const displayedTools = sessionId
+    ? effectiveToolset.data
+      ? effectiveToolCatalog(effectiveToolset.data.tools, tools.data ?? [], servers.data ?? [])
+      : []
+    : (tools.data ?? []);
+  const toolsPending =
+    tools.isPending || servers.isPending || (Boolean(sessionId) && effectiveToolset.isPending);
   const foundationIssues =
     health.data?.integrations.filter(
       (integration) =>
@@ -199,7 +214,7 @@ export function InfrastructurePage() {
 
   const sectionDefinition = INFRASTRUCTURE_SECTIONS.find((item) => item.id === currentSection)!;
   return (
-    <main className="clio-scrollbar h-dvh min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
+    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-[220px_minmax(0,1fr)]">
         <nav
           aria-label="Infrastructure sections"
@@ -236,10 +251,8 @@ export function InfrastructurePage() {
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-3">
                 <h1 className="text-4xl font-semibold tracking-tight">{sectionDefinition.label}</h1>
-                {currentSection === 'tools' && tools.data ? (
-                  <Badge variant="secondary">
-                    {tools.data.filter((tool) => !tool.server_id).length} built in
-                  </Badge>
+                {currentSection === 'tools' && !toolsPending ? (
+                  <Badge variant="secondary">{displayedTools.length} available</Badge>
                 ) : null}
               </div>
               <p className="mt-2 max-w-3xl text-muted-foreground">
@@ -283,16 +296,18 @@ export function InfrastructurePage() {
 
           {currentSection === 'tools' ? (
             <div className="mt-6">
-              {tools.isPending ? (
+              {toolsPending ? (
                 <div aria-label="Loading tool catalog" className="grid gap-3" role="status">
                   <Skeleton className="h-12 w-full" />
                   <Skeleton className="h-[32rem] w-full" />
                 </div>
-              ) : tools.data?.length ? (
-                <CatalogToolset servers={servers.data ?? []} tools={tools.data} />
+              ) : displayedTools.length ? (
+                <CatalogToolset servers={servers.data ?? []} tools={displayedTools} />
               ) : (
                 <p className="rounded-xl border p-6 text-sm text-muted-foreground">
-                  {vocab.agent} has not reported any tools.
+                  {sessionId
+                    ? `This session has not recorded an effective ${vocab.agent} toolset yet.`
+                    : `${vocab.agent} has not reported any tools.`}
                 </p>
               )}
             </div>
@@ -302,7 +317,8 @@ export function InfrastructurePage() {
             <>
               <ManagedServices
                 connectedAgentLabel={settings.label}
-                connectedAgentTunnel={settings.tunnel}
+                connectedAgentLocation={settings.location}
+                onConnectExistingService={() => setWebSearchOpen(true)}
                 onConnectWebSearch={(remoteUrl) => connectDetectedWebSearch.mutate(remoteUrl)}
                 onDisconnectWebSearch={() => disconnectWebSearch.mutate()}
                 webSearchConnected={webSearchReady}
@@ -421,6 +437,49 @@ function mergeToolCatalogs(
   return [...merged.values()];
 }
 
+/**
+ * Project the global catalog onto the toolset the selected session actually received.
+ *
+ * The effective-toolset trace is authoritative for availability. Catalog rows only
+ * enrich those recorded tools with contracts and labels; they must never make a tool
+ * appear available to a session that did not mount it.
+ */
+function effectiveToolCatalog(
+  effectiveTools: readonly EffectiveAgentTool[],
+  catalog: readonly ToolCatalogItem[],
+  servers: readonly McpServerDefinition[],
+): ToolCatalogItem[] {
+  const catalogByName = new Map(catalog.map((tool) => [tool.name, tool]));
+  const serverBySource = new Map<string, McpServerDefinition>();
+  for (const server of servers) {
+    serverBySource.set(server.id.toLocaleLowerCase(), server);
+    serverBySource.set(server.name.toLocaleLowerCase(), server);
+  }
+
+  const projected = new Map<string, ToolCatalogItem>();
+  for (const effective of effectiveTools) {
+    const baseline = catalogByName.get(effective.name);
+    const server = serverBySource.get(effective.source.toLocaleLowerCase());
+    projected.set(effective.name, {
+      id: baseline?.id ?? effective.name,
+      name: effective.name,
+      title: effective.title || baseline?.title,
+      description: baseline?.description,
+      server_id: server?.id ?? baseline?.server_id,
+      source: effective.source || baseline?.source,
+      status: baseline?.status ?? 'available',
+      enabled: true,
+      owner: baseline?.owner,
+      tags: baseline?.tags ?? [],
+      visible_to: baseline?.visible_to ?? [],
+      input_schema: baseline?.input_schema ?? {},
+      output_schema: baseline?.output_schema ?? {},
+      domain: baseline?.domain,
+    });
+  }
+  return [...projected.values()];
+}
+
 type InfrastructureSection = 'agent' | 'tools' | 'services';
 
 const INFRASTRUCTURE_SECTIONS = [
@@ -434,7 +493,7 @@ const INFRASTRUCTURE_SECTIONS = [
     id: 'tools',
     label: 'Tools',
     icon: WrenchIcon,
-    description: `Inspect every ${vocab.agent} and MCP tool, including its accepted inputs and returned data.`,
+    description: `Inspect the tools available to the selected session. Provider contracts are shown when reported.`,
   },
   {
     id: 'services',

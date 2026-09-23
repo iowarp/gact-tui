@@ -3,12 +3,35 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CLIO_A2UI_CATALOG_ID } from './a2ui-catalog';
+import { CLIO_A2UI_CATALOG_ID } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { ClioPendingInteractions } from './pending-interactions';
 
-vi.mock('./scientific-map-view', () => ({
-  ClioScientificMapView: () => <div data-testid="professional-map-renderer" />,
-}));
+// Exercise the pending card's resize and portal behavior independently of the
+// catalog renderer, whose conformance has its own tests.
+vi.mock('./a2ui-surface', async () => {
+  const React = await import('react');
+  return {
+    ClioA2UISurface: ({ surface }: { surface: A2UISurface }) => {
+      const [selected, setSelected] = React.useState('Station 1');
+      const isMap = JSON.stringify(surface.messages).includes('clio.map.v1');
+      if (!isMap) return <button type="button">Submit selection</button>;
+      return (
+        <div aria-label="EarthScope stations map" className="border" data-slot="frame" role="group">
+          {['Station 1', 'Station 2'].map((station) => (
+            <button
+              aria-pressed={selected === station}
+              key={station}
+              onClick={() => setSelected(station)}
+              type="button"
+            >
+              {station}
+            </button>
+          ))}
+        </div>
+      );
+    },
+  };
+});
 
 const repository = vi.hoisted(() => ({
   a2uiAction: vi.fn().mockResolvedValue({ status: 'accepted' }),

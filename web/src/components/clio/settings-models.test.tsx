@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
+import { useLiveStore } from '@/store/live-store';
 import { ModelsSettings } from './settings-models';
 
 const { configuration, repository } = vi.hoisted(() => {
@@ -20,6 +21,7 @@ const { configuration, repository } = vi.hoisted(() => {
         provider: 'codex',
         suggested_model: 'gpt-5.6-luna',
         requires_api_key: false,
+        auth_method: 'subscription',
         is_authenticated: true,
         supports_live_catalog: true,
         supports_vision: true,
@@ -62,11 +64,17 @@ const { configuration, repository } = vi.hoisted(() => {
         models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
         source: 'codex_app_server',
         connectivity: 'ok',
-        auth: 'not_required',
+        auth: 'ok',
         latency_ms: 18.4,
         generated_at: '2026-08-23T05:00:00Z',
       }),
+      installProviderSupport: vi.fn().mockResolvedValue({
+        provider_id: 'claude_code',
+        installed: true,
+        instructions: 'installed',
+      }),
       authenticateProvider: vi.fn(),
+      completeProviderAuthentication: vi.fn(),
       updateLanguageModelConfiguration: vi.fn(),
     };
   }
@@ -79,15 +87,106 @@ vi.mock('@/providers/connection-provider', () => ({
 
 afterEach(() => {
   cleanup();
+  useLiveStore.getState().reset();
   vi.clearAllMocks();
-  repository.providerModels.mockResolvedValue({
+  repository.languageModelConfiguration.mockReset().mockResolvedValue(configuration);
+  repository.providerModels.mockReset().mockResolvedValue({
     provider_id: 'codex',
     models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
     source: 'codex_app_server',
   });
+  repository.updateLanguageModelConfiguration.mockReset();
 });
 
 describe('ModelsSettings', () => {
+  it('offers Claude Code installation instead of claiming the provider is ready', async () => {
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      configured: false,
+      provider: '',
+      api_base: '',
+      model: '',
+      thinking_level: 'medium',
+      presets: [
+        {
+          id: 'claude_code',
+          label: 'Claude Code',
+          provider: 'claude_code',
+          api_base: 'claude-code://sdk',
+          suggested_model: '',
+          requires_api_key: false,
+          auth_method: 'subscription',
+          is_authenticated: false,
+          status: 'install_required',
+          status_message: 'Claude Code support is not installed on the connected agent.',
+          supports_live_catalog: false,
+          supports_vision: true,
+        },
+      ],
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/settings/providers?provider=claude_code']}>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    const install = await screen.findByRole('button', { name: 'Install Claude Code' });
+    expect(screen.getByRole('button', { name: 'Apply provider and model' })).toBeDisabled();
+    expect(screen.getAllByText('Install needed')).not.toHaveLength(0);
+    await user.click(install);
+    await waitFor(() =>
+      expect(repository.installProviderSupport).toHaveBeenCalledWith('claude_code'),
+    );
+    expect(repository.providerHandshake).toHaveBeenCalledWith('claude_code', {
+      apiBase: 'claude-code://sdk',
+      refresh: true,
+    });
+  });
+
+  it('does not allow unverified Codex credentials to be applied', async () => {
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      configured: false,
+      provider: '',
+      api_base: '',
+      model: '',
+      thinking_level: 'medium',
+      presets: [
+        {
+          id: 'codex',
+          label: 'Codex',
+          provider: 'codex',
+          api_base: 'codex://sdk',
+          suggested_model: '',
+          requires_api_key: false,
+          auth_method: 'subscription',
+          is_authenticated: false,
+          status: 'auth_check_required',
+          status_message: 'Codex credentials are present but have not been validated',
+          supports_live_catalog: false,
+          supports_vision: true,
+        },
+      ],
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter initialEntries={['/settings/providers?provider=codex']}>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Apply provider and model' })).toBeDisabled();
+    expect(screen.getAllByText('Not checked')).not.toHaveLength(0);
+  });
+
   it('preserves the authoritative configured model when opened for its provider', async () => {
     repository.languageModelConfiguration.mockResolvedValueOnce({
       configured: true,
@@ -152,8 +251,31 @@ describe('ModelsSettings', () => {
     expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
   });
 
-  it('forces a fresh interactive login when the user signs in to ALCF', async () => {
-    repository.languageModelConfiguration.mockResolvedValueOnce({
+  it('does not let an unverified catalog candidate become an applied model', async () => {
+    repository.providerModels.mockResolvedValueOnce({
+      provider_id: 'codex',
+      models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna', availability: 'candidate' }],
+      source: 'github_catalog',
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'gpt-5.6-luna',
+    );
+    expect(screen.getByRole('button', { name: 'Apply provider and model' })).toBeDisabled();
+  });
+
+  it('completes ALCF login in-app without asking for a terminal command', async () => {
+    const alcfConfiguration = {
       configured: false,
       provider: 'argonne',
       api_base: 'https://inference-api.alcf.anl.gov/resource_server/metis/api/v1',
@@ -173,12 +295,29 @@ describe('ModelsSettings', () => {
           supports_vision: false,
         },
       ],
+    };
+    repository.languageModelConfiguration.mockResolvedValueOnce(alcfConfiguration);
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      ...alcfConfiguration,
+      presets: alcfConfiguration.presets.map((preset) => ({
+        ...preset,
+        is_authenticated: true,
+        status: 'ready',
+      })),
     });
     repository.authenticateProvider.mockResolvedValueOnce({
       provider_id: 'argonne_metis',
       is_authenticated: false,
-      instructions: 'Complete the ALCF login in the opened terminal.',
+      instructions: 'Continue in Globus, then paste the authorization code here.',
+      authorization_url: 'https://auth.globus.org/v2/oauth2/authorize?state=test',
+      flow_id: 'flow-123',
     });
+    repository.completeProviderAuthentication.mockResolvedValueOnce({
+      provider_id: 'argonne_metis',
+      is_authenticated: true,
+      instructions: 'ALCF sign-in complete. Available models are refreshing.',
+    });
+    const open = vi.spyOn(window, 'open').mockImplementation(() => window);
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -196,7 +335,22 @@ describe('ModelsSettings', () => {
         force: true,
       }),
     );
-    expect(await screen.findByText(/Complete the ALCF login/)).toBeVisible();
+    expect(open).toHaveBeenCalledWith(
+      'https://auth.globus.org/v2/oauth2/authorize?state=test',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    expect(await screen.findByLabelText('Complete ALCF sign-in')).toBeVisible();
+    await user.type(screen.getByLabelText('Authorization code'), 'globus-code');
+    await user.click(screen.getByRole('button', { name: 'Complete sign-in' }));
+    await waitFor(() =>
+      expect(repository.completeProviderAuthentication).toHaveBeenCalledWith('argonne_metis', {
+        flowId: 'flow-123',
+        authorizationCode: 'globus-code',
+      }),
+    );
+    expect(await screen.findByText(/ALCF sign-in complete/)).toBeVisible();
+    expect(screen.queryByText(/interactive terminal|python -m/i)).not.toBeInTheDocument();
   });
 
   it('never writes a maximum token cap the service did not report', async () => {
@@ -249,6 +403,93 @@ describe('ModelsSettings', () => {
       api_base: '',
       model: 'gpt-5.6-nova',
     });
+  });
+
+  it('retires stale session and provider catalog state after applying a model', async () => {
+    const endpoint = 'http://127.0.0.1:8787';
+    const staleSession = {
+      id: 'session-1',
+      workspace_id: 'workspace-1',
+      title: 'Existing conversation',
+      state: 'completed',
+      created_at: '2026-09-21T00:00:00Z',
+      updated_at: '2026-09-21T00:00:00Z',
+      provider_id: 'codex',
+      model_id: 'gpt-5.6-luna',
+      mode: 'edit',
+      edit_mode: 'diff',
+      routing_mode: 'auto',
+      approval_mode: 'ask',
+      pinned: false,
+      archived: false,
+    } as const;
+    const claudePreset = {
+      id: 'claude_code',
+      label: 'Claude Code (subscription)',
+      provider: 'claude_code',
+      suggested_model: 'sonnet',
+      requires_api_key: false,
+      is_authenticated: true,
+      supports_live_catalog: true,
+      supports_vision: true,
+    };
+    const selectableConfiguration = {
+      ...configuration,
+      presets: [...configuration.presets, claudePreset],
+    };
+    const nextConfiguration = {
+      ...selectableConfiguration,
+      provider: 'claude_code',
+      model: 'sonnet',
+    };
+    repository.languageModelConfiguration.mockResolvedValueOnce(selectableConfiguration);
+    repository.providerModels.mockImplementation(async (providerId: string) => ({
+      provider_id: providerId,
+      models:
+        providerId === 'claude_code'
+          ? [{ id: 'sonnet', name: 'Claude Sonnet' }]
+          : [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
+      source: `${providerId}_catalog`,
+    }));
+    repository.updateLanguageModelConfiguration.mockResolvedValueOnce(nextConfiguration);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient.setQueryData(queryKeys.sessions(endpoint, 'workspace-1'), [staleSession]);
+    queryClient.setQueryData(queryKeys.providerCatalog(endpoint), {
+      authoritative: 'live_handshake',
+      providers: [],
+    });
+    useLiveStore.getState().replaceSnapshots({ sessions: { [staleSession.id]: staleSession } });
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('combobox', { name: 'Provider' }));
+    await user.click(await screen.findByRole('option', { name: 'Claude' }));
+    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
+      'Claude Sonnet',
+    );
+    await user.click(screen.getByRole('button', { name: 'Apply provider and model' }));
+
+    await waitFor(() =>
+      expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: 'claude_code', model: 'sonnet' }),
+      ),
+    );
+    const cachedSession = queryClient.getQueryData<(typeof staleSession)[]>(
+      queryKeys.sessions(endpoint, 'workspace-1'),
+    )?.[0];
+    expect(cachedSession?.provider_id).toBeUndefined();
+    expect(cachedSession?.model_id).toBeUndefined();
+    expect(useLiveStore.getState().entities.sessions[staleSession.id]?.provider_id).toBeUndefined();
+    expect(useLiveStore.getState().entities.sessions[staleSession.id]?.model_id).toBeUndefined();
+    expect(queryClient.getQueryState(queryKeys.providerCatalog(endpoint))?.isInvalidated).toBe(
+      true,
+    );
   });
 
   it('adopts a configuration the service changed, until the person edits the panel', async () => {
@@ -308,7 +549,7 @@ describe('ModelsSettings', () => {
       }),
     );
     expect(await screen.findByText('Provider ready')).toBeVisible();
-    expect(screen.getByText(/Connection ok, sign-in not required, 1 model/)).toBeVisible();
+    expect(screen.getByText(/Connection ok, sign-in ok, 1 model/)).toBeVisible();
     expect(screen.getByText(/Checked .* in 18 ms/)).toBeVisible();
     expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();

@@ -19,7 +19,9 @@ const toastError = vi.hoisted(() => vi.fn());
 const isMacOS = vi.hoisted(() => vi.fn(() => false));
 const liveStreamState = vi.hoisted(() => ({ current: 'live' as StreamState }));
 const capabilitiesService = vi.hoisted(() => ({
-  current: { name: 'clio-agent-gact', version: '1.2.3' } as { name: string; version: string } | undefined,
+  current: { name: 'clio-agent-gact', version: '1.2.3' } as
+    | { name: string; version: string }
+    | undefined,
 }));
 
 vi.mock('@/tauri/desktop-window', () => ({
@@ -147,7 +149,11 @@ describe('DesktopTitleBar', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Minimize' }));
 
-    await waitFor(() => expect(toastError).toHaveBeenCalledWith(expect.stringContaining('could not update the desktop window')));
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        expect.stringContaining('could not update the desktop window'),
+      ),
+    );
   });
 
   it('dismisses the close prompt from its close button or backdrop without hiding CLIO', () => {

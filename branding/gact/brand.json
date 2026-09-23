@@ -17,6 +17,8 @@
   "accent": "#5b8def",
   "themeTokens": {},
   "releaseUrl": "https://github.com/iowarp/gact-tui/releases",
+  "desktopReleaseUrl": "https://github.com/iowarp/gact-tui/releases",
+  "agentReleaseUrl": "https://github.com/iowarp/gact-tui/releases",
   "starterPrompts": [
     {
       "eyebrow": "Inspect",

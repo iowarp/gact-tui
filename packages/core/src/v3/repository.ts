@@ -56,7 +56,8 @@ import {
   readTextPath,
 } from './artifact-custody.js';
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
-import { PresentationRepository } from './presentation-repository.js';
+import { mergeA2uiClientMetadata } from './a2ui/index.js';
+import { InfrastructureRepository } from './infrastructure-repository.js';
 
 /**
  * Artifact records requested per page while walking a session's registry.
@@ -71,7 +72,7 @@ const ARTIFACT_PAGE_SIZE = 200;
  * silently swallowed.
  */
 const MAX_ARTIFACT_PAGES = 100;
-export class ClioRepository extends PresentationRepository {
+export class ClioRepository extends InfrastructureRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }
@@ -737,10 +738,11 @@ export class ClioRepository extends PresentationRepository {
     } = {},
     signal?: AbortSignal,
   ): Promise<TurnAttempt> {
+    const metadata = mergeA2uiClientMetadata(sessionId, undefined);
     return this.transport.request({
       method: 'POST',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/retry`,
-      body: input,
+      body: metadata ? { ...input, metadata } : input,
       decode: (value) => turnAttemptSchema.parse(value),
       signal,
     });
@@ -770,21 +772,6 @@ export class ClioRepository extends PresentationRepository {
             child_session_id: z.string(),
           })
           .parse(value),
-      signal,
-    });
-  }
-
-  public a2uiAction(
-    sessionId: string,
-    message: unknown,
-    correlation?: { run_id?: string; message_id?: string; part_id?: string },
-    signal?: AbortSignal,
-  ): Promise<{ status: string }> {
-    return this.transport.request({
-      method: 'POST',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/actions`,
-      body: { message, correlation },
-      decode: (value) => z.object({ status: z.string() }).passthrough().parse(value),
       signal,
     });
   }

@@ -188,6 +188,7 @@ export const workspaceResourceSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   completed_at: z.string().default(''),
+  workspace_path: z.string().default(''),
   mime_mismatch: z.boolean().default(false),
   processing: workspaceResourceProcessingSchema.optional(),
   idempotent_replay: z.boolean().optional(),

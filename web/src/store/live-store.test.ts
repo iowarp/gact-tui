@@ -148,10 +148,34 @@ describe('live store snapshot merges', () => {
   });
 
   it('drops a row the snapshot no longer lists when the stream never wrote it', () => {
-    useLiveStore.getState().mergeSnapshots({ sessions: { sess_2: restSession('sess_2', 'queued') } });
-    useLiveStore.getState().mergeSnapshots({ sessions: { sess_3: restSession('sess_3', 'queued') } });
+    useLiveStore
+      .getState()
+      .mergeSnapshots({ sessions: { sess_2: restSession('sess_2', 'queued') } });
+    useLiveStore
+      .getState()
+      .mergeSnapshots({ sessions: { sess_3: restSession('sess_3', 'queued') } });
 
     expect(Object.keys(useLiveStore.getState().entities.sessions)).toEqual(['sess_3']);
+  });
+
+  it('clears stale model overrides without disturbing the rest of each session', () => {
+    useLiveStore.getState().replaceSnapshots({
+      sessions: {
+        sess_1: {
+          ...restSession('sess_1', 'completed'),
+          provider_id: 'codex',
+          model_id: 'gpt-5.6-luna',
+        },
+      },
+    });
+
+    useLiveStore.getState().clearSessionModelReferences();
+
+    expect(useLiveStore.getState().entities.sessions.sess_1).toEqual({
+      ...restSession('sess_1', 'completed'),
+      provider_id: undefined,
+      model_id: undefined,
+    });
   });
 });
 
@@ -177,6 +201,79 @@ describe('live store reconciliation', () => {
     expect(entities.cursor).toBeUndefined();
     expect(entities.processed_cursors).toEqual([]);
     expect(entities.stream).toBe('gapped');
+  });
+
+  // S8 gact-tui#409 item 4 (adversarial finding): `a2ui_action_lifecycles`
+  // is stream-only — no REST snapshot ever carries it — so a gap reconcile
+  // must not silently leave a non-terminal status exactly as it was, or the
+  // footer could read "received" forever after a reconnect.
+  it('marks a non-terminal a2ui action lifecycle unknown after a gap reconcile', () => {
+    useLiveStore.setState((state) => ({
+      entities: {
+        ...state.entities,
+        a2ui_action_lifecycles: {
+          surface_received: {
+            surface_id: 'surface_received',
+            action_name: 'login',
+            status: 'received',
+            occurred_at: '2026-08-27T12:00:00Z',
+          },
+          surface_delivered: {
+            surface_id: 'surface_delivered',
+            action_name: 'login',
+            status: 'delivered',
+            occurred_at: '2026-08-27T12:00:00Z',
+          },
+          surface_consumed: {
+            surface_id: 'surface_consumed',
+            action_name: 'login',
+            status: 'consumed',
+            occurred_at: '2026-08-27T12:00:00Z',
+          },
+          surface_failed: {
+            surface_id: 'surface_failed',
+            action_name: 'login',
+            status: 'failed',
+            occurred_at: '2026-08-27T12:00:00Z',
+            reason: 'busy turn',
+          },
+          surface_duplicate: {
+            surface_id: 'surface_duplicate',
+            action_name: 'login',
+            status: 'duplicate',
+            occurred_at: '2026-08-27T12:00:00Z',
+          },
+        },
+      },
+    }));
+
+    useLiveStore.getState().reconcileSnapshots({ messages: {}, revisions: {} });
+
+    const lifecycles = useLiveStore.getState().entities.a2ui_action_lifecycles;
+    expect(lifecycles.surface_received?.status).toBe('unknown');
+    expect(lifecycles.surface_delivered?.status).toBe('unknown');
+    // Terminal statuses are true regardless of a gap — left alone.
+    expect(lifecycles.surface_consumed?.status).toBe('consumed');
+    expect(lifecycles.surface_failed?.status).toBe('failed');
+    expect(lifecycles.surface_duplicate?.status).toBe('duplicate');
+  });
+
+  it('leaves a2ui_action_lifecycles referentially unchanged when every entry is already terminal', () => {
+    const terminal = {
+      surface_consumed: {
+        surface_id: 'surface_consumed',
+        action_name: 'login',
+        status: 'consumed' as const,
+        occurred_at: '2026-08-27T12:00:00Z',
+      },
+    };
+    useLiveStore.setState((state) => ({
+      entities: { ...state.entities, a2ui_action_lifecycles: terminal },
+    }));
+
+    useLiveStore.getState().reconcileSnapshots({ messages: {}, revisions: {} });
+
+    expect(useLiveStore.getState().entities.a2ui_action_lifecycles).toBe(terminal);
   });
 
   it('keeps ordinary REST snapshot refreshes on the active timeline', () => {

@@ -562,4 +562,57 @@ describe('GACT 0.3 reducer', () => {
     expect(state.messages.msg_1?.stop_reason).toBe('end_turn');
     expect(state.revisions).toEqual({ msg_1: 5 });
   });
+
+  it('folds the live server a2ui.action.received payload (action, not action_name)', () => {
+    // The server publishes {surface_id, action, source_component_id} today —
+    // NOT the S5-superset field name action_name. This must decode cleanly,
+    // never throw, and never produce a frame_decode_failed gap.
+    const state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'a2ui.action.received', {
+        surface_id: 'surface_1',
+        action: 'form.submit',
+        source_component_id: 'submit-button',
+      }),
+    );
+
+    expect(state.a2ui_action_lifecycles.surface_1).toMatchObject({
+      surface_id: 'surface_1',
+      action_name: 'form.submit',
+      status: 'received',
+    });
+    expect(state.gaps).toEqual([]);
+  });
+
+  it('folds the S5 superset payload (action_name, action_id, state, delivery)', () => {
+    const state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'a2ui.action.consumed', {
+        surface_id: 'surface_1',
+        action_name: 'form.submit',
+        action_id: 'act_1',
+        source_component_id: 'submit-button',
+        state: 'applied',
+        delivery: { turn_id: 'turn_1' },
+        reason: undefined,
+      }),
+    );
+
+    expect(state.a2ui_action_lifecycles.surface_1).toMatchObject({
+      surface_id: 'surface_1',
+      action_name: 'form.submit',
+      status: 'consumed',
+    });
+    expect(state.gaps).toEqual([]);
+  });
+
+  it('drops a lifecycle payload missing both action_name and action without throwing or gapping', () => {
+    const state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'a2ui.action.failed', { surface_id: 'surface_1' }),
+    );
+
+    expect(state.a2ui_action_lifecycles).toEqual({});
+    expect(state.gaps).toEqual([]);
+  });
 });

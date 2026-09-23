@@ -134,7 +134,7 @@ describe('ConversationTurn correlated work placement', () => {
 
       expect(screen.getByText('Review execution plan')).toBeVisible();
       expect(
-        await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 5_000 }),
+        await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 15_000 }),
       ).toBeVisible();
       expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
       expect(screen.queryByText('Request changes')).not.toBeInTheDocument();

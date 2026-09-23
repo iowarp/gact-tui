@@ -1,14 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ invoke: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  invoke: vi.fn(),
+  listeners: new Map<string, (event: { payload: unknown }) => void>(),
+}));
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }));
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn(async (event: string, listener: (payload: { payload: unknown }) => void) => {
+    mocks.listeners.set(event, listener);
+    return () => mocks.listeners.delete(event);
+  }),
+}));
 
-import { restartClio, retryManagedBackend, waitForManagedBackend } from './managed-backend';
+import {
+  restartClio,
+  retryManagedBackend,
+  updateManagedClio,
+  waitForManagedBackend,
+} from './managed-backend';
 
 describe('managed Tauri backend', () => {
   beforeEach(() => {
     mocks.invoke.mockReset();
+    mocks.listeners.clear();
   });
 
   it('polls the supervisor until its discovered endpoint is ready', async () => {
@@ -82,5 +97,30 @@ describe('managed Tauri backend', () => {
 
     await expect(retryManagedBackend()).resolves.toBeUndefined();
     expect(mocks.invoke).toHaveBeenCalledWith('retry_backend');
+  });
+
+  it('waits for verified agent completion and passes the combined-restart policy', async () => {
+    mocks.invoke.mockImplementationOnce(async () => {
+      mocks.listeners.get('clio:install-done')?.({ payload: undefined });
+    });
+
+    await expect(updateManagedClio('v0.9.4.3', { restartApp: false })).resolves.toBeUndefined();
+    expect(mocks.invoke).toHaveBeenCalledWith('update_clio', {
+      targetVersion: 'v0.9.4.3',
+      restartApp: false,
+    });
+    expect(mocks.listeners.size).toBe(0);
+  });
+
+  it('surfaces the native update failure tail', async () => {
+    mocks.invoke.mockImplementationOnce(async () => {
+      mocks.listeners.get('clio:install-failed')?.({
+        payload: { code: 1, tail: 'verification failed' },
+      });
+    });
+
+    await expect(updateManagedClio('v0.9.4.3', { restartApp: true })).rejects.toThrow(
+      'verification failed',
+    );
   });
 });

@@ -1,7 +1,4 @@
-import type {
-  ManagedServiceActionInput,
-  ManagedServiceDefinition,
-} from '@/tauri/infrastructure-setup';
+import type { ManagedServiceDefinition, ServiceActionInput } from '@clio/core/v3';
 import { ExternalLinkIcon, TriangleAlertIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
@@ -17,7 +14,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import type { ReactNode } from 'react';
 
-export type ServiceAction = ManagedServiceActionInput['action'];
+export type ServiceAction = ServiceActionInput['action'];
 export type ServiceActionFeedback = {
   action: ServiceAction;
   error?: boolean;
@@ -65,9 +62,15 @@ export function ManagedServiceCard({
   );
   const actions: ServiceAction[] =
     service.state === 'running'
-      ? ['status', 'logs', ...(service.supports_stop ? (['stop'] as const) : [])]
+      ? [
+          'status',
+          'logs',
+          ...(service.supports_stop ? (['stop'] as const) : []),
+          'reinstall',
+          'uninstall',
+        ]
       : service.state === 'stopped'
-        ? ['start', 'status', 'logs']
+        ? ['start', 'status', 'logs', 'reinstall', 'uninstall']
         : ['install'];
 
   return (
@@ -303,6 +306,8 @@ function actionLabel(action: ServiceAction): string {
     status: 'Check status',
     logs: 'View logs',
     stop: 'Stop',
+    reinstall: 'Reinstall',
+    uninstall: 'Uninstall',
   };
   return labels[action];
 }
@@ -314,6 +319,8 @@ function actionProgressLabel(action: ServiceAction): string {
     status: 'Checking…',
     logs: 'Loading logs…',
     stop: 'Stopping…',
+    reinstall: 'Reinstalling…',
+    uninstall: 'Uninstalling…',
   };
   return labels[action];
 }

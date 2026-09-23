@@ -11,25 +11,35 @@ Var ClioRemoveUserData
 Var ClioWebSearchCheckbox
 Var ClioLlamaCppCheckbox
 Var ClioKitCheckbox
+Var ClioProviderCodexCheckbox
+Var ClioProviderClaudeCodeCheckbox
 Var ClioProviderOpenAICheckbox
 Var ClioProviderAnthropicCheckbox
-Var ClioProviderGoogleCheckbox
-Var ClioProviderArgonneCheckbox
-Var ClioProviderLocalCheckbox
-Var ClioProviderOtherCheckbox
+Var ClioProviderGeminiCheckbox
+Var ClioProviderVertexCheckbox
+Var ClioProviderLMStudioCheckbox
+Var ClioProviderOllamaCheckbox
+Var ClioProviderLlamaCppCheckbox
+Var ClioProviderVllmCheckbox
+Var ClioProviderArgonneSophiaCheckbox
+Var ClioProviderArgonneMetisCheckbox
+Var ClioProviderAzureOpenAICheckbox
+Var ClioProviderBedrockCheckbox
+Var ClioProviderNvidiaNimCheckbox
+Var ClioProviderOpenRouterCheckbox
 Var ClioInstallWebSearch
 Var ClioInstallLlamaCpp
 Var ClioWebSearchStatus
 Var ClioLlamaCppStatus
-Var ClioProviderFamilies
+Var ClioProviderIds
 Var ClioProviderChoicesCaptured
 
-; Collect the optional-infrastructure choices as a normal wizard page instead
+; Collect infrastructure and provider visibility as two focused wizard pages
 ; of a MessageBox fired mid-install: nsDialogs pages are deterministically
 ; skipped by NSIS itself in a silent install (`/S`), where a MessageBox's
 ; "which button did silent mode press" behavior is ambiguous, and the page's
 ; own function can Abort to skip it for a passive/update run — see
-; ClioInfrastructurePage below.
+; ClioInfrastructurePage / ClioProvidersPage below.
 ;
 ; F2 (accepted, not fixed here): this `Page custom` is textually the FIRST
 ; page instruction in the compiled script, since Tauri's template !includes
@@ -40,6 +50,18 @@ Var ClioProviderChoicesCaptured
 ; template or duplicating its whole page sequence in this file; accepted for
 ; now as a page-order quirk, not a functional bug.
 Page custom ClioInfrastructurePage ClioInfrastructurePageLeave
+Page custom ClioProvidersPage ClioProvidersPageLeave
+
+!macro CLIO_SKIP_SETUP_PAGE_IF_UNATTENDED
+  ${GetOptions} $CMDLINE "/P" $R0
+  ${IfNot} ${Errors}
+    Abort
+  ${EndIf}
+  ${GetOptions} $CMDLINE "/UPDATE" $R0
+  ${IfNot} ${Errors}
+    Abort
+  ${EndIf}
+!macroend
 
 Function ClioInfrastructurePage
   ; Silent updates preserve the previous infrastructure choice and never repeat
@@ -59,14 +81,7 @@ Function ClioInfrastructurePage
   ; GetOptions (already included by the base template before this file, so
   ; no !include here — and deliberately not redeclaring those template Vars,
   ; which would be a duplicate Var error).
-  ${GetOptions} $CMDLINE "/P" $R0
-  ${IfNot} ${Errors}
-    Abort
-  ${EndIf}
-  ${GetOptions} $CMDLINE "/UPDATE" $R0
-  ${IfNot} ${Errors}
-    Abort
-  ${EndIf}
+  !insertmacro CLIO_SKIP_SETUP_PAGE_IF_UNATTENDED
 
   !insertmacro MUI_HEADER_TEXT "Infrastructure" "Choose what CLIO sets up now."
   nsDialogs::Create 1018
@@ -75,7 +90,7 @@ Function ClioInfrastructurePage
     Abort
   ${EndIf}
 
-  ${NSD_CreateLabel} 0 0 100% 24u "CLIO can set these up now. Each one can also be installed, changed, or removed later from Infrastructure."
+  ${NSD_CreateLabel} 0 0 100% 24u "Choose the optional services CLIO should prepare. You can install or remove them later from Infrastructure."
   Pop $1
 
   ${NSD_CreateCheckbox} 0 30u 100% 12u "CLIO Search (web search and PDF reading, runs in Docker)"
@@ -91,38 +106,10 @@ Function ClioInfrastructurePage
   ${NSD_Check} $ClioKitCheckbox
   EnableWindow $ClioKitCheckbox 0
 
-  ${NSD_CreateLabel} 0 84u 100% 12u "Providers to show in CLIO (you can add more later in Models):"
-  Pop $1
-
-  ${NSD_CreateCheckbox} 0 100u 48% 12u "OpenAI / Codex"
-  Pop $ClioProviderOpenAICheckbox
-  ${NSD_Check} $ClioProviderOpenAICheckbox
-
-  ${NSD_CreateCheckbox} 52% 100u 48% 12u "Anthropic / Claude"
-  Pop $ClioProviderAnthropicCheckbox
-  ${NSD_Uncheck} $ClioProviderAnthropicCheckbox
-
-  ${NSD_CreateCheckbox} 0 116u 48% 12u "Google AI"
-  Pop $ClioProviderGoogleCheckbox
-  ${NSD_Uncheck} $ClioProviderGoogleCheckbox
-
-  ${NSD_CreateCheckbox} 52% 116u 48% 12u "Argonne ALCF"
-  Pop $ClioProviderArgonneCheckbox
-  ${NSD_Uncheck} $ClioProviderArgonneCheckbox
-
-  ${NSD_CreateCheckbox} 0 132u 48% 12u "Local / self-hosted"
-  Pop $ClioProviderLocalCheckbox
-  ${NSD_Uncheck} $ClioProviderLocalCheckbox
-
-  ${NSD_CreateCheckbox} 52% 132u 48% 12u "Other cloud providers"
-  Pop $ClioProviderOtherCheckbox
-  ${NSD_Uncheck} $ClioProviderOtherCheckbox
-
   nsDialogs::Show
 FunctionEnd
 
 Function ClioInfrastructurePageLeave
-  StrCpy $ClioProviderChoicesCaptured "1"
   ${NSD_GetState} $ClioWebSearchCheckbox $ClioInstallWebSearch
   ${If} $ClioInstallWebSearch == ${BST_CHECKED}
     StrCpy $ClioInstallWebSearch "1"
@@ -137,31 +124,123 @@ Function ClioInfrastructurePageLeave
     StrCpy $ClioInstallLlamaCpp "0"
   ${EndIf}
 
-  StrCpy $ClioProviderFamilies ""
-  ${NSD_GetState} $ClioProviderOpenAICheckbox $0
-  ${If} $0 == ${BST_CHECKED}
-    StrCpy $ClioProviderFamilies "openai"
+FunctionEnd
+
+Function ClioProvidersPage
+  !insertmacro CLIO_SKIP_SETUP_PAGE_IF_UNATTENDED
+
+  !insertmacro MUI_HEADER_TEXT "Model providers" "Choose which providers CLIO shows."
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
   ${EndIf}
-  ${NSD_GetState} $ClioProviderAnthropicCheckbox $0
+
+  ; Compact three-column groups keep every choice above the wizard footer at
+  ; Windows' default DPI. Providers are individual choices: selecting an API
+  ; provider never silently exposes its separate subscription/CLI product.
+  CreateFont $2 "$(^Font)" "$(^FontSize)" "700"
+  ${NSD_CreateLabel} 0 0 31% 12u "Subscription"
+  Pop $1
+  SendMessage $1 ${WM_SETFONT} $2 0
+  ${NSD_CreateCheckbox} 0 16u 31% 12u "OpenAI Codex"
+  Pop $ClioProviderCodexCheckbox
+  ${NSD_Check} $ClioProviderCodexCheckbox
+  ${NSD_CreateCheckbox} 0 32u 31% 12u "Claude Code"
+  Pop $ClioProviderClaudeCodeCheckbox
+  ${NSD_Uncheck} $ClioProviderClaudeCodeCheckbox
+
+  ${NSD_CreateLabel} 0 56u 31% 12u "Direct APIs"
+  Pop $1
+  SendMessage $1 ${WM_SETFONT} $2 0
+  ${NSD_CreateCheckbox} 0 72u 31% 12u "OpenAI API"
+  Pop $ClioProviderOpenAICheckbox
+  ${NSD_Check} $ClioProviderOpenAICheckbox
+  ${NSD_CreateCheckbox} 0 88u 31% 12u "Anthropic API"
+  Pop $ClioProviderAnthropicCheckbox
+  ${NSD_Uncheck} $ClioProviderAnthropicCheckbox
+  ${NSD_CreateCheckbox} 0 104u 31% 12u "Google Gemini"
+  Pop $ClioProviderGeminiCheckbox
+  ${NSD_Uncheck} $ClioProviderGeminiCheckbox
+  ${NSD_CreateCheckbox} 0 120u 31% 12u "Google Vertex AI"
+  Pop $ClioProviderVertexCheckbox
+  ${NSD_Uncheck} $ClioProviderVertexCheckbox
+
+  ${NSD_CreateLabel} 34% 0 31% 12u "Local / self-hosted"
+  Pop $1
+  SendMessage $1 ${WM_SETFONT} $2 0
+  ${NSD_CreateCheckbox} 34% 16u 31% 12u "LM Studio"
+  Pop $ClioProviderLMStudioCheckbox
+  ${NSD_Uncheck} $ClioProviderLMStudioCheckbox
+  ${NSD_CreateCheckbox} 34% 32u 31% 12u "Ollama"
+  Pop $ClioProviderOllamaCheckbox
+  ${NSD_Uncheck} $ClioProviderOllamaCheckbox
+  ${NSD_CreateCheckbox} 34% 48u 31% 12u "llama.cpp"
+  Pop $ClioProviderLlamaCppCheckbox
+  ${NSD_Uncheck} $ClioProviderLlamaCppCheckbox
+  ${NSD_CreateCheckbox} 34% 64u 31% 12u "vLLM"
+  Pop $ClioProviderVllmCheckbox
+  ${NSD_Uncheck} $ClioProviderVllmCheckbox
+
+  ${NSD_CreateLabel} 34% 88u 31% 12u "Argonne ALCF"
+  Pop $1
+  SendMessage $1 ${WM_SETFONT} $2 0
+  ${NSD_CreateCheckbox} 34% 104u 31% 12u "Sophia"
+  Pop $ClioProviderArgonneSophiaCheckbox
+  ${NSD_Uncheck} $ClioProviderArgonneSophiaCheckbox
+  ${NSD_CreateCheckbox} 34% 120u 31% 12u "Metis"
+  Pop $ClioProviderArgonneMetisCheckbox
+  ${NSD_Uncheck} $ClioProviderArgonneMetisCheckbox
+
+  ${NSD_CreateLabel} 68% 0 32% 12u "Other clouds"
+  Pop $1
+  SendMessage $1 ${WM_SETFONT} $2 0
+  ${NSD_CreateCheckbox} 68% 16u 32% 12u "Azure OpenAI"
+  Pop $ClioProviderAzureOpenAICheckbox
+  ${NSD_Uncheck} $ClioProviderAzureOpenAICheckbox
+  ${NSD_CreateCheckbox} 68% 32u 32% 12u "Amazon Bedrock"
+  Pop $ClioProviderBedrockCheckbox
+  ${NSD_Uncheck} $ClioProviderBedrockCheckbox
+  ${NSD_CreateCheckbox} 68% 48u 32% 12u "NVIDIA NIM"
+  Pop $ClioProviderNvidiaNimCheckbox
+  ${NSD_Uncheck} $ClioProviderNvidiaNimCheckbox
+  ${NSD_CreateCheckbox} 68% 64u 32% 12u "OpenRouter"
+  Pop $ClioProviderOpenRouterCheckbox
+  ${NSD_Uncheck} $ClioProviderOpenRouterCheckbox
+
+  nsDialogs::Show
+FunctionEnd
+
+!macro CLIO_APPEND_PROVIDER _ID _CHECKBOX
+  ${NSD_GetState} ${_CHECKBOX} $0
   ${If} $0 == ${BST_CHECKED}
-    StrCpy $ClioProviderFamilies "$ClioProviderFamilies,anthropic"
+    ${If} $ClioProviderIds == ""
+      StrCpy $ClioProviderIds "${_ID}"
+    ${Else}
+      StrCpy $ClioProviderIds "$ClioProviderIds,${_ID}"
+    ${EndIf}
   ${EndIf}
-  ${NSD_GetState} $ClioProviderGoogleCheckbox $0
-  ${If} $0 == ${BST_CHECKED}
-    StrCpy $ClioProviderFamilies "$ClioProviderFamilies,google"
-  ${EndIf}
-  ${NSD_GetState} $ClioProviderArgonneCheckbox $0
-  ${If} $0 == ${BST_CHECKED}
-    StrCpy $ClioProviderFamilies "$ClioProviderFamilies,argonne"
-  ${EndIf}
-  ${NSD_GetState} $ClioProviderLocalCheckbox $0
-  ${If} $0 == ${BST_CHECKED}
-    StrCpy $ClioProviderFamilies "$ClioProviderFamilies,local"
-  ${EndIf}
-  ${NSD_GetState} $ClioProviderOtherCheckbox $0
-  ${If} $0 == ${BST_CHECKED}
-    StrCpy $ClioProviderFamilies "$ClioProviderFamilies,other"
-  ${EndIf}
+!macroend
+
+Function ClioProvidersPageLeave
+  StrCpy $ClioProviderChoicesCaptured "1"
+  StrCpy $ClioProviderIds ""
+  !insertmacro CLIO_APPEND_PROVIDER "codex" $ClioProviderCodexCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "claude_code" $ClioProviderClaudeCodeCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "openai" $ClioProviderOpenAICheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "anthropic" $ClioProviderAnthropicCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "gemini" $ClioProviderGeminiCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "vertex_ai" $ClioProviderVertexCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "lm_studio" $ClioProviderLMStudioCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "ollama" $ClioProviderOllamaCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "llama_cpp" $ClioProviderLlamaCppCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "vllm" $ClioProviderVllmCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "argonne_sophia" $ClioProviderArgonneSophiaCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "argonne_metis" $ClioProviderArgonneMetisCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "azure_openai" $ClioProviderAzureOpenAICheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "bedrock" $ClioProviderBedrockCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "nvidia_nim" $ClioProviderNvidiaNimCheckbox
+  !insertmacro CLIO_APPEND_PROVIDER "openrouter" $ClioProviderOpenRouterCheckbox
 FunctionEnd
 
 ; Keep user-owned sessions and settings by default, but make a genuinely clean
@@ -234,7 +313,7 @@ FunctionEnd
 !macroend
 
 ; Every write to installer-options.json goes through this one macro so its
-; shape (schema/web_search/llama_cpp/clio_kit/provider_families) is defined here;
+; shape (schema/web_search/llama_cpp/clio_kit/provider_ids) is defined here;
 ; callers set $ClioWebSearchStatus / $ClioLlamaCppStatus first. Uses
 ; ${BUNDLEID} — the identifier Tauri actually built this installer with —
 ; rather than a literal, so a brand overlay with a different identifier (see
@@ -243,12 +322,12 @@ FunctionEnd
 !macro CLIO_WRITE_INSTALLER_OPTIONS
   CreateDirectory "$LOCALAPPDATA\${BUNDLEID}"
   FileOpen $2 "$LOCALAPPDATA\${BUNDLEID}\installer-options.json" w
-  FileWrite $2 '{$\"schema$\":3,$\"web_search$\":$\"'
+  FileWrite $2 '{$\"schema$\":4,$\"web_search$\":$\"'
   FileWrite $2 $ClioWebSearchStatus
   FileWrite $2 '$\",$\"llama_cpp$\":$\"'
   FileWrite $2 $ClioLlamaCppStatus
-  FileWrite $2 '$\",$\"clio_kit$\":$\"bundled$\",$\"provider_families$\":$\"'
-  FileWrite $2 $ClioProviderFamilies
+  FileWrite $2 '$\",$\"clio_kit$\":$\"bundled$\",$\"provider_ids$\":$\"'
+  FileWrite $2 $ClioProviderIds
   FileWrite $2 '$\"}'
   FileClose $2
 !macroend
@@ -267,15 +346,15 @@ FunctionEnd
   RMDir /r "$LOCALAPPDATA\clio-agent-r15-runtime"
 
   ; A silent update/passive run preserves the previous choice and does not
-  ; repeat infrastructure work — ClioInfrastructurePage already Aborted for
-  ; that case, so $ClioInstallWebSearch/$ClioInstallLlamaCpp stay empty and
-  ; nothing is written here.
+  ; repeat setup work — both custom pages already Aborted for that case, so
+  ; their choice variables stay empty and nothing is written here.
   ${If} $PassiveMode <> 1
   ${AndIf} $UpdateMode <> 1
     ; A plain silent (but not passive/update) fresh install skips ALL wizard
     ; pages, including ours, so the Leave function never ran — fall back to
-    ; the same recommended defaults the page itself shows (Search on, local
-    ; runtime off) rather than treating "never asked" as "declined".
+    ; the same recommended defaults the pages show (Search on, local runtime
+    ; off, OpenAI API and Codex visible) rather than treating "never asked"
+    ; as "declined".
     ${If} $ClioInstallWebSearch == ""
       StrCpy $ClioInstallWebSearch "1"
     ${EndIf}
@@ -283,7 +362,7 @@ FunctionEnd
       StrCpy $ClioInstallLlamaCpp "0"
     ${EndIf}
     ${If} $ClioProviderChoicesCaptured != "1"
-      StrCpy $ClioProviderFamilies "openai"
+      StrCpy $ClioProviderIds "codex,openai"
     ${EndIf}
 
     ${If} $ClioInstallWebSearch == "1"
@@ -315,46 +394,13 @@ FunctionEnd
   ${EndIf}
   DetailPrint "CLIO runtime installed."
 
+  ; Infrastructure choices are requests, not Desktop-owned service actions.
+  ; The managed CLIO applies this request after its API is ready, using the
+  ; same durable driver, progress, recovery, and ownership model as the UI.
   ${If} $ClioInstallWebSearch == "1"
-    DetailPrint "Checking Docker for the recommended CLIO Search service..."
-    nsExec::ExecToStack 'docker info'
-    Pop $0
-    Pop $1
-    ${If} $0 == 0
-      DetailPrint "Installing CLIO Search (this can take several minutes on a first install)..."
-      nsExec::ExecToStack 'docker pull ghcr.io/iowarp/clio-web-search:0.3.0'
-      Pop $0
-      Pop $1
-      ${If} $0 == 0
-        nsExec::ExecToStack 'docker container inspect clio-web-search'
-        Pop $0
-        Pop $1
-        ${If} $0 == 0
-          nsExec::ExecToStack 'docker start clio-web-search'
-        ${Else}
-          nsExec::ExecToStack 'docker run --detach --name clio-web-search --restart unless-stopped --publish 127.0.0.1:8089:8080 --publish 127.0.0.1:8090:6379 --volume clio-web-search-data:/var/lib/clio-web-search ghcr.io/iowarp/clio-web-search:0.3.0'
-        ${EndIf}
-        Pop $0
-        Pop $1
-        ${If} $0 == 0
-          StrCpy $ClioWebSearchStatus "deployed"
-          !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
-          DetailPrint "CLIO Search is installed and running."
-        ${Else}
-          StrCpy $ClioWebSearchStatus "needs_attention"
-          !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
-          DetailPrint "CLIO Search needs attention. Finish setup later from Infrastructure."
-        ${EndIf}
-      ${Else}
-        StrCpy $ClioWebSearchStatus "needs_attention"
-        !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
-        DetailPrint "CLIO Search could not be downloaded. Finish setup later from Infrastructure."
-      ${EndIf}
-    ${Else}
-      StrCpy $ClioWebSearchStatus "needs_attention"
-      !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
-      DetailPrint "Docker is unavailable. Finish CLIO Search setup later from Infrastructure."
-    ${EndIf}
+    StrCpy $ClioWebSearchStatus "requested"
+    !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
+    DetailPrint "CLIO Search will be installed by CLIO on first launch."
   ${EndIf}
 !macroend
 

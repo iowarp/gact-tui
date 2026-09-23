@@ -129,7 +129,7 @@ describe('ClioModelPicker', () => {
     await user.click(screen.getByRole('button', { name: 'Change model' }));
     expect(screen.queryByText('Luna')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(onRetryCatalog).toHaveBeenCalledOnce();
+    expect(onRetryCatalog).toHaveBeenCalledWith(undefined);
   });
 
   it('keeps cached choices searchable during a background refresh', async () => {
@@ -196,6 +196,7 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByRole('option', { name: /Codex/ }));
     const configurationLink = screen.getByRole('link', { name: 'Configure Codex provider' });
     expect(configurationLink).toHaveAttribute('href', '/settings/providers?provider=codex');
     expect(configurationLink.closest('[data-slot="cascader-nav"]')).not.toBeNull();

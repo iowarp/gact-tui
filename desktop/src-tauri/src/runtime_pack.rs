@@ -57,7 +57,12 @@ fn prepare_windows_runtime(
 ) -> Result<Option<PathBuf>, String> {
     let manifest_path = resource_dir.join(PACK_MANIFEST_NAME);
     if !manifest_path.is_file() {
-        return Ok(bundled_runtime_dir(resource_dir));
+        let installed = app_local_data_dir.join("bundled-runtime/gact-runtime");
+        return Ok(installed
+            .join("runtime.json")
+            .is_file()
+            .then_some(installed)
+            .or_else(|| bundled_runtime_dir(resource_dir)));
     }
 
     let manifest_bytes = fs::read(&manifest_path)
@@ -367,6 +372,23 @@ mod tests {
             .expect("reuse runtime")
             .expect("receipted runtime");
         assert_eq!(reused, runtime);
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn lightweight_desktop_update_reuses_the_existing_managed_runtime() {
+        let root = temp_case("lite-update");
+        let resources = root.join("resources");
+        let app_data = root.join("data");
+        let runtime = app_data.join("bundled-runtime/gact-runtime");
+        fs::create_dir_all(&runtime).expect("runtime directory");
+        fs::create_dir_all(&resources).expect("resource directory");
+        fs::write(runtime.join("runtime.json"), b"{}\n").expect("runtime manifest");
+
+        assert_eq!(
+            prepare_bundled_runtime(&resources, &app_data).expect("reuse installed runtime"),
+            Some(runtime)
+        );
         fs::remove_dir_all(root).expect("cleanup");
     }
 

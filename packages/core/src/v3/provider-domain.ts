@@ -19,6 +19,7 @@ export interface ProviderDefinition {
 
 export interface ProviderModel {
   id: string;
+  availability?: 'available' | 'candidate';
   name?: string;
   label?: string;
   description?: string;
@@ -33,6 +34,7 @@ export interface ProviderModelCatalog {
   source?: string;
   default_model?: string;
   generated_at?: string;
+  staleness?: Record<string, unknown>;
   error?: string;
 }
 

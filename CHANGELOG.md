@@ -4,6 +4,176 @@ All notable user-visible changes to gact-tui are documented here.
 Internal refactors that don't change the contract or the rendered
 UI aren't tracked.
 
+## Unreleased
+
+## [0.11.2.16] — 2026-09-23
+
+### Fixed
+
+- Restored desktop-release behavior that an integration merge had dropped: the
+  transcript's jump link reaches pending permission and question cards again,
+  an open interactive surface keeps its full resizable height in the pending
+  tray, and technical-details disclosures use the standard collapsible control
+  instead of a bare browser marker.
+
+### Changed
+
+- CLIO implements A2UI v0.9.1: the official message, capability, data-model and
+  error schemas; the official Basic catalog plus blueprint-declared,
+  pack-installed catalogs; catalog functions and checks; validated against the
+  official conformance corpus in browser and desktop. Not supported: A2UI 1.0,
+  inline catalogs, A2A transport, pack-shipped renderer code.
+- Upgraded the A2UI library to `@a2ui/react` 0.11.x and `@a2ui/web_core` 0.11.x.
+- Interactive surfaces now render through a catalog registry, including
+  catalogs the server installs from an agent's pack, instead of a single
+  fixed catalog.
+- Catalog-declared functions (opening a URL or artifact, selecting data,
+  focusing a workflow step) and checks now run client-side, and every
+  surface is validated against its catalog before it renders.
+- Every action taken on an interactive surface (button presses, form
+  submissions, selections) is shown in the transcript as part of the action's
+  lifecycle, from sent through delivered to the agent.
+- A surface that fails validation now posts the error back to the agent as a
+  structured `VALIDATION_FAILED` response instead of silently doing nothing.
+- The desktop build now runs the full A2UI conformance corpus against the
+  packaged bundle in CI, in addition to the browser test suite.
+
+## [0.11.2.15] — 2026-09-22
+
+### Changed
+
+- Put the ordered SSH jump-host route directly on deployment and
+  Infrastructure target pickers, with draggable steps, saved-profile choices,
+  per-step configuration, and a visible add-jump action.
+
+### Fixed
+
+- Remove the misleading Password/Key mode selector: system OpenSSH now owns
+  every interactive password, Duo, Kerberos, security-key, and rolling-code
+  prompt while an optional key remains an explicit override.
+- Add a real interactive **Test connection** action that exercises the same
+  OpenSSH PTY and ProxyJump route used by deployment.
+
+## [0.11.2.14] — 2026-09-22
+
+### Added
+
+- Add contextual CLIO-owned service targets, managed and external service
+  lifecycles, durable progress/logs, configurable install roots, and recovery
+  states to Infrastructure.
+- Add reusable interactive system-OpenSSH transport with manual or imported
+  profiles, keys, arbitrary ProxyJump chains, and native password/MFA prompts.
+
+### Changed
+
+- Render workspace files from media types, stream binary/PDF previews, and
+  expose uploaded source working copies in the active workspace.
+
+### Fixed
+
+- Reuse SSH sessions across probes and operations, reconcile services after a
+  dropped connection without redeploying, and avoid a second SSH login for a
+  service running beside the connected remote CLIO.
+- Close sibling composer menus when another behavior control opens, keep
+  provider/model changes synchronized, and preserve remote structured file
+  references.
+
+## [0.11.2.13] — 2026-09-20
+
+### Fixed
+
+- Consolidate software status into one bottom status-bar control with direct
+  CLIO, Desktop, and combined update actions; remove the duplicate sidebar
+  version and protocol-oriented update detour.
+- Restore provider visibility management to the picker footer, keep Refresh and
+  Configure beside Close, and prevent health indicators from hiding providers.
+
+## [0.11.2.12] — 2026-09-20
+
+### Fixed
+
+- Deploy CLIO Web Search 0.3.1 so remote services retain clean shutdown
+  semantics and have a working general-search fallback on university and HPC
+  networks where the previous engines are blocked.
+
+## [0.11.2.11] — 2026-09-20
+
+### Fixed
+
+- Constrain the desktop workspace to the height remaining below the native
+  title bar, keeping Settings and version controls visible while each route
+  scrolls inside that space.
+
+## [0.11.2.10] — 2026-09-20
+
+This is the signed update target used to verify Desktop-only, CLIO-only, and
+combined installed updates from the repaired v0.11.2.9 updater.
+
+## [0.11.2.9] — 2026-09-20
+
+### Fixed
+
+- Force-reinstall managed CLIO updates, discard stale package metadata and
+  bytecode left by older bundled runtimes, and verify the version Python
+  actually imports before reporting a successful update.
+
+## [0.11.2.8] — 2026-09-20
+
+### Fixed
+
+- Keep the sidebar header and footer at their intended height on short desktop
+  windows so the Settings and version controls remain visible while the
+  workspace list scrolls independently.
+
+## [0.11.2.7] — 2026-09-20
+
+This is the signed update target used to verify Desktop-only, CLIO-only, and
+combined installed updates from the repaired v0.11.2.6 updater.
+
+## [0.11.2.6] — 2026-09-20
+
+### Fixed
+
+- Update the managed CLIO runtime through the `bin/uv` executable that is
+  actually shipped by every bundled desktop runtime, while retaining support
+  for the legacy root-level layout.
+
+## [0.11.2.5] — 2026-09-20
+
+### Fixed
+
+- Keep the compact version and update control visible by placing it beside
+  Settings in the sidebar footer, including on shorter desktop windows.
+
+## [0.11.2.4] — 2026-09-20
+
+The desktop acceptance target paired with clio-agent v0.9.4.4. It is an
+intentionally minimal follow-up release used to verify Desktop-only, CLIO-only,
+and combined signed updates from v0.9.4.3 through the installed application.
+
+## [0.11.2.3] — 2026-09-20
+
+The desktop release paired with clio-agent v0.9.4.3.
+
+### Added
+
+- A compact version indicator beside Infrastructure and Settings opens two
+  branded software rows for the desktop and connected CLIO agent, with their
+  individual versions, release links, and independent or combined updates.
+
+### Changed
+
+- Desktop updates use the lightweight signed installer and preserve the
+  managed CLIO runtime, allowing desktop-only, agent-only, and combined update
+  acceptance paths to be tested independently.
+
+### Fixed
+
+- Bundled CLIO updates now modify and verify the exact writable runtime the
+  desktop launches, then restart with a fresh endpoint and credentials.
+- The update indicator shares the background updater result instead of
+  blocking the version popover on another release-network request.
+
 ## [0.11.2.2] — 2026-09-20
 
 The desktop release paired with clio-agent v0.9.4.2. It completes the live

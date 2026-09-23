@@ -477,7 +477,7 @@ export function RunsPage() {
   const workflowFailures = workflowTranscripts.filter((query) => query.isError).length;
 
   return (
-    <main className="min-h-dvh bg-background p-4 sm:p-6 lg:p-10">
+    <main className="clio-scrollbar h-full min-h-0 overflow-y-auto bg-background p-4 sm:p-6 lg:p-10">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>

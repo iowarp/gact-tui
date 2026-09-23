@@ -281,6 +281,7 @@ describe('ComposerRepository', () => {
       created_at: '2026-08-31T12:00:00Z',
       updated_at: '2026-08-31T12:00:01Z',
       completed_at: '',
+      workspace_path: '',
       mime_mismatch: false,
       idempotent_replay: true,
     };
@@ -577,6 +578,43 @@ describe('ComposerRepository', () => {
       },
       { method: 'GET', path: '/v1/workspaces/workspace_1/resource-deliveries' },
     ]);
+  });
+
+  it('copies a resource into another workspace through the connected agent', async () => {
+    const copied = {
+      id: 'resource_2',
+      workspace_id: 'workspace_2',
+      client_upload_id: '',
+      revision: 1,
+      name: 'paper.pdf',
+      claimed_mime: 'application/pdf',
+      detected_mime: 'application/pdf',
+      detection_source: 'signature',
+      declared_size: 42,
+      received_size: 42,
+      sha256: 'abc123',
+      state: 'ready',
+      failure: '',
+      created_at: '2026-09-21T12:00:00Z',
+      updated_at: '2026-09-21T12:00:00Z',
+      completed_at: '2026-09-21T12:00:00Z',
+      workspace_path: '/remote/workspace/.clio/inputs/resource_2/paper.pdf',
+    };
+    const transport = new RecordingTransport([copied]);
+    const repository = new ComposerRepository(transport);
+
+    await expect(
+      repository.copyResource('workspace 1', 'resource/1', 'workspace_2'),
+    ).resolves.toMatchObject({
+      id: 'resource_2',
+      workspace_id: 'workspace_2',
+      workspace_path: copied.workspace_path,
+    });
+    expect(transport.requests[0]).toMatchObject({
+      method: 'POST',
+      path: '/v1/workspaces/workspace%201/resources/resource%2F1/copy',
+      body: { destination_workspace_id: 'workspace_2' },
+    });
   });
 });
 

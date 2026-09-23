@@ -11,19 +11,19 @@ describe('desktop installer options', () => {
     Object.assign(window, { __TAURI_INTERNALS__: {} });
   });
 
-  it('reads the native infrastructure and provider selection (v3 schema)', async () => {
+  it('reads the native infrastructure and provider selection (v4 schema)', async () => {
     mocks.invoke.mockResolvedValue({
-      schema: 3,
+      schema: 4,
       web_search: 'deployed',
       llama_cpp: 'requested',
       clio_kit: 'bundled',
-      provider_families: 'openai,argonne',
+      provider_ids: 'codex,openai,argonne_sophia',
     });
     await expect(readInstallerOptions()).resolves.toMatchObject({
       web_search: 'deployed',
       llama_cpp: 'requested',
       clio_kit: 'bundled',
-      provider_families: 'openai,argonne',
+      provider_ids: 'codex,openai,argonne_sophia',
     });
     expect(mocks.invoke).toHaveBeenCalledWith('read_installer_options');
   });
@@ -37,11 +37,11 @@ describe('desktop installer options', () => {
   it('defaults to not_requested outside Tauri, without invoking anything', async () => {
     Object.assign(window, { __TAURI_INTERNALS__: undefined });
     await expect(readInstallerOptions()).resolves.toEqual({
-      schema: 3,
+      schema: 4,
       web_search: 'not_requested',
       llama_cpp: 'not_requested',
       clio_kit: 'bundled',
-      provider_families: 'openai',
+      provider_ids: 'codex,openai',
     });
     expect(mocks.invoke).not.toHaveBeenCalled();
   });

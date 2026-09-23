@@ -1,9 +1,10 @@
+import type { A2UIActionLifecycle } from './a2ui/lifecycle.js';
 import type { InfrastructureDependency } from './infrastructure-domain.js';
 import type { MessageBlock } from './message-domain.js';
 import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
 import type { ToolPresentation } from './tool-presentation-domain.js';
-import type { CapabilityVersions } from './capability-domain.js';
+import type { CapabilityNegotiation } from './capability-domain.js';
 
 export type { ToolPresentation, ToolPresentationBlock } from './tool-presentation-domain.js';
 
@@ -409,8 +410,12 @@ export interface ContextSnapshot {
 
 export interface WorkspaceFileEntry {
   path: string;
+  display_path?: string;
   type: WireValue<'file' | 'dir'>;
   internal: boolean;
+  media_type?: string;
+  source?: WireValue<'workspace' | 'managed_input'>;
+  resource_id?: string;
   size?: number;
   modified?: string;
 }
@@ -735,18 +740,6 @@ export interface TranscriptSnapshot {
   surfaces: A2UISurface[];
 }
 
-export interface CapabilityNegotiation {
-  service?: { name: string; version: string };
-  gact_versions: string[];
-  a2ui_versions: string[];
-  replay: { supported: boolean; retention?: number };
-  capabilities: Record<string, unknown>;
-  degradations: Degradation[];
-  model_catalog: Provenance;
-  active_model?: { provider_id: string; model_id: string; effort?: string };
-  versions?: CapabilityVersions;
-}
-
 export interface EntityState {
   connection?: Connection;
   capabilities?: CapabilityNegotiation;
@@ -766,6 +759,7 @@ export interface EntityState {
   usage: Record<string, UsageSnapshot>;
   context: Record<string, ContextSnapshot>;
   surfaces: Record<string, A2UISurface>;
+  a2ui_action_lifecycles: Record<string, A2UIActionLifecycle>;
   infrastructure: Record<string, InfrastructureDependency>;
   active_turns: Record<string, string>;
   responded_turns: Record<string, string>;
@@ -775,6 +769,7 @@ export interface EntityState {
   gaps: TransportGap[];
 }
 export type { ActionCardAction, MessageBlock, MessageBlockContext } from './message-domain.js';
+export type { A2uiAgentCapabilities, CapabilityNegotiation } from './capability-domain.js';
 export type {
   CommandDefinition,
   PromptDefinition,

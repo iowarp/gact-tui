@@ -9,6 +9,12 @@ import {
   sessionId,
   workspaceId,
 } from './fixture-data.mjs';
+import {
+  a2uiCapabilities,
+  a2uiCatalogRows,
+  allExampleMessages,
+  loginFormExampleMessages,
+} from './a2ui-fixtures.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -857,6 +863,106 @@ const server = createServer(async (request, response) => {
     sendJson(response, { status: 'started' }, 202);
     return;
   }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-login-form') {
+    // Must match the `surfaceId` embedded in the vendored example's own
+    // createSurface/updateComponents messages (loginFormExampleMessages()) —
+    // the MessageProcessor keys its internal SurfaceModel off that embedded
+    // id, not this envelope's `id`, so a mismatch here makes the processor
+    // build a model under a different key and getSurface(surface.id) never
+    // finds it (renders silently as nothing, no error).
+    const surfaceId = 'gallery-login-form';
+    const surface = {
+      id: surfaceId,
+      session_id: sessionId,
+      catalog_id: 'https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json',
+      protocol_version: '0.9.1',
+      revision: 1,
+      state: 'ready',
+      messages: loginFormExampleMessages(),
+    };
+    publish('a2ui.surface.upserted', surface);
+    sendJson(response, { status: 'published', surface_id: surfaceId }, 202);
+    return;
+  }
+
+  if (
+    request.method === 'POST' &&
+    url.pathname === `/v1/sessions/${sessionId}/a2ui/actions`
+  ) {
+    // Only acknowledges receipt (the `isPending` mutation this resolves is
+    // what gates the surface header's optimistic "Sending action" label,
+    // S8 gact-tui#409 item 2) — the S5 lifecycle events a real dispatcher
+    // would publish off the back of this are published explicitly by the
+    // test via /__test/a2ui-action-lifecycle, for deterministic ordering.
+    // The short delay keeps the mutation observably pending for that test.
+    await readJson(request);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    sendJson(response, { status: 'accepted' }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-corpus') {
+    // Publishes all 43 vendored Basic-catalog examples as detached surfaces
+    // (no owning message, same as /__test/a2ui-login-form) — the desktop JS
+    // smoke (S8 gact-tui#409 item 3) drives this to prove the packaged
+    // bundle renders the whole official corpus, not just one example. Each
+    // surface's `id`/`catalog_id` come from its own vendored createSurface
+    // message, exactly like the single-example handler above.
+    const examples = allExampleMessages();
+    const surfaceIds = [];
+    for (const example of examples) {
+      const first = example.messages[0];
+      const surfaceId = first?.createSurface?.surfaceId;
+      const catalogId = first?.createSurface?.catalogId;
+      if (!surfaceId || !catalogId) continue;
+      surfaceIds.push(surfaceId);
+      publish('a2ui.surface.upserted', {
+        id: surfaceId,
+        session_id: sessionId,
+        catalog_id: catalogId,
+        protocol_version: '0.9.1',
+        revision: 1,
+        state: 'ready',
+        messages: example.messages,
+      });
+    }
+    sendJson(response, { status: 'published', count: surfaceIds.length, surface_ids: surfaceIds }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-action-lifecycle') {
+    // Publishes one `a2ui.action.<status>` server-truth lifecycle event
+    // (dispatcher slice S5) for the footer e2e (S8 gact-tui#409 item 2):
+    // `{surface_id, action_name, status, reason?, source_component_id?,
+    // action_id?, state?, delivery?}` — `status` selects the event name,
+    // everything else rides through as the payload verbatim.
+    const { status, ...payload } = await readJson(request);
+    if (typeof status !== 'string' || !status) {
+      sendJson(response, { error: 'status is required' }, 400);
+      return;
+    }
+    publish(`a2ui.action.${status}`, payload);
+    sendJson(response, { status: 'published' }, 202);
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    url.pathname === `/v1/sessions/${sessionId}/a2ui/catalogs`
+  ) {
+    sendJson(response, { catalogs: a2uiCatalogRows() });
+    return;
+  }
+
+  if (
+    request.method === 'GET' &&
+    url.pathname === `/v1/sessions/${sessionId}/a2ui/capabilities`
+  ) {
+    sendJson(response, a2uiCapabilities());
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/v1/capabilities') {
     sendJson(response, {
       ...capabilities,

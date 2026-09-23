@@ -5,19 +5,43 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { vocab } from '@/lib/brand-vocabulary';
 
 const mocks = vi.hoisted(() => ({
-  deployClio: vi.fn(),
+  attachInfrastructureSshTransport: vi.fn(),
+  createInfrastructureTarget: vi.fn(),
+  updateInfrastructureTarget: vi.fn(),
   getManagedBackend: vi.fn(),
-  preflightTarget: vi.fn(),
+  infrastructureTargets: vi.fn(),
+  managedServiceCatalog: vi.fn(),
   retryManagedBackend: vi.fn(),
-  sshProfiles: vi.fn(),
+  runManagedServiceAction: vi.fn(),
+  setInfrastructureTransportState: vi.fn(),
+  sshTransportStatus: vi.fn(),
+  listSshProfiles: vi.fn(),
   waitForManagedBackend: vi.fn(),
 }));
 
-vi.mock('@/tauri/infrastructure-setup', () => ({
-  deployClio: mocks.deployClio,
-  preflightTarget: mocks.preflightTarget,
-  sshProfiles: mocks.sshProfiles,
+vi.mock('@/hooks/use-repository', () => ({
+  useRepository: () => ({
+    createInfrastructureTarget: mocks.createInfrastructureTarget,
+    infrastructureTargets: mocks.infrastructureTargets,
+    managedServiceCatalog: mocks.managedServiceCatalog,
+    runManagedServiceAction: mocks.runManagedServiceAction,
+    setInfrastructureTransportState: mocks.setInfrastructureTransportState,
+  }),
 }));
+vi.mock('@/providers/connection-provider', () => ({
+  useConnectionSettings: () => ({
+    settings: { endpoint: 'http://127.0.0.1:17800', token: 'controller-token' },
+  }),
+}));
+vi.mock('@/tauri/ssh-profiles', () => ({
+  listSshProfiles: mocks.listSshProfiles,
+}));
+vi.mock('@/tauri/ssh-infrastructure-transport', () => ({
+  attachInfrastructureSshTransport: mocks.attachInfrastructureSshTransport,
+  sshTransportStatus: mocks.sshTransportStatus,
+  writeSshTransport: vi.fn(),
+}));
+vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn().mockResolvedValue(vi.fn()) }));
 vi.mock('@/tauri/managed-backend', () => ({
   getManagedBackend: mocks.getManagedBackend,
   retryManagedBackend: mocks.retryManagedBackend,
@@ -37,18 +61,71 @@ function renderDialog(onReady = vi.fn()) {
 
 beforeEach(() => {
   localStorage.clear();
-  mocks.deployClio.mockReset();
+  Object.values(mocks).forEach((mock) => mock.mockReset());
   mocks.getManagedBackend.mockReset();
-  mocks.preflightTarget.mockReset();
-  mocks.retryManagedBackend.mockReset();
-  mocks.sshProfiles.mockReset();
-  mocks.waitForManagedBackend.mockReset();
   mocks.getManagedBackend.mockResolvedValue({
     url: '',
     bearer_token: '',
     status: { kind: 'starting', detail: 'checking_existing' },
   });
-  mocks.sshProfiles.mockResolvedValue([{ name: 'homelab', hostname: '10.0.0.102', user: 'alice' }]);
+  mocks.listSshProfiles.mockResolvedValue([
+    {
+      name: 'homelab',
+      hostname: '10.0.0.102',
+      user: 'alice',
+      port: 22,
+      jump_hosts: [],
+      platform: 'linux',
+      managed: false,
+    },
+  ]);
+  mocks.infrastructureTargets.mockResolvedValue([]);
+  mocks.createInfrastructureTarget.mockResolvedValue({
+    id: 'target-homelab',
+    label: 'homelab',
+    kind: 'ssh',
+    install_root: '',
+    ssh: {
+      profile: 'homelab',
+      host: '10.0.0.102',
+      user: 'alice',
+      port: 22,
+      jump_hosts: [],
+      identity_file: '',
+      platform: 'linux',
+    },
+    transport_state: 'connected',
+    auto_reconnect: true,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  });
+  mocks.attachInfrastructureSshTransport.mockResolvedValue({
+    session_id: 'ssh-homelab',
+    state: 'connected',
+    reused: false,
+    output: '',
+  });
+  mocks.runManagedServiceAction.mockResolvedValue({
+    id: 'operation-1',
+    service_id: 'clio_agent',
+    target_id: 'target-homelab',
+    action: 'install',
+    state: 'succeeded',
+    progress: 'Completed',
+    logs: '',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  });
+  mocks.managedServiceCatalog.mockResolvedValue({
+    facts: {},
+    services: [
+      {
+        id: 'clio_agent',
+        state: 'running',
+        connection_url: 'http://127.0.0.1:64123',
+      },
+    ],
+  });
 });
 
 afterEach(cleanup);
@@ -71,9 +148,10 @@ describe('DeployClioDialog', () => {
         endpoint: 'http://127.0.0.1:17800',
         token: 'local-token',
         label: 'This computer',
+        location: 'Local',
       }),
     );
-    expect(mocks.deployClio).not.toHaveBeenCalled();
+    expect(mocks.runManagedServiceAction).not.toHaveBeenCalled();
   });
 
   it('retries a failed local backend before waiting for readiness', async () => {
@@ -100,15 +178,9 @@ describe('DeployClioDialog', () => {
     );
   });
 
-  it('deploys through an imported SSH profile and returns a tunneled connection', async () => {
+  it('deploys through CLIO ownership and returns a durable managed connection', async () => {
     const user = userEvent.setup();
     const onReady = renderDialog();
-    mocks.deployClio.mockResolvedValue({
-      target: 'homelab',
-      remote_port: 17_800,
-      status: 'installed',
-    });
-
     await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
     await user.click(screen.getByRole('radio', { name: /Remote host/u }));
     await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
@@ -117,38 +189,23 @@ describe('DeployClioDialog', () => {
 
     await waitFor(() =>
       expect(onReady).toHaveBeenCalledWith({
-        endpoint: 'http://127.0.0.1:17800',
-        label: 'homelab',
-        tunnel: {
-          auth_method: 'key',
-          credential_id: 'profile:homelab',
-          host: '10.0.0.102',
-          user: 'alice',
-          remote_port: 17_800,
-          key_path: '',
-          profile: 'homelab',
-        },
+        endpoint: 'http://127.0.0.1:64123',
+        label: vocab.agent,
+        location: 'homelab',
+        infrastructure: { targetId: 'target-homelab', serviceId: 'clio_agent' },
       }),
     );
-    expect(mocks.deployClio).toHaveBeenCalledWith({
-      target: 'ssh',
-      ssh_profile: 'homelab',
-      ssh_host: '10.0.0.102',
-      ssh_user: 'alice',
-      ssh_auth_method: 'key',
-      ssh_credential_id: 'profile:homelab',
+    expect(mocks.runManagedServiceAction).toHaveBeenCalledWith('clio_agent', {
+      target_id: 'target-homelab',
+      action: 'install',
+      variant_id: 'released',
+      configuration: {},
     });
   });
 
   it('uses an advanced remote install location when requested', async () => {
     const user = userEvent.setup();
     renderDialog();
-    mocks.deployClio.mockResolvedValue({
-      target: 'homelab',
-      remote_port: 17_800,
-      status: 'installed',
-    });
-
     await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
     await user.click(screen.getByRole('radio', { name: /Remote host/u }));
     await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
@@ -157,22 +214,21 @@ describe('DeployClioDialog', () => {
     await user.type(screen.getByLabelText('Install location'), '/mnt/common/alice/clio');
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
 
-    await waitFor(() => expect(mocks.deployClio).toHaveBeenCalledOnce());
-    expect(mocks.deployClio).toHaveBeenCalledWith({
-      target: 'ssh',
-      ssh_profile: 'homelab',
-      ssh_host: '10.0.0.102',
-      ssh_user: 'alice',
-      ssh_auth_method: 'key',
-      ssh_credential_id: 'profile:homelab',
+    await waitFor(() => expect(mocks.createInfrastructureTarget).toHaveBeenCalledOnce());
+    expect(mocks.createInfrastructureTarget).toHaveBeenCalledWith({
+      kind: 'ssh',
+      label: 'homelab',
       install_root: '/mnt/common/alice/clio',
+      ssh: expect.objectContaining({ profile: 'homelab', host: '10.0.0.102' }),
     });
   });
 
   it('shows string errors returned by the desktop backend', async () => {
     const user = userEvent.setup();
     renderDialog();
-    mocks.deployClio.mockRejectedValue('Python 3.12 is required on the remote host.');
+    mocks.runManagedServiceAction.mockRejectedValue(
+      new Error('Python 3.12 is required on the remote host.'),
+    );
 
     await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
     await user.click(screen.getByRole('radio', { name: /Remote host/u }));

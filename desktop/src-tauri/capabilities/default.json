@@ -17,6 +17,10 @@
     "core:window:allow-toggle-maximize",
     "notification:default",
     "dialog:allow-open",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://auth.globus.org/*" }]
+    },
     "updater:default",
     "process:allow-exit",
     "process:allow-restart"

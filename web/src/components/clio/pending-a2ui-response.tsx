@@ -1,4 +1,4 @@
-import type { A2UISurface, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
+import type { A2UIActionLifecycle, A2UISurface, PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import {
   AlertTriangleIcon,
   GripHorizontalIcon,
@@ -39,6 +39,7 @@ type InteractionResponseHandler = (
 ) => Promise<void>;
 
 interface PendingA2UIResponseProps {
+  actionLifecycle?: A2UIActionLifecycle;
   disabled?: boolean;
   interaction: PendingInteraction;
   onLocalAction?: A2UILocalActionHandler;
@@ -52,6 +53,7 @@ interface PendingA2UIResponseProps {
 
 /** Presents a pending interactive surface as the tray's only bordered box — no nested chrome of its own. */
 export function PendingA2UIResponse({
+  actionLifecycle,
   disabled,
   interaction,
   onLocalAction,
@@ -259,6 +261,7 @@ export function PendingA2UIResponse({
       </Dialog>
       {createPortal(
         <A2UISurfaceBody
+          actionLifecycle={actionLifecycle}
           chrome="bare"
           interaction={interaction}
           onLocalAction={onLocalAction}
@@ -275,6 +278,7 @@ export function PendingA2UIResponse({
 
 /** Distinguishes a pending read from a missing or cross-session surface. */
 function A2UISurfaceBody({
+  actionLifecycle,
   chrome = 'framed',
   interaction,
   onLocalAction,
@@ -283,6 +287,7 @@ function A2UISurfaceBody({
   rawSurface,
   viewport = 'inline',
 }: {
+  actionLifecycle?: A2UIActionLifecycle;
   chrome?: 'framed' | 'bare';
   interaction: PendingInteraction;
   onLocalAction?: A2UILocalActionHandler;
@@ -323,6 +328,7 @@ function A2UISurfaceBody({
   }
   return (
     <ClioA2UISurface
+      actionLifecycle={actionLifecycle}
       chrome={chrome}
       onLocalAction={onLocalAction}
       onRemoteAction={(message) =>

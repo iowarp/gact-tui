@@ -14,9 +14,9 @@
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "dependencies": {
-    "@a2ui/markdown-it": "0.1.1",
-    "@a2ui/react": "0.10.2",
-    "@a2ui/web_core": "0.10.6",
+    "@a2ui/markdown-it": "0.1.2",
+    "@a2ui/react": "0.11.1",
+    "@a2ui/web_core": "0.11.0",
     "@base-ui/react": "^1.7.0",
     "@clio/core": "workspace:^",
     "@dagrejs/dagre": "^3.1.1",
@@ -35,6 +35,7 @@
     "@tanstack/react-virtual": "^3.14.10",
     "@tauri-apps/api": "2.1.1",
     "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-opener": "^2.0.0",
     "@tauri-apps/plugin-process": "2.3.1",
     "@tauri-apps/plugin-updater": "2.10.1",
     "@xterm/addon-fit": "0.11.0",

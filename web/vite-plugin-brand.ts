@@ -19,6 +19,12 @@ interface RawBrand {
   agentName?: string;
   /** The noun for a project/session container, e.g. "workspace". Defaults to "workspace". */
   workspaceNoun?: string;
+  /** Release index for the installed desktop product. */
+  desktopReleaseUrl?: string;
+  /** Release index for the connected agent service. */
+  agentReleaseUrl?: string;
+  /** Legacy shared release index; used as the default for both products. */
+  releaseUrl?: string;
   themeTokens?: Record<string, string>;
   landing?: {
     eyebrow?: string;
@@ -47,6 +53,8 @@ export interface ResolvedBrand {
   productName: string;
   agentName: string;
   workspaceNoun: string;
+  desktopReleaseUrl: string | null;
+  agentReleaseUrl: string | null;
   themeTokens: Record<string, string>;
   landing: {
     eyebrow: string;
@@ -116,6 +124,8 @@ export function loadBrand(brandingRoot: string, profile: string): ResolvedBrand 
     productName: raw.productName?.trim() || `${name} Desktop`,
     agentName: raw.agentName?.trim() || name,
     workspaceNoun: raw.workspaceNoun?.trim() || 'workspace',
+    desktopReleaseUrl: raw.desktopReleaseUrl?.trim() || raw.releaseUrl?.trim() || null,
+    agentReleaseUrl: raw.agentReleaseUrl?.trim() || raw.releaseUrl?.trim() || null,
     themeTokens: { ...(raw.themeTokens ?? {}) },
     landing: {
       eyebrow: raw.landing?.eyebrow?.trim() || name,

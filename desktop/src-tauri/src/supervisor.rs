@@ -69,6 +69,14 @@ impl Supervisor {
         self.app_local_data_dir = Some(app_local_data_dir);
     }
 
+    /// Writable runtime selected for this installed desktop, when one exists.
+    pub fn managed_runtime_dir(&self) -> Option<PathBuf> {
+        self.app_local_data_dir
+            .as_ref()
+            .map(|root| root.join("bundled-runtime/gact-runtime"))
+            .filter(|runtime| runtime.join("runtime.json").is_file())
+    }
+
     /// Reads the current backend handle (cheap clone of a small struct).
     pub fn snapshot(&self) -> BackendHandle {
         self.state.snapshot()

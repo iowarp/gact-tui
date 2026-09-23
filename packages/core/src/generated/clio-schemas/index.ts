@@ -6,4 +6,3 @@
 
 export * from './_models';
 export * from './message-block.schema.js';
-export * from './a2ui-component.schema.js';

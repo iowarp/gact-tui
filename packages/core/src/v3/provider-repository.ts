@@ -93,11 +93,64 @@ export class ProviderRepository extends ContextRepository {
     providerId: string,
     options: { force?: boolean } = {},
     signal?: AbortSignal,
+  ): Promise<{
+    provider_id: string;
+    is_authenticated: boolean;
+    instructions: string;
+    authorization_url?: string;
+    flow_id?: string;
+  }> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
+      body: { action: 'start', force: options.force ?? false },
+      decode: (value) =>
+        z
+          .object({
+            provider_id: z.string(),
+            is_authenticated: z.boolean(),
+            instructions: z.string(),
+            authorization_url: z.string().url().optional(),
+            flow_id: z.string().optional(),
+          })
+          .parse(value),
+      signal,
+    });
+  }
+
+  public installProviderSupport(
+    providerId: string,
+    signal?: AbortSignal,
+  ): Promise<{ provider_id: string; installed: boolean; instructions: string }> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/install`,
+      body: {},
+      decode: (value) =>
+        z
+          .object({
+            provider_id: z.string(),
+            installed: z.boolean(),
+            instructions: z.string(),
+          })
+          .parse(value),
+      signal,
+    });
+  }
+
+  public completeProviderAuthentication(
+    providerId: string,
+    input: { flowId: string; authorizationCode: string },
+    signal?: AbortSignal,
   ): Promise<{ provider_id: string; is_authenticated: boolean; instructions: string }> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
-      body: { force: options.force ?? false },
+      body: {
+        action: 'complete',
+        flow_id: input.flowId,
+        authorization_code: input.authorizationCode,
+      },
       decode: (value) =>
         z
           .object({

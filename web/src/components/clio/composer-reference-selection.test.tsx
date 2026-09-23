@@ -161,7 +161,7 @@ describe('composer reference selection', () => {
     renderComposer();
 
     await user.type(composerEditor(), '@');
-    await user.click(await screen.findByRole('button', { name: 'Expand Local files' }));
+    await user.click(await screen.findByRole('button', { name: 'Expand Workspace files' }));
     await screen.findByRole('option', { name: /README.md/ });
 
     const stack = composerEditor().closest('[data-slot="clio-composer-stack"]');
@@ -318,7 +318,7 @@ describe('composer reference selection', () => {
 
     await user.type(composerEditor(), '@');
 
-    await user.click(await screen.findByRole('button', { name: 'Expand Local files' }));
+    await user.click(await screen.findByRole('button', { name: 'Expand Workspace files' }));
     await screen.findByText('file-0.txt');
     expect(screen.getAllByRole('option')).toHaveLength(100);
     expect(screen.queryByText('file-124.txt')).not.toBeInTheDocument();

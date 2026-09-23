@@ -1,5 +1,10 @@
-import type { A2UISurface, Artifact, MessageBlock, WorkspaceReference } from '@clio/core/v3';
-import type { A2uiClientAction } from '@a2ui/web_core/v0_9';
+import type {
+  A2UIActionLifecycle,
+  A2UISurface,
+  Artifact,
+  MessageBlock,
+  WorkspaceReference,
+} from '@clio/core/v3';
 import {
   AlertTriangleIcon,
   ExternalLinkIcon,
@@ -46,10 +51,10 @@ import { toolOutputDiffKey } from './declared-diff-key';
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
 export function DeferredA2UISurface({
-  onLocalAction,
+  actionLifecycle,
   surface,
 }: {
-  onLocalAction?: (action: A2uiClientAction) => string | void | Promise<string | void>;
+  actionLifecycle?: A2UIActionLifecycle;
   surface: A2UISurface;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -96,7 +101,9 @@ export function DeferredA2UISurface({
       ref={hostRef}
       style={renderSurface ? undefined : { minHeight: reservedHeight }}
     >
-      {renderSurface ? <ClioA2UISurface onLocalAction={onLocalAction} surface={surface} /> : null}
+      {renderSurface ? (
+        <ClioA2UISurface actionLifecycle={actionLifecycle} surface={surface} />
+      ) : null}
     </div>
   );
 }
@@ -115,9 +122,9 @@ function MessageBlockView({
   subagents,
   artifacts,
   surfaces,
+  actionLifecycles,
   resources,
   onActionCardAction,
-  onA2UILocalAction,
   onOpenArtifact,
   onOpenFile,
   onOpenResource,
@@ -232,7 +239,10 @@ function MessageBlockView({
       return surface?.state === 'deleted' ? (
         <ClioStatus label={`${PROTOCOL.a2ui} surface removed`} value="cancelled" />
       ) : surface ? (
-        <DeferredA2UISurface onLocalAction={onA2UILocalAction} surface={surface} />
+        <DeferredA2UISurface
+          actionLifecycle={actionLifecycles?.[block.surface_id]}
+          surface={surface}
+        />
       ) : (
         <ClioStatus label={`${PROTOCOL.a2ui} surface unavailable`} value="unavailable" />
       );

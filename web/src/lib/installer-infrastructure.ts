@@ -1,6 +1,5 @@
 import { toast } from 'sonner';
 import { createRepository, type ConnectionSettings } from '@/lib/connection';
-import { vocab } from '@/lib/brand-vocabulary';
 import {
   WEB_MCP_COMMAND,
   WEB_MCP_ENV,
@@ -12,90 +11,64 @@ import { completeInstallerWebSearch, readInstallerOptions } from '@/tauri/instal
 const WEB_SEARCH_CONNECT_ATTEMPTS = 6;
 const WEB_SEARCH_CONNECT_RETRY_MS = 2_000;
 
-// Families can expose several choices in the picker, but only providers that
-// need no secret or per-host fields are safe to activate automatically.  The
-// order is intentional: it follows the installer's default family order and
-// prefers subscription-backed providers over API-key billing.
-const INSTALLER_DEFAULT_PROVIDERS: Record<string, readonly string[]> = {
-  openai: ['codex'],
-  anthropic: ['claude_code'],
-  argonne: ['argonne_metis', 'argonne_sophia'],
-};
+async function waitForInfrastructureOperation(
+  repository: ReturnType<typeof createRepository>,
+  operationId: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < 600; attempt += 1) {
+    const operation = await repository.infrastructureOperation(operationId);
+    if (operation.state === 'succeeded') return;
+    if (operation.state === 'failed' || operation.state === 'cancelled') {
+      throw new Error(operation.error || operation.progress || 'CLIO Search installation failed.');
+    }
+    await wait(500);
+  }
+  throw new Error('CLIO Search installation is still running.');
+}
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
-function selectedProviderDefaults(selectedFamilies: string): string[] {
-  return selectedFamilies
-    .split(',')
-    .map((family) => family.trim())
-    .flatMap((family) => INSTALLER_DEFAULT_PROVIDERS[family] ?? []);
-}
-
-async function activateInstallerProvider(
-  repository: ReturnType<typeof createRepository>,
-  selectedFamilies: string,
-): Promise<void> {
-  const configuration = await repository.languageModelConfiguration();
-  if (configuration.configured) return;
-
-  const preferredIds = selectedProviderDefaults(selectedFamilies);
-  const preset = preferredIds
-    .map((providerId) =>
-      configuration.presets.find(
-        (candidate) => candidate.id === providerId || candidate.provider_id === providerId,
-      ),
-    )
-    .find(
-      (candidate) =>
-        candidate?.is_authenticated &&
-        !candidate.requires_api_key &&
-        Boolean(candidate.suggested_model) &&
-        !candidate.configuration_fields?.some((field) => field.required),
-    );
-  if (!preset) {
-    if (preferredIds.length > 0) {
-      toast.warning('Your selected model provider needs sign-in', {
-        id: 'installer-provider-needs-attention',
-        description: `Open Settings › Models to finish connecting it. ${vocab.agent} will guide you there.`,
-      });
-    }
-    return;
-  }
-
-  let result = await repository.updateLanguageModelConfiguration({
-    api_base: preset.api_base ?? '',
-    model: preset.suggested_model ?? '',
-    provider: preset.provider,
-    provider_id: preset.provider_id ?? preset.id,
-    provider_options: {},
-  });
-  if (result.state === 'configuring') {
-    result = await repository.waitLanguageModelConfiguration();
-  }
-  if (!result.configured || result.state === 'error') {
-    toast.warning(`${vocab.agent} could not start the selected model provider`, {
-      id: 'installer-provider-start-failed',
-      description: result.status_message || result.error || 'Open Settings › Models to retry.',
-    });
-  }
-}
-
 /** Finish the lightweight agent registration for infrastructure deployed by NSIS. */
 export async function finishInstallerInfrastructure(settings: ConnectionSettings): Promise<void> {
   const options = await readInstallerOptions();
-  const selectedFamilies = options.provider_families || 'openai';
-  applyInstallerProviderVisibility(selectedFamilies);
+  const selectedProviders =
+    options.provider_ids ?? expandLegacyProviderFamilies(options.provider_families || 'openai');
+  applyInstallerProviderVisibility(selectedProviders);
   const repository = createRepository(settings);
-  await activateInstallerProvider(repository, selectedFamilies);
+  if (selectedProviders.split(',').some((providerId) => providerId.trim() === 'claude_code')) {
+    try {
+      await repository.installProviderSupport('claude_code');
+    } catch (error) {
+      toast.warning('Claude Code still needs setup', {
+        id: 'installer-claude-code-needs-attention',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Open Models to install Claude Code on the connected agent.',
+      });
+    }
+  }
   if (options.web_search === 'not_requested' || options.web_search === 'configured') return;
-  if (options.web_search !== 'deployed') {
+  const catalog = await repository.managedServiceCatalog('local');
+  const service = catalog.services.find((candidate) => candidate.id === 'web_search');
+  const variant = service?.variants.find((candidate) => candidate.compatible);
+  if (!service || !variant) {
     toast.warning('CLIO Search still needs setup', {
       id: 'installer-web-search-needs-attention',
-      description: 'Open Infrastructure when Docker is installed and running to finish setup.',
+      description: service?.variants[0]?.reason || 'Open Infrastructure to inspect this computer.',
     });
     return;
+  }
+  if (service.state !== 'running') {
+    const operation = await repository.runManagedServiceAction('web_search', {
+      target_id: 'local',
+      action: service.state === 'stopped' ? 'start' : 'install',
+      variant_id: variant.id,
+      configuration: {},
+    });
+    await waitForInfrastructureOperation(repository, operation.id);
   }
   let result = await repository.configureMcpServer('web', {
     name: 'CLIO Web Search',
@@ -143,10 +116,10 @@ export async function finishInstallerInfrastructure(settings: ConnectionSettings
 // stored hidden-provider list is also verified below: a marker alone is not
 // sufficient evidence because an older preview may have written the marker
 // while an already-mounted picker retained the previous list.
-const PROVIDER_VISIBILITY_MARKER = 'clio.installer-provider-families.v2';
+const PROVIDER_VISIBILITY_MARKER = 'clio.installer-provider-ids.v3';
 const HIDDEN_PROVIDERS_STORAGE_KEY = 'clio.hidden-providers.v1';
 export const PROVIDER_VISIBILITY_CHANGED_EVENT = 'clio:provider-visibility-changed';
-const PROVIDER_FAMILIES: Record<string, readonly string[]> = {
+const LEGACY_PROVIDER_FAMILIES: Record<string, readonly string[]> = {
   openai: ['codex', 'openai'],
   anthropic: ['anthropic', 'claude_code'],
   google: ['gemini', 'vertex_ai'],
@@ -154,23 +127,27 @@ const PROVIDER_FAMILIES: Record<string, readonly string[]> = {
   local: ['lm_studio', 'ollama', 'llama_cpp', 'vllm'],
   other: ['azure_openai', 'bedrock', 'nvidia_nim', 'openrouter'],
 };
+const KNOWN_PROVIDER_IDS = new Set(Object.values(LEGACY_PROVIDER_FAMILIES).flat());
 
-/** Apply the installer's provider choices once for this exact selection. */
-export function applyInstallerProviderVisibility(selectedFamilies = 'openai'): void {
-  if (typeof window === 'undefined') return;
-  const normalized = selectedFamilies
+function expandLegacyProviderFamilies(families: string): string {
+  return families
     .split(',')
     .map((family) => family.trim())
-    .filter((family) => family in PROVIDER_FAMILIES)
-    .sort()
+    .flatMap((family) => LEGACY_PROVIDER_FAMILIES[family] ?? [])
     .join(',');
+}
+
+/** Apply the installer's individual provider choices once for this exact selection. */
+export function applyInstallerProviderVisibility(selectedProviders = 'codex,openai'): void {
+  if (typeof window === 'undefined') return;
   const visible = new Set(
-    normalized.split(',').flatMap((family) => PROVIDER_FAMILIES[family] ?? []),
+    selectedProviders
+      .split(',')
+      .map((providerId) => providerId.trim())
+      .filter((providerId) => KNOWN_PROVIDER_IDS.has(providerId)),
   );
-  const hidden = Object.values(PROVIDER_FAMILIES)
-    .flat()
-    .filter((providerId) => !visible.has(providerId))
-    .sort();
+  const normalized = [...visible].sort().join(',');
+  const hidden = [...KNOWN_PROVIDER_IDS].filter((providerId) => !visible.has(providerId)).sort();
   let storedHidden: string[] = [];
   try {
     const parsed = JSON.parse(window.localStorage.getItem(HIDDEN_PROVIDERS_STORAGE_KEY) ?? '[]');
