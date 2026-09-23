@@ -6,6 +6,16 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.16] — 2026-09-23
+
+### Fixed
+
+- Restored desktop-release behavior that an integration merge had dropped: the
+  transcript's jump link reaches pending permission and question cards again,
+  an open interactive surface keeps its full resizable height in the pending
+  tray, and technical-details disclosures use the standard collapsible control
+  instead of a bare browser marker.
+
 ### Changed
 
 - CLIO implements A2UI v0.9.1: the official message, capability, data-model and
