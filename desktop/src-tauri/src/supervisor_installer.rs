@@ -19,6 +19,7 @@ use crate::supervisor_install_events::{
     record_recent_line, tail_of, InstallFailed, InstallProgress, InstallRecentLines,
     EVT_INSTALL_DONE, EVT_INSTALL_FAILED, EVT_INSTALL_PROGRESS,
 };
+use crate::supervisor_update_verify::{bundled_update_verify_steps, run_verify_steps, VerifyStep};
 
 /// Run the upstream clio-agent installer, streaming every stdout/stderr line
 /// to the frontend as `clio:install-progress` events. On success runs
@@ -60,7 +61,7 @@ pub fn install_clio_versioned<R, F>(
         "install"
     });
     let (program, args) = install_command_versioned(force, target_version.as_deref());
-    run_install_command(app, program, args, None, on_success);
+    run_install_command(app, program, args, Vec::new(), on_success);
 }
 
 /// Upgrade the writable runtime carried by a bundled Windows installation.
@@ -113,11 +114,7 @@ pub fn update_bundled_clio<R, F>(
     }
     let program = uv.to_string_lossy().into_owned();
     let args = bundled_update_args(&python, &version);
-    let verify_script = bundled_update_verify_script(&version);
-    let verify = Some((
-        python.to_string_lossy().into_owned(),
-        vec!["-c".to_string(), verify_script],
-    ));
+    let verify = bundled_update_verify_steps(runtime_dir, &python, &version);
     run_install_command(app, program, args, verify, on_success);
 }
 
@@ -140,12 +137,6 @@ fn bundled_update_args(python: &Path, version: &str) -> Vec<String> {
     ]
 }
 
-fn bundled_update_verify_script(version: &str) -> String {
-    format!(
-        "from pathlib import Path; import importlib.util as u,importlib.metadata as m,shutil,sys; spec=u.find_spec('clio_agent'); root=Path(spec.origin).parent if spec and spec.origin else None; metadata=list(root.parent.glob('clio_agent-*.dist-info')) if root else []; target=next((path for path in metadata if path.name.lower() == 'clio_agent-{version}.dist-info'),None); [shutil.rmtree(path,ignore_errors=True) for path in metadata if target and path != target]; [shutil.rmtree(path,ignore_errors=True) for path in root.rglob('__pycache__')] if root else None; import clio_agent; actual=str(getattr(clio_agent,'__version__','')); installed={{d.version for d in m.distributions(name='clio-agent')}}; print(actual); sys.exit(0 if target and actual == '{version}' and installed == {{'{version}'}} else 1)"
-    )
-}
-
 /// Locate the package manager shipped with the relocatable runtime.
 ///
 /// Runtime builders place `uv` under `bin/` on every platform. Keep the
@@ -163,7 +154,7 @@ fn run_install_command<R, F>(
     app: AppHandle<R>,
     program: String,
     args: Vec<String>,
-    verify: Option<(String, Vec<String>)>,
+    verify: Vec<VerifyStep>,
     on_success: F,
 ) where
     R: tauri::Runtime,
@@ -218,34 +209,15 @@ fn run_install_command<R, F>(
 
     match child.wait() {
         Ok(status) if status.success() => {
-            if let Some((verify_program, verify_args)) = verify {
-                match Command::new(&verify_program).args(&verify_args).output() {
-                    Ok(output) if output.status.success() => {
-                        let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                        boot_log_line(&format!("verified managed CLIO runtime {version}"));
-                    }
-                    Ok(output) => {
-                        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
-                        let _ = app.emit(
-                            EVT_INSTALL_FAILED,
-                            InstallFailed {
-                                code: output.status.code(),
-                                tail: format!("CLIO update verification failed. {detail}"),
-                            },
-                        );
-                        return;
-                    }
-                    Err(error) => {
-                        let _ = app.emit(
-                            EVT_INSTALL_FAILED,
-                            InstallFailed {
-                                code: None,
-                                tail: format!("Could not verify the updated CLIO runtime: {error}"),
-                            },
-                        );
-                        return;
-                    }
-                }
+            if let Err(failure) = run_verify_steps(&verify) {
+                let _ = app.emit(
+                    EVT_INSTALL_FAILED,
+                    InstallFailed {
+                        code: failure.code,
+                        tail: failure.tail,
+                    },
+                );
+                return;
             }
             // Re-kick the supervisor BEFORE announcing done so the frontend's
             // re-poll of get_backend sees Starting->Ready, not NeedsInstall.
@@ -292,7 +264,7 @@ fn stream_lines<R: tauri::Runtime, B: BufRead>(
 
 #[cfg(test)]
 mod tests {
-    use super::{bundled_update_args, bundled_update_verify_script, bundled_uv_path};
+    use super::{bundled_update_args, bundled_uv_path};
     use std::{fs, path::Path};
 
     #[test]
@@ -329,15 +301,5 @@ mod tests {
             .windows(2)
             .any(|pair| { pair == ["--reinstall-package".to_string(), "clio-agent".to_string()] }));
         assert!(args.contains(&"clio-agent==0.9.4.9".to_string()));
-    }
-
-    #[test]
-    fn bundled_update_verifies_imported_code_and_unique_distribution() {
-        let script = bundled_update_verify_script("0.9.4.9");
-
-        assert!(script.contains("target and path != target"));
-        assert!(script.contains("root.rglob('__pycache__')"));
-        assert!(script.contains("clio_agent,'__version__'"));
-        assert!(script.contains("installed == {'0.9.4.9'}"));
     }
 }
