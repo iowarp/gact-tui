@@ -39,3 +39,14 @@ export function effectiveReasoningEffort(
   if (chosen && reasoning.levels.includes(chosen)) return chosen;
   return reasoning.default;
 }
+
+/** Product names for every level the message contract defines. */
+export const REASONING_EFFORT_LABELS: Record<ReasoningEffort, string> = {
+  off: 'Off',
+  minimal: 'Minimal',
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra high',
+  max: 'Max',
+};

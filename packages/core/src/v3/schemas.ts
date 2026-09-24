@@ -292,7 +292,10 @@ export const sessionSchema = z.object({
 export const sessionDefaultsSchema = z.object({
   provider_id: z.string().default(''),
   model_id: z.string().default(''),
-  effort: forwardCompatibleEnum(['off', 'low', 'medium', 'high']).default('medium'),
+  // `null` is the service's "use the selected model's own default".
+  effort: forwardCompatibleEnum(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
+    .nullish()
+    .transform((value) => value ?? undefined),
   mode: forwardCompatibleEnum(['plan', 'edit', 'architect']).default('edit'),
   edit_mode: forwardCompatibleEnum(['diff', 'whole', 'patch']).default('diff'),
   routing_mode: forwardCompatibleEnum(['auto', 'chat', 'experts', 'reasoning_only']).default(

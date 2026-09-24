@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { messageAcceptanceSchema, providerCatalogSchema } from './composer-schemas.js';
+import { sessionDefaultsSchema } from './schemas.js';
 import {
   providerHandshakeSchema,
   providerListSchema,
@@ -92,5 +93,18 @@ describe('reasoning levels on the wire', () => {
     expect(raw.behavior.reasoning_effort).toBeNull();
     const accepted = messageAcceptanceSchema.parse(raw);
     expect(accepted.behavior.reasoning_effort).toBeUndefined();
+  });
+});
+
+describe('session defaults effort', () => {
+  it('decodes null as "the selected model default"', () => {
+    const decoded = sessionDefaultsSchema.parse({ effort: null });
+    expect(decoded.effort).toBeUndefined();
+  });
+
+  it('decodes every level the service accepts', () => {
+    for (const effort of ['minimal', 'xhigh', 'max']) {
+      expect(sessionDefaultsSchema.parse({ effort }).effort).toBe(effort);
+    }
   });
 });

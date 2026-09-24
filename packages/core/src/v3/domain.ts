@@ -115,7 +115,8 @@ export interface Session {
 export interface SessionDefaults {
   provider_id: string;
   model_id: string;
-  effort: WireValue<'off' | 'low' | 'medium' | 'high'>;
+  /** Starting thinking level; absent means the selected model's own default. */
+  effort?: WireValue<'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'>;
   mode: WireValue<'plan' | 'edit' | 'architect'>;
   edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
   routing_mode: WireValue<'auto' | 'chat' | 'experts' | 'reasoning_only'>;

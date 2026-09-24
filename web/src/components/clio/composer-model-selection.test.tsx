@@ -57,11 +57,13 @@ function renderComposer({
   modelOptions,
   onSubmit,
   provider = 'codex',
+  model = 'gpt-5.6-luna',
 }: {
   effort?: string;
   modelOptions: ClioComposerProps['modelOptions'];
   onSubmit: ClioComposerProps['onSubmit'];
   provider?: string;
+  model?: string;
 }) {
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -69,7 +71,7 @@ function renderComposer({
         <ClioComposer
           attachments={false}
           effort={effort}
-          model="gpt-5.6-luna"
+          model={model}
           modelOptions={modelOptions}
           onSubmit={onSubmit}
           provider={provider}
@@ -169,5 +171,49 @@ describe('ClioComposer model selection', () => {
     const control = screen.getByRole('button', { name: /^Reasoning effort:/ });
     expect(control).toHaveAccessibleName('Reasoning effort: Unknown (ultra)');
     expect(control).not.toHaveTextContent('medium');
+  });
+
+  it('offers and sends every level a Claude model reports, max included', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn(async () => undefined);
+    renderComposer({
+      effort: '',
+      modelOptions: [
+        {
+          ...reasoningModel,
+          providerId: 'claude_code',
+          providerName: 'Claude Code',
+          id: 'claude-fable-5-1',
+          label: 'claude-fable-5-1',
+          reasoning: {
+            levels: ['off', 'low', 'medium', 'high', 'xhigh', 'max'] as ReasoningEffort[],
+            default: 'high' as ReasoningEffort,
+          },
+        },
+      ],
+      onSubmit,
+      provider: 'claude_code',
+      model: 'claude-fable-5-1',
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Reasoning effort: high' }));
+    expect(screen.getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual([
+      'off',
+      'low',
+      'medium',
+      'high',
+      'Extra high',
+      'max',
+    ]);
+    await user.click(screen.getByRole('menuitemradio', { name: 'max' }));
+    await user.type(composerEditor(), 'Think as hard as you can.{Enter}');
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          behavior: expect.objectContaining({ reasoning_effort: 'max' }),
+        }),
+      ),
+    );
   });
 });

@@ -19,7 +19,15 @@ export const composerModelRefSchema = z.object({
 });
 
 /** Every thinking level the message contract defines, in ascending order. */
-export const REASONING_EFFORTS = ['off', 'low', 'medium', 'high', 'xhigh'] as const;
+export const REASONING_EFFORTS = [
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const;
 
 export const messageBehaviorSchema = z.object({
   // Unset is `null` (or absent) on the wire: the configured level governs.

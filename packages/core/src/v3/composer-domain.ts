@@ -23,7 +23,7 @@ export interface ComposerModelRef {
 }
 
 /** A thinking level the message contract can carry, in ascending order of depth. */
-export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'xhigh';
+export type ReasoningEffort = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export interface MessageBehavior {
   /**
