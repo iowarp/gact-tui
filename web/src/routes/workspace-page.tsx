@@ -339,7 +339,6 @@ export function WorkspacePage() {
             <WorkspaceLiveStatusStrip
               activeWorkCount={workspaceRouteState.countActiveWork(runs, tasks, tools)}
               sessionId={sessionId}
-              streamError={streamError}
             />
           }
           workbench={<div aria-label="Workspace canvas loading" className="h-full bg-background" />}
@@ -712,7 +711,6 @@ export function WorkspacePage() {
             activeWorkCount={activeWorkCount}
             sessionId={sessionId}
             sessionState={session?.state}
-            streamError={streamError}
           />
         }
       >

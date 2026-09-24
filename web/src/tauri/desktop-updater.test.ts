@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
   const update = {
@@ -42,6 +42,7 @@ import {
   checkForDesktopUpdate,
   describeUpdateError,
   DESKTOP_UPDATE_TOAST_ID,
+  fetchLatestClioVersion,
   installDesktopUpdate,
   runBackgroundUpdateCheck,
   scheduleBackgroundUpdateCheck,
@@ -246,5 +247,57 @@ describe('background update scheduling', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('fetchLatestClioVersion', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('reads the version field out of the manifest at <releaseUrl>/latest/download/latest-lite.json', async () => {
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ version: '0.9.4.17' }) });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      fetchLatestClioVersion('https://github.com/iowarp/clio-agent/releases'),
+    ).resolves.toBe('0.9.4.17');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://github.com/iowarp/clio-agent/releases/latest/download/latest-lite.json',
+    );
+  });
+
+  it('resolves undefined -- never throws or fabricates a version -- with no release feed configured', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(fetchLatestClioVersion(null)).resolves.toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('resolves undefined on a non-OK response instead of guessing a version', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+    await expect(fetchLatestClioVersion('https://example.test/releases')).resolves.toBeUndefined();
+  });
+
+  it('resolves undefined when the request itself throws (offline, CORS, DNS)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockRejectedValue(new TypeError('Failed to fetch')),
+    );
+
+    await expect(fetchLatestClioVersion('https://example.test/releases')).resolves.toBeUndefined();
+  });
+
+  it('resolves undefined when the manifest has no usable version field', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ notes: 'no version here' }) }),
+    );
+
+    await expect(fetchLatestClioVersion('https://example.test/releases')).resolves.toBeUndefined();
   });
 });
