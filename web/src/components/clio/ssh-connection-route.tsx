@@ -9,7 +9,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { SshHost } from '@/lib/ssh-hosts';
-import { ADD_SSH_COMPUTER, SshJumpHostList, SshJumpHostSelect } from './ssh-jump-host-list';
+import {
+  ADD_SSH_COMPUTER,
+  SshJumpAddressField,
+  SshJumpHostList,
+  SshJumpHostSelect,
+  TYPE_SSH_ADDRESS,
+} from './ssh-jump-host-list';
 
 /** Where the shared host dialog should put the computer it saves. */
 export type SshRouteStep = { kind: 'destination' } | { kind: 'jump'; index: number | 'new' };
@@ -32,8 +38,10 @@ export function SshConnectionRoute({
   options: SshHost[];
   value?: SshHost;
 }) {
-  const [addingJump, setAddingJump] = useState(false);
+  const [addingJump, setAddingJump] = useState<'choose' | 'type'>();
   const jumps = value?.jumpHosts ?? [];
+  // A computer is never offered as a jump on its own route.
+  const jumpOptions = options.filter((option) => !value || option.id !== value.id);
   const updateJumps = (next: string[]) => {
     if (value) onChange({ ...value, jumpHosts: next });
   };
@@ -47,7 +55,7 @@ export function SshConnectionRoute({
         onChange={updateJumps}
         onConfigure={(index) => onConfigure({ kind: 'jump', index })}
         onCreate={(index) => onCreate({ kind: 'jump', index })}
-        options={options}
+        options={jumpOptions}
         value={jumps}
       />
 
@@ -56,19 +64,34 @@ export function SshConnectionRoute({
           <span className="grid size-9 place-items-center rounded-full border bg-background text-muted-foreground">
             <CircleIcon aria-hidden="true" className="size-3 fill-current" />
           </span>
-          <SshJumpHostSelect
-            onChange={(host) => {
-              setAddingJump(false);
-              if (host === ADD_SSH_COMPUTER) onCreate({ kind: 'jump', index: 'new' });
-              else updateJumps([...jumps, host]);
-            }}
-            onCreate
-            options={options}
-            value=""
-          />
+          {addingJump === 'type' ? (
+            <SshJumpAddressField
+              onCancel={() => setAddingJump(undefined)}
+              onSubmit={(host) => {
+                setAddingJump(undefined);
+                updateJumps([...jumps, host]);
+              }}
+            />
+          ) : (
+            <SshJumpHostSelect
+              onChange={(host) => {
+                if (host === TYPE_SSH_ADDRESS) {
+                  setAddingJump('type');
+                  return;
+                }
+                setAddingJump(undefined);
+                if (host === ADD_SSH_COMPUTER) onCreate({ kind: 'jump', index: 'new' });
+                else updateJumps([...jumps, host]);
+              }}
+              onCreate
+              onTypeAddress
+              options={jumpOptions}
+              value=""
+            />
+          )}
           <Button
             aria-label="Cancel adding jump host"
-            onClick={() => setAddingJump(false)}
+            onClick={() => setAddingJump(undefined)}
             size="icon"
             type="button"
             variant="ghost"
@@ -119,8 +142,8 @@ export function SshConnectionRoute({
 
       <Button
         className="w-fit justify-start pl-2"
-        disabled={!value || addingJump}
-        onClick={() => setAddingJump(true)}
+        disabled={!value || Boolean(addingJump)}
+        onClick={() => setAddingJump('choose')}
         size="sm"
         type="button"
         variant="ghost"

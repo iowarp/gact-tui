@@ -34,7 +34,13 @@ import {
 } from '@/tauri/ssh-infrastructure-transport';
 import { SshAuthentication } from './managed-service-target';
 import type { SshRouteStep } from './ssh-connection-route';
-import { SshJumpHostList, SshJumpHostSelect } from './ssh-jump-host-list';
+import {
+  SshJumpAddressField,
+  SshJumpHostList,
+  SshJumpHostSelect,
+  TYPE_SSH_ADDRESS,
+} from './ssh-jump-host-list';
+import { uniqueProfileName } from './ssh-route-utils';
 
 /**
  * The one SSH computer configuration dialog. The route's destination and
@@ -76,12 +82,20 @@ export function SshHostDialog({
   const [testStatus, setTestStatus] = useState<SshTransportStatus>();
   const [testSucceeded, setTestSucceeded] = useState(false);
   const activeTest = useRef<SshConnectionTest | undefined>(undefined);
+  const [typingJump, setTypingJump] = useState(false);
   const isJump = step.kind === 'jump';
+  // Only a computer CLIO saved is edited in place. Configuring an imported
+  // OpenSSH host saves a new CLIO computer under a name that cannot collide
+  // with (and so override) any existing alias.
   const editingProfile = initial?.managed ? initial.profile : undefined;
+  const takenNames = options.flatMap((option) => (option.profile ? [option.profile] : []));
+  // A computer is never offered as a jump on its own route.
+  const jumpOptions = options.filter((option) => option.id !== initial?.id);
 
   const buildDraft = (): SshHost => ({
     ...createSavedSshHost({ host, identityFile, label, installRoot, port: Number(port), user }),
-    jumpHosts: isJump ? [] : jumpHosts,
+    // A jump host keeps its own route; the dialog only hides it for jump steps.
+    jumpHosts,
     platform,
   });
 
@@ -101,7 +115,8 @@ export function SshHostDialog({
     try {
       const candidate = await prepareDraft();
       const profile = await saveSshProfile({
-        name: editingProfile ?? profileName(candidate.label, candidate.host ?? ''),
+        name:
+          editingProfile ?? uniqueProfileName(candidate.label, candidate.host ?? '', takenNames),
         label: candidate.label,
         hostname: candidate.host ?? '',
         user: candidate.user ?? '',
@@ -260,14 +275,28 @@ export function SshHostDialog({
                 every step can be chosen, configured, or reordered.
               </FieldDescription>
               <div className="mt-2 grid gap-2">
-                <SshJumpHostList onChange={setJumpHosts} options={options} value={jumpHosts} />
-                <SshJumpHostSelect
-                  key={jumpHosts.length}
-                  onChange={(jump) => setJumpHosts((current) => [...current, jump])}
-                  onCreate={false}
-                  options={options}
-                  value=""
-                />
+                <SshJumpHostList onChange={setJumpHosts} options={jumpOptions} value={jumpHosts} />
+                {typingJump ? (
+                  <SshJumpAddressField
+                    onCancel={() => setTypingJump(false)}
+                    onSubmit={(jump) => {
+                      setTypingJump(false);
+                      setJumpHosts((current) => [...current, jump]);
+                    }}
+                  />
+                ) : (
+                  <SshJumpHostSelect
+                    key={jumpHosts.length}
+                    onChange={(jump) => {
+                      if (jump === TYPE_SSH_ADDRESS) setTypingJump(true);
+                      else setJumpHosts((current) => [...current, jump]);
+                    }}
+                    onCreate={false}
+                    onTypeAddress
+                    options={jumpOptions}
+                    value=""
+                  />
+                )}
               </div>
             </Field>
           )}
@@ -407,14 +436,4 @@ function dialogTitle(step: SshRouteStep, initial?: SshHost): string {
       : 'Add a jump host';
   }
   return 'Add an SSH host';
-}
-
-function profileName(label: string, host: string): string {
-  const source = label.trim() || host.trim();
-  const slug = source
-    .normalize('NFKD')
-    .replace(/[^A-Za-z0-9._-]+/gu, '-')
-    .replace(/^-+|-+$/gu, '')
-    .toLocaleLowerCase();
-  return slug || `clio-host-${Date.now()}`;
 }

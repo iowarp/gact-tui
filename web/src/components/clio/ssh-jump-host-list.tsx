@@ -1,8 +1,9 @@
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import { GripVerticalIcon, Settings2Icon, XIcon } from 'lucide-react';
+import { CheckIcon, GripVerticalIcon, Settings2Icon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -14,6 +15,7 @@ import type { SshHost } from '@/lib/ssh-hosts';
 import { reconcileJumpSteps, type JumpStep } from './ssh-route-utils';
 
 export const ADD_SSH_COMPUTER = '__add-ssh-computer__';
+export const TYPE_SSH_ADDRESS = '__type-ssh-address__';
 
 /**
  * The one ordered jump-host editor, shared by the front-door route and the
@@ -49,7 +51,9 @@ export function SshJumpHostList({
 
   return (
     <Sortable
+      aria-label="Jump hosts, in connection order"
       className="grid gap-2"
+      role="list"
       getItemValue={(step) => step.key}
       modifiers={[restrictToVerticalAxis, restrictToParentElement]}
       onValueChange={commit}
@@ -58,8 +62,13 @@ export function SshJumpHostList({
     >
       {steps.map((step, index) => (
         <SortableItem
+          // The row is a list item; only its grip is the drag control.
+          aria-describedby={undefined}
+          aria-roledescription={undefined}
           className="relative z-10 grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-background"
           key={step.key}
+          role="listitem"
+          tabIndex={-1}
           value={step.key}
         >
           <SortableItemHandle asChild>
@@ -67,6 +76,7 @@ export function SshJumpHostList({
               aria-label={`Reorder jump host ${index + 1}`}
               className="rounded-full border text-muted-foreground"
               size="icon-lg"
+              title="Drag, or press Space and then the arrow keys"
               type="button"
               variant="outline"
             >
@@ -80,6 +90,7 @@ export function SshJumpHostList({
                 onCreate?.(index);
                 return;
               }
+              if (host === TYPE_SSH_ADDRESS) return;
               commit(steps.map((item, itemIndex) => (itemIndex === index ? { ...item, host } : item)));
             }}
             onCreate={Boolean(onCreate)}
@@ -123,12 +134,15 @@ export function SshJumpHostSelect({
   index,
   onChange,
   onCreate,
+  onTypeAddress,
   options,
   value,
 }: {
   index?: number;
   onChange: (value: string) => void;
   onCreate: boolean;
+  /** Offers typing an OpenSSH alias or address that is not a saved computer. */
+  onTypeAddress?: boolean;
   options: SshHost[];
   value: string;
 }) {
@@ -148,8 +162,58 @@ export function SshJumpHostSelect({
             {option.label}
           </SelectItem>
         ))}
+        {onTypeAddress ? (
+          <SelectItem value={TYPE_SSH_ADDRESS}>Type an OpenSSH alias or address…</SelectItem>
+        ) : null}
         {onCreate ? <SelectItem value={ADD_SSH_COMPUTER}>Add another computer…</SelectItem> : null}
       </SelectContent>
     </Select>
+  );
+}
+
+/**
+ * A jump step typed as an OpenSSH alias or `user@host[:port]`, for hosts that
+ * are not saved computers (for example ones matched only by a `Host` pattern
+ * in the user's own OpenSSH configuration).
+ */
+export function SshJumpAddressField({
+  onCancel,
+  onSubmit,
+}: {
+  onCancel: () => void;
+  onSubmit: (destination: string) => void;
+}) {
+  const [draft, setDraft] = useState('');
+  const submit = () => {
+    if (draft.trim()) onSubmit(draft.trim());
+  };
+  return (
+    <div className="flex min-w-0 items-center gap-1">
+      <Input
+        aria-label="Jump host alias or address"
+        autoFocus
+        className="min-w-0"
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            submit();
+          }
+          if (event.key === 'Escape') onCancel();
+        }}
+        placeholder="gateway or alice@gateway.example.edu:2222"
+        value={draft}
+      />
+      <Button
+        aria-label="Use this jump host"
+        disabled={!draft.trim()}
+        onClick={submit}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <CheckIcon aria-hidden="true" />
+      </Button>
+    </div>
   );
 }

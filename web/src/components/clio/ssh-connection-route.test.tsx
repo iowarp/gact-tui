@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { SshConnectionRoute } from './ssh-connection-route';
-import { parseJumpDestination, reconcileJumpSteps } from './ssh-route-utils';
+import { parseJumpDestination, reconcileJumpSteps, uniqueProfileName } from './ssh-route-utils';
 
 const destination: SshHost = {
   id: 'profile:utah',
@@ -67,6 +67,32 @@ describe('SshConnectionRoute', () => {
     ]);
   });
 
+  it('adds a typed OpenSSH alias as a jump host', async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderRoute(destination);
+
+    await user.click(screen.getByRole('button', { name: 'Add jump host' }));
+    await user.click(screen.getByRole('combobox', { name: 'New jump host' }));
+    await user.click(screen.getByRole('option', { name: 'Type an OpenSSH alias or address…' }));
+    await user.type(
+      screen.getByLabelText('Jump host alias or address'),
+      'alice@gw.alcf.anl.gov{Enter}',
+    );
+
+    expect(onChange).toHaveBeenCalledWith({ ...destination, jumpHosts: ['alice@gw.alcf.anl.gov'] });
+  });
+
+  it('never offers the destination as its own jump host', async () => {
+    const user = userEvent.setup();
+    renderRoute(destination);
+
+    await user.click(screen.getByRole('button', { name: 'Add jump host' }));
+    await user.click(screen.getByRole('combobox', { name: 'New jump host' }));
+
+    expect(screen.queryByRole('option', { name: 'Utah cluster' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Campus gateway' })).toBeVisible();
+  });
+
   it('removes one jump host without touching the others', async () => {
     const user = userEvent.setup();
     const { onChange } = renderRoute({ ...destination, jumpHosts: ['gateway', 'bastion'] });
@@ -93,5 +119,20 @@ describe('jump step identity', () => {
       port: 2222,
     });
     expect(parseJumpDestination('bastion')).toEqual({ host: 'bastion', user: undefined, port: 22 });
+    expect(parseJumpDestination('alice@[2001:db8::1]:2200')).toEqual({
+      host: '2001:db8::1',
+      user: 'alice',
+      port: 2200,
+    });
+    expect(parseJumpDestination('2001:db8::1')).toEqual({
+      host: '2001:db8::1',
+      user: undefined,
+      port: 22,
+    });
+  });
+
+  it('names a new computer without colliding with an existing alias', () => {
+    expect(uniqueProfileName('Gateway', 'gw.edu', ['gateway', 'Gateway-2'])).toBe('gateway-3');
+    expect(uniqueProfileName('', 'gw.edu', [])).toBe('gw.edu');
   });
 });

@@ -12,6 +12,10 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tauri::Manager;
 
+use crate::ssh_profile_blocks::{
+    declared_profile, is_inside_identity_directory, owned_identity_after_save, with_jump_hosts,
+};
+
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 #[cfg(windows)]
@@ -68,8 +72,25 @@ struct ProfileMetadata {
     label: String,
     platform: String,
     install_root: String,
+    /// Pre-`owned_identity` metadata: CLIO stored a pasted key, path unknown.
     #[serde(default)]
     managed_identity: bool,
+    /// The exact pasted-key file CLIO stored for this profile, and the only
+    /// file deleting the profile may remove.
+    #[serde(default)]
+    owned_identity: Option<String>,
+}
+
+impl ProfileMetadata {
+    /// The key CLIO owns: the recorded path, or for older metadata the key the
+    /// CLIO-owned block itself declares (never an OpenSSH-effective default).
+    fn owned_identity(&self, block: Option<&str>) -> Option<String> {
+        self.owned_identity.clone().or_else(|| {
+            self.managed_identity
+                .then(|| block.and_then(|value| declared_profile(value).identity_file))
+                .flatten()
+        })
+    }
 }
 
 fn default_port() -> u16 {
@@ -89,19 +110,56 @@ pub fn ssh_profiles_list(app: tauri::AppHandle) -> Result<Vec<SshProfile>, Strin
     names.extend(managed_names.iter().cloned());
     names.sort_by_key(|value| value.to_ascii_lowercase());
     names.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    let managed_blocks = read_managed_blocks(&paths.managed_include)?;
     names
         .into_iter()
         .filter(|name| !preferences.hidden.contains(&name.to_ascii_lowercase()))
         .map(|name| {
-            resolve_profile(
-                &name,
-                managed_names
-                    .iter()
-                    .any(|item| item.eq_ignore_ascii_case(&name)),
-                preferences.metadata.get(&name.to_ascii_lowercase()),
-            )
+            let metadata = preferences.metadata.get(&name.to_ascii_lowercase());
+            match managed_block(&managed_blocks, &name) {
+                Some(block) => Ok(managed_profile(&name, block, metadata)),
+                None => resolve_profile(&name, false, metadata),
+            }
         })
         .collect()
+}
+
+/// Rewrite only the ordered jump route of a profile CLIO saved.
+#[tauri::command]
+pub fn ssh_profile_set_route(
+    app: tauri::AppHandle,
+    name: String,
+    jump_hosts: Vec<String>,
+) -> Result<SshProfile, String> {
+    validate_alias(&name)?;
+    for jump in &jump_hosts {
+        validate_value("jump host", jump)?;
+        if jump.trim().is_empty() {
+            return Err("SSH jump hosts cannot be empty.".into());
+        }
+    }
+    let paths = profile_paths(&app)?;
+    let mut blocks = read_managed_blocks(&paths.managed_include)?;
+    let Some(block) = blocks
+        .iter_mut()
+        .find(|block| block_name(block).is_some_and(|value| value.eq_ignore_ascii_case(&name)))
+    else {
+        return Err(format!(
+            "{name} is an imported OpenSSH profile; CLIO does not modify it."
+        ));
+    };
+    *block = with_jump_hosts(block, &jump_hosts);
+    let updated = block.clone();
+    write_atomic(
+        &paths.managed_include,
+        &format!("{}\n", blocks.join("\n\n")),
+    )?;
+    let preferences = read_preferences(&paths.preferences)?;
+    Ok(managed_profile(
+        &name,
+        &updated,
+        preferences.metadata.get(&name.to_ascii_lowercase()),
+    ))
 }
 
 #[tauri::command]
@@ -112,20 +170,21 @@ pub fn ssh_profile_save(
     validate_profile(&request)?;
     let paths = profile_paths(&app)?;
     ensure_include(&paths.user_config, &paths.managed_include)?;
-    let previous_preferences = read_preferences(&paths.preferences)?;
-    let previous_metadata = previous_preferences
-        .metadata
-        .get(&request.name.to_ascii_lowercase());
-    // A re-save that does not paste a new key (a route edit, a label change)
-    // must keep the pasted-key ownership, or deleting the host later would
-    // leave the protected key file behind.
-    let previous_identity = previous_metadata
-        .filter(|value| value.managed_identity)
-        .and_then(|metadata| resolve_profile(&request.name, true, Some(metadata)).ok())
-        .and_then(|profile| profile.identity_file);
-    let managed_identity =
-        retained_managed_identity(&request, previous_metadata, previous_identity.as_deref());
     let mut blocks = read_managed_blocks(&paths.managed_include)?;
+    // A re-save that does not paste a new key (a label change, an edited
+    // address) keeps ownership of the key CLIO stored, as long as the profile
+    // still uses that exact file; otherwise CLIO owns no key for it.
+    let previously_owned = read_preferences(&paths.preferences)?
+        .metadata
+        .get(&request.name.to_ascii_lowercase())
+        .and_then(|metadata| metadata.owned_identity(managed_block(&blocks, &request.name)));
+    let owned_identity = owned_identity_after_save(
+        request
+            .managed_identity
+            .then_some(request.identity_file.as_str()),
+        previously_owned.as_deref(),
+        &request.identity_file,
+    );
     blocks.retain(|block| {
         !block_name(block).is_some_and(|name| name.eq_ignore_ascii_case(&request.name))
     });
@@ -144,15 +203,16 @@ pub fn ssh_profile_save(
             label: request.label.clone(),
             platform: request.platform.clone(),
             install_root: request.install_root.clone(),
-            managed_identity,
+            managed_identity: owned_identity.is_some(),
+            owned_identity,
         },
     );
     write_preferences(&paths.preferences, &preferences)?;
-    resolve_profile(
+    Ok(managed_profile(
         &request.name,
-        true,
+        &render_profile(&request),
         preferences.metadata.get(&request.name.to_ascii_lowercase()),
-    )
+    ))
 }
 
 #[tauri::command]
@@ -176,14 +236,11 @@ pub fn ssh_profile_set_hidden(
 pub fn ssh_profile_delete(app: tauri::AppHandle, name: String) -> Result<(), String> {
     validate_alias(&name)?;
     let paths = profile_paths(&app)?;
-    let resolved = resolve_profile(
-        &name,
-        true,
-        read_preferences(&paths.preferences)?
-            .metadata
-            .get(&name.to_ascii_lowercase()),
-    )?;
     let mut blocks = read_managed_blocks(&paths.managed_include)?;
+    let owned_identity = read_preferences(&paths.preferences)?
+        .metadata
+        .get(&name.to_ascii_lowercase())
+        .and_then(|metadata| metadata.owned_identity(managed_block(&blocks, &name)));
     let before = blocks.len();
     blocks
         .retain(|block| !block_name(block).is_some_and(|value| value.eq_ignore_ascii_case(&name)));
@@ -197,19 +254,22 @@ pub fn ssh_profile_delete(app: tauri::AppHandle, name: String) -> Result<(), Str
     };
     write_atomic(&paths.managed_include, &contents)?;
     let mut preferences = read_preferences(&paths.preferences)?;
-    let metadata = preferences.metadata.remove(&name.to_ascii_lowercase());
+    preferences.metadata.remove(&name.to_ascii_lowercase());
     preferences.hidden.remove(&name.to_ascii_lowercase());
     write_preferences(&paths.preferences, &preferences)?;
-    if metadata.is_some_and(|value| value.managed_identity) {
-        if let Some(identity) = resolved.identity_file {
-            match fs::remove_file(&identity) {
-                Ok(()) => {}
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => {
-                    return Err(format!(
-                        "Could not remove pasted SSH key {identity}: {error}"
-                    ))
-                }
+    if let Some(identity) = owned_identity {
+        // Only ever a file CLIO itself stored: a user's own key that a profile
+        // happens to reference is never deleted.
+        if !is_inside_identity_directory(Path::new(&identity), &paths.identity_directory) {
+            return Ok(());
+        }
+        match fs::remove_file(&identity) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(format!(
+                    "Could not remove pasted SSH key {identity}: {error}"
+                ))
             }
         }
     }
@@ -220,6 +280,7 @@ struct ProfilePaths {
     user_config: PathBuf,
     managed_include: PathBuf,
     preferences: PathBuf,
+    identity_directory: PathBuf,
 }
 
 fn profile_paths(app: &tauri::AppHandle) -> Result<ProfilePaths, String> {
@@ -235,6 +296,11 @@ fn profile_paths(app: &tauri::AppHandle) -> Result<ProfilePaths, String> {
         user_config: home.join(".ssh").join("config"),
         managed_include: home.join(".ssh").join("clio").join("config"),
         preferences: app_config.join("ssh-profile-preferences.json"),
+        identity_directory: app
+            .path()
+            .app_local_data_dir()
+            .map_err(|error| format!("Could not locate CLIO's private data directory: {error}"))?
+            .join("ssh-identities"),
     })
 }
 
@@ -321,6 +387,32 @@ fn expand_include(pattern: &str, ssh_root: &Path) -> PathBuf {
         path
     } else {
         ssh_root.join(path)
+    }
+}
+
+fn managed_block<'a>(blocks: &'a [String], name: &str) -> Option<&'a str> {
+    blocks
+        .iter()
+        .find(|block| block_name(block).is_some_and(|value| value.eq_ignore_ascii_case(name)))
+        .map(String::as_str)
+}
+
+/// A CLIO-saved profile exactly as CLIO declared it (see `ssh_profile_blocks`).
+fn managed_profile(name: &str, block: &str, metadata: Option<&ProfileMetadata>) -> SshProfile {
+    let declared = declared_profile(block);
+    SshProfile {
+        name: name.into(),
+        label: metadata.and_then(|value| some_value(&value.label)),
+        hostname: declared.hostname,
+        user: declared.user,
+        port: declared.port.unwrap_or_else(default_port),
+        identity_file: declared.identity_file,
+        jump_hosts: declared.jump_hosts,
+        platform: metadata
+            .and_then(|value| some_value(&value.platform))
+            .unwrap_or_else(default_platform),
+        install_root: metadata.and_then(|value| some_value(&value.install_root)),
+        managed: true,
     }
 }
 
@@ -491,18 +583,6 @@ fn write_atomic(path: &Path, contents: &str) -> Result<(), String> {
         .map_err(|error| format!("Could not replace {}: {error}", path.display()))
 }
 
-/// Whether a saved profile still owns a key CLIO stored for it: a newly
-/// pasted key, or the previously stored key when the save keeps its path.
-fn retained_managed_identity(
-    request: &SaveSshProfileRequest,
-    previous: Option<&ProfileMetadata>,
-    previous_identity: Option<&str>,
-) -> bool {
-    request.managed_identity
-        || (previous.is_some_and(|value| value.managed_identity)
-            && previous_identity.is_some_and(|path| path == request.identity_file))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -542,50 +622,5 @@ mod tests {
             managed_identity: false,
         };
         assert!(validate_profile(&request).is_err());
-    }
-
-    fn request_with_identity(identity_file: &str, managed_identity: bool) -> SaveSshProfileRequest {
-        SaveSshProfileRequest {
-            name: "utah".into(),
-            label: String::new(),
-            hostname: "login.utah.edu".into(),
-            user: String::new(),
-            port: 22,
-            identity_file: identity_file.into(),
-            jump_hosts: Vec::new(),
-            platform: "auto".into(),
-            install_root: String::new(),
-            managed_identity,
-        }
-    }
-
-    #[test]
-    fn keeps_stored_key_ownership_across_a_resave_with_the_same_key() {
-        let previous = ProfileMetadata {
-            managed_identity: true,
-            ..ProfileMetadata::default()
-        };
-        let resave = request_with_identity("/keys/utah", false);
-        assert!(retained_managed_identity(
-            &resave,
-            Some(&previous),
-            Some("/keys/utah")
-        ));
-    }
-
-    #[test]
-    fn drops_stored_key_ownership_when_the_key_changes() {
-        let previous = ProfileMetadata {
-            managed_identity: true,
-            ..ProfileMetadata::default()
-        };
-        let other_key = request_with_identity("/home/alice/.ssh/id_ed25519", false);
-        assert!(!retained_managed_identity(
-            &other_key,
-            Some(&previous),
-            Some("/keys/utah")
-        ));
-        let pasted = request_with_identity("/keys/utah-new", true);
-        assert!(retained_managed_identity(&pasted, None, None));
     }
 }
