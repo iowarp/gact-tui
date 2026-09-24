@@ -9,11 +9,12 @@ import { useLiveStore } from '@/store/live-store';
 /**
  * The ONE live-connection indicator, shared by the desktop title bar and the
  * web bottom bar so the two surfaces can never disagree: both read the same
- * `entities.stream` (and `error`) off the live store. A compact `ClioStatus`
- * dot with a real HoverCard disclosing the endpoint, transport, backend
- * version, and (when the stream itself is unhappy) the live transport error
- * -- detail that would be noise inline but matters the moment a connection
- * misbehaves.
+ * `entities.stream` (and `error`) off the live store. A `ClioStatus` badge --
+ * icon PLUS its short text label ("Live", "Reconnecting", ...), never the
+ * icon alone (gact-tui rule: status is never encoded only as a dot, color, or
+ * unexplained icon) -- with a real HoverCard disclosing the endpoint,
+ * transport, backend version, and (when the stream itself is unhappy) the
+ * live transport error.
  *
  * Desktop renders this ONLY in the title bar (`DesktopTitleBar`); the web
  * bottom bar (`WorkspaceStatusStrip`) renders it too, but drops it on
@@ -33,10 +34,9 @@ export function LiveConnectionIndicator({ className }: { className?: string }) {
   return (
     <HoverCard closeDelay={100} openDelay={150}>
       <HoverCardTrigger asChild>
-        <span className={cn('inline-flex items-center rounded-sm', className)} tabIndex={0}>
+        <span aria-label={clioStatusLabel(value)} role="status" tabIndex={0}>
           <ClioStatus
-            className="border-0 bg-transparent px-0 py-0 shadow-none"
-            compact
+            className={cn('h-6 gap-1 border-0 bg-transparent px-1 py-0 text-[10px]', className)}
             suppressNativeTitle
             value={value}
           />

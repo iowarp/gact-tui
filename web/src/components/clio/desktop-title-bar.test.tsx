@@ -365,6 +365,10 @@ describe('DesktopTitleBar', () => {
     renderTitleBar();
 
     const dot = screen.getByRole('status', { name: 'Reconnecting' });
+    // gact-tui rule: status is never encoded only as a dot/color/icon -- the
+    // "Reconnecting" label itself must be real, visible text, not just an
+    // aria-label with nothing on screen.
+    expect(dot).toHaveTextContent('Reconnecting');
     fireEvent.pointerEnter(dot);
     fireEvent.focus(dot);
 
