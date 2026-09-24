@@ -1,11 +1,40 @@
 import type { RunState, StreamState } from '@clio/core/v3';
 import { AlertTriangleIcon } from 'lucide-react';
+import { m, useIsPresent } from 'motion/react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { SystemVersionStatus } from './navigation-version-status';
 import { ClioStatus } from './status';
+
+/**
+ * Keeps an exiting transcript surface (the welcome state, the conversation)
+ * mounted and out of the tab/AT order through its `AnimatePresence` fade,
+ * rather than snapping away mid-animation.
+ */
+export function TranscriptPresenceSurface({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className: string;
+}) {
+  const isPresent = useIsPresent();
+  return (
+    <m.div
+      animate={{ opacity: 1 }}
+      aria-hidden={!isPresent}
+      className={className}
+      exit={{ opacity: 0 }}
+      inert={!isPresent}
+      initial={{ opacity: 0 }}
+    >
+      {children}
+    </m.div>
+  );
+}
 
 /** Surface failed user actions alongside the composer, independently of stream health. */
 export function WorkspaceActionAlerts({
