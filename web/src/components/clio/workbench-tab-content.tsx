@@ -4,6 +4,7 @@ import type {
   SessionDiff,
   SubagentRun,
   WorkspaceFileEntry,
+  WorkspaceLiveUpdatesStatus,
   WorkspaceResource,
 } from '@clio/core/v3';
 import { Suspense, lazy, type ReactNode } from 'react';
@@ -41,8 +42,11 @@ export interface WorkbenchTabContentProps {
   sessionId: string;
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
+  filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
+  filesLiveUpdates?: WorkspaceLiveUpdatesStatus;
+  onRefreshFiles?: () => void;
   artifacts: readonly ArtifactEntity[];
   artifactsPending?: boolean;
   artifactsError?: string;
@@ -78,8 +82,11 @@ export function WorkbenchTabContent({
   sessionId,
   files,
   filesPending,
+  filesFetching,
   filesError,
   filesTruncated,
+  filesLiveUpdates,
+  onRefreshFiles,
   artifacts,
   artifactsPending,
   artifactsError,
@@ -114,8 +121,11 @@ export function WorkbenchTabContent({
         <FileBrowser
           files={files}
           filesError={filesError}
+          filesFetching={filesFetching}
+          filesLiveUpdates={filesLiveUpdates}
           filesPending={filesPending}
           filesTruncated={filesTruncated}
+          onRefresh={onRefreshFiles}
           onSelectedPathChange={(path) => onSelectFilesPath(tab.id, path)}
           selectedPath={tab.path}
           workspaceId={workspaceId}
@@ -187,8 +197,11 @@ export function WorkbenchTabContent({
         <FileBrowser
           files={files}
           filesError={filesError}
+          filesFetching={filesFetching}
+          filesLiveUpdates={filesLiveUpdates}
           filesPending={filesPending}
           filesTruncated={filesTruncated}
+          onRefresh={onRefreshFiles}
           onSelectedPathChange={(path) => onSelectWorkspaceFilePath(tab.id, path)}
           selectedPath={tab.path}
           workspaceId={tab.workspaceId}

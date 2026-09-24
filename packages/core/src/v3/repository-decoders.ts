@@ -195,10 +195,19 @@ export const pendingInteractionListSchema = z.object({
 export const operationalRunListSchema = z.object({
   runs: z.array(operationalRunSchema).default([]),
 });
+// Health of the workspace's live filesystem watcher (gact workspace_watch.py,
+// F1). `reason`/`detail` are present only for a genuine typed degradation --
+// omitted, `active: false` just means no live watcher has started yet.
+const workspaceLiveUpdatesStatusSchema = z.object({
+  active: z.boolean(),
+  reason: z.string().optional(),
+  detail: z.string().optional(),
+});
 export const workspaceFileListSchema = z.object({
   entries: z.array(workspaceFileEntrySchema).default([]),
   // Whether the server's capped walk stopped before enumerating everything.
   truncated: z.boolean().default(false),
+  live_updates: workspaceLiveUpdatesStatusSchema.optional(),
 });
 export const agentBlueprintListSchema = z.object({
   agent_blueprints: z.array(agentBlueprintSchema).default([]),

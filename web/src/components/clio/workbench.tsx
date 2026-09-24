@@ -6,6 +6,7 @@ import type {
   SubagentRun,
   ToolInvocation,
   WorkspaceFileEntry,
+  WorkspaceLiveUpdatesStatus,
   WorkspaceResource,
 } from '@clio/core/v3';
 import {
@@ -60,8 +61,11 @@ export interface ClioWorkbenchProps {
   sessionId: string;
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
+  filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
+  filesLiveUpdates?: WorkspaceLiveUpdatesStatus;
+  onRefreshFiles?: () => void;
   artifacts: readonly ArtifactEntity[];
   artifactsPending?: boolean;
   artifactsError?: string;
@@ -198,8 +202,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       sessionId,
       files,
       filesPending,
+      filesFetching,
       filesError,
       filesTruncated,
+      filesLiveUpdates,
+      onRefreshFiles,
       artifacts,
       artifactsPending,
       artifactsError,
@@ -593,12 +600,15 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                     diffs={diffs}
                     files={files}
                     filesError={filesError}
+                    filesFetching={filesFetching}
+                    filesLiveUpdates={filesLiveUpdates}
                     filesPending={filesPending}
                     filesTruncated={filesTruncated}
                     maximized={maximized}
                     onApplyDiff={onApplyDiff}
                     onOpenSubagent={onOpenSubagent}
                     onOpenTab={openTab}
+                    onRefreshFiles={onRefreshFiles}
                     onRejectDiff={onRejectDiff}
                     onReplaceTab={replaceTab}
                     onSelectFilesPath={selectFilesPath}

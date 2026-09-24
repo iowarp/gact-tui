@@ -309,29 +309,41 @@ function isSessionArtifactEvent(eventName: string): boolean {
   ].includes(eventName);
 }
 
-// Namespaced tool names the gateway mounts fs_server/shell_server under
-// (`fs_*` for every filesystem tool, `shell_bash` for the sole shell tool —
-// see clio-agent's tools/gateway.py `_mount_with_namespace(gw, fs_server, "fs")`).
-const FS_OR_SHELL_TOOL_NAME = /^(fs_|shell_bash$)/;
-// A tool call has settled — one way or another — once it leaves pending/running.
-const TERMINAL_TOOL_STATES = new Set(['succeeded', 'failed', 'denied', 'cancelled']);
+/**
+ * The `workspace.files.changed` payload a live filesystem watcher publishes
+ * (clio-agent's `gact/workspace_watch.py`, F1) -- one batched, debounced event
+ * per change burst, with workspace-relative paths capped server-side.
+ */
+interface WorkspaceFilesChangedPayload {
+  workspace_id?: unknown;
+  paths?: unknown;
+  truncated?: unknown;
+}
+
+function isWorkspaceFilesChangedEvent(eventName: string): boolean {
+  return eventName === 'workspace.files.changed';
+}
 
 /**
- * A `tool.upserted` frame reporting a FINISHED fs or shell tool call — the
- * only moment a workspace file the agent wrote could actually have changed.
- * Every other `tool.upserted` tick (a different tool, or fs/shell still
- * pending/running/streaming output) must not trigger a refetch.
+ * Keys to invalidate for one `workspace.files.changed` batch: the files list
+ * for the event's OWN workspace (broadcast — session_id="" — so this may
+ * differ from the hook's currently focused `workspaceId`) plus any open
+ * file-content query for a changed path.
  */
-function isFsOrShellToolResultEvent(eventName: string, data: unknown): boolean {
-  if (eventName !== 'tool.upserted') return false;
-  if (typeof data !== 'object' || data === null) return false;
-  const { name, state } = data as { name?: unknown; state?: unknown };
-  return (
-    typeof name === 'string' &&
-    FS_OR_SHELL_TOOL_NAME.test(name) &&
-    typeof state === 'string' &&
-    TERMINAL_TOOL_STATES.has(state)
-  );
+function workspaceFilesChangedInvalidationKeys(endpoint: string, data: unknown): QueryKey[] {
+  if (typeof data !== 'object' || data === null) return [];
+  const { workspace_id: eventWorkspaceId, paths } = data as WorkspaceFilesChangedPayload;
+  if (typeof eventWorkspaceId !== 'string' || !eventWorkspaceId) return [];
+  const keys: QueryKey[] = [queryKeys.workspaceFiles(endpoint, eventWorkspaceId)];
+  if (!Array.isArray(paths)) return keys;
+  for (const path of paths) {
+    if (typeof path !== 'string') continue;
+    keys.push(
+      queryKeys.workspaceFile(endpoint, eventWorkspaceId, path),
+      queryKeys.workspaceFileBytes(endpoint, eventWorkspaceId, path),
+    );
+  }
+  return keys;
 }
 
 /**
@@ -438,16 +450,17 @@ export function queryInvalidationKeysForEvent({
       queryKeys.sessionArtifacts(endpoint, sessionId),
       queryKeys.sessionObservability(endpoint, sessionId),
       queryKeys.sessionContext(endpoint, sessionId),
-      // The Files view otherwise never refreshes when the agent writes a file
-      // (e.g. via shell_bash) — the turn boundary is the coarse fallback.
-      queryKeys.workspaceFiles(endpoint, workspaceId),
     );
   }
-  // Refresh sooner than the turn boundary above: a single long turn can run
-  // many fs/shell calls, and a file the agent just wrote should appear in the
-  // Files view without waiting for the whole turn to finish.
-  if (isFsOrShellToolResultEvent(eventName, data)) {
-    keys.push(queryKeys.workspaceFiles(endpoint, workspaceId));
+  // The Files view refreshes from the live filesystem watcher's own
+  // `workspace.files.changed` batches (gact/workspace_watch.py, F1), not from
+  // a hand-maintained list of SSE events that happened to imply a file wrote
+  // (the former `message.completed`/fs-or-shell-tool-result triggers here) --
+  // that list never covered upload materialization, the user's own Explorer
+  // edits, or git. A watcher-unavailable workspace falls back to the manual
+  // Refresh button in the Files view header, not a wider trigger list.
+  if (isWorkspaceFilesChangedEvent(eventName)) {
+    keys.push(...workspaceFilesChangedInvalidationKeys(endpoint, data));
   }
   if (eventName === 'session.status_changed' || eventName === 'session.upserted') {
     keys.push(queryKeys.sessions(endpoint, workspaceId), queryKeys.sessions(endpoint, 'all'));

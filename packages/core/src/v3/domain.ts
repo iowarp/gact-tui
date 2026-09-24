@@ -428,6 +428,7 @@ export interface WorkspaceFileListing {
   entries: WorkspaceFileEntry[];
   /** Whether the server's capped walk stopped before enumerating everything. */
   truncated: boolean;
+  live_updates?: { active: boolean; reason?: string; detail?: string }; // ~ WorkspaceLiveUpdatesStatus
 }
 
 export interface SessionDiff {
