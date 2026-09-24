@@ -23,7 +23,15 @@ export interface ComposerModelRef {
 }
 
 /** A thinking level the message contract can carry, in ascending order of depth. */
-export type ReasoningEffort = 'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type ReasoningEffort =
+  | 'off'
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'xhigh'
+  | 'max'
+  | 'ultra';
 
 export interface MessageBehavior {
   /**
@@ -273,6 +281,8 @@ export interface ProviderCatalogModel {
   deployment: string;
   model_id: string;
   revision: string;
+  /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
+  aliases?: string[];
   modalities: string[];
   /**
    * What this model can do about thinking, from provider truth: `levels` are the

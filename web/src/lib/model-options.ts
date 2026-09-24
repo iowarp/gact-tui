@@ -29,6 +29,36 @@ export interface ClioModelOption {
   modalities?: readonly string[];
   /** Thinking levels this model offers, from the live catalog. */
   reasoning?: ModelReasoningLevels;
+  /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
+  aliases?: readonly string[];
+}
+
+/**
+ * Whether a catalog model row/option is the one a configured `modelId` names —
+ * its own id, one of the provider's own aliases for it (e.g. claude_code's
+ * `sonnet` -> `claude-sonnet-5`), or the service's own `resolvedModelId` for
+ * the configured value. A model configured by alias must still find its
+ * row's reasoning levels and default label (#1436) -- an id-only comparison
+ * silently hides them.
+ */
+export function matchesConfiguredModel(
+  candidate: { id: string; aliases?: readonly string[] },
+  modelId: string | undefined,
+  resolvedModelId?: string,
+): boolean {
+  if (!modelId) return false;
+  if (candidate.id === modelId) return true;
+  if (resolvedModelId && candidate.id === resolvedModelId) return true;
+  return (candidate.aliases ?? []).includes(modelId);
+}
+
+/** The available option naming `providerId`+`modelId` (by id, alias, or resolved id). */
+export function findSelectedModelOption<
+  T extends { providerId: string; id: string; aliases?: readonly string[]; available: boolean },
+>(options: readonly T[], providerId: string | undefined, modelId: string | undefined): T | undefined {
+  return options.find(
+    (option) => option.providerId === providerId && matchesConfiguredModel(option, modelId) && option.available,
+  );
 }
 
 /**
@@ -108,7 +138,10 @@ export function buildModelOptions({
   if (
     activeProvider &&
     activeModel &&
-    !options.some((option) => option.providerId === activeProvider && option.id === activeModel)
+    !options.some(
+      (option) =>
+        option.providerId === activeProvider && matchesConfiguredModel(option, activeModel),
+    )
   ) {
     const activePreset = presets.find((preset) => matchesProvider(preset, activeProvider));
     options.unshift({
@@ -200,6 +233,7 @@ function liveProviderOptions(
           : (lastGoodDetail ?? (model.failure || modelAvailabilityLabel(model.availability))),
       modalities: model.modalities,
       reasoning: modelReasoningLevels(model.reasoning),
+      aliases: model.aliases,
     };
   });
 }

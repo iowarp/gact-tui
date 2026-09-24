@@ -1,6 +1,6 @@
 import type { LanguageModelPreset, ProviderCatalog, ProviderCatalogEntry } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { buildModelOptions, modelAvailabilityLabel } from './model-options';
+import { buildModelOptions, matchesConfiguredModel, modelAvailabilityLabel } from './model-options';
 
 function catalogProvider(overrides: Partial<ProviderCatalogEntry> = {}): ProviderCatalogEntry {
   return {
@@ -412,5 +412,56 @@ describe('buildModelOptions over a real last-good catalog', () => {
     expect(option?.availabilityDetail).not.toContain(
       new Date('2026-09-01T10:00:00Z').toLocaleString(),
     );
+  });
+
+  it('does not add a reasoning-less placeholder for an alias-configured active model', () => {
+    // claude_code configures the alias "sonnet"; the catalog row is the full
+    // id "claude-sonnet-5" carrying its own reasoning levels + aliases. An
+    // id-only comparison never finds it and unshifts a bare placeholder with
+    // no reasoning, which is exactly what hid the composer's selector (#1436).
+    const provider = catalogProvider({
+      id: 'claude_code',
+      name: 'Claude Code',
+      kind: 'claude_code',
+      models: [{ ...catalogModel('claude-sonnet-5'), aliases: ['sonnet'] }],
+    });
+
+    const options = buildModelOptions({
+      activeCatalogProvider: '',
+      activeModel: 'sonnet',
+      activeProvider: 'claude_code',
+      providerCatalog: { authoritative: 'live_handshake', providers: [provider] },
+      presets: [],
+    });
+
+    expect(options).toHaveLength(1);
+    expect(options[0]?.id).toBe('claude-sonnet-5');
+    expect(options[0]?.reasoning?.levels).toEqual(['low', 'medium', 'high']);
+  });
+});
+
+describe('matchesConfiguredModel', () => {
+  it('matches by the option/row id directly', () => {
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, 'claude-sonnet-5')).toBe(true);
+  });
+
+  it('matches by a reported CLI alias', () => {
+    expect(
+      matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'sonnet'),
+    ).toBe(true);
+    expect(
+      matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'haiku'),
+    ).toBe(false);
+  });
+
+  it('matches by the service-resolved id when neither id nor alias matches', () => {
+    expect(
+      matchesConfiguredModel({ id: 'claude-sonnet-5' }, 'sonnet', 'claude-sonnet-5'),
+    ).toBe(true);
+  });
+
+  it('never matches an empty/undefined configured model', () => {
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, undefined)).toBe(false);
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, '')).toBe(false);
   });
 });

@@ -364,6 +364,8 @@ describe('ComposerRepository', () => {
               output_limit: undefined,
               // A service that predates per-model levels offers nothing to choose.
               reasoning: { supported: true, parameter: 'reasoning_effort', levels: [] },
+              // A service that predates CLI aliases (#1436) reports none.
+              aliases: [],
             },
           ],
         },
