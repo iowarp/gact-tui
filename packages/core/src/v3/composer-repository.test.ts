@@ -316,7 +316,7 @@ describe('ComposerRepository', () => {
           name: 'Local vLLM',
           kind: 'openai_compatible',
           endpoint: 'http://127.0.0.1:8000/v1',
-          configuration_url: '/settings/providers/local-vllm',
+          configuration_url: '/settings/providers?provider=local-vllm',
           connectivity: 'reachable',
           auth: 'not_required',
           health: 'ready',
@@ -362,6 +362,8 @@ describe('ComposerRepository', () => {
               ...catalog.providers[0]!.models[0]!,
               loaded_context_window: undefined,
               output_limit: undefined,
+              // A service that predates per-model levels offers nothing to choose.
+              reasoning: { supported: true, parameter: 'reasoning_effort', levels: [] },
             },
           ],
         },
@@ -370,6 +372,18 @@ describe('ComposerRepository', () => {
     expect(transport.requests[0]).toMatchObject({
       method: 'GET',
       path: '/v1/provider-catalog?refresh=true',
+    });
+  });
+
+  it('re-probes a single provider when one is named', async () => {
+    const transport = new RecordingTransport([{ authoritative: 'live_handshake', providers: [] }]);
+    const repository = new ComposerRepository(transport);
+
+    await repository.providerCatalog(true, undefined, 'argonne_metis');
+
+    expect(transport.requests[0]).toMatchObject({
+      method: 'GET',
+      path: '/v1/provider-catalog?refresh=true&provider=argonne_metis',
     });
   });
 
