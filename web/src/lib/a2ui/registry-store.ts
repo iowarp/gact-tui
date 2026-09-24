@@ -1,5 +1,9 @@
 import { A2uiCatalogRegistry, A2UI_CLIENT_DATA_MODEL_VERSION } from '@clio/core/v3';
-import type { A2uiCatalogRow } from '@clio/core/v3';
+import type {
+  A2uiCatalogRow,
+  A2uiCatalogRowRejection,
+  A2uiCatalogUnresolvedReasonCode,
+} from '@clio/core/v3';
 import type { Catalog, MessageProcessor } from '@a2ui/web_core/v0_9';
 import type { ReactComponentImplementation } from '@a2ui/react/v0_9';
 import { useSyncExternalStore } from 'react';
@@ -54,28 +58,47 @@ function notify(entry: SessionEntry): void {
   for (const listener of entry.listeners) listener();
 }
 
-/** OWNER only: resolves `rows` into the session's shared registry and notifies consumers. */
+/**
+ * OWNER only: resolves `rows` into the session's shared registry and
+ * notifies consumers. `rejectedRows` (S1 adversarial follow-up) are rows
+ * the transport layer already dropped for failing schema validation
+ * (`decodeA2uiCatalogRows`) — recorded on the registry as `catalog_row_invalid`
+ * so a bad marketplace-pack row is inspectable via `reasonFor()` instead of
+ * silently vanishing, WITHOUT taking the valid rows (the builtins included)
+ * down with it.
+ */
 export function loadA2uiSessionCatalogs(
   sessionId: string,
   rows: A2uiCatalogRow[] | undefined,
+  rejectedRows: A2uiCatalogRowRejection[] | undefined,
   isLoading: boolean,
 ): void {
   const entry = entryFor(sessionId);
-  entry.registry.load(rows ?? []);
+  entry.registry.load(rows ?? [], rejectedRows ?? []);
   entry.snapshot = { registry: entry.registry, catalogs: entry.registry.catalogs(), isLoading };
   notify(entry);
 }
 
 /**
  * OWNER only: the session's `GET .../a2ui/catalogs` or `.../a2ui/capabilities`
- * route is unavailable (an older server, S6 adversarial review item 2a) —
- * records the typed reason on the shared registry instead of leaving it
- * empty with no explanation, and notifies consumers once.
+ * call failed -- records the CALLER-CLASSIFIED typed reason (`code`: an
+ * older server missing the routes, a decode failure, or a network error
+ * that exhausted its retries -- `registry-failure.ts`) on the shared
+ * registry instead of leaving it empty with no explanation, and notifies
+ * consumers once.
  */
-export function markA2uiSessionRouteUnavailable(sessionId: string, detail: string): void {
+export function markA2uiSessionRouteUnavailable(
+  sessionId: string,
+  code: A2uiCatalogUnresolvedReasonCode,
+  detail: string,
+): void {
   const entry = entryFor(sessionId);
-  entry.registry.markRouteUnavailable(detail);
-  entry.snapshot = { registry: entry.registry, catalogs: entry.registry.catalogs(), isLoading: false };
+  entry.registry.markRouteUnavailable(code, detail);
+  entry.snapshot = {
+    registry: entry.registry,
+    catalogs: entry.registry.catalogs(),
+    isLoading: false,
+  };
   notify(entry);
 }
 

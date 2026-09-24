@@ -3,7 +3,10 @@ import { Catalog, MessageProcessor, type A2uiMessage } from '@a2ui/web_core/v0_9
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLIO_A2UI_CATALOG_ID, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
+import {
+  CLIO_A2UI_CATALOG_ID,
+  CLIO_WORKSPACE_CATALOG_ROW,
+} from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
 import { ClioA2UISurface } from '@/components/clio/a2ui-surface';
 import { A2uiSurface, KERNEL_COMPONENTS, KERNEL_FUNCTIONS } from './kernel-catalog';
@@ -17,7 +20,7 @@ const repository = vi.hoisted(() => ({
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 beforeEach(() => {
-  repository.a2uiCatalogs.mockResolvedValue([CLIO_WORKSPACE_CATALOG_ROW]);
+  repository.a2uiCatalogs.mockResolvedValue({ rows: [CLIO_WORKSPACE_CATALOG_ROW], rejected: [] });
   repository.a2uiCapabilities.mockResolvedValue({
     agent: { 'v0.9': { supportedCatalogIds: [CLIO_WORKSPACE_CATALOG_ROW.catalogId] } },
     client: null,

@@ -15,10 +15,39 @@ function readJson(relativePath) {
 }
 
 const basicFile = readJson('catalogs/basic/catalog.json');
-const basicSidecar = readJson('catalogs/basic/catalog.clio.json');
 const workspaceFile = readJson('catalogs/clio-workspace/v1/catalog.json');
-const workspaceSidecar = readJson('catalogs/clio-workspace/v1/catalog.clio.json');
 const manifest = readJson('manifest.json');
+
+// S1 (A2UI catalog contract, iowarp/clio-agent): sidecars come from the
+// SERVER'S OWN served output (`GET /v1/sessions/{sid}/a2ui/catalogs`), not
+// the hand-vendored `catalog.clio.json` — the null-serialisation bug this
+// fixture guards against only manifests in the server's dynamic
+// `model_dump()`, never in a hand-authored file that simply omits unset
+// keys. Regenerate `server-snapshot.catalog-sidecars.json` from a
+// clio-agent checkout with:
+//
+//   uv run python -c "
+//   import json, os, tempfile
+//   from pathlib import Path
+//   from fastapi.testclient import TestClient
+//   from clio_agent.gact.app import build_app
+//   with tempfile.TemporaryDirectory() as home:
+//       os.environ['CLIO_USER_DIR'] = str(Path(home) / 'user-config')
+//       os.environ['XDG_CONFIG_HOME'] = str(Path(home) / 'xdg')
+//       app = build_app(sessions_path=None)
+//       with TestClient(app) as c:
+//           sid = app.state.sessions.create(workspace_id='ws_default', title='fixture').id
+//           rows = c.get(f'/v1/sessions/{sid}/a2ui/catalogs').json()['catalogs']
+//   sidecars = {row['catalogId']: row['sidecar'] for row in rows}
+//   print(json.dumps(sidecars, indent=2, sort_keys=True))
+//   " > web/src/test-fixtures/a2ui/v0_9_1/server-snapshot.catalog-sidecars.json
+//
+// (the temp-dir env override isolates from whatever Agent Blueprint packs
+// happen to be installed on the generating machine, so the snapshot always
+// contains exactly the two builtin catalogs).
+const serverSidecarSnapshot = readJson('server-snapshot.catalog-sidecars.json');
+const basicSidecar = serverSidecarSnapshot[basicFile.catalogId];
+const workspaceSidecar = serverSidecarSnapshot[workspaceFile.catalogId];
 
 /** Mirrors gact/a2ui_catalogs/routes/a2ui_catalogs.py::_catalog_row (S2/S6). */
 function catalogRow(file, sidecar, checksum, instructions) {
