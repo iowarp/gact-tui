@@ -168,20 +168,12 @@ export function WorkspacePage() {
       ),
     [sessionId],
   );
-  // `messageCount` reads the live store (`entities.messages`), which the
-  // transcript query only reaches through the `mergeSnapshots` effect in
-  // use-workspace-data.ts -- a render tick AFTER `transcript.data`/
-  // `transcript.isFetching` settle together on the query's own result. For an
-  // existing conversation that tick order used to produce one render where
-  // `isFetching` had just gone false (so the docked composer was allowed to
-  // swap for the welcome one) but the store hadn't been hydrated yet (so
-  // `messageCount` was still a stale 0) -- a real, user-visible flash to the
-  // welcome screen and back on every navigation into a session with history,
-  // remounting the composer (and dropping any attachment/draft in progress)
-  // in the process. `transcript.data` and `transcript.isFetching` come from
-  // the same query result, so they can never disagree with each other the way
-  // the live store can lag them; requiring both signals to agree that there
-  // is no history closes the race without touching the merge effect itself.
+  // messageCount lags transcript.isFetching by a render tick (it only
+  // hydrates from transcript.data via use-workspace-data.ts's mergeSnapshots
+  // effect), which used to flash the welcome variant -- remounting the
+  // composer and dropping any in-progress attachment/draft -- for one render
+  // per existing-conversation navigation. Gating also on transcript.data's
+  // own count, which never disagrees with isFetching, closes the race.
   const showConversationWelcome =
     messageCount === 0 &&
     (transcript.data?.messages.length ?? 0) === 0 &&
