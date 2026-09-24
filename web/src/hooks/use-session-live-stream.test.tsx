@@ -172,6 +172,29 @@ describe('useSessionLiveStream resume recovery', () => {
     expect(keys).not.toContainEqual(['transcript', 'http://127.0.0.1:8790', 'sess_1']);
     expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790', 'ws_1']);
     expect(keys).toContainEqual(['execution-provenance', 'http://127.0.0.1:8790', 'sess_1']);
+    // The Files view has no polling and no other live-event invalidation, so the
+    // turn boundary is its fallback refresh (iowarp/clio-agent — Files view did
+    // not update after the agent wrote a file).
+    expect(keys).toContainEqual(['workspace-files', 'http://127.0.0.1:8790', 'ws_1']);
+  });
+
+  it('refreshes workspace files as soon as a shell or fs tool call finishes', () => {
+    const forTool = (name: string, state: string) =>
+      queryInvalidationKeysForEvent({
+        data: { id: 'call_1', name, session_id: 'sess_1', state },
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'tool.upserted',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      });
+    const workspaceFilesKey = ['workspace-files', 'http://127.0.0.1:8790', 'ws_1'];
+
+    expect(forTool('shell_bash', 'succeeded')).toContainEqual(workspaceFilesKey);
+    expect(forTool('fs_apply_edit_write', 'failed')).toContainEqual(workspaceFilesKey);
+    // Still running: no result yet, nothing could have changed on disk.
+    expect(forTool('shell_bash', 'running')).not.toContainEqual(workspaceFilesKey);
+    // A finished tool call that is not fs/shell must not trigger a refetch.
+    expect(forTool('web_search', 'succeeded')).not.toContainEqual(workspaceFilesKey);
   });
 
   it('refreshes execution provenance when a semantic ledger event arrives', () => {

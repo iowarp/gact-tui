@@ -16,6 +16,7 @@ import {
   PlusIcon,
   SearchIcon,
   TerminalSquareIcon,
+  TriangleAlertIcon,
 } from 'lucide-react';
 import {
   lazy,
@@ -28,6 +29,7 @@ import {
   type MouseEvent,
 } from 'react';
 import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +52,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
+import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { cn } from '@/lib/utils';
 import { ClioArtifactCard } from './artifact-card';
@@ -76,6 +79,7 @@ interface FileBrowserProps {
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
   filesError?: string;
+  filesTruncated?: boolean;
   selectedPath?: string;
   onSelectedPathChange?: (path: string) => void;
 }
@@ -161,6 +165,7 @@ export function FileBrowser({
   files,
   filesPending,
   filesError,
+  filesTruncated,
   selectedPath,
   onSelectedPathChange,
 }: FileBrowserProps) {
@@ -168,6 +173,11 @@ export function FileBrowser({
   const [stacked, setStacked] = useState(false);
   const [query, setQuery] = useState('');
   const [internalSelectedPath, setInternalSelectedPath] = useState<string>();
+  // The "Hide dot files and folders" preference is sent to the SERVER as
+  // include_hidden (use-workspace-data.ts) so a huge .clio never spends the
+  // shared entry cap only to be discarded client-side — `files` here already
+  // reflects the toggle. Read only for the empty-state hint below.
+  const { hideDotFiles } = useAppearancePreferences();
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredFiles = useMemo(
     () =>
@@ -226,6 +236,15 @@ export function FileBrowser({
                 />
               </div>
             </div>
+            {filesTruncated ? (
+              <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">
+                <TriangleAlertIcon className="size-3.5" />
+                <AlertDescription className="text-xs">
+                  This list is truncated — the workspace has more files than can be shown at
+                  once.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <ScrollArea className="min-h-0 flex-1 p-2">
               {filesPending ? (
                 <LoadingRows label="Loading workspace files" />
@@ -243,7 +262,12 @@ export function FileBrowser({
                 )
               ) : (
                 <Unavailable
-                  detail={filesError ?? 'The workspace contains no visible files.'}
+                  detail={
+                    filesError ??
+                    (hideDotFiles
+                      ? 'The workspace contains no visible files. "Hide dot files and folders" is on in Settings > Appearance — turn it off to check for hidden ones.'
+                      : 'The workspace contains no visible files.')
+                  }
                   icon={FolderIcon}
                   label={filesError ? 'File tree unavailable' : 'No workspace files'}
                 />
@@ -591,12 +615,27 @@ function sortedNodes(nodes: Map<string, WorkspaceFileNode>): WorkspaceFileNode[]
   });
 }
 
+// Human copy for the server's typed `redacted` reasons
+// (workspace_file_policy.workspace_read_redaction_reason). A folder carrying
+// one of these is listed (the owner ruling is to show dot folders, not hide
+// their existence) but its contents were never walked — the note explains why
+// an expanded folder shows nothing, instead of silently looking empty.
+const REDACTED_REASON_LABEL: Record<string, string> = {
+  sandbox_child_cache: 'Sandbox cache — contents not shown',
+};
+
 function FileNodes({ nodes }: { nodes: readonly WorkspaceFileNode[] }) {
   const alignFilesWithFolders = nodes.some((node) => node.entry.type === 'dir');
   return nodes.map((node) =>
     node.entry.type === 'dir' ? (
       <FileTreeFolder key={node.entry.path} name={node.name} path={node.entry.path}>
-        <FileNodes nodes={sortedNodes(node.children)} />
+        {node.entry.redacted ? (
+          <p className="px-2 py-1 text-xs text-muted-foreground italic">
+            {REDACTED_REASON_LABEL[node.entry.redacted] ?? 'Contents not shown.'}
+          </p>
+        ) : (
+          <FileNodes nodes={sortedNodes(node.children)} />
+        )}
       </FileTreeFolder>
     ) : (
       <FileTreeFile

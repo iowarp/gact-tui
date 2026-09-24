@@ -42,6 +42,7 @@ export interface WorkbenchTabContentProps {
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
   filesError?: string;
+  filesTruncated?: boolean;
   artifacts: readonly ArtifactEntity[];
   artifactsPending?: boolean;
   artifactsError?: string;
@@ -78,6 +79,7 @@ export function WorkbenchTabContent({
   files,
   filesPending,
   filesError,
+  filesTruncated,
   artifacts,
   artifactsPending,
   artifactsError,
@@ -113,6 +115,7 @@ export function WorkbenchTabContent({
           files={files}
           filesError={filesError}
           filesPending={filesPending}
+          filesTruncated={filesTruncated}
           onSelectedPathChange={(path) => onSelectFilesPath(tab.id, path)}
           selectedPath={tab.path}
           workspaceId={workspaceId}
@@ -185,6 +188,7 @@ export function WorkbenchTabContent({
           files={files}
           filesError={filesError}
           filesPending={filesPending}
+          filesTruncated={filesTruncated}
           onSelectedPathChange={(path) => onSelectWorkspaceFilePath(tab.id, path)}
           selectedPath={tab.path}
           workspaceId={tab.workspaceId}

@@ -375,6 +375,9 @@ export const workspaceFileEntrySchema = z.object({
   resource_id: z.string().optional(),
   size: z.number().int().nonnegative().optional(),
   modified: z.string().optional(),
+  // A typed reason (e.g. "sandbox_child_cache") the server never walked this
+  // directory's contents — the folder itself is still listed, just empty.
+  redacted: z.string().optional(),
 });
 
 export const agentBlueprintSchema = z

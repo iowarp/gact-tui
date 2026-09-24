@@ -7,21 +7,28 @@ import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 import { FileBrowser } from './workbench-resource-browser';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 
-const { repository } = vi.hoisted(() => ({
+const { repository, useAppearancePreferences } = vi.hoisted(() => ({
   repository: {
     readArtifactTextFor: vi.fn(),
     readWorkspaceFile: vi.fn(),
   },
+  // Default matches the real provider's default (owner ruling: dot files are
+  // visible by default; "Hide dot files and folders" is opt-in).
+  useAppearancePreferences: vi.fn(() => ({ hideDotFiles: false })),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
+vi.mock('@/providers/appearance-provider', () => ({ useAppearancePreferences }));
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // mockReturnValue survives clearAllMocks (only call history is cleared), so
+  // restore the real provider's default explicitly between tests.
+  useAppearancePreferences.mockReturnValue({ hideDotFiles: false });
   // Every test shares workspaceId="workspace_1"; workbench.tsx persists tab
   // state to localStorage keyed on it, so a test that closes or opens a tab
   // leaks that state into the next test's initial restoredWorkbenchState()
@@ -528,6 +535,96 @@ describe('ClioWorkbench canvas', () => {
     await user.click(screen.getByRole('button', { name: 'Expand folder Sources' }));
     await user.click(screen.getByRole('button', { name: 'Expand folder res_abc' }));
     expect(screen.getByRole('treeitem', { name: 'paper.pdf' })).toBeVisible();
+  });
+
+  it('shows a clear notice when the server reports a truncated listing', () => {
+    render(
+      <FileBrowser
+        files={[{ path: 'report.md', type: 'file', internal: false, size: 7 }]}
+        filesTruncated
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.getByText(/truncated/i)).toBeVisible();
+  });
+
+  it('does not show a truncated notice when the listing is complete', () => {
+    render(
+      <FileBrowser
+        files={[{ path: 'report.md', type: 'file', internal: false, size: 7 }]}
+        filesTruncated={false}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.queryByText(/truncated/i)).not.toBeInTheDocument();
+  });
+
+  it('shows a redacted folder\'s reason instead of a silently empty tree', async () => {
+    const user = userEvent.setup();
+    render(
+      <FileBrowser
+        files={[
+          {
+            path: '.clio-child-cache',
+            type: 'dir',
+            internal: false,
+            redacted: 'sandbox_child_cache',
+          },
+        ]}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Expand folder .clio-child-cache' }));
+
+    expect(screen.getByText('Sandbox cache — contents not shown')).toBeVisible();
+  });
+
+  it('renders whatever files it is given — filtering moved to the server/query layer', () => {
+    // Review follow-up: "Hide dot files and folders" now reaches the SERVER as
+    // include_hidden (use-workspace-data.ts), so a huge .clio is never walked
+    // client-side only to be discarded after paying for it out of the shared
+    // entry cap. FileBrowser must not ALSO filter — that would silently
+    // double-hide entries the toggle already excluded, or mask a query-layer
+    // regression that stopped filtering. FileBrowser renders exactly the
+    // `files` prop it receives, regardless of the toggle's state.
+    useAppearancePreferences.mockReturnValue({ hideDotFiles: true });
+    render(
+      <FileBrowser
+        files={[
+          { path: '.clio/state.json', type: 'file', internal: false, size: 2 },
+          { path: 'report.md', type: 'file', internal: false, size: 7 },
+        ]}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.getByRole('treeitem', { name: '.clio' })).toBeVisible();
+    expect(screen.getByRole('treeitem', { name: 'report.md' })).toBeVisible();
+  });
+
+  it('hints at the dot-files toggle when the server-filtered file list comes back empty', () => {
+    useAppearancePreferences.mockReturnValue({ hideDotFiles: true });
+    render(
+      <FileBrowser
+        files={[]}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.getByText(/Hide dot files and folders.*is on/)).toBeVisible();
   });
 
   it('delivers a requested tab when a compact canvas mounts after the request', () => {
