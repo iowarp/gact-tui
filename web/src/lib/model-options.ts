@@ -171,9 +171,12 @@ function liveProviderOptions(
   const isCliProvider = ['codex', 'claude_code'].includes(provider.kind);
   // The service served this provider's last good list because its live check
   // came back empty: the models are shown, dated, and never presented as current.
+  // Dated by the latest live confirmation (the service's confirmed_at), not the
+  // list's first discovery -- the date a person reads while the provider is down.
+  const confirmedAt = provider.freshness.staleness?.['confirmed_at'];
   const lastGoodDetail =
     provider.freshness.source === 'last_good'
-      ? `Last confirmed ${formatCatalogTime(provider.freshness.generated_at)}. Check ${providerName} to confirm it is available now.`
+      ? `Last confirmed ${formatCatalogTime(typeof confirmedAt === 'string' && confirmedAt ? confirmedAt : provider.freshness.generated_at)}. Check ${providerName} to confirm it is available now.`
       : undefined;
   return provider.models.map((model) => {
     // CLI providers cannot enumerate models without an explicit (and for

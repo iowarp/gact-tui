@@ -389,4 +389,28 @@ describe('buildModelOptions over a real last-good catalog', () => {
       expect(option.availabilityDetail).toMatch(/^Last confirmed /u);
     }
   });
+
+  it('dates a last-good model by its latest confirmation, not its first discovery', () => {
+    const provider = catalogProvider({
+      id: 'argonne_metis',
+      name: 'ALCF Metis',
+      freshness: {
+        generated_at: '2026-09-01T10:00:00Z',
+        source: 'last_good',
+        staleness: { reason: 'last_good_catalog_served', confirmed_at: '2026-09-22T18:30:00Z' },
+      },
+      models: [catalogModel('gpt-oss-120b', 'candidate')],
+    });
+
+    const [option] = buildModelOptions({
+      activeCatalogProvider: '',
+      providerCatalog: { authoritative: 'live_handshake', providers: [provider] },
+      presets: [],
+    });
+
+    expect(option?.availabilityDetail).toContain(new Date('2026-09-22T18:30:00Z').toLocaleString());
+    expect(option?.availabilityDetail).not.toContain(
+      new Date('2026-09-01T10:00:00Z').toLocaleString(),
+    );
+  });
 });

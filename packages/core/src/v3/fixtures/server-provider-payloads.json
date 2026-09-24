@@ -372,6 +372,7 @@
           "read_at": "2026-09-23T11:00:00+00:00",
           "source": "last_good",
           "staleness": {
+            "confirmed_at": "2026-09-23T10:00:00+00:00",
             "description": "the live provider check returned no models, so the models this provider served at its last successful check are shown instead; they are prior evidence, not proof the models are available now",
             "generated_at": "2026-09-23T10:00:00+00:00",
             "live_failure": "argonne_stored_token_unusable: a Globus sign-in is stored but could not produce an access token without signing in again (offline)",
