@@ -9,6 +9,7 @@ import {
   runStateSchema,
   sessionSchema,
   toolInvocationSchema,
+  workspaceResourceSchema,
 } from './index.js';
 
 describe('forward-compatible wire enums', () => {
@@ -362,5 +363,32 @@ describe('forward-compatible wire enums', () => {
       reason: 'a_future_reason_this_client_has_not_learned_yet',
     });
     expect(unknownAnswer).toMatchObject({ update_available: null, reason: 'unknown' });
+  });
+
+  it('carries a resource materialization failure so the client can distinguish it from Ready', () => {
+    const failed = workspaceResourceSchema.parse({
+      id: 'res_1',
+      workspace_id: 'ws_1',
+      name: 'notes.md',
+      declared_size: 5,
+      state: 'ready',
+      created_at: '2026-09-24T00:00:00Z',
+      updated_at: '2026-09-24T00:00:01Z',
+      materialization: { state: 'failed', reason: 'disk unavailable' },
+    });
+    expect(failed.materialization).toEqual({ state: 'failed', reason: 'disk unavailable' });
+  });
+
+  it('leaves materialization absent for a server that predates the field', () => {
+    const legacy = workspaceResourceSchema.parse({
+      id: 'res_1',
+      workspace_id: 'ws_1',
+      name: 'notes.md',
+      declared_size: 5,
+      state: 'ready',
+      created_at: '2026-09-24T00:00:00Z',
+      updated_at: '2026-09-24T00:00:01Z',
+    });
+    expect(legacy.materialization).toBeUndefined();
   });
 });

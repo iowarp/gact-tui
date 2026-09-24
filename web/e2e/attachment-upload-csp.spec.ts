@@ -100,19 +100,40 @@ test('an attachment uploads under a CSP that forbids fetching blob: object URLs'
 
   await page.goto(workspaceUrl);
 
-  const fileInput = page.getByLabel('Upload files').first();
-  await fileInput.setInputFiles({
-    name: 'evidence.txt',
-    mimeType: 'text/plain',
-    buffer: Buffer.from('station coverage notes'),
-  });
-
-  // "Ready" is the pipeline's overall label once both the upload and
-  // (not-required) conversion stages complete — see
-  // resource-availability.ts summarizeResourcePipelineStages().
-  await expect(page.getByRole('img', { name: /Attachment status: Ready/i })).toBeVisible({
-    timeout: 15_000,
-  });
+  // workspace-page.tsx keys the composer on
+  // `composer:${sessionId}:${activeProvider}:${activeModel}:${activeEffort}`,
+  // which changes (a full remount: a fresh PromptInput, its attachment
+  // state wiped) as the active provider/model/effort resolve after
+  // navigation. `setInputFiles` finds and fills the hidden file input
+  // immediately regardless of whether the surrounding app state — and
+  // therefore this specific composer instance — is about to be torn down,
+  // so an attachment added just before a remount silently vanishes with it:
+  // no chip ever appears, and nothing in the UI says why (confirmed via a
+  // captured trace: the file input resolves and accepts the file, but no
+  // create-resource request is ever sent and no attachment node ever exists
+  // in the DOM). There is no single observable signal that rules out every
+  // remount, so re-attach in a loop, from a freshly-queried input each time,
+  // until it actually sticks (the "Ready" chip appears) rather than once.
+  //
+  // The per-attempt timeout is generous (real upload + poll-until-ready
+  // latency, not just a remount check) so a genuinely-in-flight upload from
+  // an earlier attempt is not mistaken for a lost one and duplicated —
+  // `.first()` on the final assertion is still a second line of defense if
+  // an earlier attempt's upload does complete after this one gives up on it.
+  await expect(async () => {
+    const fileInput = page.getByLabel('Upload files').first();
+    await fileInput.setInputFiles({
+      name: 'evidence.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('station coverage notes'),
+    });
+    // "Ready" is the pipeline's overall label once both the upload and
+    // (not-required) conversion stages complete — see
+    // resource-availability.ts summarizeResourcePipelineStages().
+    await expect(page.getByRole('img', { name: /Attachment status: Ready/i }).first()).toBeVisible(
+      { timeout: 8_000 },
+    );
+  }).toPass({ timeout: 30_000 });
 
   const cspViolations = await page.evaluate(
     () => (window as unknown as { __cspViolations?: string[] }).__cspViolations ?? [],

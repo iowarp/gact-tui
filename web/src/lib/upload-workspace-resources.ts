@@ -171,8 +171,13 @@ async function awaitRegisteredResource({
  * refuse). `fetch` is used only as a fallback for an attachment that
  * genuinely has no surviving `File`/`Blob`, and a failure there is reported
  * as a distinct, named error rather than silently swallowed.
+ *
+ * Exported so every place that reads an attachment's bytes — the upload
+ * path here, and the composer's local text/PDF previews
+ * (composer-attachments.tsx) — shares this exact File-first, fetch-fallback
+ * policy instead of each re-fetching the blob: URL on its own.
  */
-async function readAttachmentBytes(
+export async function readAttachmentBytes(
   file: UploadableFilePart,
   signal?: AbortSignal,
 ): Promise<Blob> {

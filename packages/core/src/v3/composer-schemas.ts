@@ -165,6 +165,22 @@ export const workspaceResourceProcessingSchema = z.object({
 });
 
 /**
+ * The outcome of copying a ready resource into the workspace's file tree
+ * (`.clio/inputs/...`) so filesystem tools can see it as a real file.
+ * Independent of `state`/`processing`: a resource can be fully `ready` in
+ * immutable custody (readable by the model natively or via the bounded
+ * workspace-resource tools) while this is `failed` — the working copy on
+ * disk is what did not materialize, not the resource itself. Absent on a
+ * server that predates this field, defaulting to `pending` (never observed
+ * as `failed`, so an older server never appears to have a broken copy it
+ * never tracked in the first place).
+ */
+export const resourceMaterializationSchema = z.object({
+  state: z.enum(['pending', 'ready', 'failed']).default('pending'),
+  reason: z.string().default(''),
+});
+
+/**
  * One immutable resource revision. A resource that is still `uploading` carries
  * every detection and completion field at its empty default rather than
  * omitting it, so those are defaulted strings, not optionals — a reader must
@@ -190,6 +206,7 @@ export const workspaceResourceSchema = z.object({
   completed_at: z.string().default(''),
   workspace_path: z.string().default(''),
   mime_mismatch: z.boolean().default(false),
+  materialization: resourceMaterializationSchema.optional(),
   processing: workspaceResourceProcessingSchema.optional(),
   idempotent_replay: z.boolean().optional(),
   upload_url: z.string().optional(),

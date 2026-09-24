@@ -30,7 +30,7 @@ export interface ResourcePipelineStage {
   detail?: string;
   kind: 'active' | 'complete' | 'failed' | 'unknown' | 'waiting';
   label: string;
-  name: 'Conversion' | 'Upload';
+  name: 'Conversion' | 'Upload' | 'Workspace copy';
 }
 
 export interface ResourcePipelineStages {
@@ -38,6 +38,7 @@ export interface ResourcePipelineStages {
   overall: 'active' | 'complete' | 'failed' | 'unknown' | 'waiting';
   overallLabel: string;
   upload: ResourcePipelineStage;
+  workspaceCopy: ResourcePipelineStage;
 }
 
 const AVAILABILITY_LABELS: Record<ResourceAvailabilityState, string> = {
@@ -202,32 +203,57 @@ export function resourcePipelineStages(
     conversion = { kind: 'waiting', label: 'Waiting', name: 'Conversion' };
   }
 
-  return summarizeResourcePipelineStages(upload, conversion);
+  // Independent of upload/conversion: a resource can be fully ready in
+  // immutable custody (readable by the model natively or via the bounded
+  // tools) while its workspace-file-tree working copy failed to materialize
+  // — see resourceMaterializationSchema. `materialization` is absent only
+  // for a server that predates this field; that server always materialized
+  // synchronously on every read, so absence reads as "not tracked", not a
+  // problem.
+  const materialization = resource?.materialization;
+  const workspaceCopy: ResourcePipelineStage =
+    resource?.state === 'uploading'
+      ? { kind: 'waiting', label: 'Waiting for upload', name: 'Workspace copy' }
+      : materialization === undefined
+        ? { kind: 'complete', label: 'Not tracked', name: 'Workspace copy' }
+        : materialization.state === 'failed'
+          ? { detail: materialization.reason, kind: 'failed', label: 'Failed', name: 'Workspace copy' }
+          : materialization.state === 'ready'
+            ? { kind: 'complete', label: 'Complete', name: 'Workspace copy' }
+            : { kind: 'active', label: 'Preparing', name: 'Workspace copy' };
+
+  return summarizeResourcePipelineStages(upload, conversion, workspaceCopy);
 }
 
-/** Summarize upload and conversion stages into the single compact chip state. */
+/** Summarize upload, conversion, and workspace-copy stages into one compact chip state. */
 export function summarizeResourcePipelineStages(
   upload: ResourcePipelineStage,
   conversion: ResourcePipelineStage,
+  workspaceCopy: ResourcePipelineStage = {
+    kind: 'waiting',
+    label: 'Waiting for upload',
+    name: 'Workspace copy',
+  },
 ): ResourcePipelineStages {
-  const stages = [upload, conversion];
+  const stages = [upload, conversion, workspaceCopy];
   // Failure dominates: a stage that failed means the attachment is not usable,
-  // whatever another stage is still doing.
+  // whatever another stage is still doing. A failed workspace copy must never
+  // read as "Ready" just because upload and conversion both succeeded.
   if (stages.some((stage) => stage.kind === 'failed')) {
-    return { conversion, overall: 'failed', overallLabel: 'Unavailable', upload };
+    return { conversion, overall: 'failed', overallLabel: 'Unavailable', upload, workspaceCopy };
   }
   // An unknown stage outranks the ones that are merely in motion: reporting
   // progress for a pipeline whose other half cannot be read is a claim.
   if (stages.some((stage) => stage.kind === 'unknown')) {
-    return { conversion, overall: 'unknown', overallLabel: 'Status unknown', upload };
+    return { conversion, overall: 'unknown', overallLabel: 'Status unknown', upload, workspaceCopy };
   }
   if (stages.some((stage) => stage.kind === 'active')) {
-    return { conversion, overall: 'active', overallLabel: 'Processing', upload };
+    return { conversion, overall: 'active', overallLabel: 'Processing', upload, workspaceCopy };
   }
   if (stages.some((stage) => stage.kind === 'waiting')) {
-    return { conversion, overall: 'waiting', overallLabel: 'Waiting', upload };
+    return { conversion, overall: 'waiting', overallLabel: 'Waiting', upload, workspaceCopy };
   }
-  return { conversion, overall: 'complete', overallLabel: 'Ready', upload };
+  return { conversion, overall: 'complete', overallLabel: 'Ready', upload, workspaceCopy };
 }
 
 function availability(state: ResourceAvailabilityState, detail: string): ResourceAvailability {
