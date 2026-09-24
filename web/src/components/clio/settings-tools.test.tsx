@@ -144,18 +144,21 @@ describe('tool provider settings', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Connect MCP' }));
     const dialog = screen.getByRole('dialog');
-    await user.type(within(dialog).getByLabelText('Name'), 'Web search');
+    // Paste, not per-keystroke typing: the fields only need their values, and
+    // ~60 synthetic keystrokes pushed this test past the timeout under load.
+    const fill = async (label: string, text: string) => {
+      await user.click(within(dialog).getByLabelText(label));
+      await user.paste(text);
+    };
+    await fill('Name', 'Web search');
     await user.click(within(dialog).getByLabelText('Connection type'));
     await user.click(screen.getByRole('option', { name: 'Local command' }));
-    await user.type(within(dialog).getByLabelText('Executable'), 'web-tools');
-    await user.type(within(dialog).getByLabelText('Arguments'), 'serve');
+    await fill('Executable', 'web-tools');
+    await fill('Arguments', 'serve');
     expect(within(dialog).queryByLabelText('Process settings')).not.toBeInTheDocument();
 
     await user.click(within(dialog).getByRole('button', { name: 'Advanced configuration' }));
-    await user.type(
-      within(dialog).getByLabelText('Process settings'),
-      'WEB_STATE_DIR=D:\\agent-state',
-    );
+    await fill('Process settings', 'WEB_STATE_DIR=D:\\agent-state');
     await user.click(within(dialog).getByRole('button', { name: 'Connect MCP' }));
 
     expect(repository.installMcpServer).toHaveBeenCalledWith({
