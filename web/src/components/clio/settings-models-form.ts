@@ -121,16 +121,21 @@ export interface ModelSettingsUpdate {
   temperature?: number;
 }
 
-/** The preset the service's configuration is currently pointed at, if any. */
+/**
+ * The preset the service's configuration is currently pointed at, if any.
+ *
+ * Matches `configuration.provider_id` only. `configuration.provider` is the
+ * wire KIND (LiteLLM dialect) nine presets share (bedrock, llama_cpp,
+ * azure_openai, ...), so matching on it -- as a primary key or a fallback --
+ * silently resolved to the WRONG preset (#1418).
+ */
 export function resolveActivePreset(
   configuration: LanguageModelConfiguration,
 ): LanguageModelPreset | undefined {
-  return (
-    configuration.presets.find(
-      (preset) =>
-        (preset.id === configuration.provider_id || preset.provider === configuration.provider) &&
-        (!preset.api_base || preset.api_base === configuration.api_base),
-    ) ?? configuration.presets.find((preset) => preset.id === configuration.provider)
+  return configuration.presets.find(
+    (preset) =>
+      preset.id === configuration.provider_id &&
+      (!preset.api_base || preset.api_base === configuration.api_base),
   );
 }
 
@@ -140,9 +145,7 @@ export function presetIsActive(
   preset?: LanguageModelPreset,
 ): boolean {
   const active = resolveActivePreset(configuration);
-  return Boolean(
-    preset && (preset.id === active?.id || (!active && preset.id === configuration.provider)),
-  );
+  return Boolean(preset && preset.id === active?.id);
 }
 
 /** Fills the form from the service's live configuration for one preset. */

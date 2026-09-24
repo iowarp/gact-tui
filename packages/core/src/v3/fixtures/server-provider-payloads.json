@@ -45,7 +45,7 @@
         "auth_method": "none",
         "configuration_url": "/settings/providers?provider=ollama",
         "connectivity": "unreachable",
-        "endpoint": "http://127.0.0.1:11434/v1",
+        "endpoint": "http://127.0.0.1:11434",
         "failure": "connection refused",
         "freshness": {
           "generated_at": "2026-09-23T10:00:00+00:00",
@@ -512,7 +512,7 @@
         "auth_method": "none",
         "configuration_url": "/settings/providers?provider=ollama",
         "connectivity": "unreachable",
-        "endpoint": "http://127.0.0.1:11434/v1",
+        "endpoint": "http://127.0.0.1:11434",
         "failure": "connection refused",
         "freshness": {
           "generated_at": "2026-09-23T10:00:00+00:00",
@@ -1021,7 +1021,7 @@
         "name": "LM Studio"
       },
       {
-        "api_base": "http://127.0.0.1:11434/v1",
+        "api_base": "http://127.0.0.1:11434",
         "auth_methods": [
           "none"
         ],

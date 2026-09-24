@@ -1,6 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { SessionArtifactListing, TranscriptSnapshot } from '@clio/core/v3';
+import type {
+  LanguageModelConfiguration,
+  SessionArtifactListing,
+  TranscriptSnapshot,
+} from '@clio/core/v3';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,7 +18,15 @@ const mocks = vi.hoisted(() => ({
     agentBlueprints: vi.fn(async () => []),
     allSessions: vi.fn(async () => [] as unknown[]),
     capabilities: vi.fn(async () => ({}) as unknown),
-    languageModelConfiguration: vi.fn(async () => ({ presets: [] })),
+    languageModelConfiguration: vi.fn(
+      async (): Promise<LanguageModelConfiguration> => ({
+        configured: false,
+        provider: '',
+        api_base: '',
+        model: '',
+        presets: [],
+      }),
+    ),
     pendingApprovals: vi.fn(async () => [] as unknown[]),
     pendingInteractions: vi.fn(async () => [] as unknown[]),
     pendingQuestions: vi.fn(async () => [] as unknown[]),
@@ -338,5 +350,46 @@ describe('useWorkspaceData files query', () => {
         { includeHidden: false },
       ),
     );
+  });
+});
+
+describe('useWorkspaceData active provider identity (#1418)', () => {
+  it('resolves activeProvider from provider_id, never the shared wire kind', async () => {
+    // The configured provider is llama_cpp, whose wire kind is "openai" --
+    // nine presets share that kind. Before the fix, activeProvider read
+    // `modelConfiguration.data?.provider` (the kind) instead of
+    // `?.provider_id`, so it resolved to "openai" rather than "llama_cpp".
+    mocks.repository.languageModelConfiguration.mockResolvedValue({
+      configured: true,
+      provider_id: 'llama_cpp',
+      provider: 'openai',
+      api_base: 'http://127.0.0.1:8090/v1',
+      model: 'qwen3-4b-instruct-gguf',
+      presets: [
+        {
+          id: 'bedrock',
+          label: 'Amazon Bedrock',
+          provider: 'openai',
+          requires_api_key: false,
+          is_authenticated: false,
+          supports_live_catalog: true,
+          supports_vision: true,
+        },
+        {
+          id: 'llama_cpp',
+          label: 'llama.cpp server',
+          provider: 'openai',
+          requires_api_key: false,
+          is_authenticated: true,
+          supports_live_catalog: true,
+          supports_vision: true,
+        },
+      ],
+    });
+
+    const { result } = renderWorkspaceData();
+
+    await waitFor(() => expect(result.current.activeProvider).toBe('llama_cpp'));
+    expect(result.current.activeProvider).not.toBe('openai');
   });
 });

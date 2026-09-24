@@ -465,3 +465,100 @@ describe('matchesConfiguredModel', () => {
     expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, '')).toBe(false);
   });
 });
+
+describe('provider identity resolves by id, never by shared kind (#1418)', () => {
+  /** The real catalog: nine presets share the wire kind "openai". */
+  function ninePresetsSharingTheOpenaiKind(): LanguageModelPreset[] {
+    const rows: Array<[id: string, label: string]> = [
+      ['bedrock', 'Amazon Bedrock'],
+      ['azure_openai', 'Azure OpenAI'],
+      ['gemini', 'Google Gemini'],
+      ['vertex_ai', 'Google Vertex AI'],
+      ['llama_cpp', 'llama.cpp server'],
+      ['nvidia_nim', 'NVIDIA NIM'],
+      ['openai', 'OpenAI / ChatGPT'],
+      ['openrouter', 'OpenRouter'],
+      ['vllm', 'vLLM'],
+    ];
+    return rows
+      .map(([id, label]) => ({
+        id,
+        label,
+        provider: 'openai',
+        requires_api_key: false,
+        // Only the LITERAL "openai" preset is authenticated -- every other
+        // same-kind sibling (including bedrock, sorted first) is not, so a
+        // wrong (kind-based) match is visible in the resulting availability.
+        is_authenticated: id === 'openai',
+        supports_live_catalog: true,
+        supports_vision: false,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  it('the active-model fallback resolves the bare kind "openai" to ITS OWN preset, not the first same-kind preset by sort order', () => {
+    const presets = ninePresetsSharingTheOpenaiKind();
+    // Sanity check on the fixture itself: bedrock really does sort first,
+    // matching the real system's picker order (gact/routes/providers.py
+    // sorts presets by label) -- this is the exact ordering a kind-based
+    // fallback silently resolved to instead of the literal "openai" preset.
+    expect(presets[0]!.id).toBe('bedrock');
+
+    // Simulates a caller that still passes the bare KIND as `activeProvider`
+    // (what use-workspace-data.ts used to read off `modelConfiguration.data
+    // ?.provider` before its own #1418 fix) with no existing catalog/preset
+    // option already covering it, so the active-model fallback in
+    // buildModelOptions resolves identity on its own.
+    const options = buildModelOptions({
+      activeCatalogProvider: '',
+      activeProvider: 'openai',
+      activeModel: 'gpt-4o-mini',
+      presets,
+    });
+
+    expect(options).toHaveLength(1);
+    // The literal "openai" preset IS authenticated. Before the fix, the
+    // kind-based fallback matched "bedrock" (sorted first, NOT
+    // authenticated) instead, and this option read as needing sign-in.
+    expect(options[0]!.available).toBe(true);
+    expect(options[0]!.availabilityDetail).toBeUndefined();
+  });
+
+  it('a preset row is not hidden by an unrelated same-kind provider already listed live', () => {
+    const presets = ninePresetsSharingTheOpenaiKind();
+    const options = buildModelOptions({
+      activeCatalogProvider: '',
+      presets,
+      // llama_cpp's own catalog entry -- present so its preset row would
+      // actually render if not wrongly filtered out.
+      catalogModelsByProvider: {
+        llama_cpp: [{ id: 'qwen3-4b-instruct-gguf', name: 'Qwen3 4B Instruct' }],
+      },
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          {
+            // The LITERAL "openai" preset reporting live -- before the fix,
+            // `!liveProviderIds.has(preset.provider)` treated this as EVERY
+            // "openai"-kind preset (bedrock, llama_cpp, ...) already being
+            // covered, dropping their preset rows entirely.
+            id: 'openai',
+            name: 'OpenAI / ChatGPT',
+            kind: 'openai',
+            endpoint: 'https://api.openai.com/v1',
+            configuration_url: '/settings/providers?provider=openai',
+            connectivity: 'reachable',
+            auth: 'ready',
+            health: 'ready',
+            freshness: { generated_at: '2026-09-24T00:00:00Z', source: 'live' },
+            failure: '',
+            models: [],
+          },
+        ],
+      },
+    });
+
+    const providerIds = new Set(options.map((option) => option.providerId));
+    expect(providerIds.has('llama_cpp')).toBe(true);
+  });
+});

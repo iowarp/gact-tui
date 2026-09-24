@@ -94,12 +94,12 @@ function ModelsSettingsContent({
   const clearSessionModelReferences = useLiveStore((state) => state.clearSessionModelReferences);
   const { settings } = useConnectionSettings();
   const [searchParams] = useSearchParams();
+  // ?provider= always carries a preset's own id (the link the service hands
+  // out, gact/provider_catalog.py's configuration_url), never the wire kind.
   const requestedProvider = searchParams.get('provider');
-  const requestedPreset = configuration.presets.find(
-    (preset) => preset.id === requestedProvider || preset.provider === requestedProvider,
-  );
+  const requestedPreset = configuration.presets.find((preset) => preset.id === requestedProvider);
   const initialPreset = requestedPreset ?? resolveActivePreset(configuration);
-  const [presetId, setPresetId] = useState(initialPreset?.id ?? configuration.provider);
+  const [presetId, setPresetId] = useState(initialPreset?.id ?? configuration.provider_id ?? '');
   const [seeded, setSeeded] = useState(() =>
     seedModelSettings({
       configuration,
@@ -605,9 +605,7 @@ function ModelsSettingsContent({
       >
         <div className="grid gap-2 sm:grid-cols-2">
           {providers.map((provider) => {
-            const preset = configuration.presets.find(
-              (item) => item.id === provider.id || item.provider === provider.id,
-            );
+            const preset = configuration.presets.find((item) => item.id === provider.id);
             const availability = providerAvailability(provider, preset);
             return (
               <div className="rounded-lg border p-3" key={provider.id}>
