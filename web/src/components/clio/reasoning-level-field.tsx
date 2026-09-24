@@ -8,7 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { REASONING_EFFORT_LABELS, type ModelReasoningLevels } from '@/lib/reasoning-levels';
+import {
+  modelDefaultLabel,
+  REASONING_EFFORT_LABELS,
+  type ModelReasoningLevels,
+} from '@/lib/reasoning-levels';
 
 const MODEL_DEFAULT = '__model_default__';
 
@@ -34,9 +38,7 @@ export function ReasoningLevelField({
 }) {
   const levels = reasoning?.levels ?? [];
   if (!levels.length) return null;
-  const defaultLabel = reasoning?.default
-    ? `Model default (${REASONING_EFFORT_LABELS[reasoning.default]})`
-    : 'Model default';
+  const defaultLabel = modelDefaultLabel(reasoning);
   const selected = value && levels.includes(value as ReasoningEffort) ? value : undefined;
   return (
     <Field>

@@ -1584,7 +1584,10 @@ workspace's `host_pattern` policies at CONNECT time:
 > e.g. Claude Code + Haiku ships `low`). The vocabulary is the union of the
 > levels real providers report; which levels a given MODEL accepts is reported
 > per model in the provider catalog (`GET /v1/provider-catalog`,
-> `models[].reasoning = {supported, parameter, levels[], default?, source, reason?}`),
+> `models[].reasoning = {supported, parameter, levels[], default?, default_source?, source, reason?}`;
+> `default_source` is `"clio_shipped"` when the default is CLIO's shipped per-model
+> level (e.g. Claude Code sonnet/haiku ship `low`) and `"provider"` for the model's
+> own — clients must not label a shipped default "the model default"),
 > and a level the model does not report resolves to a typed
 > `unsupported (<reason>)`. The request field is validated at the boundary: an
 > out-of-vocabulary value is a structured `422` `validation_error` (never
@@ -1610,6 +1613,15 @@ workspace's `host_pattern` policies at CONNECT time:
 > "different_model"`). `GET /v1/session-defaults` `effort` is `null` unless a
 > person chose a level (`effort_source: "user"`); a session's `effort` is
 > projected only when it carries that provenance.
+>
+> **PUT semantics.** An explicit `thinking_level` is the person's choice and is
+> recorded with `thinking_level_source: "user"` (echoed on `GET`). An explicit
+> `null` clears it (the provider/model default applies). An OMITTED
+> `thinking_level` carries over only a user-sourced level, and only when the
+> provider and model are unchanged; otherwise the level is unset and the new
+> model's default (possibly CLIO's shipped default) applies. A stored level with no
+> source is never treated as a choice. Clients send `thinking_level` only when the
+> person changed it.
 >
 > An explicit `thinking_budget` (token count) remains an override for the
 > budget-based providers; when both are omitted the field is unset and today's

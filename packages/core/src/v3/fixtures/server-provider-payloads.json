@@ -311,6 +311,7 @@
             "provider_kind": "argonne",
             "reasoning": {
               "default": "medium",
+              "default_source": "provider",
               "levels": [
                 "low",
                 "medium",
@@ -349,6 +350,7 @@
             "provider_kind": "argonne",
             "reasoning": {
               "default": "",
+              "default_source": "",
               "levels": [],
               "parameter": "",
               "source": "served_model_reasoning_parser",
@@ -410,6 +412,7 @@
             "provider_kind": "argonne",
             "reasoning": {
               "default": "medium",
+              "default_source": "provider",
               "levels": [
                 "low",
                 "medium",
@@ -448,6 +451,7 @@
             "provider_kind": "argonne",
             "reasoning": {
               "default": "",
+              "default_source": "",
               "levels": [],
               "parameter": "",
               "source": "served_model_reasoning_parser",
@@ -774,6 +778,7 @@
             "provider_kind": "argonne",
             "reasoning": {
               "default": "medium",
+              "default_source": "provider",
               "levels": [
                 "low",
                 "medium",
@@ -812,6 +817,7 @@
             "provider_kind": "argonne",
             "reasoning": {
               "default": "",
+              "default_source": "",
               "levels": [],
               "parameter": "",
               "source": "served_model_reasoning_parser",
@@ -866,6 +872,7 @@
             "provider_kind": "argonne",
             "reasoning": {
               "default": "medium",
+              "default_source": "provider",
               "levels": [
                 "low",
                 "medium",
@@ -904,6 +911,7 @@
             "provider_kind": "argonne",
             "reasoning": {
               "default": "",
+              "default_source": "",
               "levels": [],
               "parameter": "",
               "source": "served_model_reasoning_parser",

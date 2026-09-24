@@ -338,6 +338,8 @@ export const providerCatalogSchema = z.object({
             parameter: z.string(),
             levels: z.array(z.string()).default([]),
             default: optionalWireString(),
+            // "clio_shipped": CLIO's per-model default, not the model's own.
+            default_source: optionalWireString(),
             source: optionalWireString(),
           }),
           native_tool_calling: z.boolean(),

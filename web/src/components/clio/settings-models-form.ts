@@ -165,7 +165,12 @@ export function seedModelSettings({
     // means "leave the runtime's own sizing alone", which is what omitting them
     // from the write does.
     contextLength: '',
-    effort: reasoningEffort(configuration.thinking_level),
+    // Only a level a person set is a choice; a shipped/provider default is shown
+    // by the field's "Default" option and never written back on Apply.
+    effort:
+      configuration.thinking_level_source === 'user'
+        ? reasoningEffort(configuration.thinking_level)
+        : '',
     maxTokens: numberField(configuration.max_tokens),
     modelId: presetIsActive ? configuration.model : (preset?.suggested_model ?? ''),
     parallel: '',

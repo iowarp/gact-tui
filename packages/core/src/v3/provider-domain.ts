@@ -100,6 +100,8 @@ export interface LanguageModelConfiguration {
   temperature?: number;
   max_tokens?: number;
   thinking_level?: string;
+  /** `user` only when a person set `thinking_level`; otherwise it is a default. */
+  thinking_level_source?: string;
   thinking_effective?: string;
   state?: string;
   status_message?: string;

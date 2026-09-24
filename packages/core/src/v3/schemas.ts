@@ -103,6 +103,8 @@ export const languageModelConfigurationSchema = z.object({
     .string()
     .nullish()
     .transform((value) => value ?? undefined),
+  // "user" only when a person set thinking_level; otherwise it is a default.
+  thinking_level_source: optionalWireString(),
   thinking_effective: optionalWireString(),
   state: optionalWireString(),
   status_message: optionalWireString(),

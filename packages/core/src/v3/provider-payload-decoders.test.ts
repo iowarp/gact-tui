@@ -80,6 +80,7 @@ describe('reasoning levels on the wire', () => {
       parameter: 'openai_gptoss',
       levels: ['low', 'medium', 'high'],
       default: 'medium',
+      default_source: 'provider',
       source: 'served_model_reasoning_parser',
     });
     const llama = metis?.models.find((model) => model.model_id === 'meta-llama/Llama-4-Maverick');

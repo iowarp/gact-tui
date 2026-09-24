@@ -284,6 +284,8 @@ export interface ProviderCatalogModel {
     parameter: string;
     levels: string[];
     default?: string;
+    /** `clio_shipped` when the default is CLIO's shipped level, not the model's own. */
+    default_source?: string;
     source?: string;
   };
   native_tool_calling: boolean;

@@ -4,8 +4,10 @@ import { REASONING_EFFORTS, type ReasoningEffort } from '@clio/core/v3';
 export interface ModelReasoningLevels {
   /** Levels a person can choose, ascending. Empty means there is nothing to choose. */
   levels: ReasoningEffort[];
-  /** The model's own level when its provider names one. */
+  /** The default level when one is named. */
   default?: ReasoningEffort;
+  /** True when `default` is CLIO's shipped level, not the model's own. */
+  defaultIsShipped?: boolean;
 }
 
 /** The effort as a contract value, or nothing when this build has no setting for it. */
@@ -19,12 +21,27 @@ export function knownReasoningEffort(value?: string | null): ReasoningEffort | u
  * could not be sent — rather than being mapped onto a neighbour.
  */
 export function modelReasoningLevels(
-  reasoning: { levels: readonly string[]; default?: string } | undefined,
+  reasoning: { levels: readonly string[]; default?: string; default_source?: string } | undefined,
 ): ModelReasoningLevels | undefined {
   if (!reasoning) return undefined;
   const levels = REASONING_EFFORTS.filter((effort) => reasoning.levels.includes(effort));
   const fallback = knownReasoningEffort(reasoning.default);
-  return { levels, default: fallback && levels.includes(fallback) ? fallback : undefined };
+  const known = fallback && levels.includes(fallback) ? fallback : undefined;
+  return {
+    levels,
+    default: known,
+    defaultIsShipped: Boolean(known) && reasoning.default_source === 'clio_shipped',
+  };
+}
+
+/**
+ * The label of an unpicked control's default: "Model default (X)" only for the
+ * model's own default; CLIO's shipped level reads "Default (X)".
+ */
+export function modelDefaultLabel(reasoning: ModelReasoningLevels | undefined): string {
+  if (!reasoning?.default) return 'Model default';
+  const name = REASONING_EFFORT_LABELS[reasoning.default];
+  return reasoning.defaultIsShipped ? `Default (${name})` : `Model default (${name})`;
 }
 
 /**
@@ -52,9 +69,7 @@ export function defaultReasoningLabel(
   if (level && reasoning?.levels.includes(level)) {
     return `Default (${REASONING_EFFORT_LABELS[level]})`;
   }
-  return reasoning?.default
-    ? `Model default (${REASONING_EFFORT_LABELS[reasoning.default]})`
-    : 'Model default';
+  return modelDefaultLabel(reasoning);
 }
 
 /** Product names for every level the message contract defines. */

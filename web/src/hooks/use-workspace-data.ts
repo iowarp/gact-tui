@@ -441,8 +441,12 @@ export function useWorkspaceData({
   // Only a level a person chose for this session is sent with messages; the
   // configured global level is displayed by the composer and applied server-side.
   const activeEffort = session?.effort;
+  // Only a level a person configured is named as such; a shipped default is
+  // the model's (the composer labels it from the catalog).
   const configuredEffort =
-    modelConfiguration.data?.thinking_level ?? capabilities.data?.active_model?.effort;
+    modelConfiguration.data?.thinking_level_source === 'user'
+      ? modelConfiguration.data.thinking_level
+      : undefined;
   const activeBlueprint = resolveActiveBlueprint(session, agentBlueprints.data);
   const contextAgentLabel = activeBlueprint?.display_name ?? session?.agent_id;
   const contextTargetOptions = buildContextTargets(sessionId, contextAgentLabel, subagents);
