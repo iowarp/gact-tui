@@ -1,4 +1,4 @@
-import { mergeA2uiClientMetadata } from '@clio/core/v3';
+import { decodeA2uiCatalogRows, mergeA2uiClientMetadata, TransportError } from '@clio/core/v3';
 import type { A2UISurface } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
@@ -9,6 +9,7 @@ import {
 } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
 import { ClioA2UISurface } from '@/components/clio/a2ui-surface';
+import { registrySnapshotSync } from './registry-store';
 
 const repository = vi.hoisted(() => ({
   a2uiAction: vi.fn().mockResolvedValue({ status: 'accepted' }),
@@ -19,7 +20,7 @@ const repository = vi.hoisted(() => ({
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 beforeEach(() => {
-  repository.a2uiCatalogs.mockResolvedValue([CLIO_WORKSPACE_CATALOG_ROW]);
+  repository.a2uiCatalogs.mockResolvedValue({ rows: [CLIO_WORKSPACE_CATALOG_ROW], rejected: [] });
   repository.a2uiCapabilities.mockResolvedValue({
     agent: { 'v0.9': { supportedCatalogIds: [CLIO_WORKSPACE_CATALOG_ROW.catalogId] } },
     client: null,
@@ -190,7 +191,7 @@ describe('a2uiClientDataModel aggregation (S6 item 3)', () => {
 });
 
 describe('graceful degradation when the registry routes 404 (S1 item 3, supersedes S6 item 2a)', () => {
-  it('fetches each route exactly once, advertises NO catalogs, and records the reason', async () => {
+  it('fetches each route exactly once, advertises NO catalogs, and records a route_unavailable reason', async () => {
     // S1 item 3 (no-silent-fallback): a broken registry route used to still
     // advertise the client's own well-known fallback ids
     // (`[clio-workspace, basic]`), which happened to intersect a session's
@@ -200,7 +201,12 @@ describe('graceful degradation when the registry routes 404 (S1 item 3, supersed
     // unavailable" reported alongside a successful-looking tool result.
     // Advertising an EMPTY list instead makes the server refuse with a typed
     // `a2ui_catalog_no_client_match` reason, never a false `created: true`.
-    const notFound = () => Promise.reject(new Error('404'));
+    //
+    // A real `TransportError(404)` -- not a plain `Error` -- is what the
+    // browser transport actually throws for a 404 response
+    // (`web/src/lib/transport/browser-transport.ts`); a plain `Error` would
+    // misclassify as `decode_failed` (S1 adversarial follow-up).
+    const notFound = () => Promise.reject(new TransportError('Not Found', 404));
     repository.a2uiCatalogs.mockImplementation(notFound);
     repository.a2uiCapabilities.mockImplementation(notFound);
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -229,6 +235,113 @@ describe('graceful degradation when the registry routes 404 (S1 item 3, supersed
     expect(repository.a2uiCatalogs).toHaveBeenCalledTimes(1);
     expect(repository.a2uiCapabilities).toHaveBeenCalledTimes(1);
     expect(consoleError).not.toHaveBeenCalled();
+
+    // Inspectable: the REAL typed cause, not a bare "unavailable" bool.
+    const reason = registrySnapshotSync('sess_old_server').registry.reasonFor(
+      CLIO_WORKSPACE_CATALOG_ROW.catalogId,
+    );
+    expect(reason?.code).toBe('a2ui_catalog_route_unavailable');
+    expect(reason?.detail).toContain('does not support');
+  });
+
+  it('retries a transient network error and, once it recovers, resolves normally', async () => {
+    // S1 item 3: `retry: false` made a single transient network blip stick
+    // for the whole `staleTime: 60_000` window. A `network_error` (a
+    // status-less TransportError -- a real fetch failure, not a 404) must be
+    // retried instead of immediately degrading the session.
+    let calls = 0;
+    repository.a2uiCatalogs.mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(
+          new TransportError('Unable to reach the service', undefined, 'network_unavailable'),
+        );
+      }
+      return Promise.resolve({ rows: [CLIO_WORKSPACE_CATALOG_ROW], rejected: [] });
+    });
+
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <A2uiSessionRegistryOwner sessionId="sess_flaky">
+          <div>waiting</div>
+        </A2uiSessionRegistryOwner>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(
+      () => {
+        const metadata = mergeA2uiClientMetadata('sess_flaky', undefined);
+        expect(metadata?.a2uiClientCapabilities).toMatchObject({
+          'v0.9': { supportedCatalogIds: [CLIO_WORKSPACE_CATALOG_ROW.catalogId] },
+        });
+      },
+      { timeout: 5000 },
+    );
+    expect(calls).toBeGreaterThan(1);
+    // Recovered -- no lingering "route unavailable" reason on the builtin.
+    expect(
+      registrySnapshotSync('sess_flaky').registry.reasonFor(CLIO_WORKSPACE_CATALOG_ROW.catalogId),
+    ).toBeUndefined();
+  });
+
+  it('records a typed network_error (never "does not support") for a persistent 500', async () => {
+    const serverError = () => Promise.reject(new TransportError('Internal Server Error', 500));
+    repository.a2uiCatalogs.mockImplementation(serverError);
+    repository.a2uiCapabilities.mockImplementation(serverError);
+
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <A2uiSessionRegistryOwner sessionId="sess_500">
+          <div>degraded</div>
+        </A2uiSessionRegistryOwner>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(
+      () => {
+        const reason = registrySnapshotSync('sess_500').registry.reasonFor(
+          CLIO_WORKSPACE_CATALOG_ROW.catalogId,
+        );
+        expect(reason?.code).toBe('a2ui_catalog_network_error');
+      },
+      { timeout: 15_000 },
+    );
+    const reason = registrySnapshotSync('sess_500').registry.reasonFor(
+      CLIO_WORKSPACE_CATALOG_ROW.catalogId,
+    );
+    expect(reason?.detail).not.toContain('does not support');
+    // A real transient-looking failure IS retried, unlike a plain 404.
+    expect(repository.a2uiCatalogs.mock.calls.length).toBeGreaterThan(1);
+  }, 20_000);
+
+  it('records a decode_failed reason (never retried) when the response will not decode', async () => {
+    // The transport call itself succeeds; `decode()` is what throws (the
+    // top-level shape is broken, not one bad row -- `decodeA2uiCatalogRows`
+    // tolerates a single bad ROW, but not the whole `catalogs` field being
+    // the wrong type). Calls the REAL production decode function against a
+    // malformed payload rather than hand-rolling the throw.
+    repository.a2uiCatalogs.mockImplementation(async () => decodeA2uiCatalogRows('not-an-array'));
+
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <A2uiSessionRegistryOwner sessionId="sess_decode_failed">
+          <div>degraded</div>
+        </A2uiSessionRegistryOwner>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      const reason = registrySnapshotSync('sess_decode_failed').registry.reasonFor(
+        CLIO_WORKSPACE_CATALOG_ROW.catalogId,
+      );
+      expect(reason?.code).toBe('a2ui_catalog_decode_failed');
+    });
+    // Give any (incorrect) retry a chance to fire before asserting the count.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(repository.a2uiCatalogs).toHaveBeenCalledTimes(1);
   });
 });
 

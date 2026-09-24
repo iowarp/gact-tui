@@ -6,6 +6,7 @@ import {
   A2uiCatalogRegistry,
   a2uiCatalogRowListSchema,
   buildA2uiCatalog,
+  decodeA2uiCatalogRows,
   type A2uiCatalogRow,
   type A2uiCatalogSidecar,
   type A2uiKernelRegistry,
@@ -182,6 +183,56 @@ describe('A2uiCatalogRegistry', () => {
     registry.load([]);
     expect(registry.get(row().catalogId)).toBeUndefined();
     expect(registry.supportedCatalogIds()).toEqual([]);
+  });
+
+  it('records a rejected row as catalog_row_invalid, inspectable via reasonFor, without touching valid rows (S1 adversarial follow-up)', () => {
+    const registry = new A2uiCatalogRegistry(KERNEL);
+    registry.load(
+      [row({ catalogId: 'https://example.test/catalogs/basic' })],
+      [{ catalogId: 'https://packs.example/broken/v1', detail: 'sidecar.trust: Required' }],
+    );
+    expect(registry.get('https://example.test/catalogs/basic')).toBeDefined();
+    const reason = registry.reasonFor('https://packs.example/broken/v1');
+    expect(reason?.code).toBe('catalog_row_invalid');
+    expect(reason?.detail).toBe('sidecar.trust: Required');
+  });
+});
+
+describe('decodeA2uiCatalogRows (S1 adversarial follow-up: one bad row never wipes the list)', () => {
+  it('keeps every valid row, including the builtins, when one row fails schema validation', () => {
+    const validBasic = row({ catalogId: 'https://example.test/catalogs/basic' });
+    const validWorkspace = row({ catalogId: 'https://example.test/catalogs/workspace' });
+    const brokenRow = { catalogId: 'https://packs.example/broken/v1' }; // missing every other required field
+
+    const result = decodeA2uiCatalogRows([validBasic, brokenRow, validWorkspace]);
+
+    expect(result.rows.map((r) => r.catalogId)).toEqual([
+      validBasic.catalogId,
+      validWorkspace.catalogId,
+    ]);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.rejected[0]?.catalogId).toBe('https://packs.example/broken/v1');
+    expect(result.rejected[0]?.detail).toBeTruthy();
+  });
+
+  it('names the row by index when even catalogId is unreadable', () => {
+    const result = decodeA2uiCatalogRows([{ nothing: 'useful' }, 42, null]);
+    expect(result.rows).toEqual([]);
+    expect(result.rejected.map((r) => r.catalogId)).toEqual([
+      'unknown:0',
+      'unknown:1',
+      'unknown:2',
+    ]);
+  });
+
+  it('returns an empty result for an empty array (no catalogs installed is not an error)', () => {
+    expect(decodeA2uiCatalogRows([])).toEqual({ rows: [], rejected: [] });
+  });
+
+  it('throws when the top-level shape itself is not an array (a genuine decode failure, not a bad row)', () => {
+    expect(() => decodeA2uiCatalogRows('not-an-array')).toThrow();
+    expect(() => decodeA2uiCatalogRows(undefined)).toThrow();
+    expect(() => decodeA2uiCatalogRows({ catalogs: [] })).toThrow();
   });
 });
 

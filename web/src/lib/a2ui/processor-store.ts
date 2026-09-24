@@ -16,6 +16,7 @@ import type { ReactComponentImplementation } from '@a2ui/react/v0_9';
 import { useQueries } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
+import { classifyA2uiRegistryFailure, shouldRetryA2uiRegistryFailure } from './registry-failure';
 import {
   collectA2uiClientDataModelSurfaces,
   disposeA2uiSessionRegistry,
@@ -55,12 +56,19 @@ export function useA2uiSessionRegistry(sessionIds: readonly string[]): void {
   const uniqueIds = [...new Set(sessionIds.filter((id): id is string => Boolean(id)))];
   const uniqueIdsKey = uniqueIds.join('\u0000');
 
+  // `retry: shouldRetryA2uiRegistryFailure` (S1 adversarial follow-up): a
+  // transient network blip must not stick for the session's whole
+  // `staleTime: 60_000` window the way an unconditional `retry: false` did --
+  // it retries a real `network_error` a few times with the library's own
+  // exponential backoff, but never a `route_unavailable` (404/501, an older
+  // server) or a `decode_failed` (a malformed response will not decode
+  // differently on a second try).
   const rowsQueries = useQueries({
     queries: uniqueIds.map((id) => ({
       queryKey: ['a2ui-catalogs', id],
       queryFn: ({ signal }) => repository.a2uiCatalogs(id, signal),
       staleTime: 60_000,
-      retry: false,
+      retry: shouldRetryA2uiRegistryFailure,
     })),
   });
   const capsQueries = useQueries({
@@ -68,7 +76,7 @@ export function useA2uiSessionRegistry(sessionIds: readonly string[]): void {
       queryKey: ['a2ui-capabilities', id],
       queryFn: ({ signal }) => repository.a2uiCapabilities(id, signal),
       staleTime: 60_000,
-      retry: false,
+      retry: shouldRetryA2uiRegistryFailure,
     })),
   });
 
@@ -91,16 +99,26 @@ export function useA2uiSessionRegistry(sessionIds: readonly string[]): void {
       const capsQuery = capsQueries[index];
       if (!rowsQuery || !capsQuery) return;
       if (rowsQuery.isError || capsQuery.isError) {
-        // Handled once here, not thrown further: an older server without
-        // A2UI support (or a real network failure) degrades to a typed,
-        // recorded reason -- never a retry loop or a console error.
-        markA2uiSessionRouteUnavailable(
-          id,
-          'The session server does not support the A2UI catalog registry routes.',
+        // Handled once here, not thrown further: the REAL typed cause
+        // (route_unavailable / decode_failed / network_error) is recorded,
+        // not one blanket "server does not support the routes" message that
+        // used to fire for a transient 500 or a malformed response exactly
+        // the same as a genuine 404 from an older server (S1 adversarial
+        // follow-up, `registry-failure.ts`). Prefers the catalogs query's
+        // own error when both failed -- it is the one this session's
+        // surfaces actually render from.
+        const failure = classifyA2uiRegistryFailure(
+          rowsQuery.isError ? rowsQuery.error : capsQuery.error,
         );
+        markA2uiSessionRouteUnavailable(id, failure.code, failure.detail);
         return;
       }
-      loadA2uiSessionCatalogs(id, rowsQuery.data, rowsQuery.isLoading && !rowsQuery.data);
+      loadA2uiSessionCatalogs(
+        id,
+        rowsQuery.data?.rows,
+        rowsQuery.data?.rejected,
+        rowsQuery.isLoading && !rowsQuery.data,
+      );
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uniqueIdsKey, rowsFingerprint, capsFingerprint]);

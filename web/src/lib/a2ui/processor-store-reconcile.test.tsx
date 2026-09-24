@@ -3,7 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLIO_A2UI_CATALOG_ID, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
+import {
+  CLIO_A2UI_CATALOG_ID,
+  CLIO_WORKSPACE_CATALOG_ROW,
+} from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
 import { ClioA2UISurface } from '@/components/clio/a2ui-surface';
 import { useLiveStore } from '@/store/live-store';
@@ -18,7 +21,7 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 beforeEach(() => {
   useLiveStore.getState().reset();
-  repository.a2uiCatalogs.mockResolvedValue([CLIO_WORKSPACE_CATALOG_ROW]);
+  repository.a2uiCatalogs.mockResolvedValue({ rows: [CLIO_WORKSPACE_CATALOG_ROW], rejected: [] });
   repository.a2uiCapabilities.mockResolvedValue({
     agent: { 'v0.9': { supportedCatalogIds: [CLIO_WORKSPACE_CATALOG_ROW.catalogId] } },
     client: null,
@@ -42,7 +45,10 @@ const createMessage = {
   version: 'v0.9.1',
   createSurface: { surfaceId: SURFACE_ID, catalogId: CLIO_A2UI_CATALOG_ID },
 };
-const bindMessage = { version: 'v0.9.1', updateDataModel: { surfaceId: SURFACE_ID, path: '/name', value: '' } };
+const bindMessage = {
+  version: 'v0.9.1',
+  updateDataModel: { surfaceId: SURFACE_ID, path: '/name', value: '' },
+};
 const fieldMessage = {
   version: 'v0.9.1',
   updateComponents: {
@@ -105,7 +111,9 @@ function LiveA2uiSurfaceHarness() {
   const surface = useLiveStore((state) => state.entities.surfaces[SURFACE_ID]);
   if (!surface) return null;
   return (
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { mutations: { retry: false } } })}>
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { mutations: { retry: false } } })}
+    >
       <A2uiSessionRegistryOwner sessionId={SESSION_ID}>
         <ClioA2UISurface surface={surface} />
       </A2uiSessionRegistryOwner>
@@ -126,9 +134,9 @@ function LiveA2uiSurfaceHarness() {
 describe('processor store survives a live-store reconcile whose surface differs from the streamed prefix', () => {
   it('applies exactly the new tail when the reconciled surface has an EXTRA message, keeping typed text', async () => {
     const user = userEvent.setup();
-    useLiveStore.getState().applyFrames([
-      surfaceFrame('1', a2uiSurface([createMessage, bindMessage, fieldMessage], 1)),
-    ]);
+    useLiveStore
+      .getState()
+      .applyFrames([surfaceFrame('1', a2uiSurface([createMessage, bindMessage, fieldMessage], 1))]);
 
     render(<LiveA2uiSurfaceHarness />);
     const input = await screen.findByLabelText('Name');
@@ -158,9 +166,9 @@ describe('processor store survives a live-store reconcile whose surface differs 
 
   it('does not crash or double-apply when the reconciled surface has FEWER messages', async () => {
     const user = userEvent.setup();
-    useLiveStore.getState().applyFrames([
-      surfaceFrame('1', a2uiSurface([createMessage, bindMessage, fieldMessage], 1)),
-    ]);
+    useLiveStore
+      .getState()
+      .applyFrames([surfaceFrame('1', a2uiSurface([createMessage, bindMessage, fieldMessage], 1))]);
 
     render(<LiveA2uiSurfaceHarness />);
     const input = await screen.findByLabelText('Name');
@@ -206,9 +214,11 @@ describe('processor store survives a live-store reconcile whose surface differs 
         ],
       },
     };
-    useLiveStore.getState().applyFrames([
-      surfaceFrame('1', a2uiSurface([createMessage, bindMessage, submitMessage], 1)),
-    ]);
+    useLiveStore
+      .getState()
+      .applyFrames([
+        surfaceFrame('1', a2uiSurface([createMessage, bindMessage, submitMessage], 1)),
+      ]);
 
     render(<LiveA2uiSurfaceHarness />);
     await user.click(await screen.findByRole('button', { name: 'Continue' }));
