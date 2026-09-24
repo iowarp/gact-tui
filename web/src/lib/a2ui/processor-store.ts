@@ -105,14 +105,26 @@ export function useA2uiSessionRegistry(sessionIds: readonly string[]): void {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uniqueIdsKey, rowsFingerprint, capsFingerprint]);
 
+  // Dispose only the ids that LEFT the set. Disposing a still-referenced id
+  // (e.g. the open session when a child session joins) would delete the
+  // entry mounted surfaces are subscribed to and drop their registered
+  // processors -- they would never see the reloaded registry.
+  const ownedIdsRef = useRef<string[]>([]);
   useLayoutEffect(() => {
-    const ids = uniqueIds;
-    return () => {
-      setA2uiClientMetadataProvider(undefined);
-      for (const id of ids) disposeA2uiSessionRegistry(id);
-    };
+    const current = new Set(uniqueIds);
+    for (const id of ownedIdsRef.current) {
+      if (!current.has(id)) disposeA2uiSessionRegistry(id);
+    }
+    ownedIdsRef.current = uniqueIds;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uniqueIdsKey]);
+  useLayoutEffect(
+    () => () => {
+      setA2uiClientMetadataProvider(undefined);
+      for (const id of ownedIdsRef.current) disposeA2uiSessionRegistry(id);
+    },
+    [],
+  );
 
   useLayoutEffect(() => {
     if (uniqueIds.length === 0) return;

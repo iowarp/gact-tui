@@ -261,4 +261,57 @@ describe('the registry owner fetches every session a mounted surface references 
       });
     });
   });
+
+  it('keeps a mounted surface registered when a child session joins the referenced set', async () => {
+    // A child session appearing mid-conversation grows the id set. Disposing
+    // every owned id on that change would delete the primary session's entry
+    // -- dropping the mounted surface's registered processor (its data model
+    // vanishes from the advertisement) and orphaning its subscription.
+    const surface: A2UISurface = {
+      ...textSurface('surface_dm_join', 'sess_join', 'unused'),
+      messages: [
+        {
+          version: 'v0.9.1',
+          createSurface: {
+            surfaceId: 'surface_dm_join',
+            catalogId: CLIO_A2UI_CATALOG_ID,
+            sendDataModel: true,
+          },
+        },
+        {
+          version: 'v0.9.1',
+          updateComponents: {
+            surfaceId: 'surface_dm_join',
+            components: [{ id: 'root', component: 'TextField', label: 'Name', value: 'Alice' }],
+          },
+        },
+      ],
+    };
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    function Scene({ ids }: { ids: string[] }) {
+      return (
+        <QueryClientProvider client={client}>
+          <A2uiSessionRegistryOwner sessionId={ids}>
+            <ClioA2UISurface surface={surface} />
+          </A2uiSessionRegistryOwner>
+        </QueryClientProvider>
+      );
+    }
+    const { rerender } = render(<Scene ids={['sess_join']} />);
+    await screen.findByLabelText('Name');
+    const dataModel = () =>
+      mergeA2uiClientMetadata('sess_join', undefined, { includeDataModel: true })
+        ?.a2uiClientDataModel;
+    await waitFor(() => expect(dataModel()).toBeDefined());
+
+    rerender(<Scene ids={['sess_join', 'sess_join_child']} />);
+
+    await waitFor(() =>
+      expect(
+        mergeA2uiClientMetadata('sess_join_child', undefined)?.a2uiClientCapabilities,
+      ).toBeDefined(),
+    );
+    expect(screen.getByLabelText('Name')).toBeVisible();
+    expect(dataModel()).toMatchObject({ surfaces: { surface_dm_join: expect.anything() } });
+  });
 });
