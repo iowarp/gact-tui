@@ -34,6 +34,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ClioA2UISurface } from './a2ui-surface';
+import { ExternalLink } from '@/components/ui/external-link';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { ClioArtifactAttachments, ClioArtifactCard } from './artifact-card';
 import type { ClioConversationProps } from './conversation-types';
@@ -264,15 +265,13 @@ function MessageBlockView({
       );
     case 'citation':
       return (
-        <a
+        <ExternalLink
           className="inline-flex items-center gap-1.5 text-sm text-primary underline-offset-4 hover:underline"
           href={block.uri}
-          rel="noreferrer"
-          target="_blank"
         >
           {block.label}
           <ExternalLinkIcon aria-hidden="true" className="size-3" />
-        </a>
+        </ExternalLink>
       );
     case 'diff':
       return (

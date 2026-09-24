@@ -16,8 +16,13 @@ const repository = vi.hoisted(() => ({
   a2uiCatalogs: vi.fn(),
   a2uiCapabilities: vi.fn(),
 }));
+const external = vi.hoisted(() => ({ openExternalUrl: vi.fn() }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+// The kernel's openUrl function opens through this bridge, not window.open
+// directly (window.open never reached the OS browser inside the desktop
+// shell — see gact-tui#<external-links>), so these tests assert against it.
+vi.mock('@/tauri/external-url', () => ({ openExternalUrl: external.openExternalUrl }));
 
 beforeEach(() => {
   repository.a2uiCatalogs.mockResolvedValue({ rows: [CLIO_WORKSPACE_CATALOG_ROW], rejected: [] });
@@ -26,6 +31,8 @@ beforeEach(() => {
     client: null,
     selection: null,
   });
+  external.openExternalUrl.mockReset();
+  external.openExternalUrl.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -122,17 +129,17 @@ function renderA2uiSurface(surface: A2UISurface) {
  */
 describe('kernel openUrl allowlist (owner decision 11)', () => {
   it('opens an allowed https: URL', async () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     const surface = buildOpenUrlSurface('https://iowarp.ai/docs');
 
     render(<A2uiSurface surface={surface} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
 
-    expect(openSpy).toHaveBeenCalledWith('https://iowarp.ai/docs', '_blank', 'noopener,noreferrer');
+    await vi.waitFor(() =>
+      expect(external.openExternalUrl).toHaveBeenCalledWith('https://iowarp.ai/docs'),
+    );
   });
 
   it('blocks a plain http: URL instead of opening it', async () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     const surface = buildOpenUrlSurface('http://iowarp.ai/docs');
     const onError = vi.fn();
     surface.onError.subscribe(onError);
@@ -140,7 +147,7 @@ describe('kernel openUrl allowlist (owner decision 11)', () => {
     render(<A2uiSurface surface={surface} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
 
-    expect(openSpy).not.toHaveBeenCalled();
+    expect(external.openExternalUrl).not.toHaveBeenCalled();
     expect(onError).toHaveBeenCalledWith(
       expect.objectContaining({
         code: 'VALIDATION_FAILED',
@@ -150,7 +157,6 @@ describe('kernel openUrl allowlist (owner decision 11)', () => {
   });
 
   it('blocks a non-http(s) scheme such as javascript:', async () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     // eslint-disable-next-line no-script-url -- proving the allowlist blocks it, never executed
     const surface = buildOpenUrlSurface('javascript:alert(1)');
     const onError = vi.fn();
@@ -159,8 +165,24 @@ describe('kernel openUrl allowlist (owner decision 11)', () => {
     render(<A2uiSurface surface={surface} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
 
-    expect(openSpy).not.toHaveBeenCalled();
+    expect(external.openExternalUrl).not.toHaveBeenCalled();
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: 'VALIDATION_FAILED' }));
+  });
+
+  it('reports a failed open through the same wire-reportable code', async () => {
+    external.openExternalUrl.mockRejectedValue(new Error('The scope rejected this URL.'));
+    const surface = buildOpenUrlSurface('https://iowarp.ai/docs');
+    const onError = vi.fn();
+    surface.onError.subscribe(onError);
+
+    render(<A2uiSurface surface={surface} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
+
+    await vi.waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'VALIDATION_FAILED', message: 'The scope rejected this URL.' }),
+      ),
+    );
   });
 });
 
@@ -173,27 +195,26 @@ describe('kernel openUrl allowlist (owner decision 11)', () => {
  */
 describe('kernel openUrl allowlist — rendered card (owner decision 11)', () => {
   it('opens an allowed https: URL without any local notice', async () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     renderA2uiSurface(openUrlA2uiSurface('https://iowarp.ai/docs'));
 
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
 
-    expect(openSpy).toHaveBeenCalledWith('https://iowarp.ai/docs', '_blank', 'noopener,noreferrer');
+    await vi.waitFor(() =>
+      expect(external.openExternalUrl).toHaveBeenCalledWith('https://iowarp.ai/docs'),
+    );
     expect(screen.queryByText(/not an allowed URL scheme/u)).not.toBeInTheDocument();
   });
 
   it('words a blocked http: click in the card instead of leaving it silent', async () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     renderA2uiSurface(openUrlA2uiSurface('http://iowarp.ai/docs'));
 
     fireEvent.click(await screen.findByRole('button', { name: 'Open' }));
 
-    expect(openSpy).not.toHaveBeenCalled();
+    expect(external.openExternalUrl).not.toHaveBeenCalled();
     expect(await screen.findByText(/"http:" is not an allowed URL scheme/u)).toBeVisible();
   });
 
   it('still posts the VALIDATION_FAILED report to the wire alongside the worded notice', async () => {
-    vi.spyOn(window, 'open').mockImplementation(() => null);
     const surface = openUrlA2uiSurface('http://iowarp.ai/docs');
     renderA2uiSurface(surface);
 

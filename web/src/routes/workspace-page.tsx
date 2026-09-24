@@ -51,6 +51,7 @@ import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { showsBaseAgent } from '@/lib/session-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
+import { openExternalUrlOrToast } from '@/tauri/external-url';
 
 function TranscriptPresenceSurface({
   children,
@@ -225,7 +226,7 @@ export function WorkspacePage() {
           diffs: sessionObservability.diffs.data ?? [],
           openArtifact,
           openDiff,
-          openExternal: (uri) => window.open(uri, '_blank', 'noopener,noreferrer'),
+          openExternal: openExternalUrlOrToast,
           openSession: (targetWorkspaceId, targetSessionId) =>
             void navigate(
               `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(targetSessionId)}`,

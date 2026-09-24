@@ -242,6 +242,29 @@ test('default capability JSON is present', () => {
   assert.ok(Array.isArray(caps.permissions));
 });
 
+test('opener capability covers external web and mail links, not just Globus', () => {
+  // gact-tui#<external-links>: the opener plugin's `open_js_links_on_click`
+  // (enabled by tauri_plugin_opener::init() in src/lib.rs) intercepts every
+  // target="_blank"/ctrl-click/shift-click anchor and re-dispatches it
+  // through `plugin:opener|open_url`. When the scope only allowed
+  // `https://auth.globus.org/*`, every other external link (docs, release
+  // notes, citations, mailto:) silently failed: the scope rejected the
+  // command and the rejection went unhandled. The scope must cover the
+  // schemes the app actually opens.
+  const caps = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'capabilities', 'default.json'), 'utf8'),
+  );
+  const openUrlPermission = caps.permissions.find(
+    (permission) =>
+      typeof permission === 'object' && permission.identifier === 'opener:allow-open-url',
+  );
+  assert.ok(openUrlPermission, 'expected an opener:allow-open-url permission entry');
+  const allowedUrls = openUrlPermission.allow.map((entry) => entry.url);
+  assert.ok(allowedUrls.includes('https://*'), 'expected https://* to be allowed');
+  assert.ok(allowedUrls.includes('http://*'), 'expected http://* to be allowed');
+  assert.ok(allowedUrls.includes('mailto:*'), 'expected mailto:* to be allowed');
+});
+
 test('tauri.conf.json is neutral and does not bundle a managed sidecar by default', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   assert.ok(Array.isArray(cfg.bundle.externalBin), 'expected bundle.externalBin to be an array');

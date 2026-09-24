@@ -9,6 +9,7 @@ import {
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { ExternalLink } from '@/components/ui/external-link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -22,7 +23,6 @@ import {
   installDesktopUpdate,
   subscribeDesktopUpdate,
 } from '@/tauri/desktop-updater';
-import { openExternalUrl } from '@/tauri/external-url';
 import { restartClio, updateManagedClio } from '@/tauri/managed-backend';
 
 type VersionState = 'checking' | 'current' | 'available' | 'error';
@@ -176,14 +176,13 @@ export function SystemVersionStatus() {
         <VersionRow
           currentVersion={agentVersion}
           label={vocab.agent}
-          onOpenRelease={
-            brand.agentReleaseUrl && agentVersion
-              ? () =>
-                  void openExternalUrl(`${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`)
-              : undefined
-          }
           onRecheck={() => void recheck()}
           onUpdate={agentUpdateAvailable ? () => void performUpdate('agent') : undefined}
+          releaseUrl={
+            brand.agentReleaseUrl && agentVersion
+              ? `${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`
+              : undefined
+          }
           state={capabilities.isError ? 'error' : agentUpdateAvailable ? 'available' : 'current'}
           targetVersion={agentUpdateAvailable ? targetVersion : undefined}
           updating={updating === 'agent'}
@@ -191,16 +190,13 @@ export function SystemVersionStatus() {
         <VersionRow
           currentVersion={displayedDesktopVersion}
           label={vocab.product}
-          onOpenRelease={
-            brand.desktopReleaseUrl && displayedDesktopVersion
-              ? () =>
-                  void openExternalUrl(
-                    `${brand.desktopReleaseUrl}/tag/${releaseTag(displayedDesktopVersion)}`,
-                  )
-              : undefined
-          }
           onRecheck={() => void recheck()}
           onUpdate={desktopUpdateAvailable ? () => void performUpdate('desktop') : undefined}
+          releaseUrl={
+            brand.desktopReleaseUrl && displayedDesktopVersion
+              ? `${brand.desktopReleaseUrl}/tag/${releaseTag(displayedDesktopVersion)}`
+              : undefined
+          }
           state={
             desktopUpdateAvailable ? 'available' : snapshot.status === 'error' ? 'error' : 'current'
           }
@@ -215,33 +211,37 @@ export function SystemVersionStatus() {
 function VersionRow({
   currentVersion,
   label,
-  onOpenRelease,
   onRecheck,
   onUpdate,
+  releaseUrl,
   state,
   targetVersion,
   updating,
 }: {
   currentVersion?: string;
   label: string;
-  onOpenRelease?: () => void;
   onRecheck: () => void;
   onUpdate?: () => void;
+  releaseUrl?: string;
   state: Exclude<VersionState, 'checking'>;
   targetVersion?: string;
   updating: boolean;
 }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-3 [&:not(:last-child)]:border-b">
-      <button
-        className="flex min-w-0 items-center gap-1.5 text-left font-medium hover:underline disabled:no-underline"
-        disabled={!onOpenRelease}
-        onClick={onOpenRelease}
-        type="button"
-      >
-        <span className="truncate">{label}</span>
-        {onOpenRelease ? <ExternalLinkIcon aria-hidden="true" className="size-3" /> : null}
-      </button>
+      {releaseUrl ? (
+        <ExternalLink
+          className="flex min-w-0 items-center gap-1.5 font-medium hover:underline"
+          href={releaseUrl}
+        >
+          <span className="truncate">{label}</span>
+          <ExternalLinkIcon aria-hidden="true" className="size-3" />
+        </ExternalLink>
+      ) : (
+        <span className="flex min-w-0 items-center gap-1.5 font-medium">
+          <span className="truncate">{label}</span>
+        </span>
+      )}
       <VersionAction
         disabled={updating}
         label={onUpdate ? 'Update' : state === 'error' ? 'Recheck' : 'Up to date'}
