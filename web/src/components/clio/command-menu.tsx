@@ -73,8 +73,23 @@ export function ClioCommandMenu({
     queryFn: ({ signal }) => repository.allSessions(signal),
   });
   const files = useQuery({
-    queryKey: queryKeys.key('workspace-files', settings.endpoint, workspaceId),
-    queryFn: ({ signal }) => repository.workspaceFiles(workspaceId, signal),
+    // The `@`-picker excludes ONLY CLIO's own .clio/.clio-* service storage
+    // (exclude_service_storage), independent of the Files-view-only "Hide dot
+    // files and folders" toggle — an ordinary dotfile like .gitignore or
+    // .github/workflows/ci.yml must stay @-mentionable, but referencing a
+    // workspace's own agent state in a message is not what this picker is for.
+    // The 4th key part spells out the exact param (not a bare boolean) so this
+    // can never collide with the Files view's differently parameterized
+    // include_hidden variant; the base ['workspace-files', endpoint,
+    // workspaceId] prefix stays intact so it still gets invalidated on writes.
+    queryKey: queryKeys.key(
+      'workspace-files',
+      settings.endpoint,
+      workspaceId,
+      'exclude_service_storage=true',
+    ),
+    queryFn: ({ signal }) =>
+      repository.workspaceFiles(workspaceId, signal, { excludeServiceStorage: true }),
     enabled: Boolean(workspaceId),
   });
   const memory = useQuery({
@@ -116,7 +131,7 @@ export function ClioCommandMenu({
   const matchingFiles = useMemo(
     () =>
       normalizedQuery
-        ? (files.data ?? [])
+        ? (files.data?.entries ?? [])
             .filter(
               (file) =>
                 file.type === 'file' && file.path.toLocaleLowerCase().includes(normalizedQuery),

@@ -1503,12 +1503,17 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/workspaces/${workspaceId}/files`) {
+    // Matched on pathname only (query params like include_hidden /
+    // exclude_service_storage never affect this fixture's response), but
+    // `truncated` is still included so the response shape matches the real
+    // server contract for any consumer that reads it.
     sendJson(response, {
       entries: [
         { path: 'results', type: 'dir' },
         { path: 'results/stations.csv', type: 'file', size: 2048 },
         { path: 'results/vertical-displacement.png', type: 'file', size: 8192 },
       ],
+      truncated: false,
     });
     return;
   }

@@ -269,10 +269,15 @@ test('file explorer reflows converted Markdown and keeps exact source accessible
     ' |\n\n' +
     'https://example.org/' +
     'long-reference-'.repeat(80);
-  await page.route('**/v1/workspaces/ws_flat_ndp/files', (route) =>
+  // The listing request always carries include_hidden/exclude_service_storage
+  // query params now (repository.ts workspaceFiles); match with `?*` or this
+  // route silently never intercepts and the test hangs waiting for a treeitem
+  // that never renders.
+  await page.route('**/v1/workspaces/ws_flat_ndp/files?*', (route) =>
     route.fulfill({
       json: {
         entries: [{ path: 'converted.md', type: 'file', size: content.length }],
+        truncated: false,
       },
     }),
   );

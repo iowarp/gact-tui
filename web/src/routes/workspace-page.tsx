@@ -612,9 +612,10 @@ export function WorkspacePage() {
             diffActionError={(diffActions.apply.error ?? diffActions.reject.error)?.message}
             diffActionPending={diffActions.apply.isPending || diffActions.reject.isPending}
             diffs={sessionObservability.diffs.data ?? []}
-            files={workspaceFiles.data ?? []}
+            files={workspaceFiles.data?.entries ?? []}
             filesError={workspaceFiles.error?.message}
             filesPending={workspaceFiles.isPending}
+            filesTruncated={workspaceFiles.data?.truncated ?? false}
             resources={workspaceResources.data ?? []}
             resourcesError={workspaceResources.error?.message}
             resourcesPending={workspaceResources.isPending}
