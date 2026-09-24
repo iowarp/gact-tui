@@ -28,16 +28,33 @@ export function modelReasoningLevels(
 }
 
 /**
- * The effort a message sends: the person's choice when the model offers it,
- * else the model's own default, else nothing (the configured level governs).
+ * The effort a message sends: the person's own pick when the selected model
+ * offers it, else nothing -- the service then applies the configured level (or
+ * the model's default). A default is shown, never sent.
  */
 export function effectiveReasoningEffort(
   chosen: ReasoningEffort | undefined,
   reasoning: ModelReasoningLevels | undefined,
 ): ReasoningEffort | undefined {
-  if (!reasoning?.levels.length) return undefined;
-  if (chosen && reasoning.levels.includes(chosen)) return chosen;
-  return reasoning.default;
+  if (!chosen || !reasoning?.levels.includes(chosen)) return undefined;
+  return chosen;
+}
+
+/**
+ * What an unpicked reasoning control displays: the configured level when the
+ * model offers it, else the model's own default.
+ */
+export function defaultReasoningLabel(
+  configured: string | undefined,
+  reasoning: ModelReasoningLevels | undefined,
+): string {
+  const level = knownReasoningEffort(configured);
+  if (level && reasoning?.levels.includes(level)) {
+    return `Default (${REASONING_EFFORT_LABELS[level]})`;
+  }
+  return reasoning?.default
+    ? `Model default (${REASONING_EFFORT_LABELS[reasoning.default]})`
+    : 'Model default';
 }
 
 /** Product names for every level the message contract defines. */

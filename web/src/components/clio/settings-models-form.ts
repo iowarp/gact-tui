@@ -113,7 +113,8 @@ export interface ModelSettingsUpdate {
   model: string;
   api_key?: string;
   provider_options: Record<string, string>;
-  thinking_level?: ReasoningEffort;
+  /** ``null`` clears the configured level back to the model's default. */
+  thinking_level?: ReasoningEffort | null;
   parallel?: number;
   context_length?: number;
   max_tokens?: number;
@@ -199,7 +200,7 @@ export function modelSettingsUpdate({
     provider_options: values.providerOptions,
   };
   if (values.apiKey) update.api_key = values.apiKey;
-  if (values.effort && values.effort !== seeded.effort) update.thinking_level = values.effort;
+  if (values.effort !== seeded.effort) update.thinking_level = values.effort || null;
   const parallel = changedNumber(values.parallel, seeded.parallel, { minimum: 0, integer: true });
   if (parallel !== undefined) update.parallel = parallel;
   const contextLength = changedNumber(values.contextLength, seeded.contextLength, {

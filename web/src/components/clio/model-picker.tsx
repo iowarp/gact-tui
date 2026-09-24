@@ -641,6 +641,10 @@ function toProviderGroup(group: {
  * here.
  */
 function providerConfigurationUrl(providerId: string, reported?: string): string {
+  // Older services advertised /settings/providers/<id>, a route this client does
+  // not have; map it to the query form.
+  const legacy = reported?.match(/^\/settings\/providers\/([^/?#]+)$/u);
+  if (legacy?.[1]) return `/settings/providers?provider=${legacy[1]}`;
   return reported || `/settings/providers?provider=${encodeURIComponent(providerId)}`;
 }
 

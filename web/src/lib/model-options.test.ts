@@ -363,7 +363,7 @@ describe('modelAvailabilityLabel', () => {
 });
 
 describe('buildModelOptions over a real last-good catalog', () => {
-  it('keeps ALCF models visible after a restart, dated and not selectable', async () => {
+  it('keeps ALCF models visible and selectable after a restart, dated', async () => {
     const { readFileSync } = await import('node:fs');
     const { resolve } = await import('node:path');
     const { providerCatalogSchema } = await import('@clio/core/v3');
@@ -384,7 +384,8 @@ describe('buildModelOptions over a real last-good catalog', () => {
 
     expect(metis.map((option) => option.id)).toContain('openai/gpt-oss-120b');
     for (const option of metis) {
-      expect(option.available).toBe(false);
+      // Prior evidence, not a failure: selectable, with its date shown.
+      expect(option.available).toBe(true);
       expect(option.availabilityDetail).toMatch(/^Last confirmed /u);
     }
   });

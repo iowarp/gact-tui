@@ -236,3 +236,23 @@ describe('providerSupportsRuntimeSizing', () => {
     expect(providerSupportsRuntimeSizing(undefined)).toBe(false);
   });
 });
+
+describe('modelSettingsUpdate reasoning level', () => {
+  const seeded = seedModelSettings({ configuration, preset, presetIsActive: true });
+
+  it('leaves an unchanged level out of the write (the service keeps it)', () => {
+    expect(modelSettingsUpdate({ preset, seeded, values: seeded })).not.toHaveProperty(
+      'thinking_level',
+    );
+  });
+
+  it('clears a configured level back to the model default with null', () => {
+    const update = modelSettingsUpdate({ preset, seeded, values: { ...seeded, effort: '' } });
+    expect(update.thinking_level).toBeNull();
+  });
+
+  it('writes a newly chosen level', () => {
+    const update = modelSettingsUpdate({ preset, seeded, values: { ...seeded, effort: 'max' } });
+    expect(update.thinking_level).toBe('max');
+  });
+});

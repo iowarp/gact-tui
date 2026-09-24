@@ -202,6 +202,30 @@ describe('ClioModelPicker', () => {
     expect(configurationLink.closest('[data-slot="cascader-nav"]')).not.toBeNull();
   });
 
+  it('maps a legacy /settings/providers/<id> link to the settings route', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={options.map((option) =>
+            option.providerId === 'codex'
+              ? { ...option, configurationUrl: '/settings/providers/codex' }
+              : option,
+          )}
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByRole('option', { name: /Codex/ }));
+    expect(screen.getByRole('link', { name: 'Configure Codex provider' })).toHaveAttribute(
+      'href',
+      '/settings/providers?provider=codex',
+    );
+  });
+
   it('shows provider health once as a hoverable visual signal', async () => {
     const user = userEvent.setup();
     render(

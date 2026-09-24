@@ -25,6 +25,8 @@ interface ClioComposerBehaviorControlsProps {
    * Empty hides the control: there is nothing a person could choose.
    */
   reasoningLevels: readonly ReasoningEffort[];
+  /** What the control shows when no level was picked (it sends nothing then). */
+  defaultEffortLabel?: string;
   /**
    * A reasoning effort the service reported that this build has no name for.
    * Named on the control rather than replaced with a recognized value, so the
@@ -40,6 +42,7 @@ export function ClioComposerBehaviorControls({
   modelControl,
   onChange,
   reasoningLevels,
+  defaultEffortLabel = 'Model default',
   unrecognizedEffort,
 }: ClioComposerBehaviorControlsProps) {
   // Once an effort is chosen here the reported value is answered, so the
@@ -58,7 +61,9 @@ export function ClioComposerBehaviorControls({
   );
   const effortLabel = unknownEffort
     ? unknownLabel(unknownEffort)
-    : reasoningEffortLabel(behavior.reasoning_effort);
+    : behavior.reasoning_effort
+      ? reasoningEffortLabel(behavior.reasoning_effort)
+      : defaultEffortLabel;
   const modeLabel = selectedMode?.label ?? unknownLabel(behavior.execution_mode);
   const approvalLabel = selectedApproval?.label ?? unknownLabel(behavior.confirmation_policy);
   const ModeIcon: LucideIcon = selectedMode?.icon ?? CircleHelpIcon;

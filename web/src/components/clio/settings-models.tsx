@@ -458,6 +458,7 @@ function ModelsSettingsContent({
             </FieldDescription>
           </Field>
           <ReasoningLevelField
+            allowModelDefault
             description={
               values.effort
                 ? 'This becomes the reasoning depth used for new work with this model.'

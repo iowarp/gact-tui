@@ -53,12 +53,14 @@ function composerEditor(): HTMLElement {
 }
 
 function renderComposer({
+  configuredEffort,
   effort,
   modelOptions,
   onSubmit,
   provider = 'codex',
   model = 'gpt-5.6-luna',
 }: {
+  configuredEffort?: string;
   effort?: string;
   modelOptions: ClioComposerProps['modelOptions'];
   onSubmit: ClioComposerProps['onSubmit'];
@@ -70,6 +72,7 @@ function renderComposer({
       <PromptInputProvider>
         <ClioComposer
           attachments={false}
+          configuredEffort={configuredEffort}
           effort={effort}
           model={model}
           modelOptions={modelOptions}
@@ -97,13 +100,29 @@ describe('ClioComposer model selection', () => {
     expect(pill).not.toHaveTextContent(/argonne/iu);
   });
 
-  it('sends the default level of the selected model when none was chosen', async () => {
+  it('shows the model default but sends no level when none was picked', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(async () => undefined);
+    renderComposer({ effort: '', modelOptions: [reasoningModel], onSubmit });
+
+    expect(
+      screen.getByRole('button', { name: 'Reasoning effort: Model default (High)' }),
+    ).toBeVisible();
+    await user.type(composerEditor(), 'Think it through.{Enter}');
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    // The service applies the configured level; the client never sends a default.
+    expect(onSubmit.mock.calls[0]?.[0].behavior.reasoning_effort).toBeUndefined();
+  });
+
+  it("sends a pick equal to the model default as the person's choice", async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => undefined);
     renderComposer({ effort: '', modelOptions: [reasoningModel], onSubmit });
 
-    expect(screen.getByRole('button', { name: 'Reasoning effort: high' })).toBeVisible();
-    await user.type(composerEditor(), 'Think it through.{Enter}');
+    await user.click(screen.getByRole('button', { name: /^Reasoning effort:/u }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'high' }));
+    await user.type(composerEditor(), 'Same as default, but chosen.{Enter}');
 
     await waitFor(() =>
       expect(onSubmit).toHaveBeenCalledWith(
@@ -114,12 +133,23 @@ describe('ClioComposer model selection', () => {
     );
   });
 
+  it('shows the configured level when nothing was picked', () => {
+    renderComposer({
+      configuredEffort: 'low',
+      effort: '',
+      modelOptions: [reasoningModel],
+      onSubmit: vi.fn(async () => undefined),
+    });
+
+    expect(screen.getByRole('button', { name: 'Reasoning effort: Default (Low)' })).toBeVisible();
+  });
+
   it('sends a chosen level only when the selected model offers it', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => undefined);
     renderComposer({ effort: '', modelOptions: [reasoningModel], onSubmit });
 
-    await user.click(screen.getByRole('button', { name: 'Reasoning effort: high' }));
+    await user.click(screen.getByRole('button', { name: /^Reasoning effort:/u }));
     expect(screen.getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual([
       'low',
       'medium',
@@ -196,7 +226,7 @@ describe('ClioComposer model selection', () => {
       model: 'claude-fable-5-1',
     });
 
-    await user.click(screen.getByRole('button', { name: 'Reasoning effort: high' }));
+    await user.click(screen.getByRole('button', { name: /^Reasoning effort:/u }));
     expect(screen.getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual([
       'off',
       'low',

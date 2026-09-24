@@ -49,6 +49,7 @@ import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-
 import { ClioComposerQueue } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
 import {
+  defaultReasoningLabel,
   effectiveReasoningEffort,
   knownReasoningEffort,
   type ModelReasoningLevels,
@@ -72,6 +73,8 @@ export interface ClioComposerProps {
   modelCatalogRefreshing?: boolean;
   modelCatalogStatus?: 'error' | 'loading' | 'ready';
   effort?: string;
+  /** The configured (global) level: displayed when nothing is picked, never sent. */
+  configuredEffort?: string;
   executionMode?: MessageBehavior['execution_mode'];
   confirmationPolicy?: MessageBehavior['confirmation_policy'];
   modelOptions?: Array<{
@@ -155,6 +158,7 @@ export function ClioComposer({
   modelCatalogRefreshing = false,
   modelCatalogStatus = 'ready',
   effort,
+  configuredEffort,
   executionMode = 'execute',
   confirmationPolicy = 'ask',
   modelOptions = [],
@@ -599,6 +603,10 @@ export function ClioComposer({
             <ClioComposerBehaviorControls
               behavior={messageBehavior}
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}
+              defaultEffortLabel={defaultReasoningLabel(
+                configuredEffort,
+                selectedOption?.reasoning,
+              )}
               disabled={disabled}
               modelControl={
                 <ClioModelPicker

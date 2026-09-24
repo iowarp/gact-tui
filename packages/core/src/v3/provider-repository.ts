@@ -172,7 +172,7 @@ export class ProviderRepository extends ContextRepository {
       model: string;
       api_key?: string;
       provider_options: Record<string, string>;
-      thinking_level?: ReasoningEffort;
+      thinking_level?: ReasoningEffort | null;
       parallel?: number;
       context_length?: number;
       max_tokens?: number;

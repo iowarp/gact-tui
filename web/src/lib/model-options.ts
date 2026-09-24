@@ -181,13 +181,16 @@ function liveProviderOptions(
     // candidates, but a runtime the agent reports ready must still be usable;
     // the first real invocation is the final verification boundary.
     const usableCandidate = isCliProvider && model.availability === 'candidate' && providerReady;
+    // A last-good model is prior evidence, not a failure: it stays selectable,
+    // dated, until a live check replaces it.
+    const staleCandidate = Boolean(lastGoodDetail) && model.availability === 'candidate';
     return {
       ...shared,
       kind: 'model',
       id: model.model_id,
       label: conciseModelName(model.model_id),
       description: model.failure || undefined,
-      available: model.availability === 'available' || usableCandidate,
+      available: model.availability === 'available' || usableCandidate || staleCandidate,
       availabilityDetail:
         model.availability === 'available'
           ? undefined

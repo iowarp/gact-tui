@@ -425,10 +425,11 @@ export function useWorkspaceData({
     session?.model_id ??
     modelConfiguration.data?.model ??
     capabilities.data?.active_model?.model_id;
-  const activeEffort =
-    session?.effort ??
-    modelConfiguration.data?.thinking_level ??
-    capabilities.data?.active_model?.effort;
+  // Only a level a person chose for this session is sent with messages; the
+  // configured global level is displayed by the composer and applied server-side.
+  const activeEffort = session?.effort;
+  const configuredEffort =
+    modelConfiguration.data?.thinking_level ?? capabilities.data?.active_model?.effort;
   const activeBlueprint = resolveActiveBlueprint(session, agentBlueprints.data);
   const contextAgentLabel = activeBlueprint?.display_name ?? session?.agent_id;
   const contextTargetOptions = buildContextTargets(sessionId, contextAgentLabel, subagents);
@@ -460,6 +461,7 @@ export function useWorkspaceData({
   return {
     activeBlueprint,
     activeEffort,
+    configuredEffort,
     activeModel,
     activeProvider,
     attentionInteractions,

@@ -91,6 +91,7 @@ export function WorkspacePage() {
   const {
     activeBlueprint,
     activeEffort,
+    configuredEffort,
     activeModel,
     activeProvider,
     attentionInteractions,
@@ -473,6 +474,7 @@ export function WorkspacePage() {
           confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
           disabled={!session || send.isPending || cancel.isPending || isPending}
           effort={activeEffort}
+          configuredEffort={configuredEffort}
           executionMode={
             session.mode === 'plan'
               ? 'plan'

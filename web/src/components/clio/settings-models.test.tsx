@@ -577,6 +577,7 @@ describe('ModelsSettings', () => {
 
     await user.click(await screen.findByRole('combobox', { name: 'Reasoning effort' }));
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Model default (Medium)',
       'Low',
       'Medium',
       'High',
