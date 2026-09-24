@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { A2UI_VERSION, PROTOCOL_VERSION } from './protocol-versions.js';
-import { forwardCompatibleEnum } from './schema-utils.js';
+import { forwardCompatibleEnum, optionalWireString } from './schema-utils.js';
 import { toolPresentationSchema } from './presentation-schemas.js';
 
 export * from './message-schemas.js';
@@ -12,9 +12,9 @@ export const providerDefinitionSchema = z.object({
   name: z.string(),
   auth_methods: z.array(z.string()).default([]),
   is_authenticated: z.boolean().default(false),
-  default_model: z.string().optional(),
-  api_base: z.string().optional(),
-  description: z.string().optional(),
+  default_model: optionalWireString(),
+  api_base: optionalWireString(),
+  description: optionalWireString(),
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
 
@@ -57,14 +57,14 @@ export const languageModelPresetSchema = z.object({
   label: z.string(),
   provider: z.string(),
   litellm_prefix: z.string().optional().default(''),
-  api_base: z.string().optional(),
-  suggested_model: z.string().optional(),
+  api_base: optionalWireString(),
+  suggested_model: optionalWireString(),
   requires_api_key: z.boolean().default(false),
-  auth_method: z.string().optional(),
+  auth_method: optionalWireString(),
   is_authenticated: z.boolean().default(false),
-  description: z.string().optional(),
-  status: z.string().optional(),
-  status_message: z.string().optional(),
+  description: optionalWireString(),
+  status: optionalWireString(),
+  status_message: optionalWireString(),
   supports_live_catalog: z.boolean().default(false),
   supports_vision: z.boolean().default(false),
   configuration_fields: z
@@ -72,14 +72,14 @@ export const languageModelPresetSchema = z.object({
       z.object({
         id: z.string(),
         label: z.string(),
-        description: z.string().optional(),
-        placeholder: z.string().optional(),
+        description: optionalWireString(),
+        placeholder: optionalWireString(),
         required: z.boolean().default(false),
       }),
     )
     .default([]),
   supports_runtime_sizing: z.boolean().default(false),
-  managed_service_id: z.string().optional(),
+  managed_service_id: optionalWireString(),
 });
 
 export const languageModelConfigurationSchema = z.object({
@@ -88,7 +88,10 @@ export const languageModelConfigurationSchema = z.object({
   provider: z.string(),
   api_base: z.string(),
   model: z.string(),
-  temperature: z.number().optional(),
+  temperature: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
   max_tokens: z
     .number()
     .int()
@@ -99,10 +102,10 @@ export const languageModelConfigurationSchema = z.object({
     .string()
     .nullish()
     .transform((value) => value ?? undefined),
-  thinking_effective: z.string().optional(),
-  state: z.string().optional(),
-  status_message: z.string().optional(),
-  error: z.string().optional(),
+  thinking_effective: optionalWireString(),
+  state: optionalWireString(),
+  status_message: optionalWireString(),
+  error: optionalWireString(),
   provider_options: z.record(z.string(), z.string()).default({}),
   presets: z.array(languageModelPresetSchema).default([]),
 });

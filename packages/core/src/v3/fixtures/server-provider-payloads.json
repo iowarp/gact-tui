@@ -1,0 +1,1283 @@
+{
+  "post_message_response_unset_effort": {
+    "accepted_at": "2026-09-23T10:00:00+00:00",
+    "behavior": {
+      "confirmation_policy": "ask",
+      "execution_mode": "execute",
+      "reasoning_effort": null
+    },
+    "delivery": "auto",
+    "effective_model": {
+      "model_id": "",
+      "provider_id": "",
+      "variant": ""
+    },
+    "idempotent_replay": false,
+    "message_id": "msg_1",
+    "state": "started"
+  },
+  "provider_catalog_last_good": {
+    "authoritative": "live_handshake",
+    "catalog_id": "active",
+    "providers": [
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=lm_studio",
+        "connectivity": "unreachable",
+        "endpoint": "http://127.0.0.1:1234/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "lm_studio",
+        "kind": "lm_studio",
+        "models": [],
+        "name": "LM Studio"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=ollama",
+        "connectivity": "unreachable",
+        "endpoint": "http://127.0.0.1:11434/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "ollama",
+        "kind": "ollama",
+        "models": [],
+        "name": "Ollama"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=llama_cpp",
+        "connectivity": "unreachable",
+        "endpoint": "http://127.0.0.1:8088/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "llama_cpp",
+        "kind": "openai",
+        "models": [],
+        "name": "llama.cpp server"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=openai",
+        "connectivity": "unreachable",
+        "endpoint": "https://api.openai.com/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "openai",
+        "kind": "openai",
+        "models": [],
+        "name": "OpenAI / ChatGPT"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=anthropic",
+        "connectivity": "unreachable",
+        "endpoint": "https://api.anthropic.com/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "anthropic",
+        "kind": "anthropic",
+        "models": [],
+        "name": "Anthropic API"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=azure_openai",
+        "connectivity": "unreachable",
+        "endpoint": "https://YOUR-RESOURCE.openai.azure.com/",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "azure_openai",
+        "kind": "openai",
+        "models": [],
+        "name": "Azure OpenAI"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=gemini",
+        "connectivity": "unreachable",
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "gemini",
+        "kind": "openai",
+        "models": [],
+        "name": "Google Gemini"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=vertex_ai",
+        "connectivity": "unreachable",
+        "endpoint": "https://aiplatform.googleapis.com",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "vertex_ai",
+        "kind": "openai",
+        "models": [],
+        "name": "Google Vertex AI"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=bedrock",
+        "connectivity": "unreachable",
+        "endpoint": "https://bedrock-runtime.us-east-1.amazonaws.com",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "bedrock",
+        "kind": "openai",
+        "models": [],
+        "name": "AWS Bedrock"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=nvidia_nim",
+        "connectivity": "unreachable",
+        "endpoint": "https://integrate.api.nvidia.com/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "nvidia_nim",
+        "kind": "openai",
+        "models": [],
+        "name": "NVIDIA NIM"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=openrouter",
+        "connectivity": "unreachable",
+        "endpoint": "https://openrouter.ai/api/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "openrouter",
+        "kind": "openai",
+        "models": [],
+        "name": "OpenRouter"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "subscription",
+        "configuration_url": "/settings/providers?provider=codex",
+        "connectivity": "unreachable",
+        "endpoint": "codex://sdk",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "codex",
+        "kind": "codex",
+        "models": [],
+        "name": "OpenAI Codex"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "subscription",
+        "configuration_url": "/settings/providers?provider=claude_code",
+        "connectivity": "unreachable",
+        "endpoint": "claude-code://sdk",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "claude_code",
+        "kind": "claude_code",
+        "models": [],
+        "name": "Claude Code"
+      },
+      {
+        "auth": "ok",
+        "auth_label": "Globus Auth",
+        "auth_method": "oauth",
+        "configuration_url": "/settings/providers?provider=argonne_sophia",
+        "connectivity": "ok",
+        "endpoint": "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+        "failure": "",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "live"
+        },
+        "health": "ready",
+        "id": "argonne_sophia",
+        "kind": "argonne",
+        "models": [
+          {
+            "availability": "available",
+            "context_window": 131072,
+            "deployment": "",
+            "endpoint": "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+            "evidence": {
+              "capability_evidence": {},
+              "context_source": "live",
+              "evidenced": true,
+              "generated_at": "2026-09-23T10:00:00+00:00",
+              "live": true,
+              "modality_evidenced": true,
+              "read_at": "2026-09-23T10:00:00+00:00",
+              "source": "live"
+            },
+            "failure": "",
+            "loaded_context_window": null,
+            "modalities": [
+              "text"
+            ],
+            "model_id": "openai/gpt-oss-120b",
+            "native_tool_calling": true,
+            "output_limit": null,
+            "provider_id": "argonne_sophia",
+            "provider_kind": "argonne",
+            "reasoning": {
+              "default": "medium",
+              "levels": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "parameter": "openai_gptoss",
+              "source": "served_model_reasoning_parser",
+              "supported": true
+            },
+            "revision": ""
+          },
+          {
+            "availability": "available",
+            "context_window": null,
+            "deployment": "",
+            "endpoint": "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+            "evidence": {
+              "capability_evidence": {},
+              "context_source": "live",
+              "evidenced": true,
+              "generated_at": "2026-09-23T10:00:00+00:00",
+              "live": true,
+              "modality_evidenced": true,
+              "read_at": "2026-09-23T10:00:00+00:00",
+              "source": "live"
+            },
+            "failure": "",
+            "loaded_context_window": null,
+            "modalities": [
+              "text"
+            ],
+            "model_id": "meta-llama/Llama-4-Maverick",
+            "native_tool_calling": false,
+            "output_limit": null,
+            "provider_id": "argonne_sophia",
+            "provider_kind": "argonne",
+            "reasoning": {
+              "default": "",
+              "levels": [],
+              "parameter": "",
+              "source": "served_model_reasoning_parser",
+              "supported": false
+            },
+            "revision": ""
+          }
+        ],
+        "name": "ALCF Sophia"
+      },
+      {
+        "auth": "deferred",
+        "auth_label": "Globus Auth",
+        "auth_method": "oauth",
+        "configuration_url": "/settings/providers?provider=argonne_metis",
+        "connectivity": "skipped",
+        "endpoint": "https://inference-api.alcf.anl.gov/resource_server/metis/api/v1",
+        "failure": "argonne_stored_token_unusable: a Globus sign-in is stored but could not produce an access token without signing in again (offline)",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T11:00:00+00:00",
+          "source": "last_good",
+          "staleness": {
+            "description": "the live provider check returned no models, so the models this provider served at its last successful check are shown instead; they are prior evidence, not proof the models are available now",
+            "generated_at": "2026-09-23T10:00:00+00:00",
+            "live_failure": "argonne_stored_token_unusable: a Globus sign-in is stored but could not produce an access token without signing in again (offline)",
+            "reason": "last_good_catalog_served"
+          }
+        },
+        "health": "unavailable",
+        "id": "argonne_metis",
+        "kind": "argonne",
+        "models": [
+          {
+            "availability": "candidate",
+            "context_window": 131072,
+            "deployment": "",
+            "endpoint": "https://inference-api.alcf.anl.gov/resource_server/metis/api/v1",
+            "evidence": {
+              "capability_evidence": {},
+              "context_source": "live",
+              "evidenced": false,
+              "generated_at": "2026-09-23T10:00:00+00:00",
+              "live": false,
+              "modality_evidenced": false,
+              "read_at": "2026-09-23T11:00:00+00:00",
+              "source": "last_good"
+            },
+            "failure": "argonne_stored_token_unusable: a Globus sign-in is stored but could not produce an access token without signing in again (offline)",
+            "loaded_context_window": null,
+            "modalities": [
+              "text"
+            ],
+            "model_id": "openai/gpt-oss-120b",
+            "native_tool_calling": true,
+            "output_limit": null,
+            "provider_id": "argonne_metis",
+            "provider_kind": "argonne",
+            "reasoning": {
+              "default": "medium",
+              "levels": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "parameter": "openai_gptoss",
+              "source": "served_model_reasoning_parser",
+              "supported": true
+            },
+            "revision": ""
+          },
+          {
+            "availability": "candidate",
+            "context_window": null,
+            "deployment": "",
+            "endpoint": "https://inference-api.alcf.anl.gov/resource_server/metis/api/v1",
+            "evidence": {
+              "capability_evidence": {},
+              "context_source": "live",
+              "evidenced": false,
+              "generated_at": "2026-09-23T10:00:00+00:00",
+              "live": false,
+              "modality_evidenced": false,
+              "read_at": "2026-09-23T11:00:00+00:00",
+              "source": "last_good"
+            },
+            "failure": "argonne_stored_token_unusable: a Globus sign-in is stored but could not produce an access token without signing in again (offline)",
+            "loaded_context_window": null,
+            "modalities": [
+              "text"
+            ],
+            "model_id": "meta-llama/Llama-4-Maverick",
+            "native_tool_calling": false,
+            "output_limit": null,
+            "provider_id": "argonne_metis",
+            "provider_kind": "argonne",
+            "reasoning": {
+              "default": "",
+              "levels": [],
+              "parameter": "",
+              "source": "served_model_reasoning_parser",
+              "supported": false
+            },
+            "revision": ""
+          }
+        ],
+        "name": "ALCF Metis"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=vllm",
+        "connectivity": "unreachable",
+        "endpoint": "http://127.0.0.1:8000/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "vllm",
+        "kind": "openai",
+        "models": [],
+        "name": "vLLM"
+      }
+    ]
+  },
+  "provider_catalog_live": {
+    "authoritative": "live_handshake",
+    "catalog_id": "active",
+    "providers": [
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=lm_studio",
+        "connectivity": "unreachable",
+        "endpoint": "http://127.0.0.1:1234/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "lm_studio",
+        "kind": "lm_studio",
+        "models": [],
+        "name": "LM Studio"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=ollama",
+        "connectivity": "unreachable",
+        "endpoint": "http://127.0.0.1:11434/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "ollama",
+        "kind": "ollama",
+        "models": [],
+        "name": "Ollama"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=llama_cpp",
+        "connectivity": "unreachable",
+        "endpoint": "http://127.0.0.1:8088/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "llama_cpp",
+        "kind": "openai",
+        "models": [],
+        "name": "llama.cpp server"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=openai",
+        "connectivity": "unreachable",
+        "endpoint": "https://api.openai.com/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "openai",
+        "kind": "openai",
+        "models": [],
+        "name": "OpenAI / ChatGPT"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=anthropic",
+        "connectivity": "unreachable",
+        "endpoint": "https://api.anthropic.com/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "anthropic",
+        "kind": "anthropic",
+        "models": [],
+        "name": "Anthropic API"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=azure_openai",
+        "connectivity": "unreachable",
+        "endpoint": "https://YOUR-RESOURCE.openai.azure.com/",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "azure_openai",
+        "kind": "openai",
+        "models": [],
+        "name": "Azure OpenAI"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=gemini",
+        "connectivity": "unreachable",
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "gemini",
+        "kind": "openai",
+        "models": [],
+        "name": "Google Gemini"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=vertex_ai",
+        "connectivity": "unreachable",
+        "endpoint": "https://aiplatform.googleapis.com",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "vertex_ai",
+        "kind": "openai",
+        "models": [],
+        "name": "Google Vertex AI"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=bedrock",
+        "connectivity": "unreachable",
+        "endpoint": "https://bedrock-runtime.us-east-1.amazonaws.com",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "bedrock",
+        "kind": "openai",
+        "models": [],
+        "name": "AWS Bedrock"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=nvidia_nim",
+        "connectivity": "unreachable",
+        "endpoint": "https://integrate.api.nvidia.com/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "nvidia_nim",
+        "kind": "openai",
+        "models": [],
+        "name": "NVIDIA NIM"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "api_key",
+        "configuration_url": "/settings/providers?provider=openrouter",
+        "connectivity": "unreachable",
+        "endpoint": "https://openrouter.ai/api/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "openrouter",
+        "kind": "openai",
+        "models": [],
+        "name": "OpenRouter"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "subscription",
+        "configuration_url": "/settings/providers?provider=codex",
+        "connectivity": "unreachable",
+        "endpoint": "codex://sdk",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "codex",
+        "kind": "codex",
+        "models": [],
+        "name": "OpenAI Codex"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "subscription",
+        "configuration_url": "/settings/providers?provider=claude_code",
+        "connectivity": "unreachable",
+        "endpoint": "claude-code://sdk",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "claude_code",
+        "kind": "claude_code",
+        "models": [],
+        "name": "Claude Code"
+      },
+      {
+        "auth": "ok",
+        "auth_label": "Globus Auth",
+        "auth_method": "oauth",
+        "configuration_url": "/settings/providers?provider=argonne_sophia",
+        "connectivity": "ok",
+        "endpoint": "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+        "failure": "",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "live"
+        },
+        "health": "ready",
+        "id": "argonne_sophia",
+        "kind": "argonne",
+        "models": [
+          {
+            "availability": "available",
+            "context_window": 131072,
+            "deployment": "",
+            "endpoint": "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+            "evidence": {
+              "capability_evidence": {},
+              "context_source": "live",
+              "evidenced": true,
+              "generated_at": "2026-09-23T10:00:00+00:00",
+              "live": true,
+              "modality_evidenced": true,
+              "read_at": "2026-09-23T10:00:00+00:00",
+              "source": "live"
+            },
+            "failure": "",
+            "loaded_context_window": null,
+            "modalities": [
+              "text"
+            ],
+            "model_id": "openai/gpt-oss-120b",
+            "native_tool_calling": true,
+            "output_limit": null,
+            "provider_id": "argonne_sophia",
+            "provider_kind": "argonne",
+            "reasoning": {
+              "default": "medium",
+              "levels": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "parameter": "openai_gptoss",
+              "source": "served_model_reasoning_parser",
+              "supported": true
+            },
+            "revision": ""
+          },
+          {
+            "availability": "available",
+            "context_window": null,
+            "deployment": "",
+            "endpoint": "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+            "evidence": {
+              "capability_evidence": {},
+              "context_source": "live",
+              "evidenced": true,
+              "generated_at": "2026-09-23T10:00:00+00:00",
+              "live": true,
+              "modality_evidenced": true,
+              "read_at": "2026-09-23T10:00:00+00:00",
+              "source": "live"
+            },
+            "failure": "",
+            "loaded_context_window": null,
+            "modalities": [
+              "text"
+            ],
+            "model_id": "meta-llama/Llama-4-Maverick",
+            "native_tool_calling": false,
+            "output_limit": null,
+            "provider_id": "argonne_sophia",
+            "provider_kind": "argonne",
+            "reasoning": {
+              "default": "",
+              "levels": [],
+              "parameter": "",
+              "source": "served_model_reasoning_parser",
+              "supported": false
+            },
+            "revision": ""
+          }
+        ],
+        "name": "ALCF Sophia"
+      },
+      {
+        "auth": "ok",
+        "auth_label": "Globus Auth",
+        "auth_method": "oauth",
+        "configuration_url": "/settings/providers?provider=argonne_metis",
+        "connectivity": "ok",
+        "endpoint": "https://inference-api.alcf.anl.gov/resource_server/metis/api/v1",
+        "failure": "",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "live"
+        },
+        "health": "ready",
+        "id": "argonne_metis",
+        "kind": "argonne",
+        "models": [
+          {
+            "availability": "available",
+            "context_window": 131072,
+            "deployment": "",
+            "endpoint": "https://inference-api.alcf.anl.gov/resource_server/metis/api/v1",
+            "evidence": {
+              "capability_evidence": {},
+              "context_source": "live",
+              "evidenced": true,
+              "generated_at": "2026-09-23T10:00:00+00:00",
+              "live": true,
+              "modality_evidenced": true,
+              "read_at": "2026-09-23T10:00:00+00:00",
+              "source": "live"
+            },
+            "failure": "",
+            "loaded_context_window": null,
+            "modalities": [
+              "text"
+            ],
+            "model_id": "openai/gpt-oss-120b",
+            "native_tool_calling": true,
+            "output_limit": null,
+            "provider_id": "argonne_metis",
+            "provider_kind": "argonne",
+            "reasoning": {
+              "default": "medium",
+              "levels": [
+                "low",
+                "medium",
+                "high"
+              ],
+              "parameter": "openai_gptoss",
+              "source": "served_model_reasoning_parser",
+              "supported": true
+            },
+            "revision": ""
+          },
+          {
+            "availability": "available",
+            "context_window": null,
+            "deployment": "",
+            "endpoint": "https://inference-api.alcf.anl.gov/resource_server/metis/api/v1",
+            "evidence": {
+              "capability_evidence": {},
+              "context_source": "live",
+              "evidenced": true,
+              "generated_at": "2026-09-23T10:00:00+00:00",
+              "live": true,
+              "modality_evidenced": true,
+              "read_at": "2026-09-23T10:00:00+00:00",
+              "source": "live"
+            },
+            "failure": "",
+            "loaded_context_window": null,
+            "modalities": [
+              "text"
+            ],
+            "model_id": "meta-llama/Llama-4-Maverick",
+            "native_tool_calling": false,
+            "output_limit": null,
+            "provider_id": "argonne_metis",
+            "provider_kind": "argonne",
+            "reasoning": {
+              "default": "",
+              "levels": [],
+              "parameter": "",
+              "source": "served_model_reasoning_parser",
+              "supported": false
+            },
+            "revision": ""
+          }
+        ],
+        "name": "ALCF Metis"
+      },
+      {
+        "auth": "missing",
+        "auth_label": "",
+        "auth_method": "none",
+        "configuration_url": "/settings/providers?provider=vllm",
+        "connectivity": "unreachable",
+        "endpoint": "http://127.0.0.1:8000/v1",
+        "failure": "connection refused",
+        "freshness": {
+          "generated_at": "2026-09-23T10:00:00+00:00",
+          "read_at": "2026-09-23T10:00:00+00:00",
+          "source": "unavailable"
+        },
+        "health": "unavailable",
+        "id": "vllm",
+        "kind": "openai",
+        "models": [],
+        "name": "vLLM"
+      }
+    ]
+  },
+  "provider_handshake_failed": {
+    "auth": "deferred",
+    "connectivity": "skipped",
+    "error": "argonne_stored_token_unusable: a Globus sign-in is stored but could not produce an access token without signing in again (offline)",
+    "generated_at": "2026-09-23T11:00:00+00:00",
+    "latency_ms": null,
+    "models": [],
+    "source": "unavailable"
+  },
+  "provider_handshake_live": {
+    "auth": "ok",
+    "connectivity": "ok",
+    "error": null,
+    "generated_at": "2026-09-23T10:00:00+00:00",
+    "latency_ms": null,
+    "models": [
+      {
+        "context_source": "live",
+        "context_window": 131072,
+        "id": "openai/gpt-oss-120b",
+        "is_reasoning": true,
+        "loaded": true,
+        "name": "openai/gpt-oss-120b",
+        "native_tool_calling": true
+      },
+      {
+        "context_source": "live",
+        "id": "meta-llama/Llama-4-Maverick",
+        "name": "meta-llama/Llama-4-Maverick"
+      }
+    ],
+    "source": "live"
+  },
+  "provider_models_failed": {
+    "error": "argonne_stored_token_unusable: a Globus sign-in is stored but could not produce an access token without signing in again (offline)",
+    "models": [],
+    "source": "unavailable"
+  },
+  "provider_models_live": {
+    "error": null,
+    "models": [
+      {
+        "context_source": "live",
+        "context_window": 131072,
+        "id": "openai/gpt-oss-120b",
+        "is_reasoning": true,
+        "loaded": true,
+        "name": "openai/gpt-oss-120b",
+        "native_tool_calling": true
+      },
+      {
+        "context_source": "live",
+        "id": "meta-llama/Llama-4-Maverick",
+        "name": "meta-llama/Llama-4-Maverick"
+      }
+    ],
+    "source": "live"
+  },
+  "providers": {
+    "providers": [
+      {
+        "api_base": "http://127.0.0.1:1234/v1",
+        "auth_methods": [
+          "none"
+        ],
+        "default_model": "",
+        "description": "Locally-hosted models via LM Studio. Clear the model field to auto-discover the loaded model from /v1/models.",
+        "env_keys": [],
+        "id": "lm_studio",
+        "is_authenticated": true,
+        "metadata": {
+          "provider_kind": "lm_studio",
+          "requires_api_key": false,
+          "supports_vision": false
+        },
+        "name": "LM Studio"
+      },
+      {
+        "api_base": "http://127.0.0.1:11434/v1",
+        "auth_methods": [
+          "none"
+        ],
+        "default_model": "granite3.1-dense:8b",
+        "description": "Locally-hosted models via Ollama.",
+        "env_keys": [],
+        "id": "ollama",
+        "is_authenticated": true,
+        "metadata": {
+          "provider_kind": "ollama",
+          "requires_api_key": false,
+          "supports_vision": false
+        },
+        "name": "Ollama"
+      },
+      {
+        "api_base": "http://127.0.0.1:8088/v1",
+        "auth_methods": [
+          "none"
+        ],
+        "default_model": "local-model",
+        "description": "A local or remote llama.cpp OpenAI-compatible server.",
+        "env_keys": [],
+        "id": "llama_cpp",
+        "is_authenticated": true,
+        "metadata": {
+          "provider_kind": "openai",
+          "requires_api_key": false,
+          "supports_vision": true
+        },
+        "name": "llama.cpp server"
+      },
+      {
+        "api_base": "https://api.openai.com/v1",
+        "auth_methods": [
+          "api_key"
+        ],
+        "default_model": "gpt-4o-mini",
+        "description": "Direct OpenAI API. Requires an OPENAI_API_KEY. Defaults to gpt-4o-mini for low cost; swap in gpt-4o or gpt-4-turbo for heavier work.",
+        "env_keys": [
+          "CLIO_LM_API_KEY"
+        ],
+        "id": "openai",
+        "is_authenticated": false,
+        "metadata": {
+          "provider_kind": "openai",
+          "requires_api_key": true,
+          "supports_vision": true
+        },
+        "name": "OpenAI / ChatGPT"
+      },
+      {
+        "api_base": "https://api.anthropic.com/v1",
+        "auth_methods": [
+          "api_key"
+        ],
+        "default_model": "claude-sonnet-4-20250514",
+        "description": "Direct Anthropic API. Requires an ANTHROPIC_API_KEY.",
+        "env_keys": [
+          "CLIO_LM_API_KEY"
+        ],
+        "id": "anthropic",
+        "is_authenticated": false,
+        "metadata": {
+          "provider_kind": "anthropic",
+          "requires_api_key": true,
+          "supports_vision": true
+        },
+        "name": "Anthropic API"
+      },
+      {
+        "api_base": "https://YOUR-RESOURCE.openai.azure.com/",
+        "auth_methods": [
+          "api_key"
+        ],
+        "default_model": "",
+        "description": "Azure-hosted OpenAI models through LiteLLM.",
+        "env_keys": [
+          "CLIO_LM_API_KEY"
+        ],
+        "id": "azure_openai",
+        "is_authenticated": false,
+        "metadata": {
+          "provider_kind": "openai",
+          "requires_api_key": true,
+          "supports_vision": true
+        },
+        "name": "Azure OpenAI"
+      },
+      {
+        "api_base": "https://generativelanguage.googleapis.com/v1beta",
+        "auth_methods": [
+          "api_key"
+        ],
+        "default_model": "gemini-2.5-flash",
+        "description": "Gemini AI Studio models through LiteLLM.",
+        "env_keys": [
+          "CLIO_LM_API_KEY"
+        ],
+        "id": "gemini",
+        "is_authenticated": false,
+        "metadata": {
+          "provider_kind": "openai",
+          "requires_api_key": true,
+          "supports_vision": true
+        },
+        "name": "Google Gemini"
+      },
+      {
+        "api_base": "https://aiplatform.googleapis.com",
+        "auth_methods": [
+          "none"
+        ],
+        "default_model": "gemini-2.5-flash",
+        "description": "Vertex AI models using Application Default Credentials.",
+        "env_keys": [],
+        "id": "vertex_ai",
+        "is_authenticated": true,
+        "metadata": {
+          "provider_kind": "openai",
+          "requires_api_key": false,
+          "supports_vision": true
+        },
+        "name": "Google Vertex AI"
+      },
+      {
+        "api_base": "https://bedrock-runtime.us-east-1.amazonaws.com",
+        "auth_methods": [
+          "none"
+        ],
+        "default_model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+        "description": "Bedrock models using the host AWS credential chain.",
+        "env_keys": [],
+        "id": "bedrock",
+        "is_authenticated": true,
+        "metadata": {
+          "provider_kind": "openai",
+          "requires_api_key": false,
+          "supports_vision": true
+        },
+        "name": "AWS Bedrock"
+      },
+      {
+        "api_base": "https://integrate.api.nvidia.com/v1",
+        "auth_methods": [
+          "api_key"
+        ],
+        "default_model": "meta/llama-3.1-70b-instruct",
+        "description": "NVIDIA-hosted or self-hosted NIM endpoints through LiteLLM.",
+        "env_keys": [
+          "CLIO_LM_API_KEY"
+        ],
+        "id": "nvidia_nim",
+        "is_authenticated": false,
+        "metadata": {
+          "provider_kind": "openai",
+          "requires_api_key": true,
+          "supports_vision": true
+        },
+        "name": "NVIDIA NIM"
+      },
+      {
+        "api_base": "https://openrouter.ai/api/v1",
+        "auth_methods": [
+          "api_key"
+        ],
+        "default_model": "openai/gpt-oss-120b:free",
+        "description": "OpenAI-compatible gateway over many providers. Free tier models (suffixed :free) work without spend but are heavily rate-limited.",
+        "env_keys": [
+          "CLIO_LM_API_KEY"
+        ],
+        "id": "openrouter",
+        "is_authenticated": false,
+        "metadata": {
+          "provider_kind": "openai",
+          "requires_api_key": true,
+          "supports_vision": true
+        },
+        "name": "OpenRouter"
+      },
+      {
+        "api_base": "codex://sdk",
+        "auth_methods": [
+          "subscription"
+        ],
+        "default_model": "",
+        "description": "Uses the official OpenAI Codex Python SDK so calls reuse your ChatGPT / Codex subscription instead of paying per-token on the OpenAI API. Authenticate Codex once on this machine; the SDK owns its pinned runtime.",
+        "env_keys": [],
+        "id": "codex",
+        "is_authenticated": false,
+        "metadata": {
+          "provider_kind": "codex",
+          "requires_api_key": false,
+          "supports_vision": true
+        },
+        "name": "OpenAI Codex"
+      },
+      {
+        "api_base": "claude-code://sdk",
+        "auth_methods": [
+          "subscription"
+        ],
+        "default_model": "",
+        "description": "Uses the Claude Agent SDK with Claude Code subscription auth instead of direct Anthropic API keys. Authenticate Claude Code once on this machine; the SDK owns the model session and streaming lifecycle.",
+        "env_keys": [],
+        "id": "claude_code",
+        "is_authenticated": false,
+        "metadata": {
+          "provider_kind": "claude_code",
+          "requires_api_key": false,
+          "supports_vision": true
+        },
+        "name": "Claude Code"
+      },
+      {
+        "api_base": "https://inference-api.alcf.anl.gov/resource_server/sophia/vllm/v1",
+        "auth_methods": [
+          "oauth"
+        ],
+        "default_model": "openai/gpt-oss-120b",
+        "description": "Argonne's Sophia inference gateway (vLLM, OpenAI-compatible). Auth is a Globus access token minted on demand from the user's anl.gov / alcf.anl.gov identity. Run `python -m clio_agent.providers.argonne_auth authenticate` once per machine; tokens auto-refresh.",
+        "env_keys": [],
+        "id": "argonne_sophia",
+        "is_authenticated": false,
+        "metadata": {
+          "provider_kind": "argonne",
+          "requires_api_key": false,
+          "supports_vision": true
+        },
+        "name": "ALCF Sophia"
+      },
+      {
+        "api_base": "https://inference-api.alcf.anl.gov/resource_server/metis/api/v1",
+        "auth_methods": [
+          "oauth"
+        ],
+        "default_model": "gpt-oss-120b",
+        "description": "Argonne's Metis inference gateway (FastCoE 'api' framework, OpenAI-compatible chat-completions). Useful fallback when Sophia is in maintenance; typically loads gpt-oss-120b and Llama-4-Maverick. Same Globus tokens as Sophia/Polaris.",
+        "env_keys": [],
+        "id": "argonne_metis",
+        "is_authenticated": false,
+        "metadata": {
+          "provider_kind": "argonne",
+          "requires_api_key": false,
+          "supports_vision": true
+        },
+        "name": "ALCF Metis"
+      },
+      {
+        "api_base": "http://127.0.0.1:8000/v1",
+        "auth_methods": [
+          "none"
+        ],
+        "default_model": "",
+        "description": "Any local OpenAI-compatible vLLM server. No Globus needed; the server commonly accepts the literal 'EMPTY' API key. Override api_base with the bound port.",
+        "env_keys": [],
+        "id": "vllm",
+        "is_authenticated": true,
+        "metadata": {
+          "provider_kind": "openai",
+          "requires_api_key": false,
+          "supports_vision": true
+        },
+        "name": "vLLM"
+      }
+    ]
+  }
+}
