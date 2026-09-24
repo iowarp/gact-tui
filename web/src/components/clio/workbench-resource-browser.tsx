@@ -50,6 +50,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useRepository } from '@/hooks/use-repository';
+import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { cn } from '@/lib/utils';
 import { ClioArtifactCard } from './artifact-card';
@@ -168,11 +169,16 @@ export function FileBrowser({
   const [stacked, setStacked] = useState(false);
   const [query, setQuery] = useState('');
   const [internalSelectedPath, setInternalSelectedPath] = useState<string>();
+  const { hideDotFiles } = useAppearancePreferences();
+  const visibleFiles = useMemo(
+    () => (hideDotFiles ? files.filter((entry) => !isDotFileEntry(entry)) : files),
+    [files, hideDotFiles],
+  );
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredFiles = useMemo(
     () =>
       normalizedQuery
-        ? files.filter(
+        ? visibleFiles.filter(
             (entry) =>
               entry.type === 'file' &&
               `${entry.display_path ?? ''} ${entry.path}`
@@ -180,8 +186,8 @@ export function FileBrowser({
                 .toLocaleLowerCase()
                 .includes(normalizedQuery),
           )
-        : files,
-    [files, normalizedQuery],
+        : visibleFiles,
+    [visibleFiles, normalizedQuery],
   );
   const fileTree = useMemo(() => buildFileTree(filteredFiles), [filteredFiles]);
   const activePath = selectedPath ?? internalSelectedPath;
@@ -238,8 +244,14 @@ export function FileBrowser({
                   >
                     <FileNodes nodes={fileTree} />
                   </FileTree>
-                ) : (
+                ) : visibleFiles.length ? (
                   <Unavailable icon={SearchIcon} label="No files match this filter" />
+                ) : (
+                  <Unavailable
+                    detail={'Turn off "Hide dot files and folders" in Settings > Appearance to see them.'}
+                    icon={FolderIcon}
+                    label="Dot files and folders are hidden"
+                  />
                 )
               ) : (
                 <Unavailable
@@ -557,6 +569,20 @@ interface WorkspaceFileNode {
   entry: WorkspaceFileEntry;
   name: string;
   children: Map<string, WorkspaceFileNode>;
+}
+
+/**
+ * True when the file tree's DISPLAYED path has a dot-prefixed segment
+ * (`.clio`, `.git`, `.env`, ...). Uses `display_path` when the server set one
+ * (uploaded sources materialized under `.clio/inputs` surface as a friendly
+ * `Sources/<id>/<name>` path) so the "Hide dot files and folders" preference
+ * never hides the user's own uploaded attachments — only actual dotfiles.
+ */
+function isDotFileEntry(entry: WorkspaceFileEntry): boolean {
+  return (entry.display_path ?? entry.path)
+    .replace(/\\/gu, '/')
+    .split('/')
+    .some((segment) => segment.startsWith('.'));
 }
 
 function buildFileTree(entries: readonly WorkspaceFileEntry[]): WorkspaceFileNode[] {

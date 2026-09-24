@@ -342,7 +342,12 @@ export class ClioRepository extends InfrastructureRepository {
       decode: (value) => workspaceFileListSchema.parse(value),
       signal,
     });
-    return result.entries.filter((entry) => !entry.internal) as WorkspaceFileEntry[];
+    // Owner ruling: the Files view shows ALL dot files/folders, .clio included —
+    // there is no reason to hide a workspace's own agent state from itself. The
+    // server no longer marks any entry `internal`; an opt-in "Hide dot files and
+    // folders" preference filters client-side in the Files view instead (see
+    // appearance-provider.tsx `hideDotFiles`).
+    return result.entries as WorkspaceFileEntry[];
   }
 
   public readWorkspaceFile(

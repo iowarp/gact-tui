@@ -17,18 +17,24 @@ interface AppearancePreferences {
   motion: MotionPreference;
   conversationWidth: ConversationWidth;
   collapseThreshold: number;
+  hideDotFiles: boolean;
 }
 
 interface AppearanceContextValue extends AppearancePreferences {
   setMotion: (motion: MotionPreference) => void;
   setConversationWidth: (width: ConversationWidth) => void;
   setCollapseThreshold: (lines: number) => void;
+  setHideDotFiles: (hideDotFiles: boolean) => void;
 }
 
 const defaults: AppearancePreferences = {
   motion: 'system',
   conversationWidth: 'focused',
   collapseThreshold: 5,
+  // Owner ruling: the Files view shows ALL dot files/folders (including .clio) by
+  // default — there is no reason to hide a workspace's own agent state from itself.
+  // This toggle is opt-in.
+  hideDotFiles: false,
 };
 
 const AppearanceContext = createContext<AppearanceContextValue | null>(null);
@@ -68,6 +74,7 @@ export function AppearanceProvider({ children }: PropsWithChildren) {
       setConversationWidth: (conversationWidth) => update({ conversationWidth }),
       setCollapseThreshold: (lines) =>
         update({ collapseThreshold: Math.max(1, Math.min(50, Math.round(lines) || 5)) }),
+      setHideDotFiles: (hideDotFiles) => update({ hideDotFiles }),
     }),
     [preferences, update],
   );
@@ -108,5 +115,6 @@ function parsePreferences(raw: string | null): AppearancePreferences {
       value.collapseThreshold <= 50
         ? value.collapseThreshold
         : 5,
+    hideDotFiles: value.hideDotFiles === true,
   };
 }

@@ -140,10 +140,14 @@ describe('ClioRepository session operation contracts', () => {
   });
 
   it('reads file and context snapshots from their authoritative workspace routes', async () => {
+    // Owner ruling: the Files view shows ALL dot files/folders (including .clio) —
+    // the server no longer marks any entry `internal`, and the client no longer
+    // filters on that field (an opt-in "Hide dot files and folders" preference
+    // filters client-side in the Files view component instead).
     const transport = new RecordingTransport([
       {
         entries: [
-          { path: '.clio', type: 'dir', internal: true },
+          { path: '.clio', type: 'dir', internal: false },
           { path: 'results/plot.png', type: 'file', internal: false, size: 42 },
         ],
       },
@@ -167,7 +171,10 @@ describe('ClioRepository session operation contracts', () => {
       '/v1/workspaces/ws%201/files',
       '/v1/sessions/sess_1/context/state?scope=main',
     ]);
-    expect(files).toEqual([{ path: 'results/plot.png', type: 'file', internal: false, size: 42 }]);
+    expect(files).toEqual([
+      { path: '.clio', type: 'dir', internal: false },
+      { path: 'results/plot.png', type: 'file', internal: false, size: 42 },
+    ]);
     expect(context).toMatchObject({
       session_id: 'sess_1',
       scope: 'main',

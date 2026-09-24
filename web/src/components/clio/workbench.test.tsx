@@ -7,21 +7,28 @@ import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 import { FileBrowser } from './workbench-resource-browser';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 
-const { repository } = vi.hoisted(() => ({
+const { repository, useAppearancePreferences } = vi.hoisted(() => ({
   repository: {
     readArtifactTextFor: vi.fn(),
     readWorkspaceFile: vi.fn(),
   },
+  // Default matches the real provider's default (owner ruling: dot files are
+  // visible by default; "Hide dot files and folders" is opt-in).
+  useAppearancePreferences: vi.fn(() => ({ hideDotFiles: false })),
 }));
 
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
+vi.mock('@/providers/appearance-provider', () => ({ useAppearancePreferences }));
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  // mockReturnValue survives clearAllMocks (only call history is cleared), so
+  // restore the real provider's default explicitly between tests.
+  useAppearancePreferences.mockReturnValue({ hideDotFiles: false });
   // Every test shares workspaceId="workspace_1"; workbench.tsx persists tab
   // state to localStorage keyed on it, so a test that closes or opens a tab
   // leaks that state into the next test's initial restoredWorkbenchState()
@@ -517,6 +524,72 @@ describe('ClioWorkbench canvas', () => {
             media_type: 'application/pdf',
             size: 1024,
           },
+        ]}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.queryByText('.clio')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Expand folder Sources' }));
+    await user.click(screen.getByRole('button', { name: 'Expand folder res_abc' }));
+    expect(screen.getByRole('treeitem', { name: 'paper.pdf' })).toBeVisible();
+  });
+
+  it('shows .clio by default and hides it only via the opt-in dot-files preference', () => {
+    // Owner ruling: the Files view shows ALL dot files/folders (.clio included) by
+    // default; "Hide dot files and folders" (Settings > Appearance) is opt-in.
+    const files = [
+      { path: '.clio/state.json', type: 'file' as const, internal: false, size: 2 },
+      { path: 'report.md', type: 'file' as const, internal: false, size: 7 },
+    ];
+
+    const { unmount } = render(
+      <FileBrowser
+        files={files}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+    expect(screen.getByRole('treeitem', { name: '.clio' })).toBeVisible();
+    expect(screen.getByRole('treeitem', { name: 'report.md' })).toBeVisible();
+    unmount();
+
+    useAppearancePreferences.mockReturnValue({ hideDotFiles: true });
+    render(
+      <FileBrowser
+        files={files}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+    expect(screen.queryByRole('treeitem', { name: '.clio' })).not.toBeInTheDocument();
+    expect(screen.getByRole('treeitem', { name: 'report.md' })).toBeVisible();
+  });
+
+  it('keeps managed Sources visible even when "Hide dot files and folders" is on', async () => {
+    // The friendly Sources/<id>/<name> projection is a DISPLAY path (never a
+    // dotfile itself), so hiding dot files must never hide the user's own
+    // uploaded attachments even though they are materialized under .clio/inputs.
+    useAppearancePreferences.mockReturnValue({ hideDotFiles: true });
+    const user = userEvent.setup();
+    render(
+      <FileBrowser
+        files={[
+          {
+            path: '.clio/inputs/res_abc/paper.pdf',
+            display_path: 'Sources/res_abc/paper.pdf',
+            type: 'file',
+            internal: false,
+            source: 'managed_input',
+            resource_id: 'res_abc',
+            media_type: 'application/pdf',
+            size: 1024,
+          },
+          { path: '.clio/state.json', type: 'file', internal: false, size: 2 },
         ]}
         onSelectedPathChange={vi.fn()}
         selectedPath={undefined}
