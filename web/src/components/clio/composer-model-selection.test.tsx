@@ -329,4 +329,43 @@ describe('ClioComposer model selection', () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
     expect(onSubmit.mock.calls[0]?.[0].behavior.reasoning_effort).toBeUndefined();
   });
+
+  it('keeps a pick made before the session effort loads', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(async () => undefined);
+    const { rerenderWith } = renderComposer({
+      effort: undefined,
+      modelOptions: [reasoningModel],
+      onSubmit,
+    });
+
+    await user.click(screen.getByRole('button', { name: /^Reasoning effort:/u }));
+    await user.click(screen.getByRole('menuitemradio', { name: 'medium' }));
+    // The session's stored effort arrives only now.
+    rerenderWith({ effort: 'low' });
+
+    expect(await screen.findByRole('button', { name: 'Reasoning effort: medium' })).toBeVisible();
+    await user.type(composerEditor(), 'Keep my pick.{Enter}');
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    expect(onSubmit.mock.calls[0]?.[0].behavior.reasoning_effort).toBe('medium');
+  });
+
+  it("labels CLIO's shipped default honestly in the composer", () => {
+    renderComposer({
+      effort: undefined,
+      modelOptions: [
+        {
+          ...reasoningModel,
+          reasoning: {
+            levels: ['off', 'low', 'medium', 'high'] as ReasoningEffort[],
+            default: 'low' as ReasoningEffort,
+            defaultIsShipped: true,
+          },
+        },
+      ],
+      onSubmit: vi.fn(async () => undefined),
+    });
+
+    expect(screen.getByRole('button', { name: 'Reasoning effort: Default (Low)' })).toBeVisible();
+  });
 });

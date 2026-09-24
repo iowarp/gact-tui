@@ -104,7 +104,6 @@ export interface ClioComposerProps {
     references: Exclude<ComposerMessagePart, { type: 'text' }>[];
     provider?: string;
     model?: string;
-    effort?: string;
     delivery: MessageDelivery | 'queued';
     behavior: MessageBehavior;
     onUploadProgress: (progress: ResourceUploadProgress) => void;
@@ -225,6 +224,8 @@ export function ClioComposer({
     authoritativeConfirmationPolicy: MessageBehavior['confirmation_policy'];
     authoritativeExecutionMode: MessageBehavior['execution_mode'];
     authoritativeEffort: string | undefined;
+    /** The person picked a level in this mount; a late session value never overrides it. */
+    effortPicked: boolean;
   }>(() => ({
     behavior: {
       confirmation_policy: confirmationPolicy,
@@ -235,6 +236,7 @@ export function ClioComposer({
     authoritativeConfirmationPolicy: confirmationPolicy,
     authoritativeExecutionMode: executionMode,
     authoritativeEffort: effort,
+    effortPicked: false,
   }));
   const behavior: MessageBehavior = {
     ...behaviorSelection.behavior,
@@ -247,19 +249,20 @@ export function ClioComposer({
         ? behaviorSelection.behavior.execution_mode
         : executionMode,
     reasoning_effort:
-      behaviorSelection.authoritativeEffort === effort
+      behaviorSelection.effortPicked || behaviorSelection.authoritativeEffort === effort
         ? behaviorSelection.behavior.reasoning_effort
         : // A changed session effort is the person's own (the service projects
           // only user-sourced levels); absent means nothing is picked.
           knownReasoningEffort(effort),
   };
-  const setBehavior = (next: MessageBehavior) => {
+  const setBehavior = (next: MessageBehavior, effortPicked = behaviorSelection.effortPicked) => {
     const previous = behavior;
     setBehaviorSelection({
       behavior: next,
       authoritativeConfirmationPolicy: confirmationPolicy,
       authoritativeExecutionMode: executionMode,
       authoritativeEffort: effort,
+      effortPicked,
     });
     if (
       !onBehaviorChange ||
@@ -274,6 +277,7 @@ export function ClioComposer({
         authoritativeConfirmationPolicy: confirmationPolicy,
         authoritativeExecutionMode: executionMode,
         authoritativeEffort: effort,
+        effortPicked: behaviorSelection.effortPicked,
       });
       toast.error('Session behavior was not changed', {
         description: error instanceof Error ? error.message : 'The service rejected the change.',
@@ -347,9 +351,8 @@ export function ClioComposer({
     (option) =>
       option.providerId === selectedProvider && option.id === selectedModel && option.available,
   );
-  // What this message sends: the person's pick when the selected model offers
-  // it, else nothing (the service applies the configured level). Defaults are
-  // displayed by the control, never sent.
+  // Sends the person's pick when the selected model offers it, else nothing (the
+  // service applies the configured level). Defaults are displayed, never sent.
   const messageBehavior: MessageBehavior = {
     ...behavior,
     reasoning_effort: effectiveReasoningEffort(
@@ -548,7 +551,6 @@ export function ClioComposer({
                 text: trimmed,
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
-                effort: messageBehavior.reasoning_effort,
                 onUploadProgress: (progress) => {
                   uploadingFilenameRef.current = progress.filename;
                   setUploadProgress(progress);
@@ -657,8 +659,7 @@ export function ClioComposer({
                       authoritativeProvider: provider,
                       authoritativeModel: model,
                     });
-                    // A pick the new model does not offer is dropped, not carried
-                    // over to resurface later; the new model's default is shown.
+                    // Drop a pick the new model does not offer (its default is shown).
                     const pick = behavior.reasoning_effort;
                     if (pick && !option.reasoning?.levels.includes(pick)) {
                       setBehaviorSelection({
@@ -666,6 +667,7 @@ export function ClioComposer({
                         authoritativeConfirmationPolicy: confirmationPolicy,
                         authoritativeExecutionMode: executionMode,
                         authoritativeEffort: effort,
+                        effortPicked: false,
                       });
                     }
                   }}
@@ -693,17 +695,18 @@ export function ClioComposer({
                   }
                 />
               }
-              onChange={(next) =>
+              onChange={(next) => {
                 // Keep only an effort the person picked: a mode or approval
-                // change must not freeze the model's default as a choice.
-                setBehavior({
-                  ...next,
-                  reasoning_effort:
-                    next.reasoning_effort === messageBehavior.reasoning_effort
-                      ? behavior.reasoning_effort
-                      : next.reasoning_effort,
-                })
-              }
+                // change must not freeze the displayed default as a choice.
+                const picked = next.reasoning_effort !== messageBehavior.reasoning_effort;
+                setBehavior(
+                  {
+                    ...next,
+                    reasoning_effort: picked ? next.reasoning_effort : behavior.reasoning_effort,
+                  },
+                  picked || behaviorSelection.effortPicked,
+                );
+              }}
               unrecognizedEffort={unrecognizedEffort}
             />
           </PromptInputTools>
