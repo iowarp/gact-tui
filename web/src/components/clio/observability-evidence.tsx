@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ExternalLink } from '@/components/ui/external-link';
 import { formatBytes, formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
@@ -487,16 +488,14 @@ function SourceEvidence({
                 </p>
               ) : null}
               {source.link && source.value ? (
-                <a
+                <ExternalLink
                   aria-label={`${source.label}: ${source.value}`}
                   className="mt-1 flex items-center gap-1 break-all text-xs text-primary hover:underline"
                   href={source.value}
-                  rel="noreferrer"
-                  target="_blank"
                 >
                   {source.value}
                   <ExternalLinkIcon aria-hidden="true" className="size-3 shrink-0" />
-                </a>
+                </ExternalLink>
               ) : source.detailParts ? (
                 <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   {source.detailParts.map((part) => (

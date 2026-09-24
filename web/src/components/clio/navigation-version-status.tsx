@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ExternalLink } from '@/components/ui/external-link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -25,7 +26,6 @@ import {
   installDesktopUpdate,
   subscribeDesktopUpdate,
 } from '@/tauri/desktop-updater';
-import { openExternalUrl } from '@/tauri/external-url';
 import { restartClio, updateManagedClio } from '@/tauri/managed-backend';
 
 // 'unknown' is a REAL state -- no check has run, or the one that ran had
@@ -218,14 +218,13 @@ export function SystemVersionStatus() {
         <VersionRow
           currentVersion={agentVersion}
           label={vocab.agent}
-          onOpenRelease={
-            brand.agentReleaseUrl && agentVersion
-              ? () =>
-                  void openExternalUrl(`${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`)
-              : undefined
-          }
           onRecheck={() => void recheck()}
           onUpdate={agentUpdateActionable ? () => void performUpdate('agent') : undefined}
+          releaseUrl={
+            brand.agentReleaseUrl && agentVersion
+              ? `${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`
+              : undefined
+          }
           state={
             capabilities.isError
               ? 'error'
@@ -244,16 +243,13 @@ export function SystemVersionStatus() {
         <VersionRow
           currentVersion={displayedDesktopVersion}
           label={vocab.product}
-          onOpenRelease={
-            brand.desktopReleaseUrl && displayedDesktopVersion
-              ? () =>
-                  void openExternalUrl(
-                    `${brand.desktopReleaseUrl}/tag/${releaseTag(displayedDesktopVersion)}`,
-                  )
-              : undefined
-          }
           onRecheck={() => void recheck()}
           onUpdate={desktopUpdateAvailable ? () => void performUpdate('desktop') : undefined}
+          releaseUrl={
+            brand.desktopReleaseUrl && displayedDesktopVersion
+              ? `${brand.desktopReleaseUrl}/tag/${releaseTag(displayedDesktopVersion)}`
+              : undefined
+          }
           // DesktopUpdateSnapshot['status'] already IS this component's
           // VersionState vocabulary -- no fall-through-to-current mapping.
           state={snapshot.status}
@@ -300,9 +296,9 @@ function VersionStateBadge({ state }: { state: VersionState }) {
 function VersionRow({
   currentVersion,
   label,
-  onOpenRelease,
   onRecheck,
   onUpdate,
+  releaseUrl,
   state,
   targetVersion,
   testId,
@@ -310,9 +306,9 @@ function VersionRow({
 }: {
   currentVersion?: string;
   label: string;
-  onOpenRelease?: () => void;
   onRecheck: () => void;
   onUpdate?: () => void;
+  releaseUrl?: string;
   state: VersionState;
   targetVersion?: string;
   /** Stable hook for scoping assertions to ONE row -- two rows can be in
@@ -329,15 +325,19 @@ function VersionRow({
       className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-3 [&:not(:last-child)]:border-b"
       data-testid={testId}
     >
-      <button
-        className="flex min-w-0 items-center gap-1.5 text-left font-medium hover:underline disabled:no-underline"
-        disabled={!onOpenRelease}
-        onClick={onOpenRelease}
-        type="button"
-      >
-        <span className="truncate">{label}</span>
-        {onOpenRelease ? <ExternalLinkIcon aria-hidden="true" className="size-3" /> : null}
-      </button>
+      {releaseUrl ? (
+        <ExternalLink
+          className="flex min-w-0 items-center gap-1.5 font-medium hover:underline"
+          href={releaseUrl}
+        >
+          <span className="truncate">{label}</span>
+          <ExternalLinkIcon aria-hidden="true" className="size-3" />
+        </ExternalLink>
+      ) : (
+        <span className="flex min-w-0 items-center gap-1.5 font-medium">
+          <span className="truncate">{label}</span>
+        </span>
+      )}
       <div className="flex items-center gap-2">
         <VersionStateBadge state={state} />
         {action ? (

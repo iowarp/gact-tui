@@ -108,7 +108,7 @@ export function useProviderSettingsActions({
       if (result.authorization_url && result.flow_id) {
         setAuthFlow({ authorizationUrl: result.authorization_url, flowId: result.flow_id });
         setAuthLaunchError('');
-        void openExternalUrl(result.authorization_url).catch((error: unknown) =>
+        openExternalUrl(result.authorization_url).catch((error: unknown) =>
           setAuthLaunchError(
             error instanceof Error ? error.message : 'Could not open Globus sign-in.',
           ),

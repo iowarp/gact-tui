@@ -242,6 +242,29 @@ test('default capability JSON is present', () => {
   assert.ok(Array.isArray(caps.permissions));
 });
 
+test('opener capability covers external web and mail links, not just Globus', () => {
+  // gact-tui#<external-links>: the opener plugin's `open_js_links_on_click`
+  // (enabled by tauri_plugin_opener::init() in src/lib.rs) intercepts every
+  // target="_blank"/ctrl-click/shift-click anchor and re-dispatches it
+  // through `plugin:opener|open_url`. When the scope only allowed
+  // `https://auth.globus.org/*`, every other external link (docs, release
+  // notes, citations, mailto:) silently failed: the scope rejected the
+  // command and the rejection went unhandled. The scope must cover the
+  // schemes the app actually opens.
+  const caps = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'capabilities', 'default.json'), 'utf8'),
+  );
+  const openUrlPermission = caps.permissions.find(
+    (permission) =>
+      typeof permission === 'object' && permission.identifier === 'opener:allow-open-url',
+  );
+  assert.ok(openUrlPermission, 'expected an opener:allow-open-url permission entry');
+  const allowedUrls = openUrlPermission.allow.map((entry) => entry.url);
+  assert.ok(allowedUrls.includes('https://*'), 'expected https://* to be allowed');
+  assert.ok(allowedUrls.includes('http://*'), 'expected http://* to be allowed');
+  assert.ok(allowedUrls.includes('mailto:*'), 'expected mailto:* to be allowed');
+});
+
 test('tauri.conf.json is neutral and does not bundle a managed sidecar by default', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   assert.ok(Array.isArray(cfg.bundle.externalBin), 'expected bundle.externalBin to be an array');
@@ -322,10 +345,26 @@ test('installer hooks resolve the app-data folder from the bundle identifier mac
   );
 });
 
+test('a failed runtime install shows the real error and offers the issue page', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  const block = hooks.match(/--prepare-runtime[\s\S]*?CLIO runtime installed\./)?.[0] ?? '';
+  assert.ok(block, 'the runtime install step must exist');
+  // $1 is the helper's captured stderr: the real error and the log path.
+  assert.match(block, /MessageBox MB_ICONSTOP\|MB_OK "[^"]*\$1/);
+  assert.match(block, /MessageBox MB_ICONSTOP\|MB_YESNO "[^"]*\$1/);
+  assert.match(block, /runtime-install-issue-url\.txt/);
+  assert.match(block, /ExecShell "open" "\$2"/);
+  assert.match(block, /ExecShell "open" "\$INSTDIR\\data"/);
+  assert.match(block, /Abort/);
+});
+
 test('installer separates Infrastructure and individual provider choices into unclipped wizard pages', () => {
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  // The runtime-install failure report may ask whether to open the issue page;
+  // that is not a setup choice, so it is the one block excluded here.
+  const setup = hooks.replace(/--prepare-runtime[\s\S]*?CLIO runtime installed\./, '');
   assert.doesNotMatch(
-    hooks,
+    setup,
     /MB_YESNO/,
     'setup choices must use nsDialogs pages, not a MessageBox',
   );

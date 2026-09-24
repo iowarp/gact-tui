@@ -20,6 +20,8 @@ mod menu;
 mod menu_spec;
 mod net_util;
 mod plugins;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod runtime_install_report;
 mod runtime_pack;
 mod sidecar_setup;
 mod sse_bridge;
@@ -384,6 +386,32 @@ pub fn prepare_runtime_for_install() -> Result<(), String> {
     runtime_pack::prepare_bundled_runtime(resource_dir, &managed_storage)?
         .ok_or_else(|| "the installer did not include a bundled CLIO runtime".to_string())?;
     Ok(())
+}
+
+/// The `--prepare-runtime` installer step. On failure the returned text leads
+/// with the real error and names the saved log; the installer shows it and
+/// offers the issue page recorded next to that log.
+#[cfg(windows)]
+pub fn prepare_runtime_command() -> Result<(), String> {
+    let install_dir = std::env::current_exe()
+        .ok()
+        .and_then(|executable| executable.parent().map(std::path::Path::to_path_buf));
+    match prepare_runtime_for_install() {
+        Ok(()) => {
+            if let Some(dir) = &install_dir {
+                runtime_install_report::clear_failure(dir);
+            }
+            Ok(())
+        }
+        Err(error) => Err(match &install_dir {
+            Some(dir) => runtime_install_report::record_failure(
+                dir,
+                &error,
+                runtime_install_report::issue_url().as_deref(),
+            ),
+            None => error,
+        }),
+    }
 }
 
 /// Remove installer-owned runtime, CTE, and model-cache storage without

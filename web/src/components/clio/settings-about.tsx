@@ -4,6 +4,7 @@ import { brand } from '@brand';
 import { Frame, FramePanel } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { ExternalLink } from '@/components/ui/external-link';
 import { useRepository } from '@/hooks/use-repository';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
@@ -89,9 +90,7 @@ export function AboutSettings() {
       </Frame>
       {brand.homeUrl ? (
         <Button asChild className="w-fit" variant="outline">
-          <a href={brand.homeUrl} rel="noreferrer" target="_blank">
-            Product website
-          </a>
+          <ExternalLink href={brand.homeUrl}>Product website</ExternalLink>
         </Button>
       ) : null}
     </div>
