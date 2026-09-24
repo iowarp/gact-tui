@@ -1,4 +1,4 @@
-import type { MessageBehavior } from '@clio/core/v3';
+import type { MessageBehavior, ReasoningEffort } from '@clio/core/v3';
 import { CircleHelpIcon, SlidersHorizontalIcon, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
 
-const REASONING_EFFORTS = ['off', 'low', 'medium', 'high', 'xhigh'] as const;
 type BehaviorMenu = 'approval' | 'effort' | 'mode';
 
 interface ClioComposerBehaviorControlsProps {
@@ -21,6 +20,11 @@ interface ClioComposerBehaviorControlsProps {
   disabled?: boolean;
   modelControl: ReactNode;
   onChange: (behavior: MessageBehavior) => void;
+  /**
+   * The thinking levels the selected model offers (from the provider catalog).
+   * Empty hides the control: there is nothing a person could choose.
+   */
+  reasoningLevels: readonly ReasoningEffort[];
   /**
    * A reasoning effort the service reported that this build has no name for.
    * Named on the control rather than replaced with a recognized value, so the
@@ -35,6 +39,7 @@ export function ClioComposerBehaviorControls({
   disabled,
   modelControl,
   onChange,
+  reasoningLevels,
   unrecognizedEffort,
 }: ClioComposerBehaviorControlsProps) {
   // Once an effort is chosen here the reported value is answered, so the
@@ -65,51 +70,53 @@ export function ClioComposerBehaviorControls({
       className="h-7 max-w-full [&>[data-slot=button]]:h-7"
     >
       {modelControl}
-      <DropdownMenu
-        onOpenChange={(open) => setMenuOpen('effort', open)}
-        open={openMenu === 'effort'}
-      >
-        <DropdownMenuTrigger asChild>
-          <Button
-            aria-label={`Reasoning effort: ${effortLabel}`}
-            className="gap-1.5 px-2"
-            disabled={disabled}
-            size="sm"
-            title={`Reasoning effort: ${effortLabel}`}
-            type="button"
-            variant="outline"
-          >
-            <SlidersHorizontalIcon />
-            <span className={unknownEffort ? 'hidden lg:inline' : 'hidden capitalize lg:inline'}>
-              {effortLabel}
-            </span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuLabel>Reasoning effort</DropdownMenuLabel>
-          {unknownEffort ? (
-            <p className="px-2 pb-1.5 text-xs text-muted-foreground">
-              The service reported “{unknownEffort}”, which this build has no setting for. Choose
-              one to send with this message.
-            </p>
-          ) : null}
-          <DropdownMenuRadioGroup
-            onValueChange={(value) => {
-              const effort = REASONING_EFFORTS.find((candidate) => candidate === value);
-              if (!effort) return;
-              setEffortChosen(true);
-              onChange({ ...behavior, reasoning_effort: effort });
-            }}
-            value={unknownEffort ? '' : behavior.reasoning_effort}
-          >
-            {REASONING_EFFORTS.map((value) => (
-              <DropdownMenuRadioItem className="capitalize" key={value} value={value}>
-                {reasoningEffortLabel(value)}
-              </DropdownMenuRadioItem>
-            ))}
-          </DropdownMenuRadioGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {reasoningLevels.length ? (
+        <DropdownMenu
+          onOpenChange={(open) => setMenuOpen('effort', open)}
+          open={openMenu === 'effort'}
+        >
+          <DropdownMenuTrigger asChild>
+            <Button
+              aria-label={`Reasoning effort: ${effortLabel}`}
+              className="gap-1.5 px-2"
+              disabled={disabled}
+              size="sm"
+              title={`Reasoning effort: ${effortLabel}`}
+              type="button"
+              variant="outline"
+            >
+              <SlidersHorizontalIcon />
+              <span className={unknownEffort ? 'hidden lg:inline' : 'hidden capitalize lg:inline'}>
+                {effortLabel}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel>Reasoning effort</DropdownMenuLabel>
+            {unknownEffort ? (
+              <p className="px-2 pb-1.5 text-xs text-muted-foreground">
+                The service reported “{unknownEffort}”, which this build has no setting for. Choose
+                one to send with this message.
+              </p>
+            ) : null}
+            <DropdownMenuRadioGroup
+              onValueChange={(value) => {
+                const effort = reasoningLevels.find((candidate) => candidate === value);
+                if (!effort) return;
+                setEffortChosen(true);
+                onChange({ ...behavior, reasoning_effort: effort });
+              }}
+              value={unknownEffort ? '' : (behavior.reasoning_effort ?? '')}
+            >
+              {reasoningLevels.map((value) => (
+                <DropdownMenuRadioItem className="capitalize" key={value} value={value}>
+                  {reasoningEffortLabel(value)}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
       <DropdownMenu onOpenChange={(open) => setMenuOpen('mode', open)} open={openMenu === 'mode'}>
         <DropdownMenuTrigger asChild>
           <Button
@@ -197,6 +204,7 @@ function unknownLabel(value: string): string {
 }
 
 function reasoningEffortLabel(value: MessageBehavior['reasoning_effort']): string {
+  if (!value) return 'Model default';
   return value === 'xhigh' ? 'Extra high' : value;
 }
 

@@ -6,6 +6,7 @@ import type {
 } from '@clio/core/v3';
 import { providerStatusDetail } from './provider-availability';
 import { providerDisplayName } from './provider-presentation';
+import { modelReasoningLevels, type ModelReasoningLevels } from './reasoning-levels';
 
 export interface ClioModelOption {
   providerId: string;
@@ -26,6 +27,8 @@ export interface ClioModelOption {
    */
   kind?: 'model' | 'provider';
   modalities?: readonly string[];
+  /** Thinking levels this model offers, from the live catalog. */
+  reasoning?: ModelReasoningLevels;
 }
 
 /**
@@ -190,6 +193,7 @@ function liveProviderOptions(
           ? undefined
           : (lastGoodDetail ?? (model.failure || modelAvailabilityLabel(model.availability))),
       modalities: model.modalities,
+      reasoning: modelReasoningLevels(model.reasoning),
     };
   });
 }

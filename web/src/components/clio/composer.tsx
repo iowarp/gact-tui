@@ -48,6 +48,11 @@ import { cn } from '@/lib/utils';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
+import {
+  effectiveReasoningEffort,
+  knownReasoningEffort,
+  type ModelReasoningLevels,
+} from '@/lib/reasoning-levels';
 import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
 import type { WorkspaceResourceUploadResult } from '@/lib/upload-workspace-resources';
 import { ClioComposerReferenceMenu } from './composer-references';
@@ -82,6 +87,7 @@ export interface ClioComposerProps {
     freshness?: string;
     health?: string;
     modalities?: readonly string[];
+    reasoning?: ModelReasoningLevels;
   }>;
   disabled?: boolean;
   contextReferences?: boolean;
@@ -192,7 +198,8 @@ export function ClioComposer({
     behavior: {
       confirmation_policy: confirmationPolicy,
       execution_mode: executionMode,
-      reasoning_effort: knownReasoningEffort(effort) ?? DEFAULT_REASONING_EFFORT,
+      // The person's explicit choice only; the model's own default fills in below.
+      reasoning_effort: knownReasoningEffort(effort),
     },
     authoritativeConfirmationPolicy: confirmationPolicy,
     authoritativeExecutionMode: executionMode,
@@ -300,6 +307,15 @@ export function ClioComposer({
     (option) =>
       option.providerId === selectedProvider && option.id === selectedModel && option.available,
   );
+  // What this message sends: a level the selected model really offers (the
+  // person's choice, else the model's default), or none when it offers none.
+  const messageBehavior: MessageBehavior = {
+    ...behavior,
+    reasoning_effort: effectiveReasoningEffort(
+      behavior.reasoning_effort,
+      selectedOption?.reasoning,
+    ),
+  };
 
   useEffect(() => {
     const previousKey = handledFocusRequestKeyRef.current;
@@ -484,14 +500,14 @@ export function ClioComposer({
             uploadingFilenameRef.current = undefined;
             try {
               await onSubmit({
-                behavior,
+                behavior: messageBehavior,
                 delivery: state === 'running' ? nextDeliveryRef.current : 'start',
                 files,
                 references: selectedReferences.map(({ reference }) => toMessagePart(reference)),
                 text: trimmed,
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
-                effort: behavior.reasoning_effort,
+                effort: messageBehavior.reasoning_effort,
                 onUploadProgress: (progress) => {
                   uploadingFilenameRef.current = progress.filename;
                   setUploadProgress(progress);
@@ -581,7 +597,8 @@ export function ClioComposer({
               />
             ) : null}
             <ClioComposerBehaviorControls
-              behavior={behavior}
+              behavior={messageBehavior}
+              reasoningLevels={selectedOption?.reasoning?.levels ?? []}
               disabled={disabled}
               modelControl={
                 <ClioModelPicker
@@ -616,7 +633,17 @@ export function ClioComposer({
                   }
                 />
               }
-              onChange={setBehavior}
+              onChange={(next) =>
+                // Keep only an effort the person picked: a mode or approval
+                // change must not freeze the model's default as a choice.
+                setBehavior({
+                  ...next,
+                  reasoning_effort:
+                    next.reasoning_effort === messageBehavior.reasoning_effort
+                      ? behavior.reasoning_effort
+                      : next.reasoning_effort,
+                })
+              }
               unrecognizedEffort={unrecognizedEffort}
             />
           </PromptInputTools>
@@ -696,22 +723,6 @@ function ComposerAddContextButton({
       </PromptInputActionMenuContent>
     </PromptInputActionMenu>
   );
-}
-
-const DEFAULT_REASONING_EFFORT: MessageBehavior['reasoning_effort'] = 'medium';
-
-/** The reported effort, or nothing when this build has no setting for it. */
-function knownReasoningEffort(value?: string): MessageBehavior['reasoning_effort'] | undefined {
-  if (
-    value === 'off' ||
-    value === 'low' ||
-    value === 'medium' ||
-    value === 'high' ||
-    value === 'xhigh'
-  ) {
-    return value;
-  }
-  return undefined;
 }
 
 function compactProviderName(provider?: string): string {

@@ -30,13 +30,14 @@ import { useLiveStore } from '@/store/live-store';
 import { vocab } from '@/lib/brand-vocabulary';
 import { openExternalUrl } from '@/tauri/external-url';
 import { useProviderSettingsActions } from './settings-models-actions';
+import { useProviderCatalog } from '@/hooks/use-provider-catalog';
+import { modelReasoningLevels } from '@/lib/reasoning-levels';
 import {
   canApplyProvider,
   modelSettingsOptions,
   modelSettingsUpdate,
   presetIsActive,
   providerSupportsRuntimeSizing,
-  REASONING_EFFORTS,
   resolveActivePreset,
   seedModelSettings,
   type ModelSettingsValues,
@@ -148,6 +149,7 @@ function ModelsSettingsContent({
   const selectedAvailability = providerAvailability(selectedProvider, selectedPreset);
   const supportsRuntimeControls = providerSupportsRuntimeSizing(selectedPreset);
   const providerReadyForApply = canApplyProvider(selectedPreset, values, storedCredential.data);
+  const providerCatalog = useProviderCatalog();
   const models = useQuery({
     queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
     queryFn: ({ signal }) => repository.providerModels(presetId, signal),
@@ -159,6 +161,13 @@ function ModelsSettingsContent({
     modelId: values.modelId,
     preset: selectedPreset,
   });
+  // Only the levels this model's provider reports for it (empty: no selector).
+  const reasoningLevels =
+    modelReasoningLevels(
+      providerCatalog.data?.providers
+        .find((provider) => provider.id === presetId)
+        ?.models.find((model) => model.model_id === values.modelId)?.reasoning,
+    )?.levels ?? [];
   const selectedModelIsCandidate = modelOptions.some(
     (model) => model.id === values.modelId && model.availability === 'candidate',
   );
@@ -450,29 +459,31 @@ function ModelsSettingsContent({
                       : 'Using the configured model.'}
             </FieldDescription>
           </Field>
-          <Field>
-            <FieldLabel htmlFor="model-effort">Reasoning effort</FieldLabel>
-            <Select
-              onValueChange={(value) => edit({ effort: value as ReasoningEffort })}
-              value={values.effort || undefined}
-            >
-              <SelectTrigger id="model-effort">
-                <SelectValue placeholder="Provider default" />
-              </SelectTrigger>
-              <SelectContent>
-                {REASONING_EFFORTS.map((level) => (
-                  <SelectItem key={level} value={level}>
-                    {reasoningEffortLabel(level)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldDescription>
-              {values.effort
-                ? 'This becomes the reasoning depth used for new work with this model.'
-                : 'No reasoning depth is recorded for this model, so the provider uses its own until one is set here.'}
-            </FieldDescription>
-          </Field>
+          {reasoningLevels.length ? (
+            <Field>
+              <FieldLabel htmlFor="model-effort">Reasoning effort</FieldLabel>
+              <Select
+                onValueChange={(value) => edit({ effort: value as ReasoningEffort })}
+                value={values.effort || undefined}
+              >
+                <SelectTrigger id="model-effort">
+                  <SelectValue placeholder="Provider default" />
+                </SelectTrigger>
+                <SelectContent>
+                  {reasoningLevels.map((level) => (
+                    <SelectItem key={level} value={level}>
+                      {reasoningEffortLabel(level)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {values.effort
+                  ? 'This becomes the reasoning depth used for new work with this model.'
+                  : 'No reasoning depth is recorded for this model, so the provider uses its own until one is set here.'}
+              </FieldDescription>
+            </Field>
+          ) : null}
           <Field>
             <FieldLabel htmlFor="provider-api-base">Endpoint / API base</FieldLabel>
             <Input
@@ -657,6 +668,7 @@ const REASONING_EFFORT_LABELS: Record<ReasoningEffort, string> = {
   low: 'Low',
   medium: 'Medium',
   high: 'High',
+  xhigh: 'Extra high',
 };
 
 function reasoningEffortLabel(level: ReasoningEffort): string {

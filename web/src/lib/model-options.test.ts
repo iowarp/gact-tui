@@ -28,7 +28,11 @@ function catalogModel(modelId: string, availability = 'available', failure = '')
     model_id: modelId,
     revision: '',
     modalities: ['text'],
-    reasoning: { supported: true, parameter: 'reasoning_effort' },
+    reasoning: {
+      supported: true,
+      parameter: 'reasoning_effort',
+      levels: ['low', 'medium', 'high'],
+    },
     native_tool_calling: true,
     availability,
     evidence: {
@@ -97,7 +101,11 @@ describe('buildModelOptions', () => {
               model_id: 'openai/gpt-5.6-luna',
               revision: '',
               modalities: ['text', 'image'],
-              reasoning: { supported: true, parameter: 'reasoning_effort' },
+              reasoning: {
+                supported: true,
+                parameter: 'reasoning_effort',
+                levels: ['low', 'medium', 'high'],
+              },
               native_tool_calling: true,
               availability: 'available',
               evidence: {

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { providerCatalogSchema } from './composer-schemas.js';
+import { messageAcceptanceSchema, providerCatalogSchema } from './composer-schemas.js';
 import {
   providerHandshakeSchema,
   providerListSchema,
@@ -66,5 +66,31 @@ describe('provider catalog decoder accepts real service payloads', () => {
     expect(metis?.freshness.source).toBe('last_good');
     expect(metis?.freshness.staleness?.reason).toBe('last_good_catalog_served');
     expect(metis?.models.every((model) => model.availability === 'candidate')).toBe(true);
+  });
+});
+
+describe('reasoning levels on the wire', () => {
+  it('decodes each model with the levels its provider reports', () => {
+    const catalog = providerCatalogSchema.parse(payloads.provider_catalog_live);
+    const metis = catalog.providers.find((provider) => provider.id === 'argonne_metis');
+    const gptOss = metis?.models.find((model) => model.model_id === 'openai/gpt-oss-120b');
+    expect(gptOss?.reasoning).toEqual({
+      supported: true,
+      parameter: 'openai_gptoss',
+      levels: ['low', 'medium', 'high'],
+      default: 'medium',
+      source: 'served_model_reasoning_parser',
+    });
+    const llama = metis?.models.find((model) => model.model_id === 'meta-llama/Llama-4-Maverick');
+    expect(llama?.reasoning.levels).toEqual([]);
+  });
+
+  it('decodes an accepted message whose reasoning effort is unset (null)', () => {
+    const raw = payloads.post_message_response_unset_effort as {
+      behavior: { reasoning_effort: unknown };
+    };
+    expect(raw.behavior.reasoning_effort).toBeNull();
+    const accepted = messageAcceptanceSchema.parse(raw);
+    expect(accepted.behavior.reasoning_effort).toBeUndefined();
   });
 });

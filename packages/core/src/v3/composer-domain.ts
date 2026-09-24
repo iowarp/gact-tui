@@ -22,8 +22,15 @@ export interface ComposerModelRef {
   variant?: string;
 }
 
+/** A thinking level the message contract can carry, in ascending order of depth. */
+export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'xhigh';
+
 export interface MessageBehavior {
-  reasoning_effort: 'off' | 'low' | 'medium' | 'high' | 'xhigh';
+  /**
+   * The message's own thinking level. Absent means "use the configured level";
+   * clients send only a level the selected model reports.
+   */
+  reasoning_effort?: ReasoningEffort;
   execution_mode: 'execute' | 'plan' | 'deep_research';
   confirmation_policy: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
 }
@@ -256,7 +263,18 @@ export interface ProviderCatalogModel {
   model_id: string;
   revision: string;
   modalities: string[];
-  reasoning: { supported: boolean; parameter: string };
+  /**
+   * What this model can do about thinking, from provider truth: `levels` are the
+   * levels a person can choose (empty means no selector), `default` the model's
+   * own level when the provider names one.
+   */
+  reasoning: {
+    supported: boolean;
+    parameter: string;
+    levels: string[];
+    default?: string;
+    source?: string;
+  };
   native_tool_calling: boolean;
   context_window?: number;
   loaded_context_window?: number;

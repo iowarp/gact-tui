@@ -1,3 +1,5 @@
+import type { ReasoningEffort } from '@clio/core/v3';
+import { knownReasoningEffort } from '@/lib/reasoning-levels';
 /**
  * The model-settings form's own state: what the service's live configuration
  * seeds it with, and what an Apply is allowed to write back.
@@ -54,7 +56,8 @@ export function canApplyProvider(
     preset.configuration_fields?.some(
       (field) => field.required && !values.providerOptions[field.id]?.trim(),
     )
-  ) return false;
+  )
+    return false;
   return Boolean(
     preset.is_authenticated ||
       (preset.requires_api_key && (values.apiKey || storedCredential)) ||
@@ -62,10 +65,7 @@ export function canApplyProvider(
   );
 }
 
-export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high';
-
-/** Reasoning levels the service accepts, in the order the picker offers them. */
-export const REASONING_EFFORTS: readonly ReasoningEffort[] = ['off', 'low', 'medium', 'high'];
+export type { ReasoningEffort } from '@clio/core/v3';
 
 /**
  * Providers whose model runtime this panel can size — the ones that serve a
@@ -218,7 +218,7 @@ export function modelSettingsUpdate({
 }
 
 function reasoningEffort(value: string | undefined): ReasoningEffort | '' {
-  return REASONING_EFFORTS.includes(value as ReasoningEffort) ? (value as ReasoningEffort) : '';
+  return knownReasoningEffort(value) ?? '';
 }
 
 function numberField(value: number | undefined): string {

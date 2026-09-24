@@ -1,3 +1,4 @@
+import type { ReasoningEffort } from './composer-domain.js';
 import type {
   LanguageModelConfiguration,
   ProviderDefinition,
@@ -171,7 +172,7 @@ export class ProviderRepository extends ContextRepository {
       model: string;
       api_key?: string;
       provider_options: Record<string, string>;
-      thinking_level?: 'off' | 'low' | 'medium' | 'high';
+      thinking_level?: ReasoningEffort;
       parallel?: number;
       context_length?: number;
       max_tokens?: number;

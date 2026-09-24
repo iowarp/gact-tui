@@ -189,7 +189,6 @@ describe('ClioComposer authoritative behavior', () => {
       await screen.findByRole('button', { name: 'Confirmation policy: Workspace edits' }),
     ).toBeVisible();
   });
-
 });
 
 describe('ClioComposer service commands', () => {
@@ -646,14 +645,6 @@ describe('ClioComposer service commands', () => {
 
     const remove = screen.getByRole('button', { name: 'Remove field-map.png' });
     expect(remove).toHaveClass('group-hover:opacity-100', 'group-focus-within:opacity-100');
-  });
-
-  it('names an effort the service reported that this build has no setting for', () => {
-    renderComposer({ effort: 'ultra' });
-
-    const control = screen.getByRole('button', { name: /^Reasoning effort:/ });
-    expect(control).toHaveAccessibleName('Reasoning effort: Unknown (ultra)');
-    expect(control).not.toHaveTextContent('medium');
   });
 
   it('reports a rejected service command instead of swallowing it', async () => {
