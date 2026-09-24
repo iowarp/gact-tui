@@ -15,7 +15,6 @@ import type {
   WorkspaceResource,
 } from '@clio/core/v3';
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
-import type { FileUIPart } from 'ai';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +28,7 @@ import { useRepository } from './use-repository';
 import {
   uploadWorkspaceResources,
   type ResourceUploadProgress,
+  type UploadableFilePart,
   type WorkspaceResourceUploadResult,
 } from '@/lib/upload-workspace-resources';
 import { respondToLegacyInteraction } from '@/lib/pending-interaction-contract';
@@ -47,7 +47,7 @@ interface UseSessionMutationsInput {
 export interface SessionSendInput {
   text: string;
   references?: ComposerMessagePart[];
-  files?: FileUIPart[];
+  files?: UploadableFilePart[];
   provider?: string;
   model?: string;
   effort?: string;
@@ -131,7 +131,7 @@ export function useSessionMutations({
 
   const prepareFiles = useCallback(
     async (
-      files: readonly FileUIPart[],
+      files: readonly UploadableFilePart[],
       onProgress?: (progress: ResourceUploadProgress) => void,
       signal?: AbortSignal,
     ): Promise<WorkspaceResourceUploadResult> => {

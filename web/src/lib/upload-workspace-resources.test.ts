@@ -200,4 +200,67 @@ describe('uploadWorkspaceResources', () => {
     expect(repository.resource).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
+
+  it('never fetches the blob: URL when the attachment still carries its File', async () => {
+    // Regression for gact-tui root cause B: the desktop app's CSP connect-src
+    // did not list `blob:`, so `fetch(file.url)` failed for every attachment
+    // even though the browser File was still in memory. When `file` is
+    // present, bytes must come from it directly.
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    const file = new File(['hello world!'], 'notes.md', { type: 'text/markdown' });
+    const createResource = vi.fn().mockResolvedValue(resource({ received_size: 0 }));
+    const appendResourceBytes = vi.fn().mockResolvedValue(undefined);
+    const repository = {
+      appendResourceBytes,
+      createResource,
+      resource: vi
+        .fn()
+        .mockResolvedValue(resource({ received_size: file.size, sha256: 'abc', state: 'ready' })),
+    } as unknown as ComposerRepository;
+
+    await expect(
+      uploadWorkspaceResources({
+        files: [{ type: 'file', file, filename: 'notes.md', mediaType: 'text/markdown', url: 'blob:test-real-file' }],
+        repository,
+        workspaceId: 'workspace_1',
+      }),
+    ).resolves.toMatchObject({
+      resources: [{ id: 'resource_1' }],
+    });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(appendResourceBytes).toHaveBeenCalledWith(
+      'workspace_1',
+      'resource_1',
+      0,
+      new Uint8Array(await file.arrayBuffer()),
+      undefined,
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it('surfaces a named, non-silent error when there is no File and the blob: fetch fails', async () => {
+    // The fetch fallback only exists for an attachment with no surviving
+    // File/Blob. When that fallback also fails, the caller must see a
+    // distinguishable failure rather than an upload that silently vanishes.
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    const repository = {
+      appendResourceBytes: vi.fn(),
+      createResource: vi.fn(),
+      resource: vi.fn(),
+    } as unknown as ComposerRepository;
+
+    const failure = await uploadWorkspaceResources({
+      files: [{ type: 'file', filename: 'notes.md', mediaType: 'text/markdown', url: 'blob:test-no-file' }],
+      repository,
+      workspaceId: 'workspace_1',
+    }).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).name).toBe('AttachmentUnavailableError');
+    expect((failure as Error).message).toMatch(/no local file data was held/);
+    expect(repository.createResource).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
 });

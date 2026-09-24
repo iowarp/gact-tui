@@ -22,9 +22,11 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import type {
-  ResourceUploadProgress,
-  WorkspaceResourceUploadResult,
+import {
+  readAttachmentBytes,
+  type ResourceUploadProgress,
+  type UploadableFilePart,
+  type WorkspaceResourceUploadResult,
 } from '@/lib/upload-workspace-resources';
 import {
   resourcePipelineStages,
@@ -59,7 +61,7 @@ export function ClioComposerAttachments({
   uploadProgress,
 }: {
   onPrepareFiles?: (
-    files: readonly FileUIPart[],
+    files: readonly UploadableFilePart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
     signal?: AbortSignal,
   ) => Promise<WorkspaceResourceUploadResult>;
@@ -303,7 +305,7 @@ function localAttachmentStages(
   return summarizeResourcePipelineStages(upload, conversion);
 }
 
-function LocalAttachmentPreview({ file }: { file: FileUIPart }) {
+function LocalAttachmentPreview({ file }: { file: UploadableFilePart }) {
   if (file.mediaType?.startsWith('image/')) {
     return (
       <img
@@ -338,17 +340,13 @@ function LocalAttachmentPreview({ file }: { file: FileUIPart }) {
   );
 }
 
-function LocalTextPreview({ file }: { file: FileUIPart }) {
+function LocalTextPreview({ file }: { file: UploadableFilePart }) {
   const [text, setText] = useState<string>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(file.url, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Preview request failed with ${response.status}.`);
-        return response.blob();
-      })
+    void readAttachmentBytes(file, controller.signal)
       .then((blob) => {
         if (blob.size > MAX_TEXT_PREVIEW_BYTES) {
           throw new Error('Preview unavailable for text files larger than 1 MB.');
@@ -361,7 +359,11 @@ function LocalTextPreview({ file }: { file: FileUIPart }) {
         setError(cause instanceof Error ? cause.message : 'The text file could not be read.');
       });
     return () => controller.abort();
-  }, [file.url]);
+    // Re-reads only when the attachment identity itself changes; `file` is a
+    // fresh object every render (it flows straight from React state), so
+    // depending on it directly would re-fetch on every unrelated re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file.url, file.file]);
 
   if (error) {
     return <p className="p-4 text-sm text-destructive">{error}</p>;
@@ -376,24 +378,22 @@ function LocalTextPreview({ file }: { file: FileUIPart }) {
   );
 }
 
-function LocalPdfPreview({ file }: { file: FileUIPart }) {
+function LocalPdfPreview({ file }: { file: UploadableFilePart }) {
   const [bytes, setBytes] = useState<Uint8Array>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(file.url, { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Preview request failed with ${response.status}.`);
-        return response.arrayBuffer();
-      })
+    void readAttachmentBytes(file, controller.signal)
+      .then((blob) => blob.arrayBuffer())
       .then((buffer) => setBytes(new Uint8Array(buffer)))
       .catch((cause: unknown) => {
         if (cause instanceof Error && cause.name === 'AbortError') return;
         setError(cause instanceof Error ? cause.message : 'The PDF could not be read.');
       });
     return () => controller.abort();
-  }, [file.url]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file.url, file.file]);
 
   if (error) {
     return <p className="p-4 text-sm text-destructive">{error}</p>;

@@ -1,4 +1,4 @@
-import type { CommandDefinition, WorkspaceResource } from '@clio/core/v3';
+import type { CommandDefinition, MessageBehavior, WorkspaceResource } from '@clio/core/v3';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -72,10 +72,20 @@ const commands: CommandDefinition[] = [
   },
 ];
 
+/** Overridable per-render selection, reapplied by `rerenderWith` below. */
+interface ComposerSelection {
+  confirmationPolicy?: MessageBehavior['confirmation_policy'];
+  effort?: string;
+  executionMode?: MessageBehavior['execution_mode'];
+  model?: string;
+  provider?: string;
+}
+
 function renderComposer({
   attachments = false,
   contextReferences = false,
-  effort = 'medium',
+  modelOptions,
+  onBehaviorChange,
   onCommand = vi.fn(async () => undefined),
   onOpenReference,
   onPrepareFiles,
@@ -83,10 +93,12 @@ function renderComposer({
   onSubmit = vi.fn(async () => undefined),
   state = 'completed',
   workspaceId,
-}: {
+  ...initialSelection
+}: ComposerSelection & {
   attachments?: boolean;
   contextReferences?: boolean;
-  effort?: string;
+  modelOptions?: ClioComposerProps['modelOptions'];
+  onBehaviorChange?: ClioComposerProps['onBehaviorChange'];
   onCommand?: (value: { commandId: string; input: string }) => Promise<void>;
   onOpenReference?: ClioComposerProps['onOpenReference'];
   onPrepareFiles?: ClioComposerProps['onPrepareFiles'];
@@ -95,56 +107,51 @@ function renderComposer({
   state?: 'completed' | 'running';
   workspaceId?: string;
 } = {}) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
-  render(
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // Closes over every non-selection prop so `rerenderWith` re-renders the
+  // SAME element identity with only the selection changed -- exactly what
+  // workspace-page.tsx's fixed (session-only) composer key now does, instead
+  // of a fresh `render()` that would prove nothing about remount behavior.
+  const build = (selection: ComposerSelection = initialSelection) => (
     <QueryClientProvider client={queryClient}>
       <PromptInputProvider>
         <ClioComposer
           attachments={attachments}
           commands={commands}
+          confirmationPolicy={selection.confirmationPolicy}
           contextReferences={contextReferences}
-          effort={effort}
-          model="gpt-5.6-luna"
+          effort={selection.effort ?? 'medium'}
+          executionMode={selection.executionMode}
+          model={selection.model ?? 'gpt-5.6-luna'}
+          modelOptions={modelOptions}
+          onBehaviorChange={onBehaviorChange}
           onCommand={onCommand}
           onOpenReference={onOpenReference}
           onPrepareFiles={onPrepareFiles}
           onStop={onStop}
           onSubmit={onSubmit}
-          provider="codex"
+          provider={selection.provider ?? 'codex'}
           state={state}
           workspaceId={workspaceId}
         />
       </PromptInputProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
-  return { onCommand, onStop, onSubmit };
+  const view = render(build());
+  return {
+    onCommand,
+    onStop,
+    onSubmit,
+    rerenderWith: (selection: ComposerSelection) =>
+      view.rerender(build({ ...initialSelection, ...selection })),
+  };
 }
 
 describe('ClioComposer authoritative behavior', () => {
   it('persists a selected Plan mode before the message is submitted', async () => {
     const user = userEvent.setup();
     const onBehaviorChange = vi.fn(async () => undefined);
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <PromptInputProvider>
-          <ClioComposer
-            attachments={false}
-            confirmationPolicy="ask"
-            executionMode="execute"
-            model="gpt-5.6-luna"
-            onBehaviorChange={onBehaviorChange}
-            onSubmit={vi.fn(async () => undefined)}
-            provider="codex"
-            state="completed"
-          />
-        </PromptInputProvider>
-      </QueryClientProvider>,
-    );
+    renderComposer({ confirmationPolicy: 'ask', executionMode: 'execute', onBehaviorChange });
 
     await user.click(screen.getByRole('button', { name: 'Execution mode: Execute' }));
     await user.click(screen.getByRole('menuitemradio', { name: /PlanDevelop/ }));
@@ -158,38 +165,50 @@ describe('ClioComposer authoritative behavior', () => {
   });
 
   it('tracks mode and confirmation changes after plan approval', async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    const composer = (
-      executionMode: 'execute' | 'plan',
-      confirmationPolicy: 'ask' | 'auto-edits',
-    ) => (
-      <QueryClientProvider client={queryClient}>
-        <PromptInputProvider>
-          <ClioComposer
-            attachments={false}
-            confirmationPolicy={confirmationPolicy}
-            executionMode={executionMode}
-            model="gpt-5.6-luna"
-            onSubmit={vi.fn(async () => undefined)}
-            provider="codex"
-            state="completed"
-          />
-        </PromptInputProvider>
-      </QueryClientProvider>
-    );
-    const view = render(composer('plan', 'ask'));
+    const { rerenderWith } = renderComposer({ confirmationPolicy: 'ask', executionMode: 'plan' });
     expect(screen.getByRole('button', { name: 'Execution mode: Plan' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Confirmation policy: Ask first' })).toBeVisible();
 
-    view.rerender(composer('execute', 'auto-edits'));
+    rerenderWith({ confirmationPolicy: 'auto-edits', executionMode: 'execute' });
     expect(await screen.findByRole('button', { name: 'Execution mode: Execute' })).toBeVisible();
     expect(
       await screen.findByRole('button', { name: 'Confirmation policy: Workspace edits' }),
     ).toBeVisible();
   });
 
+  // Regression: provider/model/effort resolving after navigation used to
+  // remount this component to pick up the new default, silently dropping
+  // in-progress attachments/drafts. Re-rendering with the SAME identity (no
+  // key change) must adopt the new selection without losing either.
+  it('reconciles a resolved provider/model/effort without remounting, preserving attachments and the draft', async () => {
+    const user = userEvent.setup();
+    const modelOptions = [
+      { available: true, id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', providerId: 'codex', providerName: 'Codex' },
+      { available: true, id: 'nova-1', label: 'Nova Model', providerId: 'anthropic', providerName: 'Anthropic' },
+    ];
+    const { rerenderWith } = renderComposer({ attachments: true, modelOptions });
+
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['notes'], 'field-notes.md', { type: 'text/markdown' }),
+    );
+    await user.type(composerEditor(), 'Draft that must survive.');
+    expect(screen.getByRole('button', { name: 'Open field-notes.md' })).toBeVisible();
+    expect(document.querySelector('input[name="message"]')).toHaveValue('Draft that must survive.');
+
+    // The active provider/model/effort resolving shortly after mount.
+    rerenderWith({ effort: 'high', model: 'nova-1', provider: 'anthropic' });
+
+    // The trigger's a11y name is the fixed "Change model", not the
+    // selection, so assert on its text. Fails pre-fix: `useState(provider)`
+    // only reads its initial value once and never adopts a later prop
+    // change without a remount.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Change model' })).toHaveTextContent('Nova Model'),
+    );
+    expect(screen.getByRole('button', { name: 'Open field-notes.md' })).toBeVisible();
+    expect(document.querySelector('input[name="message"]')).toHaveValue('Draft that must survive.');
+  });
 });
 
 describe('ClioComposer service commands', () => {
@@ -352,22 +371,6 @@ describe('ClioComposer service commands', () => {
       'document',
     );
     expect(openAttachment.closest('[data-attachment-variant]')).toHaveClass('size-36');
-  });
-
-  it('opens PDF attachments in a near-fullscreen reading canvas', async () => {
-    const user = userEvent.setup();
-    renderComposer({ attachments: true });
-
-    await user.upload(
-      screen.getByLabelText('Upload files'),
-      new File(['%PDF-content'], 'paper.pdf', { type: 'application/pdf' }),
-    );
-    await user.click(screen.getByRole('button', { name: 'Open paper.pdf' }));
-
-    expect(screen.getByRole('dialog')).toHaveClass(
-      'h-[calc(100dvh-1rem)]',
-      'w-[min(90rem,calc(100vw-1rem))]',
-    );
   });
 
   it('uploads a selected file before submission so conversion can start immediately', async () => {

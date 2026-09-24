@@ -32,7 +32,8 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from 'ai';
+import type { UploadableFilePart } from '@/lib/upload-workspace-resources';
+import type { ChatStatus, SourceDocumentUIPart } from 'ai';
 import { CornerDownLeftIcon, ImageIcon, Monitor, PlusIcon, SquareIcon, XIcon } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import type {
@@ -142,7 +143,7 @@ const captureScreenshot = async (): Promise<File | null> => {
 // ============================================================================
 
 export interface AttachmentsContext {
-  files: (FileUIPart & { id: string })[];
+  files: (UploadableFilePart & { id: string })[];
   add: (files: File[] | FileList) => void;
   remove: (id: string) => void;
   clear: () => void;
@@ -208,7 +209,9 @@ export const PromptInputProvider = ({
   const clearInput = useCallback(() => setTextInput(''), []);
 
   // ----- attachments state (global when wrapped)
-  const [attachmentFiles, setAttachmentFiles] = useState<(FileUIPart & { id: string })[]>([]);
+  const [attachmentFiles, setAttachmentFiles] = useState<(UploadableFilePart & { id: string })[]>(
+    [],
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // oxlint-disable-next-line eslint(no-empty-function)
   const openRef = useRef<() => void>(() => {});
@@ -222,6 +225,7 @@ export const PromptInputProvider = ({
     setAttachmentFiles((prev) => [
       ...prev,
       ...incoming.map((file) => ({
+        file,
         filename: file.name,
         id: nanoid(),
         mediaType: file.type,
@@ -430,7 +434,7 @@ export const PromptInputActionAddScreenshot = ({
 
 export interface PromptInputMessage {
   text: string;
-  files: FileUIPart[];
+  files: UploadableFilePart[];
 }
 
 export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, 'onSubmit' | 'onError'> & {
@@ -474,7 +478,7 @@ export const PromptInput = ({
   const formRef = useRef<HTMLFormElement | null>(null);
 
   // ----- Local attachments (only used when no provider)
-  const [items, setItems] = useState<(FileUIPart & { id: string })[]>([]);
+  const [items, setItems] = useState<(UploadableFilePart & { id: string })[]>([]);
   const files = usingProvider ? controller.attachments.files : items;
 
   // ----- Local referenced sources (always local to PromptInput)
@@ -557,9 +561,10 @@ export const PromptInput = ({
             message: 'Too many files. Some were not added.',
           });
         }
-        const next: (FileUIPart & { id: string })[] = [];
+        const next: (UploadableFilePart & { id: string })[] = [];
         for (const file of capped) {
           next.push({
+            file,
             filename: file.name,
             id: nanoid(),
             mediaType: file.type,
@@ -793,7 +798,7 @@ export const PromptInput = ({
       }
 
       try {
-        const submittedFiles: FileUIPart[] = files.map(({ id: _id, ...item }) => item);
+        const submittedFiles: UploadableFilePart[] = files.map(({ id: _id, ...item }) => item);
         const result = onSubmit({ files: submittedFiles, text }, event);
 
         // Handle both sync and async onSubmit
