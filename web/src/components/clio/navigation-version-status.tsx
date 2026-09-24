@@ -126,7 +126,7 @@ export function SystemVersionStatus() {
     setUpdating(action);
     try {
       if (action === 'agent') {
-        if (!latestClioVersion) throw new Error('No newer CLIO release was found to update to.');
+        if (!latestClioVersion) throw new Error(`No newer ${vocab.agent} release was found to update to.`);
         await updateManagedClio(releaseTag(latestClioVersion), { restartApp: true });
         return;
       }
