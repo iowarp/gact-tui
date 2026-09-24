@@ -6,6 +6,7 @@ import {
 import type { FunctionImplementation } from '@a2ui/web_core/v0_9';
 import { checkA2uiUrlScheme } from '@clio/core/v3';
 import { z } from 'zod';
+import { openExternalUrl } from '@/tauri/external-url';
 import { activeA2uiOpenArtifactRuntime } from './kernel-runtime';
 
 /**
@@ -51,7 +52,11 @@ const openArtifactFunction = createFunctionImplementation(
  * reports `VALIDATION_FAILED` (the wire-reportable code, unlike
  * `openArtifact`'s local-only `ARTIFACT_UNAVAILABLE`) since this mirrors the
  * render-time media guard's own resolved-value check, and never calls
- * `window.open`.
+ * `window.open` — the desktop shell's opener plugin doesn't intercept a raw
+ * `window.open()` call (only anchor clicks), so it just silently did nothing
+ * there; `openExternalUrl` is the one path every external open goes through.
+ * A failed open reuses `VALIDATION_FAILED` too, since that is currently the
+ * only wire-reportable error code the client-to-server schema defines.
  */
 const openUrlFunction = createFunctionImplementation(OpenUrlApi, (args, context) => {
   const guard = checkA2uiUrlScheme(args.url);
@@ -59,9 +64,12 @@ const openUrlFunction = createFunctionImplementation(OpenUrlApi, (args, context)
     void context.surface.dispatchError({ code: 'VALIDATION_FAILED', message: guard.reason });
     return;
   }
-  if (typeof window !== 'undefined' && window.open) {
-    window.open(args.url, '_blank', 'noopener,noreferrer');
-  }
+  openExternalUrl(args.url).catch((error: unknown) => {
+    void context.surface.dispatchError({
+      code: 'VALIDATION_FAILED',
+      message: error instanceof Error ? error.message : `Could not open ${args.url}.`,
+    });
+  });
 });
 
 const selectDataFunction = createFunctionImplementation(

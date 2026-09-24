@@ -9,6 +9,7 @@ import { WorkspacePage } from '@/routes/workspace-page';
 import { DesktopTitleBar } from '@/components/clio/desktop-title-bar';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { scheduleBackgroundUpdateCheck } from '@/tauri/desktop-updater';
+import { openExternalUrlOrToast } from '@/tauri/external-url';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useProviderCatalog } from '@/hooks/use-provider-catalog';
 
@@ -68,7 +69,7 @@ export default function App() {
   useMenuAction('manage-agent-services', () => navigate('/?intent=connect&mode=deploy'));
   useMenuAction('about', () => navigate('/settings/about'));
   useMenuAction('help-docs', () => {
-    if (brand.homeUrl) window.open(brand.homeUrl, '_blank', 'noopener,noreferrer');
+    if (brand.homeUrl) openExternalUrlOrToast(brand.homeUrl);
     else navigate('/settings/about');
   });
   useEffect(() => {
