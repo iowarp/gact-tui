@@ -15,8 +15,18 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
 vi.mock('./document-pdf-viewer', () => ({
-  ClioDocumentPdfViewer: ({ name, source }: { name: string; source: { url: string } }) => (
-    <div aria-label={`PDF ${name}`}>{source.url}</div>
+  ClioDocumentPdfViewer: ({
+    name,
+    bytes,
+    initialPage,
+  }: {
+    name: string;
+    bytes: Uint8Array;
+    initialPage?: number;
+  }) => (
+    <div aria-label={`PDF ${name}`}>
+      {bytes.byteLength} bytes, initialPage {initialPage ?? 'none'}
+    </div>
   ),
 }));
 
@@ -118,12 +128,12 @@ describe('WorkspaceFilePresentationBlock', () => {
     repository.readWorkspaceFileBytes.mockResolvedValue(PDF_BYTES);
     const sha256 = await sha256Hex(PDF_BYTES);
 
+    // pages: [2, 3] -- the card must thread the FIRST viewed page (2) through
+    // WorkspaceFileView -> WorkspacePdfView -> ClioPdfPreview -> the viewer.
     renderBlock(pdfBlock({ sha256 }));
 
     const viewer = await screen.findByLabelText('PDF doc.pdf');
-    expect(viewer).toHaveTextContent(
-      'http://127.0.0.1:8790/v1/workspaces/ws_1/files/read?path=doc.pdf',
-    );
+    expect(viewer).toHaveTextContent(`${PDF_BYTES.byteLength} bytes, initialPage 2`);
     expect(screen.getByText('doc.pdf')).toBeVisible();
   });
 
