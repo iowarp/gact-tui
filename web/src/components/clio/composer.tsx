@@ -184,12 +184,38 @@ export function ClioComposer({
   focusRequestKey,
   variant = 'docked',
 }: ClioComposerProps) {
-  const [selectedProvider, setSelectedProvider] = useState(provider);
-  const [selectedModel, setSelectedModel] = useState(model);
+  // `selectedProvider`/`selectedModel` mirror `provider`/`model` (the active
+  // session default) until the picker overrides them, exactly like
+  // `behaviorSelection` below tracks `confirmationPolicy`/`executionMode`/
+  // `effort`. Each pairs its own local override with the prop value it was
+  // taken against ("authoritative"): as long as the live prop still matches
+  // that recorded value, the local override wins; the moment the prop moves
+  // to something else (a new session default resolving, a queued-message
+  // reconciliation, anything external), the FRESH prop wins immediately,
+  // discarding the now-stale override. This is what previously required
+  // remounting this whole component keyed on provider/model/effort — the
+  // remount also silently discarded attachments and other in-progress
+  // composer state that has nothing to do with the model/effort selection.
+  const [modelSelection, setModelSelection] = useState<{
+    provider?: string;
+    model?: string;
+    authoritativeProvider?: string;
+    authoritativeModel?: string;
+  }>(() => ({
+    provider,
+    model,
+    authoritativeProvider: provider,
+    authoritativeModel: model,
+  }));
+  const selectedProvider =
+    modelSelection.authoritativeProvider === provider ? modelSelection.provider : provider;
+  const selectedModel =
+    modelSelection.authoritativeModel === model ? modelSelection.model : model;
   const [behaviorSelection, setBehaviorSelection] = useState<{
     behavior: MessageBehavior;
     authoritativeConfirmationPolicy: MessageBehavior['confirmation_policy'];
     authoritativeExecutionMode: MessageBehavior['execution_mode'];
+    authoritativeEffort: string | undefined;
   }>(() => ({
     behavior: {
       confirmation_policy: confirmationPolicy,
@@ -198,6 +224,7 @@ export function ClioComposer({
     },
     authoritativeConfirmationPolicy: confirmationPolicy,
     authoritativeExecutionMode: executionMode,
+    authoritativeEffort: effort,
   }));
   const behavior: MessageBehavior = {
     ...behaviorSelection.behavior,
@@ -209,6 +236,10 @@ export function ClioComposer({
       behaviorSelection.authoritativeExecutionMode === executionMode
         ? behaviorSelection.behavior.execution_mode
         : executionMode,
+    reasoning_effort:
+      behaviorSelection.authoritativeEffort === effort
+        ? behaviorSelection.behavior.reasoning_effort
+        : (knownReasoningEffort(effort) ?? DEFAULT_REASONING_EFFORT),
   };
   const setBehavior = (next: MessageBehavior) => {
     const previous = behavior;
@@ -216,6 +247,7 @@ export function ClioComposer({
       behavior: next,
       authoritativeConfirmationPolicy: confirmationPolicy,
       authoritativeExecutionMode: executionMode,
+      authoritativeEffort: effort,
     });
     if (
       !onBehaviorChange ||
@@ -229,6 +261,7 @@ export function ClioComposer({
         behavior: previous,
         authoritativeConfirmationPolicy: confirmationPolicy,
         authoritativeExecutionMode: executionMode,
+        authoritativeEffort: effort,
       });
       toast.error('Session behavior was not changed', {
         description: error instanceof Error ? error.message : 'The service rejected the change.',
@@ -591,8 +624,12 @@ export function ClioComposer({
                   catalogStatus={modelCatalogStatus}
                   model={selectedOption?.id}
                   onChange={(option) => {
-                    setSelectedProvider(option.providerId);
-                    setSelectedModel(option.id);
+                    setModelSelection({
+                      provider: option.providerId,
+                      model: option.id,
+                      authoritativeProvider: provider,
+                      authoritativeModel: model,
+                    });
                   }}
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}

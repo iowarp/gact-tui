@@ -190,6 +190,81 @@ describe('ClioComposer authoritative behavior', () => {
     ).toBeVisible();
   });
 
+  it('reconciles a resolved provider/model/effort into its own selection state without remounting, preserving attachments and the draft', async () => {
+    // Regression for the composer's own `key` comment (workspace-page.tsx):
+    // provider/model/effort resolving after navigation used to force a whole
+    // remount of this component to pick up the new default, which silently
+    // dropped in-progress attachments and typed drafts with no trace. This
+    // component must now adopt a changed provider/model/effort PROP on its
+    // own -- proven here by re-rendering it with the SAME element identity
+    // (no key change, exactly what the fixed parent now does) and checking
+    // both that the new selection is adopted and that unrelated state
+    // survives.
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const modelOptions = [
+      {
+        available: true,
+        id: 'gpt-5.6-luna',
+        label: 'GPT-5.6 Luna',
+        providerId: 'codex',
+        providerName: 'Codex',
+      },
+      {
+        available: true,
+        id: 'nova-1',
+        label: 'Nova Model',
+        providerId: 'anthropic',
+        providerName: 'Anthropic',
+      },
+    ];
+    const composer = (provider: string, model: string, effort: string) => (
+      <QueryClientProvider client={queryClient}>
+        <PromptInputProvider>
+          <ClioComposer
+            attachments
+            effort={effort}
+            model={model}
+            modelOptions={modelOptions}
+            onSubmit={vi.fn(async () => undefined)}
+            provider={provider}
+            state="completed"
+          />
+        </PromptInputProvider>
+      </QueryClientProvider>
+    );
+    const view = render(composer('codex', 'gpt-5.6-luna', 'medium'));
+
+    await user.upload(
+      screen.getByLabelText('Upload files'),
+      new File(['notes'], 'field-notes.md', { type: 'text/markdown' }),
+    );
+    await user.type(composerEditor(), 'Draft that must survive.');
+    expect(screen.getByRole('button', { name: 'Open field-notes.md' })).toBeVisible();
+    expect(document.querySelector('input[name="message"]')).toHaveValue(
+      'Draft that must survive.',
+    );
+
+    // Simulates the active provider/model/effort resolving to something new
+    // shortly after the composer first mounts.
+    view.rerender(composer('anthropic', 'nova-1', 'high'));
+
+    // The trigger's accessible name is the fixed "Change model" (an a11y
+    // label, not the selection), so check its rendered text directly. Fails
+    // against the old `useState(provider)` / `useState(model)`
+    // implementation, which only reads its initial value once and never
+    // adopts a later prop change without a remount.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Change model' })).toHaveTextContent(
+        'Nova Model',
+      ),
+    );
+    // Nothing that has nothing to do with the model/effort selection was lost.
+    expect(screen.getByRole('button', { name: 'Open field-notes.md' })).toBeVisible();
+    expect(document.querySelector('input[name="message"]')).toHaveValue(
+      'Draft that must survive.',
+    );
+  });
 });
 
 describe('ClioComposer service commands', () => {

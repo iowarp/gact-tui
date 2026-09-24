@@ -168,8 +168,26 @@ export function WorkspacePage() {
       ),
     [sessionId],
   );
+  // `messageCount` reads the live store (`entities.messages`), which the
+  // transcript query only reaches through the `mergeSnapshots` effect in
+  // use-workspace-data.ts -- a render tick AFTER `transcript.data`/
+  // `transcript.isFetching` settle together on the query's own result. For an
+  // existing conversation that tick order used to produce one render where
+  // `isFetching` had just gone false (so the docked composer was allowed to
+  // swap for the welcome one) but the store hadn't been hydrated yet (so
+  // `messageCount` was still a stale 0) -- a real, user-visible flash to the
+  // welcome screen and back on every navigation into a session with history,
+  // remounting the composer (and dropping any attachment/draft in progress)
+  // in the process. `transcript.data` and `transcript.isFetching` come from
+  // the same query result, so they can never disagree with each other the way
+  // the live store can lag them; requiring both signals to agree that there
+  // is no history closes the race without touching the merge effect itself.
   const showConversationWelcome =
-    messageCount === 0 && !transcript.isFetching && !transcriptError && !conversationStarted;
+    messageCount === 0 &&
+    (transcript.data?.messages.length ?? 0) === 0 &&
+    !transcript.isFetching &&
+    !transcriptError &&
+    !conversationStarted;
 
   const {
     activeRequest: workbenchRequest,
@@ -481,7 +499,14 @@ export function WorkspacePage() {
                 : 'execute'
           }
           focusRequestKey={composerFocusKey}
-          key={`composer:${sessionId}:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
+          // Keyed on the session alone: provider/model/effort resolving after
+          // navigation used to remount this whole subtree, which silently
+          // dropped in-progress attachments (and any other composer-local
+          // state) with no trace. ClioComposer now reconciles those three
+          // props into its local selection state itself (see
+          // `modelSelection`/`behaviorSelection` there) instead of relying on
+          // a remount to re-seed them.
+          key={`composer:${sessionId}`}
           model={activeModel}
           modelCatalogRefreshing={providerCatalog.isRefreshing}
           modelCatalogStatus={modelCatalogStatus}
