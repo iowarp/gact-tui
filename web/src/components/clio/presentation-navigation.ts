@@ -13,5 +13,5 @@ type Navigation = Pick<
   | 'onOpenSubagent'
   | 'onOpenWorkflow'
 > &
-  Partial<Pick<ClioConversationProps, 'surfaces' | 'tools'>>;
+  Partial<Pick<ClioConversationProps, 'surfaces' | 'tools' | 'workspaceId'>>;
 export const PresentationNavigation = createContext<Navigation | null>(null);

@@ -30,18 +30,24 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 export function ClioDocumentPdfViewer({
   bytes,
   fit = 'width',
+  initialPage,
   name,
   onSelection,
 }: {
   bytes: Uint8Array;
   fit?: 'page' | 'width';
+  /** Opens on this 1-based page instead of the first, when the caller already
+   * knows which page matters (e.g. a view_pdf call's viewed page range). */
+  initialPage?: number;
   name: string;
   onSelection: (anchor: DocumentAnchor) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pageCount, setPageCount] = useState(0);
-  const [pageNumber, setPageNumber] = useState(1);
+  const [pageNumber, setPageNumber] = useState(
+    initialPage && initialPage > 0 ? initialPage : 1,
+  );
   const [hostWidth, setHostWidth] = useState(640);
   const [scale, setScale] = useState(1);
   const [paged, setPaged] = useState(false);
@@ -82,6 +88,32 @@ export function ClioDocumentPdfViewer({
     observer.observe(container);
     return () => observer.disconnect();
   }, [readScroll]);
+
+  // Continuous-scroll mode never reads `pageNumber` for what it renders — the
+  // scroll position alone decides the window (`pdfPageWindow`). Seeding
+  // `pageNumber` therefore opens paged mode on the right page, but continuous
+  // mode still shows page 1 until this jumps the scroll container to it, once
+  // a REAL rendered page has told us its actual height: the first page to
+  // mount (page 1, at the initial scrollTop of 0) always renders before any
+  // page after it can, so waiting for `measured` before computing the jump
+  // trades one page-1 flash for a jump built on this document's true page
+  // height rather than the generic aspect-ratio estimate. Guarded by a ref,
+  // not state, so it fires exactly once and never fights a later resize/zoom
+  // remeasurement or the reader's own scrolling.
+  const scrolledToInitialPageRef = useRef(false);
+  useEffect(() => {
+    if (scrolledToInitialPageRef.current) return;
+    if (!initialPage || initialPage <= 1) {
+      scrolledToInitialPageRef.current = true;
+      return;
+    }
+    if (!measured) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    scrolledToInitialPageRef.current = true;
+    container.scrollTop = Math.max(0, (initialPage - 1) * measured.height);
+    readScroll();
+  }, [initialPage, measured, readScroll]);
 
   // A rendered page is the only honest page height. The estimate stands in
   // until one exists, and a measurement taken at a different width or zoom is

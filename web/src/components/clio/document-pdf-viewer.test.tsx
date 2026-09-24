@@ -69,6 +69,24 @@ describe('ClioDocumentPdfViewer', () => {
     expect(screen.getByText('PDF page 2')).toBeVisible();
   });
 
+  it('opens on the requested initial page in paged view', async () => {
+    const user = userEvent.setup();
+    render(
+      <ClioDocumentPdfViewer
+        bytes={new Uint8Array([37, 80, 68, 70])}
+        initialPage={2}
+        name="paper.pdf"
+        onSelection={vi.fn()}
+      />,
+    );
+
+    await screen.findByText('PDF page 1');
+    await user.click(screen.getByRole('button', { name: 'Use paged PDF view' }));
+
+    expect(screen.getByText('Page 2 of 3')).toBeVisible();
+    expect(screen.getByText('PDF page 2')).toBeVisible();
+  });
+
   it('windows a long document instead of mounting every page', async () => {
     documentPageCount.value = 400;
     render(

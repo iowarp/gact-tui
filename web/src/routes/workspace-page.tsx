@@ -780,6 +780,7 @@ export function WorkspacePage() {
                     interactions={interactions}
                     sessionId={sessionId}
                     subagents={subagents}
+                    workspaceId={workspaceId}
                   />
                 </TranscriptPresenceSurface>
               )}
