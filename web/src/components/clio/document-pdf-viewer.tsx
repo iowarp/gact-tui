@@ -29,13 +29,11 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 export function ClioDocumentPdfViewer({
   bytes,
-  source,
   fit = 'width',
   name,
   onSelection,
 }: {
-  bytes?: Uint8Array;
-  source?: { url: string; httpHeaders?: Record<string, string> };
+  bytes: Uint8Array;
   fit?: 'page' | 'width';
   name: string;
   onSelection: (anchor: DocumentAnchor) => void;
@@ -52,15 +50,7 @@ export function ClioDocumentPdfViewer({
   // pdf.js transfers a typed array it is handed to its worker thread, which
   // detaches the caller's buffer — and these bytes are the cached resource
   // preview other surfaces read. One copy per document, never per render.
-  const file = useMemo(
-    () =>
-      bytes
-        ? { data: new Uint8Array(bytes) }
-        : source
-          ? { url: source.url, httpHeaders: source.httpHeaders }
-          : undefined,
-    [bytes, source],
-  );
+  const file = useMemo(() => ({ data: new Uint8Array(bytes) }), [bytes]);
 
   useEffect(() => {
     const host = hostRef.current;
