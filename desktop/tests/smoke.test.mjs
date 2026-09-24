@@ -322,10 +322,26 @@ test('installer hooks resolve the app-data folder from the bundle identifier mac
   );
 });
 
+test('a failed runtime install shows the real error and offers the issue page', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  const block = hooks.match(/--prepare-runtime[\s\S]*?CLIO runtime installed\./)?.[0] ?? '';
+  assert.ok(block, 'the runtime install step must exist');
+  // $1 is the helper's captured stderr: the real error and the log path.
+  assert.match(block, /MessageBox MB_ICONSTOP\|MB_OK "[^"]*\$1/);
+  assert.match(block, /MessageBox MB_ICONSTOP\|MB_YESNO "[^"]*\$1/);
+  assert.match(block, /runtime-install-issue-url\.txt/);
+  assert.match(block, /ExecShell "open" "\$2"/);
+  assert.match(block, /ExecShell "open" "\$INSTDIR\\data"/);
+  assert.match(block, /Abort/);
+});
+
 test('installer separates Infrastructure and individual provider choices into unclipped wizard pages', () => {
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  // The runtime-install failure report may ask whether to open the issue page;
+  // that is not a setup choice, so it is the one block excluded here.
+  const setup = hooks.replace(/--prepare-runtime[\s\S]*?CLIO runtime installed\./, '');
   assert.doesNotMatch(
-    hooks,
+    setup,
     /MB_YESNO/,
     'setup choices must use nsDialogs pages, not a MessageBox',
   );
