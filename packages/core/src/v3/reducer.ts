@@ -1,4 +1,5 @@
-import type { EntityState, Message, MessageBlock, TransportGap, UsageSnapshot } from './domain.js';
+import type { EntityState, Message, MessageBlock, TransportGap } from './domain.js';
+import type { UsageSnapshot } from './usage-domain.js';
 import type { EventEnvelope } from './schemas.js';
 import {
   a2uiActionLifecycleSchema,

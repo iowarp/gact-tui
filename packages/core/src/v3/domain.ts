@@ -5,6 +5,7 @@ import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
 import type { ToolPresentation } from './tool-presentation-domain.js';
 import type { CapabilityNegotiation } from './capability-domain.js';
+import type { UsageSnapshot } from './usage-domain.js';
 
 export type { ToolPresentation, ToolPresentationBlock } from './tool-presentation-domain.js';
 
@@ -383,21 +384,6 @@ export interface ArtifactLineage {
   nodes: ArtifactLineageNode[];
   edges: ArtifactLineageEdge[];
   truncated?: { reason: string; nodes?: number; at_depth?: number };
-}
-
-/**
- * A session's live cumulative token/cost rollup (status-bar truth). The
- * single producer is the reducer: seeded from the session snapshot's own
- * `tokens_input`/`tokens_output`/`cost_usd` and kept live by adding each
- * `message.completed` event's per-turn numbers. `cost_usd` is absent when no
- * turn has ever reported a real cost -- distinct from a provider-confirmed
- * $0 turn -- so a consumer renders "unknown", never a fabricated zero.
- */
-export interface UsageSnapshot {
-  session_id: string;
-  input_tokens: number;
-  output_tokens: number;
-  cost_usd?: number;
 }
 
 export interface ContextSnapshot {
