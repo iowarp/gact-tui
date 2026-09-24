@@ -82,6 +82,20 @@ describe('SshConnectionRoute', () => {
     expect(onChange).toHaveBeenCalledWith({ ...destination, jumpHosts: ['alice@gw.alcf.anl.gov'] });
   });
 
+  it('refuses a typed jump host that would corrupt the OpenSSH configuration', async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderRoute(destination);
+
+    await user.click(screen.getByRole('button', { name: 'Add jump host' }));
+    await user.click(screen.getByRole('combobox', { name: 'New jump host' }));
+    await user.click(screen.getByRole('option', { name: 'Type an OpenSSH alias or address…' }));
+    await user.type(screen.getByLabelText('Jump host alias or address'), 'alice@gw -p 2222{Enter}');
+
+    expect(screen.getByText(/without spaces or commas/u)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Use this jump host' })).toBeDisabled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('never offers the destination as its own jump host', async () => {
     const user = userEvent.setup();
     renderRoute(destination);

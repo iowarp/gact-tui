@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { SshHost } from '@/lib/ssh-hosts';
-import { reconcileJumpSteps, type JumpStep } from './ssh-route-utils';
+import { jumpHostError, reconcileJumpSteps, type JumpStep } from './ssh-route-utils';
 
 export const ADD_SSH_COMPUTER = '__add-ssh-computer__';
 export const TYPE_SSH_ADDRESS = '__type-ssh-address__';
@@ -64,6 +64,7 @@ export function SshJumpHostList({
         <SortableItem
           // The row is a list item; only its grip is the drag control.
           aria-describedby={undefined}
+          aria-pressed={undefined}
           aria-roledescription={undefined}
           className="relative z-10 grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-background"
           key={step.key}
@@ -91,7 +92,9 @@ export function SshJumpHostList({
                 return;
               }
               if (host === TYPE_SSH_ADDRESS) return;
-              commit(steps.map((item, itemIndex) => (itemIndex === index ? { ...item, host } : item)));
+              commit(
+                steps.map((item, itemIndex) => (itemIndex === index ? { ...item, host } : item)),
+              );
             }}
             onCreate={Boolean(onCreate)}
             options={options}
@@ -184,36 +187,46 @@ export function SshJumpAddressField({
   onSubmit: (destination: string) => void;
 }) {
   const [draft, setDraft] = useState('');
+  const error = jumpHostError(draft.trim());
   const submit = () => {
-    if (draft.trim()) onSubmit(draft.trim());
+    if (draft.trim() && !error) onSubmit(draft.trim());
   };
   return (
-    <div className="flex min-w-0 items-center gap-1">
-      <Input
-        aria-label="Jump host alias or address"
-        autoFocus
-        className="min-w-0"
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            submit();
-          }
-          if (event.key === 'Escape') onCancel();
-        }}
-        placeholder="gateway or alice@gateway.example.edu:2222"
-        value={draft}
-      />
-      <Button
-        aria-label="Use this jump host"
-        disabled={!draft.trim()}
-        onClick={submit}
-        size="icon"
-        type="button"
-        variant="ghost"
-      >
-        <CheckIcon aria-hidden="true" />
-      </Button>
+    <div className="grid min-w-0 gap-1">
+      <div className="flex min-w-0 items-center gap-1">
+        <Input
+          aria-describedby={error ? 'ssh-jump-address-error' : undefined}
+          aria-invalid={Boolean(error)}
+          aria-label="Jump host alias or address"
+          autoFocus
+          className="min-w-0"
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              submit();
+            }
+            if (event.key === 'Escape') onCancel();
+          }}
+          placeholder="gateway or alice@gateway.example.edu:2222"
+          value={draft}
+        />
+        <Button
+          aria-label="Use this jump host"
+          disabled={!draft.trim() || Boolean(error)}
+          onClick={submit}
+          size="icon"
+          type="button"
+          variant="ghost"
+        >
+          <CheckIcon aria-hidden="true" />
+        </Button>
+      </div>
+      {error ? (
+        <p className="text-xs text-destructive" id="ssh-jump-address-error">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

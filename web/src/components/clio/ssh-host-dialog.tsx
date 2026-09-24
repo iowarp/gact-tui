@@ -126,6 +126,7 @@ export function SshHostDialog({
         platform,
         install_root: candidate.installRoot ?? '',
         managed_identity: Boolean(privateKey.trim()),
+        replace_existing: Boolean(editingProfile),
       });
       setPrivateKey('');
       onSaved({

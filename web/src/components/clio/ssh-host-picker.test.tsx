@@ -234,7 +234,12 @@ describe('SshHostPicker', () => {
 
     await waitFor(() =>
       expect(profiles.saveSshProfile).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'gw', label: 'Campus gateway', jump_hosts: ['bastion'] }),
+        expect.objectContaining({
+          name: 'gw',
+          label: 'Campus gateway',
+          jump_hosts: ['bastion'],
+          replace_existing: true,
+        }),
       ),
     );
   });
@@ -253,7 +258,7 @@ describe('SshHostPicker', () => {
 
     await waitFor(() =>
       expect(profiles.saveSshProfile).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'gateway-2' }),
+        expect.objectContaining({ name: 'gateway-2', replace_existing: false }),
       ),
     );
   });

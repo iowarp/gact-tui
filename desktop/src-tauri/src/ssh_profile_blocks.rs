@@ -7,6 +7,7 @@
 //! Re-saving those would pin them into the profile, and pinning an identity
 //! disables OpenSSH's own default-key search.
 
+use std::collections::BTreeSet;
 use std::path::Path;
 
 /// The directives a CLIO-owned block declares; `None` means not declared.
@@ -19,14 +20,41 @@ pub struct DeclaredProfile {
     pub jump_hosts: Vec<String>,
 }
 
+/// Split an OpenSSH directive in either `Key value` or `Key=value` form.
+fn directive(line: &str) -> Option<(&str, &str)> {
+    let line = line.trim();
+    let split = line.find(|character: char| character.is_whitespace() || character == '=')?;
+    let (key, rest) = line.split_at(split);
+    let value =
+        rest.trim_start_matches(|character: char| character.is_whitespace() || character == '=');
+    Some((key, value.trim()))
+}
+
+/// Remove OpenSSH double quotes around a value.
+fn unquote(value: &str) -> &str {
+    value
+        .strip_prefix('"')
+        .and_then(|inner| inner.strip_suffix('"'))
+        .unwrap_or(value)
+}
+
+/// Render a value OpenSSH reads back unchanged: quoted when it has whitespace.
+pub fn quoted(value: &str) -> String {
+    if value.chars().any(char::is_whitespace) {
+        format!("\"{value}\"")
+    } else {
+        value.to_string()
+    }
+}
+
 /// Read the directives a CLIO-rendered `Host` block declares.
 pub fn declared_profile(block: &str) -> DeclaredProfile {
     let mut declared = DeclaredProfile::default();
     for line in block.lines().skip(1) {
-        let Some((key, value)) = line.trim().split_once(char::is_whitespace) else {
+        let Some((key, value)) = directive(line) else {
             continue;
         };
-        let value = value.trim();
+        let value = unquote(value);
         match key.to_ascii_lowercase().as_str() {
             "hostname" => declared.hostname = Some(value.to_string()),
             "user" => declared.user = Some(value.to_string()),
@@ -51,10 +79,7 @@ pub fn with_jump_hosts(block: &str, jump_hosts: &[String]) -> String {
     let mut lines: Vec<String> = block
         .lines()
         .filter(|line| {
-            !line
-                .trim()
-                .split_once(char::is_whitespace)
-                .is_some_and(|(key, _)| key.eq_ignore_ascii_case("proxyjump"))
+            !directive(line).is_some_and(|(key, _)| key.eq_ignore_ascii_case("proxyjump"))
         })
         .map(str::to_string)
         .collect();
@@ -62,6 +87,38 @@ pub fn with_jump_hosts(block: &str, jump_hosts: &[String]) -> String {
         lines.push(format!("  ProxyJump {}", jump_hosts.join(",")));
     }
     lines.join("\n")
+}
+
+/// Validate one ProxyJump step: an OpenSSH alias or `[user@]host[:port]`.
+/// Whitespace or a comma would corrupt the shared OpenSSH configuration (a
+/// fatal "garbage at end of line" for every ssh command on the machine) or
+/// silently split one step into two.
+pub fn validate_jump_host(jump: &str) -> Result<(), String> {
+    let valid = !jump.is_empty()
+        && jump
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "._-@:[]%".contains(character));
+    if valid {
+        Ok(())
+    } else {
+        Err(format!(
+            "SSH jump host \"{jump}\" must be an OpenSSH alias or user@host[:port], without spaces or commas."
+        ))
+    }
+}
+
+/// A free alias for a new CLIO computer: `requested`, or `requested-N` when
+/// the name is taken by any alias, including hidden or imported ones. CLIO's
+/// include file is read first, so reusing a name would override that entry.
+pub fn unique_alias(requested: &str, taken: &BTreeSet<String>) -> String {
+    let lower = |value: &str| value.to_ascii_lowercase();
+    if !taken.contains(&lower(requested)) {
+        return requested.to_string();
+    }
+    (2..)
+        .map(|suffix| format!("{requested}-{suffix}"))
+        .find(|candidate| !taken.contains(&lower(candidate)))
+        .expect("an unbounded suffix range always yields a free alias")
 }
 
 /// The key file a save leaves CLIO owning: a newly pasted key, or the key CLIO
@@ -113,6 +170,40 @@ mod tests {
             with_jump_hosts(BLOCK, &[]),
             "Host utah\n  HostName login.utah.edu\n  Port 2222\n  User alice"
         );
+    }
+
+    #[test]
+    fn reads_equals_form_and_quoted_values_and_rewrites_them() {
+        let block = "Host utah\n  HostName=login.utah.edu\n  IdentityFile \"C:\\Users\\John Doe\\key\"\n  ProxyJump=gw";
+        let declared = declared_profile(block);
+        assert_eq!(declared.hostname.as_deref(), Some("login.utah.edu"));
+        assert_eq!(
+            declared.identity_file.as_deref(),
+            Some("C:\\Users\\John Doe\\key")
+        );
+        assert_eq!(declared.jump_hosts, vec!["gw"]);
+        assert!(!with_jump_hosts(block, &["bastion".into()]).contains("ProxyJump=gw"));
+        assert_eq!(
+            quoted("C:\\Users\\John Doe\\key"),
+            "\"C:\\Users\\John Doe\\key\""
+        );
+    }
+
+    #[test]
+    fn rejects_jump_hosts_that_would_corrupt_the_config() {
+        assert!(validate_jump_host("alice@gw.example.edu:2222").is_ok());
+        assert!(validate_jump_host("alice@[2001:db8::1]:22").is_ok());
+        assert!(validate_jump_host("gw bastion").is_err());
+        assert!(validate_jump_host("alice@gw -p 2222").is_err());
+        assert!(validate_jump_host("gw,bastion").is_err());
+        assert!(validate_jump_host("").is_err());
+    }
+
+    #[test]
+    fn a_new_alias_never_takes_an_existing_name() {
+        let taken: BTreeSet<String> = ["utah".to_string(), "utah-2".to_string()].into();
+        assert_eq!(unique_alias("Utah", &taken), "Utah-3");
+        assert_eq!(unique_alias("gateway", &taken), "gateway");
     }
 
     #[test]

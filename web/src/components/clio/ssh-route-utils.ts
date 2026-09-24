@@ -28,6 +28,18 @@ export function reconcileJumpSteps(previous: readonly JumpStep[], hosts: readonl
   });
 }
 
+/**
+ * Why a typed jump host cannot be used, or undefined when it can. Mirrors the
+ * desktop's check: whitespace or a comma would corrupt the shared OpenSSH
+ * configuration or split one step into two.
+ */
+export function jumpHostError(destination: string): string | undefined {
+  if (!destination) return undefined;
+  return /^[A-Za-z0-9._\-@:[\]%]+$/u.test(destination)
+    ? undefined
+    : 'Use an OpenSSH alias or user@host[:port], without spaces or commas.';
+}
+
 /** Parse a free-form `user@host:port` (or `user@[ipv6]:port`) jump destination. */
 export function parseJumpDestination(destination: string): Pick<SshHost, 'host' | 'user' | 'port'> {
   const trimmed = destination.trim();

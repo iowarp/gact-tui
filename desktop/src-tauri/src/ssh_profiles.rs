@@ -13,8 +13,10 @@ use std::process::Command;
 use tauri::Manager;
 
 use crate::ssh_profile_blocks::{
-    declared_profile, is_inside_identity_directory, owned_identity_after_save, with_jump_hosts,
+    declared_profile, is_inside_identity_directory, owned_identity_after_save, quoted,
+    unique_alias, validate_jump_host, with_jump_hosts,
 };
+use crate::supervisor_boot_log::boot_log_line;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -57,6 +59,11 @@ pub struct SaveSshProfileRequest {
     pub install_root: String,
     #[serde(default)]
     pub managed_identity: bool,
+    /// Edit the CLIO computer named `name` in place. Otherwise this saves a new
+    /// computer and `name` is only the requested alias: a taken alias gets a
+    /// free `-N` suffix, and the saved profile reports the name used.
+    #[serde(default)]
+    pub replace_existing: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -111,6 +118,8 @@ pub fn ssh_profiles_list(app: tauri::AppHandle) -> Result<Vec<SshProfile>, Strin
     names.sort_by_key(|value| value.to_ascii_lowercase());
     names.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
     let managed_blocks = read_managed_blocks(&paths.managed_include)?;
+    // What OpenSSH reports for a host no configuration matches: its defaults.
+    let defaults = resolve_profile(OPENSSH_DEFAULTS_PROBE, false, None).ok();
     names
         .into_iter()
         .filter(|name| !preferences.hidden.contains(&name.to_ascii_lowercase()))
@@ -118,7 +127,8 @@ pub fn ssh_profiles_list(app: tauri::AppHandle) -> Result<Vec<SshProfile>, Strin
             let metadata = preferences.metadata.get(&name.to_ascii_lowercase());
             match managed_block(&managed_blocks, &name) {
                 Some(block) => Ok(managed_profile(&name, block, metadata)),
-                None => resolve_profile(&name, false, metadata),
+                None => resolve_profile(&name, false, metadata)
+                    .map(|profile| without_openssh_defaults(profile, defaults.as_ref())),
             }
         })
         .collect()
@@ -133,10 +143,7 @@ pub fn ssh_profile_set_route(
 ) -> Result<SshProfile, String> {
     validate_alias(&name)?;
     for jump in &jump_hosts {
-        validate_value("jump host", jump)?;
-        if jump.trim().is_empty() {
-            return Err("SSH jump hosts cannot be empty.".into());
-        }
+        validate_jump_host(jump)?;
     }
     let paths = profile_paths(&app)?;
     let mut blocks = read_managed_blocks(&paths.managed_include)?;
@@ -171,6 +178,24 @@ pub fn ssh_profile_save(
     let paths = profile_paths(&app)?;
     ensure_include(&paths.user_config, &paths.managed_include)?;
     let mut blocks = read_managed_blocks(&paths.managed_include)?;
+    let mut request = request;
+    if request.replace_existing {
+        if managed_block(&blocks, &request.name).is_none() {
+            return Err(format!(
+                "{} is not a computer CLIO saved, so CLIO does not modify it.",
+                request.name
+            ));
+        }
+    } else {
+        // Every alias counts, including hidden and imported ones.
+        let mut taken: BTreeSet<String> = read_aliases(&paths.user_config)?
+            .into_iter()
+            .chain(read_aliases(&paths.managed_include)?)
+            .map(|alias| alias.to_ascii_lowercase())
+            .collect();
+        taken.extend(read_preferences(&paths.preferences)?.hidden.iter().cloned());
+        request.name = unique_alias(&request.name, &taken);
+    }
     // A re-save that does not paste a new key (a label change, an edited
     // address) keeps ownership of the key CLIO stored, as long as the profile
     // still uses that exact file; otherwise CLIO owns no key for it.
@@ -185,6 +210,14 @@ pub fn ssh_profile_save(
         previously_owned.as_deref(),
         &request.identity_file,
     );
+    if let Some(previous) = previously_owned
+        .as_deref()
+        .filter(|previous| owned_identity.as_deref() != Some(*previous))
+    {
+        // The profile no longer uses the key CLIO stored for it (a new key was
+        // pasted, or the user chose their own): that stored key is now orphaned.
+        remove_owned_identity(previous, &paths.identity_directory)?;
+    }
     blocks.retain(|block| {
         !block_name(block).is_some_and(|name| name.eq_ignore_ascii_case(&request.name))
     });
@@ -258,22 +291,27 @@ pub fn ssh_profile_delete(app: tauri::AppHandle, name: String) -> Result<(), Str
     preferences.hidden.remove(&name.to_ascii_lowercase());
     write_preferences(&paths.preferences, &preferences)?;
     if let Some(identity) = owned_identity {
-        // Only ever a file CLIO itself stored: a user's own key that a profile
-        // happens to reference is never deleted.
-        if !is_inside_identity_directory(Path::new(&identity), &paths.identity_directory) {
-            return Ok(());
-        }
-        match fs::remove_file(&identity) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => {
-                return Err(format!(
-                    "Could not remove pasted SSH key {identity}: {error}"
-                ))
-            }
-        }
+        remove_owned_identity(&identity, &paths.identity_directory)?;
     }
     Ok(())
+}
+
+/// Delete a key CLIO stored, and only a file inside CLIO's identity directory:
+/// a user's own key that a profile happens to reference is never deleted.
+fn remove_owned_identity(identity: &str, identity_directory: &Path) -> Result<(), String> {
+    if !is_inside_identity_directory(Path::new(identity), identity_directory) {
+        boot_log_line(&format!(
+            "ssh-profile: kept key {identity}: reason=outside_clio_identity_directory"
+        ));
+        return Ok(());
+    }
+    match fs::remove_file(identity) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!(
+            "Could not remove pasted SSH key {identity}: {error}"
+        )),
+    }
 }
 
 struct ProfilePaths {
@@ -390,6 +428,26 @@ fn expand_include(pattern: &str, ssh_root: &Path) -> PathBuf {
     }
 }
 
+/// A name no `Host` block matches (`.invalid` is reserved), so `ssh -G` for it
+/// reports OpenSSH's defaults rather than anything the user configured.
+const OPENSSH_DEFAULTS_PROBE: &str = "clio-openssh-defaults.invalid";
+
+/// Drop effective values an imported profile only has because OpenSSH fills
+/// them in by default (the first default IdentityFile, the local user name),
+/// so configuring it as a CLIO computer never pins them.
+fn without_openssh_defaults(mut profile: SshProfile, defaults: Option<&SshProfile>) -> SshProfile {
+    let Some(defaults) = defaults else {
+        return profile;
+    };
+    if profile.user.is_some() && profile.user == defaults.user {
+        profile.user = None;
+    }
+    if profile.identity_file.is_some() && profile.identity_file == defaults.identity_file {
+        profile.identity_file = None;
+    }
+    profile
+}
+
 fn managed_block<'a>(blocks: &'a [String], name: &str) -> Option<&'a str> {
     blocks
         .iter()
@@ -490,7 +548,7 @@ fn validate_profile(request: &SaveSshProfileRequest) -> Result<(), String> {
         return Err("Remote platform must be auto, linux, or windows.".into());
     }
     for jump in &request.jump_hosts {
-        validate_value("jump host", jump)?;
+        validate_jump_host(jump)?;
     }
     Ok(())
 }
@@ -526,7 +584,7 @@ fn render_profile(request: &SaveSshProfileRequest) -> String {
         lines.push(format!("  User {}", request.user));
     }
     if !request.identity_file.is_empty() {
-        lines.push(format!("  IdentityFile {}", request.identity_file));
+        lines.push(format!("  IdentityFile {}", quoted(&request.identity_file)));
     }
     if !request.jump_hosts.is_empty() {
         lines.push(format!("  ProxyJump {}", request.jump_hosts.join(",")));
@@ -535,7 +593,11 @@ fn render_profile(request: &SaveSshProfileRequest) -> String {
 }
 
 fn read_managed_blocks(path: &Path) -> Result<Vec<String>, String> {
-    let contents = fs::read_to_string(path).unwrap_or_default();
+    let contents = match fs::read_to_string(path) {
+        Ok(value) => value.replace("\r\n", "\n"),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(format!("Could not read {}: {error}", path.display())),
+    };
     Ok(contents
         .split("\n\n")
         .map(str::trim)
@@ -600,6 +662,7 @@ mod tests {
             platform: "linux".into(),
             install_root: "/mnt/common/alice/clio".into(),
             managed_identity: false,
+            replace_existing: false,
         };
         assert_eq!(
             render_profile(&request),
@@ -620,6 +683,7 @@ mod tests {
             platform: "auto".into(),
             install_root: String::new(),
             managed_identity: false,
+            replace_existing: false,
         };
         assert!(validate_profile(&request).is_err());
     }

@@ -25,6 +25,8 @@ export type SaveSshProfileInput = {
   platform: 'auto' | 'linux' | 'windows';
   install_root: string;
   managed_identity: boolean;
+  /** Edit the CLIO computer `name` in place; otherwise save a new one under a free alias. */
+  replace_existing?: boolean;
 };
 
 /** List resolved OpenSSH profiles after applying product visibility preferences. */
