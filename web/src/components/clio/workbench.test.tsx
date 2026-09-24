@@ -537,6 +537,57 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByRole('treeitem', { name: 'paper.pdf' })).toBeVisible();
   });
 
+  it('shows a clear notice when the server reports a truncated listing', () => {
+    render(
+      <FileBrowser
+        files={[{ path: 'report.md', type: 'file', internal: false, size: 7 }]}
+        filesTruncated
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.getByText(/truncated/i)).toBeVisible();
+  });
+
+  it('does not show a truncated notice when the listing is complete', () => {
+    render(
+      <FileBrowser
+        files={[{ path: 'report.md', type: 'file', internal: false, size: 7 }]}
+        filesTruncated={false}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.queryByText(/truncated/i)).not.toBeInTheDocument();
+  });
+
+  it('shows a redacted folder\'s reason instead of a silently empty tree', async () => {
+    const user = userEvent.setup();
+    render(
+      <FileBrowser
+        files={[
+          {
+            path: '.clio-child-cache',
+            type: 'dir',
+            internal: false,
+            redacted: 'sandbox_child_cache',
+          },
+        ]}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Expand folder .clio-child-cache' }));
+
+    expect(screen.getByText('Sandbox cache — contents not shown')).toBeVisible();
+  });
+
   it('renders whatever files it is given — filtering moved to the server/query layer', () => {
     // Review follow-up: "Hide dot files and folders" now reaches the SERVER as
     // include_hidden (use-workspace-data.ts), so a huge .clio is never walked

@@ -41,7 +41,7 @@ const mocks = vi.hoisted(() => ({
         surfaces: [],
       }),
     ),
-    workspaceFiles: vi.fn(async () => []),
+    workspaceFiles: vi.fn(async () => ({ entries: [], truncated: false })),
     workspaces: vi.fn(async () => []),
   },
 }));

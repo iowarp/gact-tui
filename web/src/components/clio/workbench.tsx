@@ -61,6 +61,7 @@ export interface ClioWorkbenchProps {
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
   filesError?: string;
+  filesTruncated?: boolean;
   artifacts: readonly ArtifactEntity[];
   artifactsPending?: boolean;
   artifactsError?: string;
@@ -198,6 +199,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       files,
       filesPending,
       filesError,
+      filesTruncated,
       artifacts,
       artifactsPending,
       artifactsError,
@@ -592,6 +594,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                     files={files}
                     filesError={filesError}
                     filesPending={filesPending}
+                    filesTruncated={filesTruncated}
                     maximized={maximized}
                     onApplyDiff={onApplyDiff}
                     onOpenSubagent={onOpenSubagent}

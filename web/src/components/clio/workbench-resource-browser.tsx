@@ -16,6 +16,7 @@ import {
   PlusIcon,
   SearchIcon,
   TerminalSquareIcon,
+  TriangleAlertIcon,
 } from 'lucide-react';
 import {
   lazy,
@@ -28,6 +29,7 @@ import {
   type MouseEvent,
 } from 'react';
 import { FileTree, FileTreeFile, FileTreeFolder } from '@/components/ai-elements/file-tree';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -77,6 +79,7 @@ interface FileBrowserProps {
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
   filesError?: string;
+  filesTruncated?: boolean;
   selectedPath?: string;
   onSelectedPathChange?: (path: string) => void;
 }
@@ -162,6 +165,7 @@ export function FileBrowser({
   files,
   filesPending,
   filesError,
+  filesTruncated,
   selectedPath,
   onSelectedPathChange,
 }: FileBrowserProps) {
@@ -232,6 +236,15 @@ export function FileBrowser({
                 />
               </div>
             </div>
+            {filesTruncated ? (
+              <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">
+                <TriangleAlertIcon className="size-3.5" />
+                <AlertDescription className="text-xs">
+                  This list is truncated — the workspace has more files than can be shown at
+                  once.
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <ScrollArea className="min-h-0 flex-1 p-2">
               {filesPending ? (
                 <LoadingRows label="Loading workspace files" />
@@ -602,12 +615,27 @@ function sortedNodes(nodes: Map<string, WorkspaceFileNode>): WorkspaceFileNode[]
   });
 }
 
+// Human copy for the server's typed `redacted` reasons
+// (workspace_file_policy.workspace_read_redaction_reason). A folder carrying
+// one of these is listed (the owner ruling is to show dot folders, not hide
+// their existence) but its contents were never walked — the note explains why
+// an expanded folder shows nothing, instead of silently looking empty.
+const REDACTED_REASON_LABEL: Record<string, string> = {
+  sandbox_child_cache: 'Sandbox cache — contents not shown',
+};
+
 function FileNodes({ nodes }: { nodes: readonly WorkspaceFileNode[] }) {
   const alignFilesWithFolders = nodes.some((node) => node.entry.type === 'dir');
   return nodes.map((node) =>
     node.entry.type === 'dir' ? (
       <FileTreeFolder key={node.entry.path} name={node.name} path={node.entry.path}>
-        <FileNodes nodes={sortedNodes(node.children)} />
+        {node.entry.redacted ? (
+          <p className="px-2 py-1 text-xs text-muted-foreground italic">
+            {REDACTED_REASON_LABEL[node.entry.redacted] ?? 'Contents not shown.'}
+          </p>
+        ) : (
+          <FileNodes nodes={sortedNodes(node.children)} />
+        )}
       </FileTreeFolder>
     ) : (
       <FileTreeFile

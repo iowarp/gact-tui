@@ -92,9 +92,10 @@ beforeEach(() => {
       updated_at: new Date().toISOString(),
     },
   ]);
-  repository.workspaceFiles.mockResolvedValue([
-    { path: 'results/stations.csv', type: 'file', internal: false, size: 1200 },
-  ]);
+  repository.workspaceFiles.mockResolvedValue({
+    entries: [{ path: 'results/stations.csv', type: 'file', internal: false, size: 1200 }],
+    truncated: false,
+  });
   repository.searchMemory.mockResolvedValue({
     query: 'immutable',
     include_cross_session: true,
@@ -171,17 +172,19 @@ describe('ClioCommandMenu workspace search', () => {
     );
   });
 
-  it('keeps the `@`-picker\'s prior "no .clio internals" behavior regardless of the Files-view toggle', async () => {
-    // Review follow-up: the Files-view-only "Hide dot files and folders"
-    // toggle must never flood the `@`-picker with .clio internals — it always
-    // requests includeHidden: false, independent of that preference.
+  it('excludes only .clio service storage, not every dotfile, from the `@`-picker', async () => {
+    // Second review round: includeHidden: false hides EVERY dotfile/dot-directory
+    // (.gitignore, .github/workflows/ci.yml included), which would make ordinary
+    // project files un-@-mentionable. The `@`-picker instead requests
+    // excludeServiceStorage: true, which excludes only CLIO's own .clio/.clio-*
+    // service storage, independent of the Files-view-only dot-files toggle.
     renderMenu();
 
     await waitFor(() =>
       expect(repository.workspaceFiles).toHaveBeenCalledWith(
         'ws_current',
         expect.any(AbortSignal),
-        { includeHidden: false },
+        { excludeServiceStorage: true },
       ),
     );
   });

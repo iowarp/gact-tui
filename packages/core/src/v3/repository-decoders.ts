@@ -192,6 +192,8 @@ export const operationalRunListSchema = z.object({
 });
 export const workspaceFileListSchema = z.object({
   entries: z.array(workspaceFileEntrySchema).default([]),
+  // Whether the server's capped walk stopped before enumerating everything.
+  truncated: z.boolean().default(false),
 });
 export const agentBlueprintListSchema = z.object({
   agent_blueprints: z.array(agentBlueprintSchema).default([]),

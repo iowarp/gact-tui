@@ -418,6 +418,15 @@ export interface WorkspaceFileEntry {
   resource_id?: string;
   size?: number;
   modified?: string;
+  /** A typed reason (e.g. "sandbox_child_cache") the server never walked this
+   * directory's contents — the folder itself is still listed, just empty. */
+  redacted?: string;
+}
+
+export interface WorkspaceFileListing {
+  entries: WorkspaceFileEntry[];
+  /** Whether the server's capped walk stopped before enumerating everything. */
+  truncated: boolean;
 }
 
 export interface SessionDiff {

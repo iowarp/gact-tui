@@ -17,7 +17,7 @@ import type {
   TranscriptSnapshot,
   TurnAttempt,
   Workspace,
-  WorkspaceFileEntry,
+  WorkspaceFileListing,
   RelayStatus,
   RelayConnectionInput,
   ToolCatalogItem,
@@ -335,23 +335,27 @@ export class ClioRepository extends InfrastructureRepository {
   public async workspaceFiles(
     workspaceId: string,
     signal?: AbortSignal,
-    options?: { includeHidden?: boolean },
-  ): Promise<WorkspaceFileEntry[]> {
-    // includeHidden -> server `include_hidden` (default true): the ONE filtering
-    // knob now that the server never marks an entry `internal`. Files view sends
-    // `!hideDotFiles` so the server excludes dot entries during its capped walk
-    // instead of the client discarding paid-for entries after the fact; every
-    // other consumer (the `@`-picker, artifact-card path resolution) sends
-    // `false` to keep its prior "no .clio internals" behavior.
+    options?: { includeHidden?: boolean; excludeServiceStorage?: boolean },
+  ): Promise<WorkspaceFileListing> {
+    // includeHidden -> server `include_hidden` (default true): the Files-view
+    // toggle. It hides EVERY dotfile/dot-directory, so a caller that only wants
+    // CLIO's own service storage excluded (the `@`-picker, artifact-card path
+    // resolution — which must still let a user @-mention .gitignore or
+    // .github/workflows/ci.yml) passes excludeServiceStorage instead, which
+    // maps to the server's narrower exclude_service_storage flag.
     const includeHidden = options?.includeHidden ?? true;
-    const query = new URLSearchParams({ include_hidden: String(includeHidden) });
+    const excludeServiceStorage = options?.excludeServiceStorage ?? false;
+    const query = new URLSearchParams({
+      include_hidden: String(includeHidden),
+      exclude_service_storage: String(excludeServiceStorage),
+    });
     const result = await this.transport.request({
       method: 'GET',
       path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/files?${query.toString()}`,
       decode: (value) => workspaceFileListSchema.parse(value),
       signal,
     });
-    return result.entries as WorkspaceFileEntry[];
+    return result as WorkspaceFileListing;
   }
 
   public readWorkspaceFile(
