@@ -27,6 +27,7 @@ export const REASONING_EFFORTS = [
   'high',
   'xhigh',
   'max',
+  'ultra',
 ] as const;
 
 export const messageBehaviorSchema = z.object({
@@ -332,6 +333,7 @@ export const providerCatalogSchema = z.object({
           deployment: z.string(),
           model_id: z.string(),
           revision: z.string(),
+          aliases: z.array(z.string()).default([]),
           modalities: z.array(z.string()),
           reasoning: z.object({
             supported: z.boolean(),

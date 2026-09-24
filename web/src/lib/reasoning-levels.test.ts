@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { defaultReasoningLabel, modelDefaultLabel, modelReasoningLevels } from './reasoning-levels';
+import {
+  defaultReasoningLabel,
+  modelDefaultLabel,
+  modelReasoningLevels,
+  REASONING_EFFORT_LABELS,
+} from './reasoning-levels';
 
 describe('default labels', () => {
   it('never calls CLIO\'s shipped default "the model default"', () => {
@@ -19,5 +24,16 @@ describe('default labels', () => {
       default_source: 'provider',
     });
     expect(modelDefaultLabel(opus)).toBe('Model default (High)');
+  });
+
+  it('offers a codex model reporting max/ultra efforts (#1436) with a real label', () => {
+    const codex = modelReasoningLevels({
+      levels: ['medium', 'high', 'xhigh', 'max', 'ultra'],
+      default: 'ultra',
+      default_source: 'provider',
+    });
+    expect(codex?.levels).toEqual(['medium', 'high', 'xhigh', 'max', 'ultra']);
+    expect(modelDefaultLabel(codex)).toBe('Model default (Ultra)');
+    expect(REASONING_EFFORT_LABELS.ultra).toBe('Ultra');
   });
 });

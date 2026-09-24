@@ -42,6 +42,7 @@ import {
 import { ClioStatus } from './status';
 import { ClioModelPicker } from './model-picker';
 import { Button } from '@/components/ui/button';
+import { findSelectedModelOption } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
@@ -93,6 +94,7 @@ export interface ClioComposerProps {
     health?: string;
     modalities?: readonly string[];
     reasoning?: ModelReasoningLevels;
+    aliases?: readonly string[];
   }>;
   disabled?: boolean;
   contextReferences?: boolean;
@@ -347,10 +349,7 @@ export function ClioComposer({
   });
   const showReferences = composerReferences.open;
   const popoverOpen = showCommands || showReferences;
-  const selectedOption = modelOptions.find(
-    (option) =>
-      option.providerId === selectedProvider && option.id === selectedModel && option.available,
-  );
+  const selectedOption = findSelectedModelOption(modelOptions, selectedProvider, selectedModel);
   // Sends the person's pick when the selected model offers it, else nothing (the
   // service applies the configured level). Defaults are displayed, never sent.
   const messageBehavior: MessageBehavior = {

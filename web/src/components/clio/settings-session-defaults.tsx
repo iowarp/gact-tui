@@ -87,6 +87,9 @@ export function SessionDefaultsSettings() {
   const reasoning = useModelReasoningLevels(
     form?.provider_id || modelConfiguration.data?.provider_id || modelConfiguration.data?.provider,
     form?.provider_id ? form.model_id : modelConfiguration.data?.model,
+    // Only the service default's own resolution applies; a pinned model_id is
+    // already a real catalog id and matches by id directly.
+    form?.provider_id ? undefined : modelConfiguration.data?.resolved_model_id,
   );
   const modelOptions = useMemo(() => {
     const rows = modelCatalog.data?.models ?? [];

@@ -295,7 +295,16 @@ export const sessionDefaultsSchema = z.object({
   provider_id: z.string().default(''),
   model_id: z.string().default(''),
   // `null` is the service's "use the selected model's own default".
-  effort: forwardCompatibleEnum(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
+  effort: forwardCompatibleEnum([
+    'off',
+    'minimal',
+    'low',
+    'medium',
+    'high',
+    'xhigh',
+    'max',
+    'ultra',
+  ])
     .nullish()
     .transform((value) => value ?? undefined),
   mode: forwardCompatibleEnum(['plan', 'edit', 'architect']).default('edit'),

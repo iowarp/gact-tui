@@ -192,7 +192,9 @@ describe('ClioComposer model selection', () => {
   it('names an effort the service reported that this build has no setting for', () => {
     renderComposer({
       onSubmit: vi.fn(async () => undefined),
-      effort: 'ultra',
+      // "omega" (not "ultra" -- #1436 added that as a real, recognized level)
+      // is junk no provider will ever report.
+      effort: 'omega',
       modelOptions: [
         {
           providerId: 'codex',
@@ -206,7 +208,7 @@ describe('ClioComposer model selection', () => {
     });
 
     const control = screen.getByRole('button', { name: /^Reasoning effort:/ });
-    expect(control).toHaveAccessibleName('Reasoning effort: Unknown (ultra)');
+    expect(control).toHaveAccessibleName('Reasoning effort: Unknown (omega)');
     expect(control).not.toHaveTextContent('medium');
   });
 

@@ -82,9 +82,11 @@ describe('seedModelSettings', () => {
         presetIsActive: true,
       }).effort,
     ).toBe('');
+    // "omega" (not "ultra" -- #1436 added that as a real, recognized level)
+    // is junk no provider will ever report.
     expect(
       seedModelSettings({
-        configuration: { ...configuration, thinking_level: 'ultra' },
+        configuration: { ...configuration, thinking_level: 'omega' },
         preset,
         presetIsActive: true,
       }).effort,

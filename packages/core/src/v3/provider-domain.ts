@@ -26,6 +26,8 @@ export interface ProviderModel {
   context_window?: number;
   output_limit?: number;
   context_source?: string;
+  /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
+  aliases?: string[];
 }
 
 export interface ProviderModelCatalog {
@@ -97,6 +99,8 @@ export interface LanguageModelConfiguration {
   provider: string;
   api_base: string;
   model: string;
+  /** The catalog model id `model` actually resolves to (claude_code CLI aliases). */
+  resolved_model_id?: string;
   temperature?: number;
   max_tokens?: number;
   thinking_level?: string;

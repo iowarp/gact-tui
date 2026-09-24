@@ -160,7 +160,14 @@ function ModelsSettingsContent({
     preset: selectedPreset,
   });
   // Only the levels this model's provider reports for it (none: no selector).
-  const reasoning = useModelReasoningLevels(presetId, values.modelId);
+  // `resolved_model_id` only names the SEEDED (unedited) model; once the
+  // person picks a different one, `values.modelId` is a real catalog id and
+  // matches by id directly.
+  const reasoning = useModelReasoningLevels(
+    presetId,
+    values.modelId,
+    values.modelId === configuration.model ? configuration.resolved_model_id : undefined,
+  );
   const selectedModelIsCandidate = modelOptions.some(
     (model) => model.id === values.modelId && model.availability === 'candidate',
   );
