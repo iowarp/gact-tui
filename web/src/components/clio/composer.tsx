@@ -8,7 +8,6 @@ import type {
   WorkspaceReference,
   WorkspaceResource,
 } from '@clio/core/v3';
-import type { FileUIPart } from 'ai';
 import { AtSignIcon, CornerDownRightIcon, PaperclipIcon, PlusIcon } from 'lucide-react';
 import {
   useCallback,
@@ -48,8 +47,11 @@ import { cn } from '@/lib/utils';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
 import { ClioComposerQueue } from './composer-queue';
 import { ClioComposerBehaviorControls } from './composer-behavior-controls';
-import type { ResourceUploadProgress } from '@/lib/upload-workspace-resources';
-import type { WorkspaceResourceUploadResult } from '@/lib/upload-workspace-resources';
+import type {
+  ResourceUploadProgress,
+  UploadableFilePart,
+  WorkspaceResourceUploadResult,
+} from '@/lib/upload-workspace-resources';
 import { ClioComposerReferenceMenu } from './composer-references';
 import { useComposerReferenceController } from './composer-reference-controller';
 import { toMessagePart, type InlineReferenceSelection } from '@/lib/composer-reference-domain';
@@ -89,7 +91,7 @@ export interface ClioComposerProps {
   commands?: CommandDefinition[];
   onSubmit: (value: {
     text: string;
-    files: FileUIPart[];
+    files: UploadableFilePart[];
     references: Exclude<ComposerMessagePart, { type: 'text' }>[];
     provider?: string;
     model?: string;
@@ -100,7 +102,7 @@ export interface ClioComposerProps {
   }) => Promise<void>;
   onBehaviorChange?: (behavior: MessageBehavior) => Promise<void>;
   onPrepareFiles?: (
-    files: readonly FileUIPart[],
+    files: readonly UploadableFilePart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
     signal?: AbortSignal,
   ) => Promise<WorkspaceResourceUploadResult>;

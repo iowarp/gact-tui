@@ -24,6 +24,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import type {
   ResourceUploadProgress,
+  UploadableFilePart,
   WorkspaceResourceUploadResult,
 } from '@/lib/upload-workspace-resources';
 import {
@@ -59,7 +60,7 @@ export function ClioComposerAttachments({
   uploadProgress,
 }: {
   onPrepareFiles?: (
-    files: readonly FileUIPart[],
+    files: readonly UploadableFilePart[],
     onProgress?: (progress: ResourceUploadProgress) => void,
     signal?: AbortSignal,
   ) => Promise<WorkspaceResourceUploadResult>;

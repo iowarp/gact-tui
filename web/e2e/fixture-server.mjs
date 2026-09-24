@@ -26,6 +26,7 @@ let permissionPending = true;
 let questionPending = true;
 let mcpV2UiDemo = false;
 let a2uiMapDemo = false;
+let attachmentsEnabled = false;
 let mcpAppGeneration = 1;
 let mcpAppToolCalls = 0;
 let mcpAppModelContextUpdates = 0;
@@ -787,6 +788,7 @@ const server = createServer(async (request, response) => {
     permissionPending = true;
     questionPending = true;
     mcpV2UiDemo = false;
+    attachmentsEnabled = false;
     mcpAppGeneration = 1;
     mcpAppToolCalls = 0;
     mcpAppModelContextUpdates = 0;
@@ -800,6 +802,12 @@ const server = createServer(async (request, response) => {
     seedResources();
     response.writeHead(204, commonHeaders());
     response.end();
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/attachments-demo') {
+    attachmentsEnabled = true;
+    sendJson(response, { status: 'ready' }, 202);
     return;
   }
 
@@ -969,6 +977,7 @@ const server = createServer(async (request, response) => {
       capabilities: {
         ...capabilities.capabilities,
         ...(mcpV2UiDemo || a2uiMapDemo ? { x_clio_interactions: true } : {}),
+        ...(attachmentsEnabled ? { x_clio_resources: { enabled: true } } : {}),
       },
     });
     return;
