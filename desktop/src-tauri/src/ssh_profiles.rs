@@ -112,6 +112,19 @@ pub fn ssh_profile_save(
     validate_profile(&request)?;
     let paths = profile_paths(&app)?;
     ensure_include(&paths.user_config, &paths.managed_include)?;
+    let previous_preferences = read_preferences(&paths.preferences)?;
+    let previous_metadata = previous_preferences
+        .metadata
+        .get(&request.name.to_ascii_lowercase());
+    // A re-save that does not paste a new key (a route edit, a label change)
+    // must keep the pasted-key ownership, or deleting the host later would
+    // leave the protected key file behind.
+    let previous_identity = previous_metadata
+        .filter(|value| value.managed_identity)
+        .and_then(|metadata| resolve_profile(&request.name, true, Some(metadata)).ok())
+        .and_then(|profile| profile.identity_file);
+    let managed_identity =
+        retained_managed_identity(&request, previous_metadata, previous_identity.as_deref());
     let mut blocks = read_managed_blocks(&paths.managed_include)?;
     blocks.retain(|block| {
         !block_name(block).is_some_and(|name| name.eq_ignore_ascii_case(&request.name))
@@ -131,7 +144,7 @@ pub fn ssh_profile_save(
             label: request.label.clone(),
             platform: request.platform.clone(),
             install_root: request.install_root.clone(),
-            managed_identity: request.managed_identity,
+            managed_identity,
         },
     );
     write_preferences(&paths.preferences, &preferences)?;
@@ -478,6 +491,18 @@ fn write_atomic(path: &Path, contents: &str) -> Result<(), String> {
         .map_err(|error| format!("Could not replace {}: {error}", path.display()))
 }
 
+/// Whether a saved profile still owns a key CLIO stored for it: a newly
+/// pasted key, or the previously stored key when the save keeps its path.
+fn retained_managed_identity(
+    request: &SaveSshProfileRequest,
+    previous: Option<&ProfileMetadata>,
+    previous_identity: Option<&str>,
+) -> bool {
+    request.managed_identity
+        || (previous.is_some_and(|value| value.managed_identity)
+            && previous_identity.is_some_and(|path| path == request.identity_file))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -517,5 +542,50 @@ mod tests {
             managed_identity: false,
         };
         assert!(validate_profile(&request).is_err());
+    }
+
+    fn request_with_identity(identity_file: &str, managed_identity: bool) -> SaveSshProfileRequest {
+        SaveSshProfileRequest {
+            name: "utah".into(),
+            label: String::new(),
+            hostname: "login.utah.edu".into(),
+            user: String::new(),
+            port: 22,
+            identity_file: identity_file.into(),
+            jump_hosts: Vec::new(),
+            platform: "auto".into(),
+            install_root: String::new(),
+            managed_identity,
+        }
+    }
+
+    #[test]
+    fn keeps_stored_key_ownership_across_a_resave_with_the_same_key() {
+        let previous = ProfileMetadata {
+            managed_identity: true,
+            ..ProfileMetadata::default()
+        };
+        let resave = request_with_identity("/keys/utah", false);
+        assert!(retained_managed_identity(
+            &resave,
+            Some(&previous),
+            Some("/keys/utah")
+        ));
+    }
+
+    #[test]
+    fn drops_stored_key_ownership_when_the_key_changes() {
+        let previous = ProfileMetadata {
+            managed_identity: true,
+            ..ProfileMetadata::default()
+        };
+        let other_key = request_with_identity("/home/alice/.ssh/id_ed25519", false);
+        assert!(!retained_managed_identity(
+            &other_key,
+            Some(&previous),
+            Some("/keys/utah")
+        ));
+        let pasted = request_with_identity("/keys/utah-new", true);
+        assert!(retained_managed_identity(&pasted, None, None));
     }
 }
