@@ -89,22 +89,45 @@ pub fn with_jump_hosts(block: &str, jump_hosts: &[String]) -> String {
     lines.join("\n")
 }
 
-/// Validate one ProxyJump step: an OpenSSH alias or `[user@]host[:port]`.
-/// Whitespace or a comma would corrupt the shared OpenSSH configuration (a
-/// fatal "garbage at end of line" for every ssh command on the machine) or
-/// silently split one step into two.
+/// Validate one ProxyJump step. Any form OpenSSH accepts is allowed (an
+/// alias, `[user@]host[:port]`, `ssh://user@host:port`, IPv6, `%` tokens);
+/// only what would corrupt the shared OpenSSH configuration is refused:
+/// whitespace (a fatal "garbage at end of line" for every ssh command on the
+/// machine), a comma (silently splits one step into two), a quote or `#`.
 pub fn validate_jump_host(jump: &str) -> Result<(), String> {
     let valid = !jump.is_empty()
-        && jump
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || "._-@:[]%".contains(character));
+        && !jump.chars().any(|character| {
+            character.is_whitespace() || character.is_control() || ",\"#".contains(character)
+        });
     if valid {
         Ok(())
     } else {
         Err(format!(
-            "SSH jump host \"{jump}\" must be an OpenSSH alias or user@host[:port], without spaces or commas."
+            "SSH jump host \"{jump}\" must be one OpenSSH destination, without spaces, commas, quotes or #."
         ))
     }
+}
+
+/// Validate a directive value CLIO writes into the shared OpenSSH
+/// configuration. `allow_spaces` values are written quoted; a double quote can
+/// never be written safely (OpenSSH has no escape for it).
+pub fn validate_directive_value(
+    label: &str,
+    value: &str,
+    allow_spaces: bool,
+) -> Result<(), String> {
+    if value
+        .chars()
+        .any(|character| character.is_control() || character == '"')
+    {
+        return Err(format!(
+            "SSH {label} cannot contain quotes or control characters."
+        ));
+    }
+    if !allow_spaces && value.chars().any(char::is_whitespace) {
+        return Err(format!("SSH {label} cannot contain spaces."));
+    }
+    Ok(())
 }
 
 /// A free alias for a new CLIO computer: `requested`, or `requested-N` when
@@ -193,10 +216,22 @@ mod tests {
     fn rejects_jump_hosts_that_would_corrupt_the_config() {
         assert!(validate_jump_host("alice@gw.example.edu:2222").is_ok());
         assert!(validate_jump_host("alice@[2001:db8::1]:22").is_ok());
+        assert!(validate_jump_host("ssh://alice@gw.example.edu:2222").is_ok());
+        assert!(validate_jump_host("DOMAIN\\alice@gw").is_ok());
+        assert!(validate_jump_host("gw\"x").is_err());
         assert!(validate_jump_host("gw bastion").is_err());
         assert!(validate_jump_host("alice@gw -p 2222").is_err());
         assert!(validate_jump_host("gw,bastion").is_err());
         assert!(validate_jump_host("").is_err());
+    }
+
+    #[test]
+    fn directive_values_never_corrupt_the_config() {
+        assert!(validate_directive_value("hostname", "login.utah.edu", false).is_ok());
+        assert!(validate_directive_value("hostname", "login utah.edu", false).is_err());
+        assert!(validate_directive_value("user", "alice smith", true).is_ok());
+        assert!(validate_directive_value("identity file", "C:\\a \"b\" c", true).is_err());
+        assert!(validate_directive_value("user", "alice\nProxyCommand x", true).is_err());
     }
 
     #[test]

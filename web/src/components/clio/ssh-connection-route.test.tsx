@@ -91,7 +91,7 @@ describe('SshConnectionRoute', () => {
     await user.click(screen.getByRole('option', { name: 'Type an OpenSSH alias or address…' }));
     await user.type(screen.getByLabelText('Jump host alias or address'), 'alice@gw -p 2222{Enter}');
 
-    expect(screen.getByText(/without spaces or commas/u)).toBeVisible();
+    expect(screen.getByText(/without spaces, commas/u)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Use this jump host' })).toBeDisabled();
     expect(onChange).not.toHaveBeenCalled();
   });

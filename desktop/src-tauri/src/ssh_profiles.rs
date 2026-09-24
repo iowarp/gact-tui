@@ -14,7 +14,7 @@ use tauri::Manager;
 
 use crate::ssh_profile_blocks::{
     declared_profile, is_inside_identity_directory, owned_identity_after_save, quoted,
-    unique_alias, validate_jump_host, with_jump_hosts,
+    unique_alias, validate_directive_value, validate_jump_host, with_jump_hosts,
 };
 use crate::supervisor_boot_log::boot_log_line;
 
@@ -210,14 +210,8 @@ pub fn ssh_profile_save(
         previously_owned.as_deref(),
         &request.identity_file,
     );
-    if let Some(previous) = previously_owned
-        .as_deref()
-        .filter(|previous| owned_identity.as_deref() != Some(*previous))
-    {
-        // The profile no longer uses the key CLIO stored for it (a new key was
-        // pasted, or the user chose their own): that stored key is now orphaned.
-        remove_owned_identity(previous, &paths.identity_directory)?;
-    }
+    let orphaned_identity =
+        previously_owned.filter(|previous| owned_identity.as_deref() != Some(previous.as_str()));
     blocks.retain(|block| {
         !block_name(block).is_some_and(|name| name.eq_ignore_ascii_case(&request.name))
     });
@@ -241,6 +235,11 @@ pub fn ssh_profile_save(
         },
     );
     write_preferences(&paths.preferences, &preferences)?;
+    if let Some(previous) = orphaned_identity {
+        // Only after the profile is written: it no longer uses the key CLIO
+        // stored for it (a new key was pasted, or the user chose their own).
+        remove_unreferenced_identity(&previous, &blocks, &paths.identity_directory)?;
+    }
     Ok(managed_profile(
         &request.name,
         &render_profile(&request),
@@ -291,9 +290,28 @@ pub fn ssh_profile_delete(app: tauri::AppHandle, name: String) -> Result<(), Str
     preferences.hidden.remove(&name.to_ascii_lowercase());
     write_preferences(&paths.preferences, &preferences)?;
     if let Some(identity) = owned_identity {
-        remove_owned_identity(&identity, &paths.identity_directory)?;
+        remove_unreferenced_identity(&identity, &blocks, &paths.identity_directory)?;
     }
     Ok(())
+}
+
+/// Delete a stored key only when no remaining CLIO computer still declares it
+/// (another profile may have been pointed at the same stored file).
+fn remove_unreferenced_identity(
+    identity: &str,
+    remaining_blocks: &[String],
+    identity_directory: &Path,
+) -> Result<(), String> {
+    let still_used = remaining_blocks
+        .iter()
+        .any(|block| declared_profile(block).identity_file.as_deref() == Some(identity));
+    if still_used {
+        boot_log_line(&format!(
+            "ssh-profile: kept key {identity}: reason=still_used_by_another_profile"
+        ));
+        return Ok(());
+    }
+    remove_owned_identity(identity, identity_directory)
 }
 
 /// Delete a key CLIO stored, and only a file inside CLIO's identity directory:
@@ -537,9 +555,9 @@ fn some_value(value: &str) -> Option<String> {
 fn validate_profile(request: &SaveSshProfileRequest) -> Result<(), String> {
     validate_alias(&request.name)?;
     validate_value("label", &request.label)?;
-    validate_value("hostname", &request.hostname)?;
-    validate_value("user", &request.user)?;
-    validate_value("identity file", &request.identity_file)?;
+    validate_directive_value("hostname", &request.hostname, false)?;
+    validate_directive_value("user", &request.user, true)?;
+    validate_directive_value("identity file", &request.identity_file, true)?;
     validate_value("install root", &request.install_root)?;
     if request.port == 0 {
         return Err("SSH port must be between 1 and 65535.".into());
@@ -581,7 +599,7 @@ fn render_profile(request: &SaveSshProfileRequest) -> String {
         format!("  Port {}", request.port),
     ];
     if !request.user.is_empty() {
-        lines.push(format!("  User {}", request.user));
+        lines.push(format!("  User {}", quoted(&request.user)));
     }
     if !request.identity_file.is_empty() {
         lines.push(format!("  IdentityFile {}", quoted(&request.identity_file)));

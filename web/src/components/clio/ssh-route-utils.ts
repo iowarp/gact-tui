@@ -30,14 +30,16 @@ export function reconcileJumpSteps(previous: readonly JumpStep[], hosts: readonl
 
 /**
  * Why a typed jump host cannot be used, or undefined when it can. Mirrors the
- * desktop's check: whitespace or a comma would corrupt the shared OpenSSH
- * configuration or split one step into two.
+ * desktop's check: any OpenSSH destination form is allowed; whitespace, a
+ * comma, a quote or `#` would corrupt the shared OpenSSH configuration or
+ * split one step into two.
  */
 export function jumpHostError(destination: string): string | undefined {
   if (!destination) return undefined;
-  return /^[A-Za-z0-9._\-@:[\]%]+$/u.test(destination)
-    ? undefined
-    : 'Use an OpenSSH alias or user@host[:port], without spaces or commas.';
+  // oxlint-disable-next-line no-control-regex -- control characters are exactly what is refused.
+  return /[\s,"#\u0000-\u001f]/u.test(destination)
+    ? 'Use one OpenSSH destination, without spaces, commas, quotes or #.'
+    : undefined;
 }
 
 /** Parse a free-form `user@host:port` (or `user@[ipv6]:port`) jump destination. */
