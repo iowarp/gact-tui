@@ -301,20 +301,30 @@ test('bundled installer stops only its managed process tree before replacement o
   assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}/);
   assert.match(hooks, /\$APPDATA\\\$\{BUNDLEID\}/);
   assert.match(hooks, /\$ClioRemoveUserData == \$\{BST_CHECKED\}/);
-  assert.match(hooks, /FileWrite \$0 "\$INSTDIR"/);
-  assert.match(hooks, /clio-desktop-install-root\.txt/);
-  assert.match(hooks, /ExecWait '"\$SYSDIR\\WindowsPowerShell\\v1\.0\\powershell\.exe"/);
-  assert.match(hooks, /-EncodedCommand/);
-  const encoded = hooks.match(/-EncodedCommand ([A-Za-z0-9+/=]+)/)?.[1];
-  assert.ok(encoded, 'expected an encoded process-cleanup command');
-  const cleanup = Buffer.from(encoded, 'base64').toString('utf16le');
-  assert.ok(encoded.length < 900, 'cleanup command must stay below the NSIS string limit');
-  assert.match(cleanup, /clio-desktop-install-root\.txt/);
-  assert.match(cleanup, /StartsWith\(\$r,5\)/);
-  assert.match(cleanup, /clio-desktop/);
-  assert.match(cleanup, /clio-agent/);
-  assert.match(cleanup, /python/);
-  assert.match(cleanup, /clio_run/);
+
+  // #I1: the deterministic Rust process sweep replaces the old encoded
+  // PowerShell one-liner + fixed `Sleep 1500` — the daemon's clean stop and
+  // the terminate-then-wait loop now live in one place
+  // (installer_runtime_stop.rs) instead of being re-implemented in NSIS.
+  const stopMacro =
+    hooks.match(/!macro CLIO_STOP_MANAGED_RUNTIME([\s\S]*?)!macroend/)?.[1] ?? '';
+  assert.ok(stopMacro, 'expected a CLIO_STOP_MANAGED_RUNTIME macro');
+  assert.match(stopMacro, /clio-desktop\.exe" --stop-managed-runtime/);
+  assert.doesNotMatch(
+    hooks,
+    /-EncodedCommand/,
+    'the process stop must no longer shell out to an encoded PowerShell command',
+  );
+  assert.doesNotMatch(
+    hooks,
+    /WindowsPowerShell/,
+    'the process stop must no longer invoke PowerShell at all',
+  );
+  assert.doesNotMatch(
+    hooks,
+    /Sleep 1500/,
+    'a fixed sleep must not stand in for actually waiting on process exit',
+  );
   assert.doesNotMatch(hooks, /taskkill[^\r\n]*\/IM/i, 'must not kill unrelated user processes');
   const runtimeRemovals = hooks.match(/RMDir \/r "\$INSTDIR\\gact-runtime"/g) ?? [];
   assert.equal(runtimeRemovals.length, 2, 'upgrade and uninstall must remove the bundled runtime');

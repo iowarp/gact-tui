@@ -56,9 +56,12 @@ const UNIX_GROUP_EMPTY_TIMEOUT: Duration = Duration::from_secs(5);
 /// object types. windows-sys only exposes a generated constant for it under
 /// `Storage::FileSystem` even though it is valid on a process handle too
 /// (MSDN "Standard Access Rights") — defined locally rather than pulling in
-/// an unrelated crate feature for one constant.
+/// an unrelated crate feature for one constant. `pub(crate)` so
+/// `installer_runtime_stop` (the installer's own process-under-root sweep,
+/// #I1) can wait on the handles it opens without redefining this constant a
+/// second time.
 #[cfg(windows)]
-const SYNCHRONIZE: u32 = 0x0010_0000;
+pub(crate) const SYNCHRONIZE: u32 = 0x0010_0000;
 
 /// A single process observed in a process-tree snapshot: just enough
 /// parent/child linkage plus the executable name to walk descendants and
@@ -408,8 +411,15 @@ fn reap_child_tree_with_shutdown(child: &mut Child, handle: Option<&BackendHandl
     }
 }
 
+/// A fresh snapshot of every process on the system (name + parent/own PID).
+///
+/// `pub(crate)`: shared with `installer_runtime_stop`, which walks this same
+/// snapshot to find CLIO-managed processes living under the install root
+/// before the installer swaps the runtime directory (#I1) — a second,
+/// independent `CreateToolhelp32Snapshot` call would just re-walk the exact
+/// same table this shutdown path already knows how to read.
 #[cfg(windows)]
-fn windows_process_snapshot() -> Vec<ProcessEntry> {
+pub(crate) fn windows_process_snapshot() -> Vec<ProcessEntry> {
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
     if snapshot == INVALID_HANDLE_VALUE {
         return Vec::new();
