@@ -52,7 +52,6 @@ import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { showsBaseAgent } from '@/lib/session-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
-import { TranscriptPresenceSurface } from '@/components/clio/workspace-transcript-presence';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
 
 export function WorkspacePage() {
