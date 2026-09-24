@@ -335,18 +335,22 @@ export class ClioRepository extends InfrastructureRepository {
   public async workspaceFiles(
     workspaceId: string,
     signal?: AbortSignal,
+    options?: { includeHidden?: boolean },
   ): Promise<WorkspaceFileEntry[]> {
+    // includeHidden -> server `include_hidden` (default true): the ONE filtering
+    // knob now that the server never marks an entry `internal`. Files view sends
+    // `!hideDotFiles` so the server excludes dot entries during its capped walk
+    // instead of the client discarding paid-for entries after the fact; every
+    // other consumer (the `@`-picker, artifact-card path resolution) sends
+    // `false` to keep its prior "no .clio internals" behavior.
+    const includeHidden = options?.includeHidden ?? true;
+    const query = new URLSearchParams({ include_hidden: String(includeHidden) });
     const result = await this.transport.request({
       method: 'GET',
-      path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/files`,
+      path: `/v1/workspaces/${encodeURIComponent(workspaceId)}/files?${query.toString()}`,
       decode: (value) => workspaceFileListSchema.parse(value),
       signal,
     });
-    // Owner ruling: the Files view shows ALL dot files/folders, .clio included —
-    // there is no reason to hide a workspace's own agent state from itself. The
-    // server no longer marks any entry `internal`; an opt-in "Hide dot files and
-    // folders" preference filters client-side in the Files view instead (see
-    // appearance-provider.tsx `hideDotFiles`).
     return result.entries as WorkspaceFileEntry[];
   }
 

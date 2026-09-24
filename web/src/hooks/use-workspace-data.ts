@@ -25,6 +25,7 @@ import {
 import { withSubagentOrigins } from '@/lib/subagent-origins';
 import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
+import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
@@ -344,9 +345,18 @@ export function useWorkspaceData({
   const sessionObservability = useSessionObservability(sessionId);
   const executionProvenance = useExecutionProvenance(sessionId);
   const contextObservability = useSessionObservability(contextTargetId);
+  const { hideDotFiles } = useAppearancePreferences();
   const workspaceFiles = useQuery({
-    queryKey: queryKeys.key('workspace-files', settings.endpoint, workspaceId),
-    queryFn: ({ signal }) => repository.workspaceFiles(workspaceId, signal),
+    // The Files-view-only "Hide dot files and folders" toggle is part of the
+    // cache identity: it changes what the SERVER sends (include_hidden), not a
+    // client-side post-filter, so two different toggle states must never share
+    // one cache entry. The base ['workspace-files', endpoint, workspaceId]
+    // prefix stays intact so the live-stream invalidation map's broader
+    // invalidateQueries call still matches this entry (react-query prefix
+    // matching) alongside every other includeHidden variant.
+    queryKey: queryKeys.key('workspace-files', settings.endpoint, workspaceId, !hideDotFiles),
+    queryFn: ({ signal }) =>
+      repository.workspaceFiles(workspaceId, signal, { includeHidden: !hideDotFiles }),
     enabled: Boolean(workspaceId),
   });
   const workspaceResources = useQuery({

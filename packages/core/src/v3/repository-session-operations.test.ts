@@ -142,8 +142,9 @@ describe('ClioRepository session operation contracts', () => {
   it('reads file and context snapshots from their authoritative workspace routes', async () => {
     // Owner ruling: the Files view shows ALL dot files/folders (including .clio) —
     // the server no longer marks any entry `internal`, and the client no longer
-    // filters on that field (an opt-in "Hide dot files and folders" preference
-    // filters client-side in the Files view component instead).
+    // filters on that field. include_hidden defaults to true (the "Hide dot
+    // files and folders" toggle, when on, sends include_hidden=false instead —
+    // the SERVER filters, not a client-side post-cap discard).
     const transport = new RecordingTransport([
       {
         entries: [
@@ -168,7 +169,7 @@ describe('ClioRepository session operation contracts', () => {
     const context = await repository.contextState('sess_1', 'main');
 
     expect(transport.requests.map((request) => request.path)).toEqual([
-      '/v1/workspaces/ws%201/files',
+      '/v1/workspaces/ws%201/files?include_hidden=true',
       '/v1/sessions/sess_1/context/state?scope=main',
     ]);
     expect(files).toEqual([
@@ -183,6 +184,20 @@ describe('ClioRepository session operation contracts', () => {
       live_tokens: 1200,
       provenance: { source: 'server', stale: false },
     });
+  });
+
+  it('sends include_hidden=false when a caller opts out (the `@`-picker and artifact fallback)', async () => {
+    // Review follow-up: the `@`-picker (command-menu.tsx) and the artifact-card
+    // path-resolution fallback must keep their prior, unconditional "no .clio
+    // internals" behavior regardless of the Files-view-only dot-files toggle.
+    const transport = new RecordingTransport([{ entries: [] }]);
+    const repository = new ClioRepository(transport);
+
+    await repository.workspaceFiles('ws_1', undefined, { includeHidden: false });
+
+    expect(transport.requests[0]?.path).toBe(
+      '/v1/workspaces/ws_1/files?include_hidden=false',
+    );
   });
 
   it('reads session evidence and process truth from their scoped routes', async () => {

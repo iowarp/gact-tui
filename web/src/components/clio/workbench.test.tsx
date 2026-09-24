@@ -537,59 +537,20 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByRole('treeitem', { name: 'paper.pdf' })).toBeVisible();
   });
 
-  it('shows .clio by default and hides it only via the opt-in dot-files preference', () => {
-    // Owner ruling: the Files view shows ALL dot files/folders (.clio included) by
-    // default; "Hide dot files and folders" (Settings > Appearance) is opt-in.
-    const files = [
-      { path: '.clio/state.json', type: 'file' as const, internal: false, size: 2 },
-      { path: 'report.md', type: 'file' as const, internal: false, size: 7 },
-    ];
-
-    const { unmount } = render(
-      <FileBrowser
-        files={files}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-    expect(screen.getByRole('treeitem', { name: '.clio' })).toBeVisible();
-    expect(screen.getByRole('treeitem', { name: 'report.md' })).toBeVisible();
-    unmount();
-
+  it('renders whatever files it is given — filtering moved to the server/query layer', () => {
+    // Review follow-up: "Hide dot files and folders" now reaches the SERVER as
+    // include_hidden (use-workspace-data.ts), so a huge .clio is never walked
+    // client-side only to be discarded after paying for it out of the shared
+    // entry cap. FileBrowser must not ALSO filter — that would silently
+    // double-hide entries the toggle already excluded, or mask a query-layer
+    // regression that stopped filtering. FileBrowser renders exactly the
+    // `files` prop it receives, regardless of the toggle's state.
     useAppearancePreferences.mockReturnValue({ hideDotFiles: true });
-    render(
-      <FileBrowser
-        files={files}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-    expect(screen.queryByRole('treeitem', { name: '.clio' })).not.toBeInTheDocument();
-    expect(screen.getByRole('treeitem', { name: 'report.md' })).toBeVisible();
-  });
-
-  it('keeps managed Sources visible even when "Hide dot files and folders" is on', async () => {
-    // The friendly Sources/<id>/<name> projection is a DISPLAY path (never a
-    // dotfile itself), so hiding dot files must never hide the user's own
-    // uploaded attachments even though they are materialized under .clio/inputs.
-    useAppearancePreferences.mockReturnValue({ hideDotFiles: true });
-    const user = userEvent.setup();
     render(
       <FileBrowser
         files={[
-          {
-            path: '.clio/inputs/res_abc/paper.pdf',
-            display_path: 'Sources/res_abc/paper.pdf',
-            type: 'file',
-            internal: false,
-            source: 'managed_input',
-            resource_id: 'res_abc',
-            media_type: 'application/pdf',
-            size: 1024,
-          },
           { path: '.clio/state.json', type: 'file', internal: false, size: 2 },
+          { path: 'report.md', type: 'file', internal: false, size: 7 },
         ]}
         onSelectedPathChange={vi.fn()}
         selectedPath={undefined}
@@ -597,10 +558,22 @@ describe('ClioWorkbench canvas', () => {
       />,
     );
 
-    expect(screen.queryByText('.clio')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Expand folder Sources' }));
-    await user.click(screen.getByRole('button', { name: 'Expand folder res_abc' }));
-    expect(screen.getByRole('treeitem', { name: 'paper.pdf' })).toBeVisible();
+    expect(screen.getByRole('treeitem', { name: '.clio' })).toBeVisible();
+    expect(screen.getByRole('treeitem', { name: 'report.md' })).toBeVisible();
+  });
+
+  it('hints at the dot-files toggle when the server-filtered file list comes back empty', () => {
+    useAppearancePreferences.mockReturnValue({ hideDotFiles: true });
+    render(
+      <FileBrowser
+        files={[]}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(screen.getByText(/Hide dot files and folders.*is on/)).toBeVisible();
   });
 
   it('delivers a requested tab when a compact canvas mounts after the request', () => {

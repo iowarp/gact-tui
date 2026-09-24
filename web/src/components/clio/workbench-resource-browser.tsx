@@ -169,16 +169,16 @@ export function FileBrowser({
   const [stacked, setStacked] = useState(false);
   const [query, setQuery] = useState('');
   const [internalSelectedPath, setInternalSelectedPath] = useState<string>();
+  // The "Hide dot files and folders" preference is sent to the SERVER as
+  // include_hidden (use-workspace-data.ts) so a huge .clio never spends the
+  // shared entry cap only to be discarded client-side — `files` here already
+  // reflects the toggle. Read only for the empty-state hint below.
   const { hideDotFiles } = useAppearancePreferences();
-  const visibleFiles = useMemo(
-    () => (hideDotFiles ? files.filter((entry) => !isDotFileEntry(entry)) : files),
-    [files, hideDotFiles],
-  );
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredFiles = useMemo(
     () =>
       normalizedQuery
-        ? visibleFiles.filter(
+        ? files.filter(
             (entry) =>
               entry.type === 'file' &&
               `${entry.display_path ?? ''} ${entry.path}`
@@ -186,8 +186,8 @@ export function FileBrowser({
                 .toLocaleLowerCase()
                 .includes(normalizedQuery),
           )
-        : visibleFiles,
-    [visibleFiles, normalizedQuery],
+        : files,
+    [files, normalizedQuery],
   );
   const fileTree = useMemo(() => buildFileTree(filteredFiles), [filteredFiles]);
   const activePath = selectedPath ?? internalSelectedPath;
@@ -244,18 +244,17 @@ export function FileBrowser({
                   >
                     <FileNodes nodes={fileTree} />
                   </FileTree>
-                ) : visibleFiles.length ? (
-                  <Unavailable icon={SearchIcon} label="No files match this filter" />
                 ) : (
-                  <Unavailable
-                    detail={'Turn off "Hide dot files and folders" in Settings > Appearance to see them.'}
-                    icon={FolderIcon}
-                    label="Dot files and folders are hidden"
-                  />
+                  <Unavailable icon={SearchIcon} label="No files match this filter" />
                 )
               ) : (
                 <Unavailable
-                  detail={filesError ?? 'The workspace contains no visible files.'}
+                  detail={
+                    filesError ??
+                    (hideDotFiles
+                      ? 'The workspace contains no visible files. "Hide dot files and folders" is on in Settings > Appearance — turn it off to check for hidden ones.'
+                      : 'The workspace contains no visible files.')
+                  }
                   icon={FolderIcon}
                   label={filesError ? 'File tree unavailable' : 'No workspace files'}
                 />
@@ -569,20 +568,6 @@ interface WorkspaceFileNode {
   entry: WorkspaceFileEntry;
   name: string;
   children: Map<string, WorkspaceFileNode>;
-}
-
-/**
- * True when the file tree's DISPLAYED path has a dot-prefixed segment
- * (`.clio`, `.git`, `.env`, ...). Uses `display_path` when the server set one
- * (uploaded sources materialized under `.clio/inputs` surface as a friendly
- * `Sources/<id>/<name>` path) so the "Hide dot files and folders" preference
- * never hides the user's own uploaded attachments — only actual dotfiles.
- */
-function isDotFileEntry(entry: WorkspaceFileEntry): boolean {
-  return (entry.display_path ?? entry.path)
-    .replace(/\\/gu, '/')
-    .split('/')
-    .some((segment) => segment.startsWith('.'));
 }
 
 function buildFileTree(entries: readonly WorkspaceFileEntry[]): WorkspaceFileNode[] {
