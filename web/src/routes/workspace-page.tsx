@@ -20,6 +20,7 @@ import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
 import { SessionWorkSummary } from '@/components/clio/session-work';
 import {
+  TranscriptPresenceSurface,
   WorkspaceHydrating,
   WorkspaceUnavailable,
   WorkspaceTranscriptAlerts,
@@ -766,6 +767,7 @@ export function WorkspacePage() {
                     interactions={interactions}
                     sessionId={sessionId}
                     subagents={subagents}
+                    workspaceId={workspaceId}
                   />
                 </TranscriptPresenceSurface>
               )}

@@ -200,6 +200,7 @@ export function ClioSubagentCanvasView({
           surfaces={entities.surfaces}
           tasks={entities.tasks}
           tools={entities.tools}
+          workspaceId={workspaceId}
         />
       </div>
     </div>
