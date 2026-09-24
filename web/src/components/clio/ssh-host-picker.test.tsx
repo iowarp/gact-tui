@@ -9,6 +9,7 @@ const profiles = vi.hoisted(() => ({
   saveSshProfile: vi.fn(),
   deleteSshProfile: vi.fn(),
   setSshProfileHidden: vi.fn(),
+  setSshProfileRoute: vi.fn(),
 }));
 const credentials = vi.hoisted(() => ({
   storeSshIdentity: vi.fn(),
@@ -132,13 +133,16 @@ describe('SshHostPicker', () => {
 
   it('tests the configured route through the real interactive transport contract', async () => {
     const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'chpc-gateway', label: 'CHPC gateway', hostname: 'gw.chpc.utah.edu', managed: true },
+    ]);
     renderPicker();
 
     await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
     await user.type(screen.getByLabelText('Address'), 'notchpeak1.chpc.utah.edu');
     await user.type(screen.getByLabelText('Username'), 'u1282901');
-    await user.type(screen.getByLabelText('Jump host'), 'chpc-gateway');
-    await user.click(screen.getByRole('button', { name: 'Add jump' }));
+    await user.click(screen.getByRole('combobox', { name: 'New jump host' }));
+    await user.click(screen.getByRole('option', { name: 'CHPC gateway' }));
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
     await screen.findByText('Connection succeeded');
@@ -154,5 +158,138 @@ describe('SshHostPicker', () => {
     expect(transport.closeSshConnectionTest).toHaveBeenCalledWith(
       expect.objectContaining({ targetId: 'ssh-test-host' }),
     );
+  });
+
+  it('configures a jump host in the same dialog and persists the reordered route', async () => {
+    const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'utah', label: 'Utah cluster', hostname: 'login.utah.edu', jump_hosts: ['gw'], managed: true },
+      { name: 'gw', label: 'Gateway', hostname: 'gw.utah.edu', user: 'alice', managed: true },
+    ]);
+    const onChange = vi.fn();
+    const destination = {
+      id: 'profile:utah',
+      label: 'Utah cluster',
+      profile: 'utah',
+      host: 'login.utah.edu',
+      port: 22,
+      jumpHosts: ['gw'],
+      platform: 'auto' as const,
+      managed: true,
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker onChange={onChange} value={destination} />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Configure jump host 1' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Configure Gateway');
+    expect(screen.getByLabelText('Address')).toHaveValue('gw.utah.edu');
+    expect(screen.getByLabelText('Username')).toHaveValue('alice');
+    // A jump host is a computer like any other: the same fields, no nested route.
+    expect(screen.queryByText('Connection route')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save host' }));
+    await waitFor(() =>
+      expect(profiles.saveSshProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'gw', hostname: 'gw.utah.edu', jump_hosts: [] }),
+      ),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Remove jump host 1' }));
+    // Only the route is written back, never the rest of the saved profile.
+    await waitFor(() => expect(profiles.setSshProfileRoute).toHaveBeenCalledWith('utah', []));
+    expect(profiles.saveSshProfile).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ jumpHosts: [] }));
+  });
+
+  it('keeps a jump host its own route when it is configured', async () => {
+    const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'dest', label: 'Destination', hostname: 'dest.edu', jump_hosts: ['gw'], managed: true },
+      { name: 'gw', label: 'Gateway', hostname: 'gw.edu', jump_hosts: ['bastion'], managed: true },
+    ]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker
+          onChange={vi.fn()}
+          value={{
+            id: 'profile:dest',
+            label: 'Destination',
+            profile: 'dest',
+            host: 'dest.edu',
+            port: 22,
+            jumpHosts: ['gw'],
+            managed: true,
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Configure jump host 1' }));
+    await user.clear(screen.getByLabelText('Name'));
+    await user.type(screen.getByLabelText('Name'), 'Campus gateway');
+    await user.click(screen.getByRole('button', { name: 'Save host' }));
+
+    await waitFor(() =>
+      expect(profiles.saveSshProfile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'gw',
+          label: 'Campus gateway',
+          jump_hosts: ['bastion'],
+          replace_existing: true,
+        }),
+      ),
+    );
+  });
+
+  it('never saves a new computer under an existing OpenSSH alias', async () => {
+    const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'gateway', label: 'gateway', hostname: 'gw.example.edu', managed: false },
+    ]);
+    renderPicker();
+
+    await user.click(await screen.findByRole('button', { name: 'Add SSH host' }));
+    await user.type(screen.getByLabelText('Address'), 'gw2.example.edu');
+    await user.type(screen.getByLabelText('Name'), 'Gateway');
+    await user.click(screen.getByRole('button', { name: 'Save host' }));
+
+    await waitFor(() =>
+      expect(profiles.saveSshProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'gateway-2', replace_existing: false }),
+      ),
+    );
+  });
+
+  it('says a route edit on an imported OpenSSH host applies to this deployment only', async () => {
+    const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'cluster', label: 'cluster', hostname: 'c.edu', jump_hosts: ['gw'], managed: false },
+      { name: 'gw', label: 'gw', hostname: 'gw.edu', managed: false },
+    ]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker
+          onChange={vi.fn()}
+          value={{
+            id: 'profile:cluster',
+            label: 'cluster',
+            profile: 'cluster',
+            host: 'c.edu',
+            port: 22,
+            jumpHosts: ['gw'],
+            managed: false,
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Remove jump host 1' }));
+
+    expect(await screen.findByText(/used for this deployment only/u)).toBeVisible();
+    expect(profiles.setSshProfileRoute).not.toHaveBeenCalled();
+    expect(profiles.saveSshProfile).not.toHaveBeenCalled();
   });
 });

@@ -29,6 +29,7 @@ mod sse_registry;
 mod sse_stream;
 #[cfg(test)]
 mod sse_stream_tests;
+mod ssh_profile_blocks;
 mod ssh_profiles;
 mod ssh_transport;
 mod supervisor;
@@ -165,6 +166,7 @@ pub fn run() {
             ssh_transport::ssh_transport_close,
             ssh_profiles::ssh_profiles_list,
             ssh_profiles::ssh_profile_save,
+            ssh_profiles::ssh_profile_set_route,
             ssh_profiles::ssh_profile_set_hidden,
             ssh_profiles::ssh_profile_delete,
             installer_options::read_installer_options,
