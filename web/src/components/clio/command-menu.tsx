@@ -73,8 +73,15 @@ export function ClioCommandMenu({
     queryFn: ({ signal }) => repository.allSessions(signal),
   });
   const files = useQuery({
-    queryKey: queryKeys.key('workspace-files', settings.endpoint, workspaceId),
-    queryFn: ({ signal }) => repository.workspaceFiles(workspaceId, signal),
+    // The `@`-picker keeps its prior, unconditional "no .clio internals"
+    // behavior regardless of the Files-view-only "Hide dot files and folders"
+    // toggle — referencing a workspace's own agent state in a message is not
+    // what that toggle is for. includeHidden: false is part of the cache
+    // identity (a distinct entry from the Files view's toggle-driven variant),
+    // but the base ['workspace-files', endpoint, workspaceId] prefix stays
+    // intact so it still gets invalidated on writes.
+    queryKey: queryKeys.key('workspace-files', settings.endpoint, workspaceId, false),
+    queryFn: ({ signal }) => repository.workspaceFiles(workspaceId, signal, { includeHidden: false }),
     enabled: Boolean(workspaceId),
   });
   const memory = useQuery({

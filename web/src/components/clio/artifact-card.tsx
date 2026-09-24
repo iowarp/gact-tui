@@ -108,7 +108,9 @@ export function ClioArtifactCard({
         return await repository.readArtifactBytesFor(artifact, signal);
       } catch (error) {
         if (!isMissingArtifactPayload(error) || !artifact.workspace_id) throw error;
-        const files = await repository.workspaceFiles(artifact.workspace_id, signal);
+        const files = await repository.workspaceFiles(artifact.workspace_id, signal, {
+          includeHidden: false,
+        });
         const fallback = uniqueWorkspaceArtifactFile(artifact, artifact.workspace_id, files);
         if (!fallback) throw error;
         return repository.readWorkspaceFileBytes(artifact.workspace_id, fallback.path, signal);
@@ -133,7 +135,9 @@ export function ClioArtifactCard({
         return await repository.readArtifactTextFor(artifact, signal);
       } catch (error) {
         if (!isMissingArtifactPayload(error) || !artifact.workspace_id) throw error;
-        const files = await repository.workspaceFiles(artifact.workspace_id, signal);
+        const files = await repository.workspaceFiles(artifact.workspace_id, signal, {
+          includeHidden: false,
+        });
         const fallback = uniqueWorkspaceArtifactFile(artifact, artifact.workspace_id, files);
         if (!fallback) throw error;
         return repository.readWorkspaceFile(artifact.workspace_id, fallback.path, signal);

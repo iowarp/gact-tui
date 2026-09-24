@@ -170,4 +170,19 @@ describe('ClioCommandMenu workspace search', () => {
       expect.any(AbortSignal),
     );
   });
+
+  it('keeps the `@`-picker\'s prior "no .clio internals" behavior regardless of the Files-view toggle', async () => {
+    // Review follow-up: the Files-view-only "Hide dot files and folders"
+    // toggle must never flood the `@`-picker with .clio internals — it always
+    // requests includeHidden: false, independent of that preference.
+    renderMenu();
+
+    await waitFor(() =>
+      expect(repository.workspaceFiles).toHaveBeenCalledWith(
+        'ws_current',
+        expect.any(AbortSignal),
+        { includeHidden: false },
+      ),
+    );
+  });
 });
