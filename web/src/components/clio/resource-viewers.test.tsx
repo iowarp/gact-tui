@@ -53,8 +53,8 @@ vi.mock('./document-workspace', () => ({
   ),
 }));
 vi.mock('./document-pdf-viewer', () => ({
-  ClioDocumentPdfViewer: ({ name, source }: { name: string; source: { url: string } }) => (
-    <div aria-label={`PDF ${name}`}>{source.url}</div>
+  ClioDocumentPdfViewer: ({ name, bytes }: { name: string; bytes: Uint8Array }) => (
+    <div aria-label={`PDF ${name}`}>{`${bytes.byteLength} bytes`}</div>
   ),
 }));
 
@@ -169,22 +169,37 @@ describe('WorkspaceFileView', () => {
     return render(<QueryClientProvider client={queryClient}>{view}</QueryClientProvider>);
   }
 
-  it('routes a remote PDF to PDF.js by media type without downloading it as text', async () => {
+  it('reads a workspace PDF through the repository transport, never a raw URL', async () => {
+    // The desktop reaches the backend only through the app transport; a URL
+    // handed to PDF.js would bypass it and fail.
+    repository.readWorkspaceFileBytes.mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
     renderFile(
       <WorkspaceFileView
         mediaType="application/pdf"
         path="reports/remote paper.pdf"
-        size={50_000_000}
+        size={50_000}
         workspaceId="workspace_1"
       />,
     );
 
     const viewer = await screen.findByLabelText('PDF remote paper.pdf');
-    expect(viewer).toHaveTextContent(
-      'http://127.0.0.1:8790/v1/workspaces/workspace_1/files/read?path=reports%2Fremote%20paper.pdf',
+    expect(viewer).toHaveTextContent('4 bytes');
+    expect(repository.readWorkspaceFileBytes).toHaveBeenCalledWith(
+      'workspace_1',
+      'reports/remote paper.pdf',
+      expect.any(AbortSignal),
     );
     expect(repository.readWorkspaceFile).not.toHaveBeenCalled();
-    expect(repository.readWorkspaceFileBytes).not.toHaveBeenCalled();
+  });
+
+  it('shows the read error instead of an endless PDF loading state', async () => {
+    repository.readWorkspaceFileBytes.mockRejectedValue(new Error('file not found: missing.pdf'));
+    renderFile(
+      <WorkspaceFileView mediaType="application/pdf" path="missing.pdf" workspaceId="workspace_1" />,
+    );
+
+    expect(await screen.findByText('PDF preview unavailable')).toBeVisible();
+    expect(screen.getByText('file not found: missing.pdf')).toBeVisible();
   });
 
   it('presents unsupported binary metadata and controls instead of a code block', () => {
