@@ -60,15 +60,19 @@ export function WorkspaceFileView({
   path,
   size,
   mediaType,
+  initialPage,
 }: {
   workspaceId: string;
   path: string;
   size?: number;
   mediaType?: string;
+  /** PDF only: the page to open on, when the caller already knows which page
+   * matters (e.g. the page range an agent's view_pdf call actually viewed). */
+  initialPage?: number;
 }) {
   const detected = mediaType || inferredWorkspaceMediaType(path);
   if (detected === 'application/pdf') {
-    return <WorkspacePdfView path={path} workspaceId={workspaceId} />;
+    return <WorkspacePdfView initialPage={initialPage} path={path} workspaceId={workspaceId} />;
   }
   if (detected.startsWith('image/')) {
     return <WorkspaceImageView mediaType={detected} path={path} workspaceId={workspaceId} />;
@@ -81,7 +85,15 @@ export function WorkspaceFileView({
   );
 }
 
-function WorkspacePdfView({ workspaceId, path }: { workspaceId: string; path: string }) {
+function WorkspacePdfView({
+  workspaceId,
+  path,
+  initialPage,
+}: {
+  workspaceId: string;
+  path: string;
+  initialPage?: number;
+}) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const content = useQuery({
@@ -90,7 +102,12 @@ function WorkspacePdfView({ workspaceId, path }: { workspaceId: string; path: st
   });
   return (
     <div className="size-full overflow-hidden p-3">
-      <ClioPdfPreview bytes={content.data} error={content.error?.message} name={fileName(path)} />
+      <ClioPdfPreview
+        bytes={content.data}
+        error={content.error?.message}
+        initialPage={initialPage}
+        name={fileName(path)}
+      />
     </div>
   );
 }

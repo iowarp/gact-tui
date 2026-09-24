@@ -62,6 +62,7 @@ export type ClioQueryNamespace =
   | 'transcript'
   | 'workspace-file'
   | 'workspace-file-bytes'
+  | 'workspace-file-integrity'
   | 'workspace-files'
   | 'workspace-resources'
   | 'workspace-references'

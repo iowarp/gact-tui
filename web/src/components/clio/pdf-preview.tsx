@@ -21,12 +21,16 @@ export function ClioPdfPreview({
   error,
   name,
   fit,
+  initialPage,
   onSelection,
 }: {
   bytes?: Uint8Array;
   error?: string;
   name: string;
   fit?: 'page' | 'width';
+  /** Opens on this 1-based page instead of the first, when the caller already
+   * knows which page matters (e.g. a view_pdf call's viewed page range). */
+  initialPage?: number;
   onSelection?: (anchor: DocumentAnchor) => void;
 }) {
   if (error) {
@@ -38,6 +42,7 @@ export function ClioPdfPreview({
       <ClioDocumentPdfViewer
         bytes={bytes}
         fit={fit}
+        initialPage={initialPage}
         name={name}
         onSelection={onSelection ?? (() => undefined)}
       />

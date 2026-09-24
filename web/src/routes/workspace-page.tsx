@@ -4,8 +4,8 @@ import type {
   RunState,
   WorkspaceReference,
 } from '@clio/core/v3';
-import { AnimatePresence, LayoutGroup, m, useIsPresent } from 'motion/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AnimatePresence, LayoutGroup, m } from 'motion/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
@@ -20,6 +20,7 @@ import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
 import { SessionWorkSummary } from '@/components/clio/session-work';
 import {
+  TranscriptPresenceSurface,
   WorkspaceHydrating,
   WorkspaceUnavailable,
   WorkspaceTranscriptAlerts,
@@ -52,28 +53,6 @@ import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { showsBaseAgent } from '@/lib/session-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
-
-function TranscriptPresenceSurface({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className: string;
-}) {
-  const isPresent = useIsPresent();
-  return (
-    <m.div
-      animate={{ opacity: 1 }}
-      aria-hidden={!isPresent}
-      className={className}
-      exit={{ opacity: 0 }}
-      inert={!isPresent}
-      initial={{ opacity: 0 }}
-    >
-      {children}
-    </m.div>
-  );
-}
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -780,6 +759,7 @@ export function WorkspacePage() {
                     interactions={interactions}
                     sessionId={sessionId}
                     subagents={subagents}
+                    workspaceId={workspaceId}
                   />
                 </TranscriptPresenceSurface>
               )}

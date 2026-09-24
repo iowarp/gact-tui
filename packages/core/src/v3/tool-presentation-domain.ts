@@ -1,11 +1,29 @@
 /** One server-declared semantic block in a transcript tool result. */
 export interface ToolPresentationBlock {
   id: string;
-  type: 'text' | 'markdown' | 'code' | 'diff' | 'terminal' | 'link' | 'check' | 'media' | 'item';
+  type:
+    | 'text'
+    | 'markdown'
+    | 'code'
+    | 'diff'
+    | 'terminal'
+    | 'link'
+    | 'check'
+    | 'media'
+    | 'item'
+    | 'workspace_file';
   media_type?: string;
   text?: string;
   label?: string;
   language?: string;
+  /** "workspace_file" only: the workspace + workspace-relative path the agent
+   * inspected via view_image/view_pdf, and the sha256 it verified before the
+   * model saw it. Never carries bytes. */
+  workspace_id?: string;
+  path?: string;
+  sha256?: string;
+  /** "workspace_file" (PDF) only: the 1-based pages the agent actually viewed. */
+  pages?: number[];
   target?: 'artifact' | 'resource' | 'session' | 'url' | 'file' | 'work' | 'surface';
   state?: 'pending' | 'in_progress' | 'completed';
   previous_state?: 'pending' | 'in_progress' | 'completed';
