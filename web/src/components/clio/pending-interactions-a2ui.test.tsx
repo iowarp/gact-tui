@@ -3,7 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLIO_A2UI_CATALOG_ID, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
+import {
+  CLIO_A2UI_CATALOG_ID,
+  CLIO_WORKSPACE_CATALOG_ROW,
+} from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
 import { ClioPendingInteractions } from './pending-interactions';
 
@@ -20,7 +23,7 @@ const repository = vi.hoisted(() => ({
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 beforeEach(() => {
-  repository.a2uiCatalogs.mockResolvedValue([CLIO_WORKSPACE_CATALOG_ROW]);
+  repository.a2uiCatalogs.mockResolvedValue({ rows: [CLIO_WORKSPACE_CATALOG_ROW], rejected: [] });
   repository.a2uiCapabilities.mockResolvedValue({
     agent: { 'v0.9': { supportedCatalogIds: [CLIO_WORKSPACE_CATALOG_ROW.catalogId] } },
     client: null,
@@ -191,9 +194,7 @@ describe('ClioPendingInteractions A2UI kind', () => {
       },
     );
 
-    expect(
-      await screen.findByText("form.submit delivered to the agent's turn"),
-    ).toBeVisible();
+    expect(await screen.findByText("form.submit delivered to the agent's turn")).toBeVisible();
   });
 
   it('routes a child A2UI action through the normalized interaction response', async () => {

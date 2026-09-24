@@ -6,6 +6,7 @@ import type {
 } from '@clio/core/v3';
 import { providerStatusDetail } from './provider-availability';
 import { providerDisplayName } from './provider-presentation';
+import { modelReasoningLevels, type ModelReasoningLevels } from './reasoning-levels';
 
 export interface ClioModelOption {
   providerId: string;
@@ -26,6 +27,38 @@ export interface ClioModelOption {
    */
   kind?: 'model' | 'provider';
   modalities?: readonly string[];
+  /** Thinking levels this model offers, from the live catalog. */
+  reasoning?: ModelReasoningLevels;
+  /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
+  aliases?: readonly string[];
+}
+
+/**
+ * Whether a catalog model row/option is the one a configured `modelId` names —
+ * its own id, one of the provider's own aliases for it (e.g. claude_code's
+ * `sonnet` -> `claude-sonnet-5`), or the service's own `resolvedModelId` for
+ * the configured value. A model configured by alias must still find its
+ * row's reasoning levels and default label (#1436) -- an id-only comparison
+ * silently hides them.
+ */
+export function matchesConfiguredModel(
+  candidate: { id: string; aliases?: readonly string[] },
+  modelId: string | undefined,
+  resolvedModelId?: string,
+): boolean {
+  if (!modelId) return false;
+  if (candidate.id === modelId) return true;
+  if (resolvedModelId && candidate.id === resolvedModelId) return true;
+  return (candidate.aliases ?? []).includes(modelId);
+}
+
+/** The available option naming `providerId`+`modelId` (by id, alias, or resolved id). */
+export function findSelectedModelOption<
+  T extends { providerId: string; id: string; aliases?: readonly string[]; available: boolean },
+>(options: readonly T[], providerId: string | undefined, modelId: string | undefined): T | undefined {
+  return options.find(
+    (option) => option.providerId === providerId && matchesConfiguredModel(option, modelId) && option.available,
+  );
 }
 
 /**
@@ -105,7 +138,10 @@ export function buildModelOptions({
   if (
     activeProvider &&
     activeModel &&
-    !options.some((option) => option.providerId === activeProvider && option.id === activeModel)
+    !options.some(
+      (option) =>
+        option.providerId === activeProvider && matchesConfiguredModel(option, activeModel),
+    )
   ) {
     const activePreset = presets.find((preset) => matchesProvider(preset, activeProvider));
     options.unshift({
@@ -166,26 +202,45 @@ function liveProviderOptions(
   }
   const providerReady = preset?.status === 'ready' || preset?.is_authenticated === true;
   const isCliProvider = ['codex', 'claude_code'].includes(provider.kind);
+  // The service served this provider's last good list because its live check
+  // came back empty: the models are shown, dated, and never presented as current.
+  // Dated by the latest live confirmation (the service's confirmed_at), not the
+  // list's first discovery -- the date a person reads while the provider is down.
+  const confirmedAt = provider.freshness.staleness?.['confirmed_at'];
+  const lastGoodDetail =
+    provider.freshness.source === 'last_good'
+      ? `Last confirmed ${formatCatalogTime(typeof confirmedAt === 'string' && confirmedAt ? confirmedAt : provider.freshness.generated_at)}. Check ${providerName} to confirm it is available now.`
+      : undefined;
   return provider.models.map((model) => {
     // CLI providers cannot enumerate models without an explicit (and for
     // Claude potentially billed) discovery run. Their built-in aliases remain
     // candidates, but a runtime the agent reports ready must still be usable;
     // the first real invocation is the final verification boundary.
     const usableCandidate = isCliProvider && model.availability === 'candidate' && providerReady;
+    // A last-good model is prior evidence, not a failure: it stays selectable,
+    // dated, until a live check replaces it.
+    const staleCandidate = Boolean(lastGoodDetail) && model.availability === 'candidate';
     return {
       ...shared,
       kind: 'model',
       id: model.model_id,
       label: conciseModelName(model.model_id),
       description: model.failure || undefined,
-      available: model.availability === 'available' || usableCandidate,
+      available: model.availability === 'available' || usableCandidate || staleCandidate,
       availabilityDetail:
         model.availability === 'available'
           ? undefined
-          : model.failure || modelAvailabilityLabel(model.availability),
+          : (lastGoodDetail ?? (model.failure || modelAvailabilityLabel(model.availability))),
       modalities: model.modalities,
+      reasoning: modelReasoningLevels(model.reasoning),
+      aliases: model.aliases,
     };
   });
+}
+
+function formatCatalogTime(value: string): string {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 
 function isAuthenticationFailure(failure: string | null | undefined): boolean {

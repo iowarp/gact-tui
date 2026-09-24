@@ -1,0 +1,241 @@
+[
+  {
+    "catalogId": "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json",
+    "sidecar": {
+      "catalogId": "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json",
+      "events": {},
+      "implements": {
+        "AudioPlayer": {
+          "kernel": "AudioPlayer",
+          "presets": null
+        },
+        "Button": {
+          "kernel": "Button",
+          "presets": null
+        },
+        "Card": {
+          "kernel": "Card",
+          "presets": null
+        },
+        "CheckBox": {
+          "kernel": "CheckBox",
+          "presets": null
+        },
+        "ChoicePicker": {
+          "kernel": "ChoicePicker",
+          "presets": null
+        },
+        "Column": {
+          "kernel": "Column",
+          "presets": null
+        },
+        "DateTimeInput": {
+          "kernel": "DateTimeInput",
+          "presets": null
+        },
+        "Divider": {
+          "kernel": "Divider",
+          "presets": null
+        },
+        "Icon": {
+          "kernel": "Icon",
+          "presets": null
+        },
+        "Image": {
+          "kernel": "Image",
+          "presets": null
+        },
+        "List": {
+          "kernel": "List",
+          "presets": null
+        },
+        "Modal": {
+          "kernel": "Modal",
+          "presets": null
+        },
+        "Row": {
+          "kernel": "Row",
+          "presets": null
+        },
+        "Slider": {
+          "kernel": "Slider",
+          "presets": null
+        },
+        "Tabs": {
+          "kernel": "Tabs",
+          "presets": null
+        },
+        "Text": {
+          "kernel": "Text",
+          "presets": null
+        },
+        "TextField": {
+          "kernel": "TextField",
+          "presets": null
+        },
+        "Video": {
+          "kernel": "Video",
+          "presets": null
+        }
+      },
+      "instructions": "instructions.md",
+      "protocolVersion": "0.9.1",
+      "trust": {
+        "source": "builtin"
+      }
+    }
+  },
+  {
+    "catalogId": "https://iowarp.ai/a2ui/catalogs/clio-workspace/v1",
+    "sidecar": {
+      "catalogId": "https://iowarp.ai/a2ui/catalogs/clio-workspace/v1",
+      "events": {
+        "approval.respond": {
+          "context_schema": null,
+          "destination": "permission",
+          "narration": null,
+          "operation": null
+        },
+        "run.cancel": {
+          "context_schema": null,
+          "destination": "run",
+          "narration": null,
+          "operation": "cancel"
+        },
+        "run.retry": {
+          "context_schema": null,
+          "destination": "run",
+          "narration": null,
+          "operation": "retry"
+        }
+      },
+      "implements": {
+        "Button": {
+          "kernel": "Button",
+          "presets": null
+        },
+        "CheckBox": {
+          "kernel": "CheckBox",
+          "presets": null
+        },
+        "ChoicePicker": {
+          "kernel": "ChoicePicker",
+          "presets": null
+        },
+        "Column": {
+          "kernel": "Column",
+          "presets": null
+        },
+        "Divider": {
+          "kernel": "Divider",
+          "presets": null
+        },
+        "Frame": {
+          "kernel": "Frame",
+          "presets": null
+        },
+        "Grid": {
+          "kernel": "Grid",
+          "presets": null
+        },
+        "Icon": {
+          "kernel": "Icon",
+          "presets": null
+        },
+        "Image": {
+          "kernel": "Image",
+          "presets": null
+        },
+        "List": {
+          "kernel": "List",
+          "presets": null
+        },
+        "Modal": {
+          "kernel": "Modal",
+          "presets": null
+        },
+        "Row": {
+          "kernel": "Row",
+          "presets": null
+        },
+        "Slider": {
+          "kernel": "Slider",
+          "presets": null
+        },
+        "Tabs": {
+          "kernel": "Tabs",
+          "presets": null
+        },
+        "Text": {
+          "kernel": "Text",
+          "presets": null
+        },
+        "TextField": {
+          "kernel": "TextField",
+          "presets": null
+        },
+        "clio.action-card.v1": {
+          "kernel": "clio.action-card.v1",
+          "presets": null
+        },
+        "clio.approval.v1": {
+          "kernel": "clio.approval.v1",
+          "presets": null
+        },
+        "clio.artifact.v1": {
+          "kernel": "clio.artifact.v1",
+          "presets": null
+        },
+        "clio.callout.v1": {
+          "kernel": "clio.callout.v1",
+          "presets": null
+        },
+        "clio.code.v1": {
+          "kernel": "clio.code.v1",
+          "presets": null
+        },
+        "clio.data-table.v1": {
+          "kernel": "clio.data-table.v1",
+          "presets": null
+        },
+        "clio.diff.v1": {
+          "kernel": "clio.diff.v1",
+          "presets": null
+        },
+        "clio.map.v1": {
+          "kernel": "clio.map.v1",
+          "presets": null
+        },
+        "clio.mermaid.v1": {
+          "kernel": "clio.mermaid.v1",
+          "presets": null
+        },
+        "clio.metric.v1": {
+          "kernel": "clio.metric.v1",
+          "presets": null
+        },
+        "clio.progress.v1": {
+          "kernel": "clio.progress.v1",
+          "presets": null
+        },
+        "clio.status.v1": {
+          "kernel": "clio.status.v1",
+          "presets": null
+        },
+        "clio.time-series.v1": {
+          "kernel": "clio.time-series.v1",
+          "presets": null
+        },
+        "clio.workflow.v1": {
+          "kernel": "clio.workflow.v1",
+          "presets": null
+        }
+      },
+      "instructions": "instructions.md",
+      "protocolVersion": "0.9.1",
+      "trust": {
+        "source": "builtin"
+      }
+    }
+  }
+]

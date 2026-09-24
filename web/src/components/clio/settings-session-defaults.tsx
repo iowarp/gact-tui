@@ -18,6 +18,9 @@ import {
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { providerDisplayName } from '@/lib/provider-presentation';
+import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
+import { ReasoningLevelField } from './reasoning-level-field';
+import { sessionDefaultsPatch } from './session-defaults-patch';
 import { ClioSettingsSection } from './settings-section';
 import {
   SESSION_APPROVAL_OPTIONS,
@@ -80,6 +83,14 @@ export function SessionDefaultsSettings() {
     queryKey: queryKeys.key('provider-models', settings.endpoint, form?.provider_id),
     queryFn: ({ signal }) => repository.providerModels(form?.provider_id ?? '', signal),
   });
+  // The model new sessions will start on: the pinned one, else the service default.
+  const reasoning = useModelReasoningLevels(
+    form?.provider_id || modelConfiguration.data?.provider_id || modelConfiguration.data?.provider,
+    form?.provider_id ? form.model_id : modelConfiguration.data?.model,
+    // Only the service default's own resolution applies; a pinned model_id is
+    // already a real catalog id and matches by id directly.
+    form?.provider_id ? undefined : modelConfiguration.data?.resolved_model_id,
+  );
   const modelOptions = useMemo(() => {
     const rows = modelCatalog.data?.models ?? [];
     if (rows.length) return rows;
@@ -90,7 +101,9 @@ export function SessionDefaultsSettings() {
   }, [form?.model_id, modelCatalog.data?.models, selectedPreset?.suggested_model]);
 
   const save = useMutation({
-    mutationFn: (value: SessionDefaults) => repository.updateSessionDefaults(value),
+    // An unset effort is sent as null: "use the selected model's own default".
+    mutationFn: (value: SessionDefaults) =>
+      repository.updateSessionDefaults(sessionDefaultsPatch(value)),
     onSuccess: (value) => {
       setDraft({ source: value, value });
       queryClient.setQueryData(queryKeys.key('session-defaults', settings.endpoint), value);
@@ -221,27 +234,18 @@ export function SessionDefaultsSettings() {
               </FieldDescription>
             </Field>
           ) : null}
-          <Field>
-            <FieldLabel htmlFor="session-default-effort">Reasoning effort</FieldLabel>
-            <Select
-              onValueChange={(value) => update('effort', value as SessionDefaults['effort'])}
-              value={form.effort}
-            >
-              <SelectTrigger id="session-default-effort">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="off">Off</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-              </SelectContent>
-            </Select>
-            <FieldDescription>
-              Sets the default thinking depth for newly created sessions. You can change it again
-              from the composer.
-            </FieldDescription>
-          </Field>
+          <ReasoningLevelField
+            allowModelDefault
+            description={
+              form.effort === 'unknown'
+                ? 'The service reported a starting effort this build does not know; saving resets it to the model default.'
+                : 'Sets the starting thinking depth for new sessions, from the levels this model offers. You can change it again from the composer.'
+            }
+            id="session-default-effort"
+            onChange={(effort) => update('effort', effort)}
+            reasoning={reasoning}
+            value={form.effort}
+          />
         </FieldGroup>
       </ClioSettingsSection>
 

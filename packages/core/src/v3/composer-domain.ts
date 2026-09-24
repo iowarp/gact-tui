@@ -22,8 +22,23 @@ export interface ComposerModelRef {
   variant?: string;
 }
 
+/** A thinking level the message contract can carry, in ascending order of depth. */
+export type ReasoningEffort =
+  | 'off'
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'xhigh'
+  | 'max'
+  | 'ultra';
+
 export interface MessageBehavior {
-  reasoning_effort: 'off' | 'low' | 'medium' | 'high' | 'xhigh';
+  /**
+   * The message's own thinking level. Absent means "use the configured level";
+   * clients send only a level the selected model reports.
+   */
+  reasoning_effort?: ReasoningEffort;
   execution_mode: 'execute' | 'plan' | 'deep_research';
   confirmation_policy: 'ask' | 'auto-edits' | 'bypass' | 'ai-review' | 'spotter-ai';
 }
@@ -140,6 +155,16 @@ export interface QueuedMessage {
   updated_at: string;
 }
 
+/**
+ * The outcome of copying a ready resource into the workspace's file tree —
+ * see `resourceMaterializationSchema` (composer-schemas.ts) for why this is
+ * independent of `WorkspaceResource.state`.
+ */
+export interface WorkspaceResourceMaterialization {
+  state: 'pending' | 'ready' | 'failed';
+  reason: string;
+}
+
 export interface WorkspaceResource {
   id: string;
   workspace_id: string;
@@ -159,6 +184,7 @@ export interface WorkspaceResource {
   completed_at: string;
   workspace_path?: string;
   mime_mismatch: boolean;
+  materialization?: WorkspaceResourceMaterialization;
   processing?: WorkspaceResourceProcessing;
   idempotent_replay?: boolean;
   upload_url?: string;
@@ -255,8 +281,23 @@ export interface ProviderCatalogModel {
   deployment: string;
   model_id: string;
   revision: string;
+  /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
+  aliases?: string[];
   modalities: string[];
-  reasoning: { supported: boolean; parameter: string };
+  /**
+   * What this model can do about thinking, from provider truth: `levels` are the
+   * levels a person can choose (empty means no selector), `default` the model's
+   * own level when the provider names one.
+   */
+  reasoning: {
+    supported: boolean;
+    parameter: string;
+    levels: string[];
+    default?: string;
+    /** `clio_shipped` when the default is CLIO's shipped level, not the model's own. */
+    default_source?: string;
+    source?: string;
+  };
   native_tool_calling: boolean;
   context_window?: number;
   loaded_context_window?: number;
@@ -284,10 +325,12 @@ export interface ProviderCatalogEntry {
   kind: string;
   endpoint: string;
   configuration_url: string;
+  auth_method?: string;
+  auth_label?: string;
   connectivity: string;
   auth: string;
   health: string;
-  freshness: { generated_at: string; source: string };
+  freshness: { generated_at: string; source: string; staleness?: Record<string, unknown> };
   failure: string;
   models: ProviderCatalogModel[];
 }

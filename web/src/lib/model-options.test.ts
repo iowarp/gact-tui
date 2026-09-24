@@ -1,6 +1,6 @@
 import type { LanguageModelPreset, ProviderCatalog, ProviderCatalogEntry } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { buildModelOptions, modelAvailabilityLabel } from './model-options';
+import { buildModelOptions, matchesConfiguredModel, modelAvailabilityLabel } from './model-options';
 
 function catalogProvider(overrides: Partial<ProviderCatalogEntry> = {}): ProviderCatalogEntry {
   return {
@@ -28,7 +28,11 @@ function catalogModel(modelId: string, availability = 'available', failure = '')
     model_id: modelId,
     revision: '',
     modalities: ['text'],
-    reasoning: { supported: true, parameter: 'reasoning_effort' },
+    reasoning: {
+      supported: true,
+      parameter: 'reasoning_effort',
+      levels: ['low', 'medium', 'high'],
+    },
     native_tool_calling: true,
     availability,
     evidence: {
@@ -97,7 +101,11 @@ describe('buildModelOptions', () => {
               model_id: 'openai/gpt-5.6-luna',
               revision: '',
               modalities: ['text', 'image'],
-              reasoning: { supported: true, parameter: 'reasoning_effort' },
+              reasoning: {
+                supported: true,
+                parameter: 'reasoning_effort',
+                levels: ['low', 'medium', 'high'],
+              },
               native_tool_calling: true,
               availability: 'available',
               evidence: {
@@ -351,5 +359,109 @@ describe('modelAvailabilityLabel', () => {
     expect(modelAvailabilityLabel('unavailable')).toBe('Unavailable');
     expect(modelAvailabilityLabel('retired')).toBe('Unknown (retired)');
     expect(modelAvailabilityLabel('')).toBe('Unknown');
+  });
+});
+
+describe('buildModelOptions over a real last-good catalog', () => {
+  it('keeps ALCF models visible and selectable after a restart, dated', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const { providerCatalogSchema } = await import('@clio/core/v3');
+    // Captured from the real clio-agent routes; see the core decoder test.
+    const payloads = JSON.parse(
+      readFileSync(
+        resolve(process.cwd(), '../packages/core/src/v3/fixtures/server-provider-payloads.json'),
+        'utf8',
+      ),
+    ) as { provider_catalog_last_good: unknown };
+    const providerCatalog = providerCatalogSchema.parse(payloads.provider_catalog_last_good);
+
+    const metis = buildModelOptions({
+      activeCatalogProvider: '',
+      providerCatalog,
+      presets: [],
+    }).filter((option) => option.providerId === 'argonne_metis');
+
+    expect(metis.map((option) => option.id)).toContain('openai/gpt-oss-120b');
+    for (const option of metis) {
+      // Prior evidence, not a failure: selectable, with its date shown.
+      expect(option.available).toBe(true);
+      expect(option.availabilityDetail).toMatch(/^Last confirmed /u);
+    }
+  });
+
+  it('dates a last-good model by its latest confirmation, not its first discovery', () => {
+    const provider = catalogProvider({
+      id: 'argonne_metis',
+      name: 'ALCF Metis',
+      freshness: {
+        generated_at: '2026-09-01T10:00:00Z',
+        source: 'last_good',
+        staleness: { reason: 'last_good_catalog_served', confirmed_at: '2026-09-22T18:30:00Z' },
+      },
+      models: [catalogModel('gpt-oss-120b', 'candidate')],
+    });
+
+    const [option] = buildModelOptions({
+      activeCatalogProvider: '',
+      providerCatalog: { authoritative: 'live_handshake', providers: [provider] },
+      presets: [],
+    });
+
+    expect(option?.availabilityDetail).toContain(new Date('2026-09-22T18:30:00Z').toLocaleString());
+    expect(option?.availabilityDetail).not.toContain(
+      new Date('2026-09-01T10:00:00Z').toLocaleString(),
+    );
+  });
+
+  it('does not add a reasoning-less placeholder for an alias-configured active model', () => {
+    // claude_code configures the alias "sonnet"; the catalog row is the full
+    // id "claude-sonnet-5" carrying its own reasoning levels + aliases. An
+    // id-only comparison never finds it and unshifts a bare placeholder with
+    // no reasoning, which is exactly what hid the composer's selector (#1436).
+    const provider = catalogProvider({
+      id: 'claude_code',
+      name: 'Claude Code',
+      kind: 'claude_code',
+      models: [{ ...catalogModel('claude-sonnet-5'), aliases: ['sonnet'] }],
+    });
+
+    const options = buildModelOptions({
+      activeCatalogProvider: '',
+      activeModel: 'sonnet',
+      activeProvider: 'claude_code',
+      providerCatalog: { authoritative: 'live_handshake', providers: [provider] },
+      presets: [],
+    });
+
+    expect(options).toHaveLength(1);
+    expect(options[0]?.id).toBe('claude-sonnet-5');
+    expect(options[0]?.reasoning?.levels).toEqual(['low', 'medium', 'high']);
+  });
+});
+
+describe('matchesConfiguredModel', () => {
+  it('matches by the option/row id directly', () => {
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, 'claude-sonnet-5')).toBe(true);
+  });
+
+  it('matches by a reported CLI alias', () => {
+    expect(
+      matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'sonnet'),
+    ).toBe(true);
+    expect(
+      matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'haiku'),
+    ).toBe(false);
+  });
+
+  it('matches by the service-resolved id when neither id nor alias matches', () => {
+    expect(
+      matchesConfiguredModel({ id: 'claude-sonnet-5' }, 'sonnet', 'claude-sonnet-5'),
+    ).toBe(true);
+  });
+
+  it('never matches an empty/undefined configured model', () => {
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, undefined)).toBe(false);
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, '')).toBe(false);
   });
 });

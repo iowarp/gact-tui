@@ -6,6 +6,31 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.18] — 2026-09-24
+
+### Fixed
+
+- Interactive views render again. The app no longer rejects the service's
+  catalog list when optional fields arrive empty, and a view created by a
+  sub-agent no longer hangs on "Resolving the interactive catalog".
+- Attached files upload in the desktop app. Attachments and a typed draft also
+  survive the composer settling right after a conversation opens.
+- The Files view lists dot folders such as `.clio`, refreshes when the agent
+  writes a file, and says when a listing was cut short. Settings > Appearance
+  has an optional switch to hide dot files.
+- ALCF sign-in no longer shows a validation error, and an ALCF provider that
+  needs a new sign-in says so instead of appearing ready with no models.
+- The reasoning selector offers the levels each model actually supports (for
+  example up to Max on Claude, Max and Ultra on Codex, low to high on
+  gpt-oss). A level is sent only when you pick one, and it shows for models
+  configured by alias such as `sonnet`.
+- Each provider has one name everywhere, for example "ALCF Metis".
+- The installer starts with no provider selected, requires a choice, keeps it
+  when you go back, and applies it once instead of on every launch.
+- SSH jump hosts reorder by drag or keyboard, and every step opens the same
+  host dialog. Route edits save only the route and never change your own
+  OpenSSH configuration.
+
 ## [0.11.2.17] — 2026-09-23
 
 ### Fixed

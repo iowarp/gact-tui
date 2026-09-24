@@ -7,6 +7,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   mergeSnapshots: vi.fn(),
   useSessionLiveStream: vi.fn(),
+  // Default matches the real provider's default (owner ruling: dot files are
+  // visible by default; "Hide dot files and folders" is opt-in).
+  useAppearancePreferences: vi.fn(() => ({ hideDotFiles: false })),
   repository: {
     agentBlueprints: vi.fn(async () => []),
     allSessions: vi.fn(async () => [] as unknown[]),
@@ -38,13 +41,16 @@ const mocks = vi.hoisted(() => ({
         surfaces: [],
       }),
     ),
-    workspaceFiles: vi.fn(async () => []),
+    workspaceFiles: vi.fn(async () => ({ entries: [], truncated: false })),
     workspaces: vi.fn(async () => []),
   },
 }));
 
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
+}));
+vi.mock('@/providers/appearance-provider', () => ({
+  useAppearancePreferences: mocks.useAppearancePreferences,
 }));
 vi.mock('./use-repository', () => ({ useRepository: () => mocks.repository }));
 vi.mock('./use-session-live-stream', () => ({
@@ -111,6 +117,9 @@ function renderWorkspaceData() {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.useSessionLiveStream.mockReturnValue(undefined);
+  // mockReturnValue survives clearAllMocks (only call history is cleared), so
+  // restore the real provider's default explicitly between tests.
+  mocks.useAppearancePreferences.mockReturnValue({ hideDotFiles: false });
   mocks.repository.capabilities.mockResolvedValue({ capabilities: {}, gact_versions: [] });
   mocks.repository.pendingApprovals.mockResolvedValue([]);
   mocks.repository.pendingQuestions.mockResolvedValue([]);
@@ -298,6 +307,36 @@ describe('useWorkspaceData artifact reads', () => {
           }),
         },
       }),
+    );
+  });
+});
+
+describe('useWorkspaceData files query', () => {
+  it('sends include_hidden=true by default (the toggle is off)', async () => {
+    renderWorkspaceData();
+
+    await waitFor(() =>
+      expect(mocks.repository.workspaceFiles).toHaveBeenCalledWith(
+        'ws_1',
+        expect.any(AbortSignal),
+        { includeHidden: true },
+      ),
+    );
+  });
+
+  it('sends include_hidden=false to the server when "Hide dot files and folders" is on', async () => {
+    // The toggle must reach the SERVER (include_hidden), not filter client-side
+    // after the shared entry cap already paid for the discarded entries.
+    mocks.useAppearancePreferences.mockReturnValue({ hideDotFiles: true });
+
+    renderWorkspaceData();
+
+    await waitFor(() =>
+      expect(mocks.repository.workspaceFiles).toHaveBeenCalledWith(
+        'ws_1',
+        expect.any(AbortSignal),
+        { includeHidden: false },
+      ),
     );
   });
 });

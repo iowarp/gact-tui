@@ -481,10 +481,22 @@ export class ComposerRepository extends ArtifactPreviewRepository {
     });
   }
 
-  public providerCatalog(refresh = false, signal?: AbortSignal): Promise<ProviderCatalog> {
+  /**
+   * Read the provider catalog. `refresh` re-probes live; `providerId` limits
+   * that re-probe to one provider, whose entry the service merges into its
+   * snapshot (every other provider keeps its cached evidence).
+   */
+  public providerCatalog(
+    refresh = false,
+    signal?: AbortSignal,
+    providerId?: string,
+  ): Promise<ProviderCatalog> {
+    const query = new URLSearchParams();
+    if (refresh) query.set('refresh', 'true');
+    if (providerId) query.set('provider', providerId);
     return this.transport.request({
       method: 'GET',
-      path: `/v1/provider-catalog${refresh ? '?refresh=true' : ''}`,
+      path: `/v1/provider-catalog${query.size ? `?${query.toString()}` : ''}`,
       decode: (value) => providerCatalogSchema.parse(value),
       signal,
     });

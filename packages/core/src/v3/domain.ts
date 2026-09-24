@@ -115,7 +115,8 @@ export interface Session {
 export interface SessionDefaults {
   provider_id: string;
   model_id: string;
-  effort: WireValue<'off' | 'low' | 'medium' | 'high'>;
+  /** Starting thinking level; absent means the selected model's own default. */
+  effort?: WireValue<'off' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra'>;
   mode: WireValue<'plan' | 'edit' | 'architect'>;
   edit_mode: WireValue<'diff' | 'whole' | 'patch'>;
   routing_mode: WireValue<'auto' | 'chat' | 'experts' | 'reasoning_only'>;
@@ -418,6 +419,15 @@ export interface WorkspaceFileEntry {
   resource_id?: string;
   size?: number;
   modified?: string;
+  /** A typed reason (e.g. "sandbox_child_cache") the server never walked this
+   * directory's contents — the folder itself is still listed, just empty. */
+  redacted?: string;
+}
+
+export interface WorkspaceFileListing {
+  entries: WorkspaceFileEntry[];
+  /** Whether the server's capped walk stopped before enumerating everything. */
+  truncated: boolean;
 }
 
 export interface SessionDiff {

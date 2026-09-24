@@ -1578,25 +1578,50 @@ workspace's `host_pattern` policies at CONNECT time:
 > carries `supports_vision` (model multimodal capability for the picker).
 
 > **Thinking level (clio).** `thinking_level` is a provider-generic extended-
-> reasoning control with one external vocabulary — `off | low | medium | high`,
-> or omitted/`null` = "provider default" (the server may substitute a shipped
-> per-model default, e.g. Claude Code + Haiku ships `low`). The request field is
-> validated at the boundary: an out-of-vocabulary value is a structured `422`
-> `validation_error` (never silently ignored). The server maps the level to each
-> provider's native transport and echoes the resolution back on `GET`/`PUT` as
-> two fields: `thinking_level` (the raw level in effect) and `thinking_effective`
-> (a human-readable resolved effect — e.g. `"medium (budget 8192)"`, `"off"`,
-> `"default (provider default)"`, or `"unsupported (<reason>)"`). A level
-> requested on a provider with no mapping is **not** dropped silently: it surfaces
-> as a typed `unsupported (<reason>)` in `thinking_effective`.
+> reasoning control with one external vocabulary —
+> `off | minimal | low | medium | high | xhigh | max`, or omitted/`null` =
+> "provider default" (the server may substitute a shipped per-model default,
+> e.g. Claude Code + Haiku ships `low`). The vocabulary is the union of the
+> levels real providers report; which levels a given MODEL accepts is reported
+> per model in the provider catalog (`GET /v1/provider-catalog`,
+> `models[].reasoning = {supported, parameter, levels[], default?, default_source?, source, reason?}`;
+> `default_source` is `"clio_shipped"` when the default is CLIO's shipped per-model
+> level (e.g. Claude Code sonnet/haiku ship `low`) and `"provider"` for the model's
+> own — clients must not label a shipped default "the model default"),
+> and a level the model does not report resolves to a typed
+> `unsupported (<reason>)`. The request field is validated at the boundary: an
+> out-of-vocabulary value is a structured `422` `validation_error` (never
+> silently ignored). The server echoes the resolution back on `GET`/`PUT` as
+> `thinking_level` (the raw level in effect) and `thinking_effective` (e.g.
+> `"medium (budget 8192)"`, `"max"`, `"off"`, `"default (provider default)"`, or
+> `"unsupported (<reason>)"`).
 >
-> | Provider family | Native transport | `off` | `low` / `medium` / `high` |
-> |---|---|---|---|
-> | `anthropic` | `thinking.budget_tokens` | omit (thinking off) | budget `2048` / `8192` / `24576` |
-> | `claude_code` | SDK `thinking` option | `{"type":"disabled"}` | `{"type":"enabled","budget_tokens":N}` |
-> | `openai` / `lm_studio` / `ollama` / `argonne` | `reasoning_effort` | omit | `reasoning_effort` = the level |
-> | `codex` | `model_reasoning_effort` | `"none"` (explicit disable) | the level (pinned on `turn/start`) |
-> | any other | — | — | `unsupported` (typed reason in `thinking_effective`) |
+> | Provider family | Where per-model levels come from | Native transport |
+> |---|---|---|
+> | `claude_code` | Claude Code CLI `initialize` model list (`supportedEffortLevels`) | SDK `effort` option on adaptive thinking; `off` = `{"type":"disabled"}`; models without effort use `{"type":"enabled","budget_tokens":N}` for `low`/`medium`/`high` |
+> | `anthropic` | LiteLLM model map (adaptive-thinking models accept `output_config.effort`) | `reasoning_effort` → `thinking:{type:"adaptive"}` + `output_config.effort`; other thinking models: `thinking.budget_tokens` 2048/8192/24576; `off` omits |
+> | `codex` | Codex SDK `supportedReasoningEfforts` / `defaultReasoningEffort` | `model_reasoning_effort` pinned on `turn/start`; `off` = `"none"` |
+> | `openai` | LiteLLM model map | `reasoning_effort` = the level; `off` = `"none"` where the model supports it |
+> | `lm_studio` / `ollama` / `argonne` | the served model (gpt-oss: `low`/`medium`/`high`) | `reasoning_effort` |
+> | any other | — | `unsupported` (typed reason in `thinking_effective`) |
+>
+> **Per-message and session levels.** `behavior.reasoning_effort` on a message
+> uses the same vocabulary; absent/`null` means "use the configured level" and
+> is never defaulted by the server. A spawned child inherits its parent turn's
+> per-message level only when it runs on the same provider and model (its
+> `agent_runtime.reasoning` otherwise records `inherited: false, reason:
+> "different_model"`). `GET /v1/session-defaults` `effort` is `null` unless a
+> person chose a level (`effort_source: "user"`); a session's `effort` is
+> projected only when it carries that provenance.
+>
+> **PUT semantics.** An explicit `thinking_level` is the person's choice and is
+> recorded with `thinking_level_source: "user"` (echoed on `GET`). An explicit
+> `null` clears it (the provider/model default applies). An OMITTED
+> `thinking_level` carries over only a user-sourced level, and only when the
+> provider and model are unchanged; otherwise the level is unset and the new
+> model's default (possibly CLIO's shipped default) applies. A stored level with no
+> source is never treated as a choice. Clients send `thinking_level` only when the
+> person changed it.
 >
 > An explicit `thinking_budget` (token count) remains an override for the
 > budget-based providers; when both are omitted the field is unset and today's

@@ -26,6 +26,8 @@ export interface ProviderModel {
   context_window?: number;
   output_limit?: number;
   context_source?: string;
+  /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
+  aliases?: string[];
 }
 
 export interface ProviderModelCatalog {
@@ -72,6 +74,8 @@ export interface LanguageModelPreset {
   suggested_model?: string;
   requires_api_key: boolean;
   auth_method?: string;
+  /** The sign-in service ("Globus Auth"); shown with sign-in, never in `label`. */
+  auth_label?: string;
   is_authenticated: boolean;
   description?: string;
   status?: string;
@@ -95,9 +99,13 @@ export interface LanguageModelConfiguration {
   provider: string;
   api_base: string;
   model: string;
+  /** The catalog model id `model` actually resolves to (claude_code CLI aliases). */
+  resolved_model_id?: string;
   temperature?: number;
   max_tokens?: number;
   thinking_level?: string;
+  /** `user` only when a person set `thinking_level`; otherwise it is a default. */
+  thinking_level_source?: string;
   thinking_effective?: string;
   state?: string;
   status_message?: string;

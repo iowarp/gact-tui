@@ -42,6 +42,15 @@ const conversion = (kind: ResourcePipelineStage['kind'], label: string): Resourc
   name: 'Conversion',
 });
 
+const workspaceCopy = (
+  kind: ResourcePipelineStage['kind'],
+  label: string,
+): ResourcePipelineStage => ({
+  kind,
+  label,
+  name: 'Workspace copy',
+});
+
 describe('summarizeResourcePipelineStages', () => {
   it('lets a failed stage decide the summary even while another is still running', () => {
     expect(
@@ -72,8 +81,32 @@ describe('summarizeResourcePipelineStages', () => {
       summarizeResourcePipelineStages(
         upload('complete', 'Complete'),
         conversion('complete', 'Complete'),
+        workspaceCopy('complete', 'Complete'),
       ),
     ).toMatchObject({ overall: 'complete', overallLabel: 'Ready' });
+  });
+
+  it('never reports Ready when the workspace copy failed to materialize, even with upload and conversion both complete', () => {
+    // Regression: a resource can be fully readable by the model (native or
+    // bounded-tools delivery) while its workspace-file-tree working copy
+    // failed — that must never render as the same "Ready" a fully-succeeded
+    // attachment shows.
+    expect(
+      summarizeResourcePipelineStages(
+        upload('complete', 'Complete'),
+        conversion('complete', 'Complete'),
+        workspaceCopy('failed', 'Failed'),
+      ),
+    ).toMatchObject({ overall: 'failed', overallLabel: 'Unavailable' });
+  });
+
+  it('defaults the workspace-copy stage to waiting when a caller omits it (a local, not-yet-uploaded attachment)', () => {
+    expect(
+      summarizeResourcePipelineStages(
+        upload('complete', 'Ready locally'),
+        conversion('waiting', 'Waiting for upload'),
+      ),
+    ).toMatchObject({ overall: 'waiting', overallLabel: 'Waiting' });
   });
 });
 
@@ -250,5 +283,40 @@ describe('resourcePipelineStages', () => {
 
     expect(stages.upload.kind).toBe('unknown');
     expect(stages).toMatchObject({ overall: 'unknown', overallLabel: 'Status unknown' });
+  });
+
+  it('surfaces a failed materialization instead of Ready, even though the resource itself is ready', () => {
+    const resource = workspaceResource({
+      materialization: { state: 'failed', reason: 'disk unavailable' },
+    });
+
+    const stages = resourcePipelineStages(resource);
+
+    expect(stages.workspaceCopy).toMatchObject({
+      detail: 'disk unavailable',
+      kind: 'failed',
+      label: 'Failed',
+      name: 'Workspace copy',
+    });
+    expect(stages).toMatchObject({ overall: 'failed', overallLabel: 'Unavailable' });
+  });
+
+  it('reports a completed workspace copy once materialization succeeds', () => {
+    const resource = workspaceResource({ materialization: { state: 'ready', reason: '' } });
+
+    expect(resourcePipelineStages(resource).workspaceCopy).toMatchObject({
+      kind: 'complete',
+      label: 'Complete',
+    });
+  });
+
+  it('treats a resource from a server that predates materialization as not tracked, not a problem', () => {
+    const resource = workspaceResource();
+    expect(resource.materialization).toBeUndefined();
+
+    expect(resourcePipelineStages(resource).workspaceCopy).toMatchObject({
+      kind: 'complete',
+      label: 'Not tracked',
+    });
   });
 });

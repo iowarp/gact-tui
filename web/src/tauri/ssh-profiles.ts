@@ -25,6 +25,8 @@ export type SaveSshProfileInput = {
   platform: 'auto' | 'linux' | 'windows';
   install_root: string;
   managed_identity: boolean;
+  /** Edit the CLIO computer `name` in place; otherwise save a new one under a free alias. */
+  replace_existing?: boolean;
 };
 
 /** List resolved OpenSSH profiles after applying product visibility preferences. */
@@ -51,4 +53,11 @@ export async function setSshProfileHidden(name: string, hidden: boolean): Promis
 export async function deleteSshProfile(name: string): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('ssh_profile_delete', { name });
+}
+
+/** Rewrite only the ordered jump route of a profile CLIO saved; imported profiles are refused. */
+export async function setSshProfileRoute(name: string, jumpHosts: string[]): Promise<SshProfile> {
+  if (!inTauri()) throw new Error(`SSH routes can be saved only in ${vocab.product}.`);
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<SshProfile>('ssh_profile_set_route', { name, jumpHosts });
 }

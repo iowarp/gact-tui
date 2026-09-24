@@ -91,6 +91,7 @@ export function WorkspacePage() {
   const {
     activeBlueprint,
     activeEffort,
+    configuredEffort,
     activeModel,
     activeProvider,
     attentionInteractions,
@@ -168,8 +169,18 @@ export function WorkspacePage() {
       ),
     [sessionId],
   );
+  // messageCount lags transcript.isFetching by a render tick (it only
+  // hydrates from transcript.data via use-workspace-data.ts's mergeSnapshots
+  // effect), which used to flash the welcome variant -- remounting the
+  // composer and dropping any in-progress attachment/draft -- for one render
+  // per existing-conversation navigation. Gating also on transcript.data's
+  // own count, which never disagrees with isFetching, closes the race.
   const showConversationWelcome =
-    messageCount === 0 && !transcript.isFetching && !transcriptError && !conversationStarted;
+    messageCount === 0 &&
+    (transcript.data?.messages.length ?? 0) === 0 &&
+    !transcript.isFetching &&
+    !transcriptError &&
+    !conversationStarted;
 
   const {
     activeRequest: workbenchRequest,
@@ -473,6 +484,7 @@ export function WorkspacePage() {
           confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
           disabled={!session || send.isPending || cancel.isPending || isPending}
           effort={activeEffort}
+          configuredEffort={configuredEffort}
           executionMode={
             session.mode === 'plan'
               ? 'plan'
@@ -481,7 +493,12 @@ export function WorkspacePage() {
                 : 'execute'
           }
           focusRequestKey={composerFocusKey}
-          key={`composer:${sessionId}:${activeProvider ?? ''}:${activeModel ?? ''}:${activeEffort ?? ''}`}
+          // Keyed on the session alone: provider/model/effort resolving after
+          // navigation used to remount this whole subtree, silently dropping
+          // in-progress attachments and other composer-local state. ClioComposer
+          // reconciles those props into its own selection state (see
+          // `modelSelection`/`behaviorSelection`) instead of needing a remount.
+          key={`composer:${sessionId}`}
           model={activeModel}
           modelCatalogRefreshing={providerCatalog.isRefreshing}
           modelCatalogStatus={modelCatalogStatus}
@@ -610,9 +627,10 @@ export function WorkspacePage() {
             diffActionError={(diffActions.apply.error ?? diffActions.reject.error)?.message}
             diffActionPending={diffActions.apply.isPending || diffActions.reject.isPending}
             diffs={sessionObservability.diffs.data ?? []}
-            files={workspaceFiles.data ?? []}
+            files={workspaceFiles.data?.entries ?? []}
             filesError={workspaceFiles.error?.message}
             filesPending={workspaceFiles.isPending}
+            filesTruncated={workspaceFiles.data?.truncated ?? false}
             resources={workspaceResources.data ?? []}
             resourcesError={workspaceResources.error?.message}
             resourcesPending={workspaceResources.isPending}

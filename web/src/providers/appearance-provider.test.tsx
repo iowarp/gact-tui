@@ -40,12 +40,27 @@ describe('appearance preferences', () => {
       motion: 'reduced',
       conversationWidth: 'wide',
       collapseThreshold: 5,
+      hideDotFiles: false,
     });
 
     unmount();
     const restored = renderHook(() => useAppearancePreferences(), { wrapper });
     expect(restored.result.current.motion).toBe('reduced');
     expect(restored.result.current.conversationWidth).toBe('wide');
+  });
+
+  it('defaults dot files to visible and persists the opt-in "hide" toggle', () => {
+    // Owner ruling: the Files view shows ALL dot files/folders (including .clio)
+    // by default; "Hide dot files and folders" is an opt-in, off by default.
+    const { result, unmount } = renderHook(() => useAppearancePreferences(), { wrapper });
+    expect(result.current.hideDotFiles).toBe(false);
+
+    act(() => result.current.setHideDotFiles(true));
+    expect(result.current.hideDotFiles).toBe(true);
+
+    unmount();
+    const restored = renderHook(() => useAppearancePreferences(), { wrapper });
+    expect(restored.result.current.hideDotFiles).toBe(true);
   });
 
   it('reacts to preference changes from another browser context', () => {

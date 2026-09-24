@@ -26,6 +26,7 @@ let permissionPending = true;
 let questionPending = true;
 let mcpV2UiDemo = false;
 let a2uiMapDemo = false;
+let attachmentsEnabled = false;
 let mcpAppGeneration = 1;
 let mcpAppToolCalls = 0;
 let mcpAppModelContextUpdates = 0;
@@ -787,6 +788,7 @@ const server = createServer(async (request, response) => {
     permissionPending = true;
     questionPending = true;
     mcpV2UiDemo = false;
+    attachmentsEnabled = false;
     mcpAppGeneration = 1;
     mcpAppToolCalls = 0;
     mcpAppModelContextUpdates = 0;
@@ -800,6 +802,12 @@ const server = createServer(async (request, response) => {
     seedResources();
     response.writeHead(204, commonHeaders());
     response.end();
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/attachments-demo') {
+    attachmentsEnabled = true;
+    sendJson(response, { status: 'ready' }, 202);
     return;
   }
 
@@ -886,10 +894,7 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  if (
-    request.method === 'POST' &&
-    url.pathname === `/v1/sessions/${sessionId}/a2ui/actions`
-  ) {
+  if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/a2ui/actions`) {
     // Only acknowledges receipt (the `isPending` mutation this resolves is
     // what gates the surface header's optimistic "Sending action" label,
     // S8 gact-tui#409 item 2) — the S5 lifecycle events a real dispatcher
@@ -927,7 +932,11 @@ const server = createServer(async (request, response) => {
         messages: example.messages,
       });
     }
-    sendJson(response, { status: 'published', count: surfaceIds.length, surface_ids: surfaceIds }, 202);
+    sendJson(
+      response,
+      { status: 'published', count: surfaceIds.length, surface_ids: surfaceIds },
+      202,
+    );
     return;
   }
 
@@ -947,18 +956,12 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  if (
-    request.method === 'GET' &&
-    url.pathname === `/v1/sessions/${sessionId}/a2ui/catalogs`
-  ) {
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/a2ui/catalogs`) {
     sendJson(response, { catalogs: a2uiCatalogRows() });
     return;
   }
 
-  if (
-    request.method === 'GET' &&
-    url.pathname === `/v1/sessions/${sessionId}/a2ui/capabilities`
-  ) {
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/a2ui/capabilities`) {
     sendJson(response, a2uiCapabilities());
     return;
   }
@@ -969,6 +972,7 @@ const server = createServer(async (request, response) => {
       capabilities: {
         ...capabilities.capabilities,
         ...(mcpV2UiDemo || a2uiMapDemo ? { x_clio_interactions: true } : {}),
+        ...(attachmentsEnabled ? { x_clio_resources: { enabled: true } } : {}),
       },
     });
     return;
@@ -1508,12 +1512,17 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/workspaces/${workspaceId}/files`) {
+    // Matched on pathname only (query params like include_hidden /
+    // exclude_service_storage never affect this fixture's response), but
+    // `truncated` is still included so the response shape matches the real
+    // server contract for any consumer that reads it.
     sendJson(response, {
       entries: [
         { path: 'results', type: 'dir' },
         { path: 'results/stations.csv', type: 'file', size: 2048 },
         { path: 'results/vertical-displacement.png', type: 'file', size: 8192 },
       ],
+      truncated: false,
     });
     return;
   }
@@ -1526,6 +1535,7 @@ const server = createServer(async (request, response) => {
       provider_id: '',
       model_id: '',
       effort: 'medium',
+      effort_source: 'user',
       mode: 'edit',
       edit_mode: 'diff',
       routing_mode: 'auto',

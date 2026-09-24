@@ -22,7 +22,7 @@ const options = [
     label: 'Luna',
     available: true,
     endpoint: 'local://codex-sdk',
-    configurationUrl: '/settings/providers/codex',
+    configurationUrl: '/settings/providers?provider=codex',
     freshness: '2026-08-31T12:00:00Z',
     health: 'ready',
     modalities: ['text', 'image'],
@@ -34,7 +34,7 @@ const options = [
     label: 'Qwen3-VL-32B',
     available: true,
     endpoint: 'http://127.0.0.1:8000/v1',
-    configurationUrl: '/settings/providers/local-vllm',
+    configurationUrl: '/settings/providers?provider=local-vllm',
     freshness: '2026-08-31T12:00:00Z',
     health: 'ready',
     modalities: ['text', 'image'],
@@ -200,6 +200,30 @@ describe('ClioModelPicker', () => {
     const configurationLink = screen.getByRole('link', { name: 'Configure Codex provider' });
     expect(configurationLink).toHaveAttribute('href', '/settings/providers?provider=codex');
     expect(configurationLink.closest('[data-slot="cascader-nav"]')).not.toBeNull();
+  });
+
+  it('maps a legacy /settings/providers/<id> link to the settings route', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={options.map((option) =>
+            option.providerId === 'codex'
+              ? { ...option, configurationUrl: '/settings/providers/codex' }
+              : option,
+          )}
+          trigger={<Button>Change model</Button>}
+        />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByRole('option', { name: /Codex/ }));
+    expect(screen.getByRole('link', { name: 'Configure Codex provider' })).toHaveAttribute(
+      'href',
+      '/settings/providers?provider=codex',
+    );
   });
 
   it('shows provider health once as a hoverable visual signal', async () => {

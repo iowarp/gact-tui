@@ -92,9 +92,10 @@ beforeEach(() => {
       updated_at: new Date().toISOString(),
     },
   ]);
-  repository.workspaceFiles.mockResolvedValue([
-    { path: 'results/stations.csv', type: 'file', internal: false, size: 1200 },
-  ]);
+  repository.workspaceFiles.mockResolvedValue({
+    entries: [{ path: 'results/stations.csv', type: 'file', internal: false, size: 1200 }],
+    truncated: false,
+  });
   repository.searchMemory.mockResolvedValue({
     query: 'immutable',
     include_cross_session: true,
@@ -168,6 +169,23 @@ describe('ClioCommandMenu workspace search', () => {
       'immutable',
       { workspaceId: 'ws_current', includeCrossSession: true, limit: 12 },
       expect.any(AbortSignal),
+    );
+  });
+
+  it('excludes only .clio service storage, not every dotfile, from the `@`-picker', async () => {
+    // Second review round: includeHidden: false hides EVERY dotfile/dot-directory
+    // (.gitignore, .github/workflows/ci.yml included), which would make ordinary
+    // project files un-@-mentionable. The `@`-picker instead requests
+    // excludeServiceStorage: true, which excludes only CLIO's own .clio/.clio-*
+    // service storage, independent of the Files-view-only dot-files toggle.
+    renderMenu();
+
+    await waitFor(() =>
+      expect(repository.workspaceFiles).toHaveBeenCalledWith(
+        'ws_current',
+        expect.any(AbortSignal),
+        { excludeServiceStorage: true },
+      ),
     );
   });
 });

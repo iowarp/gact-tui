@@ -27,6 +27,7 @@ const configuration: LanguageModelConfiguration = {
   max_tokens: 8_192,
   temperature: 0.3,
   thinking_level: 'high',
+  thinking_level_source: 'user',
   presets: [preset],
 };
 
@@ -81,9 +82,11 @@ describe('seedModelSettings', () => {
         presetIsActive: true,
       }).effort,
     ).toBe('');
+    // "omega" (not "ultra" -- #1436 added that as a real, recognized level)
+    // is junk no provider will ever report.
     expect(
       seedModelSettings({
-        configuration: { ...configuration, thinking_level: 'ultra' },
+        configuration: { ...configuration, thinking_level: 'omega' },
         preset,
         presetIsActive: true,
       }).effort,
@@ -234,5 +237,65 @@ describe('providerSupportsRuntimeSizing', () => {
       providerSupportsRuntimeSizing({ ...preset, provider: 'codex', provider_id: 'codex' }),
     ).toBe(false);
     expect(providerSupportsRuntimeSizing(undefined)).toBe(false);
+  });
+});
+
+describe('modelSettingsUpdate reasoning level', () => {
+  const seeded = seedModelSettings({ configuration, preset, presetIsActive: true });
+
+  it('leaves an unchanged level out of the write (the service keeps it)', () => {
+    expect(modelSettingsUpdate({ preset, seeded, values: seeded })).not.toHaveProperty(
+      'thinking_level',
+    );
+  });
+
+  it('clears a configured level back to the model default with null', () => {
+    const update = modelSettingsUpdate({ preset, seeded, values: { ...seeded, effort: '' } });
+    expect(update.thinking_level).toBeNull();
+  });
+
+  it('writes a newly chosen level', () => {
+    const update = modelSettingsUpdate({ preset, seeded, values: { ...seeded, effort: 'max' } });
+    expect(update.thinking_level).toBe('max');
+  });
+});
+
+describe('the sonnet -> opus Apply', () => {
+  const claude: LanguageModelPreset = {
+    ...preset,
+    id: 'claude_code',
+    provider: 'claude_code',
+    provider_id: 'claude_code',
+    suggested_model: 'sonnet',
+  };
+  const sonnet: LanguageModelConfiguration = {
+    configured: true,
+    provider: 'claude_code',
+    api_base: '',
+    model: 'sonnet',
+    // CLIO's shipped default for sonnet -- nobody chose it.
+    thinking_level: 'low',
+    presets: [claude],
+  };
+
+  it("does not seed a shipped default as the person's level", () => {
+    expect(
+      seedModelSettings({ configuration: sonnet, preset: claude, presetIsActive: true }).effort,
+    ).toBe('');
+  });
+
+  it('switching to opus writes no level, so opus runs on its own default', () => {
+    const seeded = seedModelSettings({
+      configuration: sonnet,
+      preset: claude,
+      presetIsActive: true,
+    });
+    const update = modelSettingsUpdate({
+      preset: claude,
+      seeded,
+      values: { ...seeded, modelId: 'opus' },
+    });
+    expect(update.model).toBe('opus');
+    expect(update).not.toHaveProperty('thinking_level');
   });
 });

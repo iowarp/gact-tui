@@ -7,15 +7,17 @@ import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
  * a rendered `ClioA2UISurface`/`ClioPendingInteractions` — which only ever
  * CONSUME the registry (`docs/design/a2ui-compat-campaign-2026-09.md` S6
  * adversarial review, BLOCKING) — has a live advertisement to read, exactly
- * as it would inside `WorkspacePage`.
+ * as it would inside `WorkspacePage`. `sessionId` accepts one id or several —
+ * the real owner now covers every session a mounted surface can reference
+ * (S1 item A2), not only the "open" one.
  */
 export function A2uiSessionRegistryOwner({
   children,
   sessionId,
 }: {
   children: ReactNode;
-  sessionId: string;
+  sessionId: string | readonly string[];
 }) {
-  useA2uiSessionRegistry(sessionId);
+  useA2uiSessionRegistry(Array.isArray(sessionId) ? sessionId : [sessionId]);
   return children;
 }

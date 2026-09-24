@@ -27,12 +27,37 @@ Var ClioProviderAzureOpenAICheckbox
 Var ClioProviderBedrockCheckbox
 Var ClioProviderNvidiaNimCheckbox
 Var ClioProviderOpenRouterCheckbox
+; Remembered checked/unchecked state ("0"/"1") per provider, so the page
+; restores the user's previous selection instead of resetting to hardcoded
+; defaults whenever the wizard revisits it (Back then Next). Vars start empty,
+; which the restore macro treats the same as "0" (unchecked) — matching the
+; "nothing pre-checked" first-show state below.
+Var ClioProviderCodexChecked
+Var ClioProviderClaudeCodeChecked
+Var ClioProviderOpenAIChecked
+Var ClioProviderAnthropicChecked
+Var ClioProviderGeminiChecked
+Var ClioProviderVertexChecked
+Var ClioProviderLMStudioChecked
+Var ClioProviderOllamaChecked
+Var ClioProviderLlamaCppChecked
+Var ClioProviderVllmChecked
+Var ClioProviderArgonneSophiaChecked
+Var ClioProviderArgonneMetisChecked
+Var ClioProviderAzureOpenAIChecked
+Var ClioProviderBedrockChecked
+Var ClioProviderNvidiaNimChecked
+Var ClioProviderOpenRouterChecked
 Var ClioInstallWebSearch
 Var ClioInstallLlamaCpp
 Var ClioWebSearchStatus
 Var ClioLlamaCppStatus
 Var ClioProviderIds
-Var ClioProviderChoicesCaptured
+; Stamped once per real (non-passive/non-update) install/reinstall so the web
+; layer can apply installer provider visibility exactly once per install and
+; never again overwrite a later Settings/picker change (see
+; applyInstallerProviderVisibility's apply-once revision check).
+Var ClioInstalledAt
 
 ; Collect infrastructure and provider visibility as two focused wizard pages
 ; of a MessageBox fired mid-install: nsDialogs pages are deterministically
@@ -126,6 +151,61 @@ Function ClioInfrastructurePageLeave
 
 FunctionEnd
 
+; Restore this checkbox to whichever state ClioProvidersPageLeave last
+; remembered for it ("1" checked / anything else, incl. never-set, unchecked).
+; Used instead of a hardcoded NSD_Check/NSD_Uncheck so the page never resets a
+; choice the user already made on an earlier pass through the wizard.
+!macro CLIO_RESTORE_PROVIDER_CHECKBOX _CHECKBOX _REMEMBERED
+  ${If} ${_REMEMBERED} == "1"
+    ${NSD_Check} ${_CHECKBOX}
+  ${Else}
+    ${NSD_Uncheck} ${_CHECKBOX}
+  ${EndIf}
+!macroend
+
+; Record this checkbox's current state so a later CLIO_RESTORE_PROVIDER_CHECKBOX
+; call (on a re-shown page) reproduces it.
+!macro CLIO_REMEMBER_PROVIDER_CHECKBOX _CHECKBOX _REMEMBERED
+  ${NSD_GetState} ${_CHECKBOX} $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy ${_REMEMBERED} "1"
+  ${Else}
+    StrCpy ${_REMEMBERED} "0"
+  ${EndIf}
+!macroend
+
+; All 16 CLIO_REMEMBER_PROVIDER_CHECKBOX calls in one place, shared by
+; ClioProvidersPageLeave (Next) and ClioProvidersPageOnBack (Back) so both
+; directions capture the same on-screen state the same way.
+!macro CLIO_REMEMBER_ALL_PROVIDERS
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderCodexCheckbox $ClioProviderCodexChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderClaudeCodeCheckbox $ClioProviderClaudeCodeChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderOpenAICheckbox $ClioProviderOpenAIChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderAnthropicCheckbox $ClioProviderAnthropicChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderGeminiCheckbox $ClioProviderGeminiChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderVertexCheckbox $ClioProviderVertexChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderLMStudioCheckbox $ClioProviderLMStudioChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderOllamaCheckbox $ClioProviderOllamaChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderLlamaCppCheckbox $ClioProviderLlamaCppChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderVllmCheckbox $ClioProviderVllmChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderArgonneSophiaCheckbox $ClioProviderArgonneSophiaChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderArgonneMetisCheckbox $ClioProviderArgonneMetisChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderAzureOpenAICheckbox $ClioProviderAzureOpenAIChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderBedrockCheckbox $ClioProviderBedrockChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderNvidiaNimCheckbox $ClioProviderNvidiaNimChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderOpenRouterCheckbox $ClioProviderOpenRouterChecked
+!macroend
+
+; nsDialogs only invokes a custom page's Leave function (ClioProvidersPageLeave
+; below) when the user clicks Next. Clicking Back skips it entirely, so
+; without this dedicated callback, ticks made just before Back would be lost
+; the next time this page is shown — CLIO_RESTORE_PROVIDER_CHECKBOX would
+; restore the stale state from the last successful Next instead. ${NSD_OnBack}
+; (nsDialogs.nsh) registers a function that runs specifically on Back.
+Function ClioProvidersPageOnBack
+  !insertmacro CLIO_REMEMBER_ALL_PROVIDERS
+FunctionEnd
+
 Function ClioProvidersPage
   !insertmacro CLIO_SKIP_SETUP_PAGE_IF_UNATTENDED
 
@@ -135,78 +215,83 @@ Function ClioProvidersPage
   ${If} $0 == error
     Abort
   ${EndIf}
+  ${NSD_OnBack} ClioProvidersPageOnBack
 
   ; Compact three-column groups keep every choice above the wizard footer at
   ; Windows' default DPI. Providers are individual choices: selecting an API
   ; provider never silently exposes its separate subscription/CLI product.
+  ; Nothing is pre-checked: the owner wants installs to stop and make the
+  ; user actively choose at least one provider (ClioProvidersPageLeave
+  ; enforces that). Each checkbox restores whatever the user chose the last
+  ; time this page was shown, via ClioProviderXChecked.
   CreateFont $2 "$(^Font)" "$(^FontSize)" "700"
   ${NSD_CreateLabel} 0 0 31% 12u "Subscription"
   Pop $1
   SendMessage $1 ${WM_SETFONT} $2 0
   ${NSD_CreateCheckbox} 0 16u 31% 12u "OpenAI Codex"
   Pop $ClioProviderCodexCheckbox
-  ${NSD_Check} $ClioProviderCodexCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderCodexCheckbox $ClioProviderCodexChecked
   ${NSD_CreateCheckbox} 0 32u 31% 12u "Claude Code"
   Pop $ClioProviderClaudeCodeCheckbox
-  ${NSD_Uncheck} $ClioProviderClaudeCodeCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderClaudeCodeCheckbox $ClioProviderClaudeCodeChecked
 
   ${NSD_CreateLabel} 0 56u 31% 12u "Direct APIs"
   Pop $1
   SendMessage $1 ${WM_SETFONT} $2 0
   ${NSD_CreateCheckbox} 0 72u 31% 12u "OpenAI API"
   Pop $ClioProviderOpenAICheckbox
-  ${NSD_Check} $ClioProviderOpenAICheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderOpenAICheckbox $ClioProviderOpenAIChecked
   ${NSD_CreateCheckbox} 0 88u 31% 12u "Anthropic API"
   Pop $ClioProviderAnthropicCheckbox
-  ${NSD_Uncheck} $ClioProviderAnthropicCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderAnthropicCheckbox $ClioProviderAnthropicChecked
   ${NSD_CreateCheckbox} 0 104u 31% 12u "Google Gemini"
   Pop $ClioProviderGeminiCheckbox
-  ${NSD_Uncheck} $ClioProviderGeminiCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderGeminiCheckbox $ClioProviderGeminiChecked
   ${NSD_CreateCheckbox} 0 120u 31% 12u "Google Vertex AI"
   Pop $ClioProviderVertexCheckbox
-  ${NSD_Uncheck} $ClioProviderVertexCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderVertexCheckbox $ClioProviderVertexChecked
 
   ${NSD_CreateLabel} 34% 0 31% 12u "Local / self-hosted"
   Pop $1
   SendMessage $1 ${WM_SETFONT} $2 0
   ${NSD_CreateCheckbox} 34% 16u 31% 12u "LM Studio"
   Pop $ClioProviderLMStudioCheckbox
-  ${NSD_Uncheck} $ClioProviderLMStudioCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderLMStudioCheckbox $ClioProviderLMStudioChecked
   ${NSD_CreateCheckbox} 34% 32u 31% 12u "Ollama"
   Pop $ClioProviderOllamaCheckbox
-  ${NSD_Uncheck} $ClioProviderOllamaCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderOllamaCheckbox $ClioProviderOllamaChecked
   ${NSD_CreateCheckbox} 34% 48u 31% 12u "llama.cpp"
   Pop $ClioProviderLlamaCppCheckbox
-  ${NSD_Uncheck} $ClioProviderLlamaCppCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderLlamaCppCheckbox $ClioProviderLlamaCppChecked
   ${NSD_CreateCheckbox} 34% 64u 31% 12u "vLLM"
   Pop $ClioProviderVllmCheckbox
-  ${NSD_Uncheck} $ClioProviderVllmCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderVllmCheckbox $ClioProviderVllmChecked
 
   ${NSD_CreateLabel} 34% 88u 31% 12u "Argonne ALCF"
   Pop $1
   SendMessage $1 ${WM_SETFONT} $2 0
   ${NSD_CreateCheckbox} 34% 104u 31% 12u "Sophia"
   Pop $ClioProviderArgonneSophiaCheckbox
-  ${NSD_Uncheck} $ClioProviderArgonneSophiaCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderArgonneSophiaCheckbox $ClioProviderArgonneSophiaChecked
   ${NSD_CreateCheckbox} 34% 120u 31% 12u "Metis"
   Pop $ClioProviderArgonneMetisCheckbox
-  ${NSD_Uncheck} $ClioProviderArgonneMetisCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderArgonneMetisCheckbox $ClioProviderArgonneMetisChecked
 
   ${NSD_CreateLabel} 68% 0 32% 12u "Other clouds"
   Pop $1
   SendMessage $1 ${WM_SETFONT} $2 0
   ${NSD_CreateCheckbox} 68% 16u 32% 12u "Azure OpenAI"
   Pop $ClioProviderAzureOpenAICheckbox
-  ${NSD_Uncheck} $ClioProviderAzureOpenAICheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderAzureOpenAICheckbox $ClioProviderAzureOpenAIChecked
   ${NSD_CreateCheckbox} 68% 32u 32% 12u "Amazon Bedrock"
   Pop $ClioProviderBedrockCheckbox
-  ${NSD_Uncheck} $ClioProviderBedrockCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderBedrockCheckbox $ClioProviderBedrockChecked
   ${NSD_CreateCheckbox} 68% 48u 32% 12u "NVIDIA NIM"
   Pop $ClioProviderNvidiaNimCheckbox
-  ${NSD_Uncheck} $ClioProviderNvidiaNimCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderNvidiaNimCheckbox $ClioProviderNvidiaNimChecked
   ${NSD_CreateCheckbox} 68% 64u 32% 12u "OpenRouter"
   Pop $ClioProviderOpenRouterCheckbox
-  ${NSD_Uncheck} $ClioProviderOpenRouterCheckbox
+  !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderOpenRouterCheckbox $ClioProviderOpenRouterChecked
 
   nsDialogs::Show
 FunctionEnd
@@ -223,7 +308,6 @@ FunctionEnd
 !macroend
 
 Function ClioProvidersPageLeave
-  StrCpy $ClioProviderChoicesCaptured "1"
   StrCpy $ClioProviderIds ""
   !insertmacro CLIO_APPEND_PROVIDER "codex" $ClioProviderCodexCheckbox
   !insertmacro CLIO_APPEND_PROVIDER "claude_code" $ClioProviderClaudeCodeCheckbox
@@ -241,6 +325,16 @@ Function ClioProvidersPageLeave
   !insertmacro CLIO_APPEND_PROVIDER "bedrock" $ClioProviderBedrockCheckbox
   !insertmacro CLIO_APPEND_PROVIDER "nvidia_nim" $ClioProviderNvidiaNimCheckbox
   !insertmacro CLIO_APPEND_PROVIDER "openrouter" $ClioProviderOpenRouterCheckbox
+  !insertmacro CLIO_REMEMBER_ALL_PROVIDERS
+
+  ; Stop the wizard here until the user picks at least one provider — an
+  ; empty selection used to sail through silently (see NSIS_HOOK_PREINSTALL's
+  ; deleted "codex,openai" fallback) and the owner wants installs to force a
+  ; deliberate choice instead.
+  ${If} $ClioProviderIds == ""
+    MessageBox MB_ICONEXCLAMATION "Choose at least one model provider to continue. CLIO needs at least one provider selected so it has something to show."
+    Abort
+  ${EndIf}
 FunctionEnd
 
 ; Keep user-owned sessions and settings by default, but make a genuinely clean
@@ -328,6 +422,8 @@ FunctionEnd
   FileWrite $2 $ClioLlamaCppStatus
   FileWrite $2 '$\",$\"clio_kit$\":$\"bundled$\",$\"provider_ids$\":$\"'
   FileWrite $2 $ClioProviderIds
+  FileWrite $2 '$\",$\"installed_at$\":$\"'
+  FileWrite $2 $ClioInstalledAt
   FileWrite $2 '$\"}'
   FileClose $2
 !macroend
@@ -352,17 +448,17 @@ FunctionEnd
   ${AndIf} $UpdateMode <> 1
     ; A plain silent (but not passive/update) fresh install skips ALL wizard
     ; pages, including ours, so the Leave function never ran — fall back to
-    ; the same recommended defaults the pages show (Search on, local runtime
-    ; off, OpenAI API and Codex visible) rather than treating "never asked"
-    ; as "declined".
+    ; the same recommended infrastructure defaults the page shows (Search on,
+    ; local runtime off). Providers are different: nobody was asked, so
+    ; $ClioProviderIds stays "" ("no installer preference"). The web layer
+    ; reads an empty/absent provider selection as "leave visibility
+    ; untouched" (every provider visible) rather than silently guessing
+    ; codex+openai.
     ${If} $ClioInstallWebSearch == ""
       StrCpy $ClioInstallWebSearch "1"
     ${EndIf}
     ${If} $ClioInstallLlamaCpp == ""
       StrCpy $ClioInstallLlamaCpp "0"
-    ${EndIf}
-    ${If} $ClioProviderChoicesCaptured != "1"
-      StrCpy $ClioProviderIds "codex,openai"
     ${EndIf}
 
     ${If} $ClioInstallWebSearch == "1"
@@ -375,6 +471,30 @@ FunctionEnd
     ${Else}
       StrCpy $ClioLlamaCppStatus "not_requested"
     ${EndIf}
+    ; One timestamp per real install/reinstall, shared by every
+    ; CLIO_WRITE_INSTALLER_OPTIONS call in this run (see POSTINSTALL below),
+    ; so the web layer can tell "a new install happened" from "the same
+    ; install's options file was rewritten" and apply provider visibility
+    ; exactly once per install. $R0-$R6 are saved/restored around GetTime:
+    ; this macro is inserted into Tauri's generated install Section, whose
+    ; surrounding template code is outside our control and may hold its own
+    ; state in those registers across this point.
+    Push $R0
+    Push $R1
+    Push $R2
+    Push $R3
+    Push $R4
+    Push $R5
+    Push $R6
+    ${GetTime} "" "L" $R0 $R1 $R2 $R3 $R4 $R5 $R6
+    StrCpy $ClioInstalledAt "$R2$R1$R0$R4$R5$R6"
+    Pop $R6
+    Pop $R5
+    Pop $R4
+    Pop $R3
+    Pop $R2
+    Pop $R1
+    Pop $R0
     !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
   ${EndIf}
 !macroend

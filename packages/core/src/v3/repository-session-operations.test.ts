@@ -140,12 +140,26 @@ describe('ClioRepository session operation contracts', () => {
   });
 
   it('reads file and context snapshots from their authoritative workspace routes', async () => {
+    // Owner ruling: the Files view shows ALL dot files/folders (including .clio) —
+    // the server no longer marks any entry `internal`, and the client no longer
+    // filters on that field. include_hidden defaults to true (the "Hide dot
+    // files and folders" toggle, when on, sends include_hidden=false instead —
+    // the SERVER filters, not a client-side post-cap discard). truncated and a
+    // redacted per-entry reason both decode through, unlike the old schema that
+    // silently dropped them.
     const transport = new RecordingTransport([
       {
         entries: [
-          { path: '.clio', type: 'dir', internal: true },
+          { path: '.clio', type: 'dir', internal: false },
+          {
+            path: '.clio-child-cache',
+            type: 'dir',
+            internal: false,
+            redacted: 'sandbox_child_cache',
+          },
           { path: 'results/plot.png', type: 'file', internal: false, size: 42 },
         ],
+        truncated: true,
       },
       {
         session_id: 'sess_1',
@@ -160,14 +174,24 @@ describe('ClioRepository session operation contracts', () => {
     ]);
     const repository = new ClioRepository(transport);
 
-    const files = await repository.workspaceFiles('ws 1');
+    const listing = await repository.workspaceFiles('ws 1');
     const context = await repository.contextState('sess_1', 'main');
 
     expect(transport.requests.map((request) => request.path)).toEqual([
-      '/v1/workspaces/ws%201/files',
+      '/v1/workspaces/ws%201/files?include_hidden=true&exclude_service_storage=false',
       '/v1/sessions/sess_1/context/state?scope=main',
     ]);
-    expect(files).toEqual([{ path: 'results/plot.png', type: 'file', internal: false, size: 42 }]);
+    expect(listing.truncated).toBe(true);
+    expect(listing.entries).toEqual([
+      { path: '.clio', type: 'dir', internal: false },
+      {
+        path: '.clio-child-cache',
+        type: 'dir',
+        internal: false,
+        redacted: 'sandbox_child_cache',
+      },
+      { path: 'results/plot.png', type: 'file', internal: false, size: 42 },
+    ]);
     expect(context).toMatchObject({
       session_id: 'sess_1',
       scope: 'main',
@@ -176,6 +200,22 @@ describe('ClioRepository session operation contracts', () => {
       live_tokens: 1200,
       provenance: { source: 'server', stale: false },
     });
+  });
+
+  it('sends exclude_service_storage=true when a caller opts out (the `@`-picker and artifact fallback)', async () => {
+    // Second review round: includeHidden: false hides EVERY dotfile/dot-directory
+    // (.gitignore, .github/workflows/ci.yml included). The `@`-picker
+    // (command-menu.tsx) and the artifact-card path-resolution fallback instead
+    // send excludeServiceStorage, which excludes only CLIO's own .clio/.clio-*
+    // service storage, independent of the Files-view-only dot-files toggle.
+    const transport = new RecordingTransport([{ entries: [] }]);
+    const repository = new ClioRepository(transport);
+
+    await repository.workspaceFiles('ws_1', undefined, { excludeServiceStorage: true });
+
+    expect(transport.requests[0]?.path).toBe(
+      '/v1/workspaces/ws_1/files?include_hidden=true&exclude_service_storage=true',
+    );
   });
 
   it('reads session evidence and process truth from their scoped routes', async () => {

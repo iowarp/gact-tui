@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { forwardCompatibleEnum } from './schema-utils.js';
+import { forwardCompatibleEnum, optionalWireString } from './schema-utils.js';
 
 export const contextReferenceKindSchema = z.enum([
   'workspace_file',
@@ -18,8 +18,24 @@ export const composerModelRefSchema = z.object({
   variant: z.string().optional(),
 });
 
+/** Every thinking level the message contract defines, in ascending order. */
+export const REASONING_EFFORTS = [
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultra',
+] as const;
+
 export const messageBehaviorSchema = z.object({
-  reasoning_effort: z.enum(['off', 'low', 'medium', 'high', 'xhigh']),
+  // Unset is `null` (or absent) on the wire: the configured level governs.
+  reasoning_effort: z
+    .enum(REASONING_EFFORTS)
+    .nullish()
+    .transform((value) => value ?? undefined),
   execution_mode: z.enum(['execute', 'plan', 'deep_research']),
   confirmation_policy: z.enum(['ask', 'auto-edits', 'bypass', 'ai-review', 'spotter-ai']),
 });
@@ -165,6 +181,22 @@ export const workspaceResourceProcessingSchema = z.object({
 });
 
 /**
+ * The outcome of copying a ready resource into the workspace's file tree
+ * (`.clio/inputs/...`) so filesystem tools can see it as a real file.
+ * Independent of `state`/`processing`: a resource can be fully `ready` in
+ * immutable custody (readable by the model natively or via the bounded
+ * workspace-resource tools) while this is `failed` — the working copy on
+ * disk is what did not materialize, not the resource itself. Absent on a
+ * server that predates this field, defaulting to `pending` (never observed
+ * as `failed`, so an older server never appears to have a broken copy it
+ * never tracked in the first place).
+ */
+export const resourceMaterializationSchema = z.object({
+  state: z.enum(['pending', 'ready', 'failed']).default('pending'),
+  reason: z.string().default(''),
+});
+
+/**
  * One immutable resource revision. A resource that is still `uploading` carries
  * every detection and completion field at its empty default rather than
  * omitting it, so those are defaulted strings, not optionals — a reader must
@@ -190,6 +222,7 @@ export const workspaceResourceSchema = z.object({
   completed_at: z.string().default(''),
   workspace_path: z.string().default(''),
   mime_mismatch: z.boolean().default(false),
+  materialization: resourceMaterializationSchema.optional(),
   processing: workspaceResourceProcessingSchema.optional(),
   idempotent_replay: z.boolean().optional(),
   upload_url: z.string().optional(),
@@ -274,10 +307,23 @@ export const providerCatalogSchema = z.object({
       kind: z.string(),
       endpoint: z.string(),
       configuration_url: z.string(),
+      // The sign-in method and service ("oauth", "Globus Auth"): detail for the
+      // sign-in affordance, never part of `name`.
+      auth_method: optionalWireString(),
+      auth_label: optionalWireString(),
       connectivity: z.string(),
       auth: z.string(),
       health: z.string(),
-      freshness: z.object({ generated_at: z.string(), source: z.string() }),
+      freshness: z.object({
+        generated_at: z.string(),
+        source: z.string(),
+        // Typed staleness: a last-good list served because the live probe was
+        // empty (`last_good_catalog_served`), or an aged discovery overlay.
+        staleness: z
+          .record(z.string(), z.unknown())
+          .nullish()
+          .transform((value) => value ?? undefined),
+      }),
       failure: z.string(),
       models: z.array(
         z.object({
@@ -287,8 +333,17 @@ export const providerCatalogSchema = z.object({
           deployment: z.string(),
           model_id: z.string(),
           revision: z.string(),
+          aliases: z.array(z.string()).default([]),
           modalities: z.array(z.string()),
-          reasoning: z.object({ supported: z.boolean(), parameter: z.string() }),
+          reasoning: z.object({
+            supported: z.boolean(),
+            parameter: z.string(),
+            levels: z.array(z.string()).default([]),
+            default: optionalWireString(),
+            // "clio_shipped": CLIO's per-model default, not the model's own.
+            default_source: optionalWireString(),
+            source: optionalWireString(),
+          }),
           native_tool_calling: z.boolean(),
           context_window: z
             .number()

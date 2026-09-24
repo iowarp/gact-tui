@@ -12,13 +12,20 @@ const behavior: MessageBehavior = {
   reasoning_effort: 'medium',
 };
 
-function renderControls(overrides: Partial<MessageBehavior> = {}, unrecognizedEffort?: string) {
+const ALL_LEVELS = ['off', 'low', 'medium', 'high', 'xhigh'] as const;
+
+function renderControls(
+  overrides: Partial<MessageBehavior> = {},
+  unrecognizedEffort?: string,
+  reasoningLevels: readonly (typeof ALL_LEVELS)[number][] = ALL_LEVELS,
+) {
   const onChange = vi.fn();
   render(
     <ClioComposerBehaviorControls
       behavior={{ ...behavior, ...overrides }}
       modelControl={null}
       onChange={onChange}
+      reasoningLevels={reasoningLevels}
       unrecognizedEffort={unrecognizedEffort}
     />,
   );
@@ -74,6 +81,25 @@ describe('ClioComposerBehaviorControls', () => {
 
     await user.click(screen.getByRole('menuitemradio', { name: 'high' }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ reasoning_effort: 'high' }));
+  });
+
+  it('offers exactly the levels the selected model reports', async () => {
+    const user = userEvent.setup();
+    renderControls({ reasoning_effort: 'medium' }, undefined, ['low', 'medium', 'high']);
+
+    await user.click(screen.getByRole('button', { name: 'Reasoning effort: medium' }));
+    expect(screen.getAllByRole('menuitemradio').map((item) => item.textContent)).toEqual([
+      'low',
+      'medium',
+      'high',
+    ]);
+  });
+
+  it('shows no reasoning control for a model that offers no levels', () => {
+    renderControls({ reasoning_effort: undefined }, undefined, []);
+
+    expect(screen.queryByRole('button', { name: /^Reasoning effort:/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Execution mode: Execute' })).toBeVisible();
   });
 
   it('keeps only the most recently opened behavior menu visible', async () => {

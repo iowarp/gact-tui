@@ -10,6 +10,7 @@ import {
   CalendarClockIcon,
   CheckCircle2Icon,
   ChevronLeftIcon,
+  EyeOffIcon,
   KeyRoundIcon,
   InfoIcon,
   MonitorCogIcon,
@@ -334,6 +335,8 @@ function AppearanceSettings() {
     setMotion,
     collapseThreshold,
     setCollapseThreshold,
+    hideDotFiles,
+    setHideDotFiles,
   } = useAppearancePreferences();
   return (
     <div className="grid gap-6">
@@ -503,6 +506,30 @@ function AppearanceSettings() {
             </FieldLabel>
           ))}
         </RadioGroup>
+      </ClioSettingsSection>
+      <ClioSettingsSection
+        description="A workspace's .clio folder holds uploaded sources and agent state. It is visible in the Files view by default — there is no reason to hide a workspace's own state from itself."
+        title="Workspace files"
+      >
+        <FieldLabel htmlFor="hide-dot-files">
+          <Field>
+            <span className="flex items-center gap-3">
+              <EyeOffIcon aria-hidden="true" className="size-5 shrink-0 text-primary" />
+              <FieldContent>
+                <FieldTitle>Hide dot files and folders</FieldTitle>
+                <FieldDescription>
+                  Hides paths with a dot-prefixed segment (including .clio) from the workspace
+                  Files view. Off by default.
+                </FieldDescription>
+              </FieldContent>
+              <Switch
+                checked={hideDotFiles}
+                id="hide-dot-files"
+                onCheckedChange={setHideDotFiles}
+              />
+            </span>
+          </Field>
+        </FieldLabel>
       </ClioSettingsSection>
     </div>
   );

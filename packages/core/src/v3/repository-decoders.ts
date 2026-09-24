@@ -24,6 +24,7 @@ import {
   workspaceFileEntrySchema,
   workspaceSchema,
 } from './schemas.js';
+import { optionalWireString } from './schema-utils.js';
 
 export const workspaceListSchema = z.object({ workspaces: z.array(workspaceSchema) });
 export const sessionListSchema = z.object({ sessions: z.array(sessionSchema) });
@@ -39,18 +40,22 @@ export const transcriptSchema = z.object({
 export const providerListSchema = z.object({ providers: z.array(providerDefinitionSchema) });
 export const providerModelCatalogSchema = z.object({
   models: z.array(providerModelSchema),
-  source: z.string().optional(),
-  default_model: z.string().optional(),
-  generated_at: z.string().optional(),
-  staleness: z.record(z.unknown()).optional(),
-  error: z.string().optional(),
+  source: optionalWireString(),
+  default_model: optionalWireString(),
+  generated_at: optionalWireString(),
+  staleness: z
+    .record(z.unknown())
+    .nullish()
+    .transform((value) => value ?? undefined),
+  // The service sends `"error": null` on success (HandshakeReport.to_models_wire).
+  error: optionalWireString(),
 });
 export const providerModelRefreshResultSchema = z.object({
   provider: z.string(),
   discovered: z.array(providerModelSchema).default([]),
   source: z.string(),
   default_model: z.string().default(''),
-  default_model_reason: z.string().optional(),
+  default_model_reason: optionalWireString(),
   generated_at: z.string(),
   added: z.array(z.string()).default([]),
   removed: z.array(z.string()).default([]),
@@ -192,6 +197,8 @@ export const operationalRunListSchema = z.object({
 });
 export const workspaceFileListSchema = z.object({
   entries: z.array(workspaceFileEntrySchema).default([]),
+  // Whether the server's capped walk stopped before enumerating everything.
+  truncated: z.boolean().default(false),
 });
 export const agentBlueprintListSchema = z.object({
   agent_blueprints: z.array(agentBlueprintSchema).default([]),

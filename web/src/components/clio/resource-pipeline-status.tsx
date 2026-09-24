@@ -60,12 +60,13 @@ export function ResourcePipelineSummaryIcon({
   );
 }
 
-/** Expanded two-line upload and conversion status used in attachment hover cards. */
+/** Expanded upload, conversion, and workspace-copy status used in attachment hover cards. */
 export function ResourcePipelineStatusLines({ stages }: { stages: ResourcePipelineStages }) {
   return (
     <div className="space-y-1.5">
       <ResourceStageLine stage={stages.upload} />
       <ResourceStageLine stage={stages.conversion} />
+      <ResourceStageLine stage={stages.workspaceCopy} />
     </div>
   );
 }

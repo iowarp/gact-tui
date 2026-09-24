@@ -25,9 +25,11 @@ import {
 import { withSubagentOrigins } from '@/lib/subagent-origins';
 import { isSessionActive } from '@/lib/session-state';
 import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
+import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
+import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from './a2ui-session-ids';
 import { useRepository } from './use-repository';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
@@ -55,11 +57,6 @@ export function useWorkspaceData({
 }: UseWorkspaceDataInput) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  // Owns the A2UI catalog registry + client-metadata advertisement for this
-  // session's whole lifetime — a surface mounting/unmounting must never
-  // clear it (docs/design/a2ui-compat-campaign-2026-09.md S6 adversarial
-  // review, BLOCKING). Surfaces only ever consume it (a2ui-surface.tsx).
-  useA2uiSessionRegistry(sessionId);
   const entityArtifacts = useLiveStore((state) => state.entities.artifacts);
   const entityContext = useLiveStore((state) => state.entities.context);
   const entityRuns = useLiveStore((state) => state.entities.runs);
@@ -344,9 +341,26 @@ export function useWorkspaceData({
   const sessionObservability = useSessionObservability(sessionId);
   const executionProvenance = useExecutionProvenance(sessionId);
   const contextObservability = useSessionObservability(contextTargetId);
+  const { hideDotFiles } = useAppearancePreferences();
   const workspaceFiles = useQuery({
-    queryKey: queryKeys.key('workspace-files', settings.endpoint, workspaceId),
-    queryFn: ({ signal }) => repository.workspaceFiles(workspaceId, signal),
+    // The Files-view-only "Hide dot files and folders" toggle is part of the
+    // cache identity: it changes what the SERVER sends (include_hidden), not a
+    // client-side post-filter, so two different toggle states must never share
+    // one cache entry. The 4th part spells out the exact param sent (not a bare
+    // boolean) so this can never collide with another consumer's differently
+    // parameterized variant (e.g. the `@`-picker's exclude_service_storage
+    // mode) that happened to reduce to the same boolean. The base
+    // ['workspace-files', endpoint, workspaceId] prefix stays intact so the
+    // live-stream invalidation map's broader invalidateQueries call still
+    // matches every variant (react-query prefix matching).
+    queryKey: queryKeys.key(
+      'workspace-files',
+      settings.endpoint,
+      workspaceId,
+      `include_hidden=${!hideDotFiles}`,
+    ),
+    queryFn: ({ signal }) =>
+      repository.workspaceFiles(workspaceId, signal, { includeHidden: !hideDotFiles }),
     enabled: Boolean(workspaceId),
   });
   const workspaceResources = useQuery({
@@ -384,34 +398,33 @@ export function useWorkspaceData({
     [allSessions.data, entities.subagents, sessionId],
   );
   const processes = sessionObservability.processes.data ?? [];
-  const interactionSessionIds = useMemo(() => {
-    const related = new Set([sessionId]);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const subagent of Object.values(entities.subagents)) {
-        if (
-          subagent.child_session_id &&
-          related.has(subagent.session_id) &&
-          !related.has(subagent.child_session_id)
-        ) {
-          related.add(subagent.child_session_id);
-          changed = true;
-        }
-      }
-      for (const candidate of allSessions.data ?? []) {
-        if (
-          candidate.parent_session_id &&
-          related.has(candidate.parent_session_id) &&
-          !related.has(candidate.id)
-        ) {
-          related.add(candidate.id);
-          changed = true;
-        }
-      }
-    }
-    return related;
-  }, [allSessions.data, entities.subagents, sessionId]);
+  const interactionSessionIds = useMemo(
+    () =>
+      computeInteractionSessionIds(
+        sessionId,
+        Object.values(entities.subagents),
+        allSessions.data ?? [],
+      ),
+    [allSessions.data, entities.subagents, sessionId],
+  );
+  // Owns the A2UI catalog registry + client-metadata advertisement for every
+  // session a mounted surface can reference: the open session itself, any
+  // session whose pending interaction owns an A2UI surface (`a2uiOwnerIds`),
+  // and every session in this session's own subagent/child closure
+  // (`interactionSessionIds` — e.g. a subagent canvas rendering a child
+  // session's surface inline). Never only the "open" session id (S1 item A2:
+  // a surface keyed by another session id must not hang on "Resolving the
+  // interactive catalog…" forever). A surface mounting/unmounting must never
+  // clear any of these (docs/design/a2ui-compat-campaign-2026-09.md S6
+  // adversarial review, BLOCKING). Surfaces only ever consume the registry
+  // (a2ui-surface.tsx). Both id-derivation steps are extracted, pure
+  // functions (`hooks/a2ui-session-ids.ts`) so they are directly
+  // unit-testable without rendering this whole hook.
+  const a2uiReferencedSessionIds = useMemo(
+    () => computeA2uiReferencedSessionIds(sessionId, a2uiOwnerIds, interactionSessionIds),
+    [sessionId, a2uiOwnerIds, interactionSessionIds],
+  );
+  useA2uiSessionRegistry(a2uiReferencedSessionIds);
   // Every pending approval is rendered. A blocked descendant this view has not
   // discovered yet is labelled by the interaction surface, never hidden.
   const visibleApprovals = approvals.data ?? [];
@@ -425,10 +438,15 @@ export function useWorkspaceData({
     session?.model_id ??
     modelConfiguration.data?.model ??
     capabilities.data?.active_model?.model_id;
-  const activeEffort =
-    session?.effort ??
-    modelConfiguration.data?.thinking_level ??
-    capabilities.data?.active_model?.effort;
+  // Only a level a person chose for this session is sent with messages; the
+  // configured global level is displayed by the composer and applied server-side.
+  const activeEffort = session?.effort;
+  // Only a level a person configured is named as such; a shipped default is
+  // the model's (the composer labels it from the catalog).
+  const configuredEffort =
+    modelConfiguration.data?.thinking_level_source === 'user'
+      ? modelConfiguration.data.thinking_level
+      : undefined;
   const activeBlueprint = resolveActiveBlueprint(session, agentBlueprints.data);
   const contextAgentLabel = activeBlueprint?.display_name ?? session?.agent_id;
   const contextTargetOptions = buildContextTargets(sessionId, contextAgentLabel, subagents);
@@ -460,6 +478,7 @@ export function useWorkspaceData({
   return {
     activeBlueprint,
     activeEffort,
+    configuredEffort,
     activeModel,
     activeProvider,
     attentionInteractions,
