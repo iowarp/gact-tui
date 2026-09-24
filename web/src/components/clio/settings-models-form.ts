@@ -1,3 +1,5 @@
+import type { ReasoningEffort } from '@clio/core/v3';
+import { knownReasoningEffort } from '@/lib/reasoning-levels';
 /**
  * The model-settings form's own state: what the service's live configuration
  * seeds it with, and what an Apply is allowed to write back.
@@ -54,7 +56,8 @@ export function canApplyProvider(
     preset.configuration_fields?.some(
       (field) => field.required && !values.providerOptions[field.id]?.trim(),
     )
-  ) return false;
+  )
+    return false;
   return Boolean(
     preset.is_authenticated ||
       (preset.requires_api_key && (values.apiKey || storedCredential)) ||
@@ -62,10 +65,7 @@ export function canApplyProvider(
   );
 }
 
-export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high';
-
-/** Reasoning levels the service accepts, in the order the picker offers them. */
-export const REASONING_EFFORTS: readonly ReasoningEffort[] = ['off', 'low', 'medium', 'high'];
+export type { ReasoningEffort } from '@clio/core/v3';
 
 /**
  * Providers whose model runtime this panel can size — the ones that serve a
@@ -113,7 +113,8 @@ export interface ModelSettingsUpdate {
   model: string;
   api_key?: string;
   provider_options: Record<string, string>;
-  thinking_level?: ReasoningEffort;
+  /** ``null`` clears the configured level back to the model's default. */
+  thinking_level?: ReasoningEffort | null;
   parallel?: number;
   context_length?: number;
   max_tokens?: number;
@@ -164,7 +165,12 @@ export function seedModelSettings({
     // means "leave the runtime's own sizing alone", which is what omitting them
     // from the write does.
     contextLength: '',
-    effort: reasoningEffort(configuration.thinking_level),
+    // Only a level a person set is a choice; a shipped/provider default is shown
+    // by the field's "Default" option and never written back on Apply.
+    effort:
+      configuration.thinking_level_source === 'user'
+        ? reasoningEffort(configuration.thinking_level)
+        : '',
     maxTokens: numberField(configuration.max_tokens),
     modelId: presetIsActive ? configuration.model : (preset?.suggested_model ?? ''),
     parallel: '',
@@ -199,7 +205,7 @@ export function modelSettingsUpdate({
     provider_options: values.providerOptions,
   };
   if (values.apiKey) update.api_key = values.apiKey;
-  if (values.effort && values.effort !== seeded.effort) update.thinking_level = values.effort;
+  if (values.effort !== seeded.effort) update.thinking_level = values.effort || null;
   const parallel = changedNumber(values.parallel, seeded.parallel, { minimum: 0, integer: true });
   if (parallel !== undefined) update.parallel = parallel;
   const contextLength = changedNumber(values.contextLength, seeded.contextLength, {
@@ -218,7 +224,7 @@ export function modelSettingsUpdate({
 }
 
 function reasoningEffort(value: string | undefined): ReasoningEffort | '' {
-  return REASONING_EFFORTS.includes(value as ReasoningEffort) ? (value as ReasoningEffort) : '';
+  return knownReasoningEffort(value) ?? '';
 }
 
 function numberField(value: number | undefined): string {

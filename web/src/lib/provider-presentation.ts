@@ -1,8 +1,14 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 
-const providerNames: Record<string, string> = {
+/**
+ * Names for a bare provider id, used ONLY where no service data (preset or
+ * catalog entry) is at hand — an agent's recorded default provider, a tool
+ * result's label. Wherever the service reports a provider, its `label`/`name`
+ * is the one display name. Kept equal to the service's canonical labels.
+ */
+const providerIdNames: Record<string, string> = {
   codex: 'OpenAI Codex',
-  claude_code: 'Claude',
+  claude_code: 'Claude Code',
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   openrouter: 'OpenRouter',
@@ -30,16 +36,18 @@ const providerSummaries: Record<string, string> = {
   argonne_local_vllm: 'Use a compatible model service connected to this agent.',
 };
 
-/** Return the product-facing name for a provider preset. */
+/**
+ * Return the product-facing name for a provider: the service's own label when
+ * a preset is known, else a service-reported name or id passed as fallback.
+ */
 export function providerDisplayName(
   preset: LanguageModelPreset | undefined,
   fallbackName?: string,
 ): string {
   return (
-    (preset ? providerNames[preset.id] : undefined) ??
-    (fallbackName ? providerNames[fallbackName] : undefined) ??
-    fallbackName ??
-    preset?.label ??
+    preset?.label ||
+    (fallbackName ? providerIdNames[fallbackName] : undefined) ||
+    fallbackName ||
     'Provider'
   );
 }

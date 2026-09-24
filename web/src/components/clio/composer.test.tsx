@@ -183,8 +183,20 @@ describe('ClioComposer authoritative behavior', () => {
   it('reconciles a resolved provider/model/effort without remounting, preserving attachments and the draft', async () => {
     const user = userEvent.setup();
     const modelOptions = [
-      { available: true, id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', providerId: 'codex', providerName: 'Codex' },
-      { available: true, id: 'nova-1', label: 'Nova Model', providerId: 'anthropic', providerName: 'Anthropic' },
+      {
+        available: true,
+        id: 'gpt-5.6-luna',
+        label: 'GPT-5.6 Luna',
+        providerId: 'codex',
+        providerName: 'Codex',
+      },
+      {
+        available: true,
+        id: 'nova-1',
+        label: 'Nova Model',
+        providerId: 'anthropic',
+        providerName: 'Anthropic',
+      },
     ];
     const { rerenderWith } = renderComposer({ attachments: true, modelOptions });
 
@@ -649,14 +661,6 @@ describe('ClioComposer service commands', () => {
 
     const remove = screen.getByRole('button', { name: 'Remove field-map.png' });
     expect(remove).toHaveClass('group-hover:opacity-100', 'group-focus-within:opacity-100');
-  });
-
-  it('names an effort the service reported that this build has no setting for', () => {
-    renderComposer({ effort: 'ultra' });
-
-    const control = screen.getByRole('button', { name: /^Reasoning effort:/ });
-    expect(control).toHaveAccessibleName('Reasoning effort: Unknown (ultra)');
-    expect(control).not.toHaveTextContent('medium');
   });
 
   it('reports a rejected service command instead of swallowing it', async () => {

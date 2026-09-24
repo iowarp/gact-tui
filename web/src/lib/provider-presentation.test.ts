@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { providerLogoUrls } from '../components/ai-elements/provider-logo-svgs';
-import { providerLogoId, providerLogoIds } from './provider-presentation';
+import { providerDisplayName, providerLogoId, providerLogoIds } from './provider-presentation';
 
 const publicLogosDir = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -102,5 +102,27 @@ describe('providerLogoId', () => {
         `${id}.svg ships in web/public/provider-logos/ but has no providerLogoUrls entry`,
       ).toBe(true);
     }
+  });
+});
+
+describe('providerDisplayName', () => {
+  it('uses the service label as the one display name', () => {
+    expect(
+      providerDisplayName({
+        id: 'argonne_metis',
+        label: 'ALCF Metis',
+        provider: 'argonne',
+        requires_api_key: false,
+        is_authenticated: true,
+        supports_live_catalog: true,
+        supports_vision: false,
+      }),
+    ).toBe('ALCF Metis');
+  });
+
+  it('names a bare id only when no service data is at hand', () => {
+    expect(providerDisplayName(undefined, 'claude_code')).toBe('Claude Code');
+    expect(providerDisplayName(undefined, 'Some Service')).toBe('Some Service');
+    expect(providerDisplayName(undefined)).toBe('Provider');
   });
 });

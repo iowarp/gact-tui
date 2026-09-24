@@ -7,7 +7,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useLiveStore } from '@/store/live-store';
 import { ModelsSettings } from './settings-models';
 
-const { configuration, repository } = vi.hoisted(() => {
+const { codexCatalog, configuration, repository } = vi.hoisted(() => {
   const configuration = {
     configured: true,
     provider: 'codex',
@@ -28,7 +28,31 @@ const { configuration, repository } = vi.hoisted(() => {
       },
     ],
   };
-  return { configuration, repository: makeRepository(configuration) };
+  return { codexCatalog, configuration, repository: makeRepository(configuration) };
+
+  /** The live catalog: gpt-5.6-luna reports its own reasoning levels. */
+  function codexCatalog() {
+    return {
+      authoritative: 'live_handshake',
+      providers: [
+        {
+          id: 'codex',
+          name: 'OpenAI Codex',
+          models: [
+            {
+              model_id: 'gpt-5.6-luna',
+              reasoning: {
+                supported: true,
+                parameter: '',
+                levels: ['low', 'medium', 'high', 'xhigh'],
+                default: 'medium',
+              },
+            },
+          ],
+        },
+      ],
+    };
+  }
 
   function makeRepository(active: typeof configuration) {
     return {
@@ -76,6 +100,7 @@ const { configuration, repository } = vi.hoisted(() => {
       authenticateProvider: vi.fn(),
       completeProviderAuthentication: vi.fn(),
       updateLanguageModelConfiguration: vi.fn(),
+      providerCatalog: vi.fn().mockResolvedValue(codexCatalog()),
     };
   }
 });
@@ -96,6 +121,7 @@ afterEach(() => {
     source: 'codex_app_server',
   });
   repository.updateLanguageModelConfiguration.mockReset();
+  repository.providerCatalog.mockReset().mockResolvedValue(codexCatalog());
 });
 
 describe('ModelsSettings', () => {
@@ -290,6 +316,7 @@ describe('ModelsSettings', () => {
           requires_api_key: false,
           is_authenticated: false,
           auth_method: 'oauth',
+          auth_label: 'Globus Auth',
           status: 'auth_required',
           supports_live_catalog: true,
           supports_vision: false,
@@ -328,6 +355,8 @@ describe('ModelsSettings', () => {
       </MemoryRouter>,
     );
 
+    // The sign-in service is detail beside the action, never part of the name.
+    expect(await screen.findByText('Uses Globus Auth')).toBeVisible();
     await user.click(await screen.findByRole('button', { name: 'Sign in to ALCF Metis' }));
 
     await waitFor(() =>
@@ -351,6 +380,11 @@ describe('ModelsSettings', () => {
     );
     expect(await screen.findByText(/ALCF sign-in complete/)).toBeVisible();
     expect(screen.queryByText(/interactive terminal|python -m/i)).not.toBeInTheDocument();
+    // The service retired ALCF's catalog entry; the panel re-reads exactly that
+    // provider live and hands the result to every open model picker.
+    await waitFor(() =>
+      expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'argonne_metis'),
+    );
   });
 
   it('never writes a maximum token cap the service did not report', async () => {
@@ -425,7 +459,7 @@ describe('ModelsSettings', () => {
     } as const;
     const claudePreset = {
       id: 'claude_code',
-      label: 'Claude Code (subscription)',
+      label: 'Claude Code',
       provider: 'claude_code',
       suggested_model: 'sonnet',
       requires_api_key: false,
@@ -469,10 +503,11 @@ describe('ModelsSettings', () => {
     );
 
     await user.click(await screen.findByRole('combobox', { name: 'Provider' }));
-    await user.click(await screen.findByRole('option', { name: 'Claude' }));
+    await user.click(await screen.findByRole('option', { name: 'Claude Code' }));
     expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
       'Claude Sonnet',
     );
+    const catalogReadsBeforeApply = repository.providerCatalog.mock.calls.length;
     await user.click(screen.getByRole('button', { name: 'Apply provider and model' }));
 
     await waitFor(() =>
@@ -487,8 +522,9 @@ describe('ModelsSettings', () => {
     expect(cachedSession?.model_id).toBeUndefined();
     expect(useLiveStore.getState().entities.sessions[staleSession.id]?.provider_id).toBeUndefined();
     expect(useLiveStore.getState().entities.sessions[staleSession.id]?.model_id).toBeUndefined();
-    expect(queryClient.getQueryState(queryKeys.providerCatalog(endpoint))?.isInvalidated).toBe(
-      true,
+    // The panel itself watches the catalog, so retiring it re-reads it at once.
+    await waitFor(() =>
+      expect(repository.providerCatalog.mock.calls.length).toBeGreaterThan(catalogReadsBeforeApply),
     );
   });
 
@@ -528,6 +564,57 @@ describe('ModelsSettings', () => {
     expect(maxTokens).toHaveValue(6_000);
   });
 
+  it('offers only the reasoning levels the selected model reports', async () => {
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('combobox', { name: 'Reasoning effort' }));
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Model default (Medium)',
+      'Low',
+      'Medium',
+      'High',
+      'Extra high',
+    ]);
+  });
+
+  it('shows no reasoning selector for a model that reports no levels', async () => {
+    repository.providerCatalog.mockResolvedValue({
+      authoritative: 'live_handshake',
+      providers: [
+        {
+          id: 'codex',
+          name: 'OpenAI Codex',
+          models: [
+            {
+              model_id: 'gpt-5.6-luna',
+              reasoning: { supported: false, parameter: '', levels: [] },
+            },
+          ],
+        },
+      ],
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('combobox', { name: 'Model' })).toBeVisible();
+    await waitFor(() => expect(repository.providerCatalog).toHaveBeenCalled());
+    expect(screen.queryByRole('combobox', { name: 'Reasoning effort' })).not.toBeInTheDocument();
+  });
+
   it('checks provider connectivity without changing the selected model', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({
@@ -553,5 +640,35 @@ describe('ModelsSettings', () => {
     expect(screen.getByText(/Checked .* in 18 ms/)).toBeVisible();
     expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('re-reads the checked provider catalog live and shares it with open pickers', async () => {
+    const catalog = {
+      authoritative: 'live_handshake',
+      providers: [{ id: 'codex', name: 'OpenAI Codex', models: [] }],
+    };
+    repository.providerCatalog.mockImplementation(async (refresh: boolean) =>
+      refresh ? catalog : codexCatalog(),
+    );
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Check provider' }));
+
+    await waitFor(() =>
+      expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'codex'),
+    );
+    await waitFor(() =>
+      expect(queryClient.getQueryData(queryKeys.providerCatalog('http://127.0.0.1:8787'))).toEqual(
+        catalog,
+      ),
+    );
   });
 });

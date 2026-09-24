@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { forwardCompatibleEnum } from './schema-utils.js';
+import { forwardCompatibleEnum, optionalWireString } from './schema-utils.js';
 
 export const contextReferenceKindSchema = z.enum([
   'workspace_file',
@@ -18,8 +18,23 @@ export const composerModelRefSchema = z.object({
   variant: z.string().optional(),
 });
 
+/** Every thinking level the message contract defines, in ascending order. */
+export const REASONING_EFFORTS = [
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const;
+
 export const messageBehaviorSchema = z.object({
-  reasoning_effort: z.enum(['off', 'low', 'medium', 'high', 'xhigh']),
+  // Unset is `null` (or absent) on the wire: the configured level governs.
+  reasoning_effort: z
+    .enum(REASONING_EFFORTS)
+    .nullish()
+    .transform((value) => value ?? undefined),
   execution_mode: z.enum(['execute', 'plan', 'deep_research']),
   confirmation_policy: z.enum(['ask', 'auto-edits', 'bypass', 'ai-review', 'spotter-ai']),
 });
@@ -291,10 +306,23 @@ export const providerCatalogSchema = z.object({
       kind: z.string(),
       endpoint: z.string(),
       configuration_url: z.string(),
+      // The sign-in method and service ("oauth", "Globus Auth"): detail for the
+      // sign-in affordance, never part of `name`.
+      auth_method: optionalWireString(),
+      auth_label: optionalWireString(),
       connectivity: z.string(),
       auth: z.string(),
       health: z.string(),
-      freshness: z.object({ generated_at: z.string(), source: z.string() }),
+      freshness: z.object({
+        generated_at: z.string(),
+        source: z.string(),
+        // Typed staleness: a last-good list served because the live probe was
+        // empty (`last_good_catalog_served`), or an aged discovery overlay.
+        staleness: z
+          .record(z.string(), z.unknown())
+          .nullish()
+          .transform((value) => value ?? undefined),
+      }),
       failure: z.string(),
       models: z.array(
         z.object({
@@ -305,7 +333,15 @@ export const providerCatalogSchema = z.object({
           model_id: z.string(),
           revision: z.string(),
           modalities: z.array(z.string()),
-          reasoning: z.object({ supported: z.boolean(), parameter: z.string() }),
+          reasoning: z.object({
+            supported: z.boolean(),
+            parameter: z.string(),
+            levels: z.array(z.string()).default([]),
+            default: optionalWireString(),
+            // "clio_shipped": CLIO's per-model default, not the model's own.
+            default_source: optionalWireString(),
+            source: optionalWireString(),
+          }),
           native_tool_calling: z.boolean(),
           context_window: z
             .number()

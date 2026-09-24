@@ -1,10 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
-import type {
-  LanguageModelConfiguration,
-  ProviderDefinition,
-  ProviderHandshake,
-  ProviderModelRefreshResult,
-} from '@clio/core/v3';
+import type { LanguageModelConfiguration, ProviderDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   DownloadIcon,
@@ -34,17 +29,18 @@ import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { useLiveStore } from '@/store/live-store';
 import { vocab } from '@/lib/brand-vocabulary';
 import { openExternalUrl } from '@/tauri/external-url';
+import { useProviderSettingsActions } from './settings-models-actions';
+import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
+import { ReasoningLevelField } from './reasoning-level-field';
 import {
   canApplyProvider,
   modelSettingsOptions,
   modelSettingsUpdate,
   presetIsActive,
   providerSupportsRuntimeSizing,
-  REASONING_EFFORTS,
   resolveActivePreset,
   seedModelSettings,
   type ModelSettingsValues,
-  type ReasoningEffort,
 } from './settings-models-form';
 import { ClioSettingsSection } from './settings-section';
 import { SettingsSectionHeading } from './settings-section-heading';
@@ -114,15 +110,6 @@ function ModelsSettingsContent({
   const [values, setValues] = useState(seeded);
   const [edited, setEdited] = useState(false);
   const [seenConfiguration, setSeenConfiguration] = useState(configuration);
-  const [refreshResult, setRefreshResult] = useState<ProviderModelRefreshResult>();
-  const [handshakeResult, setHandshakeResult] = useState<ProviderHandshake>();
-  const [authInstructions, setAuthInstructions] = useState('');
-  const [authFlow, setAuthFlow] = useState<{
-    authorizationUrl: string;
-    flowId: string;
-  }>();
-  const [authorizationCode, setAuthorizationCode] = useState('');
-  const [authLaunchError, setAuthLaunchError] = useState('');
   const selectedPreset = configuration.presets.find((preset) => preset.id === presetId);
 
   if (configuration !== seenConfiguration) {
@@ -172,6 +159,8 @@ function ModelsSettingsContent({
     modelId: values.modelId,
     preset: selectedPreset,
   });
+  // Only the levels this model's provider reports for it (none: no selector).
+  const reasoning = useModelReasoningLevels(presetId, values.modelId);
   const selectedModelIsCandidate = modelOptions.some(
     (model) => model.id === values.modelId && model.availability === 'candidate',
   );
@@ -215,145 +204,25 @@ function ModelsSettingsContent({
       ]);
     },
   });
-  const refreshModels = useMutation({
-    mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
-      const results = await repository.refreshProviderModels([presetId]);
-      const result = results[0];
-      if (!result) throw new Error('The service returned no catalog result for this provider.');
-      return result;
-    },
-    onSuccess: async (result) => {
-      setRefreshResult(result);
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('capabilities', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.providerCatalog(settings.endpoint),
-        }),
-      ]);
-    },
-  });
-  const handshake = useMutation({
-    mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
-      const result = await repository.providerHandshake(presetId, {
-        apiBase: values.apiBase,
-        refresh: true,
-      });
-      const catalog =
-        result.connectivity === 'ok' && result.auth === 'ok'
-          ? await repository.providerModels(presetId)
-          : undefined;
-      return { result, catalog };
-    },
-    onSuccess: async ({ result, catalog }) => {
-      setHandshakeResult(result);
-      if (catalog) {
-        queryClient.setQueryData(
-          queryKeys.key('provider-models', settings.endpoint, presetId),
-          catalog,
-        );
-        if (catalog.default_model) edit({ modelId: catalog.default_model });
-      }
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
-        }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
-      ]);
-    },
-  });
-  const installProvider = useMutation({
-    mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
-      await repository.installProviderSupport(presetId);
-      const result = await repository.providerHandshake(presetId, {
-        apiBase: values.apiBase,
-        refresh: true,
-      });
-      const catalog =
-        result.connectivity === 'ok' && result.auth === 'ok'
-          ? await repository.providerModels(presetId)
-          : undefined;
-      return { result, catalog };
-    },
-    onSuccess: async ({ result, catalog }) => {
-      setHandshakeResult(result);
-      if (catalog) {
-        queryClient.setQueryData(
-          queryKeys.key('provider-models', settings.endpoint, presetId),
-          catalog,
-        );
-        if (catalog.default_model) edit({ modelId: catalog.default_model });
-      }
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
-        }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
-      ]);
-    },
-  });
-  const authenticate = useMutation({
-    mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
-      return repository.authenticateProvider(presetId, { force: true });
-    },
-    onSuccess: (result) => {
-      setAuthInstructions(result.instructions);
-      if (result.authorization_url && result.flow_id) {
-        setAuthFlow({
-          authorizationUrl: result.authorization_url,
-          flowId: result.flow_id,
-        });
-        setAuthLaunchError('');
-        void openExternalUrl(result.authorization_url).catch((error: unknown) =>
-          setAuthLaunchError(
-            error instanceof Error ? error.message : 'Could not open Globus sign-in.',
-          ),
-        );
-      }
-    },
-  });
-  const completeAuthentication = useMutation({
-    mutationFn: async () => {
-      if (!presetId || !authFlow) throw new Error('Start ALCF sign-in first.');
-      if (!authorizationCode.trim()) throw new Error('Paste the authorization code from Globus.');
-      return repository.completeProviderAuthentication(presetId, {
-        flowId: authFlow.flowId,
-        authorizationCode: authorizationCode.trim(),
-      });
-    },
-    onSuccess: async (result) => {
-      setAuthInstructions(result.instructions);
-      setAuthFlow(undefined);
-      setAuthorizationCode('');
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.providerCatalog(settings.endpoint),
-        }),
-      ]);
-    },
+  const {
+    authFlow,
+    authInstructions,
+    authLaunchError,
+    authenticate,
+    authorizationCode,
+    completeAuthentication,
+    handshake,
+    handshakeResult,
+    installProvider,
+    refreshModels,
+    refreshResult,
+    reset: resetProviderActions,
+    setAuthLaunchError,
+    setAuthorizationCode,
+  } = useProviderSettingsActions({
+    presetId,
+    apiBase: values.apiBase,
+    onDefaultModel: (modelId) => edit({ modelId }),
   });
 
   return (
@@ -369,7 +238,10 @@ function ModelsSettingsContent({
             <div className="flex flex-wrap items-center gap-3">
               <Button
                 disabled={
-                  !providerReadyForApply || !values.modelId || selectedModelIsCandidate || save.isPending
+                  !providerReadyForApply ||
+                  !values.modelId ||
+                  selectedModelIsCandidate ||
+                  save.isPending
                 }
                 onClick={() => save.mutate()}
               >
@@ -386,6 +258,11 @@ function ModelsSettingsContent({
                     ? 'Opening sign-in…'
                     : `Sign in to ${providerDisplayName(selectedPreset)}`}
                 </Button>
+              ) : null}
+              {selectedPreset?.auth_method === 'oauth' && selectedPreset.auth_label ? (
+                <span className="text-sm text-muted-foreground">
+                  Uses {selectedPreset.auth_label}
+                </span>
               ) : null}
               {selectedPreset?.provider === 'claude_code' &&
               selectedPreset.status === 'install_required' ? (
@@ -515,12 +392,7 @@ function ModelsSettingsContent({
                   modelId: active ? configuration.model : (preset?.suggested_model ?? ''),
                   providerOptions: active ? (configuration.provider_options ?? {}) : {},
                 });
-                setRefreshResult(undefined);
-                setHandshakeResult(undefined);
-                setAuthInstructions('');
-                setAuthFlow(undefined);
-                setAuthorizationCode('');
-                setAuthLaunchError('');
+                resetProviderActions();
               }}
               value={presetId}
             >
@@ -585,29 +457,18 @@ function ModelsSettingsContent({
                       : 'Using the configured model.'}
             </FieldDescription>
           </Field>
-          <Field>
-            <FieldLabel htmlFor="model-effort">Reasoning effort</FieldLabel>
-            <Select
-              onValueChange={(value) => edit({ effort: value as ReasoningEffort })}
-              value={values.effort || undefined}
-            >
-              <SelectTrigger id="model-effort">
-                <SelectValue placeholder="Provider default" />
-              </SelectTrigger>
-              <SelectContent>
-                {REASONING_EFFORTS.map((level) => (
-                  <SelectItem key={level} value={level}>
-                    {reasoningEffortLabel(level)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldDescription>
-              {values.effort
+          <ReasoningLevelField
+            allowModelDefault
+            description={
+              values.effort
                 ? 'This becomes the reasoning depth used for new work with this model.'
-                : 'No reasoning depth is recorded for this model, so the provider uses its own until one is set here.'}
-            </FieldDescription>
-          </Field>
+                : 'No reasoning depth is recorded for this model, so the provider uses its own until one is set here.'
+            }
+            id="model-effort"
+            onChange={(effort) => edit({ effort: effort ?? '' })}
+            reasoning={reasoning}
+            value={values.effort || undefined}
+          />
           <Field>
             <FieldLabel htmlFor="provider-api-base">Endpoint / API base</FieldLabel>
             <Input
@@ -785,15 +646,4 @@ function ModelsSettingsContent({
 
 function readableState(value: string) {
   return value.replaceAll('_', ' ');
-}
-
-const REASONING_EFFORT_LABELS: Record<ReasoningEffort, string> = {
-  off: 'Off',
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-};
-
-function reasoningEffortLabel(level: ReasoningEffort): string {
-  return REASONING_EFFORT_LABELS[level];
 }

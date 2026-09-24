@@ -894,10 +894,7 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  if (
-    request.method === 'POST' &&
-    url.pathname === `/v1/sessions/${sessionId}/a2ui/actions`
-  ) {
+  if (request.method === 'POST' && url.pathname === `/v1/sessions/${sessionId}/a2ui/actions`) {
     // Only acknowledges receipt (the `isPending` mutation this resolves is
     // what gates the surface header's optimistic "Sending action" label,
     // S8 gact-tui#409 item 2) — the S5 lifecycle events a real dispatcher
@@ -935,7 +932,11 @@ const server = createServer(async (request, response) => {
         messages: example.messages,
       });
     }
-    sendJson(response, { status: 'published', count: surfaceIds.length, surface_ids: surfaceIds }, 202);
+    sendJson(
+      response,
+      { status: 'published', count: surfaceIds.length, surface_ids: surfaceIds },
+      202,
+    );
     return;
   }
 
@@ -955,18 +956,12 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  if (
-    request.method === 'GET' &&
-    url.pathname === `/v1/sessions/${sessionId}/a2ui/catalogs`
-  ) {
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/a2ui/catalogs`) {
     sendJson(response, { catalogs: a2uiCatalogRows() });
     return;
   }
 
-  if (
-    request.method === 'GET' &&
-    url.pathname === `/v1/sessions/${sessionId}/a2ui/capabilities`
-  ) {
+  if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/a2ui/capabilities`) {
     sendJson(response, a2uiCapabilities());
     return;
   }
@@ -1540,6 +1535,7 @@ const server = createServer(async (request, response) => {
       provider_id: '',
       model_id: '',
       effort: 'medium',
+      effort_source: 'user',
       mode: 'edit',
       edit_mode: 'diff',
       routing_mode: 'auto',

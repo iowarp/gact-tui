@@ -50,7 +50,6 @@ export interface SessionSendInput {
   files?: UploadableFilePart[];
   provider?: string;
   model?: string;
-  effort?: string;
   delivery: MessageDelivery | 'queued';
   behavior: MessageBehavior;
   onUploadProgress?: (progress: ResourceUploadProgress) => void;
@@ -199,7 +198,9 @@ export function useSessionMutations({
       (candidate) => candidate.id === providerId || candidate.provider_id === providerId,
     );
     if (!preset) {
-      throw new Error(`The ${providerId} provider is not available on this ${vocab.agent} installation.`);
+      throw new Error(
+        `The ${providerId} provider is not available on this ${vocab.agent} installation.`,
+      );
     }
     if (!preset.is_authenticated) {
       throw new Error(`Connect ${preset.label} in Settings before starting a session.`);

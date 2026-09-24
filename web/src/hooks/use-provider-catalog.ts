@@ -18,8 +18,10 @@ export function useProviderCatalog(enabled = true) {
   });
   const refresh = useMutation({
     mutationFn: async (providerId?: string) => {
-      if (providerId) await repository.refreshProviderModels([providerId]);
-      return repository.providerCatalog(true);
+      if (!providerId) return repository.providerCatalog(true);
+      await repository.refreshProviderModels([providerId]);
+      // Re-probe only this provider; the others keep their cached evidence.
+      return repository.providerCatalog(true, undefined, providerId);
     },
     onSuccess: (catalog) => queryClient.setQueryData(queryKey, catalog),
   });

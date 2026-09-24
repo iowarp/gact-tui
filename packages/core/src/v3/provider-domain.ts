@@ -72,6 +72,8 @@ export interface LanguageModelPreset {
   suggested_model?: string;
   requires_api_key: boolean;
   auth_method?: string;
+  /** The sign-in service ("Globus Auth"); shown with sign-in, never in `label`. */
+  auth_label?: string;
   is_authenticated: boolean;
   description?: string;
   status?: string;
@@ -98,6 +100,8 @@ export interface LanguageModelConfiguration {
   temperature?: number;
   max_tokens?: number;
   thinking_level?: string;
+  /** `user` only when a person set `thinking_level`; otherwise it is a default. */
+  thinking_level_source?: string;
   thinking_effective?: string;
   state?: string;
   status_message?: string;

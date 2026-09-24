@@ -58,7 +58,9 @@ describe('useProviderCatalog', () => {
     await waitFor(() =>
       expect(repository.refreshProviderModels).toHaveBeenCalledWith(['claude_code']),
     );
-    await waitFor(() => expect(repository.providerCatalog).toHaveBeenLastCalledWith(true));
+    await waitFor(() =>
+      expect(repository.providerCatalog).toHaveBeenLastCalledWith(true, undefined, 'claude_code'),
+    );
     await waitFor(() => expect(result.current.data).toEqual(refreshedCatalog));
   });
 });

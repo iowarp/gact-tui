@@ -264,7 +264,7 @@ export class ClioRepository extends InfrastructureRepository {
   }
 
   public updateSessionDefaults(
-    input: Partial<SessionDefaults>,
+    input: Partial<Omit<SessionDefaults, 'effort'>> & { effort?: SessionDefaults['effort'] | null }, // null: model default
     signal?: AbortSignal,
   ): Promise<SessionDefaults> {
     return this.transport.request({

@@ -91,6 +91,7 @@ export function WorkspacePage() {
   const {
     activeBlueprint,
     activeEffort,
+    configuredEffort,
     activeModel,
     activeProvider,
     attentionInteractions,
@@ -483,6 +484,7 @@ export function WorkspacePage() {
           confirmationPolicy={session.approval_mode === 'unknown' ? 'ask' : session.approval_mode}
           disabled={!session || send.isPending || cancel.isPending || isPending}
           effort={activeEffort}
+          configuredEffort={configuredEffort}
           executionMode={
             session.mode === 'plan'
               ? 'plan'
@@ -492,12 +494,10 @@ export function WorkspacePage() {
           }
           focusRequestKey={composerFocusKey}
           // Keyed on the session alone: provider/model/effort resolving after
-          // navigation used to remount this whole subtree, which silently
-          // dropped in-progress attachments (and any other composer-local
-          // state) with no trace. ClioComposer now reconciles those three
-          // props into its local selection state itself (see
-          // `modelSelection`/`behaviorSelection` there) instead of relying on
-          // a remount to re-seed them.
+          // navigation used to remount this whole subtree, silently dropping
+          // in-progress attachments and other composer-local state. ClioComposer
+          // reconciles those props into its own selection state (see
+          // `modelSelection`/`behaviorSelection`) instead of needing a remount.
           key={`composer:${sessionId}`}
           model={activeModel}
           modelCatalogRefreshing={providerCatalog.isRefreshing}
