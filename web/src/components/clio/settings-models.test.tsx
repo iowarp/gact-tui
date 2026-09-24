@@ -76,6 +76,10 @@ const { configuration, repository } = vi.hoisted(() => {
       authenticateProvider: vi.fn(),
       completeProviderAuthentication: vi.fn(),
       updateLanguageModelConfiguration: vi.fn(),
+      providerCatalog: vi.fn().mockResolvedValue({
+        authoritative: 'live_handshake',
+        providers: [],
+      }),
     };
   }
 });
@@ -351,6 +355,11 @@ describe('ModelsSettings', () => {
     );
     expect(await screen.findByText(/ALCF sign-in complete/)).toBeVisible();
     expect(screen.queryByText(/interactive terminal|python -m/i)).not.toBeInTheDocument();
+    // The service retired ALCF's catalog entry; the panel re-reads exactly that
+    // provider live and hands the result to every open model picker.
+    await waitFor(() =>
+      expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'argonne_metis'),
+    );
   });
 
   it('never writes a maximum token cap the service did not report', async () => {
@@ -553,5 +562,33 @@ describe('ModelsSettings', () => {
     expect(screen.getByText(/Checked .* in 18 ms/)).toBeVisible();
     expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+  });
+
+  it('re-reads the checked provider catalog live and shares it with open pickers', async () => {
+    const catalog = {
+      authoritative: 'live_handshake',
+      providers: [{ id: 'codex', name: 'OpenAI Codex', models: [] }],
+    };
+    repository.providerCatalog.mockResolvedValueOnce(catalog);
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Check provider' }));
+
+    await waitFor(() =>
+      expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'codex'),
+    );
+    await waitFor(() =>
+      expect(queryClient.getQueryData(queryKeys.providerCatalog('http://127.0.0.1:8787'))).toEqual(
+        catalog,
+      ),
+    );
   });
 });

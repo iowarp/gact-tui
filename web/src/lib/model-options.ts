@@ -166,6 +166,12 @@ function liveProviderOptions(
   }
   const providerReady = preset?.status === 'ready' || preset?.is_authenticated === true;
   const isCliProvider = ['codex', 'claude_code'].includes(provider.kind);
+  // The service served this provider's last good list because its live check
+  // came back empty: the models are shown, dated, and never presented as current.
+  const lastGoodDetail =
+    provider.freshness.source === 'last_good'
+      ? `Last confirmed ${formatCatalogTime(provider.freshness.generated_at)}. Check ${providerName} to confirm it is available now.`
+      : undefined;
   return provider.models.map((model) => {
     // CLI providers cannot enumerate models without an explicit (and for
     // Claude potentially billed) discovery run. Their built-in aliases remain
@@ -182,10 +188,15 @@ function liveProviderOptions(
       availabilityDetail:
         model.availability === 'available'
           ? undefined
-          : model.failure || modelAvailabilityLabel(model.availability),
+          : (lastGoodDetail ?? (model.failure || modelAvailabilityLabel(model.availability))),
       modalities: model.modalities,
     };
   });
+}
+
+function formatCatalogTime(value: string): string {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 
 function isAuthenticationFailure(failure: string | null | undefined): boolean {

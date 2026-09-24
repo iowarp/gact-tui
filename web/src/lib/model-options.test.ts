@@ -353,3 +353,31 @@ describe('modelAvailabilityLabel', () => {
     expect(modelAvailabilityLabel('')).toBe('Unknown');
   });
 });
+
+describe('buildModelOptions over a real last-good catalog', () => {
+  it('keeps ALCF models visible after a restart, dated and not selectable', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const { providerCatalogSchema } = await import('@clio/core/v3');
+    // Captured from the real clio-agent routes; see the core decoder test.
+    const payloads = JSON.parse(
+      readFileSync(
+        resolve(process.cwd(), '../packages/core/src/v3/fixtures/server-provider-payloads.json'),
+        'utf8',
+      ),
+    ) as { provider_catalog_last_good: unknown };
+    const providerCatalog = providerCatalogSchema.parse(payloads.provider_catalog_last_good);
+
+    const metis = buildModelOptions({
+      activeCatalogProvider: '',
+      providerCatalog,
+      presets: [],
+    }).filter((option) => option.providerId === 'argonne_metis');
+
+    expect(metis.map((option) => option.id)).toContain('openai/gpt-oss-120b');
+    for (const option of metis) {
+      expect(option.available).toBe(false);
+      expect(option.availabilityDetail).toMatch(/^Last confirmed /u);
+    }
+  });
+});

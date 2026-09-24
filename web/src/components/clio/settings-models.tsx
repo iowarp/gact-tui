@@ -1,10 +1,5 @@
 import { queryKeys } from '@/lib/query-keys';
-import type {
-  LanguageModelConfiguration,
-  ProviderDefinition,
-  ProviderHandshake,
-  ProviderModelRefreshResult,
-} from '@clio/core/v3';
+import type { LanguageModelConfiguration, ProviderDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   DownloadIcon,
@@ -34,6 +29,7 @@ import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { useLiveStore } from '@/store/live-store';
 import { vocab } from '@/lib/brand-vocabulary';
 import { openExternalUrl } from '@/tauri/external-url';
+import { useProviderSettingsActions } from './settings-models-actions';
 import {
   canApplyProvider,
   modelSettingsOptions,
@@ -114,15 +110,6 @@ function ModelsSettingsContent({
   const [values, setValues] = useState(seeded);
   const [edited, setEdited] = useState(false);
   const [seenConfiguration, setSeenConfiguration] = useState(configuration);
-  const [refreshResult, setRefreshResult] = useState<ProviderModelRefreshResult>();
-  const [handshakeResult, setHandshakeResult] = useState<ProviderHandshake>();
-  const [authInstructions, setAuthInstructions] = useState('');
-  const [authFlow, setAuthFlow] = useState<{
-    authorizationUrl: string;
-    flowId: string;
-  }>();
-  const [authorizationCode, setAuthorizationCode] = useState('');
-  const [authLaunchError, setAuthLaunchError] = useState('');
   const selectedPreset = configuration.presets.find((preset) => preset.id === presetId);
 
   if (configuration !== seenConfiguration) {
@@ -215,145 +202,25 @@ function ModelsSettingsContent({
       ]);
     },
   });
-  const refreshModels = useMutation({
-    mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
-      const results = await repository.refreshProviderModels([presetId]);
-      const result = results[0];
-      if (!result) throw new Error('The service returned no catalog result for this provider.');
-      return result;
-    },
-    onSuccess: async (result) => {
-      setRefreshResult(result);
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('capabilities', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.providerCatalog(settings.endpoint),
-        }),
-      ]);
-    },
-  });
-  const handshake = useMutation({
-    mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
-      const result = await repository.providerHandshake(presetId, {
-        apiBase: values.apiBase,
-        refresh: true,
-      });
-      const catalog =
-        result.connectivity === 'ok' && result.auth === 'ok'
-          ? await repository.providerModels(presetId)
-          : undefined;
-      return { result, catalog };
-    },
-    onSuccess: async ({ result, catalog }) => {
-      setHandshakeResult(result);
-      if (catalog) {
-        queryClient.setQueryData(
-          queryKeys.key('provider-models', settings.endpoint, presetId),
-          catalog,
-        );
-        if (catalog.default_model) edit({ modelId: catalog.default_model });
-      }
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
-        }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
-      ]);
-    },
-  });
-  const installProvider = useMutation({
-    mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
-      await repository.installProviderSupport(presetId);
-      const result = await repository.providerHandshake(presetId, {
-        apiBase: values.apiBase,
-        refresh: true,
-      });
-      const catalog =
-        result.connectivity === 'ok' && result.auth === 'ok'
-          ? await repository.providerModels(presetId)
-          : undefined;
-      return { result, catalog };
-    },
-    onSuccess: async ({ result, catalog }) => {
-      setHandshakeResult(result);
-      if (catalog) {
-        queryClient.setQueryData(
-          queryKeys.key('provider-models', settings.endpoint, presetId),
-          catalog,
-        );
-        if (catalog.default_model) edit({ modelId: catalog.default_model });
-      }
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
-        }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
-      ]);
-    },
-  });
-  const authenticate = useMutation({
-    mutationFn: async () => {
-      if (!presetId) throw new Error('Choose a provider first.');
-      return repository.authenticateProvider(presetId, { force: true });
-    },
-    onSuccess: (result) => {
-      setAuthInstructions(result.instructions);
-      if (result.authorization_url && result.flow_id) {
-        setAuthFlow({
-          authorizationUrl: result.authorization_url,
-          flowId: result.flow_id,
-        });
-        setAuthLaunchError('');
-        void openExternalUrl(result.authorization_url).catch((error: unknown) =>
-          setAuthLaunchError(
-            error instanceof Error ? error.message : 'Could not open Globus sign-in.',
-          ),
-        );
-      }
-    },
-  });
-  const completeAuthentication = useMutation({
-    mutationFn: async () => {
-      if (!presetId || !authFlow) throw new Error('Start ALCF sign-in first.');
-      if (!authorizationCode.trim()) throw new Error('Paste the authorization code from Globus.');
-      return repository.completeProviderAuthentication(presetId, {
-        flowId: authFlow.flowId,
-        authorizationCode: authorizationCode.trim(),
-      });
-    },
-    onSuccess: async (result) => {
-      setAuthInstructions(result.instructions);
-      setAuthFlow(undefined);
-      setAuthorizationCode('');
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.providerCatalog(settings.endpoint),
-        }),
-      ]);
-    },
+  const {
+    authFlow,
+    authInstructions,
+    authLaunchError,
+    authenticate,
+    authorizationCode,
+    completeAuthentication,
+    handshake,
+    handshakeResult,
+    installProvider,
+    refreshModels,
+    refreshResult,
+    reset: resetProviderActions,
+    setAuthLaunchError,
+    setAuthorizationCode,
+  } = useProviderSettingsActions({
+    presetId,
+    apiBase: values.apiBase,
+    onDefaultModel: (modelId) => edit({ modelId }),
   });
 
   return (
@@ -369,7 +236,10 @@ function ModelsSettingsContent({
             <div className="flex flex-wrap items-center gap-3">
               <Button
                 disabled={
-                  !providerReadyForApply || !values.modelId || selectedModelIsCandidate || save.isPending
+                  !providerReadyForApply ||
+                  !values.modelId ||
+                  selectedModelIsCandidate ||
+                  save.isPending
                 }
                 onClick={() => save.mutate()}
               >
@@ -515,12 +385,7 @@ function ModelsSettingsContent({
                   modelId: active ? configuration.model : (preset?.suggested_model ?? ''),
                   providerOptions: active ? (configuration.provider_options ?? {}) : {},
                 });
-                setRefreshResult(undefined);
-                setHandshakeResult(undefined);
-                setAuthInstructions('');
-                setAuthFlow(undefined);
-                setAuthorizationCode('');
-                setAuthLaunchError('');
+                resetProviderActions();
               }}
               value={presetId}
             >

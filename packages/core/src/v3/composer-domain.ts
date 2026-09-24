@@ -287,7 +287,7 @@ export interface ProviderCatalogEntry {
   connectivity: string;
   auth: string;
   health: string;
-  freshness: { generated_at: string; source: string };
+  freshness: { generated_at: string; source: string; staleness?: Record<string, unknown> };
   failure: string;
   models: ProviderCatalogModel[];
 }

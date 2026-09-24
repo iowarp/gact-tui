@@ -277,7 +277,16 @@ export const providerCatalogSchema = z.object({
       connectivity: z.string(),
       auth: z.string(),
       health: z.string(),
-      freshness: z.object({ generated_at: z.string(), source: z.string() }),
+      freshness: z.object({
+        generated_at: z.string(),
+        source: z.string(),
+        // Typed staleness: a last-good list served because the live probe was
+        // empty (`last_good_catalog_served`), or an aged discovery overlay.
+        staleness: z
+          .record(z.string(), z.unknown())
+          .nullish()
+          .transform((value) => value ?? undefined),
+      }),
       failure: z.string(),
       models: z.array(
         z.object({

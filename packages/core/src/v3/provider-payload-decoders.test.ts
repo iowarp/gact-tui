@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { providerCatalogSchema } from './composer-schemas.js';
 import {
   providerHandshakeSchema,
   providerListSchema,
@@ -48,5 +49,22 @@ describe('provider decoders accept real service payloads', () => {
   it('decodes the provider list', () => {
     const list = providerListSchema.parse(payloads.providers);
     expect(list.providers.length).toBeGreaterThan(0);
+  });
+});
+
+describe('provider catalog decoder accepts real service payloads', () => {
+  it('decodes the live catalog', () => {
+    const catalog = providerCatalogSchema.parse(payloads.provider_catalog_live);
+    const metis = catalog.providers.find((provider) => provider.id === 'argonne_metis');
+    expect(metis?.freshness.source).toBe('live');
+    expect(metis?.models.length).toBeGreaterThan(0);
+  });
+
+  it('decodes a last-good entry with its typed staleness', () => {
+    const catalog = providerCatalogSchema.parse(payloads.provider_catalog_last_good);
+    const metis = catalog.providers.find((provider) => provider.id === 'argonne_metis');
+    expect(metis?.freshness.source).toBe('last_good');
+    expect(metis?.freshness.staleness?.reason).toBe('last_good_catalog_served');
+    expect(metis?.models.every((model) => model.availability === 'candidate')).toBe(true);
   });
 });
