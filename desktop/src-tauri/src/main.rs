@@ -4,24 +4,9 @@
 fn main() {
     #[cfg(windows)]
     if std::env::args_os().any(|arg| arg == "--prepare-runtime") {
-        if let Err(error) = clio_desktop_lib::prepare_runtime_for_install() {
-            if let Ok(executable) = std::env::current_exe() {
-                if let Some(install_dir) = executable.parent() {
-                    let data_dir = install_dir.join("data");
-                    let _ = std::fs::create_dir_all(&data_dir);
-                    let _ = std::fs::write(
-                        data_dir.join("runtime-install-error.log"),
-                        format!("{error}\n"),
-                    );
-                }
-            }
-            eprintln!("CLIO runtime installation failed: {error}");
+        if let Err(report) = clio_desktop_lib::prepare_runtime_command() {
+            eprintln!("{report}");
             std::process::exit(1);
-        }
-        if let Ok(executable) = std::env::current_exe() {
-            if let Some(install_dir) = executable.parent() {
-                let _ = std::fs::remove_file(install_dir.join("data/runtime-install-error.log"));
-            }
         }
         return;
     }

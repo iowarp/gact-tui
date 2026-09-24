@@ -509,7 +509,23 @@ FunctionEnd
   Pop $0
   Pop $1
   ${If} $0 != 0
-    MessageBox MB_ICONSTOP|MB_OK "CLIO could not install its bundled runtime. The installation will stop so the application is not left partially configured."
+    ; $1 is the helper's stderr: the real error, then where its log was saved.
+    ; The helper also records the brand's new-issue URL next to that log so
+    ; the user can report the failure with the log attached.
+    StrCpy $2 ""
+    ${If} ${FileExists} "$INSTDIR\data\runtime-install-issue-url.txt"
+      FileOpen $3 "$INSTDIR\data\runtime-install-issue-url.txt" r
+      FileRead $3 $2
+      FileClose $3
+    ${EndIf}
+    ${If} $2 == ""
+      MessageBox MB_ICONSTOP|MB_OK "CLIO could not install its bundled runtime:$\r$\n$\r$\n$1$\r$\n$\r$\nThe installation will stop so the application is not left partially configured."
+    ${Else}
+      MessageBox MB_ICONSTOP|MB_YESNO "CLIO could not install its bundled runtime:$\r$\n$\r$\n$1$\r$\n$\r$\nThe installation will stop so the application is not left partially configured.$\r$\n$\r$\nPlease report this with the log file attached. Open the issue page and the log folder now?" IDNO clio_runtime_report_done
+      ExecShell "open" "$2"
+      ExecShell "open" "$INSTDIR\data"
+      clio_runtime_report_done:
+    ${EndIf}
     Abort
   ${EndIf}
   DetailPrint "CLIO runtime installed."
