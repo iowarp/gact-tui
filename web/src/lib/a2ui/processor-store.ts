@@ -1,6 +1,4 @@
 import {
-  A2UI_BASIC_CATALOG_ID,
-  A2UI_CLIO_WORKSPACE_CATALOG_ID,
   buildA2uiClientCapabilities,
   buildA2uiClientDataModel,
   orderSupportedCatalogIds,
@@ -15,9 +13,10 @@ import {
   type SurfaceModel,
 } from '@a2ui/web_core/v0_9';
 import type { ReactComponentImplementation } from '@a2ui/react/v0_9';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
+import { classifyA2uiRegistryFailure, shouldRetryA2uiRegistryFailure } from './registry-failure';
 import {
   collectA2uiClientDataModelSurfaces,
   disposeA2uiSessionRegistry,
@@ -30,87 +29,154 @@ import {
   type A2uiRegistrySnapshot,
 } from './registry-store';
 
-/** The client's own best-effort advertisement when the registry routes 404/501 (S6 item 2a). */
-const WELL_KNOWN_CATALOG_IDS = [A2UI_CLIO_WORKSPACE_CATALOG_ID, A2UI_BASIC_CATALOG_ID];
-
 /**
- * OWNER — call exactly once per open session, from the session's own data
- * hook (`web/src/hooks/use-workspace-data.ts`), never from a surface. Fetches
- * this session's catalogs and its agent capability preference order, resolves
- * them into the session-lifetime registry (`registry-store.ts`), and
- * registers the ONE client-metadata provider for every repository door —
- * alive for as long as the session itself is open, not tied to whether any
- * surface happens to be mounted right now (S6 adversarial review, BLOCKING:
- * a surface scrolling away must never clear the advertisement, and a session
- * with no surface at all must still advertise on its first message).
+ * OWNER — call once from the session's own data hook
+ * (`web/src/hooks/use-workspace-data.ts`), never from a surface, with EVERY
+ * session id a mounted surface can reference: the open session itself, any
+ * session whose pending interaction owns an A2UI surface, and any session in
+ * the open session's own subagent/child closure (a subagent canvas rendering
+ * a child session's surface inline). Before S1 item A2, this only ever fetched
+ * the "open" session — a surface keyed by another session id read a
+ * lazily-created, never-populated registry entry (`registry-store.ts`'s
+ * `entryFor`, which defaults `isLoading: true`) that nothing ever resolved,
+ * so it stayed on "Resolving the interactive catalog…" forever.
+ *
+ * Fetches each session's catalogs and agent capability preference order,
+ * resolves them into that session's own session-lifetime registry
+ * (`registry-store.ts`), and registers the ONE client-metadata provider that
+ * dispatches by the session id a repository door is actually calling for —
+ * alive for as long as the owner itself is mounted, not tied to whether any
+ * particular surface happens to be on screen right now (S6 adversarial
+ * review, BLOCKING: a surface scrolling away must never clear the
+ * advertisement, and a session with no surface at all must still advertise
+ * on its first message).
  */
-export function useA2uiSessionRegistry(sessionId: string): void {
+export function useA2uiSessionRegistry(sessionIds: readonly string[]): void {
   const repository = useRepository();
+  const uniqueIds = [...new Set(sessionIds.filter((id): id is string => Boolean(id)))];
+  const uniqueIdsKey = uniqueIds.join('\u0000');
 
-  const {
-    data: rows,
-    isLoading: rowsLoading,
-    isError: rowsErrored,
-  } = useQuery({
-    queryKey: ['a2ui-catalogs', sessionId],
-    queryFn: ({ signal }) => repository.a2uiCatalogs(sessionId, signal),
-    enabled: Boolean(sessionId),
-    staleTime: 60_000,
-    retry: false,
+  // `retry: shouldRetryA2uiRegistryFailure` (S1 adversarial follow-up): a
+  // transient network blip must not stick for the session's whole
+  // `staleTime: 60_000` window the way an unconditional `retry: false` did --
+  // it retries a real `network_error` a few times with the library's own
+  // exponential backoff, but never a `route_unavailable` (404/501, an older
+  // server) or a `decode_failed` (a malformed response will not decode
+  // differently on a second try).
+  const rowsQueries = useQueries({
+    queries: uniqueIds.map((id) => ({
+      queryKey: ['a2ui-catalogs', id],
+      queryFn: ({ signal }) => repository.a2uiCatalogs(id, signal),
+      staleTime: 60_000,
+      retry: shouldRetryA2uiRegistryFailure,
+    })),
+  });
+  const capsQueries = useQueries({
+    queries: uniqueIds.map((id) => ({
+      queryKey: ['a2ui-capabilities', id],
+      queryFn: ({ signal }) => repository.a2uiCapabilities(id, signal),
+      staleTime: 60_000,
+      retry: shouldRetryA2uiRegistryFailure,
+    })),
   });
 
-  const { data: capabilities, isError: capabilitiesErrored } = useQuery({
-    queryKey: ['a2ui-capabilities', sessionId],
-    queryFn: ({ signal }) => repository.a2uiCapabilities(sessionId, signal),
-    enabled: Boolean(sessionId),
-    staleTime: 60_000,
-    retry: false,
-  });
-
-  const routeUnavailable = rowsErrored || capabilitiesErrored;
+  // `useQueries` returns a fresh array reference every render regardless of
+  // whether any query's status actually changed -- fingerprint the
+  // terminal-relevant fields so the effects below only rerun on a REAL
+  // status/data transition, never on an unrelated parent re-render. Loading
+  // ends on the query's own terminal state (`dataUpdatedAt`/`status`
+  // reaching success, or the error branch below) -- never a timer.
+  const rowsFingerprint = uniqueIds
+    .map((id, i) => `${id}:${rowsQueries[i]?.status}:${rowsQueries[i]?.dataUpdatedAt ?? 0}`)
+    .join('|');
+  const capsFingerprint = uniqueIds
+    .map((id, i) => `${id}:${capsQueries[i]?.status}:${capsQueries[i]?.dataUpdatedAt ?? 0}`)
+    .join('|');
 
   useLayoutEffect(() => {
-    if (!sessionId) return;
-    if (routeUnavailable) {
-      // Handled once here, not thrown further: an older server without A2UI
-      // support degrades to the client's own well-known catalog ids, never a
-      // retry loop or a console error.
-      markA2uiSessionRouteUnavailable(
-        sessionId,
-        'The session server does not support the A2UI catalog registry routes.',
+    uniqueIds.forEach((id, index) => {
+      const rowsQuery = rowsQueries[index];
+      const capsQuery = capsQueries[index];
+      if (!rowsQuery || !capsQuery) return;
+      if (rowsQuery.isError || capsQuery.isError) {
+        // Handled once here, not thrown further: the REAL typed cause
+        // (route_unavailable / decode_failed / network_error) is recorded,
+        // not one blanket "server does not support the routes" message that
+        // used to fire for a transient 500 or a malformed response exactly
+        // the same as a genuine 404 from an older server (S1 adversarial
+        // follow-up, `registry-failure.ts`). Prefers the catalogs query's
+        // own error when both failed -- it is the one this session's
+        // surfaces actually render from.
+        const failure = classifyA2uiRegistryFailure(
+          rowsQuery.isError ? rowsQuery.error : capsQuery.error,
+        );
+        markA2uiSessionRouteUnavailable(id, failure.code, failure.detail);
+        return;
+      }
+      loadA2uiSessionCatalogs(
+        id,
+        rowsQuery.data?.rows,
+        rowsQuery.data?.rejected,
+        rowsQuery.isLoading && !rowsQuery.data,
       );
-      return;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uniqueIdsKey, rowsFingerprint, capsFingerprint]);
+
+  // Dispose only the ids that LEFT the set. Disposing a still-referenced id
+  // (e.g. the open session when a child session joins) would delete the
+  // entry mounted surfaces are subscribed to and drop their registered
+  // processors -- they would never see the reloaded registry.
+  const ownedIdsRef = useRef<string[]>([]);
+  useLayoutEffect(() => {
+    const current = new Set(uniqueIds);
+    for (const id of ownedIdsRef.current) {
+      if (!current.has(id)) disposeA2uiSessionRegistry(id);
     }
-    loadA2uiSessionCatalogs(sessionId, rows, rowsLoading && !rows);
-  }, [sessionId, rows, rowsLoading, routeUnavailable]);
-
-  useLayoutEffect(() => {
-    if (!sessionId) return undefined;
-    return () => {
+    ownedIdsRef.current = uniqueIds;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uniqueIdsKey]);
+  useLayoutEffect(
+    () => () => {
       setA2uiClientMetadataProvider(undefined);
-      disposeA2uiSessionRegistry(sessionId);
-    };
-  }, [sessionId]);
+      for (const id of ownedIdsRef.current) disposeA2uiSessionRegistry(id);
+    },
+    [],
+  );
 
   useLayoutEffect(() => {
-    if (!sessionId) return;
-    const preferenceOrder = capabilities?.agent['v0.9'].supportedCatalogIds ?? [];
+    if (uniqueIds.length === 0) return;
     setA2uiClientMetadataProvider((requestedSessionId) => {
-      if (requestedSessionId !== sessionId) return {};
+      const index = uniqueIds.indexOf(requestedSessionId);
+      if (index === -1) return {};
+      const rowsQuery = rowsQueries[index];
+      const capsQuery = capsQueries[index];
+      const routeUnavailable = Boolean(rowsQuery?.isError || capsQuery?.isError);
+      const preferenceOrder = capsQuery?.data?.agent['v0.9'].supportedCatalogIds ?? [];
       // A plain callback invoked outside React (not a hook), so it reads the
       // shared store through its non-hook accessor.
-      const resolvedIds = registrySnapshotSync(sessionId).registry.supportedCatalogIds();
+      const resolvedIds = registrySnapshotSync(requestedSessionId).registry.supportedCatalogIds();
+      // S1 item 3 (no-silent-fallback): a broken/unavailable registry route
+      // advertises NO catalogs -- never the client's own well-known fallback
+      // ids. Before this fix, a parse failure here still advertised
+      // `[clio-workspace, basic]`, which happened to intersect the session's
+      // producible set, so the server's `select_catalog` picked a catalog
+      // this client could not actually render and `create_a2ui_surface`
+      // returned `created: true` for it -- the root cause of "Interactive
+      // surface unavailable" reported alongside a successful-looking tool
+      // result. Advertising nothing makes the server refuse with a typed
+      // `a2ui_catalog_no_client_match` reason instead.
       const orderedIds = routeUnavailable
-        ? WELL_KNOWN_CATALOG_IDS
+        ? []
         : orderSupportedCatalogIds(resolvedIds, preferenceOrder);
-      const dataModelSurfaces = collectA2uiClientDataModelSurfaces(sessionId);
+      const dataModelSurfaces = collectA2uiClientDataModelSurfaces(requestedSessionId);
       return {
         a2uiClientCapabilities: buildA2uiClientCapabilities(orderedIds),
         a2uiClientDataModel: buildA2uiClientDataModel(dataModelSurfaces),
       };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, rows, capabilities, routeUnavailable]);
+  }, [uniqueIdsKey, rowsFingerprint, capsFingerprint]);
 }
 
 /**
@@ -219,7 +285,9 @@ export function useA2uiSurfaceModel(
         failure: {
           code: 'processor_error',
           message:
-            error instanceof Error ? error.message : 'The interactive surface could not be validated.',
+            error instanceof Error
+              ? error.message
+              : 'The interactive surface could not be validated.',
         },
       });
       return;

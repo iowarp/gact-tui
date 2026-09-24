@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import {
   a2uiCapabilitiesResponseSchema,
-  a2uiCatalogRowListSchema,
+  decodeA2uiCatalogRows,
   mergeA2uiClientMetadata,
 } from './a2ui/index.js';
-import type { A2uiCapabilitiesResponse, A2uiCatalogRow } from './a2ui/index.js';
+import type { A2uiCapabilitiesResponse, A2uiCatalogListDecodeResult } from './a2ui/index.js';
 import { PresentationRepository } from './presentation-repository.js';
 
 /**
@@ -37,12 +37,23 @@ export class A2uiRepository extends PresentationRepository {
    * The client's registry source (`docs/gact/a2ui-binding.md`, S2/S6): every
    * installed catalog, with `producible`/`file`/`instructions` scoped to this
    * session's active blueprint.
+   *
+   * Decodes ROW BY ROW (`decodeA2uiCatalogRows`, S1 adversarial follow-up):
+   * one malformed row (a marketplace pack catalog with a schema drift) is
+   * recorded in `rejected` and dropped, never thrown — the two BUILTIN
+   * catalogs, and every other valid pack row, still load. Only the
+   * top-level shape itself failing to decode throws (a genuine
+   * `decode_failed`, `web/src/lib/a2ui/registry-failure.ts`'s
+   * classification).
    */
-  public a2uiCatalogs(sessionId: string, signal?: AbortSignal): Promise<A2uiCatalogRow[]> {
+  public a2uiCatalogs(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<A2uiCatalogListDecodeResult> {
     return this.transport.request({
       method: 'GET',
       path: `/v1/sessions/${encodeURIComponent(sessionId)}/a2ui/catalogs`,
-      decode: (value) => a2uiCatalogRowListSchema.parse((value as { catalogs?: unknown }).catalogs),
+      decode: (value) => decodeA2uiCatalogRows((value as { catalogs?: unknown }).catalogs),
       signal,
     });
   }

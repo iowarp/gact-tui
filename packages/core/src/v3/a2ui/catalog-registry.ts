@@ -11,19 +11,22 @@ import { z } from 'zod';
 export interface A2uiCatalogFile {
   catalogId: string;
   components: Record<string, unknown>;
-  functions?: Record<string, unknown>;
+  // `?: T | null` (not just `?: T`) on every field below: the server's own
+  // contract is "absent, never null" (S1), but this reader tolerates an
+  // explicit `null` too — see the `.nullish()` note beside the zod schemas.
+  functions?: Record<string, unknown> | null;
 }
 
 /** Which renderer kernel implements one catalog component (`catalog.clio.json`). */
 export interface A2uiCatalogSidecarImplementation {
   kernel: string;
-  presets?: Record<string, string>;
+  presets?: Record<string, string> | null;
 }
 
 /** Where one client action name routes, beyond the default agent lane. */
 export interface A2uiCatalogSidecarEventRoute {
-  destination?: 'agent' | 'permission' | 'run';
-  context_schema?: Record<string, unknown>;
+  destination?: 'agent' | 'permission' | 'run' | null;
+  context_schema?: Record<string, unknown> | null;
 }
 
 /** CLIO packaging metadata for one catalog (`catalog.clio.json`). Never sent on the wire. */
@@ -31,9 +34,9 @@ export interface A2uiCatalogSidecar {
   catalogId: string;
   protocolVersion: string;
   trust: { source: 'builtin' | 'pack' };
-  implements?: Record<string, A2uiCatalogSidecarImplementation>;
-  events?: Record<string, A2uiCatalogSidecarEventRoute>;
-  instructions?: string;
+  implements?: Record<string, A2uiCatalogSidecarImplementation> | null;
+  events?: Record<string, A2uiCatalogSidecarEventRoute> | null;
+  instructions?: string | null;
 }
 
 /**
@@ -64,7 +67,10 @@ export type A2uiCatalogUnresolvedReasonCode =
   | 'catalog_component_unimplemented'
   | 'catalog_function_unimplemented'
   | 'catalog_row_missing_file'
-  | 'a2ui_catalog_route_unavailable';
+  | 'catalog_row_invalid'
+  | 'a2ui_catalog_route_unavailable'
+  | 'a2ui_catalog_decode_failed'
+  | 'a2ui_catalog_network_error';
 
 /**
  * The official Basic catalog's own id (protocol-stable — not derived from any
@@ -75,7 +81,8 @@ export type A2uiCatalogUnresolvedReasonCode =
  * server's actual catalog rows, but these two ids are the protocol/CLIO
  * defaults every renderer of this vintage would still recognize by name.
  */
-export const A2UI_BASIC_CATALOG_ID = 'https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json';
+export const A2UI_BASIC_CATALOG_ID =
+  'https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json';
 export const A2UI_CLIO_WORKSPACE_CATALOG_ID = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
 
 /** A typed, worded reason a catalog row could not become a renderable catalog. */
@@ -154,7 +161,9 @@ export function buildA2uiCatalog<T extends ComponentApi>(
         },
       };
     }
-    components.push(wrapComponent(kernelComponent, componentName, implementation?.presets));
+    components.push(
+      wrapComponent(kernelComponent, componentName, implementation?.presets ?? undefined),
+    );
   }
 
   const functions: FunctionImplementation[] = [];
@@ -175,33 +184,50 @@ export function buildA2uiCatalog<T extends ComponentApi>(
 
   return {
     ok: true,
-    resolution: { catalogId: row.catalogId, catalog: new Catalog<T>(row.catalogId, components, functions) },
+    resolution: {
+      catalogId: row.catalogId,
+      catalog: new Catalog<T>(row.catalogId, components, functions),
+    },
   };
 }
 
+// S1 (A2UI catalog contract, iowarp/clio-agent): the server's own wire
+// contract is "absent, never null" (`exclude_none=True` on the sidecar
+// `model_dump`, `gact/a2ui_catalogs/routes/a2ui_catalogs.py`) — but this
+// reader stays TOLERANT of an explicit JSON `null` on every field the server
+// model can produce as `None` (`clio_schemas.a2ui.sidecar`'s `presets` /
+// `context_schema` / `instructions`), via `.nullish()` rather than
+// `.optional()`. `.optional()` only tolerates a MISSING key; it throws on a
+// present key whose value is `null`, which is exactly what an unset Pydantic
+// `Optional[...] = None` field serialises to without `exclude_none` — the
+// root cause of the whole catalog list failing to parse and silently
+// emptying the client's registry, reported as "Interactive surface
+// unavailable" even when the server's producer tool returned
+// `created: true`. A future server regression (or an older, unpatched
+// server) that reintroduces nulls must still parse.
 const a2uiCatalogSidecarImplementationSchema = z.object({
   kernel: z.string(),
-  presets: z.record(z.string(), z.string()).optional(),
+  presets: z.record(z.string(), z.string()).nullish(),
 });
 
 const a2uiCatalogSidecarEventRouteSchema = z.object({
-  destination: z.enum(['agent', 'permission', 'run']).optional(),
-  context_schema: z.record(z.string(), z.unknown()).optional(),
+  destination: z.enum(['agent', 'permission', 'run']).nullish(),
+  context_schema: z.record(z.string(), z.unknown()).nullish(),
 });
 
 const a2uiCatalogSidecarSchema = z.object({
   catalogId: z.string(),
   protocolVersion: z.string(),
   trust: z.object({ source: z.enum(['builtin', 'pack']) }),
-  implements: z.record(z.string(), a2uiCatalogSidecarImplementationSchema).optional(),
-  events: z.record(z.string(), a2uiCatalogSidecarEventRouteSchema).optional(),
-  instructions: z.string().optional(),
+  implements: z.record(z.string(), a2uiCatalogSidecarImplementationSchema).nullish(),
+  events: z.record(z.string(), a2uiCatalogSidecarEventRouteSchema).nullish(),
+  instructions: z.string().nullish(),
 });
 
 const a2uiCatalogFileSchema = z.object({
   catalogId: z.string(),
   components: z.record(z.string(), z.unknown()),
-  functions: z.record(z.string(), z.unknown()).optional(),
+  functions: z.record(z.string(), z.unknown()).nullish(),
 });
 
 /**
@@ -225,6 +251,68 @@ export const a2uiCatalogRowSchema: z.ZodType<A2uiCatalogRow> = z.object({
 
 export const a2uiCatalogRowListSchema = z.array(a2uiCatalogRowSchema);
 
+/** One row of `GET .../a2ui/catalogs` that failed to validate against {@link a2uiCatalogRowSchema}. */
+export interface A2uiCatalogRowRejection {
+  /** The row's own `catalogId`, or `"unknown:<index>"` when even that field was unreadable. */
+  catalogId: string;
+  /** A summary of every zod issue, `"<path>: <message>"` joined with `"; "`. */
+  detail: string;
+}
+
+export interface A2uiCatalogListDecodeResult {
+  rows: A2uiCatalogRow[];
+  rejected: A2uiCatalogRowRejection[];
+}
+
+function summarizeZodIssues(error: z.ZodError): string {
+  return error.issues
+    .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
+    .join('; ');
+}
+
+function rejectedRowCatalogId(raw: unknown, index: number): string {
+  if (raw && typeof raw === 'object' && 'catalogId' in raw) {
+    const value = (raw as { catalogId?: unknown }).catalogId;
+    if (typeof value === 'string' && value) return value;
+  }
+  return `unknown:${index}`;
+}
+
+/**
+ * Decodes `GET .../a2ui/catalogs`' `catalogs` array ROW BY ROW: a row that
+ * fails {@link a2uiCatalogRowSchema} is dropped and recorded in `rejected`
+ * (never thrown past this function) — one malformed pack row (a marketplace
+ * catalog with a schema drift, a partially-applied server migration) must
+ * never take the two BUILTIN catalogs down with it, which a single
+ * `a2uiCatalogRowListSchema.parse(...)` over the whole array did (S1
+ * adversarial follow-up).
+ *
+ * The top-level shape (`value` itself must be an array) is NOT tolerated the
+ * same way: that is not "one bad row," it is the whole response failing to
+ * decode, so it throws (the caller's `decode_failed` classification, e.g.
+ * `web/src/lib/a2ui/registry-failure.ts`) rather than silently returning an
+ * empty, indistinguishable-from-"no catalogs installed" result.
+ */
+export function decodeA2uiCatalogRows(value: unknown): A2uiCatalogListDecodeResult {
+  if (!Array.isArray(value)) {
+    throw new Error('expected the "catalogs" field to be an array');
+  }
+  const rows: A2uiCatalogRow[] = [];
+  const rejected: A2uiCatalogRowRejection[] = [];
+  value.forEach((raw, index) => {
+    const result = a2uiCatalogRowSchema.safeParse(raw);
+    if (result.success) {
+      rows.push(result.data);
+    } else {
+      rejected.push({
+        catalogId: rejectedRowCatalogId(raw, index),
+        detail: summarizeZodIssues(result.error),
+      });
+    }
+  });
+  return { rows, rejected };
+}
+
 /**
  * A live, per-session registry of resolved catalogs. Cached: a row is
  * resolved once and reused until `.reset()` is called (a session-scoped
@@ -240,8 +328,21 @@ export class A2uiCatalogRegistry<T extends ComponentApi> {
     private readonly wrapComponent: A2uiComponentWrapper<T> = identityWrapper,
   ) {}
 
-  /** Resolve every row, replacing any previously resolved state. */
-  public load(rows: readonly A2uiCatalogRow[]): void {
+  /**
+   * Resolve every row, replacing any previously resolved state.
+   *
+   * `rejectedRows` (S1 adversarial follow-up, {@link decodeA2uiCatalogRows})
+   * are rows the TRANSPORT layer already dropped for failing schema
+   * validation, before this method ever saw them — recorded here under
+   * `catalog_row_invalid` so they are inspectable via `reasonFor()` exactly
+   * like a row that parsed but failed to BUILD (an unimplemented component).
+   * A rejected row's own `catalogId` can never collide with a successfully
+   * loaded one (it did not parse far enough to reach `this.resolved`).
+   */
+  public load(
+    rows: readonly A2uiCatalogRow[],
+    rejectedRows: readonly A2uiCatalogRowRejection[] = [],
+  ): void {
     this.resolved.clear();
     this.reasons.clear();
     for (const row of rows) {
@@ -251,6 +352,13 @@ export class A2uiCatalogRegistry<T extends ComponentApi> {
       } else {
         this.reasons.set(row.catalogId, result.reason);
       }
+    }
+    for (const rejection of rejectedRows) {
+      this.reasons.set(rejection.catalogId, {
+        code: 'catalog_row_invalid',
+        catalogId: rejection.catalogId,
+        detail: rejection.detail,
+      });
     }
   }
 
@@ -268,22 +376,31 @@ export class A2uiCatalogRegistry<T extends ComponentApi> {
   }
 
   /**
-   * The registry route(s) this session's server answered with (a non-2xx
-   * other than "row missing/unresolvable") are unavailable — an older
-   * server, S6 adversarial review item 2a. Clears any resolved catalogs
-   * (there is no row data to resolve from) and records the typed reason
-   * against the well-known ids, so a surface that later names one still gets
-   * `reasonFor()` instead of a bare "not found". Idempotent: calling this
-   * again just re-records the same reason, never compounds.
+   * The registry route(s) this session's server call failed for are
+   * unavailable — an older server missing the routes entirely (404/501), a
+   * response that did not decode, or a transient network failure (S6
+   * adversarial review item 2a; S1 follow-up distinguishes WHICH of these).
+   * Clears any resolved catalogs (there is no row data to resolve from) and
+   * records the CALLER-CLASSIFIED typed reason against the well-known ids
+   * (`web/src/lib/a2ui/registry-failure.ts` picks `code`/`detail`), so a
+   * surface that later names one still gets `reasonFor()` instead of a bare
+   * "not found" — and so the reason is never hard-coded to "the server does
+   * not support the routes" when the real cause was a 500 or a decode
+   * failure. Idempotent: calling this again just re-records the same
+   * reason, never compounds.
    */
   public markRouteUnavailable(
+    code: A2uiCatalogUnresolvedReasonCode,
     detail: string,
-    wellKnownCatalogIds: readonly string[] = [A2UI_CLIO_WORKSPACE_CATALOG_ID, A2UI_BASIC_CATALOG_ID],
+    wellKnownCatalogIds: readonly string[] = [
+      A2UI_CLIO_WORKSPACE_CATALOG_ID,
+      A2UI_BASIC_CATALOG_ID,
+    ],
   ): void {
     this.resolved.clear();
     this.reasons.clear();
     for (const catalogId of wellKnownCatalogIds) {
-      this.reasons.set(catalogId, { code: 'a2ui_catalog_route_unavailable', catalogId, detail });
+      this.reasons.set(catalogId, { code, catalogId, detail });
     }
   }
 

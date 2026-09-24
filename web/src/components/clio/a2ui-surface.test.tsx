@@ -3,7 +3,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLIO_A2UI_CATALOG_ID, CLIO_WORKSPACE_CATALOG_ROW } from '@/test-fixtures/a2ui/v0_9_1/fixtures';
+import {
+  CLIO_A2UI_CATALOG_ID,
+  CLIO_WORKSPACE_CATALOG_ROW,
+} from '@/test-fixtures/a2ui/v0_9_1/fixtures';
 import { A2uiSessionRegistryOwner } from '@/test-fixtures/a2ui/v0_9_1/test-harness';
 import { ClioA2UISurface } from './a2ui-surface';
 
@@ -16,7 +19,7 @@ const repository = vi.hoisted(() => ({
 vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 
 beforeEach(() => {
-  repository.a2uiCatalogs.mockResolvedValue([CLIO_WORKSPACE_CATALOG_ROW]);
+  repository.a2uiCatalogs.mockResolvedValue({ rows: [CLIO_WORKSPACE_CATALOG_ROW], rejected: [] });
   repository.a2uiCapabilities.mockResolvedValue({
     agent: { 'v0.9': { supportedCatalogIds: [CLIO_WORKSPACE_CATALOG_ROW.catalogId] } },
     client: null,
@@ -206,7 +209,9 @@ describe('ClioA2UISurface actions', () => {
       id: 'action',
       component: 'Button',
       child: 'label',
-      action: { functionCall: { call: 'openArtifact', args: { uri: 'artifact://artifact_missing' } } },
+      action: {
+        functionCall: { call: 'openArtifact', args: { uri: 'artifact://artifact_missing' } },
+      },
     };
 
     renderSurface(surface);
@@ -274,18 +279,15 @@ describe('ClioA2UISurface actions', () => {
     renderSurface(surface);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/not an allowed URL scheme/u);
-    expect(repository.a2uiAction).toHaveBeenCalledWith(
-      surface.session_id,
-      {
-        version: 'v0.9.1',
-        error: {
-          code: 'VALIDATION_FAILED',
-          surfaceId: surface.id,
-          path: '/image/url',
-          message: expect.stringContaining('not an allowed URL scheme'),
-        },
+    expect(repository.a2uiAction).toHaveBeenCalledWith(surface.session_id, {
+      version: 'v0.9.1',
+      error: {
+        code: 'VALIDATION_FAILED',
+        surfaceId: surface.id,
+        path: '/image/url',
+        message: expect.stringContaining('not an allowed URL scheme'),
       },
-    );
+    });
   });
 
   it('renders a worded state when the service cannot record a VALIDATION_FAILED report', async () => {
@@ -349,7 +351,10 @@ describe('ClioA2UISurface actions', () => {
       ...surface,
       messages: [
         ...surface.messages,
-        { version: 'v0.9.1', updateDataModel: { surfaceId, path: '/unrelated', value: 'server-value' } },
+        {
+          version: 'v0.9.1',
+          updateDataModel: { surfaceId, path: '/unrelated', value: 'server-value' },
+        },
       ],
     };
     update(withUnrelatedUpdate);

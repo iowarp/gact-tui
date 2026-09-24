@@ -28,6 +28,7 @@ import { rememberValidatedWorkspaceRoute } from '@/lib/workspace-route-memory';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useLiveStore } from '@/store/live-store';
 import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
+import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from './a2ui-session-ids';
 import { useRepository } from './use-repository';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
@@ -55,11 +56,6 @@ export function useWorkspaceData({
 }: UseWorkspaceDataInput) {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
-  // Owns the A2UI catalog registry + client-metadata advertisement for this
-  // session's whole lifetime — a surface mounting/unmounting must never
-  // clear it (docs/design/a2ui-compat-campaign-2026-09.md S6 adversarial
-  // review, BLOCKING). Surfaces only ever consume it (a2ui-surface.tsx).
-  useA2uiSessionRegistry(sessionId);
   const entityArtifacts = useLiveStore((state) => state.entities.artifacts);
   const entityContext = useLiveStore((state) => state.entities.context);
   const entityRuns = useLiveStore((state) => state.entities.runs);
@@ -384,34 +380,33 @@ export function useWorkspaceData({
     [allSessions.data, entities.subagents, sessionId],
   );
   const processes = sessionObservability.processes.data ?? [];
-  const interactionSessionIds = useMemo(() => {
-    const related = new Set([sessionId]);
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (const subagent of Object.values(entities.subagents)) {
-        if (
-          subagent.child_session_id &&
-          related.has(subagent.session_id) &&
-          !related.has(subagent.child_session_id)
-        ) {
-          related.add(subagent.child_session_id);
-          changed = true;
-        }
-      }
-      for (const candidate of allSessions.data ?? []) {
-        if (
-          candidate.parent_session_id &&
-          related.has(candidate.parent_session_id) &&
-          !related.has(candidate.id)
-        ) {
-          related.add(candidate.id);
-          changed = true;
-        }
-      }
-    }
-    return related;
-  }, [allSessions.data, entities.subagents, sessionId]);
+  const interactionSessionIds = useMemo(
+    () =>
+      computeInteractionSessionIds(
+        sessionId,
+        Object.values(entities.subagents),
+        allSessions.data ?? [],
+      ),
+    [allSessions.data, entities.subagents, sessionId],
+  );
+  // Owns the A2UI catalog registry + client-metadata advertisement for every
+  // session a mounted surface can reference: the open session itself, any
+  // session whose pending interaction owns an A2UI surface (`a2uiOwnerIds`),
+  // and every session in this session's own subagent/child closure
+  // (`interactionSessionIds` — e.g. a subagent canvas rendering a child
+  // session's surface inline). Never only the "open" session id (S1 item A2:
+  // a surface keyed by another session id must not hang on "Resolving the
+  // interactive catalog…" forever). A surface mounting/unmounting must never
+  // clear any of these (docs/design/a2ui-compat-campaign-2026-09.md S6
+  // adversarial review, BLOCKING). Surfaces only ever consume the registry
+  // (a2ui-surface.tsx). Both id-derivation steps are extracted, pure
+  // functions (`hooks/a2ui-session-ids.ts`) so they are directly
+  // unit-testable without rendering this whole hook.
+  const a2uiReferencedSessionIds = useMemo(
+    () => computeA2uiReferencedSessionIds(sessionId, a2uiOwnerIds, interactionSessionIds),
+    [sessionId, a2uiOwnerIds, interactionSessionIds],
+  );
+  useA2uiSessionRegistry(a2uiReferencedSessionIds);
   // Every pending approval is rendered. A blocked descendant this view has not
   // discovered yet is labelled by the interaction surface, never hidden.
   const visibleApprovals = approvals.data ?? [];

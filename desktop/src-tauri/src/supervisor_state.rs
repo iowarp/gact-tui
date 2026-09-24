@@ -217,9 +217,15 @@ mod tests {
             },
             child,
         );
-        thread::sleep(Duration::from_millis(100));
-
-        let handle = state.snapshot();
+        // Wait for the child's real exit to surface rather than guessing how
+        // long process start-up takes; the deadline only backstops a hang.
+        let deadline = std::time::Instant::now() + Duration::from_secs(30);
+        let mut handle = state.snapshot();
+        while matches!(handle.status, BackendStatus::Ready) && std::time::Instant::now() < deadline
+        {
+            thread::sleep(Duration::from_millis(25));
+            handle = state.snapshot();
+        }
         assert!(matches!(
             handle.status,
             BackendStatus::Error(ref detail)
