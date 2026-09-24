@@ -281,6 +281,10 @@ export const providerCatalogSchema = z.object({
       kind: z.string(),
       endpoint: z.string(),
       configuration_url: z.string(),
+      // The sign-in method and service ("oauth", "Globus Auth"): detail for the
+      // sign-in affordance, never part of `name`.
+      auth_method: optionalWireString(),
+      auth_label: optionalWireString(),
       connectivity: z.string(),
       auth: z.string(),
       health: z.string(),

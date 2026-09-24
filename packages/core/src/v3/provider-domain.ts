@@ -72,6 +72,8 @@ export interface LanguageModelPreset {
   suggested_model?: string;
   requires_api_key: boolean;
   auth_method?: string;
+  /** The sign-in service ("Globus Auth"); shown with sign-in, never in `label`. */
+  auth_label?: string;
   is_authenticated: boolean;
   description?: string;
   status?: string;

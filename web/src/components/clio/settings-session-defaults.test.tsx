@@ -47,7 +47,7 @@ function renderSettings() {
     presets: [
       {
         id: 'codex',
-        label: 'Codex',
+        label: 'OpenAI Codex',
         provider: 'codex',
         suggested_model: 'gpt-5.6-luna',
         is_authenticated: true,

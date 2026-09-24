@@ -635,9 +635,13 @@ function toProviderGroup(group: {
   };
 }
 
+/**
+ * The service's own configuration link. Only a provider known from presets
+ * alone (no catalog entry, so nothing reported) gets the settings route built
+ * here.
+ */
 function providerConfigurationUrl(providerId: string, reported?: string): string {
-  if (reported?.startsWith('/settings/providers?')) return reported;
-  return `/settings/providers?provider=${encodeURIComponent(providerId)}`;
+  return reported || `/settings/providers?provider=${encodeURIComponent(providerId)}`;
 }
 
 function providerNodeValue(providerId: string): string {

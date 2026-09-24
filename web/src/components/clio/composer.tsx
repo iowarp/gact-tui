@@ -626,7 +626,7 @@ export function ClioComposer({
                       ) : null}
                       <span className="truncate">
                         {selectedOption
-                          ? `${compactProviderName(selectedOption.providerId)} / ${compactModelName(selectedOption.providerId, selectedOption.id, selectedOption.label)}`
+                          ? `${selectedOption.providerName} / ${compactModelName(selectedOption.providerId, selectedOption.id, selectedOption.label)}`
                           : 'Choose model'}
                       </span>
                     </Button>
@@ -723,17 +723,6 @@ function ComposerAddContextButton({
       </PromptInputActionMenuContent>
     </PromptInputActionMenu>
   );
-}
-
-function compactProviderName(provider?: string): string {
-  const names: Record<string, string> = {
-    argonne_local_vllm: 'vLLM',
-    claude_code: 'Claude',
-    codex: 'Codex',
-    lm_studio: 'LM Studio',
-  };
-  if (!provider) return 'Provider';
-  return names[provider] ?? provider.replaceAll('_', ' ');
 }
 
 function compactModelName(provider: string, modelId: string, label: string): string {

@@ -61,6 +61,7 @@ export const languageModelPresetSchema = z.object({
   suggested_model: optionalWireString(),
   requires_api_key: z.boolean().default(false),
   auth_method: optionalWireString(),
+  auth_label: optionalWireString(),
   is_authenticated: z.boolean().default(false),
   description: optionalWireString(),
   status: optionalWireString(),

@@ -302,6 +302,8 @@ export interface ProviderCatalogEntry {
   kind: string;
   endpoint: string;
   configuration_url: string;
+  auth_method?: string;
+  auth_label?: string;
   connectivity: string;
   auth: string;
   health: string;

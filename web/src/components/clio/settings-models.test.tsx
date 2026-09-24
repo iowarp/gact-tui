@@ -316,6 +316,7 @@ describe('ModelsSettings', () => {
           requires_api_key: false,
           is_authenticated: false,
           auth_method: 'oauth',
+          auth_label: 'Globus Auth',
           status: 'auth_required',
           supports_live_catalog: true,
           supports_vision: false,
@@ -354,6 +355,8 @@ describe('ModelsSettings', () => {
       </MemoryRouter>,
     );
 
+    // The sign-in service is detail beside the action, never part of the name.
+    expect(await screen.findByText('Uses Globus Auth')).toBeVisible();
     await user.click(await screen.findByRole('button', { name: 'Sign in to ALCF Metis' }));
 
     await waitFor(() =>
@@ -456,7 +459,7 @@ describe('ModelsSettings', () => {
     } as const;
     const claudePreset = {
       id: 'claude_code',
-      label: 'Claude Code (subscription)',
+      label: 'Claude Code',
       provider: 'claude_code',
       suggested_model: 'sonnet',
       requires_api_key: false,
@@ -500,7 +503,7 @@ describe('ModelsSettings', () => {
     );
 
     await user.click(await screen.findByRole('combobox', { name: 'Provider' }));
-    await user.click(await screen.findByRole('option', { name: 'Claude' }));
+    await user.click(await screen.findByRole('option', { name: 'Claude Code' }));
     expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
       'Claude Sonnet',
     );

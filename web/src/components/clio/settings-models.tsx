@@ -266,6 +266,11 @@ function ModelsSettingsContent({
                     : `Sign in to ${providerDisplayName(selectedPreset)}`}
                 </Button>
               ) : null}
+              {selectedPreset?.auth_method === 'oauth' && selectedPreset.auth_label ? (
+                <span className="text-sm text-muted-foreground">
+                  Uses {selectedPreset.auth_label}
+                </span>
+              ) : null}
               {selectedPreset?.provider === 'claude_code' &&
               selectedPreset.status === 'install_required' ? (
                 <Button

@@ -56,10 +56,12 @@ function renderComposer({
   effort,
   modelOptions,
   onSubmit,
+  provider = 'codex',
 }: {
   effort?: string;
   modelOptions: ClioComposerProps['modelOptions'];
   onSubmit: ClioComposerProps['onSubmit'];
+  provider?: string;
 }) {
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -70,7 +72,7 @@ function renderComposer({
           model="gpt-5.6-luna"
           modelOptions={modelOptions}
           onSubmit={onSubmit}
-          provider="codex"
+          provider={provider}
           state="completed"
         />
       </PromptInputProvider>
@@ -78,7 +80,21 @@ function renderComposer({
   );
 }
 
-describe('ClioComposer reasoning levels come from the selected model', () => {
+describe('ClioComposer model selection', () => {
+  it('labels the model pill with the provider name the catalog reports', () => {
+    renderComposer({
+      modelOptions: [
+        { ...reasoningModel, providerId: 'argonne_metis', providerName: 'ALCF Metis' },
+      ],
+      onSubmit: vi.fn(async () => undefined),
+      provider: 'argonne_metis',
+    });
+
+    const pill = screen.getByRole('button', { name: 'Change model' });
+    expect(pill).toHaveTextContent('ALCF Metis / gpt-5.6-luna');
+    expect(pill).not.toHaveTextContent(/argonne/iu);
+  });
+
   it('sends the default level of the selected model when none was chosen', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn(async () => undefined);
