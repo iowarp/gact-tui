@@ -420,17 +420,40 @@ test('the providers page remembers choices across re-shows and blocks Next until
     hooks.match(/!macro CLIO_REMEMBER_PROVIDER_CHECKBOX([\s\S]*?)!macroend/)?.[1] ?? '';
   assert.match(rememberMacro, /\$\{NSD_GetState\} \$\{_CHECKBOX\} \$0/);
 
-  const leave = hooks.match(/Function ClioProvidersPageLeave\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
-  // Every checkbox is captured into the comma list AND remembered for the
-  // next show, in that order, before validation runs.
-  const appendCalls = leave.match(/!insertmacro CLIO_APPEND_PROVIDER/g) ?? [];
-  const rememberCalls = leave.match(/!insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX/g) ?? [];
-  assert.equal(appendCalls.length, 16, 'expected one CLIO_APPEND_PROVIDER call per provider');
+  // All 16 remembers are collected in one macro shared by Next (Leave) and
+  // Back (OnBack), so both directions capture on-screen state the same way.
+  const rememberAllMacro =
+    hooks.match(/!macro CLIO_REMEMBER_ALL_PROVIDERS([\s\S]*?)!macroend/)?.[1] ?? '';
+  const rememberAllCalls =
+    rememberAllMacro.match(/!insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX/g) ?? [];
   assert.equal(
-    rememberCalls.length,
+    rememberAllCalls.length,
     16,
-    'expected one CLIO_REMEMBER_PROVIDER_CHECKBOX call per provider',
+    'expected one CLIO_REMEMBER_PROVIDER_CHECKBOX call per provider in CLIO_REMEMBER_ALL_PROVIDERS',
   );
+
+  // nsDialogs only calls a custom page's Leave function on Next; Back skips
+  // it. ClioProvidersPageOnBack (registered via ${NSD_OnBack} in the page's
+  // create function) must capture the same remembered state on Back too, or
+  // ticks made just before Back are lost.
+  assert.match(hooks, /\$\{NSD_OnBack\} ClioProvidersPageOnBack/);
+  const onBack = hooks.match(/Function ClioProvidersPageOnBack\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  assert.match(onBack, /!insertmacro CLIO_REMEMBER_ALL_PROVIDERS/);
+  const providersPageBody =
+    hooks.match(/Function ClioProvidersPage\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  const createAt = providersPageBody.indexOf('nsDialogs::Create');
+  const onBackRegisterAt = providersPageBody.indexOf('${NSD_OnBack} ClioProvidersPageOnBack');
+  assert.ok(
+    createAt >= 0 && onBackRegisterAt > createAt,
+    'NSD_OnBack must be registered after nsDialogs::Create',
+  );
+
+  const leave = hooks.match(/Function ClioProvidersPageLeave\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  // Every checkbox is captured into the comma list, and the shared macro
+  // remembers all of them for the next show, before validation runs.
+  const appendCalls = leave.match(/!insertmacro CLIO_APPEND_PROVIDER/g) ?? [];
+  assert.equal(appendCalls.length, 16, 'expected one CLIO_APPEND_PROVIDER call per provider');
+  assert.match(leave, /!insertmacro CLIO_REMEMBER_ALL_PROVIDERS/);
 
   // Leave blocks on an empty selection with a clear message, not a silent
   // "codex,openai" fallback.
@@ -491,6 +514,27 @@ test('a real install stamps a fresh installed_at revision shared by PREINSTALL a
   const writeAt = preinstall.indexOf('!insertmacro CLIO_WRITE_INSTALLER_OPTIONS');
   assert.ok(branchOpensAt >= 0 && getTimeAt > branchOpensAt, 'GetTime must run inside the branch');
   assert.ok(writeAt > getTimeAt, 'the timestamp must be computed before it is written');
+
+  // This macro is inserted into Tauri's own generated install Section, whose
+  // surrounding template code is outside our control — $R0-$R6 must be
+  // saved and restored around GetTime rather than clobbered outright.
+  const registers = ['$R0', '$R1', '$R2', '$R3', '$R4', '$R5', '$R6'];
+  const pushOrder = registers.map((register) => preinstall.indexOf(`Push ${register}`));
+  const popOrder = registers.map((register) => preinstall.indexOf(`Pop ${register}`));
+  assert.ok(
+    pushOrder.every((index) => index >= 0 && index < getTimeAt),
+    'every $R0-$R6 must be pushed before GetTime runs',
+  );
+  assert.ok(
+    popOrder.every((index) => index > getTimeAt && index < writeAt),
+    'every $R0-$R6 must be popped after GetTime and before the write',
+  );
+  for (let i = 1; i < pushOrder.length; i += 1) {
+    assert.ok(pushOrder[i] > pushOrder[i - 1], 'registers must be pushed in $R0..$R6 order');
+  }
+  for (let i = 1; i < popOrder.length; i += 1) {
+    assert.ok(popOrder[i] < popOrder[i - 1], 'registers must be popped in reverse ($R6..$R0) order');
+  }
 });
 
 test('updater plugin config is present and consistent across variants', () => {

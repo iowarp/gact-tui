@@ -174,6 +174,38 @@ FunctionEnd
   ${EndIf}
 !macroend
 
+; All 16 CLIO_REMEMBER_PROVIDER_CHECKBOX calls in one place, shared by
+; ClioProvidersPageLeave (Next) and ClioProvidersPageOnBack (Back) so both
+; directions capture the same on-screen state the same way.
+!macro CLIO_REMEMBER_ALL_PROVIDERS
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderCodexCheckbox $ClioProviderCodexChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderClaudeCodeCheckbox $ClioProviderClaudeCodeChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderOpenAICheckbox $ClioProviderOpenAIChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderAnthropicCheckbox $ClioProviderAnthropicChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderGeminiCheckbox $ClioProviderGeminiChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderVertexCheckbox $ClioProviderVertexChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderLMStudioCheckbox $ClioProviderLMStudioChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderOllamaCheckbox $ClioProviderOllamaChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderLlamaCppCheckbox $ClioProviderLlamaCppChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderVllmCheckbox $ClioProviderVllmChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderArgonneSophiaCheckbox $ClioProviderArgonneSophiaChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderArgonneMetisCheckbox $ClioProviderArgonneMetisChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderAzureOpenAICheckbox $ClioProviderAzureOpenAIChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderBedrockCheckbox $ClioProviderBedrockChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderNvidiaNimCheckbox $ClioProviderNvidiaNimChecked
+  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderOpenRouterCheckbox $ClioProviderOpenRouterChecked
+!macroend
+
+; nsDialogs only invokes a custom page's Leave function (ClioProvidersPageLeave
+; below) when the user clicks Next. Clicking Back skips it entirely, so
+; without this dedicated callback, ticks made just before Back would be lost
+; the next time this page is shown — CLIO_RESTORE_PROVIDER_CHECKBOX would
+; restore the stale state from the last successful Next instead. ${NSD_OnBack}
+; (nsDialogs.nsh) registers a function that runs specifically on Back.
+Function ClioProvidersPageOnBack
+  !insertmacro CLIO_REMEMBER_ALL_PROVIDERS
+FunctionEnd
+
 Function ClioProvidersPage
   !insertmacro CLIO_SKIP_SETUP_PAGE_IF_UNATTENDED
 
@@ -183,6 +215,7 @@ Function ClioProvidersPage
   ${If} $0 == error
     Abort
   ${EndIf}
+  ${NSD_OnBack} ClioProvidersPageOnBack
 
   ; Compact three-column groups keep every choice above the wizard footer at
   ; Windows' default DPI. Providers are individual choices: selecting an API
@@ -277,37 +310,22 @@ FunctionEnd
 Function ClioProvidersPageLeave
   StrCpy $ClioProviderIds ""
   !insertmacro CLIO_APPEND_PROVIDER "codex" $ClioProviderCodexCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderCodexCheckbox $ClioProviderCodexChecked
   !insertmacro CLIO_APPEND_PROVIDER "claude_code" $ClioProviderClaudeCodeCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderClaudeCodeCheckbox $ClioProviderClaudeCodeChecked
   !insertmacro CLIO_APPEND_PROVIDER "openai" $ClioProviderOpenAICheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderOpenAICheckbox $ClioProviderOpenAIChecked
   !insertmacro CLIO_APPEND_PROVIDER "anthropic" $ClioProviderAnthropicCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderAnthropicCheckbox $ClioProviderAnthropicChecked
   !insertmacro CLIO_APPEND_PROVIDER "gemini" $ClioProviderGeminiCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderGeminiCheckbox $ClioProviderGeminiChecked
   !insertmacro CLIO_APPEND_PROVIDER "vertex_ai" $ClioProviderVertexCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderVertexCheckbox $ClioProviderVertexChecked
   !insertmacro CLIO_APPEND_PROVIDER "lm_studio" $ClioProviderLMStudioCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderLMStudioCheckbox $ClioProviderLMStudioChecked
   !insertmacro CLIO_APPEND_PROVIDER "ollama" $ClioProviderOllamaCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderOllamaCheckbox $ClioProviderOllamaChecked
   !insertmacro CLIO_APPEND_PROVIDER "llama_cpp" $ClioProviderLlamaCppCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderLlamaCppCheckbox $ClioProviderLlamaCppChecked
   !insertmacro CLIO_APPEND_PROVIDER "vllm" $ClioProviderVllmCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderVllmCheckbox $ClioProviderVllmChecked
   !insertmacro CLIO_APPEND_PROVIDER "argonne_sophia" $ClioProviderArgonneSophiaCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderArgonneSophiaCheckbox $ClioProviderArgonneSophiaChecked
   !insertmacro CLIO_APPEND_PROVIDER "argonne_metis" $ClioProviderArgonneMetisCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderArgonneMetisCheckbox $ClioProviderArgonneMetisChecked
   !insertmacro CLIO_APPEND_PROVIDER "azure_openai" $ClioProviderAzureOpenAICheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderAzureOpenAICheckbox $ClioProviderAzureOpenAIChecked
   !insertmacro CLIO_APPEND_PROVIDER "bedrock" $ClioProviderBedrockCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderBedrockCheckbox $ClioProviderBedrockChecked
   !insertmacro CLIO_APPEND_PROVIDER "nvidia_nim" $ClioProviderNvidiaNimCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderNvidiaNimCheckbox $ClioProviderNvidiaNimChecked
   !insertmacro CLIO_APPEND_PROVIDER "openrouter" $ClioProviderOpenRouterCheckbox
-  !insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX $ClioProviderOpenRouterCheckbox $ClioProviderOpenRouterChecked
+  !insertmacro CLIO_REMEMBER_ALL_PROVIDERS
 
   ; Stop the wizard here until the user picks at least one provider — an
   ; empty selection used to sail through silently (see NSIS_HOOK_PREINSTALL's
@@ -457,9 +475,26 @@ FunctionEnd
     ; CLIO_WRITE_INSTALLER_OPTIONS call in this run (see POSTINSTALL below),
     ; so the web layer can tell "a new install happened" from "the same
     ; install's options file was rewritten" and apply provider visibility
-    ; exactly once per install.
+    ; exactly once per install. $R0-$R6 are saved/restored around GetTime:
+    ; this macro is inserted into Tauri's generated install Section, whose
+    ; surrounding template code is outside our control and may hold its own
+    ; state in those registers across this point.
+    Push $R0
+    Push $R1
+    Push $R2
+    Push $R3
+    Push $R4
+    Push $R5
+    Push $R6
     ${GetTime} "" "L" $R0 $R1 $R2 $R3 $R4 $R5 $R6
     StrCpy $ClioInstalledAt "$R2$R1$R0$R4$R5$R6"
+    Pop $R6
+    Pop $R5
+    Pop $R4
+    Pop $R3
+    Pop $R2
+    Pop $R1
+    Pop $R0
     !insertmacro CLIO_WRITE_INSTALLER_OPTIONS
   ${EndIf}
 !macroend

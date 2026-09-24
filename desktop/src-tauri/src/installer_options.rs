@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Once;
 use tauri::Manager;
 
 const INSTALLER_OPTIONS_FILE: &str = "installer-options.json";
@@ -21,12 +22,17 @@ const CURRENT_SCHEMA: u8 = 4;
 /// provider ids instead of coupling distinct products into provider families.
 ///
 /// `provider_ids` is `None` when there is no recorded installer preference at
-/// all (file missing/unreadable, or a genuinely unattended `/S` install that
-/// skipped the wizard) — the web layer reads that as "leave provider
-/// visibility untouched" rather than guessing a default set. It is
-/// `Some("")` only for a schema-4 file that explicitly recorded zero
-/// providers, which the NSIS Leave validation no longer allows through the
-/// wizard, but which can still exist on disk from a pre-fix installer run.
+/// all — a missing/unreadable installer-options file, or a schema migrated
+/// from a version that never recorded providers (v1, or pre-v4 with no
+/// `provider_families`). It is `Some("")` for a schema-4 file that recorded
+/// an explicit empty provider list: this is current, live behavior for a
+/// genuinely unattended `/S` install (the wizard never ran, so nothing was
+/// asked), and can also still exist on disk from a pre-fix installer run
+/// whose Leave validation once let an empty wizard selection through. The
+/// web layer treats both `None` and `Some("")` as "no installer preference"
+/// (leave provider visibility untouched), but logs a different reason for
+/// each — see `resolveInstallerProviderSelection` in
+/// `installer-infrastructure.ts`.
 ///
 /// `installed_at` is the NSIS-stamped install timestamp (added alongside this
 /// fix). It is the "installer-options revision" the web layer compares
@@ -164,37 +170,77 @@ fn parse_options(contents: &str) -> Result<InstallerOptions, String> {
         .map_err(|error| format!("Installer choices are not valid: {error}"))
 }
 
-/// Read the installer's recorded choices, degrading to "no installer
-/// preference" (the typed [`InstallerOptions::default`], with
-/// `provider_ids: None`) when the file is missing or cannot be read at all —
-/// never a silent `codex,openai` guess. Both cases are logged to the desktop
-/// boot log so the reason is visible after the fact, per the no-silent-
-/// fallback rule.
-///
-/// A file that IS readable but contains invalid JSON is a different, louder
-/// failure (`corrupt_installer_options_surface_a_readable_error_instead_of_panicking`):
-/// that still returns `Err`, since a corrupt file is evidence of a real
-/// problem rather than "nobody set a preference."
-fn read_options(root: &Path) -> Result<InstallerOptions, String> {
-    let path = options_path(root);
-    if !path.exists() {
+/// Fires the "installer options file absent" boot-log line at most once per
+/// process. `read_installer_options` is invoked on every managed-backend
+/// connect, and a missing file (the common case for anyone who never chose
+/// to record a preference) would otherwise write a duplicate line to the
+/// persisted boot log on every single one.
+static ABSENT_LOGGED_ONCE: Once = Once::new();
+
+fn log_absent_once() {
+    ABSENT_LOGGED_ONCE.call_once(|| {
         boot_log_line(
             "installer options file absent — no installer provider preference recorded, \
              leaving provider visibility untouched",
         );
-        return Ok(InstallerOptions::default());
+    });
+}
+
+/// The three distinguishable outcomes of trying to read installer-options.json.
+/// Kept separate from the degraded [`InstallerOptions`] value that most
+/// callers want (see [`read_options`]) because at least one caller
+/// (`complete_installer_web_search`) needs to tell "genuinely never recorded"
+/// apart from "present but failed to read" — the latter is a real problem
+/// that must surface as an error, not be silently reinterpreted as "Web
+/// Search was not selected."
+enum OptionsReadOutcome {
+    Present(InstallerOptions),
+    Missing,
+    Unreadable(String),
+}
+
+fn read_options_outcome(root: &Path) -> Result<OptionsReadOutcome, String> {
+    let path = options_path(root);
+    if !path.exists() {
+        log_absent_once();
+        return Ok(OptionsReadOutcome::Missing);
     }
-    let contents = match fs::read_to_string(&path) {
-        Ok(contents) => contents,
+    match fs::read_to_string(&path) {
+        Ok(contents) => parse_options(&contents).map(OptionsReadOutcome::Present),
         Err(error) => {
+            let message = format!("Could not read installer choices: {error}");
             boot_log_line(&format!(
                 "installer options file unreadable ({error}) — no installer provider \
                  preference recorded, leaving provider visibility untouched"
             ));
-            return Ok(InstallerOptions::default());
+            Ok(OptionsReadOutcome::Unreadable(message))
         }
-    };
-    parse_options(&contents)
+    }
+}
+
+/// Read the installer's recorded choices, degrading to "no installer
+/// preference" (the typed [`InstallerOptions::default`], with
+/// `provider_ids: None`) when the file is missing or cannot be read at all —
+/// never a silent `codex,openai` guess. Both cases are logged to the desktop
+/// boot log (the "absent" reason at most once per process — see
+/// [`log_absent_once`]) so the reason is visible after the fact, per the
+/// no-silent-fallback rule.
+///
+/// A file that IS readable but contains invalid JSON is a different, louder
+/// failure (`corrupt_installer_options_surface_a_readable_error_instead_of_panicking`):
+/// that still returns `Err`, since a corrupt file is evidence of a real
+/// problem rather than "nobody set a preference." This is the right
+/// degradation for most callers (e.g. provider visibility, where "we
+/// couldn't read it" and "nobody set one" both mean "leave it alone"), but
+/// `complete_installer_web_search` needs the finer-grained
+/// [`read_options_outcome`] instead — see [`complete_web_search_at`].
+fn read_options(root: &Path) -> Result<InstallerOptions, String> {
+    match read_options_outcome(root)? {
+        OptionsReadOutcome::Present(options) => Ok(options),
+        OptionsReadOutcome::Missing | OptionsReadOutcome::Unreadable(_) => {
+            Ok(InstallerOptions::default())
+        }
+    }
 }
 
 fn write_options(root: &Path, options: &InstallerOptions) -> Result<(), String> {
@@ -229,13 +275,29 @@ pub fn read_installer_options(app: tauri::AppHandle) -> Result<InstallerOptions,
 /// Mark the install-selected Web Search setup as registered with CLIO.
 #[tauri::command]
 pub fn complete_installer_web_search(app: tauri::AppHandle) -> Result<(), String> {
-    let root = app_data_root(&app)?;
-    let mut options = read_options(&root)?;
+    complete_web_search_at(&app_data_root(&app)?)
+}
+
+/// The testable body of [`complete_installer_web_search`], taking a plain
+/// root path instead of a `tauri::AppHandle`.
+///
+/// A missing file genuinely means "Web Search was never requested" — that is
+/// an accurate, user-facing error. A present-but-unreadable file is a
+/// different problem (a corrupted or inaccessible installer-options.json)
+/// and must surface its real read error instead: silently reinterpreting it
+/// as "not selected" would send the user to redo an installer choice when
+/// the actual fix is something else entirely.
+fn complete_web_search_at(root: &Path) -> Result<(), String> {
+    let mut options = match read_options_outcome(root)? {
+        OptionsReadOutcome::Present(options) => options,
+        OptionsReadOutcome::Missing => InstallerOptions::default(),
+        OptionsReadOutcome::Unreadable(message) => return Err(message),
+    };
     if options.web_search == "not_requested" {
         return Err("Web Search was not selected during installation.".into());
     }
     options.web_search = "configured".into();
-    write_options(&root, &options)
+    write_options(root, &options)
 }
 
 #[cfg(test)]
@@ -276,6 +338,44 @@ mod tests {
         let options = read_options(&root).unwrap();
         assert_eq!(options, InstallerOptions::default());
         assert_eq!(options.provider_ids, None);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn missing_installer_options_return_absent_on_every_call_even_after_the_log_fires_once() {
+        // Boot-logging the "file absent" reason only once per process (to
+        // avoid spamming the log on every connect) must never affect the
+        // FUNCTIONAL result — every call still needs the typed absent
+        // InstallerOptions, on this root and on a completely different one.
+        let root_a = test_root();
+        let root_b = test_root();
+        assert_eq!(read_options(&root_a).unwrap(), InstallerOptions::default());
+        assert_eq!(read_options(&root_a).unwrap(), InstallerOptions::default());
+        assert_eq!(read_options(&root_b).unwrap(), InstallerOptions::default());
+    }
+
+    #[test]
+    fn complete_web_search_reports_not_selected_when_the_file_is_genuinely_missing() {
+        let root = test_root();
+        let error = complete_web_search_at(&root).unwrap_err();
+        assert!(error.contains("was not selected"), "got: {error}");
+    }
+
+    #[test]
+    fn complete_web_search_surfaces_the_real_error_for_an_unreadable_file_instead_of_not_selected()
+    {
+        // A present-but-unreadable file is a different failure than "nobody
+        // requested Web Search" — masking it as "was not selected" would
+        // send the user to redo a choice instead of fixing the real problem
+        // (a corrupted/inaccessible installer-options.json).
+        let root = test_root();
+        fs::create_dir_all(options_path(&root)).unwrap();
+
+        let error = complete_web_search_at(&root).unwrap_err();
+        assert!(
+            !error.contains("was not selected"),
+            "must not mask a read failure as 'not selected', got: {error}"
+        );
         let _ = fs::remove_dir_all(root);
     }
 

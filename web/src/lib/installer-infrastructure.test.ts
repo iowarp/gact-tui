@@ -193,6 +193,101 @@ describe('finishInstallerInfrastructure', () => {
     expect(mocks.updateLanguageModelConfiguration).not.toHaveBeenCalled();
   });
 
+  it('installs Claude Code support only once per installer revision', async () => {
+    // installProviderSupport used to run on every managed-backend connect.
+    // It must follow the same apply-once stamp as provider visibility.
+    mocks.read.mockResolvedValue({
+      schema: 4,
+      web_search: 'not_requested',
+      llama_cpp: 'not_requested',
+      clio_kit: 'bundled',
+      provider_ids: 'claude_code',
+      installed_at: '20260923215032',
+    });
+
+    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
+    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
+    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
+
+    expect(mocks.installProviderSupport).toHaveBeenCalledTimes(1);
+  });
+
+  it('migrates away from the old codex,openai fallback marker once there is no installer preference', () => {
+    // Users whose hidden list was produced by the deleted "codex,openai"
+    // default (web client, or desktop with no installer file) must not keep
+    // it forever now that "no preference" returns early: this is a one-time
+    // cleanup keyed on the old v3 marker.
+    window.localStorage.setItem('clio.installer-provider-ids.v3', 'codex,openai');
+    window.localStorage.setItem(
+      'clio.hidden-providers.v1',
+      JSON.stringify(['anthropic', 'claude_code', 'argonne_sophia', 'argonne_metis']),
+    );
+    const changed = vi.fn();
+    window.addEventListener('clio:provider-visibility-changed', changed, { once: true });
+
+    applyInstallerProviderVisibility(undefined);
+
+    expect(window.localStorage.getItem('clio.installer-provider-ids.v3')).toBeNull();
+    expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([]);
+    expect(changed).toHaveBeenCalledOnce();
+  });
+
+  it('leaves an old marker alone when it does not match the codex,openai fallback shape', () => {
+    // A genuine v3-era explicit selection (not the deleted fallback) must
+    // not be treated as fallback residue and wiped.
+    window.localStorage.setItem('clio.installer-provider-ids.v3', 'anthropic,codex,openai');
+    window.localStorage.setItem('clio.hidden-providers.v1', JSON.stringify(['claude_code']));
+
+    applyInstallerProviderVisibility(undefined);
+
+    expect(window.localStorage.getItem('clio.installer-provider-ids.v3')).toBe(
+      'anthropic,codex,openai',
+    );
+    expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([
+      'claude_code',
+    ]);
+  });
+
+  it('removes the old marker once a new installer revision is applied', () => {
+    window.localStorage.setItem('clio.installer-provider-ids.v3', 'codex,openai');
+
+    applyInstallerProviderVisibility('claude_code', 'install-1');
+
+    expect(window.localStorage.getItem('clio.installer-provider-ids.v3')).toBeNull();
+  });
+
+  it('logs a distinct reason for an explicit empty selection vs a genuinely absent preference', async () => {
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    mocks.read.mockResolvedValueOnce({
+      schema: 4,
+      web_search: 'not_requested',
+      llama_cpp: 'not_requested',
+      clio_kit: 'bundled',
+      provider_ids: '',
+    });
+    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ reason: 'installer_provider_selection_empty' }),
+    );
+
+    infoSpy.mockClear();
+    mocks.read.mockResolvedValueOnce({
+      schema: 4,
+      web_search: 'not_requested',
+      llama_cpp: 'not_requested',
+      clio_kit: 'bundled',
+    });
+    await finishInstallerInfrastructure({ endpoint: 'http://127.0.0.1:17800' });
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ reason: 'installer_options_absent' }),
+    );
+
+    infoSpy.mockRestore();
+  });
+
   it('treats an empty provider selection as no installer preference (leaves everything visible)', async () => {
     // An empty provider_ids can only reach this file from a pre-fix
     // installer run or a genuinely unattended `/S` install — the NSIS Leave
