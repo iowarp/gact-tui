@@ -15,6 +15,7 @@ import {
   ListChecksIcon,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { openExternalUrlOrToast } from '@/tauri/external-url';
 import {
   Context,
   ContextContent,
@@ -364,9 +365,7 @@ function formatTimestamp(value: string): string {
       }).format(date);
 }
 
-function openArtifact(uri: string): void {
-  window.open(uri, '_blank', 'noopener,noreferrer');
-}
+const openArtifact = openExternalUrlOrToast;
 
 interface WorkspaceFileNode {
   entry: WorkspaceFileEntry;

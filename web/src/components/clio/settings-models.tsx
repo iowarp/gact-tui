@@ -11,6 +11,7 @@ import {
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { ExternalLink } from '@/components/ui/external-link';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import {
   Select,
@@ -28,7 +29,6 @@ import { providerDisplayName, providerSummary } from '@/lib/provider-presentatio
 import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { useLiveStore } from '@/store/live-store';
 import { vocab } from '@/lib/brand-vocabulary';
-import { openExternalUrl } from '@/tauri/external-url';
 import { useProviderSettingsActions } from './settings-models-actions';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { ReasoningLevelField } from './reasoning-level-field';
@@ -337,20 +337,19 @@ function ModelsSettingsContent({
                     below; the connected {vocab.agent} stores the resulting token.
                   </p>
                 </div>
-                <Button
-                  className="w-fit"
-                  onClick={() => {
-                    setAuthLaunchError('');
-                    void openExternalUrl(authFlow.authorizationUrl).catch((error: unknown) =>
+                <Button asChild className="w-fit" variant="outline">
+                  <ExternalLink
+                    href={authFlow.authorizationUrl}
+                    onClick={() => setAuthLaunchError('')}
+                    onOpenError={(error) =>
                       setAuthLaunchError(
                         error instanceof Error ? error.message : 'Could not open Globus sign-in.',
-                      ),
-                    );
-                  }}
-                  variant="outline"
-                >
-                  <ExternalLinkIcon aria-hidden="true" />
-                  Open Globus sign-in
+                      )
+                    }
+                  >
+                    <ExternalLinkIcon aria-hidden="true" />
+                    Open Globus sign-in
+                  </ExternalLink>
                 </Button>
                 {authLaunchError ? (
                   <p className="text-sm text-destructive">{authLaunchError}</p>

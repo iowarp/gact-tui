@@ -3,7 +3,6 @@ import type { Artifact, WorkspaceFileEntry } from '@clio/core/v3';
 import { brand } from '@brand';
 import { useQuery } from '@tanstack/react-query';
 import {
-  BoxIcon,
   CopyIcon,
   DownloadIcon,
   ExternalLinkIcon,
@@ -16,7 +15,7 @@ import {
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react';
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   CodeBlock,
@@ -37,7 +36,6 @@ import {
 } from '@/components/ui/empty';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ZoomPan } from '@/components/mermaidcn/zoom-pan';
 import { useRepository } from '@/hooks/use-repository';
@@ -54,6 +52,8 @@ import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifac
 import { ClioJsonResourceView } from './json-resource-view';
 import { ClioDocumentWorkspace } from './document-workspace';
 import { MarkdownFilePreview } from './markdown-file-preview';
+import { ClioPdfPreview } from './pdf-preview';
+import { ResourceLoading, ResourceUnavailable } from './resource-states';
 
 export function WorkspaceFileView({
   workspaceId,
@@ -81,24 +81,17 @@ export function WorkspaceFileView({
   );
 }
 
-const WorkspacePdfViewer = lazy(() =>
-  import('./document-pdf-viewer').then((module) => ({ default: module.ClioDocumentPdfViewer })),
-);
-
 function WorkspacePdfView({ workspaceId, path }: { workspaceId: string; path: string }) {
+  const repository = useRepository();
   const { settings } = useConnectionSettings();
-  const url = `${settings.endpoint.replace(/\/$/u, '')}/v1/workspaces/${encodeURIComponent(workspaceId)}/files/read?path=${encodeURIComponent(path)}`;
-  const source = useMemo(
-    () => ({
-      url,
-      ...(settings.token ? { httpHeaders: { Authorization: `Bearer ${settings.token}` } } : {}),
-    }),
-    [settings.token, url],
-  );
+  const content = useQuery({
+    queryKey: queryKeys.workspaceFileBytes(settings.endpoint, workspaceId, path),
+    queryFn: ({ signal }) => repository.readWorkspaceFileBytes(workspaceId, path, signal),
+  });
   return (
-    <Suspense fallback={<ResourceLoading label={`Loading ${fileName(path)}`} />}>
-      <WorkspacePdfViewer name={fileName(path)} onSelection={() => undefined} source={source} />
-    </Suspense>
+    <div className="size-full overflow-hidden p-3">
+      <ClioPdfPreview bytes={content.data} error={content.error?.message} name={fileName(path)} />
+    </div>
   );
 }
 
@@ -500,38 +493,6 @@ export function ImageResourceView({
         )}
       />
     </div>
-  );
-}
-
-export function ResourceLoading({ label, className }: { label: string; className?: string }) {
-  return (
-    <div aria-label={label} className={cn('grid gap-2', className)}>
-      <Skeleton className="h-8 w-full" />
-      <Skeleton className="h-8 w-4/5" />
-      <Skeleton className="h-8 w-11/12" />
-    </div>
-  );
-}
-
-export function ResourceUnavailable({
-  label,
-  detail,
-  icon: Icon = BoxIcon,
-}: {
-  label: string;
-  detail?: string;
-  icon?: typeof BoxIcon;
-}) {
-  return (
-    <Empty className="border">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <Icon aria-hidden="true" />
-        </EmptyMedia>
-        <EmptyTitle>{label}</EmptyTitle>
-        {detail ? <EmptyDescription>{detail}</EmptyDescription> : null}
-      </EmptyHeader>
-    </Empty>
   );
 }
 

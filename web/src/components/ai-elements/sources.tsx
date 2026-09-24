@@ -1,6 +1,7 @@
 import { BookOpenIcon, ChevronDownIcon, ExternalLinkIcon } from 'lucide-react';
 import type { ComponentProps } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ExternalLink } from '@/components/ui/external-link';
 import { cn } from '@/lib/utils';
 
 export type SourcesProps = ComponentProps<typeof Collapsible>;
@@ -49,7 +50,7 @@ export const SourcesContent = ({ className, ...props }: SourcesContentProps) => 
   />
 );
 
-export type SourceProps = ComponentProps<'a'> & {
+export type SourceProps = ComponentProps<typeof ExternalLink> & {
   description?: string;
 };
 
@@ -72,14 +73,12 @@ export const Source = ({
 }: SourceProps) => {
   const host = sourceHost(href);
   return (
-    <a
+    <ExternalLink
       className={cn(
         'group/source flex min-w-0 items-start gap-2 rounded-md border bg-card px-2.5 py-2 text-foreground shadow-xs outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring',
         className,
       )}
       href={href}
-      rel="noreferrer"
-      target="_blank"
       {...props}
     >
       {children ?? (
@@ -97,6 +96,6 @@ export const Source = ({
           />
         </>
       )}
-    </a>
+    </ExternalLink>
   );
 };

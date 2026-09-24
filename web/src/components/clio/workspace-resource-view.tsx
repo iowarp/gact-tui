@@ -12,7 +12,7 @@ import {
   SendIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Attachment, AttachmentPreview } from '@/components/ai-elements/attachments';
 import {
   Timeline,
@@ -42,23 +42,15 @@ import {
   processingRefreshFailed,
   processingStateLabel,
 } from './resource-processing-presentation';
-import {
-  ImageResourceView,
-  ResourceLoading,
-  ResourceUnavailable,
-  TextResourceView,
-} from './resource-viewers';
+import { ClioPdfPreview } from './pdf-preview';
+import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import { ImageResourceView, TextResourceView } from './resource-viewers';
 import { ClioStatus } from './status';
 import { WorkspaceResourceDerivativesView } from './workspace-resource-derivatives';
 import { WorkspaceResourceRemoveAction } from './workspace-resource-remove';
 import { WorkspaceResourceCopyAction } from './workspace-resource-copy';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
 
-const PdfResourceViewer = lazy(() =>
-  import('./document-pdf-viewer').then((module) => ({
-    default: module.ClioDocumentPdfViewer,
-  })),
-);
 
 interface WorkspaceResourceViewProps {
   resource: WorkspaceResource;
@@ -355,13 +347,9 @@ function ResourcePreview({
     // Ahead of the object-URL branch below: the PDF viewer reads the bytes
     // directly, and a blob copy of a whole document is a second copy nothing
     // reads.
-    if (error) return <ResourceUnavailable detail={error} label="Preview unavailable" />;
-    if (!bytes) return <ResourceLoading className="p-4" label={`Loading ${resource.name}`} />;
     return (
       <div className="size-full overflow-hidden p-3">
-        <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${resource.name}`} />}>
-          <PdfResourceViewer bytes={bytes} name={resource.name} onSelection={() => undefined} />
-        </Suspense>
+        <ClioPdfPreview bytes={bytes} error={error} name={resource.name} />
       </div>
     );
   }

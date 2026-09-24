@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { ToolPresentationBlock } from '@clio/core/v3';
 import { PresentationNavigation } from './presentation-navigation';
 import { Button } from '@/components/ui/button';
+import { ExternalLink } from '@/components/ui/external-link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { a2uiSurfaceDomId } from './a2ui-presentation';
@@ -86,14 +87,9 @@ export function PresentationLink({
     );
   if (block.target === 'url' && /^https?:\/\//iu.test(uri))
     return withTooltip(
-      <a
-        className={cn(className, 'underline')}
-        href={uri}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
+      <ExternalLink className={cn(className, 'underline')} href={uri}>
         {text}
-      </a>,
+      </ExternalLink>,
     );
   if (block.target === 'session' && uri)
     return withTooltip(
