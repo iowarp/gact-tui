@@ -11,19 +11,22 @@ import { z } from 'zod';
 export interface A2uiCatalogFile {
   catalogId: string;
   components: Record<string, unknown>;
-  functions?: Record<string, unknown>;
+  // `?: T | null` (not just `?: T`) on every field below: the server's own
+  // contract is "absent, never null" (S1), but this reader tolerates an
+  // explicit `null` too — see the `.nullish()` note beside the zod schemas.
+  functions?: Record<string, unknown> | null;
 }
 
 /** Which renderer kernel implements one catalog component (`catalog.clio.json`). */
 export interface A2uiCatalogSidecarImplementation {
   kernel: string;
-  presets?: Record<string, string>;
+  presets?: Record<string, string> | null;
 }
 
 /** Where one client action name routes, beyond the default agent lane. */
 export interface A2uiCatalogSidecarEventRoute {
-  destination?: 'agent' | 'permission' | 'run';
-  context_schema?: Record<string, unknown>;
+  destination?: 'agent' | 'permission' | 'run' | null;
+  context_schema?: Record<string, unknown> | null;
 }
 
 /** CLIO packaging metadata for one catalog (`catalog.clio.json`). Never sent on the wire. */
@@ -31,9 +34,9 @@ export interface A2uiCatalogSidecar {
   catalogId: string;
   protocolVersion: string;
   trust: { source: 'builtin' | 'pack' };
-  implements?: Record<string, A2uiCatalogSidecarImplementation>;
-  events?: Record<string, A2uiCatalogSidecarEventRoute>;
-  instructions?: string;
+  implements?: Record<string, A2uiCatalogSidecarImplementation> | null;
+  events?: Record<string, A2uiCatalogSidecarEventRoute> | null;
+  instructions?: string | null;
 }
 
 /**
@@ -75,7 +78,8 @@ export type A2uiCatalogUnresolvedReasonCode =
  * server's actual catalog rows, but these two ids are the protocol/CLIO
  * defaults every renderer of this vintage would still recognize by name.
  */
-export const A2UI_BASIC_CATALOG_ID = 'https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json';
+export const A2UI_BASIC_CATALOG_ID =
+  'https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json';
 export const A2UI_CLIO_WORKSPACE_CATALOG_ID = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
 
 /** A typed, worded reason a catalog row could not become a renderable catalog. */
@@ -154,7 +158,9 @@ export function buildA2uiCatalog<T extends ComponentApi>(
         },
       };
     }
-    components.push(wrapComponent(kernelComponent, componentName, implementation?.presets));
+    components.push(
+      wrapComponent(kernelComponent, componentName, implementation?.presets ?? undefined),
+    );
   }
 
   const functions: FunctionImplementation[] = [];
@@ -175,33 +181,50 @@ export function buildA2uiCatalog<T extends ComponentApi>(
 
   return {
     ok: true,
-    resolution: { catalogId: row.catalogId, catalog: new Catalog<T>(row.catalogId, components, functions) },
+    resolution: {
+      catalogId: row.catalogId,
+      catalog: new Catalog<T>(row.catalogId, components, functions),
+    },
   };
 }
 
+// S1 (A2UI catalog contract, iowarp/clio-agent): the server's own wire
+// contract is "absent, never null" (`exclude_none=True` on the sidecar
+// `model_dump`, `gact/a2ui_catalogs/routes/a2ui_catalogs.py`) — but this
+// reader stays TOLERANT of an explicit JSON `null` on every field the server
+// model can produce as `None` (`clio_schemas.a2ui.sidecar`'s `presets` /
+// `context_schema` / `instructions`), via `.nullish()` rather than
+// `.optional()`. `.optional()` only tolerates a MISSING key; it throws on a
+// present key whose value is `null`, which is exactly what an unset Pydantic
+// `Optional[...] = None` field serialises to without `exclude_none` — the
+// root cause of the whole catalog list failing to parse and silently
+// emptying the client's registry, reported as "Interactive surface
+// unavailable" even when the server's producer tool returned
+// `created: true`. A future server regression (or an older, unpatched
+// server) that reintroduces nulls must still parse.
 const a2uiCatalogSidecarImplementationSchema = z.object({
   kernel: z.string(),
-  presets: z.record(z.string(), z.string()).optional(),
+  presets: z.record(z.string(), z.string()).nullish(),
 });
 
 const a2uiCatalogSidecarEventRouteSchema = z.object({
-  destination: z.enum(['agent', 'permission', 'run']).optional(),
-  context_schema: z.record(z.string(), z.unknown()).optional(),
+  destination: z.enum(['agent', 'permission', 'run']).nullish(),
+  context_schema: z.record(z.string(), z.unknown()).nullish(),
 });
 
 const a2uiCatalogSidecarSchema = z.object({
   catalogId: z.string(),
   protocolVersion: z.string(),
   trust: z.object({ source: z.enum(['builtin', 'pack']) }),
-  implements: z.record(z.string(), a2uiCatalogSidecarImplementationSchema).optional(),
-  events: z.record(z.string(), a2uiCatalogSidecarEventRouteSchema).optional(),
-  instructions: z.string().optional(),
+  implements: z.record(z.string(), a2uiCatalogSidecarImplementationSchema).nullish(),
+  events: z.record(z.string(), a2uiCatalogSidecarEventRouteSchema).nullish(),
+  instructions: z.string().nullish(),
 });
 
 const a2uiCatalogFileSchema = z.object({
   catalogId: z.string(),
   components: z.record(z.string(), z.unknown()),
-  functions: z.record(z.string(), z.unknown()).optional(),
+  functions: z.record(z.string(), z.unknown()).nullish(),
 });
 
 /**
@@ -278,7 +301,10 @@ export class A2uiCatalogRegistry<T extends ComponentApi> {
    */
   public markRouteUnavailable(
     detail: string,
-    wellKnownCatalogIds: readonly string[] = [A2UI_CLIO_WORKSPACE_CATALOG_ID, A2UI_BASIC_CATALOG_ID],
+    wellKnownCatalogIds: readonly string[] = [
+      A2UI_CLIO_WORKSPACE_CATALOG_ID,
+      A2UI_BASIC_CATALOG_ID,
+    ],
   ): void {
     this.resolved.clear();
     this.reasons.clear();

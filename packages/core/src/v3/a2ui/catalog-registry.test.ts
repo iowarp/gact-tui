@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { ComponentApi, FunctionImplementation } from '@a2ui/web_core/v0_9';
 import { z } from 'zod';
-import { A2uiCatalogRegistry, buildA2uiCatalog, type A2uiCatalogRow, type A2uiKernelRegistry } from './catalog-registry.js';
+import catalogSidecarsWithNulls from './catalog-sidecars.with-nulls.fixture.json';
+import {
+  A2uiCatalogRegistry,
+  a2uiCatalogRowListSchema,
+  buildA2uiCatalog,
+  type A2uiCatalogRow,
+  type A2uiCatalogSidecar,
+  type A2uiKernelRegistry,
+} from './catalog-registry.js';
 
 function component(name: string): ComponentApi {
   return { name, schema: z.object({}).strict() };
@@ -131,7 +139,9 @@ describe('buildA2uiCatalog', () => {
         catalogId: 'https://example.test/catalogs/preset',
         protocolVersion: '0.9.1',
         trust: { source: 'pack' },
-        implements: { MultiPicker: { kernel: 'Button', presets: { variant: 'multipleSelection' } } },
+        implements: {
+          MultiPicker: { kernel: 'Button', presets: { variant: 'multipleSelection' } },
+        },
       },
     });
     const seen: Array<Record<string, string> | undefined> = [];
@@ -152,7 +162,10 @@ describe('A2uiCatalogRegistry', () => {
       row({
         catalogId: 'https://example.test/catalogs/unresolvable',
         componentNames: ['Slider'],
-        file: { catalogId: 'https://example.test/catalogs/unresolvable', components: { Slider: {} } },
+        file: {
+          catalogId: 'https://example.test/catalogs/unresolvable',
+          components: { Slider: {} },
+        },
       }),
     ]);
     expect(registry.supportedCatalogIds()).toEqual(['https://example.test/catalogs/basic']);
@@ -169,5 +182,63 @@ describe('A2uiCatalogRegistry', () => {
     registry.load([]);
     expect(registry.get(row().catalogId)).toBeUndefined();
     expect(registry.supportedCatalogIds()).toEqual([]);
+  });
+});
+
+describe('a2uiCatalogRowSchema tolerates an explicit null on optional sidecar fields (S1)', () => {
+  // `catalog-sidecars.with-nulls.fixture.json` is a REAL server dump (not
+  // hand-typed): both builtin catalogs' sidecars, serialised WITHOUT
+  // `exclude_none` -- exactly what `gact/a2ui_catalogs/routes/
+  // a2ui_catalogs.py::_catalog_summary` used to send before the S1 fix (every
+  // `implements.<name>` with no alias serialises `presets: null`; every
+  // `events.<name>` route serialises its unset `context_schema`/`operation`/
+  // `narration` the same way). Regenerate with (from a clio-agent checkout):
+  //
+  //   uv run python -c "
+  //   import json
+  //   from clio_agent.gact.a2ui_catalogs.registry import CatalogRegistry
+  //   registry = CatalogRegistry()
+  //   print(json.dumps([
+  //       {'catalogId': e.catalog_id, 'sidecar': e.sidecar.model_dump(mode='json')}
+  //       for e in registry.installed()
+  //   ], indent=2, sort_keys=True))
+  //   " > packages/core/src/v3/a2ui/catalog-sidecars.with-nulls.fixture.json
+  //
+  // Before S1's `.nullish()` fix, `.optional()` on `presets`/`context_schema`
+  // rejected the explicit `null` and `a2uiCatalogRowListSchema.parse` threw,
+  // failing the WHOLE catalog list (`a2ui-repository.ts`'s `a2uiCatalogs()`)
+  // -- the exact root cause of "Interactive surface unavailable" reported
+  // even though the server's producer tool returned `created: true`.
+  function rowFromFixture(entry: { catalogId: string; sidecar: unknown }): A2uiCatalogRow {
+    const sidecar = entry.sidecar as A2uiCatalogSidecar;
+    return {
+      catalogId: entry.catalogId,
+      protocolVersion: sidecar.protocolVersion,
+      source: 'builtin',
+      checksum: 'irrelevant-for-this-test',
+      componentNames: Object.keys(sidecar.implements ?? {}),
+      functionNames: [],
+      sidecar,
+      producible: false,
+    };
+  }
+
+  it('parses the full real-world payload without throwing', () => {
+    const rows = catalogSidecarsWithNulls.map(rowFromFixture);
+
+    expect(() => a2uiCatalogRowListSchema.parse(rows)).not.toThrow();
+  });
+
+  it('keeps a null field as null, not silently coerced to undefined or dropped', () => {
+    const rows = catalogSidecarsWithNulls.map(rowFromFixture);
+    const parsed = a2uiCatalogRowListSchema.parse(rows);
+
+    const workspaceRow = parsed.find((row) => row.catalogId.includes('clio-workspace'));
+    expect(workspaceRow).toBeDefined();
+    expect(workspaceRow!.sidecar.implements?.Button?.presets).toBeNull();
+    const approvalRoute = workspaceRow!.sidecar.events?.['approval.respond'];
+    expect(approvalRoute).toBeDefined();
+    expect(approvalRoute!.context_schema).toBeNull();
+    expect(approvalRoute!.destination).toBe('permission');
   });
 });
