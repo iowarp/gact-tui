@@ -15,6 +15,20 @@ export interface ResourceUploadProgress {
   total: number;
 }
 
+/**
+ * A `FileUIPart` attachment that may still carry the browser `File`/`Blob` it
+ * was created from.
+ *
+ * When `file` is present its bytes are read directly (no network involved).
+ * `url` is typically a `blob:` object URL, and re-fetching it depends on the
+ * page being allowed to `fetch()` its own origin's blob store — the desktop
+ * app's CSP `connect-src` historically did not list `blob:`, so every
+ * attachment upload failed there even though the bytes were already in
+ * memory (gact-tui root cause B). Carrying `file` through removes that
+ * dependency entirely instead of only patching the CSP.
+ */
+export type UploadableFilePart = FileUIPart & { file?: File | Blob };
+
 export interface WorkspaceResourceUploadResult {
   parts: ComposerMessagePart[];
   resources: WorkspaceResource[];
@@ -43,7 +57,7 @@ export async function uploadWorkspaceResources({
   signal,
   workspaceId,
 }: {
-  files: readonly FileUIPart[];
+  files: readonly UploadableFilePart[];
   onProgress?: (progress: ResourceUploadProgress) => void;
   repository: ComposerRepository;
   signal?: AbortSignal;
@@ -52,11 +66,7 @@ export async function uploadWorkspaceResources({
   const resources: WorkspaceResource[] = [];
 
   for (const file of files) {
-    const response = await fetch(file.url, { signal });
-    if (!response.ok) {
-      throw new Error(`Unable to read ${file.filename ?? 'the attachment'} for upload.`);
-    }
-    const blob = await response.blob();
+    const blob = await readAttachmentBytes(file, signal);
     const name = file.filename?.trim() || 'attachment';
     const mediaType = file.mediaType || blob.type || 'application/octet-stream';
     const clientUploadId = await uploadFingerprint(name, mediaType, blob);
@@ -150,6 +160,49 @@ async function awaitRegisteredResource({
     await abortableDelay(delay, signal);
     delay = Math.min(delay * 2, RESOURCE_READY_POLL_MAX_MS);
   }
+}
+
+/**
+ * Read an attachment's bytes.
+ *
+ * The `File`/`Blob` the attachment was created from is preferred — it is
+ * already in memory, so reading it never depends on `fetch` being able to
+ * reach `url` (usually a `blob:` object URL a strict `connect-src` CSP can
+ * refuse). `fetch` is used only as a fallback for an attachment that
+ * genuinely has no surviving `File`/`Blob`, and a failure there is reported
+ * as a distinct, named error rather than silently swallowed.
+ *
+ * Exported so every place that reads an attachment's bytes — the upload
+ * path here, and the composer's local text/PDF previews
+ * (composer-attachments.tsx) — shares this exact File-first, fetch-fallback
+ * policy instead of each re-fetching the blob: URL on its own.
+ */
+export async function readAttachmentBytes(
+  file: UploadableFilePart,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  if (file.file) return file.file;
+  const label = file.filename ?? 'the attachment';
+  let response: Response;
+  try {
+    response = await fetch(file.url, { signal });
+  } catch (cause) {
+    throw attachmentUnavailableError(
+      label,
+      `fetching "${file.url}" failed (${cause instanceof Error ? cause.message : String(cause)}).`,
+    );
+  }
+  if (!response.ok) {
+    throw attachmentUnavailableError(label, `fetching "${file.url}" returned ${response.status}.`);
+  }
+  return response.blob();
+}
+
+/** A typed, named error for an attachment whose bytes could not be read at all. */
+function attachmentUnavailableError(name: string, detail: string): Error {
+  const error = new Error(`Unable to read ${name} for upload: no local file data was held, and ${detail}`);
+  error.name = 'AttachmentUnavailableError';
+  return error;
 }
 
 function assertNotTerminal(name: string, resource: WorkspaceResource): void {

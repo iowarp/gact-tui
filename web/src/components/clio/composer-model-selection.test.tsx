@@ -67,22 +67,29 @@ function renderComposer({
   provider?: string;
   model?: string;
 }) {
-  render(
-    <QueryClientProvider client={new QueryClient()}>
+  const queryClient = new QueryClient();
+  const build = (next: { effort?: string; model?: string; provider?: string }) => (
+    <QueryClientProvider client={queryClient}>
       <PromptInputProvider>
         <ClioComposer
           attachments={false}
           configuredEffort={configuredEffort}
-          effort={effort}
-          model={model}
+          effort={next.effort}
+          model={next.model ?? model}
           modelOptions={modelOptions}
           onSubmit={onSubmit}
-          provider={provider}
+          provider={next.provider ?? provider}
           state="completed"
         />
       </PromptInputProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const view = render(build({ effort }));
+  // Same element identity, new props: the no-remount path workspace-page uses.
+  return {
+    rerenderWith: (next: { effort?: string; model?: string; provider?: string }) =>
+      view.rerender(build({ effort, ...next })),
+  };
 }
 
 describe('ClioComposer model selection', () => {
@@ -245,5 +252,81 @@ describe('ClioComposer model selection', () => {
         }),
       ),
     );
+  });
+
+  it('adopts a session effort that arrives after mount as the pick; a default is only shown', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(async () => undefined);
+    const { rerenderWith } = renderComposer({
+      effort: undefined,
+      modelOptions: [reasoningModel],
+      onSubmit,
+    });
+
+    // Nothing picked yet: the model default is displayed and NOT sent.
+    expect(
+      screen.getByRole('button', { name: 'Reasoning effort: Model default (High)' }),
+    ).toBeVisible();
+    await user.type(composerEditor(), 'Before the session loads.{Enter}');
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0]?.[0].behavior.reasoning_effort).toBeUndefined();
+
+    // The session's user-sourced effort resolves after mount, without a remount.
+    rerenderWith({ effort: 'low' });
+    expect(await screen.findByRole('button', { name: 'Reasoning effort: low' })).toBeVisible();
+    await user.type(composerEditor(), 'After the session loads.{Enter}');
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+    expect(onSubmit.mock.calls[1]?.[0].behavior.reasoning_effort).toBe('low');
+  });
+
+  it('never sends a pick the newly selected model does not offer', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(async () => undefined);
+    const gptOss = {
+      ...reasoningModel,
+      providerId: 'argonne_metis',
+      providerName: 'ALCF Metis',
+      id: 'gpt-oss-120b',
+      label: 'gpt-oss-120b',
+      reasoning: {
+        levels: ['low', 'medium', 'high'] as ReasoningEffort[],
+        default: 'medium' as ReasoningEffort,
+      },
+    };
+    const { rerenderWith } = renderComposer({
+      effort: 'xhigh',
+      modelOptions: [reasoningModel, gptOss],
+      onSubmit,
+    });
+    expect(screen.getByRole('button', { name: 'Reasoning effort: Extra high' })).toBeVisible();
+
+    rerenderWith({ model: 'gpt-oss-120b', provider: 'argonne_metis' });
+
+    expect(
+      await screen.findByRole('button', { name: 'Reasoning effort: Model default (Medium)' }),
+    ).toBeVisible();
+    await user.type(composerEditor(), 'On the new model.{Enter}');
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    expect(onSubmit.mock.calls[0]?.[0].behavior.reasoning_effort).toBeUndefined();
+  });
+
+  it('does not turn a cleared session effort into a sent fallback level', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn<ClioComposerProps['onSubmit']>(async () => undefined);
+    const { rerenderWith } = renderComposer({
+      effort: 'low',
+      modelOptions: [reasoningModel],
+      onSubmit,
+    });
+
+    // The authoritative session effort goes away (e.g. a session without one).
+    rerenderWith({ effort: undefined });
+
+    expect(
+      await screen.findByRole('button', { name: 'Reasoning effort: Model default (High)' }),
+    ).toBeVisible();
+    await user.type(composerEditor(), 'No pick now.{Enter}');
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
+    expect(onSubmit.mock.calls[0]?.[0].behavior.reasoning_effort).toBeUndefined();
   });
 });

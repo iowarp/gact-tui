@@ -206,6 +206,12 @@ test('CSP is present, localhost-scoped, and identical across config variants', (
   // remote/SSH-tunneled egress is done by Rust (gact_http/gact_sse), not the WebView.
   for (const csp of [baseCsp, gactCsp]) {
     assert.match(csp, /connect-src[^;]*'self'/, 'connect-src must allow self');
+    // Attachments are read from `blob:` object URLs the page itself created
+    // (prompt-input.tsx's URL.createObjectURL). Without `blob:` here, the
+    // WebView refuses `fetch()`/`arrayBuffer()`-style reads of them and every
+    // attachment upload fails (gact-tui root cause B) — this is belt-and-braces
+    // alongside the real fix, which stops re-fetching the blob URL at all.
+    assert.match(csp, /connect-src[^;]*\sblob:/, 'connect-src must allow blob: for attachments');
     assert.match(csp, /http:\/\/localhost:\*/, 'connect-src must allow http://localhost:*');
     assert.match(csp, /http:\/\/127\.0\.0\.1:\*/, 'connect-src must allow http://127.0.0.1:*');
     assert.match(csp, /wss?:\/\/localhost:\*/, 'connect-src must allow ws/wss localhost for SSE');

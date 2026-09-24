@@ -147,6 +147,16 @@ export interface QueuedMessage {
   updated_at: string;
 }
 
+/**
+ * The outcome of copying a ready resource into the workspace's file tree —
+ * see `resourceMaterializationSchema` (composer-schemas.ts) for why this is
+ * independent of `WorkspaceResource.state`.
+ */
+export interface WorkspaceResourceMaterialization {
+  state: 'pending' | 'ready' | 'failed';
+  reason: string;
+}
+
 export interface WorkspaceResource {
   id: string;
   workspace_id: string;
@@ -166,6 +176,7 @@ export interface WorkspaceResource {
   completed_at: string;
   workspace_path?: string;
   mime_mismatch: boolean;
+  materialization?: WorkspaceResourceMaterialization;
   processing?: WorkspaceResourceProcessing;
   idempotent_replay?: boolean;
   upload_url?: string;
