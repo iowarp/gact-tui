@@ -59,41 +59,6 @@ export function subscribeDesktopUpdate(
 }
 
 /**
- * Read the ``version`` field out of the same signed manifest
- * (`latest-lite.json`) the desktop updater plugin polls above -- a plain,
- * unauthenticated JSON GET, not the plugin's signature-verified `check()`.
- * Unlike `checkForDesktopUpdate`, this has no `inTauri()` gate: it runs
- * identically inside the desktop webview and the plain web build, so the
- * connected agent's version can be compared against the latest published
- * CLIO release even where the Tauri updater plugin doesn't exist.
- *
- * `releaseUrl` is the release index (e.g. `https://github.com/<org>/<repo>/releases`)
- * a brand profile already carries as `agentReleaseUrl` -- the manifest lives at
- * `<releaseUrl>/latest/download/latest-lite.json` (see clio-agent's
- * `clio-bundles.yml` release workflow, which publishes it there).
- *
- * Never throws: a missing release feed, a failed request, or an unparsable
- * body all resolve to `undefined` so a caller renders "not checked" instead
- * of fabricating a status (#775 no silent fallback -- the caller decides how
- * to present "unknown", this just refuses to guess a version number).
- */
-export async function fetchLatestClioVersion(releaseUrl: string | null): Promise<string | undefined> {
-  if (!releaseUrl) return undefined;
-  try {
-    const response = await fetch(`${releaseUrl}/latest/download/latest-lite.json`);
-    if (!response.ok) return undefined;
-    const manifest: unknown = await response.json();
-    const version =
-      manifest && typeof manifest === 'object'
-        ? (manifest as { version?: unknown }).version
-        : undefined;
-    return typeof version === 'string' && version.trim() ? version : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
  * Persists the "last checked" clock across app restarts, written by every
  * real check attempt (manual button or background scheduler alike).
  */

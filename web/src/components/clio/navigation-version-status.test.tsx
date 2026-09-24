@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const repository = vi.hoisted(() => ({ capabilities: vi.fn() }));
+const repository = vi.hoisted(() => ({ capabilities: vi.fn(), latestRelease: vi.fn() }));
 const desktop = vi.hoisted(() => ({
   snapshot: { status: 'current' } as
     | { status: 'unknown' | 'current' }
@@ -15,12 +15,6 @@ const desktop = vi.hoisted(() => ({
       },
   install: vi.fn(async () => undefined),
   check: vi.fn(async () => undefined),
-  // Same manifest the updater plugin polls (latest-lite.json), read as a
-  // plain version string -- defaults to the release BOTH products are
-  // already at, so a test only needs to override it to exercise drift.
-  fetchLatestClioVersion: vi.fn(
-    async (_releaseUrl: string | null): Promise<string | undefined> => '0.9.4.3',
-  ),
 }));
 const updateManagedClio = vi.hoisted(() => vi.fn(async () => undefined));
 const restartClio = vi.hoisted(() => vi.fn(async () => undefined));
@@ -40,7 +34,6 @@ vi.mock('@/tauri/desktop-updater', () => ({
   subscribeDesktopUpdate: () => () => undefined,
   installDesktopUpdate: desktop.install,
   checkForDesktopUpdate: desktop.check,
-  fetchLatestClioVersion: (releaseUrl: string | null) => desktop.fetchLatestClioVersion(releaseUrl),
 }));
 vi.mock('@/tauri/managed-backend', () => ({ restartClio, updateManagedClio }));
 vi.mock('@/tauri/external-url', () => ({ openExternalUrl: vi.fn() }));
@@ -78,12 +71,21 @@ beforeEach(() => {
   desktop.snapshot = { status: 'current' };
   desktop.install.mockClear();
   desktop.check.mockClear();
-  desktop.fetchLatestClioVersion.mockClear();
-  desktop.fetchLatestClioVersion.mockResolvedValue('0.9.4.3');
   updateManagedClio.mockClear();
   getVersion.mockResolvedValue('0.9.4+3');
   repository.capabilities.mockResolvedValue({
     service: { name: 'clio-agent-gact', version: '0.9.4.3' },
+  });
+  // Same manifest the desktop updater plugin polls (latest-lite.json), now
+  // read server-side (GET /v1/system/latest-release) -- defaults to the
+  // release BOTH products are already at, so a test only needs to override
+  // it to exercise drift.
+  repository.latestRelease.mockClear();
+  repository.latestRelease.mockResolvedValue({
+    version: '0.9.4.3',
+    source: 'https://github.com/iowarp/clio-agent/releases/latest/download/latest-lite.json',
+    checked_at: '2026-09-24T00:00:00Z',
+    degradation: null,
   });
 });
 
@@ -166,7 +168,12 @@ describe('SystemVersionStatus', () => {
   });
 
   it('reports the CLIO row as not checked when the release manifest is unavailable', async () => {
-    desktop.fetchLatestClioVersion.mockResolvedValue(undefined);
+    repository.latestRelease.mockResolvedValue({
+      version: null,
+      source: 'https://github.com/iowarp/clio-agent/releases/latest/download/latest-lite.json',
+      checked_at: '2026-09-24T00:00:00Z',
+      degradation: { reason: 'manifest_unreachable', message: 'release manifest unreachable' },
+    });
     renderStatus();
 
     const trigger = await screen.findByRole('button', { name: 'Version status not yet checked' });

@@ -14,6 +14,7 @@ export * from './execution-provenance-domain.js';
 export * from './infrastructure-domain.js';
 export * from './infrastructure-contract.js';
 export * from './infrastructure-repository.js';
+export * from './system-repository.js';
 export * from './sandbox-domain.js';
 export * from './execution-provenance-repository.js';
 export * from './execution-provenance-schemas.js';

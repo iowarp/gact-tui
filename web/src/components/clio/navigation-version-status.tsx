@@ -21,7 +21,6 @@ import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   checkForDesktopUpdate,
-  fetchLatestClioVersion,
   getDesktopUpdateSnapshot,
   installDesktopUpdate,
   subscribeDesktopUpdate,
@@ -51,17 +50,15 @@ export function SystemVersionStatus() {
     queryKey: queryKeys.key('capabilities', settings.endpoint),
     queryFn: ({ signal }) => repository.capabilities(signal),
   });
-  // The latest published CLIO release, read from the SAME manifest the
-  // desktop updater plugin polls (see fetchLatestClioVersion) -- works on
-  // both the installed desktop app and the plain web build, so the CLIO row
-  // below can compare the connected agent against a real release instead of
-  // guessing from the desktop's own installed version.
+  // The latest published CLIO release. The browser (and the desktop webview,
+  // which is subject to the same fetch CORS rules) cannot reach a GitHub
+  // release asset directly -- GitHub sends no CORS headers on it -- so the
+  // CONNECTED SERVER does that fetch (GET /v1/system/latest-release) and
+  // hands back just the version this row needs to compare against.
   const latestClioRelease = useQuery({
-    enabled: Boolean(brand.agentReleaseUrl),
-    queryKey: queryKeys.key('clio-release-manifest', brand.agentReleaseUrl ?? ''),
-    // react-query rejects a queryFn that resolves `undefined` (ambiguous
-    // with "no data yet"); `null` is the honest "checked, nothing usable".
-    queryFn: async () => (await fetchLatestClioVersion(brand.agentReleaseUrl)) ?? null,
+    enabled: credentialsReady,
+    queryKey: queryKeys.key('latest-release', settings.endpoint),
+    queryFn: ({ signal }) => repository.latestRelease(signal),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -84,7 +81,7 @@ export function SystemVersionStatus() {
 
   const displayedDesktopVersion = displayReleaseVersion(desktopVersion);
   const agentVersion = displayReleaseVersion(capabilities.data?.service?.version);
-  const latestClioVersion = displayReleaseVersion(latestClioRelease.data ?? undefined);
+  const latestClioVersion = displayReleaseVersion(latestClioRelease.data?.version ?? undefined);
   // The desktop's own update target comes ONLY from a real signed-manifest
   // check that found something newer -- never a fallback to its own current
   // version (that fallback was the "Up to date at v0.9.4.14" bug: it made
@@ -100,7 +97,7 @@ export function SystemVersionStatus() {
   // Knowing the agent is behind is a fact; being ALLOWED to push a remote
   // update is a separate, narrower permission (only a managed connection can).
   const agentUpdateActionable = agentBehindLatest && isManagedConnection;
-  const latestClioReleaseChecking = Boolean(brand.agentReleaseUrl) && latestClioRelease.isPending;
+  const latestClioReleaseChecking = credentialsReady && latestClioRelease.isPending;
   const state = useMemo<VersionState>(() => {
     if (snapshot.status === 'error' || capabilities.isError) return 'error';
     if (
