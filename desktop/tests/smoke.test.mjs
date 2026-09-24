@@ -363,10 +363,40 @@ test('installer separates Infrastructure and individual provider choices into un
   assert.doesNotMatch(infrastructurePage, /ClioProvider\w+Checkbox/);
 
   const providersPage = hooks.match(/Function ClioProvidersPage\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
-  assert.match(providersPage, /\$\{NSD_Check\} \$ClioProviderCodexCheckbox/);
-  assert.match(providersPage, /\$\{NSD_Check\} \$ClioProviderOpenAICheckbox/);
-  assert.match(providersPage, /\$\{NSD_Uncheck\} \$ClioProviderClaudeCodeCheckbox/);
-  assert.match(providersPage, /\$\{NSD_Uncheck\} \$ClioProviderAnthropicCheckbox/);
+  // Nothing is pre-checked, including OpenAI Codex and OpenAI API (the old
+  // defaults the owner reported seeing every time) — every checkbox instead
+  // restores whatever was remembered from an earlier pass through the page.
+  assert.doesNotMatch(
+    providersPage,
+    /\$\{NSD_(?:Check|Uncheck)\} \$ClioProvider\w+Checkbox/,
+    'no provider checkbox may be hardcoded checked/unchecked on show',
+  );
+  for (const [checkbox, remembered] of [
+    ['ClioProviderCodexCheckbox', 'ClioProviderCodexChecked'],
+    ['ClioProviderClaudeCodeCheckbox', 'ClioProviderClaudeCodeChecked'],
+    ['ClioProviderOpenAICheckbox', 'ClioProviderOpenAIChecked'],
+    ['ClioProviderAnthropicCheckbox', 'ClioProviderAnthropicChecked'],
+    ['ClioProviderGeminiCheckbox', 'ClioProviderGeminiChecked'],
+    ['ClioProviderVertexCheckbox', 'ClioProviderVertexChecked'],
+    ['ClioProviderLMStudioCheckbox', 'ClioProviderLMStudioChecked'],
+    ['ClioProviderOllamaCheckbox', 'ClioProviderOllamaChecked'],
+    ['ClioProviderLlamaCppCheckbox', 'ClioProviderLlamaCppChecked'],
+    ['ClioProviderVllmCheckbox', 'ClioProviderVllmChecked'],
+    ['ClioProviderArgonneSophiaCheckbox', 'ClioProviderArgonneSophiaChecked'],
+    ['ClioProviderArgonneMetisCheckbox', 'ClioProviderArgonneMetisChecked'],
+    ['ClioProviderAzureOpenAICheckbox', 'ClioProviderAzureOpenAIChecked'],
+    ['ClioProviderBedrockCheckbox', 'ClioProviderBedrockChecked'],
+    ['ClioProviderNvidiaNimCheckbox', 'ClioProviderNvidiaNimChecked'],
+    ['ClioProviderOpenRouterCheckbox', 'ClioProviderOpenRouterChecked'],
+  ]) {
+    assert.match(
+      providersPage,
+      new RegExp(
+        `!insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX \\$${checkbox} \\$${remembered}`,
+      ),
+      `${checkbox} must restore its remembered state instead of a hardcoded default`,
+    );
+  }
   assert.equal((providersPage.match(/\$\{WM_SETFONT\}/g) ?? []).length, 5);
   const verticalPositions = [
     ...providersPage.matchAll(/NSD_Create(?:Label|Checkbox)\}\s+\S+\s+(\d+)u/g),
@@ -376,6 +406,44 @@ test('installer separates Infrastructure and individual provider choices into un
     Math.max(...verticalPositions) <= 120,
     'provider controls must remain above the NSIS footer',
   );
+});
+
+test('the providers page remembers choices across re-shows and blocks Next until one is chosen', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+
+  const restoreMacro =
+    hooks.match(/!macro CLIO_RESTORE_PROVIDER_CHECKBOX([\s\S]*?)!macroend/)?.[1] ?? '';
+  assert.match(restoreMacro, /\$\{NSD_Check\} \$\{_CHECKBOX\}/);
+  assert.match(restoreMacro, /\$\{NSD_Uncheck\} \$\{_CHECKBOX\}/);
+
+  const rememberMacro =
+    hooks.match(/!macro CLIO_REMEMBER_PROVIDER_CHECKBOX([\s\S]*?)!macroend/)?.[1] ?? '';
+  assert.match(rememberMacro, /\$\{NSD_GetState\} \$\{_CHECKBOX\} \$0/);
+
+  const leave = hooks.match(/Function ClioProvidersPageLeave\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  // Every checkbox is captured into the comma list AND remembered for the
+  // next show, in that order, before validation runs.
+  const appendCalls = leave.match(/!insertmacro CLIO_APPEND_PROVIDER/g) ?? [];
+  const rememberCalls = leave.match(/!insertmacro CLIO_REMEMBER_PROVIDER_CHECKBOX/g) ?? [];
+  assert.equal(appendCalls.length, 16, 'expected one CLIO_APPEND_PROVIDER call per provider');
+  assert.equal(
+    rememberCalls.length,
+    16,
+    'expected one CLIO_REMEMBER_PROVIDER_CHECKBOX call per provider',
+  );
+
+  // Leave blocks on an empty selection with a clear message, not a silent
+  // "codex,openai" fallback.
+  assert.match(leave, /\$\{If\} \$ClioProviderIds == ""/);
+  assert.match(leave, /MessageBox MB_ICONEXCLAMATION "[^"]*provider[^"]*"/i);
+  assert.match(
+    leave.match(/\$\{If\} \$ClioProviderIds == ""[\s\S]*?\$\{EndIf\}/)?.[0] ?? '',
+    /Abort/,
+  );
+
+  // The removed silent fallback must not reappear anywhere in the file.
+  assert.doesNotMatch(hooks, /StrCpy \$ClioProviderIds "codex,openai"/);
+  assert.doesNotMatch(hooks, /ClioProviderChoicesCaptured/);
 });
 
 test('the setup pages are skipped for passive and update installs', () => {
@@ -400,12 +468,29 @@ test('installer-options.json is always written through the one v4-schema macro',
   assert.match(hooks, /\$\\"llama_cpp\$\\":\$\\"'/);
   assert.match(hooks, /\$\\"clio_kit\$\\":\$\\"bundled\$\\"/);
   assert.match(hooks, /\$\\"provider_ids\$\\":\$\\"'/);
+  assert.match(hooks, /\$\\"installed_at\$\\":\$\\"'/);
   for (const status of ['pending', 'not_requested']) {
     assert.match(hooks, new RegExp(`StrCpy \\$ClioWebSearchStatus "${status}"`));
   }
   for (const status of ['requested', 'not_requested']) {
     assert.match(hooks, new RegExp(`StrCpy \\$ClioLlamaCppStatus "${status}"`));
   }
+});
+
+test('a real install stamps a fresh installed_at revision shared by PREINSTALL and POSTINSTALL', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  const preinstall = hooks.match(/!macro NSIS_HOOK_PREINSTALL([\s\S]*?)!macroend/)?.[1] ?? '';
+  assert.match(preinstall, /\$\{GetTime\} "" "L" \$R0 \$R1 \$R2 \$R3 \$R4 \$R5 \$R6/);
+  assert.match(preinstall, /StrCpy \$ClioInstalledAt "\$R2\$R1\$R0\$R4\$R5\$R6"/);
+
+  // Computed after entering the "real, non-passive/update install" branch,
+  // and before the write that persists it — a passive/update run must not
+  // stamp a new revision (it never writes the file at all).
+  const branchOpensAt = preinstall.indexOf('${If} $PassiveMode <> 1');
+  const getTimeAt = preinstall.indexOf('${GetTime} "" "L"');
+  const writeAt = preinstall.indexOf('!insertmacro CLIO_WRITE_INSTALLER_OPTIONS');
+  assert.ok(branchOpensAt >= 0 && getTimeAt > branchOpensAt, 'GetTime must run inside the branch');
+  assert.ok(writeAt > getTimeAt, 'the timestamp must be computed before it is written');
 });
 
 test('updater plugin config is present and consistent across variants', () => {
