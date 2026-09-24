@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ClioDocumentPdfViewer } from './document-pdf-viewer';
@@ -29,9 +29,17 @@ vi.mock('react-pdf', async () => {
       onRenderSuccess?: () => void;
       pageNumber: number;
     }) => {
+      // Fires once per mounted page, keyed on the page identity -- matching
+      // real react-pdf, which re-renders a page's canvas (and re-fires this)
+      // on its OWN geometry changing, never merely because a caller's inline
+      // callback got a fresh reference. Keying on `onRenderSuccess` itself
+      // (an inline arrow recreated every parent render in the real
+      // component) turned a real measurement into an infinite render loop
+      // that only this mock's naive re-firing could produce.
       React.useEffect(() => {
         if (pageRenderReady.value) onRenderSuccess?.();
-      }, [onRenderSuccess]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [pageNumber]);
       return <div>PDF page {pageNumber}</div>;
     },
   };
@@ -85,6 +93,85 @@ describe('ClioDocumentPdfViewer', () => {
 
     expect(screen.getByText('Page 2 of 3')).toBeVisible();
     expect(screen.getByText('PDF page 2')).toBeVisible();
+  });
+
+  it('jumps continuous-scroll to the requested initial page once a real page height is known', async () => {
+    documentPageCount.value = 400;
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function getBoundingClientRect(this: HTMLElement) {
+        const page = this instanceof HTMLElement && this.hasAttribute('data-page');
+        return {
+          bottom: page ? 300 : 700,
+          height: page ? 300 : 700,
+          left: 0,
+          right: 320,
+          top: 0,
+          width: 320,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        };
+      },
+    );
+
+    render(
+      <ClioDocumentPdfViewer
+        bytes={new Uint8Array([37, 80, 68, 70])}
+        initialPage={200}
+        name="thesis.pdf"
+        onSelection={vi.fn()}
+      />,
+    );
+
+    // Page 1 renders first (scroll starts at 0) so its real height can be
+    // measured; the jump to page 200 follows once that measurement lands.
+    expect(await screen.findByText('PDF page 200')).toBeVisible();
+    expect(screen.queryByText('PDF page 1')).not.toBeInTheDocument();
+    const scroller = document.querySelector<HTMLElement>('[data-pdf-scroller]');
+    // (200 - 1) pages * (300px measured height + 12px gap).
+    expect(scroller?.scrollTop).toBe(199 * 312);
+    rect.mockRestore();
+  });
+
+  it('does not re-jump continuous-scroll after the reader scrolls away', async () => {
+    documentPageCount.value = 400;
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      function getBoundingClientRect(this: HTMLElement) {
+        const page = this instanceof HTMLElement && this.hasAttribute('data-page');
+        return {
+          bottom: page ? 300 : 700,
+          height: page ? 300 : 700,
+          left: 0,
+          right: 320,
+          top: 0,
+          width: 320,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        };
+      },
+    );
+
+    render(
+      <ClioDocumentPdfViewer
+        bytes={new Uint8Array([37, 80, 68, 70])}
+        initialPage={200}
+        name="thesis.pdf"
+        onSelection={vi.fn()}
+      />,
+    );
+    await screen.findByText('PDF page 200');
+    const scroller = document.querySelector<HTMLElement>('[data-pdf-scroller]');
+    expect(scroller).not.toBeNull();
+
+    // The reader scrolls back to the top themselves; a later remeasurement
+    // (e.g. a zoom change re-running measurePage) must never jump them back.
+    scroller!.scrollTop = 0;
+    fireEvent.scroll(scroller!);
+    await screen.findByText('PDF page 1');
+
+    expect(scroller?.scrollTop).toBe(0);
+    rect.mockRestore();
   });
 
   it('windows a long document instead of mounting every page', async () => {

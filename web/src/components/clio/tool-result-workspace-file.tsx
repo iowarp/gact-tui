@@ -2,7 +2,8 @@ import { queryKeys } from '@/lib/query-keys';
 import { TransportError, type ToolPresentationBlock } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { FileClockIcon, FileIcon, FileXIcon } from 'lucide-react';
-import { useContext, type KeyboardEvent, type MouseEvent } from 'react';
+import { useContext, useMemo, type KeyboardEvent, type MouseEvent } from 'react';
+import { Image } from '@/components/ai-elements/image';
 import {
   Artifact,
   ArtifactContent,
@@ -33,6 +34,17 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+/** Same chunked encoding `tauri-transport.ts` uses: safe past the argument-count
+ * limit `String.fromCharCode(...bytes)` hits on a large, un-chunked array. */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
 function fileName(path: string): string {
   return (
     path
@@ -44,7 +56,11 @@ function fileName(path: string): string {
 
 type IntegrityStatus = 'loading' | 'unchanged' | 'changed' | 'missing' | 'unknown';
 
-/** Compares a `workspace_file` block's recorded hash against the live file. */
+/**
+ * Compares a `workspace_file` block's recorded hash against the live file,
+ * and hands back the fetched bytes so an image preview can render them
+ * directly instead of re-fetching the same file a second time.
+ */
 function useWorkspaceFileIntegrity({
   workspaceId,
   path,
@@ -53,27 +69,33 @@ function useWorkspaceFileIntegrity({
   workspaceId: string;
   path: string;
   expectedSha256?: string;
-}): IntegrityStatus {
+}): { status: IntegrityStatus; bytes?: Uint8Array } {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const query = useQuery({
     queryKey: queryKeys.key('workspace-file-integrity', settings.endpoint, workspaceId, path),
     queryFn: async ({ signal }) => {
       const bytes = await repository.readWorkspaceFileBytes(workspaceId, path, signal);
-      return sha256Hex(bytes);
+      return { bytes, sha256: await sha256Hex(bytes) };
     },
-    enabled: Boolean(workspaceId && path && expectedSha256),
+    enabled: Boolean(workspaceId && path),
     retry: (failureCount, error) =>
       !(error instanceof TransportError && error.status === 404) && failureCount < 2,
   });
-  if (!expectedSha256) return 'unknown';
-  if (query.isPending) return 'loading';
+  if (query.isPending) return { status: 'loading' };
   if (query.error) {
-    return query.error instanceof TransportError && query.error.status === 404
-      ? 'missing'
-      : 'unknown';
+    return {
+      status:
+        query.error instanceof TransportError && query.error.status === 404
+          ? 'missing'
+          : 'unknown',
+    };
   }
-  return query.data === expectedSha256 ? 'unchanged' : 'changed';
+  if (!expectedSha256) return { status: 'unknown', bytes: query.data.bytes };
+  return {
+    status: query.data.sha256 === expectedSha256 ? 'unchanged' : 'changed',
+    bytes: query.data.bytes,
+  };
 }
 
 /**
@@ -85,11 +107,16 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
   const navigation = useContext(PresentationNavigation);
   const path = block.path ?? '';
   const workspaceId = block.workspace_id || navigation?.workspaceId || '';
-  const integrity = useWorkspaceFileIntegrity({
+  const { status: integrity, bytes } = useWorkspaceFileIntegrity({
     workspaceId,
     path,
     expectedSha256: block.sha256,
   });
+  const isImage = (block.media_type ?? '').startsWith('image/');
+  const imageSource = useMemo(
+    () => (isImage && bytes ? bytesToBase64(bytes) : undefined),
+    [isImage, bytes],
+  );
   const canOpen = Boolean(path && navigation?.onOpenFile);
   const open = () => {
     if (canOpen) navigation?.onOpenFile?.(path);
@@ -183,14 +210,31 @@ export function WorkspaceFilePresentationBlock({ block }: { block: ToolPresentat
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.stopPropagation()}
       >
-        <div className="max-h-72 min-h-36 overflow-hidden">
-          <WorkspaceFileView
-            initialPage={block.pages?.[0]}
-            mediaType={block.media_type}
-            path={path}
-            workspaceId={workspaceId}
-          />
-        </div>
+        {isImage ? (
+          <div className="flex justify-center border-t bg-muted/20 p-2">
+            {imageSource ? (
+              <Image
+                alt={fileName(path)}
+                base64={imageSource}
+                mediaType={block.media_type ?? ''}
+                // Sized to the image itself (h-auto, no forced min-height), only
+                // capped so a tall image doesn't take over the transcript.
+                className="max-h-72 w-auto max-w-full object-contain"
+              />
+            ) : (
+              <Skeleton className="h-36 w-full" />
+            )}
+          </div>
+        ) : (
+          <div className="max-h-72 min-h-36 overflow-hidden">
+            <WorkspaceFileView
+              initialPage={block.pages?.[0]}
+              mediaType={block.media_type}
+              path={path}
+              workspaceId={workspaceId}
+            />
+          </div>
+        )}
       </ArtifactContent>
     </Artifact>
   );
