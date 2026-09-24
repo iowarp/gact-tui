@@ -263,9 +263,8 @@ export class ClioRepository extends InfrastructureRepository {
     });
   }
 
-  /** Patch the defaults; `effort: null` resets it to the selected model's default. */
   public updateSessionDefaults(
-    input: Partial<Omit<SessionDefaults, 'effort'>> & { effort?: SessionDefaults['effort'] | null },
+    input: Partial<Omit<SessionDefaults, 'effort'>> & { effort?: SessionDefaults['effort'] | null }, // null: model default
     signal?: AbortSignal,
   ): Promise<SessionDefaults> {
     return this.transport.request({
