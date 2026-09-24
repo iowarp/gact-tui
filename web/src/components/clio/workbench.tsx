@@ -6,7 +6,6 @@ import type {
   SubagentRun,
   ToolInvocation,
   WorkspaceFileEntry,
-  WorkspaceLiveUpdatesStatus,
   WorkspaceResource,
 } from '@clio/core/v3';
 import {
@@ -64,8 +63,8 @@ export interface ClioWorkbenchProps {
   filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
-  filesLiveUpdates?: WorkspaceLiveUpdatesStatus;
   onRefreshFiles?: () => void;
+  onFilesViewActiveChange?: (active: boolean) => void;
   artifacts: readonly ArtifactEntity[];
   artifactsPending?: boolean;
   artifactsError?: string;
@@ -205,8 +204,8 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       filesFetching,
       filesError,
       filesTruncated,
-      filesLiveUpdates,
       onRefreshFiles,
+      onFilesViewActiveChange,
       artifacts,
       artifactsPending,
       artifactsError,
@@ -245,6 +244,16 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         JSON.stringify({ activeTabId, tabs }),
       );
     }, [activeTabId, tabs, workspaceId]);
+
+    // `TabsContent` unmounts inactive panels (Radix Presence, no forceMount),
+    // so the fixed-id 'files' tab being ACTIVE is exactly "the Files view is
+    // mounted" -- the signal use-workspace-data.ts gates its poll on
+    // (refetchInterval), rather than polling for every open session regardless
+    // of which tab is showing.
+    useEffect(() => {
+      onFilesViewActiveChange?.(activeTabId === 'files');
+      return () => onFilesViewActiveChange?.(false);
+    }, [activeTabId, onFilesViewActiveChange]);
 
     useLayoutEffect(() => {
       const strip = tabStripRef.current;
@@ -601,7 +610,6 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                     files={files}
                     filesError={filesError}
                     filesFetching={filesFetching}
-                    filesLiveUpdates={filesLiveUpdates}
                     filesPending={filesPending}
                     filesTruncated={filesTruncated}
                     maximized={maximized}

@@ -4,14 +4,12 @@ import type {
   AgentBlueprintReference,
   Artifact,
   WorkspaceFileEntry,
-  WorkspaceLiveUpdatesStatus,
 } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIcon,
   BoxIcon,
   BoxesIcon,
-  CloudOffIcon,
   FileTextIcon,
   FolderIcon,
   PaperclipIcon,
@@ -85,7 +83,6 @@ interface FileBrowserProps {
   filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
-  filesLiveUpdates?: WorkspaceLiveUpdatesStatus;
   selectedPath?: string;
   onRefresh?: () => void;
   onSelectedPathChange?: (path: string) => void;
@@ -174,7 +171,6 @@ export function FileBrowser({
   filesFetching,
   filesError,
   filesTruncated,
-  filesLiveUpdates,
   selectedPath,
   onRefresh,
   onSelectedPathChange,
@@ -259,26 +255,6 @@ export function FileBrowser({
                 />
               </div>
               <TooltipProvider>
-                {filesLiveUpdates?.reason ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span
-                        aria-label="Live updates unavailable"
-                        className="inline-flex items-center rounded-sm text-muted-foreground"
-                        role="status"
-                        tabIndex={0}
-                      >
-                        <CloudOffIcon aria-hidden="true" className="size-3.5" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent align="end" className="max-w-64" side="bottom">
-                      <p>
-                        Live updates unavailable: {filesLiveUpdates.detail ?? filesLiveUpdates.reason}
-                      </p>
-                      <p className="text-background/70">Use Refresh to see the latest files.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                ) : null}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button

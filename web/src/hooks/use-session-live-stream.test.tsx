@@ -175,10 +175,14 @@ describe('useSessionLiveStream resume recovery', () => {
   });
 
   it('no longer treats the turn boundary or a finished fs/shell tool call as a Files-view trigger', () => {
-    // F1: the Files view now refreshes from the live filesystem watcher's own
-    // `workspace.files.changed` events (below), not from this hand-maintained
-    // trigger list — which never covered upload materialization, the user's
-    // own Explorer edits, or git in the first place.
+    // Owner decision: the server-side watcher (workspace.files.changed) was
+    // dropped after an event-storm defect. The Files view now refreshes via
+    // polling while mounted + visible, refetch-on-open, and the manual
+    // Refresh button (see use-workspace-data.ts / workbench-resource-browser.tsx)
+    // — deliberately NOT restored to this old trigger list, which never
+    // covered upload materialization, the user's own Explorer edits, or git
+    // in the first place, and there is no remaining `workspace.files.changed`
+    // handling anywhere in this hook.
     const workspaceFilesKey = ['workspace-files', 'http://127.0.0.1:8790', 'ws_1'];
 
     expect(
@@ -190,62 +194,23 @@ describe('useSessionLiveStream resume recovery', () => {
       }),
     ).not.toContainEqual(workspaceFilesKey);
 
-    const forTool = (name: string, state: string) =>
+    expect(
       queryInvalidationKeysForEvent({
-        data: { id: 'call_1', name, session_id: 'sess_1', state },
         endpoint: 'http://127.0.0.1:8790',
         eventName: 'tool.upserted',
         sessionId: 'sess_1',
         workspaceId: 'ws_1',
-      });
+      }),
+    ).not.toContainEqual(workspaceFilesKey);
 
-    expect(forTool('shell_bash', 'succeeded')).not.toContainEqual(workspaceFilesKey);
-    expect(forTool('fs_apply_edit_write', 'failed')).not.toContainEqual(workspaceFilesKey);
-  });
-
-  it('invalidates workspace-files and any open file-content query on workspace.files.changed', () => {
-    const keys = queryInvalidationKeysForEvent({
-      data: {
-        workspace_id: 'ws_1',
-        paths: ['notes.txt', '.clio/inputs/upload.pdf'],
-        truncated: false,
-      },
-      endpoint: 'http://127.0.0.1:8790',
-      eventName: 'workspace.files.changed',
-      sessionId: 'sess_1',
-      workspaceId: 'ws_1',
-    });
-
-    expect(keys).toContainEqual(['workspace-files', 'http://127.0.0.1:8790', 'ws_1']);
-    expect(keys).toContainEqual(['workspace-file', 'http://127.0.0.1:8790', 'ws_1', 'notes.txt']);
-    expect(keys).toContainEqual([
-      'workspace-file-bytes',
-      'http://127.0.0.1:8790',
-      'ws_1',
-      'notes.txt',
-    ]);
-    expect(keys).toContainEqual([
-      'workspace-file',
-      'http://127.0.0.1:8790',
-      'ws_1',
-      '.clio/inputs/upload.pdf',
-    ]);
-  });
-
-  it('invalidates the EVENT payload workspace, not necessarily the focused one (broadcast delivery)', () => {
-    // workspace.files.changed publishes broadcast (session_id="", like
-    // lm.provider.changed) so any live subscriber session receives it —
-    // including one focused on a DIFFERENT workspace than the one that changed.
-    const keys = queryInvalidationKeysForEvent({
-      data: { workspace_id: 'ws_other', paths: ['a.txt'], truncated: false },
-      endpoint: 'http://127.0.0.1:8790',
-      eventName: 'workspace.files.changed',
-      sessionId: 'sess_1',
-      workspaceId: 'ws_1',
-    });
-
-    expect(keys).toContainEqual(['workspace-files', 'http://127.0.0.1:8790', 'ws_other']);
-    expect(keys).not.toContainEqual(['workspace-files', 'http://127.0.0.1:8790', 'ws_1']);
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'workspace.files.changed',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).not.toContainEqual(workspaceFilesKey);
   });
 
   it('refreshes execution provenance when a semantic ledger event arrives', () => {

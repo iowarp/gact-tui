@@ -674,35 +674,6 @@ describe('ClioWorkbench canvas', () => {
     expect(button.querySelector('svg')).toHaveClass('animate-spin');
   });
 
-  it('shows a hover card only when the server reports live updates unavailable', () => {
-    const { rerender } = render(
-      <FileBrowser
-        files={[]}
-        onRefresh={vi.fn()}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-    expect(screen.queryByRole('status', { name: 'Live updates unavailable' })).not.toBeInTheDocument();
-
-    rerender(
-      <FileBrowser
-        files={[]}
-        filesLiveUpdates={{
-          active: false,
-          reason: 'workspace_watch_unavailable',
-          detail: 'permission denied',
-        }}
-        onRefresh={vi.fn()}
-        onSelectedPathChange={vi.fn()}
-        selectedPath={undefined}
-        workspaceId="workspace_1"
-      />,
-    );
-    expect(screen.getByRole('status', { name: 'Live updates unavailable' })).toBeVisible();
-  });
-
   it('delivers a requested tab when a compact canvas mounts after the request', () => {
     const diff = {
       path: 'src/compact-canvas.py',

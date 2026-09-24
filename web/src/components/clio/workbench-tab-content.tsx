@@ -4,7 +4,6 @@ import type {
   SessionDiff,
   SubagentRun,
   WorkspaceFileEntry,
-  WorkspaceLiveUpdatesStatus,
   WorkspaceResource,
 } from '@clio/core/v3';
 import { Suspense, lazy, type ReactNode } from 'react';
@@ -45,7 +44,6 @@ export interface WorkbenchTabContentProps {
   filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
-  filesLiveUpdates?: WorkspaceLiveUpdatesStatus;
   onRefreshFiles?: () => void;
   artifacts: readonly ArtifactEntity[];
   artifactsPending?: boolean;
@@ -85,7 +83,6 @@ export function WorkbenchTabContent({
   filesFetching,
   filesError,
   filesTruncated,
-  filesLiveUpdates,
   onRefreshFiles,
   artifacts,
   artifactsPending,
@@ -122,7 +119,6 @@ export function WorkbenchTabContent({
           files={files}
           filesError={filesError}
           filesFetching={filesFetching}
-          filesLiveUpdates={filesLiveUpdates}
           filesPending={filesPending}
           filesTruncated={filesTruncated}
           onRefresh={onRefreshFiles}
@@ -198,7 +194,6 @@ export function WorkbenchTabContent({
           files={files}
           filesError={filesError}
           filesFetching={filesFetching}
-          filesLiveUpdates={filesLiveUpdates}
           filesPending={filesPending}
           filesTruncated={filesTruncated}
           onRefresh={onRefreshFiles}

@@ -149,7 +149,6 @@ export function useSessionLiveStream({
             }
             invalidations.push(
               ...queryInvalidationKeysForEvent({
-                data: frame.data,
                 endpoint: settings.endpoint,
                 eventName: frame.eventName,
                 sessionId,
@@ -310,43 +309,6 @@ function isSessionArtifactEvent(eventName: string): boolean {
 }
 
 /**
- * The `workspace.files.changed` payload a live filesystem watcher publishes
- * (clio-agent's `gact/workspace_watch.py`, F1) -- one batched, debounced event
- * per change burst, with workspace-relative paths capped server-side.
- */
-interface WorkspaceFilesChangedPayload {
-  workspace_id?: unknown;
-  paths?: unknown;
-  truncated?: unknown;
-}
-
-function isWorkspaceFilesChangedEvent(eventName: string): boolean {
-  return eventName === 'workspace.files.changed';
-}
-
-/**
- * Keys to invalidate for one `workspace.files.changed` batch: the files list
- * for the event's OWN workspace (broadcast — session_id="" — so this may
- * differ from the hook's currently focused `workspaceId`) plus any open
- * file-content query for a changed path.
- */
-function workspaceFilesChangedInvalidationKeys(endpoint: string, data: unknown): QueryKey[] {
-  if (typeof data !== 'object' || data === null) return [];
-  const { workspace_id: eventWorkspaceId, paths } = data as WorkspaceFilesChangedPayload;
-  if (typeof eventWorkspaceId !== 'string' || !eventWorkspaceId) return [];
-  const keys: QueryKey[] = [queryKeys.workspaceFiles(endpoint, eventWorkspaceId)];
-  if (!Array.isArray(paths)) return keys;
-  for (const path of paths) {
-    if (typeof path !== 'string') continue;
-    keys.push(
-      queryKeys.workspaceFile(endpoint, eventWorkspaceId, path),
-      queryKeys.workspaceFileBytes(endpoint, eventWorkspaceId, path),
-    );
-  }
-  return keys;
-}
-
-/**
  * The extra reads one resource event changes, beyond the workspace list.
  *
  * Kept per event rather than blanket: an upload progress tick must not refetch
@@ -378,7 +340,6 @@ function resourceInvalidationKeys(
 }
 
 interface QueryInvalidationEvent {
-  data?: unknown;
   endpoint: string;
   eventName: string;
   sessionId: string;
@@ -387,7 +348,6 @@ interface QueryInvalidationEvent {
 
 /** Maps wire events to the authoritative REST snapshots that must be refreshed. */
 export function queryInvalidationKeysForEvent({
-  data,
   endpoint,
   eventName,
   sessionId,
@@ -452,16 +412,14 @@ export function queryInvalidationKeysForEvent({
       queryKeys.sessionContext(endpoint, sessionId),
     );
   }
-  // The Files view refreshes from the live filesystem watcher's own
-  // `workspace.files.changed` batches (gact/workspace_watch.py, F1), not from
-  // a hand-maintained list of SSE events that happened to imply a file wrote
-  // (the former `message.completed`/fs-or-shell-tool-result triggers here) --
-  // that list never covered upload materialization, the user's own Explorer
-  // edits, or git. A watcher-unavailable workspace falls back to the manual
-  // Refresh button in the Files view header, not a wider trigger list.
-  if (isWorkspaceFilesChangedEvent(eventName)) {
-    keys.push(...workspaceFilesChangedInvalidationKeys(endpoint, data));
-  }
+  // The Files view no longer has a live-event trigger (owner decision: the
+  // server-side watcher was dropped after an event-storm defect). It refreshes
+  // via polling while mounted + visible (use-workspace-data.ts's
+  // refetchInterval), an immediate refetch on open, and the manual Refresh
+  // button -- see workbench-resource-browser.tsx's FileBrowser. This is
+  // deliberately NOT restoring the old message.completed/fs-or-shell-tool
+  // triggers: polling already covers what those approximated, without a
+  // hand-maintained event list.
   if (eventName === 'session.status_changed' || eventName === 'session.upserted') {
     keys.push(queryKeys.sessions(endpoint, workspaceId), queryKeys.sessions(endpoint, 'all'));
   }
