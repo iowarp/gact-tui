@@ -265,6 +265,12 @@ export const sessionSchema = z.object({
   updated_at: z.string(),
   last_interaction_at: z.string().optional(),
   message_count: z.number().int().nonnegative().optional(),
+  // Absent until the session has exchanged a message; once present,
+  // cost_usd is null (not 0) when no turn ever reported a real cost (#775
+  // no silent fallback -- distinct from a provider-confirmed free turn).
+  tokens_input: z.number().int().nonnegative().optional(),
+  tokens_output: z.number().int().nonnegative().optional(),
+  cost_usd: z.number().nullish(),
   provider_id: z.string().optional(),
   model_id: z.string().optional(),
   effort: z.string().optional(),

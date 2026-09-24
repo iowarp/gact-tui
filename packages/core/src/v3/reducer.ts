@@ -1,4 +1,4 @@
-import type { EntityState, Message, MessageBlock, TransportGap } from './domain.js';
+import type { EntityState, Message, MessageBlock, TransportGap, UsageSnapshot } from './domain.js';
 import type { EventEnvelope } from './schemas.js';
 import {
   a2uiActionLifecycleSchema,
@@ -138,6 +138,32 @@ function completeBlock(message: Message, blockId: string, text: string): Message
   return { ...message, blocks };
 }
 
+/**
+ * Add one turn's token/cost contribution onto a session's live usage rollup
+ * (the single producer of `entities.usage` -- status-bar truth). `cost` is
+ * `undefined` for a turn whose cost is unknown (no provider report, no
+ * price-table match on the server); adding nothing there preserves whatever
+ * the running total already knew instead of fabricating a $0 contribution.
+ */
+function addUsage(
+  usage: Record<string, UsageSnapshot>,
+  sessionId: string,
+  input: number,
+  output: number,
+  cost: number | undefined,
+): Record<string, UsageSnapshot> {
+  const existing = usage[sessionId];
+  return {
+    ...usage,
+    [sessionId]: {
+      session_id: sessionId,
+      input_tokens: (existing?.input_tokens ?? 0) + input,
+      output_tokens: (existing?.output_tokens ?? 0) + output,
+      cost_usd: cost === undefined ? existing?.cost_usd : (existing?.cost_usd ?? 0) + cost,
+    },
+  };
+}
+
 export function reduceTransportFrame(state: EntityState, frame: TransportFrame): EntityState {
   const timelineCursor = frame.cursor !== '' && frame.cursor !== '0';
   if (timelineCursor && state.processed_cursors.includes(frame.cursor)) return state;
@@ -168,7 +194,23 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
     }
     case 'session.upserted': {
       const session = sessionSchema.parse(envelope.payload);
-      return { ...base, revisions, sessions: { ...base.sessions, [session.id]: session } };
+      // The session snapshot carries the server's own cumulative rollup --
+      // absent entirely until the session has exchanged a message, matching
+      // this reducer's other "not populated yet" fields. Sync it in as the
+      // authoritative baseline; message.completed then keeps it live.
+      const usage: Record<string, UsageSnapshot> =
+        session.tokens_input === undefined && session.tokens_output === undefined
+          ? base.usage
+          : {
+              ...base.usage,
+              [session.id]: {
+                session_id: session.id,
+                input_tokens: session.tokens_input ?? 0,
+                output_tokens: session.tokens_output ?? 0,
+                cost_usd: session.cost_usd ?? undefined,
+              },
+            };
+      return { ...base, revisions, sessions: { ...base.sessions, [session.id]: session }, usage };
     }
     case 'message.block.upserted': {
       const payload = envelope.payload as {
@@ -284,6 +326,18 @@ export function reduceTransportFrame(state: EntityState, frame: TransportFrame):
       return {
         ...base,
         revisions,
+        // payload.cost_usd is already null-collapsed-to-undefined by
+        // messageCompletionSchema -- "unknown" and "not reported" both mean
+        // "add nothing", never a fabricated $0 (see addUsage).
+        usage: payload.tokens
+          ? addUsage(
+              base.usage,
+              message.session_id,
+              payload.tokens.input,
+              payload.tokens.output,
+              payload.cost_usd,
+            )
+          : base.usage,
         messages: {
           ...base.messages,
           [message.id]: {

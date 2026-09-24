@@ -1,0 +1,67 @@
+{
+  "metadata": {
+    "producer": "clio_agent.gact.protocol.v3.session.session_to_v3",
+    "backend_sha": "5be3e3ce8dd8cf27d1c9c6d09db5ca145afea65e",
+    "protocol_version": "0.3",
+    "generated_at": "2026-09-24T00:00:00+00:00"
+  },
+  "sessions": {
+    "known": {
+      "id": "sess_billed",
+      "workspace_id": "ws_default",
+      "title": "Evidence review",
+      "state": "completed",
+      "created_at": "2026-09-24T00:00:00+00:00",
+      "updated_at": "2026-09-24T00:05:00+00:00",
+      "last_interaction_at": "2026-09-24T00:05:00+00:00",
+      "message_count": 2,
+      "pinned": false,
+      "archived": false,
+      "tokens_input": 120,
+      "tokens_output": 45,
+      "cost_usd": 0.0032,
+      "agent_id": "main",
+      "mode": "edit",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "approval_mode": "ask"
+    },
+    "unknown": {
+      "id": "sess_local_model",
+      "workspace_id": "ws_default",
+      "title": "Evidence review",
+      "state": "completed",
+      "created_at": "2026-09-24T00:00:00+00:00",
+      "updated_at": "2026-09-24T00:05:00+00:00",
+      "last_interaction_at": "2026-09-24T00:05:00+00:00",
+      "message_count": 2,
+      "pinned": false,
+      "archived": false,
+      "tokens_input": 300,
+      "tokens_output": 90,
+      "cost_usd": null,
+      "agent_id": "main",
+      "mode": "edit",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "approval_mode": "ask"
+    },
+    "fresh": {
+      "id": "sess_fresh",
+      "workspace_id": "ws_default",
+      "title": "Evidence review",
+      "state": "completed",
+      "created_at": "2026-09-24T00:00:00+00:00",
+      "updated_at": "2026-09-24T00:05:00+00:00",
+      "last_interaction_at": "2026-09-24T00:05:00+00:00",
+      "message_count": 0,
+      "pinned": false,
+      "archived": false,
+      "agent_id": "main",
+      "mode": "edit",
+      "edit_mode": "diff",
+      "routing_mode": "auto",
+      "approval_mode": "ask"
+    }
+  }
+}
