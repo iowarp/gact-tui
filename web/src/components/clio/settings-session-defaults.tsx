@@ -20,6 +20,7 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { ReasoningLevelField } from './reasoning-level-field';
+import { sessionDefaultsPatch } from './session-defaults-patch';
 import { ClioSettingsSection } from './settings-section';
 import {
   SESSION_APPROVAL_OPTIONS,
@@ -99,7 +100,7 @@ export function SessionDefaultsSettings() {
   const save = useMutation({
     // An unset effort is sent as null: "use the selected model's own default".
     mutationFn: (value: SessionDefaults) =>
-      repository.updateSessionDefaults({ ...value, effort: value.effort ?? null }),
+      repository.updateSessionDefaults(sessionDefaultsPatch(value)),
     onSuccess: (value) => {
       setDraft({ source: value, value });
       queryClient.setQueryData(queryKeys.key('session-defaults', settings.endpoint), value);
@@ -232,7 +233,11 @@ export function SessionDefaultsSettings() {
           ) : null}
           <ReasoningLevelField
             allowModelDefault
-            description="Sets the starting thinking depth for new sessions, from the levels this model offers. You can change it again from the composer."
+            description={
+              form.effort === 'unknown'
+                ? 'The service reported a starting effort this build does not know; saving resets it to the model default.'
+                : 'Sets the starting thinking depth for new sessions, from the levels this model offers. You can change it again from the composer.'
+            }
             id="session-default-effort"
             onChange={(effort) => update('effort', effort)}
             reasoning={reasoning}
