@@ -11,6 +11,7 @@ import {
   repository,
   setWideViewport,
   stripButtonNames,
+  stripButtonVariants,
 } from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
 
@@ -268,7 +269,10 @@ describe('ClioModelPicker provider submenu actions', () => {
 
       await user.click(screen.getByRole('button', { name: 'Change model' }));
       await user.click(screen.getByText('OpenAI'));
-      await user.click(await screen.findByRole('button', { name: 'Remove key' }));
+      const removeKey = await screen.findByRole('button', { name: 'Remove key' });
+      // A bordered button like Verify/Refresh, never a bare text link.
+      expect(stripButtonVariants()).toEqual(['outline']);
+      await user.click(removeKey);
 
       // codex, not openai, stays the configured/default provider throughout.
       await waitFor(() => expect(repository.clearProviderApiKey).toHaveBeenCalledWith('openai'));
@@ -478,5 +482,7 @@ describe('ClioModelPicker provider submenu actions', () => {
         'Sign in',
         'Device code',
       ]);
+      // "Device code" is a real action like the others: one variant for all.
+      expect(stripButtonVariants()).toEqual(['outline']);
     });
 });

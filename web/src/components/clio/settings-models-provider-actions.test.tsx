@@ -272,7 +272,7 @@ describe('ModelsSettings provider actions', () => {
     // The service retired ALCF's catalog entry; the panel re-reads exactly that
     // provider live and hands the result to every open model picker.
     await waitFor(() =>
-      expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'argonne_metis'),
+      expect(repository.providerCatalog).toHaveBeenCalledWith(false, undefined, 'argonne_metis'),
     );
   });
 
@@ -555,13 +555,14 @@ describe('ModelsSettings provider actions', () => {
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
   });
 
-  it('re-reads the checked provider catalog live and shares it with open pickers', async () => {
+  it('re-reads the checked provider catalog entry and shares it with open pickers', async () => {
     const catalog = {
       authoritative: 'live_handshake',
       providers: [{ id: 'codex', name: 'Codex (subscription)', models: [] }],
     };
-    repository.providerCatalog.mockImplementation(async (refresh: boolean) =>
-      refresh ? catalog : codexCatalog(),
+    repository.providerCatalog.mockImplementation(
+      async (_refresh: boolean, _signal: unknown, providerId?: string) =>
+        providerId ? catalog : codexCatalog(),
     );
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -576,7 +577,9 @@ describe('ModelsSettings provider actions', () => {
     await user.click(await screen.findByRole('button', { name: 'Verify provider' }));
 
     await waitFor(() =>
-      expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'codex'),
+      // The check's own handshake is the fresh evidence: a plain read of this
+      // provider's entry, never a second live probe (`refresh=true`).
+      expect(repository.providerCatalog).toHaveBeenCalledWith(false, undefined, 'codex'),
     );
     await waitFor(() =>
       expect(queryClient.getQueryData(queryKeys.providerCatalog('http://127.0.0.1:8787'))).toEqual(

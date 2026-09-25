@@ -67,9 +67,16 @@ export function matchesConfiguredModel(
 /** The available option naming `providerId`+`modelId` (by id, alias, or resolved id). */
 export function findSelectedModelOption<
   T extends { providerId: string; id: string; aliases?: readonly string[]; available: boolean },
->(options: readonly T[], providerId: string | undefined, modelId: string | undefined): T | undefined {
+>(
+  options: readonly T[],
+  providerId: string | undefined,
+  modelId: string | undefined,
+): T | undefined {
   return options.find(
-    (option) => option.providerId === providerId && matchesConfiguredModel(option, modelId) && option.available,
+    (option) =>
+      option.providerId === providerId &&
+      matchesConfiguredModel(option, modelId) &&
+      option.available,
   );
 }
 
@@ -213,8 +220,13 @@ function liveProviderOptions(
           (needsAuthentication
             ? authenticationFailure && isAlcf
               ? 'Sign in to your ALCF account again.'
-              : providerStatusDetail(preset, `Sign in to ${providerName} to discover its models.`)
-            : provider.failure && translateKnownProviderErrorReason(provider.failure, providerName)) ||
+              : authenticationFailure
+                ? // The provider refused the credential it has: say so
+                  // ("Your OpenRouter API key was rejected."), not "sign in".
+                  translateKnownProviderErrorReason(provider.failure, providerName)
+                : providerStatusDetail(preset, `Sign in to ${providerName} to discover its models.`)
+            : provider.failure &&
+              translateKnownProviderErrorReason(provider.failure, providerName)) ||
           'This provider reported no models to the connected agent.',
       },
     ];
@@ -244,9 +256,10 @@ function liveProviderOptions(
       kind: 'model',
       id: model.model_id,
       label: conciseModelName(model.model_id),
-      description: model.failure
-        ? translateKnownProviderErrorReason(model.failure, providerName)
-        : undefined,
+      // A failure is never a row's subtitle: the same reason on hundreds of
+      // rows is noise. It reaches the provider's detail (shown once, in the
+      // picker's action strip) through `availabilityDetail` below.
+      description: undefined,
       available: model.availability === 'available' || usableCandidate || staleCandidate,
       availabilityDetail:
         model.availability === 'available'

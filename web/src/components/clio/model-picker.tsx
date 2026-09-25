@@ -318,7 +318,12 @@ export function ClioModelPicker({
           </p>
         ) : null}
         {activeReadyPreset ? (
-          <ProviderActionPanel actions={providerActions} compact preset={activeReadyPreset} />
+          <ProviderActionPanel
+            actions={providerActions}
+            compact
+            shownDetail={activeStage ? undefined : activeGroup.detail}
+            preset={activeReadyPreset}
+          />
         ) : null}
         {activePreset ? (
           hasMultipleTransports ? (
@@ -340,6 +345,7 @@ export function ClioModelPicker({
                     <ProviderActionPanel
                       actions={providerActions}
                       compact
+                      shownDetail={activeStage ? undefined : activeGroup.detail}
                       preset={transportScopedPreset(activePreset, transport)}
                     />
                   ) : transport.reason ? (
@@ -351,7 +357,12 @@ export function ClioModelPicker({
               </Fragment>
             ))
           ) : (
-            <ProviderActionPanel actions={providerActions} compact preset={activePreset} />
+            <ProviderActionPanel
+              actions={providerActions}
+              compact
+              shownDetail={activeStage ? undefined : activeGroup.detail}
+              preset={activePreset}
+            />
           )
         ) : null}
       </div>

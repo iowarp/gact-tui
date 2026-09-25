@@ -121,6 +121,18 @@ export const openaiOption = {
   health: 'unavailable',
 };
 
+/** Every strip action's button variant: one variant for all of them. */
+export function stripButtonVariants(): string[] {
+  const strip = document.querySelector('[data-slot="provider-action-strip"]');
+  return [
+    ...new Set(
+      [...(strip?.querySelectorAll('button') ?? [])].map(
+        (button) => button.getAttribute('data-variant') ?? '',
+      ),
+    ),
+  ];
+}
+
 /** The action strip's buttons, in order -- the exact per-state action set. */
 export function stripButtonNames(): string[] {
   const strip = document.querySelector('[data-slot="provider-action-strip"]');

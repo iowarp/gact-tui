@@ -86,8 +86,12 @@ export function useProviderSettingsActions({
     Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
   const configurationKey = queryKeys.key('language-model-configuration', settings.endpoint);
   const modelsKey = queryKeys.key('provider-models', settings.endpoint, presetId);
+  // Never a second live probe: every action here either just ran the
+  // provider's handshake with `refresh=true` (which also marks its catalog
+  // entry stale) or changed its credential (which the service retires). A
+  // plain read re-discovers exactly that entry from the fresh handshake.
   const reloadCatalogEntry = async () => {
-    const catalog = await repository.providerCatalog(true, undefined, presetId);
+    const catalog = await repository.providerCatalog(false, undefined, presetId);
     queryClient.setQueryData(queryKeys.providerCatalog(settings.endpoint), catalog);
   };
   const checkProvider = async () => {

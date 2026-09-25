@@ -30,6 +30,11 @@ interface ProviderActionPanelProps {
    * hook, same result data; only the presentation differs.
    */
   compact?: boolean;
+  /**
+   * The provider reason the caller already shows (the picker's strip detail).
+   * An action error with the same text is not repeated under it.
+   */
+  shownDetail?: string;
 }
 
 /**
@@ -47,7 +52,12 @@ interface ProviderActionPanelProps {
  * effect -- a submenu opening must never open a browser or a device-code
  * prompt on its own.
  */
-export function ProviderActionPanel({ preset, actions, compact = false }: ProviderActionPanelProps) {
+export function ProviderActionPanel({
+  preset,
+  actions,
+  compact = false,
+  shownDetail,
+}: ProviderActionPanelProps) {
   const action = providerPrimaryAction(preset);
   const providerLabel = providerDisplayName(preset);
 
@@ -63,6 +73,17 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
   const needsForcedReauth = Boolean(
     preset.status_message?.includes('argonne_reauthentication_required'),
   );
+
+  const fresh = (message: string | undefined): string | undefined =>
+    message && message !== shownDetail ? message : undefined;
+  // Only a credential the provider refused or could not prove -- never, e.g.,
+  // Codex's "sign-in required" for its OTHER transport after a good check.
+  const handshakeReason =
+    compact &&
+    actions.handshakeResult?.error &&
+    ['rejected', 'deferred'].includes(actions.handshakeResult.auth)
+      ? fresh(translateKnownProviderErrorReason(actions.handshakeResult.error, providerLabel))
+      : undefined;
 
   // One action at a time: while any runs (its stage shows in the strip, the
   // heartbeat and the bottom bar), every control waits for it to settle.
@@ -109,7 +130,7 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
                 disabled={busy}
                 onClick={() => actions.authenticate.mutate('device')}
                 size={compact ? 'sm' : undefined}
-                variant="ghost"
+                variant="outline"
               >
                 {compact ? 'Device code' : 'Sign in with a device code'}
               </Button>
@@ -168,7 +189,7 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
                 disabled={busy}
                 onClick={() => actions.logout.mutate()}
                 size={compact ? 'sm' : undefined}
-                variant="ghost"
+                variant="outline"
               >
                 <LogOutIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
                 Sign out
@@ -179,7 +200,7 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
                 disabled={busy}
                 onClick={() => actions.removeApiKey.mutate()}
                 size={compact ? 'sm' : undefined}
-                variant="ghost"
+                variant="outline"
               >
                 <KeyRoundIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
                 Remove key
@@ -197,9 +218,9 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
       {actions.refreshModels.error ? (
         <p className="text-xs text-destructive">{actions.refreshModels.error.message}</p>
       ) : null}
-      {compact && actions.handshakeResult?.error && actions.handshakeResult.auth !== 'ok' ? (
-        <p className="text-xs text-destructive" title={actions.handshakeResult.error}>
-          {translateKnownProviderErrorReason(actions.handshakeResult.error, providerLabel)}
+      {handshakeReason ? (
+        <p className="text-xs text-destructive" title={actions.handshakeResult?.error}>
+          {handshakeReason}
         </p>
       ) : null}
       {actions.handshake.error ? (
@@ -221,8 +242,8 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
       {actions.removeApiKey.error ? (
         <p className="text-xs text-destructive">{actions.removeApiKey.error.message}</p>
       ) : null}
-      {actions.saveApiKey.error ? (
-        <p className="text-xs text-destructive">{actions.saveApiKey.error.message}</p>
+      {fresh(actions.saveApiKey.error?.message) ? (
+        <p className="text-xs text-destructive">{actions.saveApiKey.error?.message}</p>
       ) : null}
       {actions.authFlow ? (
         <ProviderAuthPanel

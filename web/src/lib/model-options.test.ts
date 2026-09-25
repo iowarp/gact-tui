@@ -106,6 +106,26 @@ describe('buildModelOptions', () => {
     });
   });
 
+  it('a rejected key reads as rejected, never as "sign in"', () => {
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'openrouter',
+            name: 'OpenRouter',
+            health: 'unavailable',
+            failure: 'api_key_rejected: the provider refused the API key (HTTP 401)',
+          }),
+        ],
+      },
+    });
+
+    expect(option?.availabilityDetail).toBe('Your OpenRouter API key was rejected.');
+  });
+
   it('never shows a raw reason code as a provider or model detail', () => {
     const options = buildModelOptions({
       activeCatalogProvider: 'codex',
@@ -129,6 +149,8 @@ describe('buildModelOptions', () => {
       'Your ALCF session needs to be verified again. Sign in again to continue.',
       'Not on this plan',
     ]);
+    // Never repeated as a row subtitle: the reason shows once, in the strip.
+    expect(options[1]?.description).toBeUndefined();
   });
 
   it('does not expose suggested defaults as live selectable inventory', () => {

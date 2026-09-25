@@ -11,6 +11,7 @@ import {
   repository,
   setWideViewport,
   stripButtonNames,
+  stripButtonVariants,
 } from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
 
@@ -69,6 +70,7 @@ describe('ClioModelPicker provider submenu: exact action set and progress per st
 
     expect(await screen.findByRole('button', { name: 'Sign out' })).toBeVisible();
     expect(stripButtonNames()).toEqual(['Verify provider', 'Refresh models', 'Sign out']);
+    expect(stripButtonVariants()).toEqual(['outline']);
     expect(screen.getAllByText('Luna')).toHaveLength(2);
   });
 
@@ -276,7 +278,19 @@ describe('ClioModelPicker provider submenu: exact action set and progress per st
 
     expect(await screen.findByText('Your OpenAI API key was rejected.')).toBeVisible();
     expect(screen.queryByText(/api_key_rejected/u)).not.toBeInTheDocument();
+    // The reason shows once, never on every model row.
+    expect(screen.getAllByText('Your OpenAI API key was rejected.')).toHaveLength(1);
+    // Settles on the ONE handshake: no model discovery for a rejected key, and
+    // the catalog is re-read from that handshake -- never a second live probe
+    // (`refresh=true`), and never polled.
+    await waitFor(() =>
+      expect(document.querySelector('[data-slot="provider-action-stage"]')).toBeNull(),
+    );
+    expect(repository.providerHandshake).toHaveBeenCalledTimes(1);
     expect(repository.providerModels).not.toHaveBeenCalled();
+    expect(repository.providerCatalog.mock.calls).toEqual([[false, undefined, 'openai']]);
+    expect(repository.refreshProviderModels).not.toHaveBeenCalled();
+    expect(repository.providerAuthStatus).not.toHaveBeenCalled();
   });
 
   it('Save key hides the stale "add your key" error behind the running stage', async () => {
