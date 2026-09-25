@@ -40,6 +40,7 @@ vi.mock('@/tauri/external-url', () => ({ openExternalUrl: vi.fn() }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { useUpdateFlowStore } from '@/store/update-flow-store';
 import { SystemVersionStatus } from './navigation-version-status';
 
 Object.defineProperty(window, 'matchMedia', {
@@ -68,6 +69,8 @@ function renderStatus() {
 }
 
 beforeEach(() => {
+  useUpdateFlowStore.getState().reset();
+  localStorage.clear();
   desktop.snapshot = { status: 'current' };
   desktop.install.mockClear();
   desktop.check.mockClear();
@@ -126,9 +129,73 @@ describe('SystemVersionStatus', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Update all' }));
     await waitFor(() =>
-      expect(updateManagedClio).toHaveBeenCalledWith('v0.9.4.3', { restartApp: false }),
+      expect(updateManagedClio).toHaveBeenCalledWith('v0.9.4.3', {
+        restartApp: false,
+        onProgress: expect.any(Function),
+      }),
     );
     expect(desktop.install).toHaveBeenCalledOnce();
+  });
+
+  it('disables both rows and the header action while any update is in flight', async () => {
+    desktop.snapshot = {
+      status: 'available',
+      update: { currentVersion: '0.9.4+2', version: '0.9.4+3' },
+    };
+    getVersion.mockResolvedValue('0.9.4+2');
+    repository.capabilities.mockResolvedValue({
+      service: { name: 'clio-agent-gact', version: '0.9.4.2' },
+    });
+    // Resolves only once instructed, so the update stays "in flight" long
+    // enough to assert every action is locked -- not just the row that
+    // started it (the bug this behavior replaces).
+    let resolveUpdate: () => void = () => undefined;
+    updateManagedClio.mockImplementationOnce(
+      () =>
+        new Promise<undefined>((resolve) => {
+          resolveUpdate = () => resolve(undefined);
+        }),
+    );
+    renderStatus();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Software update available' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Update all' }));
+
+    await waitFor(() => expect(updateManagedClio).toHaveBeenCalled());
+    const agentRow = within(await screen.findByTestId('version-row-agent'));
+    const desktopRow = within(screen.getByTestId('version-row-desktop'));
+    expect(agentRow.getByRole('button')).toBeDisabled();
+    expect(desktopRow.getByRole('button')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Update all' })).toBeDisabled();
+
+    resolveUpdate();
+    await waitFor(() => expect(desktop.install).toHaveBeenCalledOnce());
+  });
+
+  it('shows the typed failure reason instead of silently dropping it', async () => {
+    desktop.snapshot = { status: 'current' };
+    repository.capabilities.mockResolvedValue({
+      service: { name: 'clio-agent-gact', version: '0.9.4.2' },
+    });
+    repository.latestRelease.mockResolvedValue({
+      version: '0.9.4.3',
+      source: 'https://github.com/iowarp/clio-agent/releases/latest/download/latest-lite.json',
+      checked_at: '2026-09-24T00:00:00Z',
+      degradation: null,
+    });
+    updateManagedClio.mockRejectedValueOnce(new Error('The signature verification failed.'));
+    renderStatus();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Software update available' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Update all' }));
+
+    // The full-screen presentation of this failure is `UpdateRestartOverlay`
+    // (covered by its own tests) -- this asserts the state machine itself
+    // never drops the reason, and that the backend-only recovery restart
+    // still runs after a failed 'both' attempt.
+    await waitFor(() => expect(useUpdateFlowStore.getState().step).toBe('failed'));
+    expect(useUpdateFlowStore.getState().reason).toBe('The signature verification failed.');
+    expect(restartClio).toHaveBeenCalledOnce();
   });
 
   it('renders a mid-check desktop status as "Checking…", never as current', async () => {

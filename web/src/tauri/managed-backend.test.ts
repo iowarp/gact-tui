@@ -112,6 +112,36 @@ describe('managed Tauri backend', () => {
     expect(mocks.listeners.size).toBe(0);
   });
 
+  it('forwards streamed install-progress lines and unsubscribes once settled', async () => {
+    const lines: string[] = [];
+    mocks.invoke.mockImplementationOnce(async () => {
+      mocks.listeners.get('clio:install-progress')?.({ payload: { line: 'Installing clio-agent...' } });
+      mocks.listeners.get('clio:install-progress')?.({
+        payload: { line: 'Successfully installed clio-agent-0.9.4.3' },
+      });
+      mocks.listeners.get('clio:install-done')?.({ payload: undefined });
+    });
+
+    await expect(
+      updateManagedClio('v0.9.4.3', { restartApp: false, onProgress: (line) => lines.push(line) }),
+    ).resolves.toBeUndefined();
+
+    expect(lines).toEqual(['Installing clio-agent...', 'Successfully installed clio-agent-0.9.4.3']);
+    expect(mocks.listeners.size).toBe(0);
+  });
+
+  it('never subscribes to install-progress when no onProgress callback is given', async () => {
+    let subscribedDuringInstall = true;
+    mocks.invoke.mockImplementationOnce(async () => {
+      subscribedDuringInstall = mocks.listeners.has('clio:install-progress');
+      mocks.listeners.get('clio:install-done')?.({ payload: undefined });
+    });
+
+    await updateManagedClio('v0.9.4.3', { restartApp: false });
+
+    expect(subscribedDuringInstall).toBe(false);
+  });
+
   it('surfaces the native update failure tail', async () => {
     mocks.invoke.mockImplementationOnce(async () => {
       mocks.listeners.get('clio:install-failed')?.({
