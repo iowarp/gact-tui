@@ -83,7 +83,7 @@ export function SshHostDialog({
   const [testSucceeded, setTestSucceeded] = useState(false);
   const activeTest = useRef<SshConnectionTest | undefined>(undefined);
   const [typingJump, setTypingJump] = useState(false);
-  const isJump = step.kind === 'jump';
+  const isJump = !step.isDestination;
   // Only a computer CLIO saved is edited in place. Configuring an imported
   // OpenSSH host saves a new CLIO computer under a name that cannot collide
   // with (and so override) any existing alias.
@@ -453,10 +453,6 @@ export function SshHostDialog({
 
 function dialogTitle(step: SshRouteStep, initial?: SshHost): string {
   if (initial?.profile) return `Configure ${initial.label}`;
-  if (step.kind === 'jump') {
-    return initial && step.index !== 'new'
-      ? `Configure jump host ${step.index + 1}`
-      : 'Add a jump host';
-  }
-  return 'Add an SSH host';
+  if (step.isDestination) return initial ? 'Configure the destination' : 'Add an SSH host';
+  return initial ? `Configure hop ${step.index + 1}` : 'Add a jump host';
 }
