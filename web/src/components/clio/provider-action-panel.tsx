@@ -9,7 +9,10 @@ import {
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { providerPrimaryAction } from '@/lib/provider-availability';
+import {
+  providerPrimaryAction,
+  translateKnownProviderErrorReason,
+} from '@/lib/provider-availability';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ProviderAuthPanel } from './provider-auth-panel';
@@ -193,6 +196,11 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
       ) : null}
       {actions.refreshModels.error ? (
         <p className="text-xs text-destructive">{actions.refreshModels.error.message}</p>
+      ) : null}
+      {compact && actions.handshakeResult?.error && actions.handshakeResult.auth !== 'ok' ? (
+        <p className="text-xs text-destructive" title={actions.handshakeResult.error}>
+          {translateKnownProviderErrorReason(actions.handshakeResult.error, providerLabel)}
+        </p>
       ) : null}
       {actions.handshake.error ? (
         <p className="text-xs text-destructive">{actions.handshake.error.message}</p>

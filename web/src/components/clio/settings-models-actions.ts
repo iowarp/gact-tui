@@ -231,9 +231,9 @@ export function useProviderSettingsActions({
       await storeProviderCredential(presetId, resolvedApiBase, trimmed);
       await repository.saveProviderApiKey(presetId, trimmed);
       const checked = await checkProvider();
-      const verified =
-        checked.result.connectivity === 'ok' &&
-        ['ok', 'not_required', 'deferred'].includes(checked.result.auth);
+      // Only a key the provider itself accepted counts: an unproven
+      // (`deferred`) check is not a pass for a key the person just typed.
+      const verified = checked.result.connectivity === 'ok' && checked.result.auth === 'ok';
       if (!verified) {
         throw new Error(
           checked.result.error

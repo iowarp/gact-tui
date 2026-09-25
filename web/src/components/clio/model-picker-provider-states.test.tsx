@@ -241,6 +241,44 @@ describe('ClioModelPicker provider submenu: exact action set and progress per st
     expect(screen.getByRole('button', { name: 'Refresh models' })).toBeEnabled();
   });
 
+  it('a fake key fails Save: "Your OpenAI API key was rejected.", never a green row', async () => {
+    mockOpenaiApiKeyPreset();
+    repository.saveProviderApiKey.mockResolvedValueOnce({
+      provider_id: 'openai',
+      is_authenticated: true,
+      instructions: 'Saved.',
+    });
+    repository.providerHandshake.mockResolvedValueOnce({
+      connectivity: 'ok',
+      auth: 'rejected',
+      error: 'api_key_rejected: the provider refused the API key (HTTP 401)',
+      models: [{ id: 'gpt-4o-mini', name: 'gpt-4o-mini' }],
+      source: 'live',
+      generated_at: '2026-09-25T00:00:00Z',
+    });
+    repository.providerCatalog.mockResolvedValue({
+      authoritative: 'live_handshake',
+      providers: [],
+    });
+    const user = userEvent.setup();
+    renderPicker(
+      <ClioModelPicker
+        onChange={vi.fn()}
+        options={[...options, openaiOption]}
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    await user.click(screen.getByText('OpenAI'));
+    await user.type(await screen.findByLabelText('OpenAI API key'), 'sk-fake');
+    await user.click(screen.getByRole('button', { name: 'Save key' }));
+
+    expect(await screen.findByText('Your OpenAI API key was rejected.')).toBeVisible();
+    expect(screen.queryByText(/api_key_rejected/u)).not.toBeInTheDocument();
+    expect(repository.providerModels).not.toHaveBeenCalled();
+  });
+
   it('Save key hides the stale "add your key" error behind the running stage', async () => {
     mockOpenaiApiKeyPreset();
     let finishSave: (value: unknown) => void = () => {};

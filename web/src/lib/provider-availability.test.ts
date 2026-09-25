@@ -127,6 +127,18 @@ describe('translateKnownProviderErrorReason', () => {
     );
   });
 
+  it('words a rejected key, never the raw code', () => {
+    expect(
+      translateKnownProviderErrorReason(
+        'api_key_rejected: the provider refused the API key (HTTP 401)',
+        'OpenRouter',
+      ),
+    ).toBe('Your OpenRouter API key was rejected.');
+    expect(translateKnownProviderErrorReason('key_check_unavailable: HTTP 503', 'OpenRouter')).toBe(
+      "Couldn't confirm your OpenRouter API key right now. Try Verify provider again.",
+    );
+  });
+
   it('turns the raw "no API key provided" into the key action', () => {
     expect(translateKnownProviderErrorReason('no API key provided', 'OpenRouter')).toBe(
       'Add your OpenRouter API key.',

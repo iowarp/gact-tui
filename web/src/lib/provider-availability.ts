@@ -30,6 +30,16 @@ export function translateKnownProviderErrorReason(text: string, providerLabel?: 
   if (/^no Globus token stored/iu.test(text)) {
     return 'Sign in to ALCF to use its models.';
   }
+  if (/^api_key_rejected\b/iu.test(text)) {
+    return providerLabel
+      ? `Your ${providerLabel} API key was rejected.`
+      : 'The API key was rejected.';
+  }
+  if (/^key_check_unavailable\b/iu.test(text)) {
+    return providerLabel
+      ? `Couldn't confirm your ${providerLabel} API key right now. Try Verify provider again.`
+      : "Couldn't confirm the API key right now. Try Verify provider again.";
+  }
   if (/^no API key provided$/iu.test(text)) {
     return providerLabel ? `Add your ${providerLabel} API key.` : 'Add an API key.';
   }
