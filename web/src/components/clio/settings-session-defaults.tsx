@@ -76,16 +76,18 @@ export function SessionDefaultsSettings() {
   };
 
   const selectedPreset = modelConfiguration.data?.presets.find(
-    (preset) => preset.id === form?.provider_id || preset.provider === form?.provider_id,
+    (preset) => preset.id === form?.provider_id,
   );
   const modelCatalog = useQuery({
     enabled: Boolean(form?.provider_id && selectedPreset?.is_authenticated),
     queryKey: queryKeys.key('provider-models', settings.endpoint, form?.provider_id),
     queryFn: ({ signal }) => repository.providerModels(form?.provider_id ?? '', signal),
   });
-  // The model new sessions will start on: the pinned one, else the service default.
+  // The model new sessions will start on: the pinned one, else the service
+  // default. provider_id only -- modelConfiguration.data?.provider is the
+  // wire kind, not an identity (#1418).
   const reasoning = useModelReasoningLevels(
-    form?.provider_id || modelConfiguration.data?.provider_id || modelConfiguration.data?.provider,
+    form?.provider_id || modelConfiguration.data?.provider_id,
     form?.provider_id ? form.model_id : modelConfiguration.data?.model,
     // Only the service default's own resolution applies; a pinned model_id is
     // already a real catalog id and matches by id directly.

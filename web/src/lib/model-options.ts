@@ -115,7 +115,7 @@ export function buildModelOptions({
     ),
   );
   const presetOptions = presets
-    .filter((preset) => !liveProviderIds.has(preset.id) && !liveProviderIds.has(preset.provider))
+    .filter((preset) => !liveProviderIds.has(preset.id))
     .flatMap((preset) => {
       const models = catalogModelsByProvider?.[preset.id]?.length
         ? catalogModelsByProvider[preset.id]
@@ -249,8 +249,16 @@ function isAuthenticationFailure(failure: string | null | undefined): boolean {
   );
 }
 
+/**
+ * Whether `preset` IS `providerId` -- by its own id only.
+ *
+ * `preset.provider` is the wire KIND (LiteLLM dialect), never an identity:
+ * nine presets share kind "openai" (bedrock, llama_cpp, azure_openai, ...),
+ * so matching on it picked whichever same-kind preset the catalog listed
+ * first instead of the one actually configured (#1418).
+ */
 function matchesProvider(preset: LanguageModelPreset, providerId: string): boolean {
-  return preset.id === providerId || preset.provider === providerId;
+  return preset.id === providerId;
 }
 
 function conciseModelName(modelId: string): string {
