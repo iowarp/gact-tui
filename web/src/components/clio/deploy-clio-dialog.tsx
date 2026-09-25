@@ -12,6 +12,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { ConnectionSettings } from '@/lib/connection';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -26,15 +27,19 @@ import { SshAuthentication } from './managed-service-target';
 import { SshHostPicker } from './ssh-host-picker';
 import { SshHostsManagerDialog } from './ssh-hosts-manager-dialog';
 import { routeIncompleteMessage, type SshRouteCompleteness } from './ssh-route-utils';
+import { deployNameError, LOCAL_NAME, type KnownServiceName } from './deploy-name';
 import { useRemoteDeployment } from './use-remote-deployment';
 
 type DeployTarget = 'local' | 'ssh';
 
 export function DeployClioDialog({
+  knownServices = [],
   onReady,
   open: controlledOpen,
   onOpenChange,
 }: {
+  /** Services already in the connect list; the new name must differ from theirs. */
+  knownServices?: readonly KnownServiceName[];
   onReady: (settings: ConnectionSettings) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -45,6 +50,9 @@ export function DeployClioDialog({
   const [route, setRoute] = useState<SshRouteCompleteness>({ emptyRows: [0] });
   const [routeError, setRouteError] = useState<string>();
   const [managingHosts, setManagingHosts] = useState(false);
+  // The name follows the chosen computer until the user types their own.
+  const [customName, setCustomName] = useState<string>();
+  const [nameError, setNameError] = useState<string>();
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
   const ready = (settings: ConnectionSettings) => {
@@ -52,6 +60,9 @@ export function DeployClioDialog({
     onReady(settings);
   };
   const remote = useRemoteDeployment(ready);
+  const managedLabel = knownServices.find((service) => service.source === 'managed')?.label;
+  const defaultName = target === 'local' ? (managedLabel ?? LOCAL_NAME) : (host?.label ?? '');
+  const name = customName ?? defaultName;
   const local = useMutation({
     mutationFn: async (): Promise<ConnectionSettings> => {
       const current = await getManagedBackend();
@@ -62,7 +73,7 @@ export function DeployClioDialog({
       return {
         endpoint: handle.url,
         token: handle.bearer_token || undefined,
-        label: 'This computer',
+        label: name.trim(),
         location: 'Local',
       };
     },
@@ -75,8 +86,14 @@ export function DeployClioDialog({
   const prompt = remote.phase === 'running' ? remote.transport?.prompt : undefined;
 
   const deploy = () => {
+    const invalidName = deployNameError(name, knownServices, (service) =>
+      target === 'local'
+        ? service.source === 'managed'
+        : Boolean(host && service.location === host.label),
+    );
+    setNameError(invalidName);
     if (target === 'local') {
-      local.mutate();
+      if (!invalidName) local.mutate();
       return;
     }
     const incomplete = routeIncompleteMessage(route);
@@ -85,7 +102,8 @@ export function DeployClioDialog({
       return;
     }
     setRouteError(undefined);
-    void remote.deploy(host);
+    if (invalidName) return;
+    void remote.deploy(host, name.trim());
   };
 
   return (
@@ -116,7 +134,11 @@ export function DeployClioDialog({
           <RadioGroup
             className="grid grid-cols-2 gap-3"
             disabled={running}
-            onValueChange={(value) => setTarget(value as DeployTarget)}
+            onValueChange={(value) => {
+              setTarget(value as DeployTarget);
+              setCustomName(undefined);
+              setNameError(undefined);
+            }}
             value={target}
           >
             <TargetOption
@@ -134,6 +156,23 @@ export function DeployClioDialog({
               value="ssh"
             />
           </RadioGroup>
+
+          <Field data-invalid={Boolean(nameError) || undefined}>
+            <FieldLabel htmlFor="deploy-clio-name">Name</FieldLabel>
+            <Input
+              aria-invalid={Boolean(nameError)}
+              autoComplete="off"
+              disabled={running}
+              id="deploy-clio-name"
+              onChange={(event) => {
+                setCustomName(event.target.value);
+                setNameError(undefined);
+              }}
+              placeholder={target === 'local' ? LOCAL_NAME : 'For example, ares lab'}
+              value={name}
+            />
+            {nameError ? <FieldError>{nameError}</FieldError> : null}
+          </Field>
 
           {target === 'ssh' ? (
             <Field data-invalid={Boolean(routeError) || undefined}>

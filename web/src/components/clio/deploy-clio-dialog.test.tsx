@@ -263,7 +263,7 @@ describe('DeployClioDialog', () => {
     await waitFor(() =>
       expect(onReady).toHaveBeenCalledWith({
         endpoint: 'http://127.0.0.1:64123',
-        label: vocab.agent,
+        label: 'homelab',
         location: 'homelab',
         infrastructure: { targetId: 'target-homelab', serviceId: 'clio_agent' },
       }),
@@ -274,6 +274,77 @@ describe('DeployClioDialog', () => {
       variant_id: 'released',
       configuration: {},
     });
+  });
+
+  it('names the deployed service after the destination by default, editable', async () => {
+    const user = userEvent.setup();
+    const onReady = renderDialog();
+    await chooseRemoteHost(user);
+    const name = screen.getByLabelText('Name');
+    expect(name).toHaveValue('homelab');
+
+    await user.clear(name);
+    await user.type(name, 'ares lab');
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    await waitFor(() =>
+      expect(onReady).toHaveBeenCalledWith(expect.objectContaining({ label: 'ares lab' })),
+    );
+  });
+
+  it('names the local service This computer by default and uses the typed name', async () => {
+    const user = userEvent.setup();
+    const onReady = renderDialog();
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'ready' },
+    });
+    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
+    const name = screen.getByLabelText('Name');
+    expect(name).toHaveValue('This computer');
+    await user.clear(name);
+    await user.type(name, 'laptop');
+    await user.click(screen.getByRole('button', { name: `Use local ${vocab.agent}` }));
+
+    await waitFor(() =>
+      expect(onReady).toHaveBeenCalledWith(expect.objectContaining({ label: 'laptop' })),
+    );
+  });
+
+  it('requires a name that no other known service uses', async () => {
+    const user = userEvent.setup();
+    const onReady = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <DeployClioDialog
+          knownServices={[
+            { endpoint: 'http://laptop:17800', label: 'laptop', source: 'recent' },
+            // An earlier deploy to this same host is replaced, not a clash.
+            { endpoint: 'http://127.0.0.1:64000', label: 'homelab', location: 'homelab' },
+          ]}
+          onReady={onReady}
+        />
+      </QueryClientProvider>,
+    );
+    await chooseRemoteHost(user);
+    const name = screen.getByLabelText('Name');
+
+    await user.clear(name);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    expect(await screen.findByText('Give this service a name.')).toBeVisible();
+
+    await user.type(name, 'Laptop');
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    expect(await screen.findByText('A service named “Laptop” already exists.')).toBeVisible();
+    expect(mocks.createInfrastructureTarget).not.toHaveBeenCalled();
+
+    await user.clear(name);
+    await user.type(name, 'homelab');
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    await waitFor(() =>
+      expect(onReady).toHaveBeenCalledWith(expect.objectContaining({ label: 'homelab' })),
+    );
   });
 
   it('has no dialog-level installation settings; the destination’s own settings apply', async () => {

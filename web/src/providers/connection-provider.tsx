@@ -45,6 +45,16 @@ import {
 import { listen } from '@tauri-apps/api/event';
 
 const RECENT_CONNECTIONS_KEY = 'clio.recent-connections';
+/** The name the user gave the desktop-managed local service (never in `recents`). */
+const MANAGED_LABEL_KEY = 'clio.managed-connection-label';
+
+function readManagedLabel(): string | undefined {
+  try {
+    return localStorage.getItem(MANAGED_LABEL_KEY)?.trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
 /**
  * Endpoints kept in the remembered-connections list. Unit: connections.
  * Bounds both the stored value and what is read back, so an oversized or
@@ -75,10 +85,17 @@ interface ConnectionContextValue {
    * it this session.
    */
   managedConnection?: ConnectionSettings;
+  /** The user's name for the managed local service, when they gave one. */
+  managedLabel?: string;
   credentialError?: string;
   resolveConnection: (settings: ConnectionSettings) => Promise<ConnectionSettings>;
   connect: (settings: ConnectionSettings) => Promise<void>;
   forget: (endpoint: string) => Promise<void>;
+  /**
+   * Give a known service a new name: the managed local service keeps its own
+   * name; any other service is remembered (saved if it was only discovered).
+   */
+  rename: (connection: SavedConnection, label: string) => void;
 }
 
 const ConnectionContext = createContext<ConnectionContextValue | undefined>(undefined);
@@ -157,6 +174,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   /** The supervisor's address is allocated per launch, so it is never remembered. */
   const [managedEndpoint, setManagedEndpoint] = useState<string>();
   const [managedConnection, setManagedConnection] = useState<ConnectionSettings>();
+  const [managedLabel, setManagedLabel] = useState<string | undefined>(readManagedLabel);
   const [pendingSsh, setPendingSsh] = useState<{
     label: string;
     targetId: string;
@@ -245,7 +263,11 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         );
         let current = status;
         if (current.state !== 'connected') {
-          setPendingSsh({ label: target.label, targetId: target.id, status: current });
+          setPendingSsh({
+            label: next.label || target.label,
+            targetId: target.id,
+            status: current,
+          });
           for (let attempt = 0; current.state !== 'connected' && attempt < 3_600; attempt += 1) {
             if (cancelledSsh.current.delete(current.session_id)) {
               throw new Error(`SSH authentication for ${target.label} was cancelled.`);
@@ -261,7 +283,11 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
               setPendingSsh(undefined);
               throw error;
             }
-            setPendingSsh({ label: target.label, targetId: target.id, status: current });
+            setPendingSsh({
+              label: next.label || target.label,
+              targetId: target.id,
+              status: current,
+            });
           }
           setPendingSsh(undefined);
         }
@@ -313,7 +339,14 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       setSettings(normalized);
       // The supervisor owns the managed address and its token for this launch only;
       // recording it would evict remembered remote endpoints from the saved list.
-      if (managed) return;
+      // Its name is kept on its own.
+      if (managed) {
+        if (normalized.label) {
+          localStorage.setItem(MANAGED_LABEL_KEY, normalized.label);
+          setManagedLabel(normalized.label);
+        }
+        return;
+      }
       setRecents((current) => {
         const updated = [
           {
@@ -324,6 +357,39 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
           },
           ...current.filter((item) => item.endpoint !== endpoint),
         ].slice(0, RECENT_CONNECTIONS_LIMIT);
+        localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
+        return updated;
+      });
+    },
+    [managedEndpoint],
+  );
+
+  const rename = useCallback(
+    (connection: SavedConnection, label: string) => {
+      const endpoint = normalizeEndpoint(connection.endpoint);
+      const name = label.trim();
+      if (!name) return;
+      setSettings((current) =>
+        current.endpoint === endpoint ? { ...current, label: name } : current,
+      );
+      if (endpoint === managedEndpoint) {
+        localStorage.setItem(MANAGED_LABEL_KEY, name);
+        setManagedLabel(name);
+        return;
+      }
+      setRecents((current) => {
+        const saved = current.some((item) => item.endpoint === endpoint);
+        const updated = saved
+          ? current.map((item) => (item.endpoint === endpoint ? { ...item, label: name } : item))
+          : [
+              {
+                endpoint,
+                label: name,
+                location: connection.location,
+                infrastructure: connection.infrastructure,
+              },
+              ...current,
+            ].slice(0, RECENT_CONNECTIONS_LIMIT);
         localStorage.setItem(RECENT_CONNECTIONS_KEY, JSON.stringify(updated));
         return updated;
       });
@@ -350,10 +416,12 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       isManagedConnection: managedConnectionReady && managedEndpoint === settings.endpoint,
       managedBackendStatus,
       managedConnection,
+      managedLabel,
       credentialError,
       resolveConnection,
       connect,
       forget,
+      rename,
     }),
     [
       connect,
@@ -362,9 +430,11 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       forget,
       managedConnection,
       managedConnectionReady,
+      managedLabel,
       managedBackendStatus,
       managedEndpoint,
       recents,
+      rename,
       resolveConnection,
       settings,
     ],

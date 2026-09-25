@@ -36,7 +36,7 @@ export type RemoteDeployment = {
   transport?: SshTransportStatus;
   /** The cleaned transport log, fetched when a deployment fails. */
   details?: string;
-  deploy: (host: SshHost) => Promise<void>;
+  deploy: (host: SshHost, name: string) => Promise<void>;
   cancel: () => Promise<void>;
 };
 
@@ -98,7 +98,7 @@ export function useRemoteDeployment(
   }, []);
 
   const deploy = useCallback(
-    async (host: SshHost) => {
+    async (host: SshHost, name: string) => {
       const controller = new AbortController();
       abort.current = controller;
       session.current = undefined;
@@ -143,7 +143,7 @@ export function useRemoteDeployment(
         setPhase('idle');
         onReady({
           endpoint: service.connection_url,
-          label: vocab.agent,
+          label: name,
           location: host.label,
           infrastructure: { targetId: registered.id, serviceId: 'clio_agent' },
         });
