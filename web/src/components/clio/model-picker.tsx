@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { ActivityIcon, EyeIcon, EyeOffIcon, RefreshCwIcon } from 'lucide-react';
+import { ActivityIcon, EyeIcon, EyeOffIcon, LoaderCircleIcon, RefreshCwIcon } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ModelSelector,
@@ -48,6 +48,8 @@ import {
   type ProviderGroup,
   readHiddenProviders,
   persistHiddenProviders,
+  PROVIDER_HEALTH_ORDER,
+  readyTransportsPreset,
   toProviderGroup,
   transportHasModels,
   transportHeadingNodeValue,
@@ -71,11 +73,12 @@ interface ClioModelPickerProps {
 // The Cascader's own combobox keeps real DOM focus permanently on its search
 // input (a virtual/roving-focus listbox -- see cascader-nav.tsx/cascader-item.tsx),
 // so a real, independently-typeable <input> (the API-key field) can never sit
-// INSIDE its tree as a node. The action panel instead renders as a sibling
-// strip below the columns/list, and this is the exact width the columns
-// component itself uses for column one, reused so the strip's spacer lines
-// up under only the second (active provider's) column.
-const ACTION_STRIP_COLUMN_WIDTH = 'calc(50% - .5px)';
+// INSIDE its tree as a node. The action panel instead renders as a `footer`
+// inside the active (deepest) column's OWN box -- see `CascaderColumnPanel`'s
+// `footer` prop -- never a separate full-width row below every column, which
+// would leave a matching empty cell under the ones that don't have one. Each
+// of the two levels (provider, model) gets an equal half of the panel.
+const PICKER_COLUMN_WIDTH = 'calc(50% - .5px)';
 
 /** Searchable AI Elements dialog composed with the real ReUI columns cascader. */
 export function ClioModelPicker({
@@ -150,12 +153,11 @@ export function ClioModelPicker({
   );
   const sortedProviders = useMemo(
     () =>
-      [...allProviders].sort((left, right) => {
-        const healthOrder = { healthy: 0, degraded: 1, unavailable: 2 };
-        return (
-          healthOrder[left.health] - healthOrder[right.health] || left.name.localeCompare(right.name)
-        );
-      }),
+      [...allProviders].sort(
+        (left, right) =>
+          PROVIDER_HEALTH_ORDER[left.health] - PROVIDER_HEALTH_ORDER[right.health] ||
+          left.name.localeCompare(right.name),
+      ),
     [allProviders],
   );
   const [path, setPath] = useState<string[]>(() => {
@@ -253,8 +255,16 @@ export function ClioModelPicker({
   const activeActionTransports = hasMultipleTransports
     ? activeTransports.filter((transport) => !transportHasModels(activeGroup!, transport.id))
     : [];
-  const activeTreeHasTransportSection =
-    hasMultipleTransports && activeActionTransports.length < activeTransports.length;
+  // The provider-level actions of a multi-transport provider (Verify provider
+  // / Refresh models, plus Sign out when a READY transport supports it) --
+  // once, above the per-transport sections, never repeated per transport. A
+  // check probes every transport, so it is also the SDK half's own action
+  // while that half is unchecked (the SDK is the user's own Codex login:
+  // CLIO can check it, never sign it in or out).
+  const activeReadyPreset =
+    activePreset && hasMultipleTransports
+      ? readyTransportsPreset(activePreset, activeTransports)
+      : undefined;
   // One actions instance, scoped to whichever provider's submenu is open --
   // the SAME hook and mutations Settings > Providers uses (one implementation
   // per action; see ProviderActionPanel).
@@ -264,12 +274,88 @@ export function ClioModelPicker({
     onDefaultModel: () => {},
     preset: activePreset,
   });
-  const { reset: resetProviderActions } = providerActions;
+  const { reset: resetProviderActions, stage: activeStage } = providerActions;
   // A stale sign-in/check/install result from the PREVIOUS provider must not
   // leak into the newly active one's submenu.
   useEffect(() => {
     resetProviderActions();
   }, [activeGroup?.id, resetProviderActions]);
+
+  // The active provider's detail/sign-in/install/key/check UI. Rendered as
+  // the active column's own `footer` (columns mode) or directly below the
+  // single list (drill mode) -- never a node inside the Cascader's tree: its
+  // combobox keeps real focus on its own search input (see the constant
+  // above), so a typed field like the API-key box can only work outside it.
+  // Red only for a real failure; "needs a key / sign-in / install" is neutral.
+  const activeFailed = activeGroup?.health === 'degraded' || activeGroup?.health === 'unavailable';
+  const activeProviderActionsContent =
+    activeGroup && (activeStage || activeGroup.detail || activePreset) ? (
+      <div
+        className="flex min-w-0 shrink-0 flex-col gap-2 border-t px-3 py-2"
+        data-slot="provider-action-strip"
+      >
+        {/* While an action runs its stage replaces the last verdict (a stale
+            "missing key" must not sit beside "Saving key…"); once it settles
+            the row's fresh detail -- or nothing, when ready -- comes back. */}
+        {activeStage ? (
+          <p
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+            data-slot="provider-action-stage"
+            role="status"
+          >
+            <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin text-warning" />
+            {activeStage}
+          </p>
+        ) : activeGroup.detail ? (
+          <p
+            className={cn(
+              'text-xs',
+              activeFailed ? 'text-destructive' : 'text-muted-foreground',
+            )}
+            role={activeFailed ? 'alert' : 'status'}
+          >
+            {activeGroup.detail}
+          </p>
+        ) : null}
+        {activeReadyPreset ? (
+          <ProviderActionPanel actions={providerActions} compact preset={activeReadyPreset} />
+        ) : null}
+        {activePreset ? (
+          hasMultipleTransports ? (
+            // The second half of the two-half submenu: only the transports
+            // the tree above did NOT already show with their own
+            // heading+models. "or" separates each section from the one
+            // before it -- including from the tree's own section, when it
+            // rendered one.
+            activeActionTransports.map((transport, index) => (
+              <Fragment key={transport.id}>
+                {index > 0 || activeReadyPreset ? (
+                  <FieldSeparator className="my-0 text-xs **:data-[slot=field-separator-content]:bg-popover">
+                    or
+                  </FieldSeparator>
+                ) : null}
+                <div className="flex flex-col gap-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground">{transport.label}</p>
+                  {transport.auth ? (
+                    <ProviderActionPanel
+                      actions={providerActions}
+                      compact
+                      preset={transportScopedPreset(activePreset, transport)}
+                    />
+                  ) : transport.reason ? (
+                    <p className="text-xs text-muted-foreground" title={transport.reason}>
+                      {translateKnownProviderErrorReason(transport.reason, activeGroup.name)}
+                    </p>
+                  ) : null}
+                </div>
+              </Fragment>
+            ))
+          ) : (
+            <ProviderActionPanel actions={providerActions} compact preset={activePreset} />
+          )
+        ) : null}
+      </div>
+    ) : null;
 
   function hideProvider(group: ProviderGroup): void {
     const nextHidden = new Set(hiddenProviders).add(group.id);
@@ -351,6 +437,11 @@ export function ClioModelPicker({
             path={path}
             renderLabel={(node, state) => (
               <PickerRowLabel
+                stage={
+                  node.data?.kind === 'provider' && node.data.group.id === activeGroup?.id
+                    ? activeStage
+                    : undefined
+                }
                 eyeAsStaticElement={providerRowsAreTrailButtons}
                 hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
                 managingVisibility={managingVisibility}
@@ -399,89 +490,30 @@ export function ClioModelPicker({
               {/* A live provider can report hundreds of models, and every row
                   carries an icon, a description and a health indicator. Both
                   layouts render through the windowed items, which fall back to
-                  the plain rows below the cascader's own threshold. */}
+                  the plain rows below the cascader's own threshold. The active
+                  provider's action UI (see `activeProviderActionsContent`
+                  above) lands as the active column's own `footer` in columns
+                  mode, or directly below the single list in drill mode --
+                  never a separate full-width row that would leave a dead cell
+                  under a column that has nothing to show. */}
               {showColumns ? (
-                <CascaderColumns
-                  className="w-full flex-1"
-                  columnWidth={ACTION_STRIP_COLUMN_WIDTH}
-                  maxHeight="100%"
-                >
-                  {(column) => <CascaderVirtualColumn column={column} key={column.depth} />}
+                <CascaderColumns className="w-full flex-1" columnWidth={PICKER_COLUMN_WIDTH} maxHeight="100%">
+                  {(column) => (
+                    <CascaderVirtualColumn
+                      column={column}
+                      footer={column.active ? activeProviderActionsContent : undefined}
+                      key={column.depth}
+                    />
+                  )}
                 </CascaderColumns>
               ) : (
-                <CascaderList className="w-full flex-1" maxHeight="100%">
-                  <CascaderVirtualItems />
-                </CascaderList>
+                <>
+                  <CascaderList className="w-full flex-1" maxHeight="100%">
+                    <CascaderVirtualItems />
+                  </CascaderList>
+                  {activeProviderActionsContent}
+                </>
               )}
-              {/* The active provider's detail/sign-in/install/key/check UI --
-                  a SIBLING of the columns/list, never a node inside them. The
-                  Cascader's combobox keeps real focus on its own search input
-                  (see the constant above), so a typed field like the API-key
-                  box can only work here, outside that tree. The leading
-                  spacer (columns mode only) lines this strip up under just
-                  the second/active column instead of the whole row. */}
-              {activeGroup &&
-              (activeGroup.detail ||
-                (activePreset && (!hasMultipleTransports || activeActionTransports.length > 0))) ? (
-                <div className="flex shrink-0 border-t" data-slot="provider-action-strip">
-                  {showColumns ? (
-                    <div
-                      aria-hidden="true"
-                      className="shrink-0 border-e border-border/60"
-                      style={{ width: ACTION_STRIP_COLUMN_WIDTH }}
-                    />
-                  ) : null}
-                  <div className="flex min-w-0 flex-1 flex-col gap-2 px-3 py-2">
-                    {activeGroup.detail ? (
-                      <p
-                        className={cn(
-                          'text-xs',
-                          activeGroup.health === 'degraded'
-                            ? 'text-warning-foreground'
-                            : 'text-muted-foreground',
-                        )}
-                        role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
-                      >
-                        {activeGroup.detail}
-                      </p>
-                    ) : null}
-                    {activePreset ? (
-                      hasMultipleTransports ? (
-                        // The second half of the two-half submenu: only the
-                        // transports the tree above did NOT already show with
-                        // their own heading+models. "or" separates each
-                        // section from the one before it -- including from
-                        // the tree's own section, when it rendered one.
-                        activeActionTransports.map((transport, index) => (
-                          <Fragment key={transport.id}>
-                            {index > 0 || activeTreeHasTransportSection ? (
-                              <FieldSeparator>or</FieldSeparator>
-                            ) : null}
-                            <div className="flex flex-col gap-1.5">
-                              <p className="text-xs font-semibold text-muted-foreground">
-                                {transport.label}
-                              </p>
-                              {transport.auth ? (
-                                <ProviderActionPanel
-                                  actions={providerActions}
-                                  compact
-                                  preset={transportScopedPreset(activePreset, transport)}
-                                />
-                              ) : transport.reason ? (
-                                <p className="text-xs text-muted-foreground">
-                                  {translateKnownProviderErrorReason(transport.reason)}
-                                </p>
-                              ) : null}
-                            </div>
-                          </Fragment>
-                        ))
-                      ) : (
-                        <ProviderActionPanel actions={providerActions} compact preset={activePreset} />
-                      )
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
               <CascaderFooter className="min-h-11 flex-row items-center justify-between gap-1 px-2">
                 <div className="flex min-w-0 items-center gap-1">
                   <Button
@@ -500,6 +532,15 @@ export function ClioModelPicker({
                     {managingVisibility ? 'Done' : `Hidden (${hiddenProviders.size})`}
                   </Button>
                 </div>
+                {activeStage && activeGroup ? (
+                  <span
+                    className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground"
+                    data-slot="provider-action-footer-stage"
+                  >
+                    <LoaderCircleIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin text-warning" />
+                    {activeGroup.name}: {activeStage}
+                  </span>
+                ) : null}
               </CascaderFooter>
               <CascaderStatus />
             </CascaderPanel>
@@ -575,12 +616,15 @@ function PickerRowLabel({
   managingVisibility,
   node,
   onToggleVisibility,
+  stage,
 }: {
   eyeAsStaticElement: boolean;
   hidden: boolean;
   managingVisibility: boolean;
   node: CascaderNode<PickerNodeData>;
   onToggleVisibility?: () => void;
+  /** The running action's stage for THIS provider: the heartbeat turns yellow. */
+  stage?: string;
   state: CascaderItemState<PickerNodeData>;
 }) {
   if (node.data?.kind === 'provider') {
@@ -600,7 +644,7 @@ function PickerRowLabel({
             onToggle={onToggleVisibility}
           />
         ) : null}
-        <ProviderHeartbeat group={node.data.group} />
+        <ProviderHeartbeat group={node.data.group} stage={stage} />
       </span>
     );
   }
@@ -678,9 +722,13 @@ function ProviderEyeToggle({
   );
 }
 
-/** The heartbeat: health colour on EVERY row, hidden or not -- detail lives in the HoverCard. */
-function ProviderHeartbeat({ group }: { group: ProviderGroup }) {
-  const presentation = providerHealthPresentation(group.health);
+/** The heartbeat: health colour on EVERY row, hidden or not -- detail lives in
+ * the HoverCard. A running action (`stage`) shows as `checking` (yellow) with
+ * its stage as the label until it settles back to the row's real health. */
+function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stage?: string }) {
+  const presentation = stage
+    ? { ...providerHealthPresentation('checking'), label: stage }
+    : providerHealthPresentation(group.health);
   return (
     <HoverCard openDelay={180}>
       <HoverCardTrigger asChild>
@@ -691,6 +739,7 @@ function ProviderHeartbeat({ group }: { group: ProviderGroup }) {
             presentation.color,
           )}
           data-slot="provider-heartbeat"
+          data-state={stage ? 'checking' : group.health}
           onClick={(event) => event.stopPropagation()}
           role="img"
           title={`${group.name} status: ${presentation.label}`}

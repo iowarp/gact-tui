@@ -107,9 +107,16 @@ export interface CascaderColumnPanelProps {
   children?: React.ReactNode;
   /** Containing block for the windowed column's absolutely positioned rows. */
   virtualized?: boolean;
+  /**
+   * Extra content stacked below this column's own rows, INSIDE its bounded
+   * box (never a separate full-width row below every column -- that leaves a
+   * matching empty cell under every column that doesn't have one). The rows'
+   * `ScrollArea` shrinks to make room instead of filling the whole box.
+   */
+  footer?: React.ReactNode;
 }
 
-function CascaderColumnPanel({ column, children, virtualized }: CascaderColumnPanelProps) {
+function CascaderColumnPanel({ column, children, virtualized, footer }: CascaderColumnPanelProps) {
   const { labels, baseId, isBranch, isSelectable, isSelected, isIndeterminate, retryLevel } =
     useCascaderActions();
   const { loadStates } = useCascaderState();
@@ -230,7 +237,14 @@ function CascaderColumnPanel({ column, children, virtualized }: CascaderColumnPa
       data-depth={column.depth}
       className={PANEL_CLASS}
     >
-      <ScrollArea className={CASCADER_SCROLL_CLASS}>{body}</ScrollArea>
+      {footer ? (
+        <div className="min-h-0 w-full flex-1">
+          <ScrollArea className={CASCADER_SCROLL_CLASS}>{body}</ScrollArea>
+        </div>
+      ) : (
+        <ScrollArea className={CASCADER_SCROLL_CLASS}>{body}</ScrollArea>
+      )}
+      {footer}
     </div>
   );
 }

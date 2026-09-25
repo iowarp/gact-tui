@@ -103,6 +103,8 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       providerAuthStatus: vi.fn().mockResolvedValue({ state: 'pending', reason: '' }),
       logoutProvider: vi.fn().mockResolvedValue({ is_authenticated: false, instructions: 'Signed out.' }),
       updateLanguageModelConfiguration: vi.fn(),
+      saveProviderApiKey: vi.fn(),
+      clearProviderApiKey: vi.fn(),
       providerCatalog: vi.fn().mockResolvedValue(codexCatalog()),
     };
   }

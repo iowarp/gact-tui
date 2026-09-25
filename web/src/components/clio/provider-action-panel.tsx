@@ -61,6 +61,10 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
     preset.status_message?.includes('argonne_reauthentication_required'),
   );
 
+  // One action at a time: while any runs (its stage shows in the strip, the
+  // heartbeat and the bottom bar), every control waits for it to settle.
+  const busy = Boolean(actions.stage);
+
   const readySignOut =
     action === 'none' && preset.is_authenticated
       ? preset.supports_logout
@@ -76,30 +80,30 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
         {needsForcedReauth ? (
           <Button
             className={compact ? 'h-7 px-2 text-xs' : undefined}
-            disabled={actions.authenticate.isPending}
+            disabled={busy}
             onClick={() => actions.authenticate.mutate('browser')}
             size={compact ? 'sm' : undefined}
             variant="outline"
           >
             <KeyRoundIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-            {actions.authenticate.isPending ? 'Opening sign-in…' : 'Sign in again'}
+            Sign in again
           </Button>
         ) : action === 'sign_in' ? (
           <>
             <Button
               className={compact ? 'h-7 px-2 text-xs' : undefined}
-              disabled={actions.authenticate.isPending}
+              disabled={busy}
               onClick={() => actions.authenticate.mutate('browser')}
               size={compact ? 'sm' : undefined}
               variant="outline"
             >
               <KeyRoundIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-              {actions.authenticate.isPending ? 'Opening sign-in…' : `Sign in${compact ? '' : ` to ${providerLabel}`}`}
+              {compact ? 'Sign in' : `Sign in to ${providerLabel}`}
             </Button>
             {preset.provider === 'codex' ? (
               <Button
                 className={compact ? 'h-7 px-2 text-xs' : undefined}
-                disabled={actions.authenticate.isPending}
+                disabled={busy}
                 onClick={() => actions.authenticate.mutate('device')}
                 size={compact ? 'sm' : undefined}
                 variant="ghost"
@@ -114,13 +118,13 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
         ) : action === 'install' ? (
           <Button
             className={compact ? 'h-7 px-2 text-xs' : undefined}
-            disabled={actions.installProvider.isPending}
+            disabled={busy}
             onClick={() => actions.installProvider.mutate()}
             size={compact ? 'sm' : undefined}
             variant="outline"
           >
             <DownloadIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-            {actions.installProvider.isPending ? `Installing ${providerLabel}…` : `Install ${providerLabel}`}
+            {compact ? 'Install' : `Install ${providerLabel}`}
           </Button>
         ) : action === 'api_key' ? (
           <ProviderApiKeyField actions={actions} compact={compact} preset={preset} />
@@ -131,17 +135,17 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
                 anyone what clicking it would do. */}
             <Button
               className={compact ? 'h-7 px-2 text-xs' : undefined}
-              disabled={actions.handshake.isPending}
+              disabled={busy}
               onClick={() => actions.handshake.mutate()}
               size={compact ? 'sm' : undefined}
               variant="outline"
             >
               <RadioTowerIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-              {actions.handshake.isPending ? 'Checking provider…' : 'Verify provider'}
+              Verify provider
             </Button>
             <Button
               className={compact ? 'h-7 px-2 text-xs' : undefined}
-              disabled={actions.refreshModels.isPending}
+              disabled={busy}
               onClick={() => actions.refreshModels.mutate()}
               size={compact ? 'sm' : undefined}
               variant="outline"
@@ -153,33 +157,40 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
                   actions.refreshModels.isPending && 'animate-spin',
                 )}
               />
-              {actions.refreshModels.isPending ? 'Checking available models…' : 'Refresh models'}
+              Refresh models
             </Button>
             {readySignOut === 'logout' ? (
               <Button
                 className={compact ? 'h-7 px-2 text-xs' : undefined}
-                disabled={actions.logout.isPending}
+                disabled={busy}
                 onClick={() => actions.logout.mutate()}
                 size={compact ? 'sm' : undefined}
                 variant="ghost"
               >
                 <LogOutIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-                {actions.logout.isPending ? 'Signing out…' : 'Sign out'}
+                Sign out
               </Button>
             ) : readySignOut === 'remove_key' ? (
               <Button
                 className={compact ? 'h-7 px-2 text-xs' : undefined}
-                disabled={actions.removeApiKey.isPending}
+                disabled={busy}
                 onClick={() => actions.removeApiKey.mutate()}
                 size={compact ? 'sm' : undefined}
                 variant="ghost"
               >
-                {actions.removeApiKey.isPending ? 'Removing key…' : 'Remove key'}
+                <KeyRoundIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
+                Remove key
               </Button>
             ) : null}
           </>
         )}
       </div>
+      {/* The picker shows the stage in its own strip, heartbeat and bottom bar. */}
+      {!compact && actions.stage ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          {actions.stage}
+        </p>
+      ) : null}
       {actions.refreshModels.error ? (
         <p className="text-xs text-destructive">{actions.refreshModels.error.message}</p>
       ) : null}
@@ -201,6 +212,9 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
       ) : null}
       {actions.removeApiKey.error ? (
         <p className="text-xs text-destructive">{actions.removeApiKey.error.message}</p>
+      ) : null}
+      {actions.saveApiKey.error ? (
+        <p className="text-xs text-destructive">{actions.saveApiKey.error.message}</p>
       ) : null}
       {actions.authFlow ? (
         <ProviderAuthPanel
@@ -240,23 +254,20 @@ function ProviderApiKeyField({
         aria-label={`${providerDisplayName(preset)} API key`}
         className="h-7 text-xs"
         onChange={(event) => setApiKey(event.target.value)}
-        placeholder="Enter a provider API key"
+        placeholder="Paste API key"
         type="password"
         value={apiKey}
       />
       <Button
         className="h-7 px-2 text-xs"
-        disabled={!apiKey.trim() || actions.saveApiKey.isPending}
+        disabled={!apiKey.trim() || Boolean(actions.stage)}
         onClick={() => actions.saveApiKey.mutate(apiKey)}
         size="sm"
         type="button"
         variant="outline"
       >
-        {actions.saveApiKey.isPending ? 'Saving…' : 'Save key'}
+        Save key
       </Button>
-      {actions.saveApiKey.error ? (
-        <span className="text-xs text-destructive">{actions.saveApiKey.error.message}</span>
-      ) : null}
     </div>
   );
 }

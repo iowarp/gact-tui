@@ -292,6 +292,8 @@ function CascaderVirtualRows({ estimateSize, overscan }: CascaderVirtualItemsPro
 
 export interface CascaderVirtualColumnProps extends CascaderVirtualItemsProps {
   column: CascaderColumn;
+  /** Forwarded to {@link CascaderColumnPanel} -- see its own doc. */
+  footer?: React.ReactNode;
 }
 
 /**
@@ -301,7 +303,12 @@ export interface CascaderVirtualColumnProps extends CascaderVirtualItemsProps {
  * behind is `as="button"` rows outside Base UI, so it windows on its own row
  * count rather than waiting for the root to flip.
  */
-function CascaderVirtualColumn({ column, estimateSize, overscan }: CascaderVirtualColumnProps) {
+function CascaderVirtualColumn({
+  column,
+  estimateSize,
+  overscan,
+  footer,
+}: CascaderVirtualColumnProps) {
   const { virtualized, registerVirtualRenderer, virtualize, virtualizeThreshold } =
     useCascaderActions();
 
@@ -311,10 +318,10 @@ function CascaderVirtualColumn({ column, estimateSize, overscan }: CascaderVirtu
     ? virtualized
     : (virtualize ?? column.items.length >= virtualizeThreshold);
 
-  if (!windowed) return <CascaderColumnPanel column={column} />;
+  if (!windowed) return <CascaderColumnPanel column={column} footer={footer} />;
 
   return (
-    <CascaderColumnPanel column={column} virtualized>
+    <CascaderColumnPanel column={column} footer={footer} virtualized>
       {column.active ? (
         <CascaderVirtualActiveColumnRows
           column={column}

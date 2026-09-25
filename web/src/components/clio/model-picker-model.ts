@@ -1,11 +1,27 @@
 import type { LanguageModelPreset, ProviderCatalogTransport } from '@clio/core/v3';
-import type { ClioModelOption } from '@/lib/model-options';
+import { type ClioModelOption, PROVIDER_NEEDS_SETUP } from '@/lib/model-options';
 
 export const HIDDEN_PROVIDERS_STORAGE_KEY = 'clio.hidden-providers.v1';
 export const PROVIDER_NODE_PREFIX = 'provider:';
 export const MODEL_NODE_PREFIX = 'model:';
 
-export type ProviderHealth = 'healthy' | 'degraded' | 'unavailable';
+/**
+ * `checking`: a probe is running right now (the service's own background
+ * reprobe); `setup`: nothing has failed yet, the provider still needs an
+ * install, a sign-in or a key (or was never checked). Every other state
+ * settles green (`healthy`) or red (`degraded` / `unavailable`), with the
+ * reason in `detail`.
+ */
+export type ProviderHealth = 'healthy' | 'checking' | 'degraded' | 'unavailable' | 'setup';
+
+/** Sort order of the provider column: usable first, never-checked last. */
+export const PROVIDER_HEALTH_ORDER: Record<ProviderHealth, number> = {
+  healthy: 0,
+  checking: 1,
+  degraded: 2,
+  unavailable: 3,
+  setup: 4,
+};
 
 export interface ProviderGroup {
   id: string;
@@ -47,8 +63,10 @@ export function providerHealthPresentation(health: ProviderHealth): {
 } {
   return {
     healthy: { color: 'text-success', label: 'Ready' },
-    degraded: { color: 'text-warning', label: 'Needs attention' },
-    unavailable: { color: 'text-muted-foreground/55', label: 'Unavailable' },
+    checking: { color: 'text-warning animate-pulse', label: 'Checking…' },
+    degraded: { color: 'text-destructive', label: 'Needs attention' },
+    unavailable: { color: 'text-destructive', label: 'Unavailable' },
+    setup: { color: 'text-muted-foreground/55', label: 'Needs setup' },
   }[health];
 }
 
@@ -63,13 +81,17 @@ export function toProviderGroup(group: {
     (choice) => choice.available && choice.kind !== 'provider',
   );
   const reportedHealth = group.choices.find((choice) => choice.health)?.health?.toLowerCase();
-  const health: ProviderHealth = availableChoices.length
-    ? reportedHealth === 'degraded' || reportedHealth === 'error'
-      ? 'degraded'
-      : 'healthy'
-    : reportedHealth === 'degraded' || reportedHealth === 'error'
-      ? 'degraded'
-      : 'unavailable';
+  const reportedFailure = reportedHealth === 'degraded' || reportedHealth === 'error';
+  const health: ProviderHealth =
+    !group.choices.length || reportedHealth === PROVIDER_NEEDS_SETUP
+      ? 'setup'
+      : reportedHealth === 'checking'
+        ? 'checking'
+        : reportedFailure
+          ? 'degraded'
+          : availableChoices.length
+            ? 'healthy'
+            : 'unavailable';
   const details = [
     ...new Set(
       group.choices
@@ -115,6 +137,30 @@ export function transportScopedPreset(
     auth_method: transport.auth?.method ?? preset.auth_method,
     status: transport.health === 'needs_install' ? 'install_required' : preset.status,
     status_message: transport.reason || preset.status_message,
+    supports_logout: transport.auth?.logout === true,
+  };
+}
+
+/**
+ * The ready half of a multi-transport provider as ONE preset: ready, so
+ * `ProviderActionPanel` renders Verify provider / Refresh models, and able to
+ * sign out only when a READY transport's own `auth.logout` says CLIO can
+ * (Codex Direct: yes; the SDK transport is the user's own Codex login) --
+ * never the preset-level flag, which cannot tell the two transports apart.
+ */
+export function readyTransportsPreset(
+  preset: LanguageModelPreset,
+  transports: readonly ProviderCatalogTransport[],
+): LanguageModelPreset {
+  return {
+    ...preset,
+    status: 'ready',
+    status_message: undefined,
+    is_authenticated: true,
+    requires_api_key: false,
+    supports_logout: transports.some(
+      (transport) => transport.health === 'ready' && transport.auth?.logout === true,
+    ),
   };
 }
 
@@ -131,12 +177,18 @@ export function transportHeadingNodeValue(providerId: string, transportId: strin
   return `transport-heading:${providerId}:${transportId}`;
 }
 
+/** A model row's tree identity. Two transports of one provider can report the
+ * same model id (Codex SDK and Direct both list `gpt-5.5`), so the transport
+ * is part of it -- otherwise the second half's rows collapse into the first. */
 export function modelNodeValue(choice: ClioModelOption): string {
-  return `${MODEL_NODE_PREFIX}${choice.providerId}:${choice.id}`;
+  const transport = choice.transport ? `${choice.transport}:` : '';
+  return `${MODEL_NODE_PREFIX}${choice.providerId}:${transport}${choice.id}`;
 }
 
 export function providerSearchDescription(group: ProviderGroup): string {
-  if (group.health === 'unavailable') return 'Unavailable';
+  if (group.health === 'unavailable' || group.health === 'setup') {
+    return providerHealthPresentation(group.health).label;
+  }
   const count = group.availableChoices.length;
   return `${count} ${count === 1 ? 'model' : 'models'}`;
 }

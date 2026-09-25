@@ -1,71 +1,26 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
-import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
+import {
+  defaultConfiguration,
+  mockOpenaiApiKeyPreset,
+  openaiOption,
+  options,
+  renderPicker,
+  repository,
+  setWideViewport,
+  stripButtonNames,
+} from '@/test-fixtures/model-picker/provider-actions';
 import { ClioModelPicker } from './model-picker';
 
-const defaultConfiguration = {
-  configured: true,
-  provider_id: 'codex',
-  provider: 'codex',
-  api_base: '',
-  model: 'gpt-5.6-luna',
-  presets: [
-    {
-      id: 'codex',
-      label: 'Codex',
-      provider: 'codex',
-      suggested_model: 'gpt-5.6-luna',
-      requires_api_key: false,
-      auth_method: 'subscription',
-      is_authenticated: true,
-      supports_logout: true,
-    },
-    {
-      id: 'local-vllm',
-      label: 'Local vLLM',
-      provider: 'openai',
-      api_base: 'http://127.0.0.1:8000/v1',
-      suggested_model: '',
-      requires_api_key: false,
-      auth_method: 'none',
-      is_authenticated: true,
-    },
-  ],
-};
-
-const { repository } = vi.hoisted(() => ({
-  repository: {
-    languageModelConfiguration: vi.fn(),
-    providerHandshake: vi.fn(),
-    refreshProviderModels: vi.fn(),
-    installProviderSupport: vi.fn(),
-    authenticateProvider: vi.fn(),
-    completeProviderAuthentication: vi.fn(),
-    providerAuthStatus: vi.fn(),
-    logoutProvider: vi.fn(),
-    updateLanguageModelConfiguration: vi.fn(),
-    providerCatalog: vi.fn(),
-    providerModels: vi.fn(),
-  },
-}));
-
-vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
+vi.mock('@/hooks/use-repository', async () => {
+  const fixtures = await import('@/test-fixtures/model-picker/provider-actions');
+  return { useRepository: () => fixtures.repository };
+});
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
 }));
-
-function renderPicker(children: ReactNode) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <MemoryRouter>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    </MemoryRouter>,
-  );
-}
 
 afterEach(() => {
   cleanup();
@@ -78,33 +33,6 @@ beforeEach(() => {
   setWideViewport(true);
   repository.languageModelConfiguration.mockResolvedValue(defaultConfiguration);
 });
-
-const options = [
-  {
-    providerId: 'codex',
-    providerName: 'Codex',
-    id: 'gpt-5.6-luna',
-    label: 'Luna',
-    available: true,
-    endpoint: 'local://codex-sdk',
-    configurationUrl: '/settings/providers?provider=codex',
-    freshness: '2026-08-31T12:00:00Z',
-    health: 'ready',
-    modalities: ['text', 'image'],
-  },
-  {
-    providerId: 'local-vllm',
-    providerName: 'Local vLLM',
-    id: 'Qwen/Qwen3-VL-32B',
-    label: 'Qwen3-VL-32B',
-    available: true,
-    endpoint: 'http://127.0.0.1:8000/v1',
-    configurationUrl: '/settings/providers?provider=local-vllm',
-    freshness: '2026-08-31T12:00:00Z',
-    health: 'ready',
-    modalities: ['text', 'image'],
-  },
-];
 
 describe('ClioModelPicker provider submenu actions', () => {
     it('signed out: opening the submenu never starts a flow on its own', async () => {
@@ -221,44 +149,31 @@ describe('ClioModelPicker provider submenu actions', () => {
 
       await user.click(screen.getByRole('button', { name: 'Change model' }));
       await user.click(screen.getByText('Claude Code'));
-      await user.click(await screen.findByRole('button', { name: /Install Claude Code/ }));
+      await user.click(await screen.findByRole('button', { name: 'Install' }));
 
       await waitFor(() => expect(repository.installProviderSupport).toHaveBeenCalledWith('claude_code'));
       expect(await screen.findByText('Claude Code CLI not found')).toBeVisible();
     });
 
-    it('API key needed: saves the key and applies the provider with its suggested model', async () => {
-      repository.languageModelConfiguration.mockResolvedValue({
-        ...defaultConfiguration,
-        presets: [
-          ...defaultConfiguration.presets,
-          {
-            id: 'openai',
-            label: 'OpenAI',
-            provider: 'openai',
-            api_base: 'https://api.openai.com/v1',
-            suggested_model: 'gpt-4o-mini',
-            requires_api_key: true,
-            auth_method: 'api_key',
-            is_authenticated: false,
-          },
-        ],
-      });
-      repository.updateLanguageModelConfiguration.mockResolvedValueOnce({
-        ...defaultConfiguration,
-        provider: 'openai',
+    it('API key needed: saves the key through the credential API, never PUT /v1/providers/lm', async () => {
+      mockOpenaiApiKeyPreset();
+      repository.saveProviderApiKey.mockResolvedValueOnce({
         provider_id: 'openai',
-        model: 'gpt-4o-mini',
+        is_authenticated: true,
+        instructions: 'Saved the OpenAI API key. Checking available models.',
       });
-      const openaiOption = {
-        providerId: 'openai',
-        providerName: 'OpenAI',
-        id: '',
-        kind: 'provider' as const,
-        label: 'OpenAI',
-        available: false,
-        health: 'unavailable',
-      };
+      repository.providerHandshake.mockResolvedValueOnce({
+        connectivity: 'ok',
+        auth: 'ok',
+        models: [{ id: 'gpt-4o-mini', name: 'gpt-4o-mini' }],
+        source: 'live',
+        generated_at: '2026-09-25T00:00:00Z',
+      });
+      repository.providerModels.mockResolvedValueOnce({
+        provider_id: 'openai',
+        models: [{ id: 'gpt-4o-mini', name: 'gpt-4o-mini' }],
+        source: 'live',
+      });
       const user = userEvent.setup();
       renderPicker(
         <ClioModelPicker
@@ -273,16 +188,91 @@ describe('ClioModelPicker provider submenu actions', () => {
       await user.type(await screen.findByLabelText('OpenAI API key'), 'sk-test-key');
       await user.click(screen.getByRole('button', { name: 'Save key' }));
 
+      // Stores the credential and verifies it -- but NEVER rebinds the
+      // active provider (#1446 follow-up: saving OpenAI's key must not
+      // switch the running agent onto it).
       await waitFor(() =>
-        expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith(
-          expect.objectContaining({
-            provider_id: 'openai',
-            provider: 'openai',
-            model: 'gpt-4o-mini',
-            api_key: 'sk-test-key',
-          }),
-        ),
+        expect(repository.saveProviderApiKey).toHaveBeenCalledWith('openai', 'sk-test-key'),
       );
+      expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+      await waitFor(() => expect(repository.providerHandshake).toHaveBeenCalled());
+    });
+
+    it('API key needed: an invalid key settles to a typed error, never stuck on "Saving..."', async () => {
+      mockOpenaiApiKeyPreset();
+      repository.saveProviderApiKey.mockResolvedValueOnce({
+        provider_id: 'openai',
+        is_authenticated: true,
+        instructions: 'Saved the OpenAI API key. Checking available models.',
+      });
+      repository.providerHandshake.mockResolvedValueOnce({
+        connectivity: 'ok',
+        auth: 'rejected',
+        error: 'provider connectivity or authentication check failed',
+        models: [],
+        source: 'live',
+        generated_at: '2026-09-25T00:00:00Z',
+      });
+      const user = userEvent.setup();
+      renderPicker(
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={[...options, openaiOption]}
+          trigger={<Button>Change model</Button>}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Change model' }));
+      await user.click(screen.getByText('OpenAI'));
+      await user.type(await screen.findByLabelText('OpenAI API key'), 'sk-bad-key');
+      const saveButton = screen.getByRole('button', { name: 'Save key' });
+      await user.click(saveButton);
+
+      // The raw backend sentence is translated -- never shown verbatim --
+      // and the button is never left stuck on "Saving..." once the attempt
+      // has settled (#1446 follow-up).
+      expect(await screen.findByText("Couldn't reach OpenAI or confirm your sign-in.")).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Save key' })).toBeEnabled();
+    });
+
+    it('removes a ready key for a provider that is NOT the active default via clear_api_key, never a rebind', async () => {
+      repository.languageModelConfiguration.mockResolvedValue({
+        ...defaultConfiguration,
+        presets: [
+          ...defaultConfiguration.presets,
+          {
+            id: 'openai',
+            label: 'OpenAI',
+            provider: 'openai',
+            api_base: 'https://api.openai.com/v1',
+            suggested_model: 'gpt-4o-mini',
+            requires_api_key: true,
+            auth_method: 'api_key',
+            is_authenticated: true,
+          },
+        ],
+      });
+      repository.clearProviderApiKey.mockResolvedValueOnce({
+        provider_id: 'openai',
+        is_authenticated: false,
+        instructions: 'Removed the OpenAI API key.',
+      });
+      const user = userEvent.setup();
+      renderPicker(
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={[...options, openaiOption]}
+          trigger={<Button>Change model</Button>}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Change model' }));
+      await user.click(screen.getByText('OpenAI'));
+      await user.click(await screen.findByRole('button', { name: 'Remove key' }));
+
+      // codex, not openai, stays the configured/default provider throughout.
+      await waitFor(() => expect(repository.clearProviderApiKey).toHaveBeenCalledWith('openai'));
+      expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
     });
 
     it('ready: shows Verify provider, Refresh models and Sign out -- never a bare icon', async () => {
@@ -332,6 +322,7 @@ describe('ClioModelPicker provider submenu actions', () => {
       expect(screen.getByRole('button', { name: 'Refresh models' })).toBeVisible();
       expect(screen.getByRole('button', { name: 'Sign out' })).toBeVisible();
       expect(screen.queryByRole('button', { name: /^Check /u })).not.toBeInTheDocument();
+      expect(stripButtonNames()).toEqual(['Verify provider', 'Refresh models', 'Sign out']);
 
       await user.click(screen.getByRole('button', { name: 'Verify provider' }));
       await waitFor(() => expect(repository.providerHandshake).toHaveBeenCalled());
@@ -390,6 +381,7 @@ describe('ClioModelPicker provider submenu actions', () => {
       expect(await screen.findByRole('button', { name: 'Verify provider' })).toBeVisible();
       expect(screen.getByRole('button', { name: 'Refresh models' })).toBeVisible();
       expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
+      expect(stripButtonNames()).toEqual(['Verify provider', 'Refresh models']);
     });
 
     it('single-transport providers (no transports, or exactly one) never show the "or" divider', async () => {
@@ -477,22 +469,14 @@ describe('ClioModelPicker provider submenu actions', () => {
       expect(screen.getByText('or')).toBeVisible();
       expect(screen.getByText('Direct')).toBeVisible();
       expect(await screen.findByRole('button', { name: 'Sign in' })).toBeVisible();
+      // The ready SDK half gets the ready actions -- but no Sign out: the SDK
+      // is the user's own Codex login, and Direct (the only transport CLIO
+      // can sign out of) is not signed in.
+      expect(stripButtonNames()).toEqual([
+        'Verify provider',
+        'Refresh models',
+        'Sign in',
+        'Device code',
+      ]);
     });
 });
-
-
-function setWideViewport(matches: boolean): void {
-  vi.spyOn(window, 'matchMedia').mockImplementation(
-    (query) =>
-      ({
-        matches,
-        media: query,
-        onchange: null,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      }) as MediaQueryList,
-  );
-}

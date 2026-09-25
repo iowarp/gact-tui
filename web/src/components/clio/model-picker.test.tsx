@@ -448,6 +448,39 @@ describe('ClioModelPicker', () => {
     expect(document.querySelectorAll('[data-slot="scroll-area-viewport"]')).toHaveLength(2);
   });
 
+  it('nests the ready-state action strip inside the active column, never a full-width row under both', async () => {
+    const user = userEvent.setup();
+    renderPicker(
+      <ClioModelPicker
+        onChange={vi.fn()}
+        options={options}
+        provider="codex"
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+
+    expect(await screen.findByRole('button', { name: 'Verify provider' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Refresh models' })).toBeVisible();
+
+    const strip = document.querySelector('[data-slot="provider-action-strip"]');
+    expect(strip).not.toBeNull();
+
+    // Depth 0 is the (now-trail) provider list; depth 1 is the active
+    // provider's own model column. The strip is the LOWER SECTION of depth
+    // 1's own bounded box -- never a third, full-width row below both
+    // columns, which would leave an empty cell under depth 0.
+    const providerColumnBounds = document.querySelector(
+      '[data-slot="cascader-column-bounds"][data-depth="0"]',
+    );
+    const activeColumnBounds = document.querySelector(
+      '[data-slot="cascader-column-bounds"][data-depth="1"]',
+    );
+    expect(activeColumnBounds?.contains(strip)).toBe(true);
+    expect(providerColumnBounds?.contains(strip)).toBe(false);
+  });
+
   it('windows a provider whose model list runs past the virtualization threshold', async () => {
     const user = userEvent.setup();
     const many = Array.from({ length: 150 }, (_, index) => ({
