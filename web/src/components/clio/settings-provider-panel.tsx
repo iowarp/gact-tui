@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useHiddenProviders } from '@/hooks/use-hidden-providers';
 import { providerLogoId } from '@/lib/provider-presentation';
-import { providerHealthPresentation, type ProviderGroup } from './model-picker-model';
+import { providerGroupStatus, type ProviderGroup } from './model-picker-model';
 import type { ProviderActions } from './provider-action-panel';
 import { ProviderHeartbeat } from './provider-heartbeat';
 import { ProviderManagementStrip } from './provider-management-strip';
@@ -36,7 +36,7 @@ export function ProviderSettingsPanel({
   const hidden = hiddenProviders.has(group.id);
   // The settled health; a running action's stage shows in the strip and turns
   // the heartbeat yellow instead of being repeated here.
-  const state = providerHealthPresentation(group.health).label;
+  const state = providerGroupStatus(group).label;
   const visibilityId = `provider-visibility-${group.id}`;
 
   return (

@@ -173,7 +173,7 @@ describe('ProvidersSettings provider actions', () => {
     renderProviders('argonne_metis');
 
     // The sign-in service is availability state, never part of the name.
-    expect(await screen.findByText('Globus Auth')).toBeVisible();
+    expect(await screen.findByText('Missing (Globus Auth)')).toBeVisible();
     expect(screen.getByRole('heading', { name: 'ALCF Metis' })).toBeVisible();
     await user.click(await screen.findByRole('button', { name: 'Sign in' }));
 

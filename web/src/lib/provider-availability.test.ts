@@ -1,6 +1,14 @@
 import type { LanguageModelPreset, ProviderDefinition } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { providerAvailability, translateKnownProviderErrorReason } from './provider-availability';
+import {
+  providerAvailability,
+  providerConnectionLabel,
+  providerConnectionNote,
+  providerCredentialKind,
+  providerCredentialLabel,
+  providerCredentialStateLabel,
+  translateKnownProviderErrorReason,
+} from './provider-availability';
 
 const definition: ProviderDefinition = {
   id: 'claude_code',
@@ -172,5 +180,39 @@ describe('translateKnownProviderErrorReason', () => {
         'no Globus token stored; authenticate ALCF before connecting',
       ),
     ).toBe('Sign in to ALCF to use its models.');
+  });
+});
+
+describe('credential wording follows the auth method', () => {
+  const apiKey = { ...preset, id: 'openrouter', label: 'OpenRouter', provider: 'openai', requires_api_key: true, auth_method: 'api_key', status: 'missing_key' };
+  const oauth = { ...preset, id: 'argonne_metis', label: 'ALCF Metis', provider: 'argonne', auth_method: 'oauth', status: 'auth_required' };
+  const cli = { ...preset, auth_method: 'subscription', status: 'auth_required' };
+
+  it('names the credential by kind: API key, sign-in, CLI login', () => {
+    expect([apiKey, oauth, cli].map(providerCredentialKind)).toEqual(['api_key', 'sign_in', 'cli']);
+    expect([apiKey, oauth, cli].map(providerCredentialLabel)).toEqual(['API key', 'Sign-in', 'Sign-in']);
+    // Host credential chains (Vertex ADC, AWS) are neither a key nor a sign-in.
+    expect(providerCredentialLabel({ ...preset, auth_method: 'none', provider: 'openai' })).toBe('Credentials');
+    expect(providerAvailability(undefined, apiKey).label).toBe('API key needed');
+    expect(providerAvailability(undefined, oauth).label).toBe('Sign-in needed');
+    expect(providerAvailability(undefined, { ...apiKey, status: undefined }).label).toBe('API key needed');
+  });
+
+  it('never shows a wire token like "skipped": an unprobed connection is Not checked, with why', () => {
+    expect(providerConnectionLabel('skipped')).toBe('Not checked');
+    expect(providerConnectionLabel(undefined)).toBe('Not checked');
+    expect(providerConnectionLabel('ok')).toBe('Reachable');
+    expect(providerConnectionLabel('unreachable')).toBe('Unreachable');
+    expect(providerConnectionNote(apiKey, 'skipped')).toBe('Checked once an API key is saved.');
+    expect(providerConnectionNote(oauth, 'skipped')).toBe('Checked once you sign in.');
+    expect(providerConnectionNote(apiKey, 'ok')).toBeUndefined();
+  });
+
+  it('states the credential verdict in its own terms', () => {
+    expect(providerCredentialStateLabel(apiKey, 'ok')).toBe('Accepted');
+    expect(providerCredentialStateLabel(oauth, 'ok')).toBe('Signed in');
+    expect(providerCredentialStateLabel(apiKey, 'missing')).toBe('Missing');
+    expect(providerCredentialStateLabel(apiKey, 'rejected')).toBe('Rejected');
+    expect(providerCredentialStateLabel(oauth, 'deferred')).toBe('Saved, not verified');
   });
 });

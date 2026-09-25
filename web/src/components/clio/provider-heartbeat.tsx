@@ -1,7 +1,12 @@
 import { ActivityIcon } from 'lucide-react';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { cn } from '@/lib/utils';
-import { formatFreshness, providerHealthPresentation, type ProviderGroup } from './model-picker-model';
+import {
+  formatFreshness,
+  providerGroupStatus,
+  providerHealthPresentation,
+  type ProviderGroup,
+} from './model-picker-model';
 
 /**
  * The provider heartbeat: health colour on EVERY provider row -- the model
@@ -13,7 +18,7 @@ import { formatFreshness, providerHealthPresentation, type ProviderGroup } from 
 export function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stage?: string }) {
   const presentation = stage
     ? { ...providerHealthPresentation('checking'), label: stage }
-    : providerHealthPresentation(group.health);
+    : providerGroupStatus(group);
   return (
     <HoverCard openDelay={180}>
       <HoverCardTrigger asChild>

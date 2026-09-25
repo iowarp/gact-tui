@@ -117,16 +117,9 @@ export function providerAvailability(
       detail: providerStatusDetail(preset),
     };
   }
-  if (preset?.status === 'missing_key') {
+  if (preset?.status === 'missing_key' || preset?.status === 'auth_required') {
     return {
-      label: 'API key needed',
-      value: 'unavailable',
-      detail: providerStatusDetail(preset),
-    };
-  }
-  if (preset?.status === 'auth_required') {
-    return {
-      label: 'Sign-in needed',
+      label: providerCredentialNeededLabel(preset),
       value: 'unavailable',
       detail: providerStatusDetail(preset),
     };
@@ -134,7 +127,7 @@ export function providerAvailability(
   if (preset?.is_authenticated) return { label: 'Ready', value: 'healthy' };
   if (preset) {
     return {
-      label: 'Sign-in needed',
+      label: providerCredentialNeededLabel(preset),
       value: 'unavailable',
       detail: providerStatusDetail(preset),
     };
@@ -154,4 +147,138 @@ export function providerPrimaryAction(preset: LanguageModelPreset | undefined): 
     return 'sign_in';
   if (preset.requires_api_key && !preset.is_authenticated) return 'api_key';
   return 'none';
+}
+
+/**
+ * How a provider is authorised, from its auth method -- the ONE source of
+ * every "API key" vs "sign-in" word on the provider surfaces (Settings >
+ * Providers, the model picker, Settings > Models' setup row):
+ *
+ * - `api_key`: a key the person pastes (OpenRouter, OpenAI, ...);
+ * - `sign_in`: a CLIO-driven OAuth/subscription sign-in (ALCF, Codex);
+ * - `cli`: a login owned by the provider's own CLI on the connected agent
+ *   (Claude Code) -- CLIO can install and check it, the CLI signs in;
+ * - `none`: no credential (local runtimes, host credential chains).
+ */
+export type ProviderCredentialKind = 'api_key' | 'sign_in' | 'cli' | 'none';
+
+export function providerCredentialKind(
+  preset: LanguageModelPreset | undefined,
+): ProviderCredentialKind {
+  if (!preset) return 'none';
+  if (preset.requires_api_key || preset.auth_method === 'api_key' || preset.status === 'missing_key')
+    return 'api_key';
+  if (preset.provider === 'claude_code') return 'cli';
+  if (preset.auth_method === 'oauth' || preset.auth_method === 'subscription') return 'sign_in';
+  return 'none';
+}
+
+/**
+ * The credential's own name: "API key", "Sign-in", or "Credentials" for a
+ * provider that uses the host's own credential chain (Vertex ADC, AWS).
+ */
+export function providerCredentialLabel(preset: LanguageModelPreset | undefined): string {
+  const kind = providerCredentialKind(preset);
+  return kind === 'api_key' ? 'API key' : kind === 'none' ? 'Credentials' : 'Sign-in';
+}
+
+/** The state of a provider still missing its credential: "API key needed" / "Sign-in needed". */
+export function providerCredentialNeededLabel(preset: LanguageModelPreset | undefined): string {
+  return `${providerCredentialLabel(preset)} needed`;
+}
+
+/** The fallback reason for a provider missing its credential, in its own terms. */
+export function providerCredentialPrompt(
+  preset: LanguageModelPreset | undefined,
+  providerLabel: string,
+): string {
+  return providerCredentialKind(preset) === 'api_key'
+    ? `Add your ${providerLabel.replace(/\s+API$/u, '')} API key to use its models.`
+    : `Sign in to ${providerLabel} to use its models.`;
+}
+
+/**
+ * What a provider that is not usable yet is waiting for, from its latest
+ * reported state: an install, a sign-in, an API key, or a first check.
+ * `undefined` means nothing is outstanding -- a signed-in, verified
+ * provider -- whether or not a model catalog entry exists for it yet.
+ */
+export type ProviderSetupNeed = 'install' | 'sign_in' | 'api_key' | 'check';
+
+export function providerSetupNeed(
+  preset: LanguageModelPreset | undefined,
+): ProviderSetupNeed | undefined {
+  if (!preset) return undefined;
+  const action = providerPrimaryAction(preset);
+  if (action !== 'none') return action;
+  if (!preset.is_authenticated) {
+    return providerCredentialKind(preset) === 'api_key' ? 'api_key' : 'sign_in';
+  }
+  if (preset.status === 'unknown' || preset.status === 'auth_check_required') return 'check';
+  return undefined;
+}
+
+/** The short state label for each outstanding need. */
+export function providerSetupNeedLabel(need: ProviderSetupNeed | undefined): string {
+  return need === 'install'
+    ? 'Needs install'
+    : need === 'sign_in'
+      ? 'Needs sign-in'
+      : need === 'api_key'
+        ? 'Needs API key'
+        : need === 'check'
+          ? 'Not checked'
+          : 'Needs setup';
+}
+
+/**
+ * A provider check's reachability (`ConnectivityState` on the wire) as a
+ * person reads it. "skipped" is not a result: the service did not probe.
+ */
+export function providerConnectionLabel(connectivity: string | undefined): string {
+  switch (connectivity) {
+    case 'ok':
+      return 'Reachable';
+    case 'unreachable':
+      return 'Unreachable';
+    case 'timeout':
+      return 'Timed out';
+    default:
+      return 'Not checked';
+  }
+}
+
+/** Why the connection was not checked, when it was not -- for an info tip. */
+export function providerConnectionNote(
+  preset: LanguageModelPreset | undefined,
+  connectivity: string | undefined,
+): string | undefined {
+  if (providerConnectionLabel(connectivity) !== 'Not checked') return undefined;
+  if (preset && !preset.is_authenticated) {
+    return providerCredentialKind(preset) === 'api_key'
+      ? 'Checked once an API key is saved.'
+      : 'Checked once you sign in.';
+  }
+  return 'Checked when you verify the provider.';
+}
+
+/** A provider check's credential verdict (`AuthState` on the wire) in the credential's own terms. */
+export function providerCredentialStateLabel(
+  preset: LanguageModelPreset | undefined,
+  auth: string | undefined,
+): string {
+  switch (auth) {
+    case 'ok':
+      return providerCredentialKind(preset) === 'api_key' ? 'Accepted' : 'Signed in';
+    case 'missing':
+      return 'Missing';
+    case 'rejected':
+      return 'Rejected';
+    case 'deferred':
+      return 'Saved, not verified';
+    case 'not_required':
+      return 'Not required';
+    default:
+      return 'Not checked';
+  }
 }

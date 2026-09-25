@@ -2,7 +2,7 @@ import { ArrowRightIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
-  providerHealthPresentation,
+  providerGroupStatus,
   providerSettingsHref,
   type ProviderGroup,
 } from './model-picker-model';
@@ -15,7 +15,7 @@ import { ProviderHeartbeat } from './provider-heartbeat';
  * inline form.
  */
 export function ProviderSetupRow({ group }: { group: ProviderGroup }) {
-  const state = providerHealthPresentation(group.health).label;
+  const state = providerGroupStatus(group).label;
   return (
     <div
       className="flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-sm"

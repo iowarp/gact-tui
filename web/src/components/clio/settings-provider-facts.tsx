@@ -1,16 +1,23 @@
 import type { LanguageModelPreset, ProviderCatalogEntry } from '@clio/core/v3';
 import { Badge } from '@/components/ui/badge';
-import { providerAvailability } from '@/lib/provider-availability';
+import {
+  providerAvailability,
+  providerConnectionLabel,
+  providerConnectionNote,
+  providerCredentialKind,
+  providerCredentialLabel,
+  providerCredentialStateLabel,
+} from '@/lib/provider-availability';
 import type { ClioModelOption } from '@/lib/model-options';
 import { cn } from '@/lib/utils';
 import { InfoTip } from './info-tip';
 import { formatFreshness, providerUsableModelCount, type ProviderGroup } from './model-picker-model';
 
-/** A wire token ("not_required") as a readable state ("Not required"). */
-function readable(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  const words = value.replaceAll('_', ' ');
-  return words.charAt(0).toUpperCase() + words.slice(1);
+interface Fact {
+  label: string;
+  value: string | undefined;
+  /** Why the value reads as it does, behind an info icon. */
+  info?: string;
 }
 
 function supported(value: boolean | undefined): string | undefined {
@@ -32,18 +39,33 @@ export function ProviderAvailabilityFacts({
   catalogEntry: ProviderCatalogEntry | undefined;
 }) {
   const availability = providerAvailability(undefined, preset);
-  const signIn = [readable(catalogEntry?.auth), catalogEntry?.auth_label ?? preset?.auth_label]
-    .filter(Boolean)
-    .join(', ');
-  const facts: Array<[string, string | undefined]> = [
-    ['Configuration', preset ? availability.label : undefined],
-    ['Connection', readable(catalogEntry?.connectivity)],
-    ['Sign-in', signIn || readable(preset?.auth_method)],
-    ['Endpoint', catalogEntry?.endpoint || group.endpoint || preset?.api_base],
-    ['Live model list', supported(preset?.supports_live_catalog)],
-    ['Vision', supported(preset?.supports_vision)],
-    ['Sign out', preset?.supports_logout ? 'Supported' : undefined],
-    ['Checked', group.freshness ? formatFreshness(group.freshness) : undefined],
+  const credentialKind = providerCredentialKind(preset);
+  // With no catalog entry the service has not checked the provider at all:
+  // the credential row reads from the preset instead of a check result.
+  const credentialState = catalogEntry
+    ? providerCredentialStateLabel(preset, catalogEntry.auth)
+    : credentialKind === 'none'
+      ? 'Not required'
+      : preset?.is_authenticated
+        ? providerCredentialStateLabel(preset, 'ok')
+        : 'Missing';
+  const signInService = credentialKind === 'api_key' ? undefined : (catalogEntry?.auth_label ?? preset?.auth_label);
+  const facts: Fact[] = [
+    { label: 'Configuration', value: preset ? availability.label : undefined },
+    {
+      label: 'Connection',
+      value: providerConnectionLabel(catalogEntry?.connectivity),
+      info: providerConnectionNote(preset, catalogEntry?.connectivity),
+    },
+    {
+      label: providerCredentialLabel(preset),
+      value: signInService ? `${credentialState} (${signInService})` : credentialState,
+    },
+    { label: 'Endpoint', value: catalogEntry?.endpoint || group.endpoint || preset?.api_base },
+    { label: 'Live model list', value: supported(preset?.supports_live_catalog) },
+    { label: 'Vision', value: supported(preset?.supports_vision) },
+    { label: 'Sign out', value: preset?.supports_logout ? 'Supported' : undefined },
+    { label: 'Checked', value: group.freshness ? formatFreshness(group.freshness) : 'Not checked' },
   ];
   return (
     <div className="grid gap-3" data-slot="provider-availability">
@@ -55,12 +77,15 @@ export function ProviderAvailabilityFacts({
       </h3>
       <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[max-content_minmax(0,1fr)]">
         {facts
-          .filter((fact): fact is [string, string] => Boolean(fact[1]))
-          .map(([label, value]) => (
+          .filter((fact): fact is Fact & { value: string } => Boolean(fact.value))
+          .map(({ label, value, info }) => (
             <div className="contents" key={label}>
               <dt className="text-muted-foreground">{label}</dt>
-              <dd className="min-w-0 truncate" title={value}>
-                {value}
+              <dd className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate" title={value}>
+                  {value}
+                </span>
+                {info ? <InfoTip label={`About ${label.toLowerCase()}`}>{info}</InfoTip> : null}
               </dd>
             </div>
           ))}

@@ -372,10 +372,13 @@ describe('ModelsSettings', () => {
     );
 
     await user.click(await screen.findByRole('combobox', { name: 'Provider' }));
-    await user.click(await screen.findByRole('option', { name: /^Claude Code/ }));
+    await user.click(await screen.findByRole('option', { name: 'Claude Code' }));
     expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
       'Claude Sonnet',
     );
+    // Signed in, no catalog entry yet: ready, so no setup row and no "Needs setup".
+    expect(document.querySelector('[data-slot="provider-setup-row"]')).toBeNull();
+    expect(screen.queryByText(/Needs setup/)).toBeNull();
     const catalogReadsBeforeApply = repository.providerCatalog.mock.calls.length;
     await user.click(screen.getByRole('button', { name: 'Apply provider and model' }));
 

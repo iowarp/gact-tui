@@ -21,7 +21,7 @@ import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { useLiveStore } from '@/store/live-store';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { InfoTip } from './info-tip';
-import { providerHealthPresentation, type ProviderGroup } from './model-picker-model';
+import { providerGroupStatus, type ProviderGroup } from './model-picker-model';
 import { ReasoningLevelField } from './reasoning-level-field';
 import {
   canApplyProvider,
@@ -366,7 +366,7 @@ function ProviderOptionLabel({ group, name }: { group?: ProviderGroup; name: str
       <span className="truncate">{name}</span>
       {notReady ? (
         <span className="shrink-0 text-xs text-muted-foreground">
-          {providerHealthPresentation(group.health).label}
+          {providerGroupStatus(group).label}
         </span>
       ) : null}
     </span>

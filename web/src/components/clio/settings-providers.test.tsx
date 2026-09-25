@@ -245,13 +245,45 @@ describe('ProvidersSettings', () => {
       return found;
     });
     expect(within(facts).getByText('Connection')).toBeVisible();
-    expect(within(facts).getAllByText('Ok')).toHaveLength(2);
+    expect(within(facts).getByText('Reachable')).toBeVisible();
+    expect(within(facts).getByText('Signed in')).toBeVisible();
     expect(within(facts).getByText('Live model list')).toBeVisible();
     // The explanation sits behind the info icon, not on the page.
     expect(within(facts).getByRole('button', { name: 'About availability' })).toBeVisible();
     expect(
       screen.queryByText('Authentication and capability state reported by the connected service.'),
     ).toBeNull();
+  });
+
+  it('an API-key provider reads in API-key terms, and an unprobed connection is Not checked', async () => {
+    renderAt('/settings/providers?provider=openrouter');
+
+    const panel = await screen.findByRole('region', { name: 'OpenRouter provider' });
+    expect(within(panel).getByText('Needs API key')).toBeVisible();
+    const facts = panel.querySelector<HTMLElement>('[data-slot="provider-availability"]')!;
+    expect(within(facts).getByText('API key needed')).toBeVisible();
+    expect(within(facts).getByText('API key')).toBeVisible();
+    expect(within(facts).getByText('Missing')).toBeVisible();
+    expect(within(facts).getAllByText('Not checked').length).toBeGreaterThan(0);
+    expect(within(facts).getByRole('button', { name: 'About connection' })).toBeVisible();
+    expect(within(panel).queryByText(/Sign-in|Skipped|skipped/)).toBeNull();
+  });
+
+  it('a signed-in provider with no catalog entry yet is Ready everywhere, never "Needs setup"', async () => {
+    repository.languageModelConfiguration.mockResolvedValue({
+      ...configuration('codex'),
+      presets: [{ ...presets.claude_code, is_authenticated: true, status: 'ready', status_message: '' }],
+    });
+    renderAt('/settings/providers?provider=claude_code');
+
+    const panel = await screen.findByRole('region', { name: 'Claude Code provider' });
+    expect(entry('claude_code').querySelector('[data-slot="provider-heartbeat"]')).toHaveAttribute(
+      'data-state',
+      'healthy',
+    );
+    expect(within(panel).getByText('Ready', { selector: '[data-slot="provider-state"]' })).toBeVisible();
+    expect(screen.queryByText(/Needs setup/)).toBeNull();
+    expect(stripButtonNames()).toEqual(['Verify provider', 'Refresh models']);
   });
 
   it('toggles picker visibility through the one shared store', async () => {

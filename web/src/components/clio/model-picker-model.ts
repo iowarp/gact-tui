@@ -1,16 +1,23 @@
 import type { LanguageModelPreset, ProviderCatalogTransport } from '@clio/core/v3';
 import { type ClioModelOption, PROVIDER_NEEDS_SETUP } from '@/lib/model-options';
-import { providerStatusDetail } from '@/lib/provider-availability';
+import {
+  providerSetupNeed,
+  providerSetupNeedLabel,
+  providerStatusDetail,
+  type ProviderSetupNeed,
+} from '@/lib/provider-availability';
 
 export const PROVIDER_NODE_PREFIX = 'provider:';
 export const MODEL_NODE_PREFIX = 'model:';
 
 /**
- * `checking`: a probe is running right now (the service's own background
- * reprobe); `setup`: nothing has failed yet, the provider still needs an
- * install, a sign-in or a key (or was never checked). Every other state
- * settles green (`healthy`) or red (`degraded` / `unavailable`), with the
- * reason in `detail`.
+ * The heartbeat follows the provider's LATEST check: `checking` while a probe
+ * runs (the service's own background reprobe); `setup` while it still needs
+ * something -- an install, a sign-in, an API key, or a first check (which one
+ * is `ProviderGroup.setupNeed`); otherwise green (`healthy`) or red
+ * (`degraded` / `unavailable`) with the reason in `detail`. A provider with
+ * no model catalog entry yet is NOT "setup" on that alone: a signed-in,
+ * verified provider is `healthy` with zero models.
  */
 export type ProviderHealth = 'healthy' | 'checking' | 'degraded' | 'unavailable' | 'setup';
 
@@ -31,6 +38,8 @@ export interface ProviderGroup {
   endpoint?: string;
   freshness?: string;
   health: ProviderHealth;
+  /** What a `setup` provider is waiting for; absent for every other health. */
+  setupNeed?: ProviderSetupNeed;
   detail?: string;
   /** This provider's own transports (Codex: sdk + direct) -- absent for
    * every single-transport provider. See `ProviderCatalogTransport`. */
@@ -57,7 +66,10 @@ export interface TransportHeadingNodeData {
 
 export type PickerNodeData = ProviderNodeData | ModelNodeData | TransportHeadingNodeData;
 
-export function providerHealthPresentation(health: ProviderHealth): {
+export function providerHealthPresentation(
+  health: ProviderHealth,
+  setupNeed?: ProviderSetupNeed,
+): {
   color: string;
   label: string;
 } {
@@ -66,15 +78,40 @@ export function providerHealthPresentation(health: ProviderHealth): {
     checking: { color: 'text-warning animate-pulse', label: 'Checking…' },
     degraded: { color: 'text-destructive', label: 'Needs attention' },
     unavailable: { color: 'text-destructive', label: 'Unavailable' },
-    setup: { color: 'text-muted-foreground/55', label: 'Needs setup' },
+    setup: { color: 'text-muted-foreground/55', label: providerSetupNeedLabel(setupNeed) },
   }[health];
 }
 
-export function toProviderGroup(group: {
-  id: string;
-  name: string;
-  choices: ClioModelOption[];
-}): ProviderGroup {
+/** One provider row's colour and state label ("Ready", "Needs API key", ...). */
+export function providerGroupStatus(group: ProviderGroup): { color: string; label: string } {
+  return providerHealthPresentation(group.health, group.setupNeed);
+}
+
+/**
+ * The health of a provider with NO catalog rows at all, from its preset's
+ * latest reported state: whatever it still needs, red when the service
+ * reported it unavailable, and ready when nothing is outstanding.
+ */
+function presetOnlyHealth(preset: LanguageModelPreset | undefined): {
+  health: ProviderHealth;
+  setupNeed?: ProviderSetupNeed;
+} {
+  if (!preset) return { health: 'setup' };
+  const need = providerSetupNeed(preset);
+  if (need && need !== 'check') return { health: 'setup', setupNeed: need };
+  if (preset.status === 'unavailable') return { health: 'unavailable' };
+  if (need) return { health: 'setup', setupNeed: need };
+  return { health: 'healthy' };
+}
+
+export function toProviderGroup(
+  group: {
+    id: string;
+    name: string;
+    choices: ClioModelOption[];
+  },
+  preset?: LanguageModelPreset,
+): ProviderGroup {
   // A provider row stands for the provider itself, so it can never become a
   // model someone picks.
   const availableChoices = group.choices.filter(
@@ -86,8 +123,11 @@ export function toProviderGroup(group: {
   // dated last-good list) is red, never green because rows remain.
   const reportedFailure =
     reportedHealth === 'degraded' || reportedHealth === 'error' || reportedHealth === 'unavailable';
+  if (!group.choices.length) {
+    return { ...group, availableChoices, ...presetOnlyHealth(preset) };
+  }
   const health: ProviderHealth =
-    !group.choices.length || reportedHealth === PROVIDER_NEEDS_SETUP
+    reportedHealth === PROVIDER_NEEDS_SETUP
       ? 'setup'
       : reportedHealth === 'checking'
         ? 'checking'
@@ -111,6 +151,7 @@ export function toProviderGroup(group: {
     endpoint: group.choices.find((choice) => choice.endpoint)?.endpoint,
     freshness: group.choices.find((choice) => choice.freshness)?.freshness,
     health,
+    setupNeed: health === 'setup' ? (providerSetupNeed(preset) ?? 'sign_in') : undefined,
     detail: details[0],
     transports: group.choices.find((choice) => choice.transports)?.transports,
   };
@@ -193,7 +234,7 @@ export function modelNodeValue(choice: ClioModelOption): string {
 
 export function providerSearchDescription(group: ProviderGroup): string {
   if (group.health === 'unavailable' || group.health === 'setup') {
-    return providerHealthPresentation(group.health).label;
+    return providerGroupStatus(group).label;
   }
   const count = group.availableChoices.length;
   return `${count} ${count === 1 ? 'model' : 'models'}`;
@@ -227,12 +268,15 @@ export function providerGroupsFromOptions(
     group.choices.push(option);
     grouped.set(option.providerId, group);
   }
-  const configured = [...grouped.values()].map(toProviderGroup);
+  const presetsById = new Map(presets.map((preset) => [preset.id, preset]));
+  const configured = [...grouped.values()].map((group) =>
+    toProviderGroup(group, presetsById.get(group.id)),
+  );
   const unconfigured = includeUnconfigured
     ? presets
         .filter((preset) => !grouped.has(preset.id))
         .map((preset) => ({
-          ...toProviderGroup({ id: preset.id, name: preset.label, choices: [] }),
+          ...toProviderGroup({ id: preset.id, name: preset.label, choices: [] }, preset),
           // No catalog row carries a reason yet: the preset's own status does.
           detail: providerStatusDetail(preset),
         }))
