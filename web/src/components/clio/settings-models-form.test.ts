@@ -234,7 +234,7 @@ describe('providerSupportsRuntimeSizing', () => {
       providerSupportsRuntimeSizing({ ...preset, provider: 'ollama', provider_id: 'ollama' }),
     ).toBe(true);
     expect(
-      providerSupportsRuntimeSizing({ ...preset, provider: 'codex', provider_id: 'codex' }),
+      providerSupportsRuntimeSizing({ ...preset, provider: 'chatgpt', provider_id: 'chatgpt' }),
     ).toBe(false);
     expect(providerSupportsRuntimeSizing(undefined)).toBe(false);
   });

@@ -7,19 +7,19 @@ import { queryKeys } from '@/lib/query-keys';
 import { useLiveStore } from '@/store/live-store';
 import { ModelsSettings } from './settings-models';
 
-const { codexCatalog, configuration, repository } = vi.hoisted(() => {
+const { chatgptCatalog, configuration, repository } = vi.hoisted(() => {
   const configuration = {
     configured: true,
-    provider_id: 'codex',
-    provider: 'codex',
+    provider_id: 'chatgpt',
+    provider: 'chatgpt',
     api_base: '',
     model: 'gpt-5.6-luna',
     thinking_level: 'medium',
     presets: [
       {
-        id: 'codex',
-        label: 'Codex',
-        provider: 'codex',
+        id: 'chatgpt',
+        label: 'ChatGPT',
+        provider: 'chatgpt',
         suggested_model: 'gpt-5.6-luna',
         requires_api_key: false,
         auth_method: 'subscription',
@@ -29,16 +29,16 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       },
     ],
   };
-  return { codexCatalog, configuration, repository: makeRepository(configuration) };
+  return { chatgptCatalog, configuration, repository: makeRepository(configuration) };
 
   /** The live catalog: gpt-5.6-luna reports its own reasoning levels. */
-  function codexCatalog() {
+  function chatgptCatalog() {
     return {
       authoritative: 'live_handshake',
       providers: [
         {
-          id: 'codex',
-          name: 'OpenAI Codex',
+          id: 'chatgpt',
+          name: 'ChatGPT (subscription)',
           models: [
             {
               model_id: 'gpt-5.6-luna',
@@ -59,8 +59,8 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
     return {
       providers: vi.fn().mockResolvedValue([
         {
-          id: 'codex',
-          name: 'Codex',
+          id: 'chatgpt',
+          name: 'ChatGPT',
           auth_methods: [],
           is_authenticated: true,
           metadata: {},
@@ -68,15 +68,15 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       ]),
       languageModelConfiguration: vi.fn().mockResolvedValue(active),
       providerModels: vi.fn().mockResolvedValue({
-        provider_id: 'codex',
+        provider_id: 'chatgpt',
         models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-        source: 'codex_app_server',
+        source: 'chatgpt_catalog',
       }),
       refreshProviderModels: vi.fn().mockResolvedValue([
         {
-          provider: 'codex',
+          provider: 'chatgpt',
           discovered: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-          source: 'codex_app_server',
+          source: 'chatgpt_catalog',
           default_model: 'gpt-5.6-luna',
           generated_at: '2026-08-23T05:00:00Z',
           added: [],
@@ -87,7 +87,7 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       ]),
       providerHandshake: vi.fn().mockResolvedValue({
         models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-        source: 'codex_app_server',
+        source: 'chatgpt_catalog',
         connectivity: 'ok',
         auth: 'ok',
         latency_ms: 18.4,
@@ -100,8 +100,10 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       }),
       authenticateProvider: vi.fn(),
       completeProviderAuthentication: vi.fn(),
+      providerAuthStatus: vi.fn().mockResolvedValue({ state: 'pending', reason: '' }),
+      logoutProvider: vi.fn().mockResolvedValue({ is_authenticated: false, instructions: 'Signed out.' }),
       updateLanguageModelConfiguration: vi.fn(),
-      providerCatalog: vi.fn().mockResolvedValue(codexCatalog()),
+      providerCatalog: vi.fn().mockResolvedValue(chatgptCatalog()),
     };
   }
 });
@@ -117,12 +119,12 @@ afterEach(() => {
   vi.clearAllMocks();
   repository.languageModelConfiguration.mockReset().mockResolvedValue(configuration);
   repository.providerModels.mockReset().mockResolvedValue({
-    provider_id: 'codex',
+    provider_id: 'chatgpt',
     models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-    source: 'codex_app_server',
+    source: 'chatgpt_catalog',
   });
   repository.updateLanguageModelConfiguration.mockReset();
-  repository.providerCatalog.mockReset().mockResolvedValue(codexCatalog());
+  repository.providerCatalog.mockReset().mockResolvedValue(chatgptCatalog());
 });
 
 describe('ModelsSettings', () => {
@@ -175,7 +177,7 @@ describe('ModelsSettings', () => {
     });
   });
 
-  it('does not allow unverified Codex credentials to be applied', async () => {
+  it('does not allow unverified ChatGPT credentials to be applied', async () => {
     repository.languageModelConfiguration.mockResolvedValueOnce({
       configured: false,
       provider: '',
@@ -184,16 +186,16 @@ describe('ModelsSettings', () => {
       thinking_level: 'medium',
       presets: [
         {
-          id: 'codex',
-          label: 'Codex',
-          provider: 'codex',
-          api_base: 'codex://sdk',
+          id: 'chatgpt',
+          label: 'ChatGPT',
+          provider: 'chatgpt',
+          api_base: 'chatgpt://direct',
           suggested_model: '',
           requires_api_key: false,
           auth_method: 'subscription',
           is_authenticated: false,
           status: 'auth_check_required',
-          status_message: 'Codex credentials are present but have not been validated',
+          status_message: 'ChatGPT credentials are present but have not been validated',
           supports_live_catalog: false,
           supports_vision: true,
         },
@@ -203,7 +205,7 @@ describe('ModelsSettings', () => {
       defaultOptions: { queries: { retry: false } },
     });
     render(
-      <MemoryRouter initialEntries={['/settings/providers?provider=codex']}>
+      <MemoryRouter initialEntries={['/settings/providers?provider=chatgpt']}>
         <QueryClientProvider client={queryClient}>
           <ModelsSettings />
         </QueryClientProvider>
@@ -217,17 +219,17 @@ describe('ModelsSettings', () => {
   it('preserves the authoritative configured model when opened for its provider', async () => {
     repository.languageModelConfiguration.mockResolvedValueOnce({
       configured: true,
-      provider_id: 'codex',
-      provider: 'codex',
-      api_base: 'codex://app-server',
+      provider_id: 'chatgpt',
+      provider: 'chatgpt',
+      api_base: 'chatgpt://direct',
       model: 'gpt-5.6-luna',
       thinking_level: 'medium',
       presets: [
         {
-          id: 'codex',
-          label: 'Codex',
-          provider: 'codex',
-          api_base: 'codex://app-server',
+          id: 'chatgpt',
+          label: 'ChatGPT',
+          provider: 'chatgpt',
+          api_base: 'chatgpt://direct',
           suggested_model: 'gpt-5.5',
           requires_api_key: false,
           is_authenticated: true,
@@ -240,7 +242,7 @@ describe('ModelsSettings', () => {
       defaultOptions: { queries: { retry: false } },
     });
     render(
-      <MemoryRouter initialEntries={['/settings/providers?provider=codex']}>
+      <MemoryRouter initialEntries={['/settings/providers?provider=chatgpt']}>
         <QueryClientProvider client={queryClient}>
           <ModelsSettings />
         </QueryClientProvider>
@@ -251,7 +253,7 @@ describe('ModelsSettings', () => {
       'gpt-5.6-luna',
     );
     expect(screen.getByRole('textbox', { name: 'Endpoint / API base' })).toHaveValue(
-      'codex://app-server',
+      'chatgpt://direct',
     );
   });
 
@@ -272,16 +274,16 @@ describe('ModelsSettings', () => {
       'Medium',
     );
     await user.click(await screen.findByRole('button', { name: 'Refresh model catalog' }));
-    await waitFor(() => expect(repository.refreshProviderModels).toHaveBeenCalledWith(['codex']));
+    await waitFor(() => expect(repository.refreshProviderModels).toHaveBeenCalledWith(['chatgpt']));
     expect(await screen.findByText('Catalog refreshed')).toBeVisible();
     expect(screen.getByText(/1 available model, 0 added, 0 removed/)).toBeVisible();
     expect(screen.getByText(/Checked .* by the connected agent/)).toBeVisible();
-    expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/chatgpt_catalog/)).not.toBeInTheDocument();
   });
 
   it('does not let an unverified catalog candidate become an applied model', async () => {
     repository.providerModels.mockResolvedValueOnce({
-      provider_id: 'codex',
+      provider_id: 'chatgpt',
       models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna', availability: 'candidate' }],
       source: 'github_catalog',
     });
@@ -336,15 +338,22 @@ describe('ModelsSettings', () => {
     });
     repository.authenticateProvider.mockResolvedValueOnce({
       provider_id: 'argonne_metis',
-      is_authenticated: false,
-      instructions: 'Continue in Globus, then paste the authorization code here.',
-      authorization_url: 'https://auth.globus.org/v2/oauth2/authorize?state=test',
       flow_id: 'flow-123',
+      browser: {
+        authorization_url: 'https://auth.globus.org/v2/oauth2/authorize?state=test',
+        loopback: false,
+      },
+      instructions: 'Continue in Globus, then paste the authorization code here.',
     });
     repository.completeProviderAuthentication.mockResolvedValueOnce({
       provider_id: 'argonne_metis',
       is_authenticated: true,
       instructions: 'ALCF sign-in complete. Available models are refreshing.',
+    });
+    repository.providerAuthStatus.mockResolvedValue({
+      provider_id: 'argonne_metis',
+      state: 'pending',
+      reason: '',
     });
     const open = vi.spyOn(window, 'open').mockImplementation(() => window);
     const user = userEvent.setup();
@@ -364,6 +373,7 @@ describe('ModelsSettings', () => {
     await waitFor(() =>
       expect(repository.authenticateProvider).toHaveBeenCalledWith('argonne_metis', {
         force: true,
+        method: 'browser',
       }),
     );
     expect(open).toHaveBeenCalledWith(
@@ -371,13 +381,13 @@ describe('ModelsSettings', () => {
       '_blank',
       'noopener,noreferrer',
     );
-    expect(await screen.findByLabelText('Complete ALCF sign-in')).toBeVisible();
-    await user.type(screen.getByLabelText('Authorization code'), 'globus-code');
+    expect(await screen.findByLabelText('Complete ALCF Metis sign-in')).toBeVisible();
+    await user.type(screen.getByLabelText('Redirect URL or code'), 'globus-code');
     await user.click(screen.getByRole('button', { name: 'Complete sign-in' }));
     await waitFor(() =>
       expect(repository.completeProviderAuthentication).toHaveBeenCalledWith('argonne_metis', {
         flowId: 'flow-123',
-        authorizationCode: 'globus-code',
+        paste: 'globus-code',
       }),
     );
     expect(await screen.findByText(/ALCF sign-in complete/)).toBeVisible();
@@ -387,6 +397,95 @@ describe('ModelsSettings', () => {
     await waitFor(() =>
       expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'argonne_metis'),
     );
+  });
+
+  it('signs in to ChatGPT with a device code and shows it while waiting', async () => {
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      ...configuration,
+      presets: configuration.presets.map((preset) => ({ ...preset, is_authenticated: false })),
+    });
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'chatgpt',
+      flow_id: 'flow-device-1',
+      device: {
+        user_code: 'ABCD-1234',
+        verification_url: 'https://chatgpt.com/codex/device',
+        interval: 5,
+      },
+      instructions: 'Enter code ABCD-1234 at https://chatgpt.com/codex/device.',
+    });
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter initialEntries={['/settings/providers?provider=chatgpt']}>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Sign in with a device code' }));
+    await waitFor(() =>
+      expect(repository.authenticateProvider).toHaveBeenCalledWith('chatgpt', {
+        force: true,
+        method: 'device',
+      }),
+    );
+    expect(await screen.findByText('ABCD-1234')).toBeVisible();
+    expect(screen.getByRole('link', { name: /Open verification page/ })).toHaveAttribute(
+      'href',
+      'https://chatgpt.com/codex/device',
+    );
+    expect(screen.getByText(/Waiting for sign-in to finish/)).toBeVisible();
+  });
+
+  it('signs out of ChatGPT and clears the credential', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter initialEntries={['/settings/providers?provider=chatgpt']}>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
+    await waitFor(() => expect(repository.logoutProvider).toHaveBeenCalledWith('chatgpt'));
+    expect(await screen.findByText('Signed out.')).toBeVisible();
+  });
+
+  it('shows the sign-in failure reason when a flow ends in failure', async () => {
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      ...configuration,
+      presets: configuration.presets.map((preset) => ({ ...preset, is_authenticated: false })),
+    });
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'chatgpt',
+      flow_id: 'flow-fails',
+      browser: { authorization_url: 'https://auth.openai.com/oauth/authorize?x=1', loopback: true },
+      instructions: 'Open the link to sign in.',
+    });
+    repository.providerAuthStatus.mockResolvedValue({
+      provider_id: 'chatgpt',
+      state: 'failed',
+      reason: 'The redirect state did not match this sign-in attempt.',
+    });
+    vi.spyOn(window, 'open').mockImplementation(() => window);
+    const user = userEvent.setup();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter initialEntries={['/settings/providers?provider=chatgpt']}>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
+    expect(
+      await screen.findByText('The redirect state did not match this sign-in attempt.'),
+    ).toBeVisible();
   });
 
   it('never writes a maximum token cap the service did not report', async () => {
@@ -410,12 +509,12 @@ describe('ModelsSettings', () => {
 
   it('applies a model choice without rewriting the runtime sizing or reasoning level', async () => {
     repository.providerModels.mockResolvedValue({
-      provider_id: 'codex',
+      provider_id: 'chatgpt',
       models: [
         { id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' },
         { id: 'gpt-5.6-nova', name: 'gpt-5.6-nova' },
       ],
-      source: 'codex_app_server',
+      source: 'chatgpt_catalog',
     });
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -433,8 +532,8 @@ describe('ModelsSettings', () => {
 
     await waitFor(() => expect(repository.updateLanguageModelConfiguration).toHaveBeenCalled());
     expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith({
-      provider: 'codex',
-      provider_id: 'codex',
+      provider: 'chatgpt',
+      provider_id: 'chatgpt',
       provider_options: {},
       api_base: '',
       model: 'gpt-5.6-nova',
@@ -450,7 +549,7 @@ describe('ModelsSettings', () => {
       state: 'completed',
       created_at: '2026-09-21T00:00:00Z',
       updated_at: '2026-09-21T00:00:00Z',
-      provider_id: 'codex',
+      provider_id: 'chatgpt',
       model_id: 'gpt-5.6-luna',
       mode: 'edit',
       edit_mode: 'diff',
@@ -592,8 +691,8 @@ describe('ModelsSettings', () => {
       authoritative: 'live_handshake',
       providers: [
         {
-          id: 'codex',
-          name: 'OpenAI Codex',
+          id: 'chatgpt',
+          name: 'ChatGPT (subscription)',
           models: [
             {
               model_id: 'gpt-5.6-luna',
@@ -632,7 +731,7 @@ describe('ModelsSettings', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Check provider' }));
     await waitFor(() =>
-      expect(repository.providerHandshake).toHaveBeenCalledWith('codex', {
+      expect(repository.providerHandshake).toHaveBeenCalledWith('chatgpt', {
         apiBase: '',
         refresh: true,
       }),
@@ -640,17 +739,17 @@ describe('ModelsSettings', () => {
     expect(await screen.findByText('Provider ready')).toBeVisible();
     expect(screen.getByText(/Connection ok, sign-in ok, 1 model/)).toBeVisible();
     expect(screen.getByText(/Checked .* in 18 ms/)).toBeVisible();
-    expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/chatgpt_catalog/)).not.toBeInTheDocument();
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
   });
 
   it('re-reads the checked provider catalog live and shares it with open pickers', async () => {
     const catalog = {
       authoritative: 'live_handshake',
-      providers: [{ id: 'codex', name: 'OpenAI Codex', models: [] }],
+      providers: [{ id: 'chatgpt', name: 'ChatGPT (subscription)', models: [] }],
     };
     repository.providerCatalog.mockImplementation(async (refresh: boolean) =>
-      refresh ? catalog : codexCatalog(),
+      refresh ? catalog : chatgptCatalog(),
     );
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -665,7 +764,7 @@ describe('ModelsSettings', () => {
     await user.click(await screen.findByRole('button', { name: 'Check provider' }));
 
     await waitFor(() =>
-      expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'codex'),
+      expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'chatgpt'),
     );
     await waitFor(() =>
       expect(queryClient.getQueryData(queryKeys.providerCatalog('http://127.0.0.1:8787'))).toEqual(

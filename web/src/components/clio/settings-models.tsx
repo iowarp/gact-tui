@@ -1,17 +1,10 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { LanguageModelConfiguration, ProviderDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  DownloadIcon,
-  ExternalLinkIcon,
-  KeyRoundIcon,
-  RadioTowerIcon,
-  RefreshCwIcon,
-} from 'lucide-react';
+import { DownloadIcon, KeyRoundIcon, LogOutIcon, RadioTowerIcon, RefreshCwIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ExternalLink } from '@/components/ui/external-link';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import {
   Select,
@@ -29,6 +22,7 @@ import { providerDisplayName, providerSummary } from '@/lib/provider-presentatio
 import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { useLiveStore } from '@/store/live-store';
 import { vocab } from '@/lib/brand-vocabulary';
+import { ProviderAuthPanel } from './provider-auth-panel';
 import { useProviderSettingsActions } from './settings-models-actions';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { ReasoningLevelField } from './reasoning-level-field';
@@ -212,25 +206,30 @@ function ModelsSettingsContent({
     },
   });
   const {
+    authFailedReason,
     authFlow,
     authInstructions,
     authLaunchError,
+    authPaste,
+    authStatus,
     authenticate,
-    authorizationCode,
     completeAuthentication,
     handshake,
     handshakeResult,
     installProvider,
+    logout,
     refreshModels,
     refreshResult,
     reset: resetProviderActions,
     setAuthLaunchError,
-    setAuthorizationCode,
+    setAuthPaste,
   } = useProviderSettingsActions({
     presetId,
     apiBase: values.apiBase,
     onDefaultModel: (modelId) => edit({ modelId }),
   });
+  const hasSubscriptionOrOAuthAuth =
+    selectedPreset?.auth_method === 'oauth' || selectedPreset?.auth_method === 'subscription';
 
   return (
     <>
@@ -254,16 +253,35 @@ function ModelsSettingsContent({
               >
                 {save.isPending ? 'Applying…' : 'Apply provider and model'}
               </Button>
-              {selectedPreset?.auth_method === 'oauth' ? (
+              {hasSubscriptionOrOAuthAuth ? (
                 <Button
                   disabled={authenticate.isPending}
-                  onClick={() => authenticate.mutate()}
+                  onClick={() => authenticate.mutate('browser')}
                   variant="outline"
                 >
                   <KeyRoundIcon aria-hidden="true" />
                   {authenticate.isPending
                     ? 'Opening sign-in…'
                     : `Sign in to ${providerDisplayName(selectedPreset)}`}
+                </Button>
+              ) : null}
+              {selectedPreset?.provider === 'chatgpt' ? (
+                <Button
+                  disabled={authenticate.isPending}
+                  onClick={() => authenticate.mutate('device')}
+                  variant="outline"
+                >
+                  Sign in with a device code
+                </Button>
+              ) : null}
+              {hasSubscriptionOrOAuthAuth && selectedPreset?.is_authenticated ? (
+                <Button
+                  disabled={logout.isPending}
+                  onClick={() => logout.mutate()}
+                  variant="outline"
+                >
+                  <LogOutIcon aria-hidden="true" />
+                  {logout.isPending ? 'Signing out…' : 'Sign out'}
                 </Button>
               ) : null}
               {selectedPreset?.auth_method === 'oauth' && selectedPreset.auth_label ? (
@@ -322,61 +340,24 @@ function ModelsSettingsContent({
             {authenticate.error ? (
               <p className="text-sm text-destructive">{authenticate.error.message}</p>
             ) : null}
+            {authFailedReason ? <p className="text-sm text-destructive">{authFailedReason}</p> : null}
             {authInstructions ? (
               <p className="max-w-3xl text-sm text-muted-foreground">{authInstructions}</p>
             ) : null}
+            {logout.error ? <p className="text-sm text-destructive">{logout.error.message}</p> : null}
             {authFlow ? (
-              <div
-                aria-label="Complete ALCF sign-in"
-                className="grid max-w-xl gap-3 rounded-lg border border-border bg-muted/20 p-4"
-              >
-                <div>
-                  <p className="font-medium">Finish signing in to ALCF</p>
-                  <p className="text-sm text-muted-foreground">
-                    Sign in with your ALCF identity. Globus will show a one-time code to paste
-                    below; the connected {vocab.agent} stores the resulting token.
-                  </p>
-                </div>
-                <Button asChild className="w-fit" variant="outline">
-                  <ExternalLink
-                    href={authFlow.authorizationUrl}
-                    onClick={() => setAuthLaunchError('')}
-                    onOpenError={(error) =>
-                      setAuthLaunchError(
-                        error instanceof Error ? error.message : 'Could not open Globus sign-in.',
-                      )
-                    }
-                  >
-                    <ExternalLinkIcon aria-hidden="true" />
-                    Open Globus sign-in
-                  </ExternalLink>
-                </Button>
-                {authLaunchError ? (
-                  <p className="text-sm text-destructive">{authLaunchError}</p>
-                ) : null}
-                <div className="grid gap-1.5">
-                  <label className="text-sm font-medium" htmlFor="alcf-authorization-code">
-                    Authorization code
-                  </label>
-                  <Input
-                    autoComplete="one-time-code"
-                    id="alcf-authorization-code"
-                    onChange={(event) => setAuthorizationCode(event.target.value)}
-                    placeholder="Paste the code from Globus"
-                    value={authorizationCode}
-                  />
-                </div>
-                <Button
-                  className="w-fit"
-                  disabled={!authorizationCode.trim() || completeAuthentication.isPending}
-                  onClick={() => completeAuthentication.mutate()}
-                >
-                  {completeAuthentication.isPending ? 'Completing sign-in…' : 'Complete sign-in'}
-                </Button>
-                {completeAuthentication.error ? (
-                  <p className="text-sm text-destructive">{completeAuthentication.error.message}</p>
-                ) : null}
-              </div>
+              <ProviderAuthPanel
+                authFlow={authFlow}
+                authPaste={authPaste}
+                completeError={completeAuthentication.error?.message}
+                completePending={completeAuthentication.isPending}
+                launchError={authLaunchError}
+                onComplete={() => completeAuthentication.mutate()}
+                onLaunchError={setAuthLaunchError}
+                onPasteChange={setAuthPaste}
+                pollingState={authStatus.data?.state}
+                providerLabel={providerDisplayName(selectedPreset)}
+              />
             ) : null}
             {refreshResult ? <RefreshResult result={refreshResult} /> : null}
             {handshakeResult ? <HandshakeResult result={handshakeResult} /> : null}

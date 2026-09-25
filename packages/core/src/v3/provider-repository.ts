@@ -26,6 +26,48 @@ import { ContextRepository } from './context-repository.js';
 const LM_WAIT_SERVER_TIMEOUT_S = 600;
 const LM_WAIT_REQUEST_TIMEOUT_MS = 610_000;
 
+/** The generic provider sign-in API's `start` response (SPEC §6.12). */
+export interface ProviderAuthStart {
+  provider_id: string;
+  flow_id: string;
+  browser?: { authorization_url: string; loopback: boolean; loopback_unavailable_reason?: string };
+  device?: { user_code: string; verification_url: string; interval: number };
+  instructions: string;
+}
+
+/** The generic provider sign-in API's `status` poll response. */
+export interface ProviderAuthStatus {
+  provider_id: string;
+  state: 'pending' | 'complete' | 'failed';
+  reason: string;
+}
+
+const providerAuthStartSchema = z.object({
+  provider_id: z.string(),
+  flow_id: z.string(),
+  browser: z
+    .object({
+      authorization_url: z.string(),
+      loopback: z.boolean(),
+      loopback_unavailable_reason: z.string().optional(),
+    })
+    .optional(),
+  device: z
+    .object({
+      user_code: z.string(),
+      verification_url: z.string(),
+      interval: z.number(),
+    })
+    .optional(),
+  instructions: z.string(),
+});
+
+const providerAuthStatusSchema = z.object({
+  provider_id: z.string(),
+  state: z.enum(['pending', 'complete', 'failed']),
+  reason: z.string(),
+});
+
 /** Provider discovery, model catalog, handshake, and active-model configuration. */
 export class ProviderRepository extends ContextRepository {
   public async providers(signal?: AbortSignal): Promise<ProviderDefinition[]> {
@@ -92,27 +134,48 @@ export class ProviderRepository extends ContextRepository {
 
   public authenticateProvider(
     providerId: string,
-    options: { force?: boolean } = {},
+    options: { force?: boolean; method?: 'browser' | 'device' } = {},
     signal?: AbortSignal,
-  ): Promise<{
-    provider_id: string;
-    is_authenticated: boolean;
-    instructions: string;
-    authorization_url?: string;
-    flow_id?: string;
-  }> {
+  ): Promise<ProviderAuthStart> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
-      body: { action: 'start', force: options.force ?? false },
+      body: { action: 'start', force: options.force ?? false, method: options.method },
+      decode: (value) => providerAuthStartSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Poll a started sign-in flow (SPEC generic auth API `status`). */
+  public providerAuthStatus(
+    providerId: string,
+    flowId: string,
+    signal?: AbortSignal,
+  ): Promise<ProviderAuthStatus> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
+      body: { action: 'status', flow_id: flowId },
+      decode: (value) => providerAuthStatusSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Delete the stored credential for a subscription/OAuth provider. */
+  public logoutProvider(
+    providerId: string,
+    signal?: AbortSignal,
+  ): Promise<{ provider_id: string; is_authenticated: boolean; instructions: string }> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
+      body: { action: 'logout' },
       decode: (value) =>
         z
           .object({
             provider_id: z.string(),
             is_authenticated: z.boolean(),
             instructions: z.string(),
-            authorization_url: z.string().url().optional(),
-            flow_id: z.string().optional(),
           })
           .parse(value),
       signal,
@@ -141,7 +204,7 @@ export class ProviderRepository extends ContextRepository {
 
   public completeProviderAuthentication(
     providerId: string,
-    input: { flowId: string; authorizationCode: string },
+    input: { flowId: string; paste: string },
     signal?: AbortSignal,
   ): Promise<{ provider_id: string; is_authenticated: boolean; instructions: string }> {
     return this.transport.request({
@@ -150,7 +213,7 @@ export class ProviderRepository extends ContextRepository {
       body: {
         action: 'complete',
         flow_id: input.flowId,
-        authorization_code: input.authorizationCode,
+        paste: input.paste,
       },
       decode: (value) =>
         z

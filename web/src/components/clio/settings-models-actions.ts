@@ -1,10 +1,13 @@
-import type { ProviderHandshake, ProviderModelRefreshResult } from '@clio/core/v3';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import type { ProviderAuthStart, ProviderHandshake, ProviderModelRefreshResult } from '@clio/core/v3';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { openExternalUrl } from '@/tauri/external-url';
+
+/** Poll interval while a sign-in flow is pending (SPEC generic auth API). */
+const AUTH_STATUS_POLL_MS = 1500;
 
 interface ProviderSettingsActionsInput {
   presetId: string;
@@ -15,7 +18,9 @@ interface ProviderSettingsActionsInput {
 
 /**
  * The provider actions of the Models settings panel — catalog refresh, provider
- * check, Claude Code install and ALCF sign-in — and the results they report.
+ * check, Claude Code install, and the generic subscription/OAuth sign-in flow
+ * (ALCF and the direct ChatGPT provider both go through it) — and the results
+ * they report.
  *
  * A check or a completed sign-in changes what the service knows about the
  * provider, and the service retires that provider's catalog entry. The panel
@@ -33,9 +38,10 @@ export function useProviderSettingsActions({
   const [refreshResult, setRefreshResult] = useState<ProviderModelRefreshResult>();
   const [handshakeResult, setHandshakeResult] = useState<ProviderHandshake>();
   const [authInstructions, setAuthInstructions] = useState('');
-  const [authFlow, setAuthFlow] = useState<{ authorizationUrl: string; flowId: string }>();
-  const [authorizationCode, setAuthorizationCode] = useState('');
+  const [authFlow, setAuthFlow] = useState<ProviderAuthStart>();
+  const [authPaste, setAuthPaste] = useState('');
   const [authLaunchError, setAuthLaunchError] = useState('');
+  const [authFailedReason, setAuthFailedReason] = useState('');
 
   const invalidate = (...keys: ReadonlyArray<readonly unknown[]>) =>
     Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
@@ -62,6 +68,12 @@ export function useProviderSettingsActions({
       queryClient.setQueryData(modelsKey, catalog);
       if (catalog.default_model) onDefaultModel(catalog.default_model);
     }
+    await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
+  };
+  const signInComplete = async (instructions: string) => {
+    setAuthInstructions(instructions);
+    setAuthFlow(undefined);
+    setAuthPaste('');
     await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
   };
 
@@ -99,39 +111,62 @@ export function useProviderSettingsActions({
     onSuccess: adoptCheck,
   });
   const authenticate = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (method: 'browser' | 'device' = 'browser') => {
       if (!presetId) throw new Error('Choose a provider first.');
-      return repository.authenticateProvider(presetId, { force: true });
+      return repository.authenticateProvider(presetId, { force: true, method });
     },
     onSuccess: (result) => {
       setAuthInstructions(result.instructions);
-      if (result.authorization_url && result.flow_id) {
-        setAuthFlow({ authorizationUrl: result.authorization_url, flowId: result.flow_id });
-        setAuthLaunchError('');
-        openExternalUrl(result.authorization_url).catch((error: unknown) =>
-          setAuthLaunchError(
-            error instanceof Error ? error.message : 'Could not open Globus sign-in.',
-          ),
+      setAuthFailedReason('');
+      setAuthFlow(result);
+      setAuthLaunchError('');
+      if (result.browser) {
+        openExternalUrl(result.browser.authorization_url).catch((error: unknown) =>
+          setAuthLaunchError(error instanceof Error ? error.message : 'Could not open the sign-in page.'),
         );
       }
     },
   });
   const completeAuthentication = useMutation({
     mutationFn: async () => {
-      if (!presetId || !authFlow) throw new Error('Start ALCF sign-in first.');
-      if (!authorizationCode.trim()) throw new Error('Paste the authorization code from Globus.');
+      if (!presetId || !authFlow) throw new Error('Start sign-in first.');
+      if (!authPaste.trim()) throw new Error('Paste the redirect URL or code.');
       return repository.completeProviderAuthentication(presetId, {
-        flowId: authFlow.flowId,
-        authorizationCode: authorizationCode.trim(),
+        flowId: authFlow.flow_id,
+        paste: authPaste.trim(),
       });
     },
-    onSuccess: async (result) => {
-      setAuthInstructions(result.instructions);
-      setAuthFlow(undefined);
-      setAuthorizationCode('');
-      await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
-    },
+    onSuccess: (result) => signInComplete(result.instructions),
   });
+  const logout = useMutation({
+    mutationFn: async () => {
+      if (!presetId) throw new Error('Choose a provider first.');
+      return repository.logoutProvider(presetId);
+    },
+    onSuccess: (result) => signInComplete(result.instructions),
+  });
+
+  /** Poll a started flow until the loopback callback (or device code) resolves it. */
+  const authStatus = useQuery({
+    queryKey: queryKeys.key('provider-auth-status', settings.endpoint, presetId, authFlow?.flow_id),
+    queryFn: async ({ signal }) => {
+      if (!authFlow) throw new Error('No sign-in flow in progress.');
+      return repository.providerAuthStatus(presetId, authFlow.flow_id, signal);
+    },
+    enabled: Boolean(authFlow?.flow_id),
+    refetchInterval: (query) => (query.state.data?.state === 'pending' ? AUTH_STATUS_POLL_MS : false),
+  });
+  const authStatusState = authStatus.data?.state;
+  useEffect(() => {
+    if (!authFlow) return;
+    if (authStatusState === 'complete') {
+      void signInComplete('Signed in.');
+    } else if (authStatusState === 'failed') {
+      setAuthFlow(undefined);
+      setAuthFailedReason(authStatus.data?.reason || 'Sign-in failed.');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- signInComplete closes over authFlow/presetId by design
+  }, [authStatusState, authFlow?.flow_id]);
 
   /** Forget every result when the person switches provider. */
   const reset = () => {
@@ -139,24 +174,28 @@ export function useProviderSettingsActions({
     setHandshakeResult(undefined);
     setAuthInstructions('');
     setAuthFlow(undefined);
-    setAuthorizationCode('');
+    setAuthPaste('');
     setAuthLaunchError('');
+    setAuthFailedReason('');
   };
 
   return {
+    authFailedReason,
     authFlow,
     authInstructions,
     authLaunchError,
+    authPaste,
+    authStatus,
     authenticate,
-    authorizationCode,
     completeAuthentication,
     handshake,
     handshakeResult,
     installProvider,
+    logout,
     refreshModels,
     refreshResult,
     reset,
     setAuthLaunchError,
-    setAuthorizationCode,
+    setAuthPaste,
   };
 }

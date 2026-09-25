@@ -30,7 +30,7 @@ export function modelSettingsOptions({
   modelId: string;
   preset?: LanguageModelPreset;
 }): ProviderModel[] {
-  const subscription = preset && ['codex', 'claude_code'].includes(preset.provider);
+  const subscription = preset && ['chatgpt', 'claude_code'].includes(preset.provider);
   const configured =
     subscription &&
     presetIsActive(configuration, preset) &&
@@ -61,7 +61,7 @@ export function canApplyProvider(
   return Boolean(
     preset.is_authenticated ||
       (preset.requires_api_key && (values.apiKey || storedCredential)) ||
-      (preset.auth_method === 'none' && !['codex', 'claude_code'].includes(preset.provider)),
+      (preset.auth_method === 'none' && !['chatgpt', 'claude_code'].includes(preset.provider)),
   );
 }
 

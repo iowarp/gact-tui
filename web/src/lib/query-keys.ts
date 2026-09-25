@@ -42,6 +42,7 @@ export type ClioQueryNamespace =
   | 'prompt'
   | 'prompts'
   | 'provider-models'
+  | 'provider-auth-status'
   | 'provider-catalog'
   | 'provenance-providers'
   | 'providers'

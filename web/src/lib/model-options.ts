@@ -201,7 +201,7 @@ function liveProviderOptions(
     ];
   }
   const providerReady = preset?.status === 'ready' || preset?.is_authenticated === true;
-  const isCliProvider = ['codex', 'claude_code'].includes(provider.kind);
+  const isCliProvider = ['chatgpt', 'claude_code'].includes(provider.kind);
   // The service served this provider's last good list because its live check
   // came back empty: the models are shown, dated, and never presented as current.
   // Dated by the latest live confirmation (the service's confirmed_at), not the

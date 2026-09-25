@@ -551,7 +551,7 @@ export function ManagedServices({
                       Manage a model runtime with {vocab.agent}
                     </FieldLabel>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Leave this off when you already use Codex, Claude, or another configured
+                      Leave this off when you already use ChatGPT, Claude, or another configured
                       provider. Those connections live in{' '}
                       <Link className="text-primary hover:underline" to="/settings/providers">
                         Models
