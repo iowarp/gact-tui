@@ -4,6 +4,7 @@
 //! ordinary host metadata to an included OpenSSH file and keeps imported-host
 //! visibility preferences in its app configuration directory.
 
+use crate::blocking_command::off_main;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
@@ -107,8 +108,7 @@ fn default_platform() -> String {
     "auto".into()
 }
 
-#[tauri::command]
-pub fn ssh_profiles_list(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
+fn ssh_profiles_list_blocking(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
     let paths = profile_paths(&app)?;
     let preferences = read_preferences(&paths.preferences)?;
     let profiles = resolve_all_profiles(&paths, &preferences)?;
@@ -122,8 +122,7 @@ pub fn ssh_profiles_list(app: tauri::AppHandle) -> Result<Vec<SshProfile>, Strin
 /// and imported alike, with each one's hidden preference attached — the truth
 /// the hosts manager needs, and what `ssh_profiles_list` filters hidden ones
 /// out of for every other picker.
-#[tauri::command]
-pub fn ssh_profiles_list_all(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
+fn ssh_profiles_list_all_blocking(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
     let paths = profile_paths(&app)?;
     let preferences = read_preferences(&paths.preferences)?;
     resolve_all_profiles(&paths, &preferences)
@@ -179,8 +178,7 @@ fn resolve_all_profiles(
 }
 
 /// Rewrite only the ordered jump route of a profile CLIO saved.
-#[tauri::command]
-pub fn ssh_profile_set_route(
+fn ssh_profile_set_route_blocking(
     app: tauri::AppHandle,
     name: String,
     jump_hosts: Vec<String>,
@@ -213,8 +211,7 @@ pub fn ssh_profile_set_route(
     ))
 }
 
-#[tauri::command]
-pub fn ssh_profile_save(
+fn ssh_profile_save_blocking(
     app: tauri::AppHandle,
     request: SaveSshProfileRequest,
 ) -> Result<SshProfile, String> {
@@ -291,8 +288,7 @@ pub fn ssh_profile_save(
     ))
 }
 
-#[tauri::command]
-pub fn ssh_profile_set_hidden(
+fn ssh_profile_set_hidden_blocking(
     app: tauri::AppHandle,
     name: String,
     hidden: bool,
@@ -308,8 +304,7 @@ pub fn ssh_profile_set_hidden(
     write_preferences(&paths.preferences, &preferences)
 }
 
-#[tauri::command]
-pub fn ssh_profile_delete(app: tauri::AppHandle, name: String) -> Result<(), String> {
+fn ssh_profile_delete_blocking(app: tauri::AppHandle, name: String) -> Result<(), String> {
     validate_alias(&name)?;
     let paths = profile_paths(&app)?;
     let mut blocks = read_managed_blocks(&paths.managed_include)?;
@@ -684,6 +679,47 @@ fn write_atomic(path: &Path, contents: &str) -> Result<(), String> {
     }
     fs::rename(&temporary, path)
         .map_err(|error| format!("Could not replace {}: {error}", path.display()))
+}
+
+#[tauri::command]
+pub async fn ssh_profiles_list(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
+    off_main(move || ssh_profiles_list_blocking(app)).await
+}
+
+#[tauri::command]
+pub async fn ssh_profiles_list_all(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
+    off_main(move || ssh_profiles_list_all_blocking(app)).await
+}
+
+#[tauri::command]
+pub async fn ssh_profile_set_route(
+    app: tauri::AppHandle,
+    name: String,
+    jump_hosts: Vec<String>,
+) -> Result<SshProfile, String> {
+    off_main(move || ssh_profile_set_route_blocking(app, name, jump_hosts)).await
+}
+
+#[tauri::command]
+pub async fn ssh_profile_save(
+    app: tauri::AppHandle,
+    request: SaveSshProfileRequest,
+) -> Result<SshProfile, String> {
+    off_main(move || ssh_profile_save_blocking(app, request)).await
+}
+
+#[tauri::command]
+pub async fn ssh_profile_set_hidden(
+    app: tauri::AppHandle,
+    name: String,
+    hidden: bool,
+) -> Result<(), String> {
+    off_main(move || ssh_profile_set_hidden_blocking(app, name, hidden)).await
+}
+
+#[tauri::command]
+pub async fn ssh_profile_delete(app: tauri::AppHandle, name: String) -> Result<(), String> {
+    off_main(move || ssh_profile_delete_blocking(app, name)).await
 }
 
 #[cfg(test)]

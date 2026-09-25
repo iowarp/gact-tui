@@ -6,6 +6,7 @@
 //!
 //! Wave 3: also owns SSH tunnel lifecycles + OS notifications + tray.
 
+mod blocking_command;
 mod brand_backend;
 mod clio_core_daemon;
 mod clio_core_registry;

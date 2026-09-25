@@ -201,8 +201,10 @@ pub fn classify_prompt(raw: &str) -> Option<SshPrompt> {
         .lines()
         .filter(|line| !line.trim().is_empty())
         .collect();
-    let context = lines[lines.len().saturating_sub(PROMPT_CONTEXT_LINES)..].join("
-");
+    let context = lines[lines.len().saturating_sub(PROMPT_CONTEXT_LINES)..].join(
+        "
+",
+    );
     Some(SshPrompt {
         kind,
         text: line.to_string(),

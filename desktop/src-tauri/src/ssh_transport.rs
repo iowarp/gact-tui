@@ -21,6 +21,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{Emitter, Manager};
 
+use crate::blocking_command::off_main;
 use crate::ssh_transport_command::{
     compatible_route, posix_command, powershell_command, safe_host, ssh_arguments,
     validate_command, validate_route, SshTransportRoute, TransportCommand,
@@ -321,12 +322,11 @@ fn emit_state<R: tauri::Runtime>(
     );
 }
 
-#[tauri::command]
-pub fn ssh_transport_open(
-    app: tauri::AppHandle,
-    registry: tauri::State<'_, SshTransportRegistry>,
+fn ssh_transport_open_blocking(
+    app: &tauri::AppHandle,
     request: SshTransportOpenRequest,
 ) -> Result<SshTransportStatus, String> {
+    let registry = app.state::<SshTransportRegistry>();
     validate_route(&request.route)?;
     if let Some(previous) = registry.for_target(&request.target_id)? {
         if compatible_route(&previous.route, &request.route) {
@@ -414,6 +414,8 @@ pub fn ssh_transport_open(
         let mut child = spawned.child;
         let _ = child.wait();
         waiter_session.exited.store(true, Ordering::SeqCst);
+        // Wake a command waiting on output: it ends now, not at its deadline.
+        waiter_session.capture.1.notify_all();
         waiter_session.stop_forwards();
         if let Some(registry) = waiter_app.try_state::<SshTransportRegistry>() {
             registry.remove(&waiter_session.id);
@@ -488,51 +490,51 @@ fn read_transport<R: tauri::Runtime>(
     }
 }
 
-#[tauri::command]
-pub fn ssh_transport_status(
-    registry: tauri::State<'_, SshTransportRegistry>,
+fn ssh_transport_status_blocking(
+    app: &tauri::AppHandle,
     session_id: String,
 ) -> Result<SshTransportStatus, String> {
+    let registry = app.state::<SshTransportRegistry>();
     registry.get(&session_id)?.status(true)
 }
 
 /// The session's output as a person reads it: control sequences, transport
 /// markers, and idle prompts removed. Also answers for a session that has
 /// just ended, so its failure can still be explained.
-#[tauri::command]
-pub fn ssh_transport_log(
-    registry: tauri::State<'_, SshTransportRegistry>,
+fn ssh_transport_log_blocking(
+    app: &tauri::AppHandle,
     session_id: String,
 ) -> Result<String, String> {
+    let registry = app.state::<SshTransportRegistry>();
     if let Ok(session) = registry.get(&session_id) {
         return Ok(session.clean_log());
     }
-    registry
+    let logs = registry
         .closed_logs
         .lock()
-        .map_err(|_| "SSH transport log lock poisoned".to_string())?
+        .map_err(|_| "SSH transport log lock poisoned".to_string())?;
+    let found = logs
         .iter()
         .find(|(id, _)| *id == session_id)
-        .map(|(_, log)| log.clone())
-        .ok_or_else(|| format!("SSH transport session {session_id} is not known"))
+        .map(|(_, log)| log.clone());
+    found.ok_or_else(|| format!("SSH transport session {session_id} is not known"))
 }
 
-#[tauri::command]
-pub fn ssh_transport_write(
-    registry: tauri::State<'_, SshTransportRegistry>,
+fn ssh_transport_write_blocking(
+    app: &tauri::AppHandle,
     session_id: String,
     data: String,
 ) -> Result<(), String> {
+    let registry = app.state::<SshTransportRegistry>();
     registry.get(&session_id)?.write(data.as_bytes())
 }
 
-#[tauri::command]
-pub fn ssh_transport_exec(
-    app: tauri::AppHandle,
-    registry: tauri::State<'_, SshTransportRegistry>,
+fn ssh_transport_exec_blocking(
+    app: &tauri::AppHandle,
     session_id: String,
     command: TransportCommand,
 ) -> Result<TransportCommandResult, String> {
+    let registry = app.state::<SshTransportRegistry>();
     validate_command(&command)?;
     let session = registry.get(&session_id)?;
     if session.state()? != "connected" {
@@ -603,11 +605,16 @@ fn execute_remote(
             }
         }
         let now = Instant::now();
-        if now >= deadline {
-            let reason = format!(
-                "Remote command timed out after {:.0} seconds",
-                command.timeout_seconds
-            );
+        let closed = session.exited.load(Ordering::SeqCst);
+        if closed || now >= deadline {
+            let reason = if closed {
+                "The SSH connection closed before the remote command finished".to_string()
+            } else {
+                format!(
+                    "Remote command timed out after {:.0} seconds",
+                    command.timeout_seconds
+                )
+            };
             emit(SshStepEvent {
                 session_id: session.id.clone(),
                 request_id: request_id.clone(),
@@ -630,15 +637,14 @@ fn execute_remote(
 
 /// Forward a loopback port to `remote_host:remote_port` as seen from the
 /// destination host, over the session that is already authenticated.
-#[tauri::command]
-pub fn ssh_transport_forward(
-    app: tauri::AppHandle,
-    registry: tauri::State<'_, SshTransportRegistry>,
+fn ssh_transport_forward_blocking(
+    app: &tauri::AppHandle,
     session_id: String,
     remote_host: String,
     remote_port: u16,
     local_port: Option<u16>,
 ) -> Result<String, String> {
+    let registry = app.state::<SshTransportRegistry>();
     if !safe_host(&remote_host) {
         return Err("Invalid remote forward host".to_string());
     }
@@ -690,12 +696,12 @@ pub fn ssh_transport_forward(
     Ok(url)
 }
 
-#[tauri::command]
-pub fn ssh_transport_close(
-    registry: tauri::State<'_, SshTransportRegistry>,
+fn ssh_transport_close_blocking(
+    app: &tauri::AppHandle,
     session_id: String,
     target_id: String,
 ) -> Result<(), String> {
+    let registry = app.state::<SshTransportRegistry>();
     if registry.detach_target(&target_id, &session_id)? {
         if let Some(session) = registry.remove(&session_id) {
             session.close();
@@ -706,12 +712,8 @@ pub fn ssh_transport_close(
 
 /// Stop a session now, whoever else shares it: kill OpenSSH and every helper
 /// it started. This is what Cancel means during a deployment.
-#[tauri::command]
-pub fn ssh_transport_cancel(
-    app: tauri::AppHandle,
-    registry: tauri::State<'_, SshTransportRegistry>,
-    session_id: String,
-) -> Result<(), String> {
+fn ssh_transport_cancel_blocking(app: &tauri::AppHandle, session_id: String) -> Result<(), String> {
+    let registry = app.state::<SshTransportRegistry>();
     if let Some(session) = registry.remove(&session_id) {
         session.close();
         if let Ok(mut authenticating) = registry.authenticating.lock() {
@@ -722,9 +724,101 @@ pub fn ssh_transport_cancel(
     Ok(())
 }
 
+#[tauri::command]
+pub async fn ssh_transport_open(
+    app: tauri::AppHandle,
+    request: SshTransportOpenRequest,
+) -> Result<SshTransportStatus, String> {
+    off_main(move || ssh_transport_open_blocking(&app, request)).await
+}
+
+#[tauri::command]
+pub async fn ssh_transport_status(
+    app: tauri::AppHandle,
+    session_id: String,
+) -> Result<SshTransportStatus, String> {
+    off_main(move || ssh_transport_status_blocking(&app, session_id)).await
+}
+
+#[tauri::command]
+pub async fn ssh_transport_log(
+    app: tauri::AppHandle,
+    session_id: String,
+) -> Result<String, String> {
+    off_main(move || ssh_transport_log_blocking(&app, session_id)).await
+}
+
+#[tauri::command]
+pub async fn ssh_transport_write(
+    app: tauri::AppHandle,
+    session_id: String,
+    data: String,
+) -> Result<(), String> {
+    off_main(move || ssh_transport_write_blocking(&app, session_id, data)).await
+}
+
+#[tauri::command]
+pub async fn ssh_transport_exec(
+    app: tauri::AppHandle,
+    session_id: String,
+    command: TransportCommand,
+) -> Result<TransportCommandResult, String> {
+    off_main(move || ssh_transport_exec_blocking(&app, session_id, command)).await
+}
+
+#[tauri::command]
+pub async fn ssh_transport_forward(
+    app: tauri::AppHandle,
+    session_id: String,
+    remote_host: String,
+    remote_port: u16,
+    local_port: Option<u16>,
+) -> Result<String, String> {
+    off_main(move || {
+        ssh_transport_forward_blocking(&app, session_id, remote_host, remote_port, local_port)
+    })
+    .await
+}
+
+#[tauri::command]
+pub async fn ssh_transport_close(
+    app: tauri::AppHandle,
+    session_id: String,
+    target_id: String,
+) -> Result<(), String> {
+    off_main(move || ssh_transport_close_blocking(&app, session_id, target_id)).await
+}
+
+#[tauri::command]
+pub async fn ssh_transport_cancel(app: tauri::AppHandle, session_id: String) -> Result<(), String> {
+    off_main(move || ssh_transport_cancel_blocking(&app, session_id)).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every transport command runs through `off_main`: a remote command
+    /// that takes minutes must not hold up status polls, prompt answers, or
+    /// Cancel issued meanwhile.
+    #[test]
+    fn a_slow_command_does_not_block_another_command() {
+        tauri::async_runtime::block_on(async {
+            let (release, gate) = std::sync::mpsc::channel::<()>();
+            let slow = tauri::async_runtime::spawn(off_main(move || {
+                gate.recv_timeout(Duration::from_secs(10))
+                    .map_err(|error| error.to_string())?;
+                Ok("exec finished")
+            }));
+            let started = Instant::now();
+            let quick = off_main(|| Ok("status answered")).await;
+            assert_eq!(quick.as_deref(), Ok("status answered"));
+            assert!(started.elapsed() < Duration::from_secs(2));
+            assert!(!slow.inner().is_finished());
+            release.send(()).unwrap();
+            assert_eq!(slow.await.unwrap(), Ok("exec finished"));
+        });
+    }
 
     #[test]
     fn prompt_window_cuts_on_a_character_boundary() {

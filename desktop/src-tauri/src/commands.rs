@@ -3,6 +3,7 @@
 //! Thin glue between the WebView and the native subsystems: backend
 //! status/install/repair (supervisor), SSH tunnels, and boot-log reveal.
 
+use crate::blocking_command::off_main;
 use std::sync::Mutex;
 use std::{
     path::{Component, Path, PathBuf},
@@ -29,8 +30,16 @@ pub fn get_backend(state: tauri::State<'_, Mutex<Supervisor>>) -> BackendHandle 
 /// Merely polling that state can never recover it, so explicit user actions
 /// such as "Use local CLIO" call this command before resuming readiness polls.
 #[tauri::command]
-pub fn retry_backend(state: tauri::State<'_, Mutex<Supervisor>>) {
-    lock_recover(&state).restart();
+pub async fn retry_backend(app: tauri::AppHandle) -> Result<(), String> {
+    // A restart first stops the old child, which can wait out its graceful
+    // shutdown; never on the main thread.
+    off_main(move || {
+        if let Some(state) = app.try_state::<Mutex<Supervisor>>() {
+            lock_recover(&state).restart();
+        }
+        Ok(())
+    })
+    .await
 }
 
 /// First-run "one swoop" install. When `get_backend` reports
@@ -56,7 +65,20 @@ pub fn repair_clio(app: tauri::AppHandle) {
 /// restarts immediately (CLIO-only) or lets a following desktop update perform
 /// the single combined restart.
 #[tauri::command]
-pub fn update_clio(
+pub async fn update_clio(
+    app: tauri::AppHandle,
+    target_version: Option<String>,
+    restart_app: Option<bool>,
+) -> Result<(), String> {
+    // Stopping the managed runtime waits for it to exit; never on the main thread.
+    off_main(move || {
+        update_clio_blocking(app, target_version, restart_app);
+        Ok(())
+    })
+    .await
+}
+
+fn update_clio_blocking(
     app: tauri::AppHandle,
     target_version: Option<String>,
     restart_app: Option<bool>,
