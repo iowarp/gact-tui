@@ -45,6 +45,8 @@ import {
 
 interface UseWorkspaceDataInput {
   contextTargetId: string;
+  /** Whether the Files view (workbench.tsx's fixed 'files' tab) is the currently mounted tab. */
+  filesViewActive?: boolean;
   sessionId: string;
   workspaceId: string;
 }
@@ -52,6 +54,7 @@ interface UseWorkspaceDataInput {
 /** Owns authoritative workspace/session reads and their normalized live projections. */
 export function useWorkspaceData({
   contextTargetId,
+  filesViewActive = false,
   sessionId,
   workspaceId,
 }: UseWorkspaceDataInput) {
@@ -362,6 +365,16 @@ export function useWorkspaceData({
     queryFn: ({ signal }) =>
       repository.workspaceFiles(workspaceId, signal, { includeHidden: !hideDotFiles }),
     enabled: Boolean(workspaceId),
+    // No live-event trigger for this view (owner decision, after a server-side
+    // watcher produced an event storm): poll instead, but ONLY while the Files
+    // view is actually the mounted tab -- GET /v1/workspaces/{wid}/files is a
+    // bounded (capped-walk) read, off the server's event loop, so a 5s
+    // cadence stays cheap; there is no reason to pay it for every open
+    // session regardless of which tab is showing. `refetchIntervalInBackground:
+    // false` (also react-query's own default) pauses the interval while the
+    // document is hidden -- a backgrounded/minimized tab doesn't poll either.
+    refetchInterval: filesViewActive ? 5_000 : false,
+    refetchIntervalInBackground: false,
   });
   const workspaceResources = useQuery({
     queryKey: queryKeys.workspaceResources(settings.endpoint, workspaceId),

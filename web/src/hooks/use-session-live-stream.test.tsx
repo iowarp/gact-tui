@@ -172,29 +172,45 @@ describe('useSessionLiveStream resume recovery', () => {
     expect(keys).not.toContainEqual(['transcript', 'http://127.0.0.1:8790', 'sess_1']);
     expect(keys).toContainEqual(['sessions', 'http://127.0.0.1:8790', 'ws_1']);
     expect(keys).toContainEqual(['execution-provenance', 'http://127.0.0.1:8790', 'sess_1']);
-    // The Files view has no polling and no other live-event invalidation, so the
-    // turn boundary is its fallback refresh (iowarp/clio-agent — Files view did
-    // not update after the agent wrote a file).
-    expect(keys).toContainEqual(['workspace-files', 'http://127.0.0.1:8790', 'ws_1']);
   });
 
-  it('refreshes workspace files as soon as a shell or fs tool call finishes', () => {
-    const forTool = (name: string, state: string) =>
+  it('no longer treats the turn boundary or a finished fs/shell tool call as a Files-view trigger', () => {
+    // Owner decision: the server-side watcher (workspace.files.changed) was
+    // dropped after an event-storm defect. The Files view now refreshes via
+    // polling while mounted + visible, refetch-on-open, and the manual
+    // Refresh button (see use-workspace-data.ts / workbench-resource-browser.tsx)
+    // — deliberately NOT restored to this old trigger list, which never
+    // covered upload materialization, the user's own Explorer edits, or git
+    // in the first place, and there is no remaining `workspace.files.changed`
+    // handling anywhere in this hook.
+    const workspaceFilesKey = ['workspace-files', 'http://127.0.0.1:8790', 'ws_1'];
+
+    expect(
       queryInvalidationKeysForEvent({
-        data: { id: 'call_1', name, session_id: 'sess_1', state },
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'message.completed',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).not.toContainEqual(workspaceFilesKey);
+
+    expect(
+      queryInvalidationKeysForEvent({
         endpoint: 'http://127.0.0.1:8790',
         eventName: 'tool.upserted',
         sessionId: 'sess_1',
         workspaceId: 'ws_1',
-      });
-    const workspaceFilesKey = ['workspace-files', 'http://127.0.0.1:8790', 'ws_1'];
+      }),
+    ).not.toContainEqual(workspaceFilesKey);
 
-    expect(forTool('shell_bash', 'succeeded')).toContainEqual(workspaceFilesKey);
-    expect(forTool('fs_apply_edit_write', 'failed')).toContainEqual(workspaceFilesKey);
-    // Still running: no result yet, nothing could have changed on disk.
-    expect(forTool('shell_bash', 'running')).not.toContainEqual(workspaceFilesKey);
-    // A finished tool call that is not fs/shell must not trigger a refetch.
-    expect(forTool('web_search', 'succeeded')).not.toContainEqual(workspaceFilesKey);
+    expect(
+      queryInvalidationKeysForEvent({
+        endpoint: 'http://127.0.0.1:8790',
+        eventName: 'workspace.files.changed',
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
+    ).not.toContainEqual(workspaceFilesKey);
   });
 
   it('refreshes execution provenance when a semantic ledger event arrives', () => {

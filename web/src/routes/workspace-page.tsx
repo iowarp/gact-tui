@@ -64,6 +64,10 @@ export function WorkspacePage() {
   const [composerFocusKey, setComposerFocusKey] = useState(0);
   const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
+  // "Is the Files view currently the mounted tab" -- gates workspaceFiles'
+  // poll (use-workspace-data.ts's refetchInterval) so it only runs while
+  // someone could actually see a stale listing, not for every open session.
+  const [filesViewActive, setFilesViewActive] = useState(false);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
   const diffActions = useSessionDiffActions();
@@ -113,7 +117,7 @@ export function WorkspacePage() {
     workspaceFiles,
     workspaceResources,
     workspaces,
-  } = useWorkspaceData({ contextTargetId, sessionId, workspaceId });
+  } = useWorkspaceData({ contextTargetId, filesViewActive, sessionId, workspaceId });
   const navigationSessions = useMemo(
     () => allSessions.data ?? sessions.data ?? [],
     [allSessions.data, sessions.data],
@@ -608,8 +612,11 @@ export function WorkspacePage() {
             diffs={sessionObservability.diffs.data ?? []}
             files={workspaceFiles.data?.entries ?? []}
             filesError={workspaceFiles.error?.message}
+            filesFetching={workspaceFiles.isFetching}
             filesPending={workspaceFiles.isPending}
             filesTruncated={workspaceFiles.data?.truncated ?? false}
+            onFilesViewActiveChange={setFilesViewActive}
+            onRefreshFiles={() => void workspaceFiles.refetch()}
             resources={workspaceResources.data ?? []}
             resourcesError={workspaceResources.error?.message}
             resourcesPending={workspaceResources.isPending}

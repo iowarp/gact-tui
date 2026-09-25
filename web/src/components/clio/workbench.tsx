@@ -60,8 +60,11 @@ export interface ClioWorkbenchProps {
   sessionId: string;
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
+  filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
+  onRefreshFiles?: () => void;
+  onFilesViewActiveChange?: (active: boolean) => void;
   artifacts: readonly ArtifactEntity[];
   artifactsPending?: boolean;
   artifactsError?: string;
@@ -198,8 +201,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       sessionId,
       files,
       filesPending,
+      filesFetching,
       filesError,
       filesTruncated,
+      onRefreshFiles,
+      onFilesViewActiveChange,
       artifacts,
       artifactsPending,
       artifactsError,
@@ -238,6 +244,16 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         JSON.stringify({ activeTabId, tabs }),
       );
     }, [activeTabId, tabs, workspaceId]);
+
+    // `TabsContent` unmounts inactive panels (Radix Presence, no forceMount),
+    // so the fixed-id 'files' tab being ACTIVE is exactly "the Files view is
+    // mounted" -- the signal use-workspace-data.ts gates its poll on
+    // (refetchInterval), rather than polling for every open session regardless
+    // of which tab is showing.
+    useEffect(() => {
+      onFilesViewActiveChange?.(activeTabId === 'files');
+      return () => onFilesViewActiveChange?.(false);
+    }, [activeTabId, onFilesViewActiveChange]);
 
     useLayoutEffect(() => {
       const strip = tabStripRef.current;
@@ -593,12 +609,14 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                     diffs={diffs}
                     files={files}
                     filesError={filesError}
+                    filesFetching={filesFetching}
                     filesPending={filesPending}
                     filesTruncated={filesTruncated}
                     maximized={maximized}
                     onApplyDiff={onApplyDiff}
                     onOpenSubagent={onOpenSubagent}
                     onOpenTab={openTab}
+                    onRefreshFiles={onRefreshFiles}
                     onRejectDiff={onRejectDiff}
                     onReplaceTab={replaceTab}
                     onSelectFilesPath={selectFilesPath}

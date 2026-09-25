@@ -627,6 +627,53 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.getByText(/Hide dot files and folders.*is on/)).toBeVisible();
   });
 
+  it('refetches once as soon as the Files view mounts (opening the tab)', () => {
+    const onRefresh = vi.fn();
+    render(
+      <FileBrowser
+        files={[]}
+        onRefresh={onRefresh}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('spins and refetches again when the manual Refresh button is clicked', async () => {
+    const user = userEvent.setup();
+    const onRefresh = vi.fn();
+    const { rerender } = render(
+      <FileBrowser
+        files={[]}
+        onRefresh={onRefresh}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+    const callsAfterMount = onRefresh.mock.calls.length;
+    const button = screen.getByRole('button', { name: 'Refresh files' });
+    expect(button.querySelector('svg')).not.toHaveClass('animate-spin');
+
+    await user.click(button);
+    expect(onRefresh.mock.calls.length).toBe(callsAfterMount + 1);
+
+    rerender(
+      <FileBrowser
+        files={[]}
+        filesFetching
+        onRefresh={onRefresh}
+        onSelectedPathChange={vi.fn()}
+        selectedPath={undefined}
+        workspaceId="workspace_1"
+      />,
+    );
+    expect(button.querySelector('svg')).toHaveClass('animate-spin');
+  });
+
   it('delivers a requested tab when a compact canvas mounts after the request', () => {
     const diff = {
       path: 'src/compact-canvas.py',

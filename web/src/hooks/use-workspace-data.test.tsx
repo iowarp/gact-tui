@@ -1,12 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type {
   LanguageModelConfiguration,
   SessionArtifactListing,
   TranscriptSnapshot,
 } from '@clio/core/v3';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   mergeSnapshots: vi.fn(),
@@ -119,9 +119,15 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-function renderWorkspaceData() {
+function renderWorkspaceData(overrides: { filesViewActive?: boolean } = {}) {
   return renderHook(
-    () => useWorkspaceData({ contextTargetId: 'sess_1', sessionId: 'sess_1', workspaceId: 'ws_1' }),
+    () =>
+      useWorkspaceData({
+        contextTargetId: 'sess_1',
+        filesViewActive: overrides.filesViewActive,
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
     { wrapper },
   );
 }
@@ -350,6 +356,58 @@ describe('useWorkspaceData files query', () => {
         { includeHidden: false },
       ),
     );
+  });
+
+  // Owner decision: the server-side workspace.files.changed watcher produced
+  // an event storm and was dropped. Polling replaces it, scoped to exactly
+  // when someone could see a stale listing.
+  describe('polling (replaces the dropped live-event trigger)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('polls every 5s while the Files view is the active tab', async () => {
+      renderWorkspaceData({ filesViewActive: true });
+      await vi.waitFor(() => expect(mocks.repository.workspaceFiles).toHaveBeenCalledTimes(1));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+      expect(mocks.repository.workspaceFiles.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+      expect(mocks.repository.workspaceFiles.mock.calls.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('does not poll while the Files view is not the active tab', async () => {
+      renderWorkspaceData({ filesViewActive: false });
+      await vi.waitFor(() => expect(mocks.repository.workspaceFiles).toHaveBeenCalledTimes(1));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_000);
+      });
+      // Only the one mount-triggered fetch -- no interval fired.
+      expect(mocks.repository.workspaceFiles).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops polling once the query observer unmounts', async () => {
+      const { unmount } = renderWorkspaceData({ filesViewActive: true });
+      await vi.waitFor(() => expect(mocks.repository.workspaceFiles).toHaveBeenCalledTimes(1));
+
+      unmount();
+      const callsAtUnmount = mocks.repository.workspaceFiles.mock.calls.length;
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_000);
+      });
+      expect(mocks.repository.workspaceFiles.mock.calls.length).toBe(callsAtUnmount);
+    });
   });
 });
 
