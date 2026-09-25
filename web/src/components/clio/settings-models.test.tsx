@@ -2,12 +2,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
 import { useLiveStore } from '@/store/live-store';
+import { catalogEntry, codexCatalog } from '@/test-fixtures/provider-catalog';
 import { ModelsSettings } from './settings-models';
 
-const { codexCatalog, configuration, repository } = vi.hoisted(() => {
+const { configuration, repository } = vi.hoisted(() => {
   const configuration = {
     configured: true,
     provider_id: 'codex',
@@ -29,31 +30,7 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       },
     ],
   };
-  return { codexCatalog, configuration, repository: makeRepository(configuration) };
-
-  /** The live catalog: gpt-5.6-luna reports its own reasoning levels. */
-  function codexCatalog() {
-    return {
-      authoritative: 'live_handshake',
-      providers: [
-        {
-          id: 'codex',
-          name: 'Codex (subscription)',
-          models: [
-            {
-              model_id: 'gpt-5.6-luna',
-              reasoning: {
-                supported: true,
-                parameter: '',
-                levels: ['low', 'medium', 'high', 'xhigh'],
-                default: 'medium',
-              },
-            },
-          ],
-        },
-      ],
-    };
-  }
+  return { configuration, repository: makeRepository(configuration) };
 
   function makeRepository(active: typeof configuration) {
     return {
@@ -105,7 +82,7 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       updateLanguageModelConfiguration: vi.fn(),
       saveProviderApiKey: vi.fn(),
       clearProviderApiKey: vi.fn(),
-      providerCatalog: vi.fn().mockResolvedValue(codexCatalog()),
+      providerCatalog: vi.fn(),
     };
   }
 });
@@ -114,6 +91,10 @@ vi.mock('@/hooks/use-repository', () => ({ useRepository: () => repository }));
 vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
 }));
+
+beforeEach(() => {
+  repository.providerCatalog.mockResolvedValue(codexCatalog());
+});
 
 afterEach(() => {
   cleanup();
@@ -130,9 +111,12 @@ afterEach(() => {
 });
 
 describe('ModelsSettings', () => {
-  it('does not allow unverified Codex credentials to be applied', async () => {
-    repository.languageModelConfiguration.mockResolvedValueOnce({
+  it('links a provider that is not ready to Settings > Providers with one compact row', async () => {
+    // Never checked: the service has no catalog entry for it yet.
+    repository.providerCatalog.mockResolvedValue({ authoritative: 'live_handshake', providers: [] });
+    repository.languageModelConfiguration.mockResolvedValue({
       configured: false,
+      provider_id: 'codex',
       provider: '',
       api_base: '',
       model: '',
@@ -166,7 +150,12 @@ describe('ModelsSettings', () => {
     );
 
     expect(await screen.findByRole('button', { name: 'Apply provider and model' })).toBeDisabled();
-    expect(screen.getAllByText('Not checked')).not.toHaveLength(0);
+    const setUp = await screen.findByRole('link', { name: /Set up/ });
+    expect(setUp).toHaveAttribute('href', '/settings/providers?provider=codex');
+    expect(document.querySelectorAll('[data-slot="provider-setup-row"]')).toHaveLength(1);
+    // A link, never an inline form: no sign-in, key or check control here.
+    expect(screen.queryByRole('button', { name: /Sign in|Device code|Verify provider/ })).toBeNull();
+    expect(screen.queryByLabelText(/API key/)).toBeNull();
   });
 
   it('preserves the authoritative configured model when opened for its provider', async () => {
@@ -205,13 +194,12 @@ describe('ModelsSettings', () => {
     expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
       'gpt-5.6-luna',
     );
-    expect(screen.getByRole('textbox', { name: 'Endpoint / API base' })).toHaveValue(
+    expect(screen.getByRole('textbox', { name: 'Endpoint override' })).toHaveValue(
       'codex://direct',
     );
   });
 
-  it('refreshes the selected service catalog and reports its provenance and delta', async () => {
-    const user = userEvent.setup();
+  it('has no provider-management UI: no availability block, sign-in, key, verify or refresh', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -226,12 +214,23 @@ describe('ModelsSettings', () => {
     expect(await screen.findByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent(
       'Medium',
     );
-    await user.click(await screen.findByRole('button', { name: 'Refresh models' }));
-    await waitFor(() => expect(repository.refreshProviderModels).toHaveBeenCalledWith(['codex']));
-    expect(await screen.findByText('Catalog refreshed')).toBeVisible();
-    expect(screen.getByText(/1 available model, 0 added, 0 removed/)).toBeVisible();
-    expect(screen.getByText(/Checked .* by the connected agent/)).toBeVisible();
-    expect(screen.queryByText(/codex_catalog/)).not.toBeInTheDocument();
+    for (const name of [
+      'Verify provider',
+      'Refresh models',
+      'Sign in',
+      'Sign out',
+      'Device code',
+      'Install',
+      'Save key',
+      'Remove key',
+    ]) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText('Provider availability')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/API key/)).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="provider-action-strip"]')).toBeNull();
+    // A ready provider needs no setup row either.
+    expect(document.querySelector('[data-slot="provider-setup-row"]')).toBeNull();
   });
 
   it('does not let an unverified catalog candidate become an applied model', async () => {
@@ -346,7 +345,7 @@ describe('ModelsSettings', () => {
       provider: 'claude_code',
       model: 'sonnet',
     };
-    repository.languageModelConfiguration.mockResolvedValueOnce(selectableConfiguration);
+    repository.languageModelConfiguration.mockResolvedValue(selectableConfiguration);
     repository.providerModels.mockImplementation(async (providerId: string) => ({
       provider_id: providerId,
       models:
@@ -373,7 +372,7 @@ describe('ModelsSettings', () => {
     );
 
     await user.click(await screen.findByRole('combobox', { name: 'Provider' }));
-    await user.click(await screen.findByRole('option', { name: 'Claude Code' }));
+    await user.click(await screen.findByRole('option', { name: /^Claude Code/ }));
     expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
       'Claude Sonnet',
     );
@@ -427,10 +426,10 @@ describe('ModelsSettings', () => {
         thinking_level: 'high',
       });
     });
-    // The section heading reads the service configuration directly, so it
-    // arriving there is the proof that the panel saw it and deliberately kept
-    // what the person is in the middle of setting.
-    expect(await screen.findByText('New sessions start with high reasoning.')).toBeVisible();
+    // The new configuration reached the panel's own query, and the panel
+    // deliberately kept what the person is in the middle of setting.
+    expect(queryClient.getQueryData(configurationKey)).toMatchObject({ max_tokens: 20_000 });
+    await act(async () => {});
     expect(maxTokens).toHaveValue(6_000);
   });
 
@@ -459,16 +458,12 @@ describe('ModelsSettings', () => {
     repository.providerCatalog.mockResolvedValue({
       authoritative: 'live_handshake',
       providers: [
-        {
-          id: 'codex',
-          name: 'Codex (subscription)',
-          models: [
-            {
-              model_id: 'gpt-5.6-luna',
-              reasoning: { supported: false, parameter: '', levels: [] },
-            },
-          ],
-        },
+        catalogEntry('codex', [
+          {
+            model_id: 'gpt-5.6-luna',
+            reasoning: { supported: false, parameter: '', levels: [] },
+          },
+        ]),
       ],
     });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

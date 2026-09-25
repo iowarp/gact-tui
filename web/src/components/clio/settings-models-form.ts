@@ -45,7 +45,11 @@ export function modelSettingsOptions({
   }));
 }
 
-/** Only verified subscription providers and complete credentials can be applied. */
+/**
+ * Only verified subscription providers and complete credentials can be
+ * applied. A key provider's key is entered on Settings > Providers, which
+ * stores it; here it only has to exist.
+ */
 export function canApplyProvider(
   preset: LanguageModelPreset | undefined,
   values: ModelSettingsValues,
@@ -60,7 +64,7 @@ export function canApplyProvider(
     return false;
   return Boolean(
     preset.is_authenticated ||
-      (preset.requires_api_key && (values.apiKey || storedCredential)) ||
+      (preset.requires_api_key && storedCredential) ||
       (preset.auth_method === 'none' && !['codex', 'claude_code'].includes(preset.provider)),
   );
 }
@@ -95,7 +99,6 @@ export function providerSupportsRuntimeSizing(preset?: LanguageModelPreset): boo
  */
 export interface ModelSettingsValues {
   apiBase: string;
-  apiKey: string;
   contextLength: string;
   effort: ReasoningEffort | '';
   maxTokens: string;
@@ -160,9 +163,6 @@ export function seedModelSettings({
 }): ModelSettingsValues {
   return {
     apiBase: presetIsActive ? configuration.api_base : (preset?.api_base ?? ''),
-    // Never read back from the service by design, so it always starts empty and
-    // an empty field keeps the stored credential.
-    apiKey: '',
     // The service reports neither the parallel slot count nor the context
     // length in its configuration, so there is nothing to seed them from. Empty
     // means "leave the runtime's own sizing alone", which is what omitting them
@@ -207,7 +207,6 @@ export function modelSettingsUpdate({
     model: values.modelId,
     provider_options: values.providerOptions,
   };
-  if (values.apiKey) update.api_key = values.apiKey;
   if (values.effort !== seeded.effort) update.thinking_level = values.effort || null;
   const parallel = changedNumber(values.parallel, seeded.parallel, { minimum: 0, integer: true });
   if (parallel !== undefined) update.parallel = parallel;

@@ -6,7 +6,7 @@ import {
   RadioTowerIcon,
   RefreshCwIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ComponentType, type SVGProps } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,22 +16,21 @@ import {
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ProviderAuthPanel } from './provider-auth-panel';
-import { HandshakeResult, RefreshResult } from './settings-models-results';
-import type { useProviderSettingsActions } from './settings-models-actions';
+import type { useProviderActions } from './provider-actions';
 
-export type ProviderActions = ReturnType<typeof useProviderSettingsActions>;
+export type ProviderActions = ReturnType<typeof useProviderActions>;
+
+/** `sm`: the picker's strip; `default`: Settings > Providers. Size only, never behaviour. */
+export type ProviderActionSize = 'sm' | 'default';
+
+type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
 interface ProviderActionPanelProps {
   preset: LanguageModelPreset | undefined;
   actions: ProviderActions;
+  size?: ProviderActionSize;
   /**
-   * Icon-first controls sized for the model picker's submenu. The Settings
-   * page's fuller button-and-paragraph layout otherwise -- same actions, same
-   * hook, same result data; only the presentation differs.
-   */
-  compact?: boolean;
-  /**
-   * The provider reason the caller already shows (the picker's strip detail).
+   * The provider reason the caller already shows (the strip's detail line).
    * An action error with the same text is not repeated under it.
    */
   shownDetail?: string;
@@ -41,8 +40,9 @@ interface ProviderActionPanelProps {
  * The ONE implementation of "what does this provider need before its models
  * are usable" -- sign-in (OAuth/subscription), runtime install, an API key,
  * or just a check/refresh/sign-out control once it is ready. Used by both
- * the model picker's provider submenu and Settings > Providers so a fix or a
- * new provider kind lands in exactly one place.
+ * the model picker's provider strip and Settings > Providers (through
+ * `ProviderManagementStrip`), with identical labels, states and errors; only
+ * the control size differs.
  *
  * Shows EXACTLY the action set the provider's own state calls for -- never
  * every action at once (a signed-out provider does not also offer to be
@@ -55,7 +55,7 @@ interface ProviderActionPanelProps {
 export function ProviderActionPanel({
   preset,
   actions,
-  compact = false,
+  size = 'sm',
   shownDetail,
 }: ProviderActionPanelProps) {
   const action = providerPrimaryAction(preset);
@@ -68,8 +68,7 @@ export function ProviderActionPanel({
   // action set would show Verify/Refresh/Sign out -- all misleading, since
   // no amount of verifying fixes a session Globus itself is refusing. This
   // is the ONE state that overrides the computed action entirely: ONE
-  // button, "Sign in again", forcing a fresh login (never re-showing ready
-  // controls that can't actually work).
+  // button, "Sign in again", forcing a fresh login.
   const needsForcedReauth = Boolean(
     preset.status_message?.includes('argonne_reauthentication_required'),
   );
@@ -79,15 +78,27 @@ export function ProviderActionPanel({
   // Only a credential the provider refused or could not prove -- never, e.g.,
   // Codex's "sign-in required" for its OTHER transport after a good check.
   const handshakeReason =
-    compact &&
     actions.handshakeResult?.error &&
     ['rejected', 'deferred'].includes(actions.handshakeResult.auth)
       ? fresh(translateKnownProviderErrorReason(actions.handshakeResult.error, providerLabel))
       : undefined;
+  const refreshReason = actions.refreshResult?.failed_reason
+    ? fresh(translateKnownProviderErrorReason(actions.refreshResult.failed_reason, providerLabel))
+    : undefined;
 
-  // One action at a time: while any runs (its stage shows in the strip, the
-  // heartbeat and the bottom bar), every control waits for it to settle.
+  // One action at a time: while any runs (its stage shows beside the
+  // heartbeat), every control waits for it to settle.
   const busy = Boolean(actions.stage);
+  const control = (label: string, onClick: () => void, icon?: Icon, spinning = false) => (
+    <ActionButton
+      busy={busy}
+      icon={icon}
+      label={label}
+      onClick={onClick}
+      size={size}
+      spinning={spinning}
+    />
+  );
 
   const readySignOut =
     action === 'none' && preset.is_authenticated
@@ -98,153 +109,61 @@ export function ProviderActionPanel({
           : undefined
       : undefined;
 
+  const errors = [
+    ...new Set(
+      [
+        actions.refreshModels.error?.message,
+        refreshReason,
+        handshakeReason,
+        actions.handshake.error?.message,
+        actions.installProvider.error?.message,
+        actions.authenticate.error?.message,
+        actions.authFailedReason || undefined,
+        actions.logout.error?.message,
+        actions.removeApiKey.error?.message,
+        fresh(actions.saveApiKey.error?.message),
+      ].filter((message): message is string => Boolean(message)),
+    ),
+  ];
+
   return (
-    <div className={cn('grid gap-2', compact ? 'gap-1.5' : 'gap-3')}>
-      <div className={cn('flex flex-wrap items-center', compact ? 'gap-1' : 'gap-3')}>
+    <div className={cn('grid', size === 'sm' ? 'gap-1.5' : 'gap-2')}>
+      <div className={cn('flex flex-wrap items-center', size === 'sm' ? 'gap-1' : 'gap-2')}>
         {needsForcedReauth ? (
-          <Button
-            className={compact ? 'h-7 px-2 text-xs' : undefined}
-            disabled={busy}
-            onClick={() => actions.authenticate.mutate('browser')}
-            size={compact ? 'sm' : undefined}
-            variant="outline"
-          >
-            <KeyRoundIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-            Sign in again
-          </Button>
+          control('Sign in again', () => actions.authenticate.mutate('browser'), KeyRoundIcon)
         ) : action === 'sign_in' ? (
           <>
-            <Button
-              className={compact ? 'h-7 px-2 text-xs' : undefined}
-              disabled={busy}
-              onClick={() => actions.authenticate.mutate('browser')}
-              size={compact ? 'sm' : undefined}
-              variant="outline"
-            >
-              <KeyRoundIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-              {compact ? 'Sign in' : `Sign in to ${providerLabel}`}
-            </Button>
-            {preset.provider === 'codex' ? (
-              <Button
-                className={compact ? 'h-7 px-2 text-xs' : undefined}
-                disabled={busy}
-                onClick={() => actions.authenticate.mutate('device')}
-                size={compact ? 'sm' : undefined}
-                variant="outline"
-              >
-                {compact ? 'Device code' : 'Sign in with a device code'}
-              </Button>
-            ) : null}
-            {!compact && preset.auth_method === 'oauth' && preset.auth_label ? (
-              <span className="text-sm text-muted-foreground">Uses {preset.auth_label}</span>
-            ) : null}
+            {control('Sign in', () => actions.authenticate.mutate('browser'), KeyRoundIcon)}
+            {preset.provider === 'codex'
+              ? control('Device code', () => actions.authenticate.mutate('device'))
+              : null}
           </>
         ) : action === 'install' ? (
-          <Button
-            className={compact ? 'h-7 px-2 text-xs' : undefined}
-            disabled={busy}
-            onClick={() => actions.installProvider.mutate()}
-            size={compact ? 'sm' : undefined}
-            variant="outline"
-          >
-            <DownloadIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-            {compact ? 'Install' : `Install ${providerLabel}`}
-          </Button>
+          control('Install', () => actions.installProvider.mutate(), DownloadIcon)
         ) : action === 'api_key' ? (
-          <ProviderApiKeyField actions={actions} compact={compact} preset={preset} />
+          <ProviderApiKeyField actions={actions} preset={preset} size={size} />
         ) : (
           <>
-            {/* Ready = two labelled actions, always -- an icon-only control
-                (the old compact "just a status dot" affordance) never told
-                anyone what clicking it would do. */}
-            <Button
-              className={compact ? 'h-7 px-2 text-xs' : undefined}
-              disabled={busy}
-              onClick={() => actions.handshake.mutate()}
-              size={compact ? 'sm' : undefined}
-              variant="outline"
-            >
-              <RadioTowerIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-              Verify provider
-            </Button>
-            <Button
-              className={compact ? 'h-7 px-2 text-xs' : undefined}
-              disabled={busy}
-              onClick={() => actions.refreshModels.mutate()}
-              size={compact ? 'sm' : undefined}
-              variant="outline"
-            >
-              <RefreshCwIcon
-                aria-hidden="true"
-                className={cn(
-                  compact ? 'size-3.5' : undefined,
-                  actions.refreshModels.isPending && 'animate-spin',
-                )}
-              />
-              Refresh models
-            </Button>
-            {readySignOut === 'logout' ? (
-              <Button
-                className={compact ? 'h-7 px-2 text-xs' : undefined}
-                disabled={busy}
-                onClick={() => actions.logout.mutate()}
-                size={compact ? 'sm' : undefined}
-                variant="outline"
-              >
-                <LogOutIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-                Sign out
-              </Button>
-            ) : readySignOut === 'remove_key' ? (
-              <Button
-                className={compact ? 'h-7 px-2 text-xs' : undefined}
-                disabled={busy}
-                onClick={() => actions.removeApiKey.mutate()}
-                size={compact ? 'sm' : undefined}
-                variant="outline"
-              >
-                <KeyRoundIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
-                Remove key
-              </Button>
-            ) : null}
+            {control('Verify provider', () => actions.handshake.mutate(), RadioTowerIcon)}
+            {control(
+              'Refresh models',
+              () => actions.refreshModels.mutate(),
+              RefreshCwIcon,
+              actions.refreshModels.isPending,
+            )}
+            {readySignOut === 'logout'
+              ? control('Sign out', () => actions.logout.mutate(), LogOutIcon)
+              : readySignOut === 'remove_key'
+                ? control('Remove key', () => actions.removeApiKey.mutate(), KeyRoundIcon)
+                : null}
           </>
         )}
       </div>
-      {/* The picker shows the stage in its own strip, heartbeat and bottom bar. */}
-      {!compact && actions.stage ? (
-        <p className="text-sm text-muted-foreground" role="status">
-          {actions.stage}
+      {errors.map((message) => (
+        <p className="text-xs text-destructive" key={message} role="alert">
+          {message}
         </p>
-      ) : null}
-      {actions.refreshModels.error ? (
-        <p className="text-xs text-destructive">{actions.refreshModels.error.message}</p>
-      ) : null}
-      {handshakeReason ? (
-        <p className="text-xs text-destructive" title={actions.handshakeResult?.error}>
-          {handshakeReason}
-        </p>
-      ) : null}
-      {actions.handshake.error ? (
-        <p className="text-xs text-destructive">{actions.handshake.error.message}</p>
-      ) : null}
-      {actions.installProvider.error ? (
-        <p className="text-xs text-destructive">{actions.installProvider.error.message}</p>
-      ) : null}
-      {actions.authenticate.error ? (
-        <p className="text-xs text-destructive">{actions.authenticate.error.message}</p>
-      ) : null}
-      {actions.authFailedReason ? <p className="text-xs text-destructive">{actions.authFailedReason}</p> : null}
-      {!compact && actions.authInstructions ? (
-        <p className="max-w-3xl text-sm text-muted-foreground">{actions.authInstructions}</p>
-      ) : null}
-      {actions.logout.error ? (
-        <p className="text-xs text-destructive">{actions.logout.error.message}</p>
-      ) : null}
-      {actions.removeApiKey.error ? (
-        <p className="text-xs text-destructive">{actions.removeApiKey.error.message}</p>
-      ) : null}
-      {fresh(actions.saveApiKey.error?.message) ? (
-        <p className="text-xs text-destructive">{actions.saveApiKey.error?.message}</p>
-      ) : null}
+      ))}
       {actions.authFlow ? (
         <ProviderAuthPanel
           authFlow={actions.authFlow}
@@ -259,39 +178,71 @@ export function ProviderActionPanel({
           providerLabel={providerLabel}
         />
       ) : null}
-      {!compact && actions.refreshResult ? <RefreshResult result={actions.refreshResult} /> : null}
-      {!compact && actions.handshakeResult ? <HandshakeResult result={actions.handshakeResult} /> : null}
     </div>
+  );
+}
+
+function ActionButton({
+  busy,
+  icon: ActionIcon,
+  label,
+  onClick,
+  size,
+  spinning,
+}: {
+  busy: boolean;
+  icon?: Icon;
+  label: string;
+  onClick: () => void;
+  size: ProviderActionSize;
+  spinning: boolean;
+}) {
+  return (
+    <Button
+      className={size === 'sm' ? 'h-7 px-2 text-xs' : undefined}
+      disabled={busy}
+      onClick={onClick}
+      size={size === 'sm' ? 'sm' : undefined}
+      type="button"
+      variant="outline"
+    >
+      {ActionIcon ? (
+        <ActionIcon
+          aria-hidden="true"
+          className={cn(size === 'sm' && 'size-3.5', spinning && 'animate-spin')}
+        />
+      ) : null}
+      {label}
+    </Button>
   );
 }
 
 function ProviderApiKeyField({
   actions,
-  compact,
   preset,
+  size,
 }: {
   actions: ProviderActions;
-  compact: boolean;
   preset: LanguageModelPreset;
+  size: ProviderActionSize;
 }) {
   const [apiKey, setApiKey] = useState('');
-  if (!compact) return null; // Settings keeps its own full API-key field alongside the rest of the form.
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex w-full max-w-md items-center gap-1.5">
       <Input
         autoComplete="off"
         aria-label={`${providerDisplayName(preset)} API key`}
-        className="h-7 text-xs"
+        className={size === 'sm' ? 'h-7 text-xs' : undefined}
         onChange={(event) => setApiKey(event.target.value)}
         placeholder="Paste API key"
         type="password"
         value={apiKey}
       />
       <Button
-        className="h-7 px-2 text-xs"
+        className={size === 'sm' ? 'h-7 px-2 text-xs' : undefined}
         disabled={!apiKey.trim() || Boolean(actions.stage)}
+        size={size === 'sm' ? 'sm' : undefined}
         onClick={() => actions.saveApiKey.mutate(apiKey)}
-        size="sm"
         type="button"
         variant="outline"
       >
@@ -300,4 +251,3 @@ function ProviderApiKeyField({
     </div>
   );
 }
-

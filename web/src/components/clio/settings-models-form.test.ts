@@ -35,7 +35,6 @@ describe('seedModelSettings', () => {
   it('seeds every field the service reports from the live configuration', () => {
     expect(seedModelSettings({ configuration, preset, presetIsActive: true })).toEqual({
       apiBase: 'http://127.0.0.1:1234/v1',
-      apiKey: '',
       contextLength: '',
       effort: 'high',
       maxTokens: '8192',
@@ -147,7 +146,6 @@ describe('modelSettingsUpdate', () => {
         seeded,
         values: {
           ...seeded,
-          apiKey: 'secret',
           contextLength: '32768',
           effort: 'low',
           maxTokens: '4096',
@@ -161,7 +159,6 @@ describe('modelSettingsUpdate', () => {
       provider_options: {},
       api_base: 'http://127.0.0.1:1234/v1',
       model: 'qwen3-coder',
-      api_key: 'secret',
       context_length: 32_768,
       max_tokens: 4_096,
       parallel: 2,

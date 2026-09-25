@@ -36,11 +36,9 @@ const AUTH_STATUS_POLL_FLOOR_MS = 1500;
 const AUTH_STATUS_POLL_CEILING_MS = 2000;
 const AUTH_STATUS_POLL_BACKOFF_STEP_MS = 100;
 
-interface ProviderSettingsActionsInput {
+interface ProviderActionsInput {
   presetId: string;
   apiBase: string;
-  /** Adopt the catalog's default model after a successful check. */
-  onDefaultModel: (modelId: string) => void;
   /**
    * Needed only for `saveApiKey`'s minimal apply (`provider`/`suggested_model`).
    * Every other action only needs `presetId`.
@@ -49,28 +47,22 @@ interface ProviderSettingsActionsInput {
 }
 
 /**
- * The provider actions of the Models settings panel — catalog refresh, provider
- * check, Claude Code install, and the generic subscription/OAuth sign-in flow
- * (ALCF and the direct Codex provider both go through it) — and the results
- * they report.
+ * The ONE set of provider actions -- catalog refresh, provider check, runtime
+ * install, API key save/remove, and the generic subscription/OAuth sign-in
+ * flow (ALCF and the direct Codex provider both go through it) -- shared by
+ * the model picker's action strip and Settings > Providers.
  *
  * A check or a completed sign-in changes what the service knows about the
  * provider, and the service retires that provider's catalog entry. The panel
  * then re-reads the catalog for exactly that provider with `refresh=true`, so
  * every open model picker shows the new truth instead of the boot snapshot.
  */
-export function useProviderSettingsActions({
-  presetId,
-  apiBase,
-  onDefaultModel,
-  preset,
-}: ProviderSettingsActionsInput) {
+export function useProviderActions({ presetId, apiBase, preset }: ProviderActionsInput) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
   const [refreshResult, setRefreshResult] = useState<ProviderModelRefreshResult>();
   const [handshakeResult, setHandshakeResult] = useState<ProviderHandshake>();
-  const [authInstructions, setAuthInstructions] = useState('');
   const [authFlow, setAuthFlow] = useState<ProviderAuthStart>();
   const [authPaste, setAuthPaste] = useState('');
   const [authLaunchError, setAuthLaunchError] = useState('');
@@ -110,15 +102,11 @@ export function useProviderSettingsActions({
   }: Awaited<ReturnType<typeof checkProvider>>): Promise<void> => {
     setStage('Discovering models…');
     setHandshakeResult(result);
-    if (catalog) {
-      queryClient.setQueryData(modelsKey, catalog);
-      if (catalog.default_model) onDefaultModel(catalog.default_model);
-    }
+    if (catalog) queryClient.setQueryData(modelsKey, catalog);
     await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
   };
-  const signInComplete = async (instructions: string) => {
+  const signInComplete = async () => {
     setStage('Discovering models…');
-    setAuthInstructions(instructions);
     setAuthFlow(undefined);
     setAuthPaste('');
     await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
@@ -171,7 +159,6 @@ export function useProviderSettingsActions({
     },
     onError: () => setStage(undefined),
     onSuccess: (result) => {
-      setAuthInstructions(result.instructions);
       setAuthFailedReason('');
       setAuthFlow(result);
       setAuthLaunchError('');
@@ -193,7 +180,7 @@ export function useProviderSettingsActions({
         paste: authPaste.trim(),
       });
     },
-    onSuccess: (result) => signInComplete(result.instructions),
+    onSuccess: () => signInComplete(),
     // A rejected paste leaves the flow open (paste again): back to waiting.
     onError: () => setStage(authFlow ? 'Waiting for sign-in…' : undefined),
   });
@@ -203,7 +190,7 @@ export function useProviderSettingsActions({
       setStage('Signing out…');
       return repository.logoutProvider(presetId);
     },
-    onSuccess: (result) => signInComplete(result.instructions),
+    onSuccess: () => signInComplete(),
     ...settle,
   });
 
@@ -313,7 +300,7 @@ export function useProviderSettingsActions({
   useEffect(() => {
     if (!authFlow) return;
     if (authStatusState === 'complete') {
-      void signInComplete('Signed in.');
+      void signInComplete();
     } else if (authStatusState === 'failed') {
       setStage(undefined);
       setAuthFlow(undefined);
@@ -324,26 +311,28 @@ export function useProviderSettingsActions({
 
   /**
    * Forget every result when the person switches provider. Stable identity
-   * (useCallback): a caller that resets on a dependency-effect (e.g. the model
-   * picker resetting when the active provider changes) must not re-fire this
-   * on every unrelated state update -- that would wipe a just-started sign-in
-   * flow's `authFlow` the instant it was set.
+   * (useCallback) so the provider-change effect below fires only when the
+   * provider really changes -- never on an unrelated state update, which
+   * would wipe a just-started sign-in flow's `authFlow` the instant it was set.
    */
   const reset = useCallback(() => {
     setRefreshResult(undefined);
     setHandshakeResult(undefined);
-    setAuthInstructions('');
     setAuthFlow(undefined);
     setAuthPaste('');
     setAuthLaunchError('');
     setAuthFailedReason('');
     setStage(undefined);
   }, []);
+  // A stale sign-in/check/install result from the PREVIOUS provider must not
+  // leak into the newly selected one (picker submenu or Settings panel).
+  useEffect(() => {
+    reset();
+  }, [presetId, reset]);
 
   return {
     authFailedReason,
     authFlow,
-    authInstructions,
     authLaunchError,
     authPaste,
     authStatus,

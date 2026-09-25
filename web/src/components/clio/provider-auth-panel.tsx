@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
+import { InfoTip } from './info-tip';
 
 interface ProviderAuthPanelProps {
   providerLabel: string;
@@ -43,16 +44,16 @@ export function ProviderAuthPanel({
       aria-label={`Complete ${providerLabel} sign-in`}
       className="grid max-w-xl gap-3 rounded-lg border border-border bg-muted/20 p-4"
     >
-      <div>
-        <p className="font-medium">Finish signing in to {providerLabel}</p>
-        <p className="text-sm text-muted-foreground">
+      <p className="flex items-center gap-1.5 font-medium">
+        Finish signing in to {providerLabel}
+        <InfoTip label="About this sign-in">
           {device
             ? 'Enter the code below at the verification link, or paste the redirect URL here if you finished sign-in another way.'
             : `Sign in with your ${providerLabel} account. This updates automatically once you finish, or paste the redirect URL below.`}
-        </p>
-      </div>
+        </InfoTip>
+      </p>
       {browser ? (
-        <div className="grid gap-1.5">
+        <div className="flex items-center gap-1.5">
           <Button asChild className="w-fit" variant="outline">
             <ExternalLink
               href={browser.authorization_url}
@@ -66,10 +67,10 @@ export function ProviderAuthPanel({
             </ExternalLink>
           </Button>
           {browser.loopback_unavailable_reason ? (
-            <p className="text-xs text-muted-foreground">
-              Automatic sign-in isn&apos;t available right now (the local port is busy) — paste the
+            <InfoTip label="Automatic sign-in unavailable">
+              Automatic sign-in isn&apos;t available right now (the local port is busy). Paste the
               redirect URL below once you finish in the browser.
-            </p>
+            </InfoTip>
           ) : null}
         </div>
       ) : null}

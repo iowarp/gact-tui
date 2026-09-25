@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { ActivityIcon, EyeIcon, EyeOffIcon, LoaderCircleIcon, RefreshCwIcon } from 'lucide-react';
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { EyeIcon, EyeOffIcon, LoaderCircleIcon, RefreshCwIcon, Settings2Icon } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -25,38 +26,30 @@ import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { IconTile } from '@/components/reui/icon-tile';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { FieldSeparator } from '@/components/ui/field';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toggle } from '@/components/ui/toggle';
+import { useHiddenProviders } from '@/hooks/use-hidden-providers';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRepository } from '@/hooks/use-repository';
 import type { ClioModelOption } from '@/lib/model-options';
-import { PROVIDER_VISIBILITY_CHANGED_EVENT } from '@/lib/installer-infrastructure';
-import { translateKnownProviderErrorReason } from '@/lib/provider-availability';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
-  formatFreshness,
   modelNodeValue,
   type PickerNodeData,
-  providerHealthPresentation,
+  providerGroupsFromOptions,
   providerNodeValue,
   providerSearchDescription,
+  providerSettingsHref,
+  providerUsableModelCount,
   type ProviderGroup,
-  readHiddenProviders,
-  persistHiddenProviders,
-  PROVIDER_HEALTH_ORDER,
-  readyTransportsPreset,
-  toProviderGroup,
-  transportHasModels,
   transportHeadingNodeValue,
-  transportScopedPreset,
 } from './model-picker-model';
-import { ProviderActionPanel } from './provider-action-panel';
-import { useProviderSettingsActions } from './settings-models-actions';
+import { useProviderActions } from './provider-actions';
+import { ProviderHeartbeat } from './provider-heartbeat';
+import { ProviderManagementStrip } from './provider-management-strip';
 
 interface ClioModelPickerProps {
   catalogRefreshing?: boolean;
@@ -99,13 +92,7 @@ export function ClioModelPicker({
   // and the eye toggle on each becomes interactive. Off: hidden providers
   // (and not-yet-configured presets) drop back out of the list.
   const [managingVisibility, setManagingVisibility] = useState(false);
-  const [hiddenProviders, setHiddenProviders] = useState<Set<string>>(readHiddenProviders);
-  useEffect(() => {
-    const refreshHiddenProviders = () => setHiddenProviders(readHiddenProviders());
-    window.addEventListener(PROVIDER_VISIBILITY_CHANGED_EVENT, refreshHiddenProviders);
-    return () =>
-      window.removeEventListener(PROVIDER_VISIBILITY_CHANGED_EVENT, refreshHiddenProviders);
-  }, []);
+  const { hiddenProviders, setProviderHidden } = useHiddenProviders();
   const showColumns = useMediaQuery('(min-width: 768px)');
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -118,47 +105,17 @@ export function ClioModelPicker({
   });
   const presetsData = configuration.data?.presets;
   const presets = useMemo(() => presetsData ?? [], [presetsData]);
-  const providers = useMemo(() => {
-    const grouped = Object.values(
-      options.reduce<Record<string, { id: string; name: string; choices: ClioModelOption[] }>>(
-        (groups, option) => {
-          const group = (groups[option.providerId] ??= {
-            id: option.providerId,
-            name: option.providerName,
-            choices: [],
-          });
-          group.choices.push(option);
-          return groups;
-        },
-        {},
-      ),
-    );
-    return grouped.map(toProviderGroup);
-  }, [options]);
   // A preset the service reports but that has never had a catalog/model
   // entry of its own (never checked, never configured) gets a zero-model
   // placeholder row of its own -- but ONLY while managing, so browsing the
   // picker normally never shows a provider with nothing to offer yet.
-  const configuredIds = useMemo(() => new Set(providers.map((item) => item.id)), [providers]);
-  const unconfiguredProviders = useMemo(
-    () =>
-      presets
-        .filter((preset) => !configuredIds.has(preset.id))
-        .map((preset) => toProviderGroup({ id: preset.id, name: preset.label, choices: [] })),
-    [presets, configuredIds],
-  );
-  const allProviders = useMemo(
-    () => (managingVisibility ? [...providers, ...unconfiguredProviders] : providers),
-    [managingVisibility, providers, unconfiguredProviders],
+  const providers = useMemo(
+    () => providerGroupsFromOptions(options, presets, false),
+    [options, presets],
   );
   const sortedProviders = useMemo(
-    () =>
-      [...allProviders].sort(
-        (left, right) =>
-          PROVIDER_HEALTH_ORDER[left.health] - PROVIDER_HEALTH_ORDER[right.health] ||
-          left.name.localeCompare(right.name),
-      ),
-    [allProviders],
+    () => (managingVisibility ? providerGroupsFromOptions(options, presets, true) : providers),
+    [managingVisibility, options, presets, providers],
   );
   const [path, setPath] = useState<string[]>(() => {
     return provider ? [providerNodeValue(provider)] : [];
@@ -222,10 +179,7 @@ export function ClioModelPicker({
           // A count means "this many usable models": a provider whose latest
           // check failed (rejected key, failed probe serving a dated list)
           // shows none, whatever rows remain.
-          count:
-            group.health === 'healthy' || group.health === 'checking'
-              ? group.availableChoices.length
-              : 0,
+          count: providerUsableModelCount(group),
           keywords: [
             group.id,
             group.endpoint ?? '',
@@ -238,7 +192,7 @@ export function ClioModelPicker({
       }),
     [visibleProviders],
   );
-  const activeGroup = allProviders.find((item) => providerNodeValue(item.id) === path[0]);
+  const activeGroup = sortedProviders.find((item) => providerNodeValue(item.id) === path[0]);
   // Provider rows live only at depth 0, and the tree is exactly two levels
   // (provider -> model), so once a provider is drilled into, the ROOT column
   // becomes the non-active column and the Cascader renders EVERY row in it as
@@ -252,141 +206,57 @@ export function ClioModelPicker({
     (choice) => choice.available && choice.providerId === provider && choice.id === model,
   );
   const activePreset = presetsById.get(activeGroup?.id ?? '');
-  // The two-half split's own state: which of the active provider's transports
-  // (if more than one) still need an action -- rendered in the strip below,
-  // "or"-separated from whatever the tree already showed with its own
-  // heading (see `providerNodes`).
-  const activeTransports = activeGroup?.transports ?? [];
-  const hasMultipleTransports = activeTransports.length > 1;
-  const activeActionTransports = hasMultipleTransports
-    ? activeTransports.filter((transport) => !transportHasModels(activeGroup!, transport.id))
-    : [];
-  // The provider-level actions of a multi-transport provider (Verify provider
-  // / Refresh models, plus Sign out when a READY transport supports it) --
-  // once, above the per-transport sections, never repeated per transport. A
-  // check probes every transport, so it is also the SDK half's own action
-  // while that half is unchecked (the SDK is the user's own Codex login:
-  // CLIO can check it, never sign it in or out).
-  const activeReadyPreset =
-    activePreset && hasMultipleTransports
-      ? readyTransportsPreset(activePreset, activeTransports)
-      : undefined;
   // One actions instance, scoped to whichever provider's submenu is open --
-  // the SAME hook and mutations Settings > Providers uses (one implementation
-  // per action; see ProviderActionPanel).
-  const providerActions = useProviderSettingsActions({
+  // the SAME hook, strip and mutations Settings > Providers uses. The hook
+  // itself forgets the previous provider's results when this one changes.
+  const providerActions = useProviderActions({
     presetId: activeGroup?.id ?? '',
     apiBase: activeGroup?.endpoint ?? activePreset?.api_base ?? '',
-    onDefaultModel: () => {},
     preset: activePreset,
   });
-  const { reset: resetProviderActions, stage: activeStage } = providerActions;
-  // A stale sign-in/check/install result from the PREVIOUS provider must not
-  // leak into the newly active one's submenu.
-  useEffect(() => {
-    resetProviderActions();
-  }, [activeGroup?.id, resetProviderActions]);
+  const activeStage = providerActions.stage;
 
-  // The active provider's detail/sign-in/install/key/check UI. Rendered as
-  // the active column's own `footer` (columns mode) or directly below the
-  // single list (drill mode) -- never a node inside the Cascader's tree: its
-  // combobox keeps real focus on its own search input (see the constant
-  // above), so a typed field like the API-key box can only work outside it.
-  // Red only for a real failure; "needs a key / sign-in / install" is neutral.
-  const activeFailed = activeGroup?.health === 'degraded' || activeGroup?.health === 'unavailable';
-  const activeProviderActionsContent =
-    activeGroup && (activeStage || activeGroup.detail || activePreset) ? (
-      <div
-        className="flex min-w-0 shrink-0 flex-col gap-2 border-t px-3 py-2"
-        data-slot="provider-action-strip"
-      >
-        {/* While an action runs its stage replaces the last verdict (a stale
-            "missing key" must not sit beside "Saving key…"); once it settles
-            the row's fresh detail -- or nothing, when ready -- comes back. */}
-        {activeStage ? (
-          <p
-            className="flex items-center gap-1.5 text-xs text-muted-foreground"
-            data-slot="provider-action-stage"
-            role="status"
+  // The active provider's state line and actions. Rendered as the active
+  // column's own `footer` (columns mode) or directly below the single list
+  // (drill mode) -- never a node inside the Cascader's tree: its combobox
+  // keeps real focus on its own search input (see the constant above), so a
+  // typed field like the API-key box can only work outside it. The settings
+  // link opens this provider's full view on Settings > Providers.
+  const activeProviderActionsContent = activeGroup ? (
+    <ProviderManagementStrip
+      actions={providerActions}
+      className="border-t px-3 py-2"
+      group={activeGroup}
+      preset={activePreset}
+      trailing={
+        <Button
+          asChild
+          className="-my-1 shrink-0"
+          size="icon-sm"
+          title={`${activeGroup.name} settings`}
+          variant="ghost"
+        >
+          <Link
+            aria-label={`Open ${activeGroup.name} in Settings`}
+            data-slot="provider-settings-link"
+            onClick={() => handleOpenChange(false)}
+            to={providerSettingsHref(activeGroup.id)}
           >
-            <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin text-warning" />
-            {activeStage}
-          </p>
-        ) : activeGroup.detail ? (
-          <p
-            className={cn(
-              'text-xs',
-              activeFailed ? 'text-destructive' : 'text-muted-foreground',
-            )}
-            role={activeFailed ? 'alert' : 'status'}
-          >
-            {activeGroup.detail}
-          </p>
-        ) : null}
-        {activeReadyPreset ? (
-          <ProviderActionPanel
-            actions={providerActions}
-            compact
-            shownDetail={activeStage ? undefined : activeGroup.detail}
-            preset={activeReadyPreset}
-          />
-        ) : null}
-        {activePreset ? (
-          hasMultipleTransports ? (
-            // The second half of the two-half submenu: only the transports
-            // the tree above did NOT already show with their own
-            // heading+models. "or" separates each section from the one
-            // before it -- including from the tree's own section, when it
-            // rendered one.
-            activeActionTransports.map((transport, index) => (
-              <Fragment key={transport.id}>
-                {index > 0 || activeReadyPreset ? (
-                  <FieldSeparator className="my-0 text-xs **:data-[slot=field-separator-content]:bg-popover">
-                    or
-                  </FieldSeparator>
-                ) : null}
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-xs font-semibold text-muted-foreground">{transport.label}</p>
-                  {transport.auth ? (
-                    <ProviderActionPanel
-                      actions={providerActions}
-                      compact
-                      shownDetail={activeStage ? undefined : activeGroup.detail}
-                      preset={transportScopedPreset(activePreset, transport)}
-                    />
-                  ) : transport.reason ? (
-                    <p className="text-xs text-muted-foreground" title={transport.reason}>
-                      {translateKnownProviderErrorReason(transport.reason, activeGroup.name)}
-                    </p>
-                  ) : null}
-                </div>
-              </Fragment>
-            ))
-          ) : (
-            <ProviderActionPanel
-              actions={providerActions}
-              compact
-              shownDetail={activeStage ? undefined : activeGroup.detail}
-              preset={activePreset}
-            />
-          )
-        ) : null}
-      </div>
-    ) : null;
+            <Settings2Icon aria-hidden="true" />
+          </Link>
+        </Button>
+      }
+    />
+  ) : null;
 
   function hideProvider(group: ProviderGroup): void {
-    const nextHidden = new Set(hiddenProviders).add(group.id);
-    persistHiddenProviders(nextHidden);
-    setHiddenProviders(nextHidden);
+    const nextHidden = setProviderHidden(group.id, true);
     const nextProvider = providers.find((item) => item.id !== group.id && !nextHidden.has(item.id));
     setPath(nextProvider ? [providerNodeValue(nextProvider.id)] : []);
   }
 
   function showProvider(group: ProviderGroup): void {
-    const nextHidden = new Set(hiddenProviders);
-    nextHidden.delete(group.id);
-    persistHiddenProviders(nextHidden);
-    setHiddenProviders(nextHidden);
+    setProviderHidden(group.id, false);
   }
 
   function toggleProviderVisibility(node: CascaderNode<PickerNodeData>): void {
@@ -738,40 +608,3 @@ function ProviderEyeToggle({
     </Toggle>
   );
 }
-
-/** The heartbeat: health colour on EVERY row, hidden or not -- detail lives in
- * the HoverCard. A running action (`stage`) shows as `checking` (yellow) with
- * its stage as the label until it settles back to the row's real health. */
-function ProviderHeartbeat({ group, stage }: { group: ProviderGroup; stage?: string }) {
-  const presentation = stage
-    ? { ...providerHealthPresentation('checking'), label: stage }
-    : providerHealthPresentation(group.health);
-  return (
-    <HoverCard openDelay={180}>
-      <HoverCardTrigger asChild>
-        <span
-          aria-label={`${group.name} status: ${presentation.label}`}
-          className={cn(
-            'pointer-events-auto inline-flex size-6 shrink-0 cursor-help items-center justify-center rounded-md',
-            presentation.color,
-          )}
-          data-slot="provider-heartbeat"
-          data-state={stage ? 'checking' : group.health}
-          onClick={(event) => event.stopPropagation()}
-          role="img"
-          title={`${group.name} status: ${presentation.label}`}
-        >
-          <ActivityIcon aria-hidden="true" className="size-4" />
-        </span>
-      </HoverCardTrigger>
-      <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">
-        <p className="font-medium">Provider status</p>
-        <p>Health: {presentation.label}</p>
-        <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
-        {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
-        {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
-      </HoverCardContent>
-    </HoverCard>
-  );
-}
-

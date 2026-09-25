@@ -61,7 +61,7 @@ describe('providerAvailability', () => {
         status_message: 'missing OPENROUTER_API_KEY',
       }),
     ).toEqual({
-      label: 'Sign-in needed',
+      label: 'API key needed',
       value: 'unavailable',
       detail: 'Add your OpenRouter API key.',
     });

@@ -1,7 +1,7 @@
 import type { LanguageModelPreset, ProviderCatalogTransport } from '@clio/core/v3';
 import { type ClioModelOption, PROVIDER_NEEDS_SETUP } from '@/lib/model-options';
+import { providerStatusDetail } from '@/lib/provider-availability';
 
-export const HIDDEN_PROVIDERS_STORAGE_KEY = 'clio.hidden-providers.v1';
 export const PROVIDER_NODE_PREFIX = 'provider:';
 export const MODEL_NODE_PREFIX = 'model:';
 
@@ -204,26 +204,56 @@ export function formatFreshness(freshness: string): string {
   return Number.isNaN(parsed.getTime()) ? freshness : parsed.toLocaleString();
 }
 
-export function readHiddenProviders(): Set<string> {
-  if (typeof window === 'undefined') return new Set();
-  try {
-    const value = JSON.parse(window.localStorage.getItem(HIDDEN_PROVIDERS_STORAGE_KEY) ?? '[]');
-    return new Set(Array.isArray(value) ? value.filter((item) => typeof item === 'string') : []);
-  } catch {
-    return new Set();
+/**
+ * The provider rows every provider surface lists -- the model picker's
+ * column and Settings > Providers alike -- built ONE way from the same model
+ * options: one group per provider that has catalog rows, plus (when
+ * `includeUnconfigured`) a zero-model placeholder for every preset the
+ * service reports but that has never had a catalog entry of its own. Sorted
+ * usable first, never-checked last, then by name.
+ */
+export function providerGroupsFromOptions(
+  options: readonly ClioModelOption[],
+  presets: readonly LanguageModelPreset[],
+  includeUnconfigured: boolean,
+): ProviderGroup[] {
+  const grouped = new Map<string, { id: string; name: string; choices: ClioModelOption[] }>();
+  for (const option of options) {
+    const group = grouped.get(option.providerId) ?? {
+      id: option.providerId,
+      name: option.providerName,
+      choices: [],
+    };
+    group.choices.push(option);
+    grouped.set(option.providerId, group);
   }
+  const configured = [...grouped.values()].map(toProviderGroup);
+  const unconfigured = includeUnconfigured
+    ? presets
+        .filter((preset) => !grouped.has(preset.id))
+        .map((preset) => ({
+          ...toProviderGroup({ id: preset.id, name: preset.label, choices: [] }),
+          // No catalog row carries a reason yet: the preset's own status does.
+          detail: providerStatusDetail(preset),
+        }))
+    : [];
+  return [...configured, ...unconfigured].sort(
+    (left, right) =>
+      PROVIDER_HEALTH_ORDER[left.health] - PROVIDER_HEALTH_ORDER[right.health] ||
+      left.name.localeCompare(right.name),
+  );
 }
 
-export function persistHiddenProviders(providerIds: Set<string>): void {
-  try {
-    window.localStorage.setItem(
-      HIDDEN_PROVIDERS_STORAGE_KEY,
-      JSON.stringify([...providerIds].sort()),
-    );
-  } catch {
-    // Storage can be full or blocked outright (private windows, a locked-down
-    // profile). Hiding a provider is a convenience for this tab; losing it
-    // across reloads is not worth taking the picker down with an exception,
-    // and the reader is guarded the same way.
-  }
+/** The model count a provider row shows: usable models only, so a provider
+ * whose latest check failed (rejected key, failed probe serving a dated
+ * list) shows none, whatever rows remain. */
+export function providerUsableModelCount(group: ProviderGroup): number {
+  return group.health === 'healthy' || group.health === 'checking'
+    ? group.availableChoices.length
+    : 0;
+}
+
+/** The Settings > Providers route for one provider (the picker's settings link). */
+export function providerSettingsHref(providerId: string): string {
+  return `/settings/providers?provider=${encodeURIComponent(providerId)}`;
 }

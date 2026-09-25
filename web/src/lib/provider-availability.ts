@@ -117,7 +117,14 @@ export function providerAvailability(
       detail: providerStatusDetail(preset),
     };
   }
-  if (preset && ['auth_required', 'missing_key'].includes(preset.status ?? '')) {
+  if (preset?.status === 'missing_key') {
+    return {
+      label: 'API key needed',
+      value: 'unavailable',
+      detail: providerStatusDetail(preset),
+    };
+  }
+  if (preset?.status === 'auth_required') {
     return {
       label: 'Sign-in needed',
       value: 'unavailable',
