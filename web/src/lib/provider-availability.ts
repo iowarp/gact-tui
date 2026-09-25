@@ -10,6 +10,19 @@ function providerName(preset: LanguageModelPreset | undefined): string {
   return preset?.label.replace(/\s*\([^)]*\)\s*$/u, '') || 'this provider';
 }
 
+/**
+ * Translate a handful of typed backend reasons into plain wording -- never
+ * the raw Globus/CLI text a live check surfaced. Provider-name-independent,
+ * so it applies wherever a reason string can land, not only where a preset
+ * is in scope (e.g. a bare handshake result).
+ */
+export function translateKnownProviderErrorReason(text: string): string {
+  if (/^argonne_reauthentication_required\b/iu.test(text)) {
+    return 'Your ALCF session needs to be verified again. Sign in again to continue.';
+  }
+  return text;
+}
+
 /** Translate service configuration diagnostics into useful product language. */
 export function providerStatusDetail(
   preset: LanguageModelPreset | undefined,
@@ -26,7 +39,7 @@ export function providerStatusDetail(
   if (/(?:CLI|command).*(?:not found|not installed)|not found on PATH/iu.test(detail)) {
     return `${providerName(preset)} is not installed on the connected agent.`;
   }
-  return detail;
+  return translateKnownProviderErrorReason(detail);
 }
 
 /** Prefer the live preset status over a provider's coarse authentication capability. */

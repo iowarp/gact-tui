@@ -12,8 +12,16 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { openExternalUrl } from '@/tauri/external-url';
 import { storeProviderCredential } from '@/tauri/secure-credentials';
 
-/** Poll interval while a sign-in flow is pending (SPEC generic auth API). */
-const AUTH_STATUS_POLL_MS = 1500;
+/**
+ * Poll interval while a sign-in flow is pending (SPEC generic auth API).
+ * Backs off from the floor to the ceiling as consecutive polls stay
+ * pending -- a flow left open for minutes (a person reading the
+ * verification page) should not keep hammering the status endpoint at the
+ * fastest rate the whole time.
+ */
+const AUTH_STATUS_POLL_FLOOR_MS = 1500;
+const AUTH_STATUS_POLL_CEILING_MS = 2000;
+const AUTH_STATUS_POLL_BACKOFF_STEP_MS = 100;
 
 interface ProviderSettingsActionsInput {
   presetId: string;
@@ -228,7 +236,14 @@ export function useProviderSettingsActions({
       return repository.providerAuthStatus(presetId, authFlow.flow_id, signal);
     },
     enabled: Boolean(authFlow?.flow_id),
-    refetchInterval: (query) => (query.state.data?.state === 'pending' ? AUTH_STATUS_POLL_MS : false),
+    refetchInterval: (query) => {
+      if (query.state.data?.state !== 'pending') return false;
+      const consecutivePending = query.state.dataUpdateCount;
+      return Math.min(
+        AUTH_STATUS_POLL_FLOOR_MS + consecutivePending * AUTH_STATUS_POLL_BACKOFF_STEP_MS,
+        AUTH_STATUS_POLL_CEILING_MS,
+      );
+    },
   });
   const authStatusState = authStatus.data?.state;
   useEffect(() => {

@@ -1,6 +1,7 @@
+import type { LanguageModelPreset, LanguageModelPresetTransport } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { ActivityIcon, EyeIcon, EyeOffIcon, RefreshCwIcon } from 'lucide-react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -421,12 +422,25 @@ export function ClioModelPicker({
                       </p>
                     ) : null}
                     {activePreset ? (
-                      <>
-                        {activeGroup.availableChoices.length > 0 ? (
-                          <FieldSeparator>or</FieldSeparator>
-                        ) : null}
+                      (activePreset.transports?.length ?? 0) > 1 ? (
+                        // The two-half submenu: driven ONLY by transports.length,
+                        // never a per-provider check. Each half is the SAME
+                        // ProviderActionPanel, scoped to that one transport's own
+                        // auth state -- ready, wants sign-in, whatever it is --
+                        // with "or" the one labelled divider between them.
+                        activePreset.transports!.map((transport, index) => (
+                          <Fragment key={transport.id}>
+                            {index > 0 ? <FieldSeparator>or</FieldSeparator> : null}
+                            <ProviderActionPanel
+                              actions={providerActions}
+                              compact
+                              preset={transportScopedPreset(activePreset, transport)}
+                            />
+                          </Fragment>
+                        ))
+                      ) : (
                         <ProviderActionPanel actions={providerActions} compact preset={activePreset} />
-                      </>
+                      )
                     ) : null}
                   </div>
                 </div>
@@ -694,6 +708,29 @@ function toProviderGroup(group: {
     freshness: group.choices.find((choice) => choice.freshness)?.freshness,
     health,
     detail: details[0],
+  };
+}
+
+/**
+ * A preset scoped to one of its own `transports` -- same identity (id,
+ * provider, api_base: the mutations are still preset-level; there is no
+ * per-transport auth endpoint yet), but with `label`/auth fields overridden
+ * by that transport's own reported state, so `ProviderActionPanel` renders
+ * THAT transport's action (or ready state) instead of the preset's overall
+ * one. `transport.auth`'s fields are optional and fall back to the parent
+ * preset's own -- a transport that reports nothing is assumed to share it.
+ */
+function transportScopedPreset(
+  preset: LanguageModelPreset,
+  transport: LanguageModelPresetTransport,
+): LanguageModelPreset {
+  return {
+    ...preset,
+    label: transport.label,
+    is_authenticated: transport.auth?.is_authenticated ?? preset.is_authenticated,
+    auth_method: transport.auth?.method ?? preset.auth_method,
+    status: transport.auth?.status ?? preset.status,
+    status_message: transport.auth?.status_message ?? preset.status_message,
   };
 }
 

@@ -53,6 +53,17 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
 
   if (!preset) return null;
 
+  // ALCF's own policy can reject an otherwise-still-valid Globus token (a
+  // "high-assurance timeout"): `is_authenticated` looks true, so the normal
+  // action set would show Verify/Refresh/Sign out -- all misleading, since
+  // no amount of verifying fixes a session Globus itself is refusing. This
+  // is the ONE state that overrides the computed action entirely: ONE
+  // button, "Sign in again", forcing a fresh login (never re-showing ready
+  // controls that can't actually work).
+  const needsForcedReauth = Boolean(
+    preset.status_message?.includes('argonne_reauthentication_required'),
+  );
+
   const readySignOut =
     action === 'none' && preset.is_authenticated
       ? preset.auth_method === 'oauth' || preset.auth_method === 'subscription'
@@ -65,7 +76,18 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
   return (
     <div className={cn('grid gap-2', compact ? 'gap-1.5' : 'gap-3')}>
       <div className={cn('flex flex-wrap items-center', compact ? 'gap-1' : 'gap-3')}>
-        {action === 'sign_in' ? (
+        {needsForcedReauth ? (
+          <Button
+            className={compact ? 'h-7 px-2 text-xs' : undefined}
+            disabled={actions.authenticate.isPending}
+            onClick={() => actions.authenticate.mutate('browser')}
+            size={compact ? 'sm' : undefined}
+            variant="outline"
+          >
+            <KeyRoundIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
+            {actions.authenticate.isPending ? 'Opening sign-in…' : 'Sign in again'}
+          </Button>
+        ) : action === 'sign_in' ? (
           <>
             <Button
               className={compact ? 'h-7 px-2 text-xs' : undefined}

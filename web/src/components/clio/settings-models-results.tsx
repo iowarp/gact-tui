@@ -1,4 +1,5 @@
 import type { ProviderHandshake, ProviderModelRefreshResult } from '@clio/core/v3';
+import { translateKnownProviderErrorReason } from '@/lib/provider-availability';
 import { ClioStatus } from './status';
 
 function readableState(value: string): string {
@@ -24,8 +25,9 @@ export function HandshakeResult({ result }: { result: ProviderHandshake }) {
         value={healthy ? 'healthy' : 'degraded'}
       />
       <p className="text-muted-foreground">
-        {result.error ??
-          `Connection ${readableState(result.connectivity)}, sign-in ${readableState(result.auth)}, ${result.models.length} model${result.models.length === 1 ? '' : 's'}`}
+        {result.error
+          ? translateKnownProviderErrorReason(result.error)
+          : `Connection ${readableState(result.connectivity)}, sign-in ${readableState(result.auth)}, ${result.models.length} model${result.models.length === 1 ? '' : 's'}`}
       </p>
       <p className="text-xs text-muted-foreground" title={`Reported source: ${result.source}`}>
         {result.latency_ms === undefined

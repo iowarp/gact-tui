@@ -788,6 +788,7 @@ export type {
 export type {
   LanguageModelConfiguration,
   LanguageModelPreset,
+  LanguageModelPresetTransport,
   ProviderDefinition,
   ProviderHandshake,
   ProviderModel,
