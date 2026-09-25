@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { FieldSeparator } from '@/components/ui/field';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Toggle } from '@/components/ui/toggle';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRepository } from '@/hooks/use-repository';
 import type { ClioModelOption } from '@/lib/model-options';
@@ -78,6 +79,14 @@ type ProviderHealth = 'healthy' | 'degraded' | 'unavailable';
 const HIDDEN_PROVIDERS_STORAGE_KEY = 'clio.hidden-providers.v1';
 const PROVIDER_NODE_PREFIX = 'provider:';
 const MODEL_NODE_PREFIX = 'model:';
+// The Cascader's own combobox keeps real DOM focus permanently on its search
+// input (a virtual/roving-focus listbox -- see cascader-nav.tsx/cascader-item.tsx),
+// so a real, independently-typeable <input> (the API-key field) can never sit
+// INSIDE its tree as a node. The action panel instead renders as a sibling
+// strip below the columns/list, and this is the exact width the columns
+// component itself uses for column one, reused so the strip's spacer lines
+// up under only the second (active provider's) column.
+const ACTION_STRIP_COLUMN_WIDTH = 'calc(50% - .5px)';
 
 /** Searchable AI Elements dialog composed with the real ReUI columns cascader. */
 export function ClioModelPicker({
@@ -93,8 +102,11 @@ export function ClioModelPicker({
 }: ClioModelPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  // ONE state, ONE footer button (v15 ruling): "Hidden (N)" IS the manage
+  // action. On: every row -- hidden or shown, configured or not -- appears,
+  // and the eye toggle on each becomes interactive. Off: hidden providers
+  // (and not-yet-configured presets) drop back out of the list.
   const [managingVisibility, setManagingVisibility] = useState(false);
-  const [showHidden, setShowHidden] = useState(false);
   const [hiddenProviders, setHiddenProviders] = useState<Set<string>>(readHiddenProviders);
   useEffect(() => {
     const refreshHiddenProviders = () => setHiddenProviders(readHiddenProviders());
@@ -103,6 +115,17 @@ export function ClioModelPicker({
       window.removeEventListener(PROVIDER_VISIBILITY_CHANGED_EVENT, refreshHiddenProviders);
   }, []);
   const showColumns = useMediaQuery('(min-width: 768px)');
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  // The full preset (auth_method, requires_api_key, status, transports, ...)
+  // that ClioModelOption does not carry per row -- read from the SAME cached
+  // query Settings uses, so this never issues a second network request.
+  const configuration = useQuery({
+    queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
+    queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
+  });
+  const presetsData = configuration.data?.presets;
+  const presets = useMemo(() => presetsData ?? [], [presetsData]);
   const providers = useMemo(() => {
     const grouped = Object.values(
       options.reduce<Record<string, { id: string; name: string; choices: ClioModelOption[] }>>(
@@ -118,70 +141,97 @@ export function ClioModelPicker({
         {},
       ),
     );
-    return grouped.map(toProviderGroup).sort((left, right) => {
-      const healthOrder = { healthy: 0, degraded: 1, unavailable: 2 };
-      return (
-        healthOrder[left.health] - healthOrder[right.health] || left.name.localeCompare(right.name)
-      );
-    });
+    return grouped.map(toProviderGroup);
   }, [options]);
+  // A preset the service reports but that has never had a catalog/model
+  // entry of its own (never checked, never configured) gets a zero-model
+  // placeholder row of its own -- but ONLY while managing, so browsing the
+  // picker normally never shows a provider with nothing to offer yet.
+  const configuredIds = useMemo(() => new Set(providers.map((item) => item.id)), [providers]);
+  const unconfiguredProviders = useMemo(
+    () =>
+      presets
+        .filter((preset) => !configuredIds.has(preset.id))
+        .map((preset) => toProviderGroup({ id: preset.id, name: preset.label, choices: [] })),
+    [presets, configuredIds],
+  );
+  const allProviders = useMemo(
+    () => (managingVisibility ? [...providers, ...unconfiguredProviders] : providers),
+    [managingVisibility, providers, unconfiguredProviders],
+  );
+  const sortedProviders = useMemo(
+    () =>
+      [...allProviders].sort((left, right) => {
+        const healthOrder = { healthy: 0, degraded: 1, unavailable: 2 };
+        return (
+          healthOrder[left.health] - healthOrder[right.health] || left.name.localeCompare(right.name)
+        );
+      }),
+    [allProviders],
+  );
   const [path, setPath] = useState<string[]>(() => {
     return provider ? [providerNodeValue(provider)] : [];
   });
   const visibleProviders = useMemo(
-    () => providers.filter((item) => showHidden || !hiddenProviders.has(item.id)),
-    [hiddenProviders, providers, showHidden],
+    () => sortedProviders.filter((item) => managingVisibility || !hiddenProviders.has(item.id)),
+    [hiddenProviders, sortedProviders, managingVisibility],
   );
+  const presetsById = useMemo(() => new Map(presets.map((preset) => [preset.id, preset])), [presets]);
   const providerNodes = useMemo<CascaderNode<PickerNodeData>[]>(
     () =>
-      visibleProviders.map((group) => ({
-        value: providerNodeValue(group.id),
-        label: group.name,
-        description: providerSearchDescription(group),
-        icon: (
-          <IconTile aria-hidden="true" size="sm" variant="outline">
-            <ModelSelectorLogo className="size-5" provider={providerLogoId(group.id)} />
-          </IconTile>
-        ),
-        hasChildren: true,
-        count: group.availableChoices.length,
-        keywords: [
-          group.id,
-          group.endpoint ?? '',
-          group.detail ?? '',
-          ...group.choices.flatMap((choice) => [choice.id, choice.label]),
-        ],
-        data: { kind: 'provider', group },
-        children: group.availableChoices.map((choice) => ({
-          value: modelNodeValue(choice),
-          label: choice.label,
-          description: choice.description ?? choice.modalities?.join(', '),
+      visibleProviders.map((group) => {
+        const modelChildren: CascaderNode<PickerNodeData>[] = group.availableChoices.map(
+          (choice) => ({
+            value: modelNodeValue(choice),
+            label: choice.label,
+            description: choice.description ?? choice.modalities?.join(', '),
+            keywords: [
+              choice.id,
+              choice.providerId,
+              choice.providerName,
+              choice.availabilityDetail ?? '',
+              ...(choice.modalities ?? []),
+            ],
+            data: { kind: 'model', choice },
+          }),
+        );
+        return {
+          value: providerNodeValue(group.id),
+          label: group.name,
+          description: providerSearchDescription(group),
+          icon: (
+            <IconTile aria-hidden="true" size="sm" variant="outline">
+              <ModelSelectorLogo className="size-5" provider={providerLogoId(group.id)} />
+            </IconTile>
+          ),
+          hasChildren: true,
+          count: group.availableChoices.length,
           keywords: [
-            choice.id,
-            choice.providerId,
-            choice.providerName,
-            choice.availabilityDetail ?? '',
-            ...(choice.modalities ?? []),
+            group.id,
+            group.endpoint ?? '',
+            group.detail ?? '',
+            ...group.choices.flatMap((choice) => [choice.id, choice.label]),
           ],
-          data: { kind: 'model', choice },
-        })),
-      })),
+          data: { kind: 'provider', group },
+          children: modelChildren,
+        };
+      }),
     [visibleProviders],
   );
-  const activeGroup = providers.find((item) => providerNodeValue(item.id) === path[0]);
+  const activeGroup = allProviders.find((item) => providerNodeValue(item.id) === path[0]);
+  // Provider rows live only at depth 0, and the tree is exactly two levels
+  // (provider -> model), so once a provider is drilled into, the ROOT column
+  // becomes the non-active column and the Cascader renders EVERY row in it as
+  // a real `<button>` (see cascader-columns.tsx's `as={column.active ?
+  // 'option' : 'button'}`). The eye toggle is itself a real `<button>`
+  // (Toggle); nesting one inside the other is invalid HTML and a real DOM
+  // warning, not a test artifact. `PickerRowLabel` renders the toggle as a
+  // static (non-`<button>`) element for exactly this case.
+  const providerRowsAreTrailButtons = showColumns && path.length > 0;
   const selectedChoice = options.find(
     (choice) => choice.available && choice.providerId === provider && choice.id === model,
   );
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
-  // The full preset (auth_method, requires_api_key, status, ...) that ClioModelOption
-  // does not carry per row -- read from the SAME cached query Settings uses, so this
-  // never issues a second network request.
-  const configuration = useQuery({
-    queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
-    queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
-  });
-  const activePreset = configuration.data?.presets.find((preset) => preset.id === activeGroup?.id);
+  const activePreset = presetsById.get(activeGroup?.id ?? '');
   // One actions instance, scoped to whichever provider's submenu is open --
   // the SAME hook and mutations Settings > Providers uses (one implementation
   // per action; see ProviderActionPanel).
@@ -213,13 +263,6 @@ export function ClioModelPicker({
     setHiddenProviders(nextHidden);
   }
 
-  function restoreAllProviders(): void {
-    const nextHidden = new Set<string>();
-    persistHiddenProviders(nextHidden);
-    setHiddenProviders(nextHidden);
-    setShowHidden(false);
-  }
-
   function toggleProviderVisibility(node: CascaderNode<PickerNodeData>): void {
     if (node.data?.kind !== 'provider') return;
     const group = node.data.group;
@@ -236,7 +279,6 @@ export function ClioModelPicker({
     }
     setQuery('');
     setManagingVisibility(false);
-    setShowHidden(false);
   }
 
   function handleQueryChange(nextQuery: string): void {
@@ -246,12 +288,6 @@ export function ClioModelPicker({
     // then establish the path that remains when the query is cleared.
     if (nextQuery.trim() && !query.trim()) setPath([]);
     setQuery(nextQuery);
-  }
-
-  function toggleVisibilityManagement(): void {
-    const next = !managingVisibility;
-    setManagingVisibility(next);
-    setShowHidden(next && hiddenProviders.size > 0);
   }
 
   return (
@@ -292,6 +328,7 @@ export function ClioModelPicker({
             path={path}
             renderLabel={(node, state) => (
               <PickerRowLabel
+                eyeAsStaticElement={providerRowsAreTrailButtons}
                 hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
                 managingVisibility={managingVisibility}
                 node={node}
@@ -343,7 +380,7 @@ export function ClioModelPicker({
               {showColumns ? (
                 <CascaderColumns
                   className="w-full flex-1"
-                  columnWidth="calc(50% - .5px)"
+                  columnWidth={ACTION_STRIP_COLUMN_WIDTH}
                   maxHeight="100%"
                 >
                   {(column) => <CascaderVirtualColumn column={column} key={column.depth} />}
@@ -353,44 +390,53 @@ export function ClioModelPicker({
                   <CascaderVirtualItems />
                 </CascaderList>
               )}
+              {/* The active provider's detail/sign-in/install/key/check UI --
+                  a SIBLING of the columns/list, never a node inside them. The
+                  Cascader's combobox keeps real focus on its own search input
+                  (see the constant above), so a typed field like the API-key
+                  box can only work here, outside that tree. The leading
+                  spacer (columns mode only) lines this strip up under just
+                  the second/active column instead of the whole row. */}
               {activeGroup && (activeGroup.detail || activePreset) ? (
-                <div className="flex shrink-0 flex-col gap-2 border-t px-3 py-2">
-                  {activeGroup.detail ? (
-                    <p
-                      className={cn(
-                        'text-xs',
-                        activeGroup.health === 'degraded'
-                          ? 'text-warning-foreground'
-                          : 'text-muted-foreground',
-                      )}
-                      role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
-                    >
-                      {activeGroup.detail}
-                    </p>
+                <div className="flex shrink-0 border-t" data-slot="provider-action-strip">
+                  {showColumns ? (
+                    <div
+                      aria-hidden="true"
+                      className="shrink-0 border-e border-border/60"
+                      style={{ width: ACTION_STRIP_COLUMN_WIDTH }}
+                    />
                   ) : null}
-                  {activePreset ? (
-                    <>
-                      {activeGroup.availableChoices.length > 0 ? (
-                        <FieldSeparator>or</FieldSeparator>
-                      ) : null}
-                      <ProviderActionPanel actions={providerActions} autoStartAuth compact preset={activePreset} />
-                    </>
-                  ) : null}
+                  <div className="flex min-w-0 flex-1 flex-col gap-2 px-3 py-2">
+                    {activeGroup.detail ? (
+                      <p
+                        className={cn(
+                          'text-xs',
+                          activeGroup.health === 'degraded'
+                            ? 'text-warning-foreground'
+                            : 'text-muted-foreground',
+                        )}
+                        role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
+                      >
+                        {activeGroup.detail}
+                      </p>
+                    ) : null}
+                    {activePreset ? (
+                      <>
+                        {activeGroup.availableChoices.length > 0 ? (
+                          <FieldSeparator>or</FieldSeparator>
+                        ) : null}
+                        <ProviderActionPanel actions={providerActions} compact preset={activePreset} />
+                      </>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
               <CascaderFooter className="min-h-11 flex-row items-center justify-between gap-1 px-2">
                 <div className="flex min-w-0 items-center gap-1">
                   <Button
-                    aria-label={
-                      managingVisibility
-                        ? 'Finish managing provider visibility'
-                        : hiddenProviders.size
-                          ? `Manage provider visibility, ${hiddenProviders.size} hidden`
-                          : 'Manage provider visibility'
-                    }
                     aria-pressed={managingVisibility}
                     data-slot="provider-visibility-mode"
-                    onClick={toggleVisibilityManagement}
+                    onClick={() => setManagingVisibility((current) => !current)}
                     size="sm"
                     type="button"
                     variant={managingVisibility ? 'secondary' : 'ghost'}
@@ -400,36 +446,8 @@ export function ClioModelPicker({
                     ) : (
                       <EyeIcon data-icon="inline-start" />
                     )}
-                    {managingVisibility ? 'Done' : 'Manage providers'}
+                    {managingVisibility ? 'Done' : `Hidden (${hiddenProviders.size})`}
                   </Button>
-                  {hiddenProviders.size ? (
-                    <Button
-                      aria-label={`Show ${hiddenProviders.size} hidden ${hiddenProviders.size === 1 ? 'provider' : 'providers'}`}
-                      aria-pressed={showHidden}
-                      onClick={() => setShowHidden((current) => !current)}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      {showHidden ? (
-                        <EyeOffIcon data-icon="inline-start" />
-                      ) : (
-                        <EyeIcon data-icon="inline-start" />
-                      )}
-                      Hidden ({hiddenProviders.size})
-                    </Button>
-                  ) : null}
-                  {managingVisibility && showHidden && hiddenProviders.size ? (
-                    <Button
-                      aria-label="Restore all hidden providers"
-                      onClick={restoreAllProviders}
-                      size="sm"
-                      type="button"
-                      variant="ghost"
-                    >
-                      Restore all
-                    </Button>
-                  ) : null}
                 </div>
               </CascaderFooter>
               <CascaderStatus />
@@ -501,11 +519,13 @@ function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
 }
 
 function PickerRowLabel({
+  eyeAsStaticElement,
   hidden,
   managingVisibility,
   node,
   onToggleVisibility,
 }: {
+  eyeAsStaticElement: boolean;
   hidden: boolean;
   managingVisibility: boolean;
   node: CascaderNode<PickerNodeData>;
@@ -513,15 +533,20 @@ function PickerRowLabel({
   state: CascaderItemState<PickerNodeData>;
 }) {
   if (node.data?.kind === 'provider') {
+    // The owner's row template, left to right: name, eye, heartbeat -- the
+    // model count and the drill chevron are the Cascader's own trailing
+    // slots and render after this label unconditionally.
     return (
-      <span className="flex w-full min-w-0 items-center gap-2">
+      <span className="flex w-full min-w-0 items-center gap-1.5">
         <span className="min-w-0 flex-1 truncate text-start font-medium">{node.label}</span>
-        <ProviderVisibilityControl
+        <ProviderEyeToggle
+          asStaticElement={eyeAsStaticElement}
           group={node.data.group}
           hidden={hidden}
-          managingVisibility={managingVisibility}
+          interactive={managingVisibility}
           onToggle={onToggleVisibility}
         />
+        <ProviderHeartbeat group={node.data.group} />
       </span>
     );
   }
@@ -538,78 +563,92 @@ function PickerRowLabel({
   );
 }
 
-function ProviderVisibilityControl({
+/** The eye: a real Toggle when managing, an inert indicator otherwise -- BESIDE
+ * the heartbeat, never replacing it (the owner's explicit row layout).
+ *
+ * `asStaticElement` renders the SAME Toggle onto a `<span>` instead of its
+ * default `<button>` (Radix `asChild`) -- needed exactly when this row is
+ * itself already a real `<button>` (a non-active Cascader column; see
+ * `providerRowsAreTrailButtons` above). A `<button>` nested in a `<button>`
+ * is invalid HTML; a `<span>` keeps the identical look, click and
+ * `onPressedChange` behaviour (Radix drives both from its own props, not
+ * from the child's tag), consistent with every row here already being
+ * `tabIndex={-1}` -- these controls are activated by click, never by an
+ * independent Tab stop. */
+function ProviderEyeToggle({
+  asStaticElement,
   group,
   hidden,
-  managingVisibility,
+  interactive,
   onToggle,
 }: {
+  asStaticElement: boolean;
   group: ProviderGroup;
   hidden: boolean;
-  managingVisibility: boolean;
+  interactive: boolean;
   onToggle?: () => void;
 }) {
+  if (!interactive || !onToggle) {
+    return (
+      <span aria-hidden="true" className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground/60">
+        {hidden ? <EyeOffIcon aria-hidden="true" className="size-3.5" /> : <EyeIcon aria-hidden="true" className="size-3.5" />}
+      </span>
+    );
+  }
+  const icon = hidden ? (
+    <EyeOffIcon aria-hidden="true" className="size-3.5" />
+  ) : (
+    <EyeIcon aria-hidden="true" className="size-3.5" />
+  );
+  return (
+    <Toggle
+      aria-label={hidden ? `Show ${group.name} in this picker` : `Hide ${group.name} in this picker`}
+      asChild={asStaticElement}
+      className="size-6 min-w-0 p-0"
+      data-slot="provider-visibility-toggle"
+      onClick={(event) => event.stopPropagation()}
+      onPressedChange={onToggle}
+      pressed={hidden}
+      size="sm"
+      title={hidden ? `Show ${group.name}` : `Hide ${group.name}`}
+    >
+      {asStaticElement ? (
+        <span role="button" tabIndex={-1}>
+          {icon}
+        </span>
+      ) : (
+        icon
+      )}
+    </Toggle>
+  );
+}
+
+/** The heartbeat: health colour on EVERY row, hidden or not -- detail lives in the HoverCard. */
+function ProviderHeartbeat({ group }: { group: ProviderGroup }) {
   const presentation = providerHealthPresentation(group.health);
-  const action = hidden ? `Show ${group.name}` : `Hide ${group.name}`;
-  const interactive = managingVisibility && onToggle !== undefined;
-  const stopRowAction = (event: { preventDefault(): void; stopPropagation(): void }) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
   return (
     <HoverCard openDelay={180}>
       <HoverCardTrigger asChild>
         <span
-          {...(interactive
-            ? { 'aria-label': `${action}; provider status: ${presentation.label}` }
-            : { 'aria-hidden': true })}
+          aria-label={`${group.name} status: ${presentation.label}`}
           className={cn(
-            'pointer-events-auto inline-flex size-6 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-            interactive ? 'cursor-pointer hover:bg-accent' : 'cursor-help',
-            hidden ? 'text-muted-foreground' : presentation.color,
+            'pointer-events-auto inline-flex size-6 shrink-0 cursor-help items-center justify-center rounded-md',
+            presentation.color,
           )}
-          data-slot="provider-visibility-toggle"
-          onClick={(event) => {
-            stopRowAction(event);
-            if (interactive) onToggle();
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            stopRowAction(event);
-            if (interactive) onToggle();
-          }}
-          onMouseDown={stopRowAction}
-          onMouseUp={stopRowAction}
-          role={interactive ? 'button' : 'presentation'}
-          tabIndex={interactive ? 0 : -1}
-          title={
-            interactive ? `${action} in this picker` : `${group.name} status: ${presentation.label}`
-          }
+          data-slot="provider-heartbeat"
+          onClick={(event) => event.stopPropagation()}
+          role="img"
+          title={`${group.name} status: ${presentation.label}`}
         >
-          {hidden ? (
-            <EyeOffIcon aria-hidden="true" className="size-4" />
-          ) : (
-            <ActivityIcon aria-hidden="true" className="size-4" />
-          )}
+          <ActivityIcon aria-hidden="true" className="size-4" />
         </span>
       </HoverCardTrigger>
       <HoverCardContent align="start" className="flex w-72 flex-col gap-1 text-xs">
-        <p className="font-medium">
-          {interactive
-            ? hidden
-              ? 'Hidden from this picker'
-              : 'Visible in this picker'
-            : 'Provider status'}
-        </p>
+        <p className="font-medium">Provider status</p>
         <p>Health: {presentation.label}</p>
         <p>Refreshed: {group.freshness ? formatFreshness(group.freshness) : 'Unavailable'}</p>
         {group.endpoint ? <p className="truncate text-muted-foreground">{group.endpoint}</p> : null}
         {group.detail ? <p className="text-muted-foreground">{group.detail}</p> : null}
-        <p className="text-muted-foreground">
-          {interactive
-            ? `Click to ${hidden ? 'show' : 'hide'} this provider.`
-            : 'Use Manage visibility to show or hide providers.'}
-        </p>
       </HoverCardContent>
     </HoverCard>
   );

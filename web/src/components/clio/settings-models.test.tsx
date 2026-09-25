@@ -455,6 +455,68 @@ describe('ModelsSettings', () => {
     expect(await screen.findByText('Signed out.')).toBeVisible();
   });
 
+  it('removes a saved API key and shows only Verify, Refresh and Remove key for a ready key provider', async () => {
+    repository.languageModelConfiguration.mockResolvedValueOnce({
+      configured: true,
+      provider_id: 'openai',
+      provider: 'openai',
+      api_base: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
+      thinking_level: 'medium',
+      presets: [
+        {
+          id: 'openai',
+          label: 'OpenAI',
+          provider: 'openai',
+          api_base: 'https://api.openai.com/v1',
+          suggested_model: 'gpt-4o-mini',
+          requires_api_key: true,
+          auth_method: 'api_key',
+          is_authenticated: true,
+          supports_live_catalog: true,
+          supports_vision: true,
+        },
+      ],
+    });
+    repository.updateLanguageModelConfiguration.mockResolvedValueOnce({
+      configured: false,
+      provider_id: 'openai',
+      provider: 'openai',
+      api_base: 'https://api.openai.com/v1',
+      model: 'gpt-4o-mini',
+      thinking_level: 'medium',
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <MemoryRouter initialEntries={['/settings/providers?provider=openai']}>
+        <QueryClientProvider client={queryClient}>
+          <ModelsSettings />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    // The state-exact action set for a ready, API-key-authenticated provider:
+    // Verify + Refresh + Remove key -- never Sign in, Install or the key field.
+    expect(await screen.findByRole('button', { name: 'Verify provider' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Refresh model catalog' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Remove key' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Install/ })).not.toBeInTheDocument();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Remove key' }));
+
+    await waitFor(() =>
+      expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider_id: 'openai',
+          provider: 'openai',
+          api_key: '',
+        }),
+      ),
+    );
+  });
+
   it('shows the sign-in failure reason when a flow ends in failure', async () => {
     repository.languageModelConfiguration.mockResolvedValueOnce({
       ...configuration,
@@ -729,7 +791,7 @@ describe('ModelsSettings', () => {
       </MemoryRouter>,
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Check provider' }));
+    await user.click(await screen.findByRole('button', { name: 'Verify provider' }));
     await waitFor(() =>
       expect(repository.providerHandshake).toHaveBeenCalledWith('codex', {
         apiBase: '',
@@ -761,7 +823,7 @@ describe('ModelsSettings', () => {
       </MemoryRouter>,
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Check provider' }));
+    await user.click(await screen.findByRole('button', { name: 'Verify provider' }));
 
     await waitFor(() =>
       expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'codex'),

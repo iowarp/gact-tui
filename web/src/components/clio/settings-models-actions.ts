@@ -188,6 +188,38 @@ export function useProviderSettingsActions({
     },
   });
 
+  /**
+   * The ready-state counterpart to `saveApiKey`: clears the stored key so the
+   * provider goes back to needing one. Clears the desktop vault entry and, if
+   * this preset is the currently active configuration, also blanks the
+   * backend's stored key for it so the active config stops reporting ready.
+   */
+  const removeApiKey = useMutation({
+    mutationFn: async () => {
+      if (!presetId || !preset) throw new Error('Choose a provider first.');
+      const resolvedApiBase = apiBase || preset.api_base || '';
+      await storeProviderCredential(presetId, resolvedApiBase, '');
+      const configuration = queryClient.getQueryData<{ provider_id?: string; model?: string }>(
+        configurationKey,
+      );
+      if (configuration?.provider_id === presetId) {
+        return repository.updateLanguageModelConfiguration({
+          provider_id: presetId,
+          provider: preset.provider,
+          api_base: resolvedApiBase,
+          model: configuration.model || preset.suggested_model || '',
+          api_key: '',
+          provider_options: {},
+        });
+      }
+      return undefined;
+    },
+    onSuccess: async (next) => {
+      if (next) queryClient.setQueryData(configurationKey, next);
+      await Promise.all([invalidate(modelsKey, configurationKey), reloadCatalogEntry()]);
+    },
+  });
+
   /** Poll a started flow until the loopback callback (or device code) resolves it. */
   const authStatus = useQuery({
     queryKey: queryKeys.key('provider-auth-status', settings.endpoint, presetId, authFlow?.flow_id),
@@ -242,6 +274,7 @@ export function useProviderSettingsActions({
     logout,
     refreshModels,
     refreshResult,
+    removeApiKey,
     reset,
     saveApiKey,
     setAuthLaunchError,

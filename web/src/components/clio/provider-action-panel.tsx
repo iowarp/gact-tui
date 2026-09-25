@@ -7,7 +7,7 @@ import {
   RadioTowerIcon,
   RefreshCwIcon,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Input } from '@/components/ui/input';
@@ -30,157 +30,154 @@ interface ProviderActionPanelProps {
    * hook, same result data; only the presentation differs.
    */
   compact?: boolean;
-  /**
-   * The picker submenu auto-starts a browser sign-in the moment it opens for
-   * an unauthenticated provider, so there is no separate "start" click before
-   * the inline panel appears. Settings keeps its explicit "Sign in" button
-   * (existing muscle memory; also avoids starting an OAuth flow -- and its
-   * loopback listener -- every time the page loads).
-   */
-  autoStartAuth?: boolean;
 }
 
 /**
  * The ONE implementation of "what does this provider need before its models
- * are usable" -- sign-in (OAuth/subscription), runtime install (Claude Code),
- * an API key, or just a check/refresh control once it is ready. Used by both
+ * are usable" -- sign-in (OAuth/subscription), runtime install, an API key,
+ * or just a check/refresh/sign-out control once it is ready. Used by both
  * the model picker's provider submenu and Settings > Providers so a fix or a
  * new provider kind lands in exactly one place.
+ *
+ * Shows EXACTLY the action set the provider's own state calls for -- never
+ * every action at once (a signed-out provider does not also offer to be
+ * checked or signed out of; an installed-but-signed-out provider shows only
+ * Sign in, not Install too). No action ever starts itself: every mutation
+ * here fires only from an explicit click in this render, never a mount
+ * effect -- a submenu opening must never open a browser or a device-code
+ * prompt on its own.
  */
-export function ProviderActionPanel({
-  preset,
-  actions,
-  compact = false,
-  autoStartAuth = false,
-}: ProviderActionPanelProps) {
+export function ProviderActionPanel({ preset, actions, compact = false }: ProviderActionPanelProps) {
   const action = providerPrimaryAction(preset);
   const providerLabel = providerDisplayName(preset);
-  const startedAuth = Boolean(actions.authFlow) || actions.authenticate.isPending;
-  useEffect(() => {
-    if (!autoStartAuth) return;
-    if (action !== 'sign_in') return;
-    if (startedAuth || actions.authInstructions) return;
-    actions.authenticate.mutate('browser');
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- start once per (provider, action) pair, not on every actions identity change
-  }, [autoStartAuth, action, preset?.id]);
 
   if (!preset) return null;
 
+  const readySignOut =
+    action === 'none' && preset.is_authenticated
+      ? preset.auth_method === 'oauth' || preset.auth_method === 'subscription'
+        ? 'logout'
+        : preset.requires_api_key
+          ? 'remove_key'
+          : undefined
+      : undefined;
+
   return (
     <div className={cn('grid gap-2', compact ? 'gap-1.5' : 'gap-3')}>
-      {compact ? (
-        <div className="flex flex-wrap items-center gap-1">
-          <ProviderCheckControl actions={actions} compact preset={preset} />
-          {action === 'install' ? (
+      <div className={cn('flex flex-wrap items-center', compact ? 'gap-1' : 'gap-3')}>
+        {action === 'sign_in' ? (
+          <>
             <Button
-              className="h-7 px-2 text-xs"
-              disabled={actions.installProvider.isPending}
-              onClick={() => actions.installProvider.mutate()}
-              size="sm"
-              type="button"
+              className={compact ? 'h-7 px-2 text-xs' : undefined}
+              disabled={actions.authenticate.isPending}
+              onClick={() => actions.authenticate.mutate('browser')}
+              size={compact ? 'sm' : undefined}
               variant="outline"
             >
-              <DownloadIcon aria-hidden="true" className="size-3.5" />
-              {actions.installProvider.isPending ? `Installing ${providerLabel}…` : `Install ${providerLabel}`}
+              <KeyRoundIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
+              {actions.authenticate.isPending ? 'Opening sign-in…' : `Sign in${compact ? '' : ` to ${providerLabel}`}`}
             </Button>
-          ) : null}
-          {preset.is_authenticated &&
-          (preset.auth_method === 'oauth' || preset.auth_method === 'subscription') ? (
-            <Button
-              className="h-7 px-2 text-xs"
-              disabled={actions.logout.isPending}
-              onClick={() => actions.logout.mutate()}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <LogOutIcon aria-hidden="true" className="size-3.5" />
-              {actions.logout.isPending ? 'Signing out…' : 'Sign out'}
-            </Button>
-          ) : null}
-          {actions.installProvider.error ? (
-            <span className="text-xs text-destructive">{actions.installProvider.error.message}</span>
-          ) : null}
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-3">
-          {action === 'sign_in' ? (
-            <>
+            {preset.provider === 'codex' ? (
               <Button
+                className={compact ? 'h-7 px-2 text-xs' : undefined}
                 disabled={actions.authenticate.isPending}
-                onClick={() => actions.authenticate.mutate('browser')}
-                variant="outline"
+                onClick={() => actions.authenticate.mutate('device')}
+                size={compact ? 'sm' : undefined}
+                variant="ghost"
               >
-                <KeyRoundIcon aria-hidden="true" />
-                {actions.authenticate.isPending ? 'Opening sign-in…' : `Sign in to ${providerLabel}`}
+                {compact ? 'Device code' : 'Sign in with a device code'}
               </Button>
-              {preset.provider === 'codex' ? (
-                <Button
-                  disabled={actions.authenticate.isPending}
-                  onClick={() => actions.authenticate.mutate('device')}
-                  variant="outline"
-                >
-                  Sign in with a device code
-                </Button>
-              ) : null}
-            </>
-          ) : null}
-          {preset.is_authenticated &&
-          (preset.auth_method === 'oauth' || preset.auth_method === 'subscription') ? (
-            <Button disabled={actions.logout.isPending} onClick={() => actions.logout.mutate()} variant="outline">
-              <LogOutIcon aria-hidden="true" />
-              {actions.logout.isPending ? 'Signing out…' : 'Sign out'}
-            </Button>
-          ) : null}
-          {preset.auth_method === 'oauth' && preset.auth_label ? (
-            <span className="text-sm text-muted-foreground">Uses {preset.auth_label}</span>
-          ) : null}
-          {action === 'install' ? (
-            <Button
-              disabled={actions.installProvider.isPending}
-              onClick={() => actions.installProvider.mutate()}
-              variant="outline"
-            >
-              <DownloadIcon aria-hidden="true" />
-              {actions.installProvider.isPending ? `Installing ${providerLabel}…` : `Install ${providerLabel}`}
-            </Button>
-          ) : null}
+            ) : null}
+            {!compact && preset.auth_method === 'oauth' && preset.auth_label ? (
+              <span className="text-sm text-muted-foreground">Uses {preset.auth_label}</span>
+            ) : null}
+          </>
+        ) : action === 'install' ? (
           <Button
-            disabled={actions.refreshModels.isPending}
-            onClick={() => actions.refreshModels.mutate()}
+            className={compact ? 'h-7 px-2 text-xs' : undefined}
+            disabled={actions.installProvider.isPending}
+            onClick={() => actions.installProvider.mutate()}
+            size={compact ? 'sm' : undefined}
             variant="outline"
           >
-            <RefreshCwIcon
-              aria-hidden="true"
-              className={actions.refreshModels.isPending ? 'animate-spin' : undefined}
-            />
-            {actions.refreshModels.isPending ? 'Checking available models…' : 'Refresh model catalog'}
+            <DownloadIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
+            {actions.installProvider.isPending ? `Installing ${providerLabel}…` : `Install ${providerLabel}`}
           </Button>
-          <Button disabled={actions.handshake.isPending} onClick={() => actions.handshake.mutate()} variant="outline">
-            <RadioTowerIcon aria-hidden="true" />
-            {actions.handshake.isPending ? 'Checking provider…' : 'Check provider'}
-          </Button>
-        </div>
-      )}
-      {action === 'api_key' ? <ProviderApiKeyField actions={actions} compact={compact} preset={preset} /> : null}
-      {!compact && actions.refreshModels.error ? (
-        <p className="text-sm text-destructive">{actions.refreshModels.error.message}</p>
+        ) : action === 'api_key' ? (
+          <ProviderApiKeyField actions={actions} compact={compact} preset={preset} />
+        ) : (
+          <>
+            {compact ? (
+              <ProviderCheckControl actions={actions} compact preset={preset} />
+            ) : (
+              <>
+                <Button
+                  disabled={actions.refreshModels.isPending}
+                  onClick={() => actions.refreshModels.mutate()}
+                  variant="outline"
+                >
+                  <RefreshCwIcon
+                    aria-hidden="true"
+                    className={actions.refreshModels.isPending ? 'animate-spin' : undefined}
+                  />
+                  {actions.refreshModels.isPending ? 'Checking available models…' : 'Refresh model catalog'}
+                </Button>
+                <Button
+                  disabled={actions.handshake.isPending}
+                  onClick={() => actions.handshake.mutate()}
+                  variant="outline"
+                >
+                  <RadioTowerIcon aria-hidden="true" />
+                  {actions.handshake.isPending ? 'Checking provider…' : 'Verify provider'}
+                </Button>
+              </>
+            )}
+            {readySignOut === 'logout' ? (
+              <Button
+                className={compact ? 'h-7 px-2 text-xs' : undefined}
+                disabled={actions.logout.isPending}
+                onClick={() => actions.logout.mutate()}
+                size={compact ? 'sm' : undefined}
+                variant="ghost"
+              >
+                <LogOutIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
+                {actions.logout.isPending ? 'Signing out…' : 'Sign out'}
+              </Button>
+            ) : readySignOut === 'remove_key' ? (
+              <Button
+                className={compact ? 'h-7 px-2 text-xs' : undefined}
+                disabled={actions.removeApiKey.isPending}
+                onClick={() => actions.removeApiKey.mutate()}
+                size={compact ? 'sm' : undefined}
+                variant="ghost"
+              >
+                {actions.removeApiKey.isPending ? 'Removing key…' : 'Remove key'}
+              </Button>
+            ) : null}
+          </>
+        )}
+      </div>
+      {actions.refreshModels.error ? (
+        <p className="text-xs text-destructive">{actions.refreshModels.error.message}</p>
       ) : null}
-      {!compact && actions.handshake.error ? (
-        <p className="text-sm text-destructive">{actions.handshake.error.message}</p>
+      {actions.handshake.error ? (
+        <p className="text-xs text-destructive">{actions.handshake.error.message}</p>
       ) : null}
-      {!compact && actions.installProvider.error ? (
-        <p className="text-sm text-destructive">{actions.installProvider.error.message}</p>
+      {actions.installProvider.error ? (
+        <p className="text-xs text-destructive">{actions.installProvider.error.message}</p>
       ) : null}
-      {!compact && actions.authenticate.error ? (
-        <p className="text-sm text-destructive">{actions.authenticate.error.message}</p>
+      {actions.authenticate.error ? (
+        <p className="text-xs text-destructive">{actions.authenticate.error.message}</p>
       ) : null}
-      {actions.authFailedReason ? <p className="text-sm text-destructive">{actions.authFailedReason}</p> : null}
+      {actions.authFailedReason ? <p className="text-xs text-destructive">{actions.authFailedReason}</p> : null}
       {!compact && actions.authInstructions ? (
         <p className="max-w-3xl text-sm text-muted-foreground">{actions.authInstructions}</p>
       ) : null}
-      {!compact && actions.logout.error ? (
-        <p className="text-sm text-destructive">{actions.logout.error.message}</p>
+      {actions.logout.error ? (
+        <p className="text-xs text-destructive">{actions.logout.error.message}</p>
+      ) : null}
+      {actions.removeApiKey.error ? (
+        <p className="text-xs text-destructive">{actions.removeApiKey.error.message}</p>
       ) : null}
       {actions.authFlow ? (
         <ProviderAuthPanel

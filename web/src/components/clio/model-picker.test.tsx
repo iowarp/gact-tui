@@ -266,13 +266,11 @@ describe('ClioModelPicker', () => {
     expect(screen.queryByText('Ready')).not.toBeInTheDocument();
 
     const status = screen.getByTitle('Codex status: Ready');
-    expect(status).toHaveAttribute('aria-hidden', 'true');
     expect(status).toHaveClass('text-success');
     expect(status.querySelector('svg')).toBeInTheDocument();
     await user.hover(status);
     expect(await screen.findByText('Provider status')).toBeVisible();
     expect(screen.getByText('Health: Ready')).toBeVisible();
-    expect(screen.getByText('Use Manage visibility to show or hide providers.')).toBeVisible();
   });
 
   it('does not hide a provider when its heartbeat is clicked outside visibility mode', async () => {
@@ -387,7 +385,7 @@ describe('ClioModelPicker', () => {
     expect(screen.queryByRole('link', { name: /Configure|Set up/ })).not.toBeInTheDocument();
   });
 
-  it('persists hidden providers and offers a reveal control', async () => {
+  it('hides a provider in place while managing; it drops out only once done, and the count updates live', async () => {
     const user = userEvent.setup();
     renderPicker(
       <ClioModelPicker
@@ -399,20 +397,27 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByRole('button', { name: 'Manage provider visibility' }));
+    expect(screen.getAllByRole('button', { name: /Hidden|Done/ })).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Hidden (0)' }));
     await user.click(screen.getByText('Local vLLM'));
     await user.click(screen.getByRole('button', { name: /Hide Local vLLM/ }));
+
     expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([
       'local-vllm',
     ]);
-    expect(screen.queryByText('Local vLLM')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Show 1 hidden provider' }));
+    // Still in place while managing -- hidden and shown rows stay together.
     expect(screen.getByText('Local vLLM')).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'Restore all hidden providers' }));
-    expect(window.localStorage.getItem('clio.hidden-providers.v1')).toBe('[]');
-    expect(
-      screen.queryByRole('button', { name: 'Show 1 hidden provider' }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Show Local vLLM/ })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(screen.queryByText('Local vLLM')).not.toBeInTheDocument();
+
+    // The count reflects the change live, and re-opening reveals it again.
+    await user.click(screen.getByRole('button', { name: 'Hidden (1)' }));
+    expect(screen.getByText('Local vLLM')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Show Local vLLM/ }));
+    expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([]);
+    expect(screen.getByRole('button', { name: /Hide Local vLLM/ })).toBeVisible();
   });
 
   it('uses a compact two-column dialog with an independently scrollable pane per column', async () => {
@@ -464,7 +469,7 @@ describe('ClioModelPicker', () => {
     expect(document.querySelectorAll('[data-slot="cascader-item"]').length).toBeLessThan(150);
   });
 
-  it('still hides a provider when the browser refuses to store the choice', async () => {
+  it('still marks a provider hidden in memory when the browser refuses to store the choice', async () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('Quota exceeded', 'QuotaExceededError');
     });
@@ -479,17 +484,36 @@ describe('ClioModelPicker', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByRole('button', { name: 'Manage provider visibility' }));
+    await user.click(screen.getByRole('button', { name: 'Hidden (0)' }));
     await user.click(screen.getByText('Local vLLM'));
     await user.click(screen.getByRole('button', { name: /Hide Local vLLM/ }));
 
-    expect(screen.queryByText('Local vLLM')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Show 1 hidden provider' })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Show Local vLLM/ })).toBeVisible();
     setItem.mockRestore();
   });
 
   describe('the provider submenu handles actions in place', () => {
-    it('signed out: auto-starts browser sign-in and switches to the model list on completion', async () => {
+    it('signed out: opening the submenu never starts a flow on its own', async () => {
+      repository.languageModelConfiguration.mockResolvedValue({
+        ...defaultConfiguration,
+        presets: defaultConfiguration.presets.map((preset) =>
+          preset.id === 'codex' ? { ...preset, is_authenticated: false } : preset,
+        ),
+      });
+      const user = userEvent.setup();
+      renderPicker(
+        <ClioModelPicker onChange={vi.fn()} options={options} trigger={<Button>Change model</Button>} />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Change model' }));
+      await user.click(screen.getByRole('option', { name: /Codex/ }));
+      await screen.findByRole('button', { name: 'Sign in' });
+
+      expect(repository.authenticateProvider).not.toHaveBeenCalled();
+      expect(screen.queryByLabelText('Complete Codex sign-in')).not.toBeInTheDocument();
+    });
+
+    it('signed out: an explicit click starts browser sign-in, and completion switches to the model list', async () => {
       repository.languageModelConfiguration.mockResolvedValueOnce({
         ...defaultConfiguration,
         presets: defaultConfiguration.presets.map((preset) =>
@@ -519,6 +543,9 @@ describe('ClioModelPicker', () => {
 
       await user.click(screen.getByRole('button', { name: 'Change model' }));
       await user.click(screen.getByRole('option', { name: /Codex/ }));
+      expect(repository.authenticateProvider).not.toHaveBeenCalled();
+
+      await user.click(await screen.findByRole('button', { name: 'Sign in' }));
 
       await waitFor(() =>
         expect(repository.authenticateProvider).toHaveBeenCalledWith('codex', {
