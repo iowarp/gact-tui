@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   forget: vi.fn(async () => undefined),
   inTauri: false,
   managedConnectionReady: false,
+  managedConnection: undefined as { endpoint: string; token?: string } | undefined,
   managedBackendStatus: undefined as
     | { kind: 'starting'; detail: 'checking_existing' | 'starting_service' }
     | { kind: 'needs_install' }
@@ -22,6 +23,8 @@ const mocks = vi.hoisted(() => ({
     createSession: vi.fn(),
     serviceHealth: vi.fn(),
     workspaces: vi.fn(),
+    infrastructureTargets: vi.fn(async () => []),
+    managedServiceCatalog: vi.fn(async () => ({ facts: {}, services: [] })),
   },
   resolveConnection: vi.fn(),
 }));
@@ -38,6 +41,7 @@ vi.mock('@/providers/connection-provider', () => ({
     recents: mocks.recents,
     credentialsReady: mocks.credentialsReady,
     managedConnectionReady: mocks.managedConnectionReady,
+    managedConnection: mocks.managedConnection,
     managedBackendStatus: mocks.managedBackendStatus,
     credentialError: undefined,
     resolveConnection: mocks.resolveConnection,
@@ -56,12 +60,15 @@ beforeEach(() => {
   mocks.credentialsReady = true;
   mocks.inTauri = false;
   mocks.managedConnectionReady = false;
+  mocks.managedConnection = undefined;
   mocks.managedBackendStatus = undefined;
   mocks.recents = [];
   mocks.resolveConnection.mockResolvedValue({
     endpoint: 'http://127.0.0.1:8788',
     label: 'Contained',
   });
+  mocks.repository.infrastructureTargets.mockResolvedValue([]);
+  mocks.repository.managedServiceCatalog.mockResolvedValue({ facts: {}, services: [] });
   mocks.repository.capabilities.mockResolvedValue({ gact_versions: ['0.3'] });
   mocks.repository.serviceHealth.mockResolvedValue({
     healthy: true,
@@ -145,6 +152,131 @@ it('separates saved services from new connection fields and exposes the endpoint
 
   await user.click(screen.getByRole('button', { name: /Access token/ }));
   expect(screen.getByPlaceholderText('Paste token')).toBeVisible();
+});
+
+it('shows the manual form directly when nothing is known yet', () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/?intent=connect']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(screen.getByLabelText('Service name')).toBeVisible();
+  expect(screen.getByLabelText('Connection address')).toBeVisible();
+  expect(screen.queryByText('Known services', { selector: 'legend' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Add a service' })).not.toBeInTheDocument();
+});
+
+it('lists the desktop-managed local service as a known connection, ahead of the manual form', () => {
+  mocks.inTauri = true;
+  mocks.managedConnectionReady = true;
+  mocks.managedConnection = { endpoint: 'http://127.0.0.1:53211', token: 'supervisor-token' };
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/?intent=connect']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(screen.getByText('This computer')).toBeVisible();
+  expect(screen.queryByLabelText('Service name')).not.toBeInTheDocument();
+});
+
+it('connects after clicking a known CLIO in the default list', async () => {
+  mocks.recents = [{ endpoint: 'http://127.0.0.1:9001', label: 'Lab instrument' }];
+  const user = userEvent.setup();
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/?intent=connect']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+          <Route
+            element={<div>Connected workspace session</div>}
+            path="/workspaces/:workspaceId/sessions/:sessionId"
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  const item = screen.getByText('Lab instrument').closest('button');
+  if (!item) throw new Error('known connection button not found');
+  await user.click(item);
+  await user.click(screen.getByRole('button', { name: 'Open workspace' }));
+
+  expect(await screen.findByText('Connected workspace session')).toBeVisible();
+  expect(mocks.connect).toHaveBeenCalledOnce();
+});
+
+it('opens only the manual form from "Add a service" -- never a deploy action', async () => {
+  mocks.inTauri = true;
+  mocks.recents = [{ endpoint: 'http://127.0.0.1:8788', label: 'Contained' }];
+  const user = userEvent.setup();
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/?intent=connect']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Add a service' }));
+
+  expect(screen.getByLabelText('Service name')).toBeVisible();
+  expect(screen.getByLabelText('Connection address')).toBeVisible();
+  expect(screen.queryByRole('dialog', { name: /Deploy/ })).not.toBeInTheDocument();
+  expect(mocks.repository.infrastructureTargets).not.toHaveBeenCalled();
+});
+
+it('shows "Deploy CLIO" only in the Tauri desktop app, never on the web build', () => {
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  const { rerender } = render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/?intent=connect']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(screen.queryByRole('button', { name: /Deploy/ })).not.toBeInTheDocument();
+
+  mocks.inTauri = true;
+  rerender(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/?intent=connect']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(screen.getByRole('button', { name: /Deploy/ })).toBeVisible();
 });
 
 it('reports a passive probe failure without locking the real connection attempt', async () => {

@@ -65,6 +65,15 @@ interface ConnectionContextValue {
   managedConnectionReady: boolean;
   isManagedConnection: boolean;
   managedBackendStatus?: ManagedBackendStatus;
+  /**
+   * The desktop-managed local service's own endpoint + token, once known --
+   * distinct from `settings` (the ACTIVE connection, which can move to a
+   * different remote service) and never written to `recents` (see `connect`
+   * below). This is what lets the connect page list "This computer" as a
+   * known service to click, even before anyone has explicitly connected to
+   * it this session.
+   */
+  managedConnection?: ConnectionSettings;
   credentialError?: string;
   resolveConnection: (settings: ConnectionSettings) => Promise<ConnectionSettings>;
   connect: (settings: ConnectionSettings) => Promise<void>;
@@ -146,6 +155,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
   const [credentialError, setCredentialError] = useState<string>();
   /** The supervisor's address is allocated per launch, so it is never remembered. */
   const [managedEndpoint, setManagedEndpoint] = useState<string>();
+  const [managedConnection, setManagedConnection] = useState<ConnectionSettings>();
   const [pendingSsh, setPendingSsh] = useState<{
     label: string;
     targetId: string;
@@ -162,6 +172,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         const endpoint = normalizeEndpoint(handle.url);
         const token = handle.bearer_token || undefined;
         setManagedEndpoint(endpoint);
+        setManagedConnection({ endpoint, token });
         setSettings({ endpoint, token });
         setManagedConnectionReady(true);
         setCredentialError(undefined);
@@ -337,6 +348,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       managedConnectionReady,
       isManagedConnection: managedConnectionReady && managedEndpoint === settings.endpoint,
       managedBackendStatus,
+      managedConnection,
       credentialError,
       resolveConnection,
       connect,
@@ -347,6 +359,7 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
       credentialError,
       credentialsReady,
       forget,
+      managedConnection,
       managedConnectionReady,
       managedBackendStatus,
       managedEndpoint,
