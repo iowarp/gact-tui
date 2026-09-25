@@ -191,6 +191,13 @@ function liveProviderOptions(
   preset: LanguageModelPreset | undefined,
 ): ClioModelOption[] {
   const providerName = provider.name || providerDisplayName(preset, provider.id);
+  // Not failed, just not set up yet (no key / sign-in / install): neutral,
+  // for its dated last-good rows as much as for an empty row. Never overrides
+  // a provider the service reports ready (Codex's SDK half needs no preset
+  // sign-in) or one it is probing right now.
+  const needsSetup =
+    provider.health !== 'ready' &&
+    ((preset !== undefined && !preset.is_authenticated) || provider.health === 'needs_install');
   const shared = {
     providerId: provider.id,
     providerName,
@@ -199,19 +206,16 @@ function liveProviderOptions(
     freshness: provider.freshness.generated_at,
     // The service's live "probe running right now" overlay wins over the
     // cached health, so the row shows the check instead of a stale verdict.
-    health: provider.checking ? 'checking' : provider.health,
+    health: provider.checking ? 'checking' : needsSetup ? PROVIDER_NEEDS_SETUP : provider.health,
     transports: provider.transports,
   };
   if (!provider.models.length) {
     const authenticationFailure = isAuthenticationFailure(provider.failure);
     const needsAuthentication = (preset && !preset.is_authenticated) || authenticationFailure;
     const isAlcf = /^argonne_/u.test(provider.id) || /\bALCF\b/iu.test(providerName);
-    const needsSetup =
-      (preset !== undefined && !preset.is_authenticated) || provider.health === 'needs_install';
     return [
       {
         ...shared,
-        ...(needsSetup && !provider.checking ? { health: PROVIDER_NEEDS_SETUP } : {}),
         kind: 'provider',
         id: '',
         label: providerName,
@@ -238,8 +242,11 @@ function liveProviderOptions(
   // Dated by the latest live confirmation (the service's confirmed_at), not the
   // list's first discovery -- the date a person reads while the provider is down.
   const confirmedAt = provider.freshness.staleness?.['confirmed_at'];
-  const lastGoodDetail =
-    provider.freshness.source === 'last_good'
+  // A provider that still needs a key/sign-in says THAT, never a dated
+  // "last confirmed" line about a list it cannot use yet.
+  const lastGoodDetail = needsSetup
+    ? providerStatusDetail(preset, `Set up ${providerName} to use its models.`)
+    : provider.freshness.source === 'last_good'
       ? `Last confirmed ${formatCatalogTime(typeof confirmedAt === 'string' && confirmedAt ? confirmedAt : provider.freshness.generated_at)}. Check ${providerName} to confirm it is available now.`
       : undefined;
   return provider.models.map((model) => {
@@ -250,7 +257,8 @@ function liveProviderOptions(
     const usableCandidate = isCliProvider && model.availability === 'candidate' && providerReady;
     // A last-good model is prior evidence, not a failure: it stays selectable,
     // dated, until a live check replaces it.
-    const staleCandidate = Boolean(lastGoodDetail) && model.availability === 'candidate';
+    const staleCandidate =
+      provider.freshness.source === 'last_good' && model.availability === 'candidate';
     return {
       ...shared,
       kind: 'model',

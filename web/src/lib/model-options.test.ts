@@ -124,6 +124,9 @@ describe('buildModelOptions', () => {
     });
 
     expect(option?.availabilityDetail).toBe('Your OpenRouter API key was rejected.');
+    // A refused key is a failure (red), never "needs setup" (grey) or ready.
+    expect(option?.health).toBe('unavailable');
+    expect(option?.available).toBe(false);
   });
 
   it('never shows a raw reason code as a provider or model detail', () => {

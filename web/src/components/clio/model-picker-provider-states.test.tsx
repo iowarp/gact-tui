@@ -293,6 +293,58 @@ describe('ClioModelPicker provider submenu: exact action set and progress per st
     expect(repository.providerAuthStatus).not.toHaveBeenCalled();
   });
 
+  it('a rejected key: red heartbeat, no model count, the reason once and no stale "last confirmed" text', async () => {
+    mockOpenaiApiKeyPreset();
+    const user = userEvent.setup();
+    renderPicker(
+      <ClioModelPicker
+        onChange={vi.fn()}
+        options={[
+          ...options,
+          // What buildModelOptions yields for the catalog row of a rejected key:
+          // the service drops the last-good list and reports `unavailable`.
+          { ...openaiOption, availabilityDetail: 'Your OpenAI API key was rejected.' },
+        ]}
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    const row = screen.getByText('OpenAI').closest('[data-slot="cascader-item"]');
+    const heartbeat = row?.querySelector('[data-slot="provider-heartbeat"]');
+    expect(heartbeat).toHaveAttribute('data-state', 'unavailable');
+    expect(heartbeat).toHaveClass('text-destructive');
+    expect(row?.querySelector('[data-slot="cascader-item-count"]')).toBeNull();
+
+    await user.click(screen.getByText('OpenAI'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your OpenAI API key was rejected.');
+    expect(screen.getAllByText('Your OpenAI API key was rejected.')).toHaveLength(1);
+    expect(screen.queryByText(/Last confirmed/u)).not.toBeInTheDocument();
+  });
+
+  it('a failed latest check stays red with no count even while dated rows remain', async () => {
+    const user = userEvent.setup();
+    renderPicker(
+      <ClioModelPicker
+        onChange={vi.fn()}
+        options={options.map((option) =>
+          option.providerId === 'local-vllm' ? { ...option, health: 'unavailable' } : option,
+        )}
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    const row = screen.getByText('Local vLLM').closest('[data-slot="cascader-item"]');
+    expect(row?.querySelector('[data-slot="provider-heartbeat"]')).toHaveAttribute(
+      'data-state',
+      'unavailable',
+    );
+    expect(row?.querySelector('[data-slot="cascader-item-count"]')).toBeNull();
+    const codexRow = screen.getByText('Codex').closest('[data-slot="cascader-item"]');
+    expect(codexRow?.querySelector('[data-slot="cascader-item-count"]')).toHaveTextContent('1');
+  });
+
   it('Save key hides the stale "add your key" error behind the running stage', async () => {
     mockOpenaiApiKeyPreset();
     let finishSave: (value: unknown) => void = () => {};

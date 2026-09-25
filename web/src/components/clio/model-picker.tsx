@@ -219,7 +219,13 @@ export function ClioModelPicker({
             </IconTile>
           ),
           hasChildren: true,
-          count: group.availableChoices.length,
+          // A count means "this many usable models": a provider whose latest
+          // check failed (rejected key, failed probe serving a dated list)
+          // shows none, whatever rows remain.
+          count:
+            group.health === 'healthy' || group.health === 'checking'
+              ? group.availableChoices.length
+              : 0,
           keywords: [
             group.id,
             group.endpoint ?? '',

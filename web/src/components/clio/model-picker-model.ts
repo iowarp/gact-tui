@@ -81,14 +81,20 @@ export function toProviderGroup(group: {
     (choice) => choice.available && choice.kind !== 'provider',
   );
   const reportedHealth = group.choices.find((choice) => choice.health)?.health?.toLowerCase();
-  const reportedFailure = reportedHealth === 'degraded' || reportedHealth === 'error';
+  // The service's latest verdict wins over leftover choices: a provider it
+  // reports `unavailable` (e.g. a rejected key, or a failed probe serving a
+  // dated last-good list) is red, never green because rows remain.
+  const reportedFailure =
+    reportedHealth === 'degraded' || reportedHealth === 'error' || reportedHealth === 'unavailable';
   const health: ProviderHealth =
     !group.choices.length || reportedHealth === PROVIDER_NEEDS_SETUP
       ? 'setup'
       : reportedHealth === 'checking'
         ? 'checking'
         : reportedFailure
-          ? 'degraded'
+          ? reportedHealth === 'unavailable'
+            ? 'unavailable'
+            : 'degraded'
           : availableChoices.length
             ? 'healthy'
             : 'unavailable';
