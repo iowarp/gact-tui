@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -222,6 +222,24 @@ describe('SshConnectionRoute', () => {
     await user.click(screen.getByRole('button', { name: 'Remove destination' }));
 
     expect(onSlotsChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it('separates the drag grip from what each row means, starting at this computer', () => {
+    renderRoute({ ...destination, jumpHosts: ['gateway', 'bastion'] });
+
+    // A fixed starting row: its meaning, no grip, not one of the sortable hops.
+    const start = screen.getByRole('img', { name: 'Starting point' });
+    expect(start.closest('[role="listitem"]')).toBeNull();
+    expect(screen.getByText('This computer')).toBeVisible();
+    const rows = screen.getAllByRole('listitem');
+    expect(rows).toHaveLength(3);
+    // Every hop row: a grip to reorder, then its meaning marker, then the host.
+    expect(within(rows[0]).getByRole('button', { name: 'Reorder jump host 1' })).toBeVisible();
+    expect(within(rows[0]).getByRole('img', { name: 'Hop' })).toBeVisible();
+    expect(within(rows[1]).getByRole('img', { name: 'Hop' })).toBeVisible();
+    expect(within(rows[2]).getByRole('button', { name: 'Reorder destination' })).toBeVisible();
+    expect(within(rows[2]).getByRole('img', { name: 'Destination' })).toBeVisible();
+    expect(within(rows[2]).queryByRole('img', { name: 'Hop' })).not.toBeInTheDocument();
   });
 
   it('locks every control while a deployment runs', () => {

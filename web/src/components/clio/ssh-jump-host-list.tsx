@@ -1,5 +1,5 @@
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import { CheckIcon, GripVerticalIcon, MapPinIcon, Settings2Icon, XIcon } from 'lucide-react';
+import { CheckIcon, GripVerticalIcon, Settings2Icon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
 import type { SshHost } from '@/lib/ssh-hosts';
+import { RouteMarker } from './ssh-route-marker';
 import { jumpHostError, reconcileJumpSteps, type JumpStep } from './ssh-route-utils';
 
 export const ADD_SSH_COMPUTER = '__add-ssh-computer__';
@@ -66,7 +66,6 @@ export function SshJumpHostList({
   const setHost = (index: number, host: string) =>
     commit(steps.map((item, itemIndex) => (itemIndex === index ? { ...item, host } : item)));
 
-
   return (
     <Sortable
       aria-label={
@@ -99,7 +98,7 @@ export function SshJumpHostList({
             aria-describedby={undefined}
             aria-pressed={undefined}
             aria-roledescription={undefined}
-            className="relative z-10 grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-background"
+            className="relative z-10 grid grid-cols-[1.75rem_2.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-background"
             disabled={disabled}
             key={step.key}
             role="listitem"
@@ -111,23 +110,22 @@ export function SshJumpHostList({
                 aria-label={
                   isDestinationRow ? 'Reorder destination' : `Reorder jump host ${index + 1}`
                 }
-                className={cn(
-                  'rounded-full border',
-                  isDestinationRow ? 'text-primary' : 'text-muted-foreground',
-                )}
+                className="cursor-grab text-muted-foreground"
                 disabled={disabled}
-                size="icon-lg"
-                title={isDestinationRow ? 'Destination (drag to reorder)' : 'Drag to reorder'}
+                size="icon-sm"
+                title="Drag to reorder"
                 type="button"
-                variant="outline"
+                variant="ghost"
               >
-                {isDestinationRow ? (
-                  <MapPinIcon aria-hidden="true" />
-                ) : (
-                  <GripVerticalIcon aria-hidden="true" />
-                )}
+                <GripVerticalIcon aria-hidden="true" />
               </Button>
             </SortableItemHandle>
+            <RouteMarker
+              // The route line runs up to the starting point and between hops.
+              bottom={index < steps.length - 1}
+              kind={isDestinationRow ? 'destination' : 'waypoint'}
+              top={lastIsDestination || index > 0}
+            />
             {typingKey === step.key ? (
               <SshJumpAddressField
                 onCancel={() => setTypingKey(undefined)}

@@ -2,6 +2,7 @@ import { PlusIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { SshJumpHostList } from './ssh-jump-host-list';
+import { RouteMarker } from './ssh-route-marker';
 
 /** Which hop the shared host dialog should configure, or create a new computer into. */
 export type SshRouteStep = { index: number; isDestination: boolean };
@@ -34,9 +35,14 @@ export function SshConnectionRoute({
   const step = (index: number) => ({ index, isDestination: index === slots.length - 1 });
   return (
     <div aria-label="SSH connection route" className="relative grid gap-2 pl-1">
-      {slots.length > 1 ? (
-        <div aria-hidden="true" className="absolute bottom-12 left-[1.1rem] top-5 w-px bg-border" />
-      ) : null}
+      <div className="grid grid-cols-[1.75rem_2.25rem_minmax(0,1fr)_auto] items-center gap-2">
+        {/* The starting point is fixed: no grip, never reordered. */}
+        <span aria-hidden="true" />
+        <RouteMarker bottom kind="start" top={false} />
+        <span className="truncate text-sm text-muted-foreground" title="localhost">
+          This computer
+        </span>
+      </div>
 
       <SshJumpHostList
         disabled={disabled}
