@@ -33,6 +33,7 @@ import {
 import { createRepository } from '@/lib/connection';
 import { SshAuthentication } from '@/components/clio/managed-service-target';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import {
   Dialog,
   DialogContent,
@@ -384,16 +385,19 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
         <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Connect to {pendingSsh?.label}</DialogTitle>
-            <DialogDescription>
-              Respond to the exact prompts from system OpenSSH. Answers are never saved.
+            <DialogDescription className="sr-only">
+              Answer the prompts from system OpenSSH.
             </DialogDescription>
           </DialogHeader>
-          {pendingSsh ? (
+          {pendingSsh?.status.prompt ? (
             <SshAuthentication
-              output={pendingSsh.status.output}
+              prompt={pendingSsh.status.prompt}
               sessionId={pendingSsh.status.session_id}
-              state={pendingSsh.status.state}
             />
+          ) : pendingSsh ? (
+            <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+              <Spinner aria-hidden="true" /> Connecting…
+            </p>
           ) : null}
           <DialogFooter>
             <Button

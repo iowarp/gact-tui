@@ -241,7 +241,7 @@ describe('connection provider credentials', () => {
     expect(mocks.setInfrastructureTransportState).toHaveBeenCalledWith('homelab', 'connected');
   });
 
-  it('shows exact OpenSSH output while a remembered target needs reauthentication', async () => {
+  it('shows the OpenSSH prompt while a remembered target needs reauthentication', async () => {
     localStorage.setItem(
       'clio.recent-connections',
       JSON.stringify([
@@ -270,6 +270,11 @@ describe('connection provider credentials', () => {
       state: 'reauthentication_required',
       reused: false,
       output: 'Password:\nPasscode or option (1-3):',
+      prompt: {
+        kind: 'keyboard_interactive',
+        text: 'Passcode or option (1-3):',
+        context: 'Duo two-factor login\n1. Duo Push\nPasscode or option (1-3):',
+      },
     });
     mocks.sshTransportStatus.mockResolvedValue({
       session_id: 'ssh-utah',

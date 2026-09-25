@@ -3,6 +3,15 @@ import type { ClioRepository } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 
+/** An OpenSSH authentication question: only real prompts, never `ssh>` or a shell. */
+export type SshPrompt = {
+  kind: 'password' | 'passphrase' | 'host_key' | 'keyboard_interactive';
+  /** The prompt line as OpenSSH showed it. */
+  text: string;
+  /** The cleaned lines up to and including the prompt (Duo lists its options there). */
+  context: string;
+};
+
 export type SshTransportStatus = {
   session_id: string;
   state:
@@ -13,6 +22,26 @@ export type SshTransportStatus = {
     | 'state_unknown';
   reused: boolean;
   output: string;
+  /** Present only while OpenSSH waits for an authentication answer. */
+  prompt?: SshPrompt | null;
+};
+
+/** `clio:ssh-transport-state` payload. */
+export type SshStateEvent = {
+  session_id: string;
+  state: SshTransportStatus['state'];
+  prompt?: SshPrompt | null;
+};
+
+/** `clio:ssh-transport-step`: one framed remote command's progress. */
+export type SshStepEvent = {
+  session_id: string;
+  request_id: string;
+  kind: 'probe' | 'install' | 'start' | 'tunnel' | 'other';
+  phase: 'running' | 'done' | 'failed';
+  exit_code: number | null;
+  /** Running: the installer's current step. Failed: a one-line reason. */
+  detail: string;
 };
 
 export type SshConnectionTest = {
@@ -110,6 +139,18 @@ export async function sshTransportStatus(sessionId: string): Promise<SshTranspor
 export async function writeSshTransport(sessionId: string, data: string): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('ssh_transport_write', { sessionId, data });
+}
+
+/** Kill the session's OpenSSH process tree now, whoever else shares it. */
+export async function cancelSshTransport(sessionId: string): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('ssh_transport_cancel', { sessionId });
+}
+
+/** The session's log with terminal control sequences and transport markers removed. */
+export async function sshTransportLog(sessionId: string): Promise<string> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<string>('ssh_transport_log', { sessionId });
 }
 
 /** Disconnect Desktop transport without deleting CLIO's durable target. */

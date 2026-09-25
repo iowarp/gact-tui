@@ -21,7 +21,13 @@ pub struct SshPrompt {
     pub kind: &'static str,
     /// The prompt line exactly as OpenSSH showed it, without control sequences.
     pub text: String,
+    /// The last lines OpenSSH printed up to and including the prompt, cleaned
+    /// (a Duo prompt lists its options on the lines before the question).
+    pub context: String,
 }
+
+/// How many cleaned lines of context accompany a prompt.
+const PROMPT_CONTEXT_LINES: usize = 10;
 
 /// Remove terminal control sequences.
 ///
@@ -190,9 +196,17 @@ pub fn classify_prompt(raw: &str) -> Option<SshPrompt> {
     } else {
         "keyboard_interactive"
     };
+    let cleaned = clean_transport_log(raw);
+    let lines: Vec<&str> = cleaned
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .collect();
+    let context = lines[lines.len().saturating_sub(PROMPT_CONTEXT_LINES)..].join("
+");
     Some(SshPrompt {
         kind,
         text: line.to_string(),
+        context,
     })
 }
 
@@ -237,6 +251,8 @@ mod tests {
         let prompt = classify_prompt(duo).unwrap();
         assert_eq!(prompt.kind, "keyboard_interactive");
         assert_eq!(prompt.text, "Passcode or option (1-1):");
+        assert!(prompt.context.contains("1. Duo Push to XXX-XXX-1234"));
+        assert!(prompt.context.ends_with("Passcode or option (1-1):"));
         assert_eq!(
             classify_prompt("Verification code: ").unwrap().kind,
             "keyboard_interactive"

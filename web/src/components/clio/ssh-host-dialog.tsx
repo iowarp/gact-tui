@@ -414,12 +414,8 @@ export function SshHostDialog({
             answering one OpenSSH prompt, and must never be a descendant of
             the host-config form.
           */}
-          {testStatus && !testSucceeded && testStatus.state !== 'connected' ? (
-            <SshAuthentication
-              output={testStatus.output}
-              sessionId={testStatus.session_id}
-              state={testStatus.state}
-            />
+          {testStatus?.prompt && !testSucceeded && testStatus.state !== 'connected' ? (
+            <SshAuthentication prompt={testStatus.prompt} sessionId={testStatus.session_id} />
           ) : null}
 
           {testSucceeded ? (
