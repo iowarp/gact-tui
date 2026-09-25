@@ -72,26 +72,26 @@ describe('ClioRepository provider contracts', () => {
 
   it('polls sign-in status and logs a subscription provider out', async () => {
     const transport = new RecordingTransport([
-      { provider_id: 'chatgpt', state: 'pending', reason: '' },
-      { provider_id: 'chatgpt', is_authenticated: false, instructions: 'Signed out of ChatGPT.' },
+      { provider_id: 'codex', state: 'pending', reason: '' },
+      { provider_id: 'codex', is_authenticated: false, instructions: 'Signed out of Codex.' },
     ]);
     const repository = new ClioRepository(transport);
 
-    await expect(repository.providerAuthStatus('chatgpt', 'flow-789')).resolves.toMatchObject({
+    await expect(repository.providerAuthStatus('codex', 'flow-789')).resolves.toMatchObject({
       state: 'pending',
     });
-    await expect(repository.logoutProvider('chatgpt')).resolves.toMatchObject({
+    await expect(repository.logoutProvider('codex')).resolves.toMatchObject({
       is_authenticated: false,
     });
     expect(transport.requests).toMatchObject([
       {
         method: 'POST',
-        path: '/v1/providers/chatgpt/auth',
+        path: '/v1/providers/codex/auth',
         body: { action: 'status', flow_id: 'flow-789' },
       },
       {
         method: 'POST',
-        path: '/v1/providers/chatgpt/auth',
+        path: '/v1/providers/codex/auth',
         body: { action: 'logout' },
       },
     ]);

@@ -1,10 +1,16 @@
-import type { ProviderAuthStart, ProviderHandshake, ProviderModelRefreshResult } from '@clio/core/v3';
+import type {
+  LanguageModelPreset,
+  ProviderAuthStart,
+  ProviderHandshake,
+  ProviderModelRefreshResult,
+} from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { openExternalUrl } from '@/tauri/external-url';
+import { storeProviderCredential } from '@/tauri/secure-credentials';
 
 /** Poll interval while a sign-in flow is pending (SPEC generic auth API). */
 const AUTH_STATUS_POLL_MS = 1500;
@@ -14,12 +20,17 @@ interface ProviderSettingsActionsInput {
   apiBase: string;
   /** Adopt the catalog's default model after a successful check. */
   onDefaultModel: (modelId: string) => void;
+  /**
+   * Needed only for `saveApiKey`'s minimal apply (`provider`/`suggested_model`).
+   * Every other action only needs `presetId`.
+   */
+  preset?: LanguageModelPreset;
 }
 
 /**
  * The provider actions of the Models settings panel — catalog refresh, provider
  * check, Claude Code install, and the generic subscription/OAuth sign-in flow
- * (ALCF and the direct ChatGPT provider both go through it) — and the results
+ * (ALCF and the direct Codex provider both go through it) — and the results
  * they report.
  *
  * A check or a completed sign-in changes what the service knows about the
@@ -31,6 +42,7 @@ export function useProviderSettingsActions({
   presetId,
   apiBase,
   onDefaultModel,
+  preset,
 }: ProviderSettingsActionsInput) {
   const repository = useRepository();
   const queryClient = useQueryClient();
@@ -146,6 +158,36 @@ export function useProviderSettingsActions({
     onSuccess: (result) => signInComplete(result.instructions),
   });
 
+  /**
+   * The minimal apply for an API-key provider that is not yet the active
+   * configuration (e.g. the model picker's inline key field): saves the key
+   * to the desktop credential vault, then applies it with the provider's own
+   * suggested model. A person who wants a different model or reasoning level
+   * still visits Settings for the full form; this only needs to make the
+   * provider USABLE.
+   */
+  const saveApiKey = useMutation({
+    mutationFn: async (apiKey: string) => {
+      if (!presetId || !preset) throw new Error('Choose a provider first.');
+      const trimmed = apiKey.trim();
+      if (!trimmed) throw new Error('Enter an API key.');
+      const resolvedApiBase = apiBase || preset.api_base || '';
+      await storeProviderCredential(presetId, resolvedApiBase, trimmed);
+      return repository.updateLanguageModelConfiguration({
+        provider_id: presetId,
+        provider: preset.provider,
+        api_base: resolvedApiBase,
+        model: preset.suggested_model || '',
+        api_key: trimmed,
+        provider_options: {},
+      });
+    },
+    onSuccess: async (next) => {
+      queryClient.setQueryData(configurationKey, next);
+      await Promise.all([invalidate(modelsKey, configurationKey), reloadCatalogEntry()]);
+    },
+  });
+
   /** Poll a started flow until the loopback callback (or device code) resolves it. */
   const authStatus = useQuery({
     queryKey: queryKeys.key('provider-auth-status', settings.endpoint, presetId, authFlow?.flow_id),
@@ -168,8 +210,14 @@ export function useProviderSettingsActions({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- signInComplete closes over authFlow/presetId by design
   }, [authStatusState, authFlow?.flow_id]);
 
-  /** Forget every result when the person switches provider. */
-  const reset = () => {
+  /**
+   * Forget every result when the person switches provider. Stable identity
+   * (useCallback): a caller that resets on a dependency-effect (e.g. the model
+   * picker resetting when the active provider changes) must not re-fire this
+   * on every unrelated state update -- that would wipe a just-started sign-in
+   * flow's `authFlow` the instant it was set.
+   */
+  const reset = useCallback(() => {
     setRefreshResult(undefined);
     setHandshakeResult(undefined);
     setAuthInstructions('');
@@ -177,7 +225,7 @@ export function useProviderSettingsActions({
     setAuthPaste('');
     setAuthLaunchError('');
     setAuthFailedReason('');
-  };
+  }, []);
 
   return {
     authFailedReason,
@@ -195,6 +243,7 @@ export function useProviderSettingsActions({
     refreshModels,
     refreshResult,
     reset,
+    saveApiKey,
     setAuthLaunchError,
     setAuthPaste,
   };

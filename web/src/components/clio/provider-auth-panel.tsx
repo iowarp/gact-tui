@@ -22,7 +22,7 @@ interface ProviderAuthPanelProps {
  * Renders whichever methods the generic provider sign-in API's `start`
  * response offers (SPEC §6.12: `browser`/`device`, either or both), plus the
  * paste fallback every method races against. Shared by every subscription /
- * OAuth provider (ALCF today; the direct ChatGPT provider) so a new one needs
+ * OAuth provider (ALCF today; the direct Codex provider) so a new one needs
  * no new UI — only a new backend adapter.
  */
 export function ProviderAuthPanel({

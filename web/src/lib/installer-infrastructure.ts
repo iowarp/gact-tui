@@ -183,9 +183,7 @@ const UNSTAMPED_INSTALLER_REVISION = 'legacy';
 const LEGACY_INSTALLER_PROVIDER_MARKER = 'clio.installer-provider-ids.v3';
 const LEGACY_FALLBACK_PROVIDER_IDS = 'codex,openai';
 const LEGACY_PROVIDER_FAMILIES: Record<string, readonly string[]> = {
-  // 'codex' stays for accounts whose hidden list still names the deleted
-  // provider id from before it was replaced by the direct 'chatgpt' provider.
-  openai: ['codex', 'chatgpt', 'openai'],
+  openai: ['codex', 'openai'],
   anthropic: ['anthropic', 'claude_code'],
   google: ['gemini', 'vertex_ai'],
   argonne: ['argonne_sophia', 'argonne_metis'],
@@ -260,13 +258,6 @@ export function applyInstallerProviderVisibility(
       .map((providerId) => providerId.trim())
       .filter((providerId) => KNOWN_PROVIDER_IDS.has(providerId)),
   );
-  // A `provider_ids` selection (schema 4+, already-expanded individual ids,
-  // not family keys) recorded before the direct 'chatgpt' provider existed
-  // can literally list 'codex' without ever having had the chance to list
-  // 'chatgpt' -- that installer file cannot be rewritten after the fact.
-  // Since 'codex' selected 'chatgpt's provider family, its successor
-  // inherits the same visibility rather than starting hidden by default.
-  if (visible.has('codex')) visible.add('chatgpt');
   const hidden = [...KNOWN_PROVIDER_IDS].filter((providerId) => !visible.has(providerId)).sort();
   window.localStorage.setItem(HIDDEN_PROVIDERS_STORAGE_KEY, JSON.stringify(hidden));
   window.localStorage.setItem(INSTALLER_REVISION_STORAGE_KEY, effectiveRevision);

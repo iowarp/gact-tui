@@ -788,7 +788,7 @@ function ComposerAddContextButton({
 }
 
 function compactModelName(provider: string, modelId: string, label: string): string {
-  if (provider === 'chatgpt') {
+  if (provider === 'codex') {
     const familyName = modelId.match(/(?:^|[-_.])(luna|sol|terra)$/i)?.[1];
     if (familyName)
       return `${familyName.charAt(0).toUpperCase()}${familyName.slice(1).toLowerCase()}`;

@@ -1,6 +1,6 @@
-import { ActivityIcon, EyeIcon, EyeOffIcon, RefreshCwIcon, SettingsIcon } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { ActivityIcon, EyeIcon, EyeOffIcon, RefreshCwIcon } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -25,13 +25,19 @@ import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { IconTile } from '@/components/reui/icon-tile';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { FieldSeparator } from '@/components/ui/field';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { useRepository } from '@/hooks/use-repository';
 import type { ClioModelOption } from '@/lib/model-options';
 import { PROVIDER_VISIBILITY_CHANGED_EVENT } from '@/lib/installer-infrastructure';
 import { providerLogoId } from '@/lib/provider-presentation';
+import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { ProviderActionPanel } from './provider-action-panel';
+import { useProviderSettingsActions } from './settings-models-actions';
 
 interface ClioModelPickerProps {
   catalogRefreshing?: boolean;
@@ -51,7 +57,6 @@ interface ProviderGroup {
   choices: ClioModelOption[];
   availableChoices: ClioModelOption[];
   endpoint?: string;
-  configurationUrl: string;
   freshness?: string;
   health: ProviderHealth;
   detail?: string;
@@ -167,6 +172,31 @@ export function ClioModelPicker({
   const selectedChoice = options.find(
     (choice) => choice.available && choice.providerId === provider && choice.id === model,
   );
+  const repository = useRepository();
+  const { settings } = useConnectionSettings();
+  // The full preset (auth_method, requires_api_key, status, ...) that ClioModelOption
+  // does not carry per row -- read from the SAME cached query Settings uses, so this
+  // never issues a second network request.
+  const configuration = useQuery({
+    queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
+    queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
+  });
+  const activePreset = configuration.data?.presets.find((preset) => preset.id === activeGroup?.id);
+  // One actions instance, scoped to whichever provider's submenu is open --
+  // the SAME hook and mutations Settings > Providers uses (one implementation
+  // per action; see ProviderActionPanel).
+  const providerActions = useProviderSettingsActions({
+    presetId: activeGroup?.id ?? '',
+    apiBase: activeGroup?.endpoint ?? activePreset?.api_base ?? '',
+    onDefaultModel: () => {},
+    preset: activePreset,
+  });
+  const { reset: resetProviderActions } = providerActions;
+  // A stale sign-in/check/install result from the PREVIOUS provider must not
+  // leak into the newly active one's submenu.
+  useEffect(() => {
+    resetProviderActions();
+  }, [activeGroup?.id, resetProviderActions]);
 
   function hideProvider(group: ProviderGroup): void {
     const nextHidden = new Set(hiddenProviders).add(group.id);
@@ -286,31 +316,21 @@ export function ClioModelPicker({
                       placeholder="Search providers and models"
                     />
                   </div>
-                  {activeGroup ? (
+                  {activeGroup && onRetryCatalog ? (
                     <div className="flex shrink-0 items-center gap-1">
-                      {onRetryCatalog ? (
-                        <Button
-                          aria-label={`Refresh ${activeGroup.name} provider and models`}
-                          disabled={catalogRefreshing}
-                          onClick={() => onRetryCatalog(activeGroup.id)}
-                          size="icon-sm"
-                          title={`Refresh ${activeGroup.name} provider and models`}
-                          type="button"
-                          variant="ghost"
-                        >
-                          <RefreshCwIcon
-                            aria-hidden="true"
-                            className={catalogRefreshing ? 'animate-spin' : undefined}
-                          />
-                        </Button>
-                      ) : null}
-                      <Button asChild size="icon-sm" title="Configure provider" variant="ghost">
-                        <Link
-                          aria-label={`Configure ${activeGroup.name} provider`}
-                          to={activeGroup.configurationUrl}
-                        >
-                          <SettingsIcon aria-hidden="true" />
-                        </Link>
+                      <Button
+                        aria-label={`Refresh ${activeGroup.name} provider and models`}
+                        disabled={catalogRefreshing}
+                        onClick={() => onRetryCatalog(activeGroup.id)}
+                        size="icon-sm"
+                        title={`Refresh ${activeGroup.name} provider and models`}
+                        type="button"
+                        variant="ghost"
+                      >
+                        <RefreshCwIcon
+                          aria-hidden="true"
+                          className={catalogRefreshing ? 'animate-spin' : undefined}
+                        />
                       </Button>
                     </div>
                   ) : null}
@@ -333,21 +353,28 @@ export function ClioModelPicker({
                   <CascaderVirtualItems />
                 </CascaderList>
               )}
-              {activeGroup?.detail ? (
-                <div
-                  className={cn(
-                    'flex shrink-0 items-center justify-between gap-3 border-t px-3 py-2 text-xs',
-                    activeGroup.health === 'degraded'
-                      ? 'text-warning-foreground'
-                      : 'text-muted-foreground',
-                  )}
-                  role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
-                >
-                  <span>{activeGroup.detail}</span>
-                  {activeGroup.health === 'unavailable' ? (
-                    <Button asChild className="shrink-0" size="sm" variant="secondary">
-                      <Link to={activeGroup.configurationUrl}>Set up {activeGroup.name}</Link>
-                    </Button>
+              {activeGroup && (activeGroup.detail || activePreset) ? (
+                <div className="flex shrink-0 flex-col gap-2 border-t px-3 py-2">
+                  {activeGroup.detail ? (
+                    <p
+                      className={cn(
+                        'text-xs',
+                        activeGroup.health === 'degraded'
+                          ? 'text-warning-foreground'
+                          : 'text-muted-foreground',
+                      )}
+                      role={activeGroup.health === 'degraded' ? 'alert' : 'status'}
+                    >
+                      {activeGroup.detail}
+                    </p>
+                  ) : null}
+                  {activePreset ? (
+                    <>
+                      {activeGroup.availableChoices.length > 0 ? (
+                        <FieldSeparator>or</FieldSeparator>
+                      ) : null}
+                      <ProviderActionPanel actions={providerActions} autoStartAuth compact preset={activePreset} />
+                    </>
                   ) : null}
                 </div>
               ) : null}
@@ -625,27 +652,10 @@ function toProviderGroup(group: {
     ...group,
     availableChoices,
     endpoint: group.choices.find((choice) => choice.endpoint)?.endpoint,
-    configurationUrl: providerConfigurationUrl(
-      group.id,
-      group.choices.find((choice) => choice.configurationUrl)?.configurationUrl,
-    ),
     freshness: group.choices.find((choice) => choice.freshness)?.freshness,
     health,
     detail: details[0],
   };
-}
-
-/**
- * The service's own configuration link. Only a provider known from presets
- * alone (no catalog entry, so nothing reported) gets the settings route built
- * here.
- */
-function providerConfigurationUrl(providerId: string, reported?: string): string {
-  // Older services advertised /settings/providers/<id>, a route this client does
-  // not have; map it to the query form.
-  const legacy = reported?.match(/^\/settings\/providers\/([^/?#]+)$/u);
-  if (legacy?.[1]) return `/settings/providers?provider=${legacy[1]}`;
-  return reported || `/settings/providers?provider=${encodeURIComponent(providerId)}`;
 }
 
 function providerNodeValue(providerId: string): string {

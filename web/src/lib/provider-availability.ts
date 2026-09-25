@@ -82,3 +82,15 @@ export function providerAvailability(
     ? { label: 'Ready', value: 'healthy' }
     : { label: 'Sign-in needed', value: 'unavailable' };
 }
+
+/** Which single blocking action a preset needs before its models are usable. */
+export type ProviderPrimaryAction = 'sign_in' | 'install' | 'api_key' | 'none';
+
+export function providerPrimaryAction(preset: LanguageModelPreset | undefined): ProviderPrimaryAction {
+  if (!preset) return 'none';
+  if (preset.status === 'install_required') return 'install';
+  if (!preset.is_authenticated && (preset.auth_method === 'oauth' || preset.auth_method === 'subscription'))
+    return 'sign_in';
+  if (preset.requires_api_key && !preset.is_authenticated) return 'api_key';
+  return 'none';
+}

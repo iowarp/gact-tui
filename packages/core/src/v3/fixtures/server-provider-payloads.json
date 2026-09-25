@@ -1208,7 +1208,7 @@
           "subscription"
         ],
         "default_model": "",
-        "description": "Uses the official OpenAI Codex Python SDK so calls reuse your ChatGPT / Codex subscription instead of paying per-token on the OpenAI API. Authenticate Codex once on this machine; the SDK owns its pinned runtime.",
+        "description": "Uses the official OpenAI Codex Python SDK so calls reuse your Codex subscription instead of paying per-token on the OpenAI API. Authenticate Codex once on this machine; the SDK owns its pinned runtime.",
         "env_keys": [],
         "id": "codex",
         "is_authenticated": false,

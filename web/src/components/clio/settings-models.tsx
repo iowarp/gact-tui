@@ -1,7 +1,6 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { LanguageModelConfiguration, ProviderDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { DownloadIcon, KeyRoundIcon, LogOutIcon, RadioTowerIcon, RefreshCwIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -22,7 +21,7 @@ import { providerDisplayName, providerSummary } from '@/lib/provider-presentatio
 import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { useLiveStore } from '@/store/live-store';
 import { vocab } from '@/lib/brand-vocabulary';
-import { ProviderAuthPanel } from './provider-auth-panel';
+import { ProviderActionPanel } from './provider-action-panel';
 import { useProviderSettingsActions } from './settings-models-actions';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { ReasoningLevelField } from './reasoning-level-field';
@@ -38,7 +37,6 @@ import {
 } from './settings-models-form';
 import { ClioSettingsSection } from './settings-section';
 import { SettingsSectionHeading } from './settings-section-heading';
-import { HandshakeResult, RefreshResult } from './settings-models-results';
 import { ClioStatus } from './status';
 
 export function ModelsSettings() {
@@ -205,31 +203,13 @@ function ModelsSettingsContent({
       ]);
     },
   });
-  const {
-    authFailedReason,
-    authFlow,
-    authInstructions,
-    authLaunchError,
-    authPaste,
-    authStatus,
-    authenticate,
-    completeAuthentication,
-    handshake,
-    handshakeResult,
-    installProvider,
-    logout,
-    refreshModels,
-    refreshResult,
-    reset: resetProviderActions,
-    setAuthLaunchError,
-    setAuthPaste,
-  } = useProviderSettingsActions({
+  const providerActions = useProviderSettingsActions({
     presetId,
     apiBase: values.apiBase,
     onDefaultModel: (modelId) => edit({ modelId }),
+    preset: selectedPreset,
   });
-  const hasSubscriptionOrOAuthAuth =
-    selectedPreset?.auth_method === 'oauth' || selectedPreset?.auth_method === 'subscription';
+  const { reset: resetProviderActions } = providerActions;
 
   return (
     <>
@@ -253,72 +233,6 @@ function ModelsSettingsContent({
               >
                 {save.isPending ? 'Applying…' : 'Apply provider and model'}
               </Button>
-              {hasSubscriptionOrOAuthAuth ? (
-                <Button
-                  disabled={authenticate.isPending}
-                  onClick={() => authenticate.mutate('browser')}
-                  variant="outline"
-                >
-                  <KeyRoundIcon aria-hidden="true" />
-                  {authenticate.isPending
-                    ? 'Opening sign-in…'
-                    : `Sign in to ${providerDisplayName(selectedPreset)}`}
-                </Button>
-              ) : null}
-              {selectedPreset?.provider === 'chatgpt' ? (
-                <Button
-                  disabled={authenticate.isPending}
-                  onClick={() => authenticate.mutate('device')}
-                  variant="outline"
-                >
-                  Sign in with a device code
-                </Button>
-              ) : null}
-              {hasSubscriptionOrOAuthAuth && selectedPreset?.is_authenticated ? (
-                <Button
-                  disabled={logout.isPending}
-                  onClick={() => logout.mutate()}
-                  variant="outline"
-                >
-                  <LogOutIcon aria-hidden="true" />
-                  {logout.isPending ? 'Signing out…' : 'Sign out'}
-                </Button>
-              ) : null}
-              {selectedPreset?.auth_method === 'oauth' && selectedPreset.auth_label ? (
-                <span className="text-sm text-muted-foreground">
-                  Uses {selectedPreset.auth_label}
-                </span>
-              ) : null}
-              {selectedPreset?.provider === 'claude_code' &&
-              selectedPreset.status === 'install_required' ? (
-                <Button
-                  disabled={installProvider.isPending}
-                  onClick={() => installProvider.mutate()}
-                  variant="outline"
-                >
-                  <DownloadIcon aria-hidden="true" />
-                  {installProvider.isPending ? 'Installing Claude Code…' : 'Install Claude Code'}
-                </Button>
-              ) : null}
-              <Button
-                disabled={!presetId || refreshModels.isPending}
-                onClick={() => refreshModels.mutate()}
-                variant="outline"
-              >
-                <RefreshCwIcon
-                  aria-hidden="true"
-                  className={refreshModels.isPending ? 'animate-spin' : undefined}
-                />
-                {refreshModels.isPending ? 'Checking available models…' : 'Refresh model catalog'}
-              </Button>
-              <Button
-                disabled={!presetId || handshake.isPending}
-                onClick={() => handshake.mutate()}
-                variant="outline"
-              >
-                <RadioTowerIcon aria-hidden="true" />
-                {handshake.isPending ? 'Checking provider…' : 'Check provider'}
-              </Button>
               {selectedPreset ? (
                 <ClioStatus
                   detail={selectedAvailability.detail}
@@ -328,39 +242,7 @@ function ModelsSettingsContent({
               ) : null}
             </div>
             {save.error ? <p className="text-sm text-destructive">{save.error.message}</p> : null}
-            {refreshModels.error ? (
-              <p className="text-sm text-destructive">{refreshModels.error.message}</p>
-            ) : null}
-            {handshake.error ? (
-              <p className="text-sm text-destructive">{handshake.error.message}</p>
-            ) : null}
-            {installProvider.error ? (
-              <p className="text-sm text-destructive">{installProvider.error.message}</p>
-            ) : null}
-            {authenticate.error ? (
-              <p className="text-sm text-destructive">{authenticate.error.message}</p>
-            ) : null}
-            {authFailedReason ? <p className="text-sm text-destructive">{authFailedReason}</p> : null}
-            {authInstructions ? (
-              <p className="max-w-3xl text-sm text-muted-foreground">{authInstructions}</p>
-            ) : null}
-            {logout.error ? <p className="text-sm text-destructive">{logout.error.message}</p> : null}
-            {authFlow ? (
-              <ProviderAuthPanel
-                authFlow={authFlow}
-                authPaste={authPaste}
-                completeError={completeAuthentication.error?.message}
-                completePending={completeAuthentication.isPending}
-                launchError={authLaunchError}
-                onComplete={() => completeAuthentication.mutate()}
-                onLaunchError={setAuthLaunchError}
-                onPasteChange={setAuthPaste}
-                pollingState={authStatus.data?.state}
-                providerLabel={providerDisplayName(selectedPreset)}
-              />
-            ) : null}
-            {refreshResult ? <RefreshResult result={refreshResult} /> : null}
-            {handshakeResult ? <HandshakeResult result={handshakeResult} /> : null}
+            <ProviderActionPanel actions={providerActions} preset={selectedPreset} />
           </>
         }
         title="Provider and model"
