@@ -188,8 +188,13 @@ pub(crate) fn stop_and_log(root: &Path, label: &str) {
 /// executable, or `None` when it has already exited or this process cannot
 /// query it (a foreign session, insufficient rights) — either way, best
 /// effort, matching the rest of this module.
+///
+/// `pub(crate)`: shared with `clio_core_daemon` (#D1), which resolves the
+/// shared clio-core daemon's own exe path from its pidfile PID the same way
+/// this sweep resolves a managed process's path from a Toolhelp snapshot
+/// entry — one Win32 FFI wrapper, not two.
 #[cfg(windows)]
-fn windows_full_image_path(pid: u32) -> Option<String> {
+pub(crate) fn windows_full_image_path(pid: u32) -> Option<String> {
     let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
     if handle.is_null() {
         return None;
@@ -217,8 +222,12 @@ fn windows_full_image_path(pid: u32) -> Option<String> {
 /// not finish in time) just falls through to the hard-terminate step below —
 /// this is an optimization to avoid a needless TerminateProcess, not a
 /// required step.
+///
+/// `pub(crate)`: shared with `clio_core_daemon` (#D1)'s quit-time and
+/// startup-orphan release, which asks the exact same `clio_run.exe` for the
+/// exact same clean `stop` before ever falling back to a hard kill.
 #[cfg(windows)]
-fn windows_try_clean_stop(exe_path: &Path) {
+pub(crate) fn windows_try_clean_stop(exe_path: &Path) {
     let Some(bin_dir) = exe_path.parent() else {
         return;
     };
@@ -252,8 +261,11 @@ fn windows_try_clean_stop(exe_path: &Path) {
 /// only *requests* termination; the target still needs time to unwind and
 /// release its open handles into the directory this sweep exists to free up.
 /// Returns whether the process was confirmed to exit within `timeout`.
+///
+/// `pub(crate)`: shared with `clio_core_daemon` (#D1)'s hard-kill fallback
+/// when the clean `stop` above doesn't confirm in time.
 #[cfg(windows)]
-fn windows_terminate_and_wait(pid: u32, timeout: Duration) -> bool {
+pub(crate) fn windows_terminate_and_wait(pid: u32, timeout: Duration) -> bool {
     let handle: HANDLE = unsafe { OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, 0, pid) };
     if handle.is_null() {
         // Cannot open it at all -- most likely already gone.

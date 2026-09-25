@@ -7,6 +7,8 @@
 //! Wave 3: also owns SSH tunnel lifecycles + OS notifications + tray.
 
 mod brand_backend;
+mod clio_core_daemon;
+mod clio_core_registry;
 mod commands;
 mod credentials;
 mod gact_http;
@@ -505,6 +507,47 @@ pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<
     }
     if let Some(terminals) = app.try_state::<terminal_pty::TerminalRegistry>() {
         terminals.shutdown_all();
+    }
+    // Runs AFTER the supervisor shutdown above, so the server process (and
+    // whichever exit path it took — a graceful atexit release, or the forced
+    // TerminateProcess fallthrough that skips it) is already gone. The shared
+    // clio-core daemon deliberately survives that process-tree reap
+    // (`supervisor_shutdown::owned_descendants` spares `clio_run.exe` for
+    // independent CLIO clients); this is the second line of defense that
+    // stops it when THIS desktop's own client was the last one attached.
+    release_idle_clio_core_daemon();
+}
+
+/// Stop the machine's shared clio-core daemon if this process's own exit
+/// leaves no live client registered; leave it running for any other attached
+/// client (a CLI, a dev server). Best-effort and logged either way — see
+/// `clio_core_daemon::release_idle_daemon_on_quit`.
+fn release_idle_clio_core_daemon() {
+    let Some(state_dir) = clio_core_registry::runtime_state_dir() else {
+        supervisor_boot_log::boot_log_line(
+            "clio-core daemon release skipped: could not resolve the host state directory \
+             (no CLIO_RUNTIME_STATE_DIR and no home directory)",
+        );
+        return;
+    };
+    match clio_core_daemon::release_idle_daemon_on_quit(&state_dir) {
+        clio_core_daemon::DaemonOutcome::AlreadyGone => {}
+        clio_core_daemon::DaemonOutcome::LiveClientsPresent(pids) => {
+            supervisor_boot_log::boot_log_line(&format!(
+                "clio-core daemon left running: kept alive by other client pid(s) {pids:?}"
+            ));
+        }
+        clio_core_daemon::DaemonOutcome::StoppedCleanly(pid) => {
+            supervisor_boot_log::boot_log_line(&format!(
+                "clio-core daemon (pid {pid}) stopped cleanly on quit — this was the last client"
+            ));
+        }
+        clio_core_daemon::DaemonOutcome::StoppedByForce(pid) => {
+            supervisor_boot_log::boot_log_line(&format!(
+                "clio-core daemon (pid {pid}) required a hard kill on quit \
+                 (clean stop did not confirm in time) — this was the last client"
+            ));
+        }
     }
 }
 
