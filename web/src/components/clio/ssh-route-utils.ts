@@ -1,4 +1,4 @@
-import type { SshHost } from '@/lib/ssh-hosts';
+import { sshHostDestination, type SshHost } from '@/lib/ssh-hosts';
 
 /** One step of an SSH jump chain: a stable drag identity plus its OpenSSH destination. */
 export type JumpStep = { key: string; host: string };
@@ -58,6 +58,43 @@ export function parseJumpDestination(destination: string): Pick<SshHost, 'host' 
 function validPort(value: string | undefined): number {
   const port = Number(value ?? 22);
   return Number.isInteger(port) && port > 0 && port <= 65_535 ? port : 22;
+}
+
+/**
+ * The route as one ordered list of hop references: jump hosts, then the
+ * destination last. The front-door route has no pinned destination row — only
+ * positions — so this is the single place that turns the destination-plus-
+ * jumpHosts shape the rest of the app persists into the unified hop order the
+ * route editor drags and drops.
+ */
+export function routeSteps(value: SshHost | undefined): string[] {
+  return value ? [...(value.jumpHosts ?? []), sshHostDestination(value)] : [];
+}
+
+/**
+ * The full connection details for one hop reference: the saved computer it
+ * names, or (for a typed OpenSSH alias/address never saved as a computer) a
+ * parsed draft with just enough to display and to connect through.
+ */
+export function resolveRouteHop(ref: string, options: readonly SshHost[]): SshHost {
+  const saved = options.find((option) => sshHostDestination(option) === ref);
+  if (saved) return saved;
+  return { id: `draft:${ref}`, label: ref, jumpHosts: [], ...parseJumpDestination(ref) };
+}
+
+/**
+ * Recompute the destination and its jump chain from a reordered or edited hop
+ * list. Whichever hop lands last becomes the destination and every other hop
+ * becomes a jump-host reference — reordering can move the destination itself,
+ * since it is only ever the last position, never a fixed identity.
+ */
+export function applyRouteOrder(
+  refs: readonly string[],
+  resolve: (ref: string) => SshHost,
+): SshHost | undefined {
+  if (!refs.length) return undefined;
+  const destination = resolve(refs[refs.length - 1]);
+  return { ...destination, jumpHosts: refs.slice(0, -1) };
 }
 
 /**

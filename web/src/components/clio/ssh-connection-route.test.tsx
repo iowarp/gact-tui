@@ -3,7 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { SshConnectionRoute } from './ssh-connection-route';
-import { parseJumpDestination, reconcileJumpSteps, uniqueProfileName } from './ssh-route-utils';
+import {
+  applyRouteOrder,
+  parseJumpDestination,
+  reconcileJumpSteps,
+  resolveRouteHop,
+  routeSteps,
+  uniqueProfileName,
+} from './ssh-route-utils';
 
 const destination: SshHost = {
   id: 'profile:utah',
@@ -25,36 +32,56 @@ const bastion: SshHost = { ...gateway, id: 'profile:bastion', label: 'Bastion', 
 
 afterEach(cleanup);
 
-function renderRoute(value: SshHost, options: SshHost[] = [destination, gateway, bastion]) {
+function renderRoute(value: SshHost | undefined, options: SshHost[] = [destination, gateway, bastion]) {
   const handlers = { onChange: vi.fn(), onConfigure: vi.fn(), onCreate: vi.fn() };
   render(<SshConnectionRoute {...handlers} options={options} value={value} />);
   return handlers;
 }
 
 describe('SshConnectionRoute', () => {
-  it('adds a saved computer as a jump host from the front-door route', async () => {
+  it('shows one row to choose the destination when nothing is selected yet', () => {
+    renderRoute(undefined);
+
+    expect(screen.getByRole('combobox', { name: 'Saved SSH host' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add SSH host' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Add hop' })).toBeDisabled();
+  });
+
+  it('adds a saved computer as a hop from the front-door route', async () => {
     const user = userEvent.setup();
     const { onChange } = renderRoute(destination);
 
-    await user.click(screen.getByRole('button', { name: 'Add jump host' }));
+    await user.click(screen.getByRole('button', { name: 'Add hop' }));
     await user.click(screen.getByRole('combobox', { name: 'New jump host' }));
     await user.click(screen.getByRole('option', { name: 'Campus gateway' }));
 
-    expect(onChange).toHaveBeenCalledWith({ ...destination, jumpHosts: ['gateway'] });
+    expect(onChange).toHaveBeenCalledWith({ ...gateway, jumpHosts: ['utah'] });
   });
 
-  it('opens the shared host dialog to add a new computer as a jump host', async () => {
+  it('opens the shared host dialog to add a new computer as the new destination', async () => {
     const user = userEvent.setup();
     const { onCreate } = renderRoute(destination);
 
-    await user.click(screen.getByRole('button', { name: 'Add jump host' }));
+    await user.click(screen.getByRole('button', { name: 'Add hop' }));
     await user.click(screen.getByRole('combobox', { name: 'New jump host' }));
     await user.click(screen.getByRole('option', { name: 'Add another computer…' }));
 
-    expect(onCreate).toHaveBeenCalledWith({ kind: 'jump', index: 'new' });
+    expect(onCreate).toHaveBeenCalledWith({ index: 1, isDestination: true });
   });
 
-  it('configures jump hosts and the destination through the same configure action', async () => {
+  it('the new hop row has its own configure gear, even before anything is chosen', async () => {
+    const user = userEvent.setup();
+    const { onCreate } = renderRoute(destination);
+
+    await user.click(screen.getByRole('button', { name: 'Add hop' }));
+    // The current destination's own gear already shows its resolved name
+    // ("Configure Utah cluster"), so the new row's unnamed gear is unambiguous.
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+
+    expect(onCreate).toHaveBeenCalledWith({ index: 1, isDestination: true });
+  });
+
+  it('configures hops and the destination through the same configure action', async () => {
     const user = userEvent.setup();
     const { onConfigure } = renderRoute({ ...destination, jumpHosts: ['gateway', 'bastion'] });
 
@@ -62,16 +89,16 @@ describe('SshConnectionRoute', () => {
     await user.click(screen.getByRole('button', { name: 'Configure Utah cluster' }));
 
     expect(onConfigure.mock.calls).toEqual([
-      [{ kind: 'jump', index: 1 }],
-      [{ kind: 'destination' }],
+      [{ index: 1, isDestination: false }],
+      [{ index: 2, isDestination: true }],
     ]);
   });
 
-  it('adds a typed OpenSSH alias as a jump host', async () => {
+  it('adds a typed OpenSSH alias as a hop', async () => {
     const user = userEvent.setup();
     const { onChange } = renderRoute(destination);
 
-    await user.click(screen.getByRole('button', { name: 'Add jump host' }));
+    await user.click(screen.getByRole('button', { name: 'Add hop' }));
     await user.click(screen.getByRole('combobox', { name: 'New jump host' }));
     await user.click(screen.getByRole('option', { name: 'Type an OpenSSH alias or address…' }));
     await user.type(
@@ -79,14 +106,21 @@ describe('SshConnectionRoute', () => {
       'alice@gw.alcf.anl.gov{Enter}',
     );
 
-    expect(onChange).toHaveBeenCalledWith({ ...destination, jumpHosts: ['alice@gw.alcf.anl.gov'] });
+    expect(onChange).toHaveBeenCalledWith({
+      id: 'draft:alice@gw.alcf.anl.gov',
+      label: 'alice@gw.alcf.anl.gov',
+      host: 'gw.alcf.anl.gov',
+      user: 'alice',
+      port: 22,
+      jumpHosts: ['utah'],
+    });
   });
 
-  it('refuses a typed jump host that would corrupt the OpenSSH configuration', async () => {
+  it('refuses a typed hop that would corrupt the OpenSSH configuration', async () => {
     const user = userEvent.setup();
     const { onChange } = renderRoute(destination);
 
-    await user.click(screen.getByRole('button', { name: 'Add jump host' }));
+    await user.click(screen.getByRole('button', { name: 'Add hop' }));
     await user.click(screen.getByRole('combobox', { name: 'New jump host' }));
     await user.click(screen.getByRole('option', { name: 'Type an OpenSSH alias or address…' }));
     await user.type(screen.getByLabelText('Jump host alias or address'), 'alice@gw -p 2222{Enter}');
@@ -96,24 +130,79 @@ describe('SshConnectionRoute', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('never offers the destination as its own jump host', async () => {
+  it('never offers the current destination as another hop', async () => {
     const user = userEvent.setup();
     renderRoute(destination);
 
-    await user.click(screen.getByRole('button', { name: 'Add jump host' }));
+    await user.click(screen.getByRole('button', { name: 'Add hop' }));
     await user.click(screen.getByRole('combobox', { name: 'New jump host' }));
 
     expect(screen.queryByRole('option', { name: 'Utah cluster' })).not.toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Campus gateway' })).toBeVisible();
   });
 
-  it('removes one jump host without touching the others', async () => {
+  it('removes one hop without touching the others', async () => {
     const user = userEvent.setup();
     const { onChange } = renderRoute({ ...destination, jumpHosts: ['gateway', 'bastion'] });
 
     await user.click(screen.getByRole('button', { name: 'Remove jump host 1' }));
 
     expect(onChange).toHaveBeenCalledWith({ ...destination, jumpHosts: ['bastion'] });
+  });
+
+  it('reordering moves the destination — the last hop is the destination', async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderRoute({ ...destination, jumpHosts: ['gateway', 'bastion'] });
+
+    // Real drag-and-drop is verified against a live Chromium harness (per
+    // #437); here, removing the destination exercises the same "whichever hop
+    // is now last becomes the destination" recomputation that a drop commits.
+    await user.click(screen.getByRole('button', { name: 'Remove destination' }));
+
+    expect(onChange).toHaveBeenCalledWith({ ...bastion, jumpHosts: ['gateway'] });
+  });
+
+  it('clears the route entirely once the only hop is removed', async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderRoute(destination);
+
+    await user.click(screen.getByRole('button', { name: 'Remove destination' }));
+
+    expect(onChange).toHaveBeenCalledWith(undefined);
+  });
+});
+
+describe('route utilities', () => {
+  it('flattens a destination and its jump hosts into one ordered hop list', () => {
+    expect(routeSteps(undefined)).toEqual([]);
+    expect(routeSteps({ ...destination, jumpHosts: ['gateway', 'bastion'] })).toEqual([
+      'gateway',
+      'bastion',
+      'utah',
+    ]);
+  });
+
+  it('resolves a hop reference to the saved computer it names, or a parsed draft', () => {
+    expect(resolveRouteHop('gateway', [destination, gateway])).toBe(gateway);
+    expect(resolveRouteHop('alice@gw.alcf.anl.gov', [destination, gateway])).toEqual({
+      id: 'draft:alice@gw.alcf.anl.gov',
+      label: 'alice@gw.alcf.anl.gov',
+      host: 'gw.alcf.anl.gov',
+      user: 'alice',
+      port: 22,
+      jumpHosts: [],
+    });
+  });
+
+  it('recomputes the destination as whichever hop lands last', () => {
+    const resolve = (ref: string) => resolveRouteHop(ref, [destination, gateway, bastion]);
+    expect(applyRouteOrder([], resolve)).toBeUndefined();
+    expect(applyRouteOrder(['utah'], resolve)).toEqual({ ...destination, jumpHosts: [] });
+    // Reordering so "gateway" lands last promotes it to the destination.
+    expect(applyRouteOrder(['utah', 'gateway'], resolve)).toEqual({
+      ...gateway,
+      jumpHosts: ['utah'],
+    });
   });
 });
 

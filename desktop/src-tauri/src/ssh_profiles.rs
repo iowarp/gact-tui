@@ -37,6 +37,10 @@ pub struct SshProfile {
     pub platform: String,
     pub install_root: Option<String>,
     pub managed: bool,
+    /// Never true from `ssh_profiles_list`, which already filters hidden
+    /// profiles out; only `ssh_profiles_list_all` (the hosts manager) reports it.
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -112,6 +116,28 @@ fn default_platform() -> String {
 pub fn ssh_profiles_list(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
     let paths = profile_paths(&app)?;
     let preferences = read_preferences(&paths.preferences)?;
+    let profiles = resolve_all_profiles(&paths, &preferences)?;
+    Ok(profiles
+        .into_iter()
+        .filter(|profile| !profile.hidden)
+        .collect())
+}
+
+/// Every alias CLIO or the user's own OpenSSH configuration declares, managed
+/// and imported alike, with each one's hidden preference attached — the truth
+/// the hosts manager needs, and what `ssh_profiles_list` filters hidden ones
+/// out of for every other picker.
+#[tauri::command]
+pub fn ssh_profiles_list_all(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
+    let paths = profile_paths(&app)?;
+    let preferences = read_preferences(&paths.preferences)?;
+    resolve_all_profiles(&paths, &preferences)
+}
+
+fn resolve_all_profiles(
+    paths: &ProfilePaths,
+    preferences: &ProfilePreferences,
+) -> Result<Vec<SshProfile>, String> {
     let managed_names = read_aliases(&paths.managed_include)?;
     let mut names = read_aliases(&paths.user_config)?;
     names.extend(managed_names.iter().cloned());
@@ -122,14 +148,17 @@ pub fn ssh_profiles_list(app: tauri::AppHandle) -> Result<Vec<SshProfile>, Strin
     let defaults = resolve_profile(OPENSSH_DEFAULTS_PROBE, false, None).ok();
     names
         .into_iter()
-        .filter(|name| !preferences.hidden.contains(&name.to_ascii_lowercase()))
         .map(|name| {
+            let hidden = preferences.hidden.contains(&name.to_ascii_lowercase());
             let metadata = preferences.metadata.get(&name.to_ascii_lowercase());
-            match managed_block(&managed_blocks, &name) {
-                Some(block) => Ok(managed_profile(&name, block, metadata)),
-                None => resolve_profile(&name, false, metadata)
-                    .map(|profile| without_openssh_defaults(profile, defaults.as_ref())),
-            }
+            let profile = match managed_block(&managed_blocks, &name) {
+                Some(block) => managed_profile(&name, block, metadata),
+                None => without_openssh_defaults(
+                    resolve_profile(&name, false, metadata)?,
+                    defaults.as_ref(),
+                ),
+            };
+            Ok(SshProfile { hidden, ..profile })
         })
         .collect()
 }
@@ -489,6 +518,7 @@ fn managed_profile(name: &str, block: &str, metadata: Option<&ProfileMetadata>) 
             .unwrap_or_else(default_platform),
         install_root: metadata.and_then(|value| some_value(&value.install_root)),
         managed: true,
+        hidden: false,
     }
 }
 
@@ -545,6 +575,7 @@ fn resolve_profile(
             .unwrap_or_else(default_platform),
         install_root: metadata.and_then(|value| some_value(&value.install_root)),
         managed,
+        hidden: false,
     })
 }
 
@@ -686,6 +717,57 @@ mod tests {
             render_profile(&request),
             "Host utah\n  HostName login.utah.edu\n  Port 22\n  User alice\n  ProxyJump gateway,bastion"
         );
+    }
+
+    /// `resolve_all_profiles` reports every managed alias's hidden preference
+    /// (what the hosts manager lists), while `ssh_profiles_list` filters
+    /// hidden ones out (what every other picker gets). Both managed aliases
+    /// here so the test never shells out to real `ssh -G` resolution.
+    #[test]
+    fn reports_hidden_preference_for_every_managed_alias() {
+        let dir = env::temp_dir().join(format!("clio-ssh-profiles-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        let managed_include = dir.join("clio-managed-config");
+        fs::write(
+            &managed_include,
+            "Host visible-host\n  HostName visible.example.edu\n  Port 22\n\nHost hidden-host\n  HostName hidden.example.edu\n  Port 22",
+        )
+        .expect("write managed include");
+        let paths = ProfilePaths {
+            user_config: dir.join("user-config-does-not-exist"),
+            managed_include,
+            preferences: dir.join("preferences.json"),
+            identity_directory: dir.join("identities"),
+        };
+        let mut preferences = ProfilePreferences::default();
+        preferences.hidden.insert("hidden-host".into());
+
+        let all = resolve_all_profiles(&paths, &preferences).expect("resolve all profiles");
+        let hidden: BTreeMap<_, _> = all
+            .iter()
+            .map(|profile| (profile.name.clone(), profile.hidden))
+            .collect();
+        assert_eq!(hidden.get("visible-host"), Some(&false));
+        assert_eq!(hidden.get("hidden-host"), Some(&true));
+
+        let listed = ssh_profiles_list_names(&paths, &preferences);
+        assert_eq!(listed, vec!["visible-host".to_string()]);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// The same filtering `ssh_profiles_list` applies, without needing a
+    /// `tauri::AppHandle` to resolve `ProfilePaths`.
+    fn ssh_profiles_list_names(
+        paths: &ProfilePaths,
+        preferences: &ProfilePreferences,
+    ) -> Vec<String> {
+        resolve_all_profiles(paths, preferences)
+            .expect("resolve all profiles")
+            .into_iter()
+            .filter(|profile| !profile.hidden)
+            .map(|profile| profile.name)
+            .collect()
     }
 
     #[test]

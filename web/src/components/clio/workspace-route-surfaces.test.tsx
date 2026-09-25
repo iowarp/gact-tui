@@ -1,8 +1,13 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ComponentProps } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { WorkspaceHydrating, WorkspaceStatusStrip } from './workspace-route-surfaces';
+import { useUpdateFlowStore } from '@/store/update-flow-store';
+import {
+  WorkspaceHydrating,
+  WorkspaceStatusStrip,
+  WorkspaceTranscriptAlerts,
+} from './workspace-route-surfaces';
 
 const tauri = vi.hoisted(() => ({ inTauri: vi.fn(() => false) }));
 
@@ -13,6 +18,10 @@ vi.mock('./live-connection-indicator', () => ({
   LiveConnectionIndicator: () => <span data-testid="live-connection-indicator">Live pill</span>,
 }));
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: tauri.inTauri }));
+
+beforeEach(() => {
+  useUpdateFlowStore.getState().reset();
+});
 
 afterEach(cleanup);
 
@@ -77,6 +86,58 @@ describe('WorkspaceStatusStrip', () => {
       'Recovery checkpoint point-1849',
     );
     expect(screen.getByText('2 active items')).toBeVisible();
+  });
+});
+
+describe('WorkspaceTranscriptAlerts', () => {
+  it('shows a stream error under ordinary conditions', () => {
+    render(<WorkspaceTranscriptAlerts streamError="The stream disconnected unexpectedly." />);
+
+    expect(screen.getByText('Live stream needs reconciliation')).toBeVisible();
+    expect(screen.getByText('The stream disconnected unexpectedly.')).toBeVisible();
+  });
+
+  it('suppresses the stream-error card while an update is in flight', () => {
+    useUpdateFlowStore.getState().start('agent', '0.9.5.0');
+    useUpdateFlowStore.getState().setStep('installing');
+
+    render(<WorkspaceTranscriptAlerts streamError="The stream disconnected unexpectedly." />);
+
+    expect(screen.queryByText('Live stream needs reconciliation')).not.toBeInTheDocument();
+  });
+
+  it('suppresses the stream-error card while reconnecting after an expected restart', () => {
+    useUpdateFlowStore.getState().resume('both', '0.9.5.0');
+
+    render(<WorkspaceTranscriptAlerts streamError="The stream disconnected unexpectedly." />);
+
+    expect(screen.queryByText('Live stream needs reconciliation')).not.toBeInTheDocument();
+  });
+
+  it('still shows an unrelated transcript-fetch error during an in-flight update', () => {
+    useUpdateFlowStore.getState().start('agent', '0.9.5.0');
+    useUpdateFlowStore.getState().setStep('installing');
+
+    render(
+      <WorkspaceTranscriptAlerts
+        streamError="The stream disconnected unexpectedly."
+        transcriptError="Could not load older messages."
+      />,
+    );
+
+    expect(screen.queryByText('Live stream needs reconciliation')).not.toBeInTheDocument();
+    expect(screen.getByText('Conversation unavailable')).toBeVisible();
+    expect(screen.getByText('Could not load older messages.')).toBeVisible();
+  });
+
+  it('resumes showing stream errors once the update settles back to idle', () => {
+    useUpdateFlowStore.getState().start('agent', '0.9.5.0');
+    useUpdateFlowStore.getState().setStep('installing');
+    useUpdateFlowStore.getState().reset();
+
+    render(<WorkspaceTranscriptAlerts streamError="The stream disconnected unexpectedly." />);
+
+    expect(screen.getByText('Live stream needs reconciliation')).toBeVisible();
   });
 });
 

@@ -1,19 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { EyeOffIcon, Trash2Icon, TriangleAlertIcon } from 'lucide-react';
+import { Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { vocab } from '@/lib/brand-vocabulary';
-import { profileSshHosts, type SshHost } from '@/lib/ssh-hosts';
-import {
-  deleteSshProfile,
-  listSshProfiles,
-  setSshProfileHidden,
-  setSshProfileRoute,
-} from '@/tauri/ssh-profiles';
+import { profileSshHosts, sshHostDestination, type SshHost } from '@/lib/ssh-hosts';
+import { deleteSshProfile, listSshProfiles, setSshProfileRoute } from '@/tauri/ssh-profiles';
 import { SshConnectionRoute, type SshRouteStep } from './ssh-connection-route';
 import { SshHostDialog } from './ssh-host-dialog';
-import { parseJumpDestination } from './ssh-route-utils';
+import { resolveRouteHop, routeSteps } from './ssh-route-utils';
 
 type DialogState = { step: SshRouteStep; initial?: SshHost };
 
@@ -31,7 +26,7 @@ export function SshHostPicker({
   });
   // The last opened step stays in place while the dialog animates closed;
   // a fresh key per open resets the form to that step's computer.
-  const [dialog, setDialog] = useState<DialogState>({ step: { kind: 'destination' } });
+  const [dialog, setDialog] = useState<DialogState>({ step: { index: 0, isDestination: true } });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogKey, setDialogKey] = useState(0);
   const openDialog = (next: DialogState) => {
@@ -79,35 +74,23 @@ export function SshHostPicker({
     }
   };
 
-  const jumpInitial = (index: number): SshHost | undefined => {
-    const jump = value?.jumpHosts?.[index];
-    if (!jump) return undefined;
-    const saved = options.find((candidate) => candidate.profile === jump);
-    if (saved) return saved;
-    return { id: `draft:${jump}`, label: jump, ...parseJumpDestination(jump), jumpHosts: [] };
-  };
-
-  const openConfigure = (step: SshRouteStep) =>
+  const openConfigure = (step: SshRouteStep) => {
+    const refs = routeSteps(value);
     openDialog({
       step,
-      initial:
-        step.kind === 'destination'
-          ? value
-          : step.index === 'new'
-            ? undefined
-            : jumpInitial(step.index),
+      initial: step.index < refs.length ? resolveRouteHop(refs[step.index], visibleOptions) : undefined,
     });
+  };
 
+  /** Place a freshly saved computer into the step the dialog was opened for. */
   const placeSaved = (saved: SshHost, step: SshRouteStep) => {
-    if (step.kind === 'destination') {
-      onChange(saved);
-      return;
-    }
-    if (!value || !saved.profile) return;
-    const jumps = [...(value.jumpHosts ?? [])];
-    if (step.index === 'new') jumps.push(saved.profile);
-    else jumps[step.index] = saved.profile;
-    void changeRoute({ ...value, jumpHosts: jumps });
+    const refs = routeSteps(value);
+    const nextRefs =
+      step.index < refs.length
+        ? refs.map((ref, index) => (index === step.index ? sshHostDestination(saved) : ref))
+        : [...refs, sshHostDestination(saved)];
+    const destination = resolveRouteHop(nextRefs[nextRefs.length - 1], [saved, ...visibleOptions]);
+    void changeRoute({ ...destination, jumpHosts: nextRefs.slice(0, -1) });
   };
 
   return (
@@ -134,12 +117,11 @@ export function SshHostPicker({
         </p>
       ) : null}
 
-      {value ? (
+      {value?.managed && value.profile ? (
         <Button
-          aria-label={value.managed ? `Delete ${value.label}` : `Hide ${value.label}`}
+          aria-label={`Delete ${value.label}`}
           onClick={async () => {
-            if (value.managed && value.profile) await deleteSshProfile(value.profile);
-            else if (value.profile) await setSshProfileHidden(value.profile, true);
+            await deleteSshProfile(value.profile ?? '');
             onChange(undefined);
             await profiles.refetch();
           }}
@@ -148,8 +130,7 @@ export function SshHostPicker({
           type="button"
           variant="ghost"
         >
-          {value.managed ? <Trash2Icon aria-hidden="true" /> : <EyeOffIcon aria-hidden="true" />}{' '}
-          {value.managed ? 'Delete saved computer' : 'Hide imported computer'}
+          <Trash2Icon aria-hidden="true" /> Delete saved computer
         </Button>
       ) : null}
 

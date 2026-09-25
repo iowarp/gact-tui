@@ -173,6 +173,7 @@ pub fn run() {
             ssh_transport::ssh_transport_forward,
             ssh_transport::ssh_transport_close,
             ssh_profiles::ssh_profiles_list,
+            ssh_profiles::ssh_profiles_list_all,
             ssh_profiles::ssh_profile_save,
             ssh_profiles::ssh_profile_set_route,
             ssh_profiles::ssh_profile_set_hidden,

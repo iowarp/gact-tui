@@ -62,6 +62,7 @@ beforeEach(() => {
     },
   });
   transport.closeSshConnectionTest.mockResolvedValue(undefined);
+  transport.writeSshTransport.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -163,7 +164,13 @@ describe('SshHostPicker', () => {
   it('configures a jump host in the same dialog and persists the reordered route', async () => {
     const user = userEvent.setup();
     profiles.listSshProfiles.mockResolvedValue([
-      { name: 'utah', label: 'Utah cluster', hostname: 'login.utah.edu', jump_hosts: ['gw'], managed: true },
+      {
+        name: 'utah',
+        label: 'Utah cluster',
+        hostname: 'login.utah.edu',
+        jump_hosts: ['gw'],
+        managed: true,
+      },
       { name: 'gw', label: 'Gateway', hostname: 'gw.utah.edu', user: 'alice', managed: true },
     ]);
     const onChange = vi.fn();
@@ -204,10 +211,48 @@ describe('SshHostPicker', () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ jumpHosts: [] }));
   });
 
+  it('reorders the route so the last hop becomes the destination', async () => {
+    const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'utah', label: 'Utah cluster', hostname: 'login.utah.edu', jump_hosts: ['gw'], managed: true },
+      { name: 'gw', label: 'Gateway', hostname: 'gw.utah.edu', user: 'alice', managed: true },
+    ]);
+    const onChange = vi.fn();
+    const destination = {
+      id: 'profile:utah',
+      label: 'Utah cluster',
+      profile: 'utah',
+      host: 'login.utah.edu',
+      port: 22,
+      jumpHosts: ['gw'],
+      platform: 'auto' as const,
+      managed: true,
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker onChange={onChange} value={destination} />
+      </QueryClientProvider>,
+    );
+
+    // Removing the destination promotes whatever hop is now last — the same
+    // recomputation a drag-and-drop reorder commits.
+    await user.click(await screen.findByRole('button', { name: 'Remove destination' }));
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'profile:gw', label: 'Gateway', jumpHosts: [] }),
+    );
+  });
+
   it('keeps a jump host its own route when it is configured', async () => {
     const user = userEvent.setup();
     profiles.listSshProfiles.mockResolvedValue([
-      { name: 'dest', label: 'Destination', hostname: 'dest.edu', jump_hosts: ['gw'], managed: true },
+      {
+        name: 'dest',
+        label: 'Destination',
+        hostname: 'dest.edu',
+        jump_hosts: ['gw'],
+        managed: true,
+      },
       { name: 'gw', label: 'Gateway', hostname: 'gw.edu', jump_hosts: ['bastion'], managed: true },
     ]);
     render(
@@ -263,6 +308,47 @@ describe('SshHostPicker', () => {
     );
   });
 
+  it('keeps the OpenSSH prompt in its own form, separate from Save host (#1437)', async () => {
+    const user = userEvent.setup();
+    transport.openSshConnectionTest.mockResolvedValue({
+      targetId: 'ssh-test-host',
+      status: {
+        session_id: 'ssh-test-session',
+        state: 'reauthentication_required',
+        reused: false,
+        output: 'Password:',
+      },
+    });
+    // Never resolves: keeps the prompt open through this test without a
+    // repeating background poll. The single 250ms sleep already in flight
+    // when the test ends fires once, harmlessly, touching no React state.
+    transport.sshTransportStatus.mockReturnValue(new Promise(() => {}));
+    renderPicker();
+
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+    await user.type(screen.getByLabelText('Address'), 'utah.example.edu');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await screen.findByText('SSH authentication required');
+
+    // Root cause of #1437: SshAuthentication renders its own <form> to answer
+    // one OpenSSH prompt. It must never be a DOM descendant of the host
+    // dialog's own <form onSubmit={submit}> (Save host) — nested <form>
+    // elements are invalid HTML, and the resulting native `submit` bubbles
+    // from the inner form into the outer one.
+    for (const form of document.querySelectorAll('form')) {
+      expect(form.querySelector('form')).toBeNull();
+    }
+
+    await user.type(screen.getByLabelText('SSH prompt response'), 'super-secret');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(transport.writeSshTransport).toHaveBeenCalledWith('ssh-test-session', 'super-secret\n');
+    // Answering the prompt must only answer the prompt: no save, no close.
+    expect(profiles.saveSshProfile).not.toHaveBeenCalled();
+    expect(await screen.findByRole('dialog')).toBeVisible();
+  });
+
   it('says a route edit on an imported OpenSSH host applies to this deployment only', async () => {
     const user = userEvent.setup();
     profiles.listSshProfiles.mockResolvedValue([
@@ -291,5 +377,92 @@ describe('SshHostPicker', () => {
     expect(await screen.findByText(/used for this deployment only/u)).toBeVisible();
     expect(profiles.setSshProfileRoute).not.toHaveBeenCalled();
     expect(profiles.saveSshProfile).not.toHaveBeenCalled();
+  });
+
+  it('adding a hop and configuring it saves a new computer as the destination', async () => {
+    const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'ares', label: 'Ares', hostname: 'ares.example.edu', managed: true },
+    ]);
+    const onChange = vi.fn();
+    const destination = {
+      id: 'profile:ares',
+      label: 'Ares',
+      profile: 'ares',
+      host: 'ares.example.edu',
+      port: 22,
+      jumpHosts: [],
+      managed: true,
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker onChange={onChange} value={destination} />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Add hop' }));
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+    await user.type(screen.getByLabelText('Address'), 'node042.ares.example.edu');
+    await user.type(screen.getByLabelText('Name'), 'Ares compute node');
+    await user.click(screen.getByRole('button', { name: 'Save host' }));
+
+    await waitFor(() =>
+      expect(profiles.saveSshProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ hostname: 'node042.ares.example.edu' }),
+      ),
+    );
+    // Ares was the destination; adding and configuring a new hop after it
+    // makes the new computer the destination and Ares its jump host.
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ label: 'Ares compute node', jumpHosts: ['ares'] }),
+    );
+  });
+
+  it('offers no inline hide action; visibility is managed elsewhere', async () => {
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'imported', label: 'imported', hostname: 'imported.example.edu', managed: false },
+    ]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker
+          onChange={vi.fn()}
+          value={{
+            id: 'profile:imported',
+            label: 'imported',
+            profile: 'imported',
+            host: 'imported.example.edu',
+            port: 22,
+            jumpHosts: [],
+            managed: false,
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole('button', { name: 'Configure imported' });
+    expect(screen.queryByRole('button', { name: /hide/iu })).not.toBeInTheDocument();
+    expect(screen.queryByText('Hide imported computer')).not.toBeInTheDocument();
+  });
+
+  it('only offers deleting a managed computer, never an imported one', async () => {
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'ares', label: 'Ares', hostname: 'ares.example.edu', managed: true },
+    ]);
+    const destination = {
+      id: 'profile:ares',
+      label: 'Ares',
+      profile: 'ares',
+      host: 'ares.example.edu',
+      port: 22,
+      jumpHosts: [],
+      managed: true,
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker onChange={vi.fn()} value={destination} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Delete Ares' })).toBeVisible();
   });
 });

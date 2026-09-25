@@ -8,7 +8,6 @@ import {
   LoaderCircleIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
@@ -26,20 +25,85 @@ import {
   subscribeDesktopUpdate,
 } from '@/tauri/desktop-updater';
 import { restartClio, updateManagedClio } from '@/tauri/managed-backend';
+import {
+  clearPendingUpdateMarker,
+  isUpdateInFlight,
+  useUpdateFlowStore,
+  writePendingUpdateMarker,
+  type UpdateAction,
+} from '@/store/update-flow-store';
 
 // 'unknown' is a REAL state -- no check has run, or the one that ran had
 // nothing to compare against (no release feed, a failed fetch). It must
 // never be presented as 'current': that would tell someone their software
 // is up to date when nobody actually looked.
 type VersionState = 'unknown' | 'checking' | 'current' | 'available' | 'error';
-type UpdateAction = 'desktop' | 'agent' | 'both';
+
+/**
+ * Drives one "Update all" click through the real state machine
+ * (`useUpdateFlowStore`), persisting the restart marker before any call that
+ * disconnects the backend or replaces the process. Module-level (not a
+ * closure inside `SystemVersionStatus`) so its `Date.now()` calls happen only
+ * when a person actually triggers an update -- never reachable from render.
+ */
+async function runUpdate(
+  action: UpdateAction,
+  { desktopTargetVersion, latestClioVersion }: { desktopTargetVersion?: string; latestClioVersion?: string },
+): Promise<void> {
+  const flow = useUpdateFlowStore.getState();
+  const version = action === 'desktop' ? desktopTargetVersion : latestClioVersion;
+  flow.start(action, version);
+  try {
+    if (action === 'agent') {
+      if (!latestClioVersion) throw new Error(`No newer ${vocab.agent} release was found to update to.`);
+      // Persisted BEFORE the restart-triggering call below: `update_clio`
+      // disconnects the current backend immediately, then (restartApp:
+      // true) replaces the whole process a moment after success. Nothing
+      // in this session survives that to report "reconnecting" itself --
+      // the next boot reads this marker instead (see `UpdateRestartRecovery`).
+      writePendingUpdateMarker({ action, version: latestClioVersion, startedAt: Date.now() });
+      flow.setStep('installing');
+      await updateManagedClio(releaseTag(latestClioVersion), {
+        restartApp: true,
+        onProgress: (line) => useUpdateFlowStore.getState().appendLine(line),
+      });
+      flow.setStep('restarting');
+      return;
+    }
+    if (action === 'both' && latestClioVersion) {
+      writePendingUpdateMarker({ action, version: latestClioVersion, startedAt: Date.now() });
+      flow.setStep('installing');
+      await updateManagedClio(releaseTag(latestClioVersion), {
+        restartApp: false,
+        onProgress: (line) => useUpdateFlowStore.getState().appendLine(line),
+      });
+    } else if (action === 'desktop') {
+      writePendingUpdateMarker({ action, version: desktopTargetVersion, startedAt: Date.now() });
+    }
+    flow.setStep('downloading');
+    await installDesktopUpdate((progress) => useUpdateFlowStore.getState().setProgress(progress));
+    flow.setStep('restarting');
+  } catch (error) {
+    clearPendingUpdateMarker();
+    if (action === 'agent' || action === 'both') {
+      await restartClio().catch(() => undefined);
+    }
+    useUpdateFlowStore.getState().fail(error instanceof Error ? error.message : String(error));
+  }
+}
 
 /** One bottom-bar control for checking and updating both installed products. */
 export function SystemVersionStatus() {
   const repository = useRepository();
   const { credentialsReady, isManagedConnection, settings } = useConnectionSettings();
   const [desktopVersion, setDesktopVersion] = useState<string>();
-  const [updating, setUpdating] = useState<UpdateAction>();
+  const updateFlowStep = useUpdateFlowStore((state) => state.step);
+  const updateFlowAction = useUpdateFlowStore((state) => state.action);
+  // Any in-flight step (including the post-restart `reconnecting` window)
+  // must lock every update action -- not just the row that started it -- so
+  // the person is never shown a still-pressable "Update" button while one is
+  // already running (the bug this replaces: only the SAME row disabled).
+  const updating = isUpdateInFlight(updateFlowStep) ? updateFlowAction : undefined;
   const snapshot = useSyncExternalStore(
     subscribeDesktopUpdate,
     getDesktopUpdateSnapshot,
@@ -122,28 +186,7 @@ export function SystemVersionStatus() {
     snapshot.status,
   ]);
 
-  const performUpdate = async (action: UpdateAction) => {
-    setUpdating(action);
-    try {
-      if (action === 'agent') {
-        if (!latestClioVersion) throw new Error(`No newer ${vocab.agent} release was found to update to.`);
-        await updateManagedClio(releaseTag(latestClioVersion), { restartApp: true });
-        return;
-      }
-      if (action === 'both' && latestClioVersion) {
-        await updateManagedClio(releaseTag(latestClioVersion), { restartApp: false });
-      }
-      await installDesktopUpdate(() => undefined);
-    } catch (error) {
-      if (action === 'agent' || action === 'both') {
-        await restartClio().catch(() => undefined);
-      }
-      setUpdating(undefined);
-      toast.error('Update failed', {
-        description: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
+  const performUpdate = (action: UpdateAction) => runUpdate(action, { desktopTargetVersion, latestClioVersion });
 
   const recheck = async (): Promise<void> => {
     await Promise.allSettled([
@@ -214,6 +257,7 @@ export function SystemVersionStatus() {
         </div>
         <VersionRow
           currentVersion={agentVersion}
+          disabled={Boolean(updating)}
           label={vocab.agent}
           onRecheck={() => void recheck()}
           onUpdate={agentUpdateActionable ? () => void performUpdate('agent') : undefined}
@@ -235,10 +279,11 @@ export function SystemVersionStatus() {
           }
           targetVersion={agentBehindLatest ? latestClioVersion : undefined}
           testId="version-row-agent"
-          updating={updating === 'agent'}
+          updating={updating === 'agent' || updating === 'both'}
         />
         <VersionRow
           currentVersion={displayedDesktopVersion}
+          disabled={Boolean(updating)}
           label={vocab.product}
           onRecheck={() => void recheck()}
           onUpdate={desktopUpdateAvailable ? () => void performUpdate('desktop') : undefined}
@@ -252,7 +297,7 @@ export function SystemVersionStatus() {
           state={snapshot.status}
           targetVersion={desktopUpdateAvailable ? desktopTargetVersion : undefined}
           testId="version-row-desktop"
-          updating={updating === 'desktop'}
+          updating={updating === 'desktop' || updating === 'both'}
         />
       </PopoverContent>
     </Popover>
@@ -292,6 +337,7 @@ function VersionStateBadge({ state }: { state: VersionState }) {
 
 function VersionRow({
   currentVersion,
+  disabled,
   label,
   onRecheck,
   onUpdate,
@@ -302,6 +348,13 @@ function VersionRow({
   updating,
 }: {
   currentVersion?: string;
+  /**
+   * True while ANY update is running, even one this row did not start --
+   * both rows must lock while one update is in flight, since running two at
+   * once was never a real, supported combination on its own (a bug the
+   * previous same-row-only `updating` disable let through).
+   */
+  disabled?: boolean;
   label: string;
   onRecheck: () => void;
   onUpdate?: () => void;
@@ -311,6 +364,7 @@ function VersionRow({
   /** Stable hook for scoping assertions to ONE row -- two rows can be in
    * different states at once (e.g. desktop checking, agent current). */
   testId: string;
+  /** True while THIS row's own update is the one actively running -- drives its spinner. */
   updating: boolean;
 }) {
   // Offer an action only when there is one: install a real update, or
@@ -338,7 +392,7 @@ function VersionRow({
       <div className="flex items-center gap-2">
         <VersionStateBadge state={state} />
         {action ? (
-          <Button disabled={updating} onClick={action} size="sm" variant="outline">
+          <Button disabled={disabled || updating} onClick={action} size="sm" variant="outline">
             {updating ? (
               <LoaderCircleIcon aria-hidden="true" className="size-3.5 motion-safe:animate-spin" />
             ) : null}

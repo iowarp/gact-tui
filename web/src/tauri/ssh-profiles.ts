@@ -12,6 +12,8 @@ export type SshProfile = {
   platform?: 'auto' | 'linux' | 'windows';
   install_root?: string;
   managed?: boolean;
+  /** Only set by `listAllSshProfiles`; `listSshProfiles` never returns a hidden one. */
+  hidden?: boolean;
 };
 
 export type SaveSshProfileInput = {
@@ -34,6 +36,13 @@ export async function listSshProfiles(): Promise<SshProfile[]> {
   if (!inTauri()) return [];
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<SshProfile[]>('ssh_profiles_list');
+}
+
+/** List every managed and imported profile, hidden ones included, for the hosts manager. */
+export async function listAllSshProfiles(): Promise<SshProfile[]> {
+  if (!inTauri()) return [];
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<SshProfile[]>('ssh_profiles_list_all');
 }
 
 /** Persist only non-secret host configuration through the product's OpenSSH include. */
