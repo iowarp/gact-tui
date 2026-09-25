@@ -38,6 +38,7 @@ mod sse_stream;
 #[cfg(test)]
 mod sse_stream_tests;
 mod ssh_profile_blocks;
+mod ssh_profile_resolve;
 mod ssh_profiles;
 mod ssh_transport;
 mod supervisor;
