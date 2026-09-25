@@ -57,7 +57,7 @@ import {
 } from './artifact-custody.js';
 import type { ClioTransport, StreamScope, TransportFrame } from './transport.js';
 import { mergeA2uiClientMetadata } from './a2ui/index.js';
-import { InfrastructureRepository } from './infrastructure-repository.js';
+import { SystemRepository } from './system-repository.js';
 
 /**
  * Artifact records requested per page while walking a session's registry.
@@ -72,7 +72,7 @@ const ARTIFACT_PAGE_SIZE = 200;
  * silently swallowed.
  */
 const MAX_ARTIFACT_PAGES = 100;
-export class ClioRepository extends InfrastructureRepository {
+export class ClioRepository extends SystemRepository {
   public constructor(transport: ClioTransport) {
     super(transport);
   }

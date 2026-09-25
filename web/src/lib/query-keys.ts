@@ -26,6 +26,7 @@ export type ClioQueryNamespace =
   | 'execution-provenance'
   | 'hook-inspection'
   | 'language-model-configuration'
+  | 'latest-release'
   | 'mcp-server'
   | 'mcp-configuration'
   | 'mcp-server-inventory'

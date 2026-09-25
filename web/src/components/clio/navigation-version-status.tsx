@@ -3,11 +3,13 @@ import { brand } from '@brand';
 import {
   CheckCircle2Icon,
   CircleAlertIcon,
+  CircleDashedIcon,
   ExternalLinkIcon,
   LoaderCircleIcon,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -25,7 +27,11 @@ import {
 } from '@/tauri/desktop-updater';
 import { restartClio, updateManagedClio } from '@/tauri/managed-backend';
 
-type VersionState = 'checking' | 'current' | 'available' | 'error';
+// 'unknown' is a REAL state -- no check has run, or the one that ran had
+// nothing to compare against (no release feed, a failed fetch). It must
+// never be presented as 'current': that would tell someone their software
+// is up to date when nobody actually looked.
+type VersionState = 'unknown' | 'checking' | 'current' | 'available' | 'error';
 type UpdateAction = 'desktop' | 'agent' | 'both';
 
 /** One bottom-bar control for checking and updating both installed products. */
@@ -43,6 +49,17 @@ export function SystemVersionStatus() {
     enabled: credentialsReady,
     queryKey: queryKeys.key('capabilities', settings.endpoint),
     queryFn: ({ signal }) => repository.capabilities(signal),
+  });
+  // The latest published CLIO release. The browser (and the desktop webview,
+  // which is subject to the same fetch CORS rules) cannot reach a GitHub
+  // release asset directly -- GitHub sends no CORS headers on it -- so the
+  // CONNECTED SERVER does that fetch (GET /v1/system/latest-release) and
+  // hands back just the version this row needs to compare against.
+  const latestClioRelease = useQuery({
+    enabled: credentialsReady,
+    queryKey: queryKeys.key('latest-release', settings.endpoint),
+    queryFn: ({ signal }) => repository.latestRelease(signal),
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -64,42 +81,57 @@ export function SystemVersionStatus() {
 
   const displayedDesktopVersion = displayReleaseVersion(desktopVersion);
   const agentVersion = displayReleaseVersion(capabilities.data?.service?.version);
-  const targetVersion = displayReleaseVersion(
-    snapshot.status === 'available' ? snapshot.update.version : desktopVersion,
+  const latestClioVersion = displayReleaseVersion(latestClioRelease.data?.version ?? undefined);
+  // The desktop's own update target comes ONLY from a real signed-manifest
+  // check that found something newer -- never a fallback to its own current
+  // version (that fallback was the "Up to date at v0.9.4.14" bug: it made
+  // "nothing newer was found" indistinguishable from "nothing was checked").
+  const desktopTargetVersion = displayReleaseVersion(
+    snapshot.status === 'available' ? snapshot.update.version : undefined,
   );
   const desktopUpdateAvailable = snapshot.status === 'available';
-  const agentUpdateAvailable = Boolean(
-    isManagedConnection &&
-      agentVersion &&
-      targetVersion &&
-      compareReleaseVersions(agentVersion, targetVersion) < 0,
+  const agentVersionKnown = Boolean(agentVersion && latestClioVersion);
+  const agentBehindLatest = Boolean(
+    agentVersion && latestClioVersion && compareReleaseVersions(agentVersion, latestClioVersion) < 0,
   );
+  // Knowing the agent is behind is a fact; being ALLOWED to push a remote
+  // update is a separate, narrower permission (only a managed connection can).
+  const agentUpdateActionable = agentBehindLatest && isManagedConnection;
+  const latestClioReleaseChecking = credentialsReady && latestClioRelease.isPending;
   const state = useMemo<VersionState>(() => {
     if (snapshot.status === 'error' || capabilities.isError) return 'error';
-    if (!displayedDesktopVersion || capabilities.isPending || snapshot.status === 'checking') {
+    if (
+      !displayedDesktopVersion ||
+      capabilities.isPending ||
+      latestClioReleaseChecking ||
+      snapshot.status === 'checking'
+    ) {
       return 'checking';
     }
-    if (desktopUpdateAvailable || agentUpdateAvailable) return 'available';
+    if (desktopUpdateAvailable || agentBehindLatest) return 'available';
+    if (snapshot.status === 'unknown' || !agentVersionKnown) return 'unknown';
     return 'current';
   }, [
-    agentUpdateAvailable,
+    agentBehindLatest,
+    agentVersionKnown,
     capabilities.isError,
     capabilities.isPending,
     desktopUpdateAvailable,
     displayedDesktopVersion,
+    latestClioReleaseChecking,
     snapshot.status,
   ]);
 
   const performUpdate = async (action: UpdateAction) => {
-    if (!targetVersion) return;
     setUpdating(action);
     try {
       if (action === 'agent') {
-        await updateManagedClio(releaseTag(targetVersion), { restartApp: true });
+        if (!latestClioVersion) throw new Error(`No newer ${vocab.agent} release was found to update to.`);
+        await updateManagedClio(releaseTag(latestClioVersion), { restartApp: true });
         return;
       }
-      if (action === 'both') {
-        await updateManagedClio(releaseTag(targetVersion), { restartApp: false });
+      if (action === 'both' && latestClioVersion) {
+        await updateManagedClio(releaseTag(latestClioVersion), { restartApp: false });
       }
       await installDesktopUpdate(() => undefined);
     } catch (error) {
@@ -114,15 +146,19 @@ export function SystemVersionStatus() {
   };
 
   const recheck = async (): Promise<void> => {
-    await Promise.allSettled([checkForDesktopUpdate(), capabilities.refetch()]);
+    await Promise.allSettled([
+      checkForDesktopUpdate(),
+      capabilities.refetch(),
+      latestClioRelease.refetch(),
+    ]);
   };
 
   const updateAll = (): void => {
-    if (desktopUpdateAvailable && agentUpdateAvailable) {
+    if (desktopUpdateAvailable && agentUpdateActionable) {
       void performUpdate('both');
     } else if (desktopUpdateAvailable) {
       void performUpdate('desktop');
-    } else if (agentUpdateAvailable) {
+    } else if (agentUpdateActionable) {
       void performUpdate('agent');
     } else {
       void recheck();
@@ -130,6 +166,7 @@ export function SystemVersionStatus() {
   };
 
   const statusLabel = {
+    unknown: 'Version status not yet checked',
     checking: 'Checking versions',
     current: `${vocab.product} and ${vocab.agent} are up to date`,
     available: 'Software update available',
@@ -142,7 +179,9 @@ export function SystemVersionStatus() {
         ? 'Checking…'
         : state === 'error'
           ? 'Recheck'
-          : 'Up to date';
+          : state === 'unknown'
+            ? 'Check now'
+            : 'Up to date';
 
   return (
     <Popover
@@ -177,14 +216,25 @@ export function SystemVersionStatus() {
           currentVersion={agentVersion}
           label={vocab.agent}
           onRecheck={() => void recheck()}
-          onUpdate={agentUpdateAvailable ? () => void performUpdate('agent') : undefined}
+          onUpdate={agentUpdateActionable ? () => void performUpdate('agent') : undefined}
           releaseUrl={
             brand.agentReleaseUrl && agentVersion
               ? `${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`
               : undefined
           }
-          state={capabilities.isError ? 'error' : agentUpdateAvailable ? 'available' : 'current'}
-          targetVersion={agentUpdateAvailable ? targetVersion : undefined}
+          state={
+            capabilities.isError
+              ? 'error'
+              : capabilities.isPending || latestClioReleaseChecking
+                ? 'checking'
+                : agentBehindLatest
+                  ? 'available'
+                  : agentVersionKnown
+                    ? 'current'
+                    : 'unknown'
+          }
+          targetVersion={agentBehindLatest ? latestClioVersion : undefined}
+          testId="version-row-agent"
           updating={updating === 'agent'}
         />
         <VersionRow
@@ -197,14 +247,46 @@ export function SystemVersionStatus() {
               ? `${brand.desktopReleaseUrl}/tag/${releaseTag(displayedDesktopVersion)}`
               : undefined
           }
-          state={
-            desktopUpdateAvailable ? 'available' : snapshot.status === 'error' ? 'error' : 'current'
-          }
-          targetVersion={desktopUpdateAvailable ? targetVersion : undefined}
+          // DesktopUpdateSnapshot['status'] already IS this component's
+          // VersionState vocabulary -- no fall-through-to-current mapping.
+          state={snapshot.status}
+          targetVersion={desktopUpdateAvailable ? desktopTargetVersion : undefined}
+          testId="version-row-desktop"
           updating={updating === 'desktop'}
         />
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** {label, badge className} for each honest version state -- Badge variants, never a fallback to "current". */
+const VERSION_STATE_PRESENTATION: Record<VersionState, { label: string; className: string }> = {
+  unknown: { label: 'Not checked', className: 'text-muted-foreground border-border bg-muted/50' },
+  checking: {
+    label: 'Checking…',
+    className: 'text-info-foreground dark:text-info border-info/30 bg-info/10',
+  },
+  current: { label: 'Up to date', className: 'text-success border-success/30 bg-success/10' },
+  available: {
+    label: 'Update available',
+    className: 'text-warning border-warning/30 bg-warning/10',
+  },
+  error: {
+    label: 'Needs attention',
+    className: 'text-destructive border-destructive/30 bg-destructive/10',
+  },
+};
+
+/** The per-product status readout -- a real Badge variant per state, distinct from the action button. */
+function VersionStateBadge({ state }: { state: VersionState }) {
+  const { label, className } = VERSION_STATE_PRESENTATION[state];
+  return (
+    <Badge className={cn('gap-1', className)} variant="outline">
+      {state === 'checking' ? (
+        <LoaderCircleIcon aria-hidden="true" className="size-3 motion-safe:animate-spin" />
+      ) : null}
+      {label}
+    </Badge>
   );
 }
 
@@ -216,6 +298,7 @@ function VersionRow({
   releaseUrl,
   state,
   targetVersion,
+  testId,
   updating,
 }: {
   currentVersion?: string;
@@ -223,12 +306,22 @@ function VersionRow({
   onRecheck: () => void;
   onUpdate?: () => void;
   releaseUrl?: string;
-  state: Exclude<VersionState, 'checking'>;
+  state: VersionState;
   targetVersion?: string;
+  /** Stable hook for scoping assertions to ONE row -- two rows can be in
+   * different states at once (e.g. desktop checking, agent current). */
+  testId: string;
   updating: boolean;
 }) {
+  // Offer an action only when there is one: install a real update, or
+  // retry a check that came back unknown/failed. A settled "current" row
+  // gets a status badge and nothing to click.
+  const action = onUpdate ?? (state === 'error' || state === 'unknown' ? onRecheck : undefined);
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-3 [&:not(:last-child)]:border-b">
+    <div
+      className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-3 [&:not(:last-child)]:border-b"
+      data-testid={testId}
+    >
       {releaseUrl ? (
         <ExternalLink
           className="flex min-w-0 items-center gap-1.5 font-medium hover:underline"
@@ -242,15 +335,19 @@ function VersionRow({
           <span className="truncate">{label}</span>
         </span>
       )}
-      <VersionAction
-        disabled={updating}
-        label={onUpdate ? 'Update' : state === 'error' ? 'Recheck' : 'Up to date'}
-        onClick={onUpdate ?? onRecheck}
-        state={state}
-        updating={updating}
-      />
+      <div className="flex items-center gap-2">
+        <VersionStateBadge state={state} />
+        {action ? (
+          <Button disabled={updating} onClick={action} size="sm" variant="outline">
+            {updating ? (
+              <LoaderCircleIcon aria-hidden="true" className="size-3.5 motion-safe:animate-spin" />
+            ) : null}
+            {onUpdate ? 'Update' : 'Recheck'}
+          </Button>
+        ) : null}
+      </div>
       <p className="font-mono text-xs text-muted-foreground">
-        {currentVersion ? `v${currentVersion}` : 'Unavailable'}
+        {currentVersion ? `v${currentVersion}` : 'Not checked'}
         {targetVersion ? ` → v${targetVersion}` : ''}
       </p>
     </div>
@@ -276,6 +373,8 @@ function VersionAction({
         'gap-1.5',
         state === 'current' && 'border-success/40 text-success hover:text-success',
         state === 'available' && 'border-warning/40 text-warning hover:text-warning',
+        state === 'unknown' && 'border-muted-foreground/30 text-muted-foreground',
+        state === 'error' && 'border-destructive/40 text-destructive hover:text-destructive',
       )}
       disabled={disabled}
       onClick={onClick}
@@ -298,6 +397,9 @@ function VersionStateIcon({ state }: { state: VersionState }) {
   }
   if (state === 'current') {
     return <CheckCircle2Icon aria-hidden="true" className="size-4 text-success" />;
+  }
+  if (state === 'unknown') {
+    return <CircleDashedIcon aria-hidden="true" className="size-4 text-muted-foreground" />;
   }
   return (
     <CircleAlertIcon

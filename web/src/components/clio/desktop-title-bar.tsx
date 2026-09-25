@@ -38,7 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DesktopTitleContext } from '@/components/clio/desktop-title-context';
-import { DesktopTitleHealth } from '@/components/clio/desktop-title-health';
+import { LiveConnectionIndicator } from '@/components/clio/live-connection-indicator';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { vocab } from '@/lib/brand-vocabulary';
 import { isMacOS } from '@/lib/platform';
@@ -305,7 +305,7 @@ export function DesktopTitleBar() {
       <DesktopTitleContext />
 
       <div className="flex items-stretch gap-1 px-2">
-        <DesktopTitleHealth />
+        <LiveConnectionIndicator />
         {macOS ? null : (
           <>
             <WindowButton action="minimize" label="Minimize">
