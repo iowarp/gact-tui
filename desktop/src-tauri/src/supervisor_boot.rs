@@ -10,6 +10,8 @@
 use std::path::PathBuf;
 
 use crate::brand_backend::connect_mode_error;
+use crate::clio_core_daemon::{self, DaemonOutcome};
+use crate::clio_core_registry;
 use crate::runtime_pack::prepare_bundled_runtime;
 use crate::supervisor_attach::try_attach_existing;
 use crate::supervisor_boot_log::{boot_log_line, reset_boot_log};
@@ -39,7 +41,13 @@ pub(crate) fn boot_sidecar(
         return;
     }
 
-    // 2. Otherwise prepare the bundled runtime. Windows bundles carry one
+    // 2. We're about to spawn our OWN backend: clean up a crashed-desktop
+    // orphan first, so its connect-or-spawn attaches to a FRESH clio-core
+    // daemon (current config) instead of a stale one nothing is using. A
+    // daemon with live clients (another CLI, a dev server) is left alone.
+    stop_orphaned_daemon_before_own_boot();
+
+    // 3. Otherwise prepare the bundled runtime. Windows bundles carry one
     // compressed archive instead of tens of thousands of NSIS file entries.
     let bundled_runtime = match (
         runtime_resource_dir.as_deref(),
@@ -62,7 +70,7 @@ pub(crate) fn boot_sidecar(
         _ => None,
     };
 
-    // 3. Spawn our own.
+    // 4. Spawn our own.
     state.set_status(BackendStatus::Starting(
         BackendStartupStage::StartingService,
     ));
@@ -92,6 +100,32 @@ pub(crate) fn boot_sidecar(
         Err(SpawnError::Other(e)) => {
             boot_log_line(&format!("boot failed: {e}"));
             state.set_status(BackendStatus::Error(e));
+        }
+    }
+}
+
+/// Best-effort startup orphan cleanup (issue #D1): if the machine's shared
+/// clio-core daemon is running with ZERO live clients — a crash left it
+/// behind — stop it before this call site's caller spawns a fresh managed
+/// backend, so that backend's own connect-or-spawn creates a new daemon
+/// against the CURRENT config rather than attaching to a stale orphan. A
+/// daemon with live clients (another CLI, a dev server) is left alone and
+/// this desktop's fresh backend attaches to it normally, same as always.
+fn stop_orphaned_daemon_before_own_boot() {
+    let Some(state_dir) = clio_core_registry::runtime_state_dir() else {
+        return;
+    };
+    match clio_core_daemon::stop_orphaned_daemon_before_boot(&state_dir) {
+        DaemonOutcome::AlreadyGone => {}
+        DaemonOutcome::LiveClientsPresent(pids) => {
+            boot_log_line(&format!(
+                "clio-core daemon already running with live client pid(s) {pids:?}; attaching normally"
+            ));
+        }
+        DaemonOutcome::StoppedCleanly(pid) | DaemonOutcome::StoppedByForce(pid) => {
+            boot_log_line(&format!(
+                "stopped an orphaned clio-core daemon (pid {pid}, zero live clients) before boot"
+            ));
         }
     }
 }
