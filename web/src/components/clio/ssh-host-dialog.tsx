@@ -212,186 +212,208 @@ export function SshHostDialog({
   return (
     <Dialog onOpenChange={changeOpen} open={open}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
-        <form className="grid gap-5" onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle>{dialogTitle(step, initial)}</DialogTitle>
-            <DialogDescription>
-              Save a non-secret OpenSSH target. Passwords, Duo, security keys, Kerberos, and rolling
-              credentials are requested interactively by system OpenSSH.
-            </DialogDescription>
-          </DialogHeader>
+        {/*
+          The form covers only the host's own saved fields. SshAuthentication
+          and the footer render as its SIBLINGS, not descendants: a <form>
+          nested inside another <form> is invalid HTML, and the resulting
+          nested DOM nodes let a native `submit` from the OpenSSH prompt (a
+          form of its own) bubble into this one and silently save/close the
+          host dialog as a side effect of answering a password prompt
+          (#1437). The footer's submit button stays wired to this form via
+          the `form` attribute instead of physical nesting.
+        */}
+        <div className="grid gap-5">
+          <form className="grid gap-5" id="ssh-host-form" onSubmit={submit}>
+            <DialogHeader>
+              <DialogTitle>{dialogTitle(step, initial)}</DialogTitle>
+              <DialogDescription>
+                Save a non-secret OpenSSH target. Passwords, Duo, security keys, Kerberos, and
+                rolling credentials are requested interactively by system OpenSSH.
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7rem]">
-            <Field>
-              <FieldLabel htmlFor="ssh-host-address">Address</FieldLabel>
-              <Input
-                autoComplete="off"
-                id="ssh-host-address"
-                onChange={(event) => setHost(event.target.value)}
-                placeholder="10.0.0.102 or login.example.edu"
-                required
-                value={host}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="ssh-host-port">Port</FieldLabel>
-              <Input
-                id="ssh-host-port"
-                max={65_535}
-                min={1}
-                onChange={(event) => setPort(event.target.value)}
-                required
-                type="number"
-                value={port}
-              />
-            </Field>
-          </div>
-          <Field>
-            <FieldLabel htmlFor="ssh-host-user">Username</FieldLabel>
-            <Input
-              autoComplete="username"
-              id="ssh-host-user"
-              onChange={(event) => setUser(event.target.value)}
-              placeholder="alice"
-              value={user}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="ssh-host-label">Name</FieldLabel>
-            <Input
-              autoComplete="off"
-              id="ssh-host-label"
-              onChange={(event) => setLabel(event.target.value)}
-              placeholder="For example, Utah cluster"
-              value={label}
-            />
-            <FieldDescription>Shown in deployment target pickers.</FieldDescription>
-          </Field>
-
-          {isJump ? null : (
-            <Field>
-              <FieldLabel>Connection route</FieldLabel>
-              <FieldDescription>
-                Jump hosts in connection order. The same route appears on the front door, where
-                every step can be chosen, configured, or reordered.
-              </FieldDescription>
-              <div className="mt-2 grid gap-2">
-                <SshJumpHostList onChange={setJumpHosts} options={jumpOptions} value={jumpHosts} />
-                {typingJump ? (
-                  <SshJumpAddressField
-                    onCancel={() => setTypingJump(false)}
-                    onSubmit={(jump) => {
-                      setTypingJump(false);
-                      setJumpHosts((current) => [...current, jump]);
-                    }}
-                  />
-                ) : (
-                  <SshJumpHostSelect
-                    key={jumpHosts.length}
-                    onChange={(jump) => {
-                      if (jump === TYPE_SSH_ADDRESS) setTypingJump(true);
-                      else setJumpHosts((current) => [...current, jump]);
-                    }}
-                    onCreate={false}
-                    onTypeAddress
-                    options={jumpOptions}
-                    value=""
-                  />
-                )}
-              </div>
-            </Field>
-          )}
-
-          <Field>
-            <FieldLabel>OpenSSH authentication</FieldLabel>
-            <FieldDescription>
-              Password, Duo, security-key, Kerberos, and rolling-code prompts come directly from
-              system OpenSSH during Test connection or deployment. {vocab.agent} never stores those
-              answers. Optionally provide a private key override below.
-            </FieldDescription>
-            <Field className="mt-2">
-              <FieldLabel htmlFor="ssh-host-private-key">Paste a private key</FieldLabel>
-              <Textarea
-                autoComplete="off"
-                className="min-h-28 font-mono text-xs"
-                id="ssh-host-private-key"
-                onChange={(event) => {
-                  setPrivateKey(event.target.value);
-                  if (event.target.value) setIdentityFile('');
-                }}
-                placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-                spellCheck={false}
-                value={privateKey}
-              />
-            </Field>
-            <div className="mt-3 flex items-center gap-3">
-              <Button onClick={chooseIdentityFile} size="sm" type="button" variant="outline">
-                <FileKey2Icon aria-hidden="true" /> Choose key file
-              </Button>
-              <span className="min-w-0 truncate text-xs text-muted-foreground">
-                {identityFile || 'Or use your SSH agent / OpenSSH configuration'}
-              </span>
-            </div>
-          </Field>
-
-          <Collapsible className="border-t pt-3">
-            <CollapsibleTrigger asChild>
-              <Button
-                className="group w-fit px-0 text-muted-foreground hover:text-foreground"
-                type="button"
-                variant="link"
-              >
-                Advanced host settings
-                <ChevronDownIcon
-                  aria-hidden="true"
-                  className="transition-transform group-data-[state=open]:rotate-180"
-                />
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <Field className="mt-3">
-                <FieldLabel htmlFor="ssh-host-platform">Remote platform</FieldLabel>
-                <Select
-                  onValueChange={(next) => setPlatform(next as typeof platform)}
-                  value={platform}
-                >
-                  <SelectTrigger id="ssh-host-platform">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Detect automatically</SelectItem>
-                    <SelectItem value="linux">Linux / macOS shell</SelectItem>
-                    <SelectItem value="windows">Windows PowerShell</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field className="mt-3">
-                <FieldLabel htmlFor="ssh-host-install-root">
-                  {vocab.agent} install and runtime location
-                </FieldLabel>
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7rem]">
+              <Field>
+                <FieldLabel htmlFor="ssh-host-address">Address</FieldLabel>
                 <Input
                   autoComplete="off"
-                  id="ssh-host-install-root"
-                  onChange={(event) => setInstallRoot(event.target.value)}
-                  placeholder="$HOME/.local/share/clio"
-                  value={installRoot}
+                  id="ssh-host-address"
+                  onChange={(event) => setHost(event.target.value)}
+                  placeholder="10.0.0.102 or login.example.edu"
+                  required
+                  value={host}
                 />
-                <FieldDescription>
-                  Leave empty to use the remote user’s home directory. On a shared system, choose a
-                  writable persistent location such as /mnt/common/alice/clio.
-                </FieldDescription>
               </Field>
-            </CollapsibleContent>
-          </Collapsible>
+              <Field>
+                <FieldLabel htmlFor="ssh-host-port">Port</FieldLabel>
+                <Input
+                  id="ssh-host-port"
+                  max={65_535}
+                  min={1}
+                  onChange={(event) => setPort(event.target.value)}
+                  required
+                  type="number"
+                  value={port}
+                />
+              </Field>
+            </div>
+            <Field>
+              <FieldLabel htmlFor="ssh-host-user">Username</FieldLabel>
+              <Input
+                autoComplete="username"
+                id="ssh-host-user"
+                onChange={(event) => setUser(event.target.value)}
+                placeholder="alice"
+                value={user}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="ssh-host-label">Name</FieldLabel>
+              <Input
+                autoComplete="off"
+                id="ssh-host-label"
+                onChange={(event) => setLabel(event.target.value)}
+                placeholder="For example, Utah cluster"
+                value={label}
+              />
+              <FieldDescription>Shown in deployment target pickers.</FieldDescription>
+            </Field>
 
-          {authError ? (
-            <Alert variant="destructive">
-              <TriangleAlertIcon aria-hidden="true" />
-              <AlertTitle>SSH connection failed</AlertTitle>
-              <AlertDescription>{authError}</AlertDescription>
-            </Alert>
-          ) : null}
+            {isJump ? null : (
+              <Field>
+                <FieldLabel>Connection route</FieldLabel>
+                <FieldDescription>
+                  Jump hosts in connection order. The same route appears on the front door, where
+                  every step can be chosen, configured, or reordered.
+                </FieldDescription>
+                <div className="mt-2 grid gap-2">
+                  <SshJumpHostList
+                    onChange={setJumpHosts}
+                    options={jumpOptions}
+                    value={jumpHosts}
+                  />
+                  {typingJump ? (
+                    <SshJumpAddressField
+                      onCancel={() => setTypingJump(false)}
+                      onSubmit={(jump) => {
+                        setTypingJump(false);
+                        setJumpHosts((current) => [...current, jump]);
+                      }}
+                    />
+                  ) : (
+                    <SshJumpHostSelect
+                      key={jumpHosts.length}
+                      onChange={(jump) => {
+                        if (jump === TYPE_SSH_ADDRESS) setTypingJump(true);
+                        else setJumpHosts((current) => [...current, jump]);
+                      }}
+                      onCreate={false}
+                      onTypeAddress
+                      options={jumpOptions}
+                      value=""
+                    />
+                  )}
+                </div>
+              </Field>
+            )}
 
+            <Field>
+              <FieldLabel>OpenSSH authentication</FieldLabel>
+              <FieldDescription>
+                Password, Duo, security-key, Kerberos, and rolling-code prompts come directly from
+                system OpenSSH during Test connection or deployment. {vocab.agent} never stores
+                those answers. Optionally provide a private key override below.
+              </FieldDescription>
+              <Field className="mt-2">
+                <FieldLabel htmlFor="ssh-host-private-key">Paste a private key</FieldLabel>
+                <Textarea
+                  autoComplete="off"
+                  className="min-h-28 font-mono text-xs"
+                  id="ssh-host-private-key"
+                  onChange={(event) => {
+                    setPrivateKey(event.target.value);
+                    if (event.target.value) setIdentityFile('');
+                  }}
+                  placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                  spellCheck={false}
+                  value={privateKey}
+                />
+              </Field>
+              <div className="mt-3 flex items-center gap-3">
+                <Button onClick={chooseIdentityFile} size="sm" type="button" variant="outline">
+                  <FileKey2Icon aria-hidden="true" /> Choose key file
+                </Button>
+                <span className="min-w-0 truncate text-xs text-muted-foreground">
+                  {identityFile || 'Or use your SSH agent / OpenSSH configuration'}
+                </span>
+              </div>
+            </Field>
+
+            <Collapsible className="border-t pt-3">
+              <CollapsibleTrigger asChild>
+                <Button
+                  className="group w-fit px-0 text-muted-foreground hover:text-foreground"
+                  type="button"
+                  variant="link"
+                >
+                  Advanced host settings
+                  <ChevronDownIcon
+                    aria-hidden="true"
+                    className="transition-transform group-data-[state=open]:rotate-180"
+                  />
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <Field className="mt-3">
+                  <FieldLabel htmlFor="ssh-host-platform">Remote platform</FieldLabel>
+                  <Select
+                    onValueChange={(next) => setPlatform(next as typeof platform)}
+                    value={platform}
+                  >
+                    <SelectTrigger id="ssh-host-platform">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Detect automatically</SelectItem>
+                      <SelectItem value="linux">Linux / macOS shell</SelectItem>
+                      <SelectItem value="windows">Windows PowerShell</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field className="mt-3">
+                  <FieldLabel htmlFor="ssh-host-install-root">
+                    {vocab.agent} install and runtime location
+                  </FieldLabel>
+                  <Input
+                    autoComplete="off"
+                    id="ssh-host-install-root"
+                    onChange={(event) => setInstallRoot(event.target.value)}
+                    placeholder="$HOME/.local/share/clio"
+                    value={installRoot}
+                  />
+                  <FieldDescription>
+                    Leave empty to use the remote user’s home directory. On a shared system, choose
+                    a writable persistent location such as /mnt/common/alice/clio.
+                  </FieldDescription>
+                </Field>
+              </CollapsibleContent>
+            </Collapsible>
+
+            {authError ? (
+              <Alert variant="destructive">
+                <TriangleAlertIcon aria-hidden="true" />
+                <AlertTitle>SSH connection failed</AlertTitle>
+                <AlertDescription>{authError}</AlertDescription>
+              </Alert>
+            ) : null}
+          </form>
+
+          {/*
+            Rendered outside the <form> above on purpose (see the comment at
+            the top of this dialog): SshAuthentication is its own <form> for
+            answering one OpenSSH prompt, and must never be a descendant of
+            the host-config form.
+          */}
           {testStatus && !testSucceeded && testStatus.state !== 'connected' ? (
             <SshAuthentication
               output={testStatus.output}
@@ -419,11 +441,11 @@ export function SshHostDialog({
             >
               {testing ? 'Testing…' : 'Test connection'}
             </Button>
-            <Button disabled={!host.trim() || saving} type="submit">
+            <Button disabled={!host.trim() || saving} form="ssh-host-form" type="submit">
               {saving ? 'Saving…' : 'Save host'}
             </Button>
           </DialogFooter>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
