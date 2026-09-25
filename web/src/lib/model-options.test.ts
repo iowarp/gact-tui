@@ -57,6 +57,105 @@ const lmStudioPreset: LanguageModelPreset = {
 };
 
 describe('buildModelOptions', () => {
+  it('marks a provider the service is probing right now as checking, over its cached health', () => {
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [catalogProvider({ checking: true, health: 'unavailable', failure: 'unreachable' })],
+      },
+    });
+
+    expect(option?.health).toBe('checking');
+  });
+
+  it('reports a provider that only needs a key as needing setup, never as failed', () => {
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [
+        {
+          id: 'openrouter',
+          label: 'OpenRouter',
+          provider: 'openai',
+          suggested_model: '',
+          requires_api_key: true,
+          is_authenticated: false,
+          status: 'missing_key',
+          status_message: 'missing OPENROUTER_API_KEY',
+          supports_live_catalog: true,
+          supports_vision: false,
+        },
+      ],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'openrouter',
+            name: 'OpenRouter',
+            health: 'unavailable',
+            failure: 'no API key provided',
+          }),
+        ],
+      },
+    });
+
+    expect(option).toMatchObject({
+      health: 'needs_setup',
+      availabilityDetail: 'Add your OpenRouter API key.',
+    });
+  });
+
+  it('a rejected key reads as rejected, never as "sign in"', () => {
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'openrouter',
+            name: 'OpenRouter',
+            health: 'unavailable',
+            failure: 'api_key_rejected: the provider refused the API key (HTTP 401)',
+          }),
+        ],
+      },
+    });
+
+    expect(option?.availabilityDetail).toBe('Your OpenRouter API key was rejected.');
+    // A refused key is a failure (red), never "needs setup" (grey) or ready.
+    expect(option?.health).toBe('unavailable');
+    expect(option?.available).toBe(false);
+  });
+
+  it('never shows a raw reason code as a provider or model detail', () => {
+    const options = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'argonne_sophia',
+            name: 'ALCF Sophia',
+            failure: 'argonne_reauthentication_required: Globus high-assurance timeout',
+          }),
+          catalogProvider({
+            models: [catalogModel('gpt-5.6-luna', 'unavailable', 'model_not_entitled: not on this plan')],
+          }),
+        ],
+      },
+    });
+
+    expect(options.map((option) => option.availabilityDetail)).toEqual([
+      'Your ALCF session needs to be verified again. Sign in again to continue.',
+      'Not on this plan',
+    ]);
+    // Never repeated as a row subtitle: the reason shows once, in the strip.
+    expect(options[1]?.description).toBeUndefined();
+  });
+
   it('does not expose suggested defaults as live selectable inventory', () => {
     expect(
       buildModelOptions({
@@ -139,6 +238,117 @@ describe('buildModelOptions', () => {
         modalities: ['text', 'image'],
       }),
     ]);
+  });
+
+  it('threads a multi-transport provider entry\'s transports onto every one of its options', () => {
+    const providerCatalog: ProviderCatalog = {
+      authoritative: 'live_handshake',
+      providers: [
+        {
+          id: 'codex',
+          name: 'Codex',
+          kind: 'codex',
+          endpoint: 'local://codex-sdk',
+          configuration_url: '/settings/providers/codex',
+          connectivity: 'reachable',
+          auth: 'ready',
+          health: 'ready',
+          freshness: { generated_at: '2026-08-31T12:00:00Z', source: 'live' },
+          failure: '',
+          transports: [
+            { id: 'sdk', label: 'Codex (local)', health: 'ready', reason: '' },
+            {
+              id: 'direct',
+              label: 'Direct',
+              health: 'unavailable',
+              reason: 'Codex sign-in is required',
+              auth: { method: 'subscription' },
+            },
+          ],
+          models: [
+            {
+              provider_id: 'codex',
+              provider_kind: 'codex',
+              endpoint: 'local://codex-sdk',
+              deployment: '',
+              model_id: 'gpt-5.6-luna',
+              revision: '',
+              modalities: ['text'],
+              reasoning: { supported: false, parameter: '', levels: [] },
+              native_tool_calling: true,
+              availability: 'available',
+              evidence: {
+                source: 'live',
+                generated_at: '2026-08-31T12:00:00Z',
+                live: true,
+                context_source: 'provider',
+              },
+              failure: '',
+              transport: 'sdk',
+            },
+          ],
+        },
+      ],
+    };
+
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      providerCatalog,
+      presets: [],
+    });
+
+    expect(option?.transport).toBe('sdk');
+    expect(option?.transports).toEqual(providerCatalog.providers[0]?.transports);
+  });
+
+  it('never reports transports for a single-transport provider', () => {
+    const providerCatalog: ProviderCatalog = {
+      authoritative: 'live_handshake',
+      providers: [
+        {
+          id: 'claude_code',
+          name: 'Claude Code',
+          kind: 'claude_code',
+          endpoint: 'claude-code://sdk',
+          configuration_url: '/settings/providers/claude_code',
+          connectivity: 'reachable',
+          auth: 'ready',
+          health: 'ready',
+          freshness: { generated_at: '2026-08-31T12:00:00Z', source: 'live' },
+          failure: '',
+          models: [
+            {
+              provider_id: 'claude_code',
+              provider_kind: 'claude_code',
+              endpoint: 'claude-code://sdk',
+              deployment: '',
+              model_id: 'claude-sonnet-5',
+              revision: '',
+              modalities: ['text'],
+              reasoning: { supported: false, parameter: '', levels: [] },
+              native_tool_calling: true,
+              availability: 'available',
+              evidence: {
+                source: 'live',
+                generated_at: '2026-08-31T12:00:00Z',
+                live: true,
+                context_source: 'provider',
+              },
+              failure: '',
+            },
+          ],
+        },
+      ],
+    };
+
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'claude_code',
+      providerCatalog,
+      presets: [],
+    });
+
+    expect(option?.transports).toBeUndefined();
+    expect(option?.transport).toBeUndefined();
   });
 
   it('keeps a configured provider the live catalog does not know about', () => {

@@ -26,6 +26,57 @@ import { ContextRepository } from './context-repository.js';
 const LM_WAIT_SERVER_TIMEOUT_S = 600;
 const LM_WAIT_REQUEST_TIMEOUT_MS = 610_000;
 
+/** The generic provider sign-in API's `start` response (SPEC §6.12). */
+export interface ProviderAuthStart {
+  provider_id: string;
+  flow_id: string;
+  browser?: { authorization_url: string; loopback: boolean; loopback_unavailable_reason?: string };
+  device?: { user_code: string; verification_url: string; interval: number };
+  instructions: string;
+}
+
+/** The generic provider sign-in API's `status` poll response. */
+export interface ProviderAuthStatus {
+  provider_id: string;
+  state: 'pending' | 'complete' | 'failed';
+  reason: string;
+}
+
+const providerAuthStartSchema = z.object({
+  provider_id: z.string(),
+  flow_id: z.string(),
+  browser: z
+    .object({
+      authorization_url: z.string(),
+      loopback: z.boolean(),
+      loopback_unavailable_reason: z.string().optional(),
+    })
+    .optional(),
+  device: z
+    .object({
+      user_code: z.string(),
+      verification_url: z.string(),
+      interval: z.number(),
+    })
+    .optional(),
+  instructions: z.string(),
+});
+
+const providerAuthStatusSchema = z.object({
+  provider_id: z.string(),
+  state: z.enum(['pending', 'complete', 'failed']),
+  reason: z.string(),
+});
+
+/** Shared shape for every generic-auth action that just reports the
+ * resulting credential state (logout, complete, save/clear API key). */
+const providerAuthResultSchema = z.object({
+  provider_id: z.string(),
+  is_authenticated: z.boolean(),
+  instructions: z.string(),
+});
+type ProviderAuthResult = z.infer<typeof providerAuthResultSchema>;
+
 /** Provider discovery, model catalog, handshake, and active-model configuration. */
 export class ProviderRepository extends ContextRepository {
   public async providers(signal?: AbortSignal): Promise<ProviderDefinition[]> {
@@ -92,29 +143,75 @@ export class ProviderRepository extends ContextRepository {
 
   public authenticateProvider(
     providerId: string,
-    options: { force?: boolean } = {},
+    options: { force?: boolean; method?: 'browser' | 'device' } = {},
     signal?: AbortSignal,
-  ): Promise<{
-    provider_id: string;
-    is_authenticated: boolean;
-    instructions: string;
-    authorization_url?: string;
-    flow_id?: string;
-  }> {
+  ): Promise<ProviderAuthStart> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
-      body: { action: 'start', force: options.force ?? false },
-      decode: (value) =>
-        z
-          .object({
-            provider_id: z.string(),
-            is_authenticated: z.boolean(),
-            instructions: z.string(),
-            authorization_url: z.string().url().optional(),
-            flow_id: z.string().optional(),
-          })
-          .parse(value),
+      body: { action: 'start', force: options.force ?? false, method: options.method },
+      decode: (value) => providerAuthStartSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Poll a started sign-in flow (SPEC generic auth API `status`). */
+  public providerAuthStatus(
+    providerId: string,
+    flowId: string,
+    signal?: AbortSignal,
+  ): Promise<ProviderAuthStatus> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
+      body: { action: 'status', flow_id: flowId },
+      decode: (value) => providerAuthStatusSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Delete the stored credential for a subscription/OAuth provider. */
+  public logoutProvider(providerId: string, signal?: AbortSignal): Promise<ProviderAuthResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
+      body: { action: 'logout' },
+      decode: (value) => providerAuthResultSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * Save an API key for a `requires_api_key` provider WITHOUT binding it as
+   * the active default -- unlike `updateLanguageModelConfiguration`, this
+   * never switches which provider the running agent uses. The model
+   * picker's inline key field uses this so saving OpenRouter's key, say,
+   * cannot silently rebind the agent onto OpenRouter.
+   */
+  public saveProviderApiKey(
+    providerId: string,
+    apiKey: string,
+    signal?: AbortSignal,
+  ): Promise<ProviderAuthResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
+      body: { action: 'save_api_key', api_key: apiKey },
+      decode: (value) => providerAuthResultSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** The ready-state counterpart to {@link saveProviderApiKey}. */
+  public clearProviderApiKey(
+    providerId: string,
+    signal?: AbortSignal,
+  ): Promise<ProviderAuthResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
+      body: { action: 'clear_api_key' },
+      decode: (value) => providerAuthResultSchema.parse(value),
       signal,
     });
   }
@@ -141,25 +238,18 @@ export class ProviderRepository extends ContextRepository {
 
   public completeProviderAuthentication(
     providerId: string,
-    input: { flowId: string; authorizationCode: string },
+    input: { flowId: string; paste: string },
     signal?: AbortSignal,
-  ): Promise<{ provider_id: string; is_authenticated: boolean; instructions: string }> {
+  ): Promise<ProviderAuthResult> {
     return this.transport.request({
       method: 'POST',
       path: `/v1/providers/${encodeURIComponent(providerId)}/auth`,
       body: {
         action: 'complete',
         flow_id: input.flowId,
-        authorization_code: input.authorizationCode,
+        paste: input.paste,
       },
-      decode: (value) =>
-        z
-          .object({
-            provider_id: z.string(),
-            is_authenticated: z.boolean(),
-            instructions: z.string(),
-          })
-          .parse(value),
+      decode: (value) => providerAuthResultSchema.parse(value),
       signal,
     });
   }

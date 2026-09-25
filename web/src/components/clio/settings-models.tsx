@@ -1,17 +1,9 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { LanguageModelConfiguration, ProviderDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  DownloadIcon,
-  ExternalLinkIcon,
-  KeyRoundIcon,
-  RadioTowerIcon,
-  RefreshCwIcon,
-} from 'lucide-react';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ExternalLink } from '@/components/ui/external-link';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import {
   Select,
@@ -29,6 +21,7 @@ import { providerDisplayName, providerSummary } from '@/lib/provider-presentatio
 import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { useLiveStore } from '@/store/live-store';
 import { vocab } from '@/lib/brand-vocabulary';
+import { ProviderActionPanel } from './provider-action-panel';
 import { useProviderSettingsActions } from './settings-models-actions';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { ReasoningLevelField } from './reasoning-level-field';
@@ -44,7 +37,6 @@ import {
 } from './settings-models-form';
 import { ClioSettingsSection } from './settings-section';
 import { SettingsSectionHeading } from './settings-section-heading';
-import { HandshakeResult, RefreshResult } from './settings-models-results';
 import { ClioStatus } from './status';
 
 export function ModelsSettings() {
@@ -211,26 +203,13 @@ function ModelsSettingsContent({
       ]);
     },
   });
-  const {
-    authFlow,
-    authInstructions,
-    authLaunchError,
-    authenticate,
-    authorizationCode,
-    completeAuthentication,
-    handshake,
-    handshakeResult,
-    installProvider,
-    refreshModels,
-    refreshResult,
-    reset: resetProviderActions,
-    setAuthLaunchError,
-    setAuthorizationCode,
-  } = useProviderSettingsActions({
+  const providerActions = useProviderSettingsActions({
     presetId,
     apiBase: values.apiBase,
     onDefaultModel: (modelId) => edit({ modelId }),
+    preset: selectedPreset,
   });
+  const { reset: resetProviderActions } = providerActions;
 
   return (
     <>
@@ -254,53 +233,6 @@ function ModelsSettingsContent({
               >
                 {save.isPending ? 'Applying…' : 'Apply provider and model'}
               </Button>
-              {selectedPreset?.auth_method === 'oauth' ? (
-                <Button
-                  disabled={authenticate.isPending}
-                  onClick={() => authenticate.mutate()}
-                  variant="outline"
-                >
-                  <KeyRoundIcon aria-hidden="true" />
-                  {authenticate.isPending
-                    ? 'Opening sign-in…'
-                    : `Sign in to ${providerDisplayName(selectedPreset)}`}
-                </Button>
-              ) : null}
-              {selectedPreset?.auth_method === 'oauth' && selectedPreset.auth_label ? (
-                <span className="text-sm text-muted-foreground">
-                  Uses {selectedPreset.auth_label}
-                </span>
-              ) : null}
-              {selectedPreset?.provider === 'claude_code' &&
-              selectedPreset.status === 'install_required' ? (
-                <Button
-                  disabled={installProvider.isPending}
-                  onClick={() => installProvider.mutate()}
-                  variant="outline"
-                >
-                  <DownloadIcon aria-hidden="true" />
-                  {installProvider.isPending ? 'Installing Claude Code…' : 'Install Claude Code'}
-                </Button>
-              ) : null}
-              <Button
-                disabled={!presetId || refreshModels.isPending}
-                onClick={() => refreshModels.mutate()}
-                variant="outline"
-              >
-                <RefreshCwIcon
-                  aria-hidden="true"
-                  className={refreshModels.isPending ? 'animate-spin' : undefined}
-                />
-                {refreshModels.isPending ? 'Checking available models…' : 'Refresh model catalog'}
-              </Button>
-              <Button
-                disabled={!presetId || handshake.isPending}
-                onClick={() => handshake.mutate()}
-                variant="outline"
-              >
-                <RadioTowerIcon aria-hidden="true" />
-                {handshake.isPending ? 'Checking provider…' : 'Check provider'}
-              </Button>
               {selectedPreset ? (
                 <ClioStatus
                   detail={selectedAvailability.detail}
@@ -310,76 +242,7 @@ function ModelsSettingsContent({
               ) : null}
             </div>
             {save.error ? <p className="text-sm text-destructive">{save.error.message}</p> : null}
-            {refreshModels.error ? (
-              <p className="text-sm text-destructive">{refreshModels.error.message}</p>
-            ) : null}
-            {handshake.error ? (
-              <p className="text-sm text-destructive">{handshake.error.message}</p>
-            ) : null}
-            {installProvider.error ? (
-              <p className="text-sm text-destructive">{installProvider.error.message}</p>
-            ) : null}
-            {authenticate.error ? (
-              <p className="text-sm text-destructive">{authenticate.error.message}</p>
-            ) : null}
-            {authInstructions ? (
-              <p className="max-w-3xl text-sm text-muted-foreground">{authInstructions}</p>
-            ) : null}
-            {authFlow ? (
-              <div
-                aria-label="Complete ALCF sign-in"
-                className="grid max-w-xl gap-3 rounded-lg border border-border bg-muted/20 p-4"
-              >
-                <div>
-                  <p className="font-medium">Finish signing in to ALCF</p>
-                  <p className="text-sm text-muted-foreground">
-                    Sign in with your ALCF identity. Globus will show a one-time code to paste
-                    below; the connected {vocab.agent} stores the resulting token.
-                  </p>
-                </div>
-                <Button asChild className="w-fit" variant="outline">
-                  <ExternalLink
-                    href={authFlow.authorizationUrl}
-                    onClick={() => setAuthLaunchError('')}
-                    onOpenError={(error) =>
-                      setAuthLaunchError(
-                        error instanceof Error ? error.message : 'Could not open Globus sign-in.',
-                      )
-                    }
-                  >
-                    <ExternalLinkIcon aria-hidden="true" />
-                    Open Globus sign-in
-                  </ExternalLink>
-                </Button>
-                {authLaunchError ? (
-                  <p className="text-sm text-destructive">{authLaunchError}</p>
-                ) : null}
-                <div className="grid gap-1.5">
-                  <label className="text-sm font-medium" htmlFor="alcf-authorization-code">
-                    Authorization code
-                  </label>
-                  <Input
-                    autoComplete="one-time-code"
-                    id="alcf-authorization-code"
-                    onChange={(event) => setAuthorizationCode(event.target.value)}
-                    placeholder="Paste the code from Globus"
-                    value={authorizationCode}
-                  />
-                </div>
-                <Button
-                  className="w-fit"
-                  disabled={!authorizationCode.trim() || completeAuthentication.isPending}
-                  onClick={() => completeAuthentication.mutate()}
-                >
-                  {completeAuthentication.isPending ? 'Completing sign-in…' : 'Complete sign-in'}
-                </Button>
-                {completeAuthentication.error ? (
-                  <p className="text-sm text-destructive">{completeAuthentication.error.message}</p>
-                ) : null}
-              </div>
-            ) : null}
-            {refreshResult ? <RefreshResult result={refreshResult} /> : null}
-            {handshakeResult ? <HandshakeResult result={handshakeResult} /> : null}
+            <ProviderActionPanel actions={providerActions} preset={selectedPreset} />
           </>
         }
         title="Provider and model"

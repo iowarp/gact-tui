@@ -298,6 +298,26 @@ export const resourceDeliveryRecordSchema = z
   })
   .passthrough();
 
+/**
+ * One way a multi-transport provider can be reached (Codex's local SDK vs
+ * its direct OAuth subscription). Present on a catalog entry ONLY for a
+ * provider reachable more than one way -- absent (not `[]`) for every other
+ * provider, so the picker's `transports.length > 1` check never false-fires.
+ */
+export const providerCatalogTransportSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  health: z.string(),
+  reason: z.string(),
+  // `logout`: the backend's own answer to "can CLIO sign this transport
+  // out" (Codex Direct: yes; the SDK transport is the user's own login and
+  // carries no `auth` at all) -- never inferred on the client.
+  auth: z
+    .object({ method: optionalWireString(), logout: z.boolean().default(false) })
+    .nullish()
+    .transform((value) => value ?? undefined),
+});
+
 export const providerCatalogSchema = z.object({
   authoritative: z.string(),
   providers: z.array(
@@ -325,6 +345,9 @@ export const providerCatalogSchema = z.object({
           .transform((value) => value ?? undefined),
       }),
       failure: z.string(),
+      // A background probe is running for this provider right now (a
+      // per-response overlay, never part of the cached record).
+      checking: z.boolean().default(false),
       models: z.array(
         z.object({
           provider_id: z.string(),
@@ -365,8 +388,19 @@ export const providerCatalogSchema = z.object({
             context_source: z.string(),
           }),
           failure: z.string(),
+          // Which of the entry's own `transports` (below) this model came
+          // from -- set only for a multi-transport provider (Codex: "sdk" |
+          // "direct"). `undefined` for every single-transport provider.
+          transport: optionalWireString(),
         }),
       ),
+      // Present only for a provider reachable more than one way (see
+      // `providerCatalogTransportSchema`); an absent key here is why a
+      // single-transport provider's picker submenu stays one section.
+      transports: z
+        .array(providerCatalogTransportSchema)
+        .nullish()
+        .transform((value) => value ?? undefined),
     }),
   ),
 });

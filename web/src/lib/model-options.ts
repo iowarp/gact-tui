@@ -2,11 +2,18 @@ import type {
   LanguageModelPreset,
   ProviderCatalog,
   ProviderCatalogEntry,
+  ProviderCatalogTransport,
   ProviderModel,
 } from '@clio/core/v3';
-import { providerStatusDetail } from './provider-availability';
+import { providerStatusDetail, translateKnownProviderErrorReason } from './provider-availability';
 import { providerDisplayName } from './provider-presentation';
 import { modelReasoningLevels, type ModelReasoningLevels } from './reasoning-levels';
+
+/**
+ * The `health` of a provider row that has not failed but still needs an
+ * install, a sign-in or a key -- neutral, never the red of a real failure.
+ */
+export const PROVIDER_NEEDS_SETUP = 'needs_setup';
 
 export interface ClioModelOption {
   providerId: string;
@@ -31,6 +38,11 @@ export interface ClioModelOption {
   reasoning?: ModelReasoningLevels;
   /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
   aliases?: readonly string[];
+  /** This provider's OWN transports (Codex: sdk + direct), present on every
+   * row from a multi-transport provider so the picker can group by it. */
+  transports?: readonly ProviderCatalogTransport[];
+  /** Which of `transports` this specific model row came from. */
+  transport?: string;
 }
 
 /**
@@ -55,9 +67,16 @@ export function matchesConfiguredModel(
 /** The available option naming `providerId`+`modelId` (by id, alias, or resolved id). */
 export function findSelectedModelOption<
   T extends { providerId: string; id: string; aliases?: readonly string[]; available: boolean },
->(options: readonly T[], providerId: string | undefined, modelId: string | undefined): T | undefined {
+>(
+  options: readonly T[],
+  providerId: string | undefined,
+  modelId: string | undefined,
+): T | undefined {
   return options.find(
-    (option) => option.providerId === providerId && matchesConfiguredModel(option, modelId) && option.available,
+    (option) =>
+      option.providerId === providerId &&
+      matchesConfiguredModel(option, modelId) &&
+      option.available,
   );
 }
 
@@ -153,7 +172,7 @@ export function buildModelOptions({
       available: activePreset?.is_authenticated ?? true,
       availabilityDetail:
         activePreset && !activePreset.is_authenticated
-          ? (activePreset.status_message ?? 'Sign-in needed')
+          ? providerStatusDetail(activePreset, 'Sign-in needed')
           : undefined,
     });
   }
@@ -172,13 +191,23 @@ function liveProviderOptions(
   preset: LanguageModelPreset | undefined,
 ): ClioModelOption[] {
   const providerName = provider.name || providerDisplayName(preset, provider.id);
+  // Not failed, just not set up yet (no key / sign-in / install): neutral,
+  // for its dated last-good rows as much as for an empty row. Never overrides
+  // a provider the service reports ready (Codex's SDK half needs no preset
+  // sign-in) or one it is probing right now.
+  const needsSetup =
+    provider.health !== 'ready' &&
+    ((preset !== undefined && !preset.is_authenticated) || provider.health === 'needs_install');
   const shared = {
     providerId: provider.id,
     providerName,
     configurationUrl: provider.configuration_url,
     endpoint: provider.endpoint,
     freshness: provider.freshness.generated_at,
-    health: provider.health,
+    // The service's live "probe running right now" overlay wins over the
+    // cached health, so the row shows the check instead of a stale verdict.
+    health: provider.checking ? 'checking' : needsSetup ? PROVIDER_NEEDS_SETUP : provider.health,
+    transports: provider.transports,
   };
   if (!provider.models.length) {
     const authenticationFailure = isAuthenticationFailure(provider.failure);
@@ -195,8 +224,14 @@ function liveProviderOptions(
           (needsAuthentication
             ? authenticationFailure && isAlcf
               ? 'Sign in to your ALCF account again.'
-              : providerStatusDetail(preset, `Sign in to ${providerName} to discover its models.`)
-            : provider.failure) || 'This provider reported no models to the connected agent.',
+              : authenticationFailure
+                ? // The provider refused the credential it has: say so
+                  // ("Your OpenRouter API key was rejected."), not "sign in".
+                  translateKnownProviderErrorReason(provider.failure, providerName)
+                : providerStatusDetail(preset, `Sign in to ${providerName} to discover its models.`)
+            : provider.failure &&
+              translateKnownProviderErrorReason(provider.failure, providerName)) ||
+          'This provider reported no models to the connected agent.',
       },
     ];
   }
@@ -207,8 +242,11 @@ function liveProviderOptions(
   // Dated by the latest live confirmation (the service's confirmed_at), not the
   // list's first discovery -- the date a person reads while the provider is down.
   const confirmedAt = provider.freshness.staleness?.['confirmed_at'];
-  const lastGoodDetail =
-    provider.freshness.source === 'last_good'
+  // A provider that still needs a key/sign-in says THAT, never a dated
+  // "last confirmed" line about a list it cannot use yet.
+  const lastGoodDetail = needsSetup
+    ? providerStatusDetail(preset, `Set up ${providerName} to use its models.`)
+    : provider.freshness.source === 'last_good'
       ? `Last confirmed ${formatCatalogTime(typeof confirmedAt === 'string' && confirmedAt ? confirmedAt : provider.freshness.generated_at)}. Check ${providerName} to confirm it is available now.`
       : undefined;
   return provider.models.map((model) => {
@@ -219,21 +257,29 @@ function liveProviderOptions(
     const usableCandidate = isCliProvider && model.availability === 'candidate' && providerReady;
     // A last-good model is prior evidence, not a failure: it stays selectable,
     // dated, until a live check replaces it.
-    const staleCandidate = Boolean(lastGoodDetail) && model.availability === 'candidate';
+    const staleCandidate =
+      provider.freshness.source === 'last_good' && model.availability === 'candidate';
     return {
       ...shared,
       kind: 'model',
       id: model.model_id,
       label: conciseModelName(model.model_id),
-      description: model.failure || undefined,
+      // A failure is never a row's subtitle: the same reason on hundreds of
+      // rows is noise. It reaches the provider's detail (shown once, in the
+      // picker's action strip) through `availabilityDetail` below.
+      description: undefined,
       available: model.availability === 'available' || usableCandidate || staleCandidate,
       availabilityDetail:
         model.availability === 'available'
           ? undefined
-          : (lastGoodDetail ?? (model.failure || modelAvailabilityLabel(model.availability))),
+          : (lastGoodDetail ??
+            (model.failure
+              ? translateKnownProviderErrorReason(model.failure, providerName)
+              : modelAvailabilityLabel(model.availability))),
       modalities: model.modalities,
       reasoning: modelReasoningLevels(model.reasoning),
       aliases: model.aliases,
+      transport: model.transport,
     };
   });
 }

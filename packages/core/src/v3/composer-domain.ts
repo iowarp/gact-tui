@@ -317,6 +317,28 @@ export interface ProviderCatalogModel {
     context_source: string;
   };
   failure: string;
+  /** Which of the provider's `transports` (below) this model came from -- set
+   * only for a multi-transport provider (Codex: `"sdk"` | `"direct"`). */
+  transport?: string;
+}
+
+/**
+ * One way a multi-transport provider can be reached (Codex's local SDK vs
+ * its direct OAuth subscription). Present on `ProviderCatalogEntry` ONLY for
+ * a provider reachable more than one way; a single-transport provider has no
+ * `transports` field at all. `auth` carries just enough to derive that ONE
+ * transport's action set (`health` already folds in "needs install" via
+ * `"needs_install"`) -- never a `models` array of its own, since every
+ * transport's models already ride the flat `ProviderCatalogEntry.models`
+ * list, each tagged with its own `transport` id above.
+ */
+export interface ProviderCatalogTransport {
+  id: string;
+  label: string;
+  health: string;
+  reason: string;
+  /** `logout`: whether CLIO can sign this transport out (backend-owned). */
+  auth?: { method?: string; logout?: boolean };
 }
 
 export interface ProviderCatalogEntry {
@@ -332,7 +354,11 @@ export interface ProviderCatalogEntry {
   health: string;
   freshness: { generated_at: string; source: string; staleness?: Record<string, unknown> };
   failure: string;
+  /** A background probe is running for this provider right now. */
+  checking?: boolean;
   models: ProviderCatalogModel[];
+  /** Present only for a provider reachable more than one way (see above). */
+  transports?: ProviderCatalogTransport[];
 }
 
 export interface ProviderCatalog {
