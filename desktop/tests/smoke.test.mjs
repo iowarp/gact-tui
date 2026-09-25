@@ -307,9 +307,28 @@ test('bundled installer stops only its managed process tree before replacement o
   // the terminate-then-wait loop now live in one place
   // (installer_runtime_stop.rs) instead of being re-implemented in NSIS.
   const stopMacro =
-    hooks.match(/!macro CLIO_STOP_MANAGED_RUNTIME([\s\S]*?)!macroend/)?.[1] ?? '';
+    hooks.match(/!macro CLIO_STOP_MANAGED_RUNTIME\r?\n([\s\S]*?)!macroend/)?.[1] ?? '';
   assert.ok(stopMacro, 'expected a CLIO_STOP_MANAGED_RUNTIME macro');
-  assert.match(stopMacro, /clio-desktop\.exe" --stop-managed-runtime/);
+  // The upgrade stop must never depend on the OLD installed binary's flags:
+  // 0.9.4.17 does not know --stop-managed-runtime and launches the full app,
+  // which the installer then waits on forever. The new binary is extracted
+  // from this installer into $PLUGINSDIR and told the install root.
+  assert.match(stopMacro, /File "\/oname=\$PLUGINSDIR\\clio-runtime-stop\.exe" "\$\{MAINBINARYSRCPATH\}"/);
+  assert.match(
+    stopMacro,
+    /nsExec::ExecToStack \/TIMEOUT=\d+ '"\$PLUGINSDIR\\clio-runtime-stop\.exe" --stop-managed-runtime "\$INSTDIR"'/,
+  );
+  assert.doesNotMatch(stopMacro, /\$INSTDIR\\clio-desktop\.exe" --stop-managed-runtime/);
+  assert.match(stopMacro, /CLIO_REPORT_RUNTIME_STOP/);
+  const uninstallStop =
+    hooks.match(/!macro CLIO_STOP_MANAGED_RUNTIME_FOR_UNINSTALL([\s\S]*?)!macroend/)?.[1] ?? '';
+  assert.match(
+    uninstallStop,
+    /\/TIMEOUT=\d+ '"\$INSTDIR\\clio-desktop\.exe" --stop-managed-runtime "\$INSTDIR"'/,
+  );
+  assert.match(hooks, /NSIS_HOOK_PREINSTALL\r?\n\s+!insertmacro CLIO_STOP_MANAGED_RUNTIME\r?\n/);
+  assert.match(hooks, /NSIS_HOOK_PREUNINSTALL\r?\n\s+!insertmacro CLIO_STOP_MANAGED_RUNTIME_FOR_UNINSTALL/);
+  assert.match(hooks, /result=timeout/);
   assert.doesNotMatch(
     hooks,
     /-EncodedCommand/,
