@@ -249,6 +249,81 @@ it('opens only the manual form from "Add a service" -- never a deploy action', a
   expect(mocks.repository.infrastructureTargets).not.toHaveBeenCalled();
 });
 
+it('shows the manual form -- never a reconnect screen -- after "Add a service" once auto-connect has settled', async () => {
+  // No `intent=connect`: this is the real flow the owner hit live. CLIO
+  // auto-connects to the one remembered service on plain load, that
+  // connection fails (the service is offline), and only THEN does the
+  // person reach for "Add a service".
+  mocks.recents = [{ endpoint: 'http://127.0.0.1:17999', label: 'Offline lab' }];
+  mocks.repository.capabilities.mockRejectedValue(
+    new Error('Unable to reach the service at http://127.0.0.1:17999'),
+  );
+  const user = userEvent.setup();
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(await screen.findByText('Connection unavailable')).toBeVisible();
+
+  await user.click(screen.getByRole('button', { name: 'Add a service' }));
+
+  // `mutation.reset()` (fired by that click, to clear the stale error) used
+  // to return `mutation.status` to 'idle', which a boot-screen gate read as
+  // "about to auto-connect" and re-showed the full-screen loader -- one
+  // that could never finish, since the one-shot auto-connect had already
+  // run and would never fire again.
+  expect(screen.getByLabelText('Service name')).toBeVisible();
+  expect(screen.getByLabelText('Connection address')).toBeVisible();
+  expect(screen.queryByRole('heading', { name: `Starting ${brand.name}` })).not.toBeInTheDocument();
+  expect(mocks.connect).not.toHaveBeenCalled();
+});
+
+it("settles a known connection's badge to Unavailable as soon as connecting to it fails", async () => {
+  mocks.recents = [{ endpoint: 'http://127.0.0.1:17999', label: 'Offline lab' }];
+  mocks.repository.capabilities.mockRejectedValue(
+    new Error('Unable to reach the service at http://127.0.0.1:17999'),
+  );
+  const user = userEvent.setup();
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/?intent=connect']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  // The only known connection is pre-selected by default; submitting
+  // attempts it directly.
+  await user.click(screen.getByRole('button', { name: 'Open workspace' }));
+
+  expect(await screen.findByText('Connection unavailable')).toBeVisible();
+  // The real connect attempt against this exact endpoint already settled
+  // (the alert above proves it) -- the row must reflect that immediately,
+  // not wait on the SEPARATE background probe's own slower retry/backoff
+  // schedule (CONNECTION_PROBE_RETRY_BASE_MS/MAX_MS: 250ms then up to
+  // 1000ms between attempts). A tight timeout here is deliberate: it can
+  // only pass through the mutation-tied badge, not a coincidentally fast
+  // probe settlement.
+  await waitFor(
+    () => expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0),
+    { timeout: 200 },
+  );
+});
+
 it('shows "Deploy CLIO" only in the Tauri desktop app, never on the web build', () => {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },

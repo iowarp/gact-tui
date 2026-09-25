@@ -51,6 +51,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useKnownConnections, type KnownConnection } from '@/hooks/use-known-connections';
+import type { ConnectionAvailability } from '@/hooks/use-connection-availability';
 import {
   createRepository,
   DEFAULT_ENDPOINT,
@@ -99,6 +100,35 @@ function connectionSourceIcon(source: KnownConnection['source']) {
   if (source === 'managed') return LaptopIcon;
   if (source === 'infrastructure') return ServerIcon;
   return FolderClockIcon;
+}
+
+/**
+ * A row's badge normally reflects the independent background probe
+ * (`useConnectionAvailabilities`, retried on its own schedule). But a real
+ * connect attempt against that SAME endpoint already produced a definitive
+ * answer -- there is no honest reason to keep showing "Checking" on the row
+ * while the alert right below it already says the service is unreachable.
+ * Once a connect attempt to this endpoint has failed, that failure IS the
+ * row's availability until something clears it (a new attempt, or the
+ * background probe itself catching up and reporting the same thing).
+ */
+function withFailedAttemptAvailability(
+  connection: KnownConnection,
+  attempt: { isError: boolean; error: Error | null; variables?: ConnectionSettings },
+): ConnectionAvailability {
+  if (!attempt.isError || !attempt.variables) return connection.availability;
+  let attemptedEndpoint: string;
+  try {
+    attemptedEndpoint = normalizeEndpoint(attempt.variables.endpoint);
+  } catch {
+    return connection.availability;
+  }
+  if (attemptedEndpoint !== connection.endpoint) return connection.availability;
+  return {
+    state: 'unavailable',
+    label: 'Unavailable',
+    detail: attempt.error?.message || 'The service could not be reached.',
+  };
 }
 
 function managedBootStage(status?: ManagedBackendStatus): DesktopBootStage {
@@ -255,6 +285,11 @@ export function ConnectionPage() {
     (connection) => connection.endpoint === selectedEndpoint,
   );
   const autoConnectStarted = useRef(false);
+  // Mirrors `autoConnectStarted.current` as real state -- read during
+  // render below (a ref must never be, see the boot-gate comment there),
+  // and set alongside the ref so both flip together the one time
+  // auto-connect ever dispatches.
+  const [autoConnectDispatched, setAutoConnectDispatched] = useState(false);
   const connectionIntent = searchParams.get('intent');
   const shouldConnectAutomatically =
     (recents.length > 0 || managedConnectionReady) && connectionIntent !== 'connect';
@@ -371,6 +406,7 @@ export function ConnectionPage() {
     )
       return;
     autoConnectStarted.current = true;
+    setAutoConnectDispatched(true);
     mutation.mutate(settings);
   }, [
     connectionIntent,
@@ -411,7 +447,19 @@ export function ConnectionPage() {
 
   if (
     shouldConnectAutomatically &&
-    (!credentialsReady || mutation.status === 'idle' || mutation.isPending)
+    // `mutation.status === 'idle'` alone used to gate this, to cover the one
+    // render between mount and the auto-connect effect actually dispatching
+    // (avoiding a flash of the form first). But `mutation.reset()` ALSO
+    // returns status to 'idle' -- "Add a service" and "Known services" call
+    // it to clear a stale error/success from a previous attempt -- which
+    // made this full-screen boot screen come BACK after the one-shot
+    // auto-connect (gated by `autoConnectStarted`, see the effect above) had
+    // already settled and would never fire again: the person clicked "Add a
+    // service" and landed on a screen that could never finish "opening".
+    // Once auto-connect has been dispatched at all, 'idle' no longer means
+    // "about to auto-connect" -- only `isPending` (a real attempt in
+    // flight) does.
+    (!credentialsReady || (!autoConnectDispatched && mutation.status === 'idle') || mutation.isPending)
   ) {
     return <DesktopBoot logoSource={logoSource} stage="opening_workspace" />;
   }
@@ -513,6 +561,7 @@ export function ConnectionPage() {
                     {knownConnections.map((connection) => {
                       const selected = connection.endpoint === selectedEndpoint;
                       const Icon = connectionSourceIcon(connection.source);
+                      const availability = withFailedAttemptAvailability(connection, mutation);
                       return (
                         <div
                           className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center overflow-hidden rounded-xl border bg-background transition-colors data-[selected=true]:border-primary/45 data-[selected=true]:bg-primary/5"
@@ -536,7 +585,7 @@ export function ConnectionPage() {
                             </span>
                           </button>
                           <ConnectionAvailabilityIndicator
-                            availability={connection.availability}
+                            availability={availability}
                             compact
                             endpoint={connection.endpoint}
                           />
