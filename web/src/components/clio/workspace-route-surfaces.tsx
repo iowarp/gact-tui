@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
 import { LiveConnectionIndicator } from './live-connection-indicator';
 import { SystemVersionStatus } from './navigation-version-status';
 import { ClioStatus } from './status';
@@ -73,9 +74,17 @@ export function WorkspaceTranscriptAlerts({
   streamError?: string;
   transcriptError?: string;
 }) {
+  // An update in flight (including the post-restart `reconnecting` window)
+  // already has its own full-screen `UpdateRestartOverlay` explaining
+  // exactly what is happening -- surfacing the stream's own "it broke"
+  // language on top of that would contradict it and confuse an outage that
+  // is entirely expected. `transcriptError` (a REST fetch failure) is left
+  // alone: reading the transcript can still fail during the outage for
+  // reasons the update itself does not explain.
+  const updateInFlight = useUpdateFlowStore((state) => isUpdateInFlight(state.step));
   return (
     <>
-      {streamError ? (
+      {streamError && !updateInFlight ? (
         <Alert className="m-3 mb-0 rounded-lg" variant="destructive">
           <AlertTriangleIcon aria-hidden="true" />
           <AlertTitle>Live stream needs reconciliation</AlertTitle>

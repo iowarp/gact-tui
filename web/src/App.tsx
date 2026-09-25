@@ -12,6 +12,8 @@ import { scheduleBackgroundUpdateCheck } from '@/tauri/desktop-updater';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useProviderCatalog } from '@/hooks/use-provider-catalog';
+import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
+import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
 
 const ConnectionPage = lazy(() =>
   import('@/routes/connection-page').then((module) => ({ default: module.ConnectionPage })),
@@ -88,6 +90,7 @@ export default function App() {
   const appContent = (
     <>
       <ProviderCatalogWarmup />
+      <UpdateRestartRecovery />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route element={<ConnectionPage />} path="/" />
@@ -99,6 +102,9 @@ export default function App() {
         </Routes>
       </Suspense>
       <Toaster closeButton richColors />
+      {/* Fixed + full-viewport, so it covers the desktop title bar's own
+          connection pill too -- not just the routed content below. */}
+      <UpdateRestartOverlay />
     </>
   );
 
