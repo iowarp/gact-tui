@@ -78,8 +78,14 @@ describe('SshHostPicker', () => {
     await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
 
     expect(screen.queryByRole('tab', { name: 'Password' })).not.toBeInTheDocument();
-    expect(screen.getByText('OpenSSH authentication')).toBeVisible();
-    expect(screen.getByText(/prompts come directly from system OpenSSH/u)).toBeVisible();
+    expect(screen.getByText('Authentication')).toBeVisible();
+    // The detail lives in one tooltip, not in paragraphs.
+    expect(screen.getByRole('button', { name: 'About authentication' })).toBeVisible();
+    expect(screen.queryByText(/Save a non-secret OpenSSH target/u)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/prompts come directly from system OpenSSH/u),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Shown in deployment target pickers.')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Password', { selector: 'input' })).not.toBeInTheDocument();
     expect(screen.getByLabelText('Paste a private key')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Choose key file' })).toBeVisible();

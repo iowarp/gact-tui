@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { LaptopIcon, ServerIcon, Settings2Icon } from 'lucide-react';
+import { LaptopIcon, ServerCogIcon, ServerIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -114,7 +114,7 @@ export function DeployClioDialog({
           </DialogHeader>
 
           <RadioGroup
-            className="grid gap-3 sm:grid-cols-2"
+            className="grid grid-cols-2 gap-3"
             disabled={running}
             onValueChange={(value) => setTarget(value as DeployTarget)}
             value={target}
@@ -148,7 +148,7 @@ export function DeployClioDialog({
                   type="button"
                   variant="ghost"
                 >
-                  <Settings2Icon aria-hidden="true" />
+                  <ServerCogIcon aria-hidden="true" />
                 </Button>
               </div>
               <SshHostPicker
@@ -234,7 +234,7 @@ function TargetOption({
 }) {
   return (
     <FieldLabel
-      className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors hover:border-primary/60 ${selected ? 'border-primary bg-primary/8' : ''}`}
+      className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors hover:border-primary/60 ${selected ? 'border-primary bg-primary/8' : ''}`}
       htmlFor={`deploy-clio-${value}`}
       title={title}
     >
