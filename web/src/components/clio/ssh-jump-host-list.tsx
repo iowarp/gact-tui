@@ -25,12 +25,13 @@ export const TYPE_SSH_ADDRESS = '__type-ssh-address__';
  * the same host configuration dialog every step uses.
  *
  * With `lastIsDestination`, the last step is the route's destination rather
- * than another jump host: it gets its own icon, label, and option list (a
- * computer is never offered as a jump on its own route), and an empty route
- * still shows one row so the destination can be chosen. Without it, this is
+ * than another jump host: it gets its own icon and label, and empty rows are
+ * real rows — a hop can be added before any computer is chosen, and each row
+ * is filled in (picked, typed, or configured) on its own. Without it, this is
  * a plain jump chain — the shape a saved computer's own proxy chain needs.
  */
 export function SshJumpHostList({
+  disabled = false,
   lastIsDestination = false,
   onChange,
   onConfigure,
@@ -38,6 +39,7 @@ export function SshJumpHostList({
   options,
   value,
 }: {
+  disabled?: boolean;
   /** The last step is the destination, not another jump host. */
   lastIsDestination?: boolean;
   onChange: (hosts: string[]) => void;
@@ -48,26 +50,29 @@ export function SshJumpHostList({
   options: SshHost[];
   value: string[];
 }) {
-  // A route with a destination still shown but no hops yet needs one row to
-  // choose it; that placeholder is a rendering detail, never a real hop.
-  const effectiveValue = lastIsDestination && !value.length ? [''] : value;
-  const [steps, setSteps] = useState<JumpStep[]>(() => reconcileJumpSteps([], effectiveValue));
+  const [steps, setSteps] = useState<JumpStep[]>(() => reconcileJumpSteps([], value));
+  const [typingKey, setTypingKey] = useState<string>();
   // A route changed from outside (a saved step, another editor) re-attaches the
   // identities this list already has, so rows keep their drag identity.
-  if (!sameHosts(steps, effectiveValue)) setSteps(reconcileJumpSteps(steps, effectiveValue));
-  if (!lastIsDestination && !effectiveValue.length) return null;
+  if (!sameHosts(steps, value)) setSteps(reconcileJumpSteps(steps, value));
+  if (!value.length) return null;
 
   const commit = (next: JumpStep[]) => {
     setSteps(next);
-    onChange(next.map((step) => step.host).filter((host) => host !== ''));
+    const hosts = next.map((step) => step.host);
+    // Route rows may stay empty until filled in; a plain chain has no blanks.
+    onChange(lastIsDestination ? hosts : hosts.filter((host) => host !== ''));
   };
+  const setHost = (index: number, host: string) =>
+    commit(steps.map((item, itemIndex) => (itemIndex === index ? { ...item, host } : item)));
 
-  const destinationRef = lastIsDestination ? steps[steps.length - 1]?.host : undefined;
 
   return (
     <Sortable
       aria-label={
-        lastIsDestination ? 'SSH connection route hops, in order' : 'Jump hosts, in connection order'
+        lastIsDestination
+          ? 'SSH connection route hops, in order'
+          : 'Jump hosts, in connection order'
       }
       className="grid gap-2"
       role="list"
@@ -79,14 +84,13 @@ export function SshJumpHostList({
     >
       {steps.map((step, index) => {
         const isDestinationRow = lastIsDestination && index === steps.length - 1;
-        // The current destination is never offered again as an earlier hop.
-        const rowOptions =
-          !isDestinationRow && destinationRef
-            ? options.filter((option) => option.profile !== destinationRef)
-            : options;
-        // The destination has always shown its resolved computer's name (falling
-        // back to "Add SSH host" when unset); a jump step stays generic, as before.
-        const destinationLabel = step.host
+        // A route never visits the same computer twice: each row offers the
+        // computers no other row uses. A plain chain keeps every option.
+        const taken = lastIsDestination
+          ? steps.filter((_, row) => row !== index).map((row) => row.host)
+          : [];
+        const rowOptions = options.filter((option) => !taken.includes(option.profile ?? ''));
+        const stepLabel = step.host
           ? (options.find((option) => option.profile === step.host)?.label ?? step.host)
           : undefined;
         return (
@@ -96,6 +100,7 @@ export function SshJumpHostList({
             aria-pressed={undefined}
             aria-roledescription={undefined}
             className="relative z-10 grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg bg-background"
+            disabled={disabled}
             key={step.key}
             role="listitem"
             tabIndex={-1}
@@ -103,13 +108,16 @@ export function SshJumpHostList({
           >
             <SortableItemHandle asChild>
               <Button
-                aria-label={isDestinationRow ? 'Reorder destination' : `Reorder jump host ${index + 1}`}
+                aria-label={
+                  isDestinationRow ? 'Reorder destination' : `Reorder jump host ${index + 1}`
+                }
                 className={cn(
                   'rounded-full border',
                   isDestinationRow ? 'text-primary' : 'text-muted-foreground',
                 )}
+                disabled={disabled}
                 size="icon-lg"
-                title="Drag, or press Space and then the arrow keys"
+                title={isDestinationRow ? 'Destination (drag to reorder)' : 'Drag to reorder'}
                 type="button"
                 variant="outline"
               >
@@ -120,36 +128,51 @@ export function SshJumpHostList({
                 )}
               </Button>
             </SortableItemHandle>
-            <SshJumpHostSelect
-              ariaLabel={isDestinationRow ? 'Saved SSH host' : undefined}
-              index={index}
-              onChange={(host) => {
-                if (host === ADD_SSH_COMPUTER) {
-                  onCreate?.(index);
-                  return;
-                }
-                if (host === TYPE_SSH_ADDRESS) return;
-                commit(
-                  steps.map((item, itemIndex) => (itemIndex === index ? { ...item, host } : item)),
-                );
-              }}
-              onCreate={Boolean(onCreate)}
-              options={rowOptions}
-              placeholder={isDestinationRow ? 'Choose the destination computer' : undefined}
-              value={step.host}
-            />
+            {typingKey === step.key ? (
+              <SshJumpAddressField
+                onCancel={() => setTypingKey(undefined)}
+                onSubmit={(destination) => {
+                  setTypingKey(undefined);
+                  setHost(index, destination);
+                }}
+              />
+            ) : (
+              <SshJumpHostSelect
+                ariaLabel={isDestinationRow ? 'Saved SSH host' : undefined}
+                disabled={disabled}
+                index={index}
+                onChange={(host) => {
+                  if (host === ADD_SSH_COMPUTER) {
+                    onCreate?.(index);
+                    return;
+                  }
+                  if (host === TYPE_SSH_ADDRESS) {
+                    setTypingKey(step.key);
+                    return;
+                  }
+                  setHost(index, host);
+                }}
+                onCreate={Boolean(onCreate)}
+                onTypeAddress={lastIsDestination}
+                options={rowOptions}
+                placeholder={isDestinationRow ? 'Choose the destination computer' : undefined}
+                value={step.host}
+              />
+            )}
             <div className="flex items-center gap-1">
               {onConfigure ? (
                 <Button
                   aria-label={
-                    isDestinationRow
-                      ? destinationLabel
-                        ? `Configure ${destinationLabel}`
-                        : 'Add SSH host'
-                      : `Configure jump host ${index + 1}`
+                    stepLabel
+                      ? `Configure ${stepLabel}`
+                      : isDestinationRow
+                        ? 'Add SSH host'
+                        : `Configure jump host ${index + 1}`
                   }
+                  disabled={disabled}
                   onClick={() => onConfigure(index)}
                   size="icon"
+                  title={stepLabel ? `Configure ${stepLabel}` : 'Configure a new computer'}
                   type="button"
                   variant="ghost"
                 >
@@ -157,9 +180,13 @@ export function SshJumpHostList({
                 </Button>
               ) : null}
               <Button
-                aria-label={isDestinationRow ? 'Remove destination' : `Remove jump host ${index + 1}`}
+                aria-label={
+                  isDestinationRow ? 'Remove destination' : `Remove jump host ${index + 1}`
+                }
+                disabled={disabled}
                 onClick={() => commit(steps.filter((_, itemIndex) => itemIndex !== index))}
                 size="icon"
+                title="Remove"
                 type="button"
                 variant="ghost"
               >
@@ -180,6 +207,7 @@ function sameHosts(steps: readonly JumpStep[], hosts: readonly string[]): boolea
 /** A saved-computer picker for one hop; an unsaved OpenSSH destination stays visible. */
 export function SshJumpHostSelect({
   ariaLabel,
+  disabled = false,
   index,
   onChange,
   onCreate,
@@ -190,6 +218,7 @@ export function SshJumpHostSelect({
 }: {
   /** Overrides the default "Jump host N" label, for a route hop's own wording. */
   ariaLabel?: string;
+  disabled?: boolean;
   index?: number;
   onChange: (value: string) => void;
   onCreate: boolean;
@@ -203,7 +232,7 @@ export function SshJumpHostSelect({
   const jumpOptions = options.filter((option) => option.profile);
   const known = jumpOptions.some((option) => option.profile === value);
   return (
-    <Select onValueChange={onChange} value={known ? value : ''}>
+    <Select disabled={disabled} onValueChange={onChange} value={known ? value : ''}>
       <SelectTrigger
         aria-label={ariaLabel ?? (index === undefined ? 'New jump host' : `Jump host ${index + 1}`)}
         className="min-w-0"

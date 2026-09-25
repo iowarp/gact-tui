@@ -3,20 +3,30 @@ import { Trash2Icon, TriangleAlertIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { vocab } from '@/lib/brand-vocabulary';
 import { profileSshHosts, sshHostDestination, type SshHost } from '@/lib/ssh-hosts';
 import { deleteSshProfile, listSshProfiles, setSshProfileRoute } from '@/tauri/ssh-profiles';
 import { SshConnectionRoute, type SshRouteStep } from './ssh-connection-route';
 import { SshHostDialog } from './ssh-host-dialog';
-import { resolveRouteHop, routeSteps } from './ssh-route-utils';
+import {
+  emptyRouteRows,
+  resolveRouteHop,
+  routeFromSlots,
+  routeSlots,
+  routeSteps,
+  type SshRouteCompleteness,
+} from './ssh-route-utils';
 
 type DialogState = { step: SshRouteStep; initial?: SshHost };
 
+const routeKey = (host: SshHost | undefined) => JSON.stringify(routeSteps(host));
+
 export function SshHostPicker({
+  disabled = false,
   onChange,
   value,
 }: {
-  onChange: (host: SshHost | undefined) => void;
+  disabled?: boolean;
+  onChange: (host: SshHost | undefined, route: SshRouteCompleteness) => void;
   value?: SshHost;
 }) {
   const profiles = useQuery({
@@ -36,6 +46,17 @@ export function SshHostPicker({
   };
   const [routeError, setRouteError] = useState<string>();
   const [routeNotice, setRouteNotice] = useState<string>();
+  // The rows, including empty ones, are this editor's own state; the route
+  // reported to the caller is derived from them once every row is filled.
+  const [slots, setSlots] = useState(() => routeSlots(value));
+  const [seenKey, setSeenKey] = useState(() => routeKey(value));
+  const [emittedKey, setEmittedKey] = useState(() => routeKey(value));
+  if (routeKey(value) !== seenKey) {
+    setSeenKey(routeKey(value));
+    // The caller replaced the route (a reset, a deleted computer) rather than
+    // adopting the one these rows produced.
+    if (routeKey(value) !== emittedKey) setSlots(routeSlots(value));
+  }
   const options = useMemo(() => profileSshHosts(profiles.data ?? []), [profiles.data]);
   const visibleOptions = useMemo(
     () =>
@@ -46,12 +67,16 @@ export function SshHostPicker({
   );
 
   /**
-   * Apply a route edit. For a computer CLIO saved, only its route is written
+   * Apply a row edit. For a computer CLIO saved, only its route is written
    * back (never the rest of the profile); an imported OpenSSH profile is never
    * modified, so the edited route applies to this deployment only — and says so.
    */
-  const changeRoute = async (next: SshHost | undefined) => {
-    onChange(next);
+  const changeSlots = async (nextSlots: string[], known: readonly SshHost[] = visibleOptions) => {
+    const normalized = nextSlots.length ? nextSlots : [''];
+    const next = routeFromSlots(normalized, (ref) => resolveRouteHop(ref, known));
+    setSlots(normalized);
+    setEmittedKey(routeKey(next));
+    onChange(next, { emptyRows: emptyRouteRows(normalized) });
     setRouteError(undefined);
     setRouteNotice(undefined);
     const routeChanged =
@@ -62,7 +87,7 @@ export function SshHostPicker({
     if (!routeChanged || !next.profile) return;
     if (!next.managed) {
       setRouteNotice(
-        `This route is used for this deployment only. ${next.label} comes from your OpenSSH configuration, which ${vocab.agent} does not change.`,
+        `This route is used for this deployment only; your OpenSSH configuration is unchanged.`,
       );
       return;
     }
@@ -75,32 +100,29 @@ export function SshHostPicker({
   };
 
   const openConfigure = (step: SshRouteStep) => {
-    const refs = routeSteps(value);
-    openDialog({
-      step,
-      initial: step.index < refs.length ? resolveRouteHop(refs[step.index], visibleOptions) : undefined,
-    });
+    const ref = slots[step.index];
+    openDialog({ step, initial: ref ? resolveRouteHop(ref, visibleOptions) : undefined });
   };
 
-  /** Place a freshly saved computer into the step the dialog was opened for. */
+  /** Place a freshly saved computer into the row the dialog was opened for. */
   const placeSaved = (saved: SshHost, step: SshRouteStep) => {
-    const refs = routeSteps(value);
-    const nextRefs =
-      step.index < refs.length
-        ? refs.map((ref, index) => (index === step.index ? sshHostDestination(saved) : ref))
-        : [...refs, sshHostDestination(saved)];
-    const destination = resolveRouteHop(nextRefs[nextRefs.length - 1], [saved, ...visibleOptions]);
-    void changeRoute({ ...destination, jumpHosts: nextRefs.slice(0, -1) });
+    const ref = sshHostDestination(saved);
+    const nextSlots =
+      step.index < slots.length
+        ? slots.map((slot, index) => (index === step.index ? ref : slot))
+        : [...slots, ref];
+    void changeSlots(nextSlots, [saved, ...visibleOptions]);
   };
 
   return (
     <div className="grid gap-2">
       <SshConnectionRoute
-        onChange={(next) => void changeRoute(next)}
+        disabled={disabled}
         onConfigure={openConfigure}
         onCreate={(step) => openDialog({ step })}
+        onSlotsChange={(next) => void changeSlots(next)}
         options={visibleOptions}
-        value={value}
+        slots={slots}
       />
 
       {routeError ? (
@@ -120,12 +142,13 @@ export function SshHostPicker({
       {value?.managed && value.profile ? (
         <Button
           aria-label={`Delete ${value.label}`}
+          className="w-fit"
+          disabled={disabled}
           onClick={async () => {
             await deleteSshProfile(value.profile ?? '');
-            onChange(undefined);
+            onChange(undefined, { emptyRows: [0] });
             await profiles.refetch();
           }}
-          className="w-fit"
           size="sm"
           type="button"
           variant="ghost"

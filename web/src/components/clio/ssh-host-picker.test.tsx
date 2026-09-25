@@ -102,6 +102,7 @@ describe('SshHostPicker', () => {
         host: '10.0.0.102',
         user: 'alice',
       }),
+      { emptyRows: [] },
     );
     expect(profiles.saveSshProfile).toHaveBeenCalledWith(
       expect.objectContaining({ hostname: '10.0.0.102', user: 'alice' }),
@@ -125,6 +126,7 @@ describe('SshHostPicker', () => {
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith(
         expect.objectContaining({ installRoot: '/mnt/common/alice/clio' }),
+        { emptyRows: [] },
       ),
     );
     expect(profiles.saveSshProfile).toHaveBeenCalledWith(
@@ -190,7 +192,7 @@ describe('SshHostPicker', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Configure jump host 1' }));
+    await user.click(await screen.findByRole('button', { name: 'Configure Gateway' }));
     const dialog = await screen.findByRole('dialog');
     expect(dialog).toHaveTextContent('Configure Gateway');
     expect(screen.getByLabelText('Address')).toHaveValue('gw.utah.edu');
@@ -208,13 +210,21 @@ describe('SshHostPicker', () => {
     // Only the route is written back, never the rest of the saved profile.
     await waitFor(() => expect(profiles.setSshProfileRoute).toHaveBeenCalledWith('utah', []));
     expect(profiles.saveSshProfile).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ jumpHosts: [] }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ jumpHosts: [] }), {
+      emptyRows: [],
+    });
   });
 
   it('reorders the route so the last hop becomes the destination', async () => {
     const user = userEvent.setup();
     profiles.listSshProfiles.mockResolvedValue([
-      { name: 'utah', label: 'Utah cluster', hostname: 'login.utah.edu', jump_hosts: ['gw'], managed: true },
+      {
+        name: 'utah',
+        label: 'Utah cluster',
+        hostname: 'login.utah.edu',
+        jump_hosts: ['gw'],
+        managed: true,
+      },
       { name: 'gw', label: 'Gateway', hostname: 'gw.utah.edu', user: 'alice', managed: true },
     ]);
     const onChange = vi.fn();
@@ -240,6 +250,7 @@ describe('SshHostPicker', () => {
 
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'profile:gw', label: 'Gateway', jumpHosts: [] }),
+      { emptyRows: [] },
     );
   });
 
@@ -272,7 +283,7 @@ describe('SshHostPicker', () => {
       </QueryClientProvider>,
     );
 
-    await user.click(await screen.findByRole('button', { name: 'Configure jump host 1' }));
+    await user.click(await screen.findByRole('button', { name: 'Configure Gateway' }));
     await user.clear(screen.getByLabelText('Name'));
     await user.type(screen.getByLabelText('Name'), 'Campus gateway');
     await user.click(screen.getByRole('button', { name: 'Save host' }));
@@ -316,7 +327,8 @@ describe('SshHostPicker', () => {
         session_id: 'ssh-test-session',
         state: 'reauthentication_required',
         reused: false,
-        output: 'Password:',
+        output: 'Password: ',
+        prompt: { kind: 'password', text: 'Password:', context: 'Password:' },
       },
     });
     // Never resolves: keeps the prompt open through this test without a
@@ -329,7 +341,7 @@ describe('SshHostPicker', () => {
     await user.type(screen.getByLabelText('Address'), 'utah.example.edu');
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
-    await screen.findByText('SSH authentication required');
+    await screen.findByText('Password');
 
     // Root cause of #1437: SshAuthentication renders its own <form> to answer
     // one OpenSSH prompt. It must never be a DOM descendant of the host
@@ -340,7 +352,7 @@ describe('SshHostPicker', () => {
       expect(form.querySelector('form')).toBeNull();
     }
 
-    await user.type(screen.getByLabelText('SSH prompt response'), 'super-secret');
+    await user.type(screen.getByLabelText('Password:'), 'super-secret');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
     expect(transport.writeSshTransport).toHaveBeenCalledWith('ssh-test-session', 'super-secret\n');
@@ -415,6 +427,53 @@ describe('SshHostPicker', () => {
     // makes the new computer the destination and Ares its jump host.
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ label: 'Ares compute node', jumpHosts: ['ares'] }),
+      { emptyRows: [] },
+    );
+  });
+
+  it('shows no prompt form while OpenSSH is only connecting, and never for ssh>', async () => {
+    const user = userEvent.setup();
+    transport.openSshConnectionTest.mockResolvedValue({
+      targetId: 'ssh-test-host',
+      status: {
+        session_id: 'ssh-test-session',
+        state: 'reauthentication_required',
+        reused: false,
+        output: '\r\nssh>',
+        prompt: null,
+      },
+    });
+    transport.sshTransportStatus.mockReturnValue(new Promise(() => {}));
+    renderPicker();
+
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+    await user.type(screen.getByLabelText('Address'), 'utah.example.edu');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await screen.findByRole('button', { name: 'Testing…' });
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
+    expect(screen.queryByText('ssh>')).not.toBeInTheDocument();
+  });
+
+  it('adds a hop before choosing any computer and fills both rows', async () => {
+    const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'ares', label: 'Ares', hostname: 'ares.example.edu', managed: true },
+      { name: 'node42', label: 'node42', hostname: 'node42', managed: false },
+    ]);
+    const { onChange } = renderPicker();
+
+    await user.click(await screen.findByRole('button', { name: 'Add hop' }));
+    expect(onChange).toHaveBeenLastCalledWith(undefined, { emptyRows: [0, 1] });
+    await user.click(screen.getByRole('combobox', { name: 'Jump host 1' }));
+    await user.click(await screen.findByRole('option', { name: 'Ares' }));
+    expect(onChange).toHaveBeenLastCalledWith(undefined, { emptyRows: [1] });
+    await user.click(screen.getByRole('combobox', { name: 'Saved SSH host' }));
+    await user.click(await screen.findByRole('option', { name: 'node42' }));
+
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ profile: 'node42', jumpHosts: ['ares'] }),
+      { emptyRows: [] },
     );
   });
 
