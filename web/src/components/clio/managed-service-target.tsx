@@ -38,12 +38,6 @@ export function SshAuthentication({
           className="flex gap-2"
           onSubmit={(event) => {
             event.preventDefault();
-            // This prompt is rendered inside the SSH host dialog's own <form>
-            // (Save host). Without stopping propagation, the native `submit`
-            // event bubbles to that outer form and triggers its own submit
-            // handler — saving/closing the host dialog as an unintended side
-            // effect of just answering an OpenSSH prompt (#1437).
-            event.stopPropagation();
             const response = answer;
             setAnswer('');
             setError(undefined);

@@ -62,6 +62,7 @@ beforeEach(() => {
     },
   });
   transport.closeSshConnectionTest.mockResolvedValue(undefined);
+  transport.writeSshTransport.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -163,7 +164,13 @@ describe('SshHostPicker', () => {
   it('configures a jump host in the same dialog and persists the reordered route', async () => {
     const user = userEvent.setup();
     profiles.listSshProfiles.mockResolvedValue([
-      { name: 'utah', label: 'Utah cluster', hostname: 'login.utah.edu', jump_hosts: ['gw'], managed: true },
+      {
+        name: 'utah',
+        label: 'Utah cluster',
+        hostname: 'login.utah.edu',
+        jump_hosts: ['gw'],
+        managed: true,
+      },
       { name: 'gw', label: 'Gateway', hostname: 'gw.utah.edu', user: 'alice', managed: true },
     ]);
     const onChange = vi.fn();
@@ -207,7 +214,13 @@ describe('SshHostPicker', () => {
   it('keeps a jump host its own route when it is configured', async () => {
     const user = userEvent.setup();
     profiles.listSshProfiles.mockResolvedValue([
-      { name: 'dest', label: 'Destination', hostname: 'dest.edu', jump_hosts: ['gw'], managed: true },
+      {
+        name: 'dest',
+        label: 'Destination',
+        hostname: 'dest.edu',
+        jump_hosts: ['gw'],
+        managed: true,
+      },
       { name: 'gw', label: 'Gateway', hostname: 'gw.edu', jump_hosts: ['bastion'], managed: true },
     ]);
     render(
@@ -261,6 +274,47 @@ describe('SshHostPicker', () => {
         expect.objectContaining({ name: 'gateway-2', replace_existing: false }),
       ),
     );
+  });
+
+  it('keeps the OpenSSH prompt in its own form, separate from Save host (#1437)', async () => {
+    const user = userEvent.setup();
+    transport.openSshConnectionTest.mockResolvedValue({
+      targetId: 'ssh-test-host',
+      status: {
+        session_id: 'ssh-test-session',
+        state: 'reauthentication_required',
+        reused: false,
+        output: 'Password:',
+      },
+    });
+    // Never resolves: keeps the prompt open through this test without a
+    // repeating background poll. The single 250ms sleep already in flight
+    // when the test ends fires once, harmlessly, touching no React state.
+    transport.sshTransportStatus.mockReturnValue(new Promise(() => {}));
+    renderPicker();
+
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+    await user.type(screen.getByLabelText('Address'), 'utah.example.edu');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await screen.findByText('SSH authentication required');
+
+    // Root cause of #1437: SshAuthentication renders its own <form> to answer
+    // one OpenSSH prompt. It must never be a DOM descendant of the host
+    // dialog's own <form onSubmit={submit}> (Save host) — nested <form>
+    // elements are invalid HTML, and the resulting native `submit` bubbles
+    // from the inner form into the outer one.
+    for (const form of document.querySelectorAll('form')) {
+      expect(form.querySelector('form')).toBeNull();
+    }
+
+    await user.type(screen.getByLabelText('SSH prompt response'), 'super-secret');
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(transport.writeSshTransport).toHaveBeenCalledWith('ssh-test-session', 'super-secret\n');
+    // Answering the prompt must only answer the prompt: no save, no close.
+    expect(profiles.saveSshProfile).not.toHaveBeenCalled();
+    expect(await screen.findByRole('dialog')).toBeVisible();
   });
 
   it('says a route edit on an imported OpenSSH host applies to this deployment only', async () => {
