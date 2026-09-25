@@ -41,6 +41,10 @@ mod ssh_profile_blocks;
 mod ssh_profile_resolve;
 mod ssh_profiles;
 mod ssh_transport;
+mod ssh_transport_command;
+mod ssh_transport_forward;
+mod ssh_transport_output;
+mod ssh_transport_steps;
 mod supervisor;
 mod supervisor_attach;
 mod supervisor_boot;
@@ -173,6 +177,8 @@ pub fn run() {
             ssh_transport::ssh_transport_exec,
             ssh_transport::ssh_transport_forward,
             ssh_transport::ssh_transport_close,
+            ssh_transport::ssh_transport_cancel,
+            ssh_transport::ssh_transport_log,
             ssh_profiles::ssh_profiles_list,
             ssh_profiles::ssh_profiles_list_all,
             ssh_profiles::ssh_profile_save,

@@ -550,7 +550,7 @@ fn windows_everything_gone(pinned: &[PinnedProcess], launcher_pid: u32) -> bool 
 }
 
 #[cfg(windows)]
-fn windows_terminate(pid: u32) {
+pub(crate) fn windows_terminate(pid: u32) {
     let process = unsafe { OpenProcess(PROCESS_TERMINATE, 0, pid) };
     if process.is_null() {
         return;
@@ -562,7 +562,7 @@ fn windows_terminate(pid: u32) {
 }
 
 #[cfg(unix)]
-fn terminate_process_group(pid: u32, signal: libc::c_int) {
+pub(crate) fn terminate_process_group(pid: u32, signal: libc::c_int) {
     let pgid = pid as libc::pid_t;
     // Negative pid targets the process group whose id equals `pid`.
     unsafe {
