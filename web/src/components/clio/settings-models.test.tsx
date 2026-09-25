@@ -10,6 +10,7 @@ import { ModelsSettings } from './settings-models';
 const { codexCatalog, configuration, repository } = vi.hoisted(() => {
   const configuration = {
     configured: true,
+    provider_id: 'codex',
     provider: 'codex',
     api_base: '',
     model: 'gpt-5.6-luna',
@@ -216,6 +217,7 @@ describe('ModelsSettings', () => {
   it('preserves the authoritative configured model when opened for its provider', async () => {
     repository.languageModelConfiguration.mockResolvedValueOnce({
       configured: true,
+      provider_id: 'codex',
       provider: 'codex',
       api_base: 'codex://app-server',
       model: 'gpt-5.6-luna',

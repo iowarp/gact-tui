@@ -443,9 +443,12 @@ export function useWorkspaceData({
   const visibleApprovals = approvals.data ?? [];
   const runs = Object.values(entities.runs).filter((run) => run.session_id === sessionId);
   const context = sessionContext.state.data ?? entities.context[contextTargetId];
+  // provider_id only -- never modelConfiguration.data?.provider, which is the
+  // wire KIND ("openai") that nine presets share (bedrock, llama_cpp, ...),
+  // not an identity (#1418).
   const activeProvider =
     session?.provider_id ??
-    modelConfiguration.data?.provider ??
+    modelConfiguration.data?.provider_id ??
     capabilities.data?.active_model?.provider_id;
   const activeModel =
     session?.model_id ??
@@ -464,7 +467,7 @@ export function useWorkspaceData({
   const contextAgentLabel = activeBlueprint?.display_name ?? session?.agent_id;
   const contextTargetOptions = buildContextTargets(sessionId, contextAgentLabel, subagents);
   const activePreset = modelConfiguration.data?.presets.find(
-    (preset) => preset.id === activeProvider || preset.provider === activeProvider,
+    (preset) => preset.id === activeProvider,
   );
   const activeCatalogProvider = activePreset?.id ?? activeProvider ?? '';
   const modelCatalog = useQuery({

@@ -89,17 +89,17 @@ export function AgentEditorDialog({
     queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
     queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
   });
+  // provider_id only -- modelConfiguration.data?.provider is the wire KIND,
+  // never an identity: nine presets share kind "openai" (#1418).
   const configuredPreset = modelConfiguration.data?.presets.find(
-    (preset) =>
-      preset.id === modelConfiguration.data?.provider ||
-      preset.provider === modelConfiguration.data?.provider,
+    (preset) => preset.id === modelConfiguration.data?.provider_id,
   );
   const effectiveProvider =
-    draft.provider || configuredPreset?.id || modelConfiguration.data?.provider || '';
+    draft.provider || configuredPreset?.id || modelConfiguration.data?.provider_id || '';
   const effectiveModel =
     draft.model || (!draft.provider ? modelConfiguration.data?.model : '') || '';
   const selectedPreset = modelConfiguration.data?.presets.find(
-    (preset) => preset.id === effectiveProvider || preset.provider === effectiveProvider,
+    (preset) => preset.id === effectiveProvider,
   );
   const catalogProvider = selectedPreset?.id ?? effectiveProvider;
   const authenticatedPresets =

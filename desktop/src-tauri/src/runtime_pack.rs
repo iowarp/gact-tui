@@ -21,6 +21,11 @@ use sha2::{Digest, Sha256};
 
 use crate::sidecar_setup::bundled_runtime_dir;
 
+#[cfg(windows)]
+use crate::installer_dir_swap;
+#[cfg(windows)]
+use crate::installer_runtime_stop;
+
 const PACK_MANIFEST_NAME: &str = "gact-runtime.pack.json";
 
 #[cfg(windows)]
@@ -111,6 +116,18 @@ fn prepare_windows_runtime(
         ));
     }
 
+    // Stop every CLIO-managed process under the install root BEFORE touching
+    // any directory below it. The shared clio-core daemon (`clio_run.exe`)
+    // deliberately survives an ordinary app quit (it breaks away from our Job
+    // Object so independent CLIO clients can keep using it — see
+    // `supervisor_shutdown`), so a user who closed CLIO Desktop right before
+    // this runs can still have it sitting on the very directory this function
+    // is about to rename out from under it. This sweep — clean `stop` first,
+    // then TerminateProcess + an actual wait on the handle, never a fixed
+    // sleep — replaces the installer's old encoded-PowerShell-plus-`Sleep
+    // 1500` macro, which guessed at a shutdown time instead of confirming it.
+    installer_runtime_stop::stop_and_log(resource_dir, "prepare-runtime");
+
     // The app is single-instance, so stable names are sufficient and let a
     // later launch or the uninstaller clean a directory left by a power loss.
     let staging_root = app_local_data_dir.join("bundled-runtime.installing");
@@ -157,17 +174,21 @@ fn prepare_windows_runtime(
         .map_err(|error| format!("write runtime installation receipt: {error}"))?;
 
         if install_root.exists() {
-            fs::rename(&install_root, &previous_root).map_err(|error| {
-                format!("move previous runtime {install_root:?} to {previous_root:?}: {error}")
-            })?;
+            installer_dir_swap::rename_with_retry(
+                &install_root,
+                &previous_root,
+                &format!("move previous runtime {install_root:?} to {previous_root:?}"),
+            )?;
         }
-        if let Err(error) = fs::rename(&staging_root, &install_root) {
+        if let Err(error) = installer_dir_swap::rename_with_retry(
+            &staging_root,
+            &install_root,
+            &format!("activate prepared runtime {staging_root:?} as {install_root:?}"),
+        ) {
             if previous_root.exists() {
                 let _ = fs::rename(&previous_root, &install_root);
             }
-            return Err(format!(
-                "activate prepared runtime {staging_root:?} as {install_root:?}: {error}"
-            ));
+            return Err(error);
         }
         // Activation has succeeded; stale backup cleanup must not turn a
         // usable runtime into a reported startup failure.
@@ -212,7 +233,7 @@ fn sha256_file(path: &Path) -> Result<String, String> {
 #[cfg(windows)]
 fn remove_dir_if_present(path: &Path) -> Result<(), String> {
     if path.exists() {
-        fs::remove_dir_all(path).map_err(|error| format!("remove directory {path:?}: {error}"))?;
+        installer_dir_swap::remove_dir_all_with_retry(path, &format!("remove directory {path:?}"))?;
     }
     Ok(())
 }
@@ -302,6 +323,7 @@ fn remove_runtime_tree_parallel(runtime_root: &Path) -> Result<(), String> {
 mod tests {
     use super::*;
     use std::io::Write;
+    use std::os::windows::fs::OpenOptionsExt;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_case(name: &str) -> PathBuf {
@@ -372,6 +394,64 @@ mod tests {
             .expect("reuse runtime")
             .expect("receipted runtime");
         assert_eq!(reused, runtime);
+        fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    /// Reproduces the reported failure end to end: an existing installed
+    /// runtime (`bundled-runtime`) has a file inside it held open with a
+    /// share mode that denies everything — standing in for a straggling
+    /// `clio_run.exe` handle `installer_runtime_stop`'s sweep did not reach —
+    /// right as a second `prepare_bundled_runtime` call needs to rename that
+    /// directory out of the way. Before the retry/backoff added in #I1, this
+    /// failed immediately with "Access is denied. (os error 5)"; now the
+    /// rename must retry until the lock clears and the reinstall succeeds.
+    #[test]
+    fn upgrade_survives_a_transient_lock_on_the_previously_installed_runtime() {
+        let root = temp_case("upgrade-locked");
+        let resources = root.join("resources");
+        let app_data = root.join("data");
+        write_test_pack(&resources);
+
+        let runtime = prepare_bundled_runtime(&resources, &app_data)
+            .expect("first install")
+            .expect("packed runtime");
+
+        // Force the second call down the full reinstall path (not the
+        // matching-receipt short-circuit) by invalidating the receipt, then
+        // regenerate the archive the first install already reclaimed.
+        fs::write(app_data.join("bundled-runtime/pack.sha256"), "stale\n")
+            .expect("invalidate receipt");
+        write_test_pack(&resources);
+
+        let locked_file = runtime.join("runtime.json");
+        let handle = std::fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0) // deny ALL sharing, including delete
+            .open(&locked_file)
+            .expect("hold the installed runtime file open");
+        let release_after = std::time::Duration::from_millis(700);
+        let releaser = std::thread::spawn(move || {
+            std::thread::sleep(release_after);
+            drop(handle);
+        });
+
+        let started = std::time::Instant::now();
+        let reinstalled = prepare_bundled_runtime(&resources, &app_data)
+            .expect("reinstall must survive the transient lock and eventually succeed")
+            .expect("packed runtime");
+        let elapsed = started.elapsed();
+        releaser.join().expect("releaser thread must not panic");
+
+        assert_eq!(reinstalled, runtime);
+        assert!(
+            elapsed >= release_after,
+            "must not have succeeded before the lock actually cleared (elapsed {elapsed:?})"
+        );
+        assert!(
+            elapsed < std::time::Duration::from_secs(20),
+            "a lock that cleared quickly must not burn anywhere near the full retry budget \
+             (elapsed {elapsed:?})"
+        );
         fs::remove_dir_all(root).expect("cleanup");
     }
 

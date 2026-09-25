@@ -13,7 +13,11 @@ mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod installer_dir_swap;
 mod installer_options;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod installer_runtime_stop;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
@@ -424,6 +428,29 @@ pub fn remove_managed_storage_for_uninstall() -> Result<(), String> {
         .parent()
         .ok_or_else(|| format!("installed desktop executable has no parent: {executable:?}"))?;
     runtime_pack::remove_managed_install_storage(resource_dir)
+}
+
+/// The `--stop-managed-runtime` installer step: stop every CLIO-managed
+/// process under the install root deterministically, waiting for each to
+/// actually exit, before NSIS overwrites or removes anything.
+///
+/// Replaces the old `CLIO_STOP_MANAGED_RUNTIME` NSIS macro, which shelled out
+/// to an encoded PowerShell one-liner (WMI process match + `Stop-Process
+/// -Force`) and then blindly `Sleep 1500`'d regardless of whether anything
+/// had actually exited. This is invoked from both `NSIS_HOOK_PREINSTALL`
+/// (before an upgrade overwrites files) and `NSIS_HOOK_PREUNINSTALL` (before
+/// the uninstaller removes managed storage) — always best-effort: a failure
+/// here is never fatal to the installer, since the retrying directory swap in
+/// `runtime_pack`/`installer_dir_swap` is the actual correctness backstop.
+#[cfg(windows)]
+pub fn stop_managed_runtime_command() -> Result<(), String> {
+    let executable = std::env::current_exe()
+        .map_err(|error| format!("resolve installed desktop executable: {error}"))?;
+    let resource_dir = executable
+        .parent()
+        .ok_or_else(|| format!("installed desktop executable has no parent: {executable:?}"))?;
+    installer_runtime_stop::stop_and_log(resource_dir, "stop-managed-runtime");
+    Ok(())
 }
 
 /// The one quit path every entry point funnels through: the title-bar/

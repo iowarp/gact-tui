@@ -41,6 +41,7 @@ const repository = vi.hoisted(() => ({
   tools: vi.fn(),
   languageModelConfiguration: vi.fn().mockResolvedValue({
     configured: true,
+    provider_id: 'codex',
     provider: 'codex',
     api_base: '',
     model: 'gpt-5.6-luna',

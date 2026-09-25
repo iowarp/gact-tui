@@ -364,15 +364,28 @@ Function un.ClioRemoveUserDataPageLeave
 FunctionEnd
 
 !macro CLIO_STOP_MANAGED_RUNTIME
-  ; Pass the path through a tiny temporary file instead of interpolating it into
-  ; PowerShell source. The compact encoded command stays below NSIS' command-string
-  ; limit while retaining an executable allowlist and install-root boundary check.
-  FileOpen $0 "$TEMP\clio-desktop-install-root.txt" w
-  FileWrite $0 "$INSTDIR"
-  FileClose $0
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand JAByAD0AKABnAGMAIAAtAFIAYQB3ACAAIgAkAGUAbgB2ADoAVABFAE0AUABcAGMAbABpAG8ALQBkAGUAcwBrAHQAbwBwAC0AaQBuAHMAdABhAGwAbAAtAHIAbwBvAHQALgB0AHgAdAAiACkALgBUAHIAaQBtAEUAbgBkACgAIgBcACIAKQArACIAXAAiADsAZwBjAGkAbQAgAFcAaQBuADMAMgBfAFAAcgBvAGMAZQBzAHMAfAA/AHsAJABfAC4ATgBhAG0AZQAgAC0AaQBuACAAIgBjAGwAaQBvAC0AZABlAHMAawB0AG8AcAAuAGUAeABlACIALAAiAGMAbABpAG8ALQBhAGcAZQBuAHQALgBlAHgAZQAiACwAIgBwAHkAdABoAG8AbgAuAGUAeABlACIALAAiAGMAbABpAG8AXwByAHUAbgAuAGUAeABlACIAIAAtAGEAbgBkACAAJABfAC4ARQB4AGUAYwB1AHQAYQBiAGwAZQBQAGEAdABoACAALQBhAG4AZAAgACgAJABfAC4ARQB4AGUAYwB1AHQAYQBiAGwAZQBQAGEAdABoAC0AcgBlAHAAbABhAGMAZQAiAF4AXABcAFwAXABcAD8AXABcACIALAAiACIAKQAuAFMAdABhAHIAdABzAFcAaQB0AGgAKAAkAHIALAA1ACkAfQB8ACUAewBrAGkAbABsACAALQBJAGQAIAAkAF8ALgBQAHIAbwBjAGUAcwBzAEkAZAAgAC0ARgBvAHIAYwBlACAALQBlAGEAIAAwAH0A' $0
-  Delete "$TEMP\clio-desktop-install-root.txt"
-  Sleep 1500
+  ; Deterministic stop, owned by the Rust `--stop-managed-runtime` helper
+  ; (desktop/src-tauri/src/installer_runtime_stop.rs, #I1): it finds every
+  ; CLIO-managed process (clio-desktop.exe, clio-agent.exe, python.exe,
+  ; clio_run.exe) whose executable lives under $INSTDIR, asks a managed
+  ; clio_run.exe to stop cleanly, then terminates whatever remains and WAITS
+  ; on its handle until it has actually exited. This replaces the old encoded
+  ; PowerShell one-liner (WMI process match + Stop-Process -Force) and the
+  ; fixed 1.5-second `Sleep` that followed it — a guess at a shutdown time,
+  ; not a confirmation of one, and the actual root cause of the reported
+  ; "Access is denied" runtime-swap failure when the shared clio-core daemon
+  ; outlived the app that started it. Only present once $INSTDIR\clio-desktop.exe
+  ; exists (a fresh install has nothing running yet to stop). Best-effort: its
+  ; exit code is intentionally not checked here, exactly like the removed
+  ; PowerShell call — the retrying directory swap in `runtime_pack.rs` /
+  ; `installer_dir_swap.rs` is the actual correctness backstop for anything
+  ; this sweep could not stop in time.
+  ${If} ${FileExists} "$INSTDIR\clio-desktop.exe"
+    DetailPrint "Stopping CLIO's managed runtime..."
+    nsExec::ExecToStack '"$INSTDIR\clio-desktop.exe" --stop-managed-runtime'
+    Pop $0
+    Pop $1
+  ${EndIf}
 !macroend
 
 ; Generated infrastructure is not user-authored session data. Remove it on
