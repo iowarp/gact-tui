@@ -6,6 +6,7 @@
 //!
 //! Wave 3: also owns SSH tunnel lifecycles + OS notifications + tray.
 
+mod blocking_command;
 mod brand_backend;
 mod clio_core_daemon;
 mod clio_core_registry;
@@ -38,8 +39,13 @@ mod sse_stream;
 #[cfg(test)]
 mod sse_stream_tests;
 mod ssh_profile_blocks;
+mod ssh_profile_resolve;
 mod ssh_profiles;
 mod ssh_transport;
+mod ssh_transport_command;
+mod ssh_transport_forward;
+mod ssh_transport_output;
+mod ssh_transport_steps;
 mod supervisor;
 mod supervisor_attach;
 mod supervisor_boot;
@@ -172,6 +178,8 @@ pub fn run() {
             ssh_transport::ssh_transport_exec,
             ssh_transport::ssh_transport_forward,
             ssh_transport::ssh_transport_close,
+            ssh_transport::ssh_transport_cancel,
+            ssh_transport::ssh_transport_log,
             ssh_profiles::ssh_profiles_list,
             ssh_profiles::ssh_profiles_list_all,
             ssh_profiles::ssh_profile_save,
@@ -433,27 +441,33 @@ pub fn remove_managed_storage_for_uninstall() -> Result<(), String> {
     runtime_pack::remove_managed_install_storage(resource_dir)
 }
 
-/// The `--stop-managed-runtime` installer step: stop every CLIO-managed
-/// process under the install root deterministically, waiting for each to
-/// actually exit, before NSIS overwrites or removes anything.
+/// The `--stop-managed-runtime <install dir>` installer step: stop every
+/// CLIO-managed process under the install root deterministically, waiting for
+/// each to actually exit, before NSIS overwrites or removes anything.
 ///
-/// Replaces the old `CLIO_STOP_MANAGED_RUNTIME` NSIS macro, which shelled out
-/// to an encoded PowerShell one-liner (WMI process match + `Stop-Process
-/// -Force`) and then blindly `Sleep 1500`'d regardless of whether anything
-/// had actually exited. This is invoked from both `NSIS_HOOK_PREINSTALL`
-/// (before an upgrade overwrites files) and `NSIS_HOOK_PREUNINSTALL` (before
-/// the uninstaller removes managed storage) — always best-effort: a failure
-/// here is never fatal to the installer, since the retrying directory swap in
-/// `runtime_pack`/`installer_dir_swap` is the actual correctness backstop.
+/// The installer runs this from a copy of the NEW executable it extracts to
+/// `$PLUGINSDIR` (see `installer-hooks.nsh`), never from the installed one: an
+/// older installed binary may not know this flag, and an unknown flag starts
+/// the full application instead, which the installer would then wait on
+/// forever. Because the copy does not live in the install directory, the
+/// root is always passed explicitly.
+///
+/// Returns the typed outcome line the installer logs; `Err` means some
+/// managed process did not confirm its exit within the bounded wait.
 #[cfg(windows)]
-pub fn stop_managed_runtime_command() -> Result<(), String> {
-    let executable = std::env::current_exe()
-        .map_err(|error| format!("resolve installed desktop executable: {error}"))?;
-    let resource_dir = executable
-        .parent()
-        .ok_or_else(|| format!("installed desktop executable has no parent: {executable:?}"))?;
-    installer_runtime_stop::stop_and_log(resource_dir, "stop-managed-runtime");
-    Ok(())
+pub fn stop_managed_runtime_command(root: &std::path::Path) -> Result<String, String> {
+    if !root.is_dir() {
+        return Err(format!(
+            "result=invalid_install_dir path={}",
+            root.display()
+        ));
+    }
+    let survivors = installer_runtime_stop::stop_and_log(root, "stop-managed-runtime");
+    if survivors == 0 {
+        Ok("result=stopped".to_string())
+    } else {
+        Err(format!("result=processes_survived count={survivors}"))
+    }
 }
 
 /// The one quit path every entry point funnels through: the title-bar/

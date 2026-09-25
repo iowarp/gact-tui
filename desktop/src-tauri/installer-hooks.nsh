@@ -363,28 +363,58 @@ Function un.ClioRemoveUserDataPageLeave
   ${NSD_GetState} $ClioRemoveUserDataCheckbox $ClioRemoveUserData
 FunctionEnd
 
+; Report the stop helper's typed outcome. $0 is nsExec's status ("timeout",
+; "error", or the exit code) and $1 its output, whose last line is the
+; helper's own `result=...` reason.
+!macro CLIO_REPORT_RUNTIME_STOP
+  ${If} $0 == "timeout"
+    DetailPrint "CLIO managed-runtime stop: result=timeout after 60 seconds"
+  ${ElseIf} $0 == "error"
+    DetailPrint "CLIO managed-runtime stop: result=helper_not_started"
+  ${ElseIf} $0 != 0
+    DetailPrint "CLIO managed-runtime stop: exit=$0 $1"
+  ${Else}
+    DetailPrint "CLIO managed-runtime stop: $1"
+  ${EndIf}
+!macroend
+
+; Upgrade path. The stop helper is the NEW clio-desktop.exe, embedded in this
+; installer and extracted to $PLUGINSDIR, never the installed one: an older
+; installed binary (0.9.4.17 and earlier) does not know
+; `--stop-managed-runtime`, treats it as an ordinary launch, and starts the
+; full application, which nsExec then waits on forever. The helper
+; (installer_runtime_stop.rs) stops only CLIO-managed processes
+; (clio-desktop.exe, clio-agent.exe, python.exe, clio_run.exe) whose
+; executable lives under $INSTDIR, asks a managed clio_run.exe to stop
+; cleanly, then terminates what remains and waits on each handle within its
+; own bounded budget. nsExec's /TIMEOUT bounds the whole step as well. A
+; failure is reported with its typed reason and is not fatal: the retrying
+; directory swap in `runtime_pack.rs` / `installer_dir_swap.rs` is the
+; correctness backstop for anything that outlives the sweep. A fresh install
+; has nothing to stop.
 !macro CLIO_STOP_MANAGED_RUNTIME
-  ; Deterministic stop, owned by the Rust `--stop-managed-runtime` helper
-  ; (desktop/src-tauri/src/installer_runtime_stop.rs, #I1): it finds every
-  ; CLIO-managed process (clio-desktop.exe, clio-agent.exe, python.exe,
-  ; clio_run.exe) whose executable lives under $INSTDIR, asks a managed
-  ; clio_run.exe to stop cleanly, then terminates whatever remains and WAITS
-  ; on its handle until it has actually exited. This replaces the old encoded
-  ; PowerShell one-liner (WMI process match + Stop-Process -Force) and the
-  ; fixed 1.5-second `Sleep` that followed it — a guess at a shutdown time,
-  ; not a confirmation of one, and the actual root cause of the reported
-  ; "Access is denied" runtime-swap failure when the shared clio-core daemon
-  ; outlived the app that started it. Only present once $INSTDIR\clio-desktop.exe
-  ; exists (a fresh install has nothing running yet to stop). Best-effort: its
-  ; exit code is intentionally not checked here, exactly like the removed
-  ; PowerShell call — the retrying directory swap in `runtime_pack.rs` /
-  ; `installer_dir_swap.rs` is the actual correctness backstop for anything
-  ; this sweep could not stop in time.
   ${If} ${FileExists} "$INSTDIR\clio-desktop.exe"
     DetailPrint "Stopping CLIO's managed runtime..."
-    nsExec::ExecToStack '"$INSTDIR\clio-desktop.exe" --stop-managed-runtime'
+    InitPluginsDir
+    File "/oname=$PLUGINSDIR\clio-runtime-stop.exe" "${MAINBINARYSRCPATH}"
+    nsExec::ExecToStack /TIMEOUT=60000 '"$PLUGINSDIR\clio-runtime-stop.exe" --stop-managed-runtime "$INSTDIR"'
     Pop $0
     Pop $1
+    !insertmacro CLIO_REPORT_RUNTIME_STOP
+    Delete "$PLUGINSDIR\clio-runtime-stop.exe"
+  ${EndIf}
+!macroend
+
+; Uninstall path. The uninstaller was written by the same installer run as
+; $INSTDIR\clio-desktop.exe, so that binary is exactly the version that knows
+; this flag; no copy is embedded in the uninstaller.
+!macro CLIO_STOP_MANAGED_RUNTIME_FOR_UNINSTALL
+  ${If} ${FileExists} "$INSTDIR\clio-desktop.exe"
+    DetailPrint "Stopping CLIO's managed runtime..."
+    nsExec::ExecToStack /TIMEOUT=60000 '"$INSTDIR\clio-desktop.exe" --stop-managed-runtime "$INSTDIR"'
+    Pop $0
+    Pop $1
+    !insertmacro CLIO_REPORT_RUNTIME_STOP
   ${EndIf}
 !macroend
 
@@ -554,7 +584,7 @@ FunctionEnd
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-  !insertmacro CLIO_STOP_MANAGED_RUNTIME
+  !insertmacro CLIO_STOP_MANAGED_RUNTIME_FOR_UNINSTALL
   !insertmacro CLIO_REMOVE_MANAGED_STORAGE
 !macroend
 

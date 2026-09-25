@@ -23,6 +23,7 @@ export function targetMatchesHost(target: InfrastructureTarget, host: SshHost): 
 export async function waitForOperation(
   repository: Pick<ClioRepository, 'infrastructureOperation'>,
   initial: InfrastructureOperation,
+  signal?: AbortSignal,
 ): Promise<InfrastructureOperation> {
   let operation = initial;
   for (let attempt = 0; attempt < 2_400; attempt += 1) {
@@ -30,8 +31,27 @@ export async function waitForOperation(
     if (operation.state === 'failed' || operation.state === 'cancelled') {
       throw new Error(operation.error || operation.progress || `${operation.action} failed.`);
     }
-    await new Promise((resolve) => window.setTimeout(resolve, 500));
-    operation = await repository.infrastructureOperation(operation.id);
+    await abortableDelay(500, signal);
+    operation = await repository.infrastructureOperation(operation.id, signal);
   }
   throw new Error(`${initial.action} is still running. Check its status before trying again.`);
+}
+
+/** Wait `milliseconds`, rejecting as soon as `signal` aborts. */
+export function abortableDelay(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      signal?.removeEventListener('abort', aborted);
+      resolve();
+    }, milliseconds);
+    const aborted = () => {
+      window.clearTimeout(timer);
+      reject(signal?.reason);
+    };
+    signal?.addEventListener('abort', aborted, { once: true });
+  });
 }

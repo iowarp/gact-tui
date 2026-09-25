@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -83,7 +83,44 @@ describe('SshHostsManagerDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Show gateway' }));
 
-    await waitFor(() => expect(profiles.setSshProfileHidden).toHaveBeenCalledWith('gateway', false));
+    await waitFor(() =>
+      expect(profiles.setSshProfileHidden).toHaveBeenCalledWith('gateway', false),
+    );
+  });
+
+  it('flips visibility at once, stays open, and never re-lists every host', async () => {
+    const user = userEvent.setup();
+    let finish: () => void = () => undefined;
+    profiles.setSshProfileHidden.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const { onOpenChange } = renderManager();
+    await screen.findByText('Ares');
+
+    await user.click(screen.getByRole('button', { name: 'Hide Ares' }));
+
+    // Before the preference write finishes, the row already reads Hidden and
+    // its toggle stays usable (no disabled state to drop focus).
+    expect(screen.getByRole('button', { name: 'Show Ares' })).toBeEnabled();
+    expect(screen.getAllByText('Hidden')).toHaveLength(2);
+    await act(async () => finish());
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Manage SSH hosts' })).toBeVisible();
+    expect(profiles.listAllSshProfiles).toHaveBeenCalledTimes(1);
+  });
+
+  it('puts the row back and says why when the preference cannot be saved', async () => {
+    const user = userEvent.setup();
+    profiles.setSshProfileHidden.mockRejectedValue(new Error('Could not write preferences'));
+    renderManager();
+    await screen.findByText('Ares');
+
+    await user.click(screen.getByRole('button', { name: 'Hide Ares' }));
+
+    expect(await screen.findByText('Could not write preferences')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Hide Ares' })).toBeVisible();
   });
 
   it('configures a managed host but offers no configure action for an imported one', async () => {

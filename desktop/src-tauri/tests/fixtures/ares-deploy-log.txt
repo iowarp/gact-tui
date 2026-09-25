@@ -1,0 +1,39 @@
+[?9001h[?1004h[?25l[2J[m[H__CLIO_SSH_READY__
+]0;C:\WINDOWS\System32\OpenSSH\ssh.EXE[?25h$ 
+__CLIO_BEGIN_acd03c1bfbc132de__
+[?25lLinux|x86_64|none|1|1|1[6;1H__CLIO_END_acd03c1bfbc132de__:0
+$ [?25h
+__CLIO_BEGIN_f19f84575c9cd6d8__
+[32m==> [mInstalling clio-agent[argonne]==0.9.4.17 from PyPI
+Using CPython 3.12.0 interpreter at: [36m/home/jcernudagarcia/.local/bin/python3.12[m
+Creating virtual environment at: [36m/home/jcernudagarcia/.local/share/clio/clio-agent/.venv
+[mActivate with: [32msource /home/jcernudagarcia/.local/share/clio/clio-agent/.venv/bin/activate
+[m[32m==> [mProvisioning released clio-kit launcher (clio-kit==2.10.6; legacy runtime semantics)
+`[36mclio-kit==[m[36m2.10.6[m` is already installed[32m
+==> [mDownloading clio-tui-linux-amd64 from clio-agent v0.9.4.17
+[32m==> [mWeb UI bundle installed (run: clio --web)
+[32m==> [mInstalling launcher: /home/jcernudagarcia/.local/bin/clio
+[32m==> [mInstalling uninstaller: /home/jcernudagarcia/.local/share/clio/uninstall.sh
+[32m==> [mDone.
+[?25l
+Installed to:        /home/jcernudagarcia/.local/share/clio
+Launcher:            /home/jcernudagarcia/.local/bin/clio
+clio-agent:          PyPI: 0.9.4.17
+gact:                release: v0.9.4.17[26;1HNext steps:
+  1. Make sure /home/jcernudagarcia/.local/bin is on your PATH.
+  2. Run:   clio
+  3. Manage the server: clio status | clio restart | clio logs
+  4. Tab-completion:    clio completion bash >> ~/.bashrc   (or zsh)
+[?25h
+  5. Uninstall:         clio uninstall   (add --purge to drop config)
+
+
+__CLIO_END_f19f84575c9cd6d8__:0
+$[1C
+__CLIO_BEGIN_567b3598b4d3ec49__
+[32m==> [mStarting CLIO server on :17800 (log: /home/jcernudagarcia/.local/share/clio/clio-server.log)
+[32m==>   [mhealthy (pid 3187536)
+
+__CLIO_END_567b3598b4d3ec49__:0
+$[1C
+ssh>[1C

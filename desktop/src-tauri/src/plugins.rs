@@ -6,6 +6,7 @@
 //! timeout and a small size cap so a runaway plugin can't lock the
 //! UI or pour megabytes through IPC.
 
+use crate::blocking_command::off_main;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::process::{Command, Stdio};
@@ -69,8 +70,7 @@ fn join_reader(
     }
 }
 
-#[tauri::command]
-pub fn exec_plugin(req: ExecPluginRequest) -> Result<ExecPluginResult, String> {
+fn exec_plugin_blocking(req: ExecPluginRequest) -> Result<ExecPluginResult, String> {
     let timeout = Duration::from_millis(
         req.timeout_ms
             .unwrap_or(DEFAULT_PLUGIN_TIMEOUT_MS)
@@ -150,6 +150,11 @@ pub fn exec_plugin(req: ExecPluginRequest) -> Result<ExecPluginResult, String> {
         duration_ms: started.elapsed().as_millis() as u64,
         timed_out,
     })
+}
+
+#[tauri::command]
+pub async fn exec_plugin(req: ExecPluginRequest) -> Result<ExecPluginResult, String> {
+    off_main(move || exec_plugin_blocking(req)).await
 }
 
 #[cfg(test)]

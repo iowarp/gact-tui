@@ -18,7 +18,10 @@ export function newJumpKey(): string {
  * reorder keeps every row's identity (what dnd-kit animates) instead of
  * re-keying rows by position; new destinations get fresh identities.
  */
-export function reconcileJumpSteps(previous: readonly JumpStep[], hosts: readonly string[]): JumpStep[] {
+export function reconcileJumpSteps(
+  previous: readonly JumpStep[],
+  hosts: readonly string[],
+): JumpStep[] {
   const unclaimed = [...previous];
   return hosts.map((host) => {
     const index = unclaimed.findIndex((step) => step.host === host);
@@ -95,6 +98,34 @@ export function applyRouteOrder(
   if (!refs.length) return undefined;
   const destination = resolve(refs[refs.length - 1]);
   return { ...destination, jumpHosts: refs.slice(0, -1) };
+}
+
+/** The editable rows for a route: its hops, or one empty destination row. */
+export function routeSlots(value: SshHost | undefined): string[] {
+  const refs = routeSteps(value);
+  return refs.length ? refs : [''];
+}
+
+/** Rows of a route that are still empty, for validation at deploy time. */
+export type SshRouteCompleteness = { emptyRows: number[] };
+
+/** A message for the first empty row, or undefined when the route is complete. */
+export function routeIncompleteMessage(route: SshRouteCompleteness): string | undefined {
+  if (!route.emptyRows.length) return undefined;
+  return `Choose a computer for hop ${route.emptyRows[0] + 1}, or remove it.`;
+}
+
+/** Indexes of rows not filled in yet. */
+export function emptyRouteRows(slots: readonly string[]): number[] {
+  return slots.flatMap((slot, index) => (slot ? [] : [index]));
+}
+
+/** The route the rows describe, or undefined while any row is still empty. */
+export function routeFromSlots(
+  slots: readonly string[],
+  resolve: (ref: string) => SshHost,
+): SshHost | undefined {
+  return emptyRouteRows(slots).length ? undefined : applyRouteOrder(slots, resolve);
 }
 
 /**

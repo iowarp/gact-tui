@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -32,6 +32,7 @@ import {
   type SshConnectionTest,
   type SshTransportStatus,
 } from '@/tauri/ssh-infrastructure-transport';
+import { InfoTip } from './info-tip';
 import { SshAuthentication } from './managed-service-target';
 import type { SshRouteStep } from './ssh-connection-route';
 import {
@@ -226,9 +227,8 @@ export function SshHostDialog({
           <form className="grid gap-5" id="ssh-host-form" onSubmit={submit}>
             <DialogHeader>
               <DialogTitle>{dialogTitle(step, initial)}</DialogTitle>
-              <DialogDescription>
-                Save a non-secret OpenSSH target. Passwords, Duo, security keys, Kerberos, and
-                rolling credentials are requested interactively by system OpenSSH.
+              <DialogDescription className="sr-only">
+                Address, account, route, and key for one SSH computer.
               </DialogDescription>
             </DialogHeader>
 
@@ -276,16 +276,11 @@ export function SshHostDialog({
                 placeholder="For example, Utah cluster"
                 value={label}
               />
-              <FieldDescription>Shown in deployment target pickers.</FieldDescription>
             </Field>
 
             {isJump ? null : (
               <Field>
                 <FieldLabel>Connection route</FieldLabel>
-                <FieldDescription>
-                  Jump hosts in connection order. The same route appears on the front door, where
-                  every step can be chosen, configured, or reordered.
-                </FieldDescription>
                 <div className="mt-2 grid gap-2">
                   <SshJumpHostList
                     onChange={setJumpHosts}
@@ -318,12 +313,12 @@ export function SshHostDialog({
             )}
 
             <Field>
-              <FieldLabel>OpenSSH authentication</FieldLabel>
-              <FieldDescription>
-                Password, Duo, security-key, Kerberos, and rolling-code prompts come directly from
-                system OpenSSH during Test connection or deployment. {vocab.agent} never stores
-                those answers. Optionally provide a private key override below.
-              </FieldDescription>
+              <FieldLabel className="flex items-center gap-1.5">
+                Authentication
+                <InfoTip label="About authentication">
+                  {`Passwords, Duo, security keys, and Kerberos are asked for by OpenSSH when you connect and never saved. A key is optional.`}
+                </InfoTip>
+              </FieldLabel>
               <Field className="mt-2">
                 <FieldLabel htmlFor="ssh-host-private-key">Paste a private key</FieldLabel>
                 <Textarea
@@ -391,10 +386,6 @@ export function SshHostDialog({
                     placeholder="$HOME/.local/share/clio"
                     value={installRoot}
                   />
-                  <FieldDescription>
-                    Leave empty to use the remote user’s home directory. On a shared system, choose
-                    a writable persistent location such as /mnt/common/alice/clio.
-                  </FieldDescription>
                 </Field>
               </CollapsibleContent>
             </Collapsible>
@@ -414,12 +405,8 @@ export function SshHostDialog({
             answering one OpenSSH prompt, and must never be a descendant of
             the host-config form.
           */}
-          {testStatus && !testSucceeded && testStatus.state !== 'connected' ? (
-            <SshAuthentication
-              output={testStatus.output}
-              sessionId={testStatus.session_id}
-              state={testStatus.state}
-            />
+          {testStatus?.prompt && !testSucceeded && testStatus.state !== 'connected' ? (
+            <SshAuthentication prompt={testStatus.prompt} sessionId={testStatus.session_id} />
           ) : null}
 
           {testSucceeded ? (

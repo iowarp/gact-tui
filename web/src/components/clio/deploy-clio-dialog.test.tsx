@@ -1,19 +1,24 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { vocab } from '@/lib/brand-vocabulary';
 
 const mocks = vi.hoisted(() => ({
   attachInfrastructureSshTransport: vi.fn(),
+  cancelInfrastructureOperation: vi.fn(),
+  cancelSshTransport: vi.fn(),
   createInfrastructureTarget: vi.fn(),
   updateInfrastructureTarget: vi.fn(),
   getManagedBackend: vi.fn(),
+  infrastructureOperation: vi.fn(),
   infrastructureTargets: vi.fn(),
+  listen: vi.fn(),
   managedServiceCatalog: vi.fn(),
   retryManagedBackend: vi.fn(),
   runManagedServiceAction: vi.fn(),
   setInfrastructureTransportState: vi.fn(),
+  sshTransportLog: vi.fn(),
   sshTransportStatus: vi.fn(),
   listSshProfiles: vi.fn(),
   listAllSshProfiles: vi.fn(),
@@ -22,15 +27,22 @@ const mocks = vi.hoisted(() => ({
   setSshProfileHidden: vi.fn(),
   setSshProfileRoute: vi.fn(),
   waitForManagedBackend: vi.fn(),
+  writeSshTransport: vi.fn(),
 }));
+
+/** Desktop event handlers the dialog registered, by event name. */
+const handlers = new Map<string, (event: { payload: unknown }) => void>();
 
 vi.mock('@/hooks/use-repository', () => ({
   useRepository: () => ({
+    cancelInfrastructureOperation: mocks.cancelInfrastructureOperation,
     createInfrastructureTarget: mocks.createInfrastructureTarget,
+    infrastructureOperation: mocks.infrastructureOperation,
     infrastructureTargets: mocks.infrastructureTargets,
     managedServiceCatalog: mocks.managedServiceCatalog,
     runManagedServiceAction: mocks.runManagedServiceAction,
     setInfrastructureTransportState: mocks.setInfrastructureTransportState,
+    updateInfrastructureTarget: mocks.updateInfrastructureTarget,
   }),
 }));
 vi.mock('@/providers/connection-provider', () => ({
@@ -49,10 +61,12 @@ vi.mock('@/tauri/ssh-profiles', () => ({
 vi.mock('@/tauri/ssh-credentials', () => ({ storeSshIdentity: vi.fn() }));
 vi.mock('@/tauri/ssh-infrastructure-transport', () => ({
   attachInfrastructureSshTransport: mocks.attachInfrastructureSshTransport,
+  cancelSshTransport: mocks.cancelSshTransport,
+  sshTransportLog: mocks.sshTransportLog,
   sshTransportStatus: mocks.sshTransportStatus,
-  writeSshTransport: vi.fn(),
+  writeSshTransport: mocks.writeSshTransport,
 }));
-vi.mock('@tauri-apps/api/event', () => ({ listen: vi.fn().mockResolvedValue(vi.fn()) }));
+vi.mock('@tauri-apps/api/event', () => ({ listen: mocks.listen }));
 vi.mock('@/tauri/managed-backend', () => ({
   getManagedBackend: mocks.getManagedBackend,
   retryManagedBackend: mocks.retryManagedBackend,
@@ -70,10 +84,55 @@ function renderDialog(onReady = vi.fn()) {
   return onReady;
 }
 
+/** Deliver one desktop event, as Tauri would. */
+function emit(event: string, payload: unknown) {
+  act(() => handlers.get(event)?.({ payload }));
+}
+
+function step(kind: string, phase: string, detail = '') {
+  emit('clio:ssh-transport-step', {
+    session_id: 'ssh-homelab',
+    request_id: `${kind}-1`,
+    kind,
+    phase,
+    exit_code: phase === 'done' ? 0 : null,
+    detail,
+  });
+}
+
+function stage(name: string) {
+  return screen.getByRole('listitem', { name: new RegExp(`^${name}:`, 'u') });
+}
+
+async function chooseRemoteHost(user: ReturnType<typeof userEvent.setup>, name = /homelab/u) {
+  await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
+  await user.click(screen.getByRole('radio', { name: /Remote host/u }));
+  await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
+  await user.click(screen.getByRole('option', { name }));
+}
+
+const runningOperation = {
+  id: 'operation-1',
+  service_id: 'clio_agent',
+  target_id: 'target-homelab',
+  action: 'install',
+  state: 'running',
+  progress: 'Running install',
+  logs: '',
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+};
+
 beforeEach(() => {
   localStorage.clear();
+  handlers.clear();
   Object.values(mocks).forEach((mock) => mock.mockReset());
-  mocks.getManagedBackend.mockReset();
+  mocks.listen.mockImplementation(
+    async (event: string, handler: (event: { payload: unknown }) => void) => {
+      handlers.set(event, handler);
+      return () => handlers.delete(event);
+    },
+  );
   mocks.getManagedBackend.mockResolvedValue({
     url: '',
     bearer_token: '',
@@ -91,6 +150,7 @@ beforeEach(() => {
     },
   ]);
   mocks.listAllSshProfiles.mockResolvedValue([]);
+  mocks.setSshProfileHidden.mockResolvedValue(undefined);
   mocks.saveSshProfile.mockImplementation(async (input) => ({
     name: input.name,
     label: input.label,
@@ -128,27 +188,19 @@ beforeEach(() => {
     state: 'connected',
     reused: false,
     output: '',
+    prompt: null,
   });
-  mocks.runManagedServiceAction.mockResolvedValue({
-    id: 'operation-1',
-    service_id: 'clio_agent',
-    target_id: 'target-homelab',
-    action: 'install',
-    state: 'succeeded',
-    progress: 'Completed',
-    logs: '',
-    created_at: '2026-01-01T00:00:00Z',
-    updated_at: '2026-01-01T00:00:00Z',
-  });
+  mocks.runManagedServiceAction.mockResolvedValue({ ...runningOperation, state: 'succeeded' });
   mocks.managedServiceCatalog.mockResolvedValue({
     facts: {},
-    services: [
-      {
-        id: 'clio_agent',
-        state: 'running',
-        connection_url: 'http://127.0.0.1:64123',
-      },
-    ],
+    services: [{ id: 'clio_agent', state: 'running', connection_url: 'http://127.0.0.1:64123' }],
+  });
+  mocks.sshTransportLog.mockResolvedValue('');
+  mocks.writeSshTransport.mockResolvedValue(undefined);
+  mocks.cancelSshTransport.mockResolvedValue(undefined);
+  mocks.cancelInfrastructureOperation.mockResolvedValue({
+    ...runningOperation,
+    state: 'cancelled',
   });
 });
 
@@ -205,16 +257,13 @@ describe('DeployClioDialog', () => {
   it('deploys through CLIO ownership and returns a durable managed connection', async () => {
     const user = userEvent.setup();
     const onReady = renderDialog();
-    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
-    await user.click(screen.getByRole('radio', { name: /Remote host/u }));
-    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
-    await user.click(screen.getByRole('option', { name: /homelab/u }));
+    await chooseRemoteHost(user);
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
 
     await waitFor(() =>
       expect(onReady).toHaveBeenCalledWith({
         endpoint: 'http://127.0.0.1:64123',
-        label: vocab.agent,
+        label: 'homelab',
         location: 'homelab',
         infrastructure: { targetId: 'target-homelab', serviceId: 'clio_agent' },
       }),
@@ -227,10 +276,79 @@ describe('DeployClioDialog', () => {
     });
   });
 
-  it('reads the destination node’s own install location — one source of truth, no duplicate field', async () => {
+  it('names the deployed service after the destination by default, editable', async () => {
     const user = userEvent.setup();
-    // Managed, so configuring it edits homelab itself rather than spinning
-    // off a new computer (imported hosts stay read-only apart from visibility).
+    const onReady = renderDialog();
+    await chooseRemoteHost(user);
+    const name = screen.getByLabelText('Name');
+    expect(name).toHaveValue('homelab');
+
+    await user.clear(name);
+    await user.type(name, 'ares lab');
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    await waitFor(() =>
+      expect(onReady).toHaveBeenCalledWith(expect.objectContaining({ label: 'ares lab' })),
+    );
+  });
+
+  it('names the local service This computer by default and uses the typed name', async () => {
+    const user = userEvent.setup();
+    const onReady = renderDialog();
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'ready' },
+    });
+    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
+    const name = screen.getByLabelText('Name');
+    expect(name).toHaveValue('This computer');
+    await user.clear(name);
+    await user.type(name, 'laptop');
+    await user.click(screen.getByRole('button', { name: `Use local ${vocab.agent}` }));
+
+    await waitFor(() =>
+      expect(onReady).toHaveBeenCalledWith(expect.objectContaining({ label: 'laptop' })),
+    );
+  });
+
+  it('requires a name that no other known service uses', async () => {
+    const user = userEvent.setup();
+    const onReady = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <DeployClioDialog
+          knownServices={[
+            { endpoint: 'http://laptop:17800', label: 'laptop', source: 'recent' },
+            // An earlier deploy to this same host is replaced, not a clash.
+            { endpoint: 'http://127.0.0.1:64000', label: 'homelab', location: 'homelab' },
+          ]}
+          onReady={onReady}
+        />
+      </QueryClientProvider>,
+    );
+    await chooseRemoteHost(user);
+    const name = screen.getByLabelText('Name');
+
+    await user.clear(name);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    expect(await screen.findByText('Give this service a name.')).toBeVisible();
+
+    await user.type(name, 'Laptop');
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    expect(await screen.findByText('A service named “Laptop” already exists.')).toBeVisible();
+    expect(mocks.createInfrastructureTarget).not.toHaveBeenCalled();
+
+    await user.clear(name);
+    await user.type(name, 'homelab');
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    await waitFor(() =>
+      expect(onReady).toHaveBeenCalledWith(expect.objectContaining({ label: 'homelab' })),
+    );
+  });
+
+  it('has no dialog-level installation settings; the destination’s own settings apply', async () => {
+    const user = userEvent.setup();
     mocks.listSshProfiles.mockResolvedValue([
       {
         name: 'homelab',
@@ -239,85 +357,229 @@ describe('DeployClioDialog', () => {
         port: 22,
         jump_hosts: [],
         platform: 'linux',
+        install_root: '/mnt/common/alice/clio',
         managed: true,
       },
     ]);
     renderDialog();
-    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
-    await user.click(screen.getByRole('radio', { name: /Remote host/u }));
-    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
-    await user.click(screen.getByRole('option', { name: /homelab/u }));
-    await user.click(screen.getByText('Advanced installation'));
+    await chooseRemoteHost(user);
 
-    // No editable field at the dialog level: the destination has none set yet.
-    expect(screen.queryByLabelText('Install location')).not.toBeInTheDocument();
-    expect(screen.getByText("The remote user's home directory")).toBeVisible();
-
-    // Configuring the destination node is the one place that sets it.
-    await user.click(screen.getByRole('button', { name: 'Configure homelab' }));
-    await user.click(screen.getByText('Advanced host settings'));
-    await user.type(
-      screen.getByLabelText(`${vocab.agent} install and runtime location`),
-      '/mnt/common/alice/clio',
-    );
-    await user.click(screen.getByRole('button', { name: 'Save host' }));
-
-    // The dialog-level section now shows the destination's own setting.
-    await screen.findByText('/mnt/common/alice/clio');
+    expect(screen.queryByText('Advanced installation')).not.toBeInTheDocument();
+    expect(screen.queryByText('Install location')).not.toBeInTheDocument();
+    expect(screen.queryByText('Remote platform')).not.toBeInTheDocument();
+    expect(screen.queryByText(/select this host again in Infrastructure/u)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
-
     await waitFor(() => expect(mocks.createInfrastructureTarget).toHaveBeenCalledOnce());
-    expect(mocks.createInfrastructureTarget).toHaveBeenCalledWith({
-      kind: 'ssh',
-      label: 'homelab',
-      install_root: '/mnt/common/alice/clio',
-      ssh: expect.objectContaining({ profile: 'homelab', host: '10.0.0.102' }),
-    });
-    // Never a second, spun-off computer: the same one is still edited in place.
-    expect(mocks.saveSshProfile).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'homelab', replace_existing: true }),
+    expect(mocks.createInfrastructureTarget).toHaveBeenCalledWith(
+      expect.objectContaining({ install_root: '/mnt/common/alice/clio' }),
     );
   });
 
-  it('opens a hosts manager from the gear beside the SSH host label', async () => {
+  it('lets a hop be added before any computer is chosen, and validates only at Deploy', async () => {
     const user = userEvent.setup();
-    mocks.listAllSshProfiles.mockResolvedValue([
-      { name: 'homelab', label: 'homelab', hostname: '10.0.0.102', managed: false, hidden: false },
-    ]);
     renderDialog();
     await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
     await user.click(screen.getByRole('radio', { name: /Remote host/u }));
 
-    await user.click(screen.getByRole('button', { name: 'Manage SSH hosts' }));
+    const addHop = await screen.findByRole('button', { name: 'Add hop' });
+    expect(addHop).toBeEnabled();
+    await user.click(addHop);
+    expect(screen.getByRole('combobox', { name: 'Jump host 1' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Saved SSH host' })).toBeVisible();
 
-    expect(await screen.findByRole('dialog', { name: 'Manage SSH hosts' })).toBeVisible();
-    expect(screen.getByText('homelab')).toBeVisible();
-  });
-
-  it('shows string errors returned by the desktop backend', async () => {
-    const user = userEvent.setup();
-    renderDialog();
-    mocks.runManagedServiceAction.mockRejectedValue(
-      new Error('Python 3.12 is required on the remote host.'),
-    );
-
-    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
-    await user.click(screen.getByRole('radio', { name: /Remote host/u }));
-    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
+    await user.click(screen.getByRole('combobox', { name: 'Jump host 1' }));
     await user.click(screen.getByRole('option', { name: /homelab/u }));
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
 
-    expect(await screen.findByText('Python 3.12 is required on the remote host.')).toBeVisible();
+    expect(await screen.findByText('Choose a computer for hop 2, or remove it.')).toBeVisible();
+    expect(mocks.createInfrastructureTarget).not.toHaveBeenCalled();
+  });
+
+  it('shows a live stage list driven by transport events, with the installer’s own step', async () => {
+    const user = userEvent.setup();
+    mocks.runManagedServiceAction.mockResolvedValue(runningOperation);
+    mocks.infrastructureOperation.mockResolvedValue(runningOperation);
+    renderDialog();
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    await waitFor(() => expect(mocks.runManagedServiceAction).toHaveBeenCalled());
+    expect(stage('Connecting over SSH')).toHaveAttribute('data-state', 'done');
+    // No prompt appeared, so authentication is not listed at all.
+    expect(screen.queryByRole('listitem', { name: /^Authenticating:/u })).not.toBeInTheDocument();
+
+    step('probe', 'running');
+    expect(stage('Detecting platform')).toHaveAttribute('data-state', 'running');
+    step('probe', 'done');
+    step('install', 'running', 'Installing clio-agent[argonne]==0.9.4.17 from PyPI');
+    expect(stage('Detecting platform')).toHaveAttribute('data-state', 'done');
+    expect(stage(`Installing ${vocab.agent}`)).toHaveAttribute('data-state', 'running');
+    expect(screen.getByText('Installing clio-agent[argonne]==0.9.4.17 from PyPI')).toBeVisible();
+    step('install', 'running', 'Downloading clio-tui-linux-amd64 from clio-agent v0.9.4.17');
+    expect(screen.getByText(/Downloading clio-tui-linux-amd64/u)).toBeVisible();
+    expect(stage('Starting server')).toHaveAttribute('data-state', 'pending');
+    expect(within(stage(`Installing ${vocab.agent}`)).getByText(/^\d+s$/u)).toBeVisible();
+
+    // A running deployment locks what would change it.
+    expect(screen.getByRole('radio', { name: /This computer/u })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Saved SSH host' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Manage SSH hosts' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add hop' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Deploying to homelab/u })).toBeDisabled();
+  });
+
+  it('lists Authenticating only when OpenSSH actually asks, and answers only real prompts', async () => {
+    const user = userEvent.setup();
+    mocks.attachInfrastructureSshTransport.mockResolvedValue({
+      session_id: 'ssh-homelab',
+      state: 'reauthentication_required',
+      reused: false,
+      output: '',
+      prompt: null,
+    });
+    mocks.sshTransportStatus.mockResolvedValue({
+      session_id: 'ssh-homelab',
+      state: 'reauthentication_required',
+      reused: true,
+      output: "alice@10.0.0.102's password: ",
+      prompt: {
+        kind: 'password',
+        text: "alice@10.0.0.102's password:",
+        context: "alice@10.0.0.102's password:",
+      },
+    });
+    renderDialog();
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    const answer = await screen.findByLabelText("alice@10.0.0.102's password:");
+    expect(stage('Authenticating')).toHaveAttribute('data-state', 'running');
+    await user.type(answer, 'hunter2{Enter}');
+    expect(mocks.writeSshTransport).toHaveBeenCalledWith('ssh-homelab', 'hunter2\n');
+  });
+
+  it('Cancel interrupts the remote command, lets the agent clean up, then kills OpenSSH', async () => {
+    const user = userEvent.setup();
+    mocks.runManagedServiceAction.mockResolvedValue(runningOperation);
+    mocks.infrastructureOperation.mockResolvedValue(runningOperation);
+    let finishCancel: () => void = () => undefined;
+    mocks.cancelInfrastructureOperation.mockReturnValue(
+      new Promise((resolve) => {
+        finishCancel = () => resolve({ ...runningOperation, state: 'cancelled' });
+      }),
+    );
+    const onReady = renderDialog();
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    await waitFor(() => expect(mocks.runManagedServiceAction).toHaveBeenCalled());
+    step('install', 'running', 'Creating the environment');
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    // Ctrl-C first, then the agent's cancel (which tears down over the open
+    // session); OpenSSH is killed only after that finishes.
+    expect(mocks.writeSshTransport).toHaveBeenCalledWith('ssh-homelab', '\u0003');
+    await waitFor(() =>
+      expect(mocks.cancelInfrastructureOperation).toHaveBeenCalledWith('operation-1'),
+    );
+    expect(mocks.cancelSshTransport).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Cancelling…' })).toBeDisabled();
+    expect(stage(`Installing ${vocab.agent}`)).toHaveAttribute('data-state', 'cancelled');
+    step('teardown', 'running');
+    expect(stage('Cleaning up')).toHaveAttribute('data-state', 'running');
+    step('teardown', 'done', 'Removed the install this deploy created (/home/a/.local/share/clio)');
+    await act(async () => finishCancel());
+
+    await waitFor(() => expect(mocks.cancelSshTransport).toHaveBeenCalledWith('ssh-homelab'));
+    expect(stage('Cleaning up')).toHaveAttribute('data-state', 'done');
+    expect(screen.getByText(/Removed the install this deploy created/u)).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Cancel/u })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Deploy and connect' })).toBeEnabled();
+    expect(screen.getByRole('combobox', { name: 'Saved SSH host' })).toBeEnabled();
+    expect(onReady).not.toHaveBeenCalled();
+  });
+
+  it('shows the running-CLIO check as its own stage with its outcome', async () => {
+    const user = userEvent.setup();
+    mocks.runManagedServiceAction.mockResolvedValue(runningOperation);
+    mocks.infrastructureOperation.mockResolvedValue(runningOperation);
+    renderDialog();
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    await waitFor(() => expect(mocks.runManagedServiceAction).toHaveBeenCalled());
+    expect(
+      screen.queryByRole('listitem', { name: /^Checking for a running/u }),
+    ).not.toBeInTheDocument();
+
+    step('probe', 'done');
+    step('claim', 'running');
+    step(
+      'claim',
+      'done',
+      'Stopped an old CLIO (pid 1036897, /mnt/common/a/clio-ui-acceptance-0941)',
+    );
+    step('install', 'running', 'Installing clio-agent');
+
+    expect(stage(`Checking for a running ${vocab.agent}`)).toHaveAttribute('data-state', 'done');
+    expect(screen.getByText(/Stopped an old CLIO \(pid 1036897/u)).toBeVisible();
+  });
+
+  it('summarizes a failure in one line and keeps the cleaned log behind Details', async () => {
+    const user = userEvent.setup();
+    mocks.runManagedServiceAction.mockResolvedValue(runningOperation);
+    mocks.infrastructureOperation.mockResolvedValue({
+      ...runningOperation,
+      state: 'failed',
+      error: 'Installing clio-agent\nerror: No space left on device',
+    });
+    mocks.sshTransportLog.mockResolvedValue(
+      '==> Installing clio-agent[argonne]==0.9.4.17 from PyPI\nerror: No space left on device',
+    );
+    renderDialog();
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    await waitFor(() => expect(mocks.runManagedServiceAction).toHaveBeenCalled());
+    step('install', 'running', 'Installing clio-agent[argonne]==0.9.4.17 from PyPI');
+    step('install', 'failed', 'error: No space left on device');
+
+    const alert = await screen.findByRole('alert');
+    expect(within(alert).getByText(`Installing ${vocab.agent} failed`)).toBeVisible();
+    expect(within(alert).getByText('error: No space left on device')).toBeVisible();
+    expect(stage(`Installing ${vocab.agent}`)).toHaveAttribute('data-state', 'failed');
+    // The log is collapsed until asked for, and carries no escapes or markers.
+    expect(within(alert).queryByText(/==> Installing/u)).not.toBeInTheDocument();
+    await user.click(within(alert).getByRole('button', { name: 'Details' }));
+    const log = await within(alert).findByText(/==> Installing clio-agent/u);
+    expect(log.textContent).not.toContain(String.fromCharCode(0x1b));
+    expect(log.textContent).not.toContain('__CLIO_');
+  });
+
+  it('reports a clear error when OpenSSH disconnects before authenticating (#1438)', async () => {
+    const user = userEvent.setup();
+    mocks.attachInfrastructureSshTransport.mockResolvedValue({
+      session_id: 'ssh-homelab',
+      state: 'disconnected',
+      reused: false,
+      output: 'Permission denied (publickey,password).',
+      prompt: null,
+    });
+    mocks.sshTransportLog.mockResolvedValue(
+      'alice@10.0.0.102: Permission denied (publickey,password).',
+    );
+    renderDialog();
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    expect(await screen.findByText(/disconnected from homelab/u)).toBeVisible();
+    expect(screen.getByText('Connecting over SSH failed')).toBeVisible();
+    expect(mocks.sshTransportStatus).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument();
   });
 
   it('never sends a null key file or install root for a host left at defaults (#1438)', async () => {
     const user = userEvent.setup();
     renderDialog();
-    // The desktop's Rust bridge round-trips every unset optional field as a
-    // literal `null` (Option::None over Tauri IPC), not `undefined` — for
-    // both a host with no private key and one left at the default install
-    // location.
     mocks.listSshProfiles.mockResolvedValue([
       {
         name: 'delta',
@@ -332,41 +594,41 @@ describe('DeployClioDialog', () => {
       },
     ]);
 
-    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
-    await user.click(screen.getByRole('radio', { name: /Remote host/u }));
-    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
-    await user.click(screen.getByRole('option', { name: /delta/u }));
+    await chooseRemoteHost(user, /delta/u);
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
 
     await waitFor(() => expect(mocks.createInfrastructureTarget).toHaveBeenCalledOnce());
-    expect(mocks.createInfrastructureTarget).toHaveBeenCalledWith(
-      expect.objectContaining({
-        install_root: '',
-        ssh: expect.objectContaining({ identity_file: '' }),
-      }),
-    );
     const [[sentDefinition]] = mocks.createInfrastructureTarget.mock.calls;
-    expect(sentDefinition.ssh.identity_file).not.toBeNull();
-    expect(sentDefinition.install_root).not.toBeNull();
+    expect(sentDefinition.install_root).toBe('');
+    expect(sentDefinition.ssh.identity_file).toBe('');
   });
 
-  it('reports a clear error when OpenSSH disconnects before authenticating, instead of a silent timeout (#1438)', async () => {
+  it('opens a hosts manager from the gear that stays open and toggles visibility at once', async () => {
     const user = userEvent.setup();
+    let finishHide: () => void = () => undefined;
+    mocks.setSshProfileHidden.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishHide = resolve;
+      }),
+    );
+    mocks.listAllSshProfiles.mockResolvedValue([
+      { name: 'homelab', label: 'homelab', hostname: '10.0.0.102', managed: false, hidden: false },
+    ]);
     renderDialog();
-    mocks.attachInfrastructureSshTransport.mockResolvedValue({
-      session_id: 'ssh-homelab',
-      state: 'disconnected',
-      reused: false,
-      output: 'Permission denied (publickey,password).',
-    });
-
     await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
     await user.click(screen.getByRole('radio', { name: /Remote host/u }));
-    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
-    await user.click(screen.getByRole('option', { name: /homelab/u }));
-    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    await user.click(screen.getByRole('button', { name: 'Manage SSH hosts' }));
 
-    expect(await screen.findByText(/disconnected from homelab/u)).toBeVisible();
-    expect(mocks.sshTransportStatus).not.toHaveBeenCalled();
+    const manager = await screen.findByRole('dialog', { name: 'Manage SSH hosts' });
+    await user.click(await within(manager).findByRole('button', { name: 'Hide homelab' }));
+
+    // Optimistic: the row flips before the preference write finishes.
+    expect(within(manager).getByRole('button', { name: 'Show homelab' })).toBeEnabled();
+    expect(within(manager).getByText('Hidden')).toBeVisible();
+    await act(async () => finishHide());
+    expect(screen.getByRole('dialog', { name: 'Manage SSH hosts' })).toBeVisible();
+    expect(mocks.setSshProfileHidden).toHaveBeenCalledWith('homelab', true);
+    // Nothing was re-listed for a visibility change.
+    expect(mocks.listAllSshProfiles).toHaveBeenCalledTimes(1);
   });
 });

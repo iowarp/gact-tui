@@ -169,12 +169,16 @@ pub(crate) fn stop_processes_under_root(root: &Path) -> Vec<StoppedProcess> {
 /// and the standalone `--stop-managed-runtime` installer step that the NSIS
 /// hooks invoke ahead of an upgrade/uninstall — `label` distinguishes the two
 /// call sites in the log.
+///
+/// Returns how many matched processes did not confirm their exit.
 #[cfg(windows)]
-pub(crate) fn stop_and_log(root: &Path, label: &str) {
+pub(crate) fn stop_and_log(root: &Path, label: &str) -> usize {
+    let mut survivors = 0;
     for stopped in stop_processes_under_root(root) {
         if stopped.exited {
             eprintln!("[{label}] stopped {} (pid {})", stopped.name, stopped.pid);
         } else {
+            survivors += 1;
             eprintln!(
                 "[{label}] {} (pid {}) did not confirm exit within its wait budget; the \
                  directory-swap retry will handle any lock it still holds",
@@ -182,6 +186,7 @@ pub(crate) fn stop_and_log(root: &Path, label: &str) {
             );
         }
     }
+    survivors
 }
 
 /// The full Win32 path (`QueryFullProcessImageNameW`) of a running process's

@@ -241,7 +241,7 @@ describe('connection provider credentials', () => {
     expect(mocks.setInfrastructureTransportState).toHaveBeenCalledWith('homelab', 'connected');
   });
 
-  it('shows exact OpenSSH output while a remembered target needs reauthentication', async () => {
+  it('shows the OpenSSH prompt while a remembered target needs reauthentication', async () => {
     localStorage.setItem(
       'clio.recent-connections',
       JSON.stringify([
@@ -270,6 +270,11 @@ describe('connection provider credentials', () => {
       state: 'reauthentication_required',
       reused: false,
       output: 'Password:\nPasscode or option (1-3):',
+      prompt: {
+        kind: 'keyboard_interactive',
+        text: 'Passcode or option (1-3):',
+        context: 'Duo two-factor login\n1. Duo Push\nPasscode or option (1-3):',
+      },
     });
     mocks.sshTransportStatus.mockResolvedValue({
       session_id: 'ssh-utah',
@@ -390,6 +395,88 @@ describe('connection provider credentials', () => {
       expect(screen.getByLabelText('resolved token')).toHaveTextContent('none');
     });
     expect(mocks.read).not.toHaveBeenCalled();
+  });
+
+  it('renames a saved service in the saved list, and the active one everywhere', () => {
+    localStorage.setItem(
+      'clio.recent-connections',
+      JSON.stringify([{ endpoint: 'http://ares.example:17800', label: 'ares' }]),
+    );
+    mocks.inTauri.mockReturnValue(false);
+    function Rename() {
+      const { rename, settings } = useConnectionSettings();
+      return (
+        <>
+          <output aria-label="active label">{settings.label}</output>
+          <button
+            onClick={() => rename({ endpoint: 'http://ares.example:17800' }, ' ares lab ')}
+            type="button"
+          >
+            Rename ares
+          </button>
+          <button
+            onClick={() =>
+              rename(
+                { endpoint: 'http://node42:17800', location: 'node42', label: 'CLIO' },
+                'node 42',
+              )
+            }
+            type="button"
+          >
+            Rename discovered
+          </button>
+        </>
+      );
+    }
+    render(
+      <ConnectionProvider>
+        <Rename />
+      </ConnectionProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename ares' }));
+    expect(screen.getByLabelText('active label')).toHaveTextContent('ares lab');
+    fireEvent.click(screen.getByRole('button', { name: 'Rename discovered' }));
+    expect(JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')).toEqual([
+      { endpoint: 'http://node42:17800', label: 'node 42', location: 'node42' },
+      { endpoint: 'http://ares.example:17800', label: 'ares lab' },
+    ]);
+  });
+
+  it('keeps the name given to the managed local service without saving its endpoint', async () => {
+    mocks.inTauri.mockReturnValue(true);
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:52341',
+      bearer_token: 'supervisor-token',
+      status: { kind: 'ready' },
+    });
+    function RenameManaged() {
+      const { managedConnection, managedLabel, rename } = useConnectionSettings();
+      return (
+        <>
+          <output aria-label="managed label">{managedLabel ?? 'none'}</output>
+          <button
+            disabled={!managedConnection}
+            onClick={() => managedConnection && rename(managedConnection, 'laptop')}
+            type="button"
+          >
+            Rename local
+          </button>
+        </>
+      );
+    }
+    render(
+      <ConnectionProvider>
+        <RenameManaged />
+      </ConnectionProvider>,
+    );
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Rename local' })).toBeEnabled());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename local' }));
+
+    expect(screen.getByLabelText('managed label')).toHaveTextContent('laptop');
+    expect(localStorage.getItem('clio.managed-connection-label')).toBe('laptop');
+    expect(JSON.parse(localStorage.getItem('clio.recent-connections') ?? '[]')).toEqual([]);
   });
 
   it('never records the ephemeral managed endpoint in saved connections', async () => {
