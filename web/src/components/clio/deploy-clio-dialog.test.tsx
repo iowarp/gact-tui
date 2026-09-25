@@ -388,10 +388,16 @@ describe('DeployClioDialog', () => {
     expect(mocks.writeSshTransport).toHaveBeenCalledWith('ssh-homelab', 'hunter2\n');
   });
 
-  it('Cancel kills the OpenSSH process tree and cancels the remote operation', async () => {
+  it('Cancel interrupts the remote command, lets the agent clean up, then kills OpenSSH', async () => {
     const user = userEvent.setup();
     mocks.runManagedServiceAction.mockResolvedValue(runningOperation);
     mocks.infrastructureOperation.mockResolvedValue(runningOperation);
+    let finishCancel: () => void = () => undefined;
+    mocks.cancelInfrastructureOperation.mockReturnValue(
+      new Promise((resolve) => {
+        finishCancel = () => resolve({ ...runningOperation, state: 'cancelled' });
+      }),
+    );
     const onReady = renderDialog();
     await chooseRemoteHost(user);
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
@@ -400,15 +406,52 @@ describe('DeployClioDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    expect(mocks.cancelSshTransport).toHaveBeenCalledWith('ssh-homelab');
+    // Ctrl-C first, then the agent's cancel (which tears down over the open
+    // session); OpenSSH is killed only after that finishes.
+    expect(mocks.writeSshTransport).toHaveBeenCalledWith('ssh-homelab', '\u0003');
     await waitFor(() =>
       expect(mocks.cancelInfrastructureOperation).toHaveBeenCalledWith('operation-1'),
     );
+    expect(mocks.cancelSshTransport).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Cancelling…' })).toBeDisabled();
     expect(stage(`Installing ${vocab.agent}`)).toHaveAttribute('data-state', 'cancelled');
-    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    step('teardown', 'running');
+    expect(stage('Cleaning up')).toHaveAttribute('data-state', 'running');
+    step('teardown', 'done', 'Removed the install this deploy created (/home/a/.local/share/clio)');
+    await act(async () => finishCancel());
+
+    await waitFor(() => expect(mocks.cancelSshTransport).toHaveBeenCalledWith('ssh-homelab'));
+    expect(stage('Cleaning up')).toHaveAttribute('data-state', 'done');
+    expect(screen.getByText(/Removed the install this deploy created/u)).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Cancel/u })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Deploy and connect' })).toBeEnabled();
     expect(screen.getByRole('combobox', { name: 'Saved SSH host' })).toBeEnabled();
     expect(onReady).not.toHaveBeenCalled();
+  });
+
+  it('shows the running-CLIO check as its own stage with its outcome', async () => {
+    const user = userEvent.setup();
+    mocks.runManagedServiceAction.mockResolvedValue(runningOperation);
+    mocks.infrastructureOperation.mockResolvedValue(runningOperation);
+    renderDialog();
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+    await waitFor(() => expect(mocks.runManagedServiceAction).toHaveBeenCalled());
+    expect(
+      screen.queryByRole('listitem', { name: /^Checking for a running/u }),
+    ).not.toBeInTheDocument();
+
+    step('probe', 'done');
+    step('claim', 'running');
+    step(
+      'claim',
+      'done',
+      'Stopped an old CLIO (pid 1036897, /mnt/common/a/clio-ui-acceptance-0941)',
+    );
+    step('install', 'running', 'Installing clio-agent');
+
+    expect(stage(`Checking for a running ${vocab.agent}`)).toHaveAttribute('data-state', 'done');
+    expect(screen.getByText(/Stopped an old CLIO \(pid 1036897/u)).toBeVisible();
   });
 
   it('summarizes a failure in one line and keeps the cleaned log behind Details', async () => {

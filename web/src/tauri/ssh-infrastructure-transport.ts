@@ -37,10 +37,13 @@ export type SshStateEvent = {
 export type SshStepEvent = {
   session_id: string;
   request_id: string;
-  kind: 'probe' | 'install' | 'start' | 'tunnel' | 'other';
+  kind: 'probe' | 'claim' | 'install' | 'start' | 'teardown' | 'tunnel' | 'other';
   phase: 'running' | 'done' | 'failed';
   exit_code: number | null;
-  /** Running: the installer's current step. Failed: a one-line reason. */
+  /**
+   * Running: the installer's current step. Done: a check's or cleanup's
+   * outcome. Failed: a one-line reason.
+   */
   detail: string;
 };
 

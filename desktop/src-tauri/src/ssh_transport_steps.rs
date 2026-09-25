@@ -88,6 +88,13 @@ pub fn classify_command(program: &str, args: &[String]) -> &'static str {
     if !is_shell {
         return "other";
     }
+    // CLIO's deploy steps name themselves with a `# clio-deploy:<step>` tag.
+    if script.contains("# clio-deploy:claim") {
+        return "claim";
+    }
+    if script.contains("# clio-deploy:teardown") {
+        return "teardown";
+    }
     if script.contains("uname -s") || script.contains("PROCESSOR_ARCHITECTURE") {
         "probe"
     } else if script.contains("install/install.sh") || script.contains("install/install.ps1") {
@@ -104,7 +111,7 @@ pub fn classify_command(program: &str, args: &[String]) -> &'static str {
 pub struct SshStepEvent {
     pub session_id: String,
     pub request_id: String,
-    /// `probe`, `install`, `start`, `tunnel`, or `other`.
+    /// `probe`, `claim`, `install`, `start`, `teardown`, `tunnel`, or `other`.
     pub kind: &'static str,
     /// `running`, `done`, or `failed`.
     pub phase: &'static str,
@@ -126,7 +133,16 @@ pub fn step_event(
             "running",
             latest_installer_step(&block.body).unwrap_or_default(),
         ),
-        Some(code) if allowed_exit_codes.contains(&code) => ("done", String::new()),
+        // The claim and teardown outcomes ("Stopped an old CLIO (pid N,
+        // path)") are the point of those steps, so they stay visible.
+        Some(code) if allowed_exit_codes.contains(&code) => (
+            "done",
+            if matches!(kind, "claim" | "teardown") {
+                latest_installer_step(&block.body).unwrap_or_default()
+            } else {
+                String::new()
+            },
+        ),
         Some(code) => (
             "failed",
             last_meaningful_line(&block.body)
@@ -236,5 +252,26 @@ mod tests {
             "other"
         );
         assert_eq!(classify_command("docker", &["ps".to_string()]), "other");
+        assert_eq!(
+            classify_command("bash", &args("# clio-deploy:claim\nroot=\"$1\"")),
+            "claim"
+        );
+        assert_eq!(
+            classify_command("bash", &args("# clio-deploy:teardown\nroot=\"$1\"")),
+            "teardown"
+        );
+    }
+
+    #[test]
+    fn claim_and_teardown_keep_their_outcome_when_done() {
+        let claim = "__CLIO_BEGIN_c1__\r\n\u{1b}[32m==>\u{1b}[m Stopped an old CLIO (pid 1036897, /mnt/common/a/clio-ui-acceptance-0941)\r\nclio-deploy result=stopped existing_root=1 pid=1036897\r\n__CLIO_END_c1__:0\r\n";
+        let block = &parse_marker_blocks(claim)[0];
+        let done = step_event("s", "claim", block, &[0]);
+        assert_eq!(done.phase, "done");
+        assert_eq!(
+            done.detail,
+            "Stopped an old CLIO (pid 1036897, /mnt/common/a/clio-ui-acceptance-0941)"
+        );
+        assert_eq!(step_event("s", "install", block, &[0]).detail, "");
     }
 }

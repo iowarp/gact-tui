@@ -17,7 +17,7 @@ function states(progress: DeployProgress) {
 }
 
 const step = (
-  kind: 'probe' | 'install' | 'start' | 'tunnel' | 'other',
+  kind: 'probe' | 'claim' | 'install' | 'start' | 'teardown' | 'tunnel' | 'other',
   phase: 'running' | 'done' | 'failed',
   at: number,
   detail = '',
@@ -45,14 +45,19 @@ describe('deploy progress', () => {
       connect: 'done',
       authenticate: 'skipped',
       detect: 'done',
+      claim: 'skipped',
       install: 'done',
       start: 'done',
       tunnel: 'done',
       open: 'running',
+      cleanup: 'pending',
     });
+    expect(progress.stages.find((stage) => stage.id === 'claim')?.hidden).toBe(true);
+    expect(progress.stages.find((stage) => stage.id === 'cleanup')?.hidden).toBe(true);
     expect(progress.stages.find((stage) => stage.id === 'authenticate')?.hidden).toBe(true);
     const install = progress.stages.find((stage) => stage.id === 'install');
-    expect(install?.detail).toBe('Installing launcher: /home/a/.local/bin/clio');
+    // The installer's substep is live progress; a finished install drops it.
+    expect(install?.detail).toBeUndefined();
     expect((install?.endedAt ?? 0) - (install?.startedAt ?? 0)).toBe(57_300);
   });
 
@@ -109,6 +114,41 @@ describe('deploy progress', () => {
       { type: 'cancel', at: 3 },
     ]);
     expect(states(progress).install).toBe('cancelled');
+  });
+
+  it('an adopted server shows the check with its outcome and skips install and start', () => {
+    const progress = run([
+      { type: 'start', at: 0 },
+      { type: 'connected', at: 1 },
+      step('probe', 'done', 2),
+      step('claim', 'running', 3),
+      step('claim', 'done', 4, 'Reusing the running CLIO (pid 7, /home/a/.local/share/clio)'),
+      step('tunnel', 'done', 5),
+      { type: 'open', at: 6 },
+    ]);
+    const claim = progress.stages.find((stage) => stage.id === 'claim');
+    expect(claim).toMatchObject({
+      state: 'done',
+      hidden: false,
+      detail: 'Reusing the running CLIO (pid 7, /home/a/.local/share/clio)',
+    });
+    expect(states(progress)).toMatchObject({ install: 'skipped', start: 'skipped' });
+  });
+
+  it('cleanup after a failure appears as its own stage and keeps the failure', () => {
+    const progress = run([
+      { type: 'start', at: 0 },
+      { type: 'connected', at: 1 },
+      step('claim', 'done', 2, 'Port 17800 is free'),
+      step('start', 'failed', 3, 'server did not become healthy'),
+      step('teardown', 'running', 4),
+      step('teardown', 'done', 5, 'Stopped the CLIO this deploy started (pid 9)'),
+    ]);
+    expect(states(progress)).toMatchObject({ start: 'failed', cleanup: 'done' });
+    expect(progress.failure?.stage).toBe('start');
+    expect(progress.stages.find((stage) => stage.id === 'cleanup')?.detail).toBe(
+      'Stopped the CLIO this deploy started (pid 9)',
+    );
   });
 
   it('formats reasons and elapsed times for people', () => {

@@ -10,6 +10,7 @@ import {
   cancelSshTransport,
   sshTransportLog,
   sshTransportStatus,
+  writeSshTransport,
   type SshStateEvent,
   type SshStepEvent,
   type SshTransportStatus,
@@ -26,7 +27,7 @@ import {
   waitForOperation,
 } from './managed-service-target-utils';
 
-export type RemoteDeploymentPhase = 'idle' | 'running' | 'failed' | 'cancelled';
+export type RemoteDeploymentPhase = 'idle' | 'running' | 'cancelling' | 'failed' | 'cancelled';
 
 export type RemoteDeployment = {
   phase: RemoteDeploymentPhase;
@@ -163,14 +164,22 @@ export function useRemoteDeployment(
     [listen, observe, onReady, repository, settings.endpoint, settings.token],
   );
 
+  /**
+   * Cancel without leaving anything behind on the remote host: interrupt the
+   * remote command that is running, let the agent cancel its operation (it
+   * tears down what this deploy started over the still-open session, shown
+   * as Cleaning up), and only then kill the OpenSSH process tree.
+   */
   const cancel = useCallback(async () => {
     abort.current?.abort(new DOMException('Deployment cancelled', 'AbortError'));
     dispatch({ type: 'cancel', at: Date.now() });
-    setPhase('cancelled');
+    setPhase('cancelling');
     const problems: string[] = [];
-    if (session.current) {
-      await cancelSshTransport(session.current).catch((error: unknown) =>
-        problems.push(`OpenSSH could not be stopped: ${String(error)}`),
+    const sessionId = session.current;
+    if (sessionId && operation.current) {
+      // Ctrl-C to the remote shell's foreground command; the shell itself stays.
+      await writeSshTransport(sessionId, '\u0003').catch((error: unknown) =>
+        problems.push(`The remote command could not be interrupted: ${String(error)}`),
       );
     }
     if (operation.current) {
@@ -180,6 +189,12 @@ export function useRemoteDeployment(
           problems.push(`The remote operation could not be cancelled: ${String(error)}`),
         );
     }
+    if (sessionId) {
+      await cancelSshTransport(sessionId).catch((error: unknown) =>
+        problems.push(`OpenSSH could not be stopped: ${String(error)}`),
+      );
+    }
+    setPhase('cancelled');
     if (problems.length) setDetails(problems.join('\n'));
   }, [repository]);
 

@@ -68,7 +68,7 @@ export function DeployClioDialog({
     },
     onSuccess: ready,
   });
-  const running = local.isPending || remote.phase === 'running';
+  const running = local.isPending || remote.phase === 'running' || remote.phase === 'cancelling';
   const failedStage = remote.progress.stages.find(
     (stage) => stage.id === remote.progress.failure?.stage,
   );
@@ -93,7 +93,7 @@ export function DeployClioDialog({
       <Dialog
         onOpenChange={(next) => {
           // A running deployment is stopped with Cancel, not by dismissing.
-          if (!next && remote.phase === 'running') return;
+          if (!next && running) return;
           setOpen(next);
         }}
         open={open}
@@ -196,9 +196,14 @@ export function DeployClioDialog({
           ) : null}
 
           <DialogFooter>
-            {remote.phase === 'running' ? (
-              <Button onClick={() => void remote.cancel()} type="button" variant="outline">
-                Cancel
+            {remote.phase === 'running' || remote.phase === 'cancelling' ? (
+              <Button
+                disabled={remote.phase === 'cancelling'}
+                onClick={() => void remote.cancel()}
+                type="button"
+                variant="outline"
+              >
+                {remote.phase === 'cancelling' ? 'Cancelling…' : 'Cancel'}
               </Button>
             ) : null}
             <Button disabled={running} onClick={deploy} type="button">

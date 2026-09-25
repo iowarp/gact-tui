@@ -111,7 +111,7 @@ export function DeployStageList({ progress }: { progress: DeployProgress }) {
                 {elapsed ?? (stage.state === 'skipped' ? STATE_LABELS.skipped : null)}
               </span>
             </TimelineHeader>
-            {stage.detail && stage.state === 'running' ? (
+            {stage.detail && (stage.state === 'running' || stage.state === 'done') ? (
               <TimelineContent className="truncate text-xs" title={stage.detail}>
                 {stage.detail}
               </TimelineContent>

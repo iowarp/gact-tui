@@ -5,10 +5,12 @@ export type DeployStageId =
   | 'connect'
   | 'authenticate'
   | 'detect'
+  | 'claim'
   | 'install'
   | 'start'
   | 'tunnel'
-  | 'open';
+  | 'open'
+  | 'cleanup';
 
 export type DeployStageState = 'pending' | 'running' | 'done' | 'failed' | 'cancelled' | 'skipped';
 
@@ -20,7 +22,11 @@ export type DeployStage = {
   detail?: string;
   startedAt?: number;
   endedAt?: number;
-  /** Authentication is listed only once OpenSSH actually asks something. */
+  /**
+   * Listed only once it happens: authentication when OpenSSH asks something,
+   * the running-server check when the agent runs it, cleanup after a failure
+   * or cancel.
+   */
   hidden?: boolean;
 };
 
@@ -43,24 +49,30 @@ const STAGES: ReadonlyArray<Pick<DeployStage, 'id' | 'label'>> = [
   { id: 'connect', label: 'Connecting over SSH' },
   { id: 'authenticate', label: 'Authenticating' },
   { id: 'detect', label: 'Detecting platform' },
+  { id: 'claim', label: `Checking for a running ${vocab.agent}` },
   { id: 'install', label: `Installing ${vocab.agent}` },
   { id: 'start', label: 'Starting server' },
   { id: 'tunnel', label: 'Opening tunnel' },
   { id: 'open', label: `Connecting to ${vocab.agent}` },
+  { id: 'cleanup', label: 'Cleaning up' },
 ];
+
+const HIDDEN_UNTIL_RUN: ReadonlySet<DeployStageId> = new Set(['authenticate', 'claim', 'cleanup']);
 
 const STEP_STAGE: Partial<Record<SshStepEvent['kind'], DeployStageId>> = {
   probe: 'detect',
+  claim: 'claim',
   install: 'install',
   start: 'start',
   tunnel: 'tunnel',
+  teardown: 'cleanup',
 };
 
 export const initialDeployProgress: DeployProgress = {
   stages: STAGES.map((stage) => ({
     ...stage,
     state: 'pending',
-    hidden: stage.id === 'authenticate' ? true : undefined,
+    hidden: HIDDEN_UNTIL_RUN.has(stage.id) ? true : undefined,
   })),
 };
 
@@ -144,7 +156,12 @@ export function deployProgressReducer(
         return event.step.detail ? update(entered, id, { detail: event.step.detail }) : entered;
       }
       if (event.step.phase === 'done')
-        return update(enter(progress, id, event.at), id, { state: 'done', endedAt: event.at });
+        return update(enter(progress, id, event.at), id, {
+          state: 'done',
+          endedAt: event.at,
+          // The outcome of a check or cleanup ("Stopped an old CLIO ...").
+          detail: event.step.detail || undefined,
+        });
       const reason = event.step.detail || 'This step failed.';
       return {
         ...update(enter(progress, id, event.at), id, {
