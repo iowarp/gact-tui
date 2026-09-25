@@ -224,7 +224,7 @@ describe('ModelsSettings', () => {
     expect(await screen.findByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent(
       'Medium',
     );
-    await user.click(await screen.findByRole('button', { name: 'Refresh model catalog' }));
+    await user.click(await screen.findByRole('button', { name: 'Refresh models' }));
     await waitFor(() => expect(repository.refreshProviderModels).toHaveBeenCalledWith(['codex']));
     expect(await screen.findByText('Catalog refreshed')).toBeVisible();
     expect(screen.getByText(/1 available model, 0 added, 0 removed/)).toBeVisible();

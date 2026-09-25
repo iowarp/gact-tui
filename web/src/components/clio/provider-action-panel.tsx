@@ -1,6 +1,5 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import {
-  CircleAlertIcon,
   DownloadIcon,
   KeyRoundIcon,
   LogOutIcon,
@@ -9,7 +8,6 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Input } from '@/components/ui/input';
 import { providerPrimaryAction } from '@/lib/provider-availability';
 import { providerDisplayName } from '@/lib/provider-presentation';
@@ -17,7 +15,6 @@ import { cn } from '@/lib/utils';
 import { ProviderAuthPanel } from './provider-auth-panel';
 import { HandshakeResult, RefreshResult } from './settings-models-results';
 import type { useProviderSettingsActions } from './settings-models-actions';
-import { ClioStatus } from './status';
 
 export type ProviderActions = ReturnType<typeof useProviderSettingsActions>;
 
@@ -66,7 +63,7 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
 
   const readySignOut =
     action === 'none' && preset.is_authenticated
-      ? preset.auth_method === 'oauth' || preset.auth_method === 'subscription'
+      ? preset.supports_logout
         ? 'logout'
         : preset.requires_api_key
           ? 'remove_key'
@@ -129,31 +126,35 @@ export function ProviderActionPanel({ preset, actions, compact = false }: Provid
           <ProviderApiKeyField actions={actions} compact={compact} preset={preset} />
         ) : (
           <>
-            {compact ? (
-              <ProviderCheckControl actions={actions} compact preset={preset} />
-            ) : (
-              <>
-                <Button
-                  disabled={actions.refreshModels.isPending}
-                  onClick={() => actions.refreshModels.mutate()}
-                  variant="outline"
-                >
-                  <RefreshCwIcon
-                    aria-hidden="true"
-                    className={actions.refreshModels.isPending ? 'animate-spin' : undefined}
-                  />
-                  {actions.refreshModels.isPending ? 'Checking available models…' : 'Refresh model catalog'}
-                </Button>
-                <Button
-                  disabled={actions.handshake.isPending}
-                  onClick={() => actions.handshake.mutate()}
-                  variant="outline"
-                >
-                  <RadioTowerIcon aria-hidden="true" />
-                  {actions.handshake.isPending ? 'Checking provider…' : 'Verify provider'}
-                </Button>
-              </>
-            )}
+            {/* Ready = two labelled actions, always -- an icon-only control
+                (the old compact "just a status dot" affordance) never told
+                anyone what clicking it would do. */}
+            <Button
+              className={compact ? 'h-7 px-2 text-xs' : undefined}
+              disabled={actions.handshake.isPending}
+              onClick={() => actions.handshake.mutate()}
+              size={compact ? 'sm' : undefined}
+              variant="outline"
+            >
+              <RadioTowerIcon aria-hidden="true" className={compact ? 'size-3.5' : undefined} />
+              {actions.handshake.isPending ? 'Checking provider…' : 'Verify provider'}
+            </Button>
+            <Button
+              className={compact ? 'h-7 px-2 text-xs' : undefined}
+              disabled={actions.refreshModels.isPending}
+              onClick={() => actions.refreshModels.mutate()}
+              size={compact ? 'sm' : undefined}
+              variant="outline"
+            >
+              <RefreshCwIcon
+                aria-hidden="true"
+                className={cn(
+                  compact ? 'size-3.5' : undefined,
+                  actions.refreshModels.isPending && 'animate-spin',
+                )}
+              />
+              {actions.refreshModels.isPending ? 'Checking available models…' : 'Refresh models'}
+            </Button>
             {readySignOut === 'logout' ? (
               <Button
                 className={compact ? 'h-7 px-2 text-xs' : undefined}
@@ -260,52 +261,3 @@ function ProviderApiKeyField({
   );
 }
 
-/**
- * The check/refresh control: a single status icon that IS the trigger (v15
- * icon-and-colour-on-every-row rule) with the last result disclosed in a
- * HoverCard, rather than a separate button plus a paragraph of result text.
- */
-function ProviderCheckControl({
-  actions,
-  compact,
-  preset,
-}: {
-  actions: ProviderActions;
-  compact: boolean;
-  preset: LanguageModelPreset;
-}) {
-  if (!compact) return null;
-  const pending = actions.handshake.isPending || actions.refreshModels.isPending;
-  const failed = Boolean(actions.handshake.error || actions.refreshModels.error);
-  const value = failed ? 'degraded' : preset.is_authenticated ? 'healthy' : 'unavailable';
-  return (
-    <HoverCard openDelay={180}>
-      <HoverCardTrigger asChild>
-        <button
-          aria-label={`Check ${providerDisplayName(preset)}`}
-          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-          data-slot="provider-check-control"
-          onClick={() => actions.handshake.mutate()}
-          type="button"
-        >
-          {pending ? (
-            <RefreshCwIcon aria-hidden="true" className="size-4 animate-spin text-muted-foreground" />
-          ) : failed ? (
-            <CircleAlertIcon aria-hidden="true" className="size-4 text-warning" />
-          ) : (
-            <ClioStatus compact suppressNativeTitle value={value} />
-          )}
-        </button>
-      </HoverCardTrigger>
-      <HoverCardContent align="start" className="w-72 text-xs">
-        {actions.handshakeResult ? (
-          <HandshakeResult result={actions.handshakeResult} />
-        ) : actions.refreshResult ? (
-          <RefreshResult result={actions.refreshResult} />
-        ) : (
-          <p className="text-muted-foreground">Click to check this provider now.</p>
-        )}
-      </HoverCardContent>
-    </HoverCard>
-  );
-}

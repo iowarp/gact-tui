@@ -26,6 +26,7 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
         is_authenticated: true,
         supports_live_catalog: true,
         supports_vision: true,
+        supports_logout: true,
       },
     ],
   };
@@ -294,6 +295,7 @@ describe('ModelsSettings provider actions', () => {
           status: 'ready',
           supports_live_catalog: true,
           supports_vision: false,
+          supports_logout: true,
         },
       ],
     };
@@ -359,7 +361,7 @@ describe('ModelsSettings provider actions', () => {
 
     expect(await screen.findByRole('button', { name: 'Sign in again' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Verify provider' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Refresh model catalog' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Refresh models' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
     expect(screen.queryByText(/globus\.org\/logout/)).not.toBeInTheDocument();
     expect(screen.queryByText(/high-assurance timeout/)).not.toBeInTheDocument();
@@ -472,7 +474,7 @@ describe('ModelsSettings provider actions', () => {
     // The state-exact action set for a ready, API-key-authenticated provider:
     // Verify + Refresh + Remove key -- never Sign in, Install or the key field.
     expect(await screen.findByRole('button', { name: 'Verify provider' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Refresh model catalog' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Refresh models' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Remove key' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Install/ })).not.toBeInTheDocument();

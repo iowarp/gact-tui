@@ -22,6 +22,7 @@ const defaultConfiguration = {
       requires_api_key: false,
       auth_method: 'subscription',
       is_authenticated: true,
+      supports_logout: true,
     },
     {
       id: 'local-vllm',
@@ -284,7 +285,7 @@ describe('ClioModelPicker provider submenu actions', () => {
       );
     });
 
-    it('ready: the check control shows the last result in a HoverCard on re-check', async () => {
+    it('ready: shows Verify provider, Refresh models and Sign out -- never a bare icon', async () => {
       repository.providerHandshake.mockResolvedValueOnce({
         connectivity: 'ok',
         auth: 'ok',
@@ -292,6 +293,19 @@ describe('ClioModelPicker provider submenu actions', () => {
         source: 'codex_catalog',
         generated_at: '2026-09-01T00:00:00Z',
       });
+      repository.refreshProviderModels.mockResolvedValueOnce([
+        {
+          provider: 'codex',
+          discovered: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
+          source: 'codex_catalog',
+          default_model: 'gpt-5.6-luna',
+          generated_at: '2026-09-01T00:00:00Z',
+          added: [],
+          removed: [],
+          unchanged: ['gpt-5.6-luna'],
+          rejected: [],
+        },
+      ]);
       repository.providerModels.mockResolvedValue({
         provider_id: 'codex',
         models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
@@ -310,10 +324,72 @@ describe('ClioModelPicker provider submenu actions', () => {
       );
 
       await user.click(screen.getByRole('button', { name: 'Change model' }));
-      await user.click(screen.getByRole('button', { name: 'Check Codex' }));
+
+      // The exact ready-state action set -- labelled buttons, never the old
+      // bare status-icon control, and Sign out since Codex's preset reports
+      // supports_logout.
+      expect(await screen.findByRole('button', { name: 'Verify provider' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Refresh models' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Sign out' })).toBeVisible();
+      expect(screen.queryByRole('button', { name: /^Check /u })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Verify provider' }));
       await waitFor(() => expect(repository.providerHandshake).toHaveBeenCalled());
-      await user.hover(screen.getByRole('button', { name: 'Check Codex' }));
-      expect(await screen.findByText('Provider ready')).toBeVisible();
+
+      // "Refresh models" re-runs REAL discovery for this provider, never
+      // just a catalog re-read.
+      await user.click(screen.getByRole('button', { name: 'Refresh models' }));
+      await waitFor(() =>
+        expect(repository.refreshProviderModels).toHaveBeenCalledWith(['codex']),
+      );
+    });
+
+    it('claude_code ready never shows Sign out -- CLIO has no logout handler for it', async () => {
+      // Claude Code's subscription is the user's own Claude CLI login, which
+      // CLIO does not own and cannot revoke -- unlike Codex above (same
+      // auth_method: 'subscription'), it has no entry in the backend's
+      // logout registry, so `supports_logout` is the only thing that may
+      // ever gate this button, never `auth_method`.
+      repository.languageModelConfiguration.mockResolvedValue({
+        ...defaultConfiguration,
+        presets: [
+          ...defaultConfiguration.presets,
+          {
+            id: 'claude_code',
+            label: 'Claude Code',
+            provider: 'claude_code',
+            suggested_model: 'claude-sonnet-5',
+            requires_api_key: false,
+            auth_method: 'subscription',
+            is_authenticated: true,
+            status: 'ready',
+            supports_logout: false,
+          },
+        ],
+      });
+      const claudeOption = {
+        providerId: 'claude_code',
+        providerName: 'Claude Code',
+        id: 'claude-sonnet-5',
+        label: 'Sonnet',
+        available: true,
+        health: 'ready',
+      };
+      const user = userEvent.setup();
+      renderPicker(
+        <ClioModelPicker
+          onChange={vi.fn()}
+          options={[...options, claudeOption]}
+          trigger={<Button>Change model</Button>}
+        />,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Change model' }));
+      await user.click(screen.getByText('Claude Code'));
+
+      expect(await screen.findByRole('button', { name: 'Verify provider' })).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Refresh models' })).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
     });
 
     it('single-transport providers (no transports, or exactly one) never show the "or" divider', async () => {
