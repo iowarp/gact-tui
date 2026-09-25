@@ -141,6 +141,117 @@ describe('buildModelOptions', () => {
     ]);
   });
 
+  it('threads a multi-transport provider entry\'s transports onto every one of its options', () => {
+    const providerCatalog: ProviderCatalog = {
+      authoritative: 'live_handshake',
+      providers: [
+        {
+          id: 'codex',
+          name: 'Codex',
+          kind: 'codex',
+          endpoint: 'local://codex-sdk',
+          configuration_url: '/settings/providers/codex',
+          connectivity: 'reachable',
+          auth: 'ready',
+          health: 'ready',
+          freshness: { generated_at: '2026-08-31T12:00:00Z', source: 'live' },
+          failure: '',
+          transports: [
+            { id: 'sdk', label: 'Codex (local)', health: 'ready', reason: '' },
+            {
+              id: 'direct',
+              label: 'Direct',
+              health: 'unavailable',
+              reason: 'Codex sign-in is required',
+              auth: { method: 'subscription' },
+            },
+          ],
+          models: [
+            {
+              provider_id: 'codex',
+              provider_kind: 'codex',
+              endpoint: 'local://codex-sdk',
+              deployment: '',
+              model_id: 'gpt-5.6-luna',
+              revision: '',
+              modalities: ['text'],
+              reasoning: { supported: false, parameter: '', levels: [] },
+              native_tool_calling: true,
+              availability: 'available',
+              evidence: {
+                source: 'live',
+                generated_at: '2026-08-31T12:00:00Z',
+                live: true,
+                context_source: 'provider',
+              },
+              failure: '',
+              transport: 'sdk',
+            },
+          ],
+        },
+      ],
+    };
+
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      providerCatalog,
+      presets: [],
+    });
+
+    expect(option?.transport).toBe('sdk');
+    expect(option?.transports).toEqual(providerCatalog.providers[0]?.transports);
+  });
+
+  it('never reports transports for a single-transport provider', () => {
+    const providerCatalog: ProviderCatalog = {
+      authoritative: 'live_handshake',
+      providers: [
+        {
+          id: 'claude_code',
+          name: 'Claude Code',
+          kind: 'claude_code',
+          endpoint: 'claude-code://sdk',
+          configuration_url: '/settings/providers/claude_code',
+          connectivity: 'reachable',
+          auth: 'ready',
+          health: 'ready',
+          freshness: { generated_at: '2026-08-31T12:00:00Z', source: 'live' },
+          failure: '',
+          models: [
+            {
+              provider_id: 'claude_code',
+              provider_kind: 'claude_code',
+              endpoint: 'claude-code://sdk',
+              deployment: '',
+              model_id: 'claude-sonnet-5',
+              revision: '',
+              modalities: ['text'],
+              reasoning: { supported: false, parameter: '', levels: [] },
+              native_tool_calling: true,
+              availability: 'available',
+              evidence: {
+                source: 'live',
+                generated_at: '2026-08-31T12:00:00Z',
+                live: true,
+                context_source: 'provider',
+              },
+              failure: '',
+            },
+          ],
+        },
+      ],
+    };
+
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'claude_code',
+      providerCatalog,
+      presets: [],
+    });
+
+    expect(option?.transports).toBeUndefined();
+    expect(option?.transport).toBeUndefined();
+  });
+
   it('keeps a configured provider the live catalog does not know about', () => {
     const options = buildModelOptions({
       activeCatalogProvider: 'lm_studio',

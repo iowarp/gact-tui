@@ -64,29 +64,6 @@ export interface ProviderHandshake {
   generated_at: string;
 }
 
-/**
- * One way a provider can be reached (e.g. Codex's local SDK vs its direct
- * OAuth subscription). Only providers with more than one of these render the
- * picker's two-half submenu (`transports.length > 1`); a provider with zero
- * or one entry here renders exactly like a preset with no `transports` at
- * all. `auth` mirrors the subset of `LanguageModelPreset`'s own auth fields
- * needed to derive that ONE transport's action set -- absent fields fall
- * back to the parent preset's.
- */
-export interface LanguageModelPresetTransport {
-  id: string;
-  label: string;
-  health: 'healthy' | 'degraded' | 'unavailable';
-  reason?: string;
-  /** Available model count for this transport, when known. */
-  models?: number;
-  auth?: {
-    method?: string;
-    is_authenticated?: boolean;
-    status?: string;
-    status_message?: string;
-  };
-}
 
 export interface LanguageModelPreset {
   id: string;
@@ -115,8 +92,6 @@ export interface LanguageModelPreset {
   }>;
   supports_runtime_sizing?: boolean;
   managed_service_id?: string;
-  /** Present only for a provider reachable more than one way (see above). */
-  transports?: LanguageModelPresetTransport[];
 }
 
 export interface LanguageModelConfiguration {

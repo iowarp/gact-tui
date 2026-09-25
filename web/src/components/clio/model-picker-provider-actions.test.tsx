@@ -364,31 +364,27 @@ describe('ClioModelPicker provider submenu actions', () => {
     });
 
     it('a provider with more than one transport splits into two halves, "or" between them', async () => {
-      repository.languageModelConfiguration.mockResolvedValue({
-        ...defaultConfiguration,
-        presets: defaultConfiguration.presets.map((preset) =>
-          preset.id === 'codex'
-            ? {
-                ...preset,
-                transports: [
-                  { id: 'sdk', label: 'Local SDK', health: 'healthy', models: 3 },
-                  {
-                    id: 'direct',
-                    label: 'Direct',
-                    health: 'unavailable',
-                    auth: { is_authenticated: false, method: 'subscription' },
-                  },
-                ],
-              }
-            : preset,
-        ),
-      });
+      // Transports live on the CATALOG entry (what `options` models this
+      // fixture), never on the preset -- the picker must never invent this
+      // shape from anything else.
+      const transports = [
+        { id: 'sdk', label: 'Codex (local)', health: 'ready', reason: '' },
+        {
+          id: 'direct',
+          label: 'Direct',
+          health: 'unavailable',
+          reason: '',
+          auth: { method: 'subscription' },
+        },
+      ];
       const user = userEvent.setup();
       renderPicker(
         <ClioModelPicker
           model="gpt-5.6-luna"
           onChange={vi.fn()}
-          options={options}
+          options={options.map((option) =>
+            option.providerId === 'codex' ? { ...option, transport: 'sdk', transports } : option,
+          )}
           provider="codex"
           trigger={<Button>Change model</Button>}
         />,
@@ -397,11 +393,14 @@ describe('ClioModelPicker provider submenu actions', () => {
       await user.click(screen.getByRole('button', { name: 'Change model' }));
 
       // Never hardcoded per provider: the split renders purely because THIS
-      // preset's transports array has more than one entry -- one half scoped
-      // to the ready SDK transport, the other to the signed-out Direct one.
+      // provider's catalog entry reports more than one transport. The ready
+      // SDK half gets its own heading + models INSIDE the tree; "or" then
+      // separates it from the signed-out Direct half's action below.
+      expect(screen.getByText('Codex (local)')).toBeVisible();
+      expect(screen.getByText('Luna')).toBeVisible();
       expect(screen.getByText('or')).toBeVisible();
-      expect(await screen.findByRole('button', { name: 'Check Local SDK' })).toBeVisible();
-      expect(screen.getByRole('button', { name: 'Sign in' })).toBeVisible();
+      expect(screen.getByText('Direct')).toBeVisible();
+      expect(await screen.findByRole('button', { name: 'Sign in' })).toBeVisible();
     });
 });
 

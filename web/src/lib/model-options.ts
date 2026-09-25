@@ -2,6 +2,7 @@ import type {
   LanguageModelPreset,
   ProviderCatalog,
   ProviderCatalogEntry,
+  ProviderCatalogTransport,
   ProviderModel,
 } from '@clio/core/v3';
 import { providerStatusDetail } from './provider-availability';
@@ -31,6 +32,11 @@ export interface ClioModelOption {
   reasoning?: ModelReasoningLevels;
   /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
   aliases?: readonly string[];
+  /** This provider's OWN transports (Codex: sdk + direct), present on every
+   * row from a multi-transport provider so the picker can group by it. */
+  transports?: readonly ProviderCatalogTransport[];
+  /** Which of `transports` this specific model row came from. */
+  transport?: string;
 }
 
 /**
@@ -179,6 +185,7 @@ function liveProviderOptions(
     endpoint: provider.endpoint,
     freshness: provider.freshness.generated_at,
     health: provider.health,
+    transports: provider.transports,
   };
   if (!provider.models.length) {
     const authenticationFailure = isAuthenticationFailure(provider.failure);
@@ -234,6 +241,7 @@ function liveProviderOptions(
       modalities: model.modalities,
       reasoning: modelReasoningLevels(model.reasoning),
       aliases: model.aliases,
+      transport: model.transport,
     };
   });
 }

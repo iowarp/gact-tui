@@ -20,7 +20,14 @@ export function translateKnownProviderErrorReason(text: string): string {
   if (/^argonne_reauthentication_required\b/iu.test(text)) {
     return 'Your ALCF session needs to be verified again. Sign in again to continue.';
   }
-  return text;
+  // Every other typed reason this build knows about already reads as a plain
+  // sentence after its "snake_case_code: " prefix (the
+  // `SDK_UNAVAILABLE_REASONS`/`PASSIVE_TOKEN_REASONS` style) -- drop just the
+  // code, never inventing new wording for a reason this build has never seen.
+  // Requires an underscore before the colon (every real typed code has one,
+  // e.g. `codex_sdk_signed_out`), so an ordinary "note: ..." sentence a
+  // caller passes as free text is never mistaken for a code and truncated.
+  return text.replace(/^[a-z][a-z0-9]*(?:_[a-z0-9]+)+:\s*/u, '');
 }
 
 /** Translate service configuration diagnostics into useful product language. */

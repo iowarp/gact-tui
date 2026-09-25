@@ -1,6 +1,6 @@
 import type { LanguageModelPreset, ProviderDefinition } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { providerAvailability } from './provider-availability';
+import { providerAvailability, translateKnownProviderErrorReason } from './provider-availability';
 
 const definition: ProviderDefinition = {
   id: 'claude_code',
@@ -65,5 +65,32 @@ describe('providerAvailability', () => {
       value: 'unavailable',
       detail: 'Connect Anthropic API to use this provider.',
     });
+  });
+});
+
+describe('translateKnownProviderErrorReason', () => {
+  it('gives the reauth-required reason its own plain wording, never the raw Globus text', () => {
+    expect(
+      translateKnownProviderErrorReason(
+        'argonne_reauthentication_required: Error: Permission denied from internal policies.',
+      ),
+    ).toBe('Your ALCF session needs to be verified again. Sign in again to continue.');
+  });
+
+  it('drops any other typed "snake_case_code: " prefix, keeping the sentence after it', () => {
+    expect(
+      translateKnownProviderErrorReason(
+        'codex_sdk_signed_out: the Codex SDK/runtime is installed, but no account is signed in',
+      ),
+    ).toBe('the Codex SDK/runtime is installed, but no account is signed in');
+  });
+
+  it('never truncates ordinary prose that merely contains a colon', () => {
+    expect(translateKnownProviderErrorReason('note: check your connection')).toBe(
+      'note: check your connection',
+    );
+    expect(translateKnownProviderErrorReason('Connection refused: timeout')).toBe(
+      'Connection refused: timeout',
+    );
   });
 });

@@ -1,4 +1,3 @@
-import type { LanguageModelPreset, LanguageModelPresetTransport } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { ActivityIcon, EyeIcon, EyeOffIcon, RefreshCwIcon } from 'lucide-react';
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -34,10 +33,26 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRepository } from '@/hooks/use-repository';
 import type { ClioModelOption } from '@/lib/model-options';
 import { PROVIDER_VISIBILITY_CHANGED_EVENT } from '@/lib/installer-infrastructure';
+import { translateKnownProviderErrorReason } from '@/lib/provider-availability';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import {
+  formatFreshness,
+  modelNodeValue,
+  type PickerNodeData,
+  providerHealthPresentation,
+  providerNodeValue,
+  providerSearchDescription,
+  type ProviderGroup,
+  readHiddenProviders,
+  persistHiddenProviders,
+  toProviderGroup,
+  transportHasModels,
+  transportHeadingNodeValue,
+  transportScopedPreset,
+} from './model-picker-model';
 import { ProviderActionPanel } from './provider-action-panel';
 import { useProviderSettingsActions } from './settings-models-actions';
 
@@ -53,33 +68,6 @@ interface ClioModelPickerProps {
   trigger: ReactNode;
 }
 
-interface ProviderGroup {
-  id: string;
-  name: string;
-  choices: ClioModelOption[];
-  availableChoices: ClioModelOption[];
-  endpoint?: string;
-  freshness?: string;
-  health: ProviderHealth;
-  detail?: string;
-}
-
-interface ProviderNodeData {
-  kind: 'provider';
-  group: ProviderGroup;
-}
-
-interface ModelNodeData {
-  kind: 'model';
-  choice: ClioModelOption;
-}
-
-type PickerNodeData = ProviderNodeData | ModelNodeData;
-type ProviderHealth = 'healthy' | 'degraded' | 'unavailable';
-
-const HIDDEN_PROVIDERS_STORAGE_KEY = 'clio.hidden-providers.v1';
-const PROVIDER_NODE_PREFIX = 'provider:';
-const MODEL_NODE_PREFIX = 'model:';
 // The Cascader's own combobox keeps real DOM focus permanently on its search
 // input (a virtual/roving-focus listbox -- see cascader-nav.tsx/cascader-item.tsx),
 // so a real, independently-typeable <input> (the API-key field) can never sit
@@ -181,21 +169,44 @@ export function ClioModelPicker({
   const providerNodes = useMemo<CascaderNode<PickerNodeData>[]>(
     () =>
       visibleProviders.map((group) => {
-        const modelChildren: CascaderNode<PickerNodeData>[] = group.availableChoices.map(
-          (choice) => ({
-            value: modelNodeValue(choice),
-            label: choice.label,
-            description: choice.description ?? choice.modalities?.join(', '),
-            keywords: [
-              choice.id,
-              choice.providerId,
-              choice.providerName,
-              choice.availabilityDetail ?? '',
-              ...(choice.modalities ?? []),
-            ],
-            data: { kind: 'model', choice },
-          }),
-        );
+        const modelNode = (choice: ClioModelOption): CascaderNode<PickerNodeData> => ({
+          value: modelNodeValue(choice),
+          label: choice.label,
+          description: choice.description ?? choice.modalities?.join(', '),
+          keywords: [
+            choice.id,
+            choice.providerId,
+            choice.providerName,
+            choice.availabilityDetail ?? '',
+            ...(choice.modalities ?? []),
+          ],
+          data: { kind: 'model', choice },
+        });
+        // The two-half submenu, driven ONLY by transports.length > 1 (never a
+        // per-provider check): each transport that already has models gets
+        // its own labelled, non-selectable heading INSIDE this tree (e.g.
+        // "Codex (local)" above the SDK's models) -- a transport with no
+        // models yet (needs sign-in/install) contributes nothing here; its
+        // heading + action render in the sibling strip below instead.
+        const modelChildren: CascaderNode<PickerNodeData>[] =
+          (group.transports?.length ?? 0) > 1
+            ? group.transports!.flatMap((transport): CascaderNode<PickerNodeData>[] => {
+                const transportChoices = group.availableChoices.filter(
+                  (choice) => choice.transport === transport.id,
+                );
+                if (!transportChoices.length) return [];
+                return [
+                  {
+                    value: transportHeadingNodeValue(group.id, transport.id),
+                    label: transport.label,
+                    disabled: true,
+                    keywords: [],
+                    data: { kind: 'transport-heading', label: transport.label },
+                  },
+                  ...transportChoices.map(modelNode),
+                ];
+              })
+            : group.availableChoices.map(modelNode);
         return {
           value: providerNodeValue(group.id),
           label: group.name,
@@ -233,6 +244,17 @@ export function ClioModelPicker({
     (choice) => choice.available && choice.providerId === provider && choice.id === model,
   );
   const activePreset = presetsById.get(activeGroup?.id ?? '');
+  // The two-half split's own state: which of the active provider's transports
+  // (if more than one) still need an action -- rendered in the strip below,
+  // "or"-separated from whatever the tree already showed with its own
+  // heading (see `providerNodes`).
+  const activeTransports = activeGroup?.transports ?? [];
+  const hasMultipleTransports = activeTransports.length > 1;
+  const activeActionTransports = hasMultipleTransports
+    ? activeTransports.filter((transport) => !transportHasModels(activeGroup!, transport.id))
+    : [];
+  const activeTreeHasTransportSection =
+    hasMultipleTransports && activeActionTransports.length < activeTransports.length;
   // One actions instance, scoped to whichever provider's submenu is open --
   // the SAME hook and mutations Settings > Providers uses (one implementation
   // per action; see ProviderActionPanel).
@@ -398,7 +420,9 @@ export function ClioModelPicker({
                   box can only work here, outside that tree. The leading
                   spacer (columns mode only) lines this strip up under just
                   the second/active column instead of the whole row. */}
-              {activeGroup && (activeGroup.detail || activePreset) ? (
+              {activeGroup &&
+              (activeGroup.detail ||
+                (activePreset && (!hasMultipleTransports || activeActionTransports.length > 0))) ? (
                 <div className="flex shrink-0 border-t" data-slot="provider-action-strip">
                   {showColumns ? (
                     <div
@@ -422,20 +446,33 @@ export function ClioModelPicker({
                       </p>
                     ) : null}
                     {activePreset ? (
-                      (activePreset.transports?.length ?? 0) > 1 ? (
-                        // The two-half submenu: driven ONLY by transports.length,
-                        // never a per-provider check. Each half is the SAME
-                        // ProviderActionPanel, scoped to that one transport's own
-                        // auth state -- ready, wants sign-in, whatever it is --
-                        // with "or" the one labelled divider between them.
-                        activePreset.transports!.map((transport, index) => (
+                      hasMultipleTransports ? (
+                        // The second half of the two-half submenu: only the
+                        // transports the tree above did NOT already show with
+                        // their own heading+models. "or" separates each
+                        // section from the one before it -- including from
+                        // the tree's own section, when it rendered one.
+                        activeActionTransports.map((transport, index) => (
                           <Fragment key={transport.id}>
-                            {index > 0 ? <FieldSeparator>or</FieldSeparator> : null}
-                            <ProviderActionPanel
-                              actions={providerActions}
-                              compact
-                              preset={transportScopedPreset(activePreset, transport)}
-                            />
+                            {index > 0 || activeTreeHasTransportSection ? (
+                              <FieldSeparator>or</FieldSeparator>
+                            ) : null}
+                            <div className="flex flex-col gap-1.5">
+                              <p className="text-xs font-semibold text-muted-foreground">
+                                {transport.label}
+                              </p>
+                              {transport.auth ? (
+                                <ProviderActionPanel
+                                  actions={providerActions}
+                                  compact
+                                  preset={transportScopedPreset(activePreset, transport)}
+                                />
+                              ) : transport.reason ? (
+                                <p className="text-xs text-muted-foreground">
+                                  {translateKnownProviderErrorReason(transport.reason)}
+                                </p>
+                              ) : null}
+                            </div>
                           </Fragment>
                         ))
                       ) : (
@@ -547,20 +584,32 @@ function PickerRowLabel({
   state: CascaderItemState<PickerNodeData>;
 }) {
   if (node.data?.kind === 'provider') {
-    // The owner's row template, left to right: name, eye, heartbeat -- the
-    // model count and the drill chevron are the Cascader's own trailing
+    // The owner's row template: normal mode is `name heartbeat count ›`,
+    // with NO eye at all -- "Hidden (N)" IS the manage action, so the eye
+    // exists only once that mode is entered (every row, hidden or shown).
+    // The model count and the drill chevron are the Cascader's own trailing
     // slots and render after this label unconditionally.
     return (
       <span className="flex w-full min-w-0 items-center gap-1.5">
         <span className="min-w-0 flex-1 truncate text-start font-medium">{node.label}</span>
-        <ProviderEyeToggle
-          asStaticElement={eyeAsStaticElement}
-          group={node.data.group}
-          hidden={hidden}
-          interactive={managingVisibility}
-          onToggle={onToggleVisibility}
-        />
+        {managingVisibility && onToggleVisibility ? (
+          <ProviderEyeToggle
+            asStaticElement={eyeAsStaticElement}
+            group={node.data.group}
+            hidden={hidden}
+            onToggle={onToggleVisibility}
+          />
+        ) : null}
         <ProviderHeartbeat group={node.data.group} />
+      </span>
+    );
+  }
+  if (node.data?.kind === 'transport-heading') {
+    // A label, not a row: no description slot, no health, nothing selectable
+    // -- the tree's own "Codex (local)" / "Direct" section heading.
+    return (
+      <span className="w-full truncate text-start text-xs font-semibold text-muted-foreground">
+        {node.data.label}
       </span>
     );
   }
@@ -577,8 +626,9 @@ function PickerRowLabel({
   );
 }
 
-/** The eye: a real Toggle when managing, an inert indicator otherwise -- BESIDE
- * the heartbeat, never replacing it (the owner's explicit row layout).
+/** The eye: rendered ONLY while managing visibility (the caller does not
+ * mount this at all outside that mode -- normal mode is `name heartbeat
+ * count ›`, no eye) -- BESIDE the heartbeat, never replacing it.
  *
  * `asStaticElement` renders the SAME Toggle onto a `<span>` instead of its
  * default `<button>` (Radix `asChild`) -- needed exactly when this row is
@@ -593,22 +643,13 @@ function ProviderEyeToggle({
   asStaticElement,
   group,
   hidden,
-  interactive,
   onToggle,
 }: {
   asStaticElement: boolean;
   group: ProviderGroup;
   hidden: boolean;
-  interactive: boolean;
-  onToggle?: () => void;
+  onToggle: () => void;
 }) {
-  if (!interactive || !onToggle) {
-    return (
-      <span aria-hidden="true" className="inline-flex size-6 shrink-0 items-center justify-center text-muted-foreground/60">
-        {hidden ? <EyeOffIcon aria-hidden="true" className="size-3.5" /> : <EyeIcon aria-hidden="true" className="size-3.5" />}
-      </span>
-    );
-  }
   const icon = hidden ? (
     <EyeOffIcon aria-hidden="true" className="size-3.5" />
   ) : (
@@ -668,111 +709,3 @@ function ProviderHeartbeat({ group }: { group: ProviderGroup }) {
   );
 }
 
-function providerHealthPresentation(health: ProviderHealth): { color: string; label: string } {
-  return {
-    healthy: { color: 'text-success', label: 'Ready' },
-    degraded: { color: 'text-warning', label: 'Needs attention' },
-    unavailable: { color: 'text-muted-foreground/55', label: 'Unavailable' },
-  }[health];
-}
-
-function toProviderGroup(group: {
-  id: string;
-  name: string;
-  choices: ClioModelOption[];
-}): ProviderGroup {
-  // A provider row stands for the provider itself, so it can never become a
-  // model someone picks.
-  const availableChoices = group.choices.filter(
-    (choice) => choice.available && choice.kind !== 'provider',
-  );
-  const reportedHealth = group.choices.find((choice) => choice.health)?.health?.toLowerCase();
-  const health: ProviderHealth = availableChoices.length
-    ? reportedHealth === 'degraded' || reportedHealth === 'error'
-      ? 'degraded'
-      : 'healthy'
-    : reportedHealth === 'degraded' || reportedHealth === 'error'
-      ? 'degraded'
-      : 'unavailable';
-  const details = [
-    ...new Set(
-      group.choices
-        .map((choice) => choice.availabilityDetail)
-        .filter((detail): detail is string => Boolean(detail)),
-    ),
-  ];
-  return {
-    ...group,
-    availableChoices,
-    endpoint: group.choices.find((choice) => choice.endpoint)?.endpoint,
-    freshness: group.choices.find((choice) => choice.freshness)?.freshness,
-    health,
-    detail: details[0],
-  };
-}
-
-/**
- * A preset scoped to one of its own `transports` -- same identity (id,
- * provider, api_base: the mutations are still preset-level; there is no
- * per-transport auth endpoint yet), but with `label`/auth fields overridden
- * by that transport's own reported state, so `ProviderActionPanel` renders
- * THAT transport's action (or ready state) instead of the preset's overall
- * one. `transport.auth`'s fields are optional and fall back to the parent
- * preset's own -- a transport that reports nothing is assumed to share it.
- */
-function transportScopedPreset(
-  preset: LanguageModelPreset,
-  transport: LanguageModelPresetTransport,
-): LanguageModelPreset {
-  return {
-    ...preset,
-    label: transport.label,
-    is_authenticated: transport.auth?.is_authenticated ?? preset.is_authenticated,
-    auth_method: transport.auth?.method ?? preset.auth_method,
-    status: transport.auth?.status ?? preset.status,
-    status_message: transport.auth?.status_message ?? preset.status_message,
-  };
-}
-
-function providerNodeValue(providerId: string): string {
-  return `${PROVIDER_NODE_PREFIX}${providerId}`;
-}
-
-function modelNodeValue(choice: ClioModelOption): string {
-  return `${MODEL_NODE_PREFIX}${choice.providerId}:${choice.id}`;
-}
-
-function providerSearchDescription(group: ProviderGroup): string {
-  if (group.health === 'unavailable') return 'Unavailable';
-  const count = group.availableChoices.length;
-  return `${count} ${count === 1 ? 'model' : 'models'}`;
-}
-
-function formatFreshness(freshness: string): string {
-  const parsed = new Date(freshness);
-  return Number.isNaN(parsed.getTime()) ? freshness : parsed.toLocaleString();
-}
-
-function readHiddenProviders(): Set<string> {
-  if (typeof window === 'undefined') return new Set();
-  try {
-    const value = JSON.parse(window.localStorage.getItem(HIDDEN_PROVIDERS_STORAGE_KEY) ?? '[]');
-    return new Set(Array.isArray(value) ? value.filter((item) => typeof item === 'string') : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function persistHiddenProviders(providerIds: Set<string>): void {
-  try {
-    window.localStorage.setItem(
-      HIDDEN_PROVIDERS_STORAGE_KEY,
-      JSON.stringify([...providerIds].sort()),
-    );
-  } catch {
-    // Storage can be full or blocked outright (private windows, a locked-down
-    // profile). Hiding a provider is a convenience for this tab; losing it
-    // across reloads is not worth taking the picker down with an exception,
-    // and the reader is guarded the same way.
-  }
-}
