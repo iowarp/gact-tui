@@ -3,6 +3,14 @@
 
 fn main() {
     #[cfg(windows)]
+    if std::env::args_os().any(|arg| arg == "--stop-managed-runtime") {
+        if let Err(error) = clio_desktop_lib::stop_managed_runtime_command() {
+            eprintln!("CLIO managed-runtime stop failed: {error}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    #[cfg(windows)]
     if std::env::args_os().any(|arg| arg == "--prepare-runtime") {
         if let Err(report) = clio_desktop_lib::prepare_runtime_command() {
             eprintln!("{report}");
