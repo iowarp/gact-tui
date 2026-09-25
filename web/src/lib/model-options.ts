@@ -5,9 +5,15 @@ import type {
   ProviderCatalogTransport,
   ProviderModel,
 } from '@clio/core/v3';
-import { providerStatusDetail } from './provider-availability';
+import { providerStatusDetail, translateKnownProviderErrorReason } from './provider-availability';
 import { providerDisplayName } from './provider-presentation';
 import { modelReasoningLevels, type ModelReasoningLevels } from './reasoning-levels';
+
+/**
+ * The `health` of a provider row that has not failed but still needs an
+ * install, a sign-in or a key -- neutral, never the red of a real failure.
+ */
+export const PROVIDER_NEEDS_SETUP = 'needs_setup';
 
 export interface ClioModelOption {
   providerId: string;
@@ -159,7 +165,7 @@ export function buildModelOptions({
       available: activePreset?.is_authenticated ?? true,
       availabilityDetail:
         activePreset && !activePreset.is_authenticated
-          ? (activePreset.status_message ?? 'Sign-in needed')
+          ? providerStatusDetail(activePreset, 'Sign-in needed')
           : undefined,
     });
   }
@@ -184,16 +190,21 @@ function liveProviderOptions(
     configurationUrl: provider.configuration_url,
     endpoint: provider.endpoint,
     freshness: provider.freshness.generated_at,
-    health: provider.health,
+    // The service's live "probe running right now" overlay wins over the
+    // cached health, so the row shows the check instead of a stale verdict.
+    health: provider.checking ? 'checking' : provider.health,
     transports: provider.transports,
   };
   if (!provider.models.length) {
     const authenticationFailure = isAuthenticationFailure(provider.failure);
     const needsAuthentication = (preset && !preset.is_authenticated) || authenticationFailure;
     const isAlcf = /^argonne_/u.test(provider.id) || /\bALCF\b/iu.test(providerName);
+    const needsSetup =
+      (preset !== undefined && !preset.is_authenticated) || provider.health === 'needs_install';
     return [
       {
         ...shared,
+        ...(needsSetup && !provider.checking ? { health: PROVIDER_NEEDS_SETUP } : {}),
         kind: 'provider',
         id: '',
         label: providerName,
@@ -203,7 +214,8 @@ function liveProviderOptions(
             ? authenticationFailure && isAlcf
               ? 'Sign in to your ALCF account again.'
               : providerStatusDetail(preset, `Sign in to ${providerName} to discover its models.`)
-            : provider.failure) || 'This provider reported no models to the connected agent.',
+            : provider.failure && translateKnownProviderErrorReason(provider.failure, providerName)) ||
+          'This provider reported no models to the connected agent.',
       },
     ];
   }
@@ -232,12 +244,17 @@ function liveProviderOptions(
       kind: 'model',
       id: model.model_id,
       label: conciseModelName(model.model_id),
-      description: model.failure || undefined,
+      description: model.failure
+        ? translateKnownProviderErrorReason(model.failure, providerName)
+        : undefined,
       available: model.availability === 'available' || usableCandidate || staleCandidate,
       availabilityDetail:
         model.availability === 'available'
           ? undefined
-          : (lastGoodDetail ?? (model.failure || modelAvailabilityLabel(model.availability))),
+          : (lastGoodDetail ??
+            (model.failure
+              ? translateKnownProviderErrorReason(model.failure, providerName)
+              : modelAvailabilityLabel(model.availability))),
       modalities: model.modalities,
       reasoning: modelReasoningLevels(model.reasoning),
       aliases: model.aliases,

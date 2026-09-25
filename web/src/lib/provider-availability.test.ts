@@ -56,15 +56,48 @@ describe('providerAvailability', () => {
     expect(
       providerAvailability(undefined, {
         ...preset,
-        label: 'Anthropic API',
+        label: 'OpenRouter',
         status: 'missing_key',
-        status_message: 'missing ANTHROPIC_API_KEY',
+        status_message: 'missing OPENROUTER_API_KEY',
       }),
     ).toEqual({
       label: 'Sign-in needed',
       value: 'unavailable',
-      detail: 'Connect Anthropic API to use this provider.',
+      detail: 'Add your OpenRouter API key.',
     });
+  });
+
+  it('never repeats "API" when the provider label already ends in it', () => {
+    expect(
+      providerAvailability(undefined, {
+        ...preset,
+        label: 'Anthropic API',
+        status: 'missing_key',
+        status_message: 'missing ANTHROPIC_API_KEY',
+      }),
+    ).toMatchObject({ detail: 'Add your Anthropic API key.' });
+  });
+
+  it('translates the generic connectivity/auth failure instead of the raw backend sentence', () => {
+    expect(
+      providerAvailability(undefined, {
+        ...preset,
+        label: 'ALCF',
+        status: 'unavailable',
+        status_message: 'provider connectivity or authentication check failed',
+      }),
+    ).toMatchObject({ detail: "Couldn't reach ALCF or confirm your sign-in." });
+  });
+
+  it('translates the raw "no Globus token stored" sign-in message', () => {
+    expect(
+      providerAvailability(undefined, {
+        ...preset,
+        label: 'ALCF',
+        status: 'auth_required',
+        status_message: 'no Globus token stored; authenticate ALCF before connecting',
+      }),
+    ).toMatchObject({ detail: 'Sign in to ALCF to use its models.' });
   });
 });
 
@@ -82,15 +115,50 @@ describe('translateKnownProviderErrorReason', () => {
       translateKnownProviderErrorReason(
         'codex_sdk_signed_out: the Codex SDK/runtime is installed, but no account is signed in',
       ),
-    ).toBe('the Codex SDK/runtime is installed, but no account is signed in');
+    ).toBe('The Codex SDK/runtime is installed, but no account is signed in');
   });
 
   it('never truncates ordinary prose that merely contains a colon', () => {
     expect(translateKnownProviderErrorReason('note: check your connection')).toBe(
-      'note: check your connection',
+      'Note: check your connection',
     );
     expect(translateKnownProviderErrorReason('Connection refused: timeout')).toBe(
       'Connection refused: timeout',
     );
+  });
+
+  it('turns the raw "no API key provided" into the key action', () => {
+    expect(translateKnownProviderErrorReason('no API key provided', 'OpenRouter')).toBe(
+      'Add your OpenRouter API key.',
+    );
+  });
+
+  it('never shows a bare reason code on its own', () => {
+    expect(translateKnownProviderErrorReason('argonne_login_required', 'ALCF')).toBe(
+      'ALCF needs attention. Verify it to try again.',
+    );
+  });
+
+  it('names the provider in the generic connectivity/auth failure when given one', () => {
+    expect(
+      translateKnownProviderErrorReason(
+        'provider connectivity or authentication check failed',
+        'Codex',
+      ),
+    ).toBe("Couldn't reach Codex or confirm your sign-in.");
+  });
+
+  it('falls back to provider-agnostic wording for the same failure with no name in scope', () => {
+    expect(
+      translateKnownProviderErrorReason('provider connectivity or authentication check failed'),
+    ).toBe("Couldn't reach this provider or confirm your sign-in.");
+  });
+
+  it('translates the raw ALCF "no Globus token stored" message regardless of a name', () => {
+    expect(
+      translateKnownProviderErrorReason(
+        'no Globus token stored; authenticate ALCF before connecting',
+      ),
+    ).toBe('Sign in to ALCF to use its models.');
   });
 });

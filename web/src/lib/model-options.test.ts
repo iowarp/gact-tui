@@ -57,6 +57,80 @@ const lmStudioPreset: LanguageModelPreset = {
 };
 
 describe('buildModelOptions', () => {
+  it('marks a provider the service is probing right now as checking, over its cached health', () => {
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [catalogProvider({ checking: true, health: 'unavailable', failure: 'unreachable' })],
+      },
+    });
+
+    expect(option?.health).toBe('checking');
+  });
+
+  it('reports a provider that only needs a key as needing setup, never as failed', () => {
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [
+        {
+          id: 'openrouter',
+          label: 'OpenRouter',
+          provider: 'openai',
+          suggested_model: '',
+          requires_api_key: true,
+          is_authenticated: false,
+          status: 'missing_key',
+          status_message: 'missing OPENROUTER_API_KEY',
+          supports_live_catalog: true,
+          supports_vision: false,
+        },
+      ],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'openrouter',
+            name: 'OpenRouter',
+            health: 'unavailable',
+            failure: 'no API key provided',
+          }),
+        ],
+      },
+    });
+
+    expect(option).toMatchObject({
+      health: 'needs_setup',
+      availabilityDetail: 'Add your OpenRouter API key.',
+    });
+  });
+
+  it('never shows a raw reason code as a provider or model detail', () => {
+    const options = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'argonne_sophia',
+            name: 'ALCF Sophia',
+            failure: 'argonne_reauthentication_required: Globus high-assurance timeout',
+          }),
+          catalogProvider({
+            models: [catalogModel('gpt-5.6-luna', 'unavailable', 'model_not_entitled: not on this plan')],
+          }),
+        ],
+      },
+    });
+
+    expect(options.map((option) => option.availabilityDetail)).toEqual([
+      'Your ALCF session needs to be verified again. Sign in again to continue.',
+      'Not on this plan',
+    ]);
+  });
+
   it('does not expose suggested defaults as live selectable inventory', () => {
     expect(
       buildModelOptions({

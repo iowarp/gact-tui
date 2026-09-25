@@ -24,7 +24,7 @@ export function HandshakeResult({ result }: { result: ProviderHandshake }) {
         label={healthy ? 'Provider ready' : 'Provider needs attention'}
         value={healthy ? 'healthy' : 'degraded'}
       />
-      <p className="text-muted-foreground">
+      <p className="text-muted-foreground" title={result.error}>
         {result.error
           ? translateKnownProviderErrorReason(result.error)
           : `Connection ${readableState(result.connectivity)}, sign-in ${readableState(result.auth)}, ${result.models.length} model${result.models.length === 1 ? '' : 's'}`}
@@ -45,9 +45,10 @@ export function RefreshResult({ result }: { result: ProviderModelRefreshResult }
         label={result.failed_reason ? 'Catalog check failed' : 'Catalog refreshed'}
         value={result.failed_reason ? 'degraded' : 'healthy'}
       />
-      <p className="text-muted-foreground">
-        {result.failed_reason ??
-          `${result.discovered.length} available model${result.discovered.length === 1 ? '' : 's'}, ${result.added.length} added, ${result.removed.length} removed`}
+      <p className="text-muted-foreground" title={result.failed_reason}>
+        {result.failed_reason
+          ? translateKnownProviderErrorReason(result.failed_reason)
+          : `${result.discovered.length} available model${result.discovered.length === 1 ? '' : 's'}, ${result.added.length} added, ${result.removed.length} removed`}
       </p>
       <p className="text-xs text-muted-foreground" title={`Reported source: ${result.source}`}>
         Checked {readableTimestamp(result.generated_at)} by the connected agent.
