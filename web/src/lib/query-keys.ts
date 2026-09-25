@@ -11,6 +11,7 @@ export type ClioQueryNamespace =
   | 'artifact-detail'
   | 'artifact-image'
   | 'artifact-lineage'
+  | 'artifact-mesh'
   | 'artifact-reviews'
   | 'artifact-table-preview'
   | 'artifact-text'

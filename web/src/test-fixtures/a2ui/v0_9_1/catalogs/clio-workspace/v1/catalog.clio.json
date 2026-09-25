@@ -87,11 +87,17 @@
     "clio.mermaid.v1": {
       "kernel": "clio.mermaid.v1"
     },
+    "clio.mesh-viewport.v1": {
+      "kernel": "clio.mesh-viewport.v1"
+    },
     "clio.metric.v1": {
       "kernel": "clio.metric.v1"
     },
     "clio.progress.v1": {
       "kernel": "clio.progress.v1"
+    },
+    "clio.slider.v1": {
+      "kernel": "clio.slider.v1"
     },
     "clio.status.v1": {
       "kernel": "clio.status.v1"
