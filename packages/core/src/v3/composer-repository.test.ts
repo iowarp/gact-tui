@@ -357,6 +357,8 @@ describe('ComposerRepository', () => {
       providers: [
         {
           ...catalog.providers[0]!,
+          // A service that predates the live "checking" overlay reports none.
+          checking: false,
           models: [
             {
               ...catalog.providers[0]!.models[0]!,

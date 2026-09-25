@@ -309,8 +309,11 @@ export const providerCatalogTransportSchema = z.object({
   label: z.string(),
   health: z.string(),
   reason: z.string(),
+  // `logout`: the backend's own answer to "can CLIO sign this transport
+  // out" (Codex Direct: yes; the SDK transport is the user's own login and
+  // carries no `auth` at all) -- never inferred on the client.
   auth: z
-    .object({ method: optionalWireString() })
+    .object({ method: optionalWireString(), logout: z.boolean().default(false) })
     .nullish()
     .transform((value) => value ?? undefined),
 });
@@ -342,6 +345,9 @@ export const providerCatalogSchema = z.object({
           .transform((value) => value ?? undefined),
       }),
       failure: z.string(),
+      // A background probe is running for this provider right now (a
+      // per-response overlay, never part of the cached record).
+      checking: z.boolean().default(false),
       models: z.array(
         z.object({
           provider_id: z.string(),

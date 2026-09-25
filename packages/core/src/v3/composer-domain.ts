@@ -337,7 +337,8 @@ export interface ProviderCatalogTransport {
   label: string;
   health: string;
   reason: string;
-  auth?: { method?: string };
+  /** `logout`: whether CLIO can sign this transport out (backend-owned). */
+  auth?: { method?: string; logout?: boolean };
 }
 
 export interface ProviderCatalogEntry {
@@ -353,6 +354,8 @@ export interface ProviderCatalogEntry {
   health: string;
   freshness: { generated_at: string; source: string; staleness?: Record<string, unknown> };
   failure: string;
+  /** A background probe is running for this provider right now. */
+  checking?: boolean;
   models: ProviderCatalogModel[];
   /** Present only for a provider reachable more than one way (see above). */
   transports?: ProviderCatalogTransport[];
