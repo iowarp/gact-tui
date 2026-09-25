@@ -310,4 +310,63 @@ describe('DeployClioDialog', () => {
 
     expect(await screen.findByText('Python 3.12 is required on the remote host.')).toBeVisible();
   });
+
+  it('never sends a null key file or install root for a host left at defaults (#1438)', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    // The desktop's Rust bridge round-trips every unset optional field as a
+    // literal `null` (Option::None over Tauri IPC), not `undefined` — for
+    // both a host with no private key and one left at the default install
+    // location.
+    mocks.listSshProfiles.mockResolvedValue([
+      {
+        name: 'delta',
+        hostname: 'delta.example.edu',
+        user: 'alice',
+        port: 22,
+        jump_hosts: [],
+        identity_file: null,
+        install_root: null,
+        platform: 'linux',
+        managed: false,
+      },
+    ]);
+
+    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
+    await user.click(screen.getByRole('radio', { name: /Remote host/u }));
+    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
+    await user.click(screen.getByRole('option', { name: /delta/u }));
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    await waitFor(() => expect(mocks.createInfrastructureTarget).toHaveBeenCalledOnce());
+    expect(mocks.createInfrastructureTarget).toHaveBeenCalledWith(
+      expect.objectContaining({
+        install_root: '',
+        ssh: expect.objectContaining({ identity_file: '' }),
+      }),
+    );
+    const [[sentDefinition]] = mocks.createInfrastructureTarget.mock.calls;
+    expect(sentDefinition.ssh.identity_file).not.toBeNull();
+    expect(sentDefinition.install_root).not.toBeNull();
+  });
+
+  it('reports a clear error when OpenSSH disconnects before authenticating, instead of a silent timeout (#1438)', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    mocks.attachInfrastructureSshTransport.mockResolvedValue({
+      session_id: 'ssh-homelab',
+      state: 'disconnected',
+      reused: false,
+      output: 'Permission denied (publickey,password).',
+    });
+
+    await user.click(screen.getByRole('button', { name: `Deploy ${vocab.agent}` }));
+    await user.click(screen.getByRole('radio', { name: /Remote host/u }));
+    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
+    await user.click(screen.getByRole('option', { name: /homelab/u }));
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    expect(await screen.findByText(/disconnected from homelab/u)).toBeVisible();
+    expect(mocks.sshTransportStatus).not.toHaveBeenCalled();
+  });
 });

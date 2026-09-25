@@ -82,14 +82,21 @@ export function DeployClioDialog({
       const definition = {
         kind: 'ssh' as const,
         label: host.label,
-        install_root: host.installRoot,
+        // Saved OpenSSH profiles come from the desktop's Rust bridge, whose
+        // optional fields (install root, identity file, ...) round-trip as
+        // `null` — not `undefined` — when left unset. The backend schema
+        // stores these as plain strings, so a bare `null` fails request
+        // validation before deployment ever starts (#1438, and the owner's
+        // "Request validation failed" report on any host left at defaults).
+        install_root: host.installRoot || '',
         ssh: {
-          profile: host.profile,
-          host: host.host,
-          user: host.user,
+          // Coerce to '' the same way ssh-host-dialog's own requests already do.
+          profile: host.profile ?? '',
+          host: host.host ?? '',
+          user: host.user ?? '',
           port: host.port,
-          jump_hosts: host.jumpHosts,
-          identity_file: host.identityFile,
+          jump_hosts: host.jumpHosts ?? [],
+          identity_file: host.identityFile ?? '',
           platform: host.platform,
         },
       };
@@ -105,6 +112,14 @@ export function DeployClioDialog({
       setTransportStatus(status);
       setTransportOutput(status.output);
       for (let attempt = 0; status.state !== 'connected' && attempt < 3_600; attempt += 1) {
+        // OpenSSH already hung up (for example every offered auth method was
+        // refused because the host requires a private key). Say so plainly
+        // instead of silently polling for up to 15 minutes before finally
+        // reporting a generic timeout (#1438).
+        if (status.state === 'disconnected')
+          throw new Error(
+            `OpenSSH disconnected from ${host.label} before authentication finished. If this host requires a private key, add one above and try again.`,
+          );
         await new Promise((resolve) => window.setTimeout(resolve, 250));
         status = await sshTransportStatus(status.session_id);
         setTransportStatus(status);

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { vocab } from '@/lib/brand-vocabulary';
 import { profileSshHosts, type SshHost } from '@/lib/ssh-hosts';
 import { listAllSshProfiles, setSshProfileHidden } from '@/tauri/ssh-profiles';
 import { SshHostDialog } from './ssh-host-dialog';
@@ -72,8 +73,8 @@ export function SshHostsManagerDialog({
           <DialogHeader>
             <DialogTitle>Manage SSH hosts</DialogTitle>
             <DialogDescription>
-              Every computer CLIO saved and every host from your OpenSSH configuration. Hidden
-              computers stay saved and can be restored here at any time.
+              Every computer {vocab.agent} saved and every host from your OpenSSH configuration.
+              Hidden computers stay saved and can be restored here at any time.
             </DialogDescription>
           </DialogHeader>
 
