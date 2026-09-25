@@ -584,7 +584,9 @@ describe('ManagedServices', () => {
     expect(screen.getByRole('combobox', { name: 'Saved SSH host' })).toHaveTextContent(
       'Utah cluster',
     );
-    expect(screen.getByRole('status')).toHaveTextContent('Connected');
+    // The route's own sortable list also renders an assistive-tech live
+    // region once it has a destination row, so this scopes past it.
+    expect(screen.getByText('Connected', { selector: '[role="status"]' })).toBeVisible();
   });
 
   it('renders a recoverable error when target inspection fails', async () => {

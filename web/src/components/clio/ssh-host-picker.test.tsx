@@ -204,6 +204,38 @@ describe('SshHostPicker', () => {
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ jumpHosts: [] }));
   });
 
+  it('reorders the route so the last hop becomes the destination', async () => {
+    const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'utah', label: 'Utah cluster', hostname: 'login.utah.edu', jump_hosts: ['gw'], managed: true },
+      { name: 'gw', label: 'Gateway', hostname: 'gw.utah.edu', user: 'alice', managed: true },
+    ]);
+    const onChange = vi.fn();
+    const destination = {
+      id: 'profile:utah',
+      label: 'Utah cluster',
+      profile: 'utah',
+      host: 'login.utah.edu',
+      port: 22,
+      jumpHosts: ['gw'],
+      platform: 'auto' as const,
+      managed: true,
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker onChange={onChange} value={destination} />
+      </QueryClientProvider>,
+    );
+
+    // Removing the destination promotes whatever hop is now last — the same
+    // recomputation a drag-and-drop reorder commits.
+    await user.click(await screen.findByRole('button', { name: 'Remove destination' }));
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'profile:gw', label: 'Gateway', jumpHosts: [] }),
+    );
+  });
+
   it('keeps a jump host its own route when it is configured', async () => {
     const user = userEvent.setup();
     profiles.listSshProfiles.mockResolvedValue([
@@ -291,5 +323,92 @@ describe('SshHostPicker', () => {
     expect(await screen.findByText(/used for this deployment only/u)).toBeVisible();
     expect(profiles.setSshProfileRoute).not.toHaveBeenCalled();
     expect(profiles.saveSshProfile).not.toHaveBeenCalled();
+  });
+
+  it('adding a hop and configuring it saves a new computer as the destination', async () => {
+    const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'ares', label: 'Ares', hostname: 'ares.example.edu', managed: true },
+    ]);
+    const onChange = vi.fn();
+    const destination = {
+      id: 'profile:ares',
+      label: 'Ares',
+      profile: 'ares',
+      host: 'ares.example.edu',
+      port: 22,
+      jumpHosts: [],
+      managed: true,
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker onChange={onChange} value={destination} />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Add hop' }));
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+    await user.type(screen.getByLabelText('Address'), 'node042.ares.example.edu');
+    await user.type(screen.getByLabelText('Name'), 'Ares compute node');
+    await user.click(screen.getByRole('button', { name: 'Save host' }));
+
+    await waitFor(() =>
+      expect(profiles.saveSshProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ hostname: 'node042.ares.example.edu' }),
+      ),
+    );
+    // Ares was the destination; adding and configuring a new hop after it
+    // makes the new computer the destination and Ares its jump host.
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ label: 'Ares compute node', jumpHosts: ['ares'] }),
+    );
+  });
+
+  it('offers no inline hide action; visibility is managed elsewhere', async () => {
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'imported', label: 'imported', hostname: 'imported.example.edu', managed: false },
+    ]);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker
+          onChange={vi.fn()}
+          value={{
+            id: 'profile:imported',
+            label: 'imported',
+            profile: 'imported',
+            host: 'imported.example.edu',
+            port: 22,
+            jumpHosts: [],
+            managed: false,
+          }}
+        />
+      </QueryClientProvider>,
+    );
+
+    await screen.findByRole('button', { name: 'Configure imported' });
+    expect(screen.queryByRole('button', { name: /hide/iu })).not.toBeInTheDocument();
+    expect(screen.queryByText('Hide imported computer')).not.toBeInTheDocument();
+  });
+
+  it('only offers deleting a managed computer, never an imported one', async () => {
+    profiles.listSshProfiles.mockResolvedValue([
+      { name: 'ares', label: 'Ares', hostname: 'ares.example.edu', managed: true },
+    ]);
+    const destination = {
+      id: 'profile:ares',
+      label: 'Ares',
+      profile: 'ares',
+      host: 'ares.example.edu',
+      port: 22,
+      jumpHosts: [],
+      managed: true,
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker onChange={vi.fn()} value={destination} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByRole('button', { name: 'Delete Ares' })).toBeVisible();
   });
 });

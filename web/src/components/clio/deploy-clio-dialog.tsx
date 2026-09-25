@@ -1,8 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
-import { LaptopIcon, ServerIcon, TriangleAlertIcon } from 'lucide-react';
+import { ChevronDownIcon, LaptopIcon, ServerIcon, Settings2Icon, TriangleAlertIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -12,8 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Field, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { ConnectionSettings } from '@/lib/connection';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -33,6 +33,13 @@ import {
 import { SshAuthentication } from './managed-service-target';
 import { targetMatchesHost, waitForOperation } from './managed-service-target-utils';
 import { SshHostPicker } from './ssh-host-picker';
+import { SshHostsManagerDialog } from './ssh-hosts-manager-dialog';
+
+const PLATFORM_LABELS: Record<NonNullable<SshHost['platform']>, string> = {
+  auto: 'Detect automatically',
+  linux: 'Linux / macOS shell',
+  windows: 'Windows PowerShell',
+};
 
 type DeployTarget = 'local' | 'ssh';
 
@@ -48,7 +55,7 @@ export function DeployClioDialog({
   const [internalOpen, setInternalOpen] = useState(false);
   const [target, setTarget] = useState<DeployTarget>('local');
   const [host, setHost] = useState<SshHost>();
-  const [remoteInstallRoot, setRemoteInstallRoot] = useState('');
+  const [managingHosts, setManagingHosts] = useState(false);
   const [transportStatus, setTransportStatus] = useState<SshTransportStatus>();
   const [transportOutput, setTransportOutput] = useState('');
   const repository = useRepository();
@@ -75,7 +82,7 @@ export function DeployClioDialog({
       const definition = {
         kind: 'ssh' as const,
         label: host.label,
-        install_root: remoteInstallRoot.trim() || host.installRoot,
+        install_root: host.installRoot,
         ssh: {
           profile: host.profile,
           host: host.host,
@@ -164,116 +171,144 @@ export function DeployClioDialog({
   }, [transportSessionId]);
 
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
-      {controlledOpen === undefined ? (
-        <DialogTrigger asChild>
-          <Button type="button" variant="outline">
-            <ServerIcon aria-hidden="true" /> Deploy {vocab.agent}
-          </Button>
-        </DialogTrigger>
-      ) : null}
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Deploy {vocab.agent}</DialogTitle>
-          <DialogDescription>
-            Start the bundled service on this computer, or install the pinned release on a computer
-            you can reach with SSH.
-          </DialogDescription>
-        </DialogHeader>
-
-        <RadioGroup
-          className="grid gap-3 sm:grid-cols-2"
-          onValueChange={(value) => setTarget(value as DeployTarget)}
-          value={target}
-        >
-          <TargetOption
-            description="Use the desktop-managed service already included with this app."
-            icon={LaptopIcon}
-            label="This computer"
-            selected={target === 'local'}
-            value="local"
-          />
-          <TargetOption
-            description={`Install and start ${vocab.agent} through SSH, then connect through a private tunnel.`}
-            icon={ServerIcon}
-            label="Remote host"
-            selected={target === 'ssh'}
-            value="ssh"
-          />
-        </RadioGroup>
-
-        {target === 'ssh' ? (
-          <Field>
-            <FieldLabel>SSH host</FieldLabel>
-            <SshHostPicker onChange={setHost} value={host} />
-            <p className="text-xs text-muted-foreground">
-              If the remote {vocab.agent} should use a service on that same computer, select this
-              host again in Infrastructure. Remote {vocab.agent} cannot connect back to services on
-              this desktop.
-            </p>
-            <details className="border-t pt-3">
-              <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-                Advanced installation
-              </summary>
-              <Field className="mt-3">
-                <FieldLabel htmlFor="remote-clio-install-root">Install location</FieldLabel>
-                <Input
-                  id="remote-clio-install-root"
-                  onChange={(event) => setRemoteInstallRoot(event.target.value)}
-                  placeholder="$HOME/.local/share/clio"
-                  value={remoteInstallRoot}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Leave empty to use the remote user’s home directory. On shared systems, choose a
-                  writable persistent path such as /mnt/common/alice/clio.
-                </p>
-              </Field>
-            </details>
-          </Field>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            The desktop owns this service and reconnects to it automatically when {vocab.agent}{' '}
-            opens.
-          </p>
-        )}
-
-        {deployment.error ? (
-          <Alert variant="destructive">
-            <TriangleAlertIcon aria-hidden="true" />
-            <AlertTitle>Deployment did not finish</AlertTitle>
-            <AlertDescription>
-              {deployment.error instanceof Error
-                ? deployment.error.message
-                : String(deployment.error)}
-            </AlertDescription>
-          </Alert>
+    <>
+      <Dialog onOpenChange={setOpen} open={open}>
+        {controlledOpen === undefined ? (
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline">
+              <ServerIcon aria-hidden="true" /> Deploy {vocab.agent}
+            </Button>
+          </DialogTrigger>
         ) : null}
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Deploy {vocab.agent}</DialogTitle>
+            <DialogDescription>
+              Start the bundled service on this computer, or install the pinned release on a
+              computer you can reach with SSH.
+            </DialogDescription>
+          </DialogHeader>
 
-        {transportStatus && transportStatus.state !== 'connected' ? (
-          <SshAuthentication
-            output={transportOutput}
-            sessionId={transportStatus.session_id}
-            state={transportStatus.state}
-          />
-        ) : null}
-
-        <DialogFooter>
-          <Button
-            disabled={deployment.isPending || (target === 'ssh' && !host)}
-            onClick={() => deployment.mutate()}
-            type="button"
+          <RadioGroup
+            className="grid gap-3 sm:grid-cols-2"
+            onValueChange={(value) => setTarget(value as DeployTarget)}
+            value={target}
           >
-            {deployment.isPending
-              ? target === 'local'
-                ? `Starting ${vocab.agent}…`
-                : `Deploying to ${host?.label ?? 'remote host'}…`
-              : target === 'local'
-                ? `Use local ${vocab.agent}`
-                : 'Deploy and connect'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <TargetOption
+              description="Use the desktop-managed service already included with this app."
+              icon={LaptopIcon}
+              label="This computer"
+              selected={target === 'local'}
+              value="local"
+            />
+            <TargetOption
+              description={`Install and start ${vocab.agent} through SSH, then connect through a private tunnel.`}
+              icon={ServerIcon}
+              label="Remote host"
+              selected={target === 'ssh'}
+              value="ssh"
+            />
+          </RadioGroup>
+
+          {target === 'ssh' ? (
+            <Field>
+              <div className="flex items-center justify-between gap-2">
+                <FieldLabel>SSH host</FieldLabel>
+                <Button
+                  aria-label="Manage SSH hosts"
+                  onClick={() => setManagingHosts(true)}
+                  size="icon"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Settings2Icon aria-hidden="true" />
+                </Button>
+              </div>
+              <SshHostPicker onChange={setHost} value={host} />
+              <p className="text-xs text-muted-foreground">
+                If the remote {vocab.agent} should use a service on that same computer, select
+                this host again in Infrastructure. Remote {vocab.agent} cannot connect back to
+                services on this desktop.
+              </p>
+              <Collapsible className="border-t pt-3">
+                <CollapsibleTrigger asChild>
+                  <Button
+                    className="group w-fit px-0 text-muted-foreground hover:text-foreground"
+                    type="button"
+                    variant="link"
+                  >
+                    Advanced installation
+                    <ChevronDownIcon
+                      aria-hidden="true"
+                      className="transition-transform group-data-[state=open]:rotate-180"
+                    />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <Field className="mt-3">
+                    <FieldLabel>Install location</FieldLabel>
+                    <p className="text-sm">
+                      {host?.installRoot || "The remote user's home directory"}
+                    </p>
+                    <FieldDescription>
+                      Configured in {host?.label ?? 'the destination'}’s own settings. Use its
+                      gear in the SSH host list above to change it.
+                    </FieldDescription>
+                  </Field>
+                  <Field className="mt-3">
+                    <FieldLabel>Remote platform</FieldLabel>
+                    <p className="text-sm">{PLATFORM_LABELS[host?.platform ?? 'auto']}</p>
+                  </Field>
+                </CollapsibleContent>
+              </Collapsible>
+            </Field>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              The desktop owns this service and reconnects to it automatically when {vocab.agent}{' '}
+              opens.
+            </p>
+          )}
+
+          {deployment.error ? (
+            <Alert variant="destructive">
+              <TriangleAlertIcon aria-hidden="true" />
+              <AlertTitle>Deployment did not finish</AlertTitle>
+              <AlertDescription>
+                {deployment.error instanceof Error
+                  ? deployment.error.message
+                  : String(deployment.error)}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {transportStatus && transportStatus.state !== 'connected' ? (
+            <SshAuthentication
+              output={transportOutput}
+              sessionId={transportStatus.session_id}
+              state={transportStatus.state}
+            />
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              disabled={deployment.isPending || (target === 'ssh' && !host)}
+              onClick={() => deployment.mutate()}
+              type="button"
+            >
+              {deployment.isPending
+                ? target === 'local'
+                  ? `Starting ${vocab.agent}…`
+                  : `Deploying to ${host?.label ?? 'remote host'}…`
+                : target === 'local'
+                  ? `Use local ${vocab.agent}`
+                  : 'Deploy and connect'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <SshHostsManagerDialog onOpenChange={setManagingHosts} open={managingHosts} />
+    </>
   );
 }
 
