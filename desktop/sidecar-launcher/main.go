@@ -38,6 +38,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"time"
@@ -147,9 +148,19 @@ func runChild(rt *resolvedRuntime, args cliArgs) int {
 	// signal us if the user closes the window.
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
+	// Liveness ticks run only until the backend answers readiness; a nil channel
+	// then disables this select case instead of claiming a wait that is over.
+	tick := ticker.C
+	probe := &http.Client{Timeout: readinessProbeTimeout}
 	for {
 		select {
-		case <-ticker.C:
+		case <-tick:
+			if backendReady(probe, args) {
+				fmt.Fprintln(os.Stdout, "sidecar-progress: backend is ready")
+				ticker.Stop()
+				tick = nil
+				continue
+			}
 			fmt.Fprintln(os.Stdout, "sidecar-progress: launcher is waiting for backend readiness")
 		case <-desktopParentExited:
 			fmt.Fprintln(os.Stdout, "sidecar-progress: desktop exited; starting crash cleanup")

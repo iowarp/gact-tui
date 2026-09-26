@@ -1,6 +1,11 @@
 import type { LanguageModelPreset, ProviderCatalog, ProviderCatalogEntry } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { buildModelOptions, matchesConfiguredModel, modelAvailabilityLabel } from './model-options';
+import {
+  buildModelOptions,
+  findSelectedModelOption,
+  matchesConfiguredModel,
+  modelAvailabilityLabel,
+} from './model-options';
 
 function catalogProvider(overrides: Partial<ProviderCatalogEntry> = {}): ProviderCatalogEntry {
   return {
@@ -770,5 +775,22 @@ describe('provider identity resolves by id, never by shared kind (#1418)', () =>
 
     const providerIds = new Set(options.map((option) => option.providerId));
     expect(providerIds.has('llama_cpp')).toBe(true);
+  });
+});
+
+describe('findSelectedModelOption', () => {
+  // Codex SDK and Direct both list gpt-5.5: the picked half must be the one found.
+  const rows = [
+    { providerId: 'codex', id: 'gpt-5.5', available: true, transport: 'sdk' },
+    { providerId: 'codex', id: 'gpt-5.5', available: true, transport: 'direct' },
+  ];
+
+  it('finds the half a picked transport names', () => {
+    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5', 'direct')?.transport).toBe('direct');
+    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5', 'sdk')?.transport).toBe('sdk');
+  });
+
+  it('finds the first available row when no transport was picked', () => {
+    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5')?.transport).toBe('sdk');
   });
 });
