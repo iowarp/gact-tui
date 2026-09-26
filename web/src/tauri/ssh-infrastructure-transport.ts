@@ -24,6 +24,8 @@ export type SshTransportStatus = {
   output: string;
   /** Present only while OpenSSH waits for an authentication answer. */
   prompt?: SshPrompt | null;
+  /** For a session that has ended: OpenSSH's own last words, cleaned. */
+  failure?: string | null;
 };
 
 /** `clio:ssh-transport-state` payload. */

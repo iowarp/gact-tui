@@ -282,3 +282,88 @@ mod tests {
         );
     }
 }
+
+/// Live check against a real jump-host route, run by hand:
+/// `CLIO_LIVE_HOP_DEST=user@node CLIO_LIVE_HOP_JUMP=login CLIO_LIVE_HOP_KEY=path
+///  cargo test live_hop -- --ignored --nocapture`.
+/// Opens the exact OpenSSH command line the transport opens (PTY, `-D`, `-J`,
+/// `-i`, the ready marker), then the same route with a key that does not
+/// exist, which must end with OpenSSH's own reason as the one-line failure.
+#[cfg(test)]
+mod live {
+    use super::*;
+    use crate::ssh_transport_output::{clean_transport_log, last_meaningful_line};
+    use crate::terminal_pty::spawn_command;
+    use portable_pty::CommandBuilder;
+    use std::io::Read;
+    use std::time::{Duration, Instant};
+
+    fn run(route: &SshTransportRoute) -> (bool, String) {
+        let port = crate::ssh_transport_forward::free_loopback_port().unwrap();
+        let mut command = CommandBuilder::new("ssh");
+        for argument in ssh_arguments(route, false, port) {
+            command.arg(argument);
+        }
+        command.arg("sh -lc \"stty -echo; printf '__CLIO_SSH_READY__\\n'; hostname; exit 0\"");
+        let cwd = std::env::current_dir().unwrap();
+        let mut spawned = spawn_command(&cwd, 100, 30, command).unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let mut reader = spawned.reader;
+        std::thread::spawn(move || {
+            let mut bytes = [0_u8; 4096];
+            while let Ok(count) = reader.read(&mut bytes) {
+                if count == 0 || sender.send(bytes[..count].to_vec()).is_err() {
+                    break;
+                }
+            }
+        });
+        let mut output = String::new();
+        let deadline = Instant::now() + Duration::from_secs(60);
+        while Instant::now() < deadline {
+            if let Ok(chunk) = receiver.recv_timeout(Duration::from_millis(200)) {
+                output.push_str(&String::from_utf8_lossy(&chunk));
+            }
+            if let Ok(Some(_)) = spawned.child.try_wait() {
+                while let Ok(chunk) = receiver.recv_timeout(Duration::from_millis(300)) {
+                    output.push_str(&String::from_utf8_lossy(&chunk));
+                }
+                break;
+            }
+        }
+        let _ = spawned.child.kill();
+        (output.contains("__CLIO_SSH_READY__"), output)
+    }
+
+    #[test]
+    #[ignore = "opens a real SSH connection; run by hand with CLIO_LIVE_HOP_*"]
+    fn live_hop_through_jump_host() {
+        let dest = std::env::var("CLIO_LIVE_HOP_DEST").expect("CLIO_LIVE_HOP_DEST");
+        let (user, host) = dest.split_once('@').expect("user@host");
+        let route = SshTransportRoute {
+            profile: String::new(),
+            host: host.to_string(),
+            user: user.to_string(),
+            port: 22,
+            jump_hosts: vec![std::env::var("CLIO_LIVE_HOP_JUMP").expect("CLIO_LIVE_HOP_JUMP")],
+            identity_file: std::env::var("CLIO_LIVE_HOP_KEY").expect("CLIO_LIVE_HOP_KEY"),
+            platform: "linux".to_string(),
+        };
+        let (ready, output) = run(&route);
+        println!("--- with key ---\n{}", clean_transport_log(&output));
+        assert!(ready, "the route did not reach the remote shell");
+        assert!(clean_transport_log(&output).contains(host));
+
+        let unkeyed = SshTransportRoute {
+            identity_file: "C:/nonexistent/clio-no-such-key".to_string(),
+            ..route
+        };
+        let (ready, output) = run(&unkeyed);
+        let reason = last_meaningful_line(&output);
+        println!(
+            "--- without the key ---\nreason: {reason:?}\n{}",
+            clean_transport_log(&output)
+        );
+        assert!(!ready);
+        assert!(reason.is_some());
+    }
+}

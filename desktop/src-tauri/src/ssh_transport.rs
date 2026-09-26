@@ -27,7 +27,9 @@ use crate::ssh_transport_command::{
     validate_command, validate_route, SshTransportRoute, TransportCommand,
 };
 use crate::ssh_transport_forward::{free_loopback_port, start_forward, verify_http, LocalForward};
-use crate::ssh_transport_output::{classify_prompt, clean_transport_log, SshPrompt};
+use crate::ssh_transport_output::{
+    classify_prompt, clean_transport_log, last_meaningful_line, SshPrompt,
+};
 use crate::ssh_transport_steps::{classify_command, parse_marker_blocks, step_event, SshStepEvent};
 use crate::terminal_pty::spawn_command;
 
@@ -61,6 +63,9 @@ pub struct SshTransportStatus {
     pub output: String,
     /// The authentication question OpenSSH is waiting on, if any.
     pub prompt: Option<SshPrompt>,
+    /// For a session that has ended: OpenSSH's own last words, cleaned
+    /// ("alice@node: Permission denied (publickey)."), for a one-line reason.
+    pub failure: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -128,6 +133,7 @@ impl Session {
             reused,
             output: capture.text.clone(),
             prompt: capture.prompt.clone(),
+            failure: None,
         })
     }
 
@@ -275,6 +281,19 @@ impl SshTransportRegistry {
                 logs.pop_front();
             }
         }
+    }
+
+    /// The cleaned log of a session that ended recently.
+    fn closed_log(&self, session_id: &str) -> Result<String, String> {
+        let logs = self
+            .closed_logs
+            .lock()
+            .map_err(|_| "SSH transport log lock poisoned".to_string())?;
+        let found = logs
+            .iter()
+            .find(|(id, _)| id == session_id)
+            .map(|(_, log)| log.clone());
+        found.ok_or_else(|| format!("SSH transport session {session_id} is not known"))
     }
 
     fn detach_target(&self, target_id: &str, session_id: &str) -> Result<bool, String> {
@@ -495,7 +514,27 @@ fn ssh_transport_status_blocking(
     session_id: String,
 ) -> Result<SshTransportStatus, String> {
     let registry = app.state::<SshTransportRegistry>();
-    registry.get(&session_id)?.status(true)
+    if let Ok(session) = registry.get(&session_id) {
+        return session.status(true);
+    }
+    // A session that just ended answers with why, instead of "not open".
+    let log = registry.closed_log(&session_id)?;
+    Ok(ended_status(session_id, log))
+}
+
+/// The status of a session that has ended, carrying its cleaned log.
+fn ended_status(session_id: String, log: String) -> SshTransportStatus {
+    SshTransportStatus {
+        failure: Some(
+            last_meaningful_line(&log)
+                .unwrap_or_else(|| "OpenSSH closed the connection without saying why".to_string()),
+        ),
+        session_id,
+        state: "disconnected".to_string(),
+        reused: true,
+        output: log,
+        prompt: None,
+    }
 }
 
 /// The session's output as a person reads it: control sequences, transport
@@ -509,15 +548,7 @@ fn ssh_transport_log_blocking(
     if let Ok(session) = registry.get(&session_id) {
         return Ok(session.clean_log());
     }
-    let logs = registry
-        .closed_logs
-        .lock()
-        .map_err(|_| "SSH transport log lock poisoned".to_string())?;
-    let found = logs
-        .iter()
-        .find(|(id, _)| *id == session_id)
-        .map(|(_, log)| log.clone());
-    found.ok_or_else(|| format!("SSH transport session {session_id} is not known"))
+    registry.closed_log(&session_id)
 }
 
 fn ssh_transport_write_blocking(
@@ -818,6 +849,25 @@ mod tests {
             release.send(()).unwrap();
             assert_eq!(slow.await.unwrap(), Ok("exec finished"));
         });
+    }
+
+    #[test]
+    fn an_ended_session_reports_openssh_own_reason() {
+        let log = "ares-comp-10: Could not resolve hostname
+jcernudagarcia@ares-comp-10: Permission denied (publickey).";
+        let status = ended_status("ssh-1".to_string(), log.to_string());
+        assert_eq!(status.state, "disconnected");
+        assert_eq!(
+            status.failure.as_deref(),
+            Some("jcernudagarcia@ares-comp-10: Permission denied (publickey).")
+        );
+        assert_eq!(status.output, log);
+        assert_eq!(
+            ended_status("ssh-2".to_string(), String::new())
+                .failure
+                .as_deref(),
+            Some("OpenSSH closed the connection without saying why")
+        );
     }
 
     #[test]

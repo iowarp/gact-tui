@@ -16,7 +16,13 @@ import {
   type SshRouteCompleteness,
 } from './ssh-route-utils';
 
-type DialogState = { step: SshRouteStep; initial?: SshHost };
+type DialogState = {
+  step: SshRouteStep;
+  initial?: SshHost;
+  /** The route rows before the one being configured. */
+  via: string[];
+  defaultIdentityFile?: string;
+};
 
 const routeKey = (host: SshHost | undefined) => JSON.stringify(routeSteps(host));
 
@@ -36,7 +42,10 @@ export function SshHostPicker({
   });
   // The last opened step stays in place while the dialog animates closed;
   // a fresh key per open resets the form to that step's computer.
-  const [dialog, setDialog] = useState<DialogState>({ step: { index: 0, isDestination: true } });
+  const [dialog, setDialog] = useState<DialogState>({
+    step: { index: 0, isDestination: true },
+    via: [],
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogKey, setDialogKey] = useState(0);
   const openDialog = (next: DialogState) => {
@@ -99,10 +108,20 @@ export function SshHostPicker({
     }
   };
 
-  const openConfigure = (step: SshRouteStep) => {
-    const ref = slots[step.index];
-    openDialog({ step, initial: ref ? resolveRouteHop(ref, visibleOptions) : undefined });
+  /** The dialog for one row: its route is the rows before it. */
+  const dialogFor = (step: SshRouteStep, ref?: string): DialogState => {
+    const via = slots.slice(0, step.index).filter(Boolean);
+    const previous = via.length ? resolveRouteHop(via[via.length - 1], visibleOptions) : undefined;
+    return {
+      step,
+      via,
+      initial: ref ? resolveRouteHop(ref, visibleOptions) : undefined,
+      // A new node behind a login host usually takes the same key (shared home).
+      defaultIdentityFile: previous?.identityFile,
+    };
   };
+
+  const openConfigure = (step: SshRouteStep) => openDialog(dialogFor(step, slots[step.index]));
 
   /** Place a freshly saved computer into the row the dialog was opened for. */
   const placeSaved = (saved: SshHost, step: SshRouteStep) => {
@@ -119,7 +138,7 @@ export function SshHostPicker({
       <SshConnectionRoute
         disabled={disabled}
         onConfigure={openConfigure}
-        onCreate={(step) => openDialog({ step })}
+        onCreate={(step) => openDialog(dialogFor(step))}
         onSlotsChange={(next) => void changeSlots(next)}
         options={visibleOptions}
         slots={slots}
@@ -158,6 +177,7 @@ export function SshHostPicker({
       ) : null}
 
       <SshHostDialog
+        defaultIdentityFile={dialog.defaultIdentityFile}
         initial={dialog.initial}
         key={dialogKey}
         onOpenChange={setDialogOpen}
@@ -169,6 +189,7 @@ export function SshHostPicker({
         open={dialogOpen}
         options={visibleOptions}
         step={dialog.step}
+        via={dialog.via}
       />
     </div>
   );
