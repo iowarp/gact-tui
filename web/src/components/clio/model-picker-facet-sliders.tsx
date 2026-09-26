@@ -12,9 +12,14 @@ import {
   replaceRangeToken,
   SIZE_STOPS,
 } from '@/lib/model-range-scales';
-import { COST_METERED_TOKEN, SIZE_KNOWN_TOKEN } from '@/lib/model-range-tokens';
+import {
+  COST_SUBSCRIPTION_TOKEN,
+  COST_UNPRICED_TOKEN,
+  COST_VARIABLE_TOKEN,
+  SIZE_ANY_TOKEN,
+} from '@/lib/model-range-tokens';
 import type { ModelFilterToken } from '@/lib/model-filter-tokens';
-import { ModelPickerRangeSlider } from './model-picker-range-slider';
+import { ModelPickerRangeSlider, type RangeSliderOption } from './model-picker-range-slider';
 
 interface FacetSlidersProps {
   tokens: readonly ModelFilterToken[];
@@ -39,9 +44,24 @@ export function ModelPickerFacetSliders({ tokens, onTokensChange, maxInputPrice 
   const releasedToken = rangeTokenOf('released', tokens);
   const recent = tokens.includes(RECENT_TOKEN);
 
-  function setKnown(known: string, include: boolean) {
-    const without = tokens.filter((token) => token !== known);
-    onTokensChange(include ? without : [...without, known]);
+  /** An option that adds its modifier token while checked, usable only while `range` is narrowed. */
+  function option(
+    label: string,
+    control: RangeSliderOption['control'],
+    modifier: string,
+    range: string | undefined,
+  ): RangeSliderOption {
+    const checked = tokens.includes(modifier);
+    return {
+      label,
+      control,
+      checked,
+      disabled: !range,
+      onCheckedChange: (next) => {
+        const without = tokens.filter((token) => token !== modifier);
+        onTokensChange(next ? [...without, modifier] : without);
+      },
+    };
   }
 
   return (
@@ -53,12 +73,7 @@ export function ModelPickerFacetSliders({ tokens, onTokensChange, maxInputPrice 
           onTokensChange(replaceRangeToken(tokens, 'size', numericRangeToken('size', SIZE_STOPS, [low!, high!])))
         }
         stops={SIZE_STOPS}
-        toggle={{
-          label: 'Include unknown size',
-          checked: !tokens.includes(SIZE_KNOWN_TOKEN),
-          disabled: !sizeToken,
-          onCheckedChange: (checked) => setKnown(SIZE_KNOWN_TOKEN, checked),
-        }}
+        options={[option('Include unknown size', 'switch', SIZE_ANY_TOKEN, sizeToken)]}
         token={sizeToken}
         value={size}
       />
@@ -69,12 +84,11 @@ export function ModelPickerFacetSliders({ tokens, onTokensChange, maxInputPrice 
           onTokensChange(replaceRangeToken(tokens, 'cost', numericRangeToken('cost', prices, [low!, high!])))
         }
         stops={prices}
-        toggle={{
-          label: 'Include variable price',
-          checked: !tokens.includes(COST_METERED_TOKEN),
-          disabled: !costToken,
-          onCheckedChange: (checked) => setKnown(COST_METERED_TOKEN, checked),
-        }}
+        options={[
+          option('Variable price (routers)', 'checkbox', COST_VARIABLE_TOKEN, costToken),
+          option('Subscription (billed by a plan)', 'checkbox', COST_SUBSCRIPTION_TOKEN, costToken),
+          option('Unpriced (no price stated)', 'checkbox', COST_UNPRICED_TOKEN, costToken),
+        ]}
         token={costToken}
         value={cost}
       />

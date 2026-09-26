@@ -49,10 +49,13 @@ describe('released slider', () => {
 });
 
 describe('replaceRangeToken', () => {
-  it('keeps one range per kind and drops its "known only" token when widened out', () => {
+  it('keeps one range per kind and drops its modifiers when widened out', () => {
     expect(replaceRangeToken(['input:text', 'size:>32B'], 'size', 'size:>128B')).toEqual(['input:text', 'size:>128B']);
-    expect(replaceRangeToken(['size:>32B', 'size:known', 'cost:<1'], 'size', undefined)).toEqual(['cost:<1']);
-    expect(replaceRangeToken(['size:>32B', 'size:known'], 'size', 'size:<12B')).toEqual(['size:known', 'size:<12B']);
+    expect(replaceRangeToken(['size:>32B', 'size:any', 'cost:<1'], 'size', undefined)).toEqual(['cost:<1']);
+    expect(replaceRangeToken(['size:>32B', 'size:any'], 'size', 'size:<12B')).toEqual(['size:any', 'size:<12B']);
+    expect(
+      replaceRangeToken(['cost:<1', 'cost:variable', 'cost:unpriced', 'size:any'], 'cost', undefined),
+    ).toEqual(['size:any']);
     expect(replaceRangeToken(['released:<1y'], 'released', 'released:<6mo')).toEqual(['released:<6mo']);
   });
 });

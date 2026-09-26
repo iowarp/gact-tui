@@ -1,5 +1,5 @@
 import { formatParameterCount } from './model-facts';
-import { COST_METERED_TOKEN, parseRangeToken, SIZE_KNOWN_TOKEN, type RangeKind } from './model-range-tokens';
+import { parseRangeToken, RANGE_MODIFIERS, type RangeKind } from './model-range-tokens';
 
 /**
  * The filter panel's slider scales and how a slider position becomes a range
@@ -93,7 +93,7 @@ function nearestIndex(stops: readonly ScaleStop[], value: number): number {
   return best;
 }
 
-/** The first active token of `kind` (a range, never `size:known` / `cost:metered`). */
+/** The first active range token of `kind` (never one of its modifiers). */
 export function rangeTokenOf(kind: RangeKind, tokens: readonly string[]): string | undefined {
   return tokens.find((token) => parseRangeToken(token)?.kind === kind);
 }
@@ -128,17 +128,18 @@ export function releasedSliderValue(tokens: readonly string[]): number {
 
 /**
  * The tokens with `kind`'s range replaced by `next` (removed when undefined).
- * Widening a slider back to both ends also drops its "known only" token: that
- * toggle only means something while the slider is narrowed.
+ * Widening a slider back to both ends also drops its modifiers (`size:any`,
+ * `cost:variable`, ...): they only mean something while the slider is narrowed.
  */
 export function replaceRangeToken(
   tokens: readonly string[],
   kind: RangeKind,
   next: string | undefined,
 ): string[] {
-  const knownToken = kind === 'size' ? SIZE_KNOWN_TOKEN : kind === 'cost' ? COST_METERED_TOKEN : undefined;
+  const modifiers = RANGE_MODIFIERS[kind];
   const kept = tokens.filter(
-    (token) => parseRangeToken(token)?.kind !== kind && (next !== undefined || token !== knownToken),
+    (token) =>
+      parseRangeToken(token)?.kind !== kind && (next !== undefined || !modifiers.includes(token.toLowerCase())),
   );
   return next ? [...kept, next] : kept;
 }

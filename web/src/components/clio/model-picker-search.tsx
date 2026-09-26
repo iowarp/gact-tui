@@ -4,7 +4,7 @@ import { CascaderInput } from '@/components/reui/cascader/cascader-nav';
 import { Badge } from '@/components/reui/badge';
 import type { FacetChip, FacetTab } from '@/lib/model-facets';
 import { filterTokenSuggestions, type ModelFilterToken } from '@/lib/model-filter-tokens';
-import { isRangeToken } from '@/lib/model-range-tokens';
+import { isRangeModifier, isRangeToken } from '@/lib/model-range-tokens';
 import { ModelPickerFacetPanel } from './model-picker-facet-panel';
 import { ModelPickerFacetSliders } from './model-picker-facet-sliders';
 
@@ -109,7 +109,7 @@ export function ModelPickerSearch({
         // A range keeps its units as typed (size:>32B stays upper case).
         event.preventDefault();
         addToken(typed.replace(/^[^:]+/u, (key) => key.toLowerCase()));
-      } else if (availableTokens.has(word) || word === 'free') {
+      } else if (availableTokens.has(word) || word === 'free' || isRangeModifier(word)) {
         event.preventDefault();
         addToken(word);
       }

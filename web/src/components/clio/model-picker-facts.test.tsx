@@ -88,14 +88,16 @@ describe('ClioModelPicker model facts', () => {
     await user.type(field(), 'released:<6mo size:>32B input:image ');
 
     expect(tokens()).toEqual(['input:text', 'output:text', 'released:<6mo', 'size:>32B', 'input:image']);
-    // A model whose size no source states is kept until "Include unknown size" is off.
-    await waitFor(() => expect(modelNames()).toEqual(['qwen3-vl-235b', 'vision-large']));
-    expect(barCount()).toBe('2 / 6');
+    // "> 32B" means KNOWN to be over 32B (D24): the model of unknown size is out.
+    await waitFor(() => expect(modelNames()).toEqual(['qwen3-vl-235b']));
+    expect(barCount()).toBe('1 / 6');
 
     await user.click(field());
-    await user.click(within(panel()).getByRole('switch', { name: 'Include unknown size' }));
-    expect(tokens()).toContain('size:known');
-    await waitFor(() => expect(modelNames()).toEqual(['qwen3-vl-235b']));
+    const unknown = within(panel()).getByRole('switch', { name: 'Include unknown size' });
+    expect(unknown).not.toBeChecked();
+    await user.click(unknown);
+    expect(tokens()).toContain('size:any');
+    await waitFor(() => expect(modelNames()).toEqual(['qwen3-vl-235b', 'vision-large']));
   }, 20_000);
 
   it('a typed range token moves its slider; a slider step rewrites the token', async () => {
@@ -112,24 +114,34 @@ describe('ClioModelPicker model facts', () => {
     fireEvent.keyDown(low!, { key: 'ArrowRight' });
     expect(tokens()).toContain('size:>128B');
     expect(tokens()).not.toContain('size:>32B');
-    expect(barCount()).toBe('4 / 6'); // 235B and 671B, plus the two of unknown size
+    expect(barCount()).toBe('2 / 6'); // 235B and 671B; unknown sizes stay out
 
     fireEvent.keyDown(low!, { key: 'Home' });
     expect(tokens().some((token) => token?.startsWith('size:'))).toBe(false);
   }, 20_000);
 
-  it('the Cost slider bounds the input price and keeps variable prices unless told not to', async () => {
+  it('the Cost slider bounds the metered price; variable, subscription and unpriced are separate choices', async () => {
     const user = await openPicker();
     await user.type(field(), 'cost:<1 ');
     await user.click(field());
-    const toggle = within(panel()).getByRole('switch', { name: 'Include variable price' });
-    expect(toggle).toBeEnabled();
+    const variable = within(panel()).getByRole('checkbox', { name: 'Variable price (routers)' });
+    const subscription = within(panel()).getByRole('checkbox', { name: 'Subscription (billed by a plan)' });
+    const unpriced = within(panel()).getByRole('checkbox', { name: 'Unpriced (no price stated)' });
+    for (const box of [variable, subscription, unpriced]) {
+      expect(box).toBeEnabled();
+      expect(box).not.toBeChecked();
+    }
 
-    // Everything but the $2 model, including the variable-priced router.
-    expect(barCount()).toBe('5 / 6');
-    await user.click(toggle);
-    expect(tokens()).toContain('cost:metered');
+    // Metered models under $1 only: the variable-priced router is out.
     expect(barCount()).toBe('4 / 6');
+    await user.click(variable);
+    expect(tokens()).toContain('cost:variable');
+    expect(barCount()).toBe('5 / 6');
+    // No model here is billed by a plan or unpriced: those change nothing.
+    await user.click(subscription);
+    await user.click(unpriced);
+    expect(tokens()).toEqual(expect.arrayContaining(['cost:subscription', 'cost:unpriced']));
+    expect(barCount()).toBe('5 / 6');
   });
 
   it('the Released slider and the Recent chip write released:<…>', async () => {

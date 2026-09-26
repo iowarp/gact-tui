@@ -1,8 +1,37 @@
 import { useId, type ReactNode } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+
+export interface RangeSliderOption {
+  label: string;
+  control: 'switch' | 'checkbox';
+  checked: boolean;
+  disabled: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}
+
+/** One option under a slider, its label bound to its control. */
+function RangeOption({ option }: { option: RangeSliderOption }) {
+  const id = useId();
+  const Control = option.control === 'switch' ? Switch : Checkbox;
+  return (
+    <div className="flex items-center gap-2">
+      <Control
+        checked={option.checked}
+        disabled={option.disabled}
+        id={id}
+        onCheckedChange={(checked) => option.onCheckedChange(checked === true)}
+        {...(option.control === 'switch' ? { size: 'sm' as const } : {})}
+      />
+      <Label className={cn('text-xs font-normal', option.disabled && 'text-muted-foreground')} htmlFor={id}>
+        {option.label}
+      </Label>
+    </div>
+  );
+}
 
 export interface RangeSliderTick {
   label: string;
@@ -21,8 +50,12 @@ interface RangeSliderProps {
   onValueChange: (value: number[]) => void;
   /** The token this slider currently writes, shown beside the heading. */
   token?: string;
-  /** A switch under the slider ("Include unknown size"). */
-  toggle?: { label: string; checked: boolean; disabled: boolean; onCheckedChange: (checked: boolean) => void };
+  /**
+   * What the narrowed range may also let in, under the slider: a switch
+   * ("Include unknown size") or separate checkboxes (variable / subscription /
+   * unpriced). Disabled while the slider is not narrowed.
+   */
+  options?: readonly RangeSliderOption[];
   /** Extra controls on the heading row (the Released slider's "Recent" chip). */
   aside?: ReactNode;
 }
@@ -39,10 +72,9 @@ export function ModelPickerRangeSlider({
   value,
   onValueChange,
   token,
-  toggle,
+  options = [],
   aside,
 }: RangeSliderProps) {
-  const id = useId();
   const last = stops.length - 1;
   return (
     <section className="flex flex-col gap-2" data-range={label.toLowerCase()} data-slot="facet-range">
@@ -85,18 +117,11 @@ export function ModelPickerRangeSlider({
           )}
         </div>
       </div>
-      {toggle ? (
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={toggle.checked}
-            disabled={toggle.disabled}
-            id={id}
-            onCheckedChange={toggle.onCheckedChange}
-            size="sm"
-          />
-          <Label className={cn('text-xs font-normal', toggle.disabled && 'text-muted-foreground')} htmlFor={id}>
-            {toggle.label}
-          </Label>
+      {options.length ? (
+        <div className="flex flex-col gap-1.5" data-slot="facet-range-options">
+          {options.map((option) => (
+            <RangeOption key={option.label} option={option} />
+          ))}
         </div>
       ) : null}
     </section>

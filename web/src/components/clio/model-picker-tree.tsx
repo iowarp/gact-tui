@@ -5,7 +5,7 @@ import { IconTile } from '@/components/reui/icon-tile';
 import { modelCapabilityTagsFromOption, type ModelCapabilityTag } from '@/lib/model-capability-tags';
 import { modelFactsFromOption, type ModelFactSummary } from '@/lib/model-facts';
 import { modelFilterTokens, providerFilterToken, type ModelFilterToken } from '@/lib/model-filter-tokens';
-import { factTokens, matchesActiveTokens } from '@/lib/model-range-tokens';
+import { matchesActiveTokens } from '@/lib/model-range-tokens';
 import type { ClioModelOption } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import {
@@ -66,7 +66,6 @@ export function useModelPickerTree(
         const carried = modelFilterTokens(tags, { chatSelectable: choice.chatSelectable !== false });
         carried.add(providerFilterToken(choice.providerId));
         const facts = modelFactsFromOption(choice);
-        for (const token of factTokens(facts)) carried.add(token);
         map.set(choice, { tags, tokens: carried, facts });
       }
     }
