@@ -552,6 +552,11 @@ FunctionEnd
   Pop $0
   Pop $1
   ${If} $0 != 0
+    ; A helper that dies before reporting (killed, crashed) leaves $1 empty;
+    ; never show the user a blank reason.
+    ${If} $1 == ""
+      StrCpy $1 "The runtime helper stopped with exit code $0 before it could report an error."
+    ${EndIf}
     ; $1 is the helper's stderr: the real error, then where its log was saved.
     ; The helper also records the brand's new-issue URL next to that log so
     ; the user can report the failure with the log attached.

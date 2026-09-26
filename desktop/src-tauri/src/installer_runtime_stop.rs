@@ -114,6 +114,23 @@ pub(crate) fn path_is_under_root(candidate: &str, root: &str) -> bool {
     }
 }
 
+/// Whether a process belongs in the stop sweep: a CLIO-managed name, an image
+/// under `root`, and never the sweeping process itself. The sweep runs inside
+/// `clio-desktop.exe --prepare-runtime` / `--stop-managed-runtime`, which is
+/// itself a managed name under the install root, so without the `own_pid`
+/// exclusion it terminates itself mid-install (exit 1, no report written).
+pub(crate) fn is_stop_target(
+    pid: u32,
+    name: &str,
+    image_path: Option<&str>,
+    root: &str,
+    own_pid: u32,
+) -> bool {
+    pid != own_pid
+        && is_managed_process_name(name)
+        && image_path.is_some_and(|path| path_is_under_root(path, root))
+}
+
 /// Find every CLIO-managed process under `root`, ask a managed `clio_run.exe`
 /// to stop cleanly, then terminate and wait out whatever is left.
 ///
@@ -125,13 +142,18 @@ pub(crate) fn path_is_under_root(candidate: &str, root: &str) -> bool {
 #[cfg(windows)]
 pub(crate) fn stop_processes_under_root(root: &Path) -> Vec<StoppedProcess> {
     let root_str = root.to_string_lossy().into_owned();
+    let own_pid = std::process::id();
     let snapshot = windows_process_snapshot();
     let matches: Vec<ProcessEntry> = snapshot
         .into_iter()
-        .filter(|process| is_managed_process_name(&process.name))
         .filter(|process| {
-            windows_full_image_path(process.pid)
-                .is_some_and(|path| path_is_under_root(&path, &root_str))
+            is_stop_target(
+                process.pid,
+                &process.name,
+                windows_full_image_path(process.pid).as_deref(),
+                &root_str,
+                own_pid,
+            )
         })
         .collect();
 
@@ -299,6 +321,20 @@ mod tests {
         assert!(is_managed_process_name("python.EXE"));
         assert!(!is_managed_process_name("notepad.exe"));
         assert!(!is_managed_process_name("clio_run"));
+    }
+
+    #[test]
+    fn stop_sweep_never_targets_the_sweeping_process() {
+        let root = r"C:\Users\u\AppData\Local\CLIO Desktop";
+        let exe = r"C:\Users\u\AppData\Local\CLIO Desktop\clio-desktop.exe";
+        // The installer helper is clio-desktop.exe under the root: excluded.
+        assert!(!is_stop_target(42, "clio-desktop.exe", Some(exe), root, 42));
+        // Another clio-desktop.exe under the root (the running app) is a target.
+        assert!(is_stop_target(7, "clio-desktop.exe", Some(exe), root, 42));
+        // Outside the root, an unmanaged name, or an unreadable image: not targets.
+        assert!(!is_stop_target(7, "clio-desktop.exe", Some(r"D:\other\clio-desktop.exe"), root, 42));
+        assert!(!is_stop_target(7, "notepad.exe", Some(exe), root, 42));
+        assert!(!is_stop_target(7, "clio-desktop.exe", None, root, 42));
     }
 
     #[test]
