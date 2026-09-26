@@ -36,7 +36,7 @@ import type { ClioModelOption } from '@/lib/model-options';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { isBaselineTag, modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
+import { isBaselineTag, modelCapabilityTagsFromOption, modelTypeOf } from '@/lib/model-capability-tags';
 import {
   DEFAULT_FILTER_TOKENS,
   freeSearchText,
@@ -231,7 +231,7 @@ export function ClioModelPicker({
               // A specialist model is a first-class row, but it cannot be the
               // chat model: say why instead of selecting it.
               if (choice.chatSelectable === false) {
-                setNotice(surrogateChatReason(choice.modelType));
+                setNotice(surrogateChatReason(modelTypeOf(choice)));
                 return;
               }
               onChange(choice);

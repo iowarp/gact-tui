@@ -104,6 +104,7 @@ export type ContextSchema = {
   [k: string]: unknown | undefined;
 } | null;
 export type Destination = 'agent' | 'permission' | 'run';
+export type Narration = string | null;
 export type Operation = ('cancel' | 'retry') | null;
 export type Kernel = string;
 export type Presets = {
@@ -264,6 +265,145 @@ export type Label2 = string;
 export type Sequence12 = number | null;
 export type StreamSource12 = string | null;
 export type Type12 = 'routing';
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence = [TagEvidence, ...TagEvidence[]];
+/**
+ * The upstream field and value as the source stated it, e.g. "openrouter architecture.output_modalities=['decisions']" or "ALCF gateway /models framework='sam3service'".
+ */
+export type Detail3 = string;
+/**
+ * ISO-8601 time the evidence was produced (empty when the source gives none).
+ */
+export type ObservedAt = string;
+/**
+ * Who stated the value.
+ */
+export type Source3 =
+  | 'user'
+  | 'overlay'
+  | 'server_report'
+  | 'hf_repo'
+  | 'models.dev'
+  | 'litellm'
+  | 'db'
+  | 'openrouter'
+  | 'dialect'
+  | 'probe'
+  | 'catalog';
+export type Value1 =
+  | 'tool_calling'
+  | 'parallel_tool_calls'
+  | 'reasoning'
+  | 'structured_output'
+  | 'web_search'
+  | 'code_execution'
+  | 'computer_use'
+  | 'prompt_caching';
+/**
+ * What it can do.
+ */
+export type Capabilities = CapabilityTag[];
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence1 = [TagEvidence, ...TagEvidence[]];
+export type Value2 =
+  | 'language'
+  | 'vision'
+  | 'speech'
+  | 'biology'
+  | 'chemistry'
+  | 'materials'
+  | 'climate'
+  | 'physics'
+  | 'astronomy'
+  | 'geoscience'
+  | 'medical';
+/**
+ * Subject domains.
+ */
+export type Domains = DomainTag[];
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence2 = [TagEvidence, ...TagEvidence[]];
+export type Value3 = boolean;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence3 = [TagEvidence, ...TagEvidence[]];
+export type Value4 =
+  | 'text'
+  | 'image'
+  | 'audio'
+  | 'video'
+  | 'pdf'
+  | 'embeddings'
+  | 'masks'
+  | 'scores'
+  | 'tensor';
+/**
+ * What it reads.
+ */
+export type InputModalities = ModalityTag[];
+/**
+ * The canonical model identity the tags describe (a Hub repo id, a cloud model id, ...).
+ */
+export type ModelKey = string;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence4 = [TagEvidence, ...TagEvidence[]];
+export type Value5 =
+  | 'chat'
+  | 'embedding'
+  | 'rerank'
+  | 'audio_transcription'
+  | 'audio_speech'
+  | 'image_generation'
+  | 'image_edit'
+  | 'video_generation'
+  | 'moderation'
+  | 'ocr'
+  | 'segmentation'
+  | 'classification'
+  | 'forecasting'
+  | 'scientific_surrogate'
+  | 'other';
+/**
+ * What it produces.
+ */
+export type OutputModalities = ModalityTag[];
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence5 = [TagEvidence, ...TagEvidence[]];
+export type Value6 = 'general' | 'surrogate';
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence6 = [TagEvidence, ...TagEvidence[]];
+export type Value7 = string;
+/**
+ * Tasks it performs.
+ */
+export type Tasks = TaskTag[];
 export type Arg = string;
 export type ArtifactId2 = string;
 export type Authority1 = string;
@@ -337,6 +477,7 @@ export interface ClioSchemaRegistry {
   IdentityEvidence?: IdentityEvidence;
   Instrument?: Instrument;
   MessageBlock?: MessageBlock;
+  ModelCapabilityTags?: ModelCapabilityTags;
   ProvEdge?: ProvEdge;
   TransformRecord?: TransformRecord;
 }
@@ -621,6 +762,7 @@ export interface Events {
 export interface _EventRoute {
   context_schema?: ContextSchema;
   destination?: Destination;
+  narration?: Narration;
   operation?: Operation;
 }
 export interface Implements {
@@ -861,6 +1003,94 @@ export interface RoutingMessageBlock {
   sequence?: Sequence12;
   stream_source?: StreamSource12;
   type: Type12;
+}
+/**
+ * Everything a model picker may tag one model with, each tag with its evidence.
+ *
+ * An absent tag means no source stated it -- never "no". ``role`` always
+ * agrees with ``model_type`` when both are present (``chat`` is general,
+ * every other type a surrogate).
+ */
+export interface ModelCapabilityTags {
+  capabilities?: Capabilities;
+  domains?: Domains;
+  /**
+   * Whether this endpoint serves the model at no cost.
+   */
+  free?: FlagTag | null;
+  input_modalities?: InputModalities;
+  model_key: ModelKey;
+  /**
+   * What kind of model it is.
+   */
+  model_type?: ModelTypeTag | null;
+  output_modalities?: OutputModalities;
+  /**
+   * general or surrogate.
+   */
+  role?: RoleTag | null;
+  /**
+   * Whether the model id is a router that picks another model per request.
+   */
+  router?: FlagTag | null;
+  tasks?: Tasks;
+}
+/**
+ * A capability the model has.
+ */
+export interface CapabilityTag {
+  evidence: Evidence;
+  value: Value1;
+}
+/**
+ * One source's statement behind a tag.
+ */
+export interface TagEvidence {
+  detail: Detail3;
+  observed_at: ObservedAt;
+  source: Source3;
+}
+/**
+ * A subject domain the model is built for.
+ */
+export interface DomainTag {
+  evidence: Evidence1;
+  value: Value2;
+}
+/**
+ * A yes/no fact about how the model is offered (free of charge, a router).
+ */
+export interface FlagTag {
+  evidence: Evidence2;
+  value: Value3;
+}
+/**
+ * A modality the model reads or produces.
+ */
+export interface ModalityTag {
+  evidence: Evidence3;
+  value: Value4;
+}
+/**
+ * What kind of model it is.
+ */
+export interface ModelTypeTag {
+  evidence: Evidence4;
+  value: Value5;
+}
+/**
+ * Whether the model holds a conversation (general) or does one task (surrogate).
+ */
+export interface RoleTag {
+  evidence: Evidence5;
+  value: Value6;
+}
+/**
+ * A task the model performs, as a Hugging Face ``pipeline_tag`` id (or ``clio:<id>``).
+ */
+export interface TaskTag {
+  evidence: Evidence6;
+  value: Value7;
 }
 /**
  * One used or generated provenance edge with its own evidence.

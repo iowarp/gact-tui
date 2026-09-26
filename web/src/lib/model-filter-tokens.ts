@@ -2,10 +2,12 @@ import { TASK_LABELS, type ModelCapabilityTag } from './model-capability-tags';
 
 /**
  * The model picker's filter tokens: `key:value` strings (`input:image`,
- * `cap:tools`, `role:surrogate`, `task:classifier`, `free`) derived from a
- * model's normalized capability tags. Tokens combine with AND; a model shows
- * when it carries every active token. Free text is matched separately
- * (model name and provider).
+ * `cap:tools`, `role:surrogate`, `task:classification`, `domain:climate`,
+ * `free`, `router`) derived from a model's capability tags. A task tag
+ * carries two spellings: its model type (`task:image-generation`) and each
+ * Hugging Face task id it performs (`task:text-to-image`). Tokens combine
+ * with AND; a model shows when it carries every active token. Free text is
+ * matched separately (model name and provider).
  */
 export type ModelFilterToken = string;
 
@@ -14,12 +16,25 @@ export const DEFAULT_FILTER_TOKENS: readonly ModelFilterToken[] = ['input:text',
 
 const CAPABILITY_TOKENS: Record<string, string> = { tool_calling: 'tools' };
 
-function taskSlug(task: string): string {
-  return (TASK_LABELS[task] ?? task).toLowerCase().replaceAll(/[^a-z0-9]+/gu, '-');
+function slug(value: string): string {
+  return value.toLowerCase().replaceAll(/[^a-z0-9:]+/gu, '-');
 }
 
-/** The token a tag filters by, or `undefined` for a tag that is not filterable. */
+/** The token a tag's chip adds when clicked, or `undefined` for a tag that is not filterable. */
 export function tagFilterToken(tag: ModelCapabilityTag): ModelFilterToken | undefined {
+  return tagFilterTokens(tag)[0];
+}
+
+/** Every token a tag filters by (a task tag: its model type, then its Hub tasks). */
+export function tagFilterTokens(tag: ModelCapabilityTag): ModelFilterToken[] {
+  if (tag.axis === 'task') {
+    return [`task:${slug(tag.value)}`, ...(tag.hubTasks ?? []).map((task) => `task:${slug(task)}`)];
+  }
+  const token = singleToken(tag);
+  return token ? [token] : [];
+}
+
+function singleToken(tag: ModelCapabilityTag): ModelFilterToken | undefined {
   switch (tag.axis) {
     case 'input_modality':
       return `input:${tag.value}`;
@@ -29,25 +44,39 @@ export function tagFilterToken(tag: ModelCapabilityTag): ModelFilterToken | unde
       return `cap:${CAPABILITY_TOKENS[tag.value] ?? tag.value.replaceAll('_', '-')}`;
     case 'role':
       return `role:${tag.value}`;
-    case 'task':
-      return `task:${taskSlug(tag.value)}`;
     case 'domain':
       return `domain:${tag.value}`;
     case 'price':
       return tag.value === 'free' ? 'free' : undefined;
     case 'kind':
-      return 'router';
+      return tag.value === 'router' ? 'router' : undefined;
     default:
       return undefined;
   }
 }
 
-/** Every token a model's tags carry. */
-export function modelFilterTokens(tags: readonly ModelCapabilityTag[]): Set<ModelFilterToken> {
+/**
+ * Every token a model's tags carry.
+ *
+ * `chatSelectable`: the service lets this model run a chat turn (its role is
+ * not a known surrogate). A chat model whose input or output modalities no
+ * source has stated still matches the default `input:text` / `output:text`
+ * filter -- the filter means "models you can chat with", and the service's
+ * chat selection already treats such a model as one. This affects filtering
+ * only: no chip is shown for a modality nobody stated.
+ */
+export function modelFilterTokens(
+  tags: readonly ModelCapabilityTag[],
+  { chatSelectable = false }: { chatSelectable?: boolean } = {},
+): Set<ModelFilterToken> {
   const tokens = new Set<ModelFilterToken>();
   for (const tag of tags) {
-    const token = tagFilterToken(tag);
-    if (token) tokens.add(token);
+    for (const token of tagFilterTokens(tag)) tokens.add(token);
+  }
+  const surrogate = tags.some((tag) => tag.axis === 'role' && tag.value === 'surrogate');
+  if (chatSelectable && !surrogate) {
+    if (!tags.some((tag) => tag.axis === 'input_modality')) tokens.add('input:text');
+    if (!tags.some((tag) => tag.axis === 'output_modality')) tokens.add('output:text');
   }
   return tokens;
 }

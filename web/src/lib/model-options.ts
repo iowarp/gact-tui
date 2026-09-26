@@ -1,5 +1,6 @@
 import type {
   LanguageModelPreset,
+  ModelCapabilityTags,
   ProviderCatalog,
   ProviderCatalogEntry,
   ProviderCatalogTransport,
@@ -48,12 +49,11 @@ export interface ClioModelOption {
   toolCalling?: boolean;
   /** The model's context window in tokens, when the service reports one. */
   contextWindow?: number;
-  /** chat / embedding / image_generation / ...; absent when no source states it. */
-  modelType?: string;
   /** False only for a model known to be another type than chat. */
   chatSelectable?: boolean;
-  /** True when the service states the model costs nothing to use. */
-  free?: boolean;
+  /** The service's capability tags for this model, each with its evidence
+   * (read through `modelCapabilityTagsFromOption`). */
+  capabilityTags?: ModelCapabilityTags;
   /** Where each capability value came from, keyed by the catalog's capability
    * field names (see `ProviderCatalogModel.capabilities_provenance`). */
   capabilityProvenance?: Readonly<Record<string, { source: string; decided_by: string }>>;
@@ -310,9 +310,8 @@ function liveProviderOptions(
       reasoning: modelReasoningLevels(model.reasoning),
       toolCalling: model.native_tool_calling,
       contextWindow: model.loaded_context_window || model.context_window,
-      modelType: model.model_type,
       chatSelectable: model.chat_selectable,
-      free: model.free,
+      capabilityTags: model.capability_tags,
       capabilityProvenance: model.capabilities_provenance,
       aliases: model.aliases,
       transport: model.transport,

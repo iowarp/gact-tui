@@ -5,6 +5,7 @@ import {
   FileTextIcon,
   FlaskConicalIcon,
   GiftIcon,
+  GlobeIcon,
   RouteIcon,
   ScrollTextIcon,
   ShapesIcon,
@@ -16,6 +17,7 @@ import {
 import { Badge } from '@/components/reui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
+  modelCapabilityTagDetail,
   modelCapabilityTagLabel,
   modelCapabilityTagMeaning,
   modelCapabilityTagSource,
@@ -38,6 +40,7 @@ function tagIcon(tag: ModelCapabilityTag): LucideIcon {
   if (tag.axis === 'kind') return RouteIcon;
   if (tag.axis === 'role') return FlaskConicalIcon;
   if (tag.axis === 'task') return ShapesIcon;
+  if (tag.axis === 'domain') return GlobeIcon;
   return TAG_ICONS[`${tag.axis}:${tag.value}`] ?? SparklesIcon;
 }
 
@@ -55,7 +58,7 @@ interface ModelCapabilityTagsProps {
 
 /** Free is the pitch: it reads green, every other tag stays quiet. */
 function isFreeTag(tag: ModelCapabilityTag): boolean {
-  return tag.axis === 'price' || (tag.axis === 'kind' && tag.value === 'free_router');
+  return tag.axis === 'price';
 }
 
 /**
@@ -118,6 +121,11 @@ export function ModelCapabilityTags({
               <TooltipContent className="block max-w-xs leading-5" side="top">
                 <span className="block">{modelCapabilityTagMeaning(tag)}</span>
                 <span className="block opacity-70">{modelCapabilityTagSource(tag)}</span>
+                {modelCapabilityTagDetail(tag) ? (
+                  <span className="block font-mono text-xs opacity-70" data-slot="tag-evidence-detail">
+                    {modelCapabilityTagDetail(tag)}
+                  </span>
+                ) : null}
               </TooltipContent>
             </Tooltip>
           );
