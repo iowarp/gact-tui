@@ -2,7 +2,10 @@ import type { LanguageModelPreset } from '@clio/core/v3';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { IconTile } from '@/components/reui/icon-tile';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
-import { providerNeedsReauthentication } from '@/lib/provider-availability';
+import {
+  providerNeedsReauthentication,
+  translateKnownProviderErrorReason,
+} from '@/lib/provider-availability';
 import { providerLogoId } from '@/lib/provider-presentation';
 import type { ProviderGroup } from './model-picker-model';
 import { ProviderSetupAction } from './provider-setup-action';
@@ -42,7 +45,13 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
           data-slot="provider-connect-sentence"
           role={failure ? 'alert' : undefined}
         >
-          {failure ?? providerSetupSentence(group, flow)}
+          {failure ??
+            (refused
+              ? translateKnownProviderErrorReason(
+                  group.failure || preset?.status_message || '',
+                  group.name,
+                )
+              : providerSetupSentence(group, flow))}
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent className="max-w-sm">

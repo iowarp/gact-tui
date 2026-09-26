@@ -419,6 +419,8 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
 
     expect(await screen.findByRole('button', { name: 'Sign in again' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Check again' })).toBeNull();
+    // The sentence and the button say the same thing.
+    expect(sentence()).toHaveTextContent('Your ALCF session needs to be verified again.');
     await user.click(screen.getByRole('button', { name: 'Sign in again' }));
     // The forced log in: a fresh sign-in, not a replay of the refused one.
     expect(repository.authenticateProvider).toHaveBeenCalledWith('argonne_metis', {
