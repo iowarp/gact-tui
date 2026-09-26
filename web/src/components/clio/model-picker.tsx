@@ -35,7 +35,6 @@ import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { modelTypeOf } from '@/lib/model-capability-tags';
-import { buildModelFacets } from '@/lib/model-facets';
 import {
   DEFAULT_FILTER_TOKENS,
   freeSearchText,
@@ -54,6 +53,7 @@ import { useProviderPanel } from './model-picker-provider-panel';
 import { ModelPickerSearch } from './model-picker-search';
 import { PickerRowLabel } from './model-picker-row-label';
 import { useModelPickerTree } from './model-picker-tree';
+import { useModelPickerFacets } from './use-model-picker-facets';
 import { useModelPickerSearchView } from './use-model-picker-search-view';
 
 interface ClioModelPickerProps {
@@ -162,21 +162,7 @@ export function ClioModelPicker({
     query,
   });
   const { resetCollapsed, toggleCollapsed, matchesText, searching } = search;
-  const facetTabs = useMemo(
-    () =>
-      buildModelFacets(
-        tree.entries.map((entry) => ({
-          providerId: entry.group.id,
-          providerName: entry.group.name,
-          tags: entry.tags,
-          tokens: entry.tokens,
-          matchesText: matchesText(entry),
-        })),
-        tokens,
-        { hideEmpty: searching },
-      ),
-    [tree.entries, tokens, searching, matchesText],
-  );
+  const { facetTabs, maxInputPrice } = useModelPickerFacets(tree.entries, tokens, searching, matchesText);
   const [facetsOpen, setFacetsOpen] = useState(false);
   // A press on a results group header drills in (the cascader's own branch
   // behaviour, which also clears the query); in search results it folds the
@@ -351,6 +337,7 @@ export function ClioModelPicker({
                     onQueryChange={handleQueryChange}
                     facetTabs={facetTabs}
                     facetsOpen={facetsOpen}
+                    maxInputPrice={maxInputPrice}
                     onFacetsOpenChange={setFacetsOpen}
                     onTokensChange={setTokens}
                     query={query}

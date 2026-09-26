@@ -1,5 +1,6 @@
 import type { TagEvidence } from '@clio/core/v3';
 import { vocab } from './brand-vocabulary';
+import { modelFactSummary, parameterSizeLabel } from './model-facts';
 import type { ClioModelOption } from './model-options';
 
 /**
@@ -20,7 +21,9 @@ export type ModelCapabilityAxis =
   | 'domain'
   | 'price'
   | 'kind'
-  | 'context';
+  | 'context'
+  | 'recent'
+  | 'size';
 
 export interface ModelCapabilityEvidence {
   /** Who stated it: `openrouter`, `server_report`, `overlay`, `hf_repo`, ... */
@@ -127,6 +130,15 @@ export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCap
       tags.push({ axis: 'domain', value: tag.value, evidence: evidenceOf(tag.evidence) });
     }
   }
+  // Descriptive facts that read as tags: a recent release, and the size.
+  const facts = option.modelFacts;
+  if (facts?.recent?.value === true) {
+    tags.push({ axis: 'recent', value: String(facts.recent.window_months), evidence: evidenceOf(facts.recent.evidence) });
+  }
+  const size = parameterSizeLabel(modelFactSummary(facts).parameters);
+  if (size && facts?.parameters) {
+    tags.push({ axis: 'size', value: size, evidence: evidenceOf(facts.parameters.evidence) });
+  }
   if (option.contextWindow && option.contextWindow > 0) {
     const provenance = option.capabilityProvenance?.context_window;
     tags.push({
@@ -203,6 +215,10 @@ export function modelCapabilityTagLabel(tag: ModelCapabilityTag): string {
       return 'Router';
     case 'context':
       return formatContextSize(Number(tag.value));
+    case 'recent':
+      return 'Recent';
+    case 'size':
+      return tag.value;
     case 'input_modality':
       return tag.value === 'text' ? 'Text in' : (MODALITY_LABELS[tag.value] ?? sentenceCase(tag.value));
     case 'output_modality':
@@ -219,6 +235,12 @@ export function modelCapabilityTagMeaning(tag: ModelCapabilityTag): string {
   switch (tag.axis) {
     case 'context':
       return `Reads up to ${Number(tag.value).toLocaleString()} tokens at once.`;
+    case 'recent':
+      return `Released in the last ${tag.value} months.`;
+    case 'size':
+      return tag.value.includes('/')
+        ? `A mixture of experts: ${tag.value.replace(/^A/u, '').replace(' / ', ' parameters active per token, of ')} in all.`
+        : `${tag.value} parameters.`;
     case 'input_modality':
       return tag.value === 'image'
         ? 'Understands images.'

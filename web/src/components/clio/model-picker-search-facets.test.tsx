@@ -176,7 +176,7 @@ describe('ClioModelPicker filter panel', () => {
       'Other',
     ]);
     const headings = within(facets).getAllByRole('heading').map((heading) => heading.textContent);
-    expect(headings).toEqual(['Tasks', 'Input', 'Output', 'Capabilities', 'Providers', 'Offer', 'Role']);
+    expect(headings).toEqual(['Tasks', 'Size', 'Cost', 'Released', 'Input', 'Output', 'Capabilities', 'Providers', 'Offer', 'Role']);
     const free = within(facets).getByRole('button', { name: /^Free: / });
     expect(free).toHaveAttribute('aria-pressed', 'false');
     expect(free.querySelector('[data-slot="facet-chip-count"]')).toHaveTextContent('2');

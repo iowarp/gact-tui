@@ -20,7 +20,7 @@ function entry(
   const tags = modelCapabilityTagsFromOption(option);
   const tokens = modelFilterTokens(tags, { chatSelectable: option.chatSelectable !== false });
   tokens.add(providerFilterToken(provider));
-  return { providerId: provider, providerName, tags, tokens, matchesText };
+  return { providerId: provider, providerName, tags, tokens, facts: {}, matchesText };
 }
 
 const catalog: FacetEntry[] = [

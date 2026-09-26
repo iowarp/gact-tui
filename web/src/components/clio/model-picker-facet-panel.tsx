@@ -1,5 +1,5 @@
 import { SearchIcon } from 'lucide-react';
-import { useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { Fragment, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +18,8 @@ const NAME_FILTER_THRESHOLD = 6;
 interface ModelPickerFacetPanelProps {
   tabs: readonly FacetTab[];
   onToggleChip: (chip: FacetChip) => void;
+  /** The Size / Cost / Released sliders, shown on Main after the Tasks cluster. */
+  sliders?: ReactNode;
 }
 
 /**
@@ -41,7 +43,7 @@ function containKeys(event: KeyboardEvent<HTMLInputElement>): void {
  * Input, Output, Capabilities, Providers, Other. Every chip comes from the
  * catalog's own tags and toggles its token in the search bar.
  */
-export function ModelPickerFacetPanel({ tabs, onToggleChip }: ModelPickerFacetPanelProps) {
+export function ModelPickerFacetPanel({ tabs, onToggleChip, sliders }: ModelPickerFacetPanelProps) {
   const [tab, setTab] = useState<'main' | FacetTabId>('main');
   const [nameFilter, setNameFilter] = useState('');
   const main = mainFacetGroups(tabs);
@@ -73,17 +75,20 @@ export function ModelPickerFacetPanel({ tabs, onToggleChip }: ModelPickerFacetPa
         <ScrollArea className="min-h-0 flex-1">
           <TabsContent className="flex flex-col gap-4 p-3" value="main">
             {main.length ? (
-              main.map((group) => (
-                <section className="flex flex-col gap-2" data-group={group.id} key={`${group.tab}/${group.id}`}>
-                  <h3 className="text-xs font-medium text-muted-foreground">{group.label}</h3>
-                  <FacetChipCluster
-                    chips={group.chips}
-                    more={group.more}
-                    moreLabel={group.label}
-                    onMore={() => openTab(group.tab)}
-                    onToggle={onToggleChip}
-                  />
-                </section>
+              main.map((group, index) => (
+                <Fragment key={`${group.tab}/${group.id}`}>
+                  <section className="flex flex-col gap-2" data-group={group.id}>
+                    <h3 className="text-xs font-medium text-muted-foreground">{group.label}</h3>
+                    <FacetChipCluster
+                      chips={group.chips}
+                      more={group.more}
+                      moreLabel={group.label}
+                      onMore={() => openTab(group.tab)}
+                      onToggle={onToggleChip}
+                    />
+                  </section>
+                  {index === 0 ? sliders : null}
+                </Fragment>
               ))
             ) : (
               <p className="text-sm text-muted-foreground">No model matches this search.</p>
@@ -116,7 +121,9 @@ export function ModelPickerFacetPanel({ tabs, onToggleChip }: ModelPickerFacetPa
                   ))
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    {nameFilter ? `No ${item.label.toLowerCase()} match "${nameFilter}".` : `No ${item.label.toLowerCase()} in the listed models.`}
+                    {nameFilter
+                      ? `No ${item.label.toLowerCase()} match "${nameFilter}".`
+                      : `No ${item.label.toLowerCase()} in the listed models.`}
                   </p>
                 )}
               </TabsContent>

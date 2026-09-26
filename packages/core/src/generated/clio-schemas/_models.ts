@@ -404,6 +404,110 @@ export type Value7 = string;
  * Tasks it performs.
  */
 export type Tasks = TaskTag[];
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence7 = [TagEvidence, ...TagEvidence[]];
+/**
+ * The link's label as it reads in the text.
+ */
+export type Text2 = string;
+/**
+ * The link target exactly as the source wrote it.
+ */
+export type Url = string;
+/**
+ * The links reduced out of `plain`, in order.
+ */
+export type Links = DescriptionLink[];
+/**
+ * The text with each markdown link reduced to its label.
+ */
+export type Plain = string;
+/**
+ * The source's text, verbatim.
+ */
+export type Text3 = string;
+/**
+ * The model identity the facts describe (as in ModelCapabilityTags).
+ */
+export type ModelKey1 = string;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence8 = [TagEvidence, ...TagEvidence[]];
+/**
+ * Parameters used per token (mixture-of-experts), when stated.
+ */
+export type Active = number | null;
+/**
+ * Experts chosen per token.
+ */
+export type ExpertsActive = number | null;
+/**
+ * Routed experts per MoE layer.
+ */
+export type ExpertsTotal = number | null;
+export type Precision = 'exact' | 'rounded';
+/**
+ * Every parameter: the slider value.
+ */
+export type Total = number | null;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence9 = [TagEvidence, ...TagEvidence[]];
+export type Kind1 = 'usd' | 'variable' | 'subscription';
+/**
+ * USD per 1M tokens for kind `usd`; null for `variable` and `subscription`.
+ */
+export type Per1M = number | null;
+export type Unit = 'usd_per_1m_tokens';
+/**
+ * Other sources' prices, each with its evidence.
+ */
+export type Alternatives = PricingAlternative[];
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence10 = [TagEvidence, ...TagEvidence[]];
+/**
+ * The day recency was judged against.
+ */
+export type AsOf = string;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence11 = [TagEvidence, ...TagEvidence[]];
+/**
+ * The release falls within `window_months` of `as_of`.
+ */
+export type Value8 = boolean;
+/**
+ * The recency window, in calendar months.
+ */
+export type WindowMonths = number;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence12 = [TagEvidence, ...TagEvidence[]];
+/**
+ * YYYY-MM-DD, YYYY-MM or YYYY, matching `precision`.
+ */
+export type Date = string;
+export type Precision1 = 'day' | 'month' | 'year';
 export type Arg = string;
 export type ArtifactId2 = string;
 export type Authority1 = string;
@@ -478,6 +582,7 @@ export interface ClioSchemaRegistry {
   Instrument?: Instrument;
   MessageBlock?: MessageBlock;
   ModelCapabilityTags?: ModelCapabilityTags;
+  ModelFacts?: ModelFacts;
   ProvEdge?: ProvEdge;
   TransformRecord?: TransformRecord;
 }
@@ -1091,6 +1196,124 @@ export interface RoleTag {
 export interface TaskTag {
   evidence: Evidence6;
   value: Value7;
+}
+/**
+ * Descriptive facts about one model, each with its evidence; ``null`` = no source stated it.
+ */
+export interface ModelFacts {
+  /**
+   * What the model is.
+   */
+  description: DescriptionFact | null;
+  model_key: ModelKey1;
+  /**
+   * How many parameters it has.
+   */
+  parameters: ParametersFact | null;
+  /**
+   * What it costs, per 1M tokens.
+   */
+  pricing: PricingFact | null;
+  /**
+   * Whether that release is recent.
+   */
+  recent: RecentFact | null;
+  /**
+   * When it was released.
+   */
+  released_at: ReleaseDateFact | null;
+}
+/**
+ * What the model is, in its source's words.
+ */
+export interface DescriptionFact {
+  evidence: Evidence7;
+  value: DescriptionValue;
+}
+/**
+ * A description in its raw form and as plain text for display.
+ */
+export interface DescriptionValue {
+  links?: Links;
+  plain: Plain;
+  text: Text3;
+}
+/**
+ * One markdown link found in a description, kept as data.
+ */
+export interface DescriptionLink {
+  text: Text2;
+  url: Url;
+}
+/**
+ * How big the model is.
+ */
+export interface ParametersFact {
+  evidence: Evidence8;
+  value: ParametersValue;
+}
+/**
+ * A model's size in parameters.
+ */
+export interface ParametersValue {
+  active: Active;
+  experts_active: ExpertsActive;
+  experts_total: ExpertsTotal;
+  precision: Precision;
+  total: Total;
+}
+/**
+ * What the model costs: the endpoint's own price first, a catalog list price otherwise.
+ */
+export interface PricingFact {
+  alternatives?: Alternatives;
+  evidence: Evidence10;
+  value: PricingValue;
+}
+/**
+ * Another source's price that did not win (e.g. a catalog list price).
+ */
+export interface PricingAlternative {
+  evidence: Evidence9;
+  value: PricingValue;
+}
+/**
+ * Input and output prices.
+ */
+export interface PricingValue {
+  input: Price;
+  output: Price;
+  unit: Unit;
+}
+/**
+ * One side (input or output) of a price, per 1M tokens.
+ */
+export interface Price {
+  kind: Kind1;
+  per_1m: Per1M;
+}
+/**
+ * Whether the release is recent, derived by the server at serve time (never stored).
+ */
+export interface RecentFact {
+  as_of: AsOf;
+  evidence: Evidence11;
+  value: Value8;
+  window_months: WindowMonths;
+}
+/**
+ * When the model was released.
+ */
+export interface ReleaseDateFact {
+  evidence: Evidence12;
+  value: ReleaseDateValue;
+}
+/**
+ * A release date at the precision its source states it.
+ */
+export interface ReleaseDateValue {
+  date: Date;
+  precision: Precision1;
 }
 /**
  * One used or generated provenance edge with its own evidence.

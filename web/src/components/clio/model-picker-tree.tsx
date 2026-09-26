@@ -3,12 +3,9 @@ import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { IconTile } from '@/components/reui/icon-tile';
 import { modelCapabilityTagsFromOption, type ModelCapabilityTag } from '@/lib/model-capability-tags';
-import {
-  matchesFilterTokens,
-  modelFilterTokens,
-  providerFilterToken,
-  type ModelFilterToken,
-} from '@/lib/model-filter-tokens';
+import { modelFactsFromOption, type ModelFactSummary } from '@/lib/model-facts';
+import { modelFilterTokens, providerFilterToken, type ModelFilterToken } from '@/lib/model-filter-tokens';
+import { factTokens, matchesActiveTokens } from '@/lib/model-range-tokens';
 import type { ClioModelOption } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import {
@@ -34,6 +31,8 @@ export interface PickerModelEntry {
   node: CascaderNode<PickerNodeData>;
   tags: readonly ModelCapabilityTag[];
   tokens: ReadonlySet<ModelFilterToken>;
+  /** Its descriptive facts (what the range tokens -- size, cost, released -- read). */
+  facts: ModelFactSummary;
   /** Whether the active filter tokens keep it. */
   kept: boolean;
 }
@@ -57,13 +56,18 @@ export function useModelPickerTree(
   tokens: readonly ModelFilterToken[],
 ) {
   const tokensByOption = useMemo(() => {
-    const map = new Map<ClioModelOption, { tags: ModelCapabilityTag[]; tokens: Set<ModelFilterToken> }>();
+    const map = new Map<
+      ClioModelOption,
+      { tags: ModelCapabilityTag[]; tokens: Set<ModelFilterToken>; facts: ModelFactSummary }
+    >();
     for (const group of providers) {
       for (const choice of group.choices) {
         const tags = modelCapabilityTagsFromOption(choice);
         const carried = modelFilterTokens(tags, { chatSelectable: choice.chatSelectable !== false });
         carried.add(providerFilterToken(choice.providerId));
-        map.set(choice, { tags, tokens: carried });
+        const facts = modelFactsFromOption(choice);
+        for (const token of factTokens(facts)) carried.add(token);
+        map.set(choice, { tags, tokens: carried, facts });
       }
     }
     return map;
@@ -77,7 +81,11 @@ export function useModelPickerTree(
       const models = pinFreeRouter(providerColumnModels(group));
       const children: CascaderNode<PickerNodeData>[] = [];
       for (const choice of models) {
-        const carried = tokensByOption.get(choice) ?? { tags: [], tokens: new Set<ModelFilterToken>() };
+        const carried = tokensByOption.get(choice) ?? {
+          tags: [],
+          tokens: new Set<ModelFilterToken>(),
+          facts: {},
+        };
         for (const token of carried.tokens) availableTokens.add(token);
         const node: CascaderNode<PickerNodeData> = {
           value: modelNodeValue(choice),
@@ -86,9 +94,9 @@ export function useModelPickerTree(
           keywords: [choice.id, choice.providerId, choice.providerName],
           data: { kind: 'model', choice },
         };
-        const kept = matchesFilterTokens(carried.tokens, tokens);
+        const kept = matchesActiveTokens(carried.tokens, carried.facts, tokens);
         if (kept) children.push(node);
-        entries.push({ group, choice, node, tags: carried.tags, tokens: carried.tokens, kept });
+        entries.push({ group, choice, node, tags: carried.tags, tokens: carried.tokens, facts: carried.facts, kept });
       }
       counts.set(group.id, { shown: children.length, total: models.length });
       return {

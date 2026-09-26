@@ -1,5 +1,5 @@
-import type { ModelCapabilityTags } from '../generated/clio-schemas/_models.js';
-export type { ModelCapabilityTags, TagEvidence } from '../generated/clio-schemas/_models.js';
+import type { ModelCapabilityTags, ModelFacts } from '../generated/clio-schemas/_models.js';
+export type { ModelCapabilityTags, ModelFacts, TagEvidence } from '../generated/clio-schemas/_models.js';
 import type { WireValue } from './domain.js';
 
 export type MessageDelivery = 'start' | 'steer' | 'auto';
@@ -296,6 +296,13 @@ export interface ProviderCatalogModel {
    * not report tags.
    */
   capability_tags?: ModelCapabilityTags;
+  /**
+   * What the model is and what it costs: description, release date (and
+   * whether that is recent), pricing per 1M tokens and parameter count, each
+   * with its evidence -- the shared `ModelFacts` record. A null fact means no
+   * source stated it. Absent when an older service does not report facts.
+   */
+  model_facts?: ModelFacts;
   /**
    * What this model can do about thinking, from provider truth: `levels` are the
    * levels a person can choose (empty means no selector), `default` the model's

@@ -4,6 +4,8 @@ import {
   BoxIcon,
   BracesIcon,
   BrainIcon,
+  CalendarClockIcon,
+  CpuIcon,
   ClapperboardIcon,
   EyeIcon,
   FileTextIcon,
@@ -79,6 +81,8 @@ export function hubTaskIcon(task: string): LucideIcon {
 /** The glyph a capability tag is drawn with. */
 export function tagIcon(tag: ModelCapabilityTag): LucideIcon {
   if (tag.axis === 'context') return ScrollTextIcon;
+  if (tag.axis === 'recent') return CalendarClockIcon;
+  if (tag.axis === 'size') return CpuIcon;
   if (tag.axis === 'price') return GiftIcon;
   if (tag.axis === 'kind') return RouteIcon;
   if (tag.axis === 'role') return FlaskConicalIcon;

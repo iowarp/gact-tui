@@ -4,7 +4,9 @@ import { CascaderInput } from '@/components/reui/cascader/cascader-nav';
 import { Badge } from '@/components/reui/badge';
 import type { FacetChip, FacetTab } from '@/lib/model-facets';
 import { filterTokenSuggestions, type ModelFilterToken } from '@/lib/model-filter-tokens';
+import { isRangeToken } from '@/lib/model-range-tokens';
 import { ModelPickerFacetPanel } from './model-picker-facet-panel';
+import { ModelPickerFacetSliders } from './model-picker-facet-sliders';
 
 interface ModelPickerSearchProps {
   query: string;
@@ -22,6 +24,8 @@ interface ModelPickerSearchProps {
   /** Whether the filter panel is open (the picker owns it: Escape closes it first). */
   facetsOpen: boolean;
   onFacetsOpenChange: (open: boolean) => void;
+  /** The highest input price the listed models state (the Cost slider's top). */
+  maxInputPrice: number;
 }
 
 /** The word being typed: the text after the last space. */
@@ -48,6 +52,7 @@ export function ModelPickerSearch({
   facetTabs,
   facetsOpen,
   onFacetsOpenChange,
+  maxInputPrice,
 }: ModelPickerSearchProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const suggestions = filterTokenSuggestions(lastWord(query), availableTokens, tokens).slice(0, 8);
@@ -98,8 +103,13 @@ export function ModelPickerSearch({
       return;
     }
     if (event.key === ' ') {
-      const word = lastWord(query).toLowerCase();
-      if (availableTokens.has(word) || word === 'free') {
+      const typed = lastWord(query);
+      const word = typed.toLowerCase();
+      if (isRangeToken(word)) {
+        // A range keeps its units as typed (size:>32B stays upper case).
+        event.preventDefault();
+        addToken(typed.replace(/^[^:]+/u, (key) => key.toLowerCase()));
+      } else if (availableTokens.has(word) || word === 'free') {
         event.preventDefault();
         addToken(word);
       }
@@ -164,7 +174,17 @@ export function ModelPickerSearch({
           ))}
         </div>
       ) : null}
-      {facetsOpen ? <ModelPickerFacetPanel onToggleChip={toggleChip} tabs={facetTabs} /> : null}
+      {facetsOpen ? <ModelPickerFacetPanel
+          onToggleChip={toggleChip}
+          sliders={
+            <ModelPickerFacetSliders
+              maxInputPrice={maxInputPrice}
+              onTokensChange={onTokensChange}
+              tokens={tokens}
+            />
+          }
+          tabs={facetTabs}
+        /> : null}
     </div>
   );
 }
