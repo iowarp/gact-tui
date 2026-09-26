@@ -242,6 +242,29 @@ test('default capability JSON is present', () => {
   assert.ok(Array.isArray(caps.permissions));
 });
 
+test('opener capability covers external web and mail links, not just Globus', () => {
+  // gact-tui#<external-links>: the opener plugin's `open_js_links_on_click`
+  // (enabled by tauri_plugin_opener::init() in src/lib.rs) intercepts every
+  // target="_blank"/ctrl-click/shift-click anchor and re-dispatches it
+  // through `plugin:opener|open_url`. When the scope only allowed
+  // `https://auth.globus.org/*`, every other external link (docs, release
+  // notes, citations, mailto:) silently failed: the scope rejected the
+  // command and the rejection went unhandled. The scope must cover the
+  // schemes the app actually opens.
+  const caps = JSON.parse(
+    readFileSync(resolve(root, 'src-tauri', 'capabilities', 'default.json'), 'utf8'),
+  );
+  const openUrlPermission = caps.permissions.find(
+    (permission) =>
+      typeof permission === 'object' && permission.identifier === 'opener:allow-open-url',
+  );
+  assert.ok(openUrlPermission, 'expected an opener:allow-open-url permission entry');
+  const allowedUrls = openUrlPermission.allow.map((entry) => entry.url);
+  assert.ok(allowedUrls.includes('https://*'), 'expected https://* to be allowed');
+  assert.ok(allowedUrls.includes('http://*'), 'expected http://* to be allowed');
+  assert.ok(allowedUrls.includes('mailto:*'), 'expected mailto:* to be allowed');
+});
+
 test('tauri.conf.json is neutral and does not bundle a managed sidecar by default', () => {
   const cfg = JSON.parse(readFileSync(resolve(root, 'src-tauri', 'tauri.conf.json'), 'utf8'));
   assert.ok(Array.isArray(cfg.bundle.externalBin), 'expected bundle.externalBin to be an array');
@@ -278,20 +301,49 @@ test('bundled installer stops only its managed process tree before replacement o
   assert.match(hooks, /\$LOCALAPPDATA\\\$\{BUNDLEID\}/);
   assert.match(hooks, /\$APPDATA\\\$\{BUNDLEID\}/);
   assert.match(hooks, /\$ClioRemoveUserData == \$\{BST_CHECKED\}/);
-  assert.match(hooks, /FileWrite \$0 "\$INSTDIR"/);
-  assert.match(hooks, /clio-desktop-install-root\.txt/);
-  assert.match(hooks, /ExecWait '"\$SYSDIR\\WindowsPowerShell\\v1\.0\\powershell\.exe"/);
-  assert.match(hooks, /-EncodedCommand/);
-  const encoded = hooks.match(/-EncodedCommand ([A-Za-z0-9+/=]+)/)?.[1];
-  assert.ok(encoded, 'expected an encoded process-cleanup command');
-  const cleanup = Buffer.from(encoded, 'base64').toString('utf16le');
-  assert.ok(encoded.length < 900, 'cleanup command must stay below the NSIS string limit');
-  assert.match(cleanup, /clio-desktop-install-root\.txt/);
-  assert.match(cleanup, /StartsWith\(\$r,5\)/);
-  assert.match(cleanup, /clio-desktop/);
-  assert.match(cleanup, /clio-agent/);
-  assert.match(cleanup, /python/);
-  assert.match(cleanup, /clio_run/);
+
+  // #I1: the deterministic Rust process sweep replaces the old encoded
+  // PowerShell one-liner + fixed `Sleep 1500` — the daemon's clean stop and
+  // the terminate-then-wait loop now live in one place
+  // (installer_runtime_stop.rs) instead of being re-implemented in NSIS.
+  const stopMacro =
+    hooks.match(/!macro CLIO_STOP_MANAGED_RUNTIME\r?\n([\s\S]*?)!macroend/)?.[1] ?? '';
+  assert.ok(stopMacro, 'expected a CLIO_STOP_MANAGED_RUNTIME macro');
+  // The upgrade stop must never depend on the OLD installed binary's flags:
+  // 0.9.4.17 does not know --stop-managed-runtime and launches the full app,
+  // which the installer then waits on forever. The new binary is extracted
+  // from this installer into $PLUGINSDIR and told the install root.
+  assert.match(stopMacro, /File "\/oname=\$PLUGINSDIR\\clio-runtime-stop\.exe" "\$\{MAINBINARYSRCPATH\}"/);
+  assert.match(
+    stopMacro,
+    /nsExec::ExecToStack \/TIMEOUT=\d+ '"\$PLUGINSDIR\\clio-runtime-stop\.exe" --stop-managed-runtime "\$INSTDIR"'/,
+  );
+  assert.doesNotMatch(stopMacro, /\$INSTDIR\\clio-desktop\.exe" --stop-managed-runtime/);
+  assert.match(stopMacro, /CLIO_REPORT_RUNTIME_STOP/);
+  const uninstallStop =
+    hooks.match(/!macro CLIO_STOP_MANAGED_RUNTIME_FOR_UNINSTALL([\s\S]*?)!macroend/)?.[1] ?? '';
+  assert.match(
+    uninstallStop,
+    /\/TIMEOUT=\d+ '"\$INSTDIR\\clio-desktop\.exe" --stop-managed-runtime "\$INSTDIR"'/,
+  );
+  assert.match(hooks, /NSIS_HOOK_PREINSTALL\r?\n\s+!insertmacro CLIO_STOP_MANAGED_RUNTIME\r?\n/);
+  assert.match(hooks, /NSIS_HOOK_PREUNINSTALL\r?\n\s+!insertmacro CLIO_STOP_MANAGED_RUNTIME_FOR_UNINSTALL/);
+  assert.match(hooks, /result=timeout/);
+  assert.doesNotMatch(
+    hooks,
+    /-EncodedCommand/,
+    'the process stop must no longer shell out to an encoded PowerShell command',
+  );
+  assert.doesNotMatch(
+    hooks,
+    /WindowsPowerShell/,
+    'the process stop must no longer invoke PowerShell at all',
+  );
+  assert.doesNotMatch(
+    hooks,
+    /Sleep 1500/,
+    'a fixed sleep must not stand in for actually waiting on process exit',
+  );
   assert.doesNotMatch(hooks, /taskkill[^\r\n]*\/IM/i, 'must not kill unrelated user processes');
   const runtimeRemovals = hooks.match(/RMDir \/r "\$INSTDIR\\gact-runtime"/g) ?? [];
   assert.equal(runtimeRemovals.length, 2, 'upgrade and uninstall must remove the bundled runtime');
@@ -322,10 +374,26 @@ test('installer hooks resolve the app-data folder from the bundle identifier mac
   );
 });
 
+test('a failed runtime install shows the real error and offers the issue page', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  const block = hooks.match(/--prepare-runtime[\s\S]*?CLIO runtime installed\./)?.[0] ?? '';
+  assert.ok(block, 'the runtime install step must exist');
+  // $1 is the helper's captured stderr: the real error and the log path.
+  assert.match(block, /MessageBox MB_ICONSTOP\|MB_OK "[^"]*\$1/);
+  assert.match(block, /MessageBox MB_ICONSTOP\|MB_YESNO "[^"]*\$1/);
+  assert.match(block, /runtime-install-issue-url\.txt/);
+  assert.match(block, /ExecShell "open" "\$2"/);
+  assert.match(block, /ExecShell "open" "\$INSTDIR\\data"/);
+  assert.match(block, /Abort/);
+});
+
 test('installer separates Infrastructure and individual provider choices into unclipped wizard pages', () => {
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  // The runtime-install failure report may ask whether to open the issue page;
+  // that is not a setup choice, so it is the one block excluded here.
+  const setup = hooks.replace(/--prepare-runtime[\s\S]*?CLIO runtime installed\./, '');
   assert.doesNotMatch(
-    hooks,
+    setup,
     /MB_YESNO/,
     'setup choices must use nsDialogs pages, not a MessageBox',
   );

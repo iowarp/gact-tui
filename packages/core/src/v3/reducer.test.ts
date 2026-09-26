@@ -1,6 +1,20 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createEntityState, reduceTransportFrame } from './reducer.js';
 import type { TransportFrame } from './transport.js';
+
+/**
+ * Real `session_to_v3` output, one row per usage state (#775 no silent
+ * fallback: known cost / no-cost-source-yet / no-turns-yet) -- captured by
+ * running the actual backend projection against representative session
+ * records rather than hand-typing the wire shape (see the fixture's own
+ * `metadata.producer`).
+ */
+const sessionUsageGolden = JSON.parse(
+  readFileSync(new URL('./fixtures/session-usage-golden.json', import.meta.url), 'utf8'),
+) as {
+  sessions: Record<string, Record<string, unknown>>;
+};
 
 function frame(
   cursor: string,
@@ -614,5 +628,140 @@ describe('GACT 0.3 reducer', () => {
 
     expect(state.a2ui_action_lifecycles).toEqual({});
     expect(state.gaps).toEqual([]);
+  });
+});
+
+describe('entities.usage (status-bar truth, iowarp/gact-tui U1)', () => {
+  it('seeds the live rollup from a session snapshot with a known cost', () => {
+    const state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'session.upserted', sessionUsageGolden.sessions.known),
+    );
+
+    expect(state.usage.sess_billed).toEqual({
+      session_id: 'sess_billed',
+      input_tokens: 120,
+      output_tokens: 45,
+      cost_usd: 0.0032,
+    });
+  });
+
+  it('seeds tokens but leaves cost_usd undefined -- never a fabricated $0 -- when the provider never reported one', () => {
+    const state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'session.upserted', sessionUsageGolden.sessions.unknown),
+    );
+
+    expect(state.usage.sess_local_model).toEqual({
+      session_id: 'sess_local_model',
+      input_tokens: 300,
+      output_tokens: 90,
+      cost_usd: undefined,
+    });
+  });
+
+  it('does not create a usage row for a session that has never exchanged a message', () => {
+    const state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'session.upserted', sessionUsageGolden.sessions.fresh),
+    );
+
+    expect(state.usage.sess_fresh).toBeUndefined();
+  });
+
+  it('keeps the rollup live: message.completed adds onto the seeded snapshot', () => {
+    let state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'session.upserted', sessionUsageGolden.sessions.known),
+    );
+    state = reduceTransportFrame(
+      state,
+      frame('2', 'message.upserted', {
+        id: 'msg_billed_2',
+        session_id: 'sess_billed',
+        role: 'assistant',
+        created_at: '2026-09-24T00:06:00Z',
+        blocks: [],
+      }),
+    );
+    state = reduceTransportFrame(
+      state,
+      frame('3', 'message.completed', {
+        message_id: 'msg_billed_2',
+        tokens: { input: 40, output: 12, cache_read: 0, cache_write: 0 },
+        cost_usd: 0.0009,
+      }),
+    );
+
+    expect(state.usage.sess_billed).toEqual({
+      session_id: 'sess_billed',
+      input_tokens: 160,
+      output_tokens: 57,
+      cost_usd: expect.closeTo(0.0041, 6),
+    });
+  });
+
+  it('a turn with an unknown cost adds its tokens but leaves the known cost total untouched', () => {
+    let state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'session.upserted', sessionUsageGolden.sessions.known),
+    );
+    state = reduceTransportFrame(
+      state,
+      frame('2', 'message.upserted', {
+        id: 'msg_billed_2',
+        session_id: 'sess_billed',
+        role: 'assistant',
+        created_at: '2026-09-24T00:06:00Z',
+        blocks: [],
+      }),
+    );
+    state = reduceTransportFrame(
+      state,
+      frame('3', 'message.completed', {
+        message_id: 'msg_billed_2',
+        tokens: { input: 40, output: 12, cache_read: 0, cache_write: 0 },
+        cost_usd: null,
+      }),
+    );
+
+    expect(state.usage.sess_billed).toEqual({
+      session_id: 'sess_billed',
+      input_tokens: 160,
+      output_tokens: 57,
+      cost_usd: 0.0032,
+    });
+  });
+
+  it('a first turn with an unknown cost keeps the rollup honestly unknown', () => {
+    let state = reduceTransportFrame(
+      createEntityState(),
+      frame('1', 'session.upserted', sessionUsageGolden.sessions.fresh),
+    );
+    state = reduceTransportFrame(
+      state,
+      frame('2', 'message.upserted', {
+        id: 'msg_fresh_1',
+        session_id: 'sess_fresh',
+        role: 'assistant',
+        created_at: '2026-09-24T00:06:00Z',
+        blocks: [],
+      }),
+    );
+    state = reduceTransportFrame(
+      state,
+      frame('3', 'message.completed', {
+        message_id: 'msg_fresh_1',
+        tokens: { input: 300, output: 90, cache_read: 0, cache_write: 0 },
+        cost_usd: null,
+      }),
+    );
+
+    expect(state.usage.sess_fresh).toEqual({
+      session_id: 'sess_fresh',
+      input_tokens: 300,
+      output_tokens: 90,
+      cost_usd: undefined,
+    });
   });
 });

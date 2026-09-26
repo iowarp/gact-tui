@@ -6,6 +6,70 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.19] — 2026-09-26
+
+### Added
+
+- The model picker is redesigned. Codex shows its SDK and Direct transports as
+  two halves, and the half you pick is the one used. Each model lists
+  capability tags from the service, with the source of each tag in its
+  tooltip. The search field takes `key:value` tokens (`input:image`,
+  `cap:tools`, `free`, `router`, `role:surrogate`, `task:...`) and shows how
+  many models match. OpenRouter's free router is pinned first, and non-chat
+  models appear as surrogates instead of being offered as chat models.
+- Settings > Models is one card for the default model, with thinking levels
+  only when the model reports them and response settings behind a disclosure.
+  Settings > Providers lists model servers on this computer and self-hosted
+  servers, checks an address live, and adds any OpenAI-compatible server.
+  Cloud providers open the model picker.
+- A sign-in panel for ChatGPT (Codex Direct) and ALCF, with browser, device
+  code and paste methods. An ALCF provider that needs a new sign-in offers
+  Sign in again.
+- The connect page lists every known CLIO first (saved, local and reachable
+  through Infrastructure), each with a live status; every known service can
+  be renamed or forgotten. Desktop updates show progress through download,
+  install, restart and reconnect.
+- The SSH route editor lets every hop move, including the destination, adds a
+  hop after the destination, and configures each hop in place. A hosts
+  manager lists saved and imported hosts and deletes saved ones.
+- `view_image` and `view_pdf` results show the file the agent looked at as a
+  preview card.
+
+### Fixed
+
+- Deploying CLIO to a remote host works on Windows: the tunnel rides the one
+  SSH login (no second password or Duo prompt), including through jump hosts
+  and to compute nodes. The deploy dialog shows live stages with elapsed time,
+  including checking for and stopping a CLIO already running on the remote.
+  Cancel cleans up what the deploy started, and the dialog closes only after
+  the remote CLIO answers. Only real SSH questions are shown as prompts.
+- Testing a route hop goes through the hops before it with their keys, and a
+  failure says why. Answering an SSH password prompt no longer saves and
+  closes the host dialog.
+- The transcript follows new text until you scroll away, then offers a
+  Scroll to bottom button.
+- External links open in the desktop app.
+- PDFs open from the Files view on the desktop app; every surface uses one
+  PDF preview. The Files view refreshes while it is open.
+- The status bar shows one connection indicator, real token counts and cost,
+  and a version check that settles. The indicator is correct on every page,
+  including Settings.
+- A session's picked model is sent with the message; no global apply is
+  needed before the first message.
+- Providers that share a wire kind (OpenRouter, vLLM, Gemini and others) are
+  no longer mistaken for each other.
+- The installer shows the real runtime install error and where its report is,
+  stops old CLIO processes before replacing the runtime, and no longer stops
+  itself during that sweep.
+- Quitting the desktop app stops an idle clio-core daemon, and orphans are
+  cleaned up at the next start.
+
+### Changed
+
+- One icon for each action across the interface.
+- The connect page brand header is centered and its tagline links to the
+  lab's site.
+
 ## [0.11.2.18] — 2026-09-24
 
 ### Fixed

@@ -45,7 +45,7 @@
         "auth_method": "none",
         "configuration_url": "/settings/providers?provider=ollama",
         "connectivity": "unreachable",
-        "endpoint": "http://127.0.0.1:11434/v1",
+        "endpoint": "http://127.0.0.1:11434",
         "failure": "connection refused",
         "freshness": {
           "generated_at": "2026-09-23T10:00:00+00:00",
@@ -512,7 +512,7 @@
         "auth_method": "none",
         "configuration_url": "/settings/providers?provider=ollama",
         "connectivity": "unreachable",
-        "endpoint": "http://127.0.0.1:11434/v1",
+        "endpoint": "http://127.0.0.1:11434",
         "failure": "connection refused",
         "freshness": {
           "generated_at": "2026-09-23T10:00:00+00:00",
@@ -697,23 +697,185 @@
         "name": "OpenRouter"
       },
       {
-        "auth": "missing",
+        "auth": "ready",
         "auth_label": "",
         "auth_method": "subscription",
         "configuration_url": "/settings/providers?provider=codex",
-        "connectivity": "unreachable",
+        "connectivity": "reachable",
         "endpoint": "codex://sdk",
-        "failure": "connection refused",
+        "failure": "",
         "freshness": {
-          "generated_at": "2026-09-23T10:00:00+00:00",
-          "read_at": "2026-09-23T10:00:00+00:00",
-          "source": "unavailable"
+          "generated_at": "2026-09-25T10:00:00+00:00",
+          "read_at": "2026-09-25T10:00:00+00:00",
+          "source": "live"
         },
-        "health": "unavailable",
+        "health": "ready",
         "id": "codex",
         "kind": "codex",
-        "models": [],
-        "name": "OpenAI Codex"
+        "models": [
+          {
+            "availability": "available",
+            "context_window": 400000,
+            "deployment": "",
+            "endpoint": "codex://sdk",
+            "evidence": {
+              "context_source": "live",
+              "generated_at": "2026-09-25T10:00:00+00:00",
+              "live": true,
+              "source": "live"
+            },
+            "failure": "",
+            "loaded_context_window": null,
+            "modalities": [
+              "text",
+              "image"
+            ],
+            "model_id": "gpt-5.6-luna",
+            "native_tool_calling": true,
+            "output_limit": null,
+            "provider_id": "codex",
+            "provider_kind": "codex",
+            "reasoning": {
+              "default": "medium",
+              "levels": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "parameter": "reasoning_effort",
+              "supported": true
+            },
+            "revision": "",
+            "transport": "sdk"
+          },
+          {
+            "availability": "available",
+            "context_window": 400000,
+            "deployment": "",
+            "endpoint": "codex://sdk",
+            "evidence": {
+              "context_source": "live",
+              "generated_at": "2026-09-25T10:00:00+00:00",
+              "live": true,
+              "source": "live"
+            },
+            "failure": "",
+            "loaded_context_window": null,
+            "modalities": [
+              "text",
+              "image"
+            ],
+            "model_id": "gpt-5.6-sol",
+            "native_tool_calling": true,
+            "output_limit": null,
+            "provider_id": "codex",
+            "provider_kind": "codex",
+            "reasoning": {
+              "default": "medium",
+              "levels": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "parameter": "reasoning_effort",
+              "supported": true
+            },
+            "revision": "",
+            "transport": "sdk"
+          },
+          {
+            "availability": "available",
+            "context_window": 400000,
+            "deployment": "",
+            "endpoint": "codex://sdk",
+            "evidence": {
+              "context_source": "live",
+              "generated_at": "2026-09-25T10:00:00+00:00",
+              "live": true,
+              "source": "live"
+            },
+            "failure": "",
+            "loaded_context_window": null,
+            "modalities": [
+              "text",
+              "image"
+            ],
+            "model_id": "gpt-5.6-mini",
+            "native_tool_calling": true,
+            "output_limit": null,
+            "provider_id": "codex",
+            "provider_kind": "codex",
+            "reasoning": {
+              "default": "medium",
+              "levels": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "parameter": "reasoning_effort",
+              "supported": true
+            },
+            "revision": "",
+            "transport": "sdk"
+          },
+          {
+            "availability": "available",
+            "context_window": 400000,
+            "deployment": "",
+            "endpoint": "codex://sdk",
+            "evidence": {
+              "context_source": "live",
+              "generated_at": "2026-09-25T10:00:00+00:00",
+              "live": true,
+              "source": "live"
+            },
+            "failure": "",
+            "loaded_context_window": null,
+            "modalities": [
+              "text",
+              "image"
+            ],
+            "model_id": "gpt-5.5",
+            "native_tool_calling": true,
+            "output_limit": null,
+            "provider_id": "codex",
+            "provider_kind": "codex",
+            "reasoning": {
+              "default": "medium",
+              "levels": [
+                "low",
+                "medium",
+                "high",
+                "xhigh"
+              ],
+              "parameter": "reasoning_effort",
+              "supported": true
+            },
+            "revision": "",
+            "transport": "sdk"
+          }
+        ],
+        "name": "OpenAI Codex",
+        "transports": [
+          {
+            "health": "ready",
+            "id": "sdk",
+            "label": "Codex (local)",
+            "reason": ""
+          },
+          {
+            "auth": {
+              "method": "oauth"
+            },
+            "health": "unavailable",
+            "id": "direct",
+            "label": "Direct",
+            "reason": "Codex sign-in is required"
+          }
+        ]
       },
       {
         "auth": "missing",
@@ -1021,7 +1183,7 @@
         "name": "LM Studio"
       },
       {
-        "api_base": "http://127.0.0.1:11434/v1",
+        "api_base": "http://127.0.0.1:11434",
         "auth_methods": [
           "none"
         ],
@@ -1208,7 +1370,7 @@
           "subscription"
         ],
         "default_model": "",
-        "description": "Uses the official OpenAI Codex Python SDK so calls reuse your ChatGPT / Codex subscription instead of paying per-token on the OpenAI API. Authenticate Codex once on this machine; the SDK owns its pinned runtime.",
+        "description": "Uses the official OpenAI Codex Python SDK so calls reuse your Codex subscription instead of paying per-token on the OpenAI API. Authenticate Codex once on this machine; the SDK owns its pinned runtime.",
         "env_keys": [],
         "id": "codex",
         "is_authenticated": false,

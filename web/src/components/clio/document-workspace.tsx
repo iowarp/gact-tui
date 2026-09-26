@@ -14,10 +14,10 @@ import {
   FileCode2Icon,
   FileOutputIcon,
   MessageSquareTextIcon,
-  RefreshCwIcon,
   ShieldCheckIcon,
 } from 'lucide-react';
-import { lazy, Suspense, useMemo, useRef, useState, type ReactNode } from 'react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -65,13 +65,11 @@ import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { openDocumentWorkingCopy } from '@/tauri/documents';
 import { ClioOnlyOfficeEditor } from './onlyoffice-editor';
+import { ClioPdfPreview } from './pdf-preview';
 import { ClioStatus } from './status';
 import { TechnicalDetails } from './technical-details';
 
 const directProfiles = new Set(['markdown', 'pdf', 'latex', 'html-static']);
-const ClioDocumentPdfViewer = lazy(() =>
-  import('./document-pdf-viewer').then((module) => ({ default: module.ClioDocumentPdfViewer })),
-);
 
 export function ClioDocumentWorkspace({
   artifact,
@@ -344,7 +342,7 @@ export function ClioDocumentWorkspace({
             size="icon-sm"
             variant="ghost"
           >
-            <RefreshCwIcon aria-hidden="true" />
+            <RefreshIcon aria-hidden="true" />
           </Button>
         </div>
         {status ? <ClioStatus detail={status} label="Document updated" value="healthy" /> : null}
@@ -504,23 +502,13 @@ function DocumentPreview({
   }
   if (!manifest) return fallback;
   if (manifest.profile === 'pdf') {
-    return content ? (
+    return (
       // The viewer owns its own scroll region so it can mount only the pages in
       // view, which needs a bounded box to scroll inside — the same one the
       // editor branch above uses.
       <div className="h-[70vh] min-h-[540px] w-full">
-        <Suspense
-          fallback={<p className="p-4 text-sm text-muted-foreground">Loading PDF viewer…</p>}
-        >
-          <ClioDocumentPdfViewer
-            bytes={content}
-            name={manifest.name}
-            onSelection={onPdfSelection}
-          />
-        </Suspense>
+        <ClioPdfPreview bytes={content} name={manifest.name} onSelection={onPdfSelection} />
       </div>
-    ) : (
-      <p className="p-4 text-sm text-muted-foreground">Loading immutable PDF…</p>
     );
   }
   if (manifest.profile === 'markdown' && text !== undefined) {

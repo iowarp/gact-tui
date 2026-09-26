@@ -5,14 +5,10 @@ import {
   ClipboardIcon,
   FolderGit2Icon,
   FolderOpenIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
   PinIcon,
   PinOffIcon,
-  PlusIcon,
-  Settings2Icon,
-  Trash2Icon,
 } from 'lucide-react';
+import { AddIcon, DeleteIcon, EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
@@ -384,7 +380,7 @@ function WorkspaceActionsMenu({
               type="button"
               variant="ghost"
             >
-              <MoreHorizontalIcon aria-hidden="true" />
+              <MoreIcon aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
@@ -405,7 +401,7 @@ function WorkspaceActionsMenu({
           className="whitespace-nowrap"
           onSelect={() => onCreateSession(workspace.id)}
         >
-          <PlusIcon aria-hidden="true" /> New session
+          <AddIcon aria-hidden="true" /> New session
         </DropdownMenuItem>
         <DropdownMenuItem
           className="whitespace-nowrap"
@@ -430,7 +426,7 @@ function WorkspaceActionsMenu({
           className="whitespace-nowrap"
           onSelect={() => onRename({ kind: 'workspace', id: workspace.id, label: labelText })}
         >
-          <PencilIcon aria-hidden="true" /> Rename workspace
+          <EditIcon aria-hidden="true" /> Rename workspace
         </DropdownMenuItem>
         <DropdownMenuItem
           className="whitespace-nowrap"
@@ -442,7 +438,7 @@ function WorkspaceActionsMenu({
           className="whitespace-nowrap"
           onSelect={() => onEditWorkspace(workspace.id)}
         >
-          <Settings2Icon aria-hidden="true" /> Edit workspace
+          <EditIcon aria-hidden="true" /> Edit workspace
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
@@ -451,7 +447,7 @@ function WorkspaceActionsMenu({
           onSelect={() => onDelete({ kind: 'workspace', id: workspace.id, label: labelText })}
           variant="destructive"
         >
-          <Trash2Icon aria-hidden="true" /> Remove workspace
+          <DeleteIcon aria-hidden="true" /> Remove workspace
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -529,7 +525,7 @@ function WorkspaceHoverCard({
                 type="button"
               >
                 <WorkspaceLabelFields label={label} />
-                <PencilIcon
+                <EditIcon
                   aria-hidden="true"
                   className="size-3 shrink-0 opacity-0 transition-opacity group-hover/name:opacity-100 group-focus/name:opacity-100"
                 />
@@ -568,7 +564,7 @@ function WorkspaceHoverCard({
             type="button"
             variant="ghost"
           >
-            <Settings2Icon aria-hidden="true" /> Edit workspace
+            <EditIcon aria-hidden="true" /> Edit workspace
           </Button>
         </div>
       </HoverCardContent>

@@ -1,7 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { CascaderColumnPanel } from '@/components/reui/cascader/cascader-columns';
+import {
+  CascaderColumnPanel,
+  type CascaderColumnPanelProps,
+} from '@/components/reui/cascader/cascader-columns';
 import {
   useCascaderActions,
   useCascaderHighlight,
@@ -292,6 +295,12 @@ function CascaderVirtualRows({ estimateSize, overscan }: CascaderVirtualItemsPro
 
 export interface CascaderVirtualColumnProps extends CascaderVirtualItemsProps {
   column: CascaderColumn;
+  /** Forwarded to {@link CascaderColumnPanel} -- see its own doc. */
+  footer?: React.ReactNode;
+  /** Forwarded to {@link CascaderColumnPanel}; a split column is never windowed. */
+  sections?: CascaderColumnPanelProps['sections'];
+  /** Forwarded to {@link CascaderColumnPanel} -- see its own doc. */
+  empty?: React.ReactNode;
 }
 
 /**
@@ -301,7 +310,14 @@ export interface CascaderVirtualColumnProps extends CascaderVirtualItemsProps {
  * behind is `as="button"` rows outside Base UI, so it windows on its own row
  * count rather than waiting for the root to flip.
  */
-function CascaderVirtualColumn({ column, estimateSize, overscan }: CascaderVirtualColumnProps) {
+function CascaderVirtualColumn({
+  column,
+  estimateSize,
+  overscan,
+  footer,
+  sections,
+  empty,
+}: CascaderVirtualColumnProps) {
   const { virtualized, registerVirtualRenderer, virtualize, virtualizeThreshold } =
     useCascaderActions();
 
@@ -311,10 +327,12 @@ function CascaderVirtualColumn({ column, estimateSize, overscan }: CascaderVirtu
     ? virtualized
     : (virtualize ?? column.items.length >= virtualizeThreshold);
 
-  if (!windowed) return <CascaderColumnPanel column={column} />;
+  if (!windowed || sections || (empty !== undefined && column.items.length === 0)) {
+    return <CascaderColumnPanel column={column} empty={empty} footer={footer} sections={sections} />;
+  }
 
   return (
-    <CascaderColumnPanel column={column} virtualized>
+    <CascaderColumnPanel column={column} footer={footer} virtualized>
       {column.active ? (
         <CascaderVirtualActiveColumnRows
           column={column}

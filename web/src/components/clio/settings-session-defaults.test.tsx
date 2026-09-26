@@ -64,6 +64,7 @@ function renderSettings(providerCatalog: unknown = catalog) {
   repository.updateSessionDefaults.mockImplementation(async (value) => value);
   repository.languageModelConfiguration.mockResolvedValue({
     configured: true,
+    provider_id: 'codex',
     provider: 'codex',
     api_base: '',
     model: 'gpt-5.6-luna',

@@ -363,16 +363,59 @@ Function un.ClioRemoveUserDataPageLeave
   ${NSD_GetState} $ClioRemoveUserDataCheckbox $ClioRemoveUserData
 FunctionEnd
 
+; Report the stop helper's typed outcome. $0 is nsExec's status ("timeout",
+; "error", or the exit code) and $1 its output, whose last line is the
+; helper's own `result=...` reason.
+!macro CLIO_REPORT_RUNTIME_STOP
+  ${If} $0 == "timeout"
+    DetailPrint "CLIO managed-runtime stop: result=timeout after 60 seconds"
+  ${ElseIf} $0 == "error"
+    DetailPrint "CLIO managed-runtime stop: result=helper_not_started"
+  ${ElseIf} $0 != 0
+    DetailPrint "CLIO managed-runtime stop: exit=$0 $1"
+  ${Else}
+    DetailPrint "CLIO managed-runtime stop: $1"
+  ${EndIf}
+!macroend
+
+; Upgrade path. The stop helper is the NEW clio-desktop.exe, embedded in this
+; installer and extracted to $PLUGINSDIR, never the installed one: an older
+; installed binary (0.9.4.17 and earlier) does not know
+; `--stop-managed-runtime`, treats it as an ordinary launch, and starts the
+; full application, which nsExec then waits on forever. The helper
+; (installer_runtime_stop.rs) stops only CLIO-managed processes
+; (clio-desktop.exe, clio-agent.exe, python.exe, clio_run.exe) whose
+; executable lives under $INSTDIR, asks a managed clio_run.exe to stop
+; cleanly, then terminates what remains and waits on each handle within its
+; own bounded budget. nsExec's /TIMEOUT bounds the whole step as well. A
+; failure is reported with its typed reason and is not fatal: the retrying
+; directory swap in `runtime_pack.rs` / `installer_dir_swap.rs` is the
+; correctness backstop for anything that outlives the sweep. A fresh install
+; has nothing to stop.
 !macro CLIO_STOP_MANAGED_RUNTIME
-  ; Pass the path through a tiny temporary file instead of interpolating it into
-  ; PowerShell source. The compact encoded command stays below NSIS' command-string
-  ; limit while retaining an executable allowlist and install-root boundary check.
-  FileOpen $0 "$TEMP\clio-desktop-install-root.txt" w
-  FileWrite $0 "$INSTDIR"
-  FileClose $0
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand JAByAD0AKABnAGMAIAAtAFIAYQB3ACAAIgAkAGUAbgB2ADoAVABFAE0AUABcAGMAbABpAG8ALQBkAGUAcwBrAHQAbwBwAC0AaQBuAHMAdABhAGwAbAAtAHIAbwBvAHQALgB0AHgAdAAiACkALgBUAHIAaQBtAEUAbgBkACgAIgBcACIAKQArACIAXAAiADsAZwBjAGkAbQAgAFcAaQBuADMAMgBfAFAAcgBvAGMAZQBzAHMAfAA/AHsAJABfAC4ATgBhAG0AZQAgAC0AaQBuACAAIgBjAGwAaQBvAC0AZABlAHMAawB0AG8AcAAuAGUAeABlACIALAAiAGMAbABpAG8ALQBhAGcAZQBuAHQALgBlAHgAZQAiACwAIgBwAHkAdABoAG8AbgAuAGUAeABlACIALAAiAGMAbABpAG8AXwByAHUAbgAuAGUAeABlACIAIAAtAGEAbgBkACAAJABfAC4ARQB4AGUAYwB1AHQAYQBiAGwAZQBQAGEAdABoACAALQBhAG4AZAAgACgAJABfAC4ARQB4AGUAYwB1AHQAYQBiAGwAZQBQAGEAdABoAC0AcgBlAHAAbABhAGMAZQAiAF4AXABcAFwAXABcAD8AXABcACIALAAiACIAKQAuAFMAdABhAHIAdABzAFcAaQB0AGgAKAAkAHIALAA1ACkAfQB8ACUAewBrAGkAbABsACAALQBJAGQAIAAkAF8ALgBQAHIAbwBjAGUAcwBzAEkAZAAgAC0ARgBvAHIAYwBlACAALQBlAGEAIAAwAH0A' $0
-  Delete "$TEMP\clio-desktop-install-root.txt"
-  Sleep 1500
+  ${If} ${FileExists} "$INSTDIR\clio-desktop.exe"
+    DetailPrint "Stopping CLIO's managed runtime..."
+    InitPluginsDir
+    File "/oname=$PLUGINSDIR\clio-runtime-stop.exe" "${MAINBINARYSRCPATH}"
+    nsExec::ExecToStack /TIMEOUT=60000 '"$PLUGINSDIR\clio-runtime-stop.exe" --stop-managed-runtime "$INSTDIR"'
+    Pop $0
+    Pop $1
+    !insertmacro CLIO_REPORT_RUNTIME_STOP
+    Delete "$PLUGINSDIR\clio-runtime-stop.exe"
+  ${EndIf}
+!macroend
+
+; Uninstall path. The uninstaller was written by the same installer run as
+; $INSTDIR\clio-desktop.exe, so that binary is exactly the version that knows
+; this flag; no copy is embedded in the uninstaller.
+!macro CLIO_STOP_MANAGED_RUNTIME_FOR_UNINSTALL
+  ${If} ${FileExists} "$INSTDIR\clio-desktop.exe"
+    DetailPrint "Stopping CLIO's managed runtime..."
+    nsExec::ExecToStack /TIMEOUT=60000 '"$INSTDIR\clio-desktop.exe" --stop-managed-runtime "$INSTDIR"'
+    Pop $0
+    Pop $1
+    !insertmacro CLIO_REPORT_RUNTIME_STOP
+  ${EndIf}
 !macroend
 
 ; Generated infrastructure is not user-authored session data. Remove it on
@@ -509,7 +552,28 @@ FunctionEnd
   Pop $0
   Pop $1
   ${If} $0 != 0
-    MessageBox MB_ICONSTOP|MB_OK "CLIO could not install its bundled runtime. The installation will stop so the application is not left partially configured."
+    ; A helper that dies before reporting (killed, crashed) leaves $1 empty;
+    ; never show the user a blank reason.
+    ${If} $1 == ""
+      StrCpy $1 "The runtime helper stopped with exit code $0 before it could report an error."
+    ${EndIf}
+    ; $1 is the helper's stderr: the real error, then where its log was saved.
+    ; The helper also records the brand's new-issue URL next to that log so
+    ; the user can report the failure with the log attached.
+    StrCpy $2 ""
+    ${If} ${FileExists} "$INSTDIR\data\runtime-install-issue-url.txt"
+      FileOpen $3 "$INSTDIR\data\runtime-install-issue-url.txt" r
+      FileRead $3 $2
+      FileClose $3
+    ${EndIf}
+    ${If} $2 == ""
+      MessageBox MB_ICONSTOP|MB_OK "CLIO could not install its bundled runtime:$\r$\n$\r$\n$1$\r$\n$\r$\nThe installation will stop so the application is not left partially configured."
+    ${Else}
+      MessageBox MB_ICONSTOP|MB_YESNO "CLIO could not install its bundled runtime:$\r$\n$\r$\n$1$\r$\n$\r$\nThe installation will stop so the application is not left partially configured.$\r$\n$\r$\nPlease report this with the log file attached. Open the issue page and the log folder now?" IDNO clio_runtime_report_done
+      ExecShell "open" "$2"
+      ExecShell "open" "$INSTDIR\data"
+      clio_runtime_report_done:
+    ${EndIf}
     Abort
   ${EndIf}
   DetailPrint "CLIO runtime installed."
@@ -525,7 +589,7 @@ FunctionEnd
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-  !insertmacro CLIO_STOP_MANAGED_RUNTIME
+  !insertmacro CLIO_STOP_MANAGED_RUNTIME_FOR_UNINSTALL
   !insertmacro CLIO_REMOVE_MANAGED_STORAGE
 !macroend
 

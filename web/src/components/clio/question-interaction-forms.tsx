@@ -3,12 +3,8 @@ import type {
   PendingInteractionField,
   PendingInteractionResponse,
 } from '@clio/core/v3';
-import {
-  AlertTriangleIcon,
-  ExternalLinkIcon,
-  MessageCircleQuestionIcon,
-  XIcon,
-} from 'lucide-react';
+import { AlertTriangleIcon, ExternalLinkIcon, MessageCircleQuestionIcon } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useState, type ChangeEvent, type ReactNode } from 'react';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -27,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { openExternalUrl } from '@/tauri/external-url';
 import { pendingInteractionDomId } from './interaction-control';
 import { OwnerAttribution, ResponseErrorNotice } from './pending-interaction-notices';
 import { TechnicalDetails } from './technical-details';
@@ -117,12 +114,15 @@ export function UrlConsentResponse(props: QuestionSurfaceProps) {
 
   const accept = async () => {
     setNavigationError('');
-    const opened = window.open(url, '_blank', 'noopener,noreferrer');
-    if (!opened) {
+    try {
+      await openExternalUrl(url);
+    } catch {
+      // Whatever the underlying reason (a blocked popup outside Tauri, a
+      // rejected open inside it), consent for this specific URL was not
+      // acted on — say that, not the bridge's own generic wording.
       setNavigationError('The browser blocked this link. It has not been accepted.');
       return;
     }
-    opened.opener = null;
     setSending(true);
     try {
       await props.onResponse(interaction, {
@@ -230,7 +230,7 @@ function QuestionFrame({ children, ...props }: QuestionSurfaceProps & { children
             size="icon-sm"
             variant="ghost"
           >
-            <XIcon aria-hidden="true" />
+            <CloseIcon aria-hidden="true" />
           </Button>
         ) : null}
       </FrameHeader>

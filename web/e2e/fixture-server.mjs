@@ -977,6 +977,15 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/system/latest-release') {
+    sendJson(response, {
+      version: '0.0.0',
+      source: 'fixture',
+      checked_at: '2026-01-01T00:00:00Z',
+      degradation: null,
+    });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/health') {
     sendJson(response, {
       healthy: true,

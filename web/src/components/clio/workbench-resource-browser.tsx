@@ -8,16 +8,16 @@ import type {
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIcon,
-  BoxIcon,
   BoxesIcon,
+  BoxIcon,
   FileTextIcon,
   FolderIcon,
   PaperclipIcon,
-  PlusIcon,
   SearchIcon,
   TerminalSquareIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
+import { AddIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import {
   lazy,
   Suspense,
@@ -51,6 +51,7 @@ import { Input } from '@/components/ui/input';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -78,9 +79,11 @@ interface FileBrowserProps {
   workspaceId: string;
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
+  filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
   selectedPath?: string;
+  onRefresh?: () => void;
   onSelectedPathChange?: (path: string) => void;
 }
 
@@ -123,7 +126,7 @@ export function CanvasLauncher({
           title="Open a canvas tab"
           variant="ghost"
         >
-          <PlusIcon aria-hidden="true" />
+          <AddIcon aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
@@ -164,15 +167,30 @@ export function FileBrowser({
   workspaceId,
   files,
   filesPending,
+  filesFetching,
   filesError,
   filesTruncated,
   selectedPath,
+  onRefresh,
   onSelectedPathChange,
 }: FileBrowserProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [stacked, setStacked] = useState(false);
   const [query, setQuery] = useState('');
   const [internalSelectedPath, setInternalSelectedPath] = useState<string>();
+  // This component only exists in the DOM while its tab is the active one
+  // (Tabs/TabsContent unmount inactive panels) -- a mount-only effect IS
+  // "opening the Files tab or panel" (owner spec), so fire an async refetch
+  // then, with no blocking spinner (`isFetching` drives the button's spin,
+  // not `isPending`/a full reload). A ref keeps the callback fresh without
+  // making its identity part of the effect's dependencies.
+  const onRefreshRef = useRef(onRefresh);
+  useEffect(() => {
+    onRefreshRef.current = onRefresh;
+  });
+  useEffect(() => {
+    onRefreshRef.current?.();
+  }, []);
   // The "Hide dot files and folders" preference is sent to the SERVER as
   // include_hidden (use-workspace-data.ts) so a huge .clio never spends the
   // shared entry cap only to be discarded client-side — `files` here already
@@ -221,8 +239,8 @@ export function FileBrowser({
           minSize={stacked ? '140px' : '190px'}
         >
           <section aria-label="Workspace file tree" className="flex h-full min-h-0 flex-col">
-            <div className="shrink-0 border-b p-2">
-              <div className="relative">
+            <div className="flex shrink-0 items-center gap-1.5 border-b p-2">
+              <div className="relative flex-1">
                 <SearchIcon
                   aria-hidden="true"
                   className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -235,6 +253,22 @@ export function FileBrowser({
                   value={query}
                 />
               </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      aria-label="Refresh files"
+                      className="shrink-0"
+                      onClick={onRefresh}
+                      size="icon-sm"
+                      variant="ghost"
+                    >
+                      <RefreshIcon aria-hidden="true" className={filesFetching ? 'animate-spin' : ''} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">Refresh files</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             {filesTruncated ? (
               <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">

@@ -1,6 +1,11 @@
 import type { LanguageModelPreset, ProviderCatalog, ProviderCatalogEntry } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
-import { buildModelOptions, matchesConfiguredModel, modelAvailabilityLabel } from './model-options';
+import {
+  buildModelOptions,
+  findSelectedModelOption,
+  matchesConfiguredModel,
+  modelAvailabilityLabel,
+} from './model-options';
 
 function catalogProvider(overrides: Partial<ProviderCatalogEntry> = {}): ProviderCatalogEntry {
   return {
@@ -57,6 +62,105 @@ const lmStudioPreset: LanguageModelPreset = {
 };
 
 describe('buildModelOptions', () => {
+  it('marks a provider the service is probing right now as checking, over its cached health', () => {
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [catalogProvider({ checking: true, health: 'unavailable', failure: 'unreachable' })],
+      },
+    });
+
+    expect(option?.health).toBe('checking');
+  });
+
+  it('reports a provider that only needs a key as needing setup, never as failed', () => {
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [
+        {
+          id: 'openrouter',
+          label: 'OpenRouter',
+          provider: 'openai',
+          suggested_model: '',
+          requires_api_key: true,
+          is_authenticated: false,
+          status: 'missing_key',
+          status_message: 'missing OPENROUTER_API_KEY',
+          supports_live_catalog: true,
+          supports_vision: false,
+        },
+      ],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'openrouter',
+            name: 'OpenRouter',
+            health: 'unavailable',
+            failure: 'no API key provided',
+          }),
+        ],
+      },
+    });
+
+    expect(option).toMatchObject({
+      health: 'needs_setup',
+      availabilityDetail: 'Add your OpenRouter API key.',
+    });
+  });
+
+  it('a rejected key reads as rejected, never as "sign in"', () => {
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'openrouter',
+            name: 'OpenRouter',
+            health: 'unavailable',
+            failure: 'api_key_rejected: the provider refused the API key (HTTP 401)',
+          }),
+        ],
+      },
+    });
+
+    expect(option?.availabilityDetail).toBe('Your OpenRouter API key was rejected.');
+    // A refused key is a failure (red), never "needs setup" (grey) or ready.
+    expect(option?.health).toBe('unavailable');
+    expect(option?.available).toBe(false);
+  });
+
+  it('never shows a raw reason code as a provider or model detail', () => {
+    const options = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      presets: [],
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          catalogProvider({
+            id: 'argonne_sophia',
+            name: 'ALCF Sophia',
+            failure: 'argonne_reauthentication_required: Globus high-assurance timeout',
+          }),
+          catalogProvider({
+            models: [catalogModel('gpt-5.6-luna', 'unavailable', 'model_not_entitled: not on this plan')],
+          }),
+        ],
+      },
+    });
+
+    expect(options.map((option) => option.availabilityDetail)).toEqual([
+      'Your ALCF session needs to be verified again. Sign in again to continue.',
+      'Not on this plan',
+    ]);
+    // Never repeated as a row subtitle: the reason shows once, in the strip.
+    expect(options[1]?.description).toBeUndefined();
+  });
+
   it('does not expose suggested defaults as live selectable inventory', () => {
     expect(
       buildModelOptions({
@@ -139,6 +243,117 @@ describe('buildModelOptions', () => {
         modalities: ['text', 'image'],
       }),
     ]);
+  });
+
+  it('threads a multi-transport provider entry\'s transports onto every one of its options', () => {
+    const providerCatalog: ProviderCatalog = {
+      authoritative: 'live_handshake',
+      providers: [
+        {
+          id: 'codex',
+          name: 'Codex',
+          kind: 'codex',
+          endpoint: 'local://codex-sdk',
+          configuration_url: '/settings/providers/codex',
+          connectivity: 'reachable',
+          auth: 'ready',
+          health: 'ready',
+          freshness: { generated_at: '2026-08-31T12:00:00Z', source: 'live' },
+          failure: '',
+          transports: [
+            { id: 'sdk', label: 'Codex (local)', health: 'ready', reason: '' },
+            {
+              id: 'direct',
+              label: 'Direct',
+              health: 'unavailable',
+              reason: 'Codex sign-in is required',
+              auth: { method: 'subscription' },
+            },
+          ],
+          models: [
+            {
+              provider_id: 'codex',
+              provider_kind: 'codex',
+              endpoint: 'local://codex-sdk',
+              deployment: '',
+              model_id: 'gpt-5.6-luna',
+              revision: '',
+              modalities: ['text'],
+              reasoning: { supported: false, parameter: '', levels: [] },
+              native_tool_calling: true,
+              availability: 'available',
+              evidence: {
+                source: 'live',
+                generated_at: '2026-08-31T12:00:00Z',
+                live: true,
+                context_source: 'provider',
+              },
+              failure: '',
+              transport: 'sdk',
+            },
+          ],
+        },
+      ],
+    };
+
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'codex',
+      providerCatalog,
+      presets: [],
+    });
+
+    expect(option?.transport).toBe('sdk');
+    expect(option?.transports).toEqual(providerCatalog.providers[0]?.transports);
+  });
+
+  it('never reports transports for a single-transport provider', () => {
+    const providerCatalog: ProviderCatalog = {
+      authoritative: 'live_handshake',
+      providers: [
+        {
+          id: 'claude_code',
+          name: 'Claude Code',
+          kind: 'claude_code',
+          endpoint: 'claude-code://sdk',
+          configuration_url: '/settings/providers/claude_code',
+          connectivity: 'reachable',
+          auth: 'ready',
+          health: 'ready',
+          freshness: { generated_at: '2026-08-31T12:00:00Z', source: 'live' },
+          failure: '',
+          models: [
+            {
+              provider_id: 'claude_code',
+              provider_kind: 'claude_code',
+              endpoint: 'claude-code://sdk',
+              deployment: '',
+              model_id: 'claude-sonnet-5',
+              revision: '',
+              modalities: ['text'],
+              reasoning: { supported: false, parameter: '', levels: [] },
+              native_tool_calling: true,
+              availability: 'available',
+              evidence: {
+                source: 'live',
+                generated_at: '2026-08-31T12:00:00Z',
+                live: true,
+                context_source: 'provider',
+              },
+              failure: '',
+            },
+          ],
+        },
+      ],
+    };
+
+    const [option] = buildModelOptions({
+      activeCatalogProvider: 'claude_code',
+      providerCatalog,
+      presets: [],
+    });
+
+    expect(option?.transports).toBeUndefined();
+    expect(option?.transport).toBeUndefined();
   });
 
   it('keeps a configured provider the live catalog does not know about', () => {
@@ -463,5 +678,119 @@ describe('matchesConfiguredModel', () => {
   it('never matches an empty/undefined configured model', () => {
     expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, undefined)).toBe(false);
     expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, '')).toBe(false);
+  });
+});
+
+describe('provider identity resolves by id, never by shared kind (#1418)', () => {
+  /** The real catalog: nine presets share the wire kind "openai". */
+  function ninePresetsSharingTheOpenaiKind(): LanguageModelPreset[] {
+    const rows: Array<[id: string, label: string]> = [
+      ['bedrock', 'Amazon Bedrock'],
+      ['azure_openai', 'Azure OpenAI'],
+      ['gemini', 'Google Gemini'],
+      ['vertex_ai', 'Google Vertex AI'],
+      ['llama_cpp', 'llama.cpp server'],
+      ['nvidia_nim', 'NVIDIA NIM'],
+      ['openai', 'OpenAI / ChatGPT'],
+      ['openrouter', 'OpenRouter'],
+      ['vllm', 'vLLM'],
+    ];
+    return rows
+      .map(([id, label]) => ({
+        id,
+        label,
+        provider: 'openai',
+        requires_api_key: false,
+        // Only the LITERAL "openai" preset is authenticated -- every other
+        // same-kind sibling (including bedrock, sorted first) is not, so a
+        // wrong (kind-based) match is visible in the resulting availability.
+        is_authenticated: id === 'openai',
+        supports_live_catalog: true,
+        supports_vision: false,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  it('the active-model fallback resolves the bare kind "openai" to ITS OWN preset, not the first same-kind preset by sort order', () => {
+    const presets = ninePresetsSharingTheOpenaiKind();
+    // Sanity check on the fixture itself: bedrock really does sort first,
+    // matching the real system's picker order (gact/routes/providers.py
+    // sorts presets by label) -- this is the exact ordering a kind-based
+    // fallback silently resolved to instead of the literal "openai" preset.
+    expect(presets[0]!.id).toBe('bedrock');
+
+    // Simulates a caller that still passes the bare KIND as `activeProvider`
+    // (what use-workspace-data.ts used to read off `modelConfiguration.data
+    // ?.provider` before its own #1418 fix) with no existing catalog/preset
+    // option already covering it, so the active-model fallback in
+    // buildModelOptions resolves identity on its own.
+    const options = buildModelOptions({
+      activeCatalogProvider: '',
+      activeProvider: 'openai',
+      activeModel: 'gpt-4o-mini',
+      presets,
+    });
+
+    expect(options).toHaveLength(1);
+    // The literal "openai" preset IS authenticated. Before the fix, the
+    // kind-based fallback matched "bedrock" (sorted first, NOT
+    // authenticated) instead, and this option read as needing sign-in.
+    expect(options[0]!.available).toBe(true);
+    expect(options[0]!.availabilityDetail).toBeUndefined();
+  });
+
+  it('a preset row is not hidden by an unrelated same-kind provider already listed live', () => {
+    const presets = ninePresetsSharingTheOpenaiKind();
+    const options = buildModelOptions({
+      activeCatalogProvider: '',
+      presets,
+      // llama_cpp's own catalog entry -- present so its preset row would
+      // actually render if not wrongly filtered out.
+      catalogModelsByProvider: {
+        llama_cpp: [{ id: 'qwen3-4b-instruct-gguf', name: 'Qwen3 4B Instruct' }],
+      },
+      providerCatalog: {
+        authoritative: 'live_handshake',
+        providers: [
+          {
+            // The LITERAL "openai" preset reporting live -- before the fix,
+            // `!liveProviderIds.has(preset.provider)` treated this as EVERY
+            // "openai"-kind preset (bedrock, llama_cpp, ...) already being
+            // covered, dropping their preset rows entirely.
+            id: 'openai',
+            name: 'OpenAI / ChatGPT',
+            kind: 'openai',
+            endpoint: 'https://api.openai.com/v1',
+            configuration_url: '/settings/providers?provider=openai',
+            connectivity: 'reachable',
+            auth: 'ready',
+            health: 'ready',
+            freshness: { generated_at: '2026-09-24T00:00:00Z', source: 'live' },
+            failure: '',
+            models: [],
+          },
+        ],
+      },
+    });
+
+    const providerIds = new Set(options.map((option) => option.providerId));
+    expect(providerIds.has('llama_cpp')).toBe(true);
+  });
+});
+
+describe('findSelectedModelOption', () => {
+  // Codex SDK and Direct both list gpt-5.5: the picked half must be the one found.
+  const rows = [
+    { providerId: 'codex', id: 'gpt-5.5', available: true, transport: 'sdk' },
+    { providerId: 'codex', id: 'gpt-5.5', available: true, transport: 'direct' },
+  ];
+
+  it('finds the half a picked transport names', () => {
+    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5', 'direct')?.transport).toBe('direct');
+    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5', 'sdk')?.transport).toBe('sdk');
+  });
+
+  it('finds the first available row when no transport was picked', () => {
+    expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5')?.transport).toBe('sdk');
   });
 });

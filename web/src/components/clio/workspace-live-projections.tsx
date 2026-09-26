@@ -129,21 +129,21 @@ export function WorkspaceLiveObservabilityView({
 
 type LiveStatusStripProps = Omit<
   ComponentProps<typeof WorkspaceStatusStrip>,
-  'cost' | 'cursor' | 'inputTokens' | 'stream'
+  'cost' | 'cursor' | 'tokens' | 'stream'
 > & { sessionId: string };
 
 export function WorkspaceLiveStatusStrip({ sessionId, ...props }: LiveStatusStripProps) {
-  const cost = useLiveStore((state) => state.entities.usage[sessionId]?.cost_usd);
+  const usage = useLiveStore((state) => state.entities.usage[sessionId]);
   const cursor = useLiveStore((state) => state.entities.cursor);
-  const inputTokens = useLiveStore((state) => state.entities.usage[sessionId]?.input_tokens);
   const stream = useLiveStore((state) => state.entities.stream);
+  const tokens = usage === undefined ? undefined : usage.input_tokens + usage.output_tokens;
   return (
     <WorkspaceStatusStrip
       {...props}
-      cost={cost}
+      cost={usage?.cost_usd}
       cursor={cursor}
-      inputTokens={inputTokens}
       stream={stream}
+      tokens={tokens}
     />
   );
 }

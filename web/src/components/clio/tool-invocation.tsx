@@ -1,5 +1,6 @@
 import type { ToolInvocation, WorkspaceResource } from '@clio/core/v3';
-import { InfoIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
+import { WorkflowIcon, WrenchIcon } from 'lucide-react';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import { useContext } from 'react';
 import { ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { Button } from '@/components/ui/button';

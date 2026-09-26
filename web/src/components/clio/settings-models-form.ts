@@ -16,54 +16,7 @@ import { knownReasoningEffort } from '@/lib/reasoning-levels';
  *     reasoning level, the token cap, or the local runtime's sizing.
  */
 
-import type { LanguageModelConfiguration, LanguageModelPreset, ProviderModel } from '@clio/core/v3';
-
-/** Keep configured models visible, but never promote unverified candidates. */
-export function modelSettingsOptions({
-  catalog,
-  configuration,
-  modelId,
-  preset,
-}: {
-  catalog: readonly ProviderModel[];
-  configuration: LanguageModelConfiguration;
-  modelId: string;
-  preset?: LanguageModelPreset;
-}): ProviderModel[] {
-  const subscription = preset && ['codex', 'claude_code'].includes(preset.provider);
-  const configured =
-    subscription &&
-    presetIsActive(configuration, preset) &&
-    modelId &&
-    !catalog.some((model) => model.id === modelId)
-      ? [{ id: modelId, name: modelId, availability: 'candidate' as const }]
-      : [];
-  if (catalog.length || subscription) return [...configured, ...catalog];
-  return [...new Set([modelId, preset?.suggested_model].filter(Boolean))].map((id) => ({
-    id: id as string,
-    name: id as string,
-  }));
-}
-
-/** Only verified subscription providers and complete credentials can be applied. */
-export function canApplyProvider(
-  preset: LanguageModelPreset | undefined,
-  values: ModelSettingsValues,
-  storedCredential?: string,
-): boolean {
-  if (!preset) return false;
-  if (
-    preset.configuration_fields?.some(
-      (field) => field.required && !values.providerOptions[field.id]?.trim(),
-    )
-  )
-    return false;
-  return Boolean(
-    preset.is_authenticated ||
-      (preset.requires_api_key && (values.apiKey || storedCredential)) ||
-      (preset.auth_method === 'none' && !['codex', 'claude_code'].includes(preset.provider)),
-  );
-}
+import type { LanguageModelConfiguration, LanguageModelPreset } from '@clio/core/v3';
 
 export type { ReasoningEffort } from '@clio/core/v3';
 
@@ -95,7 +48,6 @@ export function providerSupportsRuntimeSizing(preset?: LanguageModelPreset): boo
  */
 export interface ModelSettingsValues {
   apiBase: string;
-  apiKey: string;
   contextLength: string;
   effort: ReasoningEffort | '';
   maxTokens: string;
@@ -119,18 +71,25 @@ export interface ModelSettingsUpdate {
   context_length?: number;
   max_tokens?: number;
   temperature?: number;
+  /** The transport a multi-transport provider binds (the chosen model row's own). */
+  variant?: string;
 }
 
-/** The preset the service's configuration is currently pointed at, if any. */
+/**
+ * The preset the service's configuration is currently pointed at, if any.
+ *
+ * Matches `configuration.provider_id` only. `configuration.provider` is the
+ * wire KIND (LiteLLM dialect) nine presets share (bedrock, llama_cpp,
+ * azure_openai, ...), so matching on it -- as a primary key or a fallback --
+ * silently resolved to the WRONG preset (#1418).
+ */
 export function resolveActivePreset(
   configuration: LanguageModelConfiguration,
 ): LanguageModelPreset | undefined {
-  return (
-    configuration.presets.find(
-      (preset) =>
-        (preset.id === configuration.provider_id || preset.provider === configuration.provider) &&
-        (!preset.api_base || preset.api_base === configuration.api_base),
-    ) ?? configuration.presets.find((preset) => preset.id === configuration.provider)
+  return configuration.presets.find(
+    (preset) =>
+      preset.id === configuration.provider_id &&
+      (!preset.api_base || preset.api_base === configuration.api_base),
   );
 }
 
@@ -140,9 +99,7 @@ export function presetIsActive(
   preset?: LanguageModelPreset,
 ): boolean {
   const active = resolveActivePreset(configuration);
-  return Boolean(
-    preset && (preset.id === active?.id || (!active && preset.id === configuration.provider)),
-  );
+  return Boolean(preset && preset.id === active?.id);
 }
 
 /** Fills the form from the service's live configuration for one preset. */
@@ -157,9 +114,6 @@ export function seedModelSettings({
 }): ModelSettingsValues {
   return {
     apiBase: presetIsActive ? configuration.api_base : (preset?.api_base ?? ''),
-    // Never read back from the service by design, so it always starts empty and
-    // an empty field keeps the stored credential.
-    apiKey: '',
     // The service reports neither the parallel slot count nor the context
     // length in its configuration, so there is nothing to seed them from. Empty
     // means "leave the runtime's own sizing alone", which is what omitting them
@@ -175,7 +129,10 @@ export function seedModelSettings({
     modelId: presetIsActive ? configuration.model : (preset?.suggested_model ?? ''),
     parallel: '',
     providerOptions: presetIsActive ? (configuration.provider_options ?? {}) : {},
-    temperature: numberField(configuration.temperature),
+    // The service echoes 0 when no temperature was ever set (its own default,
+    // not a choice), so 0 reads as "Provider default": the field stays blank
+    // and an Apply never writes it back.
+    temperature: configuration.temperature ? numberField(configuration.temperature) : '',
   };
 }
 
@@ -204,7 +161,6 @@ export function modelSettingsUpdate({
     model: values.modelId,
     provider_options: values.providerOptions,
   };
-  if (values.apiKey) update.api_key = values.apiKey;
   if (values.effort !== seeded.effort) update.thinking_level = values.effort || null;
   const parallel = changedNumber(values.parallel, seeded.parallel, { minimum: 0, integer: true });
   if (parallel !== undefined) update.parallel = parallel;

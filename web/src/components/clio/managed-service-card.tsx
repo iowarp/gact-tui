@@ -2,6 +2,7 @@ import type { ManagedServiceDefinition, ServiceActionInput } from '@clio/core/v3
 import { ExternalLinkIcon, TriangleAlertIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
+import { ExternalLink } from '@/components/ui/external-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -120,14 +121,12 @@ export function ManagedServiceCard({
               </p>
             ))}
             {incompatibilityReasons.some((reason) => reason.includes('Docker')) ? (
-              <a
+              <ExternalLink
                 className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                 href="https://docs.docker.com/desktop/"
-                rel="noreferrer"
-                target="_blank"
               >
                 Docker Desktop guide <ExternalLinkIcon aria-hidden="true" className="size-3" />
-              </a>
+              </ExternalLink>
             ) : null}
           </div>
         ) : null}

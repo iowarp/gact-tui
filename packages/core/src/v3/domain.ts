@@ -5,6 +5,7 @@ import type { ProviderState } from './provider-domain.js';
 import type { A2UI_VERSION } from './protocol-versions.js';
 import type { ToolPresentation } from './tool-presentation-domain.js';
 import type { CapabilityNegotiation } from './capability-domain.js';
+import type { UsageSnapshot } from './usage-domain.js';
 
 export type { ToolPresentation, ToolPresentationBlock } from './tool-presentation-domain.js';
 
@@ -93,6 +94,13 @@ export interface Session {
   updated_at: string;
   last_interaction_at?: string;
   message_count?: number;
+  /** Cumulative rollup, absent until the session has exchanged a message. */
+  tokens_input?: number;
+  tokens_output?: number;
+  /** Null when no turn ever reported a real cost -- distinct from a
+   * provider-confirmed free ($0) turn, and distinct from the field being
+   * absent entirely (no turn has run at all). */
+  cost_usd?: number | null;
   provider_id?: string;
   model_id?: string;
   effort?: string;
@@ -376,15 +384,6 @@ export interface ArtifactLineage {
   nodes: ArtifactLineageNode[];
   edges: ArtifactLineageEdge[];
   truncated?: { reason: string; nodes?: number; at_depth?: number };
-}
-
-export interface UsageSnapshot {
-  session_id: string;
-  input_tokens?: number;
-  output_tokens?: number;
-  cached_tokens?: number;
-  cost_usd?: number;
-  provenance: Provenance;
 }
 
 export interface ContextSnapshot {

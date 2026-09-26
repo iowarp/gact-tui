@@ -24,6 +24,7 @@ import {
   ResourceStructureResult,
 } from './tool-result-resource-memory';
 import { isProvenanceBlock } from './tool-result-shared';
+import { WorkspaceFilePresentationBlock } from './tool-result-workspace-file';
 
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation({
@@ -216,6 +217,9 @@ export function ToolResultPresentation({
         const running = block.type === 'terminal' && tool.state === 'running';
         if (block.type === 'link') {
           return <PresentationLink key={block.id} block={block} />;
+        }
+        if (block.type === 'workspace_file') {
+          return <WorkspaceFilePresentationBlock block={block} key={block.id} />;
         }
         if (block.type === 'item') {
           if (block.target === 'work') {

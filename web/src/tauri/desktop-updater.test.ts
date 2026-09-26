@@ -248,3 +248,4 @@ describe('background update scheduling', () => {
     }
   });
 });
+

@@ -13,6 +13,7 @@ import {
   REASONING_EFFORT_LABELS,
   type ModelReasoningLevels,
 } from '@/lib/reasoning-levels';
+import { InfoTip } from './info-tip';
 
 const MODEL_DEFAULT = '__model_default__';
 
@@ -24,13 +25,16 @@ const MODEL_DEFAULT = '__model_default__';
 export function ReasoningLevelField({
   allowModelDefault = false,
   description,
+  info,
   id,
   onChange,
   reasoning,
   value,
 }: {
   allowModelDefault?: boolean;
-  description: ReactNode;
+  description?: ReactNode;
+  /** Explanation behind an info icon beside the label (instead of a description). */
+  info?: string;
   id: string;
   onChange: (value: ReasoningEffort | undefined) => void;
   reasoning: ModelReasoningLevels | undefined;
@@ -42,7 +46,10 @@ export function ReasoningLevelField({
   const selected = value && levels.includes(value as ReasoningEffort) ? value : undefined;
   return (
     <Field>
-      <FieldLabel htmlFor={id}>Reasoning effort</FieldLabel>
+      <div className="flex items-center gap-1.5">
+        <FieldLabel htmlFor={id}>Reasoning effort</FieldLabel>
+        {info ? <InfoTip label="About reasoning effort">{info}</InfoTip> : null}
+      </div>
       <Select
         onValueChange={(next) =>
           onChange(next === MODEL_DEFAULT ? undefined : levels.find((level) => level === next))
@@ -61,7 +68,7 @@ export function ReasoningLevelField({
           ))}
         </SelectContent>
       </Select>
-      <FieldDescription>{description}</FieldDescription>
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
     </Field>
   );
 }

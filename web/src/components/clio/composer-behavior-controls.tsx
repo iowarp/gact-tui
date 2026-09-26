@@ -1,5 +1,6 @@
 import type { MessageBehavior, ReasoningEffort } from '@clio/core/v3';
-import { CircleHelpIcon, SlidersHorizontalIcon, type LucideIcon } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
+import { AdjustIcon, HelpIcon } from '@/lib/icon-vocabulary';
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
@@ -66,8 +67,8 @@ export function ClioComposerBehaviorControls({
       : defaultEffortLabel;
   const modeLabel = selectedMode?.label ?? unknownLabel(behavior.execution_mode);
   const approvalLabel = selectedApproval?.label ?? unknownLabel(behavior.confirmation_policy);
-  const ModeIcon: LucideIcon = selectedMode?.icon ?? CircleHelpIcon;
-  const ApprovalIcon: LucideIcon = selectedApproval?.icon ?? CircleHelpIcon;
+  const ModeIcon: LucideIcon = selectedMode?.icon ?? HelpIcon;
+  const ApprovalIcon: LucideIcon = selectedApproval?.icon ?? HelpIcon;
 
   return (
     <ButtonGroup
@@ -90,7 +91,7 @@ export function ClioComposerBehaviorControls({
               type="button"
               variant="outline"
             >
-              <SlidersHorizontalIcon />
+              <AdjustIcon />
               <span className={unknownEffort ? 'hidden lg:inline' : 'hidden capitalize lg:inline'}>
                 {effortLabel}
               </span>

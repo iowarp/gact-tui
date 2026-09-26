@@ -7,14 +7,8 @@ import type {
   ManagedServiceDefinition,
 } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import {
-  CpuIcon,
-  LaptopIcon,
-  PackageOpenIcon,
-  RefreshCwIcon,
-  ServerIcon,
-  ChevronDownIcon,
-} from 'lucide-react';
+import { ChevronDownIcon, CpuIcon, LaptopIcon, PackageOpenIcon, ServerIcon } from 'lucide-react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -46,6 +40,7 @@ import { SshHostPicker } from './ssh-host-picker';
 import {
   attachInfrastructureSshTransport,
   sshTransportStatus,
+  type SshStateEvent,
   type SshTransportStatus,
 } from '@/tauri/ssh-infrastructure-transport';
 import {
@@ -88,7 +83,6 @@ export function ManagedServices({
   const [targetId, setTargetId] = useState('local');
   const [sshHost, setSshHost] = useState<SshHost>();
   const [transportStatus, setTransportStatus] = useState<SshTransportStatus>();
-  const [transportOutput, setTransportOutput] = useState('');
   const [managedProvidersEnabled, setManagedProvidersEnabled] = useState(false);
   const [managerOpen, setManagerOpen] = useState(true);
   const [selectedProvider, setSelectedProvider] = useState('');
@@ -133,14 +127,12 @@ export function ManagedServices({
     },
     onSuccess: async (registered) => {
       setTargetId(registered.id);
-      setTransportOutput('');
       const status = await attachInfrastructureSshTransport(
         settings.endpoint,
         settings.token,
         registered,
       );
       setTransportStatus(status);
-      setTransportOutput(status.output);
       await repository.setInfrastructureTransportState(registered.id, status.state);
       await targets.refetch();
     },
@@ -152,43 +144,28 @@ export function ManagedServices({
     const cleanup: Array<() => void> = [];
     void import('@tauri-apps/api/event').then(async ({ listen }) => {
       cleanup.push(
-        await listen<{ session_id: string; data: string }>(
-          'clio:ssh-transport-data',
-          ({ payload }) => {
-            if (!active || payload.session_id !== transportSessionId) return;
-            setTransportOutput((current) => `${current}${payload.data}`.slice(-32_000));
-          },
-        ),
-      );
-      cleanup.push(
-        await listen<{ session_id: string; state: SshTransportStatus['state'] }>(
-          'clio:ssh-transport-state',
-          ({ payload }) => {
-            if (!active || payload.session_id !== transportSessionId) return;
-            setTransportStatus((current) =>
-              current ? { ...current, state: payload.state } : current,
-            );
-            void repository.setInfrastructureTransportState(targetId, payload.state);
-            if (payload.state === 'connected') {
-              void repository.infrastructureTargets().then(async (rows) => {
-                const current = rows.find((row) => row.id === targetId);
-                if (!current) return;
-                const status = await attachInfrastructureSshTransport(
-                  settings.endpoint,
-                  settings.token,
-                  current,
-                );
-                if (active) setTransportStatus(status);
-              });
-            }
-          },
-        ),
+        await listen<SshStateEvent>('clio:ssh-transport-state', ({ payload }) => {
+          if (!active || payload.session_id !== transportSessionId) return;
+          setTransportStatus((current) =>
+            current ? { ...current, state: payload.state, prompt: payload.prompt } : current,
+          );
+          void repository.setInfrastructureTransportState(targetId, payload.state);
+          if (payload.state === 'connected') {
+            void repository.infrastructureTargets().then(async (rows) => {
+              const current = rows.find((row) => row.id === targetId);
+              if (!current) return;
+              const status = await attachInfrastructureSshTransport(
+                settings.endpoint,
+                settings.token,
+                current,
+              );
+              if (active) setTransportStatus(status);
+            });
+          }
+        }),
       );
       const snapshot = await sshTransportStatus(transportSessionId);
-      if (active) {
-        setTransportStatus(snapshot);
-        setTransportOutput(snapshot.output);
-      }
+      if (active) setTransportStatus(snapshot);
     });
     return () => {
       active = false;
@@ -398,7 +375,7 @@ export function ManagedServices({
                     size="sm"
                     variant="ghost"
                   >
-                    {catalog.isFetching ? <Spinner aria-hidden="true" /> : <RefreshCwIcon />}
+                    {catalog.isFetching ? <Spinner aria-hidden="true" /> : <RefreshIcon />}
                     Inspect again
                   </Button>
                 </div>
@@ -486,14 +463,10 @@ export function ManagedServices({
                           ) : null}
                         </div>
                       ) : null}
-                      {transportStatus &&
-                      ['reauthentication_required', 'reconnecting'].includes(
-                        transportStatus.state,
-                      ) ? (
+                      {transportStatus?.prompt && transportStatus.state !== 'connected' ? (
                         <SshAuthentication
-                          output={transportOutput}
+                          prompt={transportStatus.prompt}
                           sessionId={transportStatus.session_id}
-                          state={transportStatus.state}
                         />
                       ) : null}
                     </Field>
@@ -554,7 +527,7 @@ export function ManagedServices({
                       Leave this off when you already use Codex, Claude, or another configured
                       provider. Those connections live in{' '}
                       <Link className="text-primary hover:underline" to="/settings/providers">
-                        Models
+                        Providers
                       </Link>
                       .
                     </p>

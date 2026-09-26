@@ -68,11 +68,22 @@ interface InstallFailure {
 /** Update the desktop-owned CLIO runtime and resolve only after verification succeeds. */
 export async function updateManagedClio(
   targetVersion: string,
-  options: { restartApp: boolean },
+  options: {
+    restartApp: boolean;
+    /**
+     * Forwards every `clio:install-progress` line the Rust installer streams
+     * (see `supervisor_installer.rs::stream_lines`) — the real signal for
+     * this path, since a pip-based agent install has no byte count to show a
+     * percentage from. Optional so callers that only need the settled
+     * outcome (existing behavior) are unaffected.
+     */
+    onProgress?: (line: string) => void;
+  },
 ): Promise<void> {
   const { listen } = await import('@tauri-apps/api/event');
   let removeDone: (() => void) | undefined;
   let removeFailed: (() => void) | undefined;
+  let removeProgress: (() => void) | undefined;
   let resolveUpdate!: () => void;
   let rejectUpdate!: (error: Error) => void;
   const completed = new Promise<void>((resolve, reject) => {
@@ -84,6 +95,12 @@ export async function updateManagedClio(
     removeFailed = await listen<InstallFailure>('clio:install-failed', (event) => {
       rejectUpdate(new Error(event.payload.tail || `${vocab.agent} update failed.`));
     });
+    if (options.onProgress) {
+      const onProgress = options.onProgress;
+      removeProgress = await listen<{ line: string }>('clio:install-progress', (event) => {
+        onProgress(event.payload.line);
+      });
+    }
     await invokeManagedBackend<void>('update_clio', {
       targetVersion,
       restartApp: options.restartApp,
@@ -92,6 +109,7 @@ export async function updateManagedClio(
   } finally {
     removeDone?.();
     removeFailed?.();
+    removeProgress?.();
   }
 }
 

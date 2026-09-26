@@ -1,15 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query-keys';
 import { useLiveStore } from '@/store/live-store';
+import { catalog, catalogEntry, codexCatalog } from '@/test-fixtures/provider-catalog';
 import { ModelsSettings } from './settings-models';
 
-const { codexCatalog, configuration, repository } = vi.hoisted(() => {
+const { configuration, repository } = vi.hoisted(() => {
   const configuration = {
     configured: true,
+    provider_id: 'codex',
     provider: 'codex',
     api_base: '',
     model: 'gpt-5.6-luna',
@@ -28,31 +30,7 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       },
     ],
   };
-  return { codexCatalog, configuration, repository: makeRepository(configuration) };
-
-  /** The live catalog: gpt-5.6-luna reports its own reasoning levels. */
-  function codexCatalog() {
-    return {
-      authoritative: 'live_handshake',
-      providers: [
-        {
-          id: 'codex',
-          name: 'OpenAI Codex',
-          models: [
-            {
-              model_id: 'gpt-5.6-luna',
-              reasoning: {
-                supported: true,
-                parameter: '',
-                levels: ['low', 'medium', 'high', 'xhigh'],
-                default: 'medium',
-              },
-            },
-          ],
-        },
-      ],
-    };
-  }
+  return { configuration, repository: makeRepository(configuration) };
 
   function makeRepository(active: typeof configuration) {
     return {
@@ -69,13 +47,13 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       providerModels: vi.fn().mockResolvedValue({
         provider_id: 'codex',
         models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-        source: 'codex_app_server',
+        source: 'codex_catalog',
       }),
       refreshProviderModels: vi.fn().mockResolvedValue([
         {
           provider: 'codex',
           discovered: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-          source: 'codex_app_server',
+          source: 'codex_catalog',
           default_model: 'gpt-5.6-luna',
           generated_at: '2026-08-23T05:00:00Z',
           added: [],
@@ -86,7 +64,7 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       ]),
       providerHandshake: vi.fn().mockResolvedValue({
         models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-        source: 'codex_app_server',
+        source: 'codex_catalog',
         connectivity: 'ok',
         auth: 'ok',
         latency_ms: 18.4,
@@ -99,8 +77,12 @@ const { codexCatalog, configuration, repository } = vi.hoisted(() => {
       }),
       authenticateProvider: vi.fn(),
       completeProviderAuthentication: vi.fn(),
+      providerAuthStatus: vi.fn().mockResolvedValue({ state: 'pending', reason: '' }),
+      logoutProvider: vi.fn().mockResolvedValue({ is_authenticated: false, instructions: 'Signed out.' }),
       updateLanguageModelConfiguration: vi.fn(),
-      providerCatalog: vi.fn().mockResolvedValue(codexCatalog()),
+      saveProviderApiKey: vi.fn(),
+      clearProviderApiKey: vi.fn(),
+      providerCatalog: vi.fn(),
     };
   }
 });
@@ -110,6 +92,10 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
 }));
 
+beforeEach(() => {
+  repository.providerCatalog.mockResolvedValue(codexCatalog());
+});
+
 afterEach(() => {
   cleanup();
   useLiveStore.getState().reset();
@@ -118,328 +104,185 @@ afterEach(() => {
   repository.providerModels.mockReset().mockResolvedValue({
     provider_id: 'codex',
     models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-    source: 'codex_app_server',
+    source: 'codex_catalog',
   });
   repository.updateLanguageModelConfiguration.mockReset();
   repository.providerCatalog.mockReset().mockResolvedValue(codexCatalog());
 });
 
+function renderModels(queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+  render(
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <ModelsSettings />
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+  return queryClient;
+}
+
+/** Every label a stacked form row would carry: none may appear on the main view. */
+const TECHNICAL_WORDS = /Endpoint|Configuration|Credentials|Catalog|Handshake|Probe|Parallel/iu;
+
 describe('ModelsSettings', () => {
-  it('offers Claude Code installation instead of claiming the provider is ready', async () => {
-    repository.languageModelConfiguration.mockResolvedValueOnce({
-      configured: false,
-      provider: '',
-      api_base: '',
-      model: '',
-      thinking_level: 'medium',
-      presets: [
-        {
-          id: 'claude_code',
-          label: 'Claude Code',
-          provider: 'claude_code',
-          api_base: 'claude-code://sdk',
-          suggested_model: '',
-          requires_api_key: false,
-          auth_method: 'subscription',
-          is_authenticated: false,
-          status: 'install_required',
-          status_message: 'Claude Code support is not installed on the connected agent.',
-          supports_live_catalog: false,
-          supports_vision: true,
-        },
-      ],
-    });
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    const user = userEvent.setup();
-    render(
-      <MemoryRouter initialEntries={['/settings/providers?provider=claude_code']}>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
+  it('shows the default model as one card: name, provider, working state, capability tags', async () => {
+    renderModels();
 
-    const install = await screen.findByRole('button', { name: 'Install Claude Code' });
-    expect(screen.getByRole('button', { name: 'Apply provider and model' })).toBeDisabled();
-    expect(screen.getAllByText('Install needed')).not.toHaveLength(0);
-    await user.click(install);
-    await waitFor(() =>
-      expect(repository.installProviderSupport).toHaveBeenCalledWith('claude_code'),
-    );
-    expect(repository.providerHandshake).toHaveBeenCalledWith('claude_code', {
-      apiBase: 'claude-code://sdk',
-      refresh: true,
-    });
+    expect(await screen.findByText('gpt-5.6-luna', { selector: '[data-slot="default-model-name"]' })).toBeVisible();
+    const panel = document.querySelector('[data-slot="default-model-card"]') as HTMLElement;
+    expect(within(panel).getByText('Codex')).toBeVisible();
+    expect(await within(panel).findByText('Working')).toBeVisible();
+    expect(await within(panel).findByText('Reasoning')).toBeVisible();
+    expect(within(panel).getByRole('button', { name: 'Change' })).toBeVisible();
+    // No stacked form rows on the main view: no selects, no endpoint, no temperature.
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.queryByText(TECHNICAL_WORDS)).toBeNull();
+    expect(screen.queryByText('Temperature')).toBeNull();
   });
 
-  it('does not allow unverified Codex credentials to be applied', async () => {
-    repository.languageModelConfiguration.mockResolvedValueOnce({
-      configured: false,
-      provider: '',
-      api_base: '',
-      model: '',
-      thinking_level: 'medium',
-      presets: [
-        {
-          id: 'codex',
-          label: 'Codex',
-          provider: 'codex',
-          api_base: 'codex://sdk',
-          suggested_model: '',
-          requires_api_key: false,
-          auth_method: 'subscription',
-          is_authenticated: false,
-          status: 'auth_check_required',
-          status_message: 'Codex credentials are present but have not been validated',
-          supports_live_catalog: false,
-          supports_vision: true,
-        },
-      ],
-    });
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <MemoryRouter initialEntries={['/settings/providers?provider=codex']}>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
+  it('offers the thinking level as a segmented control over exactly the reported levels', async () => {
+    renderModels();
 
-    expect(await screen.findByRole('button', { name: 'Apply provider and model' })).toBeDisabled();
-    expect(screen.getAllByText('Not checked')).not.toHaveLength(0);
-  });
-
-  it('preserves the authoritative configured model when opened for its provider', async () => {
-    repository.languageModelConfiguration.mockResolvedValueOnce({
-      configured: true,
-      provider: 'codex',
-      api_base: 'codex://app-server',
-      model: 'gpt-5.6-luna',
-      thinking_level: 'medium',
-      presets: [
-        {
-          id: 'codex',
-          label: 'Codex',
-          provider: 'codex',
-          api_base: 'codex://app-server',
-          suggested_model: 'gpt-5.5',
-          requires_api_key: false,
-          is_authenticated: true,
-          supports_live_catalog: true,
-          supports_vision: true,
-        },
-      ],
-    });
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <MemoryRouter initialEntries={['/settings/providers?provider=codex']}>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-
-    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
-      'gpt-5.6-luna',
-    );
-    expect(screen.getByRole('textbox', { name: 'Endpoint / API base' })).toHaveValue(
-      'codex://app-server',
-    );
-  });
-
-  it('refreshes the selected service catalog and reports its provenance and delta', async () => {
-    const user = userEvent.setup();
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-
-    expect(await screen.findByRole('combobox', { name: 'Reasoning effort' })).toHaveTextContent(
+    await screen.findByRole('radio', { name: 'High' });
+    const group = document.querySelector('[data-slot="reasoning-level"]') as HTMLElement;
+    expect(group).toHaveAccessibleName('Thinking');
+    expect(within(group).getAllByRole('radio').map((item) => item.textContent)).toEqual([
+      'Default',
+      'Low',
       'Medium',
-    );
-    await user.click(await screen.findByRole('button', { name: 'Refresh model catalog' }));
-    await waitFor(() => expect(repository.refreshProviderModels).toHaveBeenCalledWith(['codex']));
-    expect(await screen.findByText('Catalog refreshed')).toBeVisible();
-    expect(screen.getByText(/1 available model, 0 added, 0 removed/)).toBeVisible();
-    expect(screen.getByText(/Checked .* by the connected agent/)).toBeVisible();
-    expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
+      'High',
+      'Extra high',
+    ]);
   });
 
-  it('does not let an unverified catalog candidate become an applied model', async () => {
-    repository.providerModels.mockResolvedValueOnce({
-      provider_id: 'codex',
-      models: [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna', availability: 'candidate' }],
-      source: 'github_catalog',
+  it('applies a thinking level as soon as it is chosen, writing only the level', async () => {
+    repository.updateLanguageModelConfiguration.mockResolvedValueOnce({
+      ...configuration,
+      thinking_level: 'high',
+      thinking_level_source: 'user',
     });
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
+    const user = userEvent.setup();
+    renderModels();
 
-    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
-      'gpt-5.6-luna',
+    await user.click(await screen.findByRole('radio', { name: 'High' }));
+
+    await waitFor(() =>
+      expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith({
+        provider: 'codex',
+        provider_id: 'codex',
+        provider_options: {},
+        api_base: '',
+        model: 'gpt-5.6-luna',
+        thinking_level: 'high',
+      }),
     );
-    expect(screen.getByRole('button', { name: 'Apply provider and model' })).toBeDisabled();
   });
 
-  it('completes ALCF login in-app without asking for a terminal command', async () => {
-    const alcfConfiguration = {
-      configured: false,
-      provider: 'argonne',
-      api_base: 'https://inference-api.alcf.anl.gov/resource_server/metis/api/v1',
-      model: 'gpt-oss-120b',
+  it('shows no thinking control for a model that reports no levels', async () => {
+    repository.providerCatalog.mockResolvedValue({
+      authoritative: 'live_handshake',
+      providers: [
+        catalogEntry('codex', [
+          { model_id: 'gpt-5.6-luna', reasoning: { supported: false, parameter: '', levels: [] } },
+        ]),
+      ],
+    });
+    renderModels();
+
+    expect(await screen.findByRole('button', { name: 'Change' })).toBeVisible();
+    await waitFor(() => expect(repository.providerCatalog).toHaveBeenCalled());
+    expect(document.querySelector('[data-slot="reasoning-level"]')).toBeNull();
+  });
+
+  it('keeps the rare response settings behind a quiet disclosure; temperature starts blank', async () => {
+    repository.languageModelConfiguration.mockResolvedValue({ ...configuration, temperature: 0 });
+    const user = userEvent.setup();
+    renderModels();
+
+    const disclosure = await screen.findByRole('button', { name: 'Response settings' });
+    expect(screen.queryByLabelText('Temperature')).toBeNull();
+    await user.click(disclosure);
+
+    const temperature = await screen.findByRole('textbox', { name: 'Temperature' });
+    expect(temperature).toHaveValue('');
+    expect(temperature).toHaveAttribute('placeholder', 'Provider default');
+    // A hosted provider has no local sizing or address.
+    expect(screen.queryByLabelText('Server address')).toBeNull();
+    expect(screen.queryByLabelText('Replies at once')).toBeNull();
+  });
+
+  it('never writes a response setting the person did not change', async () => {
+    repository.updateLanguageModelConfiguration.mockResolvedValueOnce(configuration);
+    const user = userEvent.setup();
+    renderModels();
+
+    await user.click(await screen.findByRole('button', { name: 'Response settings' }));
+    const temperature = await screen.findByRole('textbox', { name: 'Temperature' });
+    await user.type(temperature, '0.4');
+    await user.tab();
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(repository.updateLanguageModelConfiguration).toHaveBeenCalled());
+    const payload = repository.updateLanguageModelConfiguration.mock.calls[0]?.[0];
+    expect(payload).toMatchObject({ temperature: 0.4 });
+    expect(payload).not.toHaveProperty('max_tokens');
+    expect(payload).not.toHaveProperty('thinking_level');
+  });
+
+  it('a local runtime also gets its sizing and address in the disclosure', async () => {
+    repository.languageModelConfiguration.mockResolvedValue({
+      ...configuration,
+      provider_id: 'vllm',
+      provider: 'openai',
+      api_base: 'http://127.0.0.1:8000/v1',
+      model: 'qwen',
       presets: [
+        ...configuration.presets,
         {
-          id: 'argonne_metis',
-          label: 'ALCF Metis',
-          provider: 'argonne',
-          api_base: 'https://inference-api.alcf.anl.gov/resource_server/metis/api/v1',
-          suggested_model: 'gpt-oss-120b',
+          id: 'vllm',
+          label: 'vLLM',
+          provider: 'openai',
+          provider_id: 'vllm',
+          api_base: 'http://127.0.0.1:8000/v1',
+          suggested_model: 'qwen',
           requires_api_key: false,
-          is_authenticated: false,
-          auth_method: 'oauth',
-          auth_label: 'Globus Auth',
-          status: 'auth_required',
+          auth_method: 'none',
+          is_authenticated: true,
           supports_live_catalog: true,
           supports_vision: false,
         },
       ],
-    };
-    repository.languageModelConfiguration.mockResolvedValueOnce(alcfConfiguration);
-    repository.languageModelConfiguration.mockResolvedValueOnce({
-      ...alcfConfiguration,
-      presets: alcfConfiguration.presets.map((preset) => ({
+    });
+    const user = userEvent.setup();
+    renderModels();
+
+    await user.click(await screen.findByRole('button', { name: 'Response settings' }));
+    expect(await screen.findByLabelText('Server address')).toHaveValue('http://127.0.0.1:8000/v1');
+    expect(screen.getByRole('textbox', { name: 'Replies at once' })).toBeVisible();
+  });
+
+  it('a provider that needs setup reads so on the card, and Change is where it is fixed', async () => {
+    repository.providerCatalog.mockResolvedValue({ authoritative: 'live_handshake', providers: [] });
+    repository.languageModelConfiguration.mockResolvedValue({
+      ...configuration,
+      presets: configuration.presets.map((preset) => ({
         ...preset,
-        is_authenticated: true,
-        status: 'ready',
+        is_authenticated: false,
+        status: 'auth_required',
       })),
     });
-    repository.authenticateProvider.mockResolvedValueOnce({
-      provider_id: 'argonne_metis',
-      is_authenticated: false,
-      instructions: 'Continue in Globus, then paste the authorization code here.',
-      authorization_url: 'https://auth.globus.org/v2/oauth2/authorize?state=test',
-      flow_id: 'flow-123',
-    });
-    repository.completeProviderAuthentication.mockResolvedValueOnce({
-      provider_id: 'argonne_metis',
-      is_authenticated: true,
-      instructions: 'ALCF sign-in complete. Available models are refreshing.',
-    });
-    const open = vi.spyOn(window, 'open').mockImplementation(() => window);
-    const user = userEvent.setup();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <MemoryRouter initialEntries={['/settings/providers?provider=argonne_metis']}>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
+    renderModels();
 
-    // The sign-in service is detail beside the action, never part of the name.
-    expect(await screen.findByText('Uses Globus Auth')).toBeVisible();
-    await user.click(await screen.findByRole('button', { name: 'Sign in to ALCF Metis' }));
-
-    await waitFor(() =>
-      expect(repository.authenticateProvider).toHaveBeenCalledWith('argonne_metis', {
-        force: true,
-      }),
-    );
-    expect(open).toHaveBeenCalledWith(
-      'https://auth.globus.org/v2/oauth2/authorize?state=test',
-      '_blank',
-      'noopener,noreferrer',
-    );
-    expect(await screen.findByLabelText('Complete ALCF sign-in')).toBeVisible();
-    await user.type(screen.getByLabelText('Authorization code'), 'globus-code');
-    await user.click(screen.getByRole('button', { name: 'Complete sign-in' }));
-    await waitFor(() =>
-      expect(repository.completeProviderAuthentication).toHaveBeenCalledWith('argonne_metis', {
-        flowId: 'flow-123',
-        authorizationCode: 'globus-code',
-      }),
-    );
-    expect(await screen.findByText(/ALCF sign-in complete/)).toBeVisible();
-    expect(screen.queryByText(/interactive terminal|python -m/i)).not.toBeInTheDocument();
-    // The service retired ALCF's catalog entry; the panel re-reads exactly that
-    // provider live and hands the result to every open model picker.
-    await waitFor(() =>
-      expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'argonne_metis'),
-    );
+    const card = (await screen.findByRole('button', { name: 'Change' })).closest(
+      '[data-slot="default-model-card"]',
+    ) as HTMLElement;
+    const status = card.querySelector('[data-slot="default-model-status"]');
+    await waitFor(() => expect(status).not.toHaveTextContent('Working'));
+    expect(status?.textContent).toMatch(/Unavailable|Needs sign-in/u);
+    expect(screen.queryByRole('link')).toBeNull();
   });
 
-  it('never writes a maximum token cap the service did not report', async () => {
-    const user = userEvent.setup();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-
-    await user.click(await screen.findByRole('button', { name: 'Apply provider and model' }));
-
-    await waitFor(() => expect(repository.updateLanguageModelConfiguration).toHaveBeenCalled());
-    const [payload] = repository.updateLanguageModelConfiguration.mock.calls[0];
-    expect(payload).not.toHaveProperty('max_tokens');
-    expect(screen.getByRole('spinbutton', { name: 'Maximum output tokens' })).toHaveValue(null);
-  });
-
-  it('applies a model choice without rewriting the runtime sizing or reasoning level', async () => {
-    repository.providerModels.mockResolvedValue({
-      provider_id: 'codex',
-      models: [
-        { id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' },
-        { id: 'gpt-5.6-nova', name: 'gpt-5.6-nova' },
-      ],
-      source: 'codex_app_server',
-    });
-    const user = userEvent.setup();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-
-    await user.click(await screen.findByRole('combobox', { name: 'Model' }));
-    await user.click(await screen.findByRole('option', { name: 'gpt-5.6-nova' }));
-    await user.click(screen.getByRole('button', { name: 'Apply provider and model' }));
-
-    await waitFor(() => expect(repository.updateLanguageModelConfiguration).toHaveBeenCalled());
-    expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith({
-      provider: 'codex',
-      provider_id: 'codex',
-      provider_options: {},
-      api_base: '',
-      model: 'gpt-5.6-nova',
-    });
-  });
-
-  it('retires stale session and provider catalog state after applying a model', async () => {
+  it('choosing a model in the picker applies it and retires stale session state', async () => {
     const endpoint = 'http://127.0.0.1:8787';
     const staleSession = {
       id: 'session-1',
@@ -457,218 +300,53 @@ describe('ModelsSettings', () => {
       pinned: false,
       archived: false,
     } as const;
-    const claudePreset = {
-      id: 'claude_code',
-      label: 'Claude Code',
-      provider: 'claude_code',
-      suggested_model: 'sonnet',
-      requires_api_key: false,
-      is_authenticated: true,
-      supports_live_catalog: true,
-      supports_vision: true,
-    };
-    const selectableConfiguration = {
+    repository.providerCatalog.mockResolvedValue(
+      catalog(
+        catalogEntry('codex', [{ model_id: 'gpt-5.6-luna' }, { model_id: 'gpt-5.6-sol' }]),
+      ),
+    );
+    repository.updateLanguageModelConfiguration.mockResolvedValueOnce({
       ...configuration,
-      presets: [...configuration.presets, claudePreset],
-    };
-    const nextConfiguration = {
-      ...selectableConfiguration,
-      provider: 'claude_code',
-      model: 'sonnet',
-    };
-    repository.languageModelConfiguration.mockResolvedValueOnce(selectableConfiguration);
-    repository.providerModels.mockImplementation(async (providerId: string) => ({
-      provider_id: providerId,
-      models:
-        providerId === 'claude_code'
-          ? [{ id: 'sonnet', name: 'Claude Sonnet' }]
-          : [{ id: 'gpt-5.6-luna', name: 'gpt-5.6-luna' }],
-      source: `${providerId}_catalog`,
-    }));
-    repository.updateLanguageModelConfiguration.mockResolvedValueOnce(nextConfiguration);
+      model: 'gpt-5.6-sol',
+    });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     queryClient.setQueryData(queryKeys.sessions(endpoint, 'workspace-1'), [staleSession]);
-    queryClient.setQueryData(queryKeys.providerCatalog(endpoint), {
-      authoritative: 'live_handshake',
-      providers: [],
-    });
     useLiveStore.getState().replaceSnapshots({ sessions: { [staleSession.id]: staleSession } });
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
+    renderModels(queryClient);
 
-    await user.click(await screen.findByRole('combobox', { name: 'Provider' }));
-    await user.click(await screen.findByRole('option', { name: 'Claude Code' }));
-    expect(await screen.findByRole('combobox', { name: 'Model' })).toHaveTextContent(
-      'Claude Sonnet',
-    );
-    const catalogReadsBeforeApply = repository.providerCatalog.mock.calls.length;
-    await user.click(screen.getByRole('button', { name: 'Apply provider and model' }));
+    await user.click(await screen.findByRole('button', { name: 'Change' }));
+    await user.click(await screen.findByRole('option', { name: /gpt-5\.6-sol/ }));
 
     await waitFor(() =>
-      expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith(
-        expect.objectContaining({ provider: 'claude_code', model: 'sonnet' }),
-      ),
-    );
-    const cachedSession = queryClient.getQueryData<(typeof staleSession)[]>(
-      queryKeys.sessions(endpoint, 'workspace-1'),
-    )?.[0];
-    expect(cachedSession?.provider_id).toBeUndefined();
-    expect(cachedSession?.model_id).toBeUndefined();
-    expect(useLiveStore.getState().entities.sessions[staleSession.id]?.provider_id).toBeUndefined();
-    expect(useLiveStore.getState().entities.sessions[staleSession.id]?.model_id).toBeUndefined();
-    // The panel itself watches the catalog, so retiring it re-reads it at once.
-    await waitFor(() =>
-      expect(repository.providerCatalog.mock.calls.length).toBeGreaterThan(catalogReadsBeforeApply),
-    );
-  });
-
-  it('adopts a configuration the service changed, until the person edits the panel', async () => {
-    const user = userEvent.setup();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-
-    const maxTokens = await screen.findByRole('spinbutton', { name: 'Maximum output tokens' });
-    expect(maxTokens).toHaveValue(null);
-
-    const configurationKey = queryKeys.key('language-model-configuration', 'http://127.0.0.1:8787');
-    act(() => {
-      queryClient.setQueryData(configurationKey, { ...configuration, max_tokens: 12_000 });
-    });
-    await waitFor(() => expect(maxTokens).toHaveValue(12_000));
-
-    await user.clear(maxTokens);
-    await user.type(maxTokens, '6000');
-    act(() => {
-      queryClient.setQueryData(configurationKey, {
-        ...configuration,
-        max_tokens: 20_000,
-        thinking_level: 'high',
-      });
-    });
-    // The section heading reads the service configuration directly, so it
-    // arriving there is the proof that the panel saw it and deliberately kept
-    // what the person is in the middle of setting.
-    expect(await screen.findByText('New sessions start with high reasoning.')).toBeVisible();
-    expect(maxTokens).toHaveValue(6_000);
-  });
-
-  it('offers only the reasoning levels the selected model reports', async () => {
-    const user = userEvent.setup();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-
-    await user.click(await screen.findByRole('combobox', { name: 'Reasoning effort' }));
-    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
-      'Model default (Medium)',
-      'Low',
-      'Medium',
-      'High',
-      'Extra high',
-    ]);
-  });
-
-  it('shows no reasoning selector for a model that reports no levels', async () => {
-    repository.providerCatalog.mockResolvedValue({
-      authoritative: 'live_handshake',
-      providers: [
-        {
-          id: 'codex',
-          name: 'OpenAI Codex',
-          models: [
-            {
-              model_id: 'gpt-5.6-luna',
-              reasoning: { supported: false, parameter: '', levels: [] },
-            },
-          ],
-        },
-      ],
-    });
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-
-    expect(await screen.findByRole('combobox', { name: 'Model' })).toBeVisible();
-    await waitFor(() => expect(repository.providerCatalog).toHaveBeenCalled());
-    expect(screen.queryByRole('combobox', { name: 'Reasoning effort' })).not.toBeInTheDocument();
-  });
-
-  it('checks provider connectivity without changing the selected model', async () => {
-    const user = userEvent.setup();
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
-
-    await user.click(await screen.findByRole('button', { name: 'Check provider' }));
-    await waitFor(() =>
-      expect(repository.providerHandshake).toHaveBeenCalledWith('codex', {
-        apiBase: '',
-        refresh: true,
+      expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith({
+        provider: 'codex',
+        provider_id: 'codex',
+        provider_options: {},
+        api_base: '',
+        model: 'gpt-5.6-sol',
       }),
     );
-    expect(await screen.findByText('Provider ready')).toBeVisible();
-    expect(screen.getByText(/Connection ok, sign-in ok, 1 model/)).toBeVisible();
-    expect(screen.getByText(/Checked .* in 18 ms/)).toBeVisible();
-    expect(screen.queryByText(/codex_app_server/)).not.toBeInTheDocument();
-    expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(useLiveStore.getState().entities.sessions[staleSession.id]?.model_id).toBeUndefined(),
+    );
   });
 
-  it('re-reads the checked provider catalog live and shares it with open pickers', async () => {
-    const catalog = {
-      authoritative: 'live_handshake',
-      providers: [{ id: 'codex', name: 'OpenAI Codex', models: [] }],
-    };
-    repository.providerCatalog.mockImplementation(async (refresh: boolean) =>
-      refresh ? catalog : codexCatalog(),
-    );
-    const user = userEvent.setup();
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={queryClient}>
-          <ModelsSettings />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
+  it('adopts a configuration the service changed', async () => {
+    const queryClient = renderModels();
+    expect(
+      await screen.findByText('gpt-5.6-luna', { selector: '[data-slot="default-model-name"]' }),
+    ).toBeVisible();
 
-    await user.click(await screen.findByRole('button', { name: 'Check provider' }));
+    act(() => {
+      queryClient.setQueryData(
+        queryKeys.key('language-model-configuration', 'http://127.0.0.1:8787'),
+        { ...configuration, model: 'gpt-5.5' },
+      );
+    });
 
-    await waitFor(() =>
-      expect(repository.providerCatalog).toHaveBeenCalledWith(true, undefined, 'codex'),
-    );
-    await waitFor(() =>
-      expect(queryClient.getQueryData(queryKeys.providerCatalog('http://127.0.0.1:8787'))).toEqual(
-        catalog,
-      ),
-    );
+    expect(
+      await screen.findByText('gpt-5.5', { selector: '[data-slot="default-model-name"]' }),
+    ).toBeVisible();
   });
 });

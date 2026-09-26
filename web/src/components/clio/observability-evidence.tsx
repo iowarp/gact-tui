@@ -17,19 +17,21 @@ import type {
 } from '@clio/core/v3';
 import {
   ActivityIcon,
-  BoxIcon,
   BoxesIcon,
+  BoxIcon,
   ExternalLinkIcon,
-  FileDiffIcon,
   FileCode2Icon,
+  FileDiffIcon,
   FileTextIcon,
   ListChecksIcon,
   ListTreeIcon,
   PanelsTopLeftIcon,
-  ServerCogIcon,
+  ServerIcon,
   WaypointsIcon,
   WrenchIcon,
 } from 'lucide-react';
+import {
+} from '@/lib/icon-vocabulary';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -46,6 +48,7 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ExternalLink } from '@/components/ui/external-link';
 import { formatBytes, formatDuration } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { ClioInteractiveRow } from './interactive-row';
@@ -162,7 +165,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
         ) : null}
         {backgroundProcesses.length ? (
           <EvidenceSection
-            icon={ServerCogIcon}
+            icon={ServerIcon}
             label="Background tasks"
             value="background"
             count={backgroundProcesses.length}
@@ -351,7 +354,7 @@ function BackgroundEvidence({ processes }: { processes: readonly AsyncProcess[] 
         <ClioInteractiveRow key={process.id} running={process.live_state === 'running'}>
           <EvidenceRecord
             detail={[process.host, process.placement].filter(Boolean).join(', ') || undefined}
-            icon={ServerCogIcon}
+            icon={ServerIcon}
             label={process.title}
             state={process.live_state}
           />
@@ -487,16 +490,14 @@ function SourceEvidence({
                 </p>
               ) : null}
               {source.link && source.value ? (
-                <a
+                <ExternalLink
                   aria-label={`${source.label}: ${source.value}`}
                   className="mt-1 flex items-center gap-1 break-all text-xs text-primary hover:underline"
                   href={source.value}
-                  rel="noreferrer"
-                  target="_blank"
                 >
                   {source.value}
                   <ExternalLinkIcon aria-hidden="true" className="size-3 shrink-0" />
-                </a>
+                </ExternalLink>
               ) : source.detailParts ? (
                 <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   {source.detailParts.map((part) => (

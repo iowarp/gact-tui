@@ -15,3 +15,6 @@
 # No Git LFS. Doc images are a curated handful of small plain blobs under
 # docs/screenshots/ (see the media policy in CLAUDE.md); screenshots are
 # tape-regenerated and not committed elsewhere.
+
+# Raw pseudo-terminal transcripts: CRLF and control bytes are the fixture.
+desktop/src-tauri/tests/fixtures/*.txt -text

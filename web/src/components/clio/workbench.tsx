@@ -10,19 +10,19 @@ import type {
 } from '@clio/core/v3';
 import {
   ActivityIcon,
-  BoxIcon,
   BoxesIcon,
-  FolderIcon,
+  BoxIcon,
   FileCode2Icon,
   FileDiffIcon,
+  FolderIcon,
   Layers3Icon,
   Maximize2Icon,
   Minimize2Icon,
   PaperclipIcon,
   TerminalSquareIcon,
   WorkflowIcon,
-  XIcon,
 } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import {
   forwardRef,
   useCallback,
@@ -60,8 +60,11 @@ export interface ClioWorkbenchProps {
   sessionId: string;
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
+  filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
+  onRefreshFiles?: () => void;
+  onFilesViewActiveChange?: (active: boolean) => void;
   artifacts: readonly ArtifactEntity[];
   artifactsPending?: boolean;
   artifactsError?: string;
@@ -198,8 +201,11 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       sessionId,
       files,
       filesPending,
+      filesFetching,
       filesError,
       filesTruncated,
+      onRefreshFiles,
+      onFilesViewActiveChange,
       artifacts,
       artifactsPending,
       artifactsError,
@@ -238,6 +244,16 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
         JSON.stringify({ activeTabId, tabs }),
       );
     }, [activeTabId, tabs, workspaceId]);
+
+    // `TabsContent` unmounts inactive panels (Radix Presence, no forceMount),
+    // so the fixed-id 'files' tab being ACTIVE is exactly "the Files view is
+    // mounted" -- the signal use-workspace-data.ts gates its poll on
+    // (refetchInterval), rather than polling for every open session regardless
+    // of which tab is showing.
+    useEffect(() => {
+      onFilesViewActiveChange?.(activeTabId === 'files');
+      return () => onFilesViewActiveChange?.(false);
+    }, [activeTabId, onFilesViewActiveChange]);
 
     useLayoutEffect(() => {
       const strip = tabStripRef.current;
@@ -551,7 +567,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                             }}
                             title={`Close ${tab.label}`}
                           >
-                            <XIcon aria-hidden="true" className="size-3.5" />
+                            <CloseIcon aria-hidden="true" className="size-3.5" />
                           </span>
                         </div>
                       </SortableItem>
@@ -593,12 +609,14 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                     diffs={diffs}
                     files={files}
                     filesError={filesError}
+                    filesFetching={filesFetching}
                     filesPending={filesPending}
                     filesTruncated={filesTruncated}
                     maximized={maximized}
                     onApplyDiff={onApplyDiff}
                     onOpenSubagent={onOpenSubagent}
                     onOpenTab={openTab}
+                    onRefreshFiles={onRefreshFiles}
                     onRejectDiff={onRejectDiff}
                     onReplaceTab={replaceTab}
                     onSelectFilesPath={selectFilesPath}

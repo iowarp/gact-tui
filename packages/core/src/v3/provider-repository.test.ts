@@ -28,10 +28,9 @@ describe('ClioRepository provider contracts', () => {
     const transport = new RecordingTransport([
       {
         provider_id: 'argonne_metis',
-        is_authenticated: false,
-        instructions: 'Continue in Globus.',
-        authorization_url: 'https://auth.globus.org/v2/oauth2/authorize',
         flow_id: 'flow-123',
+        browser: { authorization_url: 'https://auth.globus.org/v2/oauth2/authorize', loopback: false },
+        instructions: 'Continue in Globus.',
       },
       {
         provider_id: 'argonne_metis',
@@ -45,12 +44,12 @@ describe('ClioRepository provider contracts', () => {
       repository.authenticateProvider('argonne_metis', { force: true }),
     ).resolves.toMatchObject({
       flow_id: 'flow-123',
-      authorization_url: 'https://auth.globus.org/v2/oauth2/authorize',
+      browser: { authorization_url: 'https://auth.globus.org/v2/oauth2/authorize' },
     });
     await expect(
       repository.completeProviderAuthentication('argonne_metis', {
         flowId: 'flow-123',
-        authorizationCode: 'code-456',
+        paste: 'code-456',
       }),
     ).resolves.toMatchObject({ is_authenticated: true });
     expect(transport.requests).toMatchObject([
@@ -65,8 +64,35 @@ describe('ClioRepository provider contracts', () => {
         body: {
           action: 'complete',
           flow_id: 'flow-123',
-          authorization_code: 'code-456',
+          paste: 'code-456',
         },
+      },
+    ]);
+  });
+
+  it('polls sign-in status and logs a subscription provider out', async () => {
+    const transport = new RecordingTransport([
+      { provider_id: 'codex', state: 'pending', reason: '' },
+      { provider_id: 'codex', is_authenticated: false, instructions: 'Signed out of Codex.' },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    await expect(repository.providerAuthStatus('codex', 'flow-789')).resolves.toMatchObject({
+      state: 'pending',
+    });
+    await expect(repository.logoutProvider('codex')).resolves.toMatchObject({
+      is_authenticated: false,
+    });
+    expect(transport.requests).toMatchObject([
+      {
+        method: 'POST',
+        path: '/v1/providers/codex/auth',
+        body: { action: 'status', flow_id: 'flow-789' },
+      },
+      {
+        method: 'POST',
+        path: '/v1/providers/codex/auth',
+        body: { action: 'logout' },
       },
     ]);
   });

@@ -8,11 +8,11 @@ import {
   LoaderCircleIcon,
   PauseCircleIcon,
   PlugZapIcon,
-  RotateCcwIcon,
   ShieldQuestionIcon,
   WifiOffIcon,
   XCircleIcon,
 } from 'lucide-react';
+import { RetryIcon } from '@/lib/icon-vocabulary';
 import type { ComponentType, SVGProps } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -42,7 +42,7 @@ const statusPresentation: Record<
   },
   reconnecting: {
     label: 'Reconnecting',
-    icon: RotateCcwIcon,
+    icon: RetryIcon,
     className: 'text-warning border-warning/30 bg-warning/10',
   },
   gapped: {

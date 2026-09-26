@@ -545,7 +545,7 @@ test('keeps navigation and workspace canvas accessible on mobile with reduced mo
   await expect(page.getByRole('button', { name: 'Open workspace canvas' })).toBeVisible();
   await waitForArtifactPreview(page);
   // Capture a settled transcript. Without this the shot races the scroll to the
-  // latest turn, so the last messages land a few pixels off and the "Latest"
+  // latest turn, so the last messages land a few pixels off and the scroll-to-bottom
   // affordance is present in some runs and gone in others — a baseline that
   // matches about half the time.
   await settleConversationAtLatest(page);

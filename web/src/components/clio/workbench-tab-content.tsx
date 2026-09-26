@@ -41,8 +41,10 @@ export interface WorkbenchTabContentProps {
   sessionId: string;
   files: readonly WorkspaceFileEntry[];
   filesPending?: boolean;
+  filesFetching?: boolean;
   filesError?: string;
   filesTruncated?: boolean;
+  onRefreshFiles?: () => void;
   artifacts: readonly ArtifactEntity[];
   artifactsPending?: boolean;
   artifactsError?: string;
@@ -78,8 +80,10 @@ export function WorkbenchTabContent({
   sessionId,
   files,
   filesPending,
+  filesFetching,
   filesError,
   filesTruncated,
+  onRefreshFiles,
   artifacts,
   artifactsPending,
   artifactsError,
@@ -114,8 +118,10 @@ export function WorkbenchTabContent({
         <FileBrowser
           files={files}
           filesError={filesError}
+          filesFetching={filesFetching}
           filesPending={filesPending}
           filesTruncated={filesTruncated}
+          onRefresh={onRefreshFiles}
           onSelectedPathChange={(path) => onSelectFilesPath(tab.id, path)}
           selectedPath={tab.path}
           workspaceId={workspaceId}
@@ -187,8 +193,10 @@ export function WorkbenchTabContent({
         <FileBrowser
           files={files}
           filesError={filesError}
+          filesFetching={filesFetching}
           filesPending={filesPending}
           filesTruncated={filesTruncated}
+          onRefresh={onRefreshFiles}
           onSelectedPathChange={(path) => onSelectWorkspaceFilePath(tab.id, path)}
           selectedPath={tab.path}
           workspaceId={tab.workspaceId}

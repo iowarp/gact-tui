@@ -1,7 +1,8 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { AgentDefinition, ToolCatalogItem } from '@clio/core/v3';
 import { useMutation, useQueries, useQuery } from '@tanstack/react-query';
-import { ChevronDownIcon, Settings2Icon } from 'lucide-react';
+import { ChevronDownIcon } from 'lucide-react';
+import { ConfigureIcon } from '@/lib/icon-vocabulary';
 import { useRef, useState } from 'react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -89,17 +90,17 @@ export function AgentEditorDialog({
     queryKey: queryKeys.key('language-model-configuration', settings.endpoint),
     queryFn: ({ signal }) => repository.languageModelConfiguration(signal),
   });
+  // provider_id only -- modelConfiguration.data?.provider is the wire KIND,
+  // never an identity: nine presets share kind "openai" (#1418).
   const configuredPreset = modelConfiguration.data?.presets.find(
-    (preset) =>
-      preset.id === modelConfiguration.data?.provider ||
-      preset.provider === modelConfiguration.data?.provider,
+    (preset) => preset.id === modelConfiguration.data?.provider_id,
   );
   const effectiveProvider =
-    draft.provider || configuredPreset?.id || modelConfiguration.data?.provider || '';
+    draft.provider || configuredPreset?.id || modelConfiguration.data?.provider_id || '';
   const effectiveModel =
     draft.model || (!draft.provider ? modelConfiguration.data?.model : '') || '';
   const selectedPreset = modelConfiguration.data?.presets.find(
-    (preset) => preset.id === effectiveProvider || preset.provider === effectiveProvider,
+    (preset) => preset.id === effectiveProvider,
   );
   const catalogProvider = selectedPreset?.id ?? effectiveProvider;
   const authenticatedPresets =
@@ -218,11 +219,6 @@ export function AgentEditorDialog({
               <Field>
                 <FieldLabel>Preferred model</FieldLabel>
                 <ClioModelPicker
-                  catalogRefreshing={
-                    refreshCatalog.isPending ||
-                    modelConfiguration.isFetching ||
-                    modelCatalogs.some((catalog) => catalog.isFetching)
-                  }
                   catalogStatus={modelCatalogStatus}
                   model={effectiveModel}
                   onChange={(choice) => {
@@ -266,7 +262,7 @@ export function AgentEditorDialog({
             <Collapsible onOpenChange={setCustomSource} open={customSource}>
               <CollapsibleTrigger asChild>
                 <Button className="px-0" size="sm" variant="link">
-                  <Settings2Icon aria-hidden="true" />
+                  <ConfigureIcon aria-hidden="true" />
                   {customSource ? 'Hide custom model source' : 'Use a custom model source'}
                 </Button>
               </CollapsibleTrigger>

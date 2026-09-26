@@ -6,20 +6,29 @@
 //!
 //! Wave 3: also owns SSH tunnel lifecycles + OS notifications + tray.
 
+mod blocking_command;
 mod brand_backend;
+mod clio_core_daemon;
+mod clio_core_registry;
 mod commands;
 mod credentials;
 mod gact_http;
 mod gact_http_response;
 #[cfg(test)]
 mod gact_http_tests;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod installer_dir_swap;
 mod installer_options;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod installer_runtime_stop;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu;
 #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 mod menu_spec;
 mod net_util;
 mod plugins;
+#[cfg_attr(not(windows), allow(dead_code))]
+mod runtime_install_report;
 mod runtime_pack;
 mod sidecar_setup;
 mod sse_bridge;
@@ -30,8 +39,13 @@ mod sse_stream;
 #[cfg(test)]
 mod sse_stream_tests;
 mod ssh_profile_blocks;
+mod ssh_profile_resolve;
 mod ssh_profiles;
 mod ssh_transport;
+mod ssh_transport_command;
+mod ssh_transport_forward;
+mod ssh_transport_output;
+mod ssh_transport_steps;
 mod supervisor;
 mod supervisor_attach;
 mod supervisor_boot;
@@ -164,7 +178,10 @@ pub fn run() {
             ssh_transport::ssh_transport_exec,
             ssh_transport::ssh_transport_forward,
             ssh_transport::ssh_transport_close,
+            ssh_transport::ssh_transport_cancel,
+            ssh_transport::ssh_transport_log,
             ssh_profiles::ssh_profiles_list,
+            ssh_profiles::ssh_profiles_list_all,
             ssh_profiles::ssh_profile_save,
             ssh_profiles::ssh_profile_set_route,
             ssh_profiles::ssh_profile_set_hidden,
@@ -386,6 +403,32 @@ pub fn prepare_runtime_for_install() -> Result<(), String> {
     Ok(())
 }
 
+/// The `--prepare-runtime` installer step. On failure the returned text leads
+/// with the real error and names the saved log; the installer shows it and
+/// offers the issue page recorded next to that log.
+#[cfg(windows)]
+pub fn prepare_runtime_command() -> Result<(), String> {
+    let install_dir = std::env::current_exe()
+        .ok()
+        .and_then(|executable| executable.parent().map(std::path::Path::to_path_buf));
+    match prepare_runtime_for_install() {
+        Ok(()) => {
+            if let Some(dir) = &install_dir {
+                runtime_install_report::clear_failure(dir);
+            }
+            Ok(())
+        }
+        Err(error) => Err(match &install_dir {
+            Some(dir) => runtime_install_report::record_failure(
+                dir,
+                &error,
+                runtime_install_report::issue_url().as_deref(),
+            ),
+            None => error,
+        }),
+    }
+}
+
 /// Remove installer-owned runtime, CTE, and model-cache storage without
 /// making NSIS interpret each file in the expanded Python environment.
 #[cfg(windows)]
@@ -396,6 +439,35 @@ pub fn remove_managed_storage_for_uninstall() -> Result<(), String> {
         .parent()
         .ok_or_else(|| format!("installed desktop executable has no parent: {executable:?}"))?;
     runtime_pack::remove_managed_install_storage(resource_dir)
+}
+
+/// The `--stop-managed-runtime <install dir>` installer step: stop every
+/// CLIO-managed process under the install root deterministically, waiting for
+/// each to actually exit, before NSIS overwrites or removes anything.
+///
+/// The installer runs this from a copy of the NEW executable it extracts to
+/// `$PLUGINSDIR` (see `installer-hooks.nsh`), never from the installed one: an
+/// older installed binary may not know this flag, and an unknown flag starts
+/// the full application instead, which the installer would then wait on
+/// forever. Because the copy does not live in the install directory, the
+/// root is always passed explicitly.
+///
+/// Returns the typed outcome line the installer logs; `Err` means some
+/// managed process did not confirm its exit within the bounded wait.
+#[cfg(windows)]
+pub fn stop_managed_runtime_command(root: &std::path::Path) -> Result<String, String> {
+    if !root.is_dir() {
+        return Err(format!(
+            "result=invalid_install_dir path={}",
+            root.display()
+        ));
+    }
+    let survivors = installer_runtime_stop::stop_and_log(root, "stop-managed-runtime");
+    if survivors == 0 {
+        Ok("result=stopped".to_string())
+    } else {
+        Err(format!("result=processes_survived count={survivors}"))
+    }
 }
 
 /// The one quit path every entry point funnels through: the title-bar/
@@ -450,6 +522,47 @@ pub(crate) fn shutdown_owned_services<R: tauri::Runtime>(app: &tauri::AppHandle<
     }
     if let Some(terminals) = app.try_state::<terminal_pty::TerminalRegistry>() {
         terminals.shutdown_all();
+    }
+    // Runs AFTER the supervisor shutdown above, so the server process (and
+    // whichever exit path it took — a graceful atexit release, or the forced
+    // TerminateProcess fallthrough that skips it) is already gone. The shared
+    // clio-core daemon deliberately survives that process-tree reap
+    // (`supervisor_shutdown::owned_descendants` spares `clio_run.exe` for
+    // independent CLIO clients); this is the second line of defense that
+    // stops it when THIS desktop's own client was the last one attached.
+    release_idle_clio_core_daemon();
+}
+
+/// Stop the machine's shared clio-core daemon if this process's own exit
+/// leaves no live client registered; leave it running for any other attached
+/// client (a CLI, a dev server). Best-effort and logged either way — see
+/// `clio_core_daemon::release_idle_daemon_on_quit`.
+fn release_idle_clio_core_daemon() {
+    let Some(state_dir) = clio_core_registry::runtime_state_dir() else {
+        supervisor_boot_log::boot_log_line(
+            "clio-core daemon release skipped: could not resolve the host state directory \
+             (no CLIO_RUNTIME_STATE_DIR and no home directory)",
+        );
+        return;
+    };
+    match clio_core_daemon::release_idle_daemon_on_quit(&state_dir) {
+        clio_core_daemon::DaemonOutcome::AlreadyGone => {}
+        clio_core_daemon::DaemonOutcome::LiveClientsPresent(pids) => {
+            supervisor_boot_log::boot_log_line(&format!(
+                "clio-core daemon left running: kept alive by other client pid(s) {pids:?}"
+            ));
+        }
+        clio_core_daemon::DaemonOutcome::StoppedCleanly(pid) => {
+            supervisor_boot_log::boot_log_line(&format!(
+                "clio-core daemon (pid {pid}) stopped cleanly on quit — this was the last client"
+            ));
+        }
+        clio_core_daemon::DaemonOutcome::StoppedByForce(pid) => {
+            supervisor_boot_log::boot_log_line(&format!(
+                "clio-core daemon (pid {pid}) required a hard kill on quit \
+                 (clean stop did not confirm in time) — this was the last client"
+            ));
+        }
     }
 }
 

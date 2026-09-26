@@ -1,6 +1,6 @@
 import type { WorkspaceResource } from '@clio/core/v3';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2Icon } from 'lucide-react';
+import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -66,7 +66,7 @@ export function WorkspaceResourceRemoveAction({
           title="Remove from this workspace"
           variant="ghost"
         >
-          <Trash2Icon aria-hidden="true" />
+          <DeleteIcon aria-hidden="true" />
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

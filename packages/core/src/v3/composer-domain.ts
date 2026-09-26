@@ -1,3 +1,5 @@
+import type { ModelCapabilityTags } from '../generated/clio-schemas/_models.js';
+export type { ModelCapabilityTags, TagEvidence } from '../generated/clio-schemas/_models.js';
 import type { WireValue } from './domain.js';
 
 export type MessageDelivery = 'start' | 'steer' | 'auto';
@@ -284,6 +286,16 @@ export interface ProviderCatalogModel {
   /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
   aliases?: string[];
   modalities: string[];
+  /** False only for a model known to be another type than chat. */
+  chat_selectable?: boolean;
+  /**
+   * Every tag the picker renders and filters on (modalities, capabilities,
+   * model type and role, Hub tasks, domains, free, router), each with the
+   * evidence that states it -- the shared `ModelCapabilityTags` record. An
+   * absent tag means no source stated it. Absent when an older service does
+   * not report tags.
+   */
+  capability_tags?: ModelCapabilityTags;
   /**
    * What this model can do about thinking, from provider truth: `levels` are the
    * levels a person can choose (empty means no selector), `default` the model's
@@ -317,6 +329,32 @@ export interface ProviderCatalogModel {
     context_source: string;
   };
   failure: string;
+  /** Where each effective capability value came from, keyed by capability
+   * field (`modalities`, `native_tool_calling`, `context_window`,
+   * `reasoning`, ...): the evidence source and the rule that decided it. */
+  capabilities_provenance?: Record<string, { source: string; decided_by: string }>;
+  /** Which of the provider's `transports` (below) this model came from -- set
+   * only for a multi-transport provider (Codex: `"sdk"` | `"direct"`). */
+  transport?: string;
+}
+
+/**
+ * One way a multi-transport provider can be reached (Codex's local SDK vs
+ * its direct OAuth subscription). Present on `ProviderCatalogEntry` ONLY for
+ * a provider reachable more than one way; a single-transport provider has no
+ * `transports` field at all. `auth` carries just enough to derive that ONE
+ * transport's action set (`health` already folds in "needs install" via
+ * `"needs_install"`) -- never a `models` array of its own, since every
+ * transport's models already ride the flat `ProviderCatalogEntry.models`
+ * list, each tagged with its own `transport` id above.
+ */
+export interface ProviderCatalogTransport {
+  id: string;
+  label: string;
+  health: string;
+  reason: string;
+  /** `logout`: whether CLIO can sign this transport out (backend-owned). */
+  auth?: { method?: string; logout?: boolean };
 }
 
 export interface ProviderCatalogEntry {
@@ -332,7 +370,11 @@ export interface ProviderCatalogEntry {
   health: string;
   freshness: { generated_at: string; source: string; staleness?: Record<string, unknown> };
   failure: string;
+  /** A background probe is running for this provider right now. */
+  checking?: boolean;
   models: ProviderCatalogModel[];
+  /** Present only for a provider reachable more than one way (see above). */
+  transports?: ProviderCatalogTransport[];
 }
 
 export interface ProviderCatalog {

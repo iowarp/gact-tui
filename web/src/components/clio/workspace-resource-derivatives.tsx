@@ -10,10 +10,10 @@ import {
   EyeIcon,
   FileIcon,
   FileStackIcon,
-  RefreshCwIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
-import { lazy, Suspense, useState } from 'react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,20 +24,12 @@ import { isTextMediaType } from '@/lib/media-types';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { processingStateLabel } from './resource-processing-presentation';
-import {
-  ImageResourceView,
-  ResourceLoading,
-  ResourceUnavailable,
-  TextResourceView,
-} from './resource-viewers';
+import { ClioPdfPreview } from './pdf-preview';
+import { ResourceLoading, ResourceUnavailable } from './resource-states';
+import { ImageResourceView, TextResourceView } from './resource-viewers';
 
 // The native PDF plugin renders a blank pane on WebKitGTK with no fallback, so
 // every PDF in the product goes through the same PDF.js viewer.
-const PdfResourceViewer = lazy(() =>
-  import('./document-pdf-viewer').then((module) => ({
-    default: module.ClioDocumentPdfViewer,
-  })),
-);
 
 interface WorkspaceResourceDerivativesViewProps {
   derivatives: readonly WorkspaceResourceDerivative[];
@@ -176,7 +168,7 @@ export function WorkspaceResourceDerivativesView({
           title="Reprocess resource"
           variant="ghost"
         >
-          <RefreshCwIcon aria-hidden="true" className={reprocess.isPending ? 'animate-spin' : ''} />
+          <RefreshIcon aria-hidden="true" className={reprocess.isPending ? 'animate-spin' : ''} />
         </Button>
       </div>
       <div className="grid gap-2">
@@ -339,9 +331,7 @@ function DerivativePreview({
     const name = derivative.name || derivative.id;
     return (
       <div className="size-full overflow-hidden p-3">
-        <Suspense fallback={<ResourceLoading className="p-4" label={`Loading ${name}`} />}>
-          <PdfResourceViewer bytes={content.data} name={name} onSelection={() => undefined} />
-        </Suspense>
+        <ClioPdfPreview bytes={content.data} name={name} />
       </div>
     );
   }

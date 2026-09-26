@@ -4,8 +4,8 @@ import type {
   RunState,
   WorkspaceReference,
 } from '@clio/core/v3';
-import { AnimatePresence, LayoutGroup, m, useIsPresent } from 'motion/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AnimatePresence, LayoutGroup, m } from 'motion/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
@@ -20,6 +20,7 @@ import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
 import { SessionWorkSummary } from '@/components/clio/session-work';
 import {
+  TranscriptPresenceSurface,
   WorkspaceHydrating,
   WorkspaceUnavailable,
   WorkspaceTranscriptAlerts,
@@ -51,28 +52,7 @@ import { navigateComposerReference } from '@/lib/composer-reference-navigation';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
 import { showsBaseAgent } from '@/lib/session-state';
 import { useDesktopTitleSync } from '@/hooks/use-desktop-title-sync';
-
-function TranscriptPresenceSurface({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className: string;
-}) {
-  const isPresent = useIsPresent();
-  return (
-    <m.div
-      animate={{ opacity: 1 }}
-      aria-hidden={!isPresent}
-      className={className}
-      exit={{ opacity: 0 }}
-      inert={!isPresent}
-      initial={{ opacity: 0 }}
-    >
-      {children}
-    </m.div>
-  );
-}
+import { openExternalUrlOrToast } from '@/tauri/external-url';
 
 export function WorkspacePage() {
   const { workspaceId = '', sessionId = '' } = useParams();
@@ -84,6 +64,10 @@ export function WorkspacePage() {
   const [composerFocusKey, setComposerFocusKey] = useState(0);
   const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
+  // "Is the Files view currently the mounted tab" -- gates workspaceFiles'
+  // poll (use-workspace-data.ts's refetchInterval) so it only runs while
+  // someone could actually see a stale listing, not for every open session.
+  const [filesViewActive, setFilesViewActive] = useState(false);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
   const diffActions = useSessionDiffActions();
@@ -112,7 +96,6 @@ export function WorkspacePage() {
     interactionSurfaces,
     refetchInteractionSurfaces,
     modelOptions,
-    modelConfiguration,
     modelCatalogStatus,
     parentSession,
     providerCatalog,
@@ -133,7 +116,7 @@ export function WorkspacePage() {
     workspaceFiles,
     workspaceResources,
     workspaces,
-  } = useWorkspaceData({ contextTargetId, sessionId, workspaceId });
+  } = useWorkspaceData({ contextTargetId, filesViewActive, sessionId, workspaceId });
   const navigationSessions = useMemo(
     () => allSessions.data ?? sessions.data ?? [],
     [allSessions.data, sessions.data],
@@ -225,7 +208,7 @@ export function WorkspacePage() {
           diffs: sessionObservability.diffs.data ?? [],
           openArtifact,
           openDiff,
-          openExternal: (uri) => window.open(uri, '_blank', 'noopener,noreferrer'),
+          openExternal: openExternalUrlOrToast,
           openSession: (targetWorkspaceId, targetSessionId) =>
             void navigate(
               `/workspaces/${encodeURIComponent(targetWorkspaceId)}/sessions/${encodeURIComponent(targetSessionId)}`,
@@ -289,7 +272,6 @@ export function WorkspacePage() {
   } = useSessionMutations({
     activeModel,
     activeProvider,
-    modelConfiguration: modelConfiguration.data,
     session,
     sessionId,
     workspaceId,
@@ -339,7 +321,6 @@ export function WorkspacePage() {
             <WorkspaceLiveStatusStrip
               activeWorkCount={workspaceRouteState.countActiveWork(runs, tasks, tools)}
               sessionId={sessionId}
-              streamError={streamError}
             />
           }
           workbench={<div aria-label="Workspace canvas loading" className="h-full bg-background" />}
@@ -500,7 +481,6 @@ export function WorkspacePage() {
           // `modelSelection`/`behaviorSelection`) instead of needing a remount.
           key={`composer:${sessionId}`}
           model={activeModel}
-          modelCatalogRefreshing={providerCatalog.isRefreshing}
           modelCatalogStatus={modelCatalogStatus}
           modelOptions={modelOptions}
           pendingInteractions={pendingInteractionsPanel}
@@ -629,8 +609,11 @@ export function WorkspacePage() {
             diffs={sessionObservability.diffs.data ?? []}
             files={workspaceFiles.data?.entries ?? []}
             filesError={workspaceFiles.error?.message}
+            filesFetching={workspaceFiles.isFetching}
             filesPending={workspaceFiles.isPending}
             filesTruncated={workspaceFiles.data?.truncated ?? false}
+            onFilesViewActiveChange={setFilesViewActive}
+            onRefreshFiles={() => void workspaceFiles.refetch()}
             resources={workspaceResources.data ?? []}
             resourcesError={workspaceResources.error?.message}
             resourcesPending={workspaceResources.isPending}
@@ -712,7 +695,6 @@ export function WorkspacePage() {
             activeWorkCount={activeWorkCount}
             sessionId={sessionId}
             sessionState={session?.state}
-            streamError={streamError}
           />
         }
       >
@@ -779,6 +761,7 @@ export function WorkspacePage() {
                     interactions={interactions}
                     sessionId={sessionId}
                     subagents={subagents}
+                    workspaceId={workspaceId}
                   />
                 </TranscriptPresenceSurface>
               )}

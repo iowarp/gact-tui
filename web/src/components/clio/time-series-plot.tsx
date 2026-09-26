@@ -5,11 +5,10 @@ import {
   FocusIcon,
   Maximize2Icon,
   MoveHorizontalIcon,
-  RotateCcwIcon,
-  XIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from 'lucide-react';
+import { CloseIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, useState } from 'react';
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 import {
@@ -425,7 +424,7 @@ export function ClioTimeSeriesPlot({
                     title="Clear selection"
                     variant="ghost"
                   >
-                    <XIcon aria-hidden="true" />
+                    <CloseIcon aria-hidden="true" />
                   </Button>
                 ) : null}
                 <Button
@@ -485,7 +484,7 @@ export function ClioTimeSeriesPlot({
                         Zoom out
                       </DropdownMenuItem>
                       <DropdownMenuItem disabled={!selectedRange} onSelect={resetWindow}>
-                        <RotateCcwIcon aria-hidden="true" />
+                        <RetryIcon aria-hidden="true" />
                         Show full range
                       </DropdownMenuItem>
                     </DropdownMenuGroup>

@@ -17,11 +17,32 @@ export const toolPresentationSchema = z.object({
         'check',
         'media',
         'item',
+        'workspace_file',
       ]),
       media_type: z.string().optional(),
       text: z.string().optional(),
       label: z.string().optional(),
       language: z.string().optional(),
+      // "workspace_file" only: the workspace-relative identity of a file the
+      // agent inspected via view_image/view_pdf. Never carries bytes -- the
+      // client fetches and previews the file itself, keyed by workspace_id +
+      // path, and verifies it is still the same file via sha256.
+      workspace_id: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? undefined),
+      path: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? undefined),
+      sha256: z
+        .string()
+        .nullish()
+        .transform((value) => value ?? undefined),
+      pages: z
+        .array(z.number().int().positive())
+        .nullish()
+        .transform((value) => value ?? undefined),
       target: z
         .enum(['artifact', 'resource', 'session', 'url', 'file', 'work', 'surface'])
         .optional(),

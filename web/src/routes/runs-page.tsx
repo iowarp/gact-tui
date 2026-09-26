@@ -21,11 +21,11 @@ import {
   ActivityIcon,
   ChevronLeftIcon,
   ExternalLinkIcon,
-  MoreHorizontalIcon,
   PlugZapIcon,
   SearchIcon,
   WorkflowIcon,
 } from 'lucide-react';
+import { MoreIcon } from '@/lib/icon-vocabulary';
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -719,7 +719,7 @@ function RunActions({
           size="icon-sm"
           variant="outline"
         >
-          <MoreHorizontalIcon aria-hidden="true" />
+          <MoreIcon aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">

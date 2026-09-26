@@ -11,6 +11,12 @@ const contracts = [
     schema: 'messageBlockGeneratedSchema',
     type: 'MessageBlock',
   },
+  {
+    file: 'model_capability_tags.json',
+    output: 'model-capability-tags.schema.ts',
+    schema: 'modelCapabilityTagsGeneratedSchema',
+    type: 'ModelCapabilityTags',
+  },
 ];
 
 function parseArgs(argv) {
@@ -60,6 +66,35 @@ ${typeVocabulary}
 `;
 }
 
+/**
+ * A JSON Schema array with `minItems: 1` becomes `z.array(...).nonempty()`,
+ * whose inferred type is the non-empty tuple `[T, ...T[]]` the TypeScript
+ * generator emits for the same schema. `.min(1)` (the library default) infers
+ * `T[]`, which is not assignable to that tuple, so the exported
+ * `z.ZodType<Contract>` would not typecheck.
+ */
+function nonEmptyArrayOverride(schema) {
+  const items = schema?.items;
+  if (
+    schema?.type !== 'array' ||
+    schema.minItems !== 1 ||
+    schema.maxItems !== undefined ||
+    typeof items !== 'object' ||
+    items === null ||
+    Array.isArray(items)
+  ) {
+    return undefined;
+  }
+  return `z.array(${jsonSchemaToZod(items, ZOD_OPTIONS)}).nonempty()`;
+}
+
+const ZOD_OPTIONS = {
+  depth: 100,
+  module: 'none',
+  withoutDescribes: true,
+  parserOverride: nonEmptyArrayOverride,
+};
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   mkdirSync(args.out, { recursive: true });
@@ -68,11 +103,7 @@ async function main() {
     const input = join(args.in, contract.file);
     const parsed = JSON.parse(readFileSync(input, 'utf8'));
     const resolved = await dereference(input, parsed);
-    const expression = jsonSchemaToZod(resolved, {
-      depth: 100,
-      module: 'none',
-      withoutDescribes: true,
-    });
+    const expression = jsonSchemaToZod(resolved, ZOD_OPTIONS);
     const output = join(args.out, contract.output);
     writeFileSync(output, source(contract, expression, parsed).replaceAll('\r\n', '\n'), 'utf8');
     process.stdout.write(`wrote ${basename(output)}\n`);

@@ -1,8 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
-import type { SessionArtifactListing, TranscriptSnapshot } from '@clio/core/v3';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import type {
+  LanguageModelConfiguration,
+  SessionArtifactListing,
+  TranscriptSnapshot,
+} from '@clio/core/v3';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   mergeSnapshots: vi.fn(),
@@ -14,7 +18,15 @@ const mocks = vi.hoisted(() => ({
     agentBlueprints: vi.fn(async () => []),
     allSessions: vi.fn(async () => [] as unknown[]),
     capabilities: vi.fn(async () => ({}) as unknown),
-    languageModelConfiguration: vi.fn(async () => ({ presets: [] })),
+    languageModelConfiguration: vi.fn(
+      async (): Promise<LanguageModelConfiguration> => ({
+        configured: false,
+        provider: '',
+        api_base: '',
+        model: '',
+        presets: [],
+      }),
+    ),
     pendingApprovals: vi.fn(async () => [] as unknown[]),
     pendingInteractions: vi.fn(async () => [] as unknown[]),
     pendingQuestions: vi.fn(async () => [] as unknown[]),
@@ -107,9 +119,15 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-function renderWorkspaceData() {
+function renderWorkspaceData(overrides: { filesViewActive?: boolean } = {}) {
   return renderHook(
-    () => useWorkspaceData({ contextTargetId: 'sess_1', sessionId: 'sess_1', workspaceId: 'ws_1' }),
+    () =>
+      useWorkspaceData({
+        contextTargetId: 'sess_1',
+        filesViewActive: overrides.filesViewActive,
+        sessionId: 'sess_1',
+        workspaceId: 'ws_1',
+      }),
     { wrapper },
   );
 }
@@ -338,5 +356,98 @@ describe('useWorkspaceData files query', () => {
         { includeHidden: false },
       ),
     );
+  });
+
+  // Owner decision: the server-side workspace.files.changed watcher produced
+  // an event storm and was dropped. Polling replaces it, scoped to exactly
+  // when someone could see a stale listing.
+  describe('polling (replaces the dropped live-event trigger)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('polls every 5s while the Files view is the active tab', async () => {
+      renderWorkspaceData({ filesViewActive: true });
+      await vi.waitFor(() => expect(mocks.repository.workspaceFiles).toHaveBeenCalledTimes(1));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+      expect(mocks.repository.workspaceFiles.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+      expect(mocks.repository.workspaceFiles.mock.calls.length).toBeGreaterThanOrEqual(3);
+    });
+
+    it('does not poll while the Files view is not the active tab', async () => {
+      renderWorkspaceData({ filesViewActive: false });
+      await vi.waitFor(() => expect(mocks.repository.workspaceFiles).toHaveBeenCalledTimes(1));
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_000);
+      });
+      // Only the one mount-triggered fetch -- no interval fired.
+      expect(mocks.repository.workspaceFiles).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops polling once the query observer unmounts', async () => {
+      const { unmount } = renderWorkspaceData({ filesViewActive: true });
+      await vi.waitFor(() => expect(mocks.repository.workspaceFiles).toHaveBeenCalledTimes(1));
+
+      unmount();
+      const callsAtUnmount = mocks.repository.workspaceFiles.mock.calls.length;
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(20_000);
+      });
+      expect(mocks.repository.workspaceFiles.mock.calls.length).toBe(callsAtUnmount);
+    });
+  });
+});
+
+describe('useWorkspaceData active provider identity (#1418)', () => {
+  it('resolves activeProvider from provider_id, never the shared wire kind', async () => {
+    // The configured provider is llama_cpp, whose wire kind is "openai" --
+    // nine presets share that kind. Before the fix, activeProvider read
+    // `modelConfiguration.data?.provider` (the kind) instead of
+    // `?.provider_id`, so it resolved to "openai" rather than "llama_cpp".
+    mocks.repository.languageModelConfiguration.mockResolvedValue({
+      configured: true,
+      provider_id: 'llama_cpp',
+      provider: 'openai',
+      api_base: 'http://127.0.0.1:8090/v1',
+      model: 'qwen3-4b-instruct-gguf',
+      presets: [
+        {
+          id: 'bedrock',
+          label: 'Amazon Bedrock',
+          provider: 'openai',
+          requires_api_key: false,
+          is_authenticated: false,
+          supports_live_catalog: true,
+          supports_vision: true,
+        },
+        {
+          id: 'llama_cpp',
+          label: 'llama.cpp server',
+          provider: 'openai',
+          requires_api_key: false,
+          is_authenticated: true,
+          supports_live_catalog: true,
+          supports_vision: true,
+        },
+      ],
+    });
+
+    const { result } = renderWorkspaceData();
+
+    await waitFor(() => expect(result.current.activeProvider).toBe('llama_cpp'));
+    expect(result.current.activeProvider).not.toBe('openai');
   });
 });

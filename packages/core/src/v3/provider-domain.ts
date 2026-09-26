@@ -64,6 +64,7 @@ export interface ProviderHandshake {
   generated_at: string;
 }
 
+
 export interface LanguageModelPreset {
   id: string;
   provider_id?: string;
@@ -91,6 +92,11 @@ export interface LanguageModelPreset {
   }>;
   supports_runtime_sizing?: boolean;
   managed_service_id?: string;
+  /** Whether this provider has a real backend logout handler -- the ONE
+   * source of truth for showing "Sign out" (never inferred from
+   * `auth_method`, which cannot tell Claude Code's own CLI subscription
+   * apart from Codex's or ALCF's CLIO-owned one). */
+  supports_logout?: boolean;
 }
 
 export interface LanguageModelConfiguration {

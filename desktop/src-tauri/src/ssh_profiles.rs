@@ -4,24 +4,20 @@
 //! ordinary host metadata to an included OpenSSH file and keeps imported-host
 //! visibility preferences in its app configuration directory.
 
+use crate::blocking_command::off_main;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use tauri::Manager;
 
 use crate::ssh_profile_blocks::{
     declared_profile, is_inside_identity_directory, owned_identity_after_save, quoted,
     unique_alias, validate_directive_value, validate_jump_host, with_jump_hosts,
 };
+use crate::ssh_profile_resolve::{fingerprint, resolve_hosts, ResolvedHost};
 use crate::supervisor_boot_log::boot_log_line;
-
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-#[cfg(windows)]
-const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 const INCLUDE_MARKER: &str = "Include clio/config";
 
@@ -37,6 +33,10 @@ pub struct SshProfile {
     pub platform: String,
     pub install_root: Option<String>,
     pub managed: bool,
+    /// Never true from `ssh_profiles_list`, which already filters hidden
+    /// profiles out; only `ssh_profiles_list_all` (the hosts manager) reports it.
+    #[serde(default)]
+    pub hidden: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -108,35 +108,77 @@ fn default_platform() -> String {
     "auto".into()
 }
 
-#[tauri::command]
-pub fn ssh_profiles_list(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
+fn ssh_profiles_list_blocking(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
     let paths = profile_paths(&app)?;
     let preferences = read_preferences(&paths.preferences)?;
-    let managed_names = read_aliases(&paths.managed_include)?;
-    let mut names = read_aliases(&paths.user_config)?;
+    let profiles = resolve_all_profiles(&paths, &preferences)?;
+    Ok(profiles
+        .into_iter()
+        .filter(|profile| !profile.hidden)
+        .collect())
+}
+
+/// Every alias CLIO or the user's own OpenSSH configuration declares, managed
+/// and imported alike, with each one's hidden preference attached — the truth
+/// the hosts manager needs, and what `ssh_profiles_list` filters hidden ones
+/// out of for every other picker.
+fn ssh_profiles_list_all_blocking(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
+    let paths = profile_paths(&app)?;
+    let preferences = read_preferences(&paths.preferences)?;
+    resolve_all_profiles(&paths, &preferences)
+}
+
+fn resolve_all_profiles(
+    paths: &ProfilePaths,
+    preferences: &ProfilePreferences,
+) -> Result<Vec<SshProfile>, String> {
+    let mut config_files = BTreeSet::new();
+    let managed_names = read_aliases_collecting(&paths.managed_include, &mut config_files)?;
+    let mut names = read_aliases_collecting(&paths.user_config, &mut config_files)?;
     names.extend(managed_names.iter().cloned());
     names.sort_by_key(|value| value.to_ascii_lowercase());
     names.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
     let managed_blocks = read_managed_blocks(&paths.managed_include)?;
-    // What OpenSSH reports for a host no configuration matches: its defaults.
-    let defaults = resolve_profile(OPENSSH_DEFAULTS_PROBE, false, None).ok();
+    // Only imported aliases need OpenSSH's view; CLIO-saved ones are read
+    // straight from their block. The defaults probe is a name no `Host`
+    // matches, so it reports what OpenSSH fills in on its own.
+    let mut to_resolve: Vec<String> = names
+        .iter()
+        .filter(|name| managed_block(&managed_blocks, name).is_none())
+        .cloned()
+        .collect();
+    to_resolve.push(OPENSSH_DEFAULTS_PROBE.to_string());
+    config_files.insert(paths.user_config.clone());
+    config_files.insert(paths.managed_include.clone());
+    let mut resolved = resolve_hosts(&to_resolve, fingerprint(config_files));
+    let defaults = resolved
+        .remove(OPENSSH_DEFAULTS_PROBE)
+        .and_then(Result::ok)
+        .map(|host| imported_profile(OPENSSH_DEFAULTS_PROBE, host, None));
     names
         .into_iter()
-        .filter(|name| !preferences.hidden.contains(&name.to_ascii_lowercase()))
         .map(|name| {
+            let hidden = preferences.hidden.contains(&name.to_ascii_lowercase());
             let metadata = preferences.metadata.get(&name.to_ascii_lowercase());
-            match managed_block(&managed_blocks, &name) {
-                Some(block) => Ok(managed_profile(&name, block, metadata)),
-                None => resolve_profile(&name, false, metadata)
-                    .map(|profile| without_openssh_defaults(profile, defaults.as_ref())),
-            }
+            let profile = match managed_block(&managed_blocks, &name) {
+                Some(block) => managed_profile(&name, block, metadata),
+                None => {
+                    let host = resolved.remove(&name).unwrap_or_else(|| {
+                        Err(format!("OpenSSH could not resolve profile {name}."))
+                    })?;
+                    without_openssh_defaults(
+                        imported_profile(&name, host, metadata),
+                        defaults.as_ref(),
+                    )
+                }
+            };
+            Ok(SshProfile { hidden, ..profile })
         })
         .collect()
 }
 
 /// Rewrite only the ordered jump route of a profile CLIO saved.
-#[tauri::command]
-pub fn ssh_profile_set_route(
+fn ssh_profile_set_route_blocking(
     app: tauri::AppHandle,
     name: String,
     jump_hosts: Vec<String>,
@@ -169,8 +211,7 @@ pub fn ssh_profile_set_route(
     ))
 }
 
-#[tauri::command]
-pub fn ssh_profile_save(
+fn ssh_profile_save_blocking(
     app: tauri::AppHandle,
     request: SaveSshProfileRequest,
 ) -> Result<SshProfile, String> {
@@ -247,8 +288,7 @@ pub fn ssh_profile_save(
     ))
 }
 
-#[tauri::command]
-pub fn ssh_profile_set_hidden(
+fn ssh_profile_set_hidden_blocking(
     app: tauri::AppHandle,
     name: String,
     hidden: bool,
@@ -264,8 +304,7 @@ pub fn ssh_profile_set_hidden(
     write_preferences(&paths.preferences, &preferences)
 }
 
-#[tauri::command]
-pub fn ssh_profile_delete(app: tauri::AppHandle, name: String) -> Result<(), String> {
+fn ssh_profile_delete_blocking(app: tauri::AppHandle, name: String) -> Result<(), String> {
     validate_alias(&name)?;
     let paths = profile_paths(&app)?;
     let mut blocks = read_managed_blocks(&paths.managed_include)?;
@@ -381,9 +420,20 @@ fn ensure_include(user_config: &Path, managed_include: &Path) -> Result<(), Stri
 }
 
 fn read_aliases(path: &Path) -> Result<Vec<String>, String> {
+    read_aliases_collecting(path, &mut BTreeSet::new())
+}
+
+/// Every alias `path` declares, adding each configuration file it reads
+/// (itself and every `Include`d file) to `files`.
+fn read_aliases_collecting(
+    path: &Path,
+    files: &mut BTreeSet<PathBuf>,
+) -> Result<Vec<String>, String> {
     let mut visited = BTreeSet::new();
     let ssh_root = path.parent().unwrap_or_else(|| Path::new("."));
-    read_aliases_recursive(path, ssh_root, &mut visited)
+    let aliases = read_aliases_recursive(path, ssh_root, &mut visited)?;
+    files.extend(visited);
+    Ok(aliases)
 }
 
 fn read_aliases_recursive(
@@ -489,63 +539,31 @@ fn managed_profile(name: &str, block: &str, metadata: Option<&ProfileMetadata>) 
             .unwrap_or_else(default_platform),
         install_root: metadata.and_then(|value| some_value(&value.install_root)),
         managed: true,
+        hidden: false,
     }
 }
 
-fn resolve_profile(
+/// An imported OpenSSH profile as OpenSSH resolves it.
+fn imported_profile(
     name: &str,
-    managed: bool,
+    host: ResolvedHost,
     metadata: Option<&ProfileMetadata>,
-) -> Result<SshProfile, String> {
-    let mut command = Command::new("ssh");
-    #[cfg(windows)]
-    command.creation_flags(CREATE_NO_WINDOW);
-    let output = command
-        .args(["-G", name])
-        .output()
-        .map_err(|error| format!("Could not inspect OpenSSH profile {name}: {error}"))?;
-    if !output.status.success() {
-        return Err(format!("OpenSSH could not resolve profile {name}."));
-    }
-    let mut hostname = None;
-    let mut user = None;
-    let mut port = 22;
-    let mut identity_file = None;
-    let mut jump_hosts = Vec::new();
-    for line in String::from_utf8_lossy(&output.stdout).lines() {
-        let Some((key, value)) = line.split_once(' ') else {
-            continue;
-        };
-        let value = value.trim();
-        match key {
-            "hostname" => hostname = some_value(value),
-            "user" => user = some_value(value),
-            "port" => port = value.parse().unwrap_or(22),
-            "identityfile" if identity_file.is_none() => identity_file = some_value(value),
-            "proxyjump" if value != "none" => {
-                jump_hosts = value
-                    .split(',')
-                    .map(str::trim)
-                    .map(str::to_string)
-                    .collect()
-            }
-            _ => {}
-        }
-    }
-    Ok(SshProfile {
+) -> SshProfile {
+    SshProfile {
         name: name.into(),
         label: metadata.and_then(|value| some_value(&value.label)),
-        hostname,
-        user,
-        port,
-        identity_file,
-        jump_hosts,
+        hostname: host.hostname,
+        user: host.user,
+        port: host.port,
+        identity_file: host.identity_file,
+        jump_hosts: host.jump_hosts,
         platform: metadata
             .and_then(|value| some_value(&value.platform))
             .unwrap_or_else(default_platform),
         install_root: metadata.and_then(|value| some_value(&value.install_root)),
-        managed,
-    })
+        managed: false,
+        hidden: false,
+    }
 }
 
 fn some_value(value: &str) -> Option<String> {
@@ -663,6 +681,47 @@ fn write_atomic(path: &Path, contents: &str) -> Result<(), String> {
         .map_err(|error| format!("Could not replace {}: {error}", path.display()))
 }
 
+#[tauri::command]
+pub async fn ssh_profiles_list(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
+    off_main(move || ssh_profiles_list_blocking(app)).await
+}
+
+#[tauri::command]
+pub async fn ssh_profiles_list_all(app: tauri::AppHandle) -> Result<Vec<SshProfile>, String> {
+    off_main(move || ssh_profiles_list_all_blocking(app)).await
+}
+
+#[tauri::command]
+pub async fn ssh_profile_set_route(
+    app: tauri::AppHandle,
+    name: String,
+    jump_hosts: Vec<String>,
+) -> Result<SshProfile, String> {
+    off_main(move || ssh_profile_set_route_blocking(app, name, jump_hosts)).await
+}
+
+#[tauri::command]
+pub async fn ssh_profile_save(
+    app: tauri::AppHandle,
+    request: SaveSshProfileRequest,
+) -> Result<SshProfile, String> {
+    off_main(move || ssh_profile_save_blocking(app, request)).await
+}
+
+#[tauri::command]
+pub async fn ssh_profile_set_hidden(
+    app: tauri::AppHandle,
+    name: String,
+    hidden: bool,
+) -> Result<(), String> {
+    off_main(move || ssh_profile_set_hidden_blocking(app, name, hidden)).await
+}
+
+#[tauri::command]
+pub async fn ssh_profile_delete(app: tauri::AppHandle, name: String) -> Result<(), String> {
+    off_main(move || ssh_profile_delete_blocking(app, name)).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -686,6 +745,57 @@ mod tests {
             render_profile(&request),
             "Host utah\n  HostName login.utah.edu\n  Port 22\n  User alice\n  ProxyJump gateway,bastion"
         );
+    }
+
+    /// `resolve_all_profiles` reports every managed alias's hidden preference
+    /// (what the hosts manager lists), while `ssh_profiles_list` filters
+    /// hidden ones out (what every other picker gets). Both managed aliases
+    /// here so the test never shells out to real `ssh -G` resolution.
+    #[test]
+    fn reports_hidden_preference_for_every_managed_alias() {
+        let dir = env::temp_dir().join(format!("clio-ssh-profiles-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("create temp dir");
+        let managed_include = dir.join("clio-managed-config");
+        fs::write(
+            &managed_include,
+            "Host visible-host\n  HostName visible.example.edu\n  Port 22\n\nHost hidden-host\n  HostName hidden.example.edu\n  Port 22",
+        )
+        .expect("write managed include");
+        let paths = ProfilePaths {
+            user_config: dir.join("user-config-does-not-exist"),
+            managed_include,
+            preferences: dir.join("preferences.json"),
+            identity_directory: dir.join("identities"),
+        };
+        let mut preferences = ProfilePreferences::default();
+        preferences.hidden.insert("hidden-host".into());
+
+        let all = resolve_all_profiles(&paths, &preferences).expect("resolve all profiles");
+        let hidden: BTreeMap<_, _> = all
+            .iter()
+            .map(|profile| (profile.name.clone(), profile.hidden))
+            .collect();
+        assert_eq!(hidden.get("visible-host"), Some(&false));
+        assert_eq!(hidden.get("hidden-host"), Some(&true));
+
+        let listed = ssh_profiles_list_names(&paths, &preferences);
+        assert_eq!(listed, vec!["visible-host".to_string()]);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// The same filtering `ssh_profiles_list` applies, without needing a
+    /// `tauri::AppHandle` to resolve `ProfilePaths`.
+    fn ssh_profiles_list_names(
+        paths: &ProfilePaths,
+        preferences: &ProfilePreferences,
+    ) -> Vec<String> {
+        resolve_all_profiles(paths, preferences)
+            .expect("resolve all profiles")
+            .into_iter()
+            .filter(|profile| !profile.hidden)
+            .map(|profile| profile.name)
+            .collect()
     }
 
     #[test]

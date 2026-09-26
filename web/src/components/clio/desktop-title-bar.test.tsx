@@ -49,8 +49,9 @@ vi.mock('@/hooks/use-workspace-capabilities', () => ({
 }));
 
 vi.mock('@/store/live-store', () => ({
-  useLiveStore: (selector: (state: { entities: { stream: string } }) => unknown) =>
-    selector({ entities: { stream: liveStreamState.current } }),
+  useLiveStore: (
+    selector: (state: { entities: { stream: string }; streamOwners: number }) => unknown,
+  ) => selector({ entities: { stream: liveStreamState.current }, streamOwners: 1 }),
 }));
 
 describe('DesktopTitleBar', () => {
@@ -365,6 +366,10 @@ describe('DesktopTitleBar', () => {
     renderTitleBar();
 
     const dot = screen.getByRole('status', { name: 'Reconnecting' });
+    // gact-tui rule: status is never encoded only as a dot/color/icon -- the
+    // "Reconnecting" label itself must be real, visible text, not just an
+    // aria-label with nothing on screen.
+    expect(dot).toHaveTextContent('Reconnecting');
     fireEvent.pointerEnter(dot);
     fireEvent.focus(dot);
 
@@ -402,5 +407,26 @@ describe('DesktopTitleBar', () => {
     expect(screen.getByRole('button', { name: 'Minimize' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Maximize or restore' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+  });
+
+  it('centers the Live indicator on the same line as the breadcrumb and window controls', () => {
+    isMacOS.mockReturnValue(false);
+    renderTitleBar();
+
+    const live = screen.getByRole('status', { name: 'Live' });
+    const controls = live.parentElement;
+    // The control group stretches its children to the bar height so the
+    // window buttons fill it; the indicator must opt out and center itself,
+    // or its chip top-aligns inside a bar-height box.
+    expect(controls).toHaveClass('items-stretch');
+    expect(live).toHaveClass('self-center', 'inline-flex', 'items-center');
+    // The window buttons fill the bar and center their icon on its midline.
+    expect(screen.getByRole('button', { name: 'Minimize' })).toHaveClass(
+      'h-10',
+      'place-items-center',
+    );
+    // The breadcrumb region centers its content on the same midline.
+    expect(screen.getByLabelText(/desktop controls/)).toHaveClass('h-10', 'flex');
+    expect(controls?.previousElementSibling).toHaveClass('items-center');
   });
 });

@@ -1,6 +1,6 @@
 import type { WorkspaceResource } from '@clio/core/v3';
 import type { FileUIPart } from 'ai';
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Attachment,
   AttachmentHoverCard,
@@ -38,12 +38,8 @@ import {
   ResourcePipelineSummaryIcon,
 } from './resource-pipeline-status';
 import { AttachmentPreviewCarousel } from './attachment-preview-carousel';
+import { ClioPdfPreview } from './pdf-preview';
 
-const LocalPdfViewer = lazy(() =>
-  import('./document-pdf-viewer').then((module) => ({
-    default: module.ClioDocumentPdfViewer,
-  })),
-);
 
 const MAX_TEXT_PREVIEW_BYTES = 1024 * 1024;
 
@@ -395,20 +391,7 @@ function LocalPdfPreview({ file }: { file: UploadableFilePart }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.url, file.file]);
 
-  if (error) {
-    return <p className="p-4 text-sm text-destructive">{error}</p>;
-  }
-  if (!bytes) {
-    return <p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>;
-  }
   return (
-    <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading PDF…</p>}>
-      <LocalPdfViewer
-        bytes={bytes}
-        fit="page"
-        name={file.filename ?? 'Attachment'}
-        onSelection={() => undefined}
-      />
-    </Suspense>
+    <ClioPdfPreview bytes={bytes} error={error} fit="page" name={file.filename ?? 'Attachment'} />
   );
 }

@@ -41,6 +41,7 @@ const repository = vi.hoisted(() => ({
   tools: vi.fn(),
   languageModelConfiguration: vi.fn().mockResolvedValue({
     configured: true,
+    provider_id: 'codex',
     provider: 'codex',
     api_base: '',
     model: 'gpt-5.6-luna',
@@ -190,9 +191,9 @@ describe('AgentSettings', () => {
     await user.click(await screen.findByRole('button', { name: 'New agent' }));
     expect(screen.queryByRole('textbox', { name: 'Provider identifier' })).not.toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: 'Preferred model' }));
-    await user.click(await screen.findByRole('button', { name: 'Claude Code, 1 item, submenu' }));
+    await user.click(await screen.findByRole('button', { name: /Claude Code.*1 item, submenu/u }));
     expect(await screen.findByRole('option', { name: /Claude Sonnet/ })).toBeVisible();
-    await user.click(screen.getByRole('button', { name: 'OpenAI Codex, 1 item, submenu' }));
+    await user.click(screen.getByRole('button', { name: /OpenAI Codex.*1 item, submenu/u }));
     expect(screen.getByRole('option', { name: /GPT-5.6-Luna/ })).toBeVisible();
   });
 

@@ -1,11 +1,44 @@
 import type { RunState, StreamState } from '@clio/core/v3';
 import { AlertTriangleIcon } from 'lucide-react';
+import { m, useIsPresent } from 'motion/react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
+import { inTauri } from '@/lib/transport/tauri-runtime';
+import { isUpdateInFlight, useUpdateFlowStore } from '@/store/update-flow-store';
+import { LiveConnectionIndicator } from './live-connection-indicator';
 import { SystemVersionStatus } from './navigation-version-status';
 import { ClioStatus } from './status';
+
+/**
+ * Keeps an exiting transcript surface (the welcome state, the conversation)
+ * mounted and out of the tab/AT order through its `AnimatePresence` fade,
+ * rather than snapping away mid-animation.
+ */
+export function TranscriptPresenceSurface({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className: string;
+}) {
+  const isPresent = useIsPresent();
+  return (
+    <m.div
+      animate={{ opacity: 1 }}
+      aria-hidden={!isPresent}
+      className={className}
+      exit={{ opacity: 0 }}
+      inert={!isPresent}
+      initial={{ opacity: 0 }}
+    >
+      {children}
+    </m.div>
+  );
+}
 
 /** Surface failed user actions alongside the composer, independently of stream health. */
 export function WorkspaceActionAlerts({
@@ -41,9 +74,17 @@ export function WorkspaceTranscriptAlerts({
   streamError?: string;
   transcriptError?: string;
 }) {
+  // An update in flight (including the post-restart `reconnecting` window)
+  // already has its own full-screen `UpdateRestartOverlay` explaining
+  // exactly what is happening -- surfacing the stream's own "it broke"
+  // language on top of that would contradict it and confuse an outage that
+  // is entirely expected. `transcriptError` (a REST fetch failure) is left
+  // alone: reading the transcript can still fail during the outage for
+  // reasons the update itself does not explain.
+  const updateInFlight = useUpdateFlowStore((state) => isUpdateInFlight(state.step));
   return (
     <>
-      {streamError ? (
+      {streamError && !updateInFlight ? (
         <Alert className="m-3 mb-0 rounded-lg" variant="destructive">
           <AlertTriangleIcon aria-hidden="true" />
           <AlertTitle>Live stream needs reconciliation</AlertTitle>
@@ -123,18 +164,21 @@ export function WorkspaceStatusStrip({
   activeWorkCount,
   cost,
   cursor,
-  inputTokens,
+  tokens,
   sessionState,
   stream,
-  streamError,
 }: {
   activeWorkCount: number;
+  /** Undefined when no turn ever reported a real cost -- shown as a muted
+   * dash with a tooltip, never the word "Unavailable" (it isn't broken,
+   * the provider just doesn't report a price). */
   cost?: number;
   cursor?: string;
-  inputTokens?: number;
+  /** Cumulative input+output token count for the session; always a real
+   * number once the session has run a turn (0 before that). */
+  tokens?: number;
   sessionState?: RunState;
   stream: StreamState;
-  streamError?: string;
 }) {
   const activeWorkLabel =
     sessionState === 'running'
@@ -153,23 +197,28 @@ export function WorkspaceStatusStrip({
     : 'No recovery checkpoint was reported';
   return (
     <div className="flex h-full items-center gap-3 overflow-hidden text-[10px] text-muted-foreground">
-      <ClioStatus className="py-0.5" detail={streamError} value={stream} />
+      {/* Desktop already shows this indicator once, in the title bar
+          (LiveConnectionIndicator there) -- the bottom bar drops its own
+          copy there so the two surfaces never duplicate the same pill. */}
+      {inTauri() ? null : <LiveConnectionIndicator />}
       {recoveryLabel ? <span title={recoveryDetail}>{recoveryLabel}</span> : null}
       <span>{activeWorkLabel}</span>
       <SystemVersionStatus />
-      {stream === 'live' ? (
-        <ClioStatus
-          className="hidden py-0.5 sm:inline-flex"
-          detail="The latest session updates are synchronized"
-          label="Up to date"
-          value="completed"
-        />
-      ) : null}
-      <span className="ml-auto hidden font-mono sm:inline">
-        Tokens: {inputTokens ?? 'Unavailable'}
-      </span>
-      <span className="hidden font-mono sm:inline">
-        Cost: {cost === undefined ? 'Unavailable' : `$${cost.toFixed(4)}`}
+      <span className="ml-auto hidden font-mono sm:inline">Tokens: {tokens ?? 0}</span>
+      <span className="hidden items-center gap-1 font-mono sm:inline-flex">
+        Cost:{' '}
+        {cost === undefined ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-default text-muted-foreground/70" tabIndex={0}>
+                &mdash;
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">This provider doesn't report cost.</TooltipContent>
+          </Tooltip>
+        ) : (
+          `$${cost.toFixed(4)}`
+        )}
       </span>
     </div>
   );

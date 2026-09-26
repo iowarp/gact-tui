@@ -21,6 +21,13 @@ export interface ClioConversationProps {
   messages: readonly DomainMessage[];
   loading?: boolean;
   error?: string;
+  /**
+   * The workspace this transcript is rendering, so a presentation block that
+   * does not carry its own `workspace_id` (or a caller composing a message
+   * outside the live session store) can still resolve which workspace a
+   * `workspace_file` block's path belongs to.
+   */
+  workspaceId?: string;
   tools: Record<string, ToolInvocation>;
   tasks: Record<string, DomainTask>;
   subagents: Record<string, SubagentRun>;

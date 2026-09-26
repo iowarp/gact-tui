@@ -76,6 +76,8 @@ export function useSessionLiveStream({
 
   useEffect(() => {
     if (!enabled || !sessionId || !documentVisible) return;
+    const { claimStream, releaseStream } = useLiveStore.getState();
+    claimStream();
     const controller = new AbortController();
     const batcher = new FrameBatcher(applyFrames);
     const invalidations = new QueryInvalidationBatcher(queryClient);
@@ -149,7 +151,6 @@ export function useSessionLiveStream({
             }
             invalidations.push(
               ...queryInvalidationKeysForEvent({
-                data: frame.data,
                 endpoint: settings.endpoint,
                 eventName: frame.eventName,
                 sessionId,
@@ -180,6 +181,7 @@ export function useSessionLiveStream({
     };
     void consume();
     return () => {
+      releaseStream();
       controller.abort();
       batcher.stop({ flush: true });
       invalidations.stop({ flush: true });
@@ -309,31 +311,6 @@ function isSessionArtifactEvent(eventName: string): boolean {
   ].includes(eventName);
 }
 
-// Namespaced tool names the gateway mounts fs_server/shell_server under
-// (`fs_*` for every filesystem tool, `shell_bash` for the sole shell tool —
-// see clio-agent's tools/gateway.py `_mount_with_namespace(gw, fs_server, "fs")`).
-const FS_OR_SHELL_TOOL_NAME = /^(fs_|shell_bash$)/;
-// A tool call has settled — one way or another — once it leaves pending/running.
-const TERMINAL_TOOL_STATES = new Set(['succeeded', 'failed', 'denied', 'cancelled']);
-
-/**
- * A `tool.upserted` frame reporting a FINISHED fs or shell tool call — the
- * only moment a workspace file the agent wrote could actually have changed.
- * Every other `tool.upserted` tick (a different tool, or fs/shell still
- * pending/running/streaming output) must not trigger a refetch.
- */
-function isFsOrShellToolResultEvent(eventName: string, data: unknown): boolean {
-  if (eventName !== 'tool.upserted') return false;
-  if (typeof data !== 'object' || data === null) return false;
-  const { name, state } = data as { name?: unknown; state?: unknown };
-  return (
-    typeof name === 'string' &&
-    FS_OR_SHELL_TOOL_NAME.test(name) &&
-    typeof state === 'string' &&
-    TERMINAL_TOOL_STATES.has(state)
-  );
-}
-
 /**
  * The extra reads one resource event changes, beyond the workspace list.
  *
@@ -366,7 +343,6 @@ function resourceInvalidationKeys(
 }
 
 interface QueryInvalidationEvent {
-  data?: unknown;
   endpoint: string;
   eventName: string;
   sessionId: string;
@@ -375,7 +351,6 @@ interface QueryInvalidationEvent {
 
 /** Maps wire events to the authoritative REST snapshots that must be refreshed. */
 export function queryInvalidationKeysForEvent({
-  data,
   endpoint,
   eventName,
   sessionId,
@@ -438,17 +413,16 @@ export function queryInvalidationKeysForEvent({
       queryKeys.sessionArtifacts(endpoint, sessionId),
       queryKeys.sessionObservability(endpoint, sessionId),
       queryKeys.sessionContext(endpoint, sessionId),
-      // The Files view otherwise never refreshes when the agent writes a file
-      // (e.g. via shell_bash) — the turn boundary is the coarse fallback.
-      queryKeys.workspaceFiles(endpoint, workspaceId),
     );
   }
-  // Refresh sooner than the turn boundary above: a single long turn can run
-  // many fs/shell calls, and a file the agent just wrote should appear in the
-  // Files view without waiting for the whole turn to finish.
-  if (isFsOrShellToolResultEvent(eventName, data)) {
-    keys.push(queryKeys.workspaceFiles(endpoint, workspaceId));
-  }
+  // The Files view no longer has a live-event trigger (owner decision: the
+  // server-side watcher was dropped after an event-storm defect). It refreshes
+  // via polling while mounted + visible (use-workspace-data.ts's
+  // refetchInterval), an immediate refetch on open, and the manual Refresh
+  // button -- see workbench-resource-browser.tsx's FileBrowser. This is
+  // deliberately NOT restoring the old message.completed/fs-or-shell-tool
+  // triggers: polling already covers what those approximated, without a
+  // hand-maintained event list.
   if (eventName === 'session.status_changed' || eventName === 'session.upserted') {
     keys.push(queryKeys.sessions(endpoint, workspaceId), queryKeys.sessions(endpoint, 'all'));
   }
