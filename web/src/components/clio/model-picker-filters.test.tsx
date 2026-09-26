@@ -2,10 +2,9 @@ import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/components/ui/button';
-import type { ModelCapabilityTags } from '@clio/core/v3';
 import type { ClioModelOption } from '@/lib/model-options';
+import { capabilityRow, openrouterConfiguration } from '@/test-fixtures/model-picker/capability-rows';
 import {
-  defaultConfiguration,
   renderPicker,
   repository,
   setWideViewport,
@@ -20,74 +19,8 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8787' } }),
 }));
 
-const configuration = {
-  ...defaultConfiguration,
-  presets: [
-    ...defaultConfiguration.presets,
-    {
-      id: 'openrouter',
-      label: 'OpenRouter',
-      provider: 'openrouter',
-      suggested_model: '',
-      requires_api_key: true,
-      auth_method: 'api_key',
-      is_authenticated: true,
-      status: 'ready',
-    },
-  ],
-};
-
-const EVIDENCE = [
-  {
-    source: 'openrouter' as const,
-    detail: "openrouter architecture.output_modalities=['image']",
-    observed_at: '2026-09-26T00:00:00+00:00',
-  },
-] as [{ source: 'openrouter'; detail: string; observed_at: string }];
-
-function tag<T>(value: T) {
-  return { value, evidence: EVIDENCE };
-}
-
-interface TagSpec {
-  inputs?: string[];
-  outputs?: string[];
-  capabilities?: string[];
-  modelType?: string;
-  tasks?: string[];
-  free?: boolean;
-  router?: boolean;
-}
-
-/** A service `capability_tags` record, as the provider catalog serves it. */
-function tags(id: string, spec: TagSpec): ModelCapabilityTags {
-  const modelType = spec.modelType;
-  return {
-    model_key: id,
-    input_modalities: (spec.inputs ?? []).map(tag),
-    output_modalities: (spec.outputs ?? []).map(tag),
-    capabilities: (spec.capabilities ?? []).map(tag),
-    tasks: (spec.tasks ?? []).map(tag),
-    model_type: modelType ? tag(modelType) : null,
-    role: modelType ? tag(modelType === 'chat' ? 'general' : 'surrogate') : null,
-    free: spec.free === undefined ? null : tag(spec.free),
-    router: spec.router === undefined ? null : tag(spec.router),
-  } as ModelCapabilityTags;
-}
-
-function row(id: string, spec: TagSpec = {}, extra: Partial<ClioModelOption> = {}): ClioModelOption {
-  return {
-    providerId: 'openrouter',
-    providerName: 'OpenRouter',
-    id,
-    label: id.split('/').at(-1) ?? id,
-    available: true,
-    health: 'ready',
-    chatSelectable: spec.modelType ? spec.modelType === 'chat' : true,
-    capabilityTags: tags(id, { inputs: ['text'], outputs: ['text'], modelType: 'chat', ...spec }),
-    ...extra,
-  };
-}
+const configuration = openrouterConfiguration;
+const row = capabilityRow;
 
 const openrouter: ClioModelOption[] = [
   row('meta/llama-4', { inputs: ['text', 'image'], capabilities: ['tool_calling'] }),
