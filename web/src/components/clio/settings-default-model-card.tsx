@@ -1,3 +1,4 @@
+import { BoxIcon } from 'lucide-react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Badge } from '@/components/reui/badge';
 import { IconTile } from '@/components/reui/icon-tile';
@@ -48,7 +49,9 @@ export function SettingsDefaultModelCard({
       <IconTile aria-hidden="true" size="xl" variant="frame">
         {providerId ? (
           <ModelSelectorLogo className="size-7" provider={providerLogoId(providerId)} />
-        ) : null}
+        ) : (
+          <BoxIcon className="text-muted-foreground" />
+        )}
       </IconTile>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex min-w-0 flex-col gap-0.5">

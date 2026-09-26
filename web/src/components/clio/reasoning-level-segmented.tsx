@@ -3,6 +3,8 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { REASONING_EFFORT_LABELS, type ModelReasoningLevels } from '@/lib/reasoning-levels';
 
 const MODEL_DEFAULT = '__model_default__';
+/** The chosen level reads at a glance, in light and dark. */
+const SELECTED = 'data-[state=on]:bg-primary data-[state=on]:text-primary-foreground';
 
 interface ReasoningLevelSegmentedProps {
   reasoning: ModelReasoningLevels | undefined;
@@ -44,13 +46,14 @@ export function ReasoningLevelSegmented({
       variant="outline"
     >
       <ToggleGroupItem
+        className={SELECTED}
         title={defaultName ? `The model's own default (${defaultName})` : "The model's own default"}
         value={MODEL_DEFAULT}
       >
         Default
       </ToggleGroupItem>
       {levels.map((level) => (
-        <ToggleGroupItem key={level} value={level}>
+        <ToggleGroupItem className={SELECTED} key={level} value={level}>
           {REASONING_EFFORT_LABELS[level]}
         </ToggleGroupItem>
       ))}

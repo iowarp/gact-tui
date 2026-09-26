@@ -93,12 +93,21 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
   );
 
   const save = useMutation({
-    mutationFn: async ({ preset, next }: { preset: LanguageModelPreset; next: ModelSettingsValues }) => {
+    mutationFn: async ({
+      preset,
+      next,
+      variant,
+    }: {
+      preset: LanguageModelPreset;
+      next: ModelSettingsValues;
+      variant?: string;
+    }) => {
       const update = modelSettingsUpdate({
         preset,
         seeded: preset.id === activePreset?.id ? seed() : { ...next, effort: '' },
         values: next,
       });
+      if (variant) update.variant = variant;
       if (preset.requires_api_key) {
         const stored = await readProviderCredential(update.provider_id, update.api_base);
         if (stored) update.api_key = stored;
@@ -133,14 +142,15 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
       effort: staying && choice.id === configuration.model ? values.effort : '',
     };
     setValues(next);
-    save.mutate({ preset, next });
+    // A model reached two ways (Codex's SDK or Direct) binds the way it was picked.
+    save.mutate({ preset, next, variant: choice.transport });
   }
 
   function chooseEffort(effort: ModelSettingsValues['effort']) {
     if (!activePreset) return;
     const next = { ...values, effort };
     setValues(next);
-    save.mutate({ preset: activePreset, next });
+    save.mutate({ preset: activePreset, next, variant: option?.transport });
   }
 
   return (
@@ -178,7 +188,11 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
             setEdited(true);
             setValues((current) => ({ ...current, ...patch }));
           }}
-          onSave={() => (activePreset ? save.mutate({ preset: activePreset, next: values }) : undefined)}
+          onSave={() =>
+            activePreset
+              ? save.mutate({ preset: activePreset, next: values, variant: option?.transport })
+              : undefined
+          }
           preset={activePreset}
           runtimeSized={providerSupportsRuntimeSizing(activePreset)}
           saving={save.isPending}

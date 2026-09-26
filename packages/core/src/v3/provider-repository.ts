@@ -267,6 +267,8 @@ export class ProviderRepository extends ContextRepository {
       context_length?: number;
       max_tokens?: number;
       temperature?: number;
+      /** Which of a multi-transport provider's transports to bind (Codex: "sdk" | "direct"). */
+      variant?: string;
     },
     signal?: AbortSignal,
   ): Promise<LanguageModelConfiguration> {

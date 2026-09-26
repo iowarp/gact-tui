@@ -71,6 +71,8 @@ export interface ModelSettingsUpdate {
   context_length?: number;
   max_tokens?: number;
   temperature?: number;
+  /** The transport a multi-transport provider binds (the chosen model row's own). */
+  variant?: string;
 }
 
 /**
