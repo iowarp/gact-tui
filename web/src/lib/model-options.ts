@@ -5,7 +5,12 @@ import type {
   ProviderCatalogTransport,
   ProviderModel,
 } from '@clio/core/v3';
-import { providerStatusDetail, translateKnownProviderErrorReason } from './provider-availability';
+import {
+  providerCredentialNeededLabel,
+  providerCredentialPrompt,
+  providerStatusDetail,
+  translateKnownProviderErrorReason,
+} from './provider-availability';
 import { providerDisplayName } from './provider-presentation';
 import { modelReasoningLevels, type ModelReasoningLevels } from './reasoning-levels';
 
@@ -150,7 +155,7 @@ export function buildModelOptions({
         available: preset.is_authenticated,
         availabilityDetail: preset.is_authenticated
           ? undefined
-          : providerStatusDetail(preset, 'Sign-in needed'),
+          : providerStatusDetail(preset, providerCredentialNeededLabel(preset)),
       }));
     });
   const options = [...liveOptions, ...presetOptions];
@@ -172,7 +177,7 @@ export function buildModelOptions({
       available: activePreset?.is_authenticated ?? true,
       availabilityDetail:
         activePreset && !activePreset.is_authenticated
-          ? providerStatusDetail(activePreset, 'Sign-in needed')
+          ? providerStatusDetail(activePreset, providerCredentialNeededLabel(activePreset))
           : undefined,
     });
   }
@@ -228,7 +233,7 @@ function liveProviderOptions(
                 ? // The provider refused the credential it has: say so
                   // ("Your OpenRouter API key was rejected."), not "sign in".
                   translateKnownProviderErrorReason(provider.failure, providerName)
-                : providerStatusDetail(preset, `Sign in to ${providerName} to discover its models.`)
+                : providerStatusDetail(preset, providerCredentialPrompt(preset, providerName))
             : provider.failure &&
               translateKnownProviderErrorReason(provider.failure, providerName)) ||
           'This provider reported no models to the connected agent.',

@@ -33,6 +33,7 @@ import {
   HeartPulseIcon,
   BrainCircuitIcon,
   CircleAlertIcon,
+  CpuIcon,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, type ComponentType, type SVGProps } from 'react';
@@ -50,6 +51,7 @@ import { ToolsSettings } from '@/components/clio/settings-tools';
 import { ScheduleSettings } from '@/components/clio/settings-schedules';
 import { SessionDefaultsSettings } from '@/components/clio/settings-session-defaults';
 import { ModelsSettings } from '@/components/clio/settings-models';
+import { ProvidersSettings } from '@/components/clio/settings-providers';
 import { DesktopSettings } from '@/components/clio/settings-desktop';
 import { AboutSettings } from '@/components/clio/settings-about';
 import { PromptsCommandsSettings } from '@/components/clio/settings-prompts';
@@ -111,7 +113,8 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 const sections: Array<{ id: string; label: string; icon: Icon }> = [
   { id: 'connections', label: 'Connections', icon: CableIcon },
   { id: 'session-defaults', label: 'New session defaults', icon: SlidersHorizontalIcon },
-  { id: 'providers', label: 'Models', icon: ServerCogIcon },
+  { id: 'providers', label: 'Providers', icon: ServerCogIcon },
+  { id: 'models', label: 'Models', icon: CpuIcon },
   { id: 'agents', label: 'Agents', icon: BotIcon },
   { id: 'blueprints', label: 'Marketplaces & blueprints', icon: BoxesIcon },
   { id: 'expert-packs', label: 'Expert packs', icon: PackageIcon },
@@ -664,7 +667,8 @@ function SettingsSection({
 }) {
   if (section === 'connections') return <ConnectionsSettings />;
   if (section === 'session-defaults') return <SessionDefaultsSettings />;
-  if (section === 'providers') return <ModelsSettings />;
+  if (section === 'providers') return <ProvidersSettings />;
+  if (section === 'models') return <ModelsSettings />;
   if (section === 'agents') return <AgentSettings />;
   if (section === 'blueprints') return <BlueprintSettings initialBlueprintId={blueprintId} />;
   if (section === 'expert-packs') return <ExpertPackSettings initialWorkspaceId={workspaceId} />;
