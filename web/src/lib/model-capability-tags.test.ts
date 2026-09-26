@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { providerCatalogSchema } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import {
-  isBaselineTag,
+  displayedTags,
   modelCapabilityTagDetail,
   modelCapabilityTagLabel,
   modelCapabilityTagMeaning,
@@ -122,8 +122,9 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
   it('a classifier is a surrogate with its task, and filters by model type and Hub task', () => {
     const [jev] = options([JEV_TAGS]);
     const tags = modelCapabilityTagsFromOption(jev!);
-    const shown = tags.filter((tag) => !isBaselineTag(tag)).map(modelCapabilityTagLabel);
-    expect(shown).toEqual(['Makes scores', 'Surrogate', 'Classifier', '131K']);
+    const shown = displayedTags(tags).map(modelCapabilityTagLabel);
+    // "Makes scores" would repeat "Classifier": not drawn, still filterable.
+    expect(shown).toEqual(['Surrogate', 'Classifier', '131K']);
     // A known "not free" / "not a router" shows nothing.
     expect(tags.some((tag) => tag.axis === 'price' || tag.axis === 'kind')).toBe(false);
 
@@ -155,7 +156,7 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
   it('the free router is free and a router; agreeing sources are all named', () => {
     const [free] = options([FREE_ROUTER_TAGS]);
     const tags = modelCapabilityTagsFromOption(free!);
-    const labels = tags.filter((tag) => !isBaselineTag(tag)).map(modelCapabilityTagLabel);
+    const labels = displayedTags(tags).map(modelCapabilityTagLabel);
     expect(labels).toEqual(['Router', 'Free', 'Vision', 'Tools', '131K']);
     const tools = tags.find((tag) => tag.axis === 'capability')!;
     expect(modelCapabilityTagSource(tools)).toBe('From OpenRouter and the provider.');
@@ -192,5 +193,17 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
     expect(() =>
       options([{ ...JEV_TAGS, model_type: { value: 'classifier', evidence: [] } }]),
     ).toThrow();
+  });
+
+  it('an output chip is drawn only when the model type does not already say it', () => {
+    const tagsFor = (modelType: string, outputs: string[]) =>
+      displayedTags([
+        ...outputs.map((value) => ({ axis: 'output_modality' as const, value, evidence: [] })),
+        { axis: 'task' as const, value: modelType, evidence: [] },
+      ]).map(modelCapabilityTagLabel);
+    expect(tagsFor('audio_speech', ['audio'])).toEqual(['Speech generator']);
+    expect(tagsFor('image_generation', ['image'])).toEqual(['Image generator']);
+    expect(tagsFor('chat', ['image', 'text'])).toEqual(['Makes image']);
+    expect(tagsFor('other', ['tensor'])).toEqual(['Makes tensor', 'Other model']);
   });
 });

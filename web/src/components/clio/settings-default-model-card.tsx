@@ -3,7 +3,7 @@ import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Badge } from '@/components/reui/badge';
 import { IconTile } from '@/components/reui/icon-tile';
 import { Button } from '@/components/ui/button';
-import { isBaselineTag, modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
+import { displayedTags, modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
 import type { ClioModelOption } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { ModelCapabilityTags } from './model-capability-tags';
@@ -41,7 +41,7 @@ export function SettingsDefaultModelCard({
   onChange,
   busy,
 }: SettingsDefaultModelCardProps) {
-  const tags = option ? modelCapabilityTagsFromOption(option).filter((tag) => !isBaselineTag(tag)) : [];
+  const tags = option ? displayedTags(modelCapabilityTagsFromOption(option)) : [];
   const working = group?.health === 'healthy' || group?.health === 'checking';
   const name = option?.label ?? modelId;
   return (

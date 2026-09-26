@@ -53,6 +53,37 @@ export function isBaselineTag(tag: ModelCapabilityTag): boolean {
   return false;
 }
 
+/**
+ * What each model type already says it produces. Its output chip ("Makes
+ * scores" beside "Classifier") would repeat the task chip, so it is not drawn;
+ * an output the type does NOT imply ("Makes image" on a chat model) still is.
+ */
+const MODEL_TYPE_OUTPUT: Record<string, string> = {
+  chat: 'text',
+  embedding: 'embeddings',
+  rerank: 'scores',
+  classification: 'scores',
+  audio_transcription: 'text',
+  audio_speech: 'audio',
+  image_generation: 'image',
+  image_edit: 'image',
+  video_generation: 'video',
+  segmentation: 'masks',
+  ocr: 'text',
+};
+
+/**
+ * The chips a row draws: every tag except the baseline ones and an output
+ * modality the model-type chip already states. Filtering still uses every tag.
+ */
+export function displayedTags(tags: readonly ModelCapabilityTag[]): ModelCapabilityTag[] {
+  const modelType = tags.find((tag) => tag.axis === 'task')?.value;
+  const implied = modelType ? MODEL_TYPE_OUTPUT[modelType] : undefined;
+  return tags.filter(
+    (tag) => !isBaselineTag(tag) && !(tag.axis === 'output_modality' && tag.value === implied),
+  );
+}
+
 function evidenceOf(rows: readonly TagEvidence[]): ModelCapabilityEvidence[] {
   return rows.map((row) => ({ source: row.source, detail: row.detail }));
 }
