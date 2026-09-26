@@ -10,11 +10,9 @@ import {
   FolderClockIcon,
   KeyRoundIcon,
   LaptopIcon,
-  MoreHorizontalIcon,
   PlusIcon,
   ShieldCheckIcon,
   ServerIcon,
-  Trash2Icon,
   TriangleAlertIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -24,15 +22,10 @@ import { Shimmer } from '@/components/ai-elements/shimmer';
 import { ClioStatus } from '@/components/clio/status';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
+import { KnownServiceActions } from '@/components/clio/known-service-actions';
 import { reportConnectionOutcome } from '@/lib/connection-outcomes';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Field,
@@ -256,6 +249,7 @@ export function ConnectionPage() {
     resolveConnection,
     connect,
     forget,
+    rename,
   } = useConnectionSettings();
   // The DEFAULT view: every CLIO the person can click without typing an
   // address (recents, the desktop-managed local service, reachable
@@ -539,6 +533,7 @@ export function ConnectionPage() {
 
           {inTauri() ? (
             <DeployClioDialog
+              knownServices={knownConnections}
               onOpenChange={setDeployOpen}
               onReady={(candidate) => mutation.mutate(candidate)}
               open={deployOpen}
@@ -589,39 +584,23 @@ export function ConnectionPage() {
                             compact
                             endpoint={connection.endpoint}
                           />
-                          {connection.source === 'recent' ? (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  aria-label={`Service actions for ${connection.label || connection.endpoint}`}
-                                  className="mr-1"
-                                  size="icon-sm"
-                                  type="button"
-                                  variant="ghost"
-                                >
-                                  <MoreHorizontalIcon aria-hidden="true" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="min-w-52">
-                                <DropdownMenuItem
-                                  onSelect={() => {
-                                    const next = knownConnections.find(
-                                      (candidate) => candidate.endpoint !== connection.endpoint,
-                                    );
-                                    void forget(connection.endpoint);
-                                    if (selectedEndpoint === connection.endpoint && next) {
-                                      setSelectedEndpoint(next.endpoint);
-                                    }
-                                  }}
-                                  variant="destructive"
-                                >
-                                  <Trash2Icon aria-hidden="true" /> Forget on this device
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          ) : (
-                            <span className="mr-1 size-8" />
-                          )}
+                          <KnownServiceActions
+                            canForget={connection.source !== 'managed'}
+                            known={knownConnections}
+                            name={connection.label || new URL(connection.endpoint).host}
+                            onForget={() => {
+                              const next = knownConnections.find(
+                                (candidate) => candidate.endpoint !== connection.endpoint,
+                              );
+                              void forget(connection.endpoint);
+                              if (selectedEndpoint === connection.endpoint) {
+                                if (next) setSelectedEndpoint(next.endpoint);
+                                else setManualModeRequested(true);
+                              }
+                            }}
+                            onRename={(name) => rename(connection, name)}
+                            service={connection}
+                          />
                         </div>
                       );
                     })}

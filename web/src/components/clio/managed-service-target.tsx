@@ -1,4 +1,4 @@
-import { LaptopIcon, ServerIcon } from 'lucide-react';
+import { KeyRoundIcon, LaptopIcon, LockIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -8,32 +8,45 @@ import { RadioGroupItem } from '@/components/ui/radio-group';
 import { Spinner } from '@/components/ui/spinner';
 import { vocab } from '@/lib/brand-vocabulary';
 import type { SshHost } from '@/lib/ssh-hosts';
-import { writeSshTransport, type SshTransportStatus } from '@/tauri/ssh-infrastructure-transport';
+import { writeSshTransport, type SshPrompt } from '@/tauri/ssh-infrastructure-transport';
 import { targetLabel } from './managed-service-target-utils';
 
 export type ManagedTargetKind = 'local' | 'ssh';
 
-export function SshAuthentication({
-  output,
-  sessionId,
-  state,
-}: {
-  output: string;
-  sessionId: string;
-  state: SshTransportStatus['state'];
-}) {
+const PROMPT_LABELS: Record<SshPrompt['kind'], string> = {
+  password: 'Password',
+  passphrase: 'Key passphrase',
+  host_key: 'Trust this host key?',
+  keyboard_interactive: 'Verification',
+};
+
+/**
+ * Answer the one authentication question OpenSSH is waiting on. Rendered only
+ * for a real prompt (see the desktop's prompt classifier), never for `ssh>`
+ * or a shell prompt, so the input always has something to answer.
+ */
+export function SshAuthentication({ prompt, sessionId }: { prompt: SshPrompt; sessionId: string }) {
   const [answer, setAnswer] = useState('');
   const [error, setError] = useState<string>();
+  const secret = prompt.kind !== 'host_key';
   return (
     <Alert className="mt-3">
-      <ServerIcon aria-hidden="true" />
-      <AlertTitle>
-        {state === 'reconnecting' ? 'Reconnecting SSH' : 'SSH authentication required'}
+      <KeyRoundIcon aria-hidden="true" />
+      <AlertTitle className="flex items-center gap-1.5">
+        {PROMPT_LABELS[prompt.kind]}
+        <span
+          className="text-muted-foreground"
+          title={`Sent only to this OpenSSH process; ${vocab.agent} never saves it.`}
+        >
+          <LockIcon aria-label="Not saved" className="size-3.5" />
+        </span>
       </AlertTitle>
       <AlertDescription className="space-y-3">
-        <pre className="clio-scrollbar max-h-48 overflow-auto whitespace-pre-wrap border-y bg-background/60 p-3 font-mono text-xs">
-          {output || 'Waiting for OpenSSH…'}
-        </pre>
+        {prompt.context && prompt.context !== prompt.text ? (
+          <pre className="clio-scrollbar max-h-40 overflow-auto whitespace-pre-wrap border-y bg-background/60 p-3 font-mono text-xs">
+            {prompt.context}
+          </pre>
+        ) : null}
         <form
           className="flex gap-2"
           onSubmit={(event) => {
@@ -41,24 +54,26 @@ export function SshAuthentication({
             const response = answer;
             setAnswer('');
             setError(undefined);
-            void writeSshTransport(sessionId, `${response}\n`).catch((reason: unknown) =>
+            void writeSshTransport(
+              sessionId,
+              `${response}
+`,
+            ).catch((reason: unknown) =>
               setError(reason instanceof Error ? reason.message : String(reason)),
             );
           }}
         >
           <Input
-            aria-label="SSH prompt response"
+            aria-label={prompt.text}
             autoComplete="off"
+            autoFocus
             onChange={(event) => setAnswer(event.target.value)}
-            placeholder="Answer the prompt shown above"
-            type="password"
+            placeholder={prompt.text}
+            type={secret ? 'password' : 'text'}
             value={answer}
           />
           <Button type="submit">Continue</Button>
         </form>
-        <p className="text-xs text-muted-foreground">
-          The response is sent only to this OpenSSH process and is never saved by {vocab.agent}.
-        </p>
         {error ? <p className="text-xs text-destructive">{error}</p> : null}
       </AlertDescription>
     </Alert>

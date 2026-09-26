@@ -55,7 +55,8 @@ const CONNECTED_TRANSPORT_STATES: ReadonlySet<InfrastructureTarget['transport_st
  * only the ONE supervised local service, already covered by `managed`).
  */
 export function useKnownConnections(): readonly KnownConnection[] {
-  const { recents, managedConnection, managedConnectionReady } = useConnectionSettings();
+  const { recents, managedConnection, managedConnectionReady, managedLabel } =
+    useConnectionSettings();
   const recentAvailabilities = useConnectionAvailabilities(recents);
   const desktop = inTauri();
 
@@ -103,7 +104,7 @@ export function useKnownConnections(): readonly KnownConnection[] {
       managed.push({
         endpoint: managedConnection.endpoint,
         token: managedConnection.token,
-        label: 'This computer',
+        label: managedLabel ?? 'This computer',
         location: 'This device',
         source: 'managed',
         availability: managedConnectionReady
@@ -137,6 +138,7 @@ export function useKnownConnections(): readonly KnownConnection[] {
     desktop,
     managedConnection,
     managedConnectionReady,
+    managedLabel,
     recentAvailabilities,
     recents,
   ]);
