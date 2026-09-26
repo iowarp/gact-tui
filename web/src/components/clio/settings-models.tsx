@@ -1,31 +1,21 @@
-import { queryKeys } from '@/lib/query-keys';
-import type { LanguageModelConfiguration } from '@clio/core/v3';
+import type { LanguageModelConfiguration, LanguageModelPreset } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { useRepository } from '@/hooks/use-repository';
-import { useProviderGroups } from '@/hooks/use-provider-groups';
-import { useConnectionSettings } from '@/providers/connection-provider';
-import { Input } from '@/components/ui/input';
-import { readProviderCredential } from '@/tauri/secure-credentials';
-import { providerDisplayName } from '@/lib/provider-presentation';
-import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
-import { useLiveStore } from '@/store/live-store';
+import { useState } from 'react';
+import { Frame, FramePanel } from '@/components/reui/frame';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
-import { InfoTip } from './info-tip';
-import { providerGroupStatus, type ProviderGroup } from './model-picker-model';
-import { ReasoningLevelField } from './reasoning-level-field';
+import { useProviderGroups } from '@/hooks/use-provider-groups';
+import { useRepository } from '@/hooks/use-repository';
+import { findSelectedModelOption, matchesConfiguredModel, type ClioModelOption } from '@/lib/model-options';
+import { providerDisplayName } from '@/lib/provider-presentation';
+import { queryKeys } from '@/lib/query-keys';
+import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
+import { useConnectionSettings } from '@/providers/connection-provider';
+import { useLiveStore } from '@/store/live-store';
+import { readProviderCredential } from '@/tauri/secure-credentials';
+import { ReasoningLevelSegmented } from './reasoning-level-segmented';
+import { SettingsDefaultModelCard } from './settings-default-model-card';
 import {
-  canApplyProvider,
-  modelSettingsOptions,
   modelSettingsUpdate,
   presetIsActive,
   providerSupportsRuntimeSizing,
@@ -33,15 +23,14 @@ import {
   seedModelSettings,
   type ModelSettingsValues,
 } from './settings-models-form';
-import { ProviderSetupRow } from './settings-models-provider-row';
+import { SettingsResponseSettings } from './settings-response-settings';
 import { SettingsSectionHeading } from './settings-section-heading';
 
 /**
- * Settings > Models: the model and session defaults for new work -- default
- * provider and model, reasoning, endpoint overrides, token cap, temperature.
- * Provider management (sign-in, keys, checks, availability) lives on
- * Settings > Providers; a provider that is not ready shows one row linking
- * there, never an inline form.
+ * Settings > Models: the model new work starts with, as ONE card with Change
+ * (the same model picker the composer uses), then only what that model
+ * supports -- a thinking level when it reasons -- and the rare response
+ * settings behind a quiet disclosure. Every choice applies as it is made.
  */
 export function ModelsSettings() {
   const repository = useRepository();
@@ -53,15 +42,17 @@ export function ModelsSettings() {
   return (
     <div className="grid gap-6">
       <SettingsSectionHeading
-        info="The provider, model and reasoning effort new work starts with. Applying also makes this the backend default."
+        info="The model new work starts with. Changing it also makes it the service's default."
         title="Models"
       />
       {configuration.data ? (
         <ModelsSettingsContent configuration={configuration.data} key={settings.endpoint} />
       ) : configuration.error ? (
-        <p className="text-sm text-destructive">{configuration.error.message}</p>
+        <p className="text-sm text-destructive" role="alert">
+          {configuration.error.message}
+        </p>
       ) : (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <Skeleton aria-label="Loading models" className="h-40 w-full max-w-2xl" role="status" />
       )}
     </div>
   );
@@ -72,102 +63,51 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
   const queryClient = useQueryClient();
   const clearSessionModelReferences = useLiveStore((state) => state.clearSessionModelReferences);
   const { settings } = useConnectionSettings();
-  const { groups } = useProviderGroups();
-  const initialPreset = resolveActivePreset(configuration);
-  const [presetId, setPresetId] = useState(initialPreset?.id ?? configuration.provider_id ?? '');
-  const [seeded, setSeeded] = useState(() =>
-    seedModelSettings({
-      configuration,
-      preset: initialPreset,
-      presetIsActive: presetIsActive(configuration, initialPreset),
-    }),
-  );
-  const [values, setValues] = useState(seeded);
+  const { catalog, groups, options } = useProviderGroups();
+  const activePreset = resolveActivePreset(configuration);
+  const seed = () =>
+    seedModelSettings({ configuration, preset: activePreset, presetIsActive: Boolean(activePreset) });
+  const [values, setValues] = useState(seed);
   const [edited, setEdited] = useState(false);
   const [seenConfiguration, setSeenConfiguration] = useState(configuration);
-  const selectedPreset = configuration.presets.find((preset) => preset.id === presetId);
-  const selectedGroup = groups.find((group) => group.id === presetId);
-
   if (configuration !== seenConfiguration) {
+    // The service's configuration changed (here or elsewhere): adopt it unless
+    // the person has unsaved response settings open.
     setSeenConfiguration(configuration);
-    if (!edited) {
-      const reseeded = seedModelSettings({
-        configuration,
-        preset: selectedPreset,
-        presetIsActive: presetIsActive(configuration, selectedPreset),
-      });
-      setSeeded(reseeded);
-      setValues(reseeded);
-    }
+    if (!edited) setValues(seed());
   }
 
-  const edit = (patch: Partial<ModelSettingsValues>) => {
-    setEdited(true);
-    setValues((current) => ({ ...current, ...patch }));
-  };
-  // The key itself is entered on Settings > Providers; Apply only forwards the
-  // stored one with the configuration write.
-  const storedCredential = useQuery({
-    enabled: Boolean(selectedPreset?.requires_api_key && values.apiBase),
-    queryKey: [
-      'provider-credential',
-      selectedPreset?.provider_id ?? selectedPreset?.id,
-      values.apiBase,
-    ],
-    queryFn: () =>
-      readProviderCredential(
-        selectedPreset?.provider_id ?? selectedPreset?.id ?? '',
-        values.apiBase,
-      ),
-  });
-  const supportsRuntimeControls = providerSupportsRuntimeSizing(selectedPreset);
-  const providerReadyForApply = canApplyProvider(selectedPreset, values, storedCredential.data);
-  const models = useQuery({
-    queryKey: queryKeys.key('provider-models', settings.endpoint, presetId),
-    queryFn: ({ signal }) => repository.providerModels(presetId, signal),
-    enabled: Boolean(presetId && selectedPreset?.is_authenticated),
-  });
-  const modelOptions = modelSettingsOptions({
-    catalog: models.data?.models ?? [],
-    configuration,
-    modelId: values.modelId,
-    preset: selectedPreset,
-  });
-  // Only the levels this model's provider reports for it (none: no selector).
-  // `resolved_model_id` only names the SEEDED (unedited) model; once the
-  // person picks a different one, `values.modelId` is a real catalog id and
-  // matches by id directly.
+  const providerId = activePreset?.id ?? configuration.provider_id;
+  const option =
+    findSelectedModelOption(options, providerId, configuration.model) ??
+    options.find(
+      (candidate) =>
+        candidate.providerId === providerId &&
+        matchesConfiguredModel(candidate, configuration.model, configuration.resolved_model_id),
+    );
+  const group = groups.find((item) => item.id === providerId);
   const reasoning = useModelReasoningLevels(
-    presetId,
-    values.modelId,
-    values.modelId === configuration.model ? configuration.resolved_model_id : undefined,
+    providerId,
+    configuration.model,
+    configuration.resolved_model_id,
   );
-  const selectedModelIsCandidate = modelOptions.some(
-    (model) => model.id === values.modelId && model.availability === 'candidate',
-  );
-  const providerNotReady =
-    selectedGroup !== undefined &&
-    selectedGroup.health !== 'healthy' &&
-    selectedGroup.health !== 'checking';
 
   const save = useMutation({
-    mutationFn: async () => {
-      if (!selectedPreset || !values.modelId) throw new Error('Choose a provider and model first.');
-      const update = modelSettingsUpdate({ preset: selectedPreset, seeded, values });
-      if (selectedPreset.requires_api_key) {
-        const stored =
-          storedCredential.data ??
-          (await readProviderCredential(update.provider_id, update.api_base));
+    mutationFn: async ({ preset, next }: { preset: LanguageModelPreset; next: ModelSettingsValues }) => {
+      const update = modelSettingsUpdate({
+        preset,
+        seeded: preset.id === activePreset?.id ? seed() : { ...next, effort: '' },
+        values: next,
+      });
+      if (preset.requires_api_key) {
+        const stored = await readProviderCredential(update.provider_id, update.api_base);
         if (stored) update.api_key = stored;
       }
       return repository.updateLanguageModelConfiguration(update);
     },
     onSuccess: async (next) => {
       setEdited(false);
-      queryClient.setQueryData(
-        queryKeys.key('language-model-configuration', settings.endpoint),
-        next,
-      );
+      queryClient.setQueryData(queryKeys.key('language-model-configuration', settings.endpoint), next);
       clearCachedSessionModelReferences(queryClient, settings.endpoint);
       clearSessionModelReferences();
       await Promise.all([
@@ -175,249 +115,91 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
         queryClient.invalidateQueries({ queryKey: queryKeys.providerModels(settings.endpoint) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.key('sessions', settings.endpoint) }),
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.key('session-defaults', settings.endpoint),
-        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.key('session-defaults', settings.endpoint) }),
       ]);
     },
   });
 
+  function chooseModel(choice: ClioModelOption) {
+    const preset = configuration.presets.find((item) => item.id === choice.providerId);
+    if (!preset) return;
+    const staying = presetIsActive(configuration, preset);
+    const next: ModelSettingsValues = {
+      ...values,
+      apiBase: staying ? values.apiBase : (preset.api_base ?? ''),
+      providerOptions: staying ? values.providerOptions : {},
+      modelId: choice.id,
+      // A level belongs to a model: a new model starts on its own default.
+      effort: staying && choice.id === configuration.model ? values.effort : '',
+    };
+    setValues(next);
+    save.mutate({ preset, next });
+  }
+
+  function chooseEffort(effort: ModelSettingsValues['effort']) {
+    if (!activePreset) return;
+    const next = { ...values, effort };
+    setValues(next);
+    save.mutate({ preset: activePreset, next });
+  }
+
   return (
-    <div className="grid gap-5">
-      <FieldGroup>
-        <Field>
-          <FieldLabel htmlFor="provider-choice">Provider</FieldLabel>
-          <Select
-            onValueChange={(value) => {
-              setPresetId(value);
-              const preset = configuration.presets.find((item) => item.id === value);
-              const active = presetIsActive(configuration, preset);
-              edit({
-                apiBase: active ? configuration.api_base : (preset?.api_base ?? ''),
-                modelId: active ? configuration.model : (preset?.suggested_model ?? ''),
-                providerOptions: active ? (configuration.provider_options ?? {}) : {},
-              });
-            }}
-            value={presetId}
-          >
-            <SelectTrigger id="provider-choice">
-              <SelectValue placeholder="Choose a provider" />
-            </SelectTrigger>
-            <SelectContent>
-              {configuration.presets.map((preset) => (
-                <SelectItem key={preset.id} value={preset.id}>
-                  <ProviderOptionLabel
-                    group={groups.find((group) => group.id === preset.id)}
-                    name={providerDisplayName(preset)}
-                  />
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {providerNotReady && selectedGroup ? <ProviderSetupRow group={selectedGroup} /> : null}
-        </Field>
-        <Field>
-          <LabelWithInfo
-            htmlFor="model-choice"
-            info={
-              models.data?.source === 'static_catalog'
-                ? 'Candidate models only. Verify the provider on Settings > Providers to confirm account availability.'
-                : models.data?.staleness
-                  ? 'Previously discovered models. Verify the provider to confirm current availability.'
-                  : 'Models the connected agent discovered for this provider.'
-            }
-            label="Model"
-          />
-          <Select
-            disabled={!presetId || models.isFetching}
-            onValueChange={(value) => edit({ modelId: value })}
-            value={values.modelId}
-          >
-            <SelectTrigger id="model-choice">
-              <SelectValue placeholder="Choose a model" />
-            </SelectTrigger>
-            <SelectContent>
-              {modelOptions.map((model) => (
-                <SelectItem
-                  disabled={model.availability === 'candidate'}
-                  key={model.id}
-                  value={model.id}
-                >
-                  {model.name ?? ('label' in model ? model.label : undefined) ?? model.id}
-                  {model.availability === 'candidate' ? ' (unverified)' : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {models.isError ? (
-            <p className="text-xs text-destructive" title={models.error.message}>
-              Models could not be loaded
-            </p>
-          ) : null}
-        </Field>
-        <ReasoningLevelField
-          allowModelDefault
-          id="model-effort"
-          info="The reasoning depth new work uses with this model. Default leaves it to the model."
-          onChange={(effort) => edit({ effort: effort ?? '' })}
-          reasoning={reasoning}
-          value={values.effort || undefined}
+    <Frame className="max-w-2xl" data-slot="models-panel" stacked>
+      <FramePanel className="flex flex-col gap-4">
+        <SettingsDefaultModelCard
+          busy={save.isPending}
+          catalogStatus={catalog.isPending && !catalog.data ? 'loading' : catalog.error && !catalog.data ? 'error' : 'ready'}
+          group={group}
+          modelId={configuration.model || undefined}
+          onChange={chooseModel}
+          onRetryCatalog={(id) => catalog.refreshCatalog(id)}
+          option={option}
+          options={options}
+          providerId={providerId || undefined}
+          providerName={activePreset ? providerDisplayName(activePreset) : undefined}
         />
-        <Field>
-          <LabelWithInfo
-            htmlFor="provider-api-base"
-            info={
-              (selectedPreset?.provider_id ?? selectedPreset?.id) === 'vllm'
-                ? 'The vLLM host and port, including the OpenAI-compatible /v1 path.'
-                : 'The endpoint the connected service uses for this provider.'
-            }
-            label="Endpoint override"
-          />
-          <Input
-            autoComplete="url"
-            id="provider-api-base"
-            onChange={(event) => edit({ apiBase: event.target.value })}
-            placeholder="http://127.0.0.1:8000/v1"
-            value={values.apiBase}
-          />
-        </Field>
-        {(selectedPreset?.configuration_fields ?? []).map((field) => (
-          <Field key={field.id}>
-            <LabelWithInfo
-              htmlFor={`provider-option-${field.id}`}
-              info={field.description}
-              label={field.label}
+        {reasoning?.levels.length ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+            <span className="text-sm font-medium">Thinking</span>
+            <ReasoningLevelSegmented
+              disabled={save.isPending}
+              onChange={chooseEffort}
+              reasoning={reasoning}
+              value={values.effort}
             />
-            <Input
-              id={`provider-option-${field.id}`}
-              onChange={(event) =>
-                edit({
-                  providerOptions: { ...values.providerOptions, [field.id]: event.target.value },
-                })
-              }
-              placeholder={field.placeholder}
-              required={field.required}
-              value={values.providerOptions[field.id] ?? ''}
-            />
-          </Field>
-        ))}
-        {supportsRuntimeControls ? (
-          <>
-            <NumberField
-              id="provider-parallel"
-              info="Not reported back by the service. Empty leaves the runtime's own sizing untouched."
-              label="Parallel model slots"
-              min={0}
-              onChange={(parallel) => edit({ parallel })}
-              placeholder="Runtime default"
-              value={values.parallel}
-            />
-            <NumberField
-              id="provider-context-length"
-              info="Empty keeps the runtime-discovered or deployment default context window."
-              label="Context length"
-              min={0}
-              onChange={(contextLength) => edit({ contextLength })}
-              placeholder="Runtime default"
-              value={values.contextLength}
-            />
-          </>
+          </div>
         ) : null}
-        <NumberField
-          id="provider-max-tokens"
-          info="Empty means no cap is recorded and the provider applies its own."
-          label="Maximum output tokens"
-          min={1}
-          onChange={(maxTokens) => edit({ maxTokens })}
-          placeholder="Provider default"
-          value={values.maxTokens}
+        <SaveState error={save.error?.message} saving={save.isPending} />
+      </FramePanel>
+      <FramePanel className="py-2">
+        <SettingsResponseSettings
+          edited={edited}
+          onEdit={(patch) => {
+            setEdited(true);
+            setValues((current) => ({ ...current, ...patch }));
+          }}
+          onSave={() => (activePreset ? save.mutate({ preset: activePreset, next: values }) : undefined)}
+          preset={activePreset}
+          runtimeSized={providerSupportsRuntimeSizing(activePreset)}
+          saving={save.isPending}
+          values={values}
         />
-        <NumberField
-          id="provider-temperature"
-          info="Empty leaves the provider's own default."
-          label="Temperature"
-          max={2}
-          min={0}
-          onChange={(temperature) => edit({ temperature })}
-          placeholder="Provider default"
-          step={0.1}
-          value={values.temperature}
-        />
-      </FieldGroup>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          disabled={
-            !providerReadyForApply || !values.modelId || selectedModelIsCandidate || save.isPending
-          }
-          onClick={() => save.mutate()}
-        >
-          {save.isPending ? 'Applying…' : 'Apply provider and model'}
-        </Button>
-        {save.error ? <p className="text-sm text-destructive">{save.error.message}</p> : null}
-      </div>
-    </div>
+      </FramePanel>
+    </Frame>
   );
 }
 
-function ProviderOptionLabel({ group, name }: { group?: ProviderGroup; name: string }) {
-  const notReady = group && group.health !== 'healthy' && group.health !== 'checking';
-  return (
-    <span className="flex min-w-0 items-baseline gap-2">
-      <span className="truncate">{name}</span>
-      {notReady ? (
-        <span className="shrink-0 text-xs text-muted-foreground">
-          {providerGroupStatus(group).label}
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
-function LabelWithInfo({
-  htmlFor,
-  info,
-  label,
-}: {
-  htmlFor: string;
-  info?: ReactNode;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
-      {info ? <InfoTip label={`About ${label}`}>{info}</InfoTip> : null}
-    </div>
-  );
-}
-
-function NumberField({
-  id,
-  info,
-  label,
-  onChange,
-  value,
-  ...input
-}: {
-  id: string;
-  info: string;
-  label: string;
-  onChange: (value: string) => void;
-  value: string;
-  max?: number;
-  min?: number;
-  placeholder?: string;
-  step?: number;
-}) {
-  return (
-    <Field>
-      <LabelWithInfo htmlFor={id} info={info} label={label} />
-      <Input
-        id={id}
-        onChange={(event) => onChange(event.target.value)}
-        type="number"
-        value={value}
-        {...input}
-      />
-    </Field>
-  );
+function SaveState({ saving, error }: { saving: boolean; error?: string }) {
+  if (error) {
+    return (
+      <p className="text-sm text-destructive" role="alert">
+        {error}
+      </p>
+    );
+  }
+  return saving ? (
+    <p className="text-sm text-muted-foreground" role="status">
+      Saving…
+    </p>
+  ) : null;
 }

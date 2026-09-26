@@ -97,7 +97,8 @@ const requiredImports = {
     '@/components/reui/data-grid/data-grid',
   ],
   'web/src/components/clio/settings-session-defaults.tsx': ['@/components/ui/select'],
-  'web/src/components/clio/settings-models.tsx': ['@/components/ui/select'],
+  'web/src/components/clio/settings-models.tsx': ['@/components/reui/frame'],
+  'web/src/components/clio/settings-default-model-card.tsx': ['./model-picker'],
   'web/src/components/clio/settings-prompts.tsx': [
     '@/components/ai-elements/code-block',
     '@/components/reui/frame',
