@@ -85,18 +85,30 @@ export function matchesConfiguredModel(
   return (candidate.aliases ?? []).includes(modelId);
 }
 
-/** The available option naming `providerId`+`modelId` (by id, alias, or resolved id). */
+/**
+ * The available option naming `providerId`+`modelId` (by id, alias, or resolved
+ * id). A multi-transport provider lists the same model once per transport (Codex
+ * SDK and Direct both list `gpt-5.5`), so a picked `transport` selects that half.
+ */
 export function findSelectedModelOption<
-  T extends { providerId: string; id: string; aliases?: readonly string[]; available: boolean },
+  T extends {
+    providerId: string;
+    id: string;
+    aliases?: readonly string[];
+    available: boolean;
+    transport?: string;
+  },
 >(
   options: readonly T[],
   providerId: string | undefined,
   modelId: string | undefined,
+  transport?: string,
 ): T | undefined {
   return options.find(
     (option) =>
       option.providerId === providerId &&
       matchesConfiguredModel(option, modelId) &&
+      (!transport || option.transport === transport) &&
       option.available,
   );
 }
