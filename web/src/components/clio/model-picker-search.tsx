@@ -2,7 +2,7 @@ import { RemoveIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { CascaderInput } from '@/components/reui/cascader/cascader-nav';
 import { Badge } from '@/components/reui/badge';
-import type { FacetTab } from '@/lib/model-facets';
+import type { FacetChip, FacetTab } from '@/lib/model-facets';
 import { filterTokenSuggestions, type ModelFilterToken } from '@/lib/model-filter-tokens';
 import { ModelPickerFacetPanel } from './model-picker-facet-panel';
 
@@ -59,8 +59,13 @@ export function ModelPickerSearch({
     onQueryChange(words.join(' '));
   }
 
-  function toggleToken(token: ModelFilterToken) {
-    onTokensChange(tokens.includes(token) ? tokens.filter((item) => item !== token) : [...tokens, token]);
+  /** A chip press: off when on; otherwise on, swapping out any default token it replaces. */
+  function toggleChip(chip: FacetChip) {
+    if (tokens.includes(chip.token)) {
+      onTokensChange(tokens.filter((item) => item !== chip.token));
+      return;
+    }
+    onTokensChange([...tokens.filter((item) => !chip.replaces.includes(item)), chip.token]);
   }
 
   // A press anywhere outside the field and the panel closes the panel.
@@ -159,7 +164,7 @@ export function ModelPickerSearch({
           ))}
         </div>
       ) : null}
-      {facetsOpen ? <ModelPickerFacetPanel onToggleToken={toggleToken} tabs={facetTabs} /> : null}
+      {facetsOpen ? <ModelPickerFacetPanel onToggleChip={toggleChip} tabs={facetTabs} /> : null}
     </div>
   );
 }

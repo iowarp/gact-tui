@@ -6,10 +6,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   filterFacetGroups,
   mainFacetGroups,
+  type FacetChip,
   type FacetTab,
   type FacetTabId,
 } from '@/lib/model-facets';
-import type { ModelFilterToken } from '@/lib/model-filter-tokens';
 import { FacetChipCluster } from './model-picker-facet-chips';
 
 /** A tab with more chips than this gets its own "Filter … by name" field. */
@@ -17,7 +17,7 @@ const NAME_FILTER_THRESHOLD = 6;
 
 interface ModelPickerFacetPanelProps {
   tabs: readonly FacetTab[];
-  onToggleToken: (token: ModelFilterToken) => void;
+  onToggleChip: (chip: FacetChip) => void;
 }
 
 /**
@@ -41,7 +41,7 @@ function containKeys(event: KeyboardEvent<HTMLInputElement>): void {
  * Input, Output, Capabilities, Providers, Other. Every chip comes from the
  * catalog's own tags and toggles its token in the search bar.
  */
-export function ModelPickerFacetPanel({ tabs, onToggleToken }: ModelPickerFacetPanelProps) {
+export function ModelPickerFacetPanel({ tabs, onToggleChip }: ModelPickerFacetPanelProps) {
   const [tab, setTab] = useState<'main' | FacetTabId>('main');
   const [nameFilter, setNameFilter] = useState('');
   const main = mainFacetGroups(tabs);
@@ -81,7 +81,7 @@ export function ModelPickerFacetPanel({ tabs, onToggleToken }: ModelPickerFacetP
                     more={group.more}
                     moreLabel={group.label}
                     onMore={() => openTab(group.tab)}
-                    onToggle={onToggleToken}
+                    onToggle={onToggleChip}
                   />
                 </section>
               ))
@@ -111,7 +111,7 @@ export function ModelPickerFacetPanel({ tabs, onToggleToken }: ModelPickerFacetP
                   groups.map((group) => (
                     <section className="flex flex-col gap-2" data-group={group.id} key={group.id}>
                       <h3 className="text-xs font-medium text-muted-foreground">{group.label}</h3>
-                      <FacetChipCluster chips={group.chips} onToggle={onToggleToken} />
+                      <FacetChipCluster chips={group.chips} onToggle={onToggleChip} />
                     </section>
                   ))
                 ) : (

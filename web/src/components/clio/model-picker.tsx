@@ -329,6 +329,9 @@ export function ClioModelPicker({
             // Nothing chosen yet: keep the path the picker opened on.
             revealSelected={Boolean(selectedChoice)}
             searchScope={freeSearchText(query) ? 'deep' : 'level'}
+            // Every hit is listed (the lists are windowed): the counts beside the
+            // search and each provider must agree with the rows.
+            searchLimit={Number.POSITIVE_INFINITY}
             selectable={(node) => node.data?.kind === 'model'}
             // Always controlled: a refused pick (a surrogate) must not stay checked.
             value={selectedChoice ? modelNodeValue(selectedChoice) : ''}

@@ -4,6 +4,7 @@ import {
   type ModelCapabilityTag,
 } from './model-capability-tags';
 import {
+  DEFAULT_FILTER_TOKENS,
   matchesFilterTokens,
   providerFilterToken,
   tagFilterTokens,
@@ -27,9 +28,17 @@ export type FacetIcon =
 export interface FacetChip {
   token: ModelFilterToken;
   label: string;
-  /** Models that match the search, every active token, and this chip's token. */
+  /**
+   * Models that match the search, the active tokens and this chip's token.
+   * When the only thing hiding them is a DEFAULT token (`output:text` hides
+   * every image generator), the count is what the chip gives once that
+   * default gives way -- see `replaces`. Zero means pressing it would list
+   * nothing, so an inactive zero chip is not pressable.
+   */
   count: number;
   active: boolean;
+  /** The default tokens pressing this chip swaps out (empty: it just adds). */
+  replaces: ModelFilterToken[];
   icon: FacetIcon;
 }
 
@@ -227,6 +236,20 @@ function byCountThenLabel(left: FacetChip, right: FacetChip): number {
 }
 
 /**
+ * Every subset of the active DEFAULT tokens, smallest first: none, then each
+ * one alone, ..., then all of them. Tokens the person added are never
+ * dropped -- only the defaults, which they never asked for.
+ */
+function defaultReliefs(active: readonly ModelFilterToken[]): ModelFilterToken[][] {
+  const defaults = active.filter((token) => DEFAULT_FILTER_TOKENS.includes(token));
+  const subsets: ModelFilterToken[][] = [[]];
+  for (const token of defaults) {
+    for (const subset of [...subsets]) subsets.push([...subset, token]);
+  }
+  return subsets.sort((left, right) => left.length - right.length);
+}
+
+/**
  * The panel's tabs. `hideEmpty` (set while free text is typed) drops chips no
  * matching model carries, so the panel narrows with the search; an active
  * chip always stays so it can be turned off.
@@ -237,19 +260,31 @@ export function buildModelFacets(
   { hideEmpty = false }: { hideEmpty?: boolean } = {},
 ): FacetTab[] {
   const sources = new Map<ModelFilterToken, ChipSource>();
-  const counts = new Map<ModelFilterToken, number>();
-  for (const entry of entries) {
-    entrySources(entry, sources);
-    if (!entry.matchesText || !matchesFilterTokens(entry.tokens, active)) continue;
-    for (const token of entry.tokens) counts.set(token, (counts.get(token) ?? 0) + 1);
-  }
+  for (const entry of entries) entrySources(entry, sources);
+  // Counts under the active tokens, then under each way of letting active
+  // DEFAULT tokens give way (fewest dropped first). A chip takes the first
+  // variant that lists something for it.
+  const variants = defaultReliefs(active).map((dropped) => {
+    const kept = active.filter((token) => !dropped.includes(token));
+    const counts = new Map<ModelFilterToken, number>();
+    for (const entry of entries) {
+      if (!entry.matchesText || !matchesFilterTokens(entry.tokens, kept)) continue;
+      for (const token of entry.tokens) counts.set(token, (counts.get(token) ?? 0) + 1);
+    }
+    return { dropped, counts };
+  });
+  const [plain] = variants;
   const groups = new Map<string, FacetGroup & { tab: FacetTabId; rank: number }>();
   for (const [token, source] of sources) {
+    const isActive = active.includes(token);
+    const variant =
+      (isActive ? undefined : variants.find((item) => (item.counts.get(token) ?? 0) > 0)) ?? plain!;
     const chip: FacetChip = {
       token,
       label: source.label,
-      count: counts.get(token) ?? 0,
-      active: active.includes(token),
+      count: variant.counts.get(token) ?? 0,
+      active: isActive,
+      replaces: variant.dropped,
       icon: source.icon,
     };
     if (hideEmpty && !chip.count && !chip.active) continue;

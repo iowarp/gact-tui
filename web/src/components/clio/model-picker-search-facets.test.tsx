@@ -198,6 +198,43 @@ describe('ClioModelPicker filter panel', () => {
     expect(tokens()).toEqual(['input:text', 'output:text']);
   });
 
+  it('a chip hidden only by a default token counts what it would list and swaps that default', async () => {
+    const user = await openPicker();
+    await user.click(searchField());
+    await user.click(within(panel()!).getByRole('tab', { name: 'Tasks' }));
+
+    const image = within(panel()!).getByRole('button', { name: /^Text-to-Image: 1 model \(replaces output:text\)$/u });
+    expect(image).toBeEnabled();
+    await user.click(image);
+
+    expect(tokens()).toEqual(['input:text', 'task:text-to-image']);
+    expect(barCount()).toBe('1 / 6');
+  });
+
+  it('a chip that would list nothing cannot be pressed', async () => {
+    const user = await openPicker();
+    await user.click(searchField());
+    await user.click(within(panel()!).getByRole('button', { name: /^Free: / }));
+    await user.click(within(panel()!).getByRole('tab', { name: 'Tasks' }));
+
+    // sdxl is not free, and "free" is the person's own token: nothing to swap.
+    const image = within(panel()!).getByRole('button', { name: /^Text-to-Image: 0 models$/u });
+    expect(image).toBeDisabled();
+  });
+
+  it('a broad search lists every hit, so the counts and the rows agree', async () => {
+    const many = Array.from({ length: 250 }, (_, index) => capabilityRow(`acme/model-${index}`));
+    const user = await openPicker(many);
+
+    await user.type(searchField(), 'model');
+
+    expect(barCount()).toBe('250 / 250');
+    // 250 model rows plus their provider's header -- never cut at 200.
+    await waitFor(() =>
+      expect(document.querySelector('[data-slot="cascader-status"]')).toHaveTextContent('251 results'),
+    );
+  });
+
   it('typing keeps it open and narrows its chips to what matches', async () => {
     const user = await openPicker();
     await user.click(searchField());

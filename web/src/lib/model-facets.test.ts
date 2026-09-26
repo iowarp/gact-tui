@@ -79,9 +79,10 @@ describe('buildModelFacets', () => {
     const count = (token: string) =>
       tabs.flatMap((item) => item.groups.flatMap((group) => group.chips)).find((chip) => chip.token === token);
 
-    // Whisper takes audio only, so it never counts under input:text.
-    expect(count('input:audio')).toMatchObject({ count: 0, active: false });
-    expect(count('input:text')).toMatchObject({ count: 5, active: true });
+    // Whisper takes audio only: hidden only by the DEFAULT input:text, so the
+    // chip counts it and would swap that default out.
+    expect(count('input:audio')).toMatchObject({ count: 1, active: false, replaces: ['input:text'] });
+    expect(count('input:text')).toMatchObject({ count: 5, active: true, replaces: [] });
     expect(count('free')?.count).toBe(2);
 
     const searched = buildModelFacets(
@@ -109,6 +110,31 @@ describe('buildModelFacets', () => {
       'input:image',
       'input:pdf',
     ]);
+  });
+});
+
+describe('buildModelFacets: chips hidden only by the default tokens', () => {
+  const chips = (active: string[]) =>
+    buildModelFacets(catalog, active).flatMap((item) => item.groups.flatMap((group) => group.chips));
+  const find = (active: string[], token: string) => chips(active).find((chip) => chip.token === token);
+
+  it('count what they would list and name the default they replace', () => {
+    const defaults = ['input:text', 'output:text'];
+    expect(find(defaults, 'task:text-to-image')).toMatchObject({ count: 1, replaces: ['output:text'] });
+    expect(find(defaults, 'task:automatic-speech-recognition')).toMatchObject({
+      count: 1,
+      replaces: ['input:text'],
+    });
+    // Nothing to replace for a chip the defaults already allow.
+    expect(find(defaults, 'free')).toMatchObject({ count: 2, replaces: [] });
+  });
+
+  it('never drop a token the person added: such a chip stays at 0', () => {
+    // sdxl is not free, and "free" was the person's own choice.
+    expect(find(['input:text', 'output:text', 'free'], 'task:text-to-image')).toMatchObject({
+      count: 0,
+      replaces: [],
+    });
   });
 });
 
