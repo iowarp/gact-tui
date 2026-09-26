@@ -11,32 +11,29 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { useServerCheck } from '@/hooks/use-server-check';
-import { CUSTOM_SERVER_PRESET_ID, normalizeServerAddress } from '@/lib/local-servers';
-
-interface SettingsAddServerDialogProps {
-  applying: boolean;
-  /** Make the checked server the default, with the first model it serves. */
-  onUse: (address: string, model: string | undefined) => void;
-}
+import { useSavedServers } from '@/hooks/use-saved-servers';
+import { normalizeServerAddress, savedCheckSentence } from '@/lib/local-servers';
 
 /**
  * Add a self-hosted server -- any OpenAI-compatible address (a vLLM or
- * llama.cpp on a cluster node or another machine): type the address, check
- * it live, then use it. One short dialog, one field.
+ * llama.cpp on a cluster node or another machine). One short dialog: a name,
+ * an address, Add. The service saves it and checks it at once; the dialog
+ * ends on what the check found.
  */
-export function SettingsAddServerDialog({ applying, onUse }: SettingsAddServerDialogProps) {
+export function SettingsAddServerDialog() {
   const [open, setOpen] = useState(false);
+  const [label, setLabel] = useState('');
   const [draft, setDraft] = useState('');
-  const check = useServerCheck(CUSTOM_SERVER_PRESET_ID);
+  const { save } = useSavedServers();
   const address = normalizeServerAddress(draft);
-  const found = check.data;
+  const added = save.data;
 
   function reset(nextOpen: boolean) {
     setOpen(nextOpen);
     if (!nextOpen) {
+      setLabel('');
       setDraft('');
-      check.reset();
+      save.reset();
     }
   }
 
@@ -55,57 +52,56 @@ export function SettingsAddServerDialog({ applying, onUse }: SettingsAddServerDi
             A model server on another machine or a cluster node, reached by its address.
           </DialogDescription>
         </DialogHeader>
-        <form
-          className="flex items-center gap-1.5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (address) check.mutate(address);
-          }}
-        >
-          <Input
-            aria-label="Server address"
-            autoComplete="url"
-            autoFocus
-            className="font-mono text-sm"
-            onChange={(event) => {
-              setDraft(event.target.value);
-              check.reset();
+        {added ? (
+          <p className="text-sm" data-slot="add-server-result" role="status">
+            {added.label} was added. {savedCheckSentence(added.check)}
+          </p>
+        ) : (
+          <form
+            className="grid gap-2"
+            id="add-server-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (address) save.mutate({ address, label: label.trim() || undefined });
             }}
-            placeholder="http://my-server:8000/v1"
-            value={draft}
-          />
-          <Button disabled={!address || check.isPending} type="submit" variant="outline">
-            Check
-          </Button>
-        </form>
-        <div className="min-h-5 text-sm" data-slot="add-server-result">
-          {check.isPending ? (
-            <p className="flex items-center gap-1.5 text-muted-foreground" role="status">
-              <LoaderCircleIcon aria-hidden="true" className="size-4 animate-spin" />
-              Checking…
-            </p>
-          ) : found ? (
-            <p className={found.reachable ? 'text-foreground' : 'text-muted-foreground'} role="status">
-              {found.sentence}
-            </p>
-          ) : check.error ? (
-            <p className="text-destructive" role="alert">
-              {check.error.message}
-            </p>
-          ) : null}
-        </div>
-        <DialogFooter>
-          <Button
-            disabled={!found?.reachable || !address || applying}
-            onClick={() => {
-              if (!address) return;
-              onUse(address, found?.models[0]);
-              reset(false);
-            }}
-            type="button"
           >
-            Use this server
-          </Button>
+            <Input
+              aria-label="Server name"
+              onChange={(event) => setLabel(event.target.value)}
+              placeholder="Name (optional)"
+              value={label}
+            />
+            <Input
+              aria-label="Server address"
+              autoComplete="url"
+              autoFocus
+              className="font-mono text-sm"
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder="http://my-server:8000/v1"
+              value={draft}
+            />
+            {save.isPending ? (
+              <p className="flex items-center gap-1.5 text-sm text-muted-foreground" role="status">
+                <LoaderCircleIcon aria-hidden="true" className="size-4 animate-spin" />
+                Adding and checking…
+              </p>
+            ) : save.error ? (
+              <p className="text-sm text-destructive" role="alert">
+                {save.error.message}
+              </p>
+            ) : null}
+          </form>
+        )}
+        <DialogFooter>
+          {added ? (
+            <Button onClick={() => reset(false)} type="button">
+              Done
+            </Button>
+          ) : (
+            <Button disabled={!address || save.isPending} form="add-server-form" type="submit">
+              Add
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

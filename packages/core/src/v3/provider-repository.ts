@@ -15,6 +15,11 @@ import {
 } from './repository-decoders.js';
 import { languageModelConfigurationSchema } from './schemas.js';
 import { ContextRepository } from './context-repository.js';
+import {
+  savedServerListSchema,
+  savedServerSchema,
+  type SavedServer,
+} from './saved-server-domain.js';
 
 /**
  * Whole-request budget for `GET /v1/providers/lm/wait`. The server blocks
@@ -290,6 +295,66 @@ export class ProviderRepository extends ContextRepository {
       // honours this; the browser transport leaves the wait to the abort
       // signal. Either way it must exceed the server's own wait budget above.
       timeoutMs: LM_WAIT_REQUEST_TIMEOUT_MS,
+      signal,
+    });
+  }
+
+  /** Saved local/self-hosted servers; `check` probes every one of them now. */
+  public async savedServers(check = false, signal?: AbortSignal): Promise<SavedServer[]> {
+    const result = await this.transport.request({
+      method: 'GET',
+      path: `/v1/providers/servers${check ? '?check=true' : ''}`,
+      decode: (value) => savedServerListSchema.parse(value),
+      signal,
+    });
+    return result.servers;
+  }
+
+  /** Save a server -- a catalog runtime's address (`preset_id`) or a custom one -- and check it. */
+  public addSavedServer(
+    input: { address: string; label?: string; preset_id?: string },
+    signal?: AbortSignal,
+  ): Promise<SavedServer> {
+    return this.transport.request({
+      method: 'POST',
+      path: '/v1/providers/servers',
+      body: input,
+      decode: (value) => savedServerSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Change a saved server's address or label, and check it. */
+  public updateSavedServer(
+    serverId: string,
+    input: { address?: string; label?: string },
+    signal?: AbortSignal,
+  ): Promise<SavedServer> {
+    return this.transport.request({
+      method: 'PATCH',
+      path: `/v1/providers/servers/${encodeURIComponent(serverId)}`,
+      body: input,
+      decode: (value) => savedServerSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Forget a saved server (a catalog runtime goes back to its own address). */
+  public async removeSavedServer(serverId: string, signal?: AbortSignal): Promise<void> {
+    await this.transport.request({
+      method: 'DELETE',
+      path: `/v1/providers/servers/${encodeURIComponent(serverId)}`,
+      decode: (value) => z.object({ removed: z.string() }).parse(value),
+      signal,
+    });
+  }
+
+  /** Check one saved server's reachability now. */
+  public checkSavedServer(serverId: string, signal?: AbortSignal): Promise<SavedServer> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/servers/${encodeURIComponent(serverId)}/check`,
+      decode: (value) => savedServerSchema.parse(value),
       signal,
     });
   }

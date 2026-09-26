@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApplyModelConfiguration } from '@/hooks/use-apply-model-configuration';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
+import { useSavedServers } from '@/hooks/use-saved-servers';
 import { CUSTOM_SERVER_PRESET_ID, isLocalServerPreset } from '@/lib/local-servers';
 import type { ClioModelOption } from '@/lib/model-options';
 import { providerDisplayName, providerLogoId } from '@/lib/provider-presentation';
@@ -18,19 +19,29 @@ import { SettingsSectionHeading } from './settings-section-heading';
 /**
  * Settings > Providers: what the model picker cannot do -- model servers
  * that run on this computer or the person's own machines. Each local server
- * is a card with its status and its address, edited in place and checked
- * live; "Add a server" reaches any OpenAI-compatible address. Cloud and
+ * is a card with its status and its address, edited in place, saved on the
+ * service (which probes it from then on) and checked at once; "Add a
+ * server" saves any OpenAI-compatible address. Cloud and
  * subscription providers are set up in the model picker, which this page
  * opens on the provider asked for.
  */
 export function ProvidersSettings() {
   const { catalog, configuration, groups, options, presets } = useProviderGroups();
+  const { servers } = useSavedServers();
+  const saved = servers.data ?? [];
   const apply = useApplyModelConfiguration();
-  const loading = configuration.isPending || (catalog.isPending && !catalog.data);
-  const error = configuration.error ?? (catalog.data ? undefined : catalog.error);
+  const loading = configuration.isPending || (catalog.isPending && !catalog.data) || servers.isPending;
+  const error = configuration.error ?? servers.error ?? (catalog.data ? undefined : catalog.error);
   const active = configuration.data ? resolveActivePreset(configuration.data) : undefined;
   const locals = presets.filter(isLocalServerPreset);
   const others = presets.filter((preset) => !isLocalServerPreset(preset));
+  const customs = saved.filter((server) => server.custom);
+  const customPreset = presets.find((preset) => preset.id === CUSTOM_SERVER_PRESET_ID);
+  const activeAddress = configuration.data?.api_base ?? '';
+  // The default is a custom server when the bound address is one of theirs.
+  const defaultCustom = active?.id === CUSTOM_SERVER_PRESET_ID
+    ? customs.find((server) => server.address === activeAddress)
+    : undefined;
   const catalogStatus = catalog.isPending && !catalog.data ? 'loading' : catalog.error && !catalog.data ? 'error' : 'ready';
 
   function adoptServer(preset: LanguageModelPreset, address: string, model: string | undefined) {
@@ -80,30 +91,36 @@ export function ProvidersSettings() {
           <Frame className="max-w-3xl" data-slot="local-servers" stacked>
             <FrameHeader className="flex-row items-center justify-between gap-3">
               <FrameTitle>Model servers</FrameTitle>
-              <SettingsAddServerDialog
-                applying={apply.isPending}
-                onUse={(address, model) => {
-                  const preset = presets.find((item) => item.id === CUSTOM_SERVER_PRESET_ID);
-                  if (preset) adoptServer(preset, address, model);
-                }}
-              />
+              <SettingsAddServerDialog />
             </FrameHeader>
-            {locals.map((preset) => {
-              const isDefault = preset.id === active?.id;
-              return (
-                <FramePanel key={preset.id}>
-                  <SettingsLocalServerCard
-                    address={(isDefault ? configuration.data?.api_base : undefined) || preset.api_base || ''}
-                    applying={apply.isPending}
-                    catalogEntry={catalog.data?.providers.find((entry) => entry.id === preset.id)}
-                    group={groups.find((group) => group.id === preset.id)}
-                    isDefault={isDefault}
-                    onUse={(address, model) => adoptServer(preset, address, model)}
-                    preset={preset}
-                  />
-                </FramePanel>
-              );
-            })}
+            {locals.map((preset) => (
+              <FramePanel key={preset.id}>
+                <SettingsLocalServerCard
+                  applying={apply.isPending}
+                  catalogEntry={catalog.data?.providers.find((entry) => entry.id === preset.id)}
+                  group={groups.find((group) => group.id === preset.id)}
+                  isDefault={preset.id === active?.id && !defaultCustom}
+                  onUse={(address, model) => adoptServer(preset, address, model)}
+                  preset={preset}
+                  saved={saved.find((server) => server.id === preset.id)}
+                />
+              </FramePanel>
+            ))}
+            {customPreset
+              ? customs.map((server) => (
+                  <FramePanel key={server.id}>
+                    <SettingsLocalServerCard
+                      applying={apply.isPending}
+                      catalogEntry={undefined}
+                      group={undefined}
+                      isDefault={server.id === defaultCustom?.id}
+                      onUse={(address, model) => adoptServer(customPreset, address, model)}
+                      preset={customPreset}
+                      saved={server}
+                    />
+                  </FramePanel>
+                ))
+              : null}
           </Frame>
           {apply.error ? (
             <p className="text-sm text-destructive" role="alert">

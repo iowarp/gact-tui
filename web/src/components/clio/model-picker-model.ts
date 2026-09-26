@@ -1,4 +1,5 @@
 import type { LanguageModelPreset, ProviderCatalogTransport } from '@clio/core/v3';
+import { isLocalServerPreset } from '@/lib/local-servers';
 import { type ClioModelOption, PROVIDER_NEEDS_SETUP } from '@/lib/model-options';
 import {
   providerSetupNeed,
@@ -96,7 +97,32 @@ function presetOnlyHealth(preset: LanguageModelPreset | undefined): {
   return { health: 'healthy' };
 }
 
+/**
+ * A server on this computer that is not answering is waiting to be started,
+ * not failing: it reads grey "Not running" (the same derived state Settings >
+ * Providers shows), never the red of a real failure.
+ */
+function localServerNotRunning(
+  group: ProviderGroup,
+  preset: LanguageModelPreset | undefined,
+): ProviderGroup {
+  if (!preset || !isLocalServerPreset(preset)) return group;
+  if (group.health !== 'unavailable' && group.health !== 'degraded') return group;
+  return { ...group, health: 'setup', setupNeed: 'start' };
+}
+
 export function toProviderGroup(
+  group: {
+    id: string;
+    name: string;
+    choices: ClioModelOption[];
+  },
+  preset?: LanguageModelPreset,
+): ProviderGroup {
+  return localServerNotRunning(derivedProviderGroup(group, preset), preset);
+}
+
+function derivedProviderGroup(
   group: {
     id: string;
     name: string;

@@ -72,3 +72,37 @@ export function serverCheckResult(result: ProviderHandshake): ServerCheck {
         : 'Nothing is running at this address.',
   };
 }
+
+export type ServerStatus = { kind: 'running'; models: number } | { kind: 'stopped' } | { kind: 'unknown' };
+
+/**
+ * A server's ONE status, as its card shows it: the latest explicit check when
+ * there is one, else what discovery last found for a catalog runtime. A
+ * custom server that was never checked is "unknown", never guessed stopped.
+ */
+export function serverStatus({
+  custom,
+  group,
+  latest,
+}: {
+  custom: boolean;
+  group: { health: string; availableChoices: readonly unknown[] } | undefined;
+  latest: { reachable: boolean; models: readonly string[] } | undefined;
+}): ServerStatus {
+  if (latest) return latest.reachable ? { kind: 'running', models: latest.models.length } : { kind: 'stopped' };
+  if (custom) return { kind: 'unknown' };
+  if (group?.health === 'healthy' || group?.health === 'checking') {
+    return { kind: 'running', models: group.availableChoices.length };
+  }
+  return { kind: 'stopped' };
+}
+
+/** What a saved server's latest check found, in one sentence. */
+export function savedCheckSentence(
+  check: { reachable: boolean; models: readonly string[] } | undefined,
+): string {
+  if (!check) return 'It has not been checked yet.';
+  if (!check.reachable) return 'Nothing is running at its address right now.';
+  const count = check.models.length;
+  return count ? `It is running, with ${count} ${count === 1 ? 'model' : 'models'}.` : 'It is running, but no model is loaded yet.';
+}

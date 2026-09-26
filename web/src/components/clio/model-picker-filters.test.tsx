@@ -113,6 +113,9 @@ describe('ClioModelPicker filter tokens', () => {
     expect(screen.queryByText('sdxl')).toBeNull();
     // The provider row says its own share.
     expect(document.querySelector('[data-slot="provider-filter-count"]')).toHaveTextContent('5 / 6');
+    // Only the filtered share: never "5 / 6" beside a second plain count.
+    const row = document.querySelector('[data-slot="provider-filter-count"]')?.closest('[data-slot="cascader-item"]');
+    expect(row?.querySelector('[data-slot="cascader-item-count"]')).toBeNull();
   });
 
   it('removing the default tokens shows every model, surrogates tagged for what they are', async () => {
@@ -126,6 +129,9 @@ describe('ClioModelPicker filter tokens', () => {
     expect(within(sdxl).getByText('Surrogate')).toBeVisible();
     expect(within(sdxl).getByText('Image generator')).toBeVisible();
     expect(document.querySelector('[data-slot="provider-filter-count"]')).toBeNull();
+    // Nothing filtered: the plain count comes back.
+    const provider = screen.getByText('OpenRouter').closest('[data-slot="cascader-item"]');
+    expect(provider?.querySelector('[data-slot="cascader-item-count"]')).toHaveTextContent('6');
   });
 
   it('picking a surrogate as the chat model says why instead of selecting it', async () => {

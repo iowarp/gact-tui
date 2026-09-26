@@ -47,7 +47,9 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
       <EmptyContent className="max-w-sm">
         <ProviderSetupAction
           actions={actions}
-          failed={group.health === 'degraded' || group.health === 'unavailable'}
+          failed={
+            group.health === 'degraded' || group.health === 'unavailable' || group.setupNeed === 'start'
+          }
           flow={flow}
           loginLabel={refused ? 'Log in again' : undefined}
           offerCode={preset?.provider === 'codex'}

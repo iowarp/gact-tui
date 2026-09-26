@@ -124,7 +124,7 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
     : undefined;
 
   const loginBlocks = signedOut.map((section, index) => (
-    <div className="flex flex-col" key={section.transport.id}>
+    <div className="flex shrink-0 flex-col" key={section.transport.id}>
       {listed.length || index > 0 ? <OrSeparator /> : null}
       <div
         className="flex flex-col gap-1 pb-3"
@@ -139,6 +139,9 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
   const footer = (
     <>
       {listed.length ? loginBlocks : null}
+      {/* Free space collects here, above the action row -- never between
+          the SDK's models and Direct. */}
+      <div aria-hidden="true" className="min-h-0 flex-1" data-slot="panel-spacer" />
       <ProviderPanelFooter
         actions={providerActions}
         error={notice ?? providerActionError(providerActions, group.name)}

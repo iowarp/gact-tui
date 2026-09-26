@@ -28,6 +28,7 @@ export function providerSetupFlow(
 
 /** The one plain sentence a not-ready provider shows: its reason, or what to do. */
 export function providerSetupSentence(group: ProviderGroup, flow: ProviderActionFlow): string {
+  if (group.setupNeed === 'start') return `${group.name} isn't running. Start it, then check again.`;
   const failed = group.health === 'degraded' || group.health === 'unavailable';
   if (failed && group.detail) return group.detail;
   const name = group.name.replace(/\s+API$/u, '');

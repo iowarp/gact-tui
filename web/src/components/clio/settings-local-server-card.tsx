@@ -1,4 +1,4 @@
-import type { LanguageModelPreset, ProviderCatalogEntry } from '@clio/core/v3';
+import type { LanguageModelPreset, ProviderCatalogEntry, SavedServer } from '@clio/core/v3';
 import { LoaderCircleIcon, PencilIcon } from 'lucide-react';
 import { useState } from 'react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
@@ -7,76 +7,72 @@ import { IconTile } from '@/components/reui/icon-tile';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useSavedServers } from '@/hooks/use-saved-servers';
 import { useServerCheck } from '@/hooks/use-server-check';
-import { normalizeServerAddress } from '@/lib/local-servers';
+import { normalizeServerAddress, serverStatus } from '@/lib/local-servers';
 import { providerLogoId } from '@/lib/provider-presentation';
-import { providerUsableModelCount, type ProviderGroup } from './model-picker-model';
+import type { ProviderGroup } from './model-picker-model';
 import { SettingsProviderDetailsSheet } from './settings-provider-details-sheet';
 
 interface SettingsLocalServerCardProps {
+  /** The preset the server is reached through (a catalog runtime, or `vllm` for a custom one). */
   preset: LanguageModelPreset;
+  /** The saved entry: a runtime's changed address, or a custom server. */
+  saved: SavedServer | undefined;
   group: ProviderGroup | undefined;
   catalogEntry: ProviderCatalogEntry | undefined;
-  /** The address new work uses when this server is the default, else the service's own. */
-  address: string;
   /** This server is the model new work starts with. */
   isDefault: boolean;
   applying: boolean;
-  /** Make this server, at `address`, the default -- with `model` when one was found. */
+  /** Make this server the default, with `model` when one was found. */
   onUse: (address: string, model: string | undefined) => void;
 }
 
 /**
- * One server on this computer (LM Studio, Ollama, llama.cpp, vLLM): its
- * status in plain words -- grey "Not running" is not an error -- and its
- * address, edited in place and checked live ("Running, with 3 models").
- * A checked address is kept by making the server the default.
+ * One model server (LM Studio, Ollama, llama.cpp, vLLM, or one the person
+ * added): its status in plain words -- a grey "Not running" is not an error
+ * -- and its address, edited in place. Saving an address keeps it (the
+ * service stores it and probes it from then on) and checks it at once;
+ * making the server the default is a separate choice.
  */
 export function SettingsLocalServerCard({
   preset,
+  saved,
   group,
   catalogEntry,
-  address,
   isDefault,
   applying,
   onUse,
 }: SettingsLocalServerCardProps) {
+  const custom = saved?.custom ?? false;
+  const address = saved?.address || preset.api_base || '';
+  const label = custom && saved ? saved.label : preset.label;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(address);
-  const check = useServerCheck(preset.id);
-  const running = group?.health === 'healthy' || group?.health === 'checking';
-  const count = group ? providerUsableModelCount(group) : 0;
-  const checked = check.data;
+  const { save, check, remove } = useSavedServers();
+  const localCheck = useServerCheck(preset.id);
   const typed = normalizeServerAddress(draft);
-  const changed = Boolean(typed) && typed !== address;
-  const canUse = Boolean(checked?.reachable) && (changed || !isDefault);
+  const pending = save.isPending || check.isPending || localCheck.isPending || remove.isPending;
+  const latest = localCheck.data ?? (saved?.check ? { reachable: saved.check.reachable, models: saved.check.models } : undefined);
+  const status = serverStatus({ custom, group, latest });
+  const error = save.error ?? check.error ?? localCheck.error ?? remove.error;
+
+  async function saveAddress() {
+    if (!typed) return;
+    localCheck.reset();
+    await save.mutateAsync({ address: typed, presetId: custom ? undefined : preset.id, serverId: saved?.id });
+    setEditing(false);
+  }
 
   return (
-    <div className="flex items-start gap-3" data-provider-id={preset.id} data-slot="local-server-card">
+    <div className="flex items-start gap-3" data-provider-id={saved?.id ?? preset.id} data-slot="local-server-card">
       <IconTile aria-hidden="true" size="lg" variant="frame">
         <ModelSelectorLogo className="size-6" provider={providerLogoId(preset.id)} />
       </IconTile>
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="truncate font-medium">{preset.label}</span>
-          {running ? (
-            <Badge radius="full" size="sm" variant="success-light">
-              {count ? `Running, ${count} ${count === 1 ? 'model' : 'models'}` : 'Running'}
-            </Badge>
-          ) : (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge className="cursor-help" radius="full" size="sm" variant="secondary">
-                    Not running
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  Start {preset.label} on this computer and load a model, then check again.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+          <span className="truncate font-medium">{label}</span>
+          <StatusChip label={label} status={status} />
           {isDefault ? (
             <Badge radius="full" size="sm" variant="primary-light">
               Default
@@ -88,74 +84,108 @@ export function SettingsLocalServerCard({
             className="flex max-w-md items-center gap-1.5"
             onSubmit={(event) => {
               event.preventDefault();
-              if (typed) check.mutate(typed);
+              void saveAddress();
             }}
           >
             <Input
-              aria-label={`${preset.label} address`}
+              aria-label={`${label} address`}
               autoComplete="url"
               autoFocus
               className="h-7 font-mono text-xs"
-              onChange={(event) => {
-                setDraft(event.target.value);
-                check.reset();
-              }}
+              onChange={(event) => setDraft(event.target.value)}
               value={draft}
             />
-            <Button disabled={!typed || check.isPending} size="sm" type="submit" variant="outline">
-              Check
+            <Button disabled={!typed || pending} size="sm" type="submit">
+              Save
+            </Button>
+            <Button onClick={() => setEditing(false)} size="sm" type="button" variant="ghost">
+              Cancel
             </Button>
           </form>
         ) : (
           <button
-            aria-label={`Change the ${preset.label} address`}
+            aria-label={`Change the ${label} address`}
             className="group flex w-fit max-w-full items-center gap-1.5 rounded-sm font-mono text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-            onClick={() => setEditing(true)}
+            onClick={() => {
+              setDraft(address);
+              setEditing(true);
+            }}
             type="button"
           >
             <span className="truncate">{address}</span>
             <PencilIcon aria-hidden="true" className="size-3 opacity-60 group-hover:opacity-100" />
           </button>
         )}
-        {check.isPending ? (
+        {pending ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
             <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
             Checking…
           </p>
-        ) : checked ? (
-          <p className="text-xs text-muted-foreground" data-slot="server-check-result" role="status">
-            {checked.sentence}
-          </p>
-        ) : check.error ? (
+        ) : error ? (
           <p className="text-xs text-destructive" role="alert">
-            {check.error.message}
+            {error.message}
           </p>
         ) : null}
         <SettingsProviderDetailsSheet catalogEntry={catalogEntry} group={group} preset={preset} />
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
-        {!editing ? (
-          <Button
-            disabled={check.isPending}
-            onClick={() => check.mutate(address)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Check
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+        <Button
+          disabled={pending}
+          onClick={() => (saved ? check.mutate(saved.id) : localCheck.mutate(address))}
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
+          Check
+        </Button>
+        {saved ? (
+          <Button disabled={pending} onClick={() => remove.mutate(saved.id)} size="sm" type="button" variant="ghost">
+            {custom ? 'Remove' : 'Reset address'}
           </Button>
         ) : null}
-        {canUse ? (
+        {status.kind === 'running' && !isDefault ? (
           <Button
-            disabled={applying}
-            onClick={() => onUse(typed ?? address, checked?.models[0])}
+            disabled={applying || pending}
+            onClick={() => onUse(address, latest?.models[0])}
             size="sm"
             type="button"
+            variant="outline"
           >
-            {isDefault ? 'Save address' : 'Use this server'}
+            Make default
           </Button>
         ) : null}
       </div>
     </div>
+  );
+}
+
+function StatusChip({ label, status }: { label: string; status: ReturnType<typeof serverStatus> }) {
+  if (status.kind === 'running') {
+    return (
+      <Badge data-slot="server-status" radius="full" size="sm" variant="success-light">
+        {status.models ? `Running, ${status.models} ${status.models === 1 ? 'model' : 'models'}` : 'Running'}
+      </Badge>
+    );
+  }
+  if (status.kind === 'unknown') {
+    return (
+      <Badge data-slot="server-status" radius="full" size="sm" variant="secondary">
+        Not checked yet
+      </Badge>
+    );
+  }
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge className="cursor-help" data-slot="server-status" radius="full" size="sm" variant="secondary">
+            Not running
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          Start {label} and load a model, then check again.
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

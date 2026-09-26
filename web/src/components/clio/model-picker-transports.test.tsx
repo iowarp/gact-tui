@@ -88,6 +88,15 @@ describe('ClioModelPicker: a provider reachable two ways (Codex)', () => {
     expect(document.querySelectorAll('[data-slot="transport-separator"]')).toHaveLength(1);
     expect(footerButtonNames()).toEqual(['Refresh', 'Reload models']);
     expect(repository.authenticateProvider).not.toHaveBeenCalled();
+    // No gap under a short list: the SDK section is sized to its rows (it only
+    // shrinks and scrolls when it outgrows the column), Direct follows it, and
+    // the free space collects above the action row.
+    expect(section('sdk')?.className).not.toMatch(/flex-1|basis-0/u);
+    const bounds = direct.closest('[data-slot="cascader-column-bounds"]') as HTMLElement;
+    const order = [...bounds.querySelectorAll('[data-slot="cascader-column-section"], [data-slot="transport-login"], [data-slot="panel-spacer"], [data-slot="provider-panel-footer"]')].map(
+      (node) => node.getAttribute('data-slot'),
+    );
+    expect(order).toEqual(['cascader-column-section', 'transport-login', 'panel-spacer', 'provider-panel-footer']);
   });
 
   it('SDK unavailable and Direct signed in: only Direct, no "or"', async () => {

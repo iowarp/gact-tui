@@ -199,11 +199,13 @@ export function providerCredentialPrompt(
 
 /**
  * What a provider that is not usable yet is waiting for, from its latest
- * reported state: an install, a sign-in, an API key, or a first check.
+ * reported state: an install, a sign-in, an API key, or a first check --
+ * or, for a server on this computer that is not answering, to be started
+ * (`start`: not an error; set by the provider-group derivation).
  * `undefined` means nothing is outstanding -- a signed-in, verified
  * provider -- whether or not a model catalog entry exists for it yet.
  */
-export type ProviderSetupNeed = 'install' | 'sign_in' | 'api_key' | 'check';
+export type ProviderSetupNeed = 'install' | 'sign_in' | 'api_key' | 'check' | 'start';
 
 export function providerSetupNeed(
   preset: LanguageModelPreset | undefined,
@@ -228,7 +230,9 @@ export function providerSetupNeedLabel(need: ProviderSetupNeed | undefined): str
         ? 'Needs API key'
         : need === 'check'
           ? 'Not checked'
-          : 'Needs setup';
+          : need === 'start'
+            ? 'Not running'
+            : 'Needs setup';
 }
 
 /**

@@ -274,9 +274,12 @@ function CascaderColumnPanel({
     const groupNodes = groups.map(({ section, start }) => (
       <React.Fragment key={section.key}>
         {section.separator}
+        {/* Sized to its content; when the sections together outgrow the
+            column, each shrinks (in proportion to its size) and scrolls on
+            its own -- never a fixed half with a gap under a short list. */}
         <div
           aria-label={section.ariaLabel}
-          className="flex min-h-0 flex-1 basis-0 flex-col"
+          className="flex min-h-0 shrink flex-col"
           data-section={section.key}
           data-slot="cascader-column-section"
           role="group"
@@ -284,17 +287,18 @@ function CascaderColumnPanel({
           <div className="shrink-0" role="presentation">
             {section.label}
           </div>
-          <div className="min-h-0 w-full flex-1">
-            <ScrollArea className={CASCADER_SCROLL_CLASS}>
-              <div className={CASCADER_ROWS_CLASS}>
-                {section.items.map((node, i) => renderRow(node, start + i))}
-              </div>
-            </ScrollArea>
+          <div
+            className={cn(CASCADER_ROWS_CLASS, 'min-h-0 overflow-y-auto overscroll-contain')}
+            data-slot="cascader-column-section-rows"
+          >
+            {section.items.map((node, i) => renderRow(node, start + i))}
           </div>
         </div>
       </React.Fragment>
     ));
-    const splitClass = 'flex min-h-0 w-full flex-1 flex-col';
+    // Content-sized too: whatever follows the sections (a sign-in block)
+    // sits right under the last row; the caller's footer takes the rest.
+    const splitClass = 'flex min-h-0 w-full shrink flex-col';
     return (
       <div
         data-slot="cascader-column-bounds"

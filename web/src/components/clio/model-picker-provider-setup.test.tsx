@@ -381,16 +381,21 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     expect(screen.queryByText(/argonne_reauthentication_required/u)).toBeNull();
   });
 
-  it('a failed latest check keeps dated rows out of the list and the count off', async () => {
+  it('a server on this computer that is not answering is grey "Not running", never red', async () => {
     const user = await open(
       options.map((option) => (option.providerId === 'local-vllm' ? { ...option, health: 'unavailable' } : option)),
     );
     const row = screen.getByText('Local vLLM').closest('[data-slot="cascader-item"]');
+    const heartbeat = row?.querySelector('[data-slot="provider-heartbeat"]');
+    expect(heartbeat).toHaveAttribute('data-state', 'setup');
+    expect(heartbeat).not.toHaveClass('text-destructive');
+    expect(heartbeat).toHaveAccessibleName('Local vLLM status: Not running');
     expect(row?.querySelector('[data-slot="cascader-item-count"]')).toBeNull();
     await user.click(screen.getByText('Local vLLM'));
+    // Its dated rows stay out of the list until it answers again.
     expect(screen.queryByText('Qwen3-VL-32B')).toBeNull();
+    expect(sentence()).toHaveTextContent("Local vLLM isn't running. Start it, then check again.");
     expect(await screen.findByRole('button', { name: 'Check again' })).toBeVisible();
-    expect(sentence()).toHaveTextContent("Local vLLM isn't responding right now.");
   });
 
   it('a sign-in that ends in failure says why, in place of the sentence', async () => {
