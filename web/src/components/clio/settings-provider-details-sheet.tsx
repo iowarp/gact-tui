@@ -45,7 +45,12 @@ export function SettingsProviderDetailsSheet({
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button className="h-auto px-0 text-xs text-muted-foreground" size="sm" type="button" variant="link">
+        <Button
+          className="h-auto self-start px-0 text-xs text-muted-foreground"
+          size="sm"
+          type="button"
+          variant="link"
+        >
           Technical details
         </Button>
       </SheetTrigger>
