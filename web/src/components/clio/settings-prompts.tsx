@@ -6,10 +6,9 @@ import {
   EyeIcon,
   FileTextIcon,
   LoaderCircleIcon,
-  PlusIcon,
-  RefreshCwIcon,
   ScrollTextIcon,
 } from 'lucide-react';
+import { AddIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -283,11 +282,10 @@ export function PromptsCommandsSettings({ initialWorkspaceId }: { initialWorkspa
         </Select>
         <div className="flex gap-2">
           <Button onClick={() => reload.mutate()} variant="outline">
-            <RefreshCwIcon className={reload.isPending ? 'animate-spin' : undefined} /> Reload
-            sources
+            <RefreshIcon className={reload.isPending ? 'animate-spin' : undefined} /> Reload sources
           </Button>
           <Button onClick={() => openEditor()}>
-            <PlusIcon /> New prompt
+            <AddIcon /> New prompt
           </Button>
         </div>
       </div>

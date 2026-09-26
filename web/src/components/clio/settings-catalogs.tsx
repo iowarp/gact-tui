@@ -1,14 +1,8 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { AgentBlueprint, AgentBlueprintSource } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  BoxesIcon,
-  EyeIcon,
-  MoreHorizontalIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  Trash2Icon,
-} from 'lucide-react';
+import { BoxesIcon, EyeIcon } from 'lucide-react';
+import { AddIcon, DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -214,7 +208,7 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
                       size="icon-sm"
                       variant="ghost"
                     >
-                      <MoreHorizontalIcon aria-hidden="true" />
+                      <MoreIcon aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-48">
@@ -222,14 +216,14 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
                       <EyeIcon aria-hidden="true" /> View details
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => update.mutate(blueprint)}>
-                      <RefreshCwIcon aria-hidden="true" /> Check for update
+                      <RefreshIcon aria-hidden="true" /> Check for update
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={() => setDeleteBlueprint(blueprint)}
                       variant="destructive"
                     >
-                      <Trash2Icon aria-hidden="true" /> Remove
+                      <DeleteIcon aria-hidden="true" /> Remove
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -243,7 +237,7 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
         <TabsContent className="mt-4 grid gap-4" value="sources">
           <div className="flex justify-end">
             <Button onClick={() => setSourceDialogOpen(true)} size="sm">
-              <PlusIcon aria-hidden="true" /> Add marketplace
+              <AddIcon aria-hidden="true" /> Add marketplace
             </Button>
           </div>
           {sources.data?.map((source) => (
@@ -309,7 +303,7 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
                     size="sm"
                     variant="outline"
                   >
-                    <RefreshCwIcon aria-hidden="true" /> Refresh
+                    <RefreshIcon aria-hidden="true" /> Refresh
                   </Button>
                   <Button
                     aria-label={`Remove source ${source.name}`}
@@ -317,7 +311,7 @@ export function BlueprintSettings({ initialBlueprintId }: { initialBlueprintId?:
                     size="icon-sm"
                     variant="ghost"
                   >
-                    <Trash2Icon aria-hidden="true" />
+                    <DeleteIcon aria-hidden="true" />
                   </Button>
                 </div>
               </FrameFooter>

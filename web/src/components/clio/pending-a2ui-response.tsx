@@ -6,8 +6,8 @@ import {
   Maximize2Icon,
   Minimize2Icon,
   MoveDiagonal2Icon,
-  RotateCcwIcon,
 } from 'lucide-react';
+import { RetryIcon } from '@/lib/icon-vocabulary';
 import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -319,7 +319,7 @@ function A2UISurfaceBody({
         <span className="flex-1">{PROTOCOL.a2ui} surface is loading.</span>
         {onRefetchSurface ? (
           <Button onClick={onRefetchSurface} size="sm" type="button" variant="ghost">
-            <RotateCcwIcon aria-hidden="true" />
+            <RetryIcon aria-hidden="true" />
             Retry
           </Button>
         ) : null}

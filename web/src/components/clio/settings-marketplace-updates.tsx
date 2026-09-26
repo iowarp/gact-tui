@@ -1,6 +1,6 @@
 import type { AgentBlueprintSourceUpdate } from '@clio/core/v3';
 import { useMutation } from '@tanstack/react-query';
-import { RefreshCwIcon } from 'lucide-react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -85,7 +85,7 @@ export function MarketplaceUpdatesCheck() {
           </p>
         </div>
         <Button disabled={check.isPending} onClick={() => check.mutate()} size="sm" variant="outline">
-          <RefreshCwIcon aria-hidden="true" className={check.isPending ? 'animate-spin' : undefined} />
+          <RefreshIcon aria-hidden="true" className={check.isPending ? 'animate-spin' : undefined} />
           {check.isPending ? 'Checking…' : 'Check marketplace updates'}
         </Button>
       </div>

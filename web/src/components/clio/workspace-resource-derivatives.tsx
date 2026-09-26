@@ -10,9 +10,9 @@ import {
   EyeIcon,
   FileIcon,
   FileStackIcon,
-  RefreshCwIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -168,7 +168,7 @@ export function WorkspaceResourceDerivativesView({
           title="Reprocess resource"
           variant="ghost"
         >
-          <RefreshCwIcon aria-hidden="true" className={reprocess.isPending ? 'animate-spin' : ''} />
+          <RefreshIcon aria-hidden="true" className={reprocess.isPending ? 'animate-spin' : ''} />
         </Button>
       </div>
       <div className="grid gap-2">

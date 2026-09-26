@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import {
-  BotIcon,
   ArrowRightIcon,
+  BotIcon,
   CalendarClockIcon,
   ChevronRightIcon,
-  InfoIcon,
   ServerIcon,
+  SquareCheckIcon,
   SquareIcon,
   SquareMinusIcon,
-  SquareCheckIcon,
 } from 'lucide-react';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import { bundledLanguages, type BundledLanguage } from 'shiki';
 import type { ToolPresentationBlock } from '@clio/core/v3';
 import { CodeBlock } from '@/components/ai-elements/code-block';

@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
-import { LaptopIcon, ServerCogIcon, ServerIcon } from 'lucide-react';
+import { LaptopIcon, ServerIcon } from 'lucide-react';
+import { ConfigureIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -187,7 +188,7 @@ export function DeployClioDialog({
                   type="button"
                   variant="ghost"
                 >
-                  <ServerCogIcon aria-hidden="true" />
+                  <ConfigureIcon aria-hidden="true" />
                 </Button>
               </div>
               <SshHostPicker

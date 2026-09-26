@@ -1,4 +1,4 @@
-import { PlusIcon } from 'lucide-react';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { SshJumpHostList } from './ssh-jump-host-list';
@@ -62,7 +62,7 @@ export function SshConnectionRoute({
         type="button"
         variant="ghost"
       >
-        <PlusIcon aria-hidden="true" /> Add hop
+        <AddIcon aria-hidden="true" /> Add hop
       </Button>
     </div>
   );

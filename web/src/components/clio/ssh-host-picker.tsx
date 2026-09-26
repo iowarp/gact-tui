@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Trash2Icon, TriangleAlertIcon } from 'lucide-react';
+import { TriangleAlertIcon } from 'lucide-react';
+import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -153,7 +154,7 @@ export function SshHostPicker({
           type="button"
           variant="ghost"
         >
-          <Trash2Icon aria-hidden="true" /> Delete saved computer
+          <DeleteIcon aria-hidden="true" /> Delete saved computer
         </Button>
       ) : null}
 

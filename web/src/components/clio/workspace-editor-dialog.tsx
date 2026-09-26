@@ -1,5 +1,6 @@
 import type { Workspace } from '@clio/core/v3';
-import { FolderIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { FolderIcon } from 'lucide-react';
+import { AddIcon, DeleteIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -133,7 +134,7 @@ export function WorkspaceEditorDialog({
                   type="button"
                   variant="outline"
                 >
-                  <PlusIcon aria-hidden="true" /> Add permitted folder
+                  <AddIcon aria-hidden="true" /> Add permitted folder
                 </Button>
               </div>
             </div>
@@ -193,7 +194,7 @@ function FolderRow({
           type="button"
           variant="ghost"
         >
-          <Trash2Icon aria-hidden="true" />
+          <DeleteIcon aria-hidden="true" />
         </Button>
       )}
     </div>

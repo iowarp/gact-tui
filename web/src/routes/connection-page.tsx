@@ -10,11 +10,11 @@ import {
   FolderClockIcon,
   KeyRoundIcon,
   LaptopIcon,
-  PlusIcon,
-  ShieldCheckIcon,
   ServerIcon,
+  ShieldCheckIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
@@ -617,7 +617,7 @@ export function ConnectionPage() {
                     type="button"
                     variant="outline"
                   >
-                    <PlusIcon aria-hidden="true" data-icon="inline-start" /> Add a service
+                    <AddIcon aria-hidden="true" data-icon="inline-start" /> Add a service
                   </Button>
                 </FieldSet>
               ) : (

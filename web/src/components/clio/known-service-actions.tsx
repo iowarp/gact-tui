@@ -1,4 +1,4 @@
-import { MoreHorizontalIcon, PencilIcon, Trash2Icon } from 'lucide-react';
+import { DeleteIcon, EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { useState, type FormEvent } from 'react';
 import {
   AlertDialog,
@@ -74,7 +74,7 @@ export function KnownServiceActions({
             type="button"
             variant="ghost"
           >
-            <MoreHorizontalIcon aria-hidden="true" />
+            <MoreIcon aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-52">
@@ -85,11 +85,11 @@ export function KnownServiceActions({
               setRenaming(true);
             }}
           >
-            <PencilIcon aria-hidden="true" /> Rename
+            <EditIcon aria-hidden="true" /> Rename
           </DropdownMenuItem>
           {canForget ? (
             <DropdownMenuItem onSelect={() => setForgetting(true)} variant="destructive">
-              <Trash2Icon aria-hidden="true" /> Forget on this device
+              <DeleteIcon aria-hidden="true" /> Forget on this device
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>

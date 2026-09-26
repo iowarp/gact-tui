@@ -6,7 +6,8 @@ import type {
 } from '@clio/core/v3';
 import { QueuedMessageReorderConflictError } from '@clio/core/v3';
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import { CheckIcon, GripVerticalIcon, PencilIcon, SendIcon, Trash2Icon, XIcon } from 'lucide-react';
+import { CheckIcon, GripVerticalIcon, SendIcon } from 'lucide-react';
+import { CloseIcon, DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { referenceKindLabel } from '@/lib/composer-reference-domain';
@@ -274,7 +275,7 @@ export function ClioComposerQueue({
                               onClick={() => setEditing(undefined)}
                               tooltip="Cancel editing"
                             >
-                              <XIcon />
+                              <CloseIcon />
                             </QueueItemAction>
                           </>
                         ) : (
@@ -285,7 +286,7 @@ export function ClioComposerQueue({
                               onClick={() => setEditing({ id: message.id, text })}
                               tooltip="Edit queued message"
                             >
-                              <PencilIcon />
+                              <EditIcon />
                             </QueueItemAction>
                             <QueueItemAction
                               aria-label="Delete queued message"
@@ -298,7 +299,7 @@ export function ClioComposerQueue({
                               }
                               tooltip="Delete queued message"
                             >
-                              <Trash2Icon />
+                              <DeleteIcon />
                             </QueueItemAction>
                             <QueueItemAction
                               aria-label="Send queued message now"

@@ -12,13 +12,13 @@ import {
   GitBranchPlusIcon,
   GitMergeIcon,
   MessageCircleQuestionIcon,
+  MinusIcon,
   PanelRightOpenIcon,
+  ScanIcon,
   WaypointsIcon,
   WrenchIcon,
-  MinusIcon,
-  PlusIcon,
-  ScanIcon,
 } from 'lucide-react';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { truncate } from '@/lib/format';
@@ -430,7 +430,7 @@ export function ClioActivityTimeline({
             size="icon-sm"
             variant="ghost"
           >
-            <PlusIcon aria-hidden="true" />
+            <AddIcon aria-hidden="true" />
           </Button>
           <Button
             aria-label="Fit causal graph"

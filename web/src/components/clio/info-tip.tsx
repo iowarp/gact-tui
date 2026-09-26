@@ -1,4 +1,4 @@
-import { InfoIcon } from 'lucide-react';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import type { ReactNode } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';

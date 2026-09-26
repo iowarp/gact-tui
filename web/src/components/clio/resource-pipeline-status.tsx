@@ -1,11 +1,11 @@
 import {
   ActivityIcon,
   CircleCheckIcon,
-  CircleHelpIcon,
   Clock3Icon,
   LoaderCircleIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
+import { HelpIcon } from '@/lib/icon-vocabulary';
 import type { ResourcePipelineStage, ResourcePipelineStages } from './resource-availability';
 import { cn } from '@/lib/utils';
 
@@ -49,7 +49,7 @@ export function ResourcePipelineSummaryIcon({
         <TriangleAlertIcon aria-hidden="true" className={iconClassName('text-destructive')} />
       ) : stages.overall === 'unknown' ? (
         // Not amber: nothing is in motion, the state simply cannot be read.
-        <CircleHelpIcon aria-hidden="true" className={iconClassName('text-muted-foreground')} />
+        <HelpIcon aria-hidden="true" className={iconClassName('text-muted-foreground')} />
       ) : (
         <ActivityIcon
           aria-hidden="true"
@@ -86,7 +86,7 @@ function ResourceStageLine({ stage }: { stage: ResourcePipelineStage }) {
     ) : stage.kind === 'failed' ? (
       <TriangleAlertIcon aria-hidden="true" className="size-3.5 text-destructive" />
     ) : stage.kind === 'unknown' ? (
-      <CircleHelpIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
+      <HelpIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
     ) : (
       <Clock3Icon aria-hidden="true" className="size-3.5 text-muted-foreground" />
     );

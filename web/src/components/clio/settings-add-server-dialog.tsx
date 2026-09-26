@@ -1,4 +1,5 @@
-import { LoaderCircleIcon, PlusIcon } from 'lucide-react';
+import { LoaderCircleIcon } from 'lucide-react';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,7 +42,7 @@ export function SettingsAddServerDialog() {
     <Dialog onOpenChange={reset} open={open}>
       <DialogTrigger asChild>
         <Button size="sm" type="button" variant="outline">
-          <PlusIcon data-icon="inline-start" />
+          <AddIcon data-icon="inline-start" />
           Add a server
         </Button>
       </DialogTrigger>

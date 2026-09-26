@@ -5,12 +5,10 @@ import {
   FolderKeyIcon,
   Globe2Icon,
   LoaderCircleIcon,
-  PencilIcon,
-  PlusIcon,
   ShieldCheckIcon,
-  Trash2Icon,
   WrenchIcon,
 } from 'lucide-react';
+import { AddIcon, DeleteIcon, EditIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -257,7 +255,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
             </FrameDescription>
           </div>
           <Button onClick={() => openEditor()}>
-            <PlusIcon /> New rule
+            <AddIcon /> New rule
           </Button>
         </div>
       </FrameHeader>
@@ -341,7 +339,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
                 size="icon-sm"
                 variant="ghost"
               >
-                <PencilIcon />
+                <EditIcon />
               </Button>
               <Button
                 aria-label={`Remove rule ${index + 1}`}
@@ -349,7 +347,7 @@ export function PermissionPoliciesPanel({ initialWorkspaceId }: { initialWorkspa
                 size="icon-sm"
                 variant="ghost"
               >
-                <Trash2Icon />
+                <DeleteIcon />
               </Button>
             </div>
           );
