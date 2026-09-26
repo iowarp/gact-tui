@@ -483,7 +483,6 @@ export function WorkspacePage() {
           // `modelSelection`/`behaviorSelection`) instead of needing a remount.
           key={`composer:${sessionId}`}
           model={activeModel}
-          modelCatalogRefreshing={providerCatalog.isRefreshing}
           modelCatalogStatus={modelCatalogStatus}
           modelOptions={modelOptions}
           pendingInteractions={pendingInteractionsPanel}

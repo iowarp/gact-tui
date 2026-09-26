@@ -317,6 +317,10 @@ export interface ProviderCatalogModel {
     context_source: string;
   };
   failure: string;
+  /** Where each effective capability value came from, keyed by capability
+   * field (`modalities`, `native_tool_calling`, `context_window`,
+   * `reasoning`, ...): the evidence source and the rule that decided it. */
+  capabilities_provenance?: Record<string, { source: string; decided_by: string }>;
   /** Which of the provider's `transports` (below) this model came from -- set
    * only for a multi-transport provider (Codex: `"sdk"` | `"direct"`). */
   transport?: string;

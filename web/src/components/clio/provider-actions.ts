@@ -15,15 +15,15 @@ import { storeProviderCredential } from '@/tauri/secure-credentials';
 
 /** The visible progress text of a running provider action. */
 export type ProviderActionStage =
-  | 'Verifying…'
-  | 'Discovering models…'
+  | 'Checking…'
+  | 'Finding models…'
   | 'Installing…'
-  | 'Saving key…'
+  | 'Saving your key…'
   | 'Removing key…'
   | 'Opening sign-in…'
-  | 'Waiting for sign-in…'
-  | 'Signing in…'
-  | 'Signing out…';
+  | 'Waiting for you to log in…'
+  | 'Logging in…'
+  | 'Logging out…';
 
 /**
  * Poll interval while a sign-in flow is pending (SPEC generic auth API).
@@ -44,6 +44,20 @@ interface ProviderActionsInput {
    * Every other action only needs `presetId`.
    */
   preset?: LanguageModelPreset;
+  /**
+   * Which part of the provider this instance acts for -- a transport id
+   * ("sdk" / "direct") for a provider reachable more than one way. Each scope
+   * is its OWN instance with its own stage, sign-in flow and results, so one
+   * transport's sign-in progress can never render in the other's section.
+   */
+  scope?: string;
+  /**
+   * Re-read the provider's catalog entry with a live probe after a check
+   * (`refresh=true`), not a passive read. A multi-transport provider needs it:
+   * its local transport is only probed by a live catalog read, never by the
+   * provider handshake.
+   */
+  probeCatalog?: boolean;
 }
 
 /**
@@ -57,7 +71,13 @@ interface ProviderActionsInput {
  * then re-reads the catalog for exactly that provider with `refresh=true`, so
  * every open model picker shows the new truth instead of the boot snapshot.
  */
-export function useProviderActions({ presetId, apiBase, preset }: ProviderActionsInput) {
+export function useProviderActions({
+  presetId,
+  apiBase,
+  preset,
+  scope = '',
+  probeCatalog = false,
+}: ProviderActionsInput) {
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
@@ -67,8 +87,8 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   const [authPaste, setAuthPaste] = useState('');
   const [authLaunchError, setAuthLaunchError] = useState('');
   const [authFailedReason, setAuthFailedReason] = useState('');
-  // What the running action is doing RIGHT NOW ("Verifying…", "Discovering
-  // models…", "Saving key…"): the picker turns the provider's heartbeat
+  // What the running action is doing RIGHT NOW ("Checking…", "Finding
+  // models…", "Saving your key…"): the picker turns the provider's heartbeat
   // yellow and shows this text in its action strip and bottom bar until the
   // action settles. Cleared by every mutation's `onSettled`.
   const [stage, setStage] = useState<ProviderActionStage>();
@@ -83,13 +103,13 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   // entry stale) or changed its credential (which the service retires). A
   // plain read re-discovers exactly that entry from the fresh handshake.
   const reloadCatalogEntry = async () => {
-    const catalog = await repository.providerCatalog(false, undefined, presetId);
+    const catalog = await repository.providerCatalog(probeCatalog, undefined, presetId);
     queryClient.setQueryData(queryKeys.providerCatalog(settings.endpoint), catalog);
   };
   const checkProvider = async () => {
-    setStage('Verifying…');
+    setStage('Checking…');
     const result = await repository.providerHandshake(presetId, { apiBase, refresh: true });
-    setStage('Discovering models…');
+    setStage('Finding models…');
     const catalog =
       result.connectivity === 'ok' && result.auth === 'ok'
         ? await repository.providerModels(presetId)
@@ -100,13 +120,13 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     result,
     catalog,
   }: Awaited<ReturnType<typeof checkProvider>>): Promise<void> => {
-    setStage('Discovering models…');
+    setStage('Finding models…');
     setHandshakeResult(result);
     if (catalog) queryClient.setQueryData(modelsKey, catalog);
     await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
   };
   const signInComplete = async () => {
-    setStage('Discovering models…');
+    setStage('Finding models…');
     setAuthFlow(undefined);
     setAuthPaste('');
     await Promise.all([invalidate(configurationKey, modelsKey), reloadCatalogEntry()]);
@@ -116,7 +136,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   const refreshModels = useMutation({
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
-      setStage('Discovering models…');
+      setStage('Finding models…');
       const results = await repository.refreshProviderModels([presetId]);
       const result = results[0];
       if (!result) throw new Error('The service returned no catalog result for this provider.');
@@ -162,7 +182,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
       setAuthFailedReason('');
       setAuthFlow(result);
       setAuthLaunchError('');
-      setStage('Waiting for sign-in…');
+      setStage('Waiting for you to log in…');
       if (result.browser) {
         openExternalUrl(result.browser.authorization_url).catch((error: unknown) =>
           setAuthLaunchError(error instanceof Error ? error.message : 'Could not open the sign-in page.'),
@@ -174,7 +194,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     mutationFn: async () => {
       if (!presetId || !authFlow) throw new Error('Start sign-in first.');
       if (!authPaste.trim()) throw new Error('Paste the redirect URL or code.');
-      setStage('Signing in…');
+      setStage('Logging in…');
       return repository.completeProviderAuthentication(presetId, {
         flowId: authFlow.flow_id,
         paste: authPaste.trim(),
@@ -182,12 +202,12 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
     },
     onSuccess: () => signInComplete(),
     // A rejected paste leaves the flow open (paste again): back to waiting.
-    onError: () => setStage(authFlow ? 'Waiting for sign-in…' : undefined),
+    onError: () => setStage(authFlow ? 'Waiting for you to log in…' : undefined),
   });
   const logout = useMutation({
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
-      setStage('Signing out…');
+      setStage('Logging out…');
       return repository.logoutProvider(presetId);
     },
     onSuccess: () => signInComplete(),
@@ -218,7 +238,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
       const trimmed = apiKey.trim();
       if (!trimmed) throw new Error('Enter an API key.');
       const resolvedApiBase = apiBase || preset.api_base || '';
-      setStage('Saving key…');
+      setStage('Saving your key…');
       await storeProviderCredential(presetId, resolvedApiBase, trimmed);
       await repository.saveProviderApiKey(presetId, trimmed);
       const checked = await checkProvider();
@@ -328,7 +348,7 @@ export function useProviderActions({ presetId, apiBase, preset }: ProviderAction
   // leak into the newly selected one (picker submenu or Settings panel).
   useEffect(() => {
     reset();
-  }, [presetId, reset]);
+  }, [presetId, scope, reset]);
 
   return {
     authFailedReason,

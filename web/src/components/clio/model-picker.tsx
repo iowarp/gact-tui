@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { EyeIcon, EyeOffIcon, LoaderCircleIcon, RefreshCwIcon, Settings2Icon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon, RefreshCwIcon } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -14,7 +13,10 @@ import {
   CascaderPanel,
   CascaderStatus,
 } from '@/components/reui/cascader/cascader';
-import { CascaderColumns } from '@/components/reui/cascader/cascader-columns';
+import {
+  CascaderColumns,
+  CascaderSectionedItems,
+} from '@/components/reui/cascader/cascader-columns';
 import { CascaderFooter } from '@/components/reui/cascader/cascader-footer';
 import { CascaderInput, CascaderNav } from '@/components/reui/cascader/cascader-nav';
 import {
@@ -36,23 +38,21 @@ import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
+import { ModelCapabilityTags } from './model-capability-tags';
 import {
   modelNodeValue,
   type PickerNodeData,
   providerGroupsFromOptions,
   providerNodeValue,
   providerSearchDescription,
-  providerSettingsHref,
   providerUsableModelCount,
   type ProviderGroup,
-  transportHeadingNodeValue,
 } from './model-picker-model';
-import { useProviderActions } from './provider-actions';
+import { providerColumnModels, useProviderPanel } from './model-picker-provider-panel';
 import { ProviderHeartbeat } from './provider-heartbeat';
-import { ProviderManagementStrip } from './provider-management-strip';
 
 interface ClioModelPickerProps {
-  catalogRefreshing?: boolean;
   catalogStatus?: 'error' | 'loading' | 'ready';
   model?: string;
   onChange: (choice: ClioModelOption) => void;
@@ -75,7 +75,6 @@ const PICKER_COLUMN_WIDTH = 'calc(50% - .5px)';
 
 /** Searchable AI Elements dialog composed with the real ReUI columns cascader. */
 export function ClioModelPicker({
-  catalogRefreshing = false,
   catalogStatus = 'ready',
   model,
   onChange,
@@ -131,7 +130,7 @@ export function ClioModelPicker({
         const modelNode = (choice: ClioModelOption): CascaderNode<PickerNodeData> => ({
           value: modelNodeValue(choice),
           label: choice.label,
-          description: choice.description ?? choice.modalities?.join(', '),
+          description: choice.description,
           keywords: [
             choice.id,
             choice.providerId,
@@ -141,31 +140,11 @@ export function ClioModelPicker({
           ],
           data: { kind: 'model', choice },
         });
-        // The two-half submenu, driven ONLY by transports.length > 1 (never a
-        // per-provider check): each transport that already has models gets
-        // its own labelled, non-selectable heading INSIDE this tree (e.g.
-        // "Codex (local)" above the SDK's models) -- a transport with no
-        // models yet (needs sign-in/install) contributes nothing here; its
-        // heading + action render in the sibling strip below instead.
-        const modelChildren: CascaderNode<PickerNodeData>[] =
-          (group.transports?.length ?? 0) > 1
-            ? group.transports!.flatMap((transport): CascaderNode<PickerNodeData>[] => {
-                const transportChoices = group.availableChoices.filter(
-                  (choice) => choice.transport === transport.id,
-                );
-                if (!transportChoices.length) return [];
-                return [
-                  {
-                    value: transportHeadingNodeValue(group.id, transport.id),
-                    label: transport.label,
-                    disabled: true,
-                    keywords: [],
-                    data: { kind: 'transport-heading', label: transport.label },
-                  },
-                  ...transportChoices.map(modelNode),
-                ];
-              })
-            : group.availableChoices.map(modelNode);
+        // Only usable models are rows: a provider that still needs setup
+        // lists none (its column shows what to do instead), and a provider
+        // reachable more than one way lists each ready transport's models,
+        // which the column then splits into one section per transport.
+        const modelChildren = providerColumnModels(group).map(modelNode);
         return {
           value: providerNodeValue(group.id),
           label: group.name,
@@ -206,48 +185,10 @@ export function ClioModelPicker({
     (choice) => choice.available && choice.providerId === provider && choice.id === model,
   );
   const activePreset = presetsById.get(activeGroup?.id ?? '');
-  // One actions instance, scoped to whichever provider's submenu is open --
-  // the SAME hook, strip and mutations Settings > Providers uses. The hook
-  // itself forgets the previous provider's results when this one changes.
-  const providerActions = useProviderActions({
-    presetId: activeGroup?.id ?? '',
-    apiBase: activeGroup?.endpoint ?? activePreset?.api_base ?? '',
-    preset: activePreset,
-  });
-  const activeStage = providerActions.stage;
-
-  // The active provider's state line and actions. Rendered as the active
-  // column's own `footer` (columns mode) or directly below the single list
-  // (drill mode) -- never a node inside the Cascader's tree: its combobox
-  // keeps real focus on its own search input (see the constant above), so a
-  // typed field like the API-key box can only work outside it. The settings
-  // link opens this provider's full view on Settings > Providers.
-  const activeProviderActionsContent = activeGroup ? (
-    <ProviderManagementStrip
-      actions={providerActions}
-      className="border-t px-3 py-2"
-      group={activeGroup}
-      preset={activePreset}
-      trailing={
-        <Button
-          asChild
-          className="-my-1 shrink-0"
-          size="icon-sm"
-          title={`${activeGroup.name} settings`}
-          variant="ghost"
-        >
-          <Link
-            aria-label={`Open ${activeGroup.name} in Settings`}
-            data-slot="provider-settings-link"
-            onClick={() => handleOpenChange(false)}
-            to={providerSettingsHref(activeGroup.id)}
-          >
-            <Settings2Icon aria-hidden="true" />
-          </Link>
-        </Button>
-      }
-    />
-  ) : null;
+  // The provider in view's right-hand panel: its sections, setup state and
+  // action row, from the SAME shared action hook every provider surface uses.
+  const panel = useProviderPanel({ group: activeGroup, preset: activePreset, open });
+  const activeStage = panel.stage;
 
   function hideProvider(group: ProviderGroup): void {
     const nextHidden = setProviderHidden(group.id, true);
@@ -354,24 +295,6 @@ export function ClioModelPicker({
                       placeholder="Search providers and models"
                     />
                   </div>
-                  {activeGroup && onRetryCatalog ? (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        aria-label={`Refresh ${activeGroup.name} provider and models`}
-                        disabled={catalogRefreshing}
-                        onClick={() => onRetryCatalog(activeGroup.id)}
-                        size="icon-sm"
-                        title={`Refresh ${activeGroup.name} provider and models`}
-                        type="button"
-                        variant="ghost"
-                      >
-                        <RefreshCwIcon
-                          aria-hidden="true"
-                          className={catalogRefreshing ? 'animate-spin' : undefined}
-                        />
-                      </Button>
-                    </div>
-                  ) : null}
                 </div>
               </CascaderNav>
               {/* A live provider can report hundreds of models, and every row
@@ -385,20 +308,41 @@ export function ClioModelPicker({
                   under a column that has nothing to show. */}
               {showColumns ? (
                 <CascaderColumns className="w-full flex-1" columnWidth={PICKER_COLUMN_WIDTH} maxHeight="100%">
-                  {(column) => (
-                    <CascaderVirtualColumn
-                      column={column}
-                      footer={column.active ? activeProviderActionsContent : undefined}
-                      key={column.depth}
-                    />
-                  )}
+                  {(column) => {
+                    const providerColumn =
+                      column.active &&
+                      activeGroup !== undefined &&
+                      column.parent?.value === providerNodeValue(activeGroup.id);
+                    return (
+                      <CascaderVirtualColumn
+                        column={column}
+                        empty={providerColumn ? panel.column.empty : undefined}
+                        footer={providerColumn ? panel.column.footer : undefined}
+                        key={column.depth}
+                        sections={
+                          providerColumn && panel.column.sections
+                            ? panel.column.sections(column.items)
+                            : undefined
+                        }
+                      />
+                    );
+                  }}
                 </CascaderColumns>
               ) : (
                 <>
                   <CascaderList className="w-full flex-1" maxHeight="100%">
-                    <CascaderVirtualItems />
+                    {path.length && panel.column.sections ? (
+                      <CascaderSectionedItems sections={panel.column.sections} />
+                    ) : (
+                      <CascaderVirtualItems />
+                    )}
                   </CascaderList>
-                  {activeProviderActionsContent}
+                  {path.length ? (
+                    <>
+                      {panel.column.empty}
+                      {panel.column.footer}
+                    </>
+                  ) : null}
                 </>
               )}
               <CascaderFooter className="min-h-11 flex-row items-center justify-between gap-1 px-2">
@@ -419,15 +363,6 @@ export function ClioModelPicker({
                     {managingVisibility ? 'Done' : `Hidden (${hiddenProviders.size})`}
                   </Button>
                 </div>
-                {activeStage && activeGroup ? (
-                  <span
-                    className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground"
-                    data-slot="provider-action-footer-stage"
-                  >
-                    <LoaderCircleIcon aria-hidden="true" className="size-3.5 shrink-0 animate-spin text-warning" />
-                    {activeGroup.name}: {activeStage}
-                  </span>
-                ) : null}
               </CascaderFooter>
               <CascaderStatus />
             </CascaderPanel>
@@ -535,24 +470,12 @@ function PickerRowLabel({
       </span>
     );
   }
-  if (node.data?.kind === 'transport-heading') {
-    // A label, not a row: no description slot, no health, nothing selectable
-    // -- the tree's own "Codex (local)" / "Direct" section heading.
-    return (
-      <span className="w-full truncate text-start text-xs font-semibold text-muted-foreground">
-        {node.data.label}
-      </span>
-    );
-  }
-  const description = node.data?.choice.description ?? node.data?.choice.modalities?.join(', ');
+  const choice = node.data?.kind === 'model' ? node.data.choice : undefined;
+  const tags = choice ? modelCapabilityTagsFromOption(choice) : [];
   return (
-    <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+    <span className="flex min-w-0 flex-1 flex-col items-start gap-1 py-0.5">
       <span className="w-full truncate text-start">{node.label}</span>
-      {description ? (
-        <span className="w-full truncate text-start text-xs text-muted-foreground">
-          {description}
-        </span>
-      ) : null}
+      <ModelCapabilityTags size="sm" tags={tags} />
     </span>
   );
 }

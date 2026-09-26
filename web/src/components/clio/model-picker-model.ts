@@ -56,15 +56,7 @@ export interface ModelNodeData {
   choice: ClioModelOption;
 }
 
-/** A non-selectable section label inside a multi-transport provider's model
- * column (e.g. "Codex (local)" above the SDK's models) -- never a `model` or
- * `provider` row, so `selectable`/click/search treat it as inert. */
-export interface TransportHeadingNodeData {
-  kind: 'transport-heading';
-  label: string;
-}
-
-export type PickerNodeData = ProviderNodeData | ModelNodeData | TransportHeadingNodeData;
+export type PickerNodeData = ProviderNodeData | ModelNodeData;
 
 export function providerHealthPresentation(
   health: ProviderHealth,
@@ -218,10 +210,6 @@ export function transportHasModels(group: ProviderGroup, transportId: string): b
 
 export function providerNodeValue(providerId: string): string {
   return `${PROVIDER_NODE_PREFIX}${providerId}`;
-}
-
-export function transportHeadingNodeValue(providerId: string, transportId: string): string {
-  return `transport-heading:${providerId}:${transportId}`;
 }
 
 /** A model row's tree identity. Two transports of one provider can report the

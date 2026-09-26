@@ -41,6 +41,13 @@ export interface ClioModelOption {
   modalities?: readonly string[];
   /** Thinking levels this model offers, from the live catalog. */
   reasoning?: ModelReasoningLevels;
+  /** Whether the model calls tools natively, when the live catalog says. */
+  toolCalling?: boolean;
+  /** The model's context window in tokens, when the service reports one. */
+  contextWindow?: number;
+  /** Where each capability value came from, keyed by the catalog's capability
+   * field names (see `ProviderCatalogModel.capabilities_provenance`). */
+  capabilityProvenance?: Readonly<Record<string, { source: string; decided_by: string }>>;
   /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
   aliases?: readonly string[];
   /** This provider's OWN transports (Codex: sdk + direct), present on every
@@ -152,6 +159,7 @@ export function buildModelOptions({
         id: item.id,
         label: item.name ?? item.label ?? item.id,
         description: item.description,
+        contextWindow: item.context_window,
         available: preset.is_authenticated,
         availabilityDetail: preset.is_authenticated
           ? undefined
@@ -283,6 +291,9 @@ function liveProviderOptions(
               : modelAvailabilityLabel(model.availability))),
       modalities: model.modalities,
       reasoning: modelReasoningLevels(model.reasoning),
+      toolCalling: model.native_tool_calling,
+      contextWindow: model.loaded_context_window || model.context_window,
+      capabilityProvenance: model.capabilities_provenance,
       aliases: model.aliases,
       transport: model.transport,
     };

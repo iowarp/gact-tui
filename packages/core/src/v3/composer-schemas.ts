@@ -388,6 +388,19 @@ export const providerCatalogSchema = z.object({
             context_source: z.string(),
           }),
           failure: z.string(),
+          // Where each effective capability value came from (the service's
+          // `capabilities_provenance`, keyed by capability field). Optional:
+          // older services do not report it.
+          capabilities_provenance: z
+            .record(
+              z.string(),
+              z.object({
+                source: z.string().catch(''),
+                decided_by: z.string().catch(''),
+              }),
+            )
+            .nullish()
+            .transform((value) => value ?? undefined),
           // Which of the entry's own `transports` (below) this model came
           // from -- set only for a multi-transport provider (Codex: "sdk" |
           // "direct"). `undefined` for every single-transport provider.
