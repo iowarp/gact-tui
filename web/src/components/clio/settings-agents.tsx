@@ -1,14 +1,8 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { AgentDefinition } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  BotIcon,
-  MoreHorizontalIcon,
-  PlusIcon,
-  SparklesIcon,
-  Trash2Icon,
-  WrenchIcon,
-} from 'lucide-react';
+import { BotIcon, SparklesIcon, WrenchIcon } from 'lucide-react';
+import { AddIcon, DeleteIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -82,7 +76,7 @@ export function AgentSettings() {
           title="Agents"
         />
         <Button onClick={() => setEditing(null)}>
-          <PlusIcon aria-hidden="true" /> New agent
+          <AddIcon aria-hidden="true" /> New agent
         </Button>
       </div>
       {agents.error ? (
@@ -174,14 +168,14 @@ function AgentRow({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button aria-label={`Actions for ${agent.title}`} size="icon-sm" variant="ghost">
-                <MoreHorizontalIcon aria-hidden="true" />
+                <MoreIcon aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-48">
               <DropdownMenuItem onSelect={onEdit}>Edit agent</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={onDelete} variant="destructive">
-                <Trash2Icon aria-hidden="true" /> Remove agent
+                <DeleteIcon aria-hidden="true" /> Remove agent
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

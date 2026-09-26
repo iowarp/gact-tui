@@ -1,4 +1,5 @@
-import { ListRestartIcon, LoaderCircleIcon, LogOutIcon, RefreshCwIcon } from 'lucide-react';
+import { LoaderCircleIcon, LogOutIcon } from 'lucide-react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { Button } from '@/components/ui/button';
 import type { ProviderActions } from './provider-setup-state';
 
@@ -38,7 +39,7 @@ export function ProviderPanelFooter({ actions, logOut, error }: ProviderPanelFoo
         type="button"
         variant="ghost"
       >
-        <RefreshCwIcon data-icon="inline-start" />
+        <RefreshIcon data-icon="inline-start" />
         Refresh
       </Button>
       <Button
@@ -48,7 +49,7 @@ export function ProviderPanelFooter({ actions, logOut, error }: ProviderPanelFoo
         type="button"
         variant="ghost"
       >
-        <ListRestartIcon data-icon="inline-start" />
+        <RefreshIcon data-icon="inline-start" />
         Reload models
       </Button>
       {logOut ? (

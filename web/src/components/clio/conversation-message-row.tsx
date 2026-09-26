@@ -8,10 +8,9 @@ import {
   Globe2Icon,
   LoaderCircleIcon,
   MapIcon,
-  RotateCcwIcon,
   UserIcon,
-  XIcon,
 } from 'lucide-react';
+import { CloseIcon, RetryIcon } from '@/lib/icon-vocabulary';
 import { m } from 'motion/react';
 import { memo } from 'react';
 import { copyText } from '@/lib/clipboard';
@@ -104,7 +103,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
           {entities.cancellingPendingMessageId === message.id ? (
             <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
           ) : (
-            <XIcon aria-hidden="true" className="size-3.5" />
+            <CloseIcon aria-hidden="true" className="size-3.5" />
           )}
         </MessageAction>
       ) : null}
@@ -118,7 +117,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
           {retrying ? (
             <LoaderCircleIcon aria-hidden="true" className="size-3.5 animate-spin" />
           ) : (
-            <RotateCcwIcon aria-hidden="true" className="size-3.5" />
+            <RetryIcon aria-hidden="true" className="size-3.5" />
           )}
         </MessageAction>
       ) : null}

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { EyeIcon, EyeOffIcon, Settings2Icon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
+import { ConfigureIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -136,7 +137,7 @@ export function SshHostsManagerDialog({
                         type="button"
                         variant="ghost"
                       >
-                        <Settings2Icon aria-hidden="true" />
+                        <ConfigureIcon aria-hidden="true" />
                       </Button>
                     ) : null}
                     <Button

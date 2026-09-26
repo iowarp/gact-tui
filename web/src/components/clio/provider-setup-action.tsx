@@ -1,5 +1,6 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
-import { DownloadIcon, RefreshCwIcon } from 'lucide-react';
+import { DownloadIcon } from 'lucide-react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,7 +99,7 @@ export function ProviderSetupAction({
         </Button>
       ) : (
         <Button onClick={() => actions.handshake.mutate()} size="sm" type="button" variant="outline">
-          <RefreshCwIcon data-icon="inline-start" />
+          <RefreshIcon data-icon="inline-start" />
           {failed ? 'Check again' : 'Check'}
         </Button>
       )}

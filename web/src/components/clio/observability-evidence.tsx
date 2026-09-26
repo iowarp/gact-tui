@@ -17,19 +17,21 @@ import type {
 } from '@clio/core/v3';
 import {
   ActivityIcon,
-  BoxIcon,
   BoxesIcon,
+  BoxIcon,
   ExternalLinkIcon,
-  FileDiffIcon,
   FileCode2Icon,
+  FileDiffIcon,
   FileTextIcon,
   ListChecksIcon,
   ListTreeIcon,
   PanelsTopLeftIcon,
-  ServerCogIcon,
+  ServerIcon,
   WaypointsIcon,
   WrenchIcon,
 } from 'lucide-react';
+import {
+} from '@/lib/icon-vocabulary';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -163,7 +165,7 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
         ) : null}
         {backgroundProcesses.length ? (
           <EvidenceSection
-            icon={ServerCogIcon}
+            icon={ServerIcon}
             label="Background tasks"
             value="background"
             count={backgroundProcesses.length}
@@ -352,7 +354,7 @@ function BackgroundEvidence({ processes }: { processes: readonly AsyncProcess[] 
         <ClioInteractiveRow key={process.id} running={process.live_state === 'running'}>
           <EvidenceRecord
             detail={[process.host, process.placement].filter(Boolean).join(', ') || undefined}
-            icon={ServerCogIcon}
+            icon={ServerIcon}
             label={process.title}
             state={process.live_state}
           />

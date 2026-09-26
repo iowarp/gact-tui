@@ -1,4 +1,5 @@
-import { AlertCircleIcon, RotateCcwIcon } from 'lucide-react';
+import { AlertCircleIcon } from 'lucide-react';
+import { RetryIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -83,7 +84,7 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
             size="xs"
             variant="outline"
           >
-            <RotateCcwIcon aria-hidden="true" />
+            <RetryIcon aria-hidden="true" />
             Restart
           </Button>
         </div>
@@ -97,7 +98,7 @@ export function WorkspaceTerminalPanel({ tabId, cwd, sessionId }: WorkspaceTermi
             size="xs"
             variant="outline"
           >
-            <RotateCcwIcon aria-hidden="true" />
+            <RetryIcon aria-hidden="true" />
             Retry
           </Button>
         </div>

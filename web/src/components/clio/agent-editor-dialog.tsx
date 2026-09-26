@@ -1,7 +1,8 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { AgentDefinition, ToolCatalogItem } from '@clio/core/v3';
 import { useMutation, useQueries, useQuery } from '@tanstack/react-query';
-import { ChevronDownIcon, Settings2Icon } from 'lucide-react';
+import { ChevronDownIcon } from 'lucide-react';
+import { ConfigureIcon } from '@/lib/icon-vocabulary';
 import { useRef, useState } from 'react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -261,7 +262,7 @@ export function AgentEditorDialog({
             <Collapsible onOpenChange={setCustomSource} open={customSource}>
               <CollapsibleTrigger asChild>
                 <Button className="px-0" size="sm" variant="link">
-                  <Settings2Icon aria-hidden="true" />
+                  <ConfigureIcon aria-hidden="true" />
                   {customSource ? 'Hide custom model source' : 'Use a custom model source'}
                 </Button>
               </CollapsibleTrigger>

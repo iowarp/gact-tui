@@ -1,5 +1,6 @@
 import type { PendingInteraction } from '@clio/core/v3';
-import { BoxesIcon, ClipboardPenLineIcon, MessageCircleQuestionIcon, XIcon } from 'lucide-react';
+import { BoxesIcon, ClipboardPenLineIcon, MessageCircleQuestionIcon } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import type { ReactNode } from 'react';
 import { FrameHeader, FrameTitle } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
@@ -68,7 +69,7 @@ export function InteractionFrameHeader({
               size="icon-sm"
               variant="ghost"
             >
-              <XIcon aria-hidden="true" />
+              <CloseIcon aria-hidden="true" />
             </Button>
           ) : null}
         </div>

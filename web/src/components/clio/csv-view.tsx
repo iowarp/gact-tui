@@ -1,4 +1,5 @@
-import { FileSpreadsheetIcon, InfoIcon, LogsIcon } from 'lucide-react';
+import { FileSpreadsheetIcon, LogsIcon } from 'lucide-react';
+import { InfoIcon } from '@/lib/icon-vocabulary';
 import { useMemo } from 'react';
 import { Alert, AlertAction, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

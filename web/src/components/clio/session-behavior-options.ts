@@ -1,7 +1,6 @@
 import type { MessageBehavior, Session } from '@clio/core/v3';
 import {
   BotIcon,
-  CircleHelpIcon,
   FolderCheckIcon,
   Globe2Icon,
   MapIcon,
@@ -10,6 +9,7 @@ import {
   ShieldOffIcon,
   type LucideIcon,
 } from 'lucide-react';
+import { HelpIcon } from '@/lib/icon-vocabulary';
 
 export type SessionBehaviorPatch = Partial<
   Pick<Session, 'mode' | 'edit_mode' | 'routing_mode' | 'approval_mode'>
@@ -48,7 +48,7 @@ export const SESSION_APPROVAL_OPTIONS = [
     value: 'ask',
     label: 'Ask first',
     description: 'Pause before protected actions.',
-    icon: CircleHelpIcon,
+    icon: HelpIcon,
   },
   {
     value: 'auto-edits',

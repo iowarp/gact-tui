@@ -8,7 +8,8 @@ import type {
   WorkspaceReference,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { AtSignIcon, CornerDownRightIcon, PaperclipIcon, PlusIcon } from 'lucide-react';
+import { AtSignIcon, CornerDownRightIcon, PaperclipIcon } from 'lucide-react';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import {
   useCallback,
   useEffect,
@@ -756,14 +757,14 @@ function ComposerAddContextButton({
   if (!contextReferences) {
     return (
       <PromptInputButton aria-label="Add files" onClick={onOpenFileUpload} title="Add files">
-        <PlusIcon aria-hidden="true" />
+        <AddIcon aria-hidden="true" />
       </PromptInputButton>
     );
   }
   return (
     <PromptInputActionMenu>
       <PromptInputActionMenuTrigger aria-label="Add context" title="Add context">
-        <PlusIcon aria-hidden="true" />
+        <AddIcon aria-hidden="true" />
       </PromptInputActionMenuTrigger>
       <PromptInputActionMenuContent>
         {attachmentEnabled ? (

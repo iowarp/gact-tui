@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { EyeIcon, EyeOffIcon, RefreshCwIcon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon } from 'lucide-react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState, type ReactNode } from 'react';
 import {
   ModelSelector,
@@ -410,7 +411,7 @@ function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
           <span>Check the provider connection or configuration, then try discovery again.</span>
           {onRetry ? (
             <Button className="mt-3" onClick={onRetry} size="sm" type="button" variant="outline">
-              <RefreshCwIcon data-icon="inline-start" />
+              <RefreshIcon data-icon="inline-start" />
               Retry
             </Button>
           ) : null}

@@ -2,7 +2,8 @@ import { queryKeys } from '@/lib/query-keys';
 import { OPERATIONS_POLL_MS } from '@/lib/runtime-limits';
 import type { RelayConnectionInput, RelayStatus } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CableIcon, KeyRoundIcon, PencilIcon, RefreshCwIcon, UnplugIcon } from 'lucide-react';
+import { CableIcon, KeyRoundIcon, UnplugIcon } from 'lucide-react';
+import { EditIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -137,7 +138,7 @@ export function RelaySettings() {
         </FramePanel>
         <FrameFooter className="flex-row flex-wrap items-center justify-between gap-2">
           <Button onClick={() => void relay.refetch()} size="sm" variant="outline">
-            <RefreshCwIcon aria-hidden="true" /> Check again
+            <RefreshIcon aria-hidden="true" /> Check again
           </Button>
           <div className="flex flex-wrap gap-2">
             {value?.configured ? (
@@ -151,7 +152,7 @@ export function RelaySettings() {
               size="sm"
             >
               {value?.configured ? (
-                <PencilIcon aria-hidden="true" />
+                <EditIcon aria-hidden="true" />
               ) : (
                 <CableIcon aria-hidden="true" />
               )}
