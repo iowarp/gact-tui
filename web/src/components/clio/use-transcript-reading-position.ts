@@ -1,7 +1,6 @@
 import type { Virtualizer } from '@tanstack/react-virtual';
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -44,8 +43,6 @@ export function useTranscriptReadingPosition({
     // oxlint-disable-next-line react/immutability -- TanStack exposes this imperative configuration property on its stable instance.
     virtualizer.shouldAdjustScrollPositionOnItemSizeChange = virtualized ? undefined : () => false;
   }, [virtualized, virtualizer]);
-  const userScrollPendingRef = useRef(false);
-  const pointerScrollingRef = useRef(false);
   const scrollIntentVersionRef = useRef(0);
   useLayoutEffect(() => {
     const element = scrollRef.current;
@@ -97,12 +94,13 @@ export function useTranscriptReadingPosition({
     if (!pinnedToBottomRef.current && !readingAnchorRef.current) captureReadingAnchor();
   }, [virtualRangeKey, captureReadingAnchor, pinnedToBottomRef, readingAnchorRef]);
 
+  /**
+   * Record explicit reader navigation. It invalidates a queued resize anchor
+   * restore and the virtualizer's pending index target; autoscroll engagement
+   * is owned by `useTranscriptAutoscroll`, not by this intent.
+   */
   const markUserScrollIntent = useCallback(() => {
-    userScrollPendingRef.current = true;
     scrollIntentVersionRef.current += 1;
-    // Yield immediately, before a queued resize/stream frame can pull the
-    // reader back down. Only an intentional scroll to the edge can re-pin.
-    pinnedToBottomRef.current = false;
     readingAnchorRef.current = null;
     // TanStack reconciles scrollToIndex while row sizes settle. Replace that
     // old index target with the current offset before the browser applies the
@@ -110,29 +108,12 @@ export function useTranscriptReadingPosition({
     if (virtualized && scrollRef.current) {
       virtualizer.scrollToOffset(scrollRef.current.scrollTop, { behavior: 'auto' });
     }
-  }, [virtualized, virtualizer, scrollRef, pinnedToBottomRef, readingAnchorRef]);
-
-  const releasePointer = useCallback(() => {
-    pointerScrollingRef.current = false;
-    userScrollPendingRef.current = false;
-  }, []);
-
-  useEffect(() => {
-    window.addEventListener('pointerup', releasePointer);
-    window.addEventListener('pointercancel', releasePointer);
-    return () => {
-      window.removeEventListener('pointerup', releasePointer);
-      window.removeEventListener('pointercancel', releasePointer);
-    };
-  }, [releasePointer]);
+  }, [virtualized, virtualizer, scrollRef, readingAnchorRef]);
 
   return {
-    userScrollPendingRef,
-    pointerScrollingRef,
     scrollIntentVersionRef,
     captureReadingAnchor,
     markUserScrollIntent,
-    releasePointer,
   };
 }
 
@@ -143,7 +124,7 @@ interface TranscriptWidthOptions {
   readingAnchorRef: RefObject<TranscriptReadingAnchor | null>;
   scrollIntentVersionRef: RefObject<number>;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
-  scrollToLatest: (behavior: ScrollBehavior) => void;
+  scrollToBottom: (behavior: ScrollBehavior) => void;
 }
 
 /** Remeasure wrapped rows while preserving the reader's visible anchor. */
@@ -154,7 +135,7 @@ export function useTranscriptWidth({
   readingAnchorRef,
   scrollIntentVersionRef,
   virtualizer,
-  scrollToLatest,
+  scrollToBottom,
 }: TranscriptWidthOptions): number {
   const [conversationViewportWidth, setConversationViewportWidth] = useState(0);
   useLayoutEffect(() => {
@@ -179,7 +160,7 @@ export function useTranscriptWidth({
       frame = window.requestAnimationFrame(() => {
         // Re-check intent at execution time; the user may have scrolled since
         // this resize was queued. Geometry alone never enables following.
-        if (pinnedToBottomRef.current) scrollToLatest('instant');
+        if (pinnedToBottomRef.current) scrollToBottom('instant');
         else if (intentVersion === scrollIntentVersionRef.current) {
           const anchor = resizeAnchor;
           const row = anchor ? document.getElementById(anchor.id) : null;
@@ -199,7 +180,7 @@ export function useTranscriptWidth({
     pinnedToBottomRef,
     readingAnchorRef,
     scrollIntentVersionRef,
-    scrollToLatest,
+    scrollToBottom,
     virtualizer,
     virtualized,
   ]);

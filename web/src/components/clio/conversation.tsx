@@ -16,6 +16,7 @@ import {
   mcpAppResponsesForMessages,
 } from './conversation-message-projection';
 import { PresentationNavigation } from './presentation-navigation';
+import { useTranscriptAutoscroll } from './use-transcript-autoscroll';
 import {
   useTranscriptReadingPosition,
   useTranscriptWidth,
@@ -73,9 +74,9 @@ function ConversationBody({
   const { conversationWidth } = useAppearancePreferences();
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollComplete = useRef(false);
-  const pinnedToBottomRef = useRef(true);
+  const autoscroll = useTranscriptAutoscroll(scrollRef);
+  const { engagedRef, scrollToBottom, disengage } = autoscroll;
   const readingAnchorRef = useRef<TranscriptReadingAnchor | null>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
   const [activeMessageIndex, setActiveMessageIndex] = useState(0);
   const [turnDisplayModes, setTurnDisplayModes] = useState<Record<string, ConversationDisplayMode>>(
     {},
@@ -159,35 +160,24 @@ function ConversationBody({
   const lastVirtualRow = virtualRows.at(-1);
   const virtualRangeKey = `${firstVirtualRow?.index ?? -1}:${firstVirtualRow?.start ?? -1}:${lastVirtualRow?.index ?? -1}:${lastVirtualRow?.end ?? -1}`;
 
-  const {
-    userScrollPendingRef,
-    pointerScrollingRef,
-    scrollIntentVersionRef,
-    captureReadingAnchor,
-    markUserScrollIntent,
-    releasePointer,
-  } = useTranscriptReadingPosition({
-    messageCount: messages.length,
-    setActiveMessageIndex,
-    scrollRef,
-    pinnedToBottomRef,
-    readingAnchorRef,
-    virtualized,
-    virtualizer,
-    virtualRangeKey,
-  });
+  const { scrollIntentVersionRef, captureReadingAnchor, markUserScrollIntent } =
+    useTranscriptReadingPosition({
+      messageCount: messages.length,
+      setActiveMessageIndex,
+      scrollRef,
+      pinnedToBottomRef: engagedRef,
+      readingAnchorRef,
+      virtualized,
+      virtualizer,
+      virtualRangeKey,
+    });
 
-  const updateBottomState = useCallback(() => {
+  const onAutoscroll = autoscroll.onScroll;
+  const handleScroll = useCallback(() => {
     const element = scrollRef.current;
     if (!element) return;
-    const next = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
-    const userScrolling = pointerScrollingRef.current || userScrollPendingRef.current;
-    userScrollPendingRef.current = false;
-    if (userScrolling) {
-      pinnedToBottomRef.current = next;
-    }
-    setIsAtBottom(pinnedToBottomRef.current && next);
-    if (pinnedToBottomRef.current) {
+    onAutoscroll();
+    if (engagedRef.current) {
       readingAnchorRef.current = null;
       setActiveMessageIndex(messages.length - 1);
       return;
@@ -197,22 +187,8 @@ function ConversationBody({
       .find((item) => item.end >= element.scrollTop);
     if (firstVisible) setActiveMessageIndex(firstVisible.index);
     captureReadingAnchor();
-  }, [
-    messages.length,
-    virtualizer,
-    captureReadingAnchor,
-    pointerScrollingRef,
-    userScrollPendingRef,
-  ]);
+  }, [messages.length, virtualizer, captureReadingAnchor, onAutoscroll, engagedRef]);
 
-  const scrollToLatest = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    const element = scrollRef.current;
-    if (!element) return;
-    element.scrollTo({ behavior, top: element.scrollHeight });
-    pinnedToBottomRef.current = true;
-    readingAnchorRef.current = null;
-    setIsAtBottom(true);
-  }, []);
   const jumpToMessage = useCallback(
     (index: number) => {
       const message = messages[index];
@@ -222,9 +198,7 @@ function ConversationBody({
       // reached the end of that message. This matters for a single tall turn,
       // such as a compaction summary: its only message is also the latest one,
       // but jumping to it must still move to the row's beginning.
-      pinnedToBottomRef.current = false;
-      readingAnchorRef.current = null;
-      setIsAtBottom(false);
+      disengage();
       setActiveMessageIndex(index);
       if (virtualized) virtualizer.scrollToIndex(index, { align: 'start' });
       else document.getElementById(`message-${message.id}`)?.scrollIntoView({ block: 'start' });
@@ -232,17 +206,17 @@ function ConversationBody({
         document.getElementById(`message-${message.id}`)?.focus({ preventScroll: true });
       });
     },
-    [markUserScrollIntent, messages, virtualized, virtualizer],
+    [disengage, markUserScrollIntent, messages, virtualized, virtualizer],
   );
 
   const conversationViewportWidth = useTranscriptWidth({
     virtualized,
     scrollRef,
-    pinnedToBottomRef,
+    pinnedToBottomRef: engagedRef,
     readingAnchorRef,
     scrollIntentVersionRef,
     virtualizer,
-    scrollToLatest,
+    scrollToBottom,
   });
   const minimapVisible = conversationViewportWidth >= 760;
 
@@ -252,8 +226,8 @@ function ConversationBody({
     if (virtualized) {
       setActiveMessageIndex(messages.length - 1);
       virtualizer.scrollToIndex(messages.length - 1, { align: 'end' });
-    } else scrollToLatest('instant');
-  }, [messages.length, scrollToLatest, virtualized, virtualizer]);
+    } else scrollToBottom('instant');
+  }, [messages.length, scrollToBottom, virtualized, virtualizer]);
 
   useEffect(() => {
     let frame = 0;
@@ -266,7 +240,7 @@ function ConversationBody({
       const index = messages.findIndex((message) => message.id === messageId);
       if (index < 0) return;
       markUserScrollIntent();
-      setIsAtBottom(false);
+      disengage();
       virtualizer.scrollToIndex(index, { align: 'center' });
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(() => {
@@ -284,23 +258,13 @@ function ConversationBody({
       window.removeEventListener('hashchange', focusSearchResult);
       window.cancelAnimationFrame(frame);
     };
-  }, [messages, virtualizer, markUserScrollIntent]);
+  }, [messages, virtualizer, markUserScrollIntent, disengage]);
 
-  useEffect(() => {
-    if (!pinnedToBottomRef.current || messages.length === 0) return;
-    const frame = window.requestAnimationFrame(() => {
-      if (pinnedToBottomRef.current) scrollToLatest('instant');
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [messages, scrollToLatest]);
-
+  // Streamed deltas and a changed composer inset follow before paint while
+  // engaged; the autoscroll hook's ResizeObserver catches later layout growth.
   useLayoutEffect(() => {
-    if (!pinnedToBottomRef.current || messages.length === 0) return;
-    const frame = window.requestAnimationFrame(() => {
-      if (pinnedToBottomRef.current) scrollToLatest('instant');
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [bottomInset, messages.length, scrollToLatest]);
+    if (engagedRef.current && messages.length > 0) scrollToBottom('instant');
+  }, [bottomInset, messages, scrollToBottom, engagedRef]);
 
   return (
     <div className="relative h-full min-h-0">
@@ -330,19 +294,25 @@ function ConversationBody({
             // Native navigation keys also scroll when a plain transcript
             // button has focus. That reading intent must survive a resize.
             markUserScrollIntent();
+            autoscroll.onScrollKey(event);
           }
         }}
-        onScroll={updateBottomState}
+        onScroll={handleScroll}
         onPointerDown={(event) => {
-          if (event.target === event.currentTarget) {
-            pointerScrollingRef.current = true;
-            markUserScrollIntent();
-          }
+          if (event.target === event.currentTarget) markUserScrollIntent();
+          autoscroll.onPointerDown(event);
         }}
-        onPointerUp={releasePointer}
-        onPointerCancel={releasePointer}
-        onTouchMove={markUserScrollIntent}
-        onWheel={markUserScrollIntent}
+        onTouchStart={autoscroll.onTouchStart}
+        onTouchMove={(event) => {
+          markUserScrollIntent();
+          autoscroll.onTouchMove(event);
+        }}
+        onTouchEnd={autoscroll.onTouchEnd}
+        onTouchCancel={autoscroll.onTouchEnd}
+        onWheel={(event) => {
+          markUserScrollIntent();
+          autoscroll.onWheel(event);
+        }}
         ref={scrollRef}
         role="log"
         style={{ paddingBottom: bottomInset }}
@@ -383,6 +353,7 @@ function ConversationBody({
           />
         ) : (
           <div
+            ref={autoscroll.observeContent}
             className={`${virtualized ? 'relative' : ''} mx-auto w-full ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             style={virtualized ? { height: virtualizer.getTotalSize() } : undefined}
           >
@@ -416,6 +387,7 @@ function ConversationBody({
         )}
         {detachedSurfaces.length > 0 ? (
           <div
+            ref={autoscroll.observeContent}
             className={`mx-auto grid w-full gap-4 px-5 pb-8 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
           >
             {detachedSurfaces.map((surface) => (
@@ -427,21 +399,30 @@ function ConversationBody({
             ))}
           </div>
         ) : null}
+        {!autoscroll.engaged && messages.length > 0 ? (
+          // A zero-height sticky rail inside the scroller, so a wheel over the
+          // button still scrolls the transcript (and reaches its intent
+          // handlers) instead of dying on a sibling overlay. Sticky offsets
+          // are measured inside the scroller's padding, which already holds
+          // the composer inset.
+          <div
+            className="pointer-events-none sticky bottom-3 z-20 h-0"
+            data-slot="scroll-to-bottom-rail"
+          >
+            <Button
+              aria-label="Scroll to bottom"
+              className="pointer-events-auto absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full shadow-lg dark:bg-background dark:hover:bg-muted"
+              onClick={autoscroll.engage}
+              size="icon"
+              title="Scroll to bottom"
+              type="button"
+              variant="outline"
+            >
+              <ArrowDownIcon aria-hidden="true" className="size-4" />
+            </Button>
+          </div>
+        ) : null}
       </div>
-      {!isAtBottom ? (
-        <Button
-          aria-label="Scroll to latest message"
-          className="absolute right-3 rounded-full shadow-lg"
-          onClick={() => scrollToLatest()}
-          size="sm"
-          style={{ bottom: bottomInset + 12 }}
-          type="button"
-          variant="outline"
-        >
-          <ArrowDownIcon aria-hidden="true" className="size-4" />
-          Latest
-        </Button>
-      ) : null}
     </div>
   );
 }
