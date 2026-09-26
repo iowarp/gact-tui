@@ -34,7 +34,15 @@ export function LiveConnectionIndicator({ className }: { className?: string }) {
   return (
     <HoverCard closeDelay={100} openDelay={150}>
       <HoverCardTrigger asChild>
-        <span aria-label={clioStatusLabel(value)} role="status" tabIndex={0}>
+        {/* A flex item that centers itself: the desktop title bar's control
+            group stretches its children to the bar height (for the window
+            buttons), which would otherwise top-align this inline chip. */}
+        <span
+          aria-label={clioStatusLabel(value)}
+          className="inline-flex items-center self-center"
+          role="status"
+          tabIndex={0}
+        >
           <ClioStatus
             className={cn('h-6 gap-1 border-0 bg-transparent px-1 py-0 text-[10px]', className)}
             suppressNativeTitle
