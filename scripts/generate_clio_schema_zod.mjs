@@ -17,6 +17,12 @@ const contracts = [
     schema: 'modelCapabilityTagsGeneratedSchema',
     type: 'ModelCapabilityTags',
   },
+  {
+    file: 'model_facts.json',
+    output: 'model-facts.schema.ts',
+    schema: 'modelFactsGeneratedSchema',
+    type: 'ModelFacts',
+  },
 ];
 
 function parseArgs(argv) {

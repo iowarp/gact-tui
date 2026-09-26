@@ -1,4 +1,5 @@
 import { modelCapabilityTagsGeneratedSchema } from '../generated/clio-schemas/model-capability-tags.schema.js';
+import { modelFactsGeneratedSchema } from '../generated/clio-schemas/model-facts.schema.js';
 import { z } from 'zod';
 import { forwardCompatibleEnum, optionalWireString } from './schema-utils.js';
 
@@ -367,6 +368,12 @@ export const providerCatalogSchema = z.object({
           // The shared clio-schemas ModelCapabilityTags record: every tag with
           // its evidence. Optional: older services do not report tags.
           capability_tags: modelCapabilityTagsGeneratedSchema
+            .nullish()
+            .transform((value) => value ?? undefined),
+          // The shared clio-schemas ModelFacts record: description, release
+          // date (and whether it is recent), pricing and size, each with its
+          // evidence. Optional: older services do not report facts.
+          model_facts: modelFactsGeneratedSchema
             .nullish()
             .transform((value) => value ?? undefined),
           reasoning: z.object({

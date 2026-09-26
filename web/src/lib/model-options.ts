@@ -1,6 +1,7 @@
 import type {
   LanguageModelPreset,
   ModelCapabilityTags,
+  ModelFacts,
   ProviderCatalog,
   ProviderCatalogEntry,
   ProviderCatalogTransport,
@@ -54,6 +55,9 @@ export interface ClioModelOption {
   /** The service's capability tags for this model, each with its evidence
    * (read through `modelCapabilityTagsFromOption`). */
   capabilityTags?: ModelCapabilityTags;
+  /** The service's descriptive facts (description, release, pricing, size),
+   * each with its evidence (read through `modelFactsFromOption`). */
+  modelFacts?: ModelFacts;
   /** Where each capability value came from, keyed by the catalog's capability
    * field names (see `ProviderCatalogModel.capabilities_provenance`). */
   capabilityProvenance?: Readonly<Record<string, { source: string; decided_by: string }>>;
@@ -328,6 +332,7 @@ function liveProviderOptions(
       contextWindow: model.loaded_context_window || model.context_window,
       chatSelectable: model.chat_selectable,
       capabilityTags: model.capability_tags,
+      modelFacts: model.model_facts,
       capabilityProvenance: model.capabilities_provenance,
       aliases: model.aliases,
       transport: model.transport,

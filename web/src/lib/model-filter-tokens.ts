@@ -51,6 +51,8 @@ function singleToken(tag: ModelCapabilityTag): ModelFilterToken | undefined {
       return tag.value === 'free' ? 'free' : undefined;
     case 'kind':
       return tag.value === 'router' ? 'router' : undefined;
+    case 'recent':
+      return `released:<${tag.value}mo`;
     default:
       return undefined;
   }
@@ -125,7 +127,20 @@ export function surrogateChatReason(modelType: string | undefined): string {
   return `${plural} can't hold a conversation.`;
 }
 
-const TOKEN_KEYS = ['input', 'output', 'cap', 'role', 'task', 'domain', 'provider', 'free', 'router'];
+const TOKEN_KEYS = [
+  'input',
+  'output',
+  'cap',
+  'role',
+  'task',
+  'domain',
+  'provider',
+  'size',
+  'cost',
+  'released',
+  'free',
+  'router',
+];
 
 /**
  * A word that is a token, or may still become one while it is typed ("inp"

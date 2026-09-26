@@ -3,9 +3,10 @@ import {
   type ModelCapabilityAxis,
   type ModelCapabilityTag,
 } from './model-capability-tags';
+import type { ModelFactSummary } from './model-facts';
+import { matchesActiveTokens } from './model-range-tokens';
 import {
   DEFAULT_FILTER_TOKENS,
-  matchesFilterTokens,
   providerFilterToken,
   tagFilterTokens,
   type ModelFilterToken,
@@ -63,6 +64,8 @@ export interface FacetEntry {
   tags: readonly ModelCapabilityTag[];
   /** Every token the model carries (the tree's own set, provider included). */
   tokens: ReadonlySet<ModelFilterToken>;
+  /** Its descriptive facts, which the range tokens (size, cost, released) read. */
+  facts: ModelFactSummary;
   /** Whether the model matches the free-text search (true with no text). */
   matchesText: boolean;
 }
@@ -166,8 +169,9 @@ interface ChipSource {
 const OTHER_GROUPS: Partial<Record<ModelCapabilityAxis, { id: string; label: string; rank: number }>> = {
   price: { id: 'offer', label: 'Offer', rank: 0 },
   kind: { id: 'offer', label: 'Offer', rank: 0 },
-  role: { id: 'role', label: 'Role', rank: 1 },
-  domain: { id: 'domain', label: 'Domain', rank: 2 },
+  recent: { id: 'release', label: 'Release', rank: 1 },
+  role: { id: 'role', label: 'Role', rank: 2 },
+  domain: { id: 'domain', label: 'Domain', rank: 3 },
 };
 
 /** Where a (non-task) tag's chip sits and what it says. */
@@ -268,7 +272,7 @@ export function buildModelFacets(
     const kept = active.filter((token) => !dropped.includes(token));
     const counts = new Map<ModelFilterToken, number>();
     for (const entry of entries) {
-      if (!entry.matchesText || !matchesFilterTokens(entry.tokens, kept)) continue;
+      if (!entry.matchesText || !matchesActiveTokens(entry.tokens, entry.facts, kept)) continue;
       for (const token of entry.tokens) counts.set(token, (counts.get(token) ?? 0) + 1);
     }
     return { dropped, counts };

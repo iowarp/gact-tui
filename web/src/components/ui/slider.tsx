@@ -3,14 +3,20 @@ import { Slider as SliderPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
 
+type SliderProps = React.ComponentProps<typeof SliderPrimitive.Root> & {
+  /** Per-thumb props: each thumb is the slider a screen reader names and reads. */
+  thumbProps?: (index: number) => React.ComponentProps<typeof SliderPrimitive.Thumb>;
+};
+
 function Slider({
   className,
   defaultValue,
   value,
   min = 0,
   max = 100,
+  thumbProps,
   ...props
-}: React.ComponentProps<typeof SliderPrimitive.Root>) {
+}: SliderProps) {
   const _values = React.useMemo(
     () => (Array.isArray(value) ? value : Array.isArray(defaultValue) ? defaultValue : [min, max]),
     [value, defaultValue, min, max],
@@ -42,6 +48,7 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
+          {...thumbProps?.(index)}
           className="relative block size-3 shrink-0 rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
         />
       ))}
