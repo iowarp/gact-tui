@@ -407,4 +407,25 @@ describe('DesktopTitleBar', () => {
     expect(screen.getByRole('button', { name: 'Maximize or restore' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
+
+  it('centers the Live indicator on the same line as the breadcrumb and window controls', () => {
+    isMacOS.mockReturnValue(false);
+    renderTitleBar();
+
+    const live = screen.getByRole('status', { name: 'Live' });
+    const controls = live.parentElement;
+    // The control group stretches its children to the bar height so the
+    // window buttons fill it; the indicator must opt out and center itself,
+    // or its chip top-aligns inside a bar-height box.
+    expect(controls).toHaveClass('items-stretch');
+    expect(live).toHaveClass('self-center', 'inline-flex', 'items-center');
+    // The window buttons fill the bar and center their icon on its midline.
+    expect(screen.getByRole('button', { name: 'Minimize' })).toHaveClass(
+      'h-10',
+      'place-items-center',
+    );
+    // The breadcrumb region centers its content on the same midline.
+    expect(screen.getByLabelText(/desktop controls/)).toHaveClass('h-10', 'flex');
+    expect(controls?.previousElementSibling).toHaveClass('items-center');
+  });
 });
