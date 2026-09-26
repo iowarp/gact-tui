@@ -45,7 +45,12 @@ export function useModelPickerTree(
     const map = new Map<ClioModelOption, Set<ModelFilterToken>>();
     for (const group of providers) {
       for (const choice of group.choices) {
-        map.set(choice, modelFilterTokens(modelCapabilityTagsFromOption(choice)));
+        map.set(
+          choice,
+          modelFilterTokens(modelCapabilityTagsFromOption(choice), {
+            chatSelectable: choice.chatSelectable !== false,
+          }),
+        );
       }
     }
     return map;

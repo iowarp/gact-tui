@@ -4,6 +4,14 @@
  *   node schemas-to-ts.mjs --in <schema-dir> --out <ts-dir>
  */
 
-export * from './_models';
-export * from './message-block.schema.js';
-export * from './model-capability-tags.schema.js';
+export type {
+  CapabilityTag,
+  DomainTag,
+  FlagTag,
+  ModalityTag,
+  ModelCapabilityTags,
+  ModelTypeTag,
+  RoleTag,
+  TagEvidence,
+  TaskTag,
+} from './_models';

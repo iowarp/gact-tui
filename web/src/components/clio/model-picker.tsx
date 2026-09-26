@@ -36,7 +36,7 @@ import type { ClioModelOption } from '@/lib/model-options';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { isBaselineTag, modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
+import { displayedTags, modelCapabilityTagsFromOption, modelTypeOf } from '@/lib/model-capability-tags';
 import {
   DEFAULT_FILTER_TOKENS,
   freeSearchText,
@@ -231,7 +231,7 @@ export function ClioModelPicker({
               // A specialist model is a first-class row, but it cannot be the
               // chat model: say why instead of selecting it.
               if (choice.chatSelectable === false) {
-                setNotice(surrogateChatReason(choice.modelType));
+                setNotice(surrogateChatReason(modelTypeOf(choice)));
                 return;
               }
               onChange(choice);
@@ -475,7 +475,7 @@ function PickerRowLabel({
     );
   }
   const choice = node.data?.kind === 'model' ? node.data.choice : undefined;
-  const tags = choice ? modelCapabilityTagsFromOption(choice).filter((tag) => !isBaselineTag(tag)) : [];
+  const tags = choice ? displayedTags(modelCapabilityTagsFromOption(choice)) : [];
   return (
     <span className="flex min-w-0 flex-1 flex-col items-start gap-1 py-0.5">
       <span className="w-full truncate text-start" data-slot="model-row-name">
