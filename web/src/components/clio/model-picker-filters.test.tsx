@@ -140,6 +140,9 @@ describe('ClioModelPicker filter tokens', () => {
       "Image generators can't hold a conversation.",
     );
     expect(screen.getByRole('dialog')).toBeVisible();
+    // The refused row is not left looking chosen.
+    const sdxl = screen.getByText('sdxl').closest('[data-slot="cascader-item"]');
+    expect(sdxl).not.toHaveAttribute('aria-selected', 'true');
   });
 
   it('clicking a row tag adds its token; free + input:pdf narrows to the one match', async () => {
@@ -161,6 +164,8 @@ describe('ClioModelPicker filter tokens', () => {
     const input = screen.getByRole('combobox', { name: 'Search providers and models' });
 
     await user.type(input, 'input:');
+    // A token being typed is not a text search: the models stay listed.
+    expect(modelNames()).toContain('llama-4');
     const suggestions = document.querySelector('[data-slot="filter-token-suggestions"]') as HTMLElement;
     expect(within(suggestions).getAllByRole('button').map((b) => b.textContent)).toEqual([
       'input:image',

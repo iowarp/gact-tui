@@ -89,3 +89,37 @@ export function surrogateChatReason(modelType: string | undefined): string {
   const plural = label === 'Embeddings' ? 'Embedding models' : label.endsWith('s') ? label : `${label}s`;
   return `${plural} can't hold a conversation.`;
 }
+
+const TOKEN_KEYS = ['input', 'output', 'cap', 'role', 'task', 'domain', 'free', 'router'];
+
+/**
+ * A word that is a token, or may still become one while it is typed ("inp"
+ * on its way to "input:") -- never free text, so typing a token never
+ * starts a text search.
+ */
+function isTokenWord(word: string): boolean {
+  return word.includes(':') || TOKEN_KEYS.some((key) => key.startsWith(word));
+}
+
+/** The free-text part of the search field: every word that is not a token. */
+export function freeSearchText(query: string): string {
+  return query
+    .trim()
+    .split(/\s+/u)
+    .filter((word) => word && !isTokenWord(word.toLowerCase()))
+    .join(' ');
+}
+
+/**
+ * The picker's text matcher: every free-text word must appear in the row's
+ * name or keywords (model id, provider). Token words never match text.
+ */
+export function matchesFreeSearch(
+  node: { label: string; keywords?: readonly string[] },
+  normalizedQuery: string,
+): boolean {
+  const words = freeSearchText(normalizedQuery).toLowerCase().split(' ').filter(Boolean);
+  if (!words.length) return true;
+  const haystack = [node.label, ...(node.keywords ?? [])].join(' ').toLowerCase();
+  return words.every((word) => haystack.includes(word));
+}

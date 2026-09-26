@@ -74,8 +74,8 @@ export function useModelPickerTree(
         hasChildren: true,
         // A count means "this many usable models" (a provider whose latest
         // check failed shows none). While filters hide some, the row shows
-        // "shown / total" itself instead.
-        count: kept.length === models.length ? models.length : undefined,
+        // "shown / total" itself instead (a 0 count renders nothing).
+        count: kept.length === models.length ? models.length : 0,
         keywords: [
           group.id,
           group.endpoint ?? '',

@@ -38,6 +38,8 @@ import { useConnectionSettings } from '@/providers/connection-provider';
 import { isBaselineTag, modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
 import {
   DEFAULT_FILTER_TOKENS,
+  freeSearchText,
+  matchesFreeSearch,
   surrogateChatReason,
   tagFilterToken,
   type ModelFilterToken,
@@ -185,7 +187,8 @@ export function ClioModelPicker({
     // search inside that provider and leaves the old provider pinned beside a
     // global hit. Start every new search at the root; choosing a result can
     // then establish the path that remains when the query is cleared.
-    if (nextQuery.trim() && !query.trim()) setPath([]);
+    // A token being typed ("input:") is not a search: only free text is.
+    if (freeSearchText(nextQuery) && !freeSearchText(query)) setPath([]);
     setQuery(nextQuery);
   }
 
@@ -260,9 +263,13 @@ export function ClioModelPicker({
                 state={state}
               />
             )}
-            searchScope="deep"
+            filter={(node, normalizedQuery) => matchesFreeSearch(node, normalizedQuery)}
+            // Nothing chosen yet: keep the path the picker opened on.
+            revealSelected={Boolean(selectedChoice)}
+            searchScope={freeSearchText(query) ? 'deep' : 'level'}
             selectable={(node) => node.data?.kind === 'model'}
-            value={selectedChoice ? modelNodeValue(selectedChoice) : undefined}
+            // Always controlled: a refused pick (a surrogate) must not stay checked.
+            value={selectedChoice ? modelNodeValue(selectedChoice) : ''}
           >
             <CascaderPanel className="h-full min-h-0">
               <CascaderNav>
