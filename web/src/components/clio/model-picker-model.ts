@@ -284,8 +284,3 @@ export function providerUsableModelCount(group: ProviderGroup): number {
     ? group.availableChoices.length
     : 0;
 }
-
-/** The Settings > Providers route for one provider (the picker's settings link). */
-export function providerSettingsHref(providerId: string): string {
-  return `/settings/providers?provider=${encodeURIComponent(providerId)}`;
-}

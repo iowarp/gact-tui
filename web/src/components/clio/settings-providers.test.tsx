@@ -1,13 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Button } from '@/components/ui/button';
-import { buildModelOptions } from '@/lib/model-options';
 import { catalog, catalogEntry } from '@/test-fixtures/provider-catalog';
-import { setWideViewport, stripButtonNames } from '@/test-fixtures/model-picker/provider-actions';
-import { ClioModelPicker } from './model-picker';
+import { setWideViewport } from '@/test-fixtures/model-picker/provider-actions';
 import { ProvidersSettings } from './settings-providers';
 
 const { repository } = vi.hoisted(() => ({
@@ -37,8 +34,22 @@ vi.mock('@/tauri/secure-credentials', () => ({
   readProviderCredential: vi.fn().mockResolvedValue(undefined),
 }));
 
-const presets = {
-  codex: {
+const local = (id: string, label: string, port: number) => ({
+  id,
+  label,
+  provider: 'openai',
+  provider_id: id,
+  api_base: `http://127.0.0.1:${port}/v1`,
+  suggested_model: '',
+  requires_api_key: false,
+  auth_method: 'none',
+  is_authenticated: true,
+  supports_live_catalog: true,
+  supports_vision: false,
+});
+
+const presets = [
+  {
     id: 'codex',
     label: 'Codex',
     provider: 'codex',
@@ -49,7 +60,7 @@ const presets = {
     supports_live_catalog: true,
     supports_vision: true,
   },
-  openrouter: {
+  {
     id: 'openrouter',
     label: 'OpenRouter',
     provider: 'openrouter',
@@ -59,61 +70,44 @@ const presets = {
     auth_method: 'api_key',
     is_authenticated: false,
     status: 'missing_key',
-    status_message: 'missing OPENROUTER_API_KEY',
     supports_live_catalog: true,
     supports_vision: false,
   },
-  claude_code: {
-    id: 'claude_code',
-    label: 'Claude Code',
-    provider: 'claude_code',
-    suggested_model: '',
-    requires_api_key: false,
-    auth_method: 'subscription',
-    is_authenticated: false,
-    status: 'install_required',
-    status_message: 'Claude Code support is not installed on the connected agent.',
-    supports_live_catalog: false,
-    supports_vision: true,
-  },
-};
-
-function configuration(...ids: Array<keyof typeof presets>) {
-  return {
-    configured: true,
-    provider_id: 'codex',
-    provider: 'codex',
-    api_base: '',
-    model: 'gpt-5.5',
-    presets: ids.map((id) => presets[id]),
-  };
-}
-
-const codexTransports = [
-  { id: 'sdk', label: 'Codex (local)', health: 'ready', reason: '' },
-  {
-    id: 'direct',
-    label: 'Direct',
-    health: 'needs_auth',
-    reason: 'sign-in required',
-    auth: { method: 'oauth', logout: true },
-  },
+  local('lm_studio', 'LM Studio', 1234),
+  local('vllm', 'vLLM', 8000),
 ];
 
+const configuration = {
+  configured: true,
+  provider_id: 'codex',
+  provider: 'codex',
+  api_base: '',
+  model: 'gpt-5.5',
+  presets,
+};
+
 beforeEach(() => {
-  repository.languageModelConfiguration.mockResolvedValue(
-    configuration('codex', 'openrouter', 'claude_code'),
-  );
+  setWideViewport(true);
+  repository.languageModelConfiguration.mockResolvedValue(configuration);
   repository.providerCatalog.mockResolvedValue(
     catalog(
-      catalogEntry(
-        'codex',
-        [
-          { model_id: 'gpt-5.5', transport: 'sdk', modalities: ['text', 'image'] },
-          { model_id: 'gpt-5.5-mini', transport: 'sdk' },
-        ],
-        { name: 'Codex', transports: codexTransports },
-      ),
+      catalogEntry('codex', [{ model_id: 'gpt-5.5' }], { name: 'Codex' }),
+      catalogEntry('openrouter', [], {
+        name: 'OpenRouter',
+        health: 'unavailable',
+        auth: 'missing',
+        failure: 'no API key provided',
+      }),
+      catalogEntry('lm_studio', [{ model_id: 'qwen3-8b' }, { model_id: 'gemma-3' }], {
+        name: 'LM Studio',
+        endpoint: 'http://127.0.0.1:1234/v1',
+      }),
+      catalogEntry('vllm', [], {
+        name: 'vLLM',
+        health: 'unavailable',
+        connectivity: 'unreachable',
+        failure: 'connection refused',
+      }),
     ),
   );
 });
@@ -122,254 +116,166 @@ afterEach(() => {
   cleanup();
   window.localStorage.clear();
   vi.clearAllMocks();
-  vi.restoreAllMocks();
+  for (const mock of Object.values(repository)) mock.mockReset();
 });
 
-function renderAt(path: string, children = <ProvidersSettings />) {
+function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  render(
+    <MemoryRouter initialEntries={['/settings/providers']}>
+      <QueryClientProvider client={queryClient}>
+        <ProvidersSettings />
+      </QueryClientProvider>
     </MemoryRouter>,
   );
 }
 
-function entry(providerId: string): HTMLElement {
-  const row = document.querySelector<HTMLElement>(`[data-provider-id="${providerId}"]`);
-  if (!row) throw new Error(`no list entry for ${providerId}`);
-  return row;
+async function card(id: string): Promise<HTMLElement> {
+  await waitFor(() =>
+    expect(document.querySelector(`[data-slot="local-server-card"][data-provider-id="${id}"]`)).not.toBeNull(),
+  );
+  return document.querySelector(`[data-slot="local-server-card"][data-provider-id="${id}"]`) as HTMLElement;
 }
 
+/** Words that belong only in the Technical details sheet. */
+const TECHNICAL = /endpoint|configuration|credential|catalog|handshake|probe/iu;
+
 describe('ProvidersSettings', () => {
-  it('lists every provider once with the picker heartbeat, usable first', async () => {
-    renderAt('/settings/providers');
+  it('lists only the servers on this computer as cards; a stopped one is grey, never red', async () => {
+    renderPage();
 
-    const nav = await screen.findByRole('navigation', { name: 'Providers' });
-    await waitFor(() => expect(within(nav).getAllByRole('button')).toHaveLength(3));
-    expect(within(nav).getAllByRole('button').map((button) => button.textContent)).toEqual([
-      'Codex2',
-      'Claude Code',
-      'OpenRouter',
-    ]);
-    expect(entry('codex').querySelector('[data-slot="provider-heartbeat"]')).toHaveAttribute(
-      'data-state',
-      'healthy',
-    );
-    // Never checked, no catalog entry yet: neutral "needs setup", not red.
-    expect(entry('openrouter').querySelector('[data-slot="provider-heartbeat"]')).toHaveAttribute(
-      'data-state',
-      'setup',
-    );
-    // With no ?provider=, the first provider's panel opens.
-    expect(screen.getByRole('heading', { name: 'Codex' })).toBeVisible();
+    const lmStudio = await card('lm_studio');
+    expect(within(lmStudio).getByText('Running, 2 models')).toBeVisible();
+    expect(within(lmStudio).getByText('http://127.0.0.1:1234/v1')).toBeVisible();
+    const vllm = await card('vllm');
+    const stopped = within(vllm).getByText('Not running');
+    expect(stopped).toBeVisible();
+    expect(stopped.className).not.toMatch(/destructive/u);
+    // Cloud and subscription providers are never server cards.
+    expect(document.querySelector('[data-provider-id="codex"]')).toBeNull();
+    expect(document.querySelector('[data-provider-id="openrouter"]')).toBeNull();
   });
 
-  it('OpenRouter: one click on the provider and the API key field is right there', async () => {
+  it('has no sign-in, key or connect flow, and no technical words outside the details sheet', async () => {
+    renderPage();
+    await card('lm_studio');
+
+    expect(screen.queryByRole('button', { name: /Sign in|Log in|Connect|Install/u })).toBeNull();
+    expect(screen.queryByLabelText(/key/iu)).toBeNull();
+    const page = document.body.textContent ?? '';
+    expect(page).not.toMatch(TECHNICAL);
+  });
+
+  it('opens a cloud provider in the model picker instead of setting it up here', async () => {
     const user = userEvent.setup();
-    renderAt('/settings/providers');
+    renderPage();
+    const cloud = await screen.findByRole('region', { name: 'Cloud and subscription providers' });
 
-    await screen.findByRole('navigation', { name: 'Providers' });
-    await user.click(within(entry('openrouter')).getByRole('button'));
+    await user.click(within(cloud).getByRole('button', { name: /OpenRouter/u }));
 
-    const panel = await screen.findByRole('region', { name: 'OpenRouter provider' });
-    const keyField = within(panel).getByLabelText('OpenRouter API key');
-    // The key entry is the panel's FIRST field: no model selector, reasoning,
-    // endpoint, token or temperature field comes before (or with) it.
-    expect(panel.querySelector('input, select, [role="combobox"]')).toBe(keyField);
-    for (const name of ['Model', 'Reasoning effort', 'Temperature', 'Maximum output tokens']) {
-      expect(within(panel).queryByRole('combobox', { name })).toBeNull();
-      expect(within(panel).queryByRole('spinbutton', { name })).toBeNull();
-    }
-    expect(within(panel).getByText('Add your OpenRouter API key.')).toBeVisible();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByPlaceholderText('Search providers and models')).toBeVisible();
+    expect(await within(dialog).findByLabelText('OpenRouter key')).toBeVisible();
   });
 
-  it('saving a key shows the yellow heartbeat and "Saving key…" until it settles', async () => {
-    let resolveSave: () => void = () => {};
-    repository.saveProviderApiKey.mockImplementation(
-      () => new Promise<void>((resolve) => (resolveSave = resolve)),
-    );
-    repository.providerHandshake.mockResolvedValue({
-      models: [],
-      source: 'live',
+  it('checks an edited address live and keeps it by making the server the default', async () => {
+    repository.providerHandshake.mockResolvedValueOnce({
       connectivity: 'ok',
-      auth: 'rejected',
-      error: 'api_key_rejected',
-      generated_at: '2026-08-23T05:00:00Z',
+      auth: 'not_required',
+      models: [{ id: 'qwen3-8b' }, { id: 'gemma-3' }, { id: 'phi-4' }],
+      source: 'live',
+      generated_at: '',
     });
+    repository.updateLanguageModelConfiguration.mockResolvedValueOnce(configuration);
     const user = userEvent.setup();
-    renderAt('/settings/providers?provider=openrouter');
+    renderPage();
+    const lmStudio = await card('lm_studio');
 
-    await user.type(await screen.findByLabelText('OpenRouter API key'), 'sk-or-test');
-    await user.click(screen.getByRole('button', { name: 'Save key' }));
+    await user.click(within(lmStudio).getByRole('button', { name: 'Change the LM Studio address' }));
+    const field = within(lmStudio).getByLabelText('LM Studio address');
+    await user.clear(field);
+    await user.type(field, '127.0.0.1:1235');
+    await user.click(within(lmStudio).getByRole('button', { name: 'Check' }));
 
-    expect(await screen.findByText('Saving key…')).toBeVisible();
-    expect(entry('openrouter').querySelector('[data-slot="provider-heartbeat"]')).toHaveAttribute(
-      'data-state',
-      'checking',
-    );
-    resolveSave();
-    expect(await screen.findByText('Your OpenRouter API key was rejected.')).toBeVisible();
-    expect(screen.queryByText('Saving key…')).not.toBeInTheDocument();
-  });
-
-  it('install-needed providers show Install and nothing else', async () => {
-    renderAt('/settings/providers?provider=claude_code');
-
-    await screen.findByRole('heading', { name: 'Claude Code' });
-    expect(stripButtonNames()).toEqual(['Install']);
-  });
-
-  it('multi-transport Codex shows both halves: ready actions, "or", then Direct sign-in', async () => {
-    renderAt('/settings/providers?provider=codex');
-
-    await screen.findByRole('heading', { name: 'Codex' });
     await waitFor(() =>
-      expect(stripButtonNames()).toEqual(['Verify provider', 'Refresh models', 'Sign in', 'Device code']),
+      expect(repository.providerHandshake).toHaveBeenCalledWith('lm_studio', {
+        apiBase: 'http://127.0.0.1:1235/v1',
+        refresh: true,
+      }),
     );
-    const strip = document.querySelector<HTMLElement>('[data-slot="provider-action-strip"]')!;
-    expect(within(strip).getByText('or')).toBeVisible();
-    expect(within(strip).getByText('Direct')).toBeVisible();
-    // The model list groups the local transport's models under its own heading.
-    const models = document.querySelector<HTMLElement>('[data-slot="provider-models"]')!;
-    expect(within(models).getByText('2 available')).toBeVisible();
-    expect(within(models).getByText('Codex (local)')).toBeVisible();
-    expect(within(models).getByText('gpt-5.5-mini')).toBeVisible();
-  });
+    expect(await within(lmStudio).findByText('Running, with 3 models.')).toBeVisible();
+    await user.click(within(lmStudio).getByRole('button', { name: 'Use this server' }));
 
-  it('shows availability state that used to live on Settings > Models', async () => {
-    renderAt('/settings/providers?provider=codex');
-
-    const facts = await waitFor(() => {
-      const found = document.querySelector<HTMLElement>('[data-slot="provider-availability"]');
-      if (!found) throw new Error('availability not rendered');
-      return found;
-    });
-    expect(within(facts).getByText('Connection')).toBeVisible();
-    expect(within(facts).getByText('Reachable')).toBeVisible();
-    expect(within(facts).getByText('Signed in')).toBeVisible();
-    expect(within(facts).getByText('Live model list')).toBeVisible();
-    // The explanation sits behind the info icon, not on the page.
-    expect(within(facts).getByRole('button', { name: 'About availability' })).toBeVisible();
-    expect(
-      screen.queryByText('Authentication and capability state reported by the connected service.'),
-    ).toBeNull();
-  });
-
-  it('an API-key provider reads in API-key terms, and an unprobed connection is Not checked', async () => {
-    renderAt('/settings/providers?provider=openrouter');
-
-    const panel = await screen.findByRole('region', { name: 'OpenRouter provider' });
-    expect(within(panel).getByText('Needs API key')).toBeVisible();
-    const facts = panel.querySelector<HTMLElement>('[data-slot="provider-availability"]')!;
-    expect(within(facts).getByText('API key needed')).toBeVisible();
-    expect(within(facts).getByText('API key')).toBeVisible();
-    expect(within(facts).getByText('Missing')).toBeVisible();
-    expect(within(facts).getAllByText('Not checked').length).toBeGreaterThan(0);
-    expect(within(facts).getByRole('button', { name: 'About connection' })).toBeVisible();
-    expect(within(panel).queryByText(/Sign-in|Skipped|skipped/)).toBeNull();
-  });
-
-  it('a signed-in provider with no catalog entry yet is Ready everywhere, never "Needs setup"', async () => {
-    repository.languageModelConfiguration.mockResolvedValue({
-      ...configuration('codex'),
-      presets: [{ ...presets.claude_code, is_authenticated: true, status: 'ready', status_message: '' }],
-    });
-    renderAt('/settings/providers?provider=claude_code');
-
-    const panel = await screen.findByRole('region', { name: 'Claude Code provider' });
-    expect(entry('claude_code').querySelector('[data-slot="provider-heartbeat"]')).toHaveAttribute(
-      'data-state',
-      'healthy',
+    await waitFor(() =>
+      expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith({
+        provider_id: 'lm_studio',
+        provider: 'openai',
+        api_base: 'http://127.0.0.1:1235/v1',
+        model: 'qwen3-8b',
+        provider_options: {},
+      }),
     );
-    expect(within(panel).getByText('Ready', { selector: '[data-slot="provider-state"]' })).toBeVisible();
-    expect(screen.queryByText(/Needs setup/)).toBeNull();
-    expect(stripButtonNames()).toEqual(['Verify provider', 'Refresh models']);
   });
 
-  it('toggles picker visibility through the one shared store', async () => {
-    const user = userEvent.setup();
-    renderAt('/settings/providers?provider=openrouter');
-
-    const toggle = await screen.findByRole('switch', { name: 'Show in model picker' });
-    expect(toggle).toBeChecked();
-    await user.click(toggle);
-    expect(toggle).not.toBeChecked();
-    expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([
-      'openrouter',
-    ]);
-    await user.click(toggle);
-    expect(JSON.parse(window.localStorage.getItem('clio.hidden-providers.v1') ?? '[]')).toEqual([]);
-  });
-});
-
-describe('Settings > Providers and the model picker share one action implementation', () => {
-  it('renders the same strip, with the same actions, for the same provider state', async () => {
-    setWideViewport(true);
-    const view = renderAt('/settings/providers?provider=codex');
-    await waitFor(() => expect(stripButtonNames()).toContain('Verify provider'));
-    const pageActions = stripButtonNames();
-    view.unmount();
-
-    const configurationData = configuration('codex', 'openrouter', 'claude_code');
-    const catalogData = await repository.providerCatalog();
-    const options = buildModelOptions({
-      activeCatalogProvider: 'codex',
-      activeModel: 'gpt-5.5',
-      activeProvider: 'codex',
-      providerCatalog: catalogData,
-      presets: configurationData.presets,
+  it('a check that finds nothing says so in one sentence and offers nothing to save', async () => {
+    repository.providerHandshake.mockResolvedValueOnce({
+      connectivity: 'unreachable',
+      auth: 'not_required',
+      models: [],
+      source: 'unavailable',
+      generated_at: '',
     });
     const user = userEvent.setup();
-    renderAt(
-      '/',
-      <ClioModelPicker
-        onChange={vi.fn()}
-        options={options}
-        trigger={<Button>Change model</Button>}
-      />,
-    );
-    await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(await screen.findByRole('option', { name: /Codex/ }));
-    await waitFor(() => expect(stripButtonNames()).toContain('Verify provider'));
+    renderPage();
+    const vllm = await card('vllm');
 
-    expect(stripButtonNames()).toEqual(pageActions);
+    await user.click(within(vllm).getByRole('button', { name: 'Check' }));
+
+    expect(await within(vllm).findByText('Nothing is running at this address.')).toBeVisible();
+    expect(within(vllm).queryByRole('button', { name: /Use this server|Save address/u })).toBeNull();
   });
 
-  it('the picker strip links to the provider on Settings > Providers and closes itself', async () => {
-    setWideViewport(true);
-    const configurationData = configuration('codex', 'openrouter', 'claude_code');
-    const options = buildModelOptions({
-      activeCatalogProvider: 'codex',
-      activeModel: 'gpt-5.5',
-      activeProvider: 'codex',
-      providerCatalog: await repository.providerCatalog(),
-      presets: configurationData.presets,
+  it('adds a self-hosted server from a short dialog: address, Check, Use', async () => {
+    repository.providerHandshake.mockResolvedValueOnce({
+      connectivity: 'ok',
+      auth: 'not_required',
+      models: [{ id: 'meta-llama/Llama-3.3-70B' }],
+      source: 'live',
+      generated_at: '',
     });
+    repository.updateLanguageModelConfiguration.mockResolvedValueOnce(configuration);
     const user = userEvent.setup();
-    renderAt(
-      '/',
-      <Routes>
-        <Route
-          element={
-            <ClioModelPicker
-              onChange={vi.fn()}
-              options={options}
-              trigger={<Button>Change model</Button>}
-            />
-          }
-          path="/"
-        />
-        <Route element={<ProvidersSettings />} path="/settings/providers" />
-      </Routes>,
+    renderPage();
+    await card('vllm');
+
+    await user.click(screen.getByRole('button', { name: 'Add a server' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Server address'), 'gpu-node-7:8000');
+    await user.click(within(dialog).getByRole('button', { name: 'Check' }));
+    expect(await within(dialog).findByText('Running, with 1 model.')).toBeVisible();
+    await user.click(within(dialog).getByRole('button', { name: 'Use this server' }));
+
+    await waitFor(() =>
+      expect(repository.updateLanguageModelConfiguration).toHaveBeenCalledWith({
+        provider_id: 'vllm',
+        provider: 'openai',
+        api_base: 'http://gpu-node-7:8000/v1',
+        model: 'meta-llama/Llama-3.3-70B',
+        provider_options: {},
+      }),
     );
-    await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(await screen.findByRole('option', { name: /Codex/ }));
+  });
 
-    const link = await screen.findByRole('link', { name: 'Open Codex in Settings' });
-    expect(link).toHaveAttribute('href', '/settings/providers?provider=codex');
-    await user.click(link);
+  it('keeps the technical facts in one sheet opened from a quiet link', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    const vllm = await card('vllm');
 
-    expect(await screen.findByRole('region', { name: 'Codex provider' })).toBeVisible();
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.click(within(vllm).getByRole('button', { name: 'Technical details' }));
+
+    const sheet = await screen.findByRole('dialog');
+    expect(within(sheet).getByText('Endpoint')).toBeVisible();
+    expect(within(sheet).getByText('connection refused')).toBeVisible();
+    expect(within(sheet).getByText('Unreachable')).toBeVisible();
   });
 });

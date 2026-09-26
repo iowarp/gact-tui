@@ -121,26 +121,6 @@ export const openaiOption = {
   health: 'unavailable',
 };
 
-/** Every strip action's button variant: one variant for all of them. */
-export function stripButtonVariants(): string[] {
-  const strip = document.querySelector('[data-slot="provider-action-strip"]');
-  return [
-    ...new Set(
-      [...(strip?.querySelectorAll('button') ?? [])].map(
-        (button) => button.getAttribute('data-variant') ?? '',
-      ),
-    ),
-  ];
-}
-
-/** The action strip's buttons, in order -- the exact per-state action set. */
-export function stripButtonNames(): string[] {
-  const strip = document.querySelector('[data-slot="provider-action-strip"]');
-  return [...(strip?.querySelectorAll('button') ?? [])].map(
-    (button) => button.getAttribute('aria-label') ?? button.textContent?.trim() ?? '',
-  );
-}
-
 /** The picker panel's action row, in order ("Refresh", "Reload models", "Log out"). */
 export function footerButtonNames(): string[] {
   const footer = document.querySelector('[data-slot="provider-panel-footer"]');

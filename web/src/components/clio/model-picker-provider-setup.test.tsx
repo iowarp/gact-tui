@@ -160,6 +160,12 @@ describe('ClioModelPicker: a usable provider', () => {
 
     finish({ connectivity: 'ok', auth: 'ok', models: [], source: 'live', generated_at: '' });
     await waitFor(() => expect(heartbeat()).toHaveAttribute('data-state', 'healthy'));
+    // A check never rebinds the running agent, and re-reads only this
+    // provider's catalog entry from that same check.
+    expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(repository.providerCatalog).toHaveBeenCalledWith(false, undefined, 'codex'),
+    );
     expect(document.querySelector('[data-slot="provider-panel-stage"]')).toBeNull();
     expect(screen.getByRole('button', { name: 'Reload models' })).toBeEnabled();
   });
@@ -385,5 +391,25 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     expect(screen.queryByText('Qwen3-VL-32B')).toBeNull();
     expect(await screen.findByRole('button', { name: 'Check again' })).toBeVisible();
     expect(sentence()).toHaveTextContent("Local vLLM isn't responding right now.");
+  });
+
+  it('a sign-in that ends in failure says why, in place of the sentence', async () => {
+    repository.languageModelConfiguration.mockResolvedValue(signedOutCodex);
+    repository.authenticateProvider.mockResolvedValueOnce({
+      provider_id: 'codex',
+      flow_id: 'flow-9',
+      browser: { authorization_url: 'https://auth.openai.com/oauth/authorize?state=9', loopback: true },
+      instructions: '',
+    });
+    repository.providerAuthStatus.mockResolvedValue({ state: 'failed', reason: 'The sign-in was cancelled.' });
+    vi.spyOn(window, 'open').mockImplementation(() => window);
+    const user = await open([codexProviderRow, options[1]!]);
+    await user.click(screen.getByText('Codex'));
+    await user.click(await screen.findByRole('button', { name: 'Log in' }));
+
+    expect(await screen.findByRole('alert', {}, { timeout: 3000 })).toHaveTextContent(
+      'The sign-in was cancelled.',
+    );
+    expect(screen.getByRole('button', { name: 'Log in' })).toBeVisible();
   });
 });

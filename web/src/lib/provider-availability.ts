@@ -248,20 +248,6 @@ export function providerConnectionLabel(connectivity: string | undefined): strin
   }
 }
 
-/** Why the connection was not checked, when it was not -- for an info tip. */
-export function providerConnectionNote(
-  preset: LanguageModelPreset | undefined,
-  connectivity: string | undefined,
-): string | undefined {
-  if (providerConnectionLabel(connectivity) !== 'Not checked') return undefined;
-  if (preset && !preset.is_authenticated) {
-    return providerCredentialKind(preset) === 'api_key'
-      ? 'Checked once an API key is saved.'
-      : 'Checked once you sign in.';
-  }
-  return 'Checked when you verify the provider.';
-}
-
 /** A provider check's credential verdict (`AuthState` on the wire) in the credential's own terms. */
 export function providerCredentialStateLabel(
   preset: LanguageModelPreset | undefined,

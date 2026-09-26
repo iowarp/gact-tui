@@ -1,18 +1,16 @@
 import type { LanguageModelConfiguration, LanguageModelPreset } from '@clio/core/v3';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Frame, FramePanel } from '@/components/reui/frame';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useApplyModelConfiguration } from '@/hooks/use-apply-model-configuration';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { useRepository } from '@/hooks/use-repository';
 import { findSelectedModelOption, matchesConfiguredModel, type ClioModelOption } from '@/lib/model-options';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
-import { clearCachedSessionModelReferences } from '@/lib/session-model-state';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { useLiveStore } from '@/store/live-store';
-import { readProviderCredential } from '@/tauri/secure-credentials';
 import { ReasoningLevelSegmented } from './reasoning-level-segmented';
 import { SettingsDefaultModelCard } from './settings-default-model-card';
 import {
@@ -59,10 +57,6 @@ export function ModelsSettings() {
 }
 
 function ModelsSettingsContent({ configuration }: { configuration: LanguageModelConfiguration }) {
-  const repository = useRepository();
-  const queryClient = useQueryClient();
-  const clearSessionModelReferences = useLiveStore((state) => state.clearSessionModelReferences);
-  const { settings } = useConnectionSettings();
   const { catalog, groups, options } = useProviderGroups();
   const activePreset = resolveActivePreset(configuration);
   const seed = () =>
@@ -92,8 +86,11 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
     configuration.resolved_model_id,
   );
 
-  const save = useMutation({
-    mutationFn: async ({
+  const apply = useApplyModelConfiguration(() => setEdited(false));
+  const save = {
+    isPending: apply.isPending,
+    error: apply.error,
+    mutate: ({
       preset,
       next,
       variant,
@@ -108,26 +105,9 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
         values: next,
       });
       if (variant) update.variant = variant;
-      if (preset.requires_api_key) {
-        const stored = await readProviderCredential(update.provider_id, update.api_base);
-        if (stored) update.api_key = stored;
-      }
-      return repository.updateLanguageModelConfiguration(update);
+      apply.mutate({ update, requiresKey: preset.requires_api_key });
     },
-    onSuccess: async (next) => {
-      setEdited(false);
-      queryClient.setQueryData(queryKeys.key('language-model-configuration', settings.endpoint), next);
-      clearCachedSessionModelReferences(queryClient, settings.endpoint);
-      clearSessionModelReferences();
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.capabilities(settings.endpoint) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.providerModels(settings.endpoint) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.providerCatalog(settings.endpoint) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('sessions', settings.endpoint) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.key('session-defaults', settings.endpoint) }),
-      ]);
-    },
-  });
+  };
 
   function chooseModel(choice: ClioModelOption) {
     const preset = configuration.presets.find((item) => item.id === choice.providerId);
