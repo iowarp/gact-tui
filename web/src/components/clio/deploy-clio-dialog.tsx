@@ -40,7 +40,8 @@ export function DeployClioDialog({
 }: {
   /** Services already in the connect list; the new name must differ from theirs. */
   knownServices?: readonly KnownServiceName[];
-  onReady: (settings: ConnectionSettings) => void;
+  /** Open the connection; the dialog closes only once it resolves. */
+  onReady: (settings: ConnectionSettings) => Promise<void>;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
@@ -55,29 +56,28 @@ export function DeployClioDialog({
   const [nameError, setNameError] = useState<string>();
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
-  const ready = (settings: ConnectionSettings) => {
+  const ready = async (settings: ConnectionSettings) => {
+    await onReady(settings);
     setOpen(false);
-    onReady(settings);
   };
   const remote = useRemoteDeployment(ready);
   const managedLabel = knownServices.find((service) => service.source === 'managed')?.label;
   const defaultName = target === 'local' ? (managedLabel ?? LOCAL_NAME) : (host?.label ?? '');
   const name = customName ?? defaultName;
   const local = useMutation({
-    mutationFn: async (): Promise<ConnectionSettings> => {
+    mutationFn: async (): Promise<void> => {
       const current = await getManagedBackend();
       if (current.status.kind === 'error') {
         await retryManagedBackend();
       }
       const handle = await waitForManagedBackend({});
-      return {
+      await ready({
         endpoint: handle.url,
         token: handle.bearer_token || undefined,
         label: name.trim(),
         location: 'Local',
-      };
+      });
     },
-    onSuccess: ready,
   });
   const running = local.isPending || remote.phase === 'running' || remote.phase === 'cancelling';
   const failedStage = remote.progress.stages.find(

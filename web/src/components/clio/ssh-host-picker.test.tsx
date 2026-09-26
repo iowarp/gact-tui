@@ -620,7 +620,7 @@ describe('SshHostPicker', () => {
     expect(screen.queryByText('Hide imported computer')).not.toBeInTheDocument();
   });
 
-  it('only offers deleting a managed computer, never an imported one', async () => {
+  it('never offers deleting a computer: that lives in the SSH hosts manager', async () => {
     profiles.listSshProfiles.mockResolvedValue([
       { name: 'ares', label: 'Ares', hostname: 'ares.example.edu', managed: true },
     ]);
@@ -639,6 +639,8 @@ describe('SshHostPicker', () => {
       </QueryClientProvider>,
     );
 
-    expect(await screen.findByRole('button', { name: 'Delete Ares' })).toBeVisible();
+    expect(await screen.findByRole('combobox', { name: 'Saved SSH host' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /^Delete/u })).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete saved computer')).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { EyeIcon, EyeOffIcon, Settings2Icon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon, Settings2Icon, Trash2Icon } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,12 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { profileSshHosts, type SshHost } from '@/lib/ssh-hosts';
-import { listAllSshProfiles, setSshProfileHidden, type SshProfile } from '@/tauri/ssh-profiles';
+import {
+  deleteSshProfile,
+  listAllSshProfiles,
+  setSshProfileHidden,
+  type SshProfile,
+} from '@/tauri/ssh-profiles';
 import { SshHostDialog } from './ssh-host-dialog';
 
 const PROFILES_QUERY_KEY = ['managed-service-ssh-profiles'];
@@ -20,8 +25,10 @@ const ALL_PROFILES_QUERY_KEY = [...PROFILES_QUERY_KEY, 'all'];
 
 /**
  * Every saved and imported SSH host in one place, so hiding a computer never
- * loses the only way back to it. A managed computer can be configured here
- * too; an imported OpenSSH host stays read-only apart from its visibility.
+ * loses the only way back to it. A managed computer can be configured or
+ * deleted here, and only here: saved computers are configuration, not part of
+ * a deployment. An imported OpenSSH host stays read-only apart from its
+ * visibility.
  *
  * Hiding is optimistic: the row and every picker update at once from the
  * cached lists, the preference is written in the background, and a failed
@@ -44,6 +51,7 @@ export function SshHostsManagerDialog({
   const [configuring, setConfiguring] = useState<SshHost>();
   const [configureOpen, setConfigureOpen] = useState(false);
   const [hideError, setHideError] = useState<string>();
+  const [deleting, setDeleting] = useState<string>();
 
   const hosts = profileSshHosts(allProfiles.data ?? []);
   const hiddenByProfile = new Map(
@@ -75,6 +83,21 @@ export function SshHostsManagerDialog({
       queryClient.setQueryData(ALL_PROFILES_QUERY_KEY, previousAll);
       if (previousVisible) queryClient.setQueryData(PROFILES_QUERY_KEY, previousVisible);
       setHideError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const remove = async (host: SshHost) => {
+    const name = host.profile;
+    if (!name) return;
+    setHideError(undefined);
+    setDeleting(name);
+    try {
+      await deleteSshProfile(name);
+      await queryClient.invalidateQueries({ queryKey: PROFILES_QUERY_KEY });
+    } catch (error) {
+      setHideError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setDeleting(undefined);
     }
   };
 
@@ -137,6 +160,19 @@ export function SshHostsManagerDialog({
                         variant="ghost"
                       >
                         <Settings2Icon aria-hidden="true" />
+                      </Button>
+                    ) : null}
+                    {host.managed ? (
+                      <Button
+                        aria-label={`Delete ${host.label}`}
+                        disabled={deleting === host.profile}
+                        onClick={() => void remove(host)}
+                        size="icon"
+                        title={`Delete ${host.label}`}
+                        type="button"
+                        variant="ghost"
+                      >
+                        <Trash2Icon aria-hidden="true" />
                       </Button>
                     ) : null}
                     <Button

@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { Trash2Icon, TriangleAlertIcon } from 'lucide-react';
+import { TriangleAlertIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { profileSshHosts, sshHostDestination, type SshHost } from '@/lib/ssh-hosts';
-import { deleteSshProfile, listSshProfiles, setSshProfileRoute } from '@/tauri/ssh-profiles';
+import { listSshProfiles, setSshProfileRoute } from '@/tauri/ssh-profiles';
 import { SshConnectionRoute, type SshRouteStep } from './ssh-connection-route';
 import { SshHostDialog } from './ssh-host-dialog';
 import {
@@ -156,24 +155,6 @@ export function SshHostPicker({
         <p className="text-xs text-muted-foreground" role="status">
           {routeNotice}
         </p>
-      ) : null}
-
-      {value?.managed && value.profile ? (
-        <Button
-          aria-label={`Delete ${value.label}`}
-          className="w-fit"
-          disabled={disabled}
-          onClick={async () => {
-            await deleteSshProfile(value.profile ?? '');
-            onChange(undefined, { emptyRows: [0] });
-            await profiles.refetch();
-          }}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          <Trash2Icon aria-hidden="true" /> Delete saved computer
-        </Button>
       ) : null}
 
       <SshHostDialog
