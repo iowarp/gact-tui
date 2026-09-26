@@ -76,6 +76,8 @@ export function useSessionLiveStream({
 
   useEffect(() => {
     if (!enabled || !sessionId || !documentVisible) return;
+    const { claimStream, releaseStream } = useLiveStore.getState();
+    claimStream();
     const controller = new AbortController();
     const batcher = new FrameBatcher(applyFrames);
     const invalidations = new QueryInvalidationBatcher(queryClient);
@@ -179,6 +181,7 @@ export function useSessionLiveStream({
     };
     void consume();
     return () => {
+      releaseStream();
       controller.abort();
       batcher.stop({ flush: true });
       invalidations.stop({ flush: true });
