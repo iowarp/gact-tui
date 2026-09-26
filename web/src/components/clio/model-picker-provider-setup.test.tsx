@@ -342,7 +342,7 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     expect(screen.getByLabelText('OpenAI key')).toBeVisible();
   });
 
-  it('a session ALCF itself refuses: ONE "Log in again", never the reason code', async () => {
+  it('a session ALCF itself refuses: ONE "Sign in again", never the reason code', async () => {
     repository.languageModelConfiguration.mockResolvedValue({
       ...defaultConfiguration,
       presets: [
@@ -376,9 +376,55 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     ]);
     await user.click(screen.getByText('ALCF Sophia'));
 
-    expect(await screen.findByRole('button', { name: 'Log in again' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Sign in again' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Log in' })).toBeNull();
     expect(screen.queryByText(/argonne_reauthentication_required/u)).toBeNull();
+  });
+
+  it('a refusal the catalog reports (not the preset) also offers "Sign in again", not "Check again"', async () => {
+    // The owner's state: the preset still reads ready; only the live catalog
+    // check came back with the typed reauthentication reason.
+    repository.languageModelConfiguration.mockResolvedValue({
+      ...defaultConfiguration,
+      presets: [
+        ...defaultConfiguration.presets,
+        {
+          id: 'argonne_metis',
+          label: 'ALCF Metis',
+          provider: 'argonne',
+          suggested_model: '',
+          requires_api_key: false,
+          auth_method: 'oauth',
+          is_authenticated: true,
+          status: 'ready',
+          supports_logout: true,
+        },
+      ],
+    });
+    const user = await open([
+      ...options,
+      {
+        providerId: 'argonne_metis',
+        providerName: 'ALCF Metis',
+        id: '',
+        kind: 'provider' as const,
+        label: 'ALCF Metis',
+        available: false,
+        health: 'unavailable',
+        failure: 'argonne_reauthentication_required: Token is either not active or invalid',
+        availabilityDetail: 'Your ALCF session needs to be verified again. Sign in again to continue.',
+      },
+    ]);
+    await user.click(screen.getByText('ALCF Metis'));
+
+    expect(await screen.findByRole('button', { name: 'Sign in again' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Check again' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Sign in again' }));
+    // The forced log in: a fresh sign-in, not a replay of the refused one.
+    expect(repository.authenticateProvider).toHaveBeenCalledWith('argonne_metis', {
+      force: true,
+      method: 'browser',
+    });
   });
 
   it('a server on this computer that is not answering is grey "Not running", never red', async () => {

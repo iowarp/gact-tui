@@ -140,6 +140,21 @@ export function providerAvailability(
 /** Which single blocking action a preset needs before its models are usable. */
 export type ProviderPrimaryAction = 'sign_in' | 'install' | 'api_key' | 'none';
 
+/**
+ * Whether the provider refused the sign-in it holds and needs a fresh one:
+ * the typed `*_reauthentication_required` reason, reported either on the
+ * preset's status or as the catalog's failure. Its action is signing in again
+ * (a forced log in), never another check that would fail the same way.
+ */
+export function providerNeedsReauthentication(
+  preset: LanguageModelPreset | undefined,
+  failure?: string,
+): boolean {
+  return [preset?.status_message, failure].some((reason) =>
+    /\b[a-z0-9_]*reauthentication_required\b/u.test(reason ?? ''),
+  );
+}
+
 export function providerPrimaryAction(preset: LanguageModelPreset | undefined): ProviderPrimaryAction {
   if (!preset) return 'none';
   if (preset.status === 'install_required') return 'install';

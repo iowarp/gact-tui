@@ -6,6 +6,7 @@ import {
   providerCredentialKind,
   providerCredentialLabel,
   providerCredentialStateLabel,
+  providerNeedsReauthentication,
   translateKnownProviderErrorReason,
 } from './provider-availability';
 
@@ -210,5 +211,24 @@ describe('credential wording follows the auth method', () => {
     expect(providerCredentialStateLabel(apiKey, 'missing')).toBe('Missing');
     expect(providerCredentialStateLabel(apiKey, 'rejected')).toBe('Rejected');
     expect(providerCredentialStateLabel(oauth, 'deferred')).toBe('Saved, not verified');
+  });
+});
+
+describe('providerNeedsReauthentication', () => {
+  it('reads the typed reason from the preset status or the catalog failure', () => {
+    expect(
+      providerNeedsReauthentication(
+        { status_message: 'argonne_reauthentication_required: timeout' } as LanguageModelPreset,
+        undefined,
+      ),
+    ).toBe(true);
+    expect(
+      providerNeedsReauthentication(undefined, 'argonne_reauthentication_required: not active'),
+    ).toBe(true);
+  });
+
+  it('is false for other failures', () => {
+    expect(providerNeedsReauthentication(undefined, 'api_key_rejected: 401')).toBe(false);
+    expect(providerNeedsReauthentication(undefined, undefined)).toBe(false);
   });
 });

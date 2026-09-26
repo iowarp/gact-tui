@@ -42,6 +42,8 @@ export interface ProviderGroup {
   /** What a `setup` provider is waiting for; absent for every other health. */
   setupNeed?: ProviderSetupNeed;
   detail?: string;
+  /** The provider's typed failure reason (untranslated), when it reported one. */
+  failure?: string;
   /** This provider's own transports (Codex: sdk + direct) -- absent for
    * every single-transport provider. See `ProviderCatalogTransport`. */
   transports?: readonly ProviderCatalogTransport[];
@@ -171,6 +173,7 @@ function derivedProviderGroup(
     health,
     setupNeed: health === 'setup' ? (providerSetupNeed(preset) ?? 'sign_in') : undefined,
     detail: details[0],
+    failure: group.choices.find((choice) => choice.failure)?.failure,
     transports: group.choices.find((choice) => choice.transports)?.transports,
   };
 }
