@@ -47,6 +47,11 @@ export type SshStepEvent = {
    * outcome. Failed: a one-line reason.
    */
   detail: string;
+  /** When the step began and ended (epoch ms), measured where it ran. */
+  started_at_ms?: number;
+  ended_at_ms?: number | null;
+  /** Technical detail behind a failure's one-line reason. */
+  log?: string;
 };
 
 export type SshConnectionTest = {

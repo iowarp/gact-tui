@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   attachInfrastructureSshTransport: vi.fn(),
   cancelInfrastructureOperation: vi.fn(),
   cancelSshTransport: vi.fn(),
+  closeSshConnectionTest: vi.fn(),
+  openSshConnectionTest: vi.fn(),
   createInfrastructureTarget: vi.fn(),
   updateInfrastructureTarget: vi.fn(),
   getManagedBackend: vi.fn(),
@@ -62,6 +64,8 @@ vi.mock('@/tauri/ssh-credentials', () => ({ storeSshIdentity: vi.fn() }));
 vi.mock('@/tauri/ssh-infrastructure-transport', () => ({
   attachInfrastructureSshTransport: mocks.attachInfrastructureSshTransport,
   cancelSshTransport: mocks.cancelSshTransport,
+  closeSshConnectionTest: mocks.closeSshConnectionTest,
+  openSshConnectionTest: mocks.openSshConnectionTest,
   sshTransportLog: mocks.sshTransportLog,
   sshTransportStatus: mocks.sshTransportStatus,
   writeSshTransport: mocks.writeSshTransport,
@@ -345,6 +349,34 @@ describe('DeployClioDialog', () => {
     await waitFor(() =>
       expect(onReady).toHaveBeenCalledWith(expect.objectContaining({ label: 'homelab' })),
     );
+  });
+
+  it('never deploys from a hop’s host dialog: Test connection and Save host only test and save', async () => {
+    const user = userEvent.setup();
+    mocks.openSshConnectionTest.mockResolvedValue({
+      targetId: 'ssh-test-1',
+      status: { session_id: 'ssh-test', state: 'connected', reused: false, output: '' },
+    });
+    mocks.closeSshConnectionTest.mockResolvedValue(undefined);
+    renderDialog();
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Add hop' }));
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+    await user.type(screen.getByLabelText('Address'), 'ares-comp-11');
+
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+    await screen.findByText('Connection succeeded');
+    await user.type(screen.getByLabelText('Username'), 'alice');
+    await user.click(screen.getByRole('button', { name: 'Save host' }));
+    await waitFor(() => expect(mocks.saveSshProfile).toHaveBeenCalledOnce());
+
+    expect(mocks.openSshConnectionTest).toHaveBeenCalledWith(
+      expect.objectContaining({ host: 'ares-comp-11', jump_hosts: ['homelab'] }),
+    );
+    expect(mocks.createInfrastructureTarget).not.toHaveBeenCalled();
+    expect(mocks.attachInfrastructureSshTransport).not.toHaveBeenCalled();
+    expect(mocks.runManagedServiceAction).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Deploy and connect' })).toBeEnabled();
   });
 
   it('has no dialog-level installation settings; the destination’s own settings apply', async () => {

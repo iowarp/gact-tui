@@ -23,14 +23,16 @@ use tauri::{Emitter, Manager};
 
 use crate::blocking_command::off_main;
 use crate::ssh_transport_command::{
-    compatible_route, posix_command, powershell_command, safe_host, ssh_arguments,
-    validate_command, validate_route, SshTransportRoute, TransportCommand,
+    compatible_route, posix_command, powershell_command, remote_shell_command, safe_host,
+    ssh_arguments, validate_command, validate_route, SshTransportRoute, TransportCommand,
 };
 use crate::ssh_transport_forward::{free_loopback_port, start_forward, verify_http, LocalForward};
 use crate::ssh_transport_output::{
     classify_prompt, clean_transport_log, last_meaningful_line, SshPrompt,
 };
-use crate::ssh_transport_steps::{classify_command, parse_marker_blocks, step_event, SshStepEvent};
+use crate::ssh_transport_steps::{
+    classify_command, epoch_ms, parse_marker_blocks, step_event, SshStepEvent,
+};
 use crate::terminal_pty::spawn_command;
 
 const READY_MARKER: &str = "__CLIO_SSH_READY__";
@@ -384,14 +386,7 @@ fn ssh_transport_open_blocking(
     for argument in ssh_arguments(&request.route, request.interactive, socks_port) {
         command.arg(argument);
     }
-    let remote_command = if request.route.platform == "windows" {
-        format!(
-            "powershell -NoLogo -NoProfile -Command \"Write-Output '{READY_MARKER}'; while (($line = [Console]::In.ReadLine()) -ne $null) {{ Invoke-Expression $line }}\""
-        )
-    } else {
-        format!("sh -lc \"stty -echo; printf '{READY_MARKER}\\n'; exec sh -s\"")
-    };
-    command.arg(remote_command);
+    command.arg(remote_shell_command(&request.route.platform, READY_MARKER));
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let spawned =
         spawn_command(&cwd, 100, 30, command).inspect_err(|_| release_authentication())?;
@@ -601,18 +596,36 @@ fn execute_remote(
         .text
         .len();
     session.write(line.as_bytes())?;
+    let sent_at = epoch_ms();
+    // The step is running from the moment it is sent, whether or not its
+    // output arrives before it ends.
+    emit(SshStepEvent {
+        session_id: session.id.clone(),
+        request_id: request_id.clone(),
+        kind,
+        phase: "running",
+        exit_code: None,
+        detail: String::new(),
+        started_at_ms: sent_at,
+        ended_at_ms: None,
+        log: String::new(),
+    });
     let deadline = Instant::now() + Duration::from_secs_f64(command.timeout_seconds);
     let mut capture = lock
         .lock()
         .map_err(|_| "SSH transport capture lock poisoned".to_string())?;
-    let mut last_emitted: Option<(&'static str, String)> = None;
+    let mut last_emitted: Option<(&'static str, String)> = Some(("running", String::new()));
     loop {
         let observed = capture.text.get(start..).unwrap_or(&capture.text);
         if let Some(block) = parse_marker_blocks(observed)
             .into_iter()
             .find(|block| block.id == request_id)
         {
-            let event = step_event(&session.id, kind, &block, &command.allowed_exit_codes);
+            let mut event = step_event(&session.id, kind, &block, &command.allowed_exit_codes);
+            event.started_at_ms = sent_at;
+            if event.phase != "running" {
+                event.ended_at_ms = Some(epoch_ms());
+            }
             let signature = (event.phase, event.detail.clone());
             if last_emitted.as_ref() != Some(&signature) {
                 last_emitted = Some(signature);
@@ -653,6 +666,9 @@ fn execute_remote(
                 phase: "failed",
                 exit_code: None,
                 detail: reason.clone(),
+                started_at_ms: sent_at,
+                ended_at_ms: Some(epoch_ms()),
+                log: String::new(),
             });
             return Err(reason);
         }
@@ -691,7 +707,8 @@ fn ssh_transport_forward_blocking(
         return Ok(existing.url());
     }
     let request_id = format!("tunnel-{remote_port}");
-    let emit = |phase: &'static str, detail: String| {
+    let started_at = epoch_ms();
+    let emit = |phase: &'static str, detail: String, log: String| {
         let _ = app.emit(
             "clio:ssh-transport-step",
             SshStepEvent {
@@ -701,12 +718,22 @@ fn ssh_transport_forward_blocking(
                 phase,
                 exit_code: None,
                 detail,
+                started_at_ms: started_at,
+                ended_at_ms: (phase != "running").then(epoch_ms),
+                log,
             },
         );
     };
-    emit("running", String::new());
+    let destination = route_destination(&session.route);
+    emit("running", String::new(), String::new());
     let forward = start_forward(session.socks_port, &remote_host, remote_port, local_port)
-        .inspect_err(|error| emit("failed", error.clone()))?;
+        .inspect_err(|error| {
+            emit(
+                "failed",
+                "Could not open a local port for the tunnel".to_string(),
+                error.clone(),
+            )
+        })?;
     let mut verified = verify_http(forward.local_port);
     for _ in 1..TUNNEL_VERIFY_ATTEMPTS {
         if verified.is_ok() || session.exited.load(Ordering::SeqCst) {
@@ -717,14 +744,29 @@ fn ssh_transport_forward_blocking(
     }
     if let Err(error) = verified {
         forward.stop();
-        let reason = format!("The tunnel to remote port {remote_port} did not answer: {error}");
-        emit("failed", reason.clone());
+        let reason = tunnel_failure_reason(&destination, remote_port);
+        emit("failed", reason.clone(), error);
         return Err(reason);
     }
-    emit("done", String::new());
+    emit("done", String::new(), String::new());
     let url = forward.url();
     forwards.push(forward);
     Ok(url)
+}
+
+/// The computer a route ends at, as the user named it.
+fn route_destination(route: &SshTransportRoute) -> String {
+    if route.profile.trim().is_empty() {
+        route.host.clone()
+    } else {
+        route.profile.clone()
+    }
+}
+
+/// One plain line for a tunnel that reached the destination but found no
+/// server there; the socket-level error goes to Details.
+fn tunnel_failure_reason(destination: &str, port: u16) -> String {
+    format!("No server is answering on {destination}:{port}")
 }
 
 fn ssh_transport_close_blocking(
@@ -849,6 +891,25 @@ mod tests {
             release.send(()).unwrap();
             assert_eq!(slow.await.unwrap(), Ok("exec finished"));
         });
+    }
+
+    #[test]
+    fn a_silent_tunnel_names_the_destination_in_one_plain_line() {
+        let mut route = SshTransportRoute {
+            profile: String::new(),
+            host: "ares-comp-11".to_string(),
+            user: "alice".to_string(),
+            port: 22,
+            jump_hosts: vec!["ares".to_string()],
+            identity_file: String::new(),
+            platform: "linux".to_string(),
+        };
+        assert_eq!(
+            tunnel_failure_reason(&route_destination(&route), 17800),
+            "No server is answering on ares-comp-11:17800"
+        );
+        route.profile = "ares-comp".to_string();
+        assert_eq!(route_destination(&route), "ares-comp");
     }
 
     #[test]

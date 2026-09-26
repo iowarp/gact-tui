@@ -151,6 +151,32 @@ describe('deploy progress', () => {
     );
   });
 
+  it('keeps a failed step’s technical detail for Details, apart from its one-line reason', () => {
+    const progress = run([
+      { type: 'start', at: 0 },
+      { type: 'connected', at: 1 },
+      {
+        type: 'step',
+        step: {
+          kind: 'tunnel',
+          phase: 'failed',
+          detail: 'No server is answering on ares-comp-11:17800',
+          log: 'read the tunnel check: An existing connection was forcibly closed (os error 10054)',
+          started_at_ms: 10,
+          ended_at_ms: 15_010,
+        },
+        at: 20_000,
+      },
+    ]);
+    expect(progress.failure).toEqual({
+      stage: 'tunnel',
+      reason: 'No server is answering on ares-comp-11:17800',
+      log: 'read the tunnel check: An existing connection was forcibly closed (os error 10054)',
+    });
+    const tunnel = progress.stages.find((stage) => stage.id === 'tunnel');
+    expect((tunnel?.endedAt ?? 0) - (tunnel?.startedAt ?? 0)).toBe(15_000);
+  });
+
   it('formats reasons and elapsed times for people', () => {
     expect(oneLineReason('Installing\n\nerror: disk full\n')).toBe('error: disk full');
     expect(oneLineReason('')).toBe('The deployment failed.');

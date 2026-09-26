@@ -213,7 +213,10 @@ export function DeployClioDialog({
 
           {target === 'ssh' && remote.phase === 'failed' && remote.progress.failure ? (
             <DeployFailure
-              details={remote.details}
+              details={
+                [remote.progress.failure.log, remote.details].filter(Boolean).join('\n\n') ||
+                undefined
+              }
               reason={remote.progress.failure.reason}
               title={failedStage ? `${failedStage.label} failed` : 'Deployment failed'}
             />

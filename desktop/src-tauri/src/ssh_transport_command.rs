@@ -98,6 +98,27 @@ pub fn ssh_arguments(route: &SshTransportRoute, interactive: bool, socks_port: u
     args
 }
 
+/// The remote shell every transport command runs in.
+///
+/// Loopback is added to `no_proxy`/`NO_PROXY` first: cluster nodes often set
+/// `http_proxy` for the whole login environment, and then a health check of
+/// `http://127.0.0.1:<port>` goes to the site proxy, which answers for a
+/// server that is not running (a Slurm compute node's squid replied 503, which
+/// CLIO's launcher counts as "already running"). A check of this node must
+/// reach this node. The same environment reaches every command and the
+/// servers it starts.
+pub fn remote_shell_command(platform: &str, ready_marker: &str) -> String {
+    if platform == "windows" {
+        format!(
+            "powershell -NoLogo -NoProfile -Command \"$env:NO_PROXY = '127.0.0.1,localhost,::1,' + $env:NO_PROXY; Write-Output '{ready_marker}'; while (($line = [Console]::In.ReadLine()) -ne $null) {{ Invoke-Expression $line }}\""
+        )
+    } else {
+        format!(
+            "sh -lc \"stty -echo; no_proxy=127.0.0.1,localhost,::1,\\$no_proxy; NO_PROXY=127.0.0.1,localhost,::1,\\$NO_PROXY; export no_proxy NO_PROXY; printf '{ready_marker}\\n'; exec sh -s\""
+        )
+    }
+}
+
 pub fn validate_command(command: &TransportCommand) -> Result<(), String> {
     if command.program.trim().is_empty() || command.program.contains('\0') {
         return Err("Command program is invalid".to_string());
@@ -212,6 +233,19 @@ mod tests {
         assert_eq!(args[socks + 1], "127.0.0.1:40000");
         assert_eq!(args.last().unwrap(), "ares-compute");
         assert!(args.windows(2).any(|pair| pair == ["-J", "ares"]));
+    }
+
+    #[test]
+    fn the_remote_shell_never_sends_loopback_checks_to_a_site_proxy() {
+        let posix = remote_shell_command("linux", "READY");
+        assert!(posix.starts_with("sh -lc \""));
+        assert!(posix.contains("no_proxy=127.0.0.1,localhost,::1,\\$no_proxy"));
+        assert!(posix.contains("NO_PROXY=127.0.0.1,localhost,::1,\\$NO_PROXY"));
+        assert!(posix.contains("export no_proxy NO_PROXY"));
+        assert!(posix.find("NO_PROXY").unwrap() < posix.find("READY").unwrap());
+        assert!(posix.ends_with("exec sh -s\""));
+        let windows = remote_shell_command("windows", "READY");
+        assert!(windows.contains("$env:NO_PROXY = '127.0.0.1,localhost,::1,'"));
     }
 
     #[test]
@@ -365,5 +399,67 @@ mod live {
         );
         assert!(!ready);
         assert!(reason.is_some());
+    }
+
+    /// The remote shell the transport opens keeps loopback away from a site
+    /// proxy: `CLIO_LIVE_HOP_JUMP=login cargo test live_remote_shell -- --ignored`.
+    #[test]
+    #[ignore = "opens a real SSH connection; run by hand with CLIO_LIVE_HOP_JUMP"]
+    fn live_remote_shell_excludes_loopback_from_the_proxy() {
+        use std::io::Write;
+        let host = std::env::var("CLIO_LIVE_HOP_JUMP").expect("CLIO_LIVE_HOP_JUMP");
+        let route = SshTransportRoute {
+            profile: host,
+            host: String::new(),
+            user: String::new(),
+            port: 22,
+            jump_hosts: Vec::new(),
+            identity_file: String::new(),
+            platform: "linux".to_string(),
+        };
+        let port = crate::ssh_transport_forward::free_loopback_port().unwrap();
+        let mut command = CommandBuilder::new("ssh");
+        for argument in ssh_arguments(&route, false, port) {
+            command.arg(argument);
+        }
+        command.arg(remote_shell_command("linux", "__CLIO_SSH_READY__"));
+        let cwd = std::env::current_dir().unwrap();
+        let mut spawned = spawn_command(&cwd, 100, 30, command).unwrap();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let mut reader = spawned.reader;
+        std::thread::spawn(move || {
+            let mut bytes = [0_u8; 4096];
+            while let Ok(count) = reader.read(&mut bytes) {
+                if count == 0 || sender.send(bytes[..count].to_vec()).is_err() {
+                    break;
+                }
+            }
+        });
+        let mut output = String::new();
+        let deadline = Instant::now() + Duration::from_secs(40);
+        let mut sent = false;
+        while Instant::now() < deadline {
+            if let Ok(chunk) = receiver.recv_timeout(Duration::from_millis(200)) {
+                output.push_str(&String::from_utf8_lossy(&chunk));
+            }
+            if !sent && output.contains("__CLIO_SSH_READY__") {
+                spawned
+                    .writer
+                    .write_all(b"printf 'NP=[%s]\\n' \"$no_proxy\"; exit\n")
+                    .unwrap();
+                sent = true;
+            }
+            if output.contains("NP=[") && output.contains("]\r") {
+                break;
+            }
+        }
+        let _ = spawned.child.kill();
+        let cleaned = clean_transport_log(&output);
+        println!("{cleaned}");
+        let line = cleaned
+            .lines()
+            .find_map(|line| line.split_once("NP=[").map(|(_, value)| value))
+            .expect("no_proxy line");
+        assert!(line.starts_with("127.0.0.1,localhost,::1,"), "{line}");
     }
 }
