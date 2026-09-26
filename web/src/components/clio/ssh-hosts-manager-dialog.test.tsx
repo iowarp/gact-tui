@@ -56,6 +56,26 @@ afterEach(() => {
 });
 
 describe('SshHostsManagerDialog', () => {
+  it('deletes a managed computer, and offers no delete for an imported one', async () => {
+    profiles.deleteSshProfile.mockResolvedValue(undefined);
+    renderManager();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete Ares' }));
+    expect(profiles.deleteSshProfile).toHaveBeenCalledWith('ares');
+    await waitFor(() => expect(profiles.listAllSshProfiles).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('button', { name: 'Delete gateway' })).not.toBeInTheDocument();
+  });
+
+  it('shows why a delete failed', async () => {
+    profiles.deleteSshProfile.mockRejectedValue(new Error('profile is in use'));
+    renderManager();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'Delete Ares' }));
+    expect(await screen.findByText('profile is in use')).toBeVisible();
+  });
+
   it('lists both managed and imported hosts, hidden ones included', async () => {
     renderManager();
 

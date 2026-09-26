@@ -80,8 +80,8 @@ pub fn latest_installer_step(body: &str) -> Option<String> {
 /// What a remote command does, for the deployment stage list.
 ///
 /// Recognizes the commands CLIO's own deployment plan sends (the capability
-/// probe, the release installer, the launcher's `start`); anything else is
-/// `other` and is shown only in the log.
+/// probe, the tagged claim / install / teardown steps, the
+/// launcher's `start`); anything else is `other` and is shown only in the log.
 pub fn classify_command(program: &str, args: &[String]) -> &'static str {
     let script = args.join(" ");
     let is_shell = matches!(program, "sh" | "bash" | "powershell" | "pwsh");
@@ -89,16 +89,17 @@ pub fn classify_command(program: &str, args: &[String]) -> &'static str {
         return "other";
     }
     // CLIO's deploy steps name themselves with a `# clio-deploy:<step>` tag.
-    if script.contains("# clio-deploy:claim") {
-        return "claim";
-    }
-    if script.contains("# clio-deploy:teardown") {
-        return "teardown";
+    for (tag, kind) in [
+        ("# clio-deploy:claim", "claim"),
+        ("# clio-deploy:install", "install"),
+        ("# clio-deploy:teardown", "teardown"),
+    ] {
+        if script.contains(tag) {
+            return kind;
+        }
     }
     if script.contains("uname -s") || script.contains("PROCESSOR_ARCHITECTURE") {
         "probe"
-    } else if script.contains("install/install.sh") || script.contains("install/install.ps1") {
-        "install"
     } else if script.trim_end().ends_with("clio\" start") || script.contains("clio\" start ") {
         "start"
     } else {
@@ -255,11 +256,16 @@ mod tests {
             "probe"
         );
         assert_eq!(
+            classify_command("bash", &args("# clio-deploy:install\nroot=\"$1\"")),
+            "install"
+        );
+        // The step is named by its tag, not by what its script happens to run.
+        assert_eq!(
             classify_command(
                 "bash",
-                &args("curl -fsSL https://raw.githubusercontent.com/iowarp/clio-agent/v0.9.4.17/install/install.sh | bash; true")
+                &args("curl -fsSL https://raw.githubusercontent.com/iowarp/clio-agent/v0.9.4.17/install/install.sh | bash")
             ),
-            "install"
+            "other"
         );
         assert_eq!(
             classify_command("bash", &args("root=\"$1\"; \"$bin/clio\" start")),

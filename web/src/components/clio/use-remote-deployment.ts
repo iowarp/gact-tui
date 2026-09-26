@@ -41,14 +41,17 @@ export type RemoteDeployment = {
 };
 
 /**
- * Deploy the released agent to an SSH host through the desktop transport and
- * report real progress: the stage list is driven by the transport's own step
- * events (framed remote commands and the tunnel) and authentication state,
- * never by elapsed time. Cancel kills the OpenSSH process tree and cancels
- * the agent's operation.
+ * Deploy the agent to an SSH host through the desktop transport and report
+ * real progress: the stage list is driven by the transport's own step events
+ * (framed remote commands and the tunnel), authentication state, and the
+ * remote agent's own answers, never by elapsed time. "Connecting" is done
+ * only once the remote agent answered its health check through the tunnel
+ * and `onReady` (the actual connection) succeeded; any failure keeps the
+ * stage list open on that stage. Cancel kills the OpenSSH process tree and
+ * cancels the agent's operation.
  */
 export function useRemoteDeployment(
-  onReady: (settings: ConnectionSettings) => void,
+  onReady: (settings: ConnectionSettings) => Promise<void>,
 ): RemoteDeployment {
   const repository = useRepository();
   const { settings } = useConnectionSettings();
@@ -136,18 +139,22 @@ export function useRemoteDeployment(
         });
         operation.current = started.id;
         await waitForOperation(repository, started, controller.signal);
+        dispatch({ type: 'open', at: Date.now() });
         const catalog = await repository.managedServiceCatalog(registered.id, controller.signal);
         const service = catalog.services.find((candidate) => candidate.id === 'clio_agent');
         if (!service?.connection_url)
           throw new Error(`The deployed ${vocab.agent} did not publish a connection address.`);
-        dispatch({ type: 'open', at: Date.now() });
-        setPhase('idle');
-        onReady({
+        if (service.state !== 'running')
+          throw new Error(`${vocab.agent} on ${host.label} is not running (${service.state}).`);
+        await checkHealth(service.connection_url, controller.signal);
+        await onReady({
           endpoint: service.connection_url,
           label: name,
           location: host.label,
           infrastructure: { targetId: registered.id, serviceId: 'clio_agent' },
         });
+        dispatch({ type: 'opened', at: Date.now() });
+        setPhase('idle');
       } catch (error) {
         if (controller.signal.aborted) return;
         const message = error instanceof Error ? error.message : String(error);
@@ -200,6 +207,24 @@ export function useRemoteDeployment(
   }, [repository]);
 
   return { phase, progress, transport, details, deploy, cancel };
+}
+
+/**
+ * The remote agent's own answer through the tunnel: `/v1/health` returns 200,
+ * or 503 while a dependency is still starting. Anything else is a failure.
+ */
+async function checkHealth(endpoint: string, signal: AbortSignal): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${endpoint.replace(/\/+$/u, '')}/v1/health`, { signal });
+  } catch (error) {
+    if (signal.aborted) throw error;
+    throw new Error(
+      `${vocab.agent} did not answer through the tunnel: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  if (response.status !== 200 && response.status !== 503)
+    throw new Error(`${vocab.agent} did not answer through the tunnel (HTTP ${response.status}).`);
 }
 
 /** Create or update the durable infrastructure target for this host. */

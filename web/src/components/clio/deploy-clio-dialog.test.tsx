@@ -79,7 +79,7 @@ vi.mock('@/tauri/managed-backend', () => ({
 
 import { DeployClioDialog } from './deploy-clio-dialog';
 
-function renderDialog(onReady = vi.fn()) {
+function renderDialog(onReady = vi.fn().mockResolvedValue(undefined)) {
   render(
     <QueryClientProvider client={new QueryClient()}>
       <DeployClioDialog onReady={onReady} />
@@ -200,6 +200,8 @@ beforeEach(() => {
     services: [{ id: 'clio_agent', state: 'running', connection_url: 'http://127.0.0.1:64123' }],
   });
   mocks.sshTransportLog.mockResolvedValue('');
+  // The remote CLIO's own answer through the tunnel.
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })));
   mocks.writeSshTransport.mockResolvedValue(undefined);
   mocks.cancelSshTransport.mockResolvedValue(undefined);
   mocks.cancelInfrastructureOperation.mockResolvedValue({
@@ -208,7 +210,10 @@ beforeEach(() => {
   });
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe('DeployClioDialog', () => {
   it('uses the desktop-managed CLIO service for this computer', async () => {
@@ -278,6 +283,82 @@ describe('DeployClioDialog', () => {
       variant_id: 'released',
       configuration: {},
     });
+  });
+
+  it('connects only after the remote CLIO answered through the tunnel, then closes', async () => {
+    const user = userEvent.setup();
+    let finishConnecting: () => void = () => undefined;
+    const onReady = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishConnecting = resolve;
+        }),
+    );
+    renderDialog(onReady);
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledOnce());
+    expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:64123/v1/health', expect.anything());
+    // Until the connection itself opens, Connecting is still running.
+    expect(stage(`Connecting to ${vocab.agent}`)).toHaveAttribute('data-state', 'running');
+    expect(screen.getByRole('dialog', { name: `Deploy ${vocab.agent}` })).toBeVisible();
+    finishConnecting();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: `Deploy ${vocab.agent}` }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it('keeps the dialog open on Connecting when the remote CLIO does not answer', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('bad gateway', { status: 502 })));
+    const onReady = renderDialog();
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(within(alert).getByText(`Connecting to ${vocab.agent} failed`)).toBeVisible();
+    expect(
+      within(alert).getByText(`${vocab.agent} did not answer through the tunnel (HTTP 502).`),
+    ).toBeVisible();
+    expect(stage(`Connecting to ${vocab.agent}`)).toHaveAttribute('data-state', 'failed');
+    expect(onReady).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: `Deploy ${vocab.agent}` })).toBeVisible();
+  });
+
+  it('keeps the dialog open with the reason when opening the connection fails', async () => {
+    const user = userEvent.setup();
+    const onReady = vi
+      .fn()
+      .mockRejectedValue(new Error('This workspace requires a newer service.'));
+    renderDialog(onReady);
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(within(alert).getByText('This workspace requires a newer service.')).toBeVisible();
+    expect(stage(`Connecting to ${vocab.agent}`)).toHaveAttribute('data-state', 'failed');
+    expect(screen.getByRole('dialog', { name: `Deploy ${vocab.agent}` })).toBeVisible();
+  });
+
+  it('never connects to a deployed CLIO that is not reported running', async () => {
+    const user = userEvent.setup();
+    mocks.managedServiceCatalog.mockResolvedValue({
+      facts: {},
+      services: [{ id: 'clio_agent', state: 'stopped', connection_url: 'http://127.0.0.1:64123' }],
+    });
+    const onReady = renderDialog();
+    await chooseRemoteHost(user);
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(
+      within(alert).getByText(`${vocab.agent} on homelab is not running (stopped).`),
+    ).toBeVisible();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(onReady).not.toHaveBeenCalled();
   });
 
   it('names the deployed service after the destination by default, editable', async () => {

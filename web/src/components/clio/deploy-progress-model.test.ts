@@ -41,6 +41,11 @@ describe('deploy progress', () => {
       step('probe', 'running', 65_100),
       { type: 'open', at: 66_000 },
     ]);
+    expect(
+      deployProgressReducer(progress, { type: 'opened', at: 67_000 }).stages.find(
+        (stage) => stage.id === 'open',
+      ),
+    ).toMatchObject({ state: 'done', startedAt: 66_000, endedAt: 67_000 });
     expect(states(progress)).toEqual({
       connect: 'done',
       authenticate: 'skipped',
@@ -59,6 +64,17 @@ describe('deploy progress', () => {
     // The installer's substep is live progress; a finished install drops it.
     expect(install?.detail).toBeUndefined();
     expect((install?.endedAt ?? 0) - (install?.startedAt ?? 0)).toBe(57_300);
+  });
+
+  it('never marks a stage done because a later one began', () => {
+    const progress = run([
+      { type: 'start', at: 0 },
+      { type: 'connected', at: 1 },
+      step('install', 'running', 2),
+      step('start', 'running', 3),
+    ]);
+    // Only its own result finishes a stage; a missing one stays visible.
+    expect(states(progress)).toMatchObject({ install: 'running', start: 'running' });
   });
 
   it('shows Authenticating only once a prompt appears', () => {

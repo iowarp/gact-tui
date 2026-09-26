@@ -1,6 +1,6 @@
 //! Reads and prunes the clio-core shared-runtime HOST registry that
-//! `clio_agent.arc.storage` (the Python GACT server) writes under `~/.clio`
-//! (or `CLIO_RUNTIME_STATE_DIR` when overridden).
+//! `clio_agent.arc.storage` (the Python GACT server) writes under
+//! `~/.clio/hosts/<host>` (or `CLIO_RUNTIME_STATE_DIR` when overridden).
 //!
 //! There is exactly ONE clio-core daemon (`clio_run`) per machine; every
 //! clio-agent process on it (this desktop's managed backend, a CLI, a dev
@@ -42,9 +42,11 @@ pub(crate) struct DaemonPid {
 
 /// Resolve the clio-core host state directory: `CLIO_RUNTIME_STATE_DIR` when
 /// set to a non-empty value (the same override clio-agent's own test harness
-/// and sandboxed deployments use), else `<home>/.clio`. Mirrors
-/// `clio_agent.arc.clio_core_config.runtime_state_dir`. Returns `None` only
-/// when neither the override nor a home directory can be resolved at all.
+/// and sandboxed deployments use), else `<home>/.clio/hosts/<host>`. Mirrors
+/// `clio_agent.arc.clio_core_config.runtime_state_dir`: the state is keyed by
+/// machine because a home directory can be shared by several machines (a
+/// cluster's NFS home), and each machine runs its own daemon. Returns `None`
+/// only when neither the override nor a home directory can be resolved.
 ///
 /// Read-only: unlike the Python writer, this never creates the directory —
 /// there is nothing to prune in a directory that doesn't exist yet.
@@ -56,7 +58,87 @@ pub(crate) fn runtime_state_dir() -> Option<PathBuf> {
     }
     std::env::var_os("USERPROFILE")
         .or_else(|| std::env::var_os("HOME"))
-        .map(|home| PathBuf::from(home).join(".clio"))
+        .map(|home| machine_state_dir(Path::new(&home)))
+}
+
+/// `<home>/.clio/hosts/<this machine's host key>`.
+fn machine_state_dir(home: &Path) -> PathBuf {
+    home.join(".clio")
+        .join("hosts")
+        .join(host_key(&system_hostname()))
+}
+
+/// The directory name for a machine, from its host name. Mirrors
+/// `clio_agent.arc.clio_core_config.host_key` exactly: the first DNS label,
+/// lowercased, every run of characters outside `[a-z0-9_-]` replaced by one
+/// `-`, leading/trailing `-` trimmed, and `localhost` when nothing is left.
+pub(crate) fn host_key(hostname: &str) -> String {
+    let label = hostname
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
+    let mut key = String::with_capacity(label.len());
+    let mut in_unsafe_run = false;
+    for ch in label.chars() {
+        if ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_' || ch == '-' {
+            key.push(ch);
+            in_unsafe_run = false;
+        } else if !in_unsafe_run {
+            key.push('-');
+            in_unsafe_run = true;
+        }
+    }
+    let key = key.trim_matches('-');
+    if key.is_empty() {
+        "localhost".to_string()
+    } else {
+        key.to_string()
+    }
+}
+
+/// This machine's host name, read the way Python's `socket.gethostname()`
+/// reads it (`GetComputerNameExW(ComputerNamePhysicalDnsHostname)` on
+/// Windows, `gethostname(2)` elsewhere), so both sides pick the same
+/// directory. Empty when the OS does not answer.
+fn system_hostname() -> String {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::System::SystemInformation::{
+            ComputerNamePhysicalDnsHostname, GetComputerNameExW,
+        };
+        let mut buffer = [0u16; 256];
+        let mut size = buffer.len() as u32;
+        // SAFETY: `buffer` is writable for `size` UTF-16 units; on success the
+        // call stores the name's length (without the terminator) in `size`.
+        let ok = unsafe {
+            GetComputerNameExW(
+                ComputerNamePhysicalDnsHostname,
+                buffer.as_mut_ptr(),
+                &mut size,
+            )
+        };
+        if ok == 0 {
+            return String::new();
+        }
+        String::from_utf16_lossy(&buffer[..size as usize])
+    }
+    #[cfg(unix)]
+    {
+        let mut buffer = [0u8; 256];
+        // SAFETY: `buffer` is writable for its full length; the name is
+        // NUL-terminated within it on success.
+        let ok = unsafe { libc::gethostname(buffer.as_mut_ptr().cast(), buffer.len()) };
+        if ok != 0 {
+            return String::new();
+        }
+        let end = buffer
+            .iter()
+            .position(|byte| *byte == 0)
+            .unwrap_or(buffer.len());
+        String::from_utf8_lossy(&buffer[..end]).into_owned()
+    }
 }
 
 /// Read the daemon pidfile without judging liveness. `None` when absent,
@@ -334,6 +416,34 @@ mod tests {
     /// deterministic instead.
     fn dead_pid() -> u32 {
         1_999_999_999
+    }
+
+    #[test]
+    fn host_key_matches_the_python_writer() {
+        // The same cases as clio-agent's test_host_key_is_the_short_lowercase_hostname.
+        for (hostname, key) in [
+            ("ares", "ares"),
+            ("ares.ares.local", "ares"),
+            ("ares-comp-11.cluster.example.edu", "ares-comp-11"),
+            ("DESKTOP-AB12CD", "desktop-ab12cd"),
+            ("weird name!", "weird-name"),
+            ("a-!b", "a--b"),
+            ("", "localhost"),
+            (".", "localhost"),
+        ] {
+            assert_eq!(host_key(hostname), key, "{hostname:?}");
+        }
+    }
+
+    #[test]
+    fn the_state_dir_is_keyed_by_this_machine() {
+        let home = Path::new("shared-home");
+        let hostname = system_hostname();
+        assert!(!hostname.is_empty(), "the OS reports a host name");
+        assert_eq!(
+            machine_state_dir(home),
+            home.join(".clio").join("hosts").join(host_key(&hostname))
+        );
     }
 
     #[test]

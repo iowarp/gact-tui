@@ -454,7 +454,9 @@ export function ConnectionPage() {
     // Once auto-connect has been dispatched at all, 'idle' no longer means
     // "about to auto-connect" -- only `isPending` (a real attempt in
     // flight) does.
-    (!credentialsReady || (!autoConnectDispatched && mutation.status === 'idle') || mutation.isPending)
+    (!credentialsReady ||
+      (!autoConnectDispatched && mutation.status === 'idle') ||
+      mutation.isPending)
   ) {
     return <DesktopBoot logoSource={logoSource} stage="opening_workspace" />;
   }
@@ -525,7 +527,12 @@ export function ConnectionPage() {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {inTauri() ? (
-                <Button onClick={() => setDeployOpen(true)} size="sm" type="button" variant="outline">
+                <Button
+                  onClick={() => setDeployOpen(true)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
                   <ServerIcon aria-hidden="true" /> Deploy {vocab.agent}
                 </Button>
               ) : null}
@@ -537,7 +544,7 @@ export function ConnectionPage() {
             <DeployClioDialog
               knownServices={knownConnections}
               onOpenChange={setDeployOpen}
-              onReady={(candidate) => mutation.mutate(candidate)}
+              onReady={(candidate) => mutation.mutateAsync(candidate).then(() => undefined)}
               open={deployOpen}
             />
           ) : null}
@@ -720,7 +727,11 @@ export function ConnectionPage() {
                 type="submit"
               >
                 <span>
-                  {mutation.isPending ? 'Connecting…' : showManualForm ? 'Connect' : 'Open workspace'}
+                  {mutation.isPending
+                    ? 'Connecting…'
+                    : showManualForm
+                      ? 'Connect'
+                      : 'Open workspace'}
                 </span>
                 <ArrowRightIcon aria-hidden="true" data-icon="inline-end" />
               </Button>

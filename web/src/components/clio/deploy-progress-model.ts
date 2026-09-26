@@ -47,6 +47,7 @@ export type DeployEvent =
       at: number;
     }
   | { type: 'open'; at: number }
+  | { type: 'opened'; at: number }
   | { type: 'fail'; reason: string; at: number }
   | { type: 'cancel'; at: number };
 
@@ -84,17 +85,15 @@ export const initialDeployProgress: DeployProgress = {
 const order = (id: DeployStageId) => STAGES.findIndex((stage) => stage.id === id);
 
 /**
- * Enter `id`: every earlier stage that was still running is finished, and
- * earlier stages that never ran (authentication with a key, a tunnel the
- * direct route did not need) are marked skipped.
+ * Enter `id`: earlier stages that never ran (authentication with a key, a
+ * tunnel the direct route did not need) are marked skipped. A stage is only
+ * ever done by its own result: an earlier stage still running stays running.
  */
 function enter(progress: DeployProgress, id: DeployStageId, at: number): DeployProgress {
   const target = order(id);
   return {
     ...progress,
     stages: progress.stages.map((stage, index) => {
-      if (index < target && stage.state === 'running')
-        return { ...stage, state: 'done', endedAt: at };
       if (index < target && stage.state === 'pending') return { ...stage, state: 'skipped' };
       if (index === target && stage.state !== 'running')
         return { ...stage, state: 'running', startedAt: at, endedAt: undefined, hidden: false };
@@ -182,6 +181,9 @@ export function deployProgressReducer(
     }
     case 'open':
       return enter(progress, 'open', event.at);
+    case 'opened':
+      // The remote CLIO answered through the tunnel and the connection opened.
+      return update(progress, 'open', { state: 'done', endedAt: event.at });
     case 'fail': {
       if (progress.failure) return progress;
       const id = currentStage(progress);
