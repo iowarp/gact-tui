@@ -42,8 +42,8 @@ import {
 } from '@/components/ai-elements/prompt-input';
 import { ClioStatus } from './status';
 import { ClioModelPicker } from './model-picker';
+import { useComposerModelSelection } from './use-composer-model-selection';
 import { Button } from '@/components/ui/button';
-import { findSelectedModelOption } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
@@ -195,29 +195,11 @@ export function ClioComposer({
   focusRequestKey,
   variant = 'docked',
 }: ClioComposerProps) {
-  // `selectedProvider`/`selectedModel`/`selectedTransport` mirror `provider`/`model`
-  // (the session default) until the picker overrides them, like `behaviorSelection`
-  // below. Each local override is paired with the prop value it was taken against
-  // ("authoritative"): while the prop still matches, the override wins; once it moves
-  // (a new default, a queued-message reconciliation), the fresh prop wins. This keeps
-  // attachments and other composer state that a keyed remount used to discard.
-  const [modelSelection, setModelSelection] = useState<{
-    provider?: string;
-    model?: string;
-    transport?: string; // the picked half of a multi-transport provider (Codex SDK/Direct)
-    authoritativeProvider?: string;
-    authoritativeModel?: string;
-  }>(() => ({
+  const { selectedOption, selectedTransport, selectModel } = useComposerModelSelection(
+    modelOptions,
     provider,
     model,
-    authoritativeProvider: provider,
-    authoritativeModel: model,
-  }));
-  const selectedProvider =
-    modelSelection.authoritativeProvider === provider ? modelSelection.provider : provider;
-  const selectedModel = modelSelection.authoritativeModel === model ? modelSelection.model : model;
-  const selectedTransport =
-    modelSelection.authoritativeModel === model ? modelSelection.transport : undefined;
+  );
   const [behaviorSelection, setBehaviorSelection] = useState<{
     behavior: MessageBehavior;
     authoritativeConfirmationPolicy: MessageBehavior['confirmation_policy'];
@@ -346,12 +328,6 @@ export function ClioComposer({
   });
   const showReferences = composerReferences.open;
   const popoverOpen = showCommands || showReferences;
-  const selectedOption = findSelectedModelOption(
-    modelOptions,
-    selectedProvider,
-    selectedModel,
-    selectedTransport,
-  );
   // Sends the person's pick when the selected model offers it, else nothing (the
   // service applies the configured level). Defaults are displayed, never sent.
   const messageBehavior: MessageBehavior = {
@@ -654,13 +630,7 @@ export function ClioComposer({
                   catalogStatus={modelCatalogStatus}
                   model={selectedOption?.id}
                   onChange={(option) => {
-                    setModelSelection({
-                      provider: option.providerId,
-                      model: option.id,
-                      transport: option.transport,
-                      authoritativeProvider: provider,
-                      authoritativeModel: model,
-                    });
+                    selectModel(option);
                     // Drop a pick the new model does not offer (its default is shown).
                     const pick = behavior.reasoning_effort;
                     if (pick && !option.reasoning?.levels.includes(pick)) {
