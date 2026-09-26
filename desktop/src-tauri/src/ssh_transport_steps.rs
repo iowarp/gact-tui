@@ -119,6 +119,21 @@ pub struct SshStepEvent {
     /// While running: the installer's current `==>` step. When failed: a
     /// one-line reason. Otherwise empty.
     pub detail: String,
+    /// When the step began and ended (Unix epoch milliseconds), measured
+    /// where it runs, so a step that finishes between two output reads still
+    /// reports its real duration.
+    pub started_at_ms: u64,
+    pub ended_at_ms: Option<u64>,
+    /// Technical detail behind a failure's one-line reason, for Details.
+    pub log: String,
+}
+
+/// Milliseconds since the Unix epoch.
+pub fn epoch_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as u64)
+        .unwrap_or_default()
 }
 
 /// The event a block's current state corresponds to.
@@ -156,6 +171,9 @@ pub fn step_event(
         phase,
         exit_code: block.exit_code,
         detail,
+        started_at_ms: 0,
+        ended_at_ms: None,
+        log: String::new(),
     }
 }
 

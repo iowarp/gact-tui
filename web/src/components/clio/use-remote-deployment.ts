@@ -119,7 +119,8 @@ export function useRemoteDeployment(
         while (status.state !== 'connected') {
           if (status.state === 'disconnected')
             throw new Error(
-              `OpenSSH disconnected from ${host.label} before authentication finished.`,
+              status.failure ||
+                `OpenSSH disconnected from ${host.label} before authentication finished.`,
             );
           await abortableDelay(250, controller.signal);
           status = await sshTransportStatus(status.session_id);

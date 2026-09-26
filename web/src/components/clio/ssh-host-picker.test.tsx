@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { vocab } from '@/lib/brand-vocabulary';
@@ -90,7 +90,9 @@ describe('SshHostPicker', () => {
     expect(screen.getByLabelText('Paste a private key')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Choose key file' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Test connection' })).toBeVisible();
-    expect(screen.getByText('Connection route')).toBeVisible();
+    // Opened from the route editor, a row's route is its position: no
+    // second route field in the dialog.
+    expect(screen.queryByText('Connection route')).not.toBeInTheDocument();
   });
 
   it('saves only non-secret host metadata for interactive authentication', async () => {
@@ -147,11 +149,13 @@ describe('SshHostPicker', () => {
     ]);
     renderPicker();
 
+    // The route is built in the editor: the gateway row, then the new row.
+    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
+    await user.click(await screen.findByRole('option', { name: 'CHPC gateway' }));
+    await user.click(screen.getByRole('button', { name: 'Add hop' }));
     await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
     await user.type(screen.getByLabelText('Address'), 'notchpeak1.chpc.utah.edu');
     await user.type(screen.getByLabelText('Username'), 'u1282901');
-    await user.click(screen.getByRole('combobox', { name: 'New jump host' }));
-    await user.click(screen.getByRole('option', { name: 'CHPC gateway' }));
     await user.click(screen.getByRole('button', { name: 'Test connection' }));
 
     await screen.findByText('Connection succeeded');
@@ -435,6 +439,113 @@ describe('SshHostPicker', () => {
       expect.objectContaining({ label: 'Ares compute node', jumpHosts: ['ares'] }),
       { emptyRows: [] },
     );
+  });
+
+  it('tests a new hop through the rows before it, with the previous hop’s key', async () => {
+    const user = userEvent.setup();
+    profiles.listSshProfiles.mockResolvedValue([
+      {
+        name: 'ares',
+        label: 'ares',
+        hostname: 'ares.example.edu',
+        identity_file: 'C:\\Users\\a\\.ssh\\ares_key',
+        managed: false,
+      },
+    ]);
+    const ares = {
+      id: 'profile:ares',
+      label: 'ares',
+      profile: 'ares',
+      host: 'ares.example.edu',
+      identityFile: 'C:\\Users\\a\\.ssh\\ares_key',
+      port: 22,
+      jumpHosts: [],
+      managed: false,
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker onChange={vi.fn()} value={ares} />
+      </QueryClientProvider>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Add hop' }));
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+
+    // The row's position is its route: shown read-only, no second route field.
+    expect(screen.getByText('Reached via ares')).toBeVisible();
+    expect(screen.queryByText('Connection route')).not.toBeInTheDocument();
+    // Cluster nodes share the login node's home: its key is the default.
+    expect(screen.getByText('C:\\Users\\a\\.ssh\\ares_key')).toBeVisible();
+
+    await user.type(screen.getByLabelText('Address'), 'ares-comp-10');
+    await user.type(screen.getByLabelText('Username'), 'jcernudagarcia');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    await screen.findByText('Connection succeeded');
+    expect(screen.getByText('Reached ares-comp-10 via ares.')).toBeVisible();
+    expect(transport.openSshConnectionTest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        host: 'ares-comp-10',
+        user: 'jcernudagarcia',
+        jump_hosts: ['ares'],
+        identity_file: 'C:\\Users\\a\\.ssh\\ares_key',
+      }),
+    );
+  });
+
+  it('lets the defaulted key be dropped for the SSH agent or OpenSSH configuration', async () => {
+    const user = userEvent.setup();
+    const ares = {
+      id: 'profile:ares',
+      label: 'ares',
+      profile: 'ares',
+      host: 'ares.example.edu',
+      identityFile: '/home/a/.ssh/ares_key',
+      port: 22,
+      jumpHosts: [],
+    };
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SshHostPicker onChange={vi.fn()} value={ares} />
+      </QueryClientProvider>,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Add hop' }));
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+
+    await user.click(
+      screen.getByRole('button', { name: 'Use the SSH agent or OpenSSH configuration instead' }),
+    );
+
+    expect(screen.getByText('Or use your SSH agent / OpenSSH configuration')).toBeVisible();
+  });
+
+  it('shows OpenSSH’s own reason when a test connection ends, with the log under Details', async () => {
+    const user = userEvent.setup();
+    transport.openSshConnectionTest.mockResolvedValue({
+      targetId: 'ssh-test-host',
+      status: { session_id: 'ssh-test-session', state: 'reconnecting', reused: false, output: '' },
+    });
+    transport.sshTransportStatus.mockResolvedValue({
+      session_id: 'ssh-test-session',
+      state: 'disconnected',
+      reused: true,
+      output:
+        'Warning: Permanently added ares-comp-10 to the list of known hosts.\njcernudagarcia@ares-comp-10: Permission denied (publickey).',
+      failure: 'jcernudagarcia@ares-comp-10: Permission denied (publickey).',
+    });
+    renderPicker();
+
+    await user.click(screen.getByRole('button', { name: 'Add SSH host' }));
+    await user.type(screen.getByLabelText('Address'), 'ares-comp-10');
+    await user.click(screen.getByRole('button', { name: 'Test connection' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(
+      within(alert).getByText('jcernudagarcia@ares-comp-10: Permission denied (publickey).'),
+    ).toBeVisible();
+    expect(within(alert).queryByText(/is not open/u)).not.toBeInTheDocument();
+    await user.click(within(alert).getByRole('button', { name: 'Details' }));
+    expect(await within(alert).findByText(/Permanently added ares-comp-10/u)).toBeVisible();
   });
 
   it('shows no prompt form while OpenSSH is only connecting, and never for ssh>', async () => {

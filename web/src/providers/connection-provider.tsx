@@ -275,6 +275,9 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
             await new Promise((resolve) => window.setTimeout(resolve, 250));
             try {
               current = await sshTransportStatus(current.session_id);
+              if (current.state === 'disconnected') {
+                throw new Error(current.failure || `OpenSSH disconnected from ${target.label}.`);
+              }
             } catch (error) {
               await controller.setInfrastructureTransportState(
                 target.id,

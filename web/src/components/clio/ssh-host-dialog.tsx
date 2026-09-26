@@ -1,4 +1,4 @@
-import { CheckCircle2Icon, ChevronDownIcon, FileKey2Icon, TriangleAlertIcon } from 'lucide-react';
+import { CheckCircle2Icon, ChevronDownIcon, FileKey2Icon, XIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,7 @@ import {
   type SshTransportStatus,
 } from '@/tauri/ssh-infrastructure-transport';
 import { InfoTip } from './info-tip';
+import { DeployFailure } from './deploy-progress';
 import { SshAuthentication } from './managed-service-target';
 import type { SshRouteStep } from './ssh-connection-route';
 import {
@@ -49,13 +50,20 @@ import { uniqueProfileName } from './ssh-route-utils';
  * (`step`) differs, so every step is configured the same way.
  */
 export function SshHostDialog({
+  defaultIdentityFile,
   initial,
   onOpenChange,
   onSaved,
   open,
   options,
   step,
+  via,
 }: {
+  /**
+   * The key a brand-new computer starts with: the previous hop's, since
+   * cluster nodes share the login node's home directory. Shown and changeable.
+   */
+  defaultIdentityFile?: string;
   /** Prefill: the computer being configured, or undefined to add a new one. */
   initial?: SshHost;
   onOpenChange: (open: boolean) => void;
@@ -63,6 +71,12 @@ export function SshHostDialog({
   open: boolean;
   options: SshHost[];
   step: SshRouteStep;
+  /**
+   * Opened from a row of the route editor: the hops before that row. The
+   * row's position is its route, so the dialog tests through these and shows
+   * them read-only instead of offering a second route field.
+   */
+  via?: readonly string[];
 }) {
   // Initialized once per open: the picker remounts this dialog (a new `key`)
   // every time it opens, so the form always starts from `initial`.
@@ -70,7 +84,9 @@ export function SshHostDialog({
   const [user, setUser] = useState(initial?.user ?? '');
   const [label, setLabel] = useState(initial?.label ?? '');
   const [port, setPort] = useState(String(initial?.port ?? 22));
-  const [identityFile, setIdentityFile] = useState(initial?.identityFile ?? '');
+  const [identityFile, setIdentityFile] = useState(
+    initial ? (initial.identityFile ?? '') : (defaultIdentityFile ?? ''),
+  );
   const [privateKey, setPrivateKey] = useState('');
   const [installRoot, setInstallRoot] = useState(initial?.installRoot ?? '');
   const [jumpHosts, setJumpHosts] = useState<string[]>(initial?.jumpHosts ?? []);
@@ -82,6 +98,7 @@ export function SshHostDialog({
   const [testing, setTesting] = useState(false);
   const [testStatus, setTestStatus] = useState<SshTransportStatus>();
   const [testSucceeded, setTestSucceeded] = useState(false);
+  const [testLog, setTestLog] = useState<string>();
   const activeTest = useRef<SshConnectionTest | undefined>(undefined);
   const [typingJump, setTypingJump] = useState(false);
   const isJump = !step.isDestination;
@@ -154,6 +171,7 @@ export function SshHostDialog({
   const testConnection = async () => {
     setTesting(true);
     setAuthError(undefined);
+    setTestLog(undefined);
     setTestSucceeded(false);
     try {
       const candidate = await prepareDraft();
@@ -162,7 +180,8 @@ export function SshHostDialog({
         host: candidate.host ?? '',
         user: candidate.user ?? '',
         port: candidate.port,
-        jump_hosts: candidate.jumpHosts ?? [],
+        // From the route editor, the row's position is its route.
+        jump_hosts: via ? [...via] : (candidate.jumpHosts ?? []),
         identity_file: candidate.identityFile ?? '',
         platform,
       });
@@ -171,7 +190,11 @@ export function SshHostDialog({
       setTestStatus(status);
       for (let attempt = 0; status.state !== 'connected' && attempt < 1_200; attempt += 1) {
         if (activeTest.current?.targetId !== test.targetId) return;
-        if (status.state === 'disconnected') throw new Error('OpenSSH disconnected before login.');
+        if (status.state === 'disconnected') {
+          // OpenSSH's own reason, with its cleaned log for Details.
+          setTestLog(status.output);
+          throw new Error(status.failure || 'OpenSSH disconnected before login.');
+        }
         await new Promise((resolve) => window.setTimeout(resolve, 250));
         status = await sshTransportStatus(status.session_id);
         activeTest.current = { ...test, status };
@@ -278,7 +301,13 @@ export function SshHostDialog({
               />
             </Field>
 
-            {isJump ? null : (
+            {via ? (
+              via.length ? (
+                <p className="text-sm text-muted-foreground" role="note">
+                  Reached via {via.join(' → ')}
+                </p>
+              ) : null
+            ) : isJump ? null : (
               <Field>
                 <FieldLabel>Connection route</FieldLabel>
                 <div className="mt-2 grid gap-2">
@@ -338,9 +367,24 @@ export function SshHostDialog({
                 <Button onClick={chooseIdentityFile} size="sm" type="button" variant="outline">
                   <FileKey2Icon aria-hidden="true" /> Choose key file
                 </Button>
-                <span className="min-w-0 truncate text-xs text-muted-foreground">
+                <span
+                  className="min-w-0 truncate text-xs text-muted-foreground"
+                  title={identityFile || undefined}
+                >
                   {identityFile || 'Or use your SSH agent / OpenSSH configuration'}
                 </span>
+                {identityFile ? (
+                  <Button
+                    aria-label="Use the SSH agent or OpenSSH configuration instead"
+                    onClick={() => setIdentityFile('')}
+                    size="icon-sm"
+                    title="Use the SSH agent or OpenSSH configuration instead"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <XIcon aria-hidden="true" />
+                  </Button>
+                ) : null}
               </div>
             </Field>
 
@@ -391,11 +435,7 @@ export function SshHostDialog({
             </Collapsible>
 
             {authError ? (
-              <Alert variant="destructive">
-                <TriangleAlertIcon aria-hidden="true" />
-                <AlertTitle>SSH connection failed</AlertTitle>
-                <AlertDescription>{authError}</AlertDescription>
-              </Alert>
+              <DeployFailure details={testLog} reason={authError} title="SSH connection failed" />
             ) : null}
           </form>
 
@@ -414,7 +454,9 @@ export function SshHostDialog({
               <CheckCircle2Icon aria-hidden="true" />
               <AlertTitle>Connection succeeded</AlertTitle>
               <AlertDescription>
-                System OpenSSH reached the destination through the configured route.
+                {via?.length
+                  ? `Reached ${host.trim()} via ${via.join(' → ')}.`
+                  : `Reached ${host.trim()}.`}
               </AlertDescription>
             </Alert>
           ) : null}

@@ -24,6 +24,8 @@ export type SshTransportStatus = {
   output: string;
   /** Present only while OpenSSH waits for an authentication answer. */
   prompt?: SshPrompt | null;
+  /** For a session that has ended: OpenSSH's own last words, cleaned. */
+  failure?: string | null;
 };
 
 /** `clio:ssh-transport-state` payload. */
@@ -45,6 +47,11 @@ export type SshStepEvent = {
    * outcome. Failed: a one-line reason.
    */
   detail: string;
+  /** When the step began and ended (epoch ms), measured where it ran. */
+  started_at_ms?: number;
+  ended_at_ms?: number | null;
+  /** Technical detail behind a failure's one-line reason. */
+  log?: string;
 };
 
 export type SshConnectionTest = {

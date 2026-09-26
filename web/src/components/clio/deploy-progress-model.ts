@@ -32,7 +32,7 @@ export type DeployStage = {
 
 export type DeployProgress = {
   stages: DeployStage[];
-  failure?: { stage: DeployStageId; reason: string };
+  failure?: { stage: DeployStageId; reason: string; log?: string };
 };
 
 /** What happened, from the desktop's transport events and the deployment's own calls. */
@@ -40,7 +40,12 @@ export type DeployEvent =
   | { type: 'start'; at: number }
   | { type: 'prompt'; at: number }
   | { type: 'connected'; at: number }
-  | { type: 'step'; step: Pick<SshStepEvent, 'kind' | 'phase' | 'detail'>; at: number }
+  | {
+      type: 'step';
+      step: Pick<SshStepEvent, 'kind' | 'phase' | 'detail'> &
+        Partial<Pick<SshStepEvent, 'started_at_ms' | 'ended_at_ms' | 'log'>>;
+      at: number;
+    }
   | { type: 'open'; at: number }
   | { type: 'fail'; reason: string; at: number }
   | { type: 'cancel'; at: number };
@@ -151,25 +156,28 @@ export function deployProgressReducer(
       // Stages never move backwards: a later inspection (the catalog probes
       // the host again after the install) is not a new platform check.
       if (!id || order(id) < furthestStarted(progress)) return progress;
-      if (event.step.phase === 'running') {
-        const entered = enter(progress, id, event.at);
-        return event.step.detail ? update(entered, id, { detail: event.step.detail }) : entered;
-      }
+      // Times measured where the step ran, so a step that finished between
+      // two output reads still shows how long it really took.
+      const measured = event.step.started_at_ms ? { startedAt: event.step.started_at_ms } : {};
+      const endedAt = event.step.ended_at_ms || event.at;
+      const entered = enter(progress, id, event.step.started_at_ms || event.at);
+      if (event.step.phase === 'running')
+        return update(entered, id, {
+          ...measured,
+          ...(event.step.detail ? { detail: event.step.detail } : {}),
+        });
       if (event.step.phase === 'done')
-        return update(enter(progress, id, event.at), id, {
+        return update(entered, id, {
           state: 'done',
-          endedAt: event.at,
+          ...measured,
+          endedAt,
           // The outcome of a check or cleanup ("Stopped an old CLIO ...").
           detail: event.step.detail || undefined,
         });
       const reason = event.step.detail || 'This step failed.';
       return {
-        ...update(enter(progress, id, event.at), id, {
-          state: 'failed',
-          detail: reason,
-          endedAt: event.at,
-        }),
-        failure: { stage: id, reason },
+        ...update(entered, id, { state: 'failed', detail: reason, ...measured, endedAt }),
+        failure: { stage: id, reason, log: event.step.log || undefined },
       };
     }
     case 'open':
