@@ -79,6 +79,23 @@ describe('ClioMeshViewport', () => {
     expect(await screen.findByText(/^Cycle 2, /)).toBeInTheDocument();
   });
 
+  it('states that a per-node field cannot threshold a cells export, instead of ignoring it', async () => {
+    repository.readArtifactBytes.mockResolvedValue(BRICKS);
+    render(
+      wrap(
+        <ClioMeshViewport
+          meshUri="artifact://artifact_bricks_node"
+          thresholdField="S_MISES"
+          thresholdMin={10}
+        />,
+      ),
+    );
+    const note = await screen.findByText(/is per-node; a threshold needs per-element values/);
+    expect(note).toHaveAttribute('data-reason', 'threshold_field_per_node');
+    // No threshold is claimed in the state line.
+    expect(screen.queryByText(/of 2 elements at/)).not.toBeInTheDocument();
+  });
+
   it('refuses a mesh source that is not a registered artifact', () => {
     render(wrap(<ClioMeshViewport meshUri="/scratch/part.glb" />));
     expect(screen.getByText(/not a registered artifact id/)).toBeInTheDocument();

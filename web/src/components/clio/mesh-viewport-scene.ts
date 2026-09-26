@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { turbo } from './mesh-viewport-colormap';
+import { fitBoxDistance } from './mesh-viewport-framing';
 import {
   selectTriangles,
   vertexValue,
@@ -139,20 +140,25 @@ export class MeshViewportScene {
 
   /** Frame `bounds` from an isometric direction relative to `up`. */
   public frameBounds(bounds: MeshBounds, up: MeshUpAxis): void {
-    const box = new THREE.Box3(new THREE.Vector3(...bounds.min), new THREE.Vector3(...bounds.max));
-    const center = box.getCenter(new THREE.Vector3());
-    const radius = Math.max(box.getSize(new THREE.Vector3()).length() / 2, 1e-6);
     const upVector = UP[up];
     const side = up === 'z' ? new THREE.Vector3(1, -1, 0) : new THREE.Vector3(1, 0, 1);
     const direction = side
       .normalize()
       .multiplyScalar(0.9)
-      .add(upVector.clone().multiplyScalar(0.45));
-    const distance = radius / Math.sin(THREE.MathUtils.degToRad(this.camera.fov / 2));
+      .add(upVector.clone().multiplyScalar(0.45))
+      .normalize();
+    const { center, distance, radius } = fitBoxDistance(
+      bounds,
+      direction,
+      upVector,
+      this.camera.fov,
+      this.camera.aspect,
+    );
     this.camera.up.copy(upVector);
-    this.camera.near = distance / 100;
-    this.camera.far = distance * 100;
-    this.camera.position.copy(center).addScaledVector(direction.normalize(), distance);
+    // Generous planes: orbit zoom moves the camera well inside and beyond the fit.
+    this.camera.near = Math.min(distance / 100, radius / 100);
+    this.camera.far = (distance + radius) * 100;
+    this.camera.position.copy(center).addScaledVector(direction, distance);
     this.camera.updateProjectionMatrix();
     this.controls.target.copy(center);
     // Programmatic framing is not a user move, so it is not reported as one.

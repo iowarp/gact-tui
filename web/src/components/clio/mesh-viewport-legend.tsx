@@ -29,7 +29,7 @@ export function MeshLegend({ legend }: { legend: MeshLegendState }) {
         className="h-2.5 rounded-sm"
         style={{ background: turboGradientCss() }}
       />
-      <div className="mt-1 flex justify-between font-mono text-[11px] text-muted-foreground">
+      <div className="mt-1 flex justify-between font-mono text-xs text-muted-foreground">
         {ticks.map((tick) => (
           <span key={tick}>{formatFieldValue(tick)}</span>
         ))}

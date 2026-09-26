@@ -24,6 +24,7 @@ import {
 import { formatFieldValue } from './mesh-viewport-colormap';
 import { MeshLegend, type MeshLegendState } from './mesh-viewport-legend';
 import { composeSnapshot, saveBlob } from './mesh-viewport-snapshot';
+import { parsedMeshCache } from './mesh-viewport-cache';
 import { parseFeaMesh, type MeshField, type ParsedFeaMesh } from './mesh-viewport-mesh';
 import { MeshViewportScene, type MeshUpAxis } from './mesh-viewport-scene';
 import {
@@ -100,17 +101,23 @@ export function ClioMeshViewport({
   const repository = useRepository();
   const { settings } = useConnectionSettings();
   const artifactId = artifactIdFromMeshUri(meshUri);
-  const bytes = useQuery({
+  // The raw bytes are parsed and dropped; only the parsed mesh is kept, in the
+  // byte-budgeted LRU (`mesh-viewport-cache.ts`), never in the query cache.
+  const mesh = useQuery({
     enabled: Boolean(artifactId),
     queryKey: queryKeys.key('artifact-mesh', settings.endpoint, artifactId),
-    queryFn: ({ signal }) => repository.readArtifactBytes(artifactId!, undefined, signal),
+    queryFn: async ({ signal }) => {
+      const key = `${settings.endpoint}|${artifactId}`;
+      const cached = parsedMeshCache.get(key);
+      if (cached) return cached;
+      const parsedMesh = await parseFeaMesh(
+        await repository.readArtifactBytes(artifactId!, undefined, signal),
+      );
+      parsedMeshCache.set(key, parsedMesh);
+      return parsedMesh;
+    },
     ...IMMUTABLE_QUERY,
-  });
-  const mesh = useQuery({
-    enabled: Boolean(bytes.data),
-    queryKey: queryKeys.key('artifact-mesh', settings.endpoint, artifactId, 'parsed'),
-    queryFn: () => parseFeaMesh(bytes.data!),
-    ...IMMUTABLE_QUERY,
+    gcTime: 0,
   });
   const parsed = mesh.data;
   const webgl = useMemo(() => supportsWebGL(), []);
@@ -125,7 +132,12 @@ export function ClioMeshViewport({
   const group = syncGroup || `solo:${instanceId}`;
 
   const colorField = parsed?.fields.find((candidate) => candidate.name === field);
-  const cutField = parsed?.fields.find((candidate) => candidate.name === thresholdField);
+  const namedCutField = parsed?.fields.find((candidate) => candidate.name === thresholdField);
+  // A cells export thresholds whole elements, which needs one value per
+  // element; a per-node field there is refused with a stated reason below.
+  const thresholdNeedsCells =
+    parsed?.topology === 'cells' && namedCutField?.location === 'node' ? namedCutField : undefined;
+  const cutField = thresholdNeedsCells ? undefined : namedCutField;
   const frameCount = parsed?.frames.length ?? 0;
   const frameIndex = Math.min(Math.max(0, Math.round(frame)), Math.max(0, frameCount - 1));
   const inputs = useMemo<ViewInputs>(
@@ -279,13 +291,11 @@ export function ClioMeshViewport({
   const description = describe(parsed, frameIndex, inputs, visibleCells, artifactId);
   const failure = !artifactId
     ? 'The mesh source is not a registered artifact id.'
-    : bytes.isError
-      ? bytes.error.message
-      : mesh.isError
-        ? mesh.error.message
-        : !webgl
-          ? 'this browser cannot draw 3D graphics (WebGL is off).'
-          : '';
+    : mesh.isError
+      ? mesh.error.message
+      : !webgl
+        ? 'this browser cannot draw 3D graphics (WebGL is off).'
+        : '';
   const missing = [
     parsed && field && !colorField ? `“${field}”` : '',
     parsed && thresholdField && !cutField ? `“${thresholdField}”` : '',
@@ -380,6 +390,14 @@ export function ClioMeshViewport({
               ) : null}
             </div>
           )}
+          {thresholdNeedsCells ? (
+            <p
+              className="border-t px-3 py-2 text-xs text-muted-foreground"
+              data-reason="threshold_field_per_node"
+            >
+              {`“${thresholdNeedsCells.label}” is per-node; a threshold needs per-element values, so the threshold is off.`}
+            </p>
+          ) : null}
           {missing.length ? (
             <p className="border-t px-3 py-2 text-xs text-muted-foreground">
               This mesh has no {missing.join(' or ')} result, so that part of the view is off.
