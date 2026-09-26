@@ -54,8 +54,6 @@ export function useModelPickerTree(
   return useMemo(() => {
     const counts = new Map<string, ProviderFilterCount>();
     const availableTokens = new Set<ModelFilterToken>();
-    let shown = 0;
-    let total = 0;
     const nodes: CascaderNode<PickerNodeData>[] = providers.map((group) => {
       const models = pinFreeRouter(providerColumnModels(group));
       const kept = models.filter((choice) => {
@@ -64,8 +62,6 @@ export function useModelPickerTree(
         return matchesFilterTokens(carried, tokens);
       });
       counts.set(group.id, { shown: kept.length, total: models.length });
-      shown += kept.length;
-      total += models.length;
       return {
         value: providerNodeValue(group.id),
         label: group.name,
@@ -98,6 +94,9 @@ export function useModelPickerTree(
         ),
       };
     });
+    const all = [...counts.values()];
+    const shown = all.reduce((sum, count) => sum + count.shown, 0);
+    const total = all.reduce((sum, count) => sum + count.total, 0);
     return { nodes, counts, availableTokens, shown, total };
   }, [providers, tokens, tokensByOption]);
 }
