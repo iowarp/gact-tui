@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: iowarp/clio-schemas
-          ref: 02c6bdd7d3a83ce74e51faca6a8fea8919cc8216
+          ref: 305edd2dd95531dcc975f6a16ec21a4631b2bf63
           path: .clio-schemas
       - uses: pnpm/action-setup@v4
         with:
