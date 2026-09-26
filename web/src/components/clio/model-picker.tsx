@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { RefreshIcon } from '@/lib/icon-vocabulary';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -23,12 +23,10 @@ import {
   CascaderVirtualColumn,
   CascaderVirtualItems,
 } from '@/components/reui/cascader/cascader-virtual';
-import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Toggle } from '@/components/ui/toggle';
 import { useHiddenProviders } from '@/hooks/use-hidden-providers';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRepository } from '@/hooks/use-repository';
@@ -36,18 +34,17 @@ import type { ClioModelOption } from '@/lib/model-options';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { displayedTags, modelCapabilityTagsFromOption, modelTypeOf } from '@/lib/model-capability-tags';
+import { modelTypeOf } from '@/lib/model-capability-tags';
+import { buildModelFacets } from '@/lib/model-facets';
 import {
   DEFAULT_FILTER_TOKENS,
   freeSearchText,
-  matchesFreeSearch,
   surrogateChatReason,
-  tagFilterToken,
   type ModelFilterToken,
 } from '@/lib/model-filter-tokens';
-import { ModelCapabilityTags } from './model-capability-tags';
 import {
   modelNodeValue,
+  PROVIDER_NODE_PREFIX,
   type PickerNodeData,
   providerGroupsFromOptions,
   providerNodeValue,
@@ -55,8 +52,9 @@ import {
 } from './model-picker-model';
 import { useProviderPanel } from './model-picker-provider-panel';
 import { ModelPickerSearch } from './model-picker-search';
-import { useModelPickerTree, type ProviderFilterCount } from './model-picker-tree';
-import { ProviderHeartbeat } from './provider-heartbeat';
+import { PickerRowLabel } from './model-picker-row-label';
+import { useModelPickerTree } from './model-picker-tree';
+import { useModelPickerSearchView } from './use-model-picker-search-view';
 
 interface ClioModelPickerProps {
   catalogStatus?: 'error' | 'loading' | 'ready';
@@ -65,6 +63,10 @@ interface ClioModelPickerProps {
   onRetryCatalog?: (providerId?: string) => void;
   options: readonly ClioModelOption[];
   provider?: string;
+  /** The selected half of a multi-transport provider (Codex `sdk` / `direct`):
+   * the same model id is listed once per transport, so without it the
+   * selection cannot tell the two rows apart. */
+  transport?: string;
   title?: string;
   trigger: ReactNode;
 }
@@ -87,6 +89,7 @@ export function ClioModelPicker({
   onRetryCatalog,
   options,
   provider,
+  transport,
   title = 'Choose a model',
   trigger,
 }: ClioModelPickerProps) {
@@ -145,8 +148,40 @@ export function ClioModelPicker({
   // static (non-`<button>`) element for exactly this case.
   const providerRowsAreTrailButtons = showColumns && path.length > 0;
   const selectedChoice = options.find(
-    (choice) => choice.available && choice.providerId === provider && choice.id === model,
+    (choice) =>
+      choice.available &&
+      choice.providerId === provider &&
+      choice.id === model &&
+      (!transport || choice.transport === transport),
   );
+  const search = useModelPickerSearchView({
+    providers: visibleProviders,
+    entries: tree.entries,
+    counts: tree.counts,
+    total: tree.total,
+    query,
+  });
+  const { resetCollapsed, toggleCollapsed, matchesText, searching } = search;
+  const facetTabs = useMemo(
+    () =>
+      buildModelFacets(
+        tree.entries.map((entry) => ({
+          providerId: entry.group.id,
+          providerName: entry.group.name,
+          tags: entry.tags,
+          tokens: entry.tokens,
+          matchesText: matchesText(entry),
+        })),
+        tokens,
+        { hideEmpty: searching },
+      ),
+    [tree.entries, tokens, searching, matchesText],
+  );
+  const [facetsOpen, setFacetsOpen] = useState(false);
+  // A press on a results group header drills in (the cascader's own branch
+  // behaviour, which also clears the query); in search results it folds the
+  // group instead, so the clear that follows is dropped.
+  const keepQueryOnce = useRef(false);
   const activePreset = presetsById.get(activeGroup?.id ?? '');
   // The provider in view's right-hand panel: its sections, setup state and
   // action row, from the SAME shared action hook every provider surface uses.
@@ -173,6 +208,8 @@ export function ClioModelPicker({
   function handleOpenChange(nextOpen: boolean): void {
     setOpen(nextOpen);
     setNotice(undefined);
+    setFacetsOpen(false);
+    resetCollapsed();
     if (nextOpen) {
       setTokens([...DEFAULT_FILTER_TOKENS]);
       const preferred = providers.find((item) => item.id === provider);
@@ -184,6 +221,10 @@ export function ClioModelPicker({
   }
 
   function handleQueryChange(nextQuery: string): void {
+    if (keepQueryOnce.current) {
+      keepQueryOnce.current = false;
+      if (!nextQuery) return;
+    }
     // A provider path is useful for browsing, but it turns deep search into a
     // search inside that provider and leaves the old provider pinned beside a
     // global hit. Start every new search at the root; choosing a result can
@@ -199,6 +240,12 @@ export function ClioModelPicker({
       <ModelSelectorContent
         className="h-[min(38rem,calc(100dvh-2rem))] w-[min(56rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] overflow-hidden sm:h-[min(42rem,calc(100dvh-3rem))] sm:max-w-[56rem]"
         commandProps={{ className: 'min-h-0 p-0', shouldFilter: false }}
+        onEscapeKeyDown={(event) => {
+          // Escape closes the filter panel first, the picker second.
+          if (!facetsOpen) return;
+          event.preventDefault();
+          setFacetsOpen(false);
+        }}
         title={title}
       >
         {catalogStatus === 'loading' ? (
@@ -221,7 +268,13 @@ export function ClioModelPicker({
             maxHeight="100%"
             mode={showColumns ? 'columns' : 'drill'}
             onInputValueChange={handleQueryChange}
-            onPathChange={(nextPath) => {
+            onPathChange={(nextPath, details) => {
+              const header = nextPath.length === 1 ? nextPath[0] : undefined;
+              if (search.searching && details.reason === 'drill' && header?.startsWith(PROVIDER_NODE_PREFIX)) {
+                toggleCollapsed(header.slice(PROVIDER_NODE_PREFIX.length));
+                keepQueryOnce.current = true;
+                return;
+              }
               setPath(nextPath);
               setNotice(undefined);
             }}
@@ -250,6 +303,14 @@ export function ClioModelPicker({
                 filterCount={
                   node.data?.kind === 'provider' ? tree.counts.get(node.data.group.id) : undefined
                 }
+                search={
+                  search.searching && node.data?.kind === 'provider'
+                    ? {
+                        count: search.counts.get(node.data.group.id) ?? { matches: 0, total: 0 },
+                        collapsed: search.collapsed.has(node.data.group.id),
+                      }
+                    : undefined
+                }
                 onTagToken={(token) =>
                   setTokens((current) => (current.includes(token) ? current : [...current, token]))
                 }
@@ -264,7 +325,7 @@ export function ClioModelPicker({
                 state={state}
               />
             )}
-            filter={(node, normalizedQuery) => matchesFreeSearch(node, normalizedQuery)}
+            filter={search.filter}
             // Nothing chosen yet: keep the path the picker opened on.
             revealSelected={Boolean(selectedChoice)}
             searchScope={freeSearchText(query) ? 'deep' : 'level'}
@@ -272,17 +333,27 @@ export function ClioModelPicker({
             // Always controlled: a refused pick (a surrogate) must not stay checked.
             value={selectedChoice ? modelNodeValue(selectedChoice) : ''}
           >
-            <CascaderPanel className="h-full min-h-0">
+            <CascaderPanel
+              className={cn(
+                'h-full min-h-0',
+                // Search results: a provider row is a group header that draws
+                // its own "matches / total" and fold chevron.
+                search.searching && '[&_[data-slot=cascader-item-trailing]]:hidden',
+              )}
+            >
               <CascaderNav>
                 <div className="flex w-full min-w-0 items-center gap-1 pe-8">
                   <ModelPickerSearch
                     availableTokens={tree.availableTokens}
                     onQueryChange={handleQueryChange}
+                    facetTabs={facetTabs}
+                    facetsOpen={facetsOpen}
+                    onFacetsOpenChange={setFacetsOpen}
                     onTokensChange={setTokens}
                     query={query}
-                    shown={tree.shown}
+                    shown={search.matches}
                     tokens={tokens}
-                    total={tree.total}
+                    total={search.total}
                   />
                 </div>
               </CascaderNav>
@@ -352,6 +423,11 @@ export function ClioModelPicker({
                     {managingVisibility ? 'Done' : `Hidden (${hiddenProviders.size})`}
                   </Button>
                 </div>
+                {search.emptyProviders ? (
+                  <span className="truncate text-xs text-muted-foreground" data-slot="providers-without-matches">
+                    {search.emptyProviders} {search.emptyProviders === 1 ? 'provider' : 'providers'} with no matches
+                  </span>
+                ) : null}
               </CascaderFooter>
               <CascaderStatus />
             </CascaderPanel>
@@ -418,129 +494,5 @@ function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
         </AlertDescription>
       </Alert>
     </div>
-  );
-}
-
-function PickerRowLabel({
-  eyeAsStaticElement,
-  filterCount,
-  onTagToken,
-  hidden,
-  managingVisibility,
-  node,
-  onToggleVisibility,
-  stage,
-}: {
-  eyeAsStaticElement: boolean;
-  /** Set while filter tokens hide some of this provider's models. */
-  filterCount?: ProviderFilterCount;
-  /** Clicking a row's tag adds its filter token. */
-  onTagToken: (token: ModelFilterToken) => void;
-  hidden: boolean;
-  managingVisibility: boolean;
-  node: CascaderNode<PickerNodeData>;
-  onToggleVisibility?: () => void;
-  /** The running action's stage for THIS provider: the heartbeat turns yellow. */
-  stage?: string;
-  state: CascaderItemState<PickerNodeData>;
-}) {
-  if (node.data?.kind === 'provider') {
-    // The owner's row template: normal mode is `name heartbeat count ›`,
-    // with NO eye at all -- "Hidden (N)" IS the manage action, so the eye
-    // exists only once that mode is entered (every row, hidden or shown).
-    // The model count and the drill chevron are the Cascader's own trailing
-    // slots and render after this label unconditionally.
-    return (
-      <span className="flex w-full min-w-0 items-center gap-1.5">
-        <span className="min-w-0 flex-1 truncate text-start font-medium">{node.label}</span>
-        {managingVisibility && onToggleVisibility ? (
-          <ProviderEyeToggle
-            asStaticElement={eyeAsStaticElement}
-            group={node.data.group}
-            hidden={hidden}
-            onToggle={onToggleVisibility}
-          />
-        ) : null}
-        <ProviderHeartbeat group={node.data.group} stage={stage} />
-        {filterCount && filterCount.shown !== filterCount.total ? (
-          <span
-            aria-label={`${filterCount.shown} of ${filterCount.total} models shown`}
-            className="shrink-0 text-xs text-muted-foreground tabular-nums"
-            data-slot="provider-filter-count"
-          >
-            {filterCount.shown} / {filterCount.total}
-          </span>
-        ) : null}
-      </span>
-    );
-  }
-  const choice = node.data?.kind === 'model' ? node.data.choice : undefined;
-  const tags = choice ? displayedTags(modelCapabilityTagsFromOption(choice)) : [];
-  return (
-    <span className="flex min-w-0 flex-1 flex-col items-start gap-1 py-0.5">
-      <span className="w-full truncate text-start" data-slot="model-row-name">
-        {node.label}
-      </span>
-      <ModelCapabilityTags
-        onTagClick={(tag) => {
-          const token = tagFilterToken(tag);
-          if (token) onTagToken(token);
-        }}
-        size="sm"
-        tags={tags}
-      />
-    </span>
-  );
-}
-
-/** The eye: rendered ONLY while managing visibility (the caller does not
- * mount this at all outside that mode -- normal mode is `name heartbeat
- * count ›`, no eye) -- BESIDE the heartbeat, never replacing it.
- *
- * `asStaticElement` renders the SAME Toggle onto a `<span>` instead of its
- * default `<button>` (Radix `asChild`) -- needed exactly when this row is
- * itself already a real `<button>` (a non-active Cascader column; see
- * `providerRowsAreTrailButtons` above). A `<button>` nested in a `<button>`
- * is invalid HTML; a `<span>` keeps the identical look, click and
- * `onPressedChange` behaviour (Radix drives both from its own props, not
- * from the child's tag), consistent with every row here already being
- * `tabIndex={-1}` -- these controls are activated by click, never by an
- * independent Tab stop. */
-function ProviderEyeToggle({
-  asStaticElement,
-  group,
-  hidden,
-  onToggle,
-}: {
-  asStaticElement: boolean;
-  group: ProviderGroup;
-  hidden: boolean;
-  onToggle: () => void;
-}) {
-  const icon = hidden ? (
-    <EyeOffIcon aria-hidden="true" className="size-3.5" />
-  ) : (
-    <EyeIcon aria-hidden="true" className="size-3.5" />
-  );
-  return (
-    <Toggle
-      aria-label={hidden ? `Show ${group.name} in this picker` : `Hide ${group.name} in this picker`}
-      asChild={asStaticElement}
-      className="size-6 min-w-0 p-0"
-      data-slot="provider-visibility-toggle"
-      onClick={(event) => event.stopPropagation()}
-      onPressedChange={onToggle}
-      pressed={hidden}
-      size="sm"
-      title={hidden ? `Show ${group.name}` : `Hide ${group.name}`}
-    >
-      {asStaticElement ? (
-        <span role="button" tabIndex={-1}>
-          {icon}
-        </span>
-      ) : (
-        icon
-      )}
-    </Toggle>
   );
 }

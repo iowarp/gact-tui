@@ -1,19 +1,3 @@
-import {
-  AudioLinesIcon,
-  BrainIcon,
-  EyeIcon,
-  FileTextIcon,
-  FlaskConicalIcon,
-  GiftIcon,
-  GlobeIcon,
-  RouteIcon,
-  ScrollTextIcon,
-  ShapesIcon,
-  SparklesIcon,
-  VideoIcon,
-  WrenchIcon,
-  type LucideIcon,
-} from 'lucide-react';
 import { Badge } from '@/components/reui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -24,25 +8,7 @@ import {
   type ModelCapabilityTag,
 } from '@/lib/model-capability-tags';
 import { cn } from '@/lib/utils';
-
-const TAG_ICONS: Record<string, LucideIcon> = {
-  'input_modality:image': EyeIcon,
-  'input_modality:audio': AudioLinesIcon,
-  'input_modality:video': VideoIcon,
-  'input_modality:pdf': FileTextIcon,
-  'capability:tool_calling': WrenchIcon,
-  'capability:reasoning': BrainIcon,
-};
-
-function tagIcon(tag: ModelCapabilityTag): LucideIcon {
-  if (tag.axis === 'context') return ScrollTextIcon;
-  if (tag.axis === 'price') return GiftIcon;
-  if (tag.axis === 'kind') return RouteIcon;
-  if (tag.axis === 'role') return FlaskConicalIcon;
-  if (tag.axis === 'task') return ShapesIcon;
-  if (tag.axis === 'domain') return GlobeIcon;
-  return TAG_ICONS[`${tag.axis}:${tag.value}`] ?? SparklesIcon;
-}
+import { tagIcon } from './model-capability-tag-icons';
 
 interface ModelCapabilityTagsProps {
   tags: readonly ModelCapabilityTag[];

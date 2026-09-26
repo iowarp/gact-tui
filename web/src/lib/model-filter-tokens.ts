@@ -3,7 +3,8 @@ import { TASK_LABELS, type ModelCapabilityTag } from './model-capability-tags';
 /**
  * The model picker's filter tokens: `key:value` strings (`input:image`,
  * `cap:tools`, `role:surrogate`, `task:classification`, `domain:climate`,
- * `free`, `router`) derived from a model's capability tags. A task tag
+ * `provider:openrouter`, `free`, `router`) derived from a model's capability
+ * tags and the provider that lists it. A task tag
  * carries two spellings: its model type (`task:image-generation`) and each
  * Hugging Face task id it performs (`task:text-to-image`). Tokens combine
  * with AND; a model shows when it carries every active token. Free text is
@@ -81,6 +82,11 @@ export function modelFilterTokens(
   return tokens;
 }
 
+/** The token that keeps one provider's models (`provider:openrouter`). */
+export function providerFilterToken(providerId: string): ModelFilterToken {
+  return `provider:${slug(providerId)}`;
+}
+
 /** Whether a model carrying `tokens` passes every active token (AND). */
 export function matchesFilterTokens(
   tokens: ReadonlySet<ModelFilterToken>,
@@ -119,7 +125,7 @@ export function surrogateChatReason(modelType: string | undefined): string {
   return `${plural} can't hold a conversation.`;
 }
 
-const TOKEN_KEYS = ['input', 'output', 'cap', 'role', 'task', 'domain', 'free', 'router'];
+const TOKEN_KEYS = ['input', 'output', 'cap', 'role', 'task', 'domain', 'provider', 'free', 'router'];
 
 /**
  * A word that is a token, or may still become one while it is typed ("inp"

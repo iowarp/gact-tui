@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
 import { IconTile } from '@/components/reui/icon-tile';
-import { modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
+import { modelCapabilityTagsFromOption, type ModelCapabilityTag } from '@/lib/model-capability-tags';
 import {
   matchesFilterTokens,
   modelFilterTokens,
+  providerFilterToken,
   type ModelFilterToken,
 } from '@/lib/model-filter-tokens';
 import type { ClioModelOption } from '@/lib/model-options';
@@ -25,6 +26,18 @@ export interface ProviderFilterCount {
   total: number;
 }
 
+/** One model a provider lists, with the tags and filter tokens it carries. */
+export interface PickerModelEntry {
+  group: ProviderGroup;
+  choice: ClioModelOption;
+  /** Its tree row (the same object the cascader indexes). */
+  node: CascaderNode<PickerNodeData>;
+  tags: readonly ModelCapabilityTag[];
+  tokens: ReadonlySet<ModelFilterToken>;
+  /** Whether the active filter tokens keep it. */
+  kept: boolean;
+}
+
 /** OpenRouter's free router leads its list; everything else keeps its order. */
 function pinFreeRouter(models: readonly ClioModelOption[]): ClioModelOption[] {
   const pinned = models.filter((model) => model.id === 'openrouter/free');
@@ -34,23 +47,23 @@ function pinFreeRouter(models: readonly ClioModelOption[]): ClioModelOption[] {
 /**
  * The picker's provider -> model tree, filtered by the active tokens (AND):
  * each provider keeps only the models carrying every token, with its own
- * "shown / total" count, and the totals across every listed provider. The
- * free-text query is applied by the cascader's own deep search on top.
+ * "shown / total" count, and the totals across every listed provider. Every
+ * listed model (kept or not) is also returned as an entry, which the search
+ * counts and the filter panel read. The free-text query is applied by the
+ * cascader's own deep search on top.
  */
 export function useModelPickerTree(
   providers: readonly ProviderGroup[],
   tokens: readonly ModelFilterToken[],
 ) {
   const tokensByOption = useMemo(() => {
-    const map = new Map<ClioModelOption, Set<ModelFilterToken>>();
+    const map = new Map<ClioModelOption, { tags: ModelCapabilityTag[]; tokens: Set<ModelFilterToken> }>();
     for (const group of providers) {
       for (const choice of group.choices) {
-        map.set(
-          choice,
-          modelFilterTokens(modelCapabilityTagsFromOption(choice), {
-            chatSelectable: choice.chatSelectable !== false,
-          }),
-        );
+        const tags = modelCapabilityTagsFromOption(choice);
+        const carried = modelFilterTokens(tags, { chatSelectable: choice.chatSelectable !== false });
+        carried.add(providerFilterToken(choice.providerId));
+        map.set(choice, { tags, tokens: carried });
       }
     }
     return map;
@@ -59,14 +72,25 @@ export function useModelPickerTree(
   return useMemo(() => {
     const counts = new Map<string, ProviderFilterCount>();
     const availableTokens = new Set<ModelFilterToken>();
+    const entries: PickerModelEntry[] = [];
     const nodes: CascaderNode<PickerNodeData>[] = providers.map((group) => {
       const models = pinFreeRouter(providerColumnModels(group));
-      const kept = models.filter((choice) => {
-        const carried = tokensByOption.get(choice) ?? new Set<ModelFilterToken>();
-        for (const token of carried) availableTokens.add(token);
-        return matchesFilterTokens(carried, tokens);
-      });
-      counts.set(group.id, { shown: kept.length, total: models.length });
+      const children: CascaderNode<PickerNodeData>[] = [];
+      for (const choice of models) {
+        const carried = tokensByOption.get(choice) ?? { tags: [], tokens: new Set<ModelFilterToken>() };
+        for (const token of carried.tokens) availableTokens.add(token);
+        const node: CascaderNode<PickerNodeData> = {
+          value: modelNodeValue(choice),
+          label: choice.label,
+          description: choice.description,
+          keywords: [choice.id, choice.providerId, choice.providerName],
+          data: { kind: 'model', choice },
+        };
+        const kept = matchesFilterTokens(carried.tokens, tokens);
+        if (kept) children.push(node);
+        entries.push({ group, choice, node, tags: carried.tags, tokens: carried.tokens, kept });
+      }
+      counts.set(group.id, { shown: children.length, total: models.length });
       return {
         value: providerNodeValue(group.id),
         label: group.name,
@@ -80,7 +104,7 @@ export function useModelPickerTree(
         // A count means "this many usable models" (a provider whose latest
         // check failed shows none). While filters hide some, the row shows
         // "shown / total" itself instead (a 0 count renders nothing).
-        count: kept.length === models.length ? models.length : 0,
+        count: children.length === models.length ? models.length : 0,
         keywords: [
           group.id,
           group.endpoint ?? '',
@@ -88,20 +112,12 @@ export function useModelPickerTree(
           ...group.choices.flatMap((choice) => [choice.id, choice.label]),
         ],
         data: { kind: 'provider', group },
-        children: kept.map(
-          (choice): CascaderNode<PickerNodeData> => ({
-            value: modelNodeValue(choice),
-            label: choice.label,
-            description: choice.description,
-            keywords: [choice.id, choice.providerId, choice.providerName],
-            data: { kind: 'model', choice },
-          }),
-        ),
+        children,
       };
     });
     const all = [...counts.values()];
     const shown = all.reduce((sum, count) => sum + count.shown, 0);
     const total = all.reduce((sum, count) => sum + count.total, 0);
-    return { nodes, counts, availableTokens, shown, total };
+    return { nodes, counts, availableTokens, entries, shown, total };
   }, [providers, tokens, tokensByOption]);
 }

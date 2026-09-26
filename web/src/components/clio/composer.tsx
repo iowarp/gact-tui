@@ -66,6 +66,8 @@ import { toMessagePart, type InlineReferenceSelection } from '@/lib/composer-ref
 import { ComposerInlineReferenceEditor } from './composer-inline-reference-editor';
 import { focusEditorAtOffset } from './composer-editor-model';
 import { ClioComposerFileUpload } from './composer-file-upload';
+import { modelTransportLabel } from './provider-transport-state';
+import type { ClioModelOption } from '@/lib/model-options';
 
 const focusComposerEditor = focusEditorAtOffset;
 
@@ -646,6 +648,7 @@ export function ClioComposer({
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
                   provider={selectedOption?.providerId}
+                  transport={selectedOption?.transport}
                   trigger={
                     <Button
                       aria-label="Change model"
@@ -660,7 +663,7 @@ export function ClioComposer({
                       ) : null}
                       <span className="truncate">
                         {selectedOption
-                          ? `${selectedOption.providerName} / ${compactModelName(selectedOption.providerId, selectedOption.id, selectedOption.label)}`
+                          ? composerModelLabel(selectedOption)
                           : 'Choose model'}
                       </span>
                     </Button>
@@ -758,6 +761,14 @@ function ComposerAddContextButton({
       </PromptInputActionMenuContent>
     </PromptInputActionMenu>
   );
+}
+
+/** The model button's text: provider, the half it is reached through when
+ * there are two ("Codex · Direct / Luna"), and the model. */
+function composerModelLabel(option: ClioModelOption): string {
+  const half = modelTransportLabel(option);
+  const provider = half ? `${option.providerName} · ${half}` : option.providerName;
+  return `${provider} / ${compactModelName(option.providerId, option.id, option.label)}`;
 }
 
 function compactModelName(provider: string, modelId: string, label: string): string {
