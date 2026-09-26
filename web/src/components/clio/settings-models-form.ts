@@ -2,45 +2,64 @@ import type { ReasoningEffort } from '@clio/core/v3';
 import { knownReasoningEffort } from '@/lib/reasoning-levels';
 /**
  * The model-settings form's own state: what the service's live configuration
- * seeds it with, and what an Apply is allowed to write back.
+ * seeds it with, and what an Apply writes back.
  *
- * The panel edits one shared backend configuration, so a field it cannot read
- * back from the service must not be invented and then written on the next
- * Apply. Two rules follow, and both live here rather than in the component so
- * they can be asserted directly:
+ * The panel edits one shared backend configuration. Three rules follow, and
+ * all live here rather than in the component so they can be asserted directly:
  *
  *   - a field the service does not report is seeded empty, never with a
  *     plausible-looking number;
- *   - an Apply carries the provider identity plus only the fields the person
- *     actually changed, so applying a model choice cannot silently rewrite the
- *     reasoning level, the token cap, or the local runtime's sizing.
+ *   - an Apply carries the provider identity plus EVERY saved response
+ *     setting: the service replaces the whole set on each write, so leaving a
+ *     saved value out would silently drop it (and an emptied field is how a
+ *     person puts a setting back to the default);
+ *   - the reasoning level is written only when the person changed it (the
+ *     service carries a person's level over on its own).
+ *
+ * Which settings the form SHOWS is the selected model's own
+ * `accepted_parameters`; a saved value the model does not accept is kept and
+ * reported as not used, and the service never sends it.
  */
 
-import type { LanguageModelConfiguration, LanguageModelPreset } from '@clio/core/v3';
+import type {
+  AcceptedParameter,
+  LanguageModelConfiguration,
+  LanguageModelPreset,
+} from '@clio/core/v3';
 
 export type { ReasoningEffort } from '@clio/core/v3';
 
 /**
- * Providers whose model runtime this panel can size — the ones that serve a
- * model on the connected agent's own hardware, where parallel slots and a
- * context window are a local capacity decision rather than a hosted service's.
- *
- * This is a capability, and the service is the only thing that actually knows
- * it. Until a preset reports it, the list lives here so at least it is named,
- * documented, and in one place instead of inline in the render; a new local
- * runtime added to the backend has to be added here too, which is the reason
- * this should move to the preset.
+ * The response settings the service stores and reports on its configuration,
+ * with the name a "not used by this model" note gives a saved value. A model
+ * offers a subset of these through its `accepted_parameters`; the label here
+ * is only for a saved value the current model does not offer (and so did not
+ * describe).
  */
-const RUNTIME_SIZED_PROVIDERS: readonly string[] = ['vllm', 'lm_studio', 'ollama'];
+export const RESPONSE_SETTING_LABELS = {
+  temperature: 'Temperature',
+  top_p: 'Top P',
+  top_k: 'Top K',
+  min_p: 'Min P',
+  presence_penalty: 'Presence penalty',
+  frequency_penalty: 'Frequency penalty',
+  repetition_penalty: 'Repetition penalty',
+  max_tokens: 'Longest reply',
+  context_length: 'Context size',
+  seed: 'Seed',
+  parallel: 'Replies at once',
+} as const;
 
-/** Whether the parallel-slot and context-length controls apply to this preset. */
-export function providerSupportsRuntimeSizing(preset?: LanguageModelPreset): boolean {
-  return Boolean(
-    preset &&
-      (preset.supports_runtime_sizing ||
-        RUNTIME_SIZED_PROVIDERS.includes(preset.provider_id || preset.provider)),
-  );
-}
+export type ResponseSettingName = keyof typeof RESPONSE_SETTING_LABELS;
+
+export const RESPONSE_SETTING_NAMES = Object.keys(RESPONSE_SETTING_LABELS) as ResponseSettingName[];
+
+/** Settings whose empty value the service spells 0 (a size), not null. */
+const SIZE_SETTINGS: ReadonlySet<ResponseSettingName> = new Set([
+  'max_tokens',
+  'context_length',
+  'parallel',
+]);
 
 /**
  * The form's fields. Numbers are held as the text the person typed so an empty
@@ -48,17 +67,15 @@ export function providerSupportsRuntimeSizing(preset?: LanguageModelPreset): boo
  */
 export interface ModelSettingsValues {
   apiBase: string;
-  contextLength: string;
   effort: ReasoningEffort | '';
-  maxTokens: string;
   modelId: string;
-  parallel: string;
   providerOptions: Record<string, string>;
-  temperature: string;
+  /** Saved response settings by name; empty means unset (the default applies). */
+  settings: Partial<Record<ResponseSettingName, string>>;
 }
 
 /** The body of a configuration write, as the provider repository accepts it. */
-export interface ModelSettingsUpdate {
+export interface ModelSettingsUpdate extends Partial<Record<ResponseSettingName, number>> {
   provider_id: string;
   provider: string;
   api_base: string;
@@ -67,10 +84,6 @@ export interface ModelSettingsUpdate {
   provider_options: Record<string, string>;
   /** ``null`` clears the configured level back to the model's default. */
   thinking_level?: ReasoningEffort | null;
-  parallel?: number;
-  context_length?: number;
-  max_tokens?: number;
-  temperature?: number;
   /** The transport a multi-transport provider binds (the chosen model row's own). */
   variant?: string;
 }
@@ -102,6 +115,21 @@ export function presetIsActive(
   return Boolean(preset && preset.id === active?.id);
 }
 
+/** The saved response settings the service reports, as form text. */
+export function savedResponseSettings(
+  configuration: LanguageModelConfiguration,
+): ModelSettingsValues['settings'] {
+  const settings: ModelSettingsValues['settings'] = {};
+  for (const name of RESPONSE_SETTING_NAMES) {
+    const value = configuration[name];
+    // The service echoes 0 for a temperature nobody set (its own default, not
+    // a choice), so 0 there reads as "Provider default".
+    if (value === undefined || (name === 'temperature' && value === 0)) continue;
+    settings[name] = String(value);
+  }
+  return settings;
+}
+
 /** Fills the form from the service's live configuration for one preset. */
 export function seedModelSettings({
   configuration,
@@ -114,36 +142,70 @@ export function seedModelSettings({
 }): ModelSettingsValues {
   return {
     apiBase: presetIsActive ? configuration.api_base : (preset?.api_base ?? ''),
-    // The service reports neither the parallel slot count nor the context
-    // length in its configuration, so there is nothing to seed them from. Empty
-    // means "leave the runtime's own sizing alone", which is what omitting them
-    // from the write does.
-    contextLength: '',
     // Only a level a person set is a choice; a shipped/provider default is shown
     // by the field's "Default" option and never written back on Apply.
     effort:
       configuration.thinking_level_source === 'user'
         ? reasoningEffort(configuration.thinking_level)
         : '',
-    maxTokens: numberField(configuration.max_tokens),
     modelId: presetIsActive ? configuration.model : (preset?.suggested_model ?? ''),
-    parallel: '',
     providerOptions: presetIsActive ? (configuration.provider_options ?? {}) : {},
-    // The service echoes 0 when no temperature was ever set (its own default,
-    // not a choice), so 0 reads as "Provider default": the field stays blank
-    // and an Apply never writes it back.
-    temperature: configuration.temperature ? numberField(configuration.temperature) : '',
+    settings: savedResponseSettings(configuration),
   };
 }
 
 /**
- * Builds the configuration write for one Apply.
- *
- * The provider, endpoint, and model are the identity the panel exists to set
- * and are always written. Everything else is carried only where it differs from
- * the seeded server state. Clearing a field cannot un-set a stored value — the
- * service's configuration has no way to express "no cap" — so a cleared field
- * leaves the stored one standing rather than writing a substitute.
+ * The saved settings the selected model does not accept: kept, never sent,
+ * and shown as "not used by this model". `accepted` undefined means the model's
+ * accepted set is not known yet, so nothing is called unused.
+ */
+export function unusedResponseSettings(
+  settings: ModelSettingsValues['settings'],
+  accepted: readonly string[] | undefined,
+): Array<{ name: ResponseSettingName; label: string; value: string }> {
+  if (!accepted) return [];
+  return RESPONSE_SETTING_NAMES.flatMap((name) => {
+    const value = settings[name]?.trim();
+    if (!value || accepted.includes(name)) return [];
+    return [{ name, label: RESPONSE_SETTING_LABELS[name], value }];
+  });
+}
+
+/** Up to this many settings show inline; more go behind one grouped disclosure. */
+export const INLINE_SETTINGS_LIMIT = 4;
+
+/** The accepted settings this form can store and send (a name it knows). */
+export function shownResponseParameters(
+  parameters: AcceptedParameter[] | undefined,
+): Array<AcceptedParameter & { name: ResponseSettingName }> {
+  return (parameters ?? []).filter(
+    (parameter): parameter is AcceptedParameter & { name: ResponseSettingName } =>
+      (RESPONSE_SETTING_NAMES as readonly string[]).includes(parameter.name),
+  );
+}
+
+/**
+ * Whether the card has anything to show for this model: a setting it accepts,
+ * or a saved value it does not use. A model that takes no response settings
+ * and has none saved gets no section at all.
+ */
+export function responseSettingsVisible(
+  parameters: AcceptedParameter[] | undefined,
+  settings: ModelSettingsValues['settings'],
+): boolean {
+  return (
+    shownResponseParameters(parameters).length > 0 ||
+    unusedResponseSettings(
+      settings,
+      parameters?.map((parameter) => parameter.name),
+    ).length > 0
+  );
+}
+
+/**
+ * Builds the configuration write for one Apply: the identity, every saved
+ * response setting that is a usable number, and the reasoning level only when
+ * it changed from the seeded one.
  */
 export function modelSettingsUpdate({
   preset,
@@ -162,20 +224,10 @@ export function modelSettingsUpdate({
     provider_options: values.providerOptions,
   };
   if (values.effort !== seeded.effort) update.thinking_level = values.effort || null;
-  const parallel = changedNumber(values.parallel, seeded.parallel, { minimum: 0, integer: true });
-  if (parallel !== undefined) update.parallel = parallel;
-  const contextLength = changedNumber(values.contextLength, seeded.contextLength, {
-    minimum: 0,
-    integer: true,
-  });
-  if (contextLength !== undefined) update.context_length = contextLength;
-  const maxTokens = changedNumber(values.maxTokens, seeded.maxTokens, {
-    minimum: 1,
-    integer: true,
-  });
-  if (maxTokens !== undefined) update.max_tokens = maxTokens;
-  const temperature = changedNumber(values.temperature, seeded.temperature, { minimum: 0 });
-  if (temperature !== undefined) update.temperature = temperature;
+  for (const name of RESPONSE_SETTING_NAMES) {
+    const value = settingNumber(name, values.settings[name]);
+    if (value !== undefined) update[name] = value;
+  }
   return update;
 }
 
@@ -183,18 +235,11 @@ function reasoningEffort(value: string | undefined): ReasoningEffort | '' {
   return knownReasoningEffort(value) ?? '';
 }
 
-function numberField(value: number | undefined): string {
-  return value === undefined ? '' : String(value);
-}
-
-function changedNumber(
-  value: string,
-  seeded: string,
-  bounds: { integer?: boolean; minimum: number },
-): number | undefined {
-  if (!value.trim() || value === seeded) return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < bounds.minimum) return undefined;
-  if (bounds.integer && !Number.isInteger(parsed)) return undefined;
+function settingNumber(name: ResponseSettingName, text: string | undefined): number | undefined {
+  if (!text?.trim()) return undefined;
+  const parsed = Number(text);
+  if (!Number.isFinite(parsed)) return undefined;
+  // A size is a positive whole number; 0 is how the service spells "unset".
+  if (SIZE_SETTINGS.has(name) && (!Number.isInteger(parsed) || parsed <= 0)) return undefined;
   return parsed;
 }

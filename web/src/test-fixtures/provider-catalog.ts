@@ -11,6 +11,80 @@ export interface CatalogModelInput {
   modalities?: string[];
   /** The service's clio-schemas ModelCapabilityTags record for the model. */
   capability_tags?: Record<string, unknown>;
+  /** The service's clio-schemas AcceptedParameter records for the model. */
+  accepted_parameters?: ReturnType<typeof acceptedParameter>[];
+}
+
+const PARAMETER_SHAPES: Record<
+  string,
+  {
+    label: string;
+    group: 'sampling' | 'length' | 'advanced';
+    kind: 'number' | 'integer';
+    minimum: number | null;
+    maximum: number | null;
+    step: number;
+  }
+> = {
+  temperature: {
+    label: 'Temperature',
+    group: 'sampling',
+    kind: 'number',
+    minimum: 0,
+    maximum: 2,
+    step: 0.05,
+  },
+  top_p: { label: 'Top P', group: 'sampling', kind: 'number', minimum: 0, maximum: 1, step: 0.01 },
+  top_k: { label: 'Top K', group: 'sampling', kind: 'integer', minimum: 0, maximum: null, step: 1 },
+  min_p: { label: 'Min P', group: 'sampling', kind: 'number', minimum: 0, maximum: 1, step: 0.01 },
+  repetition_penalty: {
+    label: 'Repetition penalty',
+    group: 'sampling',
+    kind: 'number',
+    minimum: 0,
+    maximum: 2,
+    step: 0.05,
+  },
+  max_tokens: {
+    label: 'Longest reply',
+    group: 'length',
+    kind: 'integer',
+    minimum: 1,
+    maximum: 16384,
+    step: 256,
+  },
+  context_length: {
+    label: 'Context size',
+    group: 'length',
+    kind: 'integer',
+    minimum: 512,
+    maximum: 40960,
+    step: 1024,
+  },
+  seed: { label: 'Seed', group: 'advanced', kind: 'integer', minimum: 0, maximum: null, step: 1 },
+  parallel: {
+    label: 'Replies at once',
+    group: 'advanced',
+    kind: 'integer',
+    minimum: 1,
+    maximum: null,
+    step: 1,
+  },
+};
+
+/** One accepted response setting, as the service reports it (defaults to "Provider default"). */
+export function acceptedParameter(
+  name: keyof typeof PARAMETER_SHAPES,
+  default_: number | null = null,
+) {
+  return {
+    name,
+    description: `${PARAMETER_SHAPES[name]!.label} changes the reply.`,
+    options: [] as string[],
+    default: default_,
+    evidence: [{ source: 'litellm' as const, detail: `${name} accepted`, observed_at: '' }],
+    ...PARAMETER_SHAPES[name]!,
+  };
 }
 
 export function catalogEntry(
