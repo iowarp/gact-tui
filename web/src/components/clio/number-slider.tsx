@@ -1,18 +1,13 @@
-import { useId, useState } from 'react';
-import { Input } from '@/components/ui/input';
+import { useId } from 'react';
+import { NumberField, NumberFieldGroup, NumberFieldInput } from '@/components/reui/number-field';
+import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import {
   a2uiAccessibilityLabel,
   a2uiAccessibilityProps,
   type A2UIAccessibility,
 } from './a2ui-accessibility';
-import {
-  effectiveStep,
-  formatSliderValue,
-  parseTypedValue,
-  snapToStep,
-  type SliderRange,
-} from './number-slider-values';
+import { effectiveStep, snapToStep, stepDecimals, type SliderRange } from './number-slider-values';
 
 export interface ClioNumberSliderProps extends SliderRange {
   accessibility?: A2UIAccessibility;
@@ -23,7 +18,7 @@ export interface ClioNumberSliderProps extends SliderRange {
   weight?: number;
 }
 
-/** A slider for a physical parameter, with a number box for typing an exact value. */
+/** A slider for a physical parameter, with a number field for typing an exact value. */
 export function ClioNumberSlider({
   accessibility,
   label = '',
@@ -36,27 +31,18 @@ export function ClioNumberSlider({
   weight,
 }: ClioNumberSliderProps) {
   const range = { min, max, step };
+  const stepInUse = effectiveStep(range);
+  const decimals = stepDecimals(stepInUse);
   const current = snapToStep(
     typeof value === 'number' && Number.isFinite(value) ? value : min,
     range,
   );
-  const shown = formatSliderValue(current, range);
-  const [draft, setDraft] = useState(shown);
-  const [editing, setEditing] = useState(false);
-  const [invalid, setInvalid] = useState(false);
-  const inputId = useId();
-  const hintId = useId();
+  const fieldId = useId();
 
-  const commit = () => {
-    const parsed = parseTypedValue(draft, range);
-    if (parsed === undefined) {
-      setInvalid(true);
-      return;
-    }
-    setInvalid(false);
-    setEditing(false);
-    setDraft(formatSliderValue(parsed, range));
-    if (parsed !== current) setValue?.(parsed);
+  const write = (next: number | null) => {
+    if (next === null || !Number.isFinite(next)) return;
+    const snapped = snapToStep(next, range);
+    if (snapped !== current) setValue?.(snapped);
   };
 
   return (
@@ -69,34 +55,32 @@ export function ClioNumberSlider({
       style={typeof weight === 'number' ? { flex: `${weight}`, minHeight: 0 } : undefined}
     >
       <div className="flex items-center justify-between gap-3">
-        <label className="text-sm font-medium" htmlFor={inputId}>
-          {label}
-        </label>
+        <Label htmlFor={fieldId}>{label}</Label>
         <div className="flex items-center gap-1.5">
-          <Input
-            aria-describedby={invalid ? hintId : undefined}
-            aria-invalid={invalid || undefined}
-            className="h-7 w-24 text-right font-mono text-xs tabular-nums"
-            id={inputId}
-            inputMode="decimal"
-            onBlur={commit}
-            onFocus={() => setDraft(shown)}
-            onChange={(event) => {
-              setEditing(true);
-              setInvalid(false);
-              setDraft(event.target.value);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') commit();
-              if (event.key === 'Escape') {
-                setEditing(false);
-                setInvalid(false);
-                setDraft(shown);
-              }
-            }}
-            // The box follows the slider and data model except while it is being typed in.
-            value={editing ? draft : shown}
-          />
+          {/* The field follows the slider and the data model; a typed value is
+              written when it is committed (Enter or leaving the field). */}
+          <NumberField
+            className="w-24 gap-0"
+            format={{ minimumFractionDigits: decimals, maximumFractionDigits: decimals }}
+            id={fieldId}
+            max={max}
+            min={min}
+            onValueCommitted={write}
+            size="sm"
+            step={stepInUse}
+            value={current}
+          >
+            <NumberFieldGroup>
+              <NumberFieldInput
+                aria-label={label}
+                className="font-mono text-xs"
+                onKeyDown={(event) => {
+                  // The field commits when it loses focus; Enter commits as well.
+                  if (event.key === 'Enter') event.currentTarget.blur();
+                }}
+              />
+            </NumberFieldGroup>
+          </NumberField>
           {unit ? <span className="text-xs text-muted-foreground">{unit}</span> : null}
         </div>
       </div>
@@ -107,14 +91,9 @@ export function ClioNumberSlider({
         onValueChange={([next]) => {
           if (typeof next === 'number') setValue?.(snapToStep(next, range));
         }}
-        step={effectiveStep(range)}
+        step={stepInUse}
         value={[current]}
       />
-      {invalid ? (
-        <p className="text-xs text-destructive" id={hintId}>
-          Enter a number from {formatSliderValue(min, range)} to {formatSliderValue(max, range)}.
-        </p>
-      ) : null}
     </div>
   );
 }

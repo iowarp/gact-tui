@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { BoxIcon, ImageDownIcon, Link2Icon, RotateCcwIcon } from 'lucide-react';
+import { BoxIcon, ImageDownIcon, Link2Icon } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   Frame,
@@ -9,8 +9,10 @@ import {
   FrameTitle,
 } from '@/components/reui/frame';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRepository } from '@/hooks/use-repository';
+import { RetryIcon } from '@/lib/icon-vocabulary';
 import { queryKeys } from '@/lib/query-keys';
 import { IMMUTABLE_QUERY } from '@/lib/runtime-limits';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -346,7 +348,7 @@ export function ClioMeshViewport({
             <ImageDownIcon aria-hidden="true" />
           </HeaderAction>
           <HeaderAction disabled={!parsed} label="Reset view" onClick={() => resetRef.current?.()}>
-            <RotateCcwIcon aria-hidden="true" />
+            <RetryIcon aria-hidden="true" />
           </HeaderAction>
         </FrameHeader>
         <FramePanel className="p-0">
@@ -362,7 +364,10 @@ export function ClioMeshViewport({
               role="img"
             >
               {!parsed ? (
-                <div className="absolute inset-0 animate-pulse bg-muted motion-reduce:animate-none" />
+                <Skeleton
+                  aria-label={`Loading ${heading} mesh`}
+                  className="absolute inset-0 rounded-none motion-reduce:animate-none"
+                />
               ) : null}
               {probe && probeField ? (
                 <div

@@ -2,13 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { numberSliderSchema } from './a2ui-slider-catalog';
 import { ClioNumberSlider } from './number-slider';
-import {
-  effectiveStep,
-  formatSliderValue,
-  parseTypedValue,
-  snapToStep,
-  stepDecimals,
-} from './number-slider-values';
+import { effectiveStep, snapToStep, stepDecimals } from './number-slider-values';
 
 afterEach(cleanup);
 
@@ -27,22 +21,12 @@ describe('number slider values', () => {
     expect(stepDecimals(0.01)).toBe(2);
     expect(stepDecimals(5)).toBe(0);
     expect(stepDecimals(1e-7)).toBe(7);
-    expect(formatSliderValue(0.3, DENSITY)).toBe('0.30');
   });
 
   it('falls back to a hundredth of the range without a usable step', () => {
     expect(effectiveStep({ min: 0, max: 1 })).toBe(0.01);
     expect(effectiveStep({ min: 0, max: 1, step: 0 })).toBe(0.01);
     expect(effectiveStep({ min: 5, max: 5 })).toBe(1);
-  });
-
-  it('parses typed numbers, including a decimal comma, and rejects text', () => {
-    expect(parseTypedValue(' 0.457 ', DENSITY)).toBe(0.46);
-    expect(parseTypedValue('0,45', DENSITY)).toBe(0.45);
-    expect(parseTypedValue('.5', DENSITY)).toBe(0.5);
-    expect(parseTypedValue('2', DENSITY)).toBe(1);
-    expect(parseTypedValue('abc', DENSITY)).toBeUndefined();
-    expect(parseTypedValue('', DENSITY)).toBeUndefined();
   });
 });
 
@@ -70,13 +54,13 @@ describe('ClioNumberSlider', () => {
     );
     const box = screen.getByLabelText('Density threshold', { selector: 'input' });
     expect(box).toHaveValue('0.30');
-    fireEvent.focus(box);
+    box.focus();
     fireEvent.change(box, { target: { value: '0.456' } });
     fireEvent.keyDown(box, { key: 'Enter' });
     expect(setValue).toHaveBeenCalledWith(0.46);
   });
 
-  it('says what went wrong for text that is not a number, and does not write it', () => {
+  it('clamps a typed value outside the range to the nearest end', () => {
     const setValue = vi.fn();
     render(
       <ClioNumberSlider
@@ -90,13 +74,12 @@ describe('ClioNumberSlider', () => {
       />,
     );
     const box = screen.getByLabelText('Scale', { selector: 'input' });
-    fireEvent.change(box, { target: { value: 'lots' } });
-    fireEvent.blur(box);
-    expect(screen.getByText('Enter a number from 0.0 to 10.0.')).toBeInTheDocument();
-    expect(box).toHaveAttribute('aria-invalid', 'true');
-    expect(setValue).not.toHaveBeenCalled();
-    fireEvent.keyDown(box, { key: 'Escape' });
     expect(box).toHaveValue('2.0');
+    expect(screen.getByText('×')).toBeInTheDocument();
+    fireEvent.focus(box);
+    fireEvent.change(box, { target: { value: '42' } });
+    fireEvent.blur(box);
+    expect(setValue).toHaveBeenCalledWith(10);
   });
 
   it('follows the bound value when it changes from outside', () => {

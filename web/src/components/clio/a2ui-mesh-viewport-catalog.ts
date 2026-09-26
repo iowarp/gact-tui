@@ -2,6 +2,7 @@ import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { CommonSchemas } from '@a2ui/web_core/v0_9';
 import { createElement, lazy, Suspense } from 'react';
 import { z } from 'zod';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { MeshCameraState } from './mesh-viewport-sync';
 
 // three.js is only fetched once a surface actually contains a viewport.
@@ -36,7 +37,7 @@ export const ClioMeshViewportCatalogComponent = createComponentImplementation(
   ({ props }) =>
     createElement(
       Suspense,
-      { fallback: createElement('div', { className: 'h-80 animate-pulse rounded-lg bg-muted' }) },
+      { fallback: createElement(Skeleton, { className: 'h-80 rounded-lg' }) },
       createElement(LazyMeshViewport, {
         accessibility: props.accessibility,
         // The binder writes back only when `camera` is bound to a data-model path.

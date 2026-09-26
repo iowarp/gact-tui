@@ -29,18 +29,3 @@ export function snapToStep(value: number, range: SliderRange): number {
   const decimals = stepDecimals(step);
   return Number(Math.min(max, Math.max(min, snapped)).toFixed(decimals));
 }
-
-export function formatSliderValue(value: number, range: SliderRange): string {
-  return value.toFixed(stepDecimals(effectiveStep(range)));
-}
-
-/**
- * Parse what the person typed. Accepts a comma as the decimal separator.
- * Returns the snapped value, or undefined when the text is not a number.
- */
-export function parseTypedValue(text: string, range: SliderRange): number | undefined {
-  const normalized = text.trim().replace(',', '.');
-  if (!/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/iu.test(normalized)) return undefined;
-  const value = Number(normalized);
-  return Number.isFinite(value) ? snapToStep(value, range) : undefined;
-}
