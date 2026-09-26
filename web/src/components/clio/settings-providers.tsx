@@ -1,45 +1,83 @@
-import { useSearchParams } from 'react-router-dom';
+import type { LanguageModelPreset } from '@clio/core/v3';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
+import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { IconTile } from '@/components/reui/icon-tile';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useApplyModelConfiguration } from '@/hooks/use-apply-model-configuration';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
-import { providerLogoId } from '@/lib/provider-presentation';
-import { cn } from '@/lib/utils';
-import { providerUsableModelCount, type ProviderGroup } from './model-picker-model';
-import { useProviderActions } from './provider-actions';
-import { ProviderHeartbeat } from './provider-heartbeat';
+import { useSavedServers } from '@/hooks/use-saved-servers';
+import { CUSTOM_SERVER_PRESET_ID, isLocalServerPreset } from '@/lib/local-servers';
+import type { ClioModelOption } from '@/lib/model-options';
+import { providerDisplayName, providerLogoId } from '@/lib/provider-presentation';
+import { ClioModelPicker } from './model-picker';
+import { resolveActivePreset } from './settings-models-form';
+import { SettingsAddServerDialog } from './settings-add-server-dialog';
+import { SettingsLocalServerCard } from './settings-local-server-card';
 import { SettingsSectionHeading } from './settings-section-heading';
-import { ProviderSettingsPanel } from './settings-provider-panel';
 
 /**
- * Settings > Providers: one entry per provider the service reports, each with
- * the same heartbeat the model picker shows; selecting one opens its
- * management panel (state, actions, availability, models, visibility).
- * `?provider=<id>` selects a provider -- the link the picker's strip and the
- * service's own `configuration_url` both hand out.
+ * Settings > Providers: what the model picker cannot do -- model servers
+ * that run on this computer or the person's own machines. Each local server
+ * is a card with its status and its address, edited in place, saved on the
+ * service (which probes it from then on) and checked at once; "Add a
+ * server" saves any OpenAI-compatible address. Cloud and
+ * subscription providers are set up in the model picker, which this page
+ * opens on the provider asked for.
  */
 export function ProvidersSettings() {
-  const { catalog, configuration, groups, presets } = useProviderGroups();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const requested = searchParams.get('provider');
-  const selected = groups.find((group) => group.id === requested) ?? groups[0];
-  const preset = presets.find((item) => item.id === selected?.id);
-  // ONE actions instance for the selected provider -- the same hook the
-  // picker runs for its open submenu; it resets when the selection changes.
-  const actions = useProviderActions({
-    presetId: selected?.id ?? '',
-    apiBase: selected?.endpoint ?? preset?.api_base ?? '',
-    preset,
-  });
-  const loading = configuration.isPending || (catalog.isPending && !catalog.data);
-  const error = configuration.error ?? (catalog.data ? undefined : catalog.error);
+  const { catalog, configuration, groups, options, presets } = useProviderGroups();
+  const { servers } = useSavedServers();
+  const saved = servers.data ?? [];
+  const apply = useApplyModelConfiguration();
+  const loading = configuration.isPending || (catalog.isPending && !catalog.data) || servers.isPending;
+  const error = configuration.error ?? servers.error ?? (catalog.data ? undefined : catalog.error);
+  const active = configuration.data ? resolveActivePreset(configuration.data) : undefined;
+  const locals = presets.filter(isLocalServerPreset);
+  const others = presets.filter((preset) => !isLocalServerPreset(preset));
+  const customs = saved.filter((server) => server.custom);
+  const customPreset = presets.find((preset) => preset.id === CUSTOM_SERVER_PRESET_ID);
+  const activeAddress = configuration.data?.api_base ?? '';
+  // The default is a custom server when the bound address is one of theirs.
+  const defaultCustom = active?.id === CUSTOM_SERVER_PRESET_ID
+    ? customs.find((server) => server.address === activeAddress)
+    : undefined;
+  const catalogStatus = catalog.isPending && !catalog.data ? 'loading' : catalog.error && !catalog.data ? 'error' : 'ready';
+
+  function adoptServer(preset: LanguageModelPreset, address: string, model: string | undefined) {
+    const staying = preset.id === active?.id;
+    apply.mutate({
+      requiresKey: false,
+      update: {
+        provider_id: preset.provider_id || preset.id,
+        provider: preset.provider,
+        api_base: address,
+        model: model ?? (staying ? (configuration.data?.model ?? '') : (preset.suggested_model ?? '')),
+        provider_options: {},
+      },
+    });
+  }
+
+  function chooseModel(choice: ClioModelOption) {
+    const preset = presets.find((item) => item.id === choice.providerId);
+    if (!preset) return;
+    apply.mutate({
+      requiresKey: preset.requires_api_key,
+      update: {
+        provider_id: preset.provider_id || preset.id,
+        provider: preset.provider,
+        api_base: preset.id === active?.id ? (configuration.data?.api_base ?? '') : (preset.api_base ?? ''),
+        model: choice.id,
+        provider_options: {},
+        ...(choice.transport ? { variant: choice.transport } : {}),
+      },
+    });
+  }
 
   return (
     <div className="grid gap-6">
       <SettingsSectionHeading
-        info="Sign-in, API keys and model discovery for each provider the connected service reports."
+        info="Model servers on this computer or your own machines. Cloud and subscription providers are set up from the model picker."
         title="Providers"
       />
       {error ? (
@@ -47,103 +85,78 @@ export function ProvidersSettings() {
           {error.message}
         </p>
       ) : loading ? (
-        <ProvidersSkeleton />
-      ) : !groups.length ? (
-        <p className="text-sm text-muted-foreground">No providers reported.</p>
+        <Skeleton aria-label="Loading providers" className="h-64 w-full max-w-3xl" role="status" />
       ) : (
-        <div className="grid gap-6 md:grid-cols-[15rem_minmax(0,1fr)]">
-          <nav aria-label="Providers" className="grid content-start gap-1">
-            {groups.map((group) => (
-              <ProviderListEntry
-                group={group}
-                key={group.id}
-                onSelect={() =>
-                  setSearchParams(
-                    (current) => {
-                      const next = new URLSearchParams(current);
-                      next.set('provider', group.id);
-                      return next;
-                    },
-                    { replace: true },
-                  )
-                }
-                selected={group.id === selected?.id}
-                stage={group.id === selected?.id ? actions.stage : undefined}
-              />
+        <>
+          <Frame className="max-w-3xl" data-slot="local-servers" stacked>
+            <FrameHeader className="flex-row items-center justify-between gap-3">
+              <FrameTitle>Model servers</FrameTitle>
+              <SettingsAddServerDialog />
+            </FrameHeader>
+            {locals.map((preset) => (
+              <FramePanel key={preset.id}>
+                <SettingsLocalServerCard
+                  applying={apply.isPending}
+                  catalogEntry={catalog.data?.providers.find((entry) => entry.id === preset.id)}
+                  group={groups.find((group) => group.id === preset.id)}
+                  isDefault={preset.id === active?.id && !defaultCustom}
+                  onUse={(address, model) => adoptServer(preset, address, model)}
+                  preset={preset}
+                  saved={saved.find((server) => server.id === preset.id)}
+                />
+              </FramePanel>
             ))}
-          </nav>
-          {selected ? (
-            <ProviderSettingsPanel
-              actions={actions}
-              catalogEntry={catalog.data?.providers.find((entry) => entry.id === selected.id)}
-              group={selected}
-              key={selected.id}
-              preset={preset}
-            />
+            {customPreset
+              ? customs.map((server) => (
+                  <FramePanel key={server.id}>
+                    <SettingsLocalServerCard
+                      applying={apply.isPending}
+                      catalogEntry={undefined}
+                      group={undefined}
+                      isDefault={server.id === defaultCustom?.id}
+                      onUse={(address, model) => adoptServer(customPreset, address, model)}
+                      preset={customPreset}
+                      saved={server}
+                    />
+                  </FramePanel>
+                ))
+              : null}
+          </Frame>
+          {apply.error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {apply.error.message}
+            </p>
           ) : null}
-        </div>
+          <section aria-labelledby="cloud-providers" className="grid max-w-3xl gap-3">
+            <div className="flex flex-col gap-0.5">
+              <h2 className="text-sm font-semibold" id="cloud-providers">
+                Cloud and subscription providers
+              </h2>
+              <p className="text-sm text-muted-foreground">Keys and sign-ins live in the model picker.</p>
+            </div>
+            <div className="flex flex-wrap gap-2" data-slot="cloud-providers">
+              {others.map((preset) => (
+                <ClioModelPicker
+                  catalogStatus={catalogStatus}
+                  key={preset.id}
+                  onChange={chooseModel}
+                  onRetryCatalog={(id) => catalog.refreshCatalog(id)}
+                  options={options}
+                  provider={preset.id}
+                  trigger={
+                    <Button className="h-9 gap-2 ps-1.5" type="button" variant="outline">
+                      <IconTile aria-hidden="true" size="xs" variant="outline">
+                        <ModelSelectorLogo className="size-4" provider={providerLogoId(preset.id)} />
+                      </IconTile>
+                      {providerDisplayName(preset)}
+                    </Button>
+                  }
+                />
+              ))}
+            </div>
+          </section>
+        </>
       )}
-    </div>
-  );
-}
-
-function ProviderListEntry({
-  group,
-  onSelect,
-  selected,
-  stage,
-}: {
-  group: ProviderGroup;
-  onSelect: () => void;
-  selected: boolean;
-  stage?: string;
-}) {
-  const count = providerUsableModelCount(group);
-  return (
-    <div
-      className={cn(
-        'flex min-w-0 items-center gap-1 rounded-md pe-1',
-        selected ? 'bg-secondary' : 'hover:bg-muted/60',
-      )}
-      data-provider-id={group.id}
-      data-slot="provider-list-entry"
-    >
-      <Button
-        aria-current={selected ? 'true' : undefined}
-        className="h-10 min-w-0 flex-1 justify-start gap-2 px-2 hover:bg-transparent"
-        onClick={onSelect}
-        type="button"
-        variant="ghost"
-      >
-        <IconTile aria-hidden="true" size="sm" variant="outline">
-          <ModelSelectorLogo className="size-5" provider={providerLogoId(group.id)} />
-        </IconTile>
-        <span className="min-w-0 flex-1 truncate text-start">{group.name}</span>
-        {count ? (
-          <Badge aria-label={`${count} models`} className="shrink-0" variant="secondary">
-            {count}
-          </Badge>
-        ) : null}
-      </Button>
-      <ProviderHeartbeat group={group} stage={stage} />
-    </div>
-  );
-}
-
-function ProvidersSkeleton() {
-  return (
-    <div
-      aria-busy="true"
-      aria-label="Loading providers"
-      className="grid gap-6 md:grid-cols-[15rem_minmax(0,1fr)]"
-      role="status"
-    >
-      <div className="grid content-start gap-2">
-        {Array.from({ length: 6 }, (_, index) => (
-          <Skeleton className="h-10 w-full" key={index} />
-        ))}
-      </div>
-      <Skeleton className="h-64 w-full" />
     </div>
   );
 }

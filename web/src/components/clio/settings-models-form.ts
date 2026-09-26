@@ -16,58 +16,7 @@ import { knownReasoningEffort } from '@/lib/reasoning-levels';
  *     reasoning level, the token cap, or the local runtime's sizing.
  */
 
-import type { LanguageModelConfiguration, LanguageModelPreset, ProviderModel } from '@clio/core/v3';
-
-/** Keep configured models visible, but never promote unverified candidates. */
-export function modelSettingsOptions({
-  catalog,
-  configuration,
-  modelId,
-  preset,
-}: {
-  catalog: readonly ProviderModel[];
-  configuration: LanguageModelConfiguration;
-  modelId: string;
-  preset?: LanguageModelPreset;
-}): ProviderModel[] {
-  const subscription = preset && ['codex', 'claude_code'].includes(preset.provider);
-  const configured =
-    subscription &&
-    presetIsActive(configuration, preset) &&
-    modelId &&
-    !catalog.some((model) => model.id === modelId)
-      ? [{ id: modelId, name: modelId, availability: 'candidate' as const }]
-      : [];
-  if (catalog.length || subscription) return [...configured, ...catalog];
-  return [...new Set([modelId, preset?.suggested_model].filter(Boolean))].map((id) => ({
-    id: id as string,
-    name: id as string,
-  }));
-}
-
-/**
- * Only verified subscription providers and complete credentials can be
- * applied. A key provider's key is entered on Settings > Providers, which
- * stores it; here it only has to exist.
- */
-export function canApplyProvider(
-  preset: LanguageModelPreset | undefined,
-  values: ModelSettingsValues,
-  storedCredential?: string,
-): boolean {
-  if (!preset) return false;
-  if (
-    preset.configuration_fields?.some(
-      (field) => field.required && !values.providerOptions[field.id]?.trim(),
-    )
-  )
-    return false;
-  return Boolean(
-    preset.is_authenticated ||
-      (preset.requires_api_key && storedCredential) ||
-      (preset.auth_method === 'none' && !['codex', 'claude_code'].includes(preset.provider)),
-  );
-}
+import type { LanguageModelConfiguration, LanguageModelPreset } from '@clio/core/v3';
 
 export type { ReasoningEffort } from '@clio/core/v3';
 
@@ -122,6 +71,8 @@ export interface ModelSettingsUpdate {
   context_length?: number;
   max_tokens?: number;
   temperature?: number;
+  /** The transport a multi-transport provider binds (the chosen model row's own). */
+  variant?: string;
 }
 
 /**
@@ -178,7 +129,10 @@ export function seedModelSettings({
     modelId: presetIsActive ? configuration.model : (preset?.suggested_model ?? ''),
     parallel: '',
     providerOptions: presetIsActive ? (configuration.provider_options ?? {}) : {},
-    temperature: numberField(configuration.temperature),
+    // The service echoes 0 when no temperature was ever set (its own default,
+    // not a choice), so 0 reads as "Provider default": the field stays blank
+    // and an Apply never writes it back.
+    temperature: configuration.temperature ? numberField(configuration.temperature) : '',
   };
 }
 

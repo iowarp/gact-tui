@@ -73,7 +73,6 @@ export interface ClioComposerProps {
   attachments: boolean;
   provider?: string;
   model?: string;
-  modelCatalogRefreshing?: boolean;
   modelCatalogStatus?: 'error' | 'loading' | 'ready';
   effort?: string;
   /** The configured (global) level: displayed when nothing is picked, never sent. */
@@ -158,7 +157,6 @@ export function ClioComposer({
   attachments,
   provider,
   model,
-  modelCatalogRefreshing = false,
   modelCatalogStatus = 'ready',
   effort,
   configuredEffort,
@@ -648,7 +646,6 @@ export function ClioComposer({
               disabled={disabled}
               modelControl={
                 <ClioModelPicker
-                  catalogRefreshing={modelCatalogRefreshing}
                   catalogStatus={modelCatalogStatus}
                   model={selectedOption?.id}
                   onChange={(option) => {

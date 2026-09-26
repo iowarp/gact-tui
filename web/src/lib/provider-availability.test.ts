@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   providerAvailability,
   providerConnectionLabel,
-  providerConnectionNote,
   providerCredentialKind,
   providerCredentialLabel,
   providerCredentialStateLabel,
@@ -198,14 +197,11 @@ describe('credential wording follows the auth method', () => {
     expect(providerAvailability(undefined, { ...apiKey, status: undefined }).label).toBe('API key needed');
   });
 
-  it('never shows a wire token like "skipped": an unprobed connection is Not checked, with why', () => {
+  it('never shows a wire token like "skipped": an unprobed connection is Not checked', () => {
     expect(providerConnectionLabel('skipped')).toBe('Not checked');
     expect(providerConnectionLabel(undefined)).toBe('Not checked');
     expect(providerConnectionLabel('ok')).toBe('Reachable');
     expect(providerConnectionLabel('unreachable')).toBe('Unreachable');
-    expect(providerConnectionNote(apiKey, 'skipped')).toBe('Checked once an API key is saved.');
-    expect(providerConnectionNote(oauth, 'skipped')).toBe('Checked once you sign in.');
-    expect(providerConnectionNote(apiKey, 'ok')).toBeUndefined();
   });
 
   it('states the credential verdict in its own terms', () => {

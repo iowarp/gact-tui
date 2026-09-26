@@ -1,7 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { CascaderColumnPanel } from '@/components/reui/cascader/cascader-columns';
+import {
+  CascaderColumnPanel,
+  type CascaderColumnPanelProps,
+} from '@/components/reui/cascader/cascader-columns';
 import {
   useCascaderActions,
   useCascaderHighlight,
@@ -294,6 +297,10 @@ export interface CascaderVirtualColumnProps extends CascaderVirtualItemsProps {
   column: CascaderColumn;
   /** Forwarded to {@link CascaderColumnPanel} -- see its own doc. */
   footer?: React.ReactNode;
+  /** Forwarded to {@link CascaderColumnPanel}; a split column is never windowed. */
+  sections?: CascaderColumnPanelProps['sections'];
+  /** Forwarded to {@link CascaderColumnPanel} -- see its own doc. */
+  empty?: React.ReactNode;
 }
 
 /**
@@ -308,6 +315,8 @@ function CascaderVirtualColumn({
   estimateSize,
   overscan,
   footer,
+  sections,
+  empty,
 }: CascaderVirtualColumnProps) {
   const { virtualized, registerVirtualRenderer, virtualize, virtualizeThreshold } =
     useCascaderActions();
@@ -318,7 +327,9 @@ function CascaderVirtualColumn({
     ? virtualized
     : (virtualize ?? column.items.length >= virtualizeThreshold);
 
-  if (!windowed) return <CascaderColumnPanel column={column} footer={footer} />;
+  if (!windowed || sections || (empty !== undefined && column.items.length === 0)) {
+    return <CascaderColumnPanel column={column} empty={empty} footer={footer} sections={sections} />;
+  }
 
   return (
     <CascaderColumnPanel column={column} footer={footer} virtualized>

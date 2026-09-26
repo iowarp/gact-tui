@@ -23,6 +23,7 @@ export * from './document-repository.js';
 export * from './mcp-repository.js';
 export * from './prompt-repository.js';
 export * from './provider-repository.js';
+export * from './saved-server-domain.js';
 export * from './artifact-preview-repository.js';
 export * from './composer-conflicts.js';
 export * from './composer-decoding.js';

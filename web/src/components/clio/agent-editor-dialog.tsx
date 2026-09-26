@@ -218,11 +218,6 @@ export function AgentEditorDialog({
               <Field>
                 <FieldLabel>Preferred model</FieldLabel>
                 <ClioModelPicker
-                  catalogRefreshing={
-                    refreshCatalog.isPending ||
-                    modelConfiguration.isFetching ||
-                    modelCatalogs.some((catalog) => catalog.isFetching)
-                  }
                   catalogStatus={modelCatalogStatus}
                   model={effectiveModel}
                   onChange={(choice) => {

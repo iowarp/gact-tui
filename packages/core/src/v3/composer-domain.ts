@@ -284,6 +284,12 @@ export interface ProviderCatalogModel {
   /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
   aliases?: string[];
   modalities: string[];
+  /** chat / embedding / image_generation / ...; absent when no source states it. */
+  model_type?: string;
+  /** False only for a model known to be another type than chat. */
+  chat_selectable?: boolean;
+  /** True when the service states the model costs nothing to use. */
+  free?: boolean;
   /**
    * What this model can do about thinking, from provider truth: `levels` are the
    * levels a person can choose (empty means no selector), `default` the model's
@@ -317,6 +323,10 @@ export interface ProviderCatalogModel {
     context_source: string;
   };
   failure: string;
+  /** Where each effective capability value came from, keyed by capability
+   * field (`modalities`, `native_tool_calling`, `context_window`,
+   * `reasoning`, ...): the evidence source and the rule that decided it. */
+  capabilities_provenance?: Record<string, { source: string; decided_by: string }>;
   /** Which of the provider's `transports` (below) this model came from -- set
    * only for a multi-transport provider (Codex: `"sdk"` | `"direct"`). */
   transport?: string;

@@ -20,6 +20,9 @@ import { modelReasoningLevels, type ModelReasoningLevels } from './reasoning-lev
  */
 export const PROVIDER_NEEDS_SETUP = 'needs_setup';
 
+/** The availability the service reports for a model known not to be a chat model. */
+export const NOT_CHAT_AVAILABILITY = 'not_chat';
+
 export interface ClioModelOption {
   providerId: string;
   providerName: string;
@@ -41,6 +44,19 @@ export interface ClioModelOption {
   modalities?: readonly string[];
   /** Thinking levels this model offers, from the live catalog. */
   reasoning?: ModelReasoningLevels;
+  /** Whether the model calls tools natively, when the live catalog says. */
+  toolCalling?: boolean;
+  /** The model's context window in tokens, when the service reports one. */
+  contextWindow?: number;
+  /** chat / embedding / image_generation / ...; absent when no source states it. */
+  modelType?: string;
+  /** False only for a model known to be another type than chat. */
+  chatSelectable?: boolean;
+  /** True when the service states the model costs nothing to use. */
+  free?: boolean;
+  /** Where each capability value came from, keyed by the catalog's capability
+   * field names (see `ProviderCatalogModel.capabilities_provenance`). */
+  capabilityProvenance?: Readonly<Record<string, { source: string; decided_by: string }>>;
   /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
   aliases?: readonly string[];
   /** This provider's OWN transports (Codex: sdk + direct), present on every
@@ -95,6 +111,7 @@ export function findSelectedModelOption<
 const MODEL_AVAILABILITY_LABELS: Record<string, string> = {
   available: 'Available',
   candidate: 'Reported but not verified',
+  not_chat: 'Not a chat model',
   unavailable: 'Unavailable',
 };
 
@@ -152,6 +169,7 @@ export function buildModelOptions({
         id: item.id,
         label: item.name ?? item.label ?? item.id,
         description: item.description,
+        contextWindow: item.context_window,
         available: preset.is_authenticated,
         availabilityDetail: preset.is_authenticated
           ? undefined
@@ -273,7 +291,14 @@ function liveProviderOptions(
       // rows is noise. It reaches the provider's detail (shown once, in the
       // picker's action strip) through `availabilityDetail` below.
       description: undefined,
-      available: model.availability === 'available' || usableCandidate || staleCandidate,
+      // A model known to be another type than chat (an image generator, a
+      // classifier) is a first-class row: listed and tagged for what it is.
+      // Only choosing it as the CHAT model is refused, by the picker.
+      available:
+        model.availability === 'available' ||
+        model.availability === NOT_CHAT_AVAILABILITY ||
+        usableCandidate ||
+        staleCandidate,
       availabilityDetail:
         model.availability === 'available'
           ? undefined
@@ -283,6 +308,12 @@ function liveProviderOptions(
               : modelAvailabilityLabel(model.availability))),
       modalities: model.modalities,
       reasoning: modelReasoningLevels(model.reasoning),
+      toolCalling: model.native_tool_calling,
+      contextWindow: model.loaded_context_window || model.context_window,
+      modelType: model.model_type,
+      chatSelectable: model.chat_selectable,
+      free: model.free,
+      capabilityProvenance: model.capabilities_provenance,
       aliases: model.aliases,
       transport: model.transport,
     };

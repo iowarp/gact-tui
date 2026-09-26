@@ -199,11 +199,13 @@ export function providerCredentialPrompt(
 
 /**
  * What a provider that is not usable yet is waiting for, from its latest
- * reported state: an install, a sign-in, an API key, or a first check.
+ * reported state: an install, a sign-in, an API key, or a first check --
+ * or, for a server on this computer that is not answering, to be started
+ * (`start`: not an error; set by the provider-group derivation).
  * `undefined` means nothing is outstanding -- a signed-in, verified
  * provider -- whether or not a model catalog entry exists for it yet.
  */
-export type ProviderSetupNeed = 'install' | 'sign_in' | 'api_key' | 'check';
+export type ProviderSetupNeed = 'install' | 'sign_in' | 'api_key' | 'check' | 'start';
 
 export function providerSetupNeed(
   preset: LanguageModelPreset | undefined,
@@ -228,7 +230,9 @@ export function providerSetupNeedLabel(need: ProviderSetupNeed | undefined): str
         ? 'Needs API key'
         : need === 'check'
           ? 'Not checked'
-          : 'Needs setup';
+          : need === 'start'
+            ? 'Not running'
+            : 'Needs setup';
 }
 
 /**
@@ -246,20 +250,6 @@ export function providerConnectionLabel(connectivity: string | undefined): strin
     default:
       return 'Not checked';
   }
-}
-
-/** Why the connection was not checked, when it was not -- for an info tip. */
-export function providerConnectionNote(
-  preset: LanguageModelPreset | undefined,
-  connectivity: string | undefined,
-): string | undefined {
-  if (providerConnectionLabel(connectivity) !== 'Not checked') return undefined;
-  if (preset && !preset.is_authenticated) {
-    return providerCredentialKind(preset) === 'api_key'
-      ? 'Checked once an API key is saved.'
-      : 'Checked once you sign in.';
-  }
-  return 'Checked when you verify the provider.';
 }
 
 /** A provider check's credential verdict (`AuthState` on the wire) in the credential's own terms. */
