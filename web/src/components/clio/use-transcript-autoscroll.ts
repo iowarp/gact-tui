@@ -58,8 +58,12 @@ function nestedScrollerConsumesUp(target: EventTarget | null, root: HTMLElement)
 }
 
 interface TranscriptAutoscroll {
-  /** Live engagement flag for effects and observers that must not re-render. */
-  engagedRef: RefObject<boolean>;
+  /**
+   * Whether layout growth and new output should pull the view to the bottom:
+   * engaged AND the view is currently stuck to the bottom. Live ref for
+   * effects and observers that must not re-render.
+   */
+  followingRef: RefObject<boolean>;
   /** Render-time engagement; the scroll-to-bottom control shows when false. */
   engaged: boolean;
   /** Programmatic scroll to the bottom. Never changes engagement. */
@@ -87,12 +91,27 @@ interface TranscriptAutoscroll {
  * re-engages. Content growth, virtualizer measurement, and resize never count
  * as user intent — while engaged they are followed, while disengaged the view
  * stays where the reader left it.
+ *
+ * Following also requires the view to be stuck to the bottom. A non-user
+ * programmatic navigation (a script's `scrollTo`, find-in-page, a focus
+ * `scrollIntoView`) is not user intent, so it never disengages or shows the
+ * button, but it does unstick the view: growth then leaves it where that code
+ * put it instead of seizing it back. A scroll is navigation when the geometry
+ * is unchanged since the last observation; one that coincides with a size
+ * change (virtualizer compensation, a clamp) is layout and leaves the stuck
+ * state alone.
  */
 export function useTranscriptAutoscroll(
   scrollRef: RefObject<HTMLDivElement | null>,
 ): TranscriptAutoscroll {
   const engagedRef = useRef(true);
   const [engaged, setEngagedState] = useState(true);
+  const stuckRef = useRef(true);
+  const followingRef = useRef(true);
+  // Geometry at the last scroll we observed or produced. Deliberately not
+  // updated by the ResizeObserver, so the scroll event a resize causes still
+  // reads as a size change.
+  const geometryRef = useRef({ scrollHeight: -1, clientHeight: -1 });
   // The scrollTop our last instant programmatic scroll produced; the scroll
   // event reporting it is ours, never the reader's. One-shot, and dropped by
   // any user input so a reader returning to that exact spot still counts.
@@ -103,9 +122,27 @@ export function useTranscriptAutoscroll(
   const contentElementsRef = useRef(new Set<HTMLElement>());
   const observerRef = useRef<ResizeObserver | null>(null);
 
-  const setEngaged = useCallback((next: boolean) => {
-    engagedRef.current = next;
-    setEngagedState(next);
+  const setStuck = useCallback((next: boolean) => {
+    stuckRef.current = next;
+    followingRef.current = engagedRef.current && next;
+  }, []);
+
+  const setEngaged = useCallback(
+    (next: boolean) => {
+      engagedRef.current = next;
+      setEngagedState(next);
+      // Every engagement lands the view at the bottom (the button scrolls
+      // there; a reader scroll re-engages only on arrival).
+      setStuck(next || stuckRef.current);
+    },
+    [setStuck],
+  );
+
+  const recordGeometry = useCallback((element: HTMLElement) => {
+    geometryRef.current = {
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+    };
   }, []);
 
   const scrollToBottom = useCallback(
@@ -114,8 +151,10 @@ export function useTranscriptAutoscroll(
       if (!element) return;
       element.scrollTo({ behavior, top: element.scrollHeight });
       programmaticTopRef.current = behavior === 'smooth' ? null : element.scrollTop;
+      recordGeometry(element);
+      setStuck(true);
     },
-    [scrollRef],
+    [recordGeometry, scrollRef, setStuck],
   );
 
   const engage = useCallback(() => {
@@ -148,21 +187,31 @@ export function useTranscriptAutoscroll(
     const programmaticTop = programmaticTopRef.current;
     if (programmaticTop !== null && Math.abs(element.scrollTop - programmaticTop) <= 1) {
       programmaticTopRef.current = null;
+      recordGeometry(element);
       return;
     }
+    const previous = geometryRef.current;
+    const resized =
+      previous.scrollHeight !== element.scrollHeight ||
+      previous.clientHeight !== element.clientHeight;
+    recordGeometry(element);
+    const atBottom = distanceFromBottom(element) <= BOTTOM_EPSILON_PX;
+    // Navigation (geometry unchanged) decides stuck outright; a scroll caused
+    // by a size change can only confirm it, never unstick.
+    setStuck(resized ? stuckRef.current || atBottom : atBottom);
     const userDriven =
       scrollbarPointerRef.current ||
       touchYRef.current !== null ||
       performance.now() - lastUserInputAtRef.current <= USER_SCROLL_WINDOW_MS;
     if (!userDriven) return;
-    if (distanceFromBottom(element) <= BOTTOM_EPSILON_PX) {
+    if (atBottom) {
       if (!engagedRef.current) setEngaged(true);
     } else if (scrollbarPointerRef.current && engagedRef.current) {
       // Wheel, key, and touch disengage from their input events; a scrollbar
       // drag has no directional input event, only the scroll it produces.
       setEngaged(false);
     }
-  }, [scrollRef, setEngaged]);
+  }, [recordGeometry, scrollRef, setEngaged, setStuck]);
 
   const onWheel = useCallback(
     (event: WheelEvent<HTMLElement>) => {
@@ -262,7 +311,7 @@ export function useTranscriptAutoscroll(
     const element = scrollRef.current;
     if (!element || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
-      if (engagedRef.current) scrollToBottom('instant');
+      if (followingRef.current) scrollToBottom('instant');
     });
     observerRef.current = observer;
     observer.observe(element);
@@ -286,7 +335,7 @@ export function useTranscriptAutoscroll(
   }, []);
 
   return {
-    engagedRef,
+    followingRef,
     engaged,
     scrollToBottom,
     engage,

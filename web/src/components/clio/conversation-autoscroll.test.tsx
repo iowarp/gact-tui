@@ -80,6 +80,10 @@ function stubScrollGeometry() {
         for (const callback of observers) callback([], {} as ResizeObserver);
       });
     },
+    /** Change the content height before any observer has delivered. */
+    resizeContent(delta: number) {
+      scrollHeight += delta;
+    },
   };
 }
 
@@ -256,17 +260,42 @@ describe('ClioConversation transcript autoscroll', () => {
     expect(scrollButton()).toBeNull();
   });
 
-  it('does not disengage on resize, measurement, or programmatic scroll', () => {
+  it('keeps following through a virtualizer measurement that shifts scrollTop', () => {
     const geometry = stubScrollGeometry();
     render(conversation('Streaming'));
     const log = screen.getByRole('log', { name: 'Conversation' });
 
-    // A virtualizer adjustment or a clamp moves scrollTop without user input.
-    log.scrollTop = 800;
+    // A row above the viewport is re-measured: the content grows and the
+    // virtualizer compensates scrollTop, which lands short of the new bottom.
+    geometry.resizeContent(300);
+    log.scrollTop += 120;
     fireEvent.scroll(log);
     expect(scrollButton()).toBeNull();
-    // The next layout change still follows, because autoscroll stayed engaged.
-    geometry.grow(250);
+    // The resize delivery still follows, because layout never unsticks.
+    geometry.grow(0);
+    expect(log.scrollTop).toBe(geometry.bottom());
+    expect(scrollButton()).toBeNull();
+  });
+
+  it('never treats a script scroll as intent, and does not pull it back on growth', () => {
+    const geometry = stubScrollGeometry();
+    render(conversation('Streaming'));
+    const log = screen.getByRole('log', { name: 'Conversation' });
+
+    // A harness or find-in-page navigates with scrollTo; no user input.
+    log.scrollTop = 0;
+    fireEvent.scroll(log);
+    expect(scrollButton()).toBeNull();
+    // Deferred surfaces mount as they near the viewport and grow the content;
+    // the view stays where the script put it.
+    geometry.grow(400);
+    expect(log.scrollTop).toBe(0);
+    expect(scrollButton()).toBeNull();
+
+    // Once the script scrolls back to the bottom, growth follows again.
+    log.scrollTop = geometry.bottom();
+    fireEvent.scroll(log);
+    geometry.grow(300);
     expect(log.scrollTop).toBe(geometry.bottom());
     expect(scrollButton()).toBeNull();
   });

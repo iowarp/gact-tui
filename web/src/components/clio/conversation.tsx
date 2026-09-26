@@ -75,7 +75,7 @@ function ConversationBody({
   const scrollRef = useRef<HTMLDivElement>(null);
   const initialScrollComplete = useRef(false);
   const autoscroll = useTranscriptAutoscroll(scrollRef);
-  const { engagedRef, scrollToBottom, disengage } = autoscroll;
+  const { followingRef, scrollToBottom, disengage } = autoscroll;
   const readingAnchorRef = useRef<TranscriptReadingAnchor | null>(null);
   const [activeMessageIndex, setActiveMessageIndex] = useState(0);
   const [turnDisplayModes, setTurnDisplayModes] = useState<Record<string, ConversationDisplayMode>>(
@@ -165,7 +165,7 @@ function ConversationBody({
       messageCount: messages.length,
       setActiveMessageIndex,
       scrollRef,
-      pinnedToBottomRef: engagedRef,
+      pinnedToBottomRef: followingRef,
       readingAnchorRef,
       virtualized,
       virtualizer,
@@ -177,7 +177,7 @@ function ConversationBody({
     const element = scrollRef.current;
     if (!element) return;
     onAutoscroll();
-    if (engagedRef.current) {
+    if (followingRef.current) {
       readingAnchorRef.current = null;
       setActiveMessageIndex(messages.length - 1);
       return;
@@ -187,7 +187,7 @@ function ConversationBody({
       .find((item) => item.end >= element.scrollTop);
     if (firstVisible) setActiveMessageIndex(firstVisible.index);
     captureReadingAnchor();
-  }, [messages.length, virtualizer, captureReadingAnchor, onAutoscroll, engagedRef]);
+  }, [messages.length, virtualizer, captureReadingAnchor, onAutoscroll, followingRef]);
 
   const jumpToMessage = useCallback(
     (index: number) => {
@@ -212,7 +212,7 @@ function ConversationBody({
   const conversationViewportWidth = useTranscriptWidth({
     virtualized,
     scrollRef,
-    pinnedToBottomRef: engagedRef,
+    pinnedToBottomRef: followingRef,
     readingAnchorRef,
     scrollIntentVersionRef,
     virtualizer,
@@ -263,8 +263,8 @@ function ConversationBody({
   // Streamed deltas and a changed composer inset follow before paint while
   // engaged; the autoscroll hook's ResizeObserver catches later layout growth.
   useLayoutEffect(() => {
-    if (engagedRef.current && messages.length > 0) scrollToBottom('instant');
-  }, [bottomInset, messages, scrollToBottom, engagedRef]);
+    if (followingRef.current && messages.length > 0) scrollToBottom('instant');
+  }, [bottomInset, messages, scrollToBottom, followingRef]);
 
   return (
     <div className="relative h-full min-h-0">
