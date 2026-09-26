@@ -471,7 +471,12 @@ test('installer separates Infrastructure and individual provider choices into un
       `${checkbox} must restore its remembered state instead of a hardcoded default`,
     );
   }
-  assert.equal((providersPage.match(/\$\{WM_SETFONT\}/g) ?? []).length, 5);
+  // The five group headings (and the bold "free") use the page's own bold
+  // font, created from the wizard font and freed when the page closes.
+  assert.equal(
+    (providersPage.match(/\$\{WM_SETFONT\} \$ClioProvidersHeadingFont/g) ?? []).length,
+    6,
+  );
   const verticalPositions = [
     ...providersPage.matchAll(/NSD_Create(?:Label|Checkbox)\}\s+\S+\s+(\d+)u/g),
   ].map((match) => Number(match[1]));
@@ -482,7 +487,7 @@ test('installer separates Infrastructure and individual provider choices into un
   );
 });
 
-test('the providers page remembers choices across re-shows and blocks Next until one is chosen', () => {
+test('the providers page remembers choices across re-shows and disables Next until one is chosen', () => {
   const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
 
   const restoreMacro =
@@ -529,10 +534,37 @@ test('the providers page remembers choices across re-shows and blocks Next until
   assert.equal(appendCalls.length, 16, 'expected one CLIO_APPEND_PROVIDER call per provider');
   assert.match(leave, /!insertmacro CLIO_REMEMBER_ALL_PROVIDERS/);
 
-  // Leave blocks on an empty selection with a clear message, not a silent
-  // "codex,openai" fallback.
-  assert.match(leave, /\$\{If\} \$ClioProviderIds == ""/);
-  assert.match(leave, /MessageBox MB_ICONEXCLAMATION "[^"]*provider[^"]*"/i);
+  // Next is disabled (not refused with a message box) until a provider is
+  // checked: every provider checkbox re-syncs it on click, and the page syncs
+  // it once on show so restored choices (Back, then Next) enable it at once.
+  const syncNext = hooks.match(/Function ClioProvidersSyncNext\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  assert.equal(
+    (syncNext.match(/!insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED \$ClioProvider\w+Checkbox/g) ?? [])
+      .length,
+    16,
+    'Next must consider every provider checkbox',
+  );
+  assert.match(syncNext, /GetDlgItem \$R1 \$HWNDPARENT 1/);
+  assert.match(syncNext, /EnableWindow \$R1 \$R0/);
+  assert.equal(
+    (providersPageBody.match(/\$\{NSD_OnClick\} \$ClioProvider\w+Checkbox ClioProvidersOnToggle/g) ?? [])
+      .length,
+    16,
+    'every provider checkbox must re-sync Next when clicked',
+  );
+  const syncAt = providersPageBody.indexOf('Call ClioProvidersSyncNext');
+  const lastRestoreAt = providersPageBody.lastIndexOf('!insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX');
+  const showAt = providersPageBody.indexOf('nsDialogs::Show');
+  assert.ok(
+    syncAt > lastRestoreAt && syncAt < showAt,
+    'Next must be synced after the remembered choices are restored and before the page shows',
+  );
+  const onToggle = hooks.match(/Function ClioProvidersOnToggle\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  assert.match(onToggle, /Pop \$R0/);
+  assert.match(onToggle, /Call ClioProvidersSyncNext/);
+
+  // Leave keeps only a silent assertion of that invariant: no message box.
+  assert.doesNotMatch(leave, /MessageBox/);
   assert.match(
     leave.match(/\$\{If\} \$ClioProviderIds == ""[\s\S]*?\$\{EndIf\}/)?.[0] ?? '',
     /Abort/,
@@ -541,6 +573,64 @@ test('the providers page remembers choices across re-shows and blocks Next until
   // The removed silent fallback must not reappear anywhere in the file.
   assert.doesNotMatch(hooks, /StrCpy \$ClioProviderIds "codex,openai"/);
   assert.doesNotMatch(hooks, /ClioProviderChoicesCaptured/);
+});
+
+test('the providers page marks recommended providers and explains why in tooltips', () => {
+  const hooks = readFileSync(resolve(root, 'src-tauri', 'installer-hooks.nsh'), 'utf8');
+  const recs = readFileSync(resolve(root, 'src-tauri', 'installer-recommendations.nsh'), 'utf8');
+  const page = hooks.match(/Function ClioProvidersPage\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  assert.match(hooks, /!include "\$\{__FILEDIR__\}\\installer-recommendations\.nsh"/);
+
+  // Recommended: Codex and Claude Code (subscription), Ollama and llama.cpp
+  // (local), OpenRouter (free way in). Each gets a row with its own "Why?".
+  for (const [checkbox, why, link] of [
+    ['ClioProviderCodexCheckbox', 'CLIO_WHY_SUBSCRIPTION', 'ClioWhyCodexLink'],
+    ['ClioProviderClaudeCodeCheckbox', 'CLIO_WHY_SUBSCRIPTION', 'ClioWhyClaudeCodeLink'],
+    ['ClioProviderOllamaCheckbox', 'CLIO_WHY_OLLAMA', 'ClioWhyOllamaLink'],
+    ['ClioProviderLlamaCppCheckbox', 'CLIO_WHY_LLAMACPP', 'ClioWhyLlamaCppLink'],
+    ['ClioProviderOpenRouterCheckbox', 'CLIO_WHY_OPENROUTER', 'ClioWhyOpenRouterLink'],
+  ]) {
+    assert.match(
+      page,
+      new RegExp(`!insertmacro CLIO_RECOMMEND \\$${checkbox} \\d+u "\\$\\{${why}\\}" \\$${link}`),
+      `${checkbox} must carry a recommendation row`,
+    );
+  }
+  assert.equal((page.match(/!insertmacro CLIO_RECOMMEND /g) ?? []).length, 5);
+  assert.match(recs, /!define CLIO_WHY_SUBSCRIPTION "Accessible, powerful frontier models on an affordable subscription\."/);
+  assert.match(recs, /!define CLIO_WHY_OPENROUTER "[^"]*many of them free\. Our recommended free way into CLIO\."/);
+  assert.match(recs, /!define CLIO_WHY_OLLAMA "Easiest local setup\."/);
+  assert.match(recs, /!define CLIO_WHY_LLAMACPP "Best capabilities on a single machine or for a single user\. On shared infrastructure \(a cluster or a team server\), vLLM is usually the better fit\."/);
+
+  // The row: a star, "Recommended", and a "Why?" link in the small link font.
+  const row = recs.match(/Function ClioAddRecommendation\b([\s\S]*?)FunctionEnd/)?.[1] ?? '';
+  assert.match(row, /\$\{NSD_CreateLabel\} [^\n]*"\$\{U\+2605\}"/);
+  assert.match(row, /\$\{NSD_CreateLabel\} [^\n]*"Recommended"/);
+  assert.match(row, /\$\{NSD_CreateLink\} [^\n]*"Why\?"/);
+  assert.match(row, /\$\{WM_SETFONT\} \$ClioProvidersLinkFont/);
+  assert.match(row, /\$\{NSD_OnClick\} \$R0 ClioShowRecommendationWhy/);
+  // One real Win32 tooltip tool per link (TTF_IDISHWND|TTF_SUBCLASS).
+  assert.match(row, /SendMessage \$ClioProvidersTooltip \$\{TTM_ADDTOOLW\} 0 \$R7/);
+  assert.match(row, /&l4, i 0x11, p \$ClioProvidersDialog, p R0/);
+
+  // The tooltip is a TOOLTIPS_CLASS window that wraps and stays up to read.
+  assert.match(page, /CreateWindowExW\([^)]*w "tooltips_class32"/);
+  assert.match(page, /\$\{TTM_SETMAXTIPWIDTH\}/);
+  assert.match(page, /\$\{TTM_SETDELAYTIME\} \$\{TTDT_AUTOPOP\} 30000/);
+
+  // A tooltip cannot bold text, so "free" is spelled out bold on the page.
+  assert.match(page, /"Many models "/);
+  assert.match(page, /"free"\s*\n\s*Pop \$R0\s*\n\s*SendMessage \$R0 \$\{WM_SETFONT\} \$ClioProvidersHeadingFont/);
+
+  // Everything the page creates is released once nsDialogs::Show returns.
+  const afterShow = page.slice(page.indexOf('nsDialogs::Show'));
+  assert.match(afterShow, /DestroyWindow\(p \$ClioProvidersTooltip\)/);
+  for (const font of ['ClioProvidersHeadingFont', 'ClioProvidersLinkFont', 'ClioProvidersStarFont']) {
+    assert.match(page, new RegExp(`StrCpy \\$${font} \\$R9`), `${font} must be created`);
+    assert.match(afterShow, new RegExp(`DeleteObject\\(p \\$${font}\\)`), `${font} must be freed`);
+  }
+  // No leaked NSIS CreateFont on this page any more.
+  assert.doesNotMatch(page, /^\s*CreateFont /m);
 });
 
 test('the setup pages are skipped for passive and update installs', () => {

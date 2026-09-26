@@ -4,6 +4,8 @@
 ; touching a user's independent clio-agent or Python processes.
 !include nsDialogs.nsh
 !include LogicLib.nsh
+; Recommended-provider markers, "Why?" tooltips and their layout helpers.
+!include "${__FILEDIR__}\installer-recommendations.nsh"
 
 Var ClioRemoveUserDataCheckbox
 Var ClioRemoveUserData
@@ -206,94 +208,214 @@ Function ClioProvidersPageOnBack
   !insertmacro CLIO_REMEMBER_ALL_PROVIDERS
 FunctionEnd
 
+; Next is enabled only while at least one provider is checked. Called when
+; the page is built (so a Back-and-return with earlier choices re-enables it)
+; and after every provider checkbox click.
+!macro CLIO_COUNT_PROVIDER_IF_CHECKED _CHECKBOX
+  ${NSD_GetState} ${_CHECKBOX} $R1
+  ${If} $R1 == ${BST_CHECKED}
+    StrCpy $R0 1
+  ${EndIf}
+!macroend
+
+Function ClioProvidersSyncNext
+  StrCpy $R0 0
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderCodexCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderClaudeCodeCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderOpenAICheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderAnthropicCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderGeminiCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderVertexCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderLMStudioCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderOllamaCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderLlamaCppCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderVllmCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderArgonneSophiaCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderArgonneMetisCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderAzureOpenAICheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderBedrockCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderNvidiaNimCheckbox
+  !insertmacro CLIO_COUNT_PROVIDER_IF_CHECKED $ClioProviderOpenRouterCheckbox
+  GetDlgItem $R1 $HWNDPARENT 1
+  EnableWindow $R1 $R0
+FunctionEnd
+
+; nsDialogs OnClick callback: pops the clicked control, then re-syncs Next.
+Function ClioProvidersOnToggle
+  Pop $R0
+  Call ClioProvidersSyncNext
+FunctionEnd
+
 Function ClioProvidersPage
   !insertmacro CLIO_SKIP_SETUP_PAGE_IF_UNATTENDED
 
   !insertmacro MUI_HEADER_TEXT "Model providers" "Choose which providers CLIO shows."
   nsDialogs::Create 1018
-  Pop $0
-  ${If} $0 == error
+  Pop $ClioProvidersDialog
+  ${If} $ClioProvidersDialog == error
     Abort
   ${EndIf}
   ${NSD_OnBack} ClioProvidersPageOnBack
+
+  StrCpy $R0 ""
+  StrCpy $R1 100
+  StrCpy $R2 700
+  StrCpy $R3 0
+  Call ClioDeriveFont
+  StrCpy $ClioProvidersHeadingFont $R9
+  StrCpy $R0 ""
+  StrCpy $R1 85
+  StrCpy $R2 400
+  StrCpy $R3 1
+  Call ClioDeriveFont
+  StrCpy $ClioProvidersLinkFont $R9
+  ; The wizard font has no star glyph; Segoe UI Symbol does.
+  StrCpy $R0 "Segoe UI Symbol"
+  StrCpy $R1 100
+  StrCpy $R2 400
+  StrCpy $R3 0
+  Call ClioDeriveFont
+  StrCpy $ClioProvidersStarFont $R9
+
+  ; TTS_ALWAYSTIP|TTS_NOPREFIX. The long auto-pop delay leaves time to read,
+  ; and the max tip width makes long explanations wrap.
+  System::Call 'user32::CreateWindowExW(i 0x8, w "tooltips_class32", p 0, i 0x80000003, i 0x80000000, i 0x80000000, i 0x80000000, i 0x80000000, p $HWNDPARENT, p 0, p 0, p 0) p .R0'
+  StrCpy $ClioProvidersTooltip $R0
+  System::Call '*(i 160, i 0, i 0, i 0) p .R8'
+  System::Call 'user32::MapDialogRect(p $ClioProvidersDialog, p R8)'
+  System::Call '*$R8(i .R1)'
+  System::Free $R8
+  SendMessage $ClioProvidersTooltip ${TTM_SETMAXTIPWIDTH} 0 $R1
+  SendMessage $ClioProvidersTooltip ${TTM_SETDELAYTIME} ${TTDT_INITIAL} 300
+  SendMessage $ClioProvidersTooltip ${TTM_SETDELAYTIME} ${TTDT_AUTOPOP} 30000
 
   ; Compact three-column groups keep every choice above the wizard footer at
   ; Windows' default DPI. Providers are individual choices: selecting an API
   ; provider never silently exposes its separate subscription/CLI product.
   ; Nothing is pre-checked: the owner wants installs to stop and make the
-  ; user actively choose at least one provider (ClioProvidersPageLeave
-  ; enforces that). Each checkbox restores whatever the user chose the last
-  ; time this page was shown, via ClioProviderXChecked.
-  CreateFont $2 "$(^Font)" "$(^FontSize)" "700"
+  ; user actively choose at least one provider, so Next stays disabled until
+  ; one is checked (ClioProvidersSyncNext). Each checkbox restores whatever the user chose the last
+  ; time this page was shown, via ClioProviderXChecked. Recommended providers
+  ; get a "Recommended / Why?" row directly under their checkbox.
   ${NSD_CreateLabel} 0 0 31% 12u "Subscription"
   Pop $1
-  SendMessage $1 ${WM_SETFONT} $2 0
-  ${NSD_CreateCheckbox} 0 16u 31% 12u "OpenAI Codex"
+  SendMessage $1 ${WM_SETFONT} $ClioProvidersHeadingFont 0
+  ${NSD_CreateCheckbox} 0 14u 31% 12u "OpenAI Codex"
   Pop $ClioProviderCodexCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderCodexCheckbox $ClioProviderCodexChecked
-  ${NSD_CreateCheckbox} 0 32u 31% 12u "Claude Code"
+  ${NSD_OnClick} $ClioProviderCodexCheckbox ClioProvidersOnToggle
+  !insertmacro CLIO_RECOMMEND $ClioProviderCodexCheckbox 27u "${CLIO_WHY_SUBSCRIPTION}" $ClioWhyCodexLink
+  ${NSD_CreateCheckbox} 0 37u 31% 12u "Claude Code"
   Pop $ClioProviderClaudeCodeCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderClaudeCodeCheckbox $ClioProviderClaudeCodeChecked
+  ${NSD_OnClick} $ClioProviderClaudeCodeCheckbox ClioProvidersOnToggle
+  !insertmacro CLIO_RECOMMEND $ClioProviderClaudeCodeCheckbox 50u "${CLIO_WHY_SUBSCRIPTION}" $ClioWhyClaudeCodeLink
 
-  ${NSD_CreateLabel} 0 56u 31% 12u "Direct APIs"
+  ${NSD_CreateLabel} 0 64u 31% 12u "Direct APIs"
   Pop $1
-  SendMessage $1 ${WM_SETFONT} $2 0
-  ${NSD_CreateCheckbox} 0 72u 31% 12u "OpenAI API"
+  SendMessage $1 ${WM_SETFONT} $ClioProvidersHeadingFont 0
+  ${NSD_CreateCheckbox} 0 78u 31% 12u "OpenAI API"
   Pop $ClioProviderOpenAICheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderOpenAICheckbox $ClioProviderOpenAIChecked
-  ${NSD_CreateCheckbox} 0 88u 31% 12u "Anthropic API"
+  ${NSD_OnClick} $ClioProviderOpenAICheckbox ClioProvidersOnToggle
+  ${NSD_CreateCheckbox} 0 92u 31% 12u "Anthropic API"
   Pop $ClioProviderAnthropicCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderAnthropicCheckbox $ClioProviderAnthropicChecked
-  ${NSD_CreateCheckbox} 0 104u 31% 12u "Google Gemini"
+  ${NSD_OnClick} $ClioProviderAnthropicCheckbox ClioProvidersOnToggle
+  ${NSD_CreateCheckbox} 0 106u 31% 12u "Google Gemini"
   Pop $ClioProviderGeminiCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderGeminiCheckbox $ClioProviderGeminiChecked
+  ${NSD_OnClick} $ClioProviderGeminiCheckbox ClioProvidersOnToggle
   ${NSD_CreateCheckbox} 0 120u 31% 12u "Google Vertex AI"
   Pop $ClioProviderVertexCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderVertexCheckbox $ClioProviderVertexChecked
+  ${NSD_OnClick} $ClioProviderVertexCheckbox ClioProvidersOnToggle
 
   ${NSD_CreateLabel} 34% 0 31% 12u "Local / self-hosted"
   Pop $1
-  SendMessage $1 ${WM_SETFONT} $2 0
-  ${NSD_CreateCheckbox} 34% 16u 31% 12u "LM Studio"
+  SendMessage $1 ${WM_SETFONT} $ClioProvidersHeadingFont 0
+  ${NSD_CreateCheckbox} 34% 14u 31% 12u "LM Studio"
   Pop $ClioProviderLMStudioCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderLMStudioCheckbox $ClioProviderLMStudioChecked
-  ${NSD_CreateCheckbox} 34% 32u 31% 12u "Ollama"
+  ${NSD_OnClick} $ClioProviderLMStudioCheckbox ClioProvidersOnToggle
+  ${NSD_CreateCheckbox} 34% 28u 31% 12u "Ollama"
   Pop $ClioProviderOllamaCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderOllamaCheckbox $ClioProviderOllamaChecked
-  ${NSD_CreateCheckbox} 34% 48u 31% 12u "llama.cpp"
+  ${NSD_OnClick} $ClioProviderOllamaCheckbox ClioProvidersOnToggle
+  !insertmacro CLIO_RECOMMEND $ClioProviderOllamaCheckbox 41u "${CLIO_WHY_OLLAMA}" $ClioWhyOllamaLink
+  ${NSD_CreateCheckbox} 34% 51u 31% 12u "llama.cpp"
   Pop $ClioProviderLlamaCppCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderLlamaCppCheckbox $ClioProviderLlamaCppChecked
-  ${NSD_CreateCheckbox} 34% 64u 31% 12u "vLLM"
+  ${NSD_OnClick} $ClioProviderLlamaCppCheckbox ClioProvidersOnToggle
+  !insertmacro CLIO_RECOMMEND $ClioProviderLlamaCppCheckbox 64u "${CLIO_WHY_LLAMACPP}" $ClioWhyLlamaCppLink
+  ${NSD_CreateCheckbox} 34% 74u 31% 12u "vLLM"
   Pop $ClioProviderVllmCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderVllmCheckbox $ClioProviderVllmChecked
+  ${NSD_OnClick} $ClioProviderVllmCheckbox ClioProvidersOnToggle
 
-  ${NSD_CreateLabel} 34% 88u 31% 12u "Argonne ALCF"
+  ${NSD_CreateLabel} 34% 92u 31% 12u "Argonne ALCF"
   Pop $1
-  SendMessage $1 ${WM_SETFONT} $2 0
-  ${NSD_CreateCheckbox} 34% 104u 31% 12u "Sophia"
+  SendMessage $1 ${WM_SETFONT} $ClioProvidersHeadingFont 0
+  ${NSD_CreateCheckbox} 34% 106u 31% 12u "Sophia"
   Pop $ClioProviderArgonneSophiaCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderArgonneSophiaCheckbox $ClioProviderArgonneSophiaChecked
+  ${NSD_OnClick} $ClioProviderArgonneSophiaCheckbox ClioProvidersOnToggle
   ${NSD_CreateCheckbox} 34% 120u 31% 12u "Metis"
   Pop $ClioProviderArgonneMetisCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderArgonneMetisCheckbox $ClioProviderArgonneMetisChecked
+  ${NSD_OnClick} $ClioProviderArgonneMetisCheckbox ClioProvidersOnToggle
 
   ${NSD_CreateLabel} 68% 0 32% 12u "Other clouds"
   Pop $1
-  SendMessage $1 ${WM_SETFONT} $2 0
-  ${NSD_CreateCheckbox} 68% 16u 32% 12u "Azure OpenAI"
+  SendMessage $1 ${WM_SETFONT} $ClioProvidersHeadingFont 0
+  ${NSD_CreateCheckbox} 68% 14u 32% 12u "Azure OpenAI"
   Pop $ClioProviderAzureOpenAICheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderAzureOpenAICheckbox $ClioProviderAzureOpenAIChecked
-  ${NSD_CreateCheckbox} 68% 32u 32% 12u "Amazon Bedrock"
+  ${NSD_OnClick} $ClioProviderAzureOpenAICheckbox ClioProvidersOnToggle
+  ${NSD_CreateCheckbox} 68% 28u 32% 12u "Amazon Bedrock"
   Pop $ClioProviderBedrockCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderBedrockCheckbox $ClioProviderBedrockChecked
-  ${NSD_CreateCheckbox} 68% 48u 32% 12u "NVIDIA NIM"
+  ${NSD_OnClick} $ClioProviderBedrockCheckbox ClioProvidersOnToggle
+  ${NSD_CreateCheckbox} 68% 42u 32% 12u "NVIDIA NIM"
   Pop $ClioProviderNvidiaNimCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderNvidiaNimCheckbox $ClioProviderNvidiaNimChecked
-  ${NSD_CreateCheckbox} 68% 64u 32% 12u "OpenRouter"
+  ${NSD_OnClick} $ClioProviderNvidiaNimCheckbox ClioProvidersOnToggle
+  ${NSD_CreateCheckbox} 68% 56u 32% 12u "OpenRouter"
   Pop $ClioProviderOpenRouterCheckbox
   !insertmacro CLIO_RESTORE_PROVIDER_CHECKBOX $ClioProviderOpenRouterCheckbox $ClioProviderOpenRouterChecked
+  ${NSD_OnClick} $ClioProviderOpenRouterCheckbox ClioProvidersOnToggle
+  !insertmacro CLIO_RECOMMEND $ClioProviderOpenRouterCheckbox 69u "${CLIO_WHY_OPENROUTER}" $ClioWhyOpenRouterLink
+  ; A native tooltip cannot bold a word, so the "free" that matters is
+  ; spelled out in bold on the page, under the OpenRouter row, lined up with
+  ; the recommendation row above it.
+  StrCpy $R0 $ClioProviderOpenRouterCheckbox
+  Call ClioControlRect
+  System::Call '*(i 11, i 0, i 0, i 0) p .R8'
+  System::Call 'user32::MapDialogRect(p $ClioProvidersDialog, p R8)'
+  System::Call '*$R8(i .R9)'
+  System::Free $R8
+  IntOp $ClioRecX $R4 + $R9
+  ${NSD_CreateLabel} $ClioRecX 79u 60u 10u "Many models "
+  Pop $R0
+  StrCpy $R1 0
+  Call ClioFitToText
+  ${NSD_CreateLabel} $R6 79u 30u 10u "free"
+  Pop $R0
+  SendMessage $R0 ${WM_SETFONT} $ClioProvidersHeadingFont 0
+  StrCpy $R1 1
+  Call ClioFitToText
+
+  ; Next starts disabled and turns on once a provider is checked; restored
+  ; choices (Back, then Next again) enable it straight away.
+  Call ClioProvidersSyncNext
 
   nsDialogs::Show
+
+  ; The page has closed (Next or Back): release what it created.
+  System::Call 'user32::DestroyWindow(p $ClioProvidersTooltip)'
+  System::Call 'gdi32::DeleteObject(p $ClioProvidersHeadingFont)'
+  System::Call 'gdi32::DeleteObject(p $ClioProvidersLinkFont)'
+  System::Call 'gdi32::DeleteObject(p $ClioProvidersStarFont)'
 FunctionEnd
 
 !macro CLIO_APPEND_PROVIDER _ID _CHECKBOX
@@ -327,12 +449,10 @@ Function ClioProvidersPageLeave
   !insertmacro CLIO_APPEND_PROVIDER "openrouter" $ClioProviderOpenRouterCheckbox
   !insertmacro CLIO_REMEMBER_ALL_PROVIDERS
 
-  ; Stop the wizard here until the user picks at least one provider — an
-  ; empty selection used to sail through silently (see NSIS_HOOK_PREINSTALL's
-  ; deleted "codex,openai" fallback) and the owner wants installs to force a
-  ; deliberate choice instead.
+  ; Next stays disabled until a provider is checked (ClioProvidersSyncNext),
+  ; so an empty selection never reaches this point from the page. This guard
+  ; only asserts that invariant: it refuses to leave with nothing chosen.
   ${If} $ClioProviderIds == ""
-    MessageBox MB_ICONEXCLAMATION "Choose at least one model provider to continue. CLIO needs at least one provider selected so it has something to show."
     Abort
   ${EndIf}
 FunctionEnd
