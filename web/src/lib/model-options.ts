@@ -1,5 +1,6 @@
 import type {
   LanguageModelPreset,
+  ModelCapabilityTags,
   ProviderCatalog,
   ProviderCatalogEntry,
   ProviderCatalogTransport,
@@ -19,6 +20,9 @@ import { modelReasoningLevels, type ModelReasoningLevels } from './reasoning-lev
  * install, a sign-in or a key -- neutral, never the red of a real failure.
  */
 export const PROVIDER_NEEDS_SETUP = 'needs_setup';
+
+/** The availability the service reports for a model known not to be a chat model. */
+export const NOT_CHAT_AVAILABILITY = 'not_chat';
 
 export interface ClioModelOption {
   providerId: string;
@@ -41,6 +45,18 @@ export interface ClioModelOption {
   modalities?: readonly string[];
   /** Thinking levels this model offers, from the live catalog. */
   reasoning?: ModelReasoningLevels;
+  /** Whether the model calls tools natively, when the live catalog says. */
+  toolCalling?: boolean;
+  /** The model's context window in tokens, when the service reports one. */
+  contextWindow?: number;
+  /** False only for a model known to be another type than chat. */
+  chatSelectable?: boolean;
+  /** The service's capability tags for this model, each with its evidence
+   * (read through `modelCapabilityTagsFromOption`). */
+  capabilityTags?: ModelCapabilityTags;
+  /** Where each capability value came from, keyed by the catalog's capability
+   * field names (see `ProviderCatalogModel.capabilities_provenance`). */
+  capabilityProvenance?: Readonly<Record<string, { source: string; decided_by: string }>>;
   /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
   aliases?: readonly string[];
   /** This provider's OWN transports (Codex: sdk + direct), present on every
@@ -48,6 +64,9 @@ export interface ClioModelOption {
   transports?: readonly ProviderCatalogTransport[];
   /** Which of `transports` this specific model row came from. */
   transport?: string;
+  /** The provider's typed failure reason as the catalog reports it (e.g.
+   * `argonne_reauthentication_required: ...`), for deciding its action. */
+  failure?: string;
 }
 
 /**
@@ -69,18 +88,30 @@ export function matchesConfiguredModel(
   return (candidate.aliases ?? []).includes(modelId);
 }
 
-/** The available option naming `providerId`+`modelId` (by id, alias, or resolved id). */
+/**
+ * The available option naming `providerId`+`modelId` (by id, alias, or resolved
+ * id). A multi-transport provider lists the same model once per transport (Codex
+ * SDK and Direct both list `gpt-5.5`), so a picked `transport` selects that half.
+ */
 export function findSelectedModelOption<
-  T extends { providerId: string; id: string; aliases?: readonly string[]; available: boolean },
+  T extends {
+    providerId: string;
+    id: string;
+    aliases?: readonly string[];
+    available: boolean;
+    transport?: string;
+  },
 >(
   options: readonly T[],
   providerId: string | undefined,
   modelId: string | undefined,
+  transport?: string,
 ): T | undefined {
   return options.find(
     (option) =>
       option.providerId === providerId &&
       matchesConfiguredModel(option, modelId) &&
+      (!transport || option.transport === transport) &&
       option.available,
   );
 }
@@ -95,6 +126,7 @@ export function findSelectedModelOption<
 const MODEL_AVAILABILITY_LABELS: Record<string, string> = {
   available: 'Available',
   candidate: 'Reported but not verified',
+  not_chat: 'Not a chat model',
   unavailable: 'Unavailable',
 };
 
@@ -152,6 +184,7 @@ export function buildModelOptions({
         id: item.id,
         label: item.name ?? item.label ?? item.id,
         description: item.description,
+        contextWindow: item.context_window,
         available: preset.is_authenticated,
         availabilityDetail: preset.is_authenticated
           ? undefined
@@ -213,6 +246,7 @@ function liveProviderOptions(
     // cached health, so the row shows the check instead of a stale verdict.
     health: provider.checking ? 'checking' : needsSetup ? PROVIDER_NEEDS_SETUP : provider.health,
     transports: provider.transports,
+    failure: provider.failure || undefined,
   };
   if (!provider.models.length) {
     const authenticationFailure = isAuthenticationFailure(provider.failure);
@@ -273,7 +307,14 @@ function liveProviderOptions(
       // rows is noise. It reaches the provider's detail (shown once, in the
       // picker's action strip) through `availabilityDetail` below.
       description: undefined,
-      available: model.availability === 'available' || usableCandidate || staleCandidate,
+      // A model known to be another type than chat (an image generator, a
+      // classifier) is a first-class row: listed and tagged for what it is.
+      // Only choosing it as the CHAT model is refused, by the picker.
+      available:
+        model.availability === 'available' ||
+        model.availability === NOT_CHAT_AVAILABILITY ||
+        usableCandidate ||
+        staleCandidate,
       availabilityDetail:
         model.availability === 'available'
           ? undefined
@@ -283,6 +324,11 @@ function liveProviderOptions(
               : modelAvailabilityLabel(model.availability))),
       modalities: model.modalities,
       reasoning: modelReasoningLevels(model.reasoning),
+      toolCalling: model.native_tool_calling,
+      contextWindow: model.loaded_context_window || model.context_window,
+      chatSelectable: model.chat_selectable,
+      capabilityTags: model.capability_tags,
+      capabilityProvenance: model.capabilities_provenance,
       aliases: model.aliases,
       transport: model.transport,
     };

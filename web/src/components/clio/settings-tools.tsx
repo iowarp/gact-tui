@@ -7,14 +7,12 @@ import {
   BlocksIcon,
   BookOpenIcon,
   ChevronDownIcon,
-  MoreHorizontalIcon,
   PackagePlusIcon,
   PlugZapIcon,
-  RefreshCwIcon,
   ScrollTextIcon,
-  Trash2Icon,
   WrenchIcon,
 } from 'lucide-react';
+import { DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -330,7 +328,7 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                       size="icon-sm"
                       variant="ghost"
                     >
-                      <MoreHorizontalIcon aria-hidden="true" />
+                      <MoreIcon aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-48">
@@ -340,14 +338,14 @@ export function ToolsSettings({ initialWorkspaceId }: { initialWorkspaceId?: str
                     {isRuntimeConnection(server) ? (
                       <>
                         <DropdownMenuItem onSelect={() => reconnect.mutate(server)}>
-                          <RefreshCwIcon aria-hidden="true" /> Reconnect
+                          <RefreshIcon aria-hidden="true" /> Reconnect
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onSelect={() => setDeleteServer(server)}
                           variant="destructive"
                         >
-                          <Trash2Icon aria-hidden="true" /> Disconnect
+                          <DeleteIcon aria-hidden="true" /> Disconnect
                         </DropdownMenuItem>
                       </>
                     ) : null}

@@ -96,7 +96,6 @@ export function WorkspacePage() {
     interactionSurfaces,
     refetchInteractionSurfaces,
     modelOptions,
-    modelConfiguration,
     modelCatalogStatus,
     parentSession,
     providerCatalog,
@@ -273,7 +272,6 @@ export function WorkspacePage() {
   } = useSessionMutations({
     activeModel,
     activeProvider,
-    modelConfiguration: modelConfiguration.data,
     session,
     sessionId,
     workspaceId,
@@ -483,7 +481,6 @@ export function WorkspacePage() {
           // `modelSelection`/`behaviorSelection`) instead of needing a remount.
           key={`composer:${sessionId}`}
           model={activeModel}
-          modelCatalogRefreshing={providerCatalog.isRefreshing}
           modelCatalogStatus={modelCatalogStatus}
           modelOptions={modelOptions}
           pendingInteractions={pendingInteractionsPanel}

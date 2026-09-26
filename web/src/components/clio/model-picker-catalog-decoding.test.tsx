@@ -121,10 +121,10 @@ describe('the picker survives the real provider-catalog decoder', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
 
-    expect(screen.getByText('Codex (local)')).toBeVisible();
+    expect(screen.getByText('SDK')).toBeVisible();
     expect(screen.getByText('gpt-5.6-luna')).toBeVisible();
     expect(screen.getByText('or')).toBeVisible();
     expect(screen.getByText('Direct')).toBeVisible();
-    expect(await screen.findByRole('button', { name: 'Sign in' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Log in' })).toBeVisible();
   });
 });

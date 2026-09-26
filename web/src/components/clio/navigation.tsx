@@ -1,5 +1,6 @@
 import type { AgentBlueprint, Session, Workspace } from '@clio/core/v3';
-import { ActivityIcon, Settings2Icon } from 'lucide-react';
+import { ActivityIcon } from 'lucide-react';
+import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -178,7 +179,7 @@ export function ClioNavigation({
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild tooltip="Settings">
                       <Link state={{ endpoint, from: location.pathname }} to="/settings/appearance">
-                        <Settings2Icon aria-hidden="true" />
+                        <SettingsIcon aria-hidden="true" />
                         <span>Settings</span>
                       </Link>
                     </SidebarMenuButton>

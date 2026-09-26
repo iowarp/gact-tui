@@ -1,5 +1,6 @@
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers';
-import { CheckIcon, GripVerticalIcon, Settings2Icon, XIcon } from 'lucide-react';
+import { CheckIcon, GripVerticalIcon } from 'lucide-react';
+import { ConfigureIcon, RemoveIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { Sortable, SortableItem, SortableItemHandle } from '@/components/reui/sortable';
 import { Button } from '@/components/ui/button';
@@ -174,7 +175,7 @@ export function SshJumpHostList({
                   type="button"
                   variant="ghost"
                 >
-                  <Settings2Icon aria-hidden="true" />
+                  <ConfigureIcon aria-hidden="true" />
                 </Button>
               ) : null}
               <Button
@@ -188,7 +189,7 @@ export function SshJumpHostList({
                 type="button"
                 variant="ghost"
               >
-                <XIcon aria-hidden="true" />
+                <RemoveIcon aria-hidden="true" />
               </Button>
             </div>
           </SortableItem>

@@ -1,11 +1,11 @@
 import {
   ExternalLinkIcon,
   GitForkIcon,
-  MoreHorizontalIcon,
   PackageOpenIcon,
   Share2Icon,
   Undo2Icon,
 } from 'lucide-react';
+import { MoreIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import {
   AlertDialog,
@@ -80,7 +80,7 @@ export function ClioSessionActions({
             size="icon-xs"
             variant="ghost"
           >
-            <MoreHorizontalIcon aria-hidden="true" />
+            <MoreIcon aria-hidden="true" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-64">

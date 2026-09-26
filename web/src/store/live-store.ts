@@ -21,6 +21,14 @@ interface LiveStore {
   entities: EntityState;
   frameGaps: TransportGap[];
   error?: string;
+  /**
+   * How many session event streams are open. `entities.stream` is written only
+   * by an open session stream, so on a route with none (Settings, the connect
+   * page) it is stale; the connection indicator reads a service probe instead.
+   */
+  streamOwners: number;
+  claimStream: () => void;
+  releaseStream: () => void;
   setStreamState: (stream: StreamState) => void;
   setStreamError: (error: string) => void;
   applyFrames: (frames: readonly TransportFrame[]) => void;
@@ -118,6 +126,9 @@ function markNonTerminalA2uiLifecyclesUnknown(
 export const useLiveStore = create<LiveStore>((set) => ({
   entities: createEntityState(),
   frameGaps: [],
+  streamOwners: 0,
+  claimStream: () => set((state) => ({ streamOwners: state.streamOwners + 1 })),
+  releaseStream: () => set((state) => ({ streamOwners: Math.max(0, state.streamOwners - 1) })),
   setStreamState: (stream) => set((state) => ({ entities: { ...state.entities, stream } })),
   setStreamError: (error) =>
     set((state) => ({ entities: { ...state.entities, stream: 'gapped' }, error })),

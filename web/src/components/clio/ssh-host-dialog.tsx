@@ -1,4 +1,5 @@
-import { CheckCircle2Icon, ChevronDownIcon, FileKey2Icon, XIcon } from 'lucide-react';
+import { CheckCircle2Icon, ChevronDownIcon, FileKey2Icon } from 'lucide-react';
+import { RemoveIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -382,7 +383,7 @@ export function SshHostDialog({
                     type="button"
                     variant="ghost"
                   >
-                    <XIcon aria-hidden="true" />
+                    <RemoveIcon aria-hidden="true" />
                   </Button>
                 ) : null}
               </div>

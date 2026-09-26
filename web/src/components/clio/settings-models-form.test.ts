@@ -56,6 +56,16 @@ describe('seedModelSettings', () => {
     expect(seeded.temperature).toBe('');
   });
 
+  it("reads the service's echoed 0 temperature as the provider default, never 0", () => {
+    const seeded = seedModelSettings({
+      configuration: { ...configuration, temperature: 0 },
+      preset,
+      presetIsActive: true,
+    });
+
+    expect(seeded.temperature).toBe('');
+  });
+
   it('offers a non-active preset its own suggestion instead of the active configuration', () => {
     const other: LanguageModelPreset = {
       ...preset,

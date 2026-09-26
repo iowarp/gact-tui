@@ -8,7 +8,8 @@ import type {
   WorkspaceReference,
   WorkspaceResource,
 } from '@clio/core/v3';
-import { AtSignIcon, CornerDownRightIcon, PaperclipIcon, PlusIcon } from 'lucide-react';
+import { AtSignIcon, CornerDownRightIcon, PaperclipIcon } from 'lucide-react';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import {
   useCallback,
   useEffect,
@@ -41,8 +42,8 @@ import {
 } from '@/components/ai-elements/prompt-input';
 import { ClioStatus } from './status';
 import { ClioModelPicker } from './model-picker';
+import { useComposerModelSelection } from './use-composer-model-selection';
 import { Button } from '@/components/ui/button';
-import { findSelectedModelOption } from '@/lib/model-options';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
 import { ClioComposerAttachments, type ResourceUploadFailure } from './composer-attachments';
@@ -73,7 +74,6 @@ export interface ClioComposerProps {
   attachments: boolean;
   provider?: string;
   model?: string;
-  modelCatalogRefreshing?: boolean;
   modelCatalogStatus?: 'error' | 'loading' | 'ready';
   effort?: string;
   /** The configured (global) level: displayed when nothing is picked, never sent. */
@@ -106,6 +106,7 @@ export interface ClioComposerProps {
     references: Exclude<ComposerMessagePart, { type: 'text' }>[];
     provider?: string;
     model?: string;
+    transport?: string;
     delivery: MessageDelivery | 'queued';
     behavior: MessageBehavior;
     onUploadProgress: (progress: ResourceUploadProgress) => void;
@@ -158,7 +159,6 @@ export function ClioComposer({
   attachments,
   provider,
   model,
-  modelCatalogRefreshing = false,
   modelCatalogStatus = 'ready',
   effort,
   configuredEffort,
@@ -195,32 +195,11 @@ export function ClioComposer({
   focusRequestKey,
   variant = 'docked',
 }: ClioComposerProps) {
-  // `selectedProvider`/`selectedModel` mirror `provider`/`model` (the active
-  // session default) until the picker overrides them, exactly like
-  // `behaviorSelection` below tracks `confirmationPolicy`/`executionMode`/
-  // `effort`. Each pairs its own local override with the prop value it was
-  // taken against ("authoritative"): as long as the live prop still matches
-  // that recorded value, the local override wins; the moment the prop moves
-  // to something else (a new session default resolving, a queued-message
-  // reconciliation, anything external), the FRESH prop wins immediately,
-  // discarding the now-stale override. This is what previously required
-  // remounting this whole component keyed on provider/model/effort — the
-  // remount also silently discarded attachments and other in-progress
-  // composer state that has nothing to do with the model/effort selection.
-  const [modelSelection, setModelSelection] = useState<{
-    provider?: string;
-    model?: string;
-    authoritativeProvider?: string;
-    authoritativeModel?: string;
-  }>(() => ({
+  const { selectedOption, selectedTransport, selectModel } = useComposerModelSelection(
+    modelOptions,
     provider,
     model,
-    authoritativeProvider: provider,
-    authoritativeModel: model,
-  }));
-  const selectedProvider =
-    modelSelection.authoritativeProvider === provider ? modelSelection.provider : provider;
-  const selectedModel = modelSelection.authoritativeModel === model ? modelSelection.model : model;
+  );
   const [behaviorSelection, setBehaviorSelection] = useState<{
     behavior: MessageBehavior;
     authoritativeConfirmationPolicy: MessageBehavior['confirmation_policy'];
@@ -349,7 +328,6 @@ export function ClioComposer({
   });
   const showReferences = composerReferences.open;
   const popoverOpen = showCommands || showReferences;
-  const selectedOption = findSelectedModelOption(modelOptions, selectedProvider, selectedModel);
   // Sends the person's pick when the selected model offers it, else nothing (the
   // service applies the configured level). Defaults are displayed, never sent.
   const messageBehavior: MessageBehavior = {
@@ -550,6 +528,7 @@ export function ClioComposer({
                 text: trimmed,
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
+                transport: selectedTransport,
                 onUploadProgress: (progress) => {
                   uploadingFilenameRef.current = progress.filename;
                   setUploadProgress(progress);
@@ -648,16 +627,10 @@ export function ClioComposer({
               disabled={disabled}
               modelControl={
                 <ClioModelPicker
-                  catalogRefreshing={modelCatalogRefreshing}
                   catalogStatus={modelCatalogStatus}
                   model={selectedOption?.id}
                   onChange={(option) => {
-                    setModelSelection({
-                      provider: option.providerId,
-                      model: option.id,
-                      authoritativeProvider: provider,
-                      authoritativeModel: model,
-                    });
+                    selectModel(option);
                     // Drop a pick the new model does not offer (its default is shown).
                     const pick = behavior.reasoning_effort;
                     if (pick && !option.reasoning?.levels.includes(pick)) {
@@ -754,14 +727,14 @@ function ComposerAddContextButton({
   if (!contextReferences) {
     return (
       <PromptInputButton aria-label="Add files" onClick={onOpenFileUpload} title="Add files">
-        <PlusIcon aria-hidden="true" />
+        <AddIcon aria-hidden="true" />
       </PromptInputButton>
     );
   }
   return (
     <PromptInputActionMenu>
       <PromptInputActionMenuTrigger aria-label="Add context" title="Add context">
-        <PlusIcon aria-hidden="true" />
+        <AddIcon aria-hidden="true" />
       </PromptInputActionMenuTrigger>
       <PromptInputActionMenuContent>
         {attachmentEnabled ? (

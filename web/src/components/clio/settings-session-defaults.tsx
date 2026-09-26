@@ -1,7 +1,8 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { SessionDefaults } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { BotIcon, BrainCircuitIcon, ShieldCheckIcon, SlidersHorizontalIcon } from 'lucide-react';
+import { BotIcon, BrainCircuitIcon, ShieldCheckIcon } from 'lucide-react';
+import { SaveIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Frame, FramePanel } from '@/components/reui/frame';
@@ -316,7 +317,7 @@ export function SessionDefaultsSettings() {
         footer={
           <div className="flex flex-wrap items-center gap-3">
             <Button disabled={save.isPending} onClick={() => save.mutate(form)}>
-              <SlidersHorizontalIcon aria-hidden="true" />
+              <SaveIcon aria-hidden="true" />
               {save.isPending ? 'Saving…' : 'Save new session defaults'}
             </Button>
             <p className="text-xs text-muted-foreground">

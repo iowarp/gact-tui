@@ -1,7 +1,6 @@
 import {
   BotIcon,
   BracesIcon,
-  CircleHelpIcon,
   DatabaseIcon,
   FileDiffIcon,
   FileTextIcon,
@@ -10,6 +9,7 @@ import {
   PackageIcon,
   WaypointsIcon,
 } from 'lucide-react';
+import { HelpIcon } from '@/lib/icon-vocabulary';
 import type { ComponentType, SVGProps } from 'react';
 
 export type ReferenceIcon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -37,5 +37,5 @@ const REFERENCE_KIND_ICONS: Record<string, ReferenceIcon> = {
  * indexed the table.
  */
 export function referenceKindIcon(kind: string): ReferenceIcon {
-  return REFERENCE_KIND_ICONS[kind] ?? CircleHelpIcon;
+  return REFERENCE_KIND_ICONS[kind] ?? HelpIcon;
 }

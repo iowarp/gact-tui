@@ -7,14 +7,8 @@ import type {
   ManagedServiceDefinition,
 } from '@clio/core/v3';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import {
-  CpuIcon,
-  LaptopIcon,
-  PackageOpenIcon,
-  RefreshCwIcon,
-  ServerIcon,
-  ChevronDownIcon,
-} from 'lucide-react';
+import { ChevronDownIcon, CpuIcon, LaptopIcon, PackageOpenIcon, ServerIcon } from 'lucide-react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -381,7 +375,7 @@ export function ManagedServices({
                     size="sm"
                     variant="ghost"
                   >
-                    {catalog.isFetching ? <Spinner aria-hidden="true" /> : <RefreshCwIcon />}
+                    {catalog.isFetching ? <Spinner aria-hidden="true" /> : <RefreshIcon />}
                     Inspect again
                   </Button>
                 </div>

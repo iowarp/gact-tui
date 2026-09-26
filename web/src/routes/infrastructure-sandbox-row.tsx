@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { LoaderCircleIcon, RotateCcwIcon, ServerIcon } from 'lucide-react';
+import { LoaderCircleIcon, ServerIcon } from 'lucide-react';
+import { RetryIcon } from '@/lib/icon-vocabulary';
 import { toast } from 'sonner';
 import type { ServiceIntegrationHealth } from '@clio/core/v3';
 import { queryKeys } from '@/lib/query-keys';
@@ -180,7 +181,7 @@ export function SandboxFoundationRow({ integration }: { integration: ServiceInte
               size="sm"
               variant="outline"
             >
-              <RotateCcwIcon
+              <RetryIcon
                 aria-hidden="true"
                 className={restarting ? 'motion-safe:animate-spin' : undefined}
               />

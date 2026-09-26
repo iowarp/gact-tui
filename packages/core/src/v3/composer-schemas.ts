@@ -1,3 +1,4 @@
+import { modelCapabilityTagsGeneratedSchema } from '../generated/clio-schemas/model-capability-tags.schema.js';
 import { z } from 'zod';
 import { forwardCompatibleEnum, optionalWireString } from './schema-utils.js';
 
@@ -358,6 +359,16 @@ export const providerCatalogSchema = z.object({
           revision: z.string(),
           aliases: z.array(z.string()).default([]),
           modalities: z.array(z.string()),
+          // False only for a model KNOWN to be another type than chat.
+          chat_selectable: z
+            .boolean()
+            .nullish()
+            .transform((value) => value ?? undefined),
+          // The shared clio-schemas ModelCapabilityTags record: every tag with
+          // its evidence. Optional: older services do not report tags.
+          capability_tags: modelCapabilityTagsGeneratedSchema
+            .nullish()
+            .transform((value) => value ?? undefined),
           reasoning: z.object({
             supported: z.boolean(),
             parameter: z.string(),
@@ -388,6 +399,19 @@ export const providerCatalogSchema = z.object({
             context_source: z.string(),
           }),
           failure: z.string(),
+          // Where each effective capability value came from (the service's
+          // `capabilities_provenance`, keyed by capability field). Optional:
+          // older services do not report it.
+          capabilities_provenance: z
+            .record(
+              z.string(),
+              z.object({
+                source: z.string().catch(''),
+                decided_by: z.string().catch(''),
+              }),
+            )
+            .nullish()
+            .transform((value) => value ?? undefined),
           // Which of the entry's own `transports` (below) this model came
           // from -- set only for a multi-transport provider (Codex: "sdk" |
           // "direct"). `undefined` for every single-transport provider.

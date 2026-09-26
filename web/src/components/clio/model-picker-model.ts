@@ -1,4 +1,5 @@
 import type { LanguageModelPreset, ProviderCatalogTransport } from '@clio/core/v3';
+import { isLocalServerPreset } from '@/lib/local-servers';
 import { type ClioModelOption, PROVIDER_NEEDS_SETUP } from '@/lib/model-options';
 import {
   providerSetupNeed,
@@ -41,6 +42,8 @@ export interface ProviderGroup {
   /** What a `setup` provider is waiting for; absent for every other health. */
   setupNeed?: ProviderSetupNeed;
   detail?: string;
+  /** The provider's typed failure reason (untranslated), when it reported one. */
+  failure?: string;
   /** This provider's own transports (Codex: sdk + direct) -- absent for
    * every single-transport provider. See `ProviderCatalogTransport`. */
   transports?: readonly ProviderCatalogTransport[];
@@ -56,15 +59,7 @@ export interface ModelNodeData {
   choice: ClioModelOption;
 }
 
-/** A non-selectable section label inside a multi-transport provider's model
- * column (e.g. "Codex (local)" above the SDK's models) -- never a `model` or
- * `provider` row, so `selectable`/click/search treat it as inert. */
-export interface TransportHeadingNodeData {
-  kind: 'transport-heading';
-  label: string;
-}
-
-export type PickerNodeData = ProviderNodeData | ModelNodeData | TransportHeadingNodeData;
+export type PickerNodeData = ProviderNodeData | ModelNodeData;
 
 export function providerHealthPresentation(
   health: ProviderHealth,
@@ -104,7 +99,32 @@ function presetOnlyHealth(preset: LanguageModelPreset | undefined): {
   return { health: 'healthy' };
 }
 
+/**
+ * A server on this computer that is not answering is waiting to be started,
+ * not failing: it reads grey "Not running" (the same derived state Settings >
+ * Providers shows), never the red of a real failure.
+ */
+function localServerNotRunning(
+  group: ProviderGroup,
+  preset: LanguageModelPreset | undefined,
+): ProviderGroup {
+  if (!preset || !isLocalServerPreset(preset)) return group;
+  if (group.health !== 'unavailable' && group.health !== 'degraded') return group;
+  return { ...group, health: 'setup', setupNeed: 'start' };
+}
+
 export function toProviderGroup(
+  group: {
+    id: string;
+    name: string;
+    choices: ClioModelOption[];
+  },
+  preset?: LanguageModelPreset,
+): ProviderGroup {
+  return localServerNotRunning(derivedProviderGroup(group, preset), preset);
+}
+
+function derivedProviderGroup(
   group: {
     id: string;
     name: string;
@@ -153,6 +173,7 @@ export function toProviderGroup(
     health,
     setupNeed: health === 'setup' ? (providerSetupNeed(preset) ?? 'sign_in') : undefined,
     detail: details[0],
+    failure: group.choices.find((choice) => choice.failure)?.failure,
     transports: group.choices.find((choice) => choice.transports)?.transports,
   };
 }
@@ -218,10 +239,6 @@ export function transportHasModels(group: ProviderGroup, transportId: string): b
 
 export function providerNodeValue(providerId: string): string {
   return `${PROVIDER_NODE_PREFIX}${providerId}`;
-}
-
-export function transportHeadingNodeValue(providerId: string, transportId: string): string {
-  return `transport-heading:${providerId}:${transportId}`;
 }
 
 /** A model row's tree identity. Two transports of one provider can report the
@@ -295,9 +312,4 @@ export function providerUsableModelCount(group: ProviderGroup): number {
   return group.health === 'healthy' || group.health === 'checking'
     ? group.availableChoices.length
     : 0;
-}
-
-/** The Settings > Providers route for one provider (the picker's settings link). */
-export function providerSettingsHref(providerId: string): string {
-  return `/settings/providers?provider=${encodeURIComponent(providerId)}`;
 }

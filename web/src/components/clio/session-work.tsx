@@ -8,11 +8,11 @@ import {
   CirclePauseIcon,
   CircleStopIcon,
   ListChecksIcon,
+  SquareCheckIcon,
   SquareIcon,
   SquareMinusIcon,
-  SquareCheckIcon,
-  Trash2Icon,
 } from 'lucide-react';
+import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { useRepository } from '@/hooks/use-repository';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { Button } from '@/components/ui/button';
@@ -459,7 +459,7 @@ export function SessionWorkView({ sessionId }: { sessionId: string }) {
                       type="button"
                       variant="ghost"
                     >
-                      <Trash2Icon aria-hidden="true" className="size-4" />
+                      <DeleteIcon aria-hidden="true" className="size-4" />
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>

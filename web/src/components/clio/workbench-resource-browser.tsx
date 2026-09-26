@@ -8,17 +8,16 @@ import type {
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIcon,
-  BoxIcon,
   BoxesIcon,
+  BoxIcon,
   FileTextIcon,
   FolderIcon,
   PaperclipIcon,
-  PlusIcon,
-  RefreshCwIcon,
   SearchIcon,
   TerminalSquareIcon,
   TriangleAlertIcon,
 } from 'lucide-react';
+import { AddIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import {
   lazy,
   Suspense,
@@ -127,7 +126,7 @@ export function CanvasLauncher({
           title="Open a canvas tab"
           variant="ghost"
         >
-          <PlusIcon aria-hidden="true" />
+          <AddIcon aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
@@ -264,7 +263,7 @@ export function FileBrowser({
                       size="icon-sm"
                       variant="ghost"
                     >
-                      <RefreshCwIcon aria-hidden="true" className={filesFetching ? 'animate-spin' : ''} />
+                      <RefreshIcon aria-hidden="true" className={filesFetching ? 'animate-spin' : ''} />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">Refresh files</TooltipContent>

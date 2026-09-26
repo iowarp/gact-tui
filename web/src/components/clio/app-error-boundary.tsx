@@ -1,5 +1,6 @@
 import { brand } from '@brand';
-import { AlertTriangleIcon, RotateCcwIcon } from 'lucide-react';
+import { AlertTriangleIcon } from 'lucide-react';
+import { RetryIcon } from '@/lib/icon-vocabulary';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 
@@ -41,7 +42,7 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
             the view again.
           </p>
           <Button className="mt-5" onClick={() => window.location.reload()}>
-            <RotateCcwIcon aria-hidden="true" />
+            <RetryIcon aria-hidden="true" />
             Reload workspace
           </Button>
           <details className="mt-5 text-xs text-muted-foreground">

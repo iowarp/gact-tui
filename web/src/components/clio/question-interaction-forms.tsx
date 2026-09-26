@@ -3,12 +3,8 @@ import type {
   PendingInteractionField,
   PendingInteractionResponse,
 } from '@clio/core/v3';
-import {
-  AlertTriangleIcon,
-  ExternalLinkIcon,
-  MessageCircleQuestionIcon,
-  XIcon,
-} from 'lucide-react';
+import { AlertTriangleIcon, ExternalLinkIcon, MessageCircleQuestionIcon } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useState, type ChangeEvent, type ReactNode } from 'react';
 import { Frame, FrameHeader, FramePanel, FrameTitle } from '@/components/reui/frame';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -234,7 +230,7 @@ function QuestionFrame({ children, ...props }: QuestionSurfaceProps & { children
             size="icon-sm"
             variant="ghost"
           >
-            <XIcon aria-hidden="true" />
+            <CloseIcon aria-hidden="true" />
           </Button>
         ) : null}
       </FrameHeader>

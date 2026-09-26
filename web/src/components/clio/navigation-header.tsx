@@ -5,10 +5,10 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   FolderGit2Icon,
-  PlusIcon,
   SearchIcon,
   UploadIcon,
 } from 'lucide-react';
+import { AddIcon } from '@/lib/icon-vocabulary';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
@@ -234,12 +234,12 @@ export function NavigationHeader({
                 tooltip="Create or import"
                 type="button"
               >
-                <PlusIcon aria-hidden="true" />
+                <AddIcon aria-hidden="true" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem onSelect={onNewSession}>
-                <PlusIcon aria-hidden="true" /> New session
+                <AddIcon aria-hidden="true" /> New session
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={onNewWorkspace}>
                 <FolderGit2Icon aria-hidden="true" /> New workspace

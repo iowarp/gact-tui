@@ -193,7 +193,6 @@ describe('ClioModelPicker', () => {
     const onRetryCatalog = vi.fn();
     renderPicker(
       <ClioModelPicker
-        catalogRefreshing
         catalogStatus="ready"
         onChange={vi.fn()}
         onRetryCatalog={onRetryCatalog}
@@ -208,31 +207,8 @@ describe('ClioModelPicker', () => {
     expect(screen.getByPlaceholderText('Search providers and models')).toBeVisible();
     expect(screen.getByText('Codex')).toBeVisible();
     expect(
-      screen.getByRole('button', { name: 'Refresh Codex provider and models' }),
-    ).toBeDisabled();
-    expect(
       screen.queryByRole('status', { name: 'Loading available models' }),
     ).not.toBeInTheDocument();
-  });
-
-  it('refreshes the active provider explicitly without closing the picker', async () => {
-    const user = userEvent.setup();
-    const onRetryCatalog = vi.fn();
-    renderPicker(
-      <ClioModelPicker
-        onChange={vi.fn()}
-        onRetryCatalog={onRetryCatalog}
-        options={options}
-        provider="codex"
-        trigger={<Button>Change model</Button>}
-      />,
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Change model' }));
-    await user.click(screen.getByRole('button', { name: 'Refresh Codex provider and models' }));
-
-    expect(onRetryCatalog).toHaveBeenCalledWith('codex');
-    expect(screen.getByRole('dialog')).toBeVisible();
   });
 
   it('never links out to Settings for a provider action -- everything happens in the picker', async () => {
@@ -448,7 +424,7 @@ describe('ClioModelPicker', () => {
     expect(document.querySelectorAll('[data-slot="scroll-area-viewport"]')).toHaveLength(2);
   });
 
-  it('nests the ready-state action strip inside the active column, never a full-width row under both', async () => {
+  it('nests the action row inside the active column, never a full-width row under both', async () => {
     const user = userEvent.setup();
     renderPicker(
       <ClioModelPicker
@@ -461,10 +437,10 @@ describe('ClioModelPicker', () => {
 
     await user.click(screen.getByRole('button', { name: 'Change model' }));
 
-    expect(await screen.findByRole('button', { name: 'Verify provider' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Refresh models' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Refresh' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Reload models' })).toBeVisible();
 
-    const strip = document.querySelector('[data-slot="provider-action-strip"]');
+    const strip = document.querySelector('[data-slot="provider-panel-footer"]');
     expect(strip).not.toBeNull();
 
     // Depth 0 is the (now-trail) provider list; depth 1 is the active

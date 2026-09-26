@@ -9,6 +9,8 @@ export interface CatalogModelInput {
   availability?: string;
   transport?: string;
   modalities?: string[];
+  /** The service's clio-schemas ModelCapabilityTags record for the model. */
+  capability_tags?: Record<string, unknown>;
 }
 
 export function catalogEntry(
@@ -69,6 +71,21 @@ export function codexCatalog() {
             parameter: '',
             levels: ['low', 'medium', 'high', 'xhigh'],
             default: 'medium',
+          },
+          capability_tags: {
+            model_key: 'gpt-5.6-luna',
+            capabilities: [
+              {
+                value: 'reasoning',
+                evidence: [
+                  {
+                    source: 'server_report',
+                    detail: 'Codex model catalog supported_reasoning_levels',
+                    observed_at: '2026-08-23T05:00:00Z',
+                  },
+                ],
+              },
+            ],
           },
         },
       ],

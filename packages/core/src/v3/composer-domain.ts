@@ -1,3 +1,5 @@
+import type { ModelCapabilityTags } from '../generated/clio-schemas/_models.js';
+export type { ModelCapabilityTags, TagEvidence } from '../generated/clio-schemas/_models.js';
 import type { WireValue } from './domain.js';
 
 export type MessageDelivery = 'start' | 'steer' | 'auto';
@@ -284,6 +286,16 @@ export interface ProviderCatalogModel {
   /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
   aliases?: string[];
   modalities: string[];
+  /** False only for a model known to be another type than chat. */
+  chat_selectable?: boolean;
+  /**
+   * Every tag the picker renders and filters on (modalities, capabilities,
+   * model type and role, Hub tasks, domains, free, router), each with the
+   * evidence that states it -- the shared `ModelCapabilityTags` record. An
+   * absent tag means no source stated it. Absent when an older service does
+   * not report tags.
+   */
+  capability_tags?: ModelCapabilityTags;
   /**
    * What this model can do about thinking, from provider truth: `levels` are the
    * levels a person can choose (empty means no selector), `default` the model's
@@ -317,6 +329,10 @@ export interface ProviderCatalogModel {
     context_source: string;
   };
   failure: string;
+  /** Where each effective capability value came from, keyed by capability
+   * field (`modalities`, `native_tool_calling`, `context_window`,
+   * `reasoning`, ...): the evidence source and the rule that decided it. */
+  capabilities_provenance?: Record<string, { source: string; decided_by: string }>;
   /** Which of the provider's `transports` (below) this model came from -- set
    * only for a multi-transport provider (Codex: `"sdk"` | `"direct"`). */
   transport?: string;

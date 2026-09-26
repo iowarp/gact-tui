@@ -72,13 +72,18 @@ function renderConversation(element: ReactElement) {
 }
 
 function stubViewport(width = 800) {
-  let onResize: ResizeObserverCallback | undefined;
+  const observers: ResizeObserverCallback[] = [];
   class ResizeObserverMock implements ResizeObserver {
+    private readonly callback: ResizeObserverCallback;
+
     constructor(callback: ResizeObserverCallback) {
-      onResize = callback;
+      this.callback = callback;
+      observers.push(callback);
     }
 
-    disconnect() {}
+    disconnect() {
+      observers.splice(observers.indexOf(this.callback), 1);
+    }
     observe() {}
     unobserve() {}
   }
@@ -97,7 +102,8 @@ function stubViewport(width = 800) {
   return {
     resizeTo(next: number) {
       act(() => {
-        onResize?.([{ contentRect: { width: next } } as ResizeObserverEntry], {} as ResizeObserver);
+        for (const onResize of observers)
+          onResize([{ contentRect: { width: next } } as ResizeObserverEntry], {} as ResizeObserver);
       });
     },
   };
@@ -118,6 +124,8 @@ function plainMessages(count: number, withText = true) {
 describe('ClioConversation transcript viewport', () => {
   it('honors keyboard scrolling from a focused transcript button before resizing', () => {
     const viewport = stubViewport();
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(300);
     const frames: FrameRequestCallback[] = [];
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
       frames.push(callback);
@@ -139,15 +147,23 @@ describe('ClioConversation transcript viewport', () => {
       />,
     );
     frames.splice(0);
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    Object.defineProperty(log, 'scrollTop', { configurable: true, writable: true, value: 700 });
     viewport.resizeTo(640);
+    // Still engaged when the resize lands, so it follows immediately; the
+    // queued frame must not pull the reader back after the key scrolls up.
+    scrollTo.mockClear();
     fireEvent.keyDown(screen.getAllByRole('button', { name: 'Copy message' })[0], {
       key: 'ArrowUp',
     });
     act(() => frames.splice(0).forEach((callback) => callback(0)));
     expect(scrollTo).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Scroll to bottom' })).toBeVisible();
   });
   it('does not follow a queued resize after the reader starts scrolling', () => {
     const viewport = stubViewport();
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(1000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(300);
     const frames: FrameRequestCallback[] = [];
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
       frames.push(callback);
@@ -169,9 +185,12 @@ describe('ClioConversation transcript viewport', () => {
       />,
     );
     frames.splice(0);
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    Object.defineProperty(log, 'scrollTop', { configurable: true, writable: true, value: 700 });
     viewport.resizeTo(640);
-    fireEvent.wheel(screen.getByRole('log', { name: 'Conversation' }), { deltaY: -100 });
-    expect(virtualizerMocks.scrollToOffset).toHaveBeenCalledWith(0, { behavior: 'auto' });
+    scrollTo.mockClear();
+    fireEvent.wheel(log, { deltaY: -100 });
+    expect(virtualizerMocks.scrollToOffset).toHaveBeenCalledWith(700, { behavior: 'auto' });
     act(() => frames.splice(0).forEach((callback) => callback(0)));
     expect(scrollTo).not.toHaveBeenCalled();
   });
@@ -210,7 +229,7 @@ describe('ClioConversation transcript viewport', () => {
     scrollTo.mockClear();
     viewport.resizeTo(640);
     expect(scrollTo).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Scroll to latest message' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Scroll to bottom' })).toBeVisible();
   });
 
   it('remeasures transcript rows and restores the pinned view on a width change', () => {

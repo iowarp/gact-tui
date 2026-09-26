@@ -14,9 +14,9 @@ import {
   FileCode2Icon,
   FileOutputIcon,
   MessageSquareTextIcon,
-  RefreshCwIcon,
   ShieldCheckIcon,
 } from 'lucide-react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   CodeBlock,
@@ -342,7 +342,7 @@ export function ClioDocumentWorkspace({
             size="icon-sm"
             variant="ghost"
           >
-            <RefreshCwIcon aria-hidden="true" />
+            <RefreshIcon aria-hidden="true" />
           </Button>
         </div>
         {status ? <ClioStatus detail={status} label="Document updated" value="healthy" /> : null}

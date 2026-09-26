@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   providerAvailability,
   providerConnectionLabel,
-  providerConnectionNote,
   providerCredentialKind,
   providerCredentialLabel,
   providerCredentialStateLabel,
+  providerNeedsReauthentication,
   translateKnownProviderErrorReason,
 } from './provider-availability';
 
@@ -198,14 +198,11 @@ describe('credential wording follows the auth method', () => {
     expect(providerAvailability(undefined, { ...apiKey, status: undefined }).label).toBe('API key needed');
   });
 
-  it('never shows a wire token like "skipped": an unprobed connection is Not checked, with why', () => {
+  it('never shows a wire token like "skipped": an unprobed connection is Not checked', () => {
     expect(providerConnectionLabel('skipped')).toBe('Not checked');
     expect(providerConnectionLabel(undefined)).toBe('Not checked');
     expect(providerConnectionLabel('ok')).toBe('Reachable');
     expect(providerConnectionLabel('unreachable')).toBe('Unreachable');
-    expect(providerConnectionNote(apiKey, 'skipped')).toBe('Checked once an API key is saved.');
-    expect(providerConnectionNote(oauth, 'skipped')).toBe('Checked once you sign in.');
-    expect(providerConnectionNote(apiKey, 'ok')).toBeUndefined();
   });
 
   it('states the credential verdict in its own terms', () => {
@@ -214,5 +211,24 @@ describe('credential wording follows the auth method', () => {
     expect(providerCredentialStateLabel(apiKey, 'missing')).toBe('Missing');
     expect(providerCredentialStateLabel(apiKey, 'rejected')).toBe('Rejected');
     expect(providerCredentialStateLabel(oauth, 'deferred')).toBe('Saved, not verified');
+  });
+});
+
+describe('providerNeedsReauthentication', () => {
+  it('reads the typed reason from the preset status or the catalog failure', () => {
+    expect(
+      providerNeedsReauthentication(
+        { status_message: 'argonne_reauthentication_required: timeout' } as LanguageModelPreset,
+        undefined,
+      ),
+    ).toBe(true);
+    expect(
+      providerNeedsReauthentication(undefined, 'argonne_reauthentication_required: not active'),
+    ).toBe(true);
+  });
+
+  it('is false for other failures', () => {
+    expect(providerNeedsReauthentication(undefined, 'api_key_rejected: 401')).toBe(false);
+    expect(providerNeedsReauthentication(undefined, undefined)).toBe(false);
   });
 });

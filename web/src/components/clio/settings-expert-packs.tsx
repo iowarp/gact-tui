@@ -1,15 +1,8 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { AgentBlueprintSource, ExpertPackDefinition, Workspace } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  BoxesIcon,
-  MoreHorizontalIcon,
-  PackageCheckIcon,
-  PackagePlusIcon,
-  RefreshCwIcon,
-  Trash2Icon,
-  UsersIcon,
-} from 'lucide-react';
+import { BoxesIcon, PackageCheckIcon, PackagePlusIcon, UsersIcon } from 'lucide-react';
+import { DeleteIcon, MoreIcon, RefreshIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -258,7 +251,7 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
                         size="icon-sm"
                         variant="ghost"
                       >
-                        <MoreHorizontalIcon aria-hidden="true" />
+                        <MoreIcon aria-hidden="true" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-48">
@@ -268,14 +261,14 @@ export function ExpertPackSettings({ initialWorkspaceId }: { initialWorkspaceId?
                       {managed ? (
                         <>
                           <DropdownMenuItem onSelect={() => update.mutate(pack)}>
-                            <RefreshCwIcon aria-hidden="true" /> Check for update
+                            <RefreshIcon aria-hidden="true" /> Check for update
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onSelect={() => setDeletePack(pack)}
                             variant="destructive"
                           >
-                            <Trash2Icon aria-hidden="true" /> Remove
+                            <DeleteIcon aria-hidden="true" /> Remove
                           </DropdownMenuItem>
                         </>
                       ) : null}
