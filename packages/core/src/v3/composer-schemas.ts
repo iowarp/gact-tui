@@ -358,6 +358,22 @@ export const providerCatalogSchema = z.object({
           revision: z.string(),
           aliases: z.array(z.string()).default([]),
           modalities: z.array(z.string()),
+          // chat / embedding / rerank / image_generation / ... or null when no
+          // source states it (never guessed). Optional: older services omit it.
+          model_type: z
+            .string()
+            .nullish()
+            .transform((value) => value ?? undefined),
+          // False only for a model KNOWN to be another type than chat.
+          chat_selectable: z
+            .boolean()
+            .nullish()
+            .transform((value) => value ?? undefined),
+          // True when the service states the model costs nothing to use.
+          free: z
+            .boolean()
+            .nullish()
+            .transform((value) => value ?? undefined),
           reasoning: z.object({
             supported: z.boolean(),
             parameter: z.string(),

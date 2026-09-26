@@ -40,6 +40,8 @@ interface UseProviderPanelInput {
   preset: LanguageModelPreset | undefined;
   /** Whether the picker is open: an unchecked transport is checked once per opening. */
   open: boolean;
+  /** A sentence the action row shows over the latest failure (e.g. why a model can't be picked). */
+  notice?: string;
 }
 
 /**
@@ -49,7 +51,7 @@ interface UseProviderPanelInput {
  * itself, a SEPARATE instance scoped to that transport, so its log-in steps
  * render in its own section and nowhere else.
  */
-export function useProviderPanel({ group, preset, open }: UseProviderPanelInput) {
+export function useProviderPanel({ group, preset, open, notice }: UseProviderPanelInput) {
   const multi = isMultiTransport(group);
   const sections = group && multi ? transportSections(group) : [];
   const signInTransport = sections.find((section) => section.transport.auth);
@@ -100,7 +102,7 @@ export function useProviderPanel({ group, preset, open }: UseProviderPanelInput)
           footer: (
             <ProviderPanelFooter
               actions={providerActions}
-              error={providerActionError(providerActions, group.name)}
+              error={notice ?? providerActionError(providerActions, group.name)}
               logOut={logOut}
             />
           ),
@@ -139,7 +141,7 @@ export function useProviderPanel({ group, preset, open }: UseProviderPanelInput)
       {listed.length ? loginBlocks : null}
       <ProviderPanelFooter
         actions={providerActions}
-        error={providerActionError(providerActions, group.name)}
+        error={notice ?? providerActionError(providerActions, group.name)}
         logOut={logOut}
       />
     </>

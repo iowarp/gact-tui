@@ -16,8 +16,11 @@ export type ModelCapabilityAxis =
   | 'input_modality'
   | 'output_modality'
   | 'capability'
-  | 'model_type'
+  | 'role'
+  | 'task'
   | 'domain'
+  | 'price'
+  | 'kind'
   | 'context';
 
 export interface ModelCapabilityEvidence {
@@ -30,14 +33,24 @@ export interface ModelCapabilityEvidence {
 export interface ModelCapabilityTag {
   axis: ModelCapabilityAxis;
   /** The tag's value: a modality (`image`), a capability (`tool_calling`),
-   * a model type, a domain, or a context size in tokens (as a string). */
+   * a role (`surrogate`), a task (a model type such as `image_generation`), a
+   * domain, `free`, a kind (`router` / `free_router`), or a context size in
+   * tokens (as a string). */
   value: string;
   /** At least one; the first is the winning source. */
   evidence: readonly ModelCapabilityEvidence[];
 }
 
-/** Modalities every chat model has; tagging them would be noise. */
-const BASELINE_MODALITIES = new Set(['text']);
+/**
+ * Tags every chat model carries (text in, text out). They exist for filtering
+ * -- they are the default filter -- but a row does not show them: on every row
+ * they would be noise.
+ */
+export function isBaselineTag(tag: ModelCapabilityTag): boolean {
+  return (
+    (tag.axis === 'input_modality' || tag.axis === 'output_modality') && tag.value === 'text'
+  );
+}
 
 function evidenceFor(option: ClioModelOption, field: string): ModelCapabilityEvidence[] {
   const provenance = option.capabilityProvenance?.[field];
@@ -51,13 +64,47 @@ function evidenceFor(option: ClioModelOption, field: string): ModelCapabilityEvi
  */
 export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCapabilityTag[] {
   const tags: ModelCapabilityTag[] = [];
-  for (const modality of option.modalities ?? []) {
-    if (BASELINE_MODALITIES.has(modality)) continue;
+  if (option.providerId === 'openrouter' && option.id.startsWith('openrouter/')) {
+    // OpenRouter's own routing endpoints (its model ids under `openrouter/`).
+    tags.push({
+      axis: 'kind',
+      value: option.id === 'openrouter/free' ? 'free_router' : 'router',
+      evidence: [{ source: 'catalog', field: 'model_id' }],
+    });
+  }
+  if (option.free === true) {
+    tags.push({ axis: 'price', value: 'free', evidence: evidenceFor(option, 'free') });
+  }
+  const modalities = option.modalities ?? [];
+  // A model a chat endpoint offers takes and returns text unless the service
+  // knows it is another type (it then says `chat_selectable: false` and names
+  // the type) -- true even when its modality list was never reported.
+  const chat =
+    option.chatSelectable !== false && (!option.modelType || option.modelType === 'chat');
+  if (!modalities.includes('text') && chat) {
+    tags.push({
+      axis: 'input_modality',
+      value: 'text',
+      evidence: evidenceFor(option, 'chat_selectable'),
+    });
+  }
+  for (const modality of modalities) {
     tags.push({
       axis: 'input_modality',
       value: modality,
       evidence: evidenceFor(option, 'modalities'),
     });
+  }
+  if (chat) {
+    tags.push({
+      axis: 'output_modality',
+      value: 'text',
+      evidence: evidenceFor(option, option.modelType === 'chat' ? 'model_type' : 'chat_selectable'),
+    });
+  }
+  if (option.modelType && option.modelType !== 'chat') {
+    tags.push({ axis: 'role', value: 'surrogate', evidence: evidenceFor(option, 'model_type') });
+    tags.push({ axis: 'task', value: option.modelType, evidence: evidenceFor(option, 'model_type') });
   }
   if (option.toolCalling === true) {
     tags.push({
@@ -108,15 +155,41 @@ export function formatContextSize(tokens: number): string {
   return String(tokens);
 }
 
+/** What each model type does, as a noun ("Image generator"). */
+export const TASK_LABELS: Record<string, string> = {
+  embedding: 'Embeddings',
+  rerank: 'Reranker',
+  audio_transcription: 'Transcriber',
+  audio_speech: 'Speech generator',
+  image_generation: 'Image generator',
+  image_edit: 'Image editor',
+  video_generation: 'Video generator',
+  moderation: 'Moderator',
+  ocr: 'Text reader',
+  segmentation: 'Segmenter',
+  classification: 'Classifier',
+  forecasting: 'Forecaster',
+  scientific_surrogate: 'Scientific surrogate',
+  other: 'Other model',
+};
+
 /** The short label a tag shows ("Vision", "Tools", "200K"). */
 export function modelCapabilityTagLabel(tag: ModelCapabilityTag): string {
   switch (tag.axis) {
+    case 'role':
+      return tag.value === 'surrogate' ? 'Surrogate' : sentenceCase(tag.value);
+    case 'task':
+      return TASK_LABELS[tag.value] ?? sentenceCase(tag.value.replaceAll('_', ' '));
+    case 'price':
+      return 'Free';
+    case 'kind':
+      return tag.value === 'free_router' ? 'Free router' : 'Router';
     case 'context':
       return formatContextSize(Number(tag.value));
     case 'input_modality':
-      return MODALITY_LABELS[tag.value] ?? sentenceCase(tag.value);
+      return tag.value === 'text' ? 'Text in' : (MODALITY_LABELS[tag.value] ?? sentenceCase(tag.value));
     case 'output_modality':
-      return `Makes ${tag.value}`;
+      return tag.value === 'text' ? 'Text out' : `Makes ${tag.value}`;
     case 'capability':
       return CAPABILITY_LABELS[tag.value] ?? sentenceCase(tag.value.replaceAll('_', ' '));
     default:
@@ -132,7 +205,9 @@ export function modelCapabilityTagMeaning(tag: ModelCapabilityTag): string {
     case 'input_modality':
       return tag.value === 'image'
         ? 'Understands images.'
-        : `Understands ${tag.value === 'pdf' ? 'PDF files' : tag.value}.`;
+        : tag.value === 'text'
+          ? 'Reads text.'
+          : `Understands ${tag.value === 'pdf' ? 'PDF files' : tag.value}.`;
     case 'output_modality':
       return `Produces ${tag.value}.`;
     case 'capability':
@@ -141,8 +216,16 @@ export function modelCapabilityTagMeaning(tag: ModelCapabilityTag): string {
         : tag.value === 'reasoning'
           ? 'Can think before answering.'
           : `${modelCapabilityTagLabel(tag)}.`;
-    case 'model_type':
-      return `A ${tag.value.replaceAll('_', ' ')} model.`;
+    case 'role':
+      return 'A specialist model: it does one task rather than hold a conversation.';
+    case 'task':
+      return `${modelCapabilityTagLabel(tag)}.`;
+    case 'price':
+      return 'Costs nothing to use.';
+    case 'kind':
+      return tag.value === 'free_router'
+        ? 'Sends each request to a free model that can handle it.'
+        : 'Sends each request to a model chosen for it.';
     default:
       return `${modelCapabilityTagLabel(tag)}.`;
   }

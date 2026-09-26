@@ -284,6 +284,12 @@ export interface ProviderCatalogModel {
   /** CLI values that also select this model (e.g. claude_code's "sonnet"). */
   aliases?: string[];
   modalities: string[];
+  /** chat / embedding / image_generation / ...; absent when no source states it. */
+  model_type?: string;
+  /** False only for a model known to be another type than chat. */
+  chat_selectable?: boolean;
+  /** True when the service states the model costs nothing to use. */
+  free?: boolean;
   /**
    * What this model can do about thinking, from provider truth: `levels` are the
    * levels a person can choose (empty means no selector), `default` the model's

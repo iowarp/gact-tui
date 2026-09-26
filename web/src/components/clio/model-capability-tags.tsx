@@ -3,7 +3,11 @@ import {
   BrainIcon,
   EyeIcon,
   FileTextIcon,
+  FlaskConicalIcon,
+  GiftIcon,
+  RouteIcon,
   ScrollTextIcon,
+  ShapesIcon,
   SparklesIcon,
   VideoIcon,
   WrenchIcon,
@@ -30,6 +34,10 @@ const TAG_ICONS: Record<string, LucideIcon> = {
 
 function tagIcon(tag: ModelCapabilityTag): LucideIcon {
   if (tag.axis === 'context') return ScrollTextIcon;
+  if (tag.axis === 'price') return GiftIcon;
+  if (tag.axis === 'kind') return RouteIcon;
+  if (tag.axis === 'role') return FlaskConicalIcon;
+  if (tag.axis === 'task') return ShapesIcon;
   return TAG_ICONS[`${tag.axis}:${tag.value}`] ?? SparklesIcon;
 }
 
@@ -37,7 +45,17 @@ interface ModelCapabilityTagsProps {
   tags: readonly ModelCapabilityTag[];
   /** `sm`: a picker row; `default`: the Models page card. */
   size?: 'sm' | 'default';
+  /**
+   * Makes each chip clickable (the picker adds the tag's filter token). The
+   * click never reaches the row the chips sit in.
+   */
+  onTagClick?: (tag: ModelCapabilityTag) => void;
   className?: string;
+}
+
+/** Free is the pitch: it reads green, every other tag stays quiet. */
+function isFreeTag(tag: ModelCapabilityTag): boolean {
+  return tag.axis === 'price' || (tag.axis === 'kind' && tag.value === 'free_router');
 }
 
 /**
@@ -51,7 +69,12 @@ interface ModelCapabilityTagsProps {
  * where a focusable control would break the listbox. Their text is the label,
  * so nothing is conveyed by the icon alone.
  */
-export function ModelCapabilityTags({ tags, size = 'default', className }: ModelCapabilityTagsProps) {
+export function ModelCapabilityTags({
+  tags,
+  size = 'default',
+  className,
+  onTagClick,
+}: ModelCapabilityTagsProps) {
   if (!tags.length) return null;
   return (
     <TooltipProvider delayDuration={250}>
@@ -66,11 +89,27 @@ export function ModelCapabilityTags({ tags, size = 'default', className }: Model
             <Tooltip key={`${tag.axis}:${tag.value}`}>
               <TooltipTrigger asChild>
                 <Badge
-                  className="cursor-default font-normal text-muted-foreground"
+                  className={cn(
+                    'font-normal',
+                    !isFreeTag(tag) && 'text-muted-foreground',
+                    onTagClick
+                      ? 'cursor-pointer hover:border-primary/40 hover:text-foreground'
+                      : 'cursor-default',
+                  )}
+                  onClick={
+                    onTagClick
+                      ? (event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onTagClick(tag);
+                        }
+                      : undefined
+                  }
+                  onPointerDown={onTagClick ? (event) => event.stopPropagation() : undefined}
                   data-tag={`${tag.axis}:${tag.value}`}
                   radius="full"
                   size={size === 'sm' ? 'sm' : 'lg'}
-                  variant="outline"
+                  variant={isFreeTag(tag) ? 'success-light' : 'outline'}
                 >
                   <Icon aria-hidden="true" />
                   {label}

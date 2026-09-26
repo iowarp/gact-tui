@@ -4,7 +4,6 @@ import { useMemo, useState, type ReactNode } from 'react';
 import {
   ModelSelector,
   ModelSelectorContent,
-  ModelSelectorLogo,
   ModelSelectorTrigger,
 } from '@/components/ai-elements/model-selector';
 import {
@@ -18,14 +17,13 @@ import {
   CascaderSectionedItems,
 } from '@/components/reui/cascader/cascader-columns';
 import { CascaderFooter } from '@/components/reui/cascader/cascader-footer';
-import { CascaderInput, CascaderNav } from '@/components/reui/cascader/cascader-nav';
+import { CascaderNav } from '@/components/reui/cascader/cascader-nav';
 import {
   CascaderVirtualColumn,
   CascaderVirtualItems,
 } from '@/components/reui/cascader/cascader-virtual';
 import type { CascaderItemState } from '@/components/reui/cascader/cascader-context';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
-import { IconTile } from '@/components/reui/icon-tile';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,22 +32,27 @@ import { useHiddenProviders } from '@/hooks/use-hidden-providers';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useRepository } from '@/hooks/use-repository';
 import type { ClioModelOption } from '@/lib/model-options';
-import { providerLogoId } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { cn } from '@/lib/utils';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
+import { isBaselineTag, modelCapabilityTagsFromOption } from '@/lib/model-capability-tags';
+import {
+  DEFAULT_FILTER_TOKENS,
+  surrogateChatReason,
+  tagFilterToken,
+  type ModelFilterToken,
+} from '@/lib/model-filter-tokens';
 import { ModelCapabilityTags } from './model-capability-tags';
 import {
   modelNodeValue,
   type PickerNodeData,
   providerGroupsFromOptions,
   providerNodeValue,
-  providerSearchDescription,
-  providerUsableModelCount,
   type ProviderGroup,
 } from './model-picker-model';
-import { providerColumnModels, useProviderPanel } from './model-picker-provider-panel';
+import { useProviderPanel } from './model-picker-provider-panel';
+import { ModelPickerSearch } from './model-picker-search';
+import { useModelPickerTree, type ProviderFilterCount } from './model-picker-tree';
 import { ProviderHeartbeat } from './provider-heartbeat';
 
 interface ClioModelPickerProps {
@@ -124,53 +127,10 @@ export function ClioModelPicker({
     [hiddenProviders, sortedProviders, managingVisibility],
   );
   const presetsById = useMemo(() => new Map(presets.map((preset) => [preset.id, preset])), [presets]);
-  const providerNodes = useMemo<CascaderNode<PickerNodeData>[]>(
-    () =>
-      visibleProviders.map((group) => {
-        const modelNode = (choice: ClioModelOption): CascaderNode<PickerNodeData> => ({
-          value: modelNodeValue(choice),
-          label: choice.label,
-          description: choice.description,
-          keywords: [
-            choice.id,
-            choice.providerId,
-            choice.providerName,
-            choice.availabilityDetail ?? '',
-            ...(choice.modalities ?? []),
-          ],
-          data: { kind: 'model', choice },
-        });
-        // Only usable models are rows: a provider that still needs setup
-        // lists none (its column shows what to do instead), and a provider
-        // reachable more than one way lists each ready transport's models,
-        // which the column then splits into one section per transport.
-        const modelChildren = providerColumnModels(group).map(modelNode);
-        return {
-          value: providerNodeValue(group.id),
-          label: group.name,
-          description: providerSearchDescription(group),
-          icon: (
-            <IconTile aria-hidden="true" size="sm" variant="outline">
-              <ModelSelectorLogo className="size-5" provider={providerLogoId(group.id)} />
-            </IconTile>
-          ),
-          hasChildren: true,
-          // A count means "this many usable models": a provider whose latest
-          // check failed (rejected key, failed probe serving a dated list)
-          // shows none, whatever rows remain.
-          count: providerUsableModelCount(group),
-          keywords: [
-            group.id,
-            group.endpoint ?? '',
-            group.detail ?? '',
-            ...group.choices.flatMap((choice) => [choice.id, choice.label]),
-          ],
-          data: { kind: 'provider', group },
-          children: modelChildren,
-        };
-      }),
-    [visibleProviders],
-  );
+  const [tokens, setTokens] = useState<ModelFilterToken[]>(() => [...DEFAULT_FILTER_TOKENS]);
+  const [notice, setNotice] = useState<string>();
+  const tree = useModelPickerTree(visibleProviders, tokens);
+  const providerNodes = tree.nodes;
   const activeGroup = sortedProviders.find((item) => providerNodeValue(item.id) === path[0]);
   // Provider rows live only at depth 0, and the tree is exactly two levels
   // (provider -> model), so once a provider is drilled into, the ROOT column
@@ -187,7 +147,7 @@ export function ClioModelPicker({
   const activePreset = presetsById.get(activeGroup?.id ?? '');
   // The provider in view's right-hand panel: its sections, setup state and
   // action row, from the SAME shared action hook every provider surface uses.
-  const panel = useProviderPanel({ group: activeGroup, preset: activePreset, open });
+  const panel = useProviderPanel({ group: activeGroup, preset: activePreset, open, notice });
   const activeStage = panel.stage;
 
   function hideProvider(group: ProviderGroup): void {
@@ -209,7 +169,9 @@ export function ClioModelPicker({
 
   function handleOpenChange(nextOpen: boolean): void {
     setOpen(nextOpen);
+    setNotice(undefined);
     if (nextOpen) {
+      setTokens([...DEFAULT_FILTER_TOKENS]);
       const preferred = providers.find((item) => item.id === provider);
       setPath(preferred ? [providerNodeValue(preferred.id)] : []);
       return;
@@ -255,10 +217,20 @@ export function ClioModelPicker({
             maxHeight="100%"
             mode={showColumns ? 'columns' : 'drill'}
             onInputValueChange={handleQueryChange}
-            onPathChange={(nextPath) => setPath(nextPath)}
+            onPathChange={(nextPath) => {
+              setPath(nextPath);
+              setNotice(undefined);
+            }}
             onValueChange={(_value, details) => {
               if (details.node?.data?.kind !== 'model') return;
-              onChange(details.node.data.choice);
+              const choice = details.node.data.choice;
+              // A specialist model is a first-class row, but it cannot be the
+              // chat model: say why instead of selecting it.
+              if (choice.chatSelectable === false) {
+                setNotice(surrogateChatReason(choice.modelType));
+                return;
+              }
+              onChange(choice);
               setOpen(false);
               setQuery('');
             }}
@@ -271,6 +243,12 @@ export function ClioModelPicker({
                     : undefined
                 }
                 eyeAsStaticElement={providerRowsAreTrailButtons}
+                filterCount={
+                  node.data?.kind === 'provider' ? tree.counts.get(node.data.group.id) : undefined
+                }
+                onTagToken={(token) =>
+                  setTokens((current) => (current.includes(token) ? current : [...current, token]))
+                }
                 hidden={node.data?.kind === 'provider' && hiddenProviders.has(node.data.group.id)}
                 managingVisibility={managingVisibility}
                 node={node}
@@ -289,12 +267,15 @@ export function ClioModelPicker({
             <CascaderPanel className="h-full min-h-0">
               <CascaderNav>
                 <div className="flex w-full min-w-0 items-center gap-1 pe-8">
-                  <div className="min-w-0 flex-1">
-                    <CascaderInput
-                      aria-label="Search providers and models"
-                      placeholder="Search providers and models"
-                    />
-                  </div>
+                  <ModelPickerSearch
+                    availableTokens={tree.availableTokens}
+                    onQueryChange={handleQueryChange}
+                    onTokensChange={setTokens}
+                    query={query}
+                    shown={tree.shown}
+                    tokens={tokens}
+                    total={tree.total}
+                  />
                 </div>
               </CascaderNav>
               {/* A live provider can report hundreds of models, and every row
@@ -434,6 +415,8 @@ function ModelCatalogError({ onRetry }: { onRetry?: () => void }) {
 
 function PickerRowLabel({
   eyeAsStaticElement,
+  filterCount,
+  onTagToken,
   hidden,
   managingVisibility,
   node,
@@ -441,6 +424,10 @@ function PickerRowLabel({
   stage,
 }: {
   eyeAsStaticElement: boolean;
+  /** Set while filter tokens hide some of this provider's models. */
+  filterCount?: ProviderFilterCount;
+  /** Clicking a row's tag adds its filter token. */
+  onTagToken: (token: ModelFilterToken) => void;
   hidden: boolean;
   managingVisibility: boolean;
   node: CascaderNode<PickerNodeData>;
@@ -467,15 +454,33 @@ function PickerRowLabel({
           />
         ) : null}
         <ProviderHeartbeat group={node.data.group} stage={stage} />
+        {filterCount && filterCount.shown !== filterCount.total ? (
+          <span
+            aria-label={`${filterCount.shown} of ${filterCount.total} models shown`}
+            className="shrink-0 text-xs text-muted-foreground tabular-nums"
+            data-slot="provider-filter-count"
+          >
+            {filterCount.shown} / {filterCount.total}
+          </span>
+        ) : null}
       </span>
     );
   }
   const choice = node.data?.kind === 'model' ? node.data.choice : undefined;
-  const tags = choice ? modelCapabilityTagsFromOption(choice) : [];
+  const tags = choice ? modelCapabilityTagsFromOption(choice).filter((tag) => !isBaselineTag(tag)) : [];
   return (
     <span className="flex min-w-0 flex-1 flex-col items-start gap-1 py-0.5">
-      <span className="w-full truncate text-start">{node.label}</span>
-      <ModelCapabilityTags size="sm" tags={tags} />
+      <span className="w-full truncate text-start" data-slot="model-row-name">
+        {node.label}
+      </span>
+      <ModelCapabilityTags
+        onTagClick={(tag) => {
+          const token = tagFilterToken(tag);
+          if (token) onTagToken(token);
+        }}
+        size="sm"
+        tags={tags}
+      />
     </span>
   );
 }
