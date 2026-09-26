@@ -1,5 +1,6 @@
 import type { LanguageModelPreset, ProviderCatalogEntry, SavedServer } from '@clio/core/v3';
-import { LoaderCircleIcon, PencilIcon } from 'lucide-react';
+import { LoaderCircleIcon } from 'lucide-react';
+import { EditIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { Badge } from '@/components/reui/badge';
@@ -113,7 +114,7 @@ export function SettingsLocalServerCard({
             type="button"
           >
             <span className="truncate">{address}</span>
-            <PencilIcon aria-hidden="true" className="size-3 opacity-60 group-hover:opacity-100" />
+            <EditIcon aria-hidden="true" className="size-3 opacity-60 group-hover:opacity-100" />
           </button>
         )}
         {pending ? (

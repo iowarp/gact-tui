@@ -2,18 +2,20 @@ import { brand } from '@brand';
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
-  CircleHelpIcon,
-  InfoIcon,
   Maximize2Icon,
   MinusIcon,
-  MoreHorizontalIcon,
   PanelTopIcon,
-  PlusIcon,
-  RotateCwIcon,
   ServerIcon,
-  SettingsIcon,
-  XIcon,
 } from 'lucide-react';
+import {
+  AddIcon,
+  CloseIcon,
+  HelpIcon,
+  InfoIcon,
+  MoreIcon,
+  RefreshIcon,
+  SettingsIcon,
+} from '@/lib/icon-vocabulary';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -216,14 +218,14 @@ export function DesktopTitleBar() {
         <DropdownMenu onOpenChange={setMenuOpen} open={menuOpen}>
           <DropdownMenuTrigger asChild>
             <Button aria-label="Open application menu" size="icon-sm" variant="ghost">
-              <MoreHorizontalIcon aria-hidden="true" />
+              <MoreIcon aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="min-w-56">
             <DropdownMenuLabel>{brand.name}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => dispatchMenuAction('new-session')}>
-              <PlusIcon aria-hidden="true" />
+              <AddIcon aria-hidden="true" />
               New session
               <DropdownMenuShortcut>{macOS ? '⌘N' : 'Ctrl N'}</DropdownMenuShortcut>
             </DropdownMenuItem>
@@ -237,7 +239,7 @@ export function DesktopTitleBar() {
               <DropdownMenuShortcut>{macOS ? '⌘,' : 'Ctrl ,'}</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => window.location.reload()}>
-              <RotateCwIcon aria-hidden="true" />
+              <RefreshIcon aria-hidden="true" />
               Reload workspace
               <DropdownMenuShortcut>Ctrl R</DropdownMenuShortcut>
             </DropdownMenuItem>
@@ -248,7 +250,7 @@ export function DesktopTitleBar() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => dispatchMenuAction('help-docs')}>
-              <CircleHelpIcon aria-hidden="true" />
+              <HelpIcon aria-hidden="true" />
               Documentation
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => dispatchMenuAction('about')}>
@@ -257,7 +259,7 @@ export function DesktopTitleBar() {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => void runWindowAction('quit')}>
-              <XIcon aria-hidden="true" />
+              <CloseIcon aria-hidden="true" />
               Quit {brand.wordmark}
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -322,7 +324,7 @@ export function DesktopTitleBar() {
                   onClick={() => setClosePromptOpen(true)}
                   type="button"
                 >
-                  <XIcon aria-hidden="true" className="size-4" />
+                  <CloseIcon aria-hidden="true" className="size-4" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">Close or keep running</TooltipContent>
@@ -341,7 +343,7 @@ export function DesktopTitleBar() {
             size="icon-sm"
             variant="ghost"
           >
-            <XIcon aria-hidden="true" className="size-4" />
+            <CloseIcon aria-hidden="true" className="size-4" />
           </AlertDialogCancel>
           <AlertDialogHeader>
             <AlertDialogTitle>Keep {vocab.product} running?</AlertDialogTitle>

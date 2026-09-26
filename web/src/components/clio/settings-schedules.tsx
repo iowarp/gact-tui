@@ -1,13 +1,8 @@
 import { queryKeys } from '@/lib/query-keys';
 import type { CreateScheduledTurnInput, ScheduledTurn } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  CalendarClockIcon,
-  ChevronDownIcon,
-  Clock3Icon,
-  Repeat2Icon,
-  Trash2Icon,
-} from 'lucide-react';
+import { CalendarClockIcon, ChevronDownIcon, Clock3Icon, Repeat2Icon } from 'lucide-react';
+import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -399,7 +394,7 @@ export function ScheduleSettings({ initialSessionId }: { initialSessionId?: stri
                       type="button"
                       variant="ghost"
                     >
-                      <Trash2Icon aria-hidden="true" />
+                      <DeleteIcon aria-hidden="true" />
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>

@@ -6,35 +6,32 @@ import {
   BellRingIcon,
   BotIcon,
   BoxesIcon,
+  BrainCircuitIcon,
   CableIcon,
   CalendarClockIcon,
   CheckCircle2Icon,
   ChevronLeftIcon,
+  CircleAlertIcon,
+  CpuIcon,
   EyeOffIcon,
+  HeartPulseIcon,
   KeyRoundIcon,
-  InfoIcon,
-  MonitorCogIcon,
   Minimize2Icon,
+  MonitorCogIcon,
   MoonIcon,
-  MoreHorizontalIcon,
   PackageIcon,
   PaletteIcon,
   PlugZapIcon,
   ScrollTextIcon,
-  ServerCogIcon,
+  ServerIcon,
   ShieldCheckIcon,
-  SlidersHorizontalIcon,
-  SunIcon,
   StretchHorizontalIcon,
-  Trash2Icon,
+  SunIcon,
   Volume2Icon,
   VolumeXIcon,
   WrenchIcon,
-  HeartPulseIcon,
-  BrainCircuitIcon,
-  CircleAlertIcon,
-  CpuIcon,
 } from 'lucide-react';
+import { AdjustIcon, DeleteIcon, InfoIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { useTheme } from 'next-themes';
 import { useEffect, type ComponentType, type SVGProps } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
@@ -112,8 +109,8 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
 const sections: Array<{ id: string; label: string; icon: Icon }> = [
   { id: 'connections', label: 'Connections', icon: CableIcon },
-  { id: 'session-defaults', label: 'New session defaults', icon: SlidersHorizontalIcon },
-  { id: 'providers', label: 'Providers', icon: ServerCogIcon },
+  { id: 'session-defaults', label: 'New session defaults', icon: AdjustIcon },
+  { id: 'providers', label: 'Providers', icon: ServerIcon },
   { id: 'models', label: 'Models', icon: CpuIcon },
   { id: 'agents', label: 'Agents', icon: BotIcon },
   { id: 'blueprints', label: 'Marketplaces & blueprints', icon: BoxesIcon },
@@ -235,7 +232,7 @@ function ConnectionsSettings() {
                       size="icon-sm"
                       variant="ghost"
                     >
-                      <MoreHorizontalIcon aria-hidden="true" />
+                      <MoreIcon aria-hidden="true" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-52">
@@ -251,7 +248,7 @@ function ConnectionsSettings() {
                       onSelect={() => void forget(connection.endpoint)}
                       variant="destructive"
                     >
-                      <Trash2Icon aria-hidden="true" /> Forget on this device
+                      <DeleteIcon aria-hidden="true" /> Forget on this device
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

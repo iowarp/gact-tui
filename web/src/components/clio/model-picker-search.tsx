@@ -1,4 +1,4 @@
-import { XIcon } from 'lucide-react';
+import { RemoveIcon } from '@/lib/icon-vocabulary';
 import type { KeyboardEvent } from 'react';
 import { CascaderInput } from '@/components/reui/cascader/cascader-nav';
 import { Badge } from '@/components/reui/badge';
@@ -81,7 +81,7 @@ export function ModelPickerSearch({
                   onClick={() => onTokensChange(tokens.filter((item) => item !== token))}
                   type="button"
                 >
-                  <XIcon aria-hidden="true" className="size-3" />
+                  <RemoveIcon aria-hidden="true" className="size-3" />
                 </button>
               </Badge>
             ))}

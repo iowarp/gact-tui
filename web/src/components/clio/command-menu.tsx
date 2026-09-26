@@ -8,8 +8,8 @@ import {
   FileIcon,
   MessageSquareTextIcon,
   NetworkIcon,
-  SettingsIcon,
 } from 'lucide-react';
+import { SettingsIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { brand } from '@brand';

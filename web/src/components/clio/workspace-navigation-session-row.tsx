@@ -4,12 +4,10 @@ import {
   BellRingIcon,
   DownloadIcon,
   LoaderCircleIcon,
-  MoreHorizontalIcon,
-  PencilIcon,
   PinIcon,
   PinOffIcon,
-  Trash2Icon,
 } from 'lucide-react';
+import { DeleteIcon, EditIcon, MoreIcon } from '@/lib/icon-vocabulary';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -78,7 +76,7 @@ export function SessionNavigationRow({
               type="button"
               variant="ghost"
             >
-              <MoreHorizontalIcon aria-hidden="true" />
+              <MoreIcon aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
@@ -98,7 +96,7 @@ export function SessionNavigationRow({
               className="whitespace-nowrap"
               onSelect={() => onRename({ kind: 'session', id: session.id, label: session.title })}
             >
-              <PencilIcon aria-hidden="true" /> Rename session
+              <EditIcon aria-hidden="true" /> Rename session
             </DropdownMenuItem>
             <DropdownMenuItem
               className="whitespace-nowrap"
@@ -125,7 +123,7 @@ export function SessionNavigationRow({
               onSelect={() => onDelete({ kind: 'session', id: session.id, label: session.title })}
               variant="destructive"
             >
-              <Trash2Icon aria-hidden="true" /> Delete session
+              <DeleteIcon aria-hidden="true" /> Delete session
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -187,7 +185,7 @@ export function SessionNavigationRow({
                 type="button"
               >
                 <span className="truncate">{session.title || 'Untitled session'}</span>
-                <PencilIcon
+                <EditIcon
                   aria-hidden="true"
                   className="size-3 shrink-0 opacity-0 transition-opacity group-hover/name:opacity-100 group-focus/name:opacity-100"
                 />

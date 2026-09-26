@@ -1,10 +1,10 @@
 import {
   BoxesIcon,
-  CircleHelpIcon,
   ClipboardPenLineIcon,
   MessageCircleQuestionIcon,
   ShieldQuestionIcon,
 } from 'lucide-react';
+import { HelpIcon } from '@/lib/icon-vocabulary';
 import { Badge } from '@/components/ui/badge';
 import { PROTOCOL } from '@/lib/brand-vocabulary';
 import type { SessionAttention } from '@/lib/session-attention';
@@ -55,7 +55,7 @@ export function SessionAttentionIndicators({
           title="This version of the app has no surface for this request. Update to respond to it."
           variant="outline"
         >
-          <CircleHelpIcon aria-hidden="true" data-icon="inline-start" />
+          <HelpIcon aria-hidden="true" data-icon="inline-start" />
           {unknownCount === 1 ? 'Unrecognized request' : `${unknownCount} unrecognized requests`}
         </Badge>
       ) : null}

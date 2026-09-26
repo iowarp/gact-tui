@@ -1,5 +1,6 @@
 import type { Session, Workspace } from '@clio/core/v3';
-import { ArchiveRestoreIcon, Trash2Icon } from 'lucide-react';
+import { ArchiveRestoreIcon } from 'lucide-react';
+import { DeleteIcon } from '@/lib/icon-vocabulary';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -114,7 +115,7 @@ export function ClioArchivedSessionsDialog({
                           size="icon-sm"
                           variant="ghost"
                         >
-                          <Trash2Icon aria-hidden="true" />
+                          <DeleteIcon aria-hidden="true" />
                         </Button>
                       </div>
                     }

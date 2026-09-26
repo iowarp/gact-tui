@@ -2,10 +2,10 @@ import {
   AppWindowIcon,
   CheckCircle2Icon,
   DownloadIcon,
-  RefreshCwIcon,
   TriangleAlertIcon,
   XCircleIcon,
 } from 'lucide-react';
+import { RefreshIcon } from '@/lib/icon-vocabulary';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -175,7 +175,7 @@ export function DesktopSettings() {
               onClick={() => void checkUpdate()}
               variant="outline"
             >
-              <RefreshCwIcon
+              <RefreshIcon
                 aria-hidden="true"
                 className={updateState.kind === 'checking' ? 'animate-spin' : undefined}
               />

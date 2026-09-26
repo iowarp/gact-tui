@@ -10,19 +10,19 @@ import type {
 } from '@clio/core/v3';
 import {
   ActivityIcon,
-  BoxIcon,
   BoxesIcon,
-  FolderIcon,
+  BoxIcon,
   FileCode2Icon,
   FileDiffIcon,
+  FolderIcon,
   Layers3Icon,
   Maximize2Icon,
   Minimize2Icon,
   PaperclipIcon,
   TerminalSquareIcon,
   WorkflowIcon,
-  XIcon,
 } from 'lucide-react';
+import { CloseIcon } from '@/lib/icon-vocabulary';
 import {
   forwardRef,
   useCallback,
@@ -567,7 +567,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                             }}
                             title={`Close ${tab.label}`}
                           >
-                            <XIcon aria-hidden="true" className="size-3.5" />
+                            <CloseIcon aria-hidden="true" className="size-3.5" />
                           </span>
                         </div>
                       </SortableItem>
