@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => {
     entities: { cursor: undefined as string | undefined, stream: 'offline' },
     error: undefined,
     applyFrames: vi.fn(),
+    claimStream: vi.fn(),
+    releaseStream: vi.fn(),
     clearSessionModelReferences: vi.fn(),
     reconcileSnapshots: vi.fn(),
     setStreamError: vi.fn(),

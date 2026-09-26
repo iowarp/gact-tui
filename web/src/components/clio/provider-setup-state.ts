@@ -1,6 +1,7 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import {
   providerCredentialKind,
+  providerNeedsReauthentication,
   providerPrimaryAction,
   translateKnownProviderErrorReason,
 } from '@/lib/provider-availability';
@@ -19,7 +20,7 @@ export function providerSetupFlow(
   group: ProviderGroup,
   preset: LanguageModelPreset | undefined,
 ): ProviderActionFlow {
-  if (preset?.status_message?.includes('argonne_reauthentication_required')) return 'sign_in';
+  if (providerNeedsReauthentication(preset, group.failure)) return 'sign_in';
   const action = providerPrimaryAction(preset);
   if (action !== 'none') return action;
   if (providerCredentialKind(preset) === 'api_key' && group.health !== 'healthy') return 'api_key';

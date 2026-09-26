@@ -19,6 +19,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ConnectionAvailabilityIndicator } from '@/components/clio/connection-availability';
 import { Shimmer } from '@/components/ai-elements/shimmer';
+import { BrandTagline } from '@/components/clio/brand-tagline';
 import { ClioStatus } from '@/components/clio/status';
 import { ConnectionEmptyService } from '@/components/clio/connection-empty-service';
 import { DeployClioDialog } from '@/components/clio/deploy-clio-dialog';
@@ -464,7 +465,7 @@ export function ConnectionPage() {
       <section className="relative mx-auto grid min-h-full max-w-7xl items-center gap-12 px-6 py-12 lg:grid-cols-[1.1fr_0.9fr] lg:px-12">
         <div className="max-w-2xl">
           <div className="mb-10 flex items-center gap-4">
-            <div className="grid size-14 place-items-center overflow-hidden rounded-2xl border border-primary/35 bg-card/75 shadow-[0_0_48px_color-mix(in_oklch,var(--primary)_18%,transparent)] backdrop-blur">
+            <div className="grid size-14 shrink-0 place-items-center self-center overflow-hidden rounded-2xl border border-primary/35 bg-card/75 shadow-[0_0_48px_color-mix(in_oklch,var(--primary)_18%,transparent)] backdrop-blur">
               {logoSource ? (
                 <img alt="" className="size-full object-contain p-1.5" src={logoSource} />
               ) : (
@@ -476,16 +477,17 @@ export function ConnectionPage() {
                 </span>
               )}
             </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+            {/* Line boxes sum to the tile's 56px (16 + 24 + 16), so centering the
+                column against the tile lines the eyebrow up with its top edge and
+                the byline with its bottom edge instead of overhanging both. */}
+            <div className="flex min-h-14 flex-col justify-center" data-slot="brand-lockup-text">
+              <p className="text-xs font-semibold uppercase leading-4 tracking-[0.18em] text-primary">
                 {brand.landing.eyebrow}
               </p>
-              <p className="font-heading text-2xl font-semibold tracking-[-0.025em]">
+              <p className="font-heading text-2xl font-semibold leading-6 tracking-[-0.025em]">
                 {brand.wordmark}
               </p>
-              {brand.tagline ? (
-                <p className="mt-0.5 text-xs text-muted-foreground">{brand.tagline}</p>
-              ) : null}
+              <BrandTagline brand={brand} className="text-xs leading-4 text-muted-foreground" />
             </div>
           </div>
           <h1 className="max-w-2xl text-balance font-heading text-5xl font-semibold leading-[1.02] tracking-[-0.055em] sm:text-6xl">

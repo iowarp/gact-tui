@@ -64,6 +64,9 @@ export interface ClioModelOption {
   transports?: readonly ProviderCatalogTransport[];
   /** Which of `transports` this specific model row came from. */
   transport?: string;
+  /** The provider's typed failure reason as the catalog reports it (e.g.
+   * `argonne_reauthentication_required: ...`), for deciding its action. */
+  failure?: string;
 }
 
 /**
@@ -243,6 +246,7 @@ function liveProviderOptions(
     // cached health, so the row shows the check instead of a stale verdict.
     health: provider.checking ? 'checking' : needsSetup ? PROVIDER_NEEDS_SETUP : provider.health,
     transports: provider.transports,
+    failure: provider.failure || undefined,
   };
   if (!provider.models.length) {
     const authenticationFailure = isAuthenticationFailure(provider.failure);

@@ -49,8 +49,9 @@ vi.mock('@/hooks/use-workspace-capabilities', () => ({
 }));
 
 vi.mock('@/store/live-store', () => ({
-  useLiveStore: (selector: (state: { entities: { stream: string } }) => unknown) =>
-    selector({ entities: { stream: liveStreamState.current } }),
+  useLiveStore: (
+    selector: (state: { entities: { stream: string }; streamOwners: number }) => unknown,
+  ) => selector({ entities: { stream: liveStreamState.current }, streamOwners: 1 }),
 }));
 
 describe('DesktopTitleBar', () => {

@@ -2,6 +2,10 @@ import type { LanguageModelPreset } from '@clio/core/v3';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { IconTile } from '@/components/reui/icon-tile';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import {
+  providerNeedsReauthentication,
+  translateKnownProviderErrorReason,
+} from '@/lib/provider-availability';
 import { providerLogoId } from '@/lib/provider-presentation';
 import type { ProviderGroup } from './model-picker-model';
 import { ProviderSetupAction } from './provider-setup-action';
@@ -27,7 +31,7 @@ interface ProviderConnectStateProps {
 export function ProviderConnectState({ group, preset, actions }: ProviderConnectStateProps) {
   const flow = providerSetupFlow(group, preset);
   const failure = actions.stage ? undefined : providerActionError(actions, group.name);
-  const refused = Boolean(preset?.status_message?.includes('argonne_reauthentication_required'));
+  const refused = providerNeedsReauthentication(preset, group.failure);
   return (
     <Empty className="h-full gap-4 border-0 p-6" data-slot="provider-connect-state">
       <EmptyHeader>
@@ -41,7 +45,13 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
           data-slot="provider-connect-sentence"
           role={failure ? 'alert' : undefined}
         >
-          {failure ?? providerSetupSentence(group, flow)}
+          {failure ??
+            (refused
+              ? translateKnownProviderErrorReason(
+                  group.failure || preset?.status_message || '',
+                  group.name,
+                )
+              : providerSetupSentence(group, flow))}
         </EmptyDescription>
       </EmptyHeader>
       <EmptyContent className="max-w-sm">
@@ -51,7 +61,7 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
             group.health === 'degraded' || group.health === 'unavailable' || group.setupNeed === 'start'
           }
           flow={flow}
-          loginLabel={refused ? 'Log in again' : undefined}
+          loginLabel={refused ? 'Sign in again' : undefined}
           offerCode={preset?.provider === 'codex'}
           preset={preset}
           providerLabel={group.name}
