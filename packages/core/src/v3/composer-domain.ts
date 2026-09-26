@@ -1,3 +1,4 @@
+import type { ProviderClientFact } from './provider-components.js';
 import type { ModelCapabilityTags, ModelFacts } from '../generated/clio-schemas/_models.js';
 export type { ModelCapabilityTags, ModelFacts, TagEvidence } from '../generated/clio-schemas/_models.js';
 import type { WireValue } from './domain.js';
@@ -382,6 +383,8 @@ export interface ProviderCatalogEntry {
   models: ProviderCatalogModel[];
   /** Present only for a provider reachable more than one way (see above). */
   transports?: ProviderCatalogTransport[];
+  /** The CLI a Codex / Claude Code SDK transport runs (installed vs bundled). */
+  client?: ProviderClientFact;
 }
 
 export interface ProviderCatalog {
