@@ -206,6 +206,15 @@ export const INLINE_PREVIEW_MAX_BYTES = 8_000_000;
 export const TEXT_PREVIEW_MAX_BYTES = 256_000;
 
 /**
+ * Memory kept for parsed 3D meshes (`clio.mesh-viewport.v1`) that no viewport
+ * is showing right now. Unit: bytes of typed arrays (positions, indices,
+ * field values). A mesh shown on screen is always held; this budget bounds
+ * only the ones kept for quick reopening, least recently used first out. A
+ * mesh larger than the whole budget is shown but never kept.
+ */
+export const MESH_CACHE_MAX_BYTES = 256_000_000;
+
+/**
  * Characters of a fetched text preview actually rendered into a card.
  * Unit: characters. Bounds layout and paint cost independently of the fetch
  * budget above.
