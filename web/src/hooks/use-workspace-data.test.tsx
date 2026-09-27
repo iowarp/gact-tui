@@ -451,3 +451,45 @@ describe('useWorkspaceData active provider identity (#1418)', () => {
     expect(result.current.activeProvider).not.toBe('openai');
   });
 });
+
+describe('useWorkspaceData requested session lookup', () => {
+  const sessionOne = { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'idle' };
+  const sessionTwo = { id: 'sess_2', workspace_id: 'ws_1', title: 'Made elsewhere', state: 'idle' };
+
+  it('refetches a stale session list instead of reporting a session created elsewhere as missing', async () => {
+    const { result, rerender } = renderHook(
+      ({ sessionId }: { sessionId: string }) =>
+        useWorkspaceData({ contextTargetId: sessionId, sessionId, workspaceId: 'ws_1' }),
+      { initialProps: { sessionId: 'sess_1' }, wrapper },
+    );
+    await waitFor(() => expect(result.current.session?.id).toBe('sess_1'));
+    const fetchesBefore = mocks.repository.sessions.mock.calls.length;
+
+    // Another tab, the CLI or an agent creates a conversation; the route moves
+    // to it while the cached list for this workspace predates it.
+    mocks.repository.sessions.mockResolvedValue([sessionOne, sessionTwo]);
+    rerender({ sessionId: 'sess_2' });
+
+    expect(result.current.session).toBeUndefined();
+    expect(result.current.sessionLookupPending).toBe(true);
+    await waitFor(() => expect(result.current.session?.id).toBe('sess_2'));
+    expect(result.current.sessionLookupPending).toBe(false);
+    expect(mocks.repository.sessions.mock.calls.length).toBeGreaterThan(fetchesBefore);
+  });
+
+  it('reports a session the service really does not have once a fresh list confirms it', async () => {
+    const { result } = renderHook(
+      () =>
+        useWorkspaceData({
+          contextTargetId: 'sess_gone',
+          sessionId: 'sess_gone',
+          workspaceId: 'ws_1',
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.sessionLookupPending).toBe(false));
+    expect(result.current.session).toBeUndefined();
+    expect(mocks.repository.sessions.mock.calls.length).toBe(2);
+  });
+});
