@@ -36,16 +36,53 @@ const artifactTablePreviewSchema = z
 
 export type ArtifactTablePreview = z.infer<typeof artifactTablePreviewSchema>;
 
+/** A JSON scalar a table-query filter compares against. */
+export type TableQueryScalar = string | number | boolean;
+
 /**
- * `POST /v1/artifacts/{id}/table-query` request: a projection, AND-ed
- * filters, an optional aggregate and downsample (open objects the server
- * validates), and the row budget the caller will accept.
+ * One table-query predicate; all of a request's predicates are AND-ed.
+ * `eq`: a scalar. `in`: a non-empty scalar list. `range`: `[min, max]`,
+ * inclusive, either side null. `isnull`: omitted/`true` matches nulls,
+ * `false` non-nulls.
+ */
+export type TableQueryFilter =
+  | { column: string; op: 'eq'; value: TableQueryScalar }
+  | { column: string; op: 'in'; value: readonly TableQueryScalar[] }
+  | {
+      column: string;
+      op: 'range';
+      value: readonly [TableQueryScalar | null, TableQueryScalar | null];
+    }
+  | { column: string; op: 'isnull'; value?: boolean | null };
+
+export type TableQueryMetricFn = 'mean' | 'min' | 'max' | 'count' | 'sum' | 'median';
+
+/** Group by `groupBy` (empty: one group) and reduce; each metric is a column `{column}_{fn}`. */
+export interface TableQueryAggregate {
+  groupBy?: readonly string[];
+  metrics: readonly { column: string; fn: TableQueryMetricFn }[];
+}
+
+/** How the server thins rows before the limit; `per_entity_lttb` needs `x` and `y`. */
+export interface TableQueryDownsample {
+  mode?: 'none' | 'stride' | 'per_entity_lttb';
+  entityColumn?: string;
+  x?: string;
+  y?: string;
+  maxPerEntity?: number;
+}
+
+/**
+ * `POST /v1/artifacts/{id}/table-query` request (clio-agent
+ * `TableQueryRequest`, which clio-schemas' `$defs/ChartDataQuery` mirrors):
+ * a projection, AND-ed filters, an optional aggregate and downsample, and the
+ * row budget the caller will accept. `format` is always `json`, added here.
  */
 export interface ArtifactTableQueryRequest {
   columns: readonly string[];
-  filter?: readonly Record<string, unknown>[];
-  aggregate?: Record<string, unknown>;
-  downsample?: Record<string, unknown>;
+  filter?: readonly TableQueryFilter[];
+  aggregate?: TableQueryAggregate;
+  downsample?: TableQueryDownsample;
   limit: number;
 }
 

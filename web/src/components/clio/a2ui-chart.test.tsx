@@ -113,7 +113,19 @@ describe('ClioChart', () => {
     expect(screen.getByText(/requires field\(s\) colorField/u)).toBeInTheDocument();
   });
 
-  it('reads an artifact through the table-query endpoint and notes a downsample', async () => {
+  const DATA_QUERY_FILTER = [
+    { column: 'run', op: 'in', value: ['a'] },
+    { column: 't', op: 'range', value: [0, null] },
+  ] as const;
+  const DATA_QUERY_DOWNSAMPLE = {
+    mode: 'per_entity_lttb',
+    entityColumn: 'run',
+    x: 't',
+    y: 'v',
+    maxPerEntity: 500,
+  } as const;
+
+  it('sends the dataQuery to the table-query endpoint as written and notes a downsample', async () => {
     repository.artifactTableQuery.mockResolvedValue({
       schema: [],
       columns: { t: [0, 1], v: [1, 2], run: ['a', 'a'] },
@@ -128,7 +140,11 @@ describe('ClioChart', () => {
         <ClioChart
           {...PRESET}
           componentId="ch2"
-          dataQuery={{ filter: [{ column: 'run', op: 'eq', value: 'a' }], limit: 900_000 }}
+          dataQuery={{
+            filter: DATA_QUERY_FILTER,
+            downsample: DATA_QUERY_DOWNSAMPLE,
+            limit: 900_000,
+          }}
           dataUri="artifact://artifact_runs01"
         />,
       ),
@@ -138,8 +154,10 @@ describe('ClioChart', () => {
     expect(repository.artifactTableQuery).toHaveBeenCalledWith(
       'artifact_runs01',
       {
+        // Only the projection (from the preset) and the row budget are filled in.
         columns: ['t', 'v', 'run'],
-        filter: [{ column: 'run', op: 'eq', value: 'a' }],
+        filter: DATA_QUERY_FILTER,
+        downsample: DATA_QUERY_DOWNSAMPLE,
         // The producer's limit is clamped to TABLE_QUERY_ROW_LIMIT.
         limit: 50_000,
       },

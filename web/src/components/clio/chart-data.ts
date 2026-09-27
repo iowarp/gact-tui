@@ -1,4 +1,8 @@
-import { TransportError, type ArtifactTableQueryResult } from '@clio/core/v3';
+import {
+  TransportError,
+  type ArtifactTableQueryRequest,
+  type ArtifactTableQueryResult,
+} from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useRepository } from '@/hooks/use-repository';
@@ -16,14 +20,11 @@ import { isJsonObject } from './chart-spec-guard';
 export type ChartCell = string | number | boolean | null;
 export type ChartRow = Record<string, ChartCell>;
 
-/** `$defs/ChartDataQuery`, as the producer wrote it. */
-export interface ChartDataQuery {
-  columns?: string[];
-  filter?: Record<string, unknown>[];
-  aggregate?: Record<string, unknown>;
-  downsample?: Record<string, unknown>;
-  limit?: number;
-}
+/**
+ * `$defs/ChartDataQuery`, as the producer wrote it: the table-query request
+ * itself, with `columns` and `limit` optional (the renderer fills them).
+ */
+export type ChartDataQuery = Partial<ArtifactTableQueryRequest>;
 
 export interface ChartRows {
   rows: ChartRow[] | undefined;
@@ -176,14 +177,10 @@ export function useChartRows({
   const { settings } = useConnectionSettings();
   const artifactId = artifactIdFromDataUri(dataUri);
   const limit = Math.min(dataQuery?.limit ?? TABLE_QUERY_ROW_LIMIT, TABLE_QUERY_ROW_LIMIT);
-  const request = useMemo(
-    () => ({
-      columns,
-      ...(dataQuery?.filter ? { filter: dataQuery.filter } : {}),
-      ...(dataQuery?.aggregate ? { aggregate: dataQuery.aggregate } : {}),
-      ...(dataQuery?.downsample ? { downsample: dataQuery.downsample } : {}),
-      limit,
-    }),
+  // The producer's query goes out as written (its shape is the server's);
+  // only the projection and the row budget are filled in.
+  const request = useMemo<ArtifactTableQueryRequest>(
+    () => ({ ...dataQuery, columns, limit }),
     [columns, dataQuery, limit],
   );
   const query = useQuery({

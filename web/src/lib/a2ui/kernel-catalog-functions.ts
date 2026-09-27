@@ -6,6 +6,7 @@ import {
 import type { FunctionImplementation } from '@a2ui/web_core/v0_9';
 import { checkA2uiUrlScheme } from '@clio/core/v3';
 import { z } from 'zod';
+import type { SelectionState } from '@/components/clio/selection-state';
 import { openExternalUrl } from '@/tauri/external-url';
 import { activeA2uiOpenArtifactRuntime } from './kernel-runtime';
 
@@ -72,28 +73,40 @@ const openUrlFunction = createFunctionImplementation(OpenUrlApi, (args, context)
   });
 });
 
+/**
+ * `selectData` (clio-workspace/v1): writes the SelectionState
+ * `{field, values: rowIds, source: 'selectData'}` at `path`, a
+ * `/selection/<key>` pointer, through the calling component's data context —
+ * the same write a linked chart, table or map makes through its bound
+ * `selection` setter (`components/clio/selection-state.ts`), so every
+ * component bound to that path follows it. It stays on the client: nothing
+ * is sent to the server. A function only reaches its own surface's data
+ * model, so a `surfaceId` naming another surface is refused, not guessed at.
+ */
 const selectDataFunction = createFunctionImplementation(
   {
     name: 'selectData',
     returnType: 'void',
-    schema: z.object({ rowIds: z.array(z.string()), surfaceId: z.string().optional() }),
+    schema: z.object({
+      path: z
+        .string()
+        .max(256)
+        .regex(/^\/selection\/[^/]+$/u),
+      field: z.string().min(1).max(128),
+      rowIds: z.array(z.string()).max(10_000),
+      surfaceId: z.string().optional(),
+    }),
   },
-  () => {
-    // Deliberately writes nothing. A function CAN reach the data model — its
-    // `context` is the calling component's DataContext, and `context.set()`
-    // works — but the clio-workspace/v1 catalog (clio-schemas 0.5.0) gives
-    // `selectData` only `{rowIds, surfaceId?}` (closed: unevaluatedProperties
-    // false): no selection path and no field. So there is no SelectionState
-    // to build and nowhere defined to put it, and guessing a
-    // `/selection/<key>` would invent a contract no producer can see.
-    // Linked selection works without it: components share one by binding
-    // their `selection` prop to `/selection/<key>`
-    // (`components/clio/selection-state.ts`). The function still resolves
-    // locally and never reaches the server (`data.select` used to be a
-    // LOCAL_ACTIONS no-op too — docs/design/a2ui-compat-campaign-2026-09.md S6).
-    // TODO(clio-schemas): add `path` (a /selection/<key> pointer) and `field`
-    // args to selectData, then write `{field, values: rowIds, source}` here
-    // with `context.set(path, …)`.
+  ({ path, field, rowIds, surfaceId }, context) => {
+    if (surfaceId !== undefined && surfaceId !== context.surface.id) {
+      void context.surface.dispatchError({
+        code: 'VALIDATION_FAILED',
+        message: `selectData can only select on its own surface, not ${surfaceId}.`,
+      });
+      return;
+    }
+    const selection: SelectionState = { field, values: [...rowIds], source: 'selectData' };
+    context.set(path, selection);
   },
 );
 

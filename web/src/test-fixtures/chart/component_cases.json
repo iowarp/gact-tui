@@ -73,9 +73,11 @@
             }
           ],
           "downsample": {
-            "method": "lttb",
+            "mode": "per_entity_lttb",
+            "entityColumn": "run",
             "x": "t",
-            "points": 2000
+            "y": "v",
+            "maxPerEntity": 500
           },
           "limit": 50000
         },
@@ -852,6 +854,447 @@
         "dataUri": "artifact://artifact_runs01",
         "dataQuery": {
           "sql": "select * from t"
+        }
+      }
+    },
+    {
+      "name": "data-query-every-filter-op-and-stride",
+      "valid": true,
+      "jsonSchemaValid": true,
+      "payload": {
+        "id": "ch26",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "filter": [
+            {
+              "column": "run",
+              "op": "eq",
+              "value": "a"
+            },
+            {
+              "column": "v",
+              "op": "range",
+              "value": [
+                0,
+                null
+              ]
+            },
+            {
+              "column": "t",
+              "op": "isnull",
+              "value": false
+            },
+            {
+              "column": "v",
+              "op": "isnull"
+            }
+          ],
+          "downsample": {
+            "mode": "stride",
+            "entityColumn": "run",
+            "maxPerEntity": 2000
+          },
+          "limit": 50000
+        }
+      }
+    },
+    {
+      "name": "data-query-aggregate",
+      "valid": true,
+      "jsonSchemaValid": true,
+      "payload": {
+        "id": "ch27",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "run",
+            "v_mean",
+            "v_max"
+          ],
+          "aggregate": {
+            "groupBy": [
+              "run"
+            ],
+            "metrics": [
+              {
+                "column": "v",
+                "fn": "mean"
+              },
+              {
+                "column": "v",
+                "fn": "max"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-legacy-downsample",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch28",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "downsample": {
+            "method": "lttb",
+            "points": 2000
+          }
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-lttb-without-y",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch29",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "downsample": {
+            "mode": "per_entity_lttb",
+            "entityColumn": "run",
+            "x": "t"
+          }
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-max-per-entity-over",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch30",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "downsample": {
+            "mode": "stride",
+            "maxPerEntity": 2001
+          }
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-unknown-filter-op",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch31",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "filter": [
+            {
+              "column": "v",
+              "op": "gt",
+              "value": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-eq-without-value",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch32",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "filter": [
+            {
+              "column": "run",
+              "op": "eq"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-empty-in",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch33",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "filter": [
+            {
+              "column": "run",
+              "op": "in",
+              "value": []
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-range-not-a-pair",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch34",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "filter": [
+            {
+              "column": "v",
+              "op": "range",
+              "value": [
+                0
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-isnull-non-boolean",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch35",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "filter": [
+            {
+              "column": "v",
+              "op": "isnull",
+              "value": "yes"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-unknown-metric-fn",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch36",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "run",
+            "v_std"
+          ],
+          "aggregate": {
+            "groupBy": [
+              "run"
+            ],
+            "metrics": [
+              {
+                "column": "v",
+                "fn": "std"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-aggregate-without-metrics",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch37",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "run"
+          ],
+          "aggregate": {
+            "groupBy": [
+              "run"
+            ],
+            "metrics": []
+          }
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-duplicate-columns",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch38",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "t"
+          ]
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-empty-columns",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch39",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": []
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-limit-over-ceiling",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch40",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "limit": 50001
+        }
+      }
+    },
+    {
+      "name": "reject-data-query-format",
+      "valid": false,
+      "jsonSchemaValid": false,
+      "payload": {
+        "id": "ch41",
+        "component": "clio.chart.v1",
+        "preset": "trajectories",
+        "xField": "t",
+        "yField": "v",
+        "entityField": "run",
+        "dataUri": "artifact://artifact_runs01",
+        "dataQuery": {
+          "columns": [
+            "t",
+            "v",
+            "run"
+          ],
+          "format": "json"
         }
       }
     },

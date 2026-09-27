@@ -34,11 +34,10 @@
     },
     "ChartDataQuery": {
       "additionalProperties": false,
-      "description": "A server-side table query applied to dataUri: columns (projection), filter, aggregate, downsample, limit. Filter/aggregate/downsample entries are open objects the server interprets, bounded in size.",
+      "description": "A server-side table query applied to dataUri: the table-query request body (POST /v1/artifacts/{id}/table-query) without format. The server runs filter, then aggregate, then downsample, then limit. Omit columns to request the preset fill fields, the selection field and the spec's fields.",
       "properties": {
         "aggregate": {
-          "maxProperties": 16,
-          "type": "object"
+          "$ref": "#/$defs/ChartQueryAggregate"
         },
         "columns": {
           "items": {
@@ -46,27 +45,259 @@
             "minLength": 1,
             "type": "string"
           },
-          "maxItems": 256,
-          "type": "array"
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         "downsample": {
-          "maxProperties": 16,
-          "type": "object"
+          "$ref": "#/$defs/ChartQueryDownsample"
         },
         "filter": {
           "items": {
-            "maxProperties": 16,
-            "type": "object"
+            "$ref": "#/$defs/ChartQueryFilter"
           },
           "maxItems": 64,
           "type": "array"
         },
         "limit": {
-          "maximum": 1000000,
+          "maximum": 50000,
           "minimum": 1,
           "type": "integer"
         }
       },
+      "type": "object"
+    },
+    "ChartQueryAggregate": {
+      "additionalProperties": false,
+      "description": "Group rows by groupBy (empty or omitted: one global group) and reduce; each metric becomes a result column named {column}_{fn}, which must not repeat a groupBy column.",
+      "properties": {
+        "groupBy": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "metrics": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "column": {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              "fn": {
+                "enum": [
+                  "mean",
+                  "min",
+                  "max",
+                  "count",
+                  "sum",
+                  "median"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "column",
+              "fn"
+            ],
+            "type": "object"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "metrics"
+      ],
+      "type": "object"
+    },
+    "ChartQueryDownsample": {
+      "additionalProperties": false,
+      "description": "How the server thins rows before limit applies. none keeps every row; stride keeps evenly spaced rows (per entityColumn up to maxPerEntity when set, else overall up to limit); per_entity_lttb runs LTTB on (x, y) per entityColumn (the whole table is one series without it) and needs x and y.",
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "per_entity_lttb"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "properties": {
+        "entityColumn": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "maxPerEntity": {
+          "default": 500,
+          "maximum": 2000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mode": {
+          "default": "none",
+          "enum": [
+            "none",
+            "stride",
+            "per_entity_lttb"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "y": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "then": {
+        "required": [
+          "x",
+          "y"
+        ]
+      },
+      "type": "object"
+    },
+    "ChartQueryFilter": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "eq"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean"
+                ]
+              }
+            },
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "in"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "items": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean"
+                  ]
+                },
+                "maxItems": 10000,
+                "minItems": 1,
+                "type": "array"
+              }
+            },
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "range"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "items": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": "array"
+              }
+            },
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "isnull"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "description": "One predicate; all filter entries are AND-ed. eq: value is a non-null scalar. in: value is a non-empty list of scalars. range: value is [min, max], inclusive, either side may be null. isnull: value omitted or true matches nulls, false matches non-nulls.",
+      "properties": {
+        "column": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "op": {
+          "enum": [
+            "eq",
+            "in",
+            "range",
+            "isnull"
+          ],
+          "type": "string"
+        },
+        "value": {}
+      },
+      "required": [
+        "column",
+        "op"
+      ],
       "type": "object"
     },
     "ChoiceOption": {
@@ -2728,15 +2959,28 @@
       "unevaluatedProperties": false
     },
     "selectData": {
-      "description": "Reports a data-table or list row selection back to the workspace.",
+      "description": "Writes a selection to the data model: a SelectionState {field, values: rowIds, source: 'selectData'} at path. Every component whose selection is bound to that path follows it.",
       "properties": {
         "args": {
           "properties": {
+            "field": {
+              "description": "The data field the row identifiers are values of.",
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "path": {
+              "description": "The data-model path the selection is written to, /selection/<key>: the same path the linked components bind their selection to.",
+              "maxLength": 256,
+              "pattern": "^/selection/[^/]+$",
+              "type": "string"
+            },
             "rowIds": {
-              "description": "The selected row identifiers.",
+              "description": "The selected row identifiers; written as the values.",
               "items": {
                 "type": "string"
               },
+              "maxItems": 10000,
               "type": "array"
             },
             "surfaceId": {
@@ -2745,6 +2989,8 @@
             }
           },
           "required": [
+            "path",
+            "field",
             "rowIds"
           ],
           "type": "object",

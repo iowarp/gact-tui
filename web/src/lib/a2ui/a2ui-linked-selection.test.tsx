@@ -56,7 +56,15 @@ const ROWS = [
   { t: 1, v: 2.4, run: 'b' },
 ];
 
-function buildSurface() {
+/** More components for the surface: `rootChildren` are added under the root column. */
+interface ExtraComponents {
+  rootChildren: string[];
+  components: Record<string, unknown>[];
+}
+
+const NO_EXTRA: ExtraComponents = { rootChildren: [], components: [] };
+
+function buildSurface(extra: ExtraComponents = NO_EXTRA) {
   const surfaceId = 'linked';
   const toServer = vi.fn(async () => undefined);
   const processor = new MessageProcessor([catalog], toServer, { version: 'v0.9.1' });
@@ -67,7 +75,12 @@ function buildSurface() {
       updateComponents: {
         surfaceId,
         components: [
-          { id: 'root', component: 'Column', children: ['chart', 'table', 'map'] },
+          {
+            id: 'root',
+            component: 'Column',
+            children: ['chart', 'table', 'map', ...extra.rootChildren],
+          },
+          ...extra.components,
           {
             id: 'chart',
             component: 'clio.chart.v1',
@@ -104,8 +117,8 @@ function buildSurface() {
   return { surface, toServer };
 }
 
-function renderSurface() {
-  const built = buildSurface();
+function renderSurface(extra: ExtraComponents = NO_EXTRA) {
+  const built = buildSurface(extra);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -229,4 +242,55 @@ describe('linked selection on one surface', () => {
     expect(tableRow('a', 1)).toHaveAttribute('aria-selected', 'true');
     expect(tableRow('b', 1)).toHaveAttribute('aria-selected', 'true');
   }, 20_000);
+
+  it('writes a selectData call to its path, where every bound component follows it', async () => {
+    const { surface, toServer } = renderSurface(selectDataButton({}));
+    const view = await chartView();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select run a' }));
+
+    expect(surface.dataModel.get('/selection/runs')).toEqual({
+      field: 'run',
+      values: ['a'],
+      source: 'selectData',
+    });
+    await waitFor(() => expect(view.signal('sel')).toMatchObject({ run: ['a'] }));
+    expect(tableRow('a', 0)).toHaveAttribute('aria-selected', 'true');
+    expect(tableRow('b', 0)).not.toHaveAttribute('aria-selected');
+    expect(screen.getByRole('button', { name: /Run A/u })).toHaveAttribute('aria-pressed', 'true');
+    expect(toServer).not.toHaveBeenCalled();
+  }, 20_000);
+
+  it('refuses a selectData call aimed at another surface and writes nothing', async () => {
+    const { surface } = renderSurface(selectDataButton({ surfaceId: 'elsewhere' }));
+    const onError = vi.fn();
+    surface.onError.subscribe(onError);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Select run a' }));
+
+    await waitFor(() =>
+      expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: 'VALIDATION_FAILED' })),
+    );
+    expect(surface.dataModel.get('/selection/runs')).toBeUndefined();
+  }, 20_000);
 });
+
+/** A button whose action calls `selectData` for run "a" on `/selection/runs`. */
+function selectDataButton(args: Record<string, unknown>): ExtraComponents {
+  const components = [
+    {
+      id: 'pick',
+      component: 'Button',
+      child: 'pick_label',
+      action: {
+        functionCall: {
+          call: 'selectData',
+          args: { path: '/selection/runs', field: 'run', rowIds: ['a'], ...args },
+          returnType: 'void',
+        },
+      },
+    },
+    { id: 'pick_label', component: 'Text', text: 'Select run a' },
+  ];
+  return { rootChildren: ['pick'], components };
+}
