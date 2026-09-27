@@ -33,6 +33,13 @@ vi.mock('@tanstack/react-virtual', () => ({
   }),
 }));
 
+// The child transcript renders Markdown through a React.lazy boundary
+// (MessageResponse -> ./markdown -> streamdown, math, cjk). Loaded lazily, that
+// module's evaluation lands inside a test and blocks the event loop, delaying
+// the reconnect timer and the stream flush (~0.6s alone, several seconds
+// under a loaded 2-worker run). Importing it here loads it at collection, which
+// has no timeout; the lazy boundary then resolves from the module cache.
+import '@/components/ai-elements/markdown';
 import { ClioSubagentCanvasView } from './subagent-canvas-view';
 
 Object.defineProperty(HTMLElement.prototype, 'scrollTo', {
