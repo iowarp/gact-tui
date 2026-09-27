@@ -30,10 +30,17 @@ export interface DesktopUpdateProgress {
   finished: boolean;
 }
 
+/** Why a desktop update check failed (see {@link classifyUpdateError}). */
+export type DesktopUpdateFailure =
+  | 'manifest_not_published'
+  | 'platform_not_published'
+  | 'signature_mismatch'
+  | 'unreachable';
+
 export type DesktopUpdateSnapshot =
   | { status: 'unknown' | 'checking' | 'current' }
   | { status: 'available'; update: DesktopUpdateInfo }
-  | { status: 'error'; message: string };
+  | { status: 'error'; message: string; reason: DesktopUpdateFailure };
 
 let availableUpdate: Update | null = null;
 let updateSnapshot: DesktopUpdateSnapshot = { status: 'unknown' };
@@ -81,24 +88,32 @@ const LAST_CHECKED_STORAGE_KEY = 'clio.desktop-update.last-checked';
  *   signature verification failed" / "...created with a different key...".
  */
 export function describeUpdateError(error: unknown): string {
+  return classifyUpdateError(error).message;
+}
+
+/** {@link describeUpdateError}'s message plus the typed reason it matched. */
+export function classifyUpdateError(error: unknown): {
+  reason: DesktopUpdateFailure;
+  message: string;
+} {
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();
   if (normalized.includes('could not fetch a valid release json')) {
-    return 'No update manifest published yet';
+    return { reason: 'manifest_not_published', message: 'No update manifest published yet' };
   }
   // Covers both `TargetNotFound` ("was not found in the response") and
   // `TargetsNotFound` ("were found in the response", negated by its "None
   // of the fallback platforms" prefix) via their shared stable suffix.
   if (normalized.includes('found in the response') && normalized.includes('platform')) {
-    return 'No update published for this platform';
+    return { reason: 'platform_not_published', message: 'No update published for this platform' };
   }
   if (
     normalized.includes('signature verification failed') ||
     normalized.includes('created with a different key')
   ) {
-    return 'Update rejected: signature mismatch';
+    return { reason: 'signature_mismatch', message: 'Update rejected: signature mismatch' };
   }
-  return message || 'The update service did not respond.';
+  return { reason: 'unreachable', message: message || 'The update service did not respond.' };
 }
 
 /**
@@ -156,7 +171,7 @@ export async function checkForDesktopUpdate(): Promise<DesktopUpdateInfo | null>
     publishUpdateSnapshot(update ? { status: 'available', update } : { status: 'current' });
     return update;
   } catch (error) {
-    publishUpdateSnapshot({ status: 'error', message: describeUpdateError(error) });
+    publishUpdateSnapshot({ status: 'error', ...classifyUpdateError(error) });
     throw error;
   }
 }
