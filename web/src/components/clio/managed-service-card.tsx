@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import type { ReactNode } from 'react';
+import { ServiceAccessChoice, ServiceAccessLine } from './managed-service-access';
 import {
   EffectiveParameters,
   OwnedResources,
@@ -186,6 +187,16 @@ export function ManagedServiceCard({
               </Field>
             ))
           : null}
+
+        {compatible.length && !installed && !recorded ? (
+          <ServiceAccessChoice
+            configuration={configuration}
+            onConfiguration={onConfiguration}
+            service={service}
+          />
+        ) : null}
+
+        {installed && service.access ? <ServiceAccessLine access={service.access} /> : null}
 
         {compatible.length && !installed && !recorded ? (
           <ServerParametersForm
