@@ -207,3 +207,57 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
     expect(tagsFor('other', ['tensor'])).toEqual(['Makes tensor', 'Other model']);
   });
 });
+
+describe('context tags say what the size rests on', () => {
+  function contextTag(fields: Record<string, unknown>) {
+    const provider = fixture.provider_catalog_live.providers.find(
+      (entry) => entry.id === 'argonne_sophia',
+    );
+    const [model] = provider!.models as Array<Record<string, unknown>>;
+    const catalog = providerCatalogSchema.parse({
+      ...fixture.provider_catalog_live,
+      providers: [{ ...provider, models: [{ ...model, loaded_context_window: null, ...fields }] }],
+    });
+    const [option] = buildModelOptions({
+      activeCatalogProvider: String(provider!.id),
+      providerCatalog: catalog,
+      presets: [],
+    }).filter((row) => row.kind !== 'provider');
+    return modelCapabilityTagsFromOption(option!).find((tag) => tag.axis === 'context')!;
+  }
+
+  it('an Ollama model not loaded yet shows the configured size, and the native one on hover', () => {
+    const tag = contextTag({
+      context_window: 4096,
+      native_context_window: 32768,
+      context_basis: 'configured',
+    });
+
+    expect(modelCapabilityTagLabel(tag)).toBe('4K configured');
+    expect(modelCapabilityTagMeaning(tag)).toBe(
+      'Not loaded yet: the server will give it 4,096 tokens when it loads. ' +
+        'The model itself reads up to 32,768.',
+    );
+  });
+
+  it('only the native ceiling known reads as native, never as served', () => {
+    const tag = contextTag({ context_window: 32768, context_basis: 'native' });
+
+    expect(modelCapabilityTagLabel(tag)).toBe('33K native');
+    expect(modelCapabilityTagMeaning(tag)).toContain('has not said what it applies');
+  });
+
+  it('a served size keeps the plain label', () => {
+    const tag = contextTag({
+      context_window: 4096,
+      loaded_context_window: 4096,
+      native_context_window: 32768,
+      context_basis: 'served',
+    });
+
+    expect(modelCapabilityTagLabel(tag)).toBe('4K');
+    expect(modelCapabilityTagMeaning(tag)).toBe(
+      'Reads up to 4,096 tokens at once. The model itself reads up to 32,768.',
+    );
+  });
+});

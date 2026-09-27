@@ -42,6 +42,9 @@ export interface ModelCapabilityTag {
   evidence: readonly ModelCapabilityEvidence[];
   /** Task axis only: the Hugging Face tasks (`pipeline_tag` ids) the model performs. */
   hubTasks?: readonly string[];
+  /** Context axis only: what the size rests on, and the model's own ceiling. */
+  contextBasis?: 'served' | 'configured' | 'native';
+  nativeContext?: number;
 }
 
 /**
@@ -113,7 +116,11 @@ export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCap
       tags.push({ axis: 'output_modality', value: tag.value, evidence: evidenceOf(tag.evidence) });
     }
     if (record.role) {
-      tags.push({ axis: 'role', value: record.role.value, evidence: evidenceOf(record.role.evidence) });
+      tags.push({
+        axis: 'role',
+        value: record.role.value,
+        evidence: evidenceOf(record.role.evidence),
+      });
     }
     if (record.model_type) {
       tags.push({
@@ -133,7 +140,11 @@ export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCap
   // Descriptive facts that read as tags: a recent release, and the size.
   const facts = option.modelFacts;
   if (facts?.recent?.value === true) {
-    tags.push({ axis: 'recent', value: String(facts.recent.window_months), evidence: evidenceOf(facts.recent.evidence) });
+    tags.push({
+      axis: 'recent',
+      value: String(facts.recent.window_months),
+      evidence: evidenceOf(facts.recent.evidence),
+    });
   }
   const size = parameterSizeLabel(modelFactSummary(facts).parameters);
   if (size && facts?.parameters) {
@@ -144,10 +155,34 @@ export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCap
     tags.push({
       axis: 'context',
       value: String(option.contextWindow),
-      evidence: [{ source: provenance?.source || 'catalog', detail: 'context_window' }],
+      evidence: [
+        {
+          source: provenance?.source || 'catalog',
+          detail: option.contextBasis
+            ? `context_window (${option.contextBasis})`
+            : 'context_window',
+        },
+      ],
+      contextBasis: option.contextBasis,
+      nativeContext: option.nativeContextWindow,
     });
   }
   return tags;
+}
+
+function contextMeaning(tag: ModelCapabilityTag): string {
+  const tokens = Number(tag.value).toLocaleString();
+  const native =
+    tag.nativeContext && tag.nativeContext !== Number(tag.value)
+      ? ` The model itself reads up to ${tag.nativeContext.toLocaleString()}.`
+      : '';
+  if (tag.contextBasis === 'configured') {
+    return `Not loaded yet: the server will give it ${tokens} tokens when it loads.${native}`;
+  }
+  if (tag.contextBasis === 'native') {
+    return `The model reads up to ${tokens} tokens; this server has not said what it applies.`;
+  }
+  return `Reads up to ${tokens} tokens at once.${native}`;
 }
 
 /** The model type a model option's tags state, when one does. */
@@ -214,13 +249,19 @@ export function modelCapabilityTagLabel(tag: ModelCapabilityTag): string {
     case 'kind':
       return 'Router';
     case 'context':
-      return formatContextSize(Number(tag.value));
+      // Before load the number is what will apply, or only the model's own:
+      // say which, so it never reads as what the server serves now.
+      return tag.contextBasis === 'configured' || tag.contextBasis === 'native'
+        ? `${formatContextSize(Number(tag.value))} ${tag.contextBasis}`
+        : formatContextSize(Number(tag.value));
     case 'recent':
       return 'Recent';
     case 'size':
       return tag.value;
     case 'input_modality':
-      return tag.value === 'text' ? 'Text in' : (MODALITY_LABELS[tag.value] ?? sentenceCase(tag.value));
+      return tag.value === 'text'
+        ? 'Text in'
+        : (MODALITY_LABELS[tag.value] ?? sentenceCase(tag.value));
     case 'output_modality':
       return tag.value === 'text' ? 'Text out' : `Makes ${tag.value}`;
     case 'capability':
@@ -234,7 +275,7 @@ export function modelCapabilityTagLabel(tag: ModelCapabilityTag): string {
 export function modelCapabilityTagMeaning(tag: ModelCapabilityTag): string {
   switch (tag.axis) {
     case 'context':
-      return `Reads up to ${Number(tag.value).toLocaleString()} tokens at once.`;
+      return contextMeaning(tag);
     case 'recent':
       return `Released in the last ${tag.value} months.`;
     case 'size':
@@ -289,14 +330,17 @@ const SOURCE_LABELS: Record<string, string> = {
 };
 
 function sourceLabel(source: string): string {
-  return SOURCE_LABELS[source] ?? (source ? source.replaceAll('_', ' ') : "the provider's model list");
+  return (
+    SOURCE_LABELS[source] ?? (source ? source.replaceAll('_', ' ') : "the provider's model list")
+  );
 }
 
 /** Where a tag came from, as a person reads it ("From OpenRouter."). */
 export function modelCapabilityTagSource(tag: ModelCapabilityTag): string {
   const labels = [...new Set(tag.evidence.map((row) => sourceLabel(row.source)))];
   const names = labels.length ? labels : [sourceLabel('')];
-  const joined = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
+  const joined =
+    names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
   return `From ${joined}.`;
 }
 
