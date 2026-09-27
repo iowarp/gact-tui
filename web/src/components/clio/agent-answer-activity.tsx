@@ -1,4 +1,4 @@
-import type { PendingInteraction } from '@clio/core/v3';
+import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import {
   ArrowDownToLineIcon,
   ArrowUpToLineIcon,
@@ -18,6 +18,8 @@ import { focusFirstFocusable, pendingInteractionDomId } from './interaction-cont
 import { humanizeProtocolValue } from './presentation-labels';
 import { TechnicalDetails } from './technical-details';
 import { isAgentMcpInteraction, questionInteractionRequestLabel } from './agent-answer-domain';
+import { isToolAnchoredQuestion } from '@/lib/inline-question';
+import { InlineQuestionCard } from './inline-question-card';
 
 /** The tray section's own collapse trigger (ai-elements/queue.tsx's `QueueSectionTrigger`, given this stable slot by pending-interactions.tsx). */
 const PENDING_TRAY_TRIGGER_SELECTOR = '[data-slot="pending-interactions-trigger"]';
@@ -76,11 +78,25 @@ function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
 export function AgentAnswerActivity({
   interaction,
   compact = false,
+  onResponse,
 }: {
   interaction: PendingInteraction;
   compact?: boolean;
+  onResponse?: (
+    interaction: PendingInteraction,
+    response: PendingInteractionResponse,
+  ) => Promise<void>;
 }) {
   if (!isAgentMcpInteraction(interaction)) {
+    // The agent's own pending question is answered right here, in the log.
+    if (
+      !compact &&
+      onResponse &&
+      interaction.status === 'pending' &&
+      isToolAnchoredQuestion(interaction)
+    ) {
+      return <InlineQuestionCard interaction={interaction} onResponse={onResponse} />;
+    }
     return <HumanQuestionActivity compact={compact} interaction={interaction} />;
   }
   const answered = interaction.status === 'answered' && interaction.answered_by === 'agent';
