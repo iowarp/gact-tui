@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   modelSettingsUpdate,
   seedModelSettings,
+  settingsForChosenModel,
   unusedResponseSettings,
 } from './settings-models-form';
 
@@ -307,5 +308,20 @@ describe('the sonnet -> opus Apply', () => {
     });
     expect(update.model).toBe('opus');
     expect(update).not.toHaveProperty('thinking_level');
+  });
+});
+
+describe('settingsForChosenModel', () => {
+  it('drops a longest reply the newly chosen model cannot serve', () => {
+    expect(settingsForChosenModel({ max_tokens: '32000', temperature: '0.2' }, 4096)).toEqual({
+      temperature: '0.2',
+    });
+  });
+
+  it('keeps settings the model can serve, or when its window is unknown', () => {
+    expect(settingsForChosenModel({ max_tokens: '2048' }, 4096)).toEqual({ max_tokens: '2048' });
+    expect(settingsForChosenModel({ max_tokens: '32000' }, undefined)).toEqual({
+      max_tokens: '32000',
+    });
   });
 });

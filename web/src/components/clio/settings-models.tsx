@@ -20,11 +20,12 @@ import { ReasoningLevelSegmented } from './reasoning-level-segmented';
 import { SettingsDefaultModelCard } from './settings-default-model-card';
 import {
   modelSettingsUpdate,
+  type ModelSettingsValues,
   presetIsActive,
   resolveActivePreset,
   responseSettingsVisible,
   seedModelSettings,
-  type ModelSettingsValues,
+  settingsForChosenModel,
 } from './settings-models-form';
 import { SettingsProviderOptions } from './settings-provider-options';
 import { SettingsResponseSettings } from './settings-response-settings';
@@ -135,6 +136,7 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
       apiBase: staying ? values.apiBase : (preset.api_base ?? ''),
       providerOptions: staying ? values.providerOptions : {},
       modelId: choice.id,
+      settings: settingsForChosenModel(values.settings, choice.contextWindow),
       // A level belongs to a model: a new model starts on its own default.
       effort: staying && choice.id === configuration.model ? values.effort : '',
     };
