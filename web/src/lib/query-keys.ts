@@ -128,7 +128,13 @@ export const queryKeys = {
   sessionObservabilityDetail: (
     endpoint: string,
     sessionId: string,
-    detail: 'agent-iterations' | 'context-files' | 'context-frames' | 'diffs' | 'processes',
+    detail:
+      | 'agent-iterations'
+      | 'agent-tasks'
+      | 'context-files'
+      | 'context-frames'
+      | 'diffs'
+      | 'processes',
   ) => [...queryKeys.sessionObservability(endpoint, sessionId), detail] as const,
   sessions: (endpoint: string, scope: string) => ['sessions', endpoint, scope] as const,
   transcript: (endpoint: string, sessionId: string, view?: string) =>
