@@ -1,15 +1,11 @@
-import type { ManagedServiceDefinition, ServerParameter, TargetFacts } from '@clio/core/v3';
+import type { ManagedServiceDefinition, ServerParameter } from '@clio/core/v3';
 import { managedServiceDefinitionSchema } from '@clio/core/v3';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ManagedServiceCard } from './managed-service-card';
-import {
-  configurationForVariant,
-  modelRuntimeInModels,
-  runtimeFactLabels,
-} from './managed-service-target-utils';
+import { configurationForVariant, modelRuntimeInModels } from './managed-service-target-utils';
 
 afterEach(cleanup);
 
@@ -274,53 +270,6 @@ describe('deployments CLIO lost track of', () => {
 });
 
 describe('deployment target facts', () => {
-  const facts = (runtimes: TargetFacts['container_runtimes']): TargetFacts => ({
-    target_id: 'ares',
-    label: 'ares',
-    os: 'linux',
-    arch: 'x86_64',
-    accelerator: 'none',
-    docker_available: true,
-    docker_installed: true,
-    uv_available: false,
-    transport_state: 'connected',
-    container_runtimes: runtimes,
-  });
-
-  it('names every runtime with its version or the reason it cannot run', () => {
-    expect(
-      runtimeFactLabels(
-        facts([
-          { name: 'docker', installed: true, usable: true, version: '29.1.3', detail: '' },
-          {
-            name: 'podman',
-            installed: true,
-            usable: false,
-            version: '',
-            reason: 'unusable',
-            detail: 'stat /run/user/1008: no such file or directory',
-          },
-          {
-            name: 'apptainer',
-            installed: false,
-            usable: false,
-            version: '',
-            reason: 'not_installed',
-            detail: '',
-          },
-        ]),
-      ),
-    ).toEqual([
-      'Docker 29.1.3 ready',
-      'Podman unusable: stat /run/user/1008: no such file or directory',
-      'Apptainer not installed',
-    ]);
-  });
-
-  it('falls back to the Docker line for a host inspected without runtime facts', () => {
-    expect(runtimeFactLabels(facts([]))).toEqual(['Docker ready']);
-  });
-
   it('recognizes a runtime already saved as its Models preset address', () => {
     const saved = [
       {

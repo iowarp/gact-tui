@@ -40,6 +40,12 @@ export const containerRuntimeFactSchema = z.object({
     .enum(['not_installed', 'unusable', 'not_probed'])
     .nullish()
     .transform((value) => value ?? undefined),
+  /** Why an installed runtime is unusable; absent from older servers. */
+  failure: z
+    .enum(['not_running', 'permission_denied', 'timed_out', 'unknown'])
+    .nullish()
+    .catch(undefined)
+    .transform((value) => value ?? undefined),
   detail: z.string().default(''),
 });
 

@@ -67,35 +67,98 @@ export function abortableDelay(milliseconds: number, signal?: AbortSignal): Prom
   });
 }
 
+export const RUNTIME_NAMES: Record<ContainerRuntimeFact['name'], string> = {
+  docker: 'Docker',
+  podman: 'Podman',
+  apptainer: 'Apptainer',
+};
+
+const OS_NAMES: Record<string, string> = {
+  windows: 'Windows',
+  macos: 'macOS',
+  linux: 'Linux',
+};
+
+const ARCH_NAMES: Record<string, string> = {
+  x86_64: '64-bit',
+  aarch64: '64-bit ARM',
+};
+
+const GPU_NAMES: Record<string, string> = {
+  nvidia: 'NVIDIA GPU detected.',
+  amd: 'AMD GPU detected.',
+};
+
+/** One plain sentence about the inspected computer, e.g. "Windows, 64-bit. No GPU detected." */
+export function hostSummary(facts: TargetFacts): string {
+  const system = OS_NAMES[facts.os] ?? 'Unknown system';
+  const arch = ARCH_NAMES[facts.arch];
+  const gpu = GPU_NAMES[facts.accelerator] ?? 'No GPU detected.';
+  return `${arch ? `${system}, ${arch}` : system}. ${gpu}`;
+}
+
+export interface RuntimeFactLine {
+  name: ContainerRuntimeFact['name'];
+  /** What the person reads. */
+  text: string;
+  /** The runtime's own error, shown only behind a details disclosure. */
+  detail: string;
+}
+
+/** What starting a stopped runtime means on this computer. */
+function startHint(name: ContainerRuntimeFact['name'], os: string): string {
+  if (name === 'docker') {
+    return os === 'linux'
+      ? ' Start the Docker service, then check again.'
+      : ' Start Docker Desktop, then check again.';
+  }
+  return name === 'podman' ? ' Start Podman, then check again.' : '';
+}
+
+function unusableText(fact: ContainerRuntimeFact, os: string): string {
+  const label = RUNTIME_NAMES[fact.name];
+  switch (fact.failure) {
+    case 'not_running':
+      return `${label} is installed but not running.${startHint(fact.name, os)}`;
+    case 'permission_denied':
+      return `${label} is installed but your account is not allowed to use it.`;
+    case 'timed_out':
+      return `${label} is installed but did not respond. Check again in a moment.`;
+    default:
+      return `${label} is installed but is not working.`;
+  }
+}
+
 /**
- * One short line per container runtime the target reported: ready with its
- * version, installed but unusable, or not installed. Hosts inspected by an
- * older CLIO report only Docker.
+ * One plain sentence per container runtime the target reported: ready,
+ * installed but not usable (and what to do), or not installed. Hosts inspected
+ * by an older CLIO report only Docker's two flags.
  */
-export function runtimeFactLabels(facts: TargetFacts): string[] {
-  const names: Record<ContainerRuntimeFact['name'], string> = {
-    docker: 'Docker',
-    podman: 'Podman',
-    apptainer: 'Apptainer',
-  };
+export function runtimeFactLines(facts: TargetFacts): RuntimeFactLine[] {
   // Mocked or older catalogs may omit the list; treat that as "reported only Docker".
   const runtimes: ContainerRuntimeFact[] = facts.container_runtimes ?? [];
   if (!runtimes.length) {
     return [
-      facts.docker_available
-        ? 'Docker ready'
-        : facts.docker_installed
-          ? 'Docker installed, engine stopped'
-          : 'Docker not installed',
+      {
+        name: 'docker',
+        text: facts.docker_available
+          ? 'Docker is ready.'
+          : facts.docker_installed
+            ? 'Docker is installed but not running.'
+            : 'Docker is not installed.',
+        detail: '',
+      },
     ];
   }
-  return runtimes.map((fact) =>
-    fact.usable
-      ? `${names[fact.name]} ${fact.version} ready`.replace('  ', ' ')
+  return runtimes.map((fact) => ({
+    name: fact.name,
+    text: fact.usable
+      ? `${[RUNTIME_NAMES[fact.name], fact.version].filter(Boolean).join(' ')} is ready.`
       : fact.installed
-        ? `${names[fact.name]} unusable${fact.detail ? `: ${shorten(fact.detail)}` : ''}`
-        : `${names[fact.name]} not installed`,
-  );
+        ? unusableText(fact, facts.os)
+        : `${RUNTIME_NAMES[fact.name]} is not installed.`,
+    detail: fact.usable ? '' : fact.detail,
+  }));
 }
 
 /** Whether a running model runtime is already the saved address of its Models preset. */
@@ -139,9 +202,4 @@ export function parametersForVariant(
   variant: string,
 ): ServerParameter[] {
   return parameters.filter((row) => !row.variants.length || row.variants.includes(variant));
-}
-
-/** Keep a runtime's own error readable in the one-line facts row. */
-function shorten(text: string, limit = 96): string {
-  return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
 }
