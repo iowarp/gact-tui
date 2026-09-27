@@ -31,6 +31,7 @@ import { useLiveStore } from '@/store/live-store';
 import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from './a2ui-session-ids';
 import { useRepository } from './use-repository';
+import { useRequestedSessionLookup } from './use-requested-session-lookup';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
 import { useProviderCatalog } from './use-provider-catalog';
@@ -320,6 +321,11 @@ export function useWorkspaceData({
 
   const sessionCandidate = streamSession;
   const session = sessionCandidate?.workspace_id === workspaceId ? sessionCandidate : undefined;
+  const sessionLookupPending = useRequestedSessionLookup(
+    sessionId,
+    Boolean(streamSession),
+    sessions,
+  );
   const workspace =
     entities.workspaces[workspaceId] ?? workspaces.data?.find((item) => item.id === workspaceId);
   useEffect(() => {
@@ -546,6 +552,7 @@ export function useWorkspaceData({
     sessionArtifacts,
     sessionContext,
     sessionObservability,
+    sessionLookupPending,
     sessions,
     streamError,
     subagents,

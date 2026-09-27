@@ -102,6 +102,7 @@ export function WorkspacePage() {
     processes,
     runs,
     session,
+    sessionLookupPending,
     sessionArtifacts,
     sessionContext,
     sessionObservability,
@@ -292,7 +293,11 @@ export function WorkspacePage() {
   const queryError = capabilities.error ?? workspaces.error ?? sessions.error ?? transcript.error;
   if (
     !session &&
-    (capabilities.isPending || workspaces.isPending || sessions.isPending || allSessions.isPending)
+    (capabilities.isPending ||
+      workspaces.isPending ||
+      sessions.isPending ||
+      allSessions.isPending ||
+      sessionLookupPending)
   ) {
     const rememberedSession = navigationSessions.find((candidate) => candidate.id === sessionId);
     return (
