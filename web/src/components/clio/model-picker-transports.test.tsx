@@ -212,4 +212,30 @@ describe('ClioModelPicker: a provider reachable two ways (Codex)', () => {
     expect(document.querySelector('[data-slot="provider-panel-stage"]')).toBeNull();
     finish({ is_authenticated: false, instructions: '' });
   });
+
+  it.each(['sdk', 'direct'])('the %s half chosen: only that half reads selected', async (chosen) => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderPicker(
+      <ClioModelPicker
+        model="gpt-5.6-luna"
+        onChange={onChange}
+        options={codexOptions(codexTransports('ready'))}
+        provider="codex"
+        transport={chosen}
+        trigger={<Button>Change model</Button>}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Change model' }));
+    const other = chosen === 'sdk' ? 'direct' : 'sdk';
+    const row = (half: string) =>
+      within(section(half)!).getByText('Luna').closest('[data-slot="cascader-item"]');
+
+    expect(row(chosen)).toHaveAttribute('aria-selected', 'true');
+    expect(row(other)).not.toHaveAttribute('aria-selected', 'true');
+
+    // Picking the other half hands back THAT half's row.
+    await user.click(within(section(other)!).getByText('Luna'));
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ id: 'gpt-5.6-luna', transport: other }));
+  });
 });

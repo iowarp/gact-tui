@@ -54,6 +54,9 @@ export const repository = {
   clearProviderApiKey: vi.fn(),
   providerCatalog: vi.fn(),
   providerModels: vi.fn(),
+  providerComponents: vi.fn(),
+  updateProviderComponents: vi.fn(),
+  providerComponentUpdate: vi.fn(),
 };
 
 export function renderPicker(children: ReactNode) {

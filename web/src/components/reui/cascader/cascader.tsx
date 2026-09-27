@@ -352,6 +352,12 @@ export interface CascaderBaseProps<T = unknown> {
   onInputValueChange?: (value: string) => void;
 
   searchScope?: CascaderSearchScope;
+  /**
+   * Most deep-search hits listed (default 200). `Infinity` lists every hit:
+   * the windowed lists (`CascaderVirtualItems` / `CascaderVirtualColumn`)
+   * keep that cheap, and a consumer showing a hit COUNT needs the rows to agree.
+   */
+  searchLimit?: number;
   /** Custom matcher, replacing label + keywords substring matching. */
   filter?: (node: CascaderNode<T>, normalizedQuery: string) => boolean;
 
@@ -653,6 +659,7 @@ function Cascader<T>({
   defaultInputValue = '',
   onInputValueChange,
   searchScope = 'level',
+  searchLimit,
   filter,
   revealSelected = true,
   maxHeight,
@@ -878,8 +885,9 @@ function Cascader<T>({
     return searchCascaderDeep(index, query, {
       within: currentParentValue,
       matches: filter,
+      limit: searchLimit,
     });
-  }, [isDeepSearching, index, query, currentParentValue, filter]);
+  }, [isDeepSearching, index, query, currentParentValue, filter, searchLimit]);
 
   // Server search wins over the local scan, or each hit shows up twice.
   const deepResults = loader.searchResults ?? localDeepResults;

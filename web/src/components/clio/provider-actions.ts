@@ -5,13 +5,14 @@ import type {
   ProviderModelRefreshResult,
 } from '@clio/core/v3';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { translateKnownProviderErrorReason } from '@/lib/provider-availability';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { openExternalUrl } from '@/tauri/external-url';
 import { storeProviderCredential } from '@/tauri/secure-credentials';
+import { providerOwner, useOwnedState } from './provider-owned-state';
 
 /** The visible progress text of a running provider action. */
 export type ProviderActionStage =
@@ -81,18 +82,38 @@ export function useProviderActions({
   const repository = useRepository();
   const queryClient = useQueryClient();
   const { settings } = useConnectionSettings();
-  const [refreshResult, setRefreshResult] = useState<ProviderModelRefreshResult>();
-  const [handshakeResult, setHandshakeResult] = useState<ProviderHandshake>();
-  const [authFlow, setAuthFlow] = useState<ProviderAuthStart>();
-  const [authPaste, setAuthPaste] = useState('');
-  const [authLaunchError, setAuthLaunchError] = useState('');
-  const [authFailedReason, setAuthFailedReason] = useState('');
+  // Every result, flow and stage below belongs to the provider (and scope)
+  // it was produced for: an action still running when the person moves to
+  // another provider settles into its own slot, never the new provider's.
+  const owner = providerOwner(presetId, scope);
+  const [refreshResult, setRefreshResult, clearRefreshResults] =
+    useOwnedState<ProviderModelRefreshResult>(owner);
+  const [handshakeResult, setHandshakeResult, clearHandshakeResults] =
+    useOwnedState<ProviderHandshake>(owner);
+  const [authFlow, setAuthFlow, clearAuthFlows] = useOwnedState<ProviderAuthStart>(owner);
+  const [authPasteValue, setAuthPasteValue, clearAuthPastes] = useOwnedState<string>(owner);
+  const [authLaunchErrorValue, setAuthLaunchErrorValue, clearAuthLaunchErrors] =
+    useOwnedState<string>(owner);
+  const [authFailedReasonValue, setAuthFailedReasonValue, clearAuthFailedReasons] =
+    useOwnedState<string>(owner);
+  const authPaste = authPasteValue ?? '';
+  const authLaunchError = authLaunchErrorValue ?? '';
+  const authFailedReason = authFailedReasonValue ?? '';
+  const setAuthPaste = (value: string) => setAuthPasteValue(value || undefined);
+  const setAuthLaunchError = (value: string) => setAuthLaunchErrorValue(value || undefined);
+  const setAuthFailedReason = (value: string) => setAuthFailedReasonValue(value || undefined);
   // What the running action is doing RIGHT NOW ("Checking…", "Finding
   // models…", "Saving your key…"): the picker turns the provider's heartbeat
   // yellow and shows this text in its action strip and bottom bar until the
   // action settles. Cleared by every mutation's `onSettled`.
-  const [stage, setStage] = useState<ProviderActionStage>();
+  const [stage, setStage, clearStages] = useOwnedState<ProviderActionStage>(owner);
   const settle = { onSettled: () => setStage(undefined) };
+  // Each action's mutation is keyed by its owner. When the provider changes,
+  // TanStack detaches the running mutation from this observer (a changed
+  // mutationKey resets it), so the running action keeps the callbacks -- and
+  // the owner-bound setters -- of the provider it started for, and its error
+  // is never read as the new provider's.
+  const actionKey = (name: string) => ['provider-action', name, owner] as const;
 
   const invalidate = (...keys: ReadonlyArray<readonly unknown[]>) =>
     Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
@@ -134,6 +155,7 @@ export function useProviderActions({
   };
 
   const refreshModels = useMutation({
+    mutationKey: actionKey('refreshModels'),
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
       setStage('Finding models…');
@@ -154,6 +176,7 @@ export function useProviderActions({
     ...settle,
   });
   const handshake = useMutation({
+    mutationKey: actionKey('handshake'),
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
       return checkProvider();
@@ -162,6 +185,7 @@ export function useProviderActions({
     ...settle,
   });
   const installProvider = useMutation({
+    mutationKey: actionKey('installProvider'),
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
       setStage('Installing…');
@@ -172,6 +196,7 @@ export function useProviderActions({
     ...settle,
   });
   const authenticate = useMutation({
+    mutationKey: actionKey('authenticate'),
     mutationFn: async (method: 'browser' | 'device' = 'browser') => {
       if (!presetId) throw new Error('Choose a provider first.');
       setStage('Opening sign-in…');
@@ -185,12 +210,15 @@ export function useProviderActions({
       setStage('Waiting for you to log in…');
       if (result.browser) {
         openExternalUrl(result.browser.authorization_url).catch((error: unknown) =>
-          setAuthLaunchError(error instanceof Error ? error.message : 'Could not open the sign-in page.'),
+          setAuthLaunchError(
+            error instanceof Error ? error.message : 'Could not open the sign-in page.',
+          ),
         );
       }
     },
   });
   const completeAuthentication = useMutation({
+    mutationKey: actionKey('completeAuthentication'),
     mutationFn: async () => {
       if (!presetId || !authFlow) throw new Error('Start sign-in first.');
       if (!authPaste.trim()) throw new Error('Paste the redirect URL or code.');
@@ -205,6 +233,7 @@ export function useProviderActions({
     onError: () => setStage(authFlow ? 'Waiting for you to log in…' : undefined),
   });
   const logout = useMutation({
+    mutationKey: actionKey('logout'),
     mutationFn: async () => {
       if (!presetId) throw new Error('Choose a provider first.');
       setStage('Logging out…');
@@ -233,6 +262,7 @@ export function useProviderActions({
    * (success or throw), so the "Saving..." state can never hang.
    */
   const saveApiKey = useMutation({
+    mutationKey: actionKey('saveApiKey'),
     mutationFn: async (apiKey: string) => {
       if (!presetId || !preset) throw new Error('Choose a provider first.');
       const trimmed = apiKey.trim();
@@ -271,6 +301,7 @@ export function useProviderActions({
    * saved for a provider that was never made active can be removed too.
    */
   const removeApiKey = useMutation({
+    mutationKey: actionKey('removeApiKey'),
     mutationFn: async () => {
       if (!presetId || !preset) throw new Error('Choose a provider first.');
       const resolvedApiBase = apiBase || preset.api_base || '';
@@ -336,14 +367,22 @@ export function useProviderActions({
    * would wipe a just-started sign-in flow's `authFlow` the instant it was set.
    */
   const reset = useCallback(() => {
-    setRefreshResult(undefined);
-    setHandshakeResult(undefined);
-    setAuthFlow(undefined);
-    setAuthPaste('');
-    setAuthLaunchError('');
-    setAuthFailedReason('');
-    setStage(undefined);
-  }, []);
+    clearRefreshResults();
+    clearHandshakeResults();
+    clearAuthFlows();
+    clearAuthPastes();
+    clearAuthLaunchErrors();
+    clearAuthFailedReasons();
+    clearStages();
+  }, [
+    clearAuthFailedReasons,
+    clearAuthFlows,
+    clearAuthLaunchErrors,
+    clearAuthPastes,
+    clearHandshakeResults,
+    clearRefreshResults,
+    clearStages,
+  ]);
   // A stale sign-in/check/install result from the PREVIOUS provider must not
   // leak into the newly selected one (picker submenu or Settings panel).
   useEffect(() => {

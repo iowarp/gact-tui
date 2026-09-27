@@ -2,8 +2,9 @@ import type { LanguageModelConfiguration, LanguageModelPreset } from '@clio/core
 import { describe, expect, it } from 'vitest';
 import {
   modelSettingsUpdate,
-  providerSupportsRuntimeSizing,
   seedModelSettings,
+  settingsForChosenModel,
+  unusedResponseSettings,
 } from './settings-models-form';
 
 const preset: LanguageModelPreset = {
@@ -26,34 +27,41 @@ const configuration: LanguageModelConfiguration = {
   model: 'qwen3-coder',
   max_tokens: 8_192,
   temperature: 0.3,
+  top_k: 20,
+  context_length: 32_768,
   thinking_level: 'high',
   thinking_level_source: 'user',
   presets: [preset],
 };
 
+const identity = {
+  provider: 'lm_studio',
+  provider_id: 'lm_studio',
+  provider_options: {},
+  api_base: 'http://127.0.0.1:1234/v1',
+  model: 'qwen3-coder',
+};
+
 describe('seedModelSettings', () => {
-  it('seeds every field the service reports from the live configuration', () => {
+  it('seeds every saved response setting the service reports', () => {
     expect(seedModelSettings({ configuration, preset, presetIsActive: true })).toEqual({
       apiBase: 'http://127.0.0.1:1234/v1',
-      contextLength: '',
       effort: 'high',
-      maxTokens: '8192',
       modelId: 'qwen3-coder',
-      parallel: '',
       providerOptions: {},
-      temperature: '0.3',
+      settings: { context_length: '32768', max_tokens: '8192', temperature: '0.3', top_k: '20' },
     });
   });
 
-  it('leaves a field the service does not report unset rather than inventing a value', () => {
+  it('leaves a setting the service does not report unset rather than inventing a value', () => {
     const seeded = seedModelSettings({
       configuration: { ...configuration, max_tokens: undefined, temperature: undefined },
       preset,
       presetIsActive: true,
     });
 
-    expect(seeded.maxTokens).toBe('');
-    expect(seeded.temperature).toBe('');
+    expect(seeded.settings).not.toHaveProperty('max_tokens');
+    expect(seeded.settings).not.toHaveProperty('temperature');
   });
 
   it("reads the service's echoed 0 temperature as the provider default, never 0", () => {
@@ -63,7 +71,7 @@ describe('seedModelSettings', () => {
       presetIsActive: true,
     });
 
-    expect(seeded.temperature).toBe('');
+    expect(seeded.settings).not.toHaveProperty('temperature');
   });
 
   it('offers a non-active preset its own suggestion instead of the active configuration', () => {
@@ -79,8 +87,8 @@ describe('seedModelSettings', () => {
 
     expect(seeded.modelId).toBe('llama4');
     expect(seeded.apiBase).toBe('http://127.0.0.1:11434/v1');
-    // The output shape is one configuration, so its own reported fields stay seeded.
-    expect(seeded.maxTokens).toBe('8192');
+    // One configuration, one saved set: it follows the person to the new model.
+    expect(seeded.settings.max_tokens).toBe('8192');
   });
 
   it('treats a reasoning level the service does not report as unset', () => {
@@ -106,91 +114,82 @@ describe('seedModelSettings', () => {
 describe('modelSettingsUpdate', () => {
   const seeded = seedModelSettings({ configuration, preset, presetIsActive: true });
 
-  it('submits only the provider identity when nothing else was edited', () => {
+  it('writes the whole saved set back, because the service replaces it on every write', () => {
     expect(modelSettingsUpdate({ preset, seeded, values: seeded })).toEqual({
-      provider: 'lm_studio',
-      provider_id: 'lm_studio',
-      provider_options: {},
-      api_base: 'http://127.0.0.1:1234/v1',
-      model: 'qwen3-coder',
+      ...identity,
+      context_length: 32_768,
+      max_tokens: 8_192,
+      temperature: 0.3,
+      top_k: 20,
     });
   });
 
-  it('never mints a maximum output token cap the service did not report', () => {
-    const fresh = seedModelSettings({
-      configuration: { ...configuration, max_tokens: undefined },
-      preset,
-      presetIsActive: true,
-    });
-
-    expect(modelSettingsUpdate({ preset, seeded: fresh, values: fresh })).not.toHaveProperty(
-      'max_tokens',
-    );
-  });
-
-  it('leaves the runtime sizing alone when the person did not size it', () => {
+  it('a model change keeps every saved setting', () => {
     const update = modelSettingsUpdate({
       preset,
       seeded,
       values: { ...seeded, modelId: 'qwen3-next' },
     });
 
-    expect(update).toEqual({
-      provider: 'lm_studio',
-      provider_id: 'lm_studio',
-      provider_options: {},
-      api_base: 'http://127.0.0.1:1234/v1',
-      model: 'qwen3-next',
-    });
-    expect(update).not.toHaveProperty('parallel');
-    expect(update).not.toHaveProperty('context_length');
-    expect(update).not.toHaveProperty('max_tokens');
-    expect(update).not.toHaveProperty('temperature');
+    expect(update).toMatchObject({ model: 'qwen3-next', temperature: 0.3, top_k: 20 });
     expect(update).not.toHaveProperty('thinking_level');
   });
 
-  it('submits each field the person actually edited', () => {
+  it('an emptied field puts that setting back to the default by leaving it out', () => {
+    const update = modelSettingsUpdate({
+      preset,
+      seeded,
+      values: { ...seeded, settings: { ...seeded.settings, temperature: '', top_k: '  ' } },
+    });
+
+    expect(update).not.toHaveProperty('temperature');
+    expect(update).not.toHaveProperty('top_k');
+    expect(update.max_tokens).toBe(8_192);
+  });
+
+  it('submits each newly entered setting, a real zero included', () => {
+    const fresh = seedModelSettings({
+      configuration: {
+        ...configuration,
+        temperature: undefined,
+        top_k: undefined,
+        max_tokens: undefined,
+        context_length: undefined,
+      },
+      preset,
+      presetIsActive: true,
+    });
     expect(
       modelSettingsUpdate({
         preset,
-        seeded,
+        seeded: fresh,
         values: {
-          ...seeded,
-          contextLength: '32768',
+          ...fresh,
           effort: 'low',
-          maxTokens: '4096',
-          parallel: '2',
-          temperature: '0',
+          settings: { min_p: '0', seed: '7', parallel: '2', repetition_penalty: '1.1' },
         },
       }),
     ).toEqual({
-      provider: 'lm_studio',
-      provider_id: 'lm_studio',
-      provider_options: {},
-      api_base: 'http://127.0.0.1:1234/v1',
-      model: 'qwen3-coder',
-      context_length: 32_768,
-      max_tokens: 4_096,
+      ...identity,
+      min_p: 0,
+      seed: 7,
       parallel: 2,
-      temperature: 0,
+      repetition_penalty: 1.1,
       thinking_level: 'low',
     });
   });
 
-  it('ignores an entry that is not a usable number', () => {
-    expect(
-      modelSettingsUpdate({
-        preset,
-        seeded,
-        values: { ...seeded, maxTokens: 'lots', parallel: '-1' },
-      }),
-    ).toEqual({
-      provider: 'lm_studio',
-      provider_id: 'lm_studio',
-      provider_options: {},
-      api_base: 'http://127.0.0.1:1234/v1',
-      model: 'qwen3-coder',
+  it('ignores an entry that is not a usable number, and a size that is not a positive whole number', () => {
+    const update = modelSettingsUpdate({
+      preset,
+      seeded,
+      values: {
+        ...seeded,
+        settings: { max_tokens: 'lots', parallel: '-1', context_length: '0', top_p: 'x' },
+      },
     });
+
+    expect(update).toEqual(identity);
   });
 
   it('submits stable provider identity and typed LiteLLM options', () => {
@@ -231,19 +230,24 @@ describe('modelSettingsUpdate', () => {
   });
 });
 
-describe('providerSupportsRuntimeSizing', () => {
-  it('offers runtime sizing only for a model served on the connected agent', () => {
-    expect(providerSupportsRuntimeSizing({ ...preset, provider: 'lm_studio' })).toBe(true);
-    expect(
-      providerSupportsRuntimeSizing({ ...preset, provider: 'vllm', provider_id: 'vllm' }),
-    ).toBe(true);
-    expect(
-      providerSupportsRuntimeSizing({ ...preset, provider: 'ollama', provider_id: 'ollama' }),
-    ).toBe(true);
-    expect(
-      providerSupportsRuntimeSizing({ ...preset, provider: 'codex', provider_id: 'codex' }),
-    ).toBe(false);
-    expect(providerSupportsRuntimeSizing(undefined)).toBe(false);
+describe('unusedResponseSettings', () => {
+  const settings = { temperature: '0.7', top_k: '20', seed: '' };
+
+  it('lists the saved values the model does not accept, labelled', () => {
+    expect(unusedResponseSettings(settings, ['temperature'])).toEqual([
+      { name: 'top_k', label: 'Top K', value: '20' },
+    ]);
+  });
+
+  it('calls nothing unused while the model accepted set is unknown', () => {
+    expect(unusedResponseSettings(settings, undefined)).toEqual([]);
+  });
+
+  it('a model that accepts none leaves every saved value unused', () => {
+    expect(unusedResponseSettings(settings, []).map((item) => item.name)).toEqual([
+      'temperature',
+      'top_k',
+    ]);
   });
 });
 
@@ -304,5 +308,20 @@ describe('the sonnet -> opus Apply', () => {
     });
     expect(update.model).toBe('opus');
     expect(update).not.toHaveProperty('thinking_level');
+  });
+});
+
+describe('settingsForChosenModel', () => {
+  it('drops a longest reply the newly chosen model cannot serve', () => {
+    expect(settingsForChosenModel({ max_tokens: '32000', temperature: '0.2' }, 4096)).toEqual({
+      temperature: '0.2',
+    });
+  });
+
+  it('keeps settings the model can serve, or when its window is unknown', () => {
+    expect(settingsForChosenModel({ max_tokens: '2048' }, 4096)).toEqual({ max_tokens: '2048' });
+    expect(settingsForChosenModel({ max_tokens: '32000' }, undefined)).toEqual({
+      max_tokens: '32000',
+    });
   });
 });

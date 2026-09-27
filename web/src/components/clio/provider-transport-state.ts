@@ -57,6 +57,16 @@ function transportCopy(
   return { label: transport.label, info: transport.label };
 }
 
+/**
+ * Which half of a multi-transport provider a model row came from ("SDK",
+ * "Direct"), or `undefined` for a provider reachable only one way.
+ */
+export function modelTransportLabel(option: ClioModelOption): string | undefined {
+  if (!option.transport || (option.transports?.length ?? 0) < 2) return undefined;
+  const transport = option.transports?.find((item) => item.id === option.transport);
+  return transport ? transportCopy(transport, option.providerName).label : undefined;
+}
+
 /** Every transport of a multi-transport provider, in the service's order. */
 export function transportSections(group: ProviderGroup): TransportSection[] {
   return (group.transports ?? []).map((transport) => {

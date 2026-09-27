@@ -2,8 +2,15 @@ import type { LanguageModelPreset } from '@clio/core/v3';
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { CascaderColumnSection } from '@/components/reui/cascader/cascader-columns';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
-import { providerUsableModelCount, type PickerNodeData, type ProviderGroup } from './model-picker-model';
+import {
+  providerUsableModelCount,
+  type PickerNodeData,
+  type ProviderGroup,
+} from './model-picker-model';
+import { ProviderComponentStatus } from './provider-component-status';
+import { useProviderComponentUpdate } from './provider-component-update';
 import { ProviderConnectState } from './provider-connect-state';
+import { providerCredentialKind } from '@/lib/provider-availability';
 import { useProviderActions } from './provider-actions';
 import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-footer';
 import { providerActionError } from './provider-setup-state';
@@ -67,12 +74,30 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
     preset,
     scope: signInTransport?.transport.id,
   });
-  const stage = providerActions.stage ?? transportActions.stage;
+  // The provider's SDK update (Codex / Claude Code): its running stage drives
+  // the same heartbeat and panel text as every other provider action, and a
+  // finished update re-checks the provider so its models reflect the new SDK.
+  const componentUpdate = useProviderComponentUpdate({
+    group,
+    open,
+    onUpdated: () => providerActions.handshake.mutate(),
+  });
+  const stage = componentUpdate.stage ?? providerActions.stage ?? transportActions.stage;
+  const componentStatus = group?.client ? (
+    <ProviderComponentStatus group={group} state={componentUpdate} />
+  ) : null;
 
   // A transport the service has never asked is asked when it comes into view,
   // once per opening: the person sees it being checked, never a request to.
   const autoChecked = useRef(new Set<string>());
-  const needsCheck = sections.some((section) => section.state === 'unchecked');
+  // A CLI-owned sign-in (Claude Code) the service last saw signed out is asked
+  // again too: the person may have signed in in a terminal since (#1455).
+  const needsCheck =
+    sections.some((section) => section.state === 'unchecked') ||
+    (!multi &&
+      providerCredentialKind(preset) === 'cli' &&
+      preset?.is_authenticated === false &&
+      preset.status !== 'install_required');
   const providerBusy = Boolean(providerActions.stage);
   const groupId = group?.id;
   useEffect(() => {
@@ -100,11 +125,14 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
     const column: ProviderPanelColumn = usable
       ? {
           footer: (
-            <ProviderPanelFooter
-              actions={providerActions}
-              error={notice ?? providerActionError(providerActions, group.name)}
-              logOut={logOut}
-            />
+            <>
+              {componentStatus}
+              <ProviderPanelFooter
+                actions={providerActions}
+                error={notice ?? providerActionError(providerActions, group)}
+                logOut={logOut}
+              />
+            </>
           ),
         }
       : { empty: <ProviderConnectState actions={providerActions} group={group} preset={preset} /> };
@@ -132,7 +160,12 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
         data-transport={section.transport.id}
       >
         <TransportLabel focusable section={section} />
-        <TransportLogin actions={transportActions} group={group} preset={preset} section={section} />
+        <TransportLogin
+          actions={transportActions}
+          group={group}
+          preset={preset}
+          section={section}
+        />
       </div>
     </div>
   ));
@@ -142,9 +175,10 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
       {/* Free space collects here, above the action row -- never between
           the SDK's models and Direct. */}
       <div aria-hidden="true" className="min-h-0 flex-1" data-slot="panel-spacer" />
+      {componentStatus}
       <ProviderPanelFooter
         actions={providerActions}
-        error={notice ?? providerActionError(providerActions, group.name)}
+        error={notice ?? providerActionError(providerActions, group)}
         logOut={logOut}
       />
     </>

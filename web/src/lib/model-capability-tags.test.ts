@@ -4,7 +4,6 @@ import { providerCatalogSchema } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import {
   displayedTags,
-  modelCapabilityTagDetail,
   modelCapabilityTagLabel,
   modelCapabilityTagMeaning,
   modelCapabilityTagSource,
@@ -140,17 +139,33 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
     expect(surrogateChatReason(modelTypeOf(jev!))).toBe("Classifiers can't hold a conversation.");
   });
 
-  it('every tag says where it came from, with the upstream field', () => {
+  it('every tag says where it came from in plain words, never the upstream field', () => {
     const [jev] = options([JEV_TAGS]);
-    const task = modelCapabilityTagsFromOption(jev!).find((tag) => tag.axis === 'task')!;
+    const tags = modelCapabilityTagsFromOption(jev!);
+    const task = tags.find((tag) => tag.axis === 'task')!;
     expect(modelCapabilityTagSource(task)).toBe('From OpenRouter.');
-    expect(modelCapabilityTagDetail(task)).toBe(
-      "openrouter architecture.output_modalities=['decisions']",
-    );
+    expect(task.evidence).toEqual([{ source: 'openrouter' }]);
+    for (const tag of tags) {
+      expect(tag.evidence.every((row) => Object.keys(row).join() === 'source')).toBe(true);
+    }
     expect(modelCapabilityTagMeaning(task)).toBe(
-      'Classifier. Hugging Face task: text-classification.',
+      'Classifier. Hugging Face task: text classification.',
     );
     expect(tagFilterToken(task)).toBe('task:classification');
+  });
+
+  it('sources that are all the provider read as one; distinct sources stay listed', () => {
+    const tag = (sources: string[]) => ({
+      axis: 'capability' as const,
+      value: 'reasoning',
+      evidence: sources.map((source) => ({ source })),
+    });
+    expect(modelCapabilityTagSource(tag(['dialect', 'server_report']))).toBe('From the provider.');
+    expect(modelCapabilityTagSource(tag(['hf_repo', 'dialect', 'server_report']))).toBe(
+      'From Hugging Face and the provider.',
+    );
+    // One source keeps its own name.
+    expect(modelCapabilityTagSource(tag(['dialect']))).toBe("From the provider's API type.");
   });
 
   it('the free router is free and a router; agreeing sources are all named', () => {
@@ -183,7 +198,7 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
     ]);
     // A known surrogate whose modalities nobody stated is never passed as text.
     const surrogate = modelFilterTokens(
-      [{ axis: 'role', value: 'surrogate', evidence: [{ source: 'overlay', detail: '' }] }],
+      [{ axis: 'role', value: 'surrogate', evidence: [{ source: 'overlay' }] }],
       { chatSelectable: false },
     );
     expect(surrogate.has('input:text')).toBe(false);
@@ -205,5 +220,61 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
     expect(tagsFor('image_generation', ['image'])).toEqual(['Image generator']);
     expect(tagsFor('chat', ['image', 'text'])).toEqual(['Makes image']);
     expect(tagsFor('other', ['tensor'])).toEqual(['Makes tensor', 'Other model']);
+  });
+});
+
+describe('context tags say what the size rests on', () => {
+  function contextTag(fields: Record<string, unknown>) {
+    const provider = fixture.provider_catalog_live.providers.find(
+      (entry) => entry.id === 'argonne_sophia',
+    );
+    const [model] = provider!.models as Array<Record<string, unknown>>;
+    const catalog = providerCatalogSchema.parse({
+      ...fixture.provider_catalog_live,
+      providers: [{ ...provider, models: [{ ...model, loaded_context_window: null, ...fields }] }],
+    });
+    const [option] = buildModelOptions({
+      activeCatalogProvider: String(provider!.id),
+      providerCatalog: catalog,
+      presets: [],
+    }).filter((row) => row.kind !== 'provider');
+    return modelCapabilityTagsFromOption(option!).find((tag) => tag.axis === 'context')!;
+  }
+
+  it('an Ollama model not loaded yet shows the configured size, and the native one on hover', () => {
+    const tag = contextTag({
+      context_window: 4096,
+      native_context_window: 32768,
+      context_basis: 'configured',
+    });
+
+    expect(modelCapabilityTagLabel(tag)).toBe('4K configured');
+    expect(modelCapabilityTagMeaning(tag)).toBe(
+      'Not loaded yet: the server will give it 4,096 tokens when it loads. ' +
+        'The model itself reads up to 32,768.',
+    );
+    // The meaning and "From the provider." say it all: no internal field name.
+    expect(tag.evidence).toEqual([{ source: 'catalog' }]);
+  });
+
+  it('only the native ceiling known reads as native, never as served', () => {
+    const tag = contextTag({ context_window: 32768, context_basis: 'native' });
+
+    expect(modelCapabilityTagLabel(tag)).toBe('33K native');
+    expect(modelCapabilityTagMeaning(tag)).toContain('has not said what it applies');
+  });
+
+  it('a served size keeps the plain label', () => {
+    const tag = contextTag({
+      context_window: 4096,
+      loaded_context_window: 4096,
+      native_context_window: 32768,
+      context_basis: 'served',
+    });
+
+    expect(modelCapabilityTagLabel(tag)).toBe('4K');
+    expect(modelCapabilityTagMeaning(tag)).toBe(
+      'Reads up to 4,096 tokens at once. The model itself reads up to 32,768.',
+    );
   });
 });

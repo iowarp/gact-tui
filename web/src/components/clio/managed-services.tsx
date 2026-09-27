@@ -25,6 +25,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { useRepository } from '@/hooks/use-repository';
+import { useSavedServers } from '@/hooks/use-saved-servers';
 import { vocab } from '@/lib/brand-vocabulary';
 import type { SshHost } from '@/lib/ssh-hosts';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -49,7 +50,14 @@ import {
   TargetChoice,
   type ManagedTargetKind,
 } from './managed-service-target';
-import { targetLabel, targetMatchesHost, waitForOperation } from './managed-service-target-utils';
+import {
+  configurationForVariant,
+  modelRuntimeInModels,
+  runtimeFactLabels,
+  targetLabel,
+  targetMatchesHost,
+  waitForOperation,
+} from './managed-service-target-utils';
 
 type Target = ManagedTargetKind;
 /** Desktop controls for CLIO-managed providers and supporting resources. */
@@ -89,6 +97,9 @@ export function ManagedServices({
   const [variants, setVariants] = useState<Record<string, string>>({});
   const [configuration, setConfiguration] = useState<Record<string, Record<string, string>>>({});
   const [results, setResults] = useState<Record<string, ServiceActionFeedback>>({});
+  const savedServers = useSavedServers();
+  const [progress, setProgress] = useState<Record<string, string>>({});
+  const [operationIds, setOperationIds] = useState<Record<string, string>>({});
   const canManageSshTargets = desktop && isManagedConnection;
   // The NSIS installer's Infrastructure page records a llama.cpp request as a
   // PREFERENCE only — it never installs a runtime itself. When set, this
@@ -121,7 +132,10 @@ export function ManagedServices({
           platform: host.platform ?? 'auto',
         },
       };
-      const existing = targets.data?.find((candidate) => targetMatchesHost(candidate, host));
+      // Right after a reload the targets query may not have answered yet; asking
+      // again here keeps a host from being registered twice (ares, ares-2, ...).
+      const known = targets.data ?? (await repository.infrastructureTargets());
+      const existing = known.find((candidate) => targetMatchesHost(candidate, host));
       if (existing) return repository.updateInfrastructureTarget(existing.id, definition);
       return repository.createInfrastructureTarget(definition);
     },
@@ -182,9 +196,18 @@ export function ManagedServices({
     staleTime: 30_000,
   });
   const action = useMutation({
-    mutationFn: async (input: ServiceActionInput & { service_id: string }) => {
-      const operation = await repository.runManagedServiceAction(input.service_id, input);
-      return waitForOperation(repository, operation);
+    mutationFn: async ({ service_id, ...body }: ServiceActionInput & { service_id: string }) => {
+      // The service id is the URL path; CLIO's action contract forbids extra body keys.
+      const operation = await repository.runManagedServiceAction(service_id, body);
+      setOperationIds((rows) => ({ ...rows, [service_id]: operation.id }));
+      try {
+        return await waitForOperation(repository, operation, undefined, (current) =>
+          setProgress((rows) => ({ ...rows, [service_id]: current.progress })),
+        );
+      } finally {
+        setProgress(({ [service_id]: _done, ...rows }) => rows);
+        setOperationIds(({ [service_id]: _done, ...rows }) => rows);
+      }
     },
     onMutate: (input) => {
       setResults((current) => {
@@ -203,7 +226,9 @@ export function ManagedServices({
               ? 'Status refreshed.'
               : result.action === 'logs'
                 ? result.logs.trim() || 'No recent log output.'
-                : result.logs || `${result.action} completed.`,
+                : ['install', 'reinstall', 'start'].includes(result.action)
+                  ? `${result.action[0].toUpperCase()}${result.action.slice(1)} completed. View logs for the server output.`
+                  : result.logs || `${result.action} completed.`,
         },
       }));
       await catalog.refetch();
@@ -258,14 +283,24 @@ export function ManagedServices({
           ) : undefined
         }
         key={service.id}
-        onAction={(requestedAction) =>
+        onAction={(requestedAction) => {
+          const variant = variants[service.id] ?? service.recommended_variant;
           action.mutate({
             service_id: service.id,
             target_id: targetId,
             action: requestedAction,
-            variant_id: variants[service.id] ?? service.recommended_variant,
-            configuration: configuration[service.id] ?? {},
-          })
+            variant_id: variant,
+            configuration: configurationForVariant(
+              configuration[service.id] ?? {},
+              service.parameters ?? [],
+              variant,
+            ),
+          });
+        }}
+        onCancel={
+          operationIds[service.id]
+            ? () => void repository.cancelInfrastructureOperation(operationIds[service.id])
+            : undefined
         }
         onConfiguration={(field, value) =>
           setConfiguration((current) => ({
@@ -275,25 +310,39 @@ export function ManagedServices({
         }
         onVariant={(value) => setVariants((current) => ({ ...current, [service.id]: value }))}
         connectionAction={
-          service.id === 'web_search' && service.state === 'running'
-            ? {
-                label: webSearchTargetConnected
-                  ? webSearchDisconnecting
-                    ? 'Disconnecting…'
-                    : 'Disconnect'
-                  : webSearchConnecting
-                    ? 'Connecting…'
-                    : `Connect to ${vocab.agent}`,
-                onSelect: webSearchTargetConnected
-                  ? onDisconnectWebSearch
-                  : !agentConnectionUrl
-                    ? undefined
-                    : () => onConnectWebSearch?.(agentConnectionUrl),
-                pending: webSearchTargetConnected ? webSearchDisconnecting : webSearchConnecting,
-                blockedReason: undefined,
-              }
-            : undefined
+          service.category === 'model_runtime' && service.state === 'running' && agentConnectionUrl
+            ? modelRuntimeInModels(savedServers.servers.data, service.id, agentConnectionUrl)
+              ? { label: 'Open in Models', to: '/settings/providers' }
+              : {
+                  label: savedServers.save.isPending ? 'Adding to Models…' : 'Use in Models',
+                  pending: savedServers.save.isPending,
+                  onSelect: () =>
+                    savedServers.save.mutate({
+                      address: agentConnectionUrl,
+                      label: `${service.label} (${targetLabel(target, sshHost)})`,
+                      presetId: service.id,
+                    }),
+                }
+            : service.id === 'web_search' && service.state === 'running'
+              ? {
+                  label: webSearchTargetConnected
+                    ? webSearchDisconnecting
+                      ? 'Disconnecting…'
+                      : 'Disconnect'
+                    : webSearchConnecting
+                      ? 'Connecting…'
+                      : `Connect to ${vocab.agent}`,
+                  onSelect: webSearchTargetConnected
+                    ? onDisconnectWebSearch
+                    : !agentConnectionUrl
+                      ? undefined
+                      : () => onConnectWebSearch?.(agentConnectionUrl),
+                  pending: webSearchTargetConnected ? webSearchDisconnecting : webSearchConnecting,
+                  blockedReason: undefined,
+                }
+              : undefined
         }
+        progress={progress[service.id]}
         result={results[service.id]}
         service={service}
         variant={variants[service.id] ?? service.recommended_variant}
@@ -359,13 +408,11 @@ export function ManagedServices({
                       <span>{catalog.data.facts.os}</span>
                       <span>{catalog.data.facts.arch}</span>
                       <span>{catalog.data.facts.accelerator} accelerator</span>
-                      <span>
-                        {catalog.data.facts.docker_available
-                          ? 'Docker ready'
-                          : catalog.data.facts.docker_installed
-                            ? 'Docker installed, engine stopped'
-                            : 'Docker not installed'}
-                      </span>
+                      {runtimeFactLabels(catalog.data.facts).map((label) => (
+                        <span key={label} title={label}>
+                          {label}
+                        </span>
+                      ))}
                     </div>
                   ) : null}
                   <Button

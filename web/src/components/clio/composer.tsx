@@ -43,6 +43,7 @@ import {
 import { ClioStatus } from './status';
 import { ClioModelPicker } from './model-picker';
 import { useComposerModelSelection } from './use-composer-model-selection';
+import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { Button } from '@/components/ui/button';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
@@ -66,6 +67,10 @@ import { toMessagePart, type InlineReferenceSelection } from '@/lib/composer-ref
 import { ComposerInlineReferenceEditor } from './composer-inline-reference-editor';
 import { focusEditorAtOffset } from './composer-editor-model';
 import { ClioComposerFileUpload } from './composer-file-upload';
+import { ClioComposerAnnotations } from './composer-annotations';
+import { messageTextWithAnnotations, type ComposerAnnotation } from '@/lib/composer-annotations';
+import { modelTransportLabel } from './provider-transport-state';
+import type { ClioModelOption } from '@/lib/model-options';
 
 const focusComposerEditor = focusEditorAtOffset;
 
@@ -143,6 +148,9 @@ export interface ClioComposerProps {
    */
   references?: readonly InlineReferenceSelection[];
   onReferencesChange?: (references: readonly InlineReferenceSelection[]) => void;
+  /** Selections attached to the next message (sent as quotes ahead of the text). */
+  annotations?: readonly ComposerAnnotation[];
+  onAnnotationsChange?: (annotations: readonly ComposerAnnotation[]) => void;
   focusRequestKey?: number;
   variant?: 'docked' | 'welcome';
 }
@@ -192,9 +200,12 @@ export function ClioComposer({
   onValueChange,
   references,
   onReferencesChange,
+  annotations = [],
+  onAnnotationsChange,
   focusRequestKey,
   variant = 'docked',
 }: ClioComposerProps) {
+  const spotterAvailability = useSpotterAvailability(workspaceId);
   const { selectedOption, selectedTransport, selectModel } = useComposerModelSelection(
     modelOptions,
     provider,
@@ -478,7 +489,7 @@ export function ClioComposer({
         onError={(error) => toast.error('Attachment was not added', { description: error.message })}
         onSubmit={async ({ files, text }) => {
           const trimmed = text.trim();
-          if (trimmed || files.length > 0 || selectedReferences.length > 0) {
+          if (trimmed || files.length > 0 || selectedReferences.length > 0 || annotations.length) {
             if (trimmed.startsWith('/')) {
               const [enteredId = '', ...parts] = trimmed.split(/\s+/);
               const command = commands.find(
@@ -525,7 +536,7 @@ export function ClioComposer({
                 delivery: state === 'running' ? nextDeliveryRef.current : 'start',
                 files,
                 references: selectedReferences.map(({ reference }) => toMessagePart(reference)),
-                text: trimmed,
+                text: messageTextWithAnnotations(annotations, trimmed),
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
                 transport: selectedTransport,
@@ -554,6 +565,7 @@ export function ClioComposer({
             nextDeliveryRef.current = state === 'running' ? 'queued' : 'start';
             setInput('');
             setSelectedReferences([]);
+            onAnnotationsChange?.([]);
           }
         }}
       >
@@ -582,6 +594,10 @@ export function ClioComposer({
               : ''}
           </div>
         ) : null}
+        <ClioComposerAnnotations
+          annotations={annotations}
+          onRemove={(gone) => onAnnotationsChange?.(annotations.filter((item) => item !== gone))}
+        />
         <ComposerInlineReferenceEditor
           activeOptionId={composerReferences.activeOptionId}
           disabled={disabled}
@@ -619,6 +635,7 @@ export function ClioComposer({
             ) : null}
             <ClioComposerBehaviorControls
               behavior={messageBehavior}
+              spotterAvailability={spotterAvailability}
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}
               defaultEffortLabel={defaultReasoningLabel(
                 configuredEffort,
@@ -646,6 +663,7 @@ export function ClioComposer({
                   onRetryCatalog={onRetryModelCatalog}
                   options={modelOptions}
                   provider={selectedOption?.providerId}
+                  transport={selectedOption?.transport}
                   trigger={
                     <Button
                       aria-label="Change model"
@@ -659,9 +677,7 @@ export function ClioComposer({
                         <ModelSelectorLogo provider={providerLogoId(selectedOption.providerId)} />
                       ) : null}
                       <span className="truncate">
-                        {selectedOption
-                          ? `${selectedOption.providerName} / ${compactModelName(selectedOption.providerId, selectedOption.id, selectedOption.label)}`
-                          : 'Choose model'}
+                        {selectedOption ? composerModelLabel(selectedOption) : 'Choose model'}
                       </span>
                     </Button>
                   }
@@ -758,6 +774,14 @@ function ComposerAddContextButton({
       </PromptInputActionMenuContent>
     </PromptInputActionMenu>
   );
+}
+
+/** The model button's text: provider, the half it is reached through when
+ * there are two ("Codex · Direct / Luna"), and the model. */
+function composerModelLabel(option: ClioModelOption): string {
+  const half = modelTransportLabel(option);
+  const provider = half ? `${option.providerName} · ${half}` : option.providerName;
+  return `${provider} / ${compactModelName(option.providerId, option.id, option.label)}`;
 }
 
 function compactModelName(provider: string, modelId: string, label: string): string {

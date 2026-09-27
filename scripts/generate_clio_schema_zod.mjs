@@ -6,6 +6,12 @@ import { jsonSchemaToZod } from 'json-schema-to-zod';
 
 const contracts = [
   {
+    file: 'accepted_parameter.json',
+    output: 'accepted-parameter.schema.ts',
+    schema: 'acceptedParameterGeneratedSchema',
+    type: 'AcceptedParameter',
+  },
+  {
     file: 'message_block.json',
     output: 'message-block.schema.ts',
     schema: 'messageBlockGeneratedSchema',
@@ -16,6 +22,12 @@ const contracts = [
     output: 'model-capability-tags.schema.ts',
     schema: 'modelCapabilityTagsGeneratedSchema',
     type: 'ModelCapabilityTags',
+  },
+  {
+    file: 'model_facts.json',
+    output: 'model-facts.schema.ts',
+    schema: 'modelFactsGeneratedSchema',
+    type: 'ModelFacts',
   },
 ];
 

@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ClioStatus } from '@/components/clio/status';
 import { ExternalLink } from '@/components/ui/external-link';
 import { Button } from '@/components/ui/button';
+import { Field, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -14,6 +15,11 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import type { ReactNode } from 'react';
+import {
+  EffectiveParameters,
+  OwnedResources,
+  ServerParametersForm,
+} from './managed-service-parameters';
 
 export type ServiceAction = ServiceActionInput['action'];
 export type ServiceActionFeedback = {
@@ -29,8 +35,10 @@ export function ManagedServiceCard({
   connectionStatus,
   configuration,
   onAction,
+  onCancel,
   onConfiguration,
   onVariant,
+  progress,
   result,
   service,
   variant,
@@ -46,14 +54,19 @@ export function ManagedServiceCard({
   connectionStatus?: ReactNode;
   configuration: Record<string, string>;
   onAction: (action: ServiceAction) => void;
+  onCancel?: () => void;
   onConfiguration: (field: string, value: string) => void;
   onVariant: (value: string) => void;
+  progress?: string;
   result?: ServiceActionFeedback;
   service: ManagedServiceDefinition;
   variant: string;
 }) {
   const compatible = service.variants.filter((item) => item.compatible);
   const installed = service.state === 'running' || service.state === 'stopped';
+  // A record whose server is in no known state (an interrupted deploy, a
+  // container removed outside CLIO) still owns things: offer uninstall.
+  const recorded = (service.owned_resources ?? []).length > 0;
   const operable = installed || compatible.length > 0;
   const incompatibilityReasons = Array.from(
     new Set(service.variants.filter((item) => !item.compatible).map((item) => item.reason)),
@@ -72,7 +85,9 @@ export function ManagedServiceCard({
         ]
       : service.state === 'stopped'
         ? ['start', 'status', 'logs', 'reinstall', 'uninstall']
-        : ['install'];
+        : recorded
+          ? ['status', 'logs', 'uninstall']
+          : ['install'];
 
   return (
     <article className="grid gap-5 py-6 lg:grid-cols-[minmax(12rem,0.72fr)_minmax(0,1.28fr)]">
@@ -131,46 +146,66 @@ export function ManagedServiceCard({
           </div>
         ) : null}
 
-        {compatible.length && service.state !== 'running'
-          ? service.configuration_fields.map((field) =>
-              field.options?.length ? (
-                <Select
-                  key={field.id}
-                  onValueChange={(value) => onConfiguration(field.id, value)}
-                  value={configuration[field.id]}
-                >
-                  <SelectTrigger aria-label={`${service.label} ${field.label}`}>
-                    <SelectValue placeholder={field.placeholder} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {field.options.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : field.id === 'model_path' ? (
-                <ModelFileField
-                  key={field.id}
-                  label={`${service.label} ${field.label}`}
-                  onChange={(value) => onConfiguration(field.id, value)}
-                  placeholder={field.placeholder}
-                  required={field.required}
-                  value={configuration[field.id] ?? ''}
-                />
-              ) : (
-                <Input
-                  aria-label={`${service.label} ${field.label}`}
-                  key={field.id}
-                  onChange={(event) => onConfiguration(field.id, event.target.value)}
-                  placeholder={field.placeholder}
-                  required={field.required}
-                  value={configuration[field.id] ?? ''}
-                />
-              ),
-            )
+        {compatible.length && service.state !== 'running' && !installed && !recorded
+          ? service.configuration_fields.map((field) => (
+              <Field key={field.id}>
+                <FieldLabel>{field.label}</FieldLabel>
+                {field.options?.length ? (
+                  <Select
+                    onValueChange={(value) => onConfiguration(field.id, value)}
+                    value={configuration[field.id]}
+                  >
+                    <SelectTrigger aria-label={`${service.label} ${field.label}`}>
+                      <SelectValue placeholder={field.placeholder} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {field.options.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : field.id === 'model_path' ? (
+                  <ModelFileField
+                    label={`${service.label} ${field.label}`}
+                    onChange={(value) => onConfiguration(field.id, value)}
+                    placeholder={field.placeholder}
+                    required={field.required}
+                    value={configuration[field.id] ?? ''}
+                  />
+                ) : (
+                  <Input
+                    aria-label={`${service.label} ${field.label}`}
+                    onChange={(event) => onConfiguration(field.id, event.target.value)}
+                    placeholder={field.placeholder}
+                    required={field.required}
+                    value={configuration[field.id] ?? ''}
+                  />
+                )}
+              </Field>
+            ))
           : null}
+
+        {compatible.length && !installed && !recorded ? (
+          <ServerParametersForm
+            onChange={onConfiguration}
+            parameters={service.parameters ?? []}
+            serviceLabel={service.label}
+            values={configuration}
+            variant={variant}
+          />
+        ) : null}
+
+        {service.state === 'running' ? (
+          <EffectiveParameters
+            rows={service.effective_parameters ?? []}
+            serviceLabel={service.label}
+          />
+        ) : null}
+        {installed || recorded ? (
+          <OwnedResources rows={service.owned_resources ?? []} serviceLabel={service.label} />
+        ) : null}
 
         {connectionAction?.blockedReason ? (
           <div className="border-l-2 border-destructive py-1 pl-4 text-sm text-destructive">
@@ -201,7 +236,7 @@ export function ManagedServiceCard({
             ) : null}
             {actions.map((name) => (
               <Button
-                disabled={Boolean(activeAction) || !variant || (name === 'start' && missing)}
+                disabled={Boolean(activeAction) || !variant || (name === 'install' && missing)}
                 key={name}
                 onClick={() => onAction(name)}
                 size="sm"
@@ -211,6 +246,19 @@ export function ManagedServiceCard({
                 {activeAction === name ? actionProgressLabel(name) : actionLabel(name)}
               </Button>
             ))}
+          </div>
+        ) : null}
+
+        {activeAction && progress ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <p aria-live="polite" className="text-xs text-muted-foreground" role="status">
+              {progress}
+            </p>
+            {onCancel ? (
+              <Button onClick={onCancel} size="sm" type="button" variant="ghost">
+                Cancel
+              </Button>
+            ) : null}
           </div>
         ) : null}
 

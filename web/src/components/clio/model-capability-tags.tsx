@@ -1,48 +1,13 @@
-import {
-  AudioLinesIcon,
-  BrainIcon,
-  EyeIcon,
-  FileTextIcon,
-  FlaskConicalIcon,
-  GiftIcon,
-  GlobeIcon,
-  RouteIcon,
-  ScrollTextIcon,
-  ShapesIcon,
-  SparklesIcon,
-  VideoIcon,
-  WrenchIcon,
-  type LucideIcon,
-} from 'lucide-react';
 import { Badge } from '@/components/reui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-  modelCapabilityTagDetail,
   modelCapabilityTagLabel,
   modelCapabilityTagMeaning,
   modelCapabilityTagSource,
   type ModelCapabilityTag,
 } from '@/lib/model-capability-tags';
 import { cn } from '@/lib/utils';
-
-const TAG_ICONS: Record<string, LucideIcon> = {
-  'input_modality:image': EyeIcon,
-  'input_modality:audio': AudioLinesIcon,
-  'input_modality:video': VideoIcon,
-  'input_modality:pdf': FileTextIcon,
-  'capability:tool_calling': WrenchIcon,
-  'capability:reasoning': BrainIcon,
-};
-
-function tagIcon(tag: ModelCapabilityTag): LucideIcon {
-  if (tag.axis === 'context') return ScrollTextIcon;
-  if (tag.axis === 'price') return GiftIcon;
-  if (tag.axis === 'kind') return RouteIcon;
-  if (tag.axis === 'role') return FlaskConicalIcon;
-  if (tag.axis === 'task') return ShapesIcon;
-  if (tag.axis === 'domain') return GlobeIcon;
-  return TAG_ICONS[`${tag.axis}:${tag.value}`] ?? SparklesIcon;
-}
+import { tagIcon } from './model-capability-tag-icons';
 
 interface ModelCapabilityTagsProps {
   tags: readonly ModelCapabilityTag[];
@@ -118,14 +83,14 @@ export function ModelCapabilityTags({
                   {label}
                 </Badge>
               </TooltipTrigger>
-              <TooltipContent className="block max-w-xs leading-5" side="top">
-                <span className="block">{modelCapabilityTagMeaning(tag)}</span>
-                <span className="block opacity-70">{modelCapabilityTagSource(tag)}</span>
-                {modelCapabilityTagDetail(tag) ? (
-                  <span className="block font-mono text-xs opacity-70" data-slot="tag-evidence-detail">
-                    {modelCapabilityTagDetail(tag)}
-                  </span>
-                ) : null}
+              {/* Below the tag: above it sits the model name the tag describes. */}
+              <TooltipContent className="block max-w-xs leading-5" side="bottom" sideOffset={4}>
+                <span className="block" data-slot="tag-meaning">
+                  {modelCapabilityTagMeaning(tag)}
+                </span>
+                <span className="block opacity-70" data-slot="tag-source">
+                  {modelCapabilityTagSource(tag)}
+                </span>
               </TooltipContent>
             </Tooltip>
           );

@@ -6,6 +6,49 @@ UI aren't tracked.
 
 ## Unreleased
 
+### Changed
+
+- Settings > Models shows only the response settings the selected model
+  accepts, as the service reports them per model (`accepted_parameters`):
+  none for Claude Code and Codex, a few inline (an OpenRouter model shows
+  exactly its route's parameters), and a local server's long list behind one
+  disclosure grouped Sampling, Length and Advanced. Bounded settings are a
+  slider with a number field; empty means the default, shown as the model's
+  stated value or "Provider default". A saved value the new model does not use
+  is kept and listed as not used by this model. Provider options (Azure,
+  Vertex, Bedrock) sit in their own section, and the server address stays on
+  Settings > Providers.
+
+### Fixed
+
+- Opening a conversation that was created elsewhere (another tab, the CLI, an
+  agent's child session, or a connect that landed on a new conversation) no
+  longer shows "This agent service did not return the requested session". The
+  workspace kept its cached conversation list when the route moved to another
+  conversation in the same workspace; a conversation missing from that list is
+  now looked up with one fresh list read, and the page shows loading until
+  that read answers.
+- The Session details badge names the session's state. A failed session read
+  "Up to date" in red, and a session waiting on permission read "Up to date"
+  too; they now read "Failed" and "Permission needed". The idle live-region
+  text is "No active work", and the dock never says "Up to date".
+- A remote deploy that CLIO refuses to attach says why instead of "CLIO
+  rejected the SSH transport attachment" (clio-agent#1478). The desktop offers
+  the `clio.infrastructure.v2` bridge protocol, waits for CLIO's `attached`
+  confirmation, and turns a refusal (sign-in not accepted, host no longer
+  saved, not an SSH host, not this app's window) into a plain sentence. An
+  older CLIO that refuses before the connection opens is named as giving no
+  reason.
+- A desktop that attaches to a CLIO already running on the conventional port
+  now uses the bearer token that CLIO publishes in its credential record
+  (`~/.clio/hosts/<host>/gact-servers/<port>.json`) instead of an empty one.
+  Without a usable record the desktop asks that CLIO (`GET /v1/desktop/attach`,
+  no token): if it enforces no token the app attaches as before, and a CLIO too
+  old to have the check is attached as before too (the boot log says so). Only
+  a CLIO that answers 401 gets the new `auth_unavailable` backend status, and
+  the connection screen says up front that the app can't sign in to it rather
+  than letting a remote deploy fail later.
+
 ## [0.11.2.19] — 2026-09-26
 
 ### Added

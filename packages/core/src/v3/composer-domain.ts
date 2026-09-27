@@ -1,5 +1,15 @@
-import type { ModelCapabilityTags } from '../generated/clio-schemas/_models.js';
-export type { ModelCapabilityTags, TagEvidence } from '../generated/clio-schemas/_models.js';
+import type { ProviderClientFact } from './provider-components.js';
+import type {
+  AcceptedParameter,
+  ModelCapabilityTags,
+  ModelFacts,
+} from '../generated/clio-schemas/_models.js';
+export type {
+  AcceptedParameter,
+  ModelCapabilityTags,
+  ModelFacts,
+  TagEvidence,
+} from '../generated/clio-schemas/_models.js';
 import type { WireValue } from './domain.js';
 
 export type MessageDelivery = 'start' | 'steer' | 'auto';
@@ -297,6 +307,22 @@ export interface ProviderCatalogModel {
    */
   capability_tags?: ModelCapabilityTags;
   /**
+   * What the model is and what it costs: description, release date (and
+   * whether that is recent), pricing per 1M tokens and parameter count, each
+   * with its evidence -- the shared `ModelFacts` record. A null fact means no
+   * source stated it. Absent when an older service does not report facts.
+   */
+  model_facts?: ModelFacts;
+  /**
+   * ONLY the response settings this model and its endpoint accept (temperature,
+   * top_p, penalties, seed, longest reply, a local server's context size, ...),
+   * each with its kind, range, group, the default the service sends when it is
+   * left empty (`null`: the provider's own) and its evidence -- the shared
+   * `AcceptedParameter` record. Empty means the model takes no response
+   * settings. Absent when an older service does not report them.
+   */
+  accepted_parameters?: AcceptedParameter[];
+  /**
    * What this model can do about thinking, from provider truth: `levels` are the
    * levels a person can choose (empty means no selector), `default` the model's
    * own level when the provider names one.
@@ -313,6 +339,14 @@ export interface ProviderCatalogModel {
   native_tool_calling: boolean;
   context_window?: number;
   loaded_context_window?: number;
+  /** The model's own context ceiling, whatever the server serves. */
+  native_context_window?: number;
+  /**
+   * What `context_window` rests on: `served` (the server serves it now),
+   * `configured` (nothing loaded yet; it applies when the model loads) or
+   * `native` (only the model's own ceiling is known).
+   */
+  context_basis?: 'served' | 'configured' | 'native';
   output_limit?: number;
   /**
    * What the service reports about this model's usability — `available`,
@@ -375,6 +409,8 @@ export interface ProviderCatalogEntry {
   models: ProviderCatalogModel[];
   /** Present only for a provider reachable more than one way (see above). */
   transports?: ProviderCatalogTransport[];
+  /** The CLI a Codex / Claude Code SDK transport runs (installed vs bundled). */
+  client?: ProviderClientFact;
 }
 
 export interface ProviderCatalog {

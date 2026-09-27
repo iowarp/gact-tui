@@ -50,7 +50,70 @@ export type Surfaceid5 = string;
 export type Path1 = string | null;
 export type Surfaceid6 = string;
 export type Version2 = 'v0.9' | 'v0.9.1';
+/**
+ * The value that applies when nothing is set, when a source states one; null means the provider's own default.
+ */
+export type Default = number | string | null;
+/**
+ * One sentence on what the setting changes.
+ */
+export type Description1 = string;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence = [TagEvidence, ...TagEvidence[]];
+/**
+ * The upstream field and value as the source stated it, e.g. "openrouter architecture.output_modalities=['decisions']" or "ALCF gateway /models framework='sam3service'".
+ */
+export type Detail = string;
+/**
+ * ISO-8601 time the evidence was produced (empty when the source gives none).
+ */
+export type ObservedAt = string;
+/**
+ * Who stated the value.
+ */
+export type Source =
+  | 'user'
+  | 'overlay'
+  | 'server_report'
+  | 'hf_repo'
+  | 'models.dev'
+  | 'litellm'
+  | 'db'
+  | 'openrouter'
+  | 'dialect'
+  | 'probe'
+  | 'catalog';
+export type Group = 'sampling' | 'length' | 'advanced';
+export type Kind = 'number' | 'integer' | 'enum';
+/**
+ * The setting's name for display.
+ */
+export type Label = string;
+/**
+ * Largest accepted value; null when unbounded.
+ */
+export type Maximum = number | null;
+/**
+ * Smallest accepted value; null when unbounded.
+ */
+export type Minimum = number | null;
+/**
+ * The setting's key as the server stores it (e.g. `temperature`, `max_tokens`, `context_length`).
+ */
 export type Name2 = string;
+/**
+ * The accepted values of an enum; empty otherwise.
+ */
+export type Options = string[];
+/**
+ * A sensible increment for the control; null for an enum.
+ */
+export type Step = number | null;
+export type Name3 = string;
 export type Annotation = string;
 export type ArtifactId = string;
 export type CreatedAt = string;
@@ -97,7 +160,7 @@ export type WorkspaceId = string;
 export type $Id = string;
 export type $Schema = string;
 export type Catalogid2 = string;
-export type Description1 = string;
+export type Description2 = string;
 export type Title = string;
 export type Catalogid3 = string;
 export type ContextSchema = {
@@ -112,7 +175,7 @@ export type Presets = {
 } | null;
 export type Instructions = string;
 export type Protocolversion = '0.9.1';
-export type Source = 'builtin' | 'pack';
+export type Source1 = 'builtin' | 'pack';
 export type Arch = string;
 export type ClioVersion = string;
 export type ImageDigest = string;
@@ -165,7 +228,7 @@ export type DefaultCollapsed = boolean | null;
 export type Id1 = string;
 export type ProviderSource = string | null;
 export type Sequence1 = number | null;
-export type Source1 = string | null;
+export type Source2 = string | null;
 export type StreamSource1 = string | null;
 export type Streaming1 = boolean | null;
 export type Text1 = string;
@@ -180,7 +243,7 @@ export type ToolId = string;
 export type Type2 = 'tool';
 export type AgentId3 = string | null;
 export type Channel3 = string | null;
-export type Detail = string | null;
+export type Detail1 = string | null;
 export type Id3 = string;
 export type Sequence3 = number | null;
 export type StreamSource3 = string | null;
@@ -208,19 +271,19 @@ export type Sequence6 = number | null;
 export type StreamSource6 = string | null;
 export type Type6 = 'artifact';
 export type HandleId = string | null;
-export type Kind = string;
+export type Kind1 = string;
 export type Reason = string | null;
 export type Enabled = boolean;
 export type Id7 = string;
-export type Label = string;
+export type Label1 = string;
 export type Actions = ActionCardAction[];
 export type AgentId7 = string | null;
 export type Channel7 = string | null;
-export type Detail1 = string | null;
+export type Detail2 = string | null;
 export type Id8 = string;
 export type Sequence7 = number | null;
 export type Severity = string | null;
-export type Source2 = string | null;
+export type Source3 = string | null;
 export type Status = string | null;
 export type StreamSource7 = string | null;
 export type Title2 = string;
@@ -235,7 +298,7 @@ export type Type8 = 'a2ui';
 export type AgentId9 = string | null;
 export type Channel9 = string | null;
 export type Id10 = string;
-export type Label1 = string;
+export type Label2 = string;
 export type Sequence9 = number | null;
 export type StreamSource9 = string | null;
 export type Type9 = 'citation';
@@ -259,9 +322,9 @@ export type StreamSource11 = string | null;
 export type Type11 = 'error';
 export type AgentId12 = string | null;
 export type Channel12 = string | null;
-export type Detail2 = string | null;
+export type Detail3 = string | null;
 export type Id13 = string;
-export type Label2 = string;
+export type Label3 = string;
 export type Sequence12 = number | null;
 export type StreamSource12 = string | null;
 export type Type12 = 'routing';
@@ -270,30 +333,7 @@ export type Type12 = 'routing';
  *
  * @minItems 1
  */
-export type Evidence = [TagEvidence, ...TagEvidence[]];
-/**
- * The upstream field and value as the source stated it, e.g. "openrouter architecture.output_modalities=['decisions']" or "ALCF gateway /models framework='sam3service'".
- */
-export type Detail3 = string;
-/**
- * ISO-8601 time the evidence was produced (empty when the source gives none).
- */
-export type ObservedAt = string;
-/**
- * Who stated the value.
- */
-export type Source3 =
-  | 'user'
-  | 'overlay'
-  | 'server_report'
-  | 'hf_repo'
-  | 'models.dev'
-  | 'litellm'
-  | 'db'
-  | 'openrouter'
-  | 'dialect'
-  | 'probe'
-  | 'catalog';
+export type Evidence1 = [TagEvidence, ...TagEvidence[]];
 export type Value1 =
   | 'tool_calling'
   | 'parallel_tool_calls'
@@ -312,7 +352,7 @@ export type Capabilities = CapabilityTag[];
  *
  * @minItems 1
  */
-export type Evidence1 = [TagEvidence, ...TagEvidence[]];
+export type Evidence2 = [TagEvidence, ...TagEvidence[]];
 export type Value2 =
   | 'language'
   | 'vision'
@@ -334,14 +374,14 @@ export type Domains = DomainTag[];
  *
  * @minItems 1
  */
-export type Evidence2 = [TagEvidence, ...TagEvidence[]];
+export type Evidence3 = [TagEvidence, ...TagEvidence[]];
 export type Value3 = boolean;
 /**
  * Every source that states this value; the first is the winning one.
  *
  * @minItems 1
  */
-export type Evidence3 = [TagEvidence, ...TagEvidence[]];
+export type Evidence4 = [TagEvidence, ...TagEvidence[]];
 export type Value4 =
   | 'text'
   | 'image'
@@ -365,7 +405,7 @@ export type ModelKey = string;
  *
  * @minItems 1
  */
-export type Evidence4 = [TagEvidence, ...TagEvidence[]];
+export type Evidence5 = [TagEvidence, ...TagEvidence[]];
 export type Value5 =
   | 'chat'
   | 'embedding'
@@ -391,19 +431,123 @@ export type OutputModalities = ModalityTag[];
  *
  * @minItems 1
  */
-export type Evidence5 = [TagEvidence, ...TagEvidence[]];
+export type Evidence6 = [TagEvidence, ...TagEvidence[]];
 export type Value6 = 'general' | 'surrogate';
 /**
  * Every source that states this value; the first is the winning one.
  *
  * @minItems 1
  */
-export type Evidence6 = [TagEvidence, ...TagEvidence[]];
+export type Evidence7 = [TagEvidence, ...TagEvidence[]];
 export type Value7 = string;
 /**
  * Tasks it performs.
  */
 export type Tasks = TaskTag[];
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence8 = [TagEvidence, ...TagEvidence[]];
+/**
+ * The link's label as it reads in the text.
+ */
+export type Text2 = string;
+/**
+ * The link target exactly as the source wrote it.
+ */
+export type Url = string;
+/**
+ * The links reduced out of `plain`, in order.
+ */
+export type Links = DescriptionLink[];
+/**
+ * The text with each markdown link reduced to its label.
+ */
+export type Plain = string;
+/**
+ * The source's text, verbatim.
+ */
+export type Text3 = string;
+/**
+ * The model identity the facts describe (as in ModelCapabilityTags).
+ */
+export type ModelKey1 = string;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence9 = [TagEvidence, ...TagEvidence[]];
+/**
+ * Parameters used per token (mixture-of-experts), when stated.
+ */
+export type Active = number | null;
+/**
+ * Experts chosen per token.
+ */
+export type ExpertsActive = number | null;
+/**
+ * Routed experts per MoE layer.
+ */
+export type ExpertsTotal = number | null;
+export type Precision = 'exact' | 'rounded';
+/**
+ * Every parameter: the slider value.
+ */
+export type Total = number | null;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence10 = [TagEvidence, ...TagEvidence[]];
+export type Kind2 = 'usd' | 'variable' | 'subscription';
+/**
+ * USD per 1M tokens for kind `usd`; null for `variable` and `subscription`.
+ */
+export type Per1M = number | null;
+export type Unit = 'usd_per_1m_tokens';
+/**
+ * Other sources' prices, each with its evidence.
+ */
+export type Alternatives = PricingAlternative[];
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence11 = [TagEvidence, ...TagEvidence[]];
+/**
+ * The day recency was judged against.
+ */
+export type AsOf = string;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence12 = [TagEvidence, ...TagEvidence[]];
+/**
+ * The release falls within `window_months` of `as_of`.
+ */
+export type Value8 = boolean;
+/**
+ * The recency window, in calendar months.
+ */
+export type WindowMonths = number;
+/**
+ * Every source that states this value; the first is the winning one.
+ *
+ * @minItems 1
+ */
+export type Evidence13 = [TagEvidence, ...TagEvidence[]];
+/**
+ * YYYY-MM-DD, YYYY-MM or YYYY, matching `precision`.
+ */
+export type Date = string;
+export type Precision1 = 'day' | 'month' | 'year';
 export type Arg = string;
 export type ArtifactId2 = string;
 export type Authority1 = string;
@@ -414,7 +558,7 @@ export type CrossWorkspaceBind = boolean;
 export type EdgeEvidence = 'schema-arg' | 'hash-pair' | 'lease-window' | 'authority' | 'assertion';
 export type ExternalRef = string;
 export type FenceProven = boolean;
-export type Name3 = string;
+export type Name4 = string;
 export type NetAt = string;
 export type NetDomain = string;
 export type NetMechanism = string;
@@ -469,6 +613,7 @@ export interface ClioSchemaRegistry {
   A2UIClientDataModel?: A2UIClientDataModel;
   A2UIClientMessage?: A2UIClientMessage;
   A2UIServerMessage?: A2UIServerMessage;
+  AcceptedParameter?: AcceptedParameter;
   ArtifactRecord?: ArtifactRecord;
   ArtifactVersion?: ArtifactVersion;
   CatalogFile?: CatalogFile;
@@ -478,6 +623,7 @@ export interface ClioSchemaRegistry {
   Instrument?: Instrument;
   MessageBlock?: MessageBlock;
   ModelCapabilityTags?: ModelCapabilityTags;
+  ModelFacts?: ModelFacts;
   ProvEdge?: ProvEdge;
   TransformRecord?: TransformRecord;
 }
@@ -664,11 +810,35 @@ export interface Value {
   [k: string]: unknown | undefined;
 }
 /**
+ * One request setting the model accepts, how to enter it, and who says so.
+ */
+export interface AcceptedParameter {
+  default: Default;
+  description: Description1;
+  evidence: Evidence;
+  group: Group;
+  kind: Kind;
+  label: Label;
+  maximum: Maximum;
+  minimum: Minimum;
+  name: Name2;
+  options?: Options;
+  step: Step;
+}
+/**
+ * One source's statement behind a tag.
+ */
+export interface TagEvidence {
+  detail: Detail;
+  observed_at: ObservedAt;
+  source: Source;
+}
+/**
  * A mutable logical artifact chain keyed by workspace and name.
  */
 export interface ArtifactRecord {
   aliases?: Aliases;
-  name: Name2;
+  name: Name3;
   versions?: Versions;
   workspace_id: WorkspaceId;
 }
@@ -717,7 +887,7 @@ export interface CatalogFile {
   $schema: $Schema;
   catalogId: Catalogid2;
   components: Components2;
-  description: Description1;
+  description: Description2;
   functions?: Functions1;
   title: Title;
 }
@@ -779,7 +949,7 @@ export interface _Implementation {
  * Where a catalog came from, for permission/provenance gating.
  */
 export interface _Trust {
-  source: Source;
+  source: Source1;
 }
 /**
  * Nested schema for a transform's non-secret execution environment.
@@ -836,7 +1006,7 @@ export interface ReasoningMessageBlock {
   id: Id1;
   provider_source?: ProviderSource;
   sequence?: Sequence1;
-  source?: Source1;
+  source?: Source2;
   stream_source?: StreamSource1;
   streaming?: Streaming1;
   text: Text1;
@@ -861,7 +1031,7 @@ export interface ToolMessageBlock {
 export interface PlanMessageBlock {
   agent_id?: AgentId3;
   channel?: Channel3;
-  detail?: Detail;
+  detail?: Detail1;
   id: Id3;
   sequence?: Sequence3;
   stream_source?: StreamSource3;
@@ -911,11 +1081,11 @@ export interface ActionCardMessageBlock {
   actions: Actions;
   agent_id?: AgentId7;
   channel?: Channel7;
-  detail?: Detail1;
+  detail?: Detail2;
   id: Id8;
   sequence?: Sequence7;
   severity?: Severity;
-  source?: Source2;
+  source?: Source3;
   status?: Status;
   stream_source?: StreamSource7;
   title: Title2;
@@ -928,14 +1098,14 @@ export interface ActionCardAction {
   behavior: ActionCardBehavior;
   enabled?: Enabled;
   id: Id7;
-  label: Label;
+  label: Label1;
 }
 /**
  * Registered action-card behavior with forward-compatible parameters.
  */
 export interface ActionCardBehavior {
   handle_id?: HandleId;
-  kind: Kind;
+  kind: Kind1;
   reason?: Reason;
   [k: string]: unknown | undefined;
 }
@@ -958,7 +1128,7 @@ export interface CitationMessageBlock {
   agent_id?: AgentId9;
   channel?: Channel9;
   id: Id10;
-  label: Label1;
+  label: Label2;
   sequence?: Sequence9;
   stream_source?: StreamSource9;
   type: Type9;
@@ -997,9 +1167,9 @@ export interface ErrorMessageBlock {
 export interface RoutingMessageBlock {
   agent_id?: AgentId12;
   channel?: Channel12;
-  detail?: Detail2;
+  detail?: Detail3;
   id: Id13;
-  label: Label2;
+  label: Label3;
   sequence?: Sequence12;
   stream_source?: StreamSource12;
   type: Type12;
@@ -1039,58 +1209,168 @@ export interface ModelCapabilityTags {
  * A capability the model has.
  */
 export interface CapabilityTag {
-  evidence: Evidence;
+  evidence: Evidence1;
   value: Value1;
-}
-/**
- * One source's statement behind a tag.
- */
-export interface TagEvidence {
-  detail: Detail3;
-  observed_at: ObservedAt;
-  source: Source3;
 }
 /**
  * A subject domain the model is built for.
  */
 export interface DomainTag {
-  evidence: Evidence1;
+  evidence: Evidence2;
   value: Value2;
 }
 /**
  * A yes/no fact about how the model is offered (free of charge, a router).
  */
 export interface FlagTag {
-  evidence: Evidence2;
+  evidence: Evidence3;
   value: Value3;
 }
 /**
  * A modality the model reads or produces.
  */
 export interface ModalityTag {
-  evidence: Evidence3;
+  evidence: Evidence4;
   value: Value4;
 }
 /**
  * What kind of model it is.
  */
 export interface ModelTypeTag {
-  evidence: Evidence4;
+  evidence: Evidence5;
   value: Value5;
 }
 /**
  * Whether the model holds a conversation (general) or does one task (surrogate).
  */
 export interface RoleTag {
-  evidence: Evidence5;
+  evidence: Evidence6;
   value: Value6;
 }
 /**
  * A task the model performs, as a Hugging Face ``pipeline_tag`` id (or ``clio:<id>``).
  */
 export interface TaskTag {
-  evidence: Evidence6;
+  evidence: Evidence7;
   value: Value7;
+}
+/**
+ * Descriptive facts about one model, each with its evidence; ``null`` = no source stated it.
+ */
+export interface ModelFacts {
+  /**
+   * What the model is.
+   */
+  description: DescriptionFact | null;
+  model_key: ModelKey1;
+  /**
+   * How many parameters it has.
+   */
+  parameters: ParametersFact | null;
+  /**
+   * What it costs, per 1M tokens.
+   */
+  pricing: PricingFact | null;
+  /**
+   * Whether that release is recent.
+   */
+  recent: RecentFact | null;
+  /**
+   * When it was released.
+   */
+  released_at: ReleaseDateFact | null;
+}
+/**
+ * What the model is, in its source's words.
+ */
+export interface DescriptionFact {
+  evidence: Evidence8;
+  value: DescriptionValue;
+}
+/**
+ * A description in its raw form and as plain text for display.
+ */
+export interface DescriptionValue {
+  links?: Links;
+  plain: Plain;
+  text: Text3;
+}
+/**
+ * One markdown link found in a description, kept as data.
+ */
+export interface DescriptionLink {
+  text: Text2;
+  url: Url;
+}
+/**
+ * How big the model is.
+ */
+export interface ParametersFact {
+  evidence: Evidence9;
+  value: ParametersValue;
+}
+/**
+ * A model's size in parameters.
+ */
+export interface ParametersValue {
+  active: Active;
+  experts_active: ExpertsActive;
+  experts_total: ExpertsTotal;
+  precision: Precision;
+  total: Total;
+}
+/**
+ * What the model costs: the endpoint's own price first, a catalog list price otherwise.
+ */
+export interface PricingFact {
+  alternatives?: Alternatives;
+  evidence: Evidence11;
+  value: PricingValue;
+}
+/**
+ * Another source's price that did not win (e.g. a catalog list price).
+ */
+export interface PricingAlternative {
+  evidence: Evidence10;
+  value: PricingValue;
+}
+/**
+ * Input and output prices.
+ */
+export interface PricingValue {
+  input: Price;
+  output: Price;
+  unit: Unit;
+}
+/**
+ * One side (input or output) of a price, per 1M tokens.
+ */
+export interface Price {
+  kind: Kind2;
+  per_1m: Per1M;
+}
+/**
+ * Whether the release is recent, derived by the server at serve time (never stored).
+ */
+export interface RecentFact {
+  as_of: AsOf;
+  evidence: Evidence12;
+  value: Value8;
+  window_months: WindowMonths;
+}
+/**
+ * When the model was released.
+ */
+export interface ReleaseDateFact {
+  evidence: Evidence13;
+  value: ReleaseDateValue;
+}
+/**
+ * A release date at the precision its source states it.
+ */
+export interface ReleaseDateValue {
+  date: Date;
+  precision: Precision1;
 }
 /**
  * One used or generated provenance edge with its own evidence.
@@ -1103,7 +1383,7 @@ export interface ProvEdge {
   evidence: EdgeEvidence;
   external_ref?: ExternalRef;
   fence_proven?: FenceProven;
-  name?: Name3;
+  name?: Name4;
   net_at?: NetAt;
   net_domain?: NetDomain;
   net_mechanism?: NetMechanism;

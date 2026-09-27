@@ -94,6 +94,44 @@ export const languageModelConfigurationSchema = z.object({
     .nonnegative()
     .optional()
     .transform((value) => (value === 0 ? undefined : value)),
+  // The rest of the saved response settings; absent (or 0 for a size) = unset.
+  // A value the bound model does not accept is still reported: saved, never sent.
+  top_p: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  top_k: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  min_p: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  presence_penalty: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  frequency_penalty: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  repetition_penalty: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  seed: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  context_length: z
+    .number()
+    .nullish()
+    .transform((value) => (value ? value : undefined)),
+  parallel: z
+    .number()
+    .nullish()
+    .transform((value) => (value ? value : undefined)),
   thinking_level: z
     .string()
     .nullish()

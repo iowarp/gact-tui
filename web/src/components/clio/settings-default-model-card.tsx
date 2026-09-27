@@ -81,6 +81,7 @@ export function SettingsDefaultModelCard({
         onRetryCatalog={onRetryCatalog}
         options={options}
         provider={providerId}
+        transport={option?.transport}
         title="Choose the default model"
         trigger={
           <Button disabled={busy} variant="outline">

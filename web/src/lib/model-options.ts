@@ -1,9 +1,11 @@
 import type {
   LanguageModelPreset,
   ModelCapabilityTags,
+  ModelFacts,
   ProviderCatalog,
   ProviderCatalogEntry,
   ProviderCatalogTransport,
+  ProviderClientFact,
   ProviderModel,
 } from '@clio/core/v3';
 import {
@@ -49,11 +51,18 @@ export interface ClioModelOption {
   toolCalling?: boolean;
   /** The model's context window in tokens, when the service reports one. */
   contextWindow?: number;
+  /** What `contextWindow` rests on (served now, configured for load, or native). */
+  contextBasis?: 'served' | 'configured' | 'native';
+  /** The model's own context ceiling. */
+  nativeContextWindow?: number;
   /** False only for a model known to be another type than chat. */
   chatSelectable?: boolean;
   /** The service's capability tags for this model, each with its evidence
    * (read through `modelCapabilityTagsFromOption`). */
   capabilityTags?: ModelCapabilityTags;
+  /** The service's descriptive facts (description, release, pricing, size),
+   * each with its evidence (read through `modelFactsFromOption`). */
+  modelFacts?: ModelFacts;
   /** Where each capability value came from, keyed by the catalog's capability
    * field names (see `ProviderCatalogModel.capabilities_provenance`). */
   capabilityProvenance?: Readonly<Record<string, { source: string; decided_by: string }>>;
@@ -64,6 +73,8 @@ export interface ClioModelOption {
   transports?: readonly ProviderCatalogTransport[];
   /** Which of `transports` this specific model row came from. */
   transport?: string;
+  /** The CLI this provider's SDK transport runs (Codex / Claude Code only). */
+  client?: ProviderClientFact;
   /** The provider's typed failure reason as the catalog reports it (e.g.
    * `argonne_reauthentication_required: ...`), for deciding its action. */
   failure?: string;
@@ -114,6 +125,37 @@ export function findSelectedModelOption<
       (!transport || option.transport === transport) &&
       option.available,
   );
+}
+
+/**
+ * The model a person picked whose provider is only waiting on its sign-in
+ * (not failed, not uninstalled). Kept as the selection so stale sign-in state
+ * never drops the pick; the service re-checks the provider when it is used
+ * (#1455). A signed-out CLI provider may list no model rows at all -- only its
+ * provider row -- so the held pick is then built from that row.
+ */
+export function findHeldModelOption(
+  options: readonly ClioModelOption[],
+  providerId: string | undefined,
+  modelId: string | undefined,
+  transport?: string,
+): ClioModelOption | undefined {
+  if (!providerId || !modelId) return undefined;
+  const waiting = (option: ClioModelOption) =>
+    option.providerId === providerId &&
+    (option.health === PROVIDER_NEEDS_SETUP || option.health === 'checking');
+  const modelRow = options.find(
+    (option) =>
+      option.kind !== 'provider' &&
+      waiting(option) &&
+      matchesConfiguredModel(option, modelId) &&
+      (!transport || option.transport === transport),
+  );
+  if (modelRow) return modelRow;
+  const providerRow = options.find((option) => option.kind === 'provider' && waiting(option));
+  return providerRow
+    ? { ...providerRow, kind: 'model', id: modelId, label: conciseModelName(modelId) }
+    : undefined;
 }
 
 /**
@@ -246,6 +288,7 @@ function liveProviderOptions(
     // cached health, so the row shows the check instead of a stale verdict.
     health: provider.checking ? 'checking' : needsSetup ? PROVIDER_NEEDS_SETUP : provider.health,
     transports: provider.transports,
+    client: provider.client,
     failure: provider.failure || undefined,
   };
   if (!provider.models.length) {
@@ -326,8 +369,11 @@ function liveProviderOptions(
       reasoning: modelReasoningLevels(model.reasoning),
       toolCalling: model.native_tool_calling,
       contextWindow: model.loaded_context_window || model.context_window,
+      contextBasis: model.context_basis,
+      nativeContextWindow: model.native_context_window,
       chatSelectable: model.chat_selectable,
       capabilityTags: model.capability_tags,
+      modelFacts: model.model_facts,
       capabilityProvenance: model.capabilities_provenance,
       aliases: model.aliases,
       transport: model.transport,

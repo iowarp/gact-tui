@@ -1,6 +1,9 @@
+import { acceptedParameterGeneratedSchema } from '../generated/clio-schemas/accepted-parameter.schema.js';
 import { modelCapabilityTagsGeneratedSchema } from '../generated/clio-schemas/model-capability-tags.schema.js';
+import { modelFactsGeneratedSchema } from '../generated/clio-schemas/model-facts.schema.js';
 import { z } from 'zod';
 import { forwardCompatibleEnum, optionalWireString } from './schema-utils.js';
+import { providerClientFactSchema } from './provider-components.js';
 
 export const contextReferenceKindSchema = z.enum([
   'workspace_file',
@@ -369,6 +372,16 @@ export const providerCatalogSchema = z.object({
           capability_tags: modelCapabilityTagsGeneratedSchema
             .nullish()
             .transform((value) => value ?? undefined),
+          // The shared clio-schemas ModelFacts record: description, release
+          // date (and whether it is recent), pricing and size, each with its
+          // evidence. Optional: older services do not report facts.
+          model_facts: modelFactsGeneratedSchema.nullish().transform((value) => value ?? undefined),
+          // The shared clio-schemas AcceptedParameter records: only the
+          // response settings this model accepts. Optional: older services.
+          accepted_parameters: z
+            .array(acceptedParameterGeneratedSchema)
+            .nullish()
+            .transform((value) => value ?? undefined),
           reasoning: z.object({
             supported: z.boolean(),
             parameter: z.string(),
@@ -385,6 +398,14 @@ export const providerCatalogSchema = z.object({
             .transform((value) => value ?? undefined),
           loaded_context_window: z
             .number()
+            .nullish()
+            .transform((value) => value ?? undefined),
+          native_context_window: z
+            .number()
+            .nullish()
+            .transform((value) => value ?? undefined),
+          context_basis: z
+            .enum(['served', 'configured', 'native'])
             .nullish()
             .transform((value) => value ?? undefined),
           output_limit: z
@@ -425,6 +446,10 @@ export const providerCatalogSchema = z.object({
         .array(providerCatalogTransportSchema)
         .nullish()
         .transform((value) => value ?? undefined),
+      // The CLI a Codex / Claude Code SDK transport runs (installed vs
+      // bundled, with its version). Absent for every other provider and on
+      // older services.
+      client: providerClientFactSchema.nullish().transform((value) => value ?? undefined),
     }),
   ),
 });

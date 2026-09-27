@@ -1,6 +1,8 @@
 type QueryKeyPart = string | number | boolean | null | undefined;
 
 export type ClioQueryNamespace =
+  | 'a2ui-reference'
+  | 'a2ui-reference-bytes'
   | 'agent-blueprint-sources'
   | 'agent-blueprints'
   | 'agents'
@@ -11,6 +13,7 @@ export type ClioQueryNamespace =
   | 'artifact-detail'
   | 'artifact-image'
   | 'artifact-lineage'
+  | 'artifact-mesh'
   | 'artifact-reviews'
   | 'artifact-table-preview'
   | 'artifact-text'
@@ -44,6 +47,8 @@ export type ClioQueryNamespace =
   | 'provider-models'
   | 'provider-auth-status'
   | 'provider-catalog'
+  | 'provider-components'
+  | 'provider-component-update'
   | 'provenance-providers'
   | 'providers'
   | 'relay-status'
@@ -59,6 +64,7 @@ export type ClioQueryNamespace =
   | 'session-observability'
   | 'session-toolset'
   | 'sessions'
+  | 'spotter-availability'
   | 'pending-steers'
   | 'queued-messages'
   | 'tools'
@@ -125,7 +131,13 @@ export const queryKeys = {
   sessionObservabilityDetail: (
     endpoint: string,
     sessionId: string,
-    detail: 'agent-iterations' | 'context-files' | 'context-frames' | 'diffs' | 'processes',
+    detail:
+      | 'agent-iterations'
+      | 'agent-tasks'
+      | 'context-files'
+      | 'context-frames'
+      | 'diffs'
+      | 'processes',
   ) => [...queryKeys.sessionObservability(endpoint, sessionId), detail] as const,
   sessions: (endpoint: string, scope: string) => ['sessions', endpoint, scope] as const,
   transcript: (endpoint: string, sessionId: string, view?: string) =>

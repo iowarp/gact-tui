@@ -451,3 +451,89 @@ describe('useWorkspaceData active provider identity (#1418)', () => {
     expect(result.current.activeProvider).not.toBe('openai');
   });
 });
+
+describe('useWorkspaceData requested session lookup', () => {
+  const sessionOne = { id: 'sess_1', workspace_id: 'ws_1', title: 'Station review', state: 'idle' };
+  const sessionTwo = { id: 'sess_2', workspace_id: 'ws_1', title: 'Made elsewhere', state: 'idle' };
+
+  it('refetches a stale session list instead of reporting a session created elsewhere as missing', async () => {
+    const { result, rerender } = renderHook(
+      ({ sessionId }: { sessionId: string }) =>
+        useWorkspaceData({ contextTargetId: sessionId, sessionId, workspaceId: 'ws_1' }),
+      { initialProps: { sessionId: 'sess_1' }, wrapper },
+    );
+    await waitFor(() => expect(result.current.session?.id).toBe('sess_1'));
+    const fetchesBefore = mocks.repository.sessions.mock.calls.length;
+
+    // Another tab, the CLI or an agent creates a conversation; the route moves
+    // to it while the cached list for this workspace predates it.
+    mocks.repository.sessions.mockResolvedValue([sessionOne, sessionTwo]);
+    rerender({ sessionId: 'sess_2' });
+
+    expect(result.current.session).toBeUndefined();
+    expect(result.current.sessionLookupPending).toBe(true);
+    await waitFor(() => expect(result.current.session?.id).toBe('sess_2'));
+    expect(result.current.sessionLookupPending).toBe(false);
+    expect(mocks.repository.sessions.mock.calls.length).toBeGreaterThan(fetchesBefore);
+  });
+
+  it('reports a session the service really does not have once a fresh list confirms it', async () => {
+    const { result } = renderHook(
+      () =>
+        useWorkspaceData({
+          contextTargetId: 'sess_gone',
+          sessionId: 'sess_gone',
+          workspaceId: 'ws_1',
+        }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.sessionLookupPending).toBe(false));
+    expect(result.current.session).toBeUndefined();
+    expect(mocks.repository.sessions.mock.calls.length).toBe(2);
+  });
+});
+
+describe('useWorkspaceData background polls', () => {
+  it('does not re-render the workspace when a poll returns the same data', async () => {
+    mocks.repository.pendingApprovals.mockResolvedValue([approval]);
+    const client = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+    let renders = 0;
+    const { result } = renderHook(
+      () => {
+        renders += 1;
+        return useWorkspaceData({
+          contextTargetId: 'sess_1',
+          sessionId: 'sess_1',
+          workspaceId: 'ws_1',
+        });
+      },
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        ),
+      },
+    );
+    await waitFor(() => expect(result.current.interactions).toHaveLength(1));
+    // Let every initial read settle before counting.
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    const settled = renders;
+
+    // The polled reads tick (same payloads): the fetchStatus flips must not
+    // re-render the page that consumes them.
+    await act(async () => {
+      await Promise.all([
+        client.refetchQueries({ queryKey: ['pending-approvals'] }),
+        client.refetchQueries({ queryKey: ['pending-questions'] }),
+        client.refetchQueries({ queryKey: ['sessions', 'http://127.0.0.1:8790', 'ws_1'] }),
+      ]);
+      // Query notifications are delivered on a later macrotask.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(mocks.repository.pendingApprovals.mock.calls.length).toBeGreaterThan(1);
+    expect(renders).toBe(settled);
+  });
+});

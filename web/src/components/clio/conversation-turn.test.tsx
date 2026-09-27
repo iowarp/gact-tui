@@ -1,6 +1,11 @@
 import type { ClioRepository, PendingInteraction, Task, ToolInvocation } from '@clio/core/v3';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+// The plan review renders Markdown through a React.lazy boundary. Importing the
+// Markdown module graph (streamdown + math + cjk plugins) here loads it while the
+// file is collected, which has no timeout, so the lazy boundary resolves from the
+// module cache instead of charging a cold load to a test's or hook's budget.
+import '@/components/ai-elements/markdown';
 import { ConversationTurn } from './conversation-turn';
 import type { ConversationActivity, ConversationIteration } from './conversation-turn-model';
 
@@ -133,9 +138,7 @@ describe('ConversationTurn correlated work placement', () => {
       );
 
       expect(screen.getByText('Review execution plan')).toBeVisible();
-      expect(
-        await screen.findByRole('heading', { name: 'Implementation plan' }, { timeout: 15_000 }),
-      ).toBeVisible();
+      expect(await screen.findByRole('heading', { name: 'Implementation plan' })).toBeVisible();
       expect(screen.getByRole('combobox', { name: 'Execution mode' })).toBeVisible();
       expect(screen.queryByText('Request changes')).not.toBeInTheDocument();
       const executeChoice = screen.getByRole('radio', { name: 'Execute plan' });
@@ -564,7 +567,7 @@ describe('ConversationTurn correlated work placement', () => {
     expect(screen.getByText('Comment')).toBeVisible();
     expect(screen.getByText('Use the measured steel dimensions.')).toBeVisible();
     expect(screen.queryByText('beam')).not.toBeInTheDocument();
-    expect(screen.getByText('Answer returned to agent')).toBeVisible();
+    expect(screen.getByText('Answer sent to the agent')).toBeVisible();
     expect(screen.queryByText('Validated by MCP schema')).not.toBeInTheDocument();
     expect(screen.queryByText('Response returned to MCP')).not.toBeInTheDocument();
   });

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -141,13 +141,14 @@ describe('ClioModelPicker', () => {
     expect(screen.getByRole('group', { name: 'Providers and models' })).toBeVisible();
 
     await user.type(screen.getByPlaceholderText('Search providers and models'), 'Qwen3');
-    expect(screen.getByText('Local vLLM')).toBeVisible();
-    expect(screen.queryByText('Codex')).not.toBeInTheDocument();
-    await user.click(screen.getByText('Local vLLM'));
-    expect(screen.getByText('Qwen3-VL-32B')).toBeVisible();
-    expect(screen.queryByText('Luna')).not.toBeInTheDocument();
+    // The results list groups each hit under its provider's header.
+    const results = screen.getByRole('group', { name: 'Providers and models' });
+    expect(within(results).getByText('Local vLLM')).toBeVisible();
+    expect(within(results).queryByText('Codex')).not.toBeInTheDocument();
+    expect(within(results).getByText('Qwen3-VL-32B')).toBeVisible();
+    expect(within(results).queryByText('Luna')).not.toBeInTheDocument();
 
-    await user.click(screen.getByText('Qwen3-VL-32B'));
+    await user.click(within(results).getByText('Qwen3-VL-32B'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ providerId: 'local-vllm' }));
   });
 

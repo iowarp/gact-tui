@@ -39,7 +39,7 @@ import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioInteractiveRow } from './interactive-row';
 import { ClioInfrastructurePreparation } from './infrastructure-preparation';
 import { infrastructurePreparationLabel } from './infrastructure-preparation-label';
-import { ClioStatus, type ClioStatusValue } from './status';
+import { ClioStatus, clioStatusLabel, type ClioStatusValue } from './status';
 import { getToolPresentation } from './tool-presentation';
 import type { SubagentOpenTarget } from './subagent-card';
 
@@ -152,15 +152,19 @@ export function ClioObservabilityDock(props: ClioObservabilityDockProps) {
               ? 'Agent is responding'
               : startupLabel
             : 'Session details';
+  // The badge takes the session state's tone (red for failed), so its words must name that
+  // same state: an idle fall-through label under a failed tone read as a red "Up to date".
   const dockStatus = activeActivityCount
     ? `${activeActivityCount} active`
     : sessionActive
       ? assistantResponding
         ? 'Working'
         : 'Starting'
-      : activityCount
-        ? 'Settled'
-        : 'Up to date';
+      : sessionNeedsAttention && props.sessionState
+        ? clioStatusLabel(props.sessionState)
+        : activityCount
+          ? 'Settled'
+          : 'No active work';
 
   const openChildAgent = (subagent: SubagentRun, target: SubagentOpenTarget) => {
     props.onOpenSubagent?.(subagent, target);

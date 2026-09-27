@@ -3,11 +3,13 @@ import type {
   AgentBlueprint,
   AgentBlueprintReference,
   Artifact,
+  SubagentRun,
   WorkspaceFileEntry,
 } from '@clio/core/v3';
 import { useQuery } from '@tanstack/react-query';
 import {
   ActivityIcon,
+  BotIcon,
   BoxesIcon,
   BoxIcon,
   FileTextIcon,
@@ -38,6 +40,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -111,11 +116,17 @@ interface BlueprintBrowserProps {
 /** Opens one peer canvas tab instead of nesting unrelated resource types. */
 export function CanvasLauncher({
   onOpen,
+  onOpenSubagent,
   onOpenTerminal,
+  subagents = [],
 }: {
   onOpen: (kind: CanvasResourceKind) => void;
+  /** Opens one child agent of this session as a canvas tab beside the conversation. */
+  onOpenSubagent?: (subagent: SubagentRun) => void;
   onOpenTerminal?: () => void;
+  subagents?: readonly SubagentRun[];
 }) {
+  const openableSubagents = subagents.filter((subagent) => subagent.child_session_id);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -150,6 +161,31 @@ export function CanvasLauncher({
         <DropdownMenuItem onSelect={() => onOpen('blueprints')}>
           <BoxesIcon aria-hidden="true" /> Agent blueprints
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {openableSubagents.length && onOpenSubagent ? (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <BotIcon aria-hidden="true" /> Child agent
+              <span className="ml-auto text-[10px] text-muted-foreground">
+                {openableSubagents.length}
+              </span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="max-h-80 w-64 overflow-y-auto">
+              {openableSubagents.map((subagent) => (
+                <DropdownMenuItem key={subagent.id} onSelect={() => onOpenSubagent(subagent)}>
+                  <BotIcon aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate">{subagent.title}</span>
+                  <ClioStatus className="shrink-0 py-0" compact value={subagent.state} />
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : (
+          <DropdownMenuItem disabled>
+            <BotIcon aria-hidden="true" /> Child agent
+            <span className="ml-auto text-[10px] text-muted-foreground">None yet</span>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled={!onOpenTerminal} onSelect={onOpenTerminal}>
           <TerminalSquareIcon aria-hidden="true" /> Terminal
@@ -263,7 +299,10 @@ export function FileBrowser({
                       size="icon-sm"
                       variant="ghost"
                     >
-                      <RefreshIcon aria-hidden="true" className={filesFetching ? 'animate-spin' : ''} />
+                      <RefreshIcon
+                        aria-hidden="true"
+                        className={filesFetching ? 'animate-spin' : ''}
+                      />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom">Refresh files</TooltipContent>
@@ -274,8 +313,7 @@ export function FileBrowser({
               <Alert className="mx-2 mt-2 shrink-0 py-1.5 text-xs">
                 <TriangleAlertIcon className="size-3.5" />
                 <AlertDescription className="text-xs">
-                  This list is truncated — the workspace has more files than can be shown at
-                  once.
+                  This list is truncated — the workspace has more files than can be shown at once.
                 </AlertDescription>
               </Alert>
             ) : null}

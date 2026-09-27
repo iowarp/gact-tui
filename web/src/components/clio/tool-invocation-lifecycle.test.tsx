@@ -5,14 +5,14 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PresentationNavigation } from './presentation-navigation';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// These assertions exercise the completed Markdown view, not lazy-module startup.
+// Importing the Markdown module here loads it during collection (no timeout), so
+// the React.lazy boundary resolves from the module cache.
+import '@/components/ai-elements/markdown';
 import { ClioToolInvocation } from './tool-invocation';
 
 afterEach(cleanup);
-// These assertions exercise the completed Markdown view, not lazy-module startup.
-beforeAll(async () => {
-  await import('@/components/ai-elements/markdown');
-});
 beforeEach(() => {
   Range.prototype.getClientRects = vi.fn(() => [] as unknown as DOMRectList);
 });
@@ -316,6 +316,84 @@ describe('ClioToolInvocation status and lifecycle semantics', () => {
     expect(screen.getByText(/all checks passed/u)).toBeVisible();
     expect(screen.getByText('Process exited with code 0.')).toBeVisible();
     expect(screen.queryByLabelText('Command')).not.toBeInTheDocument();
+  });
+
+  it('shows saved full output inside the terminal card and opens the saved file', async () => {
+    const openFile = vi.fn();
+    const path = 'D:/workspace/.clio/tool-output/sess_1/sh_1.stdout.txt';
+    render(
+      <PresentationNavigation.Provider
+        value={{ artifacts: {}, subagents: {}, onOpenFile: openFile }}
+      >
+        <ClioToolInvocation
+          tool={{
+            id: 'tool-shell-saved',
+            session_id: 'session-1',
+            name: 'shell_bash',
+            state: 'succeeded',
+            presentation: {
+              summary: '',
+              blocks: [
+                { id: 'terminal', type: 'terminal', text: 'row-00000\nrow-00001\n', exit_code: 0 },
+                {
+                  id: 'saved-output-stdout',
+                  type: 'link',
+                  target: 'file',
+                  uri: path,
+                  label: 'Full output saved (20,000 lines, 391 KB)',
+                  action_label: 'Open full output',
+                  text: 'row-19998\nrow-19999\n',
+                  detail: 'Last 2 lines',
+                },
+              ],
+            },
+          }}
+        />
+      </PresentationNavigation.Provider>,
+    );
+
+    const saved = screen.getByRole('region', { name: 'Full output saved (20,000 lines, 391 KB)' });
+    expect(saved.closest('[data-slot="terminal-saved-output"]')).toBe(saved);
+    expect(screen.getByText('Last 2 lines')).toBeVisible();
+    expect(screen.getByText(/row-19999/u)).toBeVisible();
+    // The saved-output link renders once, inside the card -- not again as a loose link.
+    expect(screen.getAllByText('Full output saved (20,000 lines, 391 KB)')).toHaveLength(1);
+    expect(screen.queryByText(path)).not.toBeInTheDocument();
+    expect(screen.getByText('Process exited with code 0.')).toBeVisible();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Open full output' }));
+    expect(openFile).toHaveBeenCalledWith(path);
+  });
+
+  it('says when the full output could not be saved and offers no open action', () => {
+    render(
+      <ClioToolInvocation
+        tool={{
+          id: 'tool-shell-unsaved',
+          session_id: 'session-1',
+          name: 'shell_bash',
+          state: 'succeeded',
+          presentation: {
+            summary: '',
+            blocks: [
+              { id: 'terminal', type: 'terminal', text: 'r0\n', exit_code: 0 },
+              {
+                id: 'saved-output-stdout',
+                type: 'link',
+                target: 'file',
+                uri: '',
+                label: 'Full output could not be saved (5,000 lines, 30 KB)',
+                action_label: '',
+                text: 'r4999\n',
+                detail: 'Last line',
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Full output could not be saved (5,000 lines, 30 KB)')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Open full output' })).not.toBeInTheDocument();
   });
 
   it('renders child status and wait semantics without summary counts or boxes', () => {

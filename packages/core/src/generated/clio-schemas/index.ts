@@ -5,5 +5,7 @@
  */
 
 export * from './_models';
+export * from './accepted-parameter.schema.js';
 export * from './message-block.schema.js';
 export * from './model-capability-tags.schema.js';
+export * from './model-facts.schema.js';
