@@ -4,10 +4,15 @@ import { useState } from 'react';
 import { Frame, FramePanel } from '@/components/reui/frame';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApplyModelConfiguration } from '@/hooks/use-apply-model-configuration';
+import { useCatalogModel } from '@/hooks/use-catalog-model';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
 import { useProviderGroups } from '@/hooks/use-provider-groups';
 import { useRepository } from '@/hooks/use-repository';
-import { findSelectedModelOption, matchesConfiguredModel, type ClioModelOption } from '@/lib/model-options';
+import {
+  findSelectedModelOption,
+  matchesConfiguredModel,
+  type ClioModelOption,
+} from '@/lib/model-options';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
@@ -16,19 +21,21 @@ import { SettingsDefaultModelCard } from './settings-default-model-card';
 import {
   modelSettingsUpdate,
   presetIsActive,
-  providerSupportsRuntimeSizing,
   resolveActivePreset,
+  responseSettingsVisible,
   seedModelSettings,
   type ModelSettingsValues,
 } from './settings-models-form';
+import { SettingsProviderOptions } from './settings-provider-options';
 import { SettingsResponseSettings } from './settings-response-settings';
 import { SettingsSectionHeading } from './settings-section-heading';
 
 /**
  * Settings > Models: the model new work starts with, as ONE card with Change
  * (the same model picker the composer uses), then only what that model
- * supports -- a thinking level when it reasons -- and the rare response
- * settings behind a quiet disclosure. Every choice applies as it is made.
+ * supports -- a thinking level when it reasons, and exactly the response
+ * settings it accepts (none, a few inline, or a local server's long list
+ * behind one grouped disclosure). A model choice applies as it is made.
  */
 export function ModelsSettings() {
   const repository = useRepository();
@@ -60,7 +67,11 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
   const { catalog, groups, options } = useProviderGroups();
   const activePreset = resolveActivePreset(configuration);
   const seed = () =>
-    seedModelSettings({ configuration, preset: activePreset, presetIsActive: Boolean(activePreset) });
+    seedModelSettings({
+      configuration,
+      preset: activePreset,
+      presetIsActive: Boolean(activePreset),
+    });
   const [values, setValues] = useState(seed);
   const [edited, setEdited] = useState(false);
   const [seenConfiguration, setSeenConfiguration] = useState(configuration);
@@ -84,6 +95,12 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
     providerId,
     configuration.model,
     configuration.resolved_model_id,
+  );
+  const catalogModel = useCatalogModel(
+    providerId,
+    configuration.model,
+    configuration.resolved_model_id,
+    option?.transport,
   );
 
   const apply = useApplyModelConfiguration(() => setEdited(false));
@@ -133,12 +150,23 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
     save.mutate({ preset: activePreset, next, variant: option?.transport });
   }
 
+  function saveValues() {
+    if (activePreset)
+      save.mutate({ preset: activePreset, next: values, variant: option?.transport });
+  }
+
   return (
     <Frame className="max-w-2xl" data-slot="models-panel" stacked>
       <FramePanel className="flex flex-col gap-4">
         <SettingsDefaultModelCard
           busy={save.isPending}
-          catalogStatus={catalog.isPending && !catalog.data ? 'loading' : catalog.error && !catalog.data ? 'error' : 'ready'}
+          catalogStatus={
+            catalog.isPending && !catalog.data
+              ? 'loading'
+              : catalog.error && !catalog.data
+                ? 'error'
+                : 'ready'
+          }
           group={group}
           modelId={configuration.model || undefined}
           onChange={chooseModel}
@@ -161,24 +189,42 @@ function ModelsSettingsContent({ configuration }: { configuration: LanguageModel
         ) : null}
         <SaveState error={save.error?.message} saving={save.isPending} />
       </FramePanel>
-      <FramePanel className="py-2">
-        <SettingsResponseSettings
-          edited={edited}
-          onEdit={(patch) => {
-            setEdited(true);
-            setValues((current) => ({ ...current, ...patch }));
-          }}
-          onSave={() =>
-            activePreset
-              ? save.mutate({ preset: activePreset, next: values, variant: option?.transport })
-              : undefined
-          }
-          preset={activePreset}
-          runtimeSized={providerSupportsRuntimeSizing(activePreset)}
-          saving={save.isPending}
-          values={values}
-        />
-      </FramePanel>
+      {responseSettingsVisible(catalogModel?.accepted_parameters, values.settings) ? (
+        <FramePanel className="py-3">
+          <SettingsResponseSettings
+            edited={edited}
+            onEdit={(name, value) => {
+              setEdited(true);
+              setValues((current) => ({
+                ...current,
+                settings: { ...current.settings, [name]: value },
+              }));
+            }}
+            onSave={saveValues}
+            parameters={catalogModel?.accepted_parameters}
+            saving={save.isPending}
+            settings={values.settings}
+          />
+        </FramePanel>
+      ) : null}
+      {activePreset?.configuration_fields?.length ? (
+        <FramePanel className="py-3">
+          <SettingsProviderOptions
+            edited={edited}
+            fields={activePreset.configuration_fields}
+            onEdit={(id, value) => {
+              setEdited(true);
+              setValues((current) => ({
+                ...current,
+                providerOptions: { ...current.providerOptions, [id]: value },
+              }));
+            }}
+            onSave={saveValues}
+            saving={save.isPending}
+            values={values.providerOptions}
+          />
+        </FramePanel>
+      ) : null}
     </Frame>
   );
 }

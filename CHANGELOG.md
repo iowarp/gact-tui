@@ -6,6 +6,19 @@ UI aren't tracked.
 
 ## Unreleased
 
+### Changed
+
+- Settings > Models shows only the response settings the selected model
+  accepts, as the service reports them per model (`accepted_parameters`):
+  none for Claude Code and Codex, a few inline (an OpenRouter model shows
+  exactly its route's parameters), and a local server's long list behind one
+  disclosure grouped Sampling, Length and Advanced. Bounded settings are a
+  slider with a number field; empty means the default, shown as the model's
+  stated value or "Provider default". A saved value the new model does not use
+  is kept and listed as not used by this model. Provider options (Azure,
+  Vertex, Bedrock) sit in their own section, and the server address stays on
+  Settings > Providers.
+
 ### Fixed
 
 - The Session details badge names the session's state. A failed session read

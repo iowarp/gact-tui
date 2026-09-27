@@ -59,6 +59,8 @@ import {
 import { ClioDataTable, type ClioDataColumn, type ClioDataRow } from '@/components/clio/data-table';
 import { ClioArtifactCatalogComponent } from '@/components/clio/a2ui-artifact';
 import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map';
+import { ClioMeshViewportCatalogComponent } from '@/components/clio/a2ui-mesh-viewport-catalog';
+import { ClioSliderCatalogComponent } from '@/components/clio/a2ui-slider-catalog';
 import { ClioTimeSeriesCatalogComponent } from '@/components/clio/a2ui-time-series-catalog';
 import { ClioMermaidDiagram } from '@/components/clio/mermaid-diagram';
 import { ClioStatus, type ClioStatusProps } from '@/components/clio/status';
@@ -715,6 +717,8 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   ClioTimeSeriesCatalogComponent,
   Mermaid,
   ClioMapCatalogComponent,
+  ClioMeshViewportCatalogComponent,
+  ClioSliderCatalogComponent,
   Workflow,
   ClioArtifactCatalogComponent,
   Code,

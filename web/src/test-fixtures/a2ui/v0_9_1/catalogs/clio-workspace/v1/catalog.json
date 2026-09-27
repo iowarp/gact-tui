@@ -254,10 +254,16 @@
           "$ref": "#/components/clio.mermaid.v1"
         },
         {
+          "$ref": "#/components/clio.mesh-viewport.v1"
+        },
+        {
           "$ref": "#/components/clio.metric.v1"
         },
         {
           "$ref": "#/components/clio.progress.v1"
+        },
+        {
+          "$ref": "#/components/clio.slider.v1"
         },
         {
           "$ref": "#/components/clio.status.v1"
@@ -1358,6 +1364,70 @@
       "type": "object",
       "unevaluatedProperties": false
     },
+    "clio.mesh-viewport.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "properties": {
+            "camera": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue"
+            },
+            "component": {
+              "const": "clio.mesh-viewport.v1"
+            },
+            "field": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "frame": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicNumber"
+            },
+            "meshUri": {
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            "showField": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicBoolean"
+            },
+            "syncGroup": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+              "type": "string"
+            },
+            "thresholdField": {
+              "type": "string"
+            },
+            "thresholdMax": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicNumber"
+            },
+            "thresholdMin": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicNumber"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "upAxis": {
+              "enum": [
+                "x",
+                "y",
+                "z"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "component",
+            "meshUri"
+          ],
+          "type": "object"
+        }
+      ],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
     "clio.metric.v1": {
       "allOf": [
         {
@@ -1430,6 +1500,51 @@
           "required": [
             "component",
             "label"
+          ],
+          "type": "object"
+        }
+      ],
+      "type": "object",
+      "unevaluatedProperties": false
+    },
+    "clio.slider.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "properties": {
+            "component": {
+              "const": "clio.slider.v1"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "max": {
+              "type": "number"
+            },
+            "min": {
+              "type": "number"
+            },
+            "step": {
+              "type": "number"
+            },
+            "unit": {
+              "type": "string"
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicNumber"
+            }
+          },
+          "required": [
+            "component",
+            "label",
+            "value",
+            "min",
+            "max"
           ],
           "type": "object"
         }
@@ -1611,7 +1726,7 @@
       "unevaluatedProperties": false
     }
   },
-  "description": "The 30 CLIO scientific-agent A2UI 0.9.1 components, in official catalog-file style.",
+  "description": "The 32 CLIO scientific-agent A2UI 0.9.1 components, in official catalog-file style.",
   "functions": {
     "and": {
       "description": "Performs a logical AND operation on a list of boolean values.",
