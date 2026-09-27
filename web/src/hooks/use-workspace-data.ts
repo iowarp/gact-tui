@@ -32,6 +32,7 @@ import { useA2uiSessionRegistry } from '@/lib/a2ui/processor-store';
 import { computeA2uiReferencedSessionIds, computeInteractionSessionIds } from './a2ui-session-ids';
 import { useRepository } from './use-repository';
 import { useRequestedSessionLookup } from './use-requested-session-lookup';
+import { useSessionAgentTasks } from './use-session-agent-tasks';
 import { useSessionContext } from './use-session-context';
 import { useExecutionProvenance } from './use-execution-provenance';
 import { useProviderCatalog } from './use-provider-catalog';
@@ -408,13 +409,14 @@ export function useWorkspaceData({
     () => sessionArtifactEntities(sessionArtifacts.data, transcriptArtifacts, sessionId),
     [sessionArtifacts.data, sessionId, transcriptArtifacts],
   );
+  const liveSubagents = useMemo(
+    () => Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
+    [entities.subagents, sessionId],
+  );
+  const sessionSubagents = useSessionAgentTasks(sessionId, liveSubagents);
   const subagents = useMemo(
-    () =>
-      withSubagentOrigins(
-        Object.values(entities.subagents).filter((subagent) => subagent.session_id === sessionId),
-        allSessions.data ?? [],
-      ),
-    [allSessions.data, entities.subagents, sessionId],
+    () => withSubagentOrigins(sessionSubagents, allSessions.data ?? []),
+    [allSessions.data, sessionSubagents],
   );
   const processes = sessionObservability.processes.data ?? [];
   const interactionSessionIds = useMemo(

@@ -1,3 +1,4 @@
+import { isToolAnchoredQuestion } from '@/lib/inline-question';
 import {
   PROTOCOL_VERSION,
   type PendingInteraction,
@@ -48,14 +49,17 @@ export function conversationUnavailableMessage(error: unknown): string | undefin
   return error instanceof Error ? error.message : undefined;
 }
 
-/** Keeps Plan reviews inline only when their tool call is present in the recovered transcript. */
+/**
+ * Keeps Plan reviews and the agent's own questions inline, in the log at their
+ * tool call, whenever that tool call is present in the recovered transcript.
+ */
 export function responseTrayInteractions(
   interactions: readonly PendingInteraction[],
   anchoredInvocationIds: ReadonlySet<string>,
 ): PendingInteraction[] {
   return interactions.filter(
     (interaction) =>
-      interaction.source.tool_name !== 'plan_exit' ||
+      (interaction.source.tool_name !== 'plan_exit' && !isToolAnchoredQuestion(interaction)) ||
       !interaction.source.invocation_id ||
       !anchoredInvocationIds.has(interaction.source.invocation_id),
   );

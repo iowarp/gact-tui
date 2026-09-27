@@ -1,5 +1,10 @@
 import { useState } from 'react';
-import { findSelectedModelOption, type ClioModelOption } from '@/lib/model-options';
+import {
+  findHeldModelOption,
+  findSelectedModelOption,
+  type ClioModelOption,
+} from '@/lib/model-options';
+import { useHeldProviderRecheck } from './use-held-provider-recheck';
 
 interface ModelSelection {
   provider?: string;
@@ -35,12 +40,20 @@ export function useComposerModelSelection(
   const current = selection.authoritativeModel === model;
   const selectedModel = current ? selection.model : model;
   const selectedTransport = current ? selection.transport : undefined;
-  const selectedOption = findSelectedModelOption(
+  // A pick whose provider only needs its sign-in re-checked stays picked: the
+  // service re-asks that provider when the message is sent (#1455), so stale
+  // sign-in state never turns the composer back to "Choose model".
+  const availableOption = findSelectedModelOption(
     modelOptions,
     selectedProvider,
     selectedModel,
     selectedTransport,
   );
+  const heldOption = availableOption
+    ? undefined
+    : findHeldModelOption(modelOptions, selectedProvider, selectedModel, selectedTransport);
+  const selectedOption = availableOption ?? heldOption;
+  useHeldProviderRecheck(heldOption?.providerId);
 
   /** Record a picker choice against the props it was taken against. */
   const selectModel = (option: ClioModelOption) =>

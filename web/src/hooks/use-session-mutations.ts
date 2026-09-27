@@ -53,6 +53,8 @@ export interface SessionSendInput {
   delivery: MessageDelivery | 'queued';
   behavior: MessageBehavior;
   onUploadProgress?: (progress: ResourceUploadProgress) => void;
+  /** The pending agent question this message answers (its attachments included). */
+  answersQuestionId?: string;
 }
 
 function sessionModeForExecution(
@@ -221,6 +223,9 @@ export function useSessionMutations({
         provider_id: provider,
         ...(value.transport ? { variant: value.transport } : {}),
       };
+      if (value.delivery === 'queued' && value.answersQuestionId) {
+        throw new Error("Answer the agent's question now, or stop answering to queue a message.");
+      }
       if (value.delivery === 'queued') {
         return repository.createQueuedMessage(sessionId, {
           behavior: value.behavior,
@@ -238,10 +243,21 @@ export function useSessionMutations({
         idempotency_key: identity.idempotencyKey,
         model: route,
         parts,
+        ...(value.answersQuestionId
+          ? { metadata: { answers_question_id: value.answersQuestionId } }
+          : {}),
       });
     },
     onSuccess: () => sendIdentities.current.accepted(),
-    onSettled: invalidateComposerState,
+    onSettled: (_result, _error, value) => {
+      invalidateComposerState();
+      if (value.answersQuestionId) {
+        invalidateQueriesInBackground(queryClient, [
+          queryKeys.pendingInteractions(settings.endpoint, interactionRootSessionId),
+          queryKeys.key('pending-questions', settings.endpoint),
+        ]);
+      }
+    },
   });
 
   const updateQueuedMessage = useMutation({
