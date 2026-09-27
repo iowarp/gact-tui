@@ -6,6 +6,8 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.21] — 2026-09-27
+
 ## [0.11.2.20] — 2026-09-27
 
 ### Changed
