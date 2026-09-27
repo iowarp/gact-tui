@@ -1,15 +1,20 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+// Rendered workspace files resolve the Markdown renderer behind a React.lazy
+// boundary (MessageResponse -> ./markdown: streamdown, math, cjk). Loaded
+// lazily, its evaluation lands inside whichever test renders Markdown first and
+// is charged to that test's 5s budget. Importing it here loads it at collection,
+// which has no timeout; the lazy boundary then resolves from the module cache.
+import '@/components/ai-elements/markdown';
 import { ClioWorkbench, type ClioWorkbenchHandle } from './workbench';
 import { FileBrowser } from './workbench-resource-browser';
 import { WorkspaceCanvasVisibilityProvider } from './workspace-canvas-visibility';
 
 const { repository, useAppearancePreferences } = vi.hoisted(() => ({
   repository: {
-    readArtifactTextFor: vi.fn(),
     readWorkspaceFile: vi.fn(),
   },
   // Default matches the real provider's default (owner ruling: dot files are
@@ -22,6 +27,18 @@ vi.mock('@/providers/connection-provider', () => ({
   useConnectionSettings: () => ({ settings: { endpoint: 'http://127.0.0.1:8790' } }),
 }));
 vi.mock('@/providers/appearance-provider', () => ({ useAppearancePreferences }));
+// These tests are about canvas tabs: which tab an artifact opens in, and what
+// replaces what. How an artifact renders (Markdown as a document, not source)
+// is owned by resource-viewers.test.tsx. The real ArtifactView cost ~0.7s per
+// opened artifact (payload fetch, lazy viewer, Markdown render) and timed the
+// artifact-tab tests out under a loaded 2-worker run, so it is stood in for
+// here by a view that only names the artifact it was given.
+vi.mock('./resource-viewers', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./resource-viewers')>()),
+  ArtifactView: ({ artifact }: { artifact: { name: string } }) => (
+    <article aria-label={`Artifact view: ${artifact.name}`}>{artifact.name}</article>
+  ),
+}));
 
 afterEach(() => {
   cleanup();
@@ -255,9 +272,6 @@ describe('ClioWorkbench canvas', () => {
   it('replaces the artifact picker tab with the selected artifact view', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    repository.readArtifactTextFor.mockImplementation(async (artifact: { name: string }) =>
-      artifact.name === 'report.md' ? '# Report' : 'station,value\nMTA1,72',
-    );
     render(
       <QueryClientProvider client={queryClient}>
         <ClioWorkbench
@@ -306,16 +320,13 @@ describe('ClioWorkbench canvas', () => {
     await user.click(screen.getByRole('button', { name: 'Open report.md' }));
     expect(screen.queryByRole('tab', { name: 'Artifacts' })).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'report.md' })).toHaveAttribute('aria-selected', 'true');
-    expect(
-      await screen.findByRole('heading', { name: 'Report' }, { timeout: 5_000 }),
-    ).toBeVisible();
-    expect(document.body).not.toHaveTextContent('# Report');
+    expect(await screen.findByLabelText('Artifact view: report.md')).toBeVisible();
+    expect(screen.queryByLabelText('Artifact view: stations.csv')).not.toBeInTheDocument();
   });
 
   it('keeps the picker in a resizable split when an artifact is shift-clicked', async () => {
     const user = userEvent.setup();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    repository.readArtifactTextFor.mockResolvedValue('# Report');
     render(
       <QueryClientProvider client={queryClient}>
         <ClioWorkbench
@@ -352,9 +363,10 @@ describe('ClioWorkbench canvas', () => {
     const selectedArtifact = screen.getByRole('region', { name: 'Selected artifact' });
     expect(selectedArtifact).toBeVisible();
     expect(
-      await screen.findByRole('heading', { name: 'Report' }, { timeout: 5_000 }),
+      await within(selectedArtifact).findByLabelText('Artifact view: report.md'),
     ).toBeVisible();
-    expect(selectedArtifact).not.toHaveTextContent('# Report');
+    // The picker stays beside the selection instead of being replaced.
+    expect(screen.getByRole('button', { name: 'Open report.md' })).toBeVisible();
   });
 
   it('closes and reopens observability as a normal canvas tab', async () => {
@@ -565,7 +577,7 @@ describe('ClioWorkbench canvas', () => {
     expect(screen.queryByText(/truncated/i)).not.toBeInTheDocument();
   });
 
-  it('shows a redacted folder\'s reason instead of a silently empty tree', async () => {
+  it("shows a redacted folder's reason instead of a silently empty tree", async () => {
     const user = userEvent.setup();
     render(
       <FileBrowser
