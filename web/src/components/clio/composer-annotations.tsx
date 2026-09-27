@@ -17,7 +17,7 @@ export function ClioComposerAnnotations({
 }) {
   if (!annotations.length) return null;
   return (
-    <ol aria-label="Attached selections" className="grid gap-1.5 px-2.5 pt-2">
+    <ol aria-label="Attached selections" className="grid w-full basis-full gap-1.5 px-2.5 pt-2">
       {annotations.map((annotation, index) => (
         <li
           className="flex min-w-0 items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2"
