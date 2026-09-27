@@ -6,6 +6,8 @@ import { vocab } from '@/lib/brand-vocabulary';
  * frame or closes with a typed refusal (4401 authentication_required, 4404
  * target_not_found, 4409 target_not_ssh). An agent that only speaks v1 refuses
  * before the handshake, which the webview reports as an error with no reason.
+ * 4403 origin_not_allowed means the page opening the socket is not the
+ * desktop's own WebView (or a configured origin).
  */
 export const TRANSPORT_PROTOCOL_V2 = 'clio.infrastructure.v2';
 export const TRANSPORT_PROTOCOL_V1 = 'clio.infrastructure.v1';
@@ -32,6 +34,9 @@ export function transportRefusalMessage(code: number, reason: string): string {
   }
   if (code === 4404 || reason === 'target_not_found') {
     return `${vocab.agent} no longer has this SSH host saved. Choose the host again, then deploy.`;
+  }
+  if (code === 4403 || reason === 'origin_not_allowed') {
+    return `${vocab.agent} accepts SSH connections only from this app's own window, and refused this one.`;
   }
   if (code === 4409 || reason === 'target_not_ssh') {
     return `${vocab.agent} can attach an SSH connection only to an SSH host, and this host is not one.`;

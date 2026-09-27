@@ -29,8 +29,16 @@ UI aren't tracked.
   rejected the SSH transport attachment" (clio-agent#1478). The desktop offers
   the `clio.infrastructure.v2` bridge protocol, waits for CLIO's `attached`
   confirmation, and turns a refusal (sign-in not accepted, host no longer
-  saved, not an SSH host) into a plain sentence. An older CLIO that refuses
-  before the connection opens is named as giving no reason.
+  saved, not an SSH host, not this app's window) into a plain sentence. An
+  older CLIO that refuses before the connection opens is named as giving no
+  reason.
+- A desktop that attaches to a CLIO already running on the conventional port
+  now uses the bearer token that CLIO publishes in its credential record
+  (`~/.clio/hosts/<host>/gact-servers/<port>.json`) instead of an empty one.
+  When the record is missing, unreadable or belongs to a stopped process, the
+  connection screen says up front that the app can't sign in to the running
+  CLIO (new `auth_unavailable` backend status) rather than letting a remote
+  deploy fail later.
 
 ## [0.11.2.19] — 2026-09-26
 

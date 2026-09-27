@@ -74,6 +74,7 @@ describe('SSH transport attachment (#1478)', () => {
 
   it.each([
     [4404, 'target_not_found', /no longer has this SSH host saved/u],
+    [4403, 'origin_not_allowed', /only from this app's own window/u],
     [4409, 'target_not_ssh', /only to an SSH host/u],
     [4500, 'something_new', /code 4500: something_new/u],
   ])('maps close %i %s to plain language', async (code, reason, text) => {

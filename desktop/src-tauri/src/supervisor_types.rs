@@ -30,6 +30,11 @@ pub enum BackendStatus {
     /// the manual copy-paste error card. Serializes as `{"kind":"needs_install"}`.
     NeedsInstall,
     Error(String),
+    /// A server already running on the attach port answered, but this desktop
+    /// can't obtain the bearer token it enforces (clio-agent#1478). The detail
+    /// is the plain-language reason. Serializes as
+    /// `{"kind":"auth_unavailable","detail":"..."}`.
+    AuthUnavailable(String),
 }
 
 #[cfg(test)]
@@ -73,6 +78,9 @@ mod tests {
         // Error carries its detail string under "detail".
         let err = serde_json::to_string(&BackendStatus::Error("boom".into())).expect("serialize");
         assert_eq!(err, r#"{"kind":"error","detail":"boom"}"#);
+        let auth = serde_json::to_string(&BackendStatus::AuthUnavailable("why".into()))
+            .expect("serialize");
+        assert_eq!(auth, r#"{"kind":"auth_unavailable","detail":"why"}"#);
     }
 
     /// needs_install must round-trip so a snapshot serialized over the IPC
