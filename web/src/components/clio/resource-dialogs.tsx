@@ -34,8 +34,10 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useRepository } from '@/hooks/use-repository';
+import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
+import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
 import { ClioPathPicker } from './path-picker';
 import {
   SESSION_APPROVAL_OPTIONS,
@@ -166,7 +168,9 @@ function CreateResourceDialog({
         const trimmedPath = rootPath.trim();
         await actions.createWorkspace({
           name:
-            workspaceName.trim() || trimmedPath.split(/[\\/]+/).at(-1) || capitalize(vocab.workspace),
+            workspaceName.trim() ||
+            trimmedPath.split(/[\\/]+/).at(-1) ||
+            capitalize(vocab.workspace),
           rootPath: trimmedPath,
         });
       } else {
@@ -339,6 +343,10 @@ type SessionFieldsProps = {
 };
 
 function SessionFields(props: SessionFieldsProps) {
+  const approvalOptions = approvalOptionViews(
+    SESSION_APPROVAL_OPTIONS,
+    useSpotterAvailability(props.workspaceId),
+  );
   return (
     <FieldGroup>
       <Field>
@@ -415,7 +423,11 @@ function SessionFields(props: SessionFieldsProps) {
             onChange={(value) =>
               props.onApprovalModeChange(value as SessionDefaults['approval_mode'])
             }
-            options={SESSION_APPROVAL_OPTIONS.map((option) => [option.value, option.label])}
+            description={unavailableApprovalNotice(approvalOptions) || undefined}
+            disabledValues={approvalOptions
+              .filter((option) => option.disabled)
+              .map((option) => option.value)}
+            options={approvalOptions.map((option) => [option.value, option.label])}
             value={props.approvalMode}
           />
         </CollapsibleContent>
@@ -425,12 +437,18 @@ function SessionFields(props: SessionFieldsProps) {
 }
 
 function BehaviorSelect({
+  description,
+  disabledValues = [],
   id,
   label,
   onChange,
   options,
   value,
 }: {
+  /** Shown under the control, e.g. why the selected value cannot be honoured here. */
+  description?: string;
+  /** Values the service reports it cannot honour here: listed, not selectable. */
+  disabledValues?: readonly string[];
   id: string;
   label: string;
   onChange: (value: string) => void;
@@ -445,13 +463,17 @@ function BehaviorSelect({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {options.map(([option, optionLabel]) => (
-            <SelectItem key={option} value={option}>
-              {optionLabel}
-            </SelectItem>
-          ))}
+          {options.map(([option, optionLabel]) => {
+            const disabled = disabledValues.includes(option);
+            return (
+              <SelectItem disabled={disabled} key={option} value={option}>
+                {disabled ? `${optionLabel} (unavailable)` : optionLabel}
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
     </Field>
   );
 }

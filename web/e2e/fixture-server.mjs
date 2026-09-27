@@ -1575,6 +1575,22 @@ const server = createServer(async (request, response) => {
     sendJson(response, { runs: [] });
     return;
   }
+  // SPOTTER review availability for the confirmation-policy pickers
+  // (GET /v1/spotter/availability): the fixture service can arm it, so the
+  // option renders selectable exactly as before the availability read existed.
+  if (request.method === 'GET' && url.pathname === '/v1/spotter/availability') {
+    sendJson(response, {
+      schema_version: 'clio.spotter_availability.v1',
+      approval_mode: 'spotter-ai',
+      available: true,
+      reason: '',
+      message: '',
+      remedy: '',
+      agent_blueprint_id: 'spotter-ai',
+      details: {},
+    });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/session-defaults') {
     sendJson(response, {
       provider_id: '',
