@@ -567,7 +567,7 @@ describe('ConversationTurn correlated work placement', () => {
     expect(screen.getByText('Comment')).toBeVisible();
     expect(screen.getByText('Use the measured steel dimensions.')).toBeVisible();
     expect(screen.queryByText('beam')).not.toBeInTheDocument();
-    expect(screen.getByText('Answer returned to agent')).toBeVisible();
+    expect(screen.getByText('Answer sent to the agent')).toBeVisible();
     expect(screen.queryByText('Validated by MCP schema')).not.toBeInTheDocument();
     expect(screen.queryByText('Response returned to MCP')).not.toBeInTheDocument();
   });

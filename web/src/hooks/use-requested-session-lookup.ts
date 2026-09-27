@@ -17,6 +17,12 @@ import { useEffect, useState } from 'react';
  * confirming refetch has not settled), so the route shows loading instead of
  * the unavailable state. A failed fetch is not pending: the route shows the
  * query error.
+ *
+ * `isFetching` and `dataUpdatedAt` are read only once a confirmation is under
+ * way. React Query re-renders a consumer for every result field it has read,
+ * and this hook runs in the workspace route: reading them on every render made
+ * each background poll of the session list (fetching, then settled with a new
+ * `dataUpdatedAt`) re-render the whole route twice, even with identical data.
  */
 export function useRequestedSessionLookup(
   sessionId: string,
@@ -27,12 +33,12 @@ export function useRequestedSessionLookup(
   >,
 ): boolean {
   const missing = Boolean(sessionId) && !found && sessions.isSuccess && !sessions.isPlaceholderData;
-  const { refetch, dataUpdatedAt, isFetching } = sessions;
+  const { refetch } = sessions;
   // Which session a confirming refetch was started for, and the list it
   // replaces. Adjusted during render (React's "state from props" pattern).
   const [confirmation, setConfirmation] = useState<{ sessionId: string; after: number }>();
   if (missing && confirmation?.sessionId !== sessionId) {
-    setConfirmation({ sessionId, after: dataUpdatedAt });
+    setConfirmation({ sessionId, after: sessions.dataUpdatedAt });
   }
 
   useEffect(() => {
@@ -42,5 +48,5 @@ export function useRequestedSessionLookup(
   if (!sessionId || found || sessions.isError) return false;
   if (!sessions.isSuccess || sessions.isPlaceholderData) return true;
   if (confirmation?.sessionId !== sessionId) return true;
-  return isFetching || dataUpdatedAt <= confirmation.after;
+  return sessions.isFetching || sessions.dataUpdatedAt <= confirmation.after;
 }

@@ -476,3 +476,37 @@ describe('ClioRepository session operation contracts', () => {
     expect(result).toEqual(attempt);
   });
 });
+
+describe('ClioRepository side conversations', () => {
+  it('opens a read-only aside on the session it is about, with the selected passage', async () => {
+    const transport = new RecordingTransport([
+      {
+        id: 'sess_aside',
+        workspace_id: 'ws_1',
+        title: 'More details: brighter, tangy',
+        parent_session_id: 'sess 1',
+        state: 'idle',
+        created_at: '2026-09-27T00:00:00Z',
+        updated_at: '2026-09-27T00:00:00Z',
+        pinned: false,
+        archived: false,
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    const aside = await repository.openSideSession('sess 1', {
+      text: 'brighter, tangy',
+      message_id: 'msg_answer',
+    });
+
+    expect(aside.id).toBe('sess_aside');
+    expect(aside.parent_session_id).toBe('sess 1');
+    expect(transport.requests.map(({ method, path, body }) => ({ method, path, body }))).toEqual([
+      {
+        method: 'POST',
+        path: '/v1/sessions/sess%201/side-sessions',
+        body: { selection: { text: 'brighter, tangy', message_id: 'msg_answer' } },
+      },
+    ]);
+  });
+});

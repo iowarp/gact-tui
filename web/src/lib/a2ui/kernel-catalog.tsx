@@ -28,7 +28,7 @@ import {
   createComponentImplementation,
   type ReactComponentImplementation,
 } from '@a2ui/react/v0_9';
-import { GitCompareArrowsIcon, ImageOffIcon, ShieldAlertIcon } from 'lucide-react';
+import { GitCompareArrowsIcon, ShieldAlertIcon } from 'lucide-react';
 import { lazy, Suspense, type CSSProperties } from 'react';
 import { z } from 'zod';
 import {
@@ -58,13 +58,13 @@ import {
 } from '@/components/clio/a2ui-accessibility';
 import { ClioDataTable, type ClioDataColumn, type ClioDataRow } from '@/components/clio/data-table';
 import { ClioArtifactCatalogComponent } from '@/components/clio/a2ui-artifact';
+import { A2uiMedia } from '@/components/clio/a2ui-media';
 import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map';
 import { ClioMeshViewportCatalogComponent } from '@/components/clio/a2ui-mesh-viewport-catalog';
 import { ClioSliderCatalogComponent } from '@/components/clio/a2ui-slider-catalog';
 import { ClioTimeSeriesCatalogComponent } from '@/components/clio/a2ui-time-series-catalog';
 import { ClioMermaidDiagram } from '@/components/clio/mermaid-diagram';
 import { ClioStatus, type ClioStatusProps } from '@/components/clio/status';
-import { useA2uiUrlGuard } from './url-guard';
 
 const ClioA2UICodeView = lazy(() =>
   import('@/components/clio/a2ui-code-view').then((module) => ({
@@ -101,23 +101,6 @@ function a2uiStatusValue(value: string): ClioStatusProps['value'] {
   return statusValues.has(value as ClioStatusProps['value'])
     ? (value as ClioStatusProps['value'])
     : 'unavailable';
-}
-
-/**
- * Renders in place of a kernel media component whose resolved URL failed the
- * scheme allowlist (owner decision 11). The failure is local to this one
- * component — the rest of the surface keeps rendering.
- */
-function UrlBlocked({ message }: { message: string }) {
-  return (
-    <div
-      className="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive"
-      role="alert"
-    >
-      <ImageOffIcon aria-hidden="true" className="size-3.5 shrink-0" />
-      <span>{message}</span>
-    </div>
-  );
 }
 
 /**
@@ -653,38 +636,36 @@ const IMAGE_OBJECT_FIT: Record<string, NonNullable<CSSProperties['objectFit']>> 
   scaleDown: 'scale-down',
 };
 
-const Image = createComponentImplementation(ImageApi, ({ props, context }) => {
-  const guard = useA2uiUrlGuard(context.componentModel.id, 'url', props.url);
-  if (!guard.ok) return <UrlBlocked message={guard.message} />;
-  return (
-    <img
-      alt={props.description ?? ''}
-      className="max-w-full rounded-md"
-      src={props.url}
-      style={{ objectFit: IMAGE_OBJECT_FIT[props.fit ?? 'cover'] }}
-    />
-  );
-});
+// Every media URL renders through the ONE shared resolver (`A2uiMedia`): the
+// guard, then a CLIO reference read with the connection's bearer as a `blob:`
+// URL, or an explicit link for external media -- never a raw `src`.
+const Image = createComponentImplementation(ImageApi, ({ props, context }) => (
+  <A2uiMedia
+    componentId={context.componentModel.id}
+    kind="image"
+    label={props.description}
+    objectFit={IMAGE_OBJECT_FIT[props.fit ?? 'cover']}
+    url={props.url}
+  />
+));
 
-const Video = createComponentImplementation(VideoApi, ({ props, context }) => {
-  const guard = useA2uiUrlGuard(context.componentModel.id, 'url', props.url);
-  if (!guard.ok) return <UrlBlocked message={guard.message} />;
-  return (
-    // eslint-disable-next-line jsx-a11y/media-has-caption -- protocol carries no caption track
-    <video
-      aria-label={a2uiAccessibilityLabel(props.accessibility)}
-      className="w-full rounded-md"
-      controls
-      src={props.url}
-    />
-  );
-});
+const Video = createComponentImplementation(VideoApi, ({ props, context }) => (
+  <A2uiMedia
+    componentId={context.componentModel.id}
+    kind="video"
+    label={a2uiAccessibilityLabel(props.accessibility)}
+    url={props.url}
+  />
+));
 
-const AudioPlayer = createComponentImplementation(AudioPlayerApi, ({ props, context }) => {
-  const guard = useA2uiUrlGuard(context.componentModel.id, 'url', props.url);
-  if (!guard.ok) return <UrlBlocked message={guard.message} />;
-  return <audio aria-label={props.description} className="w-full" controls src={props.url} />;
-});
+const AudioPlayer = createComponentImplementation(AudioPlayerApi, ({ props, context }) => (
+  <A2uiMedia
+    componentId={context.componentModel.id}
+    kind="audio"
+    label={props.description}
+    url={props.url}
+  />
+));
 
 // --- Kernel maps ------------------------------------------------------------
 

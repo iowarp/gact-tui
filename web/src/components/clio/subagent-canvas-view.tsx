@@ -1,26 +1,8 @@
-import { queryKeys } from '@/lib/query-keys';
-import {
-  createEntityState,
-  type Artifact,
-  type EntityState,
-  type Message,
-  type SubagentRun,
-  type TranscriptSnapshot,
-  type TransportFrame,
-} from '@clio/core/v3';
-import { useQuery } from '@tanstack/react-query';
+import type { Artifact, SubagentRun } from '@clio/core/v3';
 import { ArrowUpLeftIcon, BotIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useRepository } from '@/hooks/use-repository';
-import { recordById } from '@/lib/entities';
-import { STREAM_RECONNECT_BASE_MS } from '@/lib/runtime-limits';
-import { FrameBatcher } from '@/lib/streaming/frame-batcher';
-import { reduceFramesContained } from '@/lib/streaming/frame-reduction';
-import { abortableDelay, nextReconnectDelay } from '@/lib/streaming/reconnect';
-import { useConnectionSettings } from '@/providers/connection-provider';
-import { MAX_RETAINED_FRAME_GAPS } from '@/store/live-store';
+import { useLiveSessionTranscript } from '@/hooks/use-live-session-transcript';
 import { ClioConversation } from './conversation';
 import { getChildAgentAssignment } from './child-agent-presentation';
 import { ClioStatus } from './status';
@@ -45,88 +27,12 @@ export function ClioSubagentCanvasView({
   onOpenSubagent,
   onOpenConversation,
 }: ClioSubagentCanvasViewProps) {
-  const repository = useRepository();
-  const { settings } = useConnectionSettings();
   const childSessionId = subagent.child_session_id;
   const assignment = getChildAgentAssignment(subagent);
-  const transcript = useQuery({
-    queryKey: queryKeys.key('transcript', settings.endpoint, childSessionId, 'canvas'),
-    queryFn: ({ signal }) => repository.transcript(childSessionId!, signal),
-    enabled: Boolean(childSessionId),
-  });
-  const snapshotEntities = useMemo(
-    () => (transcript.data ? stateFromSnapshot(transcript.data) : createEntityState()),
-    [transcript.data],
-  );
-  const [liveState, setLiveState] = useState<{
-    snapshot?: TranscriptSnapshot;
-    entities: EntityState;
-  }>(() => ({ snapshot: transcript.data, entities: snapshotEntities }));
-  const entities = liveState.snapshot === transcript.data ? liveState.entities : snapshotEntities;
-
-  useEffect(() => {
-    if (!childSessionId || !transcript.data) return;
-    const controller = new AbortController();
-    const snapshot = transcript.data;
-    let cursor = snapshot.cursor;
-    const updateEntities = (project: (base: EntityState) => EntityState) => {
-      setLiveState((current) => {
-        const base = current.snapshot === snapshot ? current.entities : snapshotEntities;
-        return { snapshot, entities: project(base) };
-      });
-    };
-    const batcher = new FrameBatcher<TransportFrame>((frames) => {
-      updateEntities((base) => {
-        // Contained per frame: one unreadable frame becomes a typed gap instead
-        // of discarding its batch and throwing into the workspace error boundary.
-        const { entities, gaps } = reduceFramesContained(base, frames);
-        return gaps.length
-          ? { ...entities, gaps: [...entities.gaps, ...gaps].slice(-MAX_RETAINED_FRAME_GAPS) }
-          : entities;
-      });
-    });
-
-    void (async () => {
-      let reconnectDelay = STREAM_RECONNECT_BASE_MS;
-      while (!controller.signal.aborted) {
-        try {
-          for await (const frame of repository.stream(
-            {
-              connection_id: 'active',
-              workspace_id: workspaceId,
-              session_id: childSessionId,
-            },
-            cursor,
-            controller.signal,
-          )) {
-            reconnectDelay = STREAM_RECONNECT_BASE_MS;
-            if (frame.cursor) cursor = frame.cursor;
-            updateEntities((base) => (base.stream === 'live' ? base : { ...base, stream: 'live' }));
-            batcher.push(frame);
-          }
-        } catch (error) {
-          if (controller.signal.aborted) break;
-          if (error instanceof Error && error.name === 'AbortError') break;
-        }
-        if (controller.signal.aborted) break;
-        updateEntities((base) => ({ ...base, stream: 'reconnecting' }));
-        await abortableDelay(controller, reconnectDelay);
-        reconnectDelay = nextReconnectDelay(reconnectDelay);
-      }
-    })();
-
-    return () => {
-      controller.abort();
-      batcher.stop({ flush: true });
-    };
-  }, [childSessionId, repository, snapshotEntities, transcript.data, workspaceId]);
-
-  const messages = useMemo(
-    () =>
-      Object.values(entities.messages)
-        .filter((message): message is Message => message.session_id === childSessionId)
-        .sort((left, right) => left.created_at.localeCompare(right.created_at)),
-    [childSessionId, entities.messages],
+  const { entities, messages, transcript } = useLiveSessionTranscript(
+    workspaceId,
+    childSessionId,
+    'canvas',
   );
 
   if (!childSessionId) {
@@ -205,17 +111,4 @@ export function ClioSubagentCanvasView({
       </div>
     </div>
   );
-}
-
-function stateFromSnapshot(snapshot: TranscriptSnapshot): EntityState {
-  return {
-    ...createEntityState(),
-    stream: 'connecting',
-    messages: recordById(snapshot.messages),
-    tools: recordById(snapshot.tools),
-    tasks: recordById(snapshot.tasks),
-    subagents: recordById(snapshot.subagents),
-    artifacts: recordById(snapshot.artifacts),
-    surfaces: recordById(snapshot.surfaces),
-  };
 }
