@@ -378,6 +378,34 @@ describe('ClioConversation transcript viewport', () => {
     });
   });
 
+  it('keeps the last message above a composer that grows while following (rel18)', () => {
+    const scrollTo = HTMLElement.prototype.scrollTo as ReturnType<typeof vi.fn>;
+    const props = {
+      artifacts: {},
+      messages: plainMessages(2),
+      subagents: {},
+      surfaces: {},
+      tasks: {},
+      tools: {},
+    };
+    const { rerender } = renderConversation(<ClioConversation {...props} bottomInset={167} />);
+    const log = screen.getByRole('log', { name: 'Conversation' });
+    Object.defineProperty(log, 'scrollHeight', { configurable: true, value: 1400 });
+    scrollTo.mockClear();
+
+    // Session details expanded / a multi-line draft: the floating composer grows.
+    rerender(
+      <AppearanceProvider>
+        <ConversationDisplayProvider>
+          <ClioConversation {...props} bottomInset={259} />
+        </ConversationDisplayProvider>
+      </AppearanceProvider>,
+    );
+
+    expect(log).toHaveStyle({ paddingBottom: '259px' });
+    expect(scrollTo).toHaveBeenCalledWith({ behavior: 'instant', top: 1400 });
+  });
+
   it('focuses an authoritative memory-search result by message id', async () => {
     window.history.replaceState(null, '', '#message-message_1');
     renderConversation(
