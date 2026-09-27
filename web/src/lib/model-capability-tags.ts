@@ -156,12 +156,9 @@ export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCap
       axis: 'context',
       value: String(option.contextWindow),
       evidence: [
-        {
-          source: provenance?.source || 'catalog',
-          detail: option.contextBasis
-            ? `context_window (${option.contextBasis})`
-            : 'context_window',
-        },
+        // No detail line: the tooltip's meaning already says what the size
+        // rests on, and the source line where it came from.
+        { source: provenance?.source || 'catalog', detail: '' },
       ],
       contextBasis: option.contextBasis,
       nativeContext: option.nativeContextWindow,

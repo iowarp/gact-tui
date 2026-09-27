@@ -238,6 +238,8 @@ describe('context tags say what the size rests on', () => {
       'Not loaded yet: the server will give it 4,096 tokens when it loads. ' +
         'The model itself reads up to 32,768.',
     );
+    // The meaning and "From the provider." say it all: no internal field name.
+    expect(modelCapabilityTagDetail(tag)).toBe('');
   });
 
   it('only the native ceiling known reads as native, never as served', () => {
