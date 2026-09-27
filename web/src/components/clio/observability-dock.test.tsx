@@ -126,10 +126,37 @@ describe('ClioObservabilityView', () => {
 
     const badge = document.querySelector('[data-slot="badge"]');
     expect(badge).not.toBeNull();
-    expect(badge).toHaveTextContent('Up to date');
+    expect(badge).toHaveTextContent('Permission needed');
+    expect(badge).not.toHaveTextContent('Up to date');
     expect(badge).toHaveClass('border-action/30');
     expect(badge).not.toHaveClass('border-info/30');
     expect(badge?.querySelector('svg')).not.toHaveClass('motion-safe:animate-spin');
+  });
+
+  it('labels a failed session truthfully, never a red "Up to date" (rel18)', () => {
+    render(
+      <ClioObservabilityDock
+        artifacts={[]}
+        contextFiles={[]}
+        contextFrames={[]}
+        diffs={[]}
+        messages={[]}
+        processes={[]}
+        runs={[]}
+        sessionId="sess_failed"
+        sessionState="failed"
+        subagents={[]}
+        tasks={[]}
+        tools={[]}
+      />,
+    );
+
+    const badge = document.querySelector('[data-slot="badge"]');
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveTextContent('Failed');
+    expect(badge).toHaveClass('border-destructive/30');
+    expect(screen.queryByText('Up to date')).not.toBeInTheDocument();
+    expect(document.querySelector('[aria-live="polite"]')).toHaveTextContent('Failed');
   });
 
   it('keeps the live status region mounted, and outside the button, across a status change', () => {
@@ -150,7 +177,8 @@ describe('ClioObservabilityView', () => {
 
     const liveRegion = document.querySelector('[aria-live="polite"]');
     expect(liveRegion).not.toBeNull();
-    expect(liveRegion).toHaveTextContent('Up to date');
+    expect(liveRegion).toHaveTextContent('No active work');
+    expect(liveRegion).not.toHaveTextContent('Up to date');
     const button = screen.getByRole('button', { name: 'Open observability in workspace canvas' });
     expect(button.contains(liveRegion)).toBe(false);
 
