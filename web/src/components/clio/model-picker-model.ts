@@ -1,4 +1,4 @@
-import type { LanguageModelPreset, ProviderCatalogTransport } from '@clio/core/v3';
+import type { LanguageModelPreset, ProviderCatalogTransport, ProviderClientFact } from '@clio/core/v3';
 import { isLocalServerPreset } from '@/lib/local-servers';
 import { type ClioModelOption, PROVIDER_NEEDS_SETUP } from '@/lib/model-options';
 import {
@@ -47,6 +47,9 @@ export interface ProviderGroup {
   /** This provider's own transports (Codex: sdk + direct) -- absent for
    * every single-transport provider. See `ProviderCatalogTransport`. */
   transports?: readonly ProviderCatalogTransport[];
+  /** The CLI its SDK transport runs (installed vs bundled) -- Codex and
+   * Claude Code only; its presence is what offers the SDK update check. */
+  client?: ProviderClientFact;
 }
 
 export interface ProviderNodeData {
@@ -175,6 +178,7 @@ function derivedProviderGroup(
     detail: details[0],
     failure: group.choices.find((choice) => choice.failure)?.failure,
     transports: group.choices.find((choice) => choice.transports)?.transports,
+    client: group.choices.find((choice) => choice.client)?.client,
   };
 }
 
