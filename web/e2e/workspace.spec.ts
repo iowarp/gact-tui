@@ -44,9 +44,9 @@ async function waitForArtifactPreview(page: Page) {
   // unconditionally there), so the inline <img> preview this helper used to
   // wait for no longer renders in the transcript -- opening it is a separate
   // affordance this test does not exercise.
-  await expect(
-    page.getByRole('button', { name: 'Open vertical-displacement.png' }),
-  ).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('button', { name: 'Open vertical-displacement.png' })).toBeVisible({
+    timeout: 20_000,
+  });
 }
 
 async function alignTranscriptAnchorAtTop(page: Page, anchor: Locator) {
@@ -64,9 +64,7 @@ async function alignTranscriptAnchorAtTop(page: Page, anchor: Locator) {
           scroller.style.paddingBottom = `${paddingBottom + delta - remainingScroll}px`;
         }
         scroller.scrollBy({ behavior: 'instant', top: delta });
-        return Math.abs(
-          element.getBoundingClientRect().top - scroller.getBoundingClientRect().top,
-        );
+        return Math.abs(element.getBoundingClientRect().top - scroller.getBoundingClientRect().top);
       }),
     )
     .toBeLessThanOrEqual(1);
@@ -465,9 +463,7 @@ test('keeps a pending EarthScope map flat, resizable, and available full-window'
     const scrollBefore = await page.evaluate(() => window.scrollY);
     await page.mouse.move(mapBox.x + mapBox.width / 2, mapBox.y + mapBox.height / 2);
     await page.mouse.wheel(0, 600);
-    await expect
-      .poll(() => page.evaluate(() => window.scrollY))
-      .toBe(scrollBefore);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollBefore);
   }
 
   const viewport = pendingResponses.locator('[data-slot="a2ui-response-viewport"]');
@@ -785,9 +781,12 @@ test('scrolls pending responses and queued messages independently at a narrow vi
   );
 });
 
-test('batches a 100-delta stream over a virtualized 1,000-message transcript', async ({ page }) => {
+test('batches a 100-delta stream over a virtualized 1,000-message transcript', async ({
+  page,
+}, testInfo) => {
   await page.addInitScript(() => {
     window.__clioLongTasks = [];
+    window.__clioLongFrames = [];
   });
   await page.goto(workspaceUrl);
   await expect(page.getByRole('log', { name: 'Conversation' })).toBeVisible();
@@ -804,6 +803,7 @@ test('batches a 100-delta stream over a virtualized 1,000-message transcript', a
   );
   await page.getByRole('log', { name: 'Conversation' }).evaluate((element) => {
     window.__clioLongTasks = [];
+    window.__clioLongFrames = [];
     window.__clioAnimationFrames = 0;
     window.__clioStreamMutationBatches = 0;
     window.__clioTranscriptMutationBatches = 0;
@@ -816,6 +816,29 @@ test('batches a 100-delta stream over a virtualized 1,000-message transcript', a
       window.__clioLongTasks.push(...list.getEntries().map((entry) => entry.duration));
     });
     longTaskObserver.observe({ type: 'longtask' });
+    // Long Animation Frames name the script behind a long task (entry point,
+    // source URL, function, duration), so a failure below says whose work it
+    // was instead of only how long it took.
+    const longFrameObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as PerformanceLongAnimationFrameTiming[]) {
+        if (entry.duration <= 50) continue;
+        window.__clioLongFrames.push({
+          startTime: Math.round(entry.startTime),
+          duration: Math.round(entry.duration),
+          blockingDuration: Math.round(entry.blockingDuration),
+          scripts: entry.scripts.map((script) => ({
+            invoker: script.invoker,
+            invokerType: script.invokerType,
+            sourceURL: script.sourceURL,
+            sourceFunctionName: script.sourceFunctionName,
+            sourceCharPosition: script.sourceCharPosition,
+            duration: Math.round(script.duration),
+            forcedStyleAndLayoutDuration: Math.round(script.forcedStyleAndLayoutDuration),
+          })),
+        });
+      }
+    });
+    longFrameObserver.observe({ type: 'long-animation-frame' });
     const transcriptObserver = new MutationObserver(() => {
       window.__clioTranscriptMutationBatches += 1;
     });
@@ -830,7 +853,19 @@ test('batches a 100-delta stream over a virtualized 1,000-message transcript', a
 
   const start = await page.request.post(`${fixtureEndpoint}/__test/start-stream`);
   expect(start.ok()).toBe(true);
-  await expect(page.getByText(/delta-99/)).toBeVisible({ timeout: 10_000 });
+  // Wait on a cheap textContent read. A text-selector poll (getByText) runs
+  // Playwright's selector engine in the page, computing styles across the
+  // transcript on every retry, and those retries were measured as long tasks
+  // of their own -- the harness, not the app. Visibility is asserted after
+  // the measurements are read.
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[role="log"][aria-label="Conversation"]')
+        ?.textContent?.includes('delta-99') ?? false,
+    undefined,
+    { polling: 100, timeout: 10_000 },
+  );
 
   const measurements = await page
     .getByRole('log', { name: 'Conversation' })
@@ -841,7 +876,18 @@ test('batches a 100-delta stream over a virtualized 1,000-message transcript', a
       streamMutationBatches: window.__clioStreamMutationBatches,
       transcriptMutationBatches: window.__clioTranscriptMutationBatches,
     }));
-  expect(measurements.longTasks.filter((duration) => duration > 50)).toEqual([]);
+  const longFrames = await page.evaluate(() => window.__clioLongFrames);
+  if (longFrames.length) {
+    await testInfo.attach('long-animation-frames', {
+      body: JSON.stringify(longFrames, null, 2),
+      contentType: 'application/json',
+    });
+  }
+  expect(
+    measurements.longTasks.filter((duration) => duration > 50),
+    `long tasks during the delta burst; long animation frames:\n${describeLongFrames(longFrames)}`,
+  ).toEqual([]);
+  await expect(page.getByText(/delta-99/)).toBeVisible();
   expect(measurements.streamMutationBatches).toBeGreaterThan(0);
   expect(measurements.streamMutationBatches).toBeLessThanOrEqual(100);
   expect(measurements.streamMutationBatches).toBeLessThanOrEqual(measurements.animationFrames + 2);
@@ -891,8 +937,59 @@ test('shows the compaction checkpoint row collapsed with a clamped preview, then
   await expect(compactionRow.getByRole('button', { name: 'Show less' })).toBeVisible();
 });
 
+interface LongFrameRecord {
+  startTime: number;
+  duration: number;
+  blockingDuration: number;
+  scripts: {
+    invoker: string;
+    invokerType: string;
+    sourceURL: string;
+    sourceFunctionName: string;
+    sourceCharPosition: number;
+    duration: number;
+    forcedStyleAndLayoutDuration: number;
+  }[];
+}
+
+/** One line per long frame, naming its heaviest scripts (or that none were attributed). */
+function describeLongFrames(frames: readonly LongFrameRecord[]): string {
+  return frames
+    .map((frame) => {
+      const scripts = [...frame.scripts]
+        .sort((left, right) => right.duration - left.duration)
+        .slice(0, 3)
+        .map(
+          (script) =>
+            `${script.duration}ms ${script.invokerType} ${script.invoker} ` +
+            `${script.sourceFunctionName || '(anonymous)'} ` +
+            `${script.sourceURL.split('/').pop() ?? ''}:${script.sourceCharPosition}`,
+        );
+      return (
+        `  ${frame.duration}ms frame at ${frame.startTime}ms (blocking ${frame.blockingDuration}ms): ` +
+        (scripts.length
+          ? scripts.join(' | ')
+          : 'no page script attributed (style, layout, or harness)')
+      );
+    })
+    .join('\n');
+}
+
 declare global {
+  interface PerformanceScriptTiming extends PerformanceEntry {
+    invoker: string;
+    invokerType: string;
+    sourceURL: string;
+    sourceFunctionName: string;
+    sourceCharPosition: number;
+    forcedStyleAndLayoutDuration: number;
+  }
+  interface PerformanceLongAnimationFrameTiming extends PerformanceEntry {
+    blockingDuration: number;
+    scripts: PerformanceScriptTiming[];
+  }
   interface Window {
+    __clioLongFrames: LongFrameRecord[];
     __clioLongTasks: number[];
     __clioAnimationFrames: number;
     __clioStreamMutationBatches: number;

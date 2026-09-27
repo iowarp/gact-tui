@@ -1,10 +1,11 @@
-import type { PendingInteraction } from '@clio/core/v3';
+import type { PendingInteraction, PendingInteractionResponse } from '@clio/core/v3';
 import {
   ArrowDownToLineIcon,
   ArrowUpToLineIcon,
   BotIcon,
   CircleAlertIcon,
   CircleCheckIcon,
+  FileIcon,
   MessageCircleQuestionIcon,
   RouteIcon,
   UserRoundIcon,
@@ -12,12 +13,15 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ClioStatus, type ClioStatusValue } from './status';
 import { focusFirstFocusable, pendingInteractionDomId } from './interaction-control';
 import { humanizeProtocolValue } from './presentation-labels';
 import { TechnicalDetails } from './technical-details';
 import { isAgentMcpInteraction, questionInteractionRequestLabel } from './agent-answer-domain';
+import { isToolAnchoredQuestion } from '@/lib/inline-question';
+import { InlineQuestionCard } from './inline-question-card';
 
 /** The tray section's own collapse trigger (ai-elements/queue.tsx's `QueueSectionTrigger`, given this stable slot by pending-interactions.tsx). */
 const PENDING_TRAY_TRIGGER_SELECTOR = '[data-slot="pending-interactions-trigger"]';
@@ -76,11 +80,25 @@ function AnswerBelowLink({ interaction }: { interaction: PendingInteraction }) {
 export function AgentAnswerActivity({
   interaction,
   compact = false,
+  onResponse,
 }: {
   interaction: PendingInteraction;
   compact?: boolean;
+  onResponse?: (
+    interaction: PendingInteraction,
+    response: PendingInteractionResponse,
+  ) => Promise<void>;
 }) {
   if (!isAgentMcpInteraction(interaction)) {
+    // The agent's own pending question is answered right here, in the log.
+    if (
+      !compact &&
+      onResponse &&
+      interaction.status === 'pending' &&
+      isToolAnchoredQuestion(interaction)
+    ) {
+      return <InlineQuestionCard interaction={interaction} onResponse={onResponse} />;
+    }
     return <HumanQuestionActivity compact={compact} interaction={interaction} />;
   }
   const answered = interaction.status === 'answered' && interaction.answered_by === 'agent';
@@ -246,6 +264,7 @@ function HumanQuestionActivity({
 }) {
   const requestLabel = questionInteractionRequestLabel(interaction);
   const answers = answerEntries(interaction);
+  const attachments = answerAttachments(interaction);
   const answered = interaction.status === 'answered';
   const cancelled = interaction.status === 'cancelled';
   const expired = interaction.status === 'expired';
@@ -305,17 +324,29 @@ function HumanQuestionActivity({
                 ))}
               </dl>
             ) : null}
+            {attachments.length > 0 ? (
+              <ul aria-label="Attached files" className="mt-1.5 flex flex-wrap gap-1.5">
+                {attachments.map((attachment, index) => (
+                  <li key={`${attachment.name}:${index}`}>
+                    <Badge className="max-w-full gap-1 font-normal" variant="outline">
+                      <FileIcon aria-hidden="true" className="size-3 shrink-0" />
+                      <span className="truncate">{attachment.name}</span>
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </ActivityStep>
           {isMcp && interaction.payload?.mode === 'form' && !declined ? (
             <ActivityStep icon={CircleCheckIcon} title="Validated by MCP schema" />
           ) : null}
           <ActivityStep
             icon={ArrowUpToLineIcon}
-            title={isMcp ? 'Response returned to MCP' : 'Answer returned to agent'}
+            title={isMcp ? 'Response returned to MCP' : 'Answer sent to the agent'}
           >
             {isMcp
               ? 'The waiting request resumed with your response.'
-              : 'The waiting agent resumed with your response.'}
+              : 'The agent continues with your answer.'}
           </ActivityStep>
         </>
       ) : null}
@@ -401,7 +432,9 @@ function answerEntries(interaction: PendingInteraction): AnswerEntry[] {
         key !== 'elicitation_action' &&
         key !== 'selected_options' &&
         key !== 'answer' &&
-        key !== 'option_comments',
+        key !== 'option_comments' &&
+        key !== 'attachments' &&
+        key !== 'answer_message_id',
     )
     .forEach(([key, value], index) =>
       entries.push({
@@ -411,6 +444,15 @@ function answerEntries(interaction: PendingInteraction): AnswerEntry[] {
       }),
     );
   return entries;
+}
+
+/** Files the person attached to a composer-message answer, as recorded by the service. */
+function answerAttachments(interaction: PendingInteraction): Array<{ name: string }> {
+  const rows = interaction.payload?.answer_metadata?.attachments;
+  if (!Array.isArray(rows)) return [];
+  return rows.flatMap((row) =>
+    isRecord(row) ? [{ name: String(row.name || row.media_type || 'Attachment') }] : [],
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

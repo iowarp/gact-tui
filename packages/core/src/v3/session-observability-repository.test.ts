@@ -66,3 +66,47 @@ describe('SessionObservabilityRepository diff mutations', () => {
     });
   });
 });
+
+describe('SessionObservabilityRepository agent tasks', () => {
+  it('reads every registry task of a session, standing watchers included', async () => {
+    const transport = new RecordingTransport([
+      {
+        tasks: [
+          {
+            task_id: 'task_watch',
+            parent_session_id: 'sess 1',
+            child_session_id: 'sess_watch',
+            agent_ref: { expert_id: 'spotter_watcher', blueprint_id: 'spotter-ai' },
+            run_index: 0,
+            run_label: 'SPOTTER watcher',
+            status: 'running',
+            live_state: 'waiting',
+            result: null,
+            extra_field: 'kept out of the record',
+          },
+        ],
+      },
+    ]);
+    const repository = new ClioRepository(transport);
+
+    const [watcher] = await repository.sessionAgentTasks('sess 1');
+
+    expect(transport.requests[0]?.path).toBe('/v1/sessions/sess%201/agent-tasks');
+    expect(watcher).toEqual({
+      task_id: 'task_watch',
+      parent_session_id: 'sess 1',
+      child_session_id: 'sess_watch',
+      parent_turn_id: '',
+      expert_id: 'spotter_watcher',
+      blueprint_id: 'spotter-ai',
+      run_index: 0,
+      run_label: 'SPOTTER watcher',
+      status: 'running',
+      live_state: 'waiting',
+      error_reason: '',
+      created_at: '',
+      updated_at: '',
+      answer_excerpt: '',
+    });
+  });
+});

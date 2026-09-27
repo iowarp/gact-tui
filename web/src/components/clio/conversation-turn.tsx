@@ -1,3 +1,4 @@
+import { isToolAnchoredQuestion } from '@/lib/inline-question';
 import { BrainIcon, ChevronDownIcon, ListChecksIcon, WorkflowIcon, WrenchIcon } from 'lucide-react';
 import { Fragment, useState } from 'react';
 import {
@@ -74,7 +75,12 @@ export function ConversationTurn({
   if (iterations.length === 0) return null;
   // Plan decisions are conversation boundaries, not details of hidden activity.
   // Split at the owning tool (including mid-iteration) without changing wire order.
-  const planReviews = interactions?.filter((item) => item.source.tool_name === 'plan_exit') ?? [];
+  // The agent's own questions are boundaries too: the pending card and its
+  // answered record stay in the log, never folded into collapsed activity.
+  const planReviews =
+    interactions?.filter(
+      (item) => item.source.tool_name === 'plan_exit' || isToolAnchoredQuestion(item),
+    ) ?? [];
   const boundaries = new Map(
     iterations.flatMap((iteration) =>
       iteration.tools.flatMap((tool) => {

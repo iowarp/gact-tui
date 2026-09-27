@@ -1,4 +1,4 @@
-import type { MessageBehavior, ReasoningEffort } from '@clio/core/v3';
+import type { MessageBehavior, ReasoningEffort, SpotterAvailability } from '@clio/core/v3';
 import { type LucideIcon } from 'lucide-react';
 import { AdjustIcon, HelpIcon } from '@/lib/icon-vocabulary';
 import { useState, type ReactNode } from 'react';
@@ -12,6 +12,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { approvalOptionViews } from './approval-option-availability';
 import { SESSION_APPROVAL_OPTIONS, SESSION_MODE_OPTIONS } from './session-behavior-options';
 
 type BehaviorMenu = 'approval' | 'effort' | 'mode';
@@ -34,6 +35,8 @@ interface ClioComposerBehaviorControlsProps {
    * person is never shown an effort nobody selected.
    */
   unrecognizedEffort?: string;
+  /** What the service reports about arming SPOTTER review here (undefined: unknown). */
+  spotterAvailability?: SpotterAvailability;
 }
 
 /** ReUI Button Group composition for per-message behavior controls. */
@@ -45,7 +48,9 @@ export function ClioComposerBehaviorControls({
   reasoningLevels,
   defaultEffortLabel = 'Model default',
   unrecognizedEffort,
+  spotterAvailability,
 }: ClioComposerBehaviorControlsProps) {
+  const approvalOptions = approvalOptionViews(SESSION_APPROVAL_OPTIONS, spotterAvailability);
   // Once an effort is chosen here the reported value is answered, so the
   // control stops naming it.
   const [effortChosen, setEffortChosen] = useState(false);
@@ -181,15 +186,20 @@ export function ClioComposerBehaviorControls({
           <DropdownMenuLabel>Confirmation policy</DropdownMenuLabel>
           <DropdownMenuRadioGroup
             onValueChange={(value) => {
-              const option = SESSION_APPROVAL_OPTIONS.find(
-                (candidate) => candidate.value === value,
-              );
-              if (option) onChange({ ...behavior, confirmation_policy: option.value });
+              const option = approvalOptions.find((candidate) => candidate.value === value);
+              if (option && !option.disabled) {
+                onChange({ ...behavior, confirmation_policy: option.value });
+              }
             }}
             value={selectedApproval?.value ?? ''}
           >
-            {SESSION_APPROVAL_OPTIONS.map((option) => (
-              <DropdownMenuRadioItem key={option.value} value={option.value}>
+            {approvalOptions.map((option) => (
+              <DropdownMenuRadioItem
+                disabled={option.disabled}
+                key={option.value}
+                title={option.unavailableDetail || undefined}
+                value={option.value}
+              >
                 <option.icon className="size-4" />
                 <span>
                   <span className="block font-medium">{option.label}</span>

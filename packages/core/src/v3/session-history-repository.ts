@@ -59,6 +59,27 @@ export class SessionHistoryRepository {
     });
   }
 
+  /**
+   * Open a read-only side conversation on `sessionId`, carrying its context
+   * (clio-agent `POST /v1/sessions/{sid}/side-sessions`). The aside can only
+   * run tools that declare no side effects and never writes to the parent; it
+   * replaces any earlier aside of the same parent and is closed with
+   * `deleteSession`.
+   */
+  public openSideSession(
+    sessionId: string,
+    selection: { text: string; message_id: string },
+    signal?: AbortSignal,
+  ): Promise<Session> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/side-sessions`,
+      body: { selection },
+      decode: (value) => sessionSchema.parse(value),
+      signal,
+    });
+  }
+
   public undoSession(sessionId: string, count = 1, signal?: AbortSignal) {
     return this.transport.request({
       method: 'POST',

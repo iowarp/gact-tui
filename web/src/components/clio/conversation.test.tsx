@@ -1,5 +1,5 @@
 import type { ClioRepository, Message as DomainMessage } from '@clio/core/v3';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -108,8 +108,7 @@ describe('ClioConversation recovery actions', () => {
     expect(screen.getByText('Use this as context.')).toBeInTheDocument();
   });
 
-  it('presents user attachments above the prompt without exposing private prompt context', async () => {
-    const user = userEvent.setup();
+  it('presents user attachments above the prompt without exposing private prompt context', () => {
     const onOpenResource = vi.fn();
     const resource = {
       id: 'res_1',
@@ -180,17 +179,20 @@ describe('ClioConversation recovery actions', () => {
       />,
     );
 
-    const attachment = screen.getByRole('button', { name: 'Open paper.pdf' });
+    // This test is about the conversation's layout of a user's attachments. The
+    // attachment's hover detail (a Radix hover card: a 220ms open delay plus
+    // floating-ui geometry, ~70 jsdom getComputedStyle calls) is owned by
+    // transcript-resource-attachment.test.tsx, and the cancelled-refresh wording
+    // by resource-availability.test.ts. Opening it here, plus role-name queries
+    // that compute styles for every candidate, cost well over a second of this
+    // test's 5s budget and timed it out under a loaded 2-worker run.
+    const attachment = screen.getByLabelText('Open paper.pdf');
     expect(attachment).toHaveTextContent('paper.pdf');
     expect(attachment).not.toHaveTextContent('Converted');
-    const status = screen.getByRole('img', { name: 'Attachment status: Ready' });
-    expect(status).toBeInTheDocument();
-    await user.hover(status);
-    expect(
-      await screen.findByText(
-        /reuse a previously converted derivative.*latest refresh was cancelled/i,
-      ),
-    ).toBeVisible();
+    expect(within(attachment).getByLabelText('Attachment status: Ready')).toHaveAttribute(
+      'role',
+      'img',
+    );
     expect(screen.getByText('Analyze this filing.')).toBeInTheDocument();
     const textBubble = screen
       .getByText('Analyze this filing.')
