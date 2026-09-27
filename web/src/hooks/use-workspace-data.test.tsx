@@ -493,3 +493,47 @@ describe('useWorkspaceData requested session lookup', () => {
     expect(mocks.repository.sessions.mock.calls.length).toBe(2);
   });
 });
+
+describe('useWorkspaceData background polls', () => {
+  it('does not re-render the workspace when a poll returns the same data', async () => {
+    mocks.repository.pendingApprovals.mockResolvedValue([approval]);
+    const client = new QueryClient({
+      defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+    });
+    let renders = 0;
+    const { result } = renderHook(
+      () => {
+        renders += 1;
+        return useWorkspaceData({
+          contextTargetId: 'sess_1',
+          sessionId: 'sess_1',
+          workspaceId: 'ws_1',
+        });
+      },
+      {
+        wrapper: ({ children }: { children: ReactNode }) => (
+          <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        ),
+      },
+    );
+    await waitFor(() => expect(result.current.interactions).toHaveLength(1));
+    // Let every initial read settle before counting.
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    const settled = renders;
+
+    // The polled reads tick (same payloads): the fetchStatus flips must not
+    // re-render the page that consumes them.
+    await act(async () => {
+      await Promise.all([
+        client.refetchQueries({ queryKey: ['pending-approvals'] }),
+        client.refetchQueries({ queryKey: ['pending-questions'] }),
+        client.refetchQueries({ queryKey: ['sessions', 'http://127.0.0.1:8790', 'ws_1'] }),
+      ]);
+      // Query notifications are delivered on a later macrotask.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(mocks.repository.pendingApprovals.mock.calls.length).toBeGreaterThan(1);
+    expect(renders).toBe(settled);
+  });
+});
