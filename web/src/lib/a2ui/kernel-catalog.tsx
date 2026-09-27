@@ -56,9 +56,10 @@ import {
   a2uiAccessibilityProps,
   type A2UIAccessibility,
 } from '@/components/clio/a2ui-accessibility';
-import { ClioDataTable, type ClioDataColumn, type ClioDataRow } from '@/components/clio/data-table';
 import { ClioArtifactCatalogComponent } from '@/components/clio/a2ui-artifact';
 import { A2uiMedia } from '@/components/clio/a2ui-media';
+import { ClioChartCatalogComponent } from '@/components/clio/a2ui-chart-catalog';
+import { ClioDataTableCatalogComponent } from '@/components/clio/a2ui-data-table';
 import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map';
 import { ClioMeshViewportCatalogComponent } from '@/components/clio/a2ui-mesh-viewport-catalog';
 import { ClioSliderCatalogComponent } from '@/components/clio/a2ui-slider-catalog';
@@ -312,33 +313,6 @@ const Callout = createComponentImplementation(
         </Button>
       ) : null}
     </Alert>
-  ),
-);
-
-const DataTable = createComponentImplementation(
-  {
-    name: 'clio.data-table.v1',
-    schema: z
-      .object({
-        columns: z.array(
-          z.union([z.string(), z.object({ key: z.string(), label: z.string() }).strict()]),
-        ),
-        rows: z.array(z.record(z.unknown())),
-        selection: z.string().optional(),
-        action: CommonSchemas.Action.optional(),
-        accessibility,
-        weight,
-      })
-      .strict(),
-  },
-  ({ props }) => (
-    <ClioDataTable
-      columns={props.columns as ClioDataColumn[]}
-      description={a2uiAccessibilityDescription(props.accessibility)}
-      label={a2uiAccessibilityLabel(props.accessibility)}
-      onRowClick={props.action ? () => void props.action?.() : undefined}
-      rows={props.rows as ClioDataRow[]}
-    />
   ),
 );
 
@@ -694,8 +668,9 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   Metric,
   ClioProgress,
   Callout,
-  DataTable,
+  ClioDataTableCatalogComponent,
   ClioTimeSeriesCatalogComponent,
+  ClioChartCatalogComponent,
   Mermaid,
   ClioMapCatalogComponent,
   ClioMeshViewportCatalogComponent,

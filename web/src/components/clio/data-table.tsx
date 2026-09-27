@@ -24,12 +24,15 @@ export function ClioDataTable({
   label = 'Data table',
   description,
   onRowClick,
+  selectedRows,
 }: {
   columns: readonly ClioDataColumn[];
   rows: readonly ClioDataRow[];
   label?: string;
   description?: string;
   onRowClick?: (row: ClioDataRow) => void;
+  /** Indexes (into `rows`) to highlight as selected. */
+  selectedRows?: ReadonlySet<number>;
 }) {
   const columns = useMemo<ColumnDef<DataGridFeatures, ClioDataRow, unknown>[]>(
     () =>
@@ -55,7 +58,18 @@ export function ClioDataTable({
     [columnDefinitions],
   );
   const data = useMemo(() => [...rows], [rows]);
-  const table = useTable({ columns, data, features: dataGridFeatures });
+  const rowSelection = useMemo(
+    () =>
+      Object.fromEntries([...(selectedRows ?? [])].map((index) => [String(index), true as const])),
+    [selectedRows],
+  );
+  const table = useTable({
+    columns,
+    data,
+    features: dataGridFeatures,
+    // Row ids are the row's index in `rows` (TanStack's default), matching `selectedRows`.
+    ...(selectedRows ? { state: { rowSelection } } : {}),
+  });
 
   return (
     <DataGrid<DataGridFeatures, ClioDataRow>

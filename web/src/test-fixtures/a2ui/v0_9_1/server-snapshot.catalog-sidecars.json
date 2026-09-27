@@ -140,6 +140,9 @@
       "clio.callout.v1": {
         "kernel": "clio.callout.v1"
       },
+      "clio.chart.v1": {
+        "kernel": "clio.chart.v1"
+      },
       "clio.code.v1": {
         "kernel": "clio.code.v1"
       },

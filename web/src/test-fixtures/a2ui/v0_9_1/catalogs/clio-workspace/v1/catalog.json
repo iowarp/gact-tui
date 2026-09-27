@@ -32,6 +32,43 @@
       },
       "type": "object"
     },
+    "ChartDataQuery": {
+      "additionalProperties": false,
+      "description": "A server-side table query applied to dataUri: columns (projection), filter, aggregate, downsample, limit. Filter/aggregate/downsample entries are open objects the server interprets, bounded in size.",
+      "properties": {
+        "aggregate": {
+          "maxProperties": 16,
+          "type": "object"
+        },
+        "columns": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 256,
+          "type": "array"
+        },
+        "downsample": {
+          "maxProperties": 16,
+          "type": "object"
+        },
+        "filter": {
+          "items": {
+            "maxProperties": 16,
+            "type": "object"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "limit": {
+          "maximum": 1000000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
     "ChoiceOption": {
       "additionalProperties": false,
       "properties": {
@@ -113,6 +150,37 @@
         "label",
         "latitude",
         "longitude"
+      ],
+      "type": "object"
+    },
+    "SelectionState": {
+      "additionalProperties": false,
+      "description": "The value at a bound selection path (/selection/<key>): the selected values of one data field. source is the id of the component that made the selection.",
+      "properties": {
+        "field": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "maxItems": 10000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "field",
+        "values"
       ],
       "type": "object"
     },
@@ -237,6 +305,9 @@
         },
         {
           "$ref": "#/components/clio.callout.v1"
+        },
+        {
+          "$ref": "#/components/clio.chart.v1"
         },
         {
           "$ref": "#/components/clio.code.v1"
@@ -1167,6 +1238,349 @@
       "type": "object",
       "unevaluatedProperties": false
     },
+    "clio.chart.v1": {
+      "allOf": [
+        {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
+        },
+        {
+          "$ref": "#/$defs/CatalogComponentCommon"
+        },
+        {
+          "dependentRequired": {
+            "dataQuery": [
+              "dataUri"
+            ]
+          },
+          "properties": {
+            "colorField": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "component": {
+              "const": "clio.chart.v1"
+            },
+            "data": {
+              "items": {
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "type": "object"
+              },
+              "maxItems": 10000,
+              "type": "array"
+            },
+            "dataQuery": {
+              "$ref": "#/$defs/ChartDataQuery"
+            },
+            "dataUri": {
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            "entityField": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "facetField": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "height": {
+              "maximum": 2000,
+              "minimum": 80,
+              "type": "number"
+            },
+            "preset": {
+              "enum": [
+                "trajectories",
+                "heatmap",
+                "spectra",
+                "boxplot",
+                "scatter"
+              ],
+              "type": "string"
+            },
+            "selection": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue",
+              "description": "Bind to /selection/<key>; the bound value is a SelectionState ({field, values[], source?}, see $defs/SelectionState). Components bound to the same path share one selection."
+            },
+            "selectionField": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "selectionParam": {
+              "default": "sel",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+              "type": "string"
+            },
+            "spec": {
+              "description": "A Vega-Lite spec whose rows come from data/dataUri as the named dataset 'source'. The renderer also applies the spec guard (size, view count, no url/usermeta keys, data only as {name: source}); see a2ui/chart/guard_rules.json.",
+              "propertyNames": {
+                "enum": [
+                  "$schema",
+                  "mark",
+                  "encoding",
+                  "layer",
+                  "facet",
+                  "hconcat",
+                  "vconcat",
+                  "concat",
+                  "repeat",
+                  "spec",
+                  "transform",
+                  "params",
+                  "width",
+                  "height",
+                  "title",
+                  "resolve",
+                  "config",
+                  "autosize",
+                  "description",
+                  "data"
+                ]
+              },
+              "type": "object"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+            },
+            "xField": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "xType": {
+              "enum": [
+                "temporal",
+                "quantitative",
+                "ordinal"
+              ],
+              "type": "string"
+            },
+            "yField": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "component"
+          ],
+          "type": "object"
+        },
+        {
+          "description": "Exactly one of spec or preset; preset fill fields need preset.",
+          "oneOf": [
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "preset"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "xField"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "yField"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "entityField"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "colorField"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "facetField"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "xType"
+                    ]
+                  }
+                ]
+              },
+              "required": [
+                "spec"
+              ]
+            },
+            {
+              "not": {
+                "required": [
+                  "spec"
+                ]
+              },
+              "required": [
+                "preset"
+              ]
+            }
+          ]
+        },
+        {
+          "description": "Exactly one of data or dataUri is required.",
+          "oneOf": [
+            {
+              "not": {
+                "required": [
+                  "dataUri"
+                ]
+              },
+              "required": [
+                "data"
+              ]
+            },
+            {
+              "not": {
+                "required": [
+                  "data"
+                ]
+              },
+              "required": [
+                "dataUri"
+              ]
+            }
+          ]
+        },
+        {
+          "description": "Fields used by the trajectories preset.",
+          "if": {
+            "properties": {
+              "preset": {
+                "const": "trajectories"
+              }
+            },
+            "required": [
+              "preset"
+            ]
+          },
+          "then": {
+            "required": [
+              "xField",
+              "yField",
+              "entityField"
+            ]
+          }
+        },
+        {
+          "description": "Fields used by the heatmap preset.",
+          "if": {
+            "properties": {
+              "preset": {
+                "const": "heatmap"
+              }
+            },
+            "required": [
+              "preset"
+            ]
+          },
+          "then": {
+            "required": [
+              "xField",
+              "yField",
+              "colorField",
+              "entityField"
+            ]
+          }
+        },
+        {
+          "description": "Fields used by the spectra preset.",
+          "if": {
+            "properties": {
+              "preset": {
+                "const": "spectra"
+              }
+            },
+            "required": [
+              "preset"
+            ]
+          },
+          "then": {
+            "required": [
+              "xField",
+              "yField",
+              "entityField"
+            ]
+          }
+        },
+        {
+          "description": "Fields used by the boxplot preset.",
+          "if": {
+            "properties": {
+              "preset": {
+                "const": "boxplot"
+              }
+            },
+            "required": [
+              "preset"
+            ]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "facetField"
+                  ]
+                },
+                {
+                  "required": [
+                    "xType"
+                  ]
+                }
+              ]
+            },
+            "required": [
+              "xField",
+              "yField",
+              "entityField"
+            ]
+          }
+        },
+        {
+          "description": "Fields used by the scatter preset.",
+          "if": {
+            "properties": {
+              "preset": {
+                "const": "scatter"
+              }
+            },
+            "required": [
+              "preset"
+            ]
+          },
+          "then": {
+            "required": [
+              "xField",
+              "yField",
+              "entityField"
+            ]
+          }
+        }
+      ],
+      "description": "A Vega-Lite chart over inline rows (data) or an artifact (dataUri), from a preset or a guarded spec, with a selection bindable to /selection/<key>.",
+      "type": "object",
+      "unevaluatedProperties": false
+    },
     "clio.code.v1": {
       "allOf": [
         {
@@ -1237,7 +1651,7 @@
               "type": "array"
             },
             "selection": {
-              "type": "string"
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue"
             }
           },
           "required": [
@@ -1318,6 +1732,10 @@
             "selected": {
               "maxLength": 128,
               "type": "string"
+            },
+            "selection": {
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue",
+              "description": "Bind to /selection/<key>; the bound value is a SelectionState ({field, values[], source?}, see $defs/SelectionState). Components bound to the same path share one selection."
             },
             "title": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
@@ -1726,7 +2144,7 @@
       "unevaluatedProperties": false
     }
   },
-  "description": "The 32 CLIO scientific-agent A2UI 0.9.1 components, in official catalog-file style.",
+  "description": "The 33 CLIO scientific-agent A2UI 0.9.1 components, in official catalog-file style.",
   "functions": {
     "and": {
       "description": "Performs a logical AND operation on a list of boolean values.",

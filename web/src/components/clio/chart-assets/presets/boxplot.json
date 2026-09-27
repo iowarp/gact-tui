@@ -1,0 +1,117 @@
+{
+  "defaults": {
+    "selectionParam": "sel"
+  },
+  "description": "A box plot of yField for each xField category (split by colorField when given), with every entity drawn as a point on top. Clicking a point selects that entity everywhere it appears.",
+  "optionalFields": [
+    "colorField",
+    "selectionParam"
+  ],
+  "preset": "boxplot",
+  "requiredFields": [
+    "xField",
+    "yField",
+    "entityField"
+  ],
+  "template": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "data": {
+      "name": "source"
+    },
+    "description": "Distribution of {{yField}} by {{xField}}, points per {{entityField}}.",
+    "layer": [
+      {
+        "encoding": {
+          "color": {
+            "$if": "colorField",
+            "then": {
+              "field": "{{colorField}}",
+              "type": "nominal"
+            }
+          },
+          "x": {
+            "field": "{{xField}}",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "{{yField}}",
+            "type": "quantitative"
+          }
+        },
+        "mark": {
+          "extent": 1.5,
+          "outliers": false,
+          "type": "boxplot"
+        }
+      },
+      {
+        "encoding": {
+          "detail": {
+            "field": "{{entityField}}",
+            "type": "nominal"
+          },
+          "opacity": {
+            "condition": {
+              "param": "{{selectionParam}}",
+              "value": 1
+            },
+            "value": 0.2
+          },
+          "size": {
+            "condition": {
+              "param": "{{selectionParam}}",
+              "value": 80
+            },
+            "value": 20
+          },
+          "tooltip": [
+            {
+              "field": "{{entityField}}",
+              "type": "nominal"
+            },
+            {
+              "$if": "colorField",
+              "then": {
+                "field": "{{colorField}}",
+                "type": "nominal"
+              }
+            },
+            {
+              "field": "{{xField}}",
+              "type": "nominal"
+            },
+            {
+              "field": "{{yField}}",
+              "type": "quantitative"
+            }
+          ],
+          "x": {
+            "field": "{{xField}}",
+            "type": "nominal"
+          },
+          "y": {
+            "field": "{{yField}}",
+            "type": "quantitative"
+          }
+        },
+        "mark": {
+          "filled": true,
+          "type": "point"
+        },
+        "params": [
+          {
+            "name": "{{selectionParam}}",
+            "select": {
+              "clear": "dblclick",
+              "fields": [
+                "{{entityField}}"
+              ],
+              "on": "click",
+              "type": "point"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

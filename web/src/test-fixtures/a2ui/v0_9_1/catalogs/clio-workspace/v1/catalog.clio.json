@@ -5,10 +5,12 @@
       "destination": "permission"
     },
     "run.cancel": {
-      "destination": "run"
+      "destination": "run",
+      "operation": "cancel"
     },
     "run.retry": {
-      "destination": "run"
+      "destination": "run",
+      "operation": "retry"
     }
   },
   "implements": {
@@ -71,6 +73,9 @@
     },
     "clio.callout.v1": {
       "kernel": "clio.callout.v1"
+    },
+    "clio.chart.v1": {
+      "kernel": "clio.chart.v1"
     },
     "clio.code.v1": {
       "kernel": "clio.code.v1"

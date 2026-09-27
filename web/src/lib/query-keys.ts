@@ -16,6 +16,7 @@ export type ClioQueryNamespace =
   | 'artifact-mesh'
   | 'artifact-reviews'
   | 'artifact-table-preview'
+  | 'artifact-table-query'
   | 'artifact-text'
   | 'blueprint-files'
   | 'capabilities'

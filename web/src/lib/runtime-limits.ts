@@ -237,6 +237,15 @@ export const PREVIEW_ROW_LIMIT = 1_000;
 export const JSON_TABLE_ROW_LIMIT = 5_000;
 
 /**
+ * Most rows a chart asks the artifact table-query endpoint for. Unit: rows.
+ * A producer's `dataQuery.limit` is honored up to this; the server enforces
+ * its own ceiling (default 50,000) and says when it truncated or downsampled.
+ * Raise it only with the server ceiling: every row becomes a Vega tuple and a
+ * canvas mark, so this bounds chart memory and redraw time.
+ */
+export const TABLE_QUERY_ROW_LIMIT = 50_000;
+
+/**
  * Largest Mermaid source accepted for rendering. Unit: characters.
  * A security and responsiveness bound: the renderer is synchronous, so an
  * unbounded diagram blocks the main thread.

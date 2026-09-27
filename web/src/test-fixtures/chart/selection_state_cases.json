@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "strings",
+      "valid": true,
+      "value": {
+        "field": "run",
+        "values": [
+          "a",
+          "b"
+        ]
+      }
+    },
+    {
+      "name": "numbers-with-source",
+      "valid": true,
+      "value": {
+        "field": "id",
+        "values": [
+          1,
+          2.5
+        ],
+        "source": "ch1"
+      }
+    },
+    {
+      "name": "empty-selection",
+      "valid": true,
+      "value": {
+        "field": "run",
+        "values": []
+      }
+    },
+    {
+      "name": "missing-values",
+      "valid": false,
+      "value": {
+        "field": "run"
+      }
+    },
+    {
+      "name": "missing-field",
+      "valid": false,
+      "value": {
+        "values": [
+          "a"
+        ]
+      }
+    },
+    {
+      "name": "empty-field",
+      "valid": false,
+      "value": {
+        "field": "",
+        "values": [
+          "a"
+        ]
+      }
+    },
+    {
+      "name": "boolean-value",
+      "valid": false,
+      "value": {
+        "field": "run",
+        "values": [
+          true
+        ]
+      }
+    },
+    {
+      "name": "object-value",
+      "valid": false,
+      "value": {
+        "field": "run",
+        "values": [
+          {
+            "a": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "extra-key",
+      "valid": false,
+      "value": {
+        "field": "run",
+        "values": [
+          "a"
+        ],
+        "mode": "toggle"
+      }
+    }
+  ]
+}

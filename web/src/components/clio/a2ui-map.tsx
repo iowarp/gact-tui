@@ -8,7 +8,7 @@ import {
 } from '@clio/core/v3';
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { MapIcon, MapPinIcon } from 'lucide-react';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
 import {
   Frame,
@@ -27,6 +27,12 @@ import {
   type A2UIAccessibility,
 } from './a2ui-accessibility';
 import type { ScientificMapPoint } from './scientific-map-view';
+import {
+  isBoundToPath,
+  parseSelectionState,
+  selectionIncludes,
+  type SelectionWriter,
+} from './selection-state';
 
 const ClioScientificMapView = lazy(() =>
   import('./scientific-map-view').then((module) => ({ default: module.ClioScientificMapView })),
@@ -50,6 +56,20 @@ interface ClioMapProps {
   selected?: string;
   action?: () => void;
   actionLabel?: string;
+  /** The map component's id, written as a selection's `source`. */
+  componentId?: string;
+  /** The resolved `selection` value; a `SelectionState` when bound to `/selection/<key>`. */
+  selection?: unknown;
+  /** Present only when `selection` is bound to a data-model path. */
+  setSelection?: SelectionWriter;
+}
+
+/** Point properties a linked selection may name; any other field selects by `id`. */
+const SELECTABLE_POINT_FIELDS = ['id', 'label', 'category'] as const;
+type SelectablePointField = (typeof SELECTABLE_POINT_FIELDS)[number];
+
+function isSelectablePointField(field: string): field is SelectablePointField {
+  return (SELECTABLE_POINT_FIELDS as readonly string[]).includes(field);
 }
 
 export function ClioScientificMap({
@@ -59,10 +79,45 @@ export function ClioScientificMap({
   selected,
   action,
   actionLabel = 'Use selected location',
+  componentId,
+  selection,
+  setSelection,
 }: ClioMapProps) {
-  const [selectedId, setSelectedId] = useState(
+  const [localId, setLocalId] = useState(
     points.some((point) => point.id === selected) ? selected : points[0]?.id,
   );
+  // Bound: the shared selection decides; unbound (or nothing there yet): local state and `selected`.
+  const state = useMemo(
+    () => (setSelection ? parseSelectionState(selection) : undefined),
+    [selection, setSelection],
+  );
+  const field: SelectablePointField =
+    state && isSelectablePointField(state.field) ? state.field : 'id';
+  const boundIds = useMemo(
+    () =>
+      state
+        ? new Set(
+            points
+              .filter((point) => selectionIncludes(state, point[field]))
+              .map((point) => point.id),
+          )
+        : undefined,
+    [field, points, state],
+  );
+  const selectedId = boundIds
+    ? localId !== undefined && boundIds.has(localId)
+      ? localId
+      : boundIds.values().next().value
+    : localId;
+  const isSelected = (id: string) => (boundIds ? boundIds.has(id) : id === selectedId);
+  const setSelectedId = (id: string) => {
+    setLocalId(id);
+    const point = points.find((candidate) => candidate.id === id);
+    const value = point?.[field];
+    if (setSelection && value !== undefined) {
+      setSelection({ field, values: [value], ...(componentId ? { source: componentId } : {}) });
+    }
+  };
   const surfaceRef = useRef<HTMLDivElement>(null);
   const sideBySide = useContainerQuery(surfaceRef, 700);
   const selectedPoint = points.find((point) => point.id === selectedId);
@@ -128,10 +183,10 @@ export function ClioScientificMap({
             <div className={cn('max-h-64 flex-1 overflow-y-auto p-2', sideBySide && 'max-h-none')}>
               {points.map((point) => (
                 <Button
-                  aria-pressed={point.id === selectedId}
+                  aria-pressed={isSelected(point.id)}
                   className={cn(
                     'mb-1 h-auto w-full justify-start gap-2 px-2 py-2 text-left',
-                    point.id === selectedId && 'border-primary/50 bg-primary/10',
+                    isSelected(point.id) && 'border-primary/50 bg-primary/10',
                   )}
                   key={point.id}
                   onClick={() => setSelectedId(point.id)}
@@ -182,6 +237,8 @@ export const ClioMapCatalogComponent = createComponentImplementation(
         title: CommonSchemas.DynamicString.optional(),
         points: z.array(pointSchema).min(1).max(A2UI_MAP_POINTS_MAX),
         selected: z.string().optional(),
+        // clio-schemas 0.5.0: bind to `/selection/<key>` to share the selection.
+        selection: CommonSchemas.DynamicValue.optional(),
         action: CommonSchemas.Action.optional(),
         actionLabel: CommonSchemas.DynamicString.optional(),
         accessibility: CommonSchemas.AccessibilityAttributes.optional(),
@@ -189,13 +246,20 @@ export const ClioMapCatalogComponent = createComponentImplementation(
       })
       .strict(),
   },
-  ({ props }) => (
+  ({ props, context }) => (
     <ClioScientificMap
       accessibility={props.accessibility}
       action={props.action}
       actionLabel={props.actionLabel}
+      componentId={context.componentModel.id}
       points={props.points}
       selected={props.selected}
+      selection={props.selection}
+      setSelection={
+        isBoundToPath(context.componentModel.properties.selection)
+          ? (props.setSelection as unknown as SelectionWriter)
+          : undefined
+      }
       title={props.title}
     />
   ),

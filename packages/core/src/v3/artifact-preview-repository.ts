@@ -36,6 +36,46 @@ const artifactTablePreviewSchema = z
 
 export type ArtifactTablePreview = z.infer<typeof artifactTablePreviewSchema>;
 
+/**
+ * `POST /v1/artifacts/{id}/table-query` request: a projection, AND-ed
+ * filters, an optional aggregate and downsample (open objects the server
+ * validates), and the row budget the caller will accept.
+ */
+export interface ArtifactTableQueryRequest {
+  columns: readonly string[];
+  filter?: readonly Record<string, unknown>[];
+  aggregate?: Record<string, unknown>;
+  downsample?: Record<string, unknown>;
+  limit: number;
+}
+
+const tableQueryValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const artifactTableQuerySchema = z
+  .object({
+    artifact_id: z.string().optional(),
+    schema: z.array(z.object({ name: z.string(), type: z.string() }).passthrough()),
+    columns: z.record(z.array(tableQueryValueSchema)),
+    totalRows: z.number().int().nonnegative(),
+    matchedRows: z.number().int().nonnegative().optional(),
+    returnedRows: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    downsample: z.object({ mode: z.string() }).passthrough(),
+  })
+  .passthrough()
+  .superRefine((value, context) => {
+    for (const [name, values] of Object.entries(value.columns)) {
+      if (values.length !== value.returnedRows) {
+        context.addIssue({
+          code: 'custom',
+          message: `column ${name} does not match the returned row count`,
+        });
+      }
+    }
+  });
+
+/** A columnar slice of a registered table: one array per column, all `returnedRows` long. */
+export type ArtifactTableQueryResult = z.infer<typeof artifactTableQuerySchema>;
+
 /** Bounded structured previews for immutable registered artifacts. */
 export class ArtifactPreviewRepository extends ProviderRepository {
   public artifactTablePreview(
@@ -60,6 +100,30 @@ export class ArtifactPreviewRepository extends ProviderRepository {
           throw new Error('Artifact preview exceeded the requested row limit.');
         }
         return preview;
+      },
+      signal,
+    });
+  }
+
+  /** Filter → aggregate → downsample → limit over a registered CSV/Parquet artifact. */
+  public artifactTableQuery(
+    artifactId: string,
+    query: ArtifactTableQueryRequest,
+    signal?: AbortSignal,
+  ): Promise<ArtifactTableQueryResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/artifacts/${encodeURIComponent(artifactId)}/table-query`,
+      body: { ...query, format: 'json' },
+      decode: (value) => {
+        const result = artifactTableQuerySchema.parse(value);
+        if (result.artifact_id !== undefined && result.artifact_id !== artifactId) {
+          throw new Error('Artifact table query identity did not match the requested artifact.');
+        }
+        if (result.returnedRows > query.limit) {
+          throw new Error('Artifact table query exceeded the requested row limit.');
+        }
+        return result;
       },
       signal,
     });

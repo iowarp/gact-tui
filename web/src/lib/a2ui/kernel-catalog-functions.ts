@@ -79,10 +79,21 @@ const selectDataFunction = createFunctionImplementation(
     schema: z.object({ rowIds: z.array(z.string()), surfaceId: z.string().optional() }),
   },
   () => {
-    // No workspace-level row-selection state exists to update yet; the
-    // function still resolves locally and never reaches the server, which is
-    // the feature this replaces (`data.select` used to be a LOCAL_ACTIONS
-    // no-op too — see docs/design/a2ui-compat-campaign-2026-09.md S6).
+    // Deliberately writes nothing. A function CAN reach the data model — its
+    // `context` is the calling component's DataContext, and `context.set()`
+    // works — but the clio-workspace/v1 catalog (clio-schemas 0.5.0) gives
+    // `selectData` only `{rowIds, surfaceId?}` (closed: unevaluatedProperties
+    // false): no selection path and no field. So there is no SelectionState
+    // to build and nowhere defined to put it, and guessing a
+    // `/selection/<key>` would invent a contract no producer can see.
+    // Linked selection works without it: components share one by binding
+    // their `selection` prop to `/selection/<key>`
+    // (`components/clio/selection-state.ts`). The function still resolves
+    // locally and never reaches the server (`data.select` used to be a
+    // LOCAL_ACTIONS no-op too — docs/design/a2ui-compat-campaign-2026-09.md S6).
+    // TODO(clio-schemas): add `path` (a /selection/<key> pointer) and `field`
+    // args to selectData, then write `{field, values: rowIds, source}` here
+    // with `context.set(path, …)`.
   },
 );
 

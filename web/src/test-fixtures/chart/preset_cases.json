@@ -1,0 +1,589 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "trajectories-minimal",
+      "preset": "trajectories",
+      "fields": {
+        "xField": "step",
+        "yField": "loss",
+        "entityField": "run"
+      },
+      "expected": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "data": {
+          "name": "source"
+        },
+        "description": "loss over step, one line per run.",
+        "encoding": {
+          "color": {
+            "field": "run",
+            "legend": null,
+            "type": "nominal"
+          },
+          "detail": {
+            "field": "run",
+            "type": "nominal"
+          },
+          "opacity": {
+            "condition": {
+              "param": "sel",
+              "value": 1
+            },
+            "value": 0.15
+          },
+          "strokeWidth": {
+            "condition": {
+              "param": "sel",
+              "value": 3
+            },
+            "value": 1
+          },
+          "tooltip": [
+            {
+              "field": "run",
+              "type": "nominal"
+            },
+            {
+              "field": "step",
+              "type": "quantitative"
+            },
+            {
+              "field": "loss",
+              "type": "quantitative"
+            }
+          ],
+          "x": {
+            "field": "step",
+            "type": "quantitative"
+          },
+          "y": {
+            "field": "loss",
+            "type": "quantitative"
+          }
+        },
+        "mark": {
+          "point": true,
+          "type": "line"
+        },
+        "params": [
+          {
+            "name": "sel",
+            "select": {
+              "clear": "dblclick",
+              "fields": [
+                "run"
+              ],
+              "on": "click",
+              "type": "point"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "trajectories-temporal-grouped-faceted",
+      "preset": "trajectories",
+      "fields": {
+        "xField": "time",
+        "yField": "disp_mm",
+        "entityField": "station",
+        "colorField": "network",
+        "facetField": "component",
+        "xType": "temporal"
+      },
+      "expected": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "data": {
+          "name": "source"
+        },
+        "description": "disp_mm over time, one line per station.",
+        "encoding": {
+          "color": {
+            "field": "network",
+            "type": "nominal"
+          },
+          "detail": {
+            "field": "station",
+            "type": "nominal"
+          },
+          "facet": {
+            "columns": 3,
+            "field": "component",
+            "type": "nominal"
+          },
+          "opacity": {
+            "condition": {
+              "param": "sel",
+              "value": 1
+            },
+            "value": 0.15
+          },
+          "strokeWidth": {
+            "condition": {
+              "param": "sel",
+              "value": 3
+            },
+            "value": 1
+          },
+          "tooltip": [
+            {
+              "field": "station",
+              "type": "nominal"
+            },
+            {
+              "field": "network",
+              "type": "nominal"
+            },
+            {
+              "field": "time",
+              "type": "temporal"
+            },
+            {
+              "field": "disp_mm",
+              "type": "quantitative"
+            }
+          ],
+          "x": {
+            "field": "time",
+            "type": "temporal"
+          },
+          "y": {
+            "field": "disp_mm",
+            "type": "quantitative"
+          }
+        },
+        "mark": {
+          "point": true,
+          "type": "line"
+        },
+        "params": [
+          {
+            "name": "sel",
+            "select": {
+              "clear": "dblclick",
+              "fields": [
+                "station"
+              ],
+              "on": "click",
+              "type": "point"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "spectra-minimal",
+      "preset": "spectra",
+      "fields": {
+        "xField": "wavelength_nm",
+        "yField": "absorbance",
+        "entityField": "sample"
+      },
+      "expected": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "data": {
+          "name": "source"
+        },
+        "description": "absorbance against wavelength_nm, one curve per sample.",
+        "encoding": {
+          "color": {
+            "field": "sample",
+            "legend": null,
+            "type": "nominal"
+          },
+          "detail": {
+            "field": "sample",
+            "type": "nominal"
+          },
+          "opacity": {
+            "condition": {
+              "param": "sel",
+              "value": 1
+            },
+            "value": 0.15
+          },
+          "strokeWidth": {
+            "condition": {
+              "param": "sel",
+              "value": 2.5
+            },
+            "value": 1
+          },
+          "tooltip": [
+            {
+              "field": "sample",
+              "type": "nominal"
+            },
+            {
+              "field": "wavelength_nm",
+              "type": "quantitative"
+            },
+            {
+              "field": "absorbance",
+              "type": "quantitative"
+            }
+          ],
+          "x": {
+            "field": "wavelength_nm",
+            "type": "quantitative"
+          },
+          "y": {
+            "field": "absorbance",
+            "type": "quantitative"
+          }
+        },
+        "mark": {
+          "interpolate": "linear",
+          "type": "line"
+        },
+        "params": [
+          {
+            "name": "sel",
+            "select": {
+              "clear": "dblclick",
+              "fields": [
+                "sample"
+              ],
+              "on": "click",
+              "type": "point"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "heatmap-minimal",
+      "preset": "heatmap",
+      "fields": {
+        "xField": "hour",
+        "yField": "sensor",
+        "colorField": "temp_c",
+        "entityField": "sensor"
+      },
+      "expected": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "data": {
+          "name": "source"
+        },
+        "description": "temp_c by hour and sensor.",
+        "encoding": {
+          "color": {
+            "field": "temp_c",
+            "type": "quantitative"
+          },
+          "opacity": {
+            "condition": {
+              "param": "sel",
+              "value": 1
+            },
+            "value": 0.3
+          },
+          "stroke": {
+            "condition": {
+              "empty": false,
+              "param": "sel",
+              "value": "black"
+            },
+            "value": null
+          },
+          "strokeWidth": {
+            "condition": {
+              "empty": false,
+              "param": "sel",
+              "value": 2
+            },
+            "value": 0
+          },
+          "tooltip": [
+            {
+              "field": "sensor",
+              "type": "nominal"
+            },
+            {
+              "field": "hour",
+              "type": "ordinal"
+            },
+            {
+              "field": "sensor",
+              "type": "ordinal"
+            },
+            {
+              "field": "temp_c",
+              "type": "quantitative"
+            }
+          ],
+          "x": {
+            "field": "hour",
+            "type": "ordinal"
+          },
+          "y": {
+            "field": "sensor",
+            "type": "ordinal"
+          }
+        },
+        "mark": {
+          "type": "rect"
+        },
+        "params": [
+          {
+            "name": "sel",
+            "select": {
+              "clear": "dblclick",
+              "fields": [
+                "sensor"
+              ],
+              "on": "click",
+              "type": "point"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "boxplot-grouped",
+      "preset": "boxplot",
+      "fields": {
+        "xField": "treatment",
+        "yField": "yield",
+        "entityField": "plot",
+        "colorField": "site"
+      },
+      "expected": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "data": {
+          "name": "source"
+        },
+        "description": "Distribution of yield by treatment, points per plot.",
+        "layer": [
+          {
+            "encoding": {
+              "color": {
+                "field": "site",
+                "type": "nominal"
+              },
+              "x": {
+                "field": "treatment",
+                "type": "nominal"
+              },
+              "y": {
+                "field": "yield",
+                "type": "quantitative"
+              }
+            },
+            "mark": {
+              "extent": 1.5,
+              "outliers": false,
+              "type": "boxplot"
+            }
+          },
+          {
+            "encoding": {
+              "detail": {
+                "field": "plot",
+                "type": "nominal"
+              },
+              "opacity": {
+                "condition": {
+                  "param": "sel",
+                  "value": 1
+                },
+                "value": 0.2
+              },
+              "size": {
+                "condition": {
+                  "param": "sel",
+                  "value": 80
+                },
+                "value": 20
+              },
+              "tooltip": [
+                {
+                  "field": "plot",
+                  "type": "nominal"
+                },
+                {
+                  "field": "site",
+                  "type": "nominal"
+                },
+                {
+                  "field": "treatment",
+                  "type": "nominal"
+                },
+                {
+                  "field": "yield",
+                  "type": "quantitative"
+                }
+              ],
+              "x": {
+                "field": "treatment",
+                "type": "nominal"
+              },
+              "y": {
+                "field": "yield",
+                "type": "quantitative"
+              }
+            },
+            "mark": {
+              "filled": true,
+              "type": "point"
+            },
+            "params": [
+              {
+                "name": "sel",
+                "select": {
+                  "clear": "dblclick",
+                  "fields": [
+                    "plot"
+                  ],
+                  "on": "click",
+                  "type": "point"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "scatter-custom-selection-param",
+      "preset": "scatter",
+      "fields": {
+        "xField": "porosity",
+        "yField": "permeability",
+        "entityField": "core",
+        "selectionParam": "picked"
+      },
+      "expected": {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "data": {
+          "name": "source"
+        },
+        "description": "permeability against porosity, one point per row.",
+        "encoding": {
+          "opacity": {
+            "condition": {
+              "param": "picked",
+              "value": 1
+            },
+            "value": 0.15
+          },
+          "size": {
+            "condition": {
+              "param": "picked",
+              "value": 90
+            },
+            "value": 30
+          },
+          "tooltip": [
+            {
+              "field": "core",
+              "type": "nominal"
+            },
+            {
+              "field": "porosity",
+              "type": "quantitative"
+            },
+            {
+              "field": "permeability",
+              "type": "quantitative"
+            }
+          ],
+          "x": {
+            "field": "porosity",
+            "type": "quantitative"
+          },
+          "y": {
+            "field": "permeability",
+            "type": "quantitative"
+          }
+        },
+        "mark": {
+          "filled": true,
+          "type": "point"
+        },
+        "params": [
+          {
+            "name": "picked",
+            "select": {
+              "clear": "dblclick",
+              "fields": [
+                "core"
+              ],
+              "on": "click",
+              "type": "point"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "errorCases": [
+    {
+      "name": "missing-entity-field",
+      "preset": "trajectories",
+      "fields": {
+        "xField": "t",
+        "yField": "v"
+      }
+    },
+    {
+      "name": "heatmap-missing-color-field",
+      "preset": "heatmap",
+      "fields": {
+        "xField": "x",
+        "yField": "y",
+        "entityField": "e"
+      }
+    },
+    {
+      "name": "boxplot-does-not-facet",
+      "preset": "boxplot",
+      "fields": {
+        "xField": "g",
+        "yField": "v",
+        "entityField": "e",
+        "facetField": "f"
+      }
+    },
+    {
+      "name": "boxplot-has-no-x-type",
+      "preset": "boxplot",
+      "fields": {
+        "xField": "g",
+        "yField": "v",
+        "entityField": "e",
+        "xType": "ordinal"
+      }
+    },
+    {
+      "name": "bad-x-type",
+      "preset": "scatter",
+      "fields": {
+        "xField": "x",
+        "yField": "y",
+        "entityField": "e",
+        "xType": "nominal"
+      }
+    },
+    {
+      "name": "bad-selection-param",
+      "preset": "scatter",
+      "fields": {
+        "xField": "x",
+        "yField": "y",
+        "entityField": "e",
+        "selectionParam": "1 sel"
+      }
+    },
+    {
+      "name": "unknown-preset",
+      "preset": "violin",
+      "fields": {
+        "xField": "x",
+        "yField": "y",
+        "entityField": "e"
+      }
+    }
+  ]
+}
