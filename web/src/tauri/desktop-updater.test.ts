@@ -40,6 +40,7 @@ import {
 } from '@/lib/runtime-limits';
 import {
   checkForDesktopUpdate,
+  classifyUpdateError,
   describeUpdateError,
   DESKTOP_UPDATE_TOAST_ID,
   installDesktopUpdate,
@@ -111,6 +112,39 @@ describe('describeUpdateError', () => {
   it('falls through to the real message for anything unrecognized, and to a fixed fallback for none', () => {
     expect(describeUpdateError(new Error('network unreachable'))).toBe('network unreachable');
     expect(describeUpdateError('not an Error instance')).toBe('not an Error instance');
+  });
+
+  it('types every failure so the version panel can say what happened', () => {
+    expect(
+      classifyUpdateError(new Error('Could not fetch a valid release JSON from the remote')).reason,
+    ).toBe('manifest_not_published');
+    expect(
+      classifyUpdateError(
+        new Error('the platform `windows-x86_64` was not found in the response `platforms` object'),
+      ).reason,
+    ).toBe('platform_not_published');
+    expect(classifyUpdateError(new Error('The signature verification failed')).reason).toBe(
+      'signature_mismatch',
+    );
+    expect(classifyUpdateError(new Error('network unreachable'))).toEqual({
+      reason: 'unreachable',
+      message: 'network unreachable',
+    });
+  });
+
+  it('records the typed reason on a failed check snapshot', async () => {
+    mocks.check.mockRejectedValueOnce(
+      new Error('Could not fetch a valid release JSON from the remote'),
+    );
+
+    await expect(checkForDesktopUpdate()).rejects.toThrow();
+
+    const { getDesktopUpdateSnapshot } = await import('./desktop-updater');
+    expect(getDesktopUpdateSnapshot()).toEqual({
+      status: 'error',
+      message: 'No update manifest published yet',
+      reason: 'manifest_not_published',
+    });
   });
 
   it('surfaces the manifest_404 mapping from a real background check failure instead of a blank result', async () => {
@@ -248,4 +282,3 @@ describe('background update scheduling', () => {
     }
   });
 });
-

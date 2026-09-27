@@ -2,7 +2,6 @@ import type { Session } from '@clio/core/v3';
 import { describe, expect, it } from 'vitest';
 import {
   isPrimarySession,
-  isWorkspaceNavigationSession,
   sessionInteractionAt,
   visibleWorkspaceSessions,
 } from './recent-sessions';
@@ -60,9 +59,9 @@ describe('visibleWorkspaceSessions', () => {
     expect(visibleWorkspaceSessions([child, parent], 'ws_1', '')).toEqual([parent]);
   });
 
-  it('keeps zero-message landing drafts out of workspace navigation', () => {
-    const draft = {
-      ...session('draft', 'New conversation', '2026-08-24T00:01:00Z'),
+  it('lists every primary session, including ones with no messages yet', () => {
+    const named = {
+      ...session('named', 'night autoscroll test', '2026-08-24T00:01:00Z'),
       message_count: 0,
     };
     const established = {
@@ -71,10 +70,8 @@ describe('visibleWorkspaceSessions', () => {
     };
     const legacy = session('legacy', 'Legacy conversation', '2026-08-23T00:00:00Z');
 
-    expect(isPrimarySession(draft)).toBe(true);
-    expect(isWorkspaceNavigationSession(draft)).toBe(false);
-    expect(isWorkspaceNavigationSession(legacy)).toBe(true);
-    expect(visibleWorkspaceSessions([draft, established, legacy], 'ws_1', '')).toEqual([
+    expect(visibleWorkspaceSessions([named, established, legacy], 'ws_1', '')).toEqual([
+      named,
       established,
       legacy,
     ]);
