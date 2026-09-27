@@ -331,9 +331,26 @@ function sourceLabel(source: string): string {
   );
 }
 
-/** Where a tag came from, as a person reads it ("From OpenRouter."). */
+/** Sources that are all the provider itself, in different forms (its report,
+ * its API type, its model list, a live check of it). */
+const PROVIDER_SOURCES = new Set(['server_report', 'dialect', 'catalog', 'probe']);
+
+/**
+ * Where a tag came from, as a person reads it ("From OpenRouter."). Several
+ * forms of the provider agreeing read as one "the provider"; a single source
+ * keeps its own name, and distinct sources stay listed.
+ */
 export function modelCapabilityTagSource(tag: ModelCapabilityTag): string {
-  const labels = [...new Set(tag.evidence.map((row) => sourceLabel(row.source)))];
+  const sources = [...new Set(tag.evidence.map((row) => row.source))];
+  const labels = [
+    ...new Set(
+      sources.map((source) =>
+        sources.length > 1 && PROVIDER_SOURCES.has(source)
+          ? SOURCE_LABELS.server_report
+          : sourceLabel(source),
+      ),
+    ),
+  ];
   const names = labels.length ? labels : [sourceLabel('')];
   const joined =
     names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];

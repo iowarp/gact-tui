@@ -154,6 +154,20 @@ describe('modelCapabilityTagsFromOption (service capability_tags)', () => {
     expect(tagFilterToken(task)).toBe('task:classification');
   });
 
+  it('sources that are all the provider read as one; distinct sources stay listed', () => {
+    const tag = (sources: string[]) => ({
+      axis: 'capability' as const,
+      value: 'reasoning',
+      evidence: sources.map((source) => ({ source })),
+    });
+    expect(modelCapabilityTagSource(tag(['dialect', 'server_report']))).toBe('From the provider.');
+    expect(modelCapabilityTagSource(tag(['hf_repo', 'dialect', 'server_report']))).toBe(
+      'From Hugging Face and the provider.',
+    );
+    // One source keeps its own name.
+    expect(modelCapabilityTagSource(tag(['dialect']))).toBe("From the provider's API type.");
+  });
+
   it('the free router is free and a router; agreeing sources are all named', () => {
     const [free] = options([FREE_ROUTER_TAGS]);
     const tags = modelCapabilityTagsFromOption(free!);
