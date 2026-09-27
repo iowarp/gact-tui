@@ -11,7 +11,6 @@ import { useConversationDisplay } from '@/providers/conversation-display-provide
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioTranscriptMinimap } from './transcript-minimap';
-import { ClioAttentionMinimap } from './attention-minimap';
 import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
 import {
@@ -281,12 +280,7 @@ function ConversationBody({
         <>
           <ClioTranscriptMinimap
             activeIndex={activeMessageIndex}
-            messages={messages}
-            onJump={jumpToMessage}
-            visible={minimapVisible}
-          />
-          <ClioAttentionMinimap
-            data={entities.attentionData}
+            attention={entities.attentionData}
             messages={messages}
             onJump={jumpToMessage}
             visible={minimapVisible}

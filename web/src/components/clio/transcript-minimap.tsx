@@ -1,4 +1,4 @@
-import type { Message } from '@clio/core/v3';
+import type { AttentionAvailable, Message } from '@clio/core/v3';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ListTreeIcon } from 'lucide-react';
 import { lazy, Suspense, useLayoutEffect, useRef, useState } from 'react';
@@ -8,6 +8,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { truncate } from '@/lib/format';
 import { handleScrollableRegionKeys } from '@/lib/scrollable-region-keys';
 import { TRANSCRIPT_PREVIEW_TRUNCATE_CHARS } from '@/lib/runtime-limits';
+import { type AttentionMinimapMark, attentionMinimapMarks } from '@/lib/attention-minimap-marks';
+import { formatSharePercent } from '@/lib/attention-text';
+import { magnifyRows } from '@/lib/minimap-magnify';
 import { cn } from '@/lib/utils';
 
 // Same lazy split the transcript itself uses: a minimap must not pull the
@@ -28,6 +31,8 @@ function PreviewMarkdown({ className, children }: { className?: string; children
 
 interface ClioTranscriptMinimapProps {
   activeIndex: number;
+  /** While attention mode is shown: landmarks turn into heat marks. */
+  attention?: AttentionAvailable;
   messages: readonly Message[];
   onJump: (index: number) => void;
   visible: boolean;
@@ -35,6 +40,7 @@ interface ClioTranscriptMinimapProps {
 
 export function ClioTranscriptMinimap({
   activeIndex,
+  attention,
   messages,
   onJump,
   visible,
@@ -66,7 +72,14 @@ export function ClioTranscriptMinimap({
       </Popover>
     );
   }
-  return <MinimapRail activeIndex={activeIndex} messages={messages} onJump={onJump} />;
+  return (
+    <MinimapRail
+      activeIndex={activeIndex}
+      attention={attention}
+      messages={messages}
+      onJump={onJump}
+    />
+  );
 }
 
 function TranscriptOutlineList({
@@ -188,20 +201,30 @@ function TranscriptOutlineItem({
 
 function MinimapRail({
   activeIndex,
+  attention,
   messages,
   onJump,
 }: Omit<ClioTranscriptMinimapProps, 'visible'>) {
   const railRef = useRef<HTMLDivElement>(null);
+  const [pointerY, setPointerY] = useState<number | null>(null);
+  const heat = new Map<number, AttentionMinimapMark>(
+    attentionMinimapMarks(attention, messages).map((mark) => [mark.messageIndex, mark]),
+  );
   const lastRevealedActiveIndexRef = useRef<number | null>(null);
   // TanStack Virtual intentionally returns non-memoizable functions; this component owns them.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
     count: messages.length,
-    estimateSize: () => 11,
+    estimateSize: () => ROW_HEIGHT,
     getScrollElement: () => railRef.current,
     overscan: 10,
   });
   const rows = virtualizer.getVirtualItems();
+  const placed = magnifyRows(
+    rows.map((row) => row.start),
+    ROW_HEIGHT,
+    pointerY,
+  );
   useLayoutEffect(() => {
     if (activeIndex < 0 || lastRevealedActiveIndexRef.current === activeIndex) return;
     const rail = railRef.current;
@@ -213,30 +236,47 @@ function MinimapRail({
   }, [activeIndex, messages.length, virtualizer]);
   const content = (
     <div className="flex min-h-full w-full items-center" data-slot="transcript-minimap-landmarks">
-      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-        {rows.map((row) => {
+      <div
+        className="relative w-full"
+        onPointerLeave={() => setPointerY(null)}
+        onPointerMove={(event) =>
+          setPointerY(event.clientY - event.currentTarget.getBoundingClientRect().top)
+        }
+        style={{ height: virtualizer.getTotalSize() }}
+      >
+        {rows.map((row, position) => {
           const message = messages[row.index];
           if (!message) return null;
+          const mark = heat.get(row.index);
+          const look = attention ? heatLook(mark) : landmarkLook(message);
+          const active = row.index === activeIndex;
+          const lift = Math.max(placed[position]?.lift ?? 0, active ? 1 : 0);
           return (
             <HoverCard key={message.id} openDelay={120}>
               <HoverCardTrigger asChild>
                 <button
                   aria-label={`Jump to ${message.role} message ${row.index + 1}`}
-                  aria-current={row.index === activeIndex ? 'location' : undefined}
+                  aria-current={active ? 'location' : undefined}
                   className="group absolute left-0 flex h-[11px] w-full items-center outline-none"
                   onClick={() => onJump(row.index)}
-                  style={{ transform: `translateY(${row.start}px)` }}
+                  style={{
+                    transform: `translateY(${placed[position]?.y ?? row.start}px)`,
+                    transition: 'transform 120ms ease-out',
+                  }}
                   type="button"
                 >
                   <span
                     className={cn(
-                      'rounded-full transition-[width,height,opacity] duration-150 ease-out',
-                      landmarkClass(message),
-                      row.index === activeIndex
-                        ? 'h-1 w-5 opacity-100'
-                        : 'h-0.5 opacity-60 group-hover:h-1 group-hover:w-5 group-hover:opacity-100 group-focus-visible:h-1 group-focus-visible:w-5 group-focus-visible:opacity-100',
+                      'rounded-full transition-[width,height,opacity] duration-150 ease-out group-focus-visible:opacity-100',
+                      look.color,
                     )}
+                    data-heat={mark?.bucket}
                     data-slot="transcript-minimap-landmark"
+                    style={{
+                      height: 2 + 2 * lift,
+                      opacity: look.opacity + (1 - look.opacity) * lift,
+                      width: look.base + (MAX_WIDTH - look.base) * lift,
+                    }}
                   />
                 </button>
               </HoverCardTrigger>
@@ -250,6 +290,11 @@ function MinimapRail({
                 <p className="text-xs font-medium capitalize text-muted-foreground">
                   {message.role}
                 </p>
+                {mark ? (
+                  <p className="mt-1 text-xs text-chart-5">
+                    {formatSharePercent(mark.totalShare)} of attention traced here
+                  </p>
+                ) : null}
                 <PreviewMarkdown className="mt-1 line-clamp-3 text-sm">
                   {messagePreview(message)}
                 </PreviewMarkdown>
@@ -261,7 +306,7 @@ function MinimapRail({
     </div>
   );
   return (
-    <aside aria-label="Transcript minimap" className="absolute inset-y-3 left-1 z-10 w-6">
+    <aside aria-label="Transcript minimap" className="absolute inset-y-3 left-1 z-10 w-7">
       <div
         aria-label="Browse transcript landmarks"
         className="h-full overflow-y-auto overscroll-y-contain px-0.5 outline-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -277,19 +322,48 @@ function MinimapRail({
   );
 }
 
-function landmarkClass(message: Message): string {
-  if (message.blocks.some((block) => block.type === 'error')) return 'w-3 bg-destructive';
-  if (message.blocks.some((block) => block.type === 'a2ui')) return 'w-2.5 bg-violet-500';
-  if (message.blocks.some((block) => block.type === 'artifact')) return 'w-2.5 bg-amber-500';
+const ROW_HEIGHT = 11;
+/** The length (px) a landmark reaches under the pointer. */
+const MAX_WIDTH = 24;
+
+interface LandmarkLook {
+  color: string;
+  /** Resting length (px). */
+  base: number;
+  /** Resting opacity. */
+  opacity: number;
+}
+
+/**
+ * Attention mode: heated messages are red, longer and stronger with their
+ * share of the attention; the rest fade back so the heat stands out.
+ */
+const HEAT_LOOKS: readonly LandmarkLook[] = [
+  { color: 'bg-chart-5', base: 8, opacity: 0.5 },
+  { color: 'bg-chart-5', base: 11, opacity: 0.7 },
+  { color: 'bg-chart-5', base: 15, opacity: 0.85 },
+  { color: 'bg-chart-5', base: 20, opacity: 1 },
+];
+
+function heatLook(mark: AttentionMinimapMark | undefined): LandmarkLook {
+  if (!mark) return { color: 'bg-muted-foreground', base: 5, opacity: 0.25 };
+  return HEAT_LOOKS[mark.bucket] ?? HEAT_LOOKS[0]!;
+}
+
+function landmarkLook(message: Message): LandmarkLook {
+  const look = (color: string, base: number): LandmarkLook => ({ color, base, opacity: 0.6 });
+  if (message.blocks.some((block) => block.type === 'error')) return look('bg-destructive', 12);
+  if (message.blocks.some((block) => block.type === 'a2ui')) return look('bg-violet-500', 10);
+  if (message.blocks.some((block) => block.type === 'artifact')) return look('bg-amber-500', 10);
   if (message.blocks.some((block) => block.type === 'action_card')) {
-    return 'w-2.5 bg-orange-500';
+    return look('bg-orange-500', 10);
   }
   if (
     message.blocks.some((block) => ['reasoning', 'task', 'tool', 'subagent'].includes(block.type))
   ) {
-    return 'w-2 bg-cyan-500';
+    return look('bg-cyan-500', 8);
   }
-  return message.role === 'user' ? 'w-3 bg-primary' : 'w-2.5 bg-muted-foreground';
+  return message.role === 'user' ? look('bg-primary', 12) : look('bg-muted-foreground', 10);
 }
 
 /**
