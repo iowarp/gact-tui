@@ -103,6 +103,14 @@ export function providerAvailability(
       detail: providerStatusDetail(preset, 'Run a provider check to verify sign-in.'),
     };
   }
+  if (preset?.status === 'support_restoring') {
+    // The agent is reinstalling support it had before an update replaced its runtime.
+    return {
+      label: 'Restoring',
+      value: 'degraded',
+      detail: providerStatusDetail(preset, `Restoring ${providerName(preset)} support…`),
+    };
+  }
   if (preset?.status === 'install_required') {
     return {
       label: 'Install needed',
@@ -158,6 +166,7 @@ export function providerNeedsReauthentication(
 export function providerPrimaryAction(preset: LanguageModelPreset | undefined): ProviderPrimaryAction {
   if (!preset) return 'none';
   if (preset.status === 'install_required') return 'install';
+  if (preset.status === 'support_restoring') return 'none';
   if (!preset.is_authenticated && (preset.auth_method === 'oauth' || preset.auth_method === 'subscription'))
     return 'sign_in';
   if (preset.requires_api_key && !preset.is_authenticated) return 'api_key';

@@ -7,6 +7,7 @@ import {
   providerCredentialLabel,
   providerCredentialStateLabel,
   providerNeedsReauthentication,
+  providerPrimaryAction,
   translateKnownProviderErrorReason,
 } from './provider-availability';
 
@@ -31,6 +32,21 @@ const preset: LanguageModelPreset = {
 };
 
 describe('providerAvailability', () => {
+  it('reports a support restore after an update as in progress, not as sign-in needed', () => {
+    const restoring: LanguageModelPreset = {
+      ...preset,
+      auth_method: 'subscription',
+      status: 'support_restoring',
+      status_message: 'Restoring Claude Code support after the update…',
+    };
+    expect(providerAvailability(definition, restoring)).toEqual({
+      label: 'Restoring',
+      value: 'degraded',
+      detail: 'Restoring Claude Code support after the update…',
+    });
+    expect(providerPrimaryAction(restoring)).toBe('none');
+  });
+
   it('does not let a coarse no-key auth flag override live provider availability', () => {
     expect(providerAvailability(definition, preset)).toEqual({
       label: 'Unavailable',
