@@ -51,6 +51,40 @@ const workspaceCopy = (
   name: 'Workspace copy',
 });
 
+describe('resourceAvailability after a cancelled refresh (moved from conversation.test.tsx)', () => {
+  it('stays ready on a previously converted derivative and says the refresh was cancelled', () => {
+    const availability = resourceAvailability(
+      workspaceResource({
+        name: 'paper.pdf',
+        claimed_mime: 'application/pdf',
+        detected_mime: 'application/pdf',
+        processing: {
+          workspace_id: 'workspace_1',
+          resource_id: 'resource_1',
+          resource_revision: 1,
+          source_sha256: 'abc',
+          processor: 'clio-web-search-docling',
+          processor_url: 'http://processor.test',
+          job_id: 'job_1',
+          query_tool: 'workspace_resource_inspect',
+          state: 'cancelled',
+          progress: 100,
+          derivatives_available: true,
+          failure: {},
+          cancellation: {},
+          created_at: '2026-08-22T00:00:00Z',
+          updated_at: '2026-08-22T00:00:00Z',
+        },
+      }),
+    );
+
+    expect(availability.state).toBe('ready');
+    expect(availability.detail).toMatch(
+      /reuse a previously converted derivative.*latest refresh was cancelled/i,
+    );
+  });
+});
+
 describe('summarizeResourcePipelineStages', () => {
   it('lets a failed stage decide the summary even while another is still running', () => {
     expect(
