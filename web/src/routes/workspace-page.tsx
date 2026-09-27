@@ -42,6 +42,7 @@ import { useSessionMutations } from '@/hooks/use-session-mutations';
 import { useSessionMessageCount } from '@/hooks/use-session-message-count';
 import { useWorkspaceData } from '@/hooks/use-workspace-data';
 import { useComposerDraft } from '@/hooks/use-composer-draft';
+import { useAddToChatSelectionAction } from '@/hooks/use-add-to-chat-selection-action';
 import { useWorkbenchNavigation } from '@/hooks/use-workbench-navigation';
 import { useContextTargetSelection } from '@/hooks/use-context-target-selection';
 import { useWorkspaceNavigationActions } from '@/hooks/use-workspace-navigation-actions';
@@ -62,6 +63,7 @@ export function WorkspacePage() {
   const repository = useRepository();
   const composerDraft = useComposerDraft(sessionId);
   const [composerFocusKey, setComposerFocusKey] = useState(0);
+  useAddToChatSelectionAction(composerDraft, () => setComposerFocusKey((key) => key + 1));
   const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
   // "Is the Files view currently the mounted tab" -- gates workspaceFiles'
@@ -531,6 +533,8 @@ export function WorkspacePage() {
           onUpdateQueuedMessage={(message, text) =>
             updateQueuedMessage.mutateAsync({ message, text }).then(() => undefined)
           }
+          annotations={composerDraft.annotations}
+          onAnnotationsChange={composerDraft.onAnnotationsChange}
           onReferencesChange={composerDraft.onReferencesChange}
           onValueChange={composerDraft.onValueChange}
           provider={activeProvider}
