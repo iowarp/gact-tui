@@ -32,12 +32,15 @@ import {
   writePendingUpdateMarker,
   type UpdateAction,
 } from '@/store/update-flow-store';
+import { agentCheckIssue, desktopCheckIssue } from './version-check-issue';
 
 // 'unknown' is a REAL state -- no check has run, or the one that ran had
 // nothing to compare against (no release feed, a failed fetch). It must
 // never be presented as 'current': that would tell someone their software
 // is up to date when nobody actually looked.
-type VersionState = 'unknown' | 'checking' | 'current' | 'available' | 'error';
+// 'unavailable' is a check that ran and could not finish (a release still
+// being published, an unreachable feed): said in words, never a red alarm.
+type VersionState = 'unknown' | 'checking' | 'current' | 'available' | 'unavailable' | 'error';
 
 /**
  * Drives one "Update all" click through the real state machine
@@ -48,14 +51,18 @@ type VersionState = 'unknown' | 'checking' | 'current' | 'available' | 'error';
  */
 async function runUpdate(
   action: UpdateAction,
-  { desktopTargetVersion, latestClioVersion }: { desktopTargetVersion?: string; latestClioVersion?: string },
+  {
+    desktopTargetVersion,
+    latestClioVersion,
+  }: { desktopTargetVersion?: string; latestClioVersion?: string },
 ): Promise<void> {
   const flow = useUpdateFlowStore.getState();
   const version = action === 'desktop' ? desktopTargetVersion : latestClioVersion;
   flow.start(action, version);
   try {
     if (action === 'agent') {
-      if (!latestClioVersion) throw new Error(`No newer ${vocab.agent} release was found to update to.`);
+      if (!latestClioVersion)
+        throw new Error(`No newer ${vocab.agent} release was found to update to.`);
       // Persisted BEFORE the restart-triggering call below: `update_clio`
       // disconnects the current backend immediately, then (restartApp:
       // true) replaces the whole process a moment after success. Nothing
@@ -156,14 +163,31 @@ export function SystemVersionStatus() {
   const desktopUpdateAvailable = snapshot.status === 'available';
   const agentVersionKnown = Boolean(agentVersion && latestClioVersion);
   const agentBehindLatest = Boolean(
-    agentVersion && latestClioVersion && compareReleaseVersions(agentVersion, latestClioVersion) < 0,
+    agentVersion &&
+      latestClioVersion &&
+      compareReleaseVersions(agentVersion, latestClioVersion) < 0,
   );
   // Knowing the agent is behind is a fact; being ALLOWED to push a remote
   // update is a separate, narrower permission (only a managed connection can).
   const agentUpdateActionable = agentBehindLatest && isManagedConnection;
   const latestClioReleaseChecking = credentialsReady && latestClioRelease.isPending;
+  const agentIssue = agentCheckIssue(latestClioRelease.data, latestClioRelease.isError);
+  const desktopIssue = desktopCheckIssue(snapshot);
+  const agentRowState: VersionState = capabilities.isError
+    ? 'error'
+    : capabilities.isPending || latestClioReleaseChecking
+      ? 'checking'
+      : agentBehindLatest
+        ? 'available'
+        : agentVersionKnown
+          ? 'current'
+          : (agentIssue?.state ?? 'unknown');
+  // DesktopUpdateSnapshot['status'] already IS this component's VersionState
+  // vocabulary; only its failure is split into 'unavailable' vs 'error'.
+  const desktopRowState: VersionState =
+    snapshot.status === 'error' ? (desktopIssue?.state ?? 'error') : snapshot.status;
   const state = useMemo<VersionState>(() => {
-    if (snapshot.status === 'error' || capabilities.isError) return 'error';
+    if (desktopRowState === 'error' || capabilities.isError) return 'error';
     if (
       !displayedDesktopVersion ||
       capabilities.isPending ||
@@ -173,11 +197,14 @@ export function SystemVersionStatus() {
       return 'checking';
     }
     if (desktopUpdateAvailable || agentBehindLatest) return 'available';
+    if (desktopRowState === 'unavailable' || agentRowState === 'unavailable') return 'unavailable';
     if (snapshot.status === 'unknown' || !agentVersionKnown) return 'unknown';
     return 'current';
   }, [
     agentBehindLatest,
+    agentRowState,
     agentVersionKnown,
+    desktopRowState,
     capabilities.isError,
     capabilities.isPending,
     desktopUpdateAvailable,
@@ -186,7 +213,8 @@ export function SystemVersionStatus() {
     snapshot.status,
   ]);
 
-  const performUpdate = (action: UpdateAction) => runUpdate(action, { desktopTargetVersion, latestClioVersion });
+  const performUpdate = (action: UpdateAction) =>
+    runUpdate(action, { desktopTargetVersion, latestClioVersion });
 
   const recheck = async (): Promise<void> => {
     await Promise.allSettled([
@@ -213,6 +241,7 @@ export function SystemVersionStatus() {
     checking: 'Checking versions',
     current: `${vocab.product} and ${vocab.agent} are up to date`,
     available: 'Software update available',
+    unavailable: 'Could not check for updates',
     error: 'Version status needs attention',
   }[state];
   const systemActionLabel =
@@ -220,7 +249,7 @@ export function SystemVersionStatus() {
       ? 'Update all'
       : state === 'checking'
         ? 'Checking…'
-        : state === 'error'
+        : state === 'error' || state === 'unavailable'
           ? 'Recheck'
           : state === 'unknown'
             ? 'Check now'
@@ -266,17 +295,8 @@ export function SystemVersionStatus() {
               ? `${brand.agentReleaseUrl}/tag/${releaseTag(agentVersion)}`
               : undefined
           }
-          state={
-            capabilities.isError
-              ? 'error'
-              : capabilities.isPending || latestClioReleaseChecking
-                ? 'checking'
-                : agentBehindLatest
-                  ? 'available'
-                  : agentVersionKnown
-                    ? 'current'
-                    : 'unknown'
-          }
+          note={agentRowState === 'unavailable' ? agentIssue?.text : undefined}
+          state={agentRowState}
           targetVersion={agentBehindLatest ? latestClioVersion : undefined}
           testId="version-row-agent"
           updating={updating === 'agent' || updating === 'both'}
@@ -292,9 +312,8 @@ export function SystemVersionStatus() {
               ? `${brand.desktopReleaseUrl}/tag/${releaseTag(displayedDesktopVersion)}`
               : undefined
           }
-          // DesktopUpdateSnapshot['status'] already IS this component's
-          // VersionState vocabulary -- no fall-through-to-current mapping.
-          state={snapshot.status}
+          note={desktopIssue?.text}
+          state={desktopRowState}
           targetVersion={desktopUpdateAvailable ? desktopTargetVersion : undefined}
           testId="version-row-desktop"
           updating={updating === 'desktop' || updating === 'both'}
@@ -315,6 +334,10 @@ const VERSION_STATE_PRESENTATION: Record<VersionState, { label: string; classNam
   available: {
     label: 'Update available',
     className: 'text-warning border-warning/30 bg-warning/10',
+  },
+  unavailable: {
+    label: 'Could not check',
+    className: 'text-muted-foreground border-border bg-muted/50',
   },
   error: {
     label: 'Needs attention',
@@ -339,6 +362,7 @@ function VersionRow({
   currentVersion,
   disabled,
   label,
+  note,
   onRecheck,
   onUpdate,
   releaseUrl,
@@ -356,6 +380,8 @@ function VersionRow({
    */
   disabled?: boolean;
   label: string;
+  /** Why the check could not finish, or what needs the person, in plain words. */
+  note?: string;
   onRecheck: () => void;
   onUpdate?: () => void;
   releaseUrl?: string;
@@ -370,7 +396,9 @@ function VersionRow({
   // Offer an action only when there is one: install a real update, or
   // retry a check that came back unknown/failed. A settled "current" row
   // gets a status badge and nothing to click.
-  const action = onUpdate ?? (state === 'error' || state === 'unknown' ? onRecheck : undefined);
+  const action =
+    onUpdate ??
+    (state === 'error' || state === 'unknown' || state === 'unavailable' ? onRecheck : undefined);
   return (
     <div
       className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-3 [&:not(:last-child)]:border-b"
@@ -404,6 +432,7 @@ function VersionRow({
         {currentVersion ? `v${currentVersion}` : 'Not checked'}
         {targetVersion ? ` → v${targetVersion}` : ''}
       </p>
+      {note ? <p className="col-span-2 mt-1 text-xs text-muted-foreground">{note}</p> : null}
     </div>
   );
 }
@@ -427,7 +456,8 @@ function VersionAction({
         'gap-1.5',
         state === 'current' && 'border-success/40 text-success hover:text-success',
         state === 'available' && 'border-warning/40 text-warning hover:text-warning',
-        state === 'unknown' && 'border-muted-foreground/30 text-muted-foreground',
+        (state === 'unknown' || state === 'unavailable') &&
+          'border-muted-foreground/30 text-muted-foreground',
         state === 'error' && 'border-destructive/40 text-destructive hover:text-destructive',
       )}
       disabled={disabled}
@@ -454,6 +484,9 @@ function VersionStateIcon({ state }: { state: VersionState }) {
   }
   if (state === 'unknown') {
     return <CircleDashedIcon aria-hidden="true" className="size-4 text-muted-foreground" />;
+  }
+  if (state === 'unavailable') {
+    return <CircleAlertIcon aria-hidden="true" className="size-4 text-muted-foreground" />;
   }
   return (
     <CircleAlertIcon

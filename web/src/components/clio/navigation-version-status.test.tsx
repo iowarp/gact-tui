@@ -8,7 +8,15 @@ const desktop = vi.hoisted(() => ({
   snapshot: { status: 'current' } as
     | { status: 'unknown' | 'current' }
     | { status: 'checking' }
-    | { status: 'error'; message: string }
+    | {
+        status: 'error';
+        message: string;
+        reason:
+          | 'manifest_not_published'
+          | 'platform_not_published'
+          | 'signature_mismatch'
+          | 'unreachable';
+      }
     | {
         status: 'available';
         update: { currentVersion: string; version: string };
@@ -222,8 +230,12 @@ describe('SystemVersionStatus', () => {
     expect(desktopRow.queryByText('Up to date')).not.toBeInTheDocument();
   });
 
-  it('renders a failed check as needing attention, never as current', async () => {
-    desktop.snapshot = { status: 'error', message: 'The update service did not respond.' };
+  it('renders a rejected update signature as needing attention, with its reason', async () => {
+    desktop.snapshot = {
+      status: 'error',
+      message: 'Update rejected: signature mismatch',
+      reason: 'signature_mismatch',
+    };
     renderStatus();
 
     const trigger = await screen.findByRole('button', { name: 'Version status needs attention' });
@@ -231,28 +243,79 @@ describe('SystemVersionStatus', () => {
 
     const desktopRow = within(await screen.findByTestId('version-row-desktop'));
     expect(await desktopRow.findByText('Needs attention')).toBeVisible();
+    expect(
+      desktopRow.getByText('The update was rejected: its signature did not match.'),
+    ).toBeVisible();
     expect(desktopRow.queryByText('Up to date')).not.toBeInTheDocument();
   });
 
-  it('reports the CLIO row as not checked when the release manifest is unavailable', async () => {
+  it('says a desktop release still being published is why it could not check', async () => {
+    desktop.snapshot = {
+      status: 'error',
+      message: 'No update manifest published yet',
+      reason: 'manifest_not_published',
+    };
+    renderStatus();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Could not check for updates' }));
+
+    const desktopRow = within(await screen.findByTestId('version-row-desktop'));
+    expect(await desktopRow.findByText('Could not check')).toBeVisible();
+    expect(
+      desktopRow.getByText(
+        'Could not check for updates: the latest release is still being published.',
+      ),
+    ).toBeVisible();
+    expect(desktopRow.queryByText('Needs attention')).not.toBeInTheDocument();
+  });
+
+  it('says why the CLIO check could not complete instead of "Not checked"', async () => {
     repository.latestRelease.mockResolvedValue({
       version: null,
       source: 'https://github.com/iowarp/clio-agent/releases/latest/download/latest-lite.json',
       checked_at: '2026-09-24T00:00:00Z',
-      degradation: { reason: 'manifest_unreachable', message: 'release manifest unreachable' },
+      degradation: {
+        reason: 'manifest_not_published',
+        message: 'The latest release is still being published.',
+      },
     });
     renderStatus();
 
-    const trigger = await screen.findByRole('button', { name: 'Version status not yet checked' });
-    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole('button', { name: 'Could not check for updates' }));
 
     const agentRow = within(await screen.findByTestId('version-row-agent'));
-    expect(await agentRow.findByText('Not checked')).toBeVisible();
+    expect(await agentRow.findByText('Could not check')).toBeVisible();
+    expect(
+      agentRow.getByText(
+        'Could not check for updates: the latest release is still being published.',
+      ),
+    ).toBeVisible();
+    expect(agentRow.queryByText('Not checked')).not.toBeInTheDocument();
     expect(agentRow.queryByText('Up to date')).not.toBeInTheDocument();
     // The desktop row itself has a real, current check -- untouched by the
     // agent row's missing release feed.
+    expect(within(screen.getByTestId('version-row-desktop')).getByText('Up to date')).toBeVisible();
+  });
+
+  it('says the release server could not be reached for any other failure', async () => {
+    repository.latestRelease.mockResolvedValue({
+      version: null,
+      source: 'https://github.com/iowarp/clio-agent/releases/latest/download/latest-lite.json',
+      checked_at: '2026-09-24T00:00:00Z',
+      degradation: {
+        reason: 'manifest_unreachable',
+        message: 'release manifest returned HTTP 503',
+      },
+    });
+    renderStatus();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Could not check for updates' }));
+
+    const agentRow = within(await screen.findByTestId('version-row-agent'));
     expect(
-      within(screen.getByTestId('version-row-desktop')).getByText('Up to date'),
+      await agentRow.findByText(
+        'Could not check for updates: the release server could not be reached.',
+      ),
     ).toBeVisible();
   });
 });
