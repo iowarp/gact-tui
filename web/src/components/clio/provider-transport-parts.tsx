@@ -28,7 +28,11 @@ export function TransportLabel({
         {section.info}
       </InfoTip>
       {stage ? (
-        <span className="flex items-center gap-1 font-normal" data-slot="transport-stage" role="status">
+        <span
+          className="flex items-center gap-1 font-normal"
+          data-slot="transport-stage"
+          role="status"
+        >
           <LoaderCircleIcon aria-hidden="true" className="size-3 animate-spin" />
           {stage}
         </span>
@@ -48,7 +52,7 @@ export function TransportLogin({
   preset: LanguageModelPreset | undefined;
   section: TransportSection;
 }) {
-  const failure = actions.stage ? undefined : providerActionError(actions, group.name);
+  const failure = actions.stage ? undefined : providerActionError(actions, group);
   return (
     <div className="flex flex-col items-start gap-2 px-3">
       <ProviderSetupAction

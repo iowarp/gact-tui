@@ -55,7 +55,10 @@ function sentence(): HTMLElement | null {
   return document.querySelector('[data-slot="provider-connect-sentence"]');
 }
 
-async function open(pickerOptions: Parameters<typeof ClioModelPicker>[0]['options'], provider?: string) {
+async function open(
+  pickerOptions: Parameters<typeof ClioModelPicker>[0]['options'],
+  provider?: string,
+) {
   const user = userEvent.setup();
   renderPicker(
     <ClioModelPicker
@@ -99,10 +102,19 @@ describe('ClioModelPicker: a usable provider', () => {
         },
       ],
     });
-    repository.clearProviderApiKey.mockResolvedValueOnce({ provider_id: 'openai', is_authenticated: false });
+    repository.clearProviderApiKey.mockResolvedValueOnce({
+      provider_id: 'openai',
+      is_authenticated: false,
+    });
     const user = await open([
       ...options,
-      { ...options[0]!, providerId: 'openai', providerName: 'OpenAI', id: 'gpt-4o-mini', label: 'gpt-4o-mini' },
+      {
+        ...options[0]!,
+        providerId: 'openai',
+        providerName: 'OpenAI',
+        id: 'gpt-4o-mini',
+        label: 'gpt-4o-mini',
+      },
     ]);
     await user.click(screen.getByText('OpenAI'));
     await screen.findByText('gpt-4o-mini');
@@ -132,7 +144,13 @@ describe('ClioModelPicker: a usable provider', () => {
     });
     const user = await open([
       ...options,
-      { ...options[0]!, providerId: 'claude_code', providerName: 'Claude Code', id: 'sonnet', label: 'Sonnet' },
+      {
+        ...options[0]!,
+        providerId: 'claude_code',
+        providerName: 'Claude Code',
+        id: 'sonnet',
+        label: 'Sonnet',
+      },
     ]);
     await user.click(screen.getByText('Claude Code'));
     await screen.findByText('Sonnet');
@@ -147,7 +165,11 @@ describe('ClioModelPicker: a usable provider', () => {
         finish = resolve;
       }),
     );
-    repository.providerModels.mockResolvedValue({ provider_id: 'codex', models: [], source: 'live' });
+    repository.providerModels.mockResolvedValue({
+      provider_id: 'codex',
+      models: [],
+      source: 'live',
+    });
     const user = await open(options, 'codex');
 
     await user.click(screen.getByRole('button', { name: 'Refresh' }));
@@ -155,7 +177,9 @@ describe('ClioModelPicker: a usable provider', () => {
     const heartbeat = () => screen.getByRole('img', { name: /^Codex status:/u });
     await waitFor(() => expect(heartbeat()).toHaveAttribute('data-state', 'checking'));
     expect(heartbeat()).toHaveAccessibleName('Codex status: Checking…');
-    expect(document.querySelector('[data-slot="provider-panel-stage"]')).toHaveTextContent('Checking…');
+    expect(document.querySelector('[data-slot="provider-panel-stage"]')).toHaveTextContent(
+      'Checking…',
+    );
     expect(screen.getByRole('button', { name: 'Reload models' })).toBeDisabled();
 
     finish({ connectivity: 'ok', auth: 'ok', models: [], source: 'live', generated_at: '' });
@@ -188,7 +212,10 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     repository.authenticateProvider.mockResolvedValueOnce({
       provider_id: 'codex',
       flow_id: 'flow-1',
-      browser: { authorization_url: 'https://auth.openai.com/oauth/authorize?state=1', loopback: true },
+      browser: {
+        authorization_url: 'https://auth.openai.com/oauth/authorize?state=1',
+        loopback: true,
+      },
       instructions: '',
     });
     repository.providerAuthStatus.mockResolvedValueOnce({ state: 'pending', reason: '' });
@@ -199,7 +226,10 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     await user.click(await screen.findByRole('button', { name: 'Log in' }));
 
     await waitFor(() =>
-      expect(repository.authenticateProvider).toHaveBeenCalledWith('codex', { force: true, method: 'browser' }),
+      expect(repository.authenticateProvider).toHaveBeenCalledWith('codex', {
+        force: true,
+        method: 'browser',
+      }),
     );
     expect(windowOpen).toHaveBeenCalledWith(
       'https://auth.openai.com/oauth/authorize?state=1',
@@ -233,22 +263,39 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
         },
       ],
     });
-    repository.installProviderSupport.mockRejectedValueOnce(new Error('Claude Code could not be installed.'));
+    repository.installProviderSupport.mockRejectedValueOnce(
+      new Error('Claude Code could not be installed.'),
+    );
     const user = await open([
       ...options,
-      { providerId: 'claude_code', providerName: 'Claude Code', id: '', kind: 'provider' as const, label: 'Claude Code', available: false, health: 'needs_install' },
+      {
+        providerId: 'claude_code',
+        providerName: 'Claude Code',
+        id: '',
+        kind: 'provider' as const,
+        label: 'Claude Code',
+        available: false,
+        health: 'needs_install',
+      },
     ]);
     await user.click(screen.getByText('Claude Code'));
 
     expect(sentence()).toHaveTextContent("Claude Code isn't installed yet.");
     await user.click(await screen.findByRole('button', { name: 'Install' }));
-    await waitFor(() => expect(repository.installProviderSupport).toHaveBeenCalledWith('claude_code'));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Claude Code could not be installed.');
+    await waitFor(() =>
+      expect(repository.installProviderSupport).toHaveBeenCalledWith('claude_code'),
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Claude Code could not be installed.',
+    );
   });
 
   it('key needed: the key field and Connect save through the credential API, never a rebind', async () => {
     mockOpenaiApiKeyPreset();
-    repository.saveProviderApiKey.mockResolvedValueOnce({ provider_id: 'openai', is_authenticated: true });
+    repository.saveProviderApiKey.mockResolvedValueOnce({
+      provider_id: 'openai',
+      is_authenticated: true,
+    });
     repository.providerHandshake.mockResolvedValueOnce({
       connectivity: 'ok',
       auth: 'ok',
@@ -256,7 +303,11 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
       source: 'live',
       generated_at: '',
     });
-    repository.providerModels.mockResolvedValue({ provider_id: 'openai', models: [], source: 'live' });
+    repository.providerModels.mockResolvedValue({
+      provider_id: 'openai',
+      models: [],
+      source: 'live',
+    });
     const user = await open([...options, openaiOption]);
     await user.click(screen.getByText('OpenAI'));
 
@@ -264,7 +315,9 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     await user.type(await screen.findByLabelText('OpenAI key'), 'sk-test-key');
     await user.click(screen.getByRole('button', { name: 'Connect' }));
 
-    await waitFor(() => expect(repository.saveProviderApiKey).toHaveBeenCalledWith('openai', 'sk-test-key'));
+    await waitFor(() =>
+      expect(repository.saveProviderApiKey).toHaveBeenCalledWith('openai', 'sk-test-key'),
+    );
     await waitFor(() => expect(repository.providerHandshake).toHaveBeenCalled());
     expect(repository.updateLanguageModelConfiguration).not.toHaveBeenCalled();
   });
@@ -284,7 +337,11 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
       source: 'live',
       generated_at: '',
     });
-    repository.providerModels.mockResolvedValue({ provider_id: 'openai', models: [], source: 'live' });
+    repository.providerModels.mockResolvedValue({
+      provider_id: 'openai',
+      models: [],
+      source: 'live',
+    });
     const user = await open([...options, openaiOption]);
     await user.click(screen.getByText('OpenAI'));
     await user.type(await screen.findByLabelText('OpenAI key'), 'sk-test-key');
@@ -302,7 +359,10 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
 
   it('a fake key ends on ONE plain sentence, from ONE check', async () => {
     mockOpenaiApiKeyPreset();
-    repository.saveProviderApiKey.mockResolvedValueOnce({ provider_id: 'openai', is_authenticated: true });
+    repository.saveProviderApiKey.mockResolvedValueOnce({
+      provider_id: 'openai',
+      is_authenticated: true,
+    });
     repository.providerHandshake.mockResolvedValueOnce({
       connectivity: 'ok',
       auth: 'rejected',
@@ -333,7 +393,10 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
       { ...openaiOption, availabilityDetail: 'Your OpenAI API key was rejected.' },
     ]);
     const row = screen.getByText('OpenAI').closest('[data-slot="cascader-item"]');
-    expect(row?.querySelector('[data-slot="provider-heartbeat"]')).toHaveAttribute('data-state', 'unavailable');
+    expect(row?.querySelector('[data-slot="provider-heartbeat"]')).toHaveAttribute(
+      'data-state',
+      'unavailable',
+    );
     expect(row?.querySelector('[data-slot="cascader-item-count"]')).toBeNull();
 
     await user.click(screen.getByText('OpenAI'));
@@ -371,7 +434,8 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
         label: 'ALCF Sophia',
         available: false,
         health: 'unavailable',
-        availabilityDetail: 'Your ALCF session needs to be verified again. Sign in again to continue.',
+        availabilityDetail:
+          'Your ALCF session needs to be verified again. Sign in again to continue.',
       },
     ]);
     await user.click(screen.getByText('ALCF Sophia'));
@@ -412,7 +476,8 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
         available: false,
         health: 'unavailable',
         failure: 'argonne_reauthentication_required: Token is either not active or invalid',
-        availabilityDetail: 'Your ALCF session needs to be verified again. Sign in again to continue.',
+        availabilityDetail:
+          'Your ALCF session needs to be verified again. Sign in again to continue.',
       },
     ]);
     await user.click(screen.getByText('ALCF Metis'));
@@ -431,7 +496,9 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
 
   it('a server on this computer that is not answering is grey "Not running", never red', async () => {
     const user = await open(
-      options.map((option) => (option.providerId === 'local-vllm' ? { ...option, health: 'unavailable' } : option)),
+      options.map((option) =>
+        option.providerId === 'local-vllm' ? { ...option, health: 'unavailable' } : option,
+      ),
     );
     const row = screen.getByText('Local vLLM').closest('[data-slot="cascader-item"]');
     const heartbeat = row?.querySelector('[data-slot="provider-heartbeat"]');
@@ -442,7 +509,10 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     await user.click(screen.getByText('Local vLLM'));
     // Its dated rows stay out of the list until it answers again.
     expect(screen.queryByText('Qwen3-VL-32B')).toBeNull();
-    expect(sentence()).toHaveTextContent("Local vLLM isn't running. Start it, then check again.");
+    // Where it was looked for, so the person knows which server to start.
+    expect(sentence()).toHaveTextContent(
+      "Local vLLM isn't running at 127.0.0.1:8000. Start it, then check again.",
+    );
     expect(await screen.findByRole('button', { name: 'Check again' })).toBeVisible();
   });
 
@@ -451,10 +521,16 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     repository.authenticateProvider.mockResolvedValueOnce({
       provider_id: 'codex',
       flow_id: 'flow-9',
-      browser: { authorization_url: 'https://auth.openai.com/oauth/authorize?state=9', loopback: true },
+      browser: {
+        authorization_url: 'https://auth.openai.com/oauth/authorize?state=9',
+        loopback: true,
+      },
       instructions: '',
     });
-    repository.providerAuthStatus.mockResolvedValue({ state: 'failed', reason: 'The sign-in was cancelled.' });
+    repository.providerAuthStatus.mockResolvedValue({
+      state: 'failed',
+      reason: 'The sign-in was cancelled.',
+    });
     vi.spyOn(window, 'open').mockImplementation(() => window);
     const user = await open([codexProviderRow, options[1]!]);
     await user.click(screen.getByText('Codex'));

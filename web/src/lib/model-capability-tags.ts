@@ -26,10 +26,10 @@ export type ModelCapabilityAxis =
   | 'size';
 
 export interface ModelCapabilityEvidence {
-  /** Who stated it: `openrouter`, `server_report`, `overlay`, `hf_repo`, ... */
+  /** Who stated it: `openrouter`, `server_report`, `overlay`, `hf_repo`, ...
+   * The upstream field and value the service also sends are raw provenance
+   * and are not carried: a tooltip says what a tag means and who said it. */
   source: string;
-  /** The upstream field and value as the source stated it. */
-  detail: string;
 }
 
 export interface ModelCapabilityTag {
@@ -91,7 +91,7 @@ export function displayedTags(tags: readonly ModelCapabilityTag[]): ModelCapabil
 }
 
 function evidenceOf(rows: readonly TagEvidence[]): ModelCapabilityEvidence[] {
-  return rows.map((row) => ({ source: row.source, detail: row.detail }));
+  return rows.map((row) => ({ source: row.source }));
 }
 
 /**
@@ -155,14 +155,7 @@ export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCap
     tags.push({
       axis: 'context',
       value: String(option.contextWindow),
-      evidence: [
-        {
-          source: provenance?.source || 'catalog',
-          detail: option.contextBasis
-            ? `context_window (${option.contextBasis})`
-            : 'context_window',
-        },
-      ],
+      evidence: [{ source: provenance?.source || 'catalog' }],
       contextBasis: option.contextBasis,
       nativeContext: option.nativeContextWindow,
     });
@@ -301,7 +294,10 @@ export function modelCapabilityTagMeaning(tag: ModelCapabilityTag): string {
         ? 'A specialist model: it does one task rather than hold a conversation.'
         : 'A general model: it can hold a conversation.';
     case 'task': {
-      const hub = tag.hubTasks?.length ? ` Hugging Face task: ${tag.hubTasks.join(', ')}.` : '';
+      // Hub task ids read as words ("text-classification" -> "text classification").
+      const hub = tag.hubTasks?.length
+        ? ` Hugging Face task: ${tag.hubTasks.map((task) => task.replaceAll('-', ' ')).join(', ')}.`
+        : '';
       return `${modelCapabilityTagLabel(tag)}.${hub}`;
     }
     case 'domain':
@@ -335,18 +331,30 @@ function sourceLabel(source: string): string {
   );
 }
 
-/** Where a tag came from, as a person reads it ("From OpenRouter."). */
+/** Sources that are all the provider itself, in different forms (its report,
+ * its API type, its model list, a live check of it). */
+const PROVIDER_SOURCES = new Set(['server_report', 'dialect', 'catalog', 'probe']);
+
+/**
+ * Where a tag came from, as a person reads it ("From OpenRouter."). Several
+ * forms of the provider agreeing read as one "the provider"; a single source
+ * keeps its own name, and distinct sources stay listed.
+ */
 export function modelCapabilityTagSource(tag: ModelCapabilityTag): string {
-  const labels = [...new Set(tag.evidence.map((row) => sourceLabel(row.source)))];
+  const sources = [...new Set(tag.evidence.map((row) => row.source))];
+  const labels = [
+    ...new Set(
+      sources.map((source) =>
+        sources.length > 1 && PROVIDER_SOURCES.has(source)
+          ? SOURCE_LABELS.server_report
+          : sourceLabel(source),
+      ),
+    ),
+  ];
   const names = labels.length ? labels : [sourceLabel('')];
   const joined =
     names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
   return `From ${joined}.`;
-}
-
-/** The upstream field the winning source stated it in, verbatim (may be empty). */
-export function modelCapabilityTagDetail(tag: ModelCapabilityTag): string {
-  return tag.evidence[0]?.detail ?? '';
 }
 
 function sentenceCase(value: string): string {

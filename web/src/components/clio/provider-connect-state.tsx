@@ -1,7 +1,13 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { IconTile } from '@/components/reui/icon-tile';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from '@/components/ui/empty';
 import {
   providerNeedsReauthentication,
   translateKnownProviderErrorReason,
@@ -30,7 +36,7 @@ interface ProviderConnectStateProps {
  */
 export function ProviderConnectState({ group, preset, actions }: ProviderConnectStateProps) {
   const flow = providerSetupFlow(group, preset);
-  const failure = actions.stage ? undefined : providerActionError(actions, group.name);
+  const failure = actions.stage ? undefined : providerActionError(actions, group);
   const refused = providerNeedsReauthentication(preset, group.failure);
   return (
     <Empty className="h-full gap-4 border-0 p-6" data-slot="provider-connect-state">
@@ -58,7 +64,9 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
         <ProviderSetupAction
           actions={actions}
           failed={
-            group.health === 'degraded' || group.health === 'unavailable' || group.setupNeed === 'start'
+            group.health === 'degraded' ||
+            group.health === 'unavailable' ||
+            group.setupNeed === 'start'
           }
           flow={flow}
           loginLabel={refused ? 'Sign in again' : undefined}

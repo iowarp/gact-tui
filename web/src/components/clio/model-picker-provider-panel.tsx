@@ -129,7 +129,7 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
               {componentStatus}
               <ProviderPanelFooter
                 actions={providerActions}
-                error={notice ?? providerActionError(providerActions, group.name)}
+                error={notice ?? providerActionError(providerActions, group)}
                 logOut={logOut}
               />
             </>
@@ -178,7 +178,7 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
       {componentStatus}
       <ProviderPanelFooter
         actions={providerActions}
-        error={notice ?? providerActionError(providerActions, group.name)}
+        error={notice ?? providerActionError(providerActions, group)}
         logOut={logOut}
       />
     </>
