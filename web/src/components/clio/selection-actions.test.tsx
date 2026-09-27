@@ -73,4 +73,52 @@ describe('selection actions on an agent answer', () => {
     await user.click(screen.getByRole('button', { name: 'Remove selected text 1' }));
     expect(screen.queryByRole('list', { name: 'Attached selections' })).not.toBeInTheDocument();
   });
+
+  it('is reachable from the keyboard: Shift+F10 focuses the menu, Enter runs an action', async () => {
+    const user = userEvent.setup();
+    render(
+      <SelectionActionsProvider>
+        <Page />
+        <ClioSelectionActionToolbar />
+      </SelectionActionsProvider>,
+    );
+    await selectAnswerText(31, 46);
+
+    // fireEvent, not user.keyboard: user-event re-homes the document selection
+    // onto the focused element on every key, which a real browser does not do
+    // for a non-editable caret-browsing selection.
+    fireEvent.keyDown(document, { key: 'F10', shiftKey: true });
+    await act(async () => {
+      fireEvent(document, new Event('selectionchange'));
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+    });
+    const addToChat = screen.getByRole('button', { name: 'Add to chat' });
+    expect(addToChat).toHaveFocus();
+    expect(screen.getByRole('toolbar', { name: 'Selection actions' })).toHaveAttribute(
+      'aria-keyshortcuts',
+      'Shift+F10',
+    );
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByRole('list', { name: 'Attached selections' })).toHaveTextContent(
+      'brighter, tangy',
+    );
+  });
+
+  it('Escape in the menu dismisses it and clears the selection', async () => {
+    const user = userEvent.setup();
+    render(
+      <SelectionActionsProvider>
+        <Page />
+        <ClioSelectionActionToolbar />
+      </SelectionActionsProvider>,
+    );
+    await selectAnswerText(31, 46);
+    fireEvent.keyDown(document, { key: 'F10', shiftKey: true });
+    expect(screen.getByRole('button', { name: 'Add to chat' })).toHaveFocus();
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('toolbar', { name: 'Selection actions' })).not.toBeInTheDocument();
+    expect(window.getSelection()?.toString()).toBe('');
+  });
 });
