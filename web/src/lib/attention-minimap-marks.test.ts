@@ -67,4 +67,20 @@ describe('attentionMinimapMarks', () => {
     );
     expect(marks).toEqual([]);
   });
+
+  it('states each message as a share of the attention on the conversation, and greys tiny ones', () => {
+    const marks = attentionMinimapMarks(
+      payload([
+        { message_id: 'msg_0', part_id: 'u', field: 'text', kind: 'user_text', share: 0.001, mean: 0, runs: [] },
+        { message_id: 'msg_1', part_id: 'a', field: 'text', kind: 'assistant_text', share: 0.145, mean: 0, runs: [] },
+        { message_id: 'msg_2', part_id: 'a', field: 'text', kind: 'assistant_text', share: 0.09, mean: 0, runs: [] },
+      ]),
+      messages,
+    );
+    const total = marks.reduce((sum, mark) => sum + mark.conversationShare, 0);
+    expect(total).toBeCloseTo(1, 6);
+    expect(marks[1]?.conversationShare).toBeCloseTo(0.145 / 0.236, 5);
+    expect(marks[0]?.heated).toBe(false);
+    expect(marks[1]?.heated).toBe(true);
+  });
 });

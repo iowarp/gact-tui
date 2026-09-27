@@ -270,7 +270,7 @@ function MinimapRail({
                       'rounded-full transition-[width,height,opacity] duration-150 ease-out group-focus-visible:opacity-100',
                       look.color,
                     )}
-                    data-heat={mark?.bucket}
+                    data-heat={mark?.heated ? mark.bucket : undefined}
                     data-slot="transcript-minimap-landmark"
                     style={{
                       height: 2 + 2 * lift,
@@ -291,8 +291,14 @@ function MinimapRail({
                   {message.role}
                 </p>
                 {mark ? (
-                  <p className="mt-1 text-xs text-chart-5">
-                    {formatSharePercent(mark.totalShare)} of attention traced here
+                  <p
+                    className={cn(
+                      'mt-1 text-xs',
+                      mark.heated ? 'text-chart-5' : 'text-muted-foreground',
+                    )}
+                  >
+                    {formatSharePercent(mark.conversationShare)} of the attention on the
+                    conversation
                   </p>
                 ) : null}
                 <PreviewMarkdown className="mt-1 line-clamp-3 text-sm">
@@ -338,15 +344,16 @@ interface LandmarkLook {
  * Attention mode: heated messages are red, longer and stronger with their
  * share of the attention; the rest fade back so the heat stands out.
  */
+// Resting lengths stay short so heat marks grow on approach like any landmark.
 const HEAT_LOOKS: readonly LandmarkLook[] = [
-  { color: 'bg-chart-5', base: 8, opacity: 0.5 },
-  { color: 'bg-chart-5', base: 11, opacity: 0.7 },
-  { color: 'bg-chart-5', base: 15, opacity: 0.85 },
-  { color: 'bg-chart-5', base: 20, opacity: 1 },
+  { color: 'bg-chart-5', base: 6, opacity: 0.55 },
+  { color: 'bg-chart-5', base: 9, opacity: 0.7 },
+  { color: 'bg-chart-5', base: 12, opacity: 0.85 },
+  { color: 'bg-chart-5', base: 15, opacity: 1 },
 ];
 
 function heatLook(mark: AttentionMinimapMark | undefined): LandmarkLook {
-  if (!mark) return { color: 'bg-muted-foreground', base: 5, opacity: 0.25 };
+  if (!mark?.heated) return { color: 'bg-muted-foreground', base: 5, opacity: 0.25 };
   return HEAT_LOOKS[mark.bucket] ?? HEAT_LOOKS[0]!;
 }
 
