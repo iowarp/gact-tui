@@ -2,6 +2,7 @@ import type { InfrastructureTarget, SshRoute } from '@clio/core/v3';
 import type { ClioRepository } from '@clio/core/v3';
 import { vocab } from '@/lib/brand-vocabulary';
 import { inTauri } from '@/lib/transport/tauri-runtime';
+import { infrastructureSocket, waitForAttachment } from './ssh-transport-attachment';
 
 /** An OpenSSH authentication question: only real prompts, never `ssh>` or a shell. */
 export type SshPrompt = {
@@ -68,7 +69,8 @@ type BridgeMessage =
       remote_host: string;
       remote_port: number;
       local_port?: number;
-    };
+    }
+  | { type: 'attached'; target_id: string };
 
 type ActiveBridge = {
   socket: WebSocket;
@@ -135,7 +137,7 @@ export async function attachInfrastructureSshTransport(
   socket.addEventListener('close', () => {
     if (bridges.get(target.id) === bridge) bridges.delete(target.id);
   });
-  await socketReady(socket);
+  await waitForAttachment(socket);
   return status;
 }
 
@@ -226,16 +228,6 @@ export async function recoverInfrastructureSshTransports(
   }
 }
 
-function infrastructureSocket(endpoint: string, token: string | undefined, targetId: string) {
-  const base = new URL(endpoint.endsWith('/') ? endpoint : `${endpoint}/`);
-  base.protocol = base.protocol === 'https:' ? 'wss:' : 'ws:';
-  base.pathname = `/v1/infrastructure/targets/${encodeURIComponent(targetId)}/transport`;
-  base.search = '';
-  const protocols = ['clio.infrastructure.v1'];
-  if (token) protocols.push(`clio-bearer.${base64Url(token)}`);
-  return new WebSocket(base, protocols);
-}
-
 async function handleBridgeMessage(bridge: ActiveBridge, event: MessageEvent): Promise<void> {
   let message: BridgeMessage;
   try {
@@ -243,6 +235,8 @@ async function handleBridgeMessage(bridge: ActiveBridge, event: MessageEvent): P
   } catch {
     return;
   }
+  // The v2 `attached` frame (and anything newer) is not a bridge request.
+  if (message.type !== 'exec' && message.type !== 'forward') return;
   const { invoke } = await import('@tauri-apps/api/core');
   if (message.type === 'exec') {
     try {
@@ -287,33 +281,6 @@ async function handleBridgeMessage(bridge: ActiveBridge, event: MessageEvent): P
       }),
     );
   }
-}
-
-function socketReady(socket: WebSocket): Promise<void> {
-  if (socket.readyState === WebSocket.OPEN) return Promise.resolve();
-  return new Promise((resolve, reject) => {
-    const opened = () => {
-      cleanup();
-      resolve();
-    };
-    const failed = () => {
-      cleanup();
-      reject(new Error(`${vocab.agent} rejected the SSH transport attachment.`));
-    };
-    const cleanup = () => {
-      socket.removeEventListener('open', opened);
-      socket.removeEventListener('error', failed);
-    };
-    socket.addEventListener('open', opened);
-    socket.addEventListener('error', failed);
-  });
-}
-
-function base64Url(value: string): string {
-  const bytes = new TextEncoder().encode(value);
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/u, '');
 }
 
 function errorMessage(error: unknown): string {

@@ -3,6 +3,7 @@ import { modelCapabilityTagsGeneratedSchema } from '../generated/clio-schemas/mo
 import { modelFactsGeneratedSchema } from '../generated/clio-schemas/model-facts.schema.js';
 import { z } from 'zod';
 import { forwardCompatibleEnum, optionalWireString } from './schema-utils.js';
+import { providerClientFactSchema } from './provider-components.js';
 
 export const contextReferenceKindSchema = z.enum([
   'workspace_file',
@@ -439,6 +440,10 @@ export const providerCatalogSchema = z.object({
         .array(providerCatalogTransportSchema)
         .nullish()
         .transform((value) => value ?? undefined),
+      // The CLI a Codex / Claude Code SDK transport runs (installed vs
+      // bundled, with its version). Absent for every other provider and on
+      // older services.
+      client: providerClientFactSchema.nullish().transform((value) => value ?? undefined),
     }),
   ),
 });

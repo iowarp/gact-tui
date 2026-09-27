@@ -14,6 +14,12 @@ import {
   providerModelRefreshResponseSchema,
 } from './repository-decoders.js';
 import { languageModelConfigurationSchema } from './schemas.js';
+import {
+  providerComponentUpdateSchema,
+  providerComponentsSchema,
+  type ProviderComponentUpdate,
+  type ProviderComponents,
+} from './provider-components.js';
 import { ContextRepository } from './context-repository.js';
 import {
   savedServerListSchema,
@@ -237,6 +243,51 @@ export class ProviderRepository extends ContextRepository {
             instructions: z.string(),
           })
           .parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * The provider's SDK components against the newest release installable on
+   * the connected computer (`update_available`), and the CLI in use.
+   * `refresh` asks the package index again instead of the service's cache.
+   */
+  public providerComponents(
+    providerId: string,
+    options: { refresh?: boolean } = {},
+    signal?: AbortSignal,
+  ): Promise<ProviderComponents> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/components${options.refresh ? '?refresh=true' : ''}`,
+      decode: (value) => providerComponentsSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Start the in-place update of the provider's SDK components (202, running job). */
+  public updateProviderComponents(
+    providerId: string,
+    signal?: AbortSignal,
+  ): Promise<ProviderComponentUpdate> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/components/update`,
+      body: {},
+      decode: (value) => providerComponentUpdateSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** The provider's latest component update job (its stage while it runs). */
+  public providerComponentUpdate(
+    providerId: string,
+    signal?: AbortSignal,
+  ): Promise<ProviderComponentUpdate> {
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/providers/${encodeURIComponent(providerId)}/components/update`,
+      decode: (value) => providerComponentUpdateSchema.parse(value),
       signal,
     });
   }
