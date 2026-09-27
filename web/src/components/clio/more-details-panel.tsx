@@ -67,9 +67,7 @@ export function ClioMoreDetailsPanel({
   // A turn is live in the aside: follow-ups wait for it (the service runs one
   // turn per session), and the header says so.
   const answering = Boolean(
-    side &&
-      (entities.active_turns[side.id] ||
-        isSessionActive(entities.sessions[side.id]?.state ?? 'completed')),
+    side && isSessionActive(entities.sessions[side.id]?.state ?? 'completed'),
   );
   const latestAnswer = [...exchange].reverse().find((message) => message.role === 'assistant');
   const latestAnswerText = latestAnswer ? messageText(latestAnswer) : '';
