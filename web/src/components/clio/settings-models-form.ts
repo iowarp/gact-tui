@@ -231,6 +231,23 @@ export function modelSettingsUpdate({
   return update;
 }
 
+/**
+ * The response settings to carry onto a newly chosen model. A longest reply
+ * above the new model's context window cannot be served (vLLM refuses every
+ * request: "max_tokens=32000 cannot be greater than max_model_len=4096"), so
+ * it is dropped and the model's own limit applies; the field then shows the
+ * provider default instead of a value the model rejects.
+ */
+export function settingsForChosenModel(
+  settings: ModelSettingsValues['settings'],
+  contextWindow: number | undefined,
+): ModelSettingsValues['settings'] {
+  const longest = Number(settings.max_tokens);
+  if (!contextWindow || !Number.isFinite(longest) || longest <= contextWindow) return settings;
+  const { max_tokens: _tooLong, ...rest } = settings;
+  return rest;
+}
+
 function reasoningEffort(value: string | undefined): ReasoningEffort | '' {
   return knownReasoningEffort(value) ?? '';
 }

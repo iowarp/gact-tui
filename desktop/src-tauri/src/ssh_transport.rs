@@ -37,6 +37,8 @@ use crate::terminal_pty::spawn_command;
 
 const READY_MARKER: &str = "__CLIO_SSH_READY__";
 const OUTPUT_LIMIT: usize = 4 * 1024 * 1024;
+/// Terminal width of the transport session; see the spawn site.
+const TRANSPORT_COLUMNS: u16 = 4096;
 /// How much of the newest output prompt detection looks at.
 const PROMPT_WINDOW: usize = 4096;
 /// Logs of recently ended sessions kept so a failure can still be explained.
@@ -388,8 +390,12 @@ fn ssh_transport_open_blocking(
     }
     command.arg(remote_shell_command(&request.route.platform, READY_MARKER));
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let spawned =
-        spawn_command(&cwd, 100, 30, command).inspect_err(|_| release_authentication())?;
+    // The session carries machine output CLIO parses (probe lines, `inspect`
+    // JSON). On Windows, ConPTY hard-wraps every line at the column width and
+    // redraws the last column, so a 100-column terminal split `podman inspect`
+    // mid-token. A wide terminal keeps machine lines whole.
+    let spawned = spawn_command(&cwd, TRANSPORT_COLUMNS, 30, command)
+        .inspect_err(|_| release_authentication())?;
     let initial_state = if request.interactive {
         "reauthentication_required"
     } else {
