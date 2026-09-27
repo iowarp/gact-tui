@@ -2,8 +2,13 @@ import type { LanguageModelPreset } from '@clio/core/v3';
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { CascaderColumnSection } from '@/components/reui/cascader/cascader-columns';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
-import { providerUsableModelCount, type PickerNodeData, type ProviderGroup } from './model-picker-model';
+import {
+  providerUsableModelCount,
+  type PickerNodeData,
+  type ProviderGroup,
+} from './model-picker-model';
 import { ProviderConnectState } from './provider-connect-state';
+import { providerCredentialKind } from '@/lib/provider-availability';
 import { useProviderActions } from './provider-actions';
 import { ProviderPanelFooter, type ProviderLogOut } from './provider-panel-footer';
 import { providerActionError } from './provider-setup-state';
@@ -72,7 +77,14 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
   // A transport the service has never asked is asked when it comes into view,
   // once per opening: the person sees it being checked, never a request to.
   const autoChecked = useRef(new Set<string>());
-  const needsCheck = sections.some((section) => section.state === 'unchecked');
+  // A CLI-owned sign-in (Claude Code) the service last saw signed out is asked
+  // again too: the person may have signed in in a terminal since (#1455).
+  const needsCheck =
+    sections.some((section) => section.state === 'unchecked') ||
+    (!multi &&
+      providerCredentialKind(preset) === 'cli' &&
+      preset?.is_authenticated === false &&
+      preset.status !== 'install_required');
   const providerBusy = Boolean(providerActions.stage);
   const groupId = group?.id;
   useEffect(() => {
@@ -132,7 +144,12 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
         data-transport={section.transport.id}
       >
         <TransportLabel focusable section={section} />
-        <TransportLogin actions={transportActions} group={group} preset={preset} section={section} />
+        <TransportLogin
+          actions={transportActions}
+          group={group}
+          preset={preset}
+          section={section}
+        />
       </div>
     </div>
   ));

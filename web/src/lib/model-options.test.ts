@@ -2,6 +2,8 @@ import type { LanguageModelPreset, ProviderCatalog, ProviderCatalogEntry } from 
 import { describe, expect, it } from 'vitest';
 import {
   buildModelOptions,
+  findHeldModelOption,
+  type ClioModelOption,
   findSelectedModelOption,
   matchesConfiguredModel,
   modelAvailabilityLabel,
@@ -68,7 +70,9 @@ describe('buildModelOptions', () => {
       presets: [],
       providerCatalog: {
         authoritative: 'live_handshake',
-        providers: [catalogProvider({ checking: true, health: 'unavailable', failure: 'unreachable' })],
+        providers: [
+          catalogProvider({ checking: true, health: 'unavailable', failure: 'unreachable' }),
+        ],
       },
     });
 
@@ -147,7 +151,9 @@ describe('buildModelOptions', () => {
             failure: 'argonne_reauthentication_required: Globus high-assurance timeout',
           }),
           catalogProvider({
-            models: [catalogModel('gpt-5.6-luna', 'unavailable', 'model_not_entitled: not on this plan')],
+            models: [
+              catalogModel('gpt-5.6-luna', 'unavailable', 'model_not_entitled: not on this plan'),
+            ],
           }),
         ],
       },
@@ -245,7 +251,7 @@ describe('buildModelOptions', () => {
     ]);
   });
 
-  it('threads a multi-transport provider entry\'s transports onto every one of its options', () => {
+  it("threads a multi-transport provider entry's transports onto every one of its options", () => {
     const providerCatalog: ProviderCatalog = {
       authoritative: 'live_handshake',
       providers: [
@@ -661,18 +667,18 @@ describe('matchesConfiguredModel', () => {
   });
 
   it('matches by a reported CLI alias', () => {
-    expect(
-      matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'sonnet'),
-    ).toBe(true);
-    expect(
-      matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'haiku'),
-    ).toBe(false);
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'sonnet')).toBe(
+      true,
+    );
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5', aliases: ['sonnet'] }, 'haiku')).toBe(
+      false,
+    );
   });
 
   it('matches by the service-resolved id when neither id nor alias matches', () => {
-    expect(
-      matchesConfiguredModel({ id: 'claude-sonnet-5' }, 'sonnet', 'claude-sonnet-5'),
-    ).toBe(true);
+    expect(matchesConfiguredModel({ id: 'claude-sonnet-5' }, 'sonnet', 'claude-sonnet-5')).toBe(
+      true,
+    );
   });
 
   it('never matches an empty/undefined configured model', () => {
@@ -792,5 +798,40 @@ describe('findSelectedModelOption', () => {
 
   it('finds the first available row when no transport was picked', () => {
     expect(findSelectedModelOption(rows, 'codex', 'gpt-5.5')?.transport).toBe('sdk');
+  });
+});
+
+describe('findHeldModelOption (#1455)', () => {
+  const row = (overrides: Partial<ClioModelOption>): ClioModelOption => ({
+    providerId: 'claude_code',
+    providerName: 'Claude Code',
+    id: 'claude-sonnet-5',
+    label: 'Sonnet 5',
+    available: false,
+    kind: 'model',
+    health: 'needs_setup',
+    ...overrides,
+  });
+
+  it('keeps a pick whose provider only waits on its sign-in', () => {
+    expect(findHeldModelOption([row({})], 'claude_code', 'claude-sonnet-5')?.id).toBe(
+      'claude-sonnet-5',
+    );
+  });
+
+  it('keeps the pick from the provider row when a signed-out provider lists no models', () => {
+    const held = findHeldModelOption(
+      [row({ kind: 'provider', id: '', label: 'Claude Code' })],
+      'claude_code',
+      'claude-sonnet-5',
+    );
+    expect(held).toMatchObject({ kind: 'model', id: 'claude-sonnet-5', providerId: 'claude_code' });
+  });
+
+  it('never holds a failed provider or another provider', () => {
+    expect(
+      findHeldModelOption([row({ health: 'unavailable' })], 'claude_code', 'claude-sonnet-5'),
+    ).toBeUndefined();
+    expect(findHeldModelOption([row({})], 'codex', 'claude-sonnet-5')).toBeUndefined();
   });
 });

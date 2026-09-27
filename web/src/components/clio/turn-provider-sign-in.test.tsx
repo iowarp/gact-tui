@@ -76,25 +76,48 @@ describe('turnSignInProvider', () => {
 });
 
 describe('TurnProviderSignIn', () => {
-  it('checks Claude Code again, picking up a sign-in made in its own CLI', async () => {
+  it('signs in to Claude Code again through its own CLI sign-in', async () => {
     repository.languageModelConfiguration.mockResolvedValue({
       presets: [preset({ id: 'claude_code', label: 'Claude Code', provider: 'claude_code' })],
+    });
+    repository.authenticateProvider.mockResolvedValue({
+      provider_id: 'claude_code',
+      flow_id: 'flow_1',
+      browser: { authorization_url: 'https://claude.com/cai/oauth/authorize?x=1', loopback: false },
+    });
+    repository.providerAuthStatus.mockResolvedValue({ state: 'pending' });
+    const user = userEvent.setup();
+    renderSignIn('claude_code', 'Claude Code');
+
+    await user.click(await screen.findByRole('button', { name: /Sign in again/ }));
+
+    await waitFor(() =>
+      expect(repository.authenticateProvider).toHaveBeenCalledWith(
+        'claude_code',
+        expect.objectContaining({ force: true }),
+      ),
+    );
+    expect(await screen.findByRole('link', { name: /Open sign-in page/ })).toHaveAttribute(
+      'href',
+      'https://claude.com/cai/oauth/authorize?x=1',
+    );
+  });
+
+  it('checks a provider that has no sign-in of its own', async () => {
+    repository.languageModelConfiguration.mockResolvedValue({
+      presets: [
+        preset({ id: 'lm_studio', label: 'LM Studio', provider: 'lm_studio', auth_method: 'none' }),
+      ],
     });
     repository.providerHandshake.mockResolvedValue({ connectivity: 'ok', auth: 'ok' });
     repository.providerModels.mockResolvedValue({ models: [] });
     repository.providerCatalog.mockResolvedValue({ providers: [] });
     const user = userEvent.setup();
-    renderSignIn('claude_code', 'Claude Code');
+    renderSignIn('lm_studio', 'LM Studio');
 
     await user.click(await screen.findByRole('button', { name: 'Check' }));
 
-    await waitFor(() =>
-      expect(repository.providerHandshake).toHaveBeenCalledWith(
-        'claude_code',
-        expect.objectContaining({ refresh: true }),
-      ),
-    );
-    // Claude Code has no CLIO-driven sign-in: never the browser flow.
+    await waitFor(() => expect(repository.providerHandshake).toHaveBeenCalled());
     expect(repository.authenticateProvider).not.toHaveBeenCalled();
   });
 

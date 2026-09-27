@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRepository } from '@/hooks/use-repository';
-import { providerCredentialKind } from '@/lib/provider-availability';
 import { queryKeys } from '@/lib/query-keys';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useProviderActions } from './provider-actions';
@@ -15,9 +14,9 @@ interface TurnProviderSignInProps {
 
 /**
  * The failed turn's own way back in: the SAME provider action the model
- * picker offers (shared action hook + setup control). A provider CLIO signs
- * in itself gets its browser sign-in; a provider whose own CLI owns the login
- * (Claude Code) gets the check that picks up a sign-in made in its CLI.
+ * picker offers (shared action hook + setup control). A subscription or OAuth
+ * provider -- Codex, ALCF, and Claude Code, whose own CLI sign-in the service
+ * drives -- gets "Sign in again"; anything else gets the provider check.
  */
 export function TurnProviderSignIn({ providerId, providerLabel }: TurnProviderSignInProps) {
   const repository = useRepository();
@@ -33,7 +32,7 @@ export function TurnProviderSignIn({ providerId, providerLabel }: TurnProviderSi
     preset,
   });
   const flow: ProviderActionFlow =
-    providerCredentialKind(preset) === 'sign_in' ? 'sign_in' : 'check';
+    preset?.auth_method === 'subscription' || preset?.auth_method === 'oauth' ? 'sign_in' : 'check';
   const failure = actions.stage ? undefined : providerActionError(actions, providerLabel);
   return (
     <div className="mt-2 flex flex-col gap-1.5" data-slot="turn-provider-sign-in">
