@@ -50,7 +50,9 @@ describe('managed Tauri backend', () => {
   it('runs first-use installation once before resuming supervisor polling', async () => {
     mocks.invoke
       .mockResolvedValueOnce({ url: '', bearer_token: '', status: { kind: 'needs_install' } })
-      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        mocks.listeners.get('clio:install-done')?.({ payload: undefined });
+      })
       .mockResolvedValueOnce({
         url: '',
         bearer_token: '',
@@ -71,6 +73,48 @@ describe('managed Tauri backend', () => {
       ['get_backend'],
       ['get_backend'],
     ]);
+  });
+
+  it('surfaces a failed first-use install instead of waiting out the readiness window', async () => {
+    const needsInstall = { url: '', bearer_token: '', status: { kind: 'needs_install' } };
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'install_clio') {
+        mocks.listeners.get('clio:install-failed')?.({
+          payload: { code: 1, tail: 'sidecar-launcher: clio-agent-gact not found' },
+        });
+        return undefined;
+      }
+      return needsInstall;
+    });
+
+    await expect(waitForManagedBackend({ pollIntervalMs: 0, timeoutMs: 50 })).rejects.toThrow(
+      'could not be installed: sidecar-launcher: clio-agent-gact not found',
+    );
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'install_clio')).toHaveLength(
+      1,
+    );
+    expect(mocks.listeners.size).toBe(0);
+  });
+
+  it('does not cut off a first-use install that outlasts the readiness window', async () => {
+    let installed = false;
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'install_clio') {
+        setTimeout(() => {
+          installed = true;
+          mocks.listeners.get('clio:install-done')?.({ payload: undefined });
+        }, 40);
+        return undefined;
+      }
+      return installed
+        ? { url: 'http://127.0.0.1:17800', bearer_token: '', status: { kind: 'ready' } }
+        : { url: '', bearer_token: '', status: { kind: 'needs_install' } };
+    });
+
+    await expect(
+      waitForManagedBackend({ pollIntervalMs: 0, timeoutMs: 10 }),
+    ).resolves.toMatchObject({ url: 'http://127.0.0.1:17800' });
+    expect(mocks.listeners.size).toBe(0);
   });
 
   it('publishes a typed supervisor failure instead of falling back to port 8787', async () => {
