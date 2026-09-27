@@ -2978,7 +2978,7 @@ add vendor-specific types prefixed `x_<vendor>_`.
 
 | `error` | Meaning | TUI default rendering |
 |---|---|---|
-| `provider_error` | Upstream LM / model provider failed (timeout, auth, rate-limit) | Red toast, offer retry, surface provider name |
+| `provider_error` | Upstream LM / model provider failed (timeout, auth, rate-limit). A refused sign-in carries `details.reason: "provider_auth_required"` + `details.provider_id` / `details.provider_label` (clio #1454) | Red toast, offer retry, surface provider name; for `provider_auth_required`, offer that provider's sign-in / check action |
 | `provider_timeout` | No-progress watchdog aborted a stalled turn (clio #761); partial streamed text kept; `recoverable: true` | Offer retry |
 | `finalize_error` | Finalize itself crashed; settled by the §7.4a invariant (`details.reason: "turn_finalize_error"`, `details.stage: "finalize"`); `recoverable: true` | Offer retry |
 | `empty_response` | Model produced no usable output | Offer retry |
