@@ -140,7 +140,7 @@ describe('AgentSettings', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Edit agent' }));
     const name = screen.getByRole('textbox', { name: 'Display name' });
     await user.clear(name);
-    await user.type(name, 'Station Evidence Reviewer');
+    await user.paste('Station Evidence Reviewer');
     await user.click(screen.getByRole('button', { name: 'Save agent' }));
 
     await waitFor(() => expect(repository.updateAgent).toHaveBeenCalledTimes(1));

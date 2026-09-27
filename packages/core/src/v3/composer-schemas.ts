@@ -1,3 +1,4 @@
+import { acceptedParameterGeneratedSchema } from '../generated/clio-schemas/accepted-parameter.schema.js';
 import { modelCapabilityTagsGeneratedSchema } from '../generated/clio-schemas/model-capability-tags.schema.js';
 import { modelFactsGeneratedSchema } from '../generated/clio-schemas/model-facts.schema.js';
 import { z } from 'zod';
@@ -375,6 +376,12 @@ export const providerCatalogSchema = z.object({
           // date (and whether it is recent), pricing and size, each with its
           // evidence. Optional: older services do not report facts.
           model_facts: modelFactsGeneratedSchema
+            .nullish()
+            .transform((value) => value ?? undefined),
+          // The shared clio-schemas AcceptedParameter records: only the
+          // response settings this model accepts. Optional: older services.
+          accepted_parameters: z
+            .array(acceptedParameterGeneratedSchema)
             .nullish()
             .transform((value) => value ?? undefined),
           reasoning: z.object({
