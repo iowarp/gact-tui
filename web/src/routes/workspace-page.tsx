@@ -10,6 +10,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ClioAppShell } from '@/components/clio/app-shell';
 import { ClioCommandMenu } from '@/components/clio/command-menu';
+import { ClioMoreDetails } from '@/components/clio/more-details';
 import { ClioComposer } from '@/components/clio/composer';
 import { ClioChildSessionFooter } from '@/components/clio/child-session-footer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
@@ -558,6 +559,14 @@ export function WorkspacePage() {
   return (
     <>
       <ClioCommandMenu onOpenResource={revealWorkbench} />
+      <ClioMoreDetails
+        composerDraft={composerDraft}
+        focusComposer={() => setComposerFocusKey((key) => key + 1)}
+        model={activeModel}
+        provider={activeProvider}
+        sessionId={sessionId}
+        workspaceId={workspaceId}
+      />
       <ClioAppShell
         navigation={
           <ClioNavigation
