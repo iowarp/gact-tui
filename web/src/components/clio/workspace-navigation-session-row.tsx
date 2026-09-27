@@ -42,6 +42,8 @@ interface SessionNavigationRowProps {
   onAction: (action: () => Promise<void>, success: string) => void;
   onVisit: (session: Session) => void;
   attention?: SessionAttention;
+  /** Another session in this workspace has the same title: show when it started and what it holds. */
+  disambiguate?: boolean;
 }
 
 export function SessionNavigationRow({
@@ -57,6 +59,7 @@ export function SessionNavigationRow({
   onAction,
   onVisit,
   attention,
+  disambiguate = false,
 }: SessionNavigationRowProps) {
   const running = isSessionRunning(session.state);
   const needsAttention = Boolean(attention?.total);
@@ -129,7 +132,7 @@ export function SessionNavigationRow({
         </DropdownMenu>
       }
       className={cn(
-        'h-8 min-h-8 gap-1.5 px-2 py-0',
+        disambiguate ? 'h-auto min-h-8 gap-1.5 px-2 py-1' : 'h-8 min-h-8 gap-1.5 px-2 py-0',
         needsAttention &&
           'bg-warning/10 text-sidebar-foreground hover:bg-warning/15 focus-within:bg-warning/15',
       )}
@@ -146,7 +149,17 @@ export function SessionNavigationRow({
             to={`/workspaces/${encodeURIComponent(workspaceId)}/sessions/${encodeURIComponent(session.id)}`}
           >
             {session.pinned ? <PinIcon aria-hidden="true" className="mr-1 inline size-3" /> : null}
-            <span className="min-w-0 flex-1 truncate">{session.title || 'Untitled session'}</span>
+            {disambiguate ? (
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate">{session.title || 'Untitled session'}</span>
+                <span className="flex min-w-0 gap-2 text-[10px] leading-4 text-muted-foreground">
+                  <span className="truncate">Started {startedLabel(session.created_at)}</span>
+                  <span className="shrink-0">{messageCountLabel(session.message_count)}</span>
+                </span>
+              </span>
+            ) : (
+              <span className="min-w-0 flex-1 truncate">{session.title || 'Untitled session'}</span>
+            )}
             {needsAttention && attention ? (
               <span
                 aria-label={`Needs your response: ${sessionAttentionLabel(attention)}`}
@@ -192,10 +205,7 @@ export function SessionNavigationRow({
               </button>
               {needsAttention && attention ? (
                 <div className="mt-1">
-                  <SessionAttentionIndicators
-                    attention={attention}
-                    showResponseLabel
-                  />
+                  <SessionAttentionIndicators attention={attention} showResponseLabel />
                 </div>
               ) : (
                 <p className="mt-0.5 text-xs text-muted-foreground">
@@ -250,4 +260,18 @@ function sessionStateLabel(state: Session['state']): string {
       unknown: 'Unknown state',
     } satisfies Record<Session['state'], string>
   )[state];
+}
+
+function startedLabel(timestamp: string): string {
+  const time = new Date(timestamp);
+  if (Number.isNaN(time.getTime())) return 'at an unknown time';
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(
+    time,
+  );
+}
+
+function messageCountLabel(count: number | undefined): string {
+  if (count === undefined) return '';
+  if (count === 0) return 'No messages yet';
+  return count === 1 ? '1 message' : `${count} messages`;
 }
