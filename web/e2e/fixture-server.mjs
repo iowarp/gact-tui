@@ -986,6 +986,15 @@ const server = createServer(async (request, response) => {
     });
     return;
   }
+  if (request.method === 'GET' && url.pathname === '/v1/desktop/attach') {
+    // A current CLIO's attach check (clio-agent#1478). This fixture enforces no
+    // bearer token, so a desktop attaching without one is told it may proceed.
+    // It publishes no credential record: that file lives in the machine's CLIO
+    // state dir, which a fixture must not write.
+    response.writeHead(204, commonHeaders());
+    response.end();
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/v1/health') {
     sendJson(response, {
       healthy: true,

@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { brand } from '@brand';
+import { vocab } from '@/lib/brand-vocabulary';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -17,7 +18,9 @@ const mocks = vi.hoisted(() => ({
   managedBackendStatus: undefined as
     | { kind: 'starting'; detail: 'checking_existing' | 'starting_service' }
     | { kind: 'needs_install' }
+    | { kind: 'auth_unavailable'; detail: string }
     | undefined,
+  credentialError: undefined as string | undefined,
   recents: [] as Array<{ endpoint: string; label?: string }>,
   repository: {
     allSessions: vi.fn(),
@@ -45,7 +48,7 @@ vi.mock('@/providers/connection-provider', () => ({
     managedConnectionReady: mocks.managedConnectionReady,
     managedConnection: mocks.managedConnection,
     managedBackendStatus: mocks.managedBackendStatus,
-    credentialError: undefined,
+    credentialError: mocks.credentialError,
     resolveConnection: mocks.resolveConnection,
     connect: mocks.connect,
     forget: mocks.forget,
@@ -66,6 +69,7 @@ beforeEach(() => {
   mocks.managedConnectionReady = false;
   mocks.managedConnection = undefined;
   mocks.managedBackendStatus = undefined;
+  mocks.credentialError = undefined;
   mocks.recents = [];
   mocks.managedLabel = undefined;
   mocks.resolveConnection.mockResolvedValue({
@@ -125,6 +129,31 @@ it('shows managed startup instead of asking desktop users for a connection addre
   expect(screen.getByRole('list', { name: 'Startup progress' })).toBeVisible();
   expect(screen.getByTestId('desktop-boot-logo')).toHaveClass('translate-x-1', '-translate-y-2');
   expect(screen.queryByLabelText('Connection address')).not.toBeInTheDocument();
+});
+
+it('says up front that the desktop cannot sign in to an already-running agent (#1478)', () => {
+  mocks.inTauri = true;
+  mocks.managedBackendStatus = {
+    kind: 'auth_unavailable',
+    detail: 'it did not publish its access token',
+  };
+  mocks.credentialError = `${brand.name} is already running at http://127.0.0.1:17800, but this app can't sign in to it: it did not publish its access token.`;
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  expect(screen.getByText(`Can't sign in to the running ${vocab.agent}`)).toBeVisible();
+  expect(screen.getByText(/did not publish its access token/u)).toBeVisible();
+  expect(screen.queryByText('Saved access token unavailable')).not.toBeInTheDocument();
 });
 
 it('separates saved services from new connection fields and exposes the endpoint', async () => {
