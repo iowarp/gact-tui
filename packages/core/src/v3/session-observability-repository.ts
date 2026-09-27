@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { agentTaskRecordSchema, type AgentTaskRecord } from './agent-task-domain.js';
 import type { AsyncProcess, ContextFile, ContextFrame, SessionDiff } from './domain.js';
 import { ExecutionProvenanceRepository } from './execution-provenance-repository.js';
 import { operationalRunStateSchema } from './schemas.js';
@@ -218,5 +219,20 @@ export class SessionObservabilityRepository extends ExecutionProvenanceRepositor
       signal,
     });
     return value.processes as AsyncProcess[];
+  }
+
+  /** Every agent task the registry holds for `sessionId` (children, delegations, watchers). */
+  public async sessionAgentTasks(
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<AgentTaskRecord[]> {
+    const value = await this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/agent-tasks`,
+      decode: (input) =>
+        z.object({ tasks: z.array(agentTaskRecordSchema).default([]) }).parse(input),
+      signal,
+    });
+    return value.tasks;
   }
 }

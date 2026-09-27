@@ -25,6 +25,8 @@ import {
 } from './tool-result-resource-memory';
 import { isProvenanceBlock } from './tool-result-shared';
 import { WorkspaceFilePresentationBlock } from './tool-result-workspace-file';
+import { SavedTerminalOutput } from './tool-result-saved-output';
+import { belongsToTerminal, savedOutputsAfter } from './tool-result-saved-output-blocks';
 
 /** Render only the declared presentation contract. Raw results stay technical. */
 export function ToolResultPresentation({
@@ -216,6 +218,7 @@ export function ToolResultPresentation({
             : lines;
         const running = block.type === 'terminal' && tool.state === 'running';
         if (block.type === 'link') {
+          if (belongsToTerminal(blocks, index)) return null;
           return <PresentationLink key={block.id} block={block} />;
         }
         if (block.type === 'workspace_file') {
@@ -290,6 +293,11 @@ export function ToolResultPresentation({
                   <TerminalContent className="max-h-none overflow-visible bg-zinc-950 p-3 text-zinc-100" />
                 </BoundedResult>
               )}
+              {running
+                ? null
+                : savedOutputsAfter(blocks, index).map((saved) => (
+                    <SavedTerminalOutput key={saved.id} block={saved} lines={budget} />
+                  ))}
               {!running && (block.timed_out || block.exit_code !== undefined) ? (
                 <p className="border-t border-zinc-800 px-3 py-2 text-sm text-zinc-400">
                   {block.timed_out

@@ -75,9 +75,33 @@ describe('workspace route state', () => {
       source: { protocol: 'native' as const, tool_name: 'plan_exit', invocation_id: 'inv_1' },
       created_at: '2026-09-05T00:00:00Z',
     };
-    const ordinary = { ...plan, id: 'question:ordinary', source: { ...plan.source, tool_name: 'ask' } };
+    const mcp = {
+      ...plan,
+      id: 'question:mcp',
+      source: { ...plan.source, protocol: 'mcp' as const, tool_name: 'form' },
+    };
 
-    expect(responseTrayInteractions([plan, ordinary], new Set(['inv_1']))).toEqual([ordinary]);
+    expect(responseTrayInteractions([plan, mcp], new Set(['inv_1']))).toEqual([mcp]);
+  });
+
+  it("keeps the agent's own anchored question in the log, not the tray (#1448)", () => {
+    const asked = {
+      id: 'question:ask',
+      kind: 'question' as const,
+      owner_session_id: 'sess_1',
+      attended_session_id: 'sess_1',
+      status: 'pending' as const,
+      title: 'Question',
+      source: { protocol: 'native' as const, tool_name: 'ask_user', invocation_id: 'inv_2' },
+      created_at: '2026-09-05T00:00:00Z',
+    };
+    const unanchored = {
+      ...asked,
+      id: 'question:unanchored',
+      source: { ...asked.source, invocation_id: 'inv_gone' },
+    };
+
+    expect(responseTrayInteractions([asked, unanchored], new Set(['inv_2']))).toEqual([unanchored]);
   });
 
   it('recovers a pending Plan review into the tray when its tool transcript is unavailable', () => {

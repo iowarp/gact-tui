@@ -1,3 +1,4 @@
+import { inlineQuestionDomId } from '@/lib/inline-question';
 import type { McpAppIdentity, Message as DomainMessage } from '@clio/core/v3';
 import { AlertTriangleIcon, ArrowDownIcon, GitBranchIcon, LoaderCircleIcon } from 'lucide-react';
 import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
@@ -244,7 +245,11 @@ function ConversationBody({
       virtualizer.scrollToIndex(index, { align: 'center' });
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(() => {
-          const activity = activityId ? document.getElementById(`tool-${activityId}`) : null;
+          // An agent question's card is the landmark for its tool call when shown.
+          const activity = activityId
+            ? (document.getElementById(inlineQuestionDomId(activityId)) ??
+              document.getElementById(`tool-${activityId}`))
+            : null;
           if (activity) {
             activity.scrollIntoView({ block: 'center' });
             activity.focus({ preventScroll: true });

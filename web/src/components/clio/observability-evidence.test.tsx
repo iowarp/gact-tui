@@ -501,3 +501,75 @@ describe('ClioEvidenceView change status', () => {
     expect(screen.queryByText('Pending')).not.toBeInTheDocument();
   });
 });
+
+describe('ClioEvidenceView child agents', () => {
+  const watcher = {
+    id: 'task_watch',
+    session_id: 'sess_1',
+    child_session_id: 'sess_watch',
+    title: 'SPOTTER watcher',
+    state: 'running' as const,
+  };
+
+  it('always lists child agents, with an explicit empty state', () => {
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        messages={[]}
+        processes={[]}
+        provenanceProvider={{
+          name: 'native',
+          configured: true,
+          queryable: true,
+          durable: true,
+          status: 'ready',
+          source: 'arc+jsonl',
+          health: {},
+        }}
+        subagents={[]}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Child agents, 0 recorded' })).toBeVisible();
+    expect(screen.getByText('No child agents in this session yet.')).toBeVisible();
+  });
+
+  it('opens in the main chat on click and in the canvas on Shift-click or the canvas action', async () => {
+    const user = userEvent.setup();
+    const onOpenSubagent = vi.fn();
+    render(
+      <ClioEvidenceView
+        artifacts={[]}
+        contextFiles={[]}
+        diffs={[]}
+        messages={[]}
+        onOpenSubagent={onOpenSubagent}
+        processes={[]}
+        subagents={[watcher]}
+      />,
+    );
+    const row = screen.getByRole('button', { name: 'Open child conversation SPOTTER watcher' });
+    await user.click(row);
+    expect(onOpenSubagent).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'task_watch' }),
+      'conversation',
+    );
+
+    await user.keyboard('{Shift>}');
+    await user.click(row);
+    await user.keyboard('{/Shift}');
+    expect(onOpenSubagent).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'task_watch' }),
+      'canvas',
+    );
+
+    onOpenSubagent.mockClear();
+    await user.click(screen.getByRole('button', { name: 'Open SPOTTER watcher in canvas' }));
+    expect(onOpenSubagent).toHaveBeenCalledTimes(1);
+    expect(onOpenSubagent).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'task_watch' }),
+      'canvas',
+    );
+  });
+});
