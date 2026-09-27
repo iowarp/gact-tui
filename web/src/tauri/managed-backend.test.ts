@@ -202,4 +202,17 @@ describe('managed Tauri backend', () => {
       'verification failed',
     );
   });
+
+  it('stops with a typed reason when it attached to an agent it cannot sign in to (#1478)', async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'auth_unavailable', detail: 'it did not publish its access token' },
+    });
+
+    await expect(waitForManagedBackend({ pollIntervalMs: 0 })).rejects.toThrow(
+      /already running at http:\/\/127\.0\.0\.1:17800, but this app can't sign in to it: it did not publish its access token/u,
+    );
+    expect(mocks.invoke).toHaveBeenCalledTimes(1);
+  });
 });

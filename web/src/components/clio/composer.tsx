@@ -66,6 +66,8 @@ import { toMessagePart, type InlineReferenceSelection } from '@/lib/composer-ref
 import { ComposerInlineReferenceEditor } from './composer-inline-reference-editor';
 import { focusEditorAtOffset } from './composer-editor-model';
 import { ClioComposerFileUpload } from './composer-file-upload';
+import { ClioComposerAnnotations } from './composer-annotations';
+import { messageTextWithAnnotations, type ComposerAnnotation } from '@/lib/composer-annotations';
 import { modelTransportLabel } from './provider-transport-state';
 import type { ClioModelOption } from '@/lib/model-options';
 
@@ -145,6 +147,9 @@ export interface ClioComposerProps {
    */
   references?: readonly InlineReferenceSelection[];
   onReferencesChange?: (references: readonly InlineReferenceSelection[]) => void;
+  /** Selections attached to the next message (sent as quotes ahead of the text). */
+  annotations?: readonly ComposerAnnotation[];
+  onAnnotationsChange?: (annotations: readonly ComposerAnnotation[]) => void;
   focusRequestKey?: number;
   variant?: 'docked' | 'welcome';
 }
@@ -194,6 +199,8 @@ export function ClioComposer({
   onValueChange,
   references,
   onReferencesChange,
+  annotations = [],
+  onAnnotationsChange,
   focusRequestKey,
   variant = 'docked',
 }: ClioComposerProps) {
@@ -480,7 +487,7 @@ export function ClioComposer({
         onError={(error) => toast.error('Attachment was not added', { description: error.message })}
         onSubmit={async ({ files, text }) => {
           const trimmed = text.trim();
-          if (trimmed || files.length > 0 || selectedReferences.length > 0) {
+          if (trimmed || files.length > 0 || selectedReferences.length > 0 || annotations.length) {
             if (trimmed.startsWith('/')) {
               const [enteredId = '', ...parts] = trimmed.split(/\s+/);
               const command = commands.find(
@@ -527,7 +534,7 @@ export function ClioComposer({
                 delivery: state === 'running' ? nextDeliveryRef.current : 'start',
                 files,
                 references: selectedReferences.map(({ reference }) => toMessagePart(reference)),
-                text: trimmed,
+                text: messageTextWithAnnotations(annotations, trimmed),
                 provider: selectedOption?.providerId,
                 model: selectedOption?.id,
                 transport: selectedTransport,
@@ -556,6 +563,7 @@ export function ClioComposer({
             nextDeliveryRef.current = state === 'running' ? 'queued' : 'start';
             setInput('');
             setSelectedReferences([]);
+            onAnnotationsChange?.([]);
           }
         }}
       >
@@ -584,6 +592,10 @@ export function ClioComposer({
               : ''}
           </div>
         ) : null}
+        <ClioComposerAnnotations
+          annotations={annotations}
+          onRemove={(gone) => onAnnotationsChange?.(annotations.filter((item) => item !== gone))}
+        />
         <ComposerInlineReferenceEditor
           activeOptionId={composerReferences.activeOptionId}
           disabled={disabled}
@@ -662,9 +674,7 @@ export function ClioComposer({
                         <ModelSelectorLogo provider={providerLogoId(selectedOption.providerId)} />
                       ) : null}
                       <span className="truncate">
-                        {selectedOption
-                          ? composerModelLabel(selectedOption)
-                          : 'Choose model'}
+                        {selectedOption ? composerModelLabel(selectedOption) : 'Choose model'}
                       </span>
                     </Button>
                   }
