@@ -40,6 +40,12 @@ export const containerRuntimeFactSchema = z.object({
     .enum(['not_installed', 'unusable', 'not_probed'])
     .nullish()
     .transform((value) => value ?? undefined),
+  /** Why an installed runtime is unusable; absent from older servers. */
+  failure: z
+    .enum(['not_running', 'permission_denied', 'timed_out', 'unknown'])
+    .nullish()
+    .catch(undefined)
+    .transform((value) => value ?? undefined),
   detail: z.string().default(''),
 });
 
@@ -116,6 +122,18 @@ export const ownedResourceSchema = z.object({
   created_at: z.string().default(''),
 });
 
+/**
+ * Who can use a managed model server: protected by the key the service made
+ * for it (and sends itself), shared with no key by choice, or not protected
+ * (Ollama has no key support, or the server did not refuse a request without
+ * its key). `detail` is the plain sentence to show.
+ */
+export const serviceAccessSchema = z.object({
+  mode: z.enum(['api_key', 'shared', 'unprotected']),
+  detail: z.string(),
+  verified: z.boolean().default(false),
+});
+
 export const managedServiceDefinitionSchema = z.object({
   id: z.string(),
   category: z.enum(['model_runtime', 'scientific_service', 'remote_access']),
@@ -138,6 +156,10 @@ export const managedServiceDefinitionSchema = z.object({
   effective_parameters: z.array(effectiveParameterSchema).default([]),
   configuration: z.record(z.string(), z.string()).default({}),
   owned_resources: z.array(ownedResourceSchema).default([]),
+  /** Whether this engine can be protected by an API key (Ollama cannot). */
+  supports_api_key: z.boolean().default(false),
+  /** Who can use the installed deployment. */
+  access: serviceAccessSchema.nullish().transform((value) => value ?? undefined),
 });
 
 export const managedServiceCatalogSchema = z.object({
@@ -186,6 +208,7 @@ export type ContainerRuntimeFact = z.infer<typeof containerRuntimeFactSchema>;
 export type ServerParameter = z.infer<typeof serverParameterSchema>;
 export type EffectiveParameter = z.infer<typeof effectiveParameterSchema>;
 export type OwnedResource = z.infer<typeof ownedResourceSchema>;
+export type ServiceAccess = z.infer<typeof serviceAccessSchema>;
 export type ManagedServiceDefinition = z.infer<typeof managedServiceDefinitionSchema>;
 export type ManagedServiceCatalog = z.infer<typeof managedServiceCatalogSchema>;
 export type InfrastructureOperation = z.infer<typeof infrastructureOperationSchema>;
