@@ -6,6 +6,8 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.20] — 2026-09-27
+
 ### Changed
 
 - Settings > Models shows only the response settings the selected model
