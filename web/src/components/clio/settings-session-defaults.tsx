@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
-import { approvalOptionViews } from './approval-option-availability';
+import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
@@ -357,6 +357,9 @@ export function SessionDefaultsSettings() {
             </SelectContent>
           </Select>
           <FieldDescription>{selectedApproval.description}</FieldDescription>
+          {unavailableApprovalNotice(approvalOptions) ? (
+            <FieldDescription>{unavailableApprovalNotice(approvalOptions)}</FieldDescription>
+          ) : null}
         </Field>
       </ClioSettingsSection>
     </div>

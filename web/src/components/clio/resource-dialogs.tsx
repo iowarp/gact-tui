@@ -37,7 +37,7 @@ import { useRepository } from '@/hooks/use-repository';
 import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { capitalize, vocab } from '@/lib/brand-vocabulary';
 import { useConnectionSettings } from '@/providers/connection-provider';
-import { approvalOptionViews } from './approval-option-availability';
+import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
 import { ClioPathPicker } from './path-picker';
 import {
   SESSION_APPROVAL_OPTIONS,
@@ -347,7 +347,6 @@ function SessionFields(props: SessionFieldsProps) {
     SESSION_APPROVAL_OPTIONS,
     useSpotterAvailability(props.workspaceId),
   );
-  const selectedApproval = approvalOptions.find((option) => option.value === props.approvalMode);
   return (
     <FieldGroup>
       <Field>
@@ -424,11 +423,7 @@ function SessionFields(props: SessionFieldsProps) {
             onChange={(value) =>
               props.onApprovalModeChange(value as SessionDefaults['approval_mode'])
             }
-            description={
-              selectedApproval?.disabled
-                ? `${selectedApproval.label}: ${selectedApproval.description}`
-                : undefined
-            }
+            description={unavailableApprovalNotice(approvalOptions) || undefined}
             disabledValues={approvalOptions
               .filter((option) => option.disabled)
               .map((option) => option.value)}

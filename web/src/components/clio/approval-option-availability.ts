@@ -16,6 +16,20 @@ function sentence(text: string): string {
 }
 
 /**
+ * One line naming every confirmation policy the service cannot honour here and
+ * what to enable, for pickers (native selects) whose items cannot carry a
+ * description. Empty when every option is available.
+ */
+export function unavailableApprovalNotice<T extends string>(
+  options: readonly ApprovalOptionView<T>[],
+): string {
+  return options
+    .filter((option) => option.disabled)
+    .map((option) => `${option.label}: ${option.description}`)
+    .join(' ');
+}
+
+/**
  * Apply what the service reports about each option to the confirmation-policy
  * list, so every picker offers only choices the service would accept.
  *

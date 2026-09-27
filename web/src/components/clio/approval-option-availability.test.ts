@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { approvalOptionViews } from './approval-option-availability';
+import { approvalOptionViews, unavailableApprovalNotice } from './approval-option-availability';
 import { SESSION_APPROVAL_OPTIONS } from './session-behavior-options';
 
 const unavailable = {
@@ -37,5 +37,18 @@ describe('approvalOptionViews', () => {
       expect(view?.disabled).toBe(false);
       expect(view?.description).toBe('Require the configured SPOTTER policy.');
     }
+  });
+});
+
+describe('unavailableApprovalNotice', () => {
+  it('names each unavailable policy with what to enable, and nothing when all are available', () => {
+    expect(
+      unavailableApprovalNotice(approvalOptionViews(SESSION_APPROVAL_OPTIONS, unavailable)),
+    ).toBe(
+      'SPOTTER review: Unavailable. To enable: Install the spotter-ai Agent Blueprint from the marketplace.',
+    );
+    expect(
+      unavailableApprovalNotice(approvalOptionViews(SESSION_APPROVAL_OPTIONS, undefined)),
+    ).toBe('');
   });
 });
