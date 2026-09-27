@@ -32,6 +32,8 @@ import type { ConversationMessageRowProps } from './conversation-types';
 import { specialMessageExecutionMode } from './conversation-message-projection';
 import { McpAppResponseMessageRow } from './conversation-message-projections';
 import { useConversationTurn } from './use-conversation-turn';
+import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
+import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { brand } from '@brand';
 
 export const ConversationMessageRow = memo(function ConversationMessageRow({
@@ -53,6 +55,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
   const emptyResponseWasClientCancelled =
     emptyResponseErrorCode === 'cancelled' ||
     emptyResponseErrorMessage?.trim().toLowerCase() === 'turn cancelled by client';
+  const signInProvider = turnSignInProvider(message.error_info);
   const canRetry =
     message.role === 'assistant' &&
     (message.blocks.length === 0 ||
@@ -254,6 +257,12 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                   <AlertDescription>
                     {emptyResponseErrorMessage ??
                       'No response content was recorded for this turn. You can retry the response.'}
+                    {signInProvider ? (
+                      <TurnProviderSignIn
+                        providerId={signInProvider.id}
+                        providerLabel={signInProvider.label}
+                      />
+                    ) : null}
                   </AlertDescription>
                 ) : null}
               </Alert>

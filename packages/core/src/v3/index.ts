@@ -1,5 +1,6 @@
 export * from './a2ui/index.js';
 export * from './domain.js';
+export * from './agent-task-domain.js';
 export * from './usage-domain.js';
 export * from './work-state.js';
 export * from './interaction-domain.js';
@@ -15,6 +16,7 @@ export * from './infrastructure-domain.js';
 export * from './infrastructure-contract.js';
 export * from './infrastructure-repository.js';
 export * from './system-repository.js';
+export * from './spotter-domain.js';
 export * from './sandbox-domain.js';
 export * from './execution-provenance-repository.js';
 export * from './execution-provenance-schemas.js';

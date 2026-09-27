@@ -1,9 +1,4 @@
-import type {
-  PendingInteraction,
-  PendingInteractionResponse,
-  RunState,
-  WorkspaceReference,
-} from '@clio/core/v3';
+import type { RunState, WorkspaceReference } from '@clio/core/v3';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -16,7 +11,6 @@ import { ClioChildSessionFooter } from '@/components/clio/child-session-footer';
 import { ClioConversationWelcome } from '@/components/clio/conversation-welcome';
 import { sessionPatchForMessageBehavior } from '@/components/clio/session-behavior-options';
 import { ClioNavigation } from '@/components/clio/navigation';
-import { ClioPendingInteractions } from '@/components/clio/pending-interactions';
 import { ClioSessionContextBar } from '@/components/clio/session-context-bar';
 import { ClioWorkbench } from '@/components/clio/workbench';
 import { SessionWorkSummary } from '@/components/clio/session-work';
@@ -28,6 +22,8 @@ import {
   WorkspaceActionAlerts,
 } from '@/components/clio/workspace-route-surfaces';
 import * as workspaceRouteState from '@/components/clio/workspace-route-state';
+import { QuestionAnswerContext } from '@/components/clio/question-answer-context';
+import { useWorkspaceQuestions } from '@/components/clio/use-workspace-questions';
 import {
   WorkspaceLiveConversation,
   WorkspaceLiveObservabilityDock,
@@ -64,7 +60,8 @@ export function WorkspacePage() {
   const repository = useRepository();
   const composerDraft = useComposerDraft(sessionId);
   const [composerFocusKey, setComposerFocusKey] = useState(0);
-  useAddToChatSelectionAction(composerDraft, () => setComposerFocusKey((key) => key + 1));
+  const focusComposerForAnswer = useCallback(() => setComposerFocusKey((key) => key + 1), []);
+  useAddToChatSelectionAction(composerDraft, focusComposerForAnswer);
   const [dockedComposerHeight, setDockedComposerHeight] = useState(0);
   const [startedSessionId, setStartedSessionId] = useState<string | undefined>(undefined);
   // "Is the Files view currently the mounted tab" -- gates workspaceFiles'
@@ -282,16 +279,25 @@ export function WorkspacePage() {
     interactionRootSessionId,
     supportsUnifiedInteractions,
   });
-  const handleInteractionResponse = useCallback(
-    async (interaction: PendingInteraction, response: PendingInteractionResponse) => {
-      await respondInteraction.mutateAsync({ interaction, response });
-    },
-    [respondInteraction],
-  );
-  const responseTrayInteractions = workspaceRouteState.responseTrayInteractions(
-    interactions,
-    new Set(tools.map((tool) => tool.id)),
-  );
+  const { handleInteractionResponse, questionAnswering, pendingInteractionsPanel } =
+    useWorkspaceQuestions({
+      interactions,
+      tools,
+      messages: transcript.data?.messages ?? [],
+      sessionId,
+      focusComposer: focusComposerForAnswer,
+      respondInteraction: respondInteraction.mutateAsync,
+      send: send.mutateAsync,
+      tray: {
+        actionLifecycles: entities.a2ui_action_lifecycles,
+        capabilityError: interactionCapabilityError ?? undefined,
+        error: interactionsError ?? undefined,
+        onRefetchSurfaces: refetchInteractionSurfaces,
+        ownerLabels: interactionOwnerLabels,
+        surfaces: interactionSurfaces,
+        viewedSessionId: sessionId,
+      },
+    });
   const { navigationActions } = useWorkspaceNavigationActions(workspaceId, sessionId);
   const queryError = capabilities.error ?? workspaces.error ?? sessions.error ?? transcript.error;
   if (
@@ -378,19 +384,6 @@ export function WorkspacePage() {
       .map((steer) => steer.message_id),
   );
   const activeWorkCount = workspaceRouteState.countActiveWork(runs, tasks, tools);
-  const pendingInteractionsPanel = (
-    <ClioPendingInteractions
-      actionLifecycles={entities.a2ui_action_lifecycles}
-      capabilityError={interactionCapabilityError ?? undefined}
-      error={interactionsError ?? undefined}
-      interactions={responseTrayInteractions}
-      onRefetchSurfaces={refetchInteractionSurfaces}
-      onResponse={handleInteractionResponse}
-      ownerLabels={interactionOwnerLabels}
-      surfaces={interactionSurfaces}
-      viewedSessionId={sessionId}
-    />
-  );
   const renderComposer = (variant: 'docked' | 'welcome') => (
     <m.div
       className={
@@ -512,10 +505,7 @@ export function WorkspacePage() {
             const startedFromWelcome = showConversationWelcome;
             if (startedFromWelcome) setConversationStarted(true);
             try {
-              const revision = workspaceRouteState.planRevisionFromComposer(interactions, value);
-              await (revision
-                ? handleInteractionResponse(revision.interaction, revision.response)
-                : send.mutateAsync(value));
+              await questionAnswering.submit(value);
             } catch (error) {
               if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
               throw error;
@@ -557,7 +547,7 @@ export function WorkspacePage() {
     </m.div>
   );
   return (
-    <>
+    <QuestionAnswerContext.Provider value={questionAnswering.context}>
       <ClioCommandMenu onOpenResource={revealWorkbench} />
       <ClioMoreDetails
         composerDraft={composerDraft}
@@ -794,6 +784,6 @@ export function WorkspacePage() {
           </LayoutGroup>
         </section>
       </ClioAppShell>
-    </>
+    </QuestionAnswerContext.Provider>
   );
 }
