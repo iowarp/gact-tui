@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
@@ -39,10 +39,19 @@ function currentAnchor(): Anchor | undefined {
   return { target, top: rect.top - TOOLBAR_GAP_PX, left: rect.left + rect.width / 2 };
 }
 
+/** The platform "actions for this selection" keys: Shift+F10 or the menu key. */
+function isSelectionMenuKey(event: KeyboardEvent): boolean {
+  return (event.key === 'F10' && event.shiftKey) || event.key === 'ContextMenu';
+}
+
 /**
  * The small action menu shown over a selection in an agent answer. It lists
  * whatever the registry offers for that selection, so a new action (More
  * details, Understand attention, ...) is a registration, not a toolbar change.
+ *
+ * Keyboard: with text selected (e.g. by caret browsing), Shift+F10 or the menu
+ * key moves focus into the menu; Tab moves between actions, Enter runs one, and
+ * Escape dismisses the menu and clears the selection.
  */
 export function ClioSelectionActionToolbar() {
   const registry = useSelectionActionRegistry();
@@ -50,12 +59,18 @@ export function ClioSelectionActionToolbar() {
   const [, registryChanged] = useReducer((count: number) => count + 1, 0);
   useEffect(() => registry.subscribe(registryChanged), [registry]);
   const [anchor, setAnchor] = useState<Anchor>();
+  const toolbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let frame = 0;
     const update = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => setAnchor(currentAnchor()));
+      frame = requestAnimationFrame(() => {
+        // While the menu itself has focus, it acts on the selection it was
+        // opened for; moving focus into it must not re-read (or lose) that.
+        if (toolbarRef.current?.contains(document.activeElement)) return;
+        setAnchor(currentAnchor());
+      });
     };
     document.addEventListener('selectionchange', update);
     window.addEventListener('scroll', update, true);
@@ -69,6 +84,18 @@ export function ClioSelectionActionToolbar() {
   }, []);
 
   const actions = anchor ? registry.actionsFor(anchor.target) : [];
+  const shown = Boolean(anchor && actions.length);
+  useEffect(() => {
+    if (!shown) return;
+    const focusMenu = (event: KeyboardEvent) => {
+      if (!isSelectionMenuKey(event)) return;
+      event.preventDefault();
+      toolbarRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    };
+    document.addEventListener('keydown', focusMenu);
+    return () => document.removeEventListener('keydown', focusMenu);
+  }, [shown]);
+
   if (!anchor || !actions.length) return null;
   return createPortal(
     <div
@@ -76,7 +103,15 @@ export function ClioSelectionActionToolbar() {
       data-slot="selection-actions"
       // Keep the selection alive while an action is pressed.
       onMouseDown={(event) => event.preventDefault()}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        window.getSelection()?.removeAllRanges();
+        setAnchor(undefined);
+      }}
+      ref={toolbarRef}
       role="toolbar"
+      aria-keyshortcuts="Shift+F10"
       aria-label="Selection actions"
       style={{ left: anchor.left, top: Math.max(anchor.top, TOOLBAR_GAP_PX) }}
     >
