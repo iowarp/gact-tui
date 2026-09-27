@@ -64,6 +64,7 @@ export type ClioQueryNamespace =
   | 'session-observability'
   | 'session-toolset'
   | 'sessions'
+  | 'spotter-availability'
   | 'pending-steers'
   | 'queued-messages'
   | 'tools'
