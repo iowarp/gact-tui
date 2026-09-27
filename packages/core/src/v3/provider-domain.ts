@@ -109,6 +109,16 @@ export interface LanguageModelConfiguration {
   resolved_model_id?: string;
   temperature?: number;
   max_tokens?: number;
+  /** The rest of the saved response settings (absent = unset). */
+  top_p?: number;
+  top_k?: number;
+  min_p?: number;
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  repetition_penalty?: number;
+  seed?: number;
+  context_length?: number;
+  parallel?: number;
   thinking_level?: string;
   /** `user` only when a person set `thinking_level`; otherwise it is a default. */
   thinking_level_source?: string;

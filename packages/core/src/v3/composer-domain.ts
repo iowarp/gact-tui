@@ -1,5 +1,14 @@
-import type { ModelCapabilityTags, ModelFacts } from '../generated/clio-schemas/_models.js';
-export type { ModelCapabilityTags, ModelFacts, TagEvidence } from '../generated/clio-schemas/_models.js';
+import type {
+  AcceptedParameter,
+  ModelCapabilityTags,
+  ModelFacts,
+} from '../generated/clio-schemas/_models.js';
+export type {
+  AcceptedParameter,
+  ModelCapabilityTags,
+  ModelFacts,
+  TagEvidence,
+} from '../generated/clio-schemas/_models.js';
 import type { WireValue } from './domain.js';
 
 export type MessageDelivery = 'start' | 'steer' | 'auto';
@@ -303,6 +312,15 @@ export interface ProviderCatalogModel {
    * source stated it. Absent when an older service does not report facts.
    */
   model_facts?: ModelFacts;
+  /**
+   * ONLY the response settings this model and its endpoint accept (temperature,
+   * top_p, penalties, seed, longest reply, a local server's context size, ...),
+   * each with its kind, range, group, the default the service sends when it is
+   * left empty (`null`: the provider's own) and its evidence -- the shared
+   * `AcceptedParameter` record. Empty means the model takes no response
+   * settings. Absent when an older service does not report them.
+   */
+  accepted_parameters?: AcceptedParameter[];
   /**
    * What this model can do about thinking, from provider truth: `levels` are the
    * levels a person can choose (empty means no selector), `default` the model's
