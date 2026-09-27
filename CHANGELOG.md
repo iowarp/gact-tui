@@ -21,6 +21,13 @@ UI aren't tracked.
 
 ### Fixed
 
+- Opening a conversation that was created elsewhere (another tab, the CLI, an
+  agent's child session, or a connect that landed on a new conversation) no
+  longer shows "This agent service did not return the requested session". The
+  workspace kept its cached conversation list when the route moved to another
+  conversation in the same workspace; a conversation missing from that list is
+  now looked up with one fresh list read, and the page shows loading until
+  that read answers.
 - The Session details badge names the session's state. A failed session read
   "Up to date" in red, and a session waiting on permission read "Up to date"
   too; they now read "Failed" and "Permission needed". The idle live-region
