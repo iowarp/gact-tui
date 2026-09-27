@@ -291,7 +291,10 @@ export function WorkspacePage() {
     interactions,
     tools,
     messages: transcript.data?.messages ?? [],
+    sessionId,
     focusComposer: focusComposerForAnswer,
+    respond: handleInteractionResponse,
+    send: send.mutateAsync,
   });
   const responseTrayInteractions = workspaceRouteState.responseTrayInteractions(
     interactions,
@@ -516,13 +519,7 @@ export function WorkspacePage() {
             const startedFromWelcome = showConversationWelcome;
             if (startedFromWelcome) setConversationStarted(true);
             try {
-              const answer = questionAnswering.answerFromComposer(value);
-              const revision =
-                answer ?? workspaceRouteState.planRevisionFromComposer(interactions, value);
-              await (revision
-                ? handleInteractionResponse(revision.interaction, revision.response)
-                : send.mutateAsync(value));
-              if (answer) questionAnswering.context.stopAnswer();
+              await questionAnswering.submit(value);
             } catch (error) {
               if (startedFromWelcome && messageCount === 0) setConversationStarted(false);
               throw error;

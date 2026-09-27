@@ -21,6 +21,7 @@ function question(overrides: Partial<PendingInteraction> = {}): PendingInteracti
     created_at: '2026-09-26T10:00:00Z',
     actions: ['answer', 'cancel'],
     source: { protocol: 'native', tool_name: 'ask_user', invocation_id: 'call_1' },
+    payload: { question_id: 'q1' },
     ...overrides,
   } as PendingInteraction;
 }
@@ -83,23 +84,38 @@ describe('questionLink', () => {
 });
 
 describe('questionAnswerFromComposer', () => {
-  it('answers the picked question with the message text', () => {
-    expect(questionAnswerFromComposer(question(), { text: '  hochhalter  ' })).toEqual({
-      interaction: question(),
-      response: { action: 'answer', answer: 'hochhalter' },
-    });
+  it('answers the picked question with the message text through its route', () => {
+    expect(questionAnswerFromComposer(question(), 'session_1', { text: '  hochhalter  ' })).toEqual(
+      {
+        kind: 'response',
+        interaction: question(),
+        response: { action: 'answer', answer: 'hochhalter' },
+      },
+    );
   });
 
   it('leaves ordinary messages alone when no question was picked', () => {
-    expect(questionAnswerFromComposer(undefined, { text: 'hello' })).toBeUndefined();
+    expect(questionAnswerFromComposer(undefined, 'session_1', { text: 'hello' })).toBeUndefined();
     expect(
-      questionAnswerFromComposer(question({ status: 'answered' }), { text: 'hello' }),
+      questionAnswerFromComposer(question({ status: 'answered' }), 'session_1', { text: 'hello' }),
     ).toBeUndefined();
   });
 
-  it('refuses attachments instead of dropping them', () => {
+  it('sends a message with attachments as the answer itself (#1448)', () => {
+    expect(
+      questionAnswerFromComposer(question(), 'session_1', {
+        text: 'see file',
+        files: [{ name: 'a.csv' }],
+      }),
+    ).toEqual({ kind: 'message', questionId: 'q1' });
+  });
+
+  it("refuses attachments for a delegated agent's question instead of dropping them", () => {
     expect(() =>
-      questionAnswerFromComposer(question(), { text: 'see file', files: [{ name: 'a.csv' }] }),
+      questionAnswerFromComposer(question({ owner_session_id: 'child' }), 'session_1', {
+        text: 'see file',
+        files: [{ name: 'a.csv' }],
+      }),
     ).toThrow(ANSWER_ATTACHMENTS_UNSUPPORTED);
   });
 });

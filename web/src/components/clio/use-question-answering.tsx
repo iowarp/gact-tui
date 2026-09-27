@@ -11,6 +11,8 @@ import {
   questionAnswerFromComposer,
   questionLink,
 } from '@/lib/inline-question';
+import type { SessionSendInput } from '@/hooks/use-session-mutations';
+import { planRevisionFromComposer } from './workspace-route-state';
 import { PendingQuestionNotice } from './pending-question-notice';
 import type { QuestionAnswerState } from './question-answer-context';
 
@@ -18,8 +20,14 @@ interface UseQuestionAnsweringInput {
   interactions: readonly PendingInteraction[];
   tools: readonly ToolInvocation[];
   messages: readonly Message[];
+  /** The session the composer sends to. */
+  sessionId: string;
   /** Move focus to the main composer (an "Other answer" goes there). */
   focusComposer: () => void;
+  /** Answer an interaction through its own response route. */
+  respond: (interaction: PendingInteraction, response: PendingInteractionResponse) => Promise<void>;
+  /** Send a composer message. */
+  send: (value: SessionSendInput) => Promise<unknown>;
 }
 
 interface QuestionAnswering {
@@ -27,12 +35,12 @@ interface QuestionAnswering {
   context: QuestionAnswerState;
   /** The notice over the composer, or `null` when no question is waiting. */
   notice: ReactNode;
-  /** The answer a composer message makes, when "Other answer" picked a question. */
-  answerFromComposer: (input: {
-    text: string;
-    files?: readonly unknown[];
-    references?: readonly unknown[];
-  }) => { interaction: PendingInteraction; response: PendingInteractionResponse } | undefined;
+  /**
+   * Submit the composer: the answer to the question picked with "Other answer"
+   * (text through its route, attachments as the answering message), plan
+   * feedback while a plan review waits, or an ordinary message.
+   */
+  submit: (value: SessionSendInput) => Promise<void>;
 }
 
 /**
@@ -45,7 +53,10 @@ export function useQuestionAnswering({
   interactions,
   tools,
   messages,
+  sessionId,
   focusComposer,
+  respond,
+  send,
 }: UseQuestionAnsweringInput): QuestionAnswering {
   const [answeringId, setAnsweringId] = useState<string>();
   const toolIds = useMemo(() => new Set(tools.map((tool) => tool.id)), [tools]);
@@ -83,9 +94,18 @@ export function useQuestionAnswering({
         questions={questions}
       />
     ) : null;
-  const answerFromComposer = useCallback<QuestionAnswering['answerFromComposer']>(
-    (input) => questionAnswerFromComposer(answering, input),
-    [answering],
+  const submit = useCallback<QuestionAnswering['submit']>(
+    async (value) => {
+      const answer = questionAnswerFromComposer(answering, sessionId, value);
+      if (answer?.kind === 'response') await respond(answer.interaction, answer.response);
+      else if (answer) await send({ ...value, answersQuestionId: answer.questionId });
+      else {
+        const revision = planRevisionFromComposer(interactions, value);
+        await (revision ? respond(revision.interaction, revision.response) : send(value));
+      }
+      if (answer) stopAnswer();
+    },
+    [answering, interactions, respond, send, sessionId, stopAnswer],
   );
-  return { context, notice, answerFromComposer };
+  return { context, notice, submit };
 }

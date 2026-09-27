@@ -57,26 +57,37 @@ export function followTranscriptLink(link: string): void {
 }
 
 export const ANSWER_ATTACHMENTS_UNSUPPORTED =
-  "An answer to the agent's question can't include attachments yet. Remove them, " +
-  'or stop answering to send them as a new message.';
+  "This question was asked by a delegated agent, so its answer can't include " +
+  'attachments. Remove them, or stop answering to send them as a new message.';
+
+export type ComposerQuestionAnswer =
+  /** Text only: answered through the question's own response route. */
+  | { kind: 'response'; interaction: PendingInteraction; response: PendingInteractionResponse }
+  /** With attachments: the composer message itself answers the question. */
+  | { kind: 'message'; questionId: string };
 
 /**
- * Turns the composer's message into the answer to the question picked with
- * "Other answer". Attachments are refused: the answer route carries text and
- * option picks only, so they would be silently dropped.
+ * How the composer's message answers the question picked with "Other answer".
+ * Text alone goes through the question's response route. A message with
+ * attachments is sent as a normal message that names the question, so its
+ * attachments travel the one message path -- possible for a question raised in
+ * the session the composer sends to; a delegated agent's question is refused.
  */
 export function questionAnswerFromComposer(
   answering: PendingInteraction | undefined,
+  sessionId: string,
   input: { text: string; files?: readonly unknown[]; references?: readonly unknown[] },
-): { interaction: PendingInteraction; response: PendingInteractionResponse } | undefined {
+): ComposerQuestionAnswer | undefined {
   if (!answering || answering.status !== 'pending') return undefined;
+  const questionId =
+    typeof answering.payload?.question_id === 'string' ? answering.payload.question_id : '';
   if ((input.files?.length ?? 0) > 0 || (input.references?.length ?? 0) > 0) {
-    throw new Error(ANSWER_ATTACHMENTS_UNSUPPORTED);
+    if (!questionId || answering.owner_session_id !== sessionId) {
+      throw new Error(ANSWER_ATTACHMENTS_UNSUPPORTED);
+    }
+    return { kind: 'message', questionId };
   }
   const answer = input.text.trim();
   if (!answer) return undefined;
-  return {
-    interaction: answering,
-    response: { action: 'answer', answer },
-  };
+  return { kind: 'response', interaction: answering, response: { action: 'answer', answer } };
 }
