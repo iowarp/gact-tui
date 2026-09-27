@@ -26,7 +26,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { copyText } from '@/lib/clipboard';
 import { resolveActiveBlueprint } from '@/lib/active-blueprint';
 import {
-  isWorkspaceNavigationSession,
+  duplicateSessionTitles,
+  isPrimarySession,
   sessionInteractionAt,
   visibleWorkspaceSessions,
 } from '@/lib/recent-sessions';
@@ -147,7 +148,7 @@ export function WorkspaceNavigation({
             (session) =>
               session.workspace_id === workspace.id &&
               !session.archived &&
-              isWorkspaceNavigationSession(session),
+              isPrimarySession(session),
           );
           const expanded = workspaceExpansion[workspace.id] ?? workspace.id === activeWorkspaceId;
           return (
@@ -260,6 +261,7 @@ function WorkspaceTreeItem({
     sessionLimitExpanded ? sessions.length : undefined,
   ).sort((left, right) => Number(right.pinned) - Number(left.pinned));
   const runningSessions = sessions.filter((session) => isSessionRunning(session.state));
+  const sharedTitles = duplicateSessionTitles(sessions);
 
   return (
     <Collapsible className="min-w-0" onOpenChange={onExpandedChange} open={expanded}>
@@ -305,6 +307,7 @@ function WorkspaceTreeItem({
               activeSessionId={activeSessionId}
               attention={attentions[session.id]}
               blueprint={resolveActiveBlueprint(session, blueprints)}
+              disambiguate={sharedTitles.has(session.title.trim())}
               key={session.id}
               onAction={onAction}
               onDelete={onDelete}
