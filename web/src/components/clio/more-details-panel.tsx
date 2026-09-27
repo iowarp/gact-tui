@@ -12,7 +12,9 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useLiveSessionTranscript } from '@/hooks/use-live-session-transcript';
 import type { AgentAnswerTextSelection } from '@/lib/selection-actions';
+import { isSessionActive } from '@/lib/session-state';
 import { ClioConversation } from './conversation';
+import { ClioStatus } from './status';
 
 export interface ClioMoreDetailsPanelProps {
   workspaceId: string;
@@ -62,6 +64,13 @@ export function ClioMoreDetailsPanel({
     () => (side ? messages.filter((message) => message.created_at >= side.created_at) : []),
     [messages, side],
   );
+  // A turn is live in the aside: follow-ups wait for it (the service runs one
+  // turn per session), and the header says so.
+  const answering = Boolean(
+    side &&
+      (entities.active_turns[side.id] ||
+        isSessionActive(entities.sessions[side.id]?.state ?? 'completed')),
+  );
   const latestAnswer = [...exchange].reverse().find((message) => message.role === 'assistant');
   const latestAnswerText = latestAnswer ? messageText(latestAnswer) : '';
   const open = Boolean(selection);
@@ -80,10 +89,19 @@ export function ClioMoreDetailsPanel({
   };
 
   return (
-    <Sheet onOpenChange={(next) => (next ? undefined : onClose())} open={open}>
-      <SheetContent className="w-full gap-0 p-0 data-[side=right]:sm:max-w-lg" side="right">
+    // Non-modal: the conversation stays readable and selectable beside the
+    // panel; only the close button (or Escape) dismisses it.
+    <Sheet modal={false} onOpenChange={(next) => (next ? undefined : onClose())} open={open}>
+      <SheetContent
+        className="w-full gap-0 p-0 data-[side=right]:sm:max-w-lg"
+        onInteractOutside={(event) => event.preventDefault()}
+        side="right"
+      >
         <SheetHeader className="border-b pr-12">
-          <SheetTitle>More details</SheetTitle>
+          <div className="flex items-center gap-2">
+            <SheetTitle>More details</SheetTitle>
+            {answering ? <ClioStatus label="Answering" value="running" /> : null}
+          </div>
           <SheetDescription className="flex items-center gap-1.5 text-xs">
             <EyeIcon aria-hidden="true" className="size-3.5 shrink-0" />
             Read-only side conversation. It can read this session but never changes it.
@@ -122,7 +140,7 @@ export function ClioMoreDetailsPanel({
           <Textarea
             aria-label="Ask a follow-up question"
             className="min-h-16 resize-none text-sm"
-            disabled={!side || asking}
+            disabled={!side}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -135,7 +153,7 @@ export function ClioMoreDetailsPanel({
           />
           <div className="flex items-center justify-between gap-2">
             <Button
-              disabled={!latestAnswerText}
+              disabled={!latestAnswerText || answering}
               onClick={() => onAddToChat(latestAnswerText)}
               size="sm"
               type="button"
@@ -144,7 +162,11 @@ export function ClioMoreDetailsPanel({
               <MessageSquareQuoteIcon aria-hidden="true" />
               Add answer to chat
             </Button>
-            <Button disabled={!side || asking || !draft.trim()} size="sm" type="submit">
+            <Button
+              disabled={!side || asking || answering || !draft.trim()}
+              size="sm"
+              type="submit"
+            >
               <SendIcon aria-hidden="true" />
               Ask
             </Button>
