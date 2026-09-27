@@ -30,6 +30,19 @@ export const infrastructureTargetSchema = z.object({
   updated_at: z.string(),
 });
 
+/** One container runtime as the target reported it (usable, or why not). */
+export const containerRuntimeFactSchema = z.object({
+  name: z.enum(['docker', 'podman', 'apptainer']),
+  installed: z.boolean(),
+  usable: z.boolean(),
+  version: z.string().default(''),
+  reason: z
+    .enum(['not_installed', 'unusable', 'not_probed'])
+    .nullish()
+    .transform((value) => value ?? undefined),
+  detail: z.string().default(''),
+});
+
 export const targetFactsSchema = z.object({
   target_id: z.string(),
   label: z.string(),
@@ -40,6 +53,7 @@ export const targetFactsSchema = z.object({
   docker_installed: z.boolean(),
   uv_available: z.boolean(),
   transport_state: infrastructureTransportStateSchema,
+  container_runtimes: z.array(containerRuntimeFactSchema).default([]),
 });
 
 const serviceVariantSchema = z.object({
@@ -60,6 +74,48 @@ const serviceFieldSchema = z.object({
   options: z.array(z.string()).default([]),
 });
 
+/** A tweakable server parameter as the service's driver declares it. */
+export const serverParameterSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  description: z.string(),
+  kind: z.enum(['integer', 'number', 'choice', 'text']),
+  delivery: z.enum(['flag', 'env']),
+  name: z.string(),
+  minimum: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  maximum: z
+    .number()
+    .nullish()
+    .transform((value) => value ?? undefined),
+  options: z.array(z.string()).default([]),
+  variants: z.array(z.string()).default([]),
+  default_behavior: z.string().default(''),
+  effective_key: z.string().default(''),
+});
+
+/** A server parameter as the running server has it in force, and its source. */
+export const effectiveParameterSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  value: z.string(),
+  source: z.enum(['server_report', 'container_config', 'launch_request', 'engine_default']),
+  detail: z.string().default(''),
+});
+
+/** One thing a deployment created on its target; uninstall removes it. */
+export const ownedResourceSchema = z.object({
+  kind: z.enum(['container', 'image', 'directory', 'parent_directory', 'instance_logs']),
+  ref: z.string(),
+  runtime: z
+    .enum(['docker', 'podman', 'apptainer'])
+    .nullish()
+    .transform((value) => value ?? undefined),
+  created_at: z.string().default(''),
+});
+
 export const managedServiceDefinitionSchema = z.object({
   id: z.string(),
   category: z.enum(['model_runtime', 'scientific_service', 'remote_access']),
@@ -78,6 +134,10 @@ export const managedServiceDefinitionSchema = z.object({
     .enum(['loopback', 'direct', 'ssh_forward', 'external'])
     .nullish()
     .transform((value) => value ?? undefined),
+  parameters: z.array(serverParameterSchema).default([]),
+  effective_parameters: z.array(effectiveParameterSchema).default([]),
+  configuration: z.record(z.string(), z.string()).default({}),
+  owned_resources: z.array(ownedResourceSchema).default([]),
 });
 
 export const managedServiceCatalogSchema = z.object({
@@ -122,6 +182,10 @@ export const externalServiceConnectionSchema = z.object({
 export type SshRoute = z.infer<typeof sshRouteSchema>;
 export type InfrastructureTarget = z.infer<typeof infrastructureTargetSchema>;
 export type TargetFacts = z.infer<typeof targetFactsSchema>;
+export type ContainerRuntimeFact = z.infer<typeof containerRuntimeFactSchema>;
+export type ServerParameter = z.infer<typeof serverParameterSchema>;
+export type EffectiveParameter = z.infer<typeof effectiveParameterSchema>;
+export type OwnedResource = z.infer<typeof ownedResourceSchema>;
 export type ManagedServiceDefinition = z.infer<typeof managedServiceDefinitionSchema>;
 export type ManagedServiceCatalog = z.infer<typeof managedServiceCatalogSchema>;
 export type InfrastructureOperation = z.infer<typeof infrastructureOperationSchema>;

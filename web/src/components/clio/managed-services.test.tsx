@@ -83,6 +83,10 @@ const services = serviceLabels.map<ManagedServiceDefinition>(([id, label]) => ({
   state: id === 'web_search' ? 'running' : 'not_installed',
   connection_url: id === 'web_search' ? 'http://127.0.0.1:8089' : undefined,
   configuration_fields: [],
+  parameters: [],
+  effective_parameters: [],
+  configuration: {},
+  owned_resources: [],
   variants: [
     {
       id: `${id}-default`,
@@ -411,6 +415,19 @@ describe('ManagedServices', () => {
     expect(screen.getByRole('button', { name: 'Check status' })).toBeEnabled();
   });
 
+  it('sends the service id in the path only, never as an extra action body key', async () => {
+    const user = userEvent.setup();
+    renderServices();
+
+    await user.click(await screen.findByRole('button', { name: 'Check status' }));
+
+    await waitFor(() => expect(repository.runManagedServiceAction).toHaveBeenCalled());
+    const [serviceId, body] = repository.runManagedServiceAction.mock.calls.at(-1)!;
+    expect(serviceId).toBe('web_search');
+    expect(body).not.toHaveProperty('service_id');
+    expect(body).toMatchObject({ target_id: 'local', action: 'status' });
+  });
+
   it('shows a failed service action inline on the affected service', async () => {
     deployment.runManagedServiceAction.mockRejectedValueOnce(
       new Error('Port 8090 is already in use on Ares.'),
@@ -480,7 +497,9 @@ describe('ManagedServices', () => {
     });
 
     expect(
-      await screen.findByRole('radio', { name: new RegExp(`This ${brand.agentName}’s computer`, 'u') }),
+      await screen.findByRole('radio', {
+        name: new RegExp(`This ${brand.agentName}’s computer`, 'u'),
+      }),
     ).toBeVisible();
     expect(screen.queryByRole('radio', { name: /Another computer/u })).not.toBeInTheDocument();
     expect(screen.queryByText('This connection would not be reachable')).not.toBeInTheDocument();
@@ -557,6 +576,51 @@ describe('ManagedServices', () => {
 
     expect(await screen.findByText('Connecting to homelab')).toBeVisible();
     expect(screen.getByText(new RegExp(`existing ${brand.agentName} services`, 'u'))).toBeVisible();
+  });
+
+  it('reuses a host registered before the target list answered instead of adding a duplicate', async () => {
+    const user = userEvent.setup();
+    const registered = {
+      id: 'homelab',
+      label: 'homelab',
+      kind: 'ssh' as const,
+      install_root: '',
+      ssh: {
+        profile: 'homelab',
+        host: '',
+        user: '',
+        port: 22,
+        identity_file: '',
+        jump_hosts: [],
+        platform: 'linux' as const,
+      },
+      transport_state: 'disconnected' as const,
+      auto_reconnect: true,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    };
+    deployment.listSshProfiles.mockResolvedValue([
+      { name: 'homelab', port: 22, jump_hosts: [], platform: 'linux', managed: false },
+    ]);
+    // The page's own targets query never answers (a slow reload); the
+    // registration must still find the stored host.
+    repository.infrastructureTargets
+      .mockImplementationOnce(() => new Promise(() => undefined))
+      .mockResolvedValue([registered]);
+    repository.updateInfrastructureTarget.mockResolvedValue(registered);
+    renderServices();
+
+    await user.click(screen.getByRole('radio', { name: /Another computer/u }));
+    await user.click(await screen.findByRole('combobox', { name: 'Saved SSH host' }));
+    await user.click(screen.getByRole('option', { name: 'homelab' }));
+
+    await waitFor(() =>
+      expect(repository.updateInfrastructureTarget).toHaveBeenCalledWith(
+        'homelab',
+        expect.objectContaining({ kind: 'ssh' }),
+      ),
+    );
+    expect(repository.createInfrastructureTarget).not.toHaveBeenCalled();
   });
 
   it('adds a manual SSH host beside imported profiles and uses it for inspection', async () => {
