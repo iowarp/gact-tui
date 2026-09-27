@@ -27,9 +27,23 @@ export function providerSetupFlow(
   return 'check';
 }
 
+/** `host:port` of a provider's endpoint, as a person recognises it (or nothing). */
+function serverAddress(endpoint: string | undefined): string | undefined {
+  if (!endpoint) return undefined;
+  try {
+    return new URL(endpoint).host || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** The one plain sentence a not-ready provider shows: its reason, or what to do. */
 export function providerSetupSentence(group: ProviderGroup, flow: ProviderActionFlow): string {
-  if (group.setupNeed === 'start') return `${group.name} isn't running. Start it, then check again.`;
+  if (group.setupNeed === 'start') {
+    const address = serverAddress(group.endpoint);
+    const where = address ? ` at ${address}` : '';
+    return `${group.name} isn't running${where}. Start it, then check again.`;
+  }
   const failed = group.health === 'degraded' || group.health === 'unavailable';
   if (failed && group.detail) return group.detail;
   const name = group.name.replace(/\s+API$/u, '');
@@ -48,15 +62,37 @@ export function providerSetupSentence(group: ProviderGroup, flow: ProviderAction
   }
 }
 
-/** The latest action's failure as one plain sentence, or nothing. */
-export function providerActionError(actions: ProviderActions, providerLabel: string): string | undefined {
+/**
+ * Whether the provider has reported healthy SINCE a check ran: a later
+ * catalog read is newer evidence than the check's failure, which then no
+ * longer describes the provider (a server that was down and came up).
+ */
+function supersededByHealthyCatalog(group: ProviderGroup, checkedAt: string | undefined): boolean {
+  if (group.health !== 'healthy' || !group.freshness || !checkedAt) return false;
+  const reported = Date.parse(group.freshness);
+  const checked = Date.parse(checkedAt);
+  return Number.isFinite(reported) && Number.isFinite(checked) && reported > checked;
+}
+
+/**
+ * The latest action's failure for THIS provider as one plain sentence, or
+ * nothing. The action hook keeps results per provider, so another provider's
+ * failure never reaches here.
+ */
+export function providerActionError(actions: ProviderActions, group: ProviderGroup): string | undefined {
+  const providerLabel = group.name;
+  const handshakeResult = actions.handshakeResult;
   const rejected =
-    actions.handshakeResult?.error && ['rejected', 'deferred'].includes(actions.handshakeResult.auth)
-      ? translateKnownProviderErrorReason(actions.handshakeResult.error, providerLabel)
+    handshakeResult?.error &&
+    ['rejected', 'deferred'].includes(handshakeResult.auth) &&
+    !supersededByHealthyCatalog(group, handshakeResult.generated_at)
+      ? translateKnownProviderErrorReason(handshakeResult.error, providerLabel)
       : undefined;
-  const refreshFailure = actions.refreshResult?.failed_reason
-    ? translateKnownProviderErrorReason(actions.refreshResult.failed_reason, providerLabel)
-    : undefined;
+  const refreshResult = actions.refreshResult;
+  const refreshFailure =
+    refreshResult?.failed_reason && !supersededByHealthyCatalog(group, refreshResult.generated_at)
+      ? translateKnownProviderErrorReason(refreshResult.failed_reason, providerLabel)
+      : undefined;
   return (
     actions.saveApiKey.error?.message ??
     actions.installProvider.error?.message ??

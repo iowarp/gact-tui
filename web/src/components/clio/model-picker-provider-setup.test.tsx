@@ -442,7 +442,10 @@ describe('ClioModelPicker: a provider that is not usable yet', () => {
     await user.click(screen.getByText('Local vLLM'));
     // Its dated rows stay out of the list until it answers again.
     expect(screen.queryByText('Qwen3-VL-32B')).toBeNull();
-    expect(sentence()).toHaveTextContent("Local vLLM isn't running. Start it, then check again.");
+    // Where it was looked for, so the person knows which server to start.
+    expect(sentence()).toHaveTextContent(
+      "Local vLLM isn't running at 127.0.0.1:8000. Start it, then check again.",
+    );
     expect(await screen.findByRole('button', { name: 'Check again' })).toBeVisible();
   });
 

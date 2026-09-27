@@ -30,7 +30,7 @@ interface ProviderConnectStateProps {
  */
 export function ProviderConnectState({ group, preset, actions }: ProviderConnectStateProps) {
   const flow = providerSetupFlow(group, preset);
-  const failure = actions.stage ? undefined : providerActionError(actions, group.name);
+  const failure = actions.stage ? undefined : providerActionError(actions, group);
   const refused = providerNeedsReauthentication(preset, group.failure);
   return (
     <Empty className="h-full gap-4 border-0 p-6" data-slot="provider-connect-state">

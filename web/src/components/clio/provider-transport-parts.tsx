@@ -48,7 +48,7 @@ export function TransportLogin({
   preset: LanguageModelPreset | undefined;
   section: TransportSection;
 }) {
-  const failure = actions.stage ? undefined : providerActionError(actions, group.name);
+  const failure = actions.stage ? undefined : providerActionError(actions, group);
   return (
     <div className="flex flex-col items-start gap-2 px-3">
       <ProviderSetupAction
