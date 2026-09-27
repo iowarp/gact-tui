@@ -6,16 +6,27 @@
 //! (loopback needs none) but made the SSH transport socket refuse every remote
 //! deploy. The server publishes `<runtime state dir>/gact-servers/<port>.json`
 //! (`clio_agent.gact.server_credentials`) with the token it enforces, or
-//! `null` when it enforces none. This module reads that record; when it can't,
-//! boot reports a typed "can't authenticate to the running CLIO" state up front
-//! instead of letting a deploy fail later.
+//! `null` when it enforces none. This module reads that record.
+//!
+//! Without a usable record (an older server, or one started some other way) the
+//! desktop negotiates instead of assuming: it asks `GET /v1/desktop/attach`
+//! without a token. 2xx means the server enforces no token, so it attaches as
+//! before; only a 401 becomes the typed "can't authenticate to the running
+//! CLIO" state, shown up front instead of letting a deploy fail later. A server
+//! too old to have the check (404, or any other answer) is attached as before
+//! and the boot log says so.
 
 use std::fs;
 use std::path::Path;
 
 use serde::Deserialize;
 
+use std::time::Duration;
+
 use crate::clio_core_registry::pid_is_alive;
+
+/// Bound on the attach check (a loopback request to a server that just answered).
+const ATTACH_CHECK_TIMEOUT: Duration = Duration::from_millis(1500);
 
 /// What the attached server expects from this desktop.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,7 +65,7 @@ pub(crate) fn attach_credential(
     let text = fs::read_to_string(&path).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             format!(
-                "it did not publish its access token (no {}); it is probably an older version",
+                "it did not publish its access token (no {})",
                 path.display()
             )
         } else {
@@ -79,6 +90,29 @@ pub(crate) fn attach_credential(
         Some(token) if !token.is_empty() => AttachCredential::Token(token),
         _ => AttachCredential::NoneRequired,
     })
+}
+
+/// What `GET /v1/desktop/attach` said to a request without a token.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum AttachCheck {
+    /// 2xx: the server enforces no bearer token.
+    Open,
+    /// 401: the server enforces a token this desktop does not have.
+    TokenRequired,
+    /// Anything else (an older server without the check, or no answer).
+    Unknown(String),
+}
+
+/// Ask a server this desktop did not spawn whether it enforces a bearer token.
+pub(crate) fn probe_attach_check(url: &str) -> AttachCheck {
+    let endpoint = format!("{}/v1/desktop/attach", url.trim_end_matches('/'));
+    match ureq::get(&endpoint).timeout(ATTACH_CHECK_TIMEOUT).call() {
+        Ok(response) if (200..300).contains(&response.status()) => AttachCheck::Open,
+        Ok(response) => AttachCheck::Unknown(format!("HTTP {}", response.status())),
+        Err(ureq::Error::Status(401, _)) => AttachCheck::TokenRequired,
+        Err(ureq::Error::Status(code, _)) => AttachCheck::Unknown(format!("HTTP {code}")),
+        Err(error) => AttachCheck::Unknown(error.to_string()),
+    }
 }
 
 #[cfg(test)]

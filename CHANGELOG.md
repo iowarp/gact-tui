@@ -42,10 +42,12 @@ UI aren't tracked.
 - A desktop that attaches to a CLIO already running on the conventional port
   now uses the bearer token that CLIO publishes in its credential record
   (`~/.clio/hosts/<host>/gact-servers/<port>.json`) instead of an empty one.
-  When the record is missing, unreadable or belongs to a stopped process, the
-  connection screen says up front that the app can't sign in to the running
-  CLIO (new `auth_unavailable` backend status) rather than letting a remote
-  deploy fail later.
+  Without a usable record the desktop asks that CLIO (`GET /v1/desktop/attach`,
+  no token): if it enforces no token the app attaches as before, and a CLIO too
+  old to have the check is attached as before too (the boot log says so). Only
+  a CLIO that answers 401 gets the new `auth_unavailable` backend status, and
+  the connection screen says up front that the app can't sign in to it rather
+  than letting a remote deploy fail later.
 
 ## [0.11.2.19] — 2026-09-26
 
