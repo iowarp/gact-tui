@@ -1,3 +1,4 @@
+import { isBareClioReferenceId } from './references.js';
 /**
  * `a2uiClientCapabilities` / `a2uiClientDataModel` — the official transport
  * metadata objects (`docs/gact/a2ui-binding.md`, S3), attached once here so
@@ -104,6 +105,9 @@ export type A2uiUrlCheck = { ok: true } | { ok: false; reason: string };
  * `functionCall`-resolved URL is visible at all.
  */
 export function checkA2uiUrlScheme(value: string): A2uiUrlCheck {
+  // A bare `artifact_…` / `res_…` id is a CLIO reference, admitted by the
+  // server's validator too; it is resolved through the service, never loaded.
+  if (isBareClioReferenceId(value)) return { ok: true };
   let parsed: URL;
   try {
     parsed = new URL(value);
