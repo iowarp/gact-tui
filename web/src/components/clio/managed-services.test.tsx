@@ -78,6 +78,7 @@ const services = serviceLabels.map<ManagedServiceDefinition>(([id, label]) => ({
         : 'scientific_service',
   label,
   description: `${label} deployment`,
+  supports_api_key: id === 'vllm' || id === 'llama_cpp',
   recommended_variant: `${id}-default`,
   supports_stop: id !== 'relay',
   state: id === 'web_search' ? 'running' : 'not_installed',

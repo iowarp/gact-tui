@@ -11,9 +11,7 @@ export function visibleWorkspaceSessions(
 ): Session[] {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const candidates = sessions
-    .filter(
-      (session) => session.workspace_id === workspaceId && isWorkspaceNavigationSession(session),
-    )
+    .filter((session) => session.workspace_id === workspaceId && isPrimarySession(session))
     .filter(
       (session) => !normalizedQuery || session.title.toLocaleLowerCase().includes(normalizedQuery),
     )
@@ -28,9 +26,18 @@ export function isPrimarySession(session: Session): boolean {
   return !session.parent_session_id;
 }
 
-/** Keep empty landing drafts out of the durable conversation ledger. */
-export function isWorkspaceNavigationSession(session: Session): boolean {
-  return isPrimarySession(session) && session.message_count !== 0;
+/**
+ * Titles shared by more than one of `sessions`, so their rows can be told apart.
+ * Every session is listed, including ones without messages yet; two with the
+ * same name are otherwise indistinguishable in the sidebar.
+ */
+export function duplicateSessionTitles(sessions: readonly Session[]): Set<string> {
+  const counts = new Map<string, number>();
+  for (const session of sessions) {
+    const title = session.title.trim();
+    counts.set(title, (counts.get(title) ?? 0) + 1);
+  }
+  return new Set([...counts].filter(([, count]) => count > 1).map(([title]) => title));
 }
 
 export function sessionInteractionAt(session: Session): string {
