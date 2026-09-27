@@ -19,6 +19,13 @@ UI aren't tracked.
   Vertex, Bedrock) sit in their own section, and the server address stays on
   Settings > Providers.
 
+### Fixed
+
+- The Session details badge names the session's state. A failed session read
+  "Up to date" in red, and a session waiting on permission read "Up to date"
+  too; they now read "Failed" and "Permission needed". The idle live-region
+  text is "No active work", and the dock never says "Up to date".
+
 ## [0.11.2.19] — 2026-09-26
 
 ### Added
