@@ -37,6 +37,11 @@ pub(crate) fn boot_sidecar(
     ));
     if let Some(handle) = try_attach_existing() {
         boot_log_line("attached to an existing backend on the conventional port");
+        if let BackendStatus::AuthUnavailable(reason) = &handle.status {
+            boot_log_line(&format!(
+                "cannot authenticate to the attached backend: {reason}"
+            ));
+        }
         state.set_handle(handle);
         return;
     }
@@ -139,6 +144,11 @@ pub(crate) fn boot_attach_only(state: SupervisorState) {
     reset_boot_log("attach");
     if let Some(handle) = try_attach_existing() {
         boot_log_line("attached to an existing backend on the conventional port");
+        if let BackendStatus::AuthUnavailable(reason) = &handle.status {
+            boot_log_line(&format!(
+                "cannot authenticate to the attached backend: {reason}"
+            ));
+        }
         state.set_handle(handle);
         return;
     }

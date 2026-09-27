@@ -8,7 +8,13 @@ export type ManagedBackendStatus =
     }
   | { kind: 'ready' }
   | { kind: 'needs_install' }
-  | { kind: 'error'; detail: string };
+  | { kind: 'error'; detail: string }
+  /**
+   * An agent already running on the attach port answered, but the desktop
+   * can't obtain the bearer token it enforces (clio-agent#1478). `detail` is
+   * the plain-language reason.
+   */
+  | { kind: 'auth_unavailable'; detail: string };
 
 export interface ManagedBackendHandle {
   url: string;
@@ -130,6 +136,9 @@ export async function waitForManagedBackend(
         handle.status.detail || `The managed ${vocab.agent} service could not start.`,
       );
     }
+    if (handle.status.kind === 'auth_unavailable') {
+      throw new Error(managedAuthUnavailableMessage(handle.url, handle.status.detail));
+    }
     if (handle.status.kind === 'needs_install' && !installStarted) {
       installStarted = true;
       await invokeManagedBackend<void>('install_clio');
@@ -141,4 +150,12 @@ export async function waitForManagedBackend(
       window.setTimeout(resolve, pollIntervalMs);
     });
   }
+}
+
+/**
+ * Said up front when the desktop attached to an agent it can't authenticate
+ * to, instead of letting a later remote deploy fail at the SSH transport.
+ */
+export function managedAuthUnavailableMessage(url: string, reason: string): string {
+  return `${vocab.agent} is already running at ${url}, but this app can't sign in to it: ${reason}. Stop that ${vocab.agent} or restart it with this version, then reopen the app.`;
 }

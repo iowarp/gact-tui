@@ -155,6 +155,9 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     <div
       className={`${virtualized ? 'absolute left-0 top-0' : 'relative'} w-full px-5 pb-4 pt-1 outline-none target:rounded-xl target:ring-2 target:ring-primary/50 lg:px-8`}
       data-index={index}
+      data-message-id={message.id}
+      data-selection-surface={message.role === 'assistant' ? 'agent-answer' : undefined}
+      data-session-id={message.session_id}
       id={`message-${message.id}`}
       ref={measureElement}
       style={virtualized ? { transform: `translateY(${start ?? 0}px)` } : undefined}
