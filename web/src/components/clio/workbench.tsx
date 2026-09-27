@@ -275,6 +275,17 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
       );
       setActiveTabId(tab.id);
     }, []);
+    const openSubagentTab = useCallback(
+      (subagent: SubagentRun) =>
+        openTab({
+          id: `subagent:${subagent.child_session_id ?? subagent.id}`,
+          kind: 'subagent',
+          label: subagent.title,
+          subagent,
+          workspaceId,
+        }),
+      [openTab, workspaceId],
+    );
     const replaceTab = useCallback((tabId: string, replacement: WorkbenchTab) => {
       setTabs((current) =>
         current.some((item) => item.id === replacement.id && item.id !== tabId)
@@ -375,13 +386,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             });
             return;
           case 'subagent':
-            openTab({
-              id: `subagent:${request.subagent.child_session_id ?? request.subagent.id}`,
-              kind: 'subagent',
-              label: request.subagent.title,
-              subagent: request.subagent,
-              workspaceId,
-            });
+            openSubagentTab(request.subagent);
             return;
           case 'workflow': {
             const descriptor = workflowDescriptor(request.tool);
@@ -414,7 +419,7 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
             assertNever(request);
         }
       },
-      [openCanvasResource, openTab, sessionId, workspaceId],
+      [openCanvasResource, openSubagentTab, openTab, sessionId, workspaceId],
     );
 
     useImperativeHandle(ref, () => ({ open: openRequest }), [openRequest]);
@@ -576,7 +581,12 @@ export const ClioWorkbench = forwardRef<ClioWorkbenchHandle, ClioWorkbenchProps>
                 </TabsList>
               </Sortable>
             </div>
-            <CanvasLauncher onOpen={openCanvasResource} onOpenTerminal={onOpenTerminal} />
+            <CanvasLauncher
+              onOpen={openCanvasResource}
+              onOpenSubagent={openSubagentTab}
+              onOpenTerminal={onOpenTerminal}
+              subagents={subagents}
+            />
             <Button
               aria-label={maximized ? 'Restore canvas beside conversation' : 'Maximize canvas'}
               className="relative z-10 size-9 shrink-0 rounded-lg"

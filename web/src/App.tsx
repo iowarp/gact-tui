@@ -12,6 +12,10 @@ import { scheduleBackgroundUpdateCheck } from '@/tauri/desktop-updater';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { useProviderCatalog } from '@/hooks/use-provider-catalog';
+import {
+  ClioSelectionActionToolbar,
+  SelectionActionsProvider,
+} from '@/components/clio/selection-actions';
 import { UpdateRestartOverlay } from '@/components/clio/update-restart-overlay';
 import { UpdateRestartRecovery } from '@/components/clio/update-restart-recovery';
 
@@ -88,7 +92,7 @@ export default function App() {
   }, []);
 
   const appContent = (
-    <>
+    <SelectionActionsProvider>
       <ProviderCatalogWarmup />
       <UpdateRestartRecovery />
       <Suspense fallback={<RouteFallback />}>
@@ -105,7 +109,9 @@ export default function App() {
       {/* Fixed + full-viewport, so it covers the desktop title bar's own
           connection pill too -- not just the routed content below. */}
       <UpdateRestartOverlay />
-    </>
+      {/* One toolbar for every selectable surface; actions register per page. */}
+      <ClioSelectionActionToolbar />
+    </SelectionActionsProvider>
   );
 
   if (!desktopHost) return appContent;

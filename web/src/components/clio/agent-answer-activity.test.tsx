@@ -100,3 +100,30 @@ describe('AgentAnswerActivity: transcript link to the pending tray card', () => 
     ).toBeVisible();
   });
 });
+
+describe('answered record for a composer-message answer (#1448)', () => {
+  it('shows the text and the attachment chips, never internal fields', () => {
+    render(
+      <AgentAnswerActivity
+        interaction={humanQuestion({
+          status: 'answered',
+          answered_by: 'human',
+          payload: {
+            answer_metadata: {
+              answer: 'Use the attached list.',
+              attachments: [{ type: 'resource_ref', name: 'stations.csv', media_type: 'text/csv' }],
+              answer_message_id: 'msg_user_1',
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText('Use the attached list.')).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: 'Attached files' })).toHaveTextContent('stations.csv');
+    expect(screen.queryByText(/msg_user_1/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Answer message id/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Answer sent to the agent')).toBeInTheDocument();
+    expect(screen.getByText('The agent continues with your answer.')).toBeInTheDocument();
+  });
+});

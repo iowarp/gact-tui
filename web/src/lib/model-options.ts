@@ -128,6 +128,37 @@ export function findSelectedModelOption<
 }
 
 /**
+ * The model a person picked whose provider is only waiting on its sign-in
+ * (not failed, not uninstalled). Kept as the selection so stale sign-in state
+ * never drops the pick; the service re-checks the provider when it is used
+ * (#1455). A signed-out CLI provider may list no model rows at all -- only its
+ * provider row -- so the held pick is then built from that row.
+ */
+export function findHeldModelOption(
+  options: readonly ClioModelOption[],
+  providerId: string | undefined,
+  modelId: string | undefined,
+  transport?: string,
+): ClioModelOption | undefined {
+  if (!providerId || !modelId) return undefined;
+  const waiting = (option: ClioModelOption) =>
+    option.providerId === providerId &&
+    (option.health === PROVIDER_NEEDS_SETUP || option.health === 'checking');
+  const modelRow = options.find(
+    (option) =>
+      option.kind !== 'provider' &&
+      waiting(option) &&
+      matchesConfiguredModel(option, modelId) &&
+      (!transport || option.transport === transport),
+  );
+  if (modelRow) return modelRow;
+  const providerRow = options.find((option) => option.kind === 'provider' && waiting(option));
+  return providerRow
+    ? { ...providerRow, kind: 'model', id: modelId, label: conciseModelName(modelId) }
+    : undefined;
+}
+
+/**
  * How each availability the service reports reads to a person.
  *
  * The wire field is an open string, so a token this build has never seen is

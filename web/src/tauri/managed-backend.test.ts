@@ -50,7 +50,9 @@ describe('managed Tauri backend', () => {
   it('runs first-use installation once before resuming supervisor polling', async () => {
     mocks.invoke
       .mockResolvedValueOnce({ url: '', bearer_token: '', status: { kind: 'needs_install' } })
-      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(async () => {
+        mocks.listeners.get('clio:install-done')?.({ payload: undefined });
+      })
       .mockResolvedValueOnce({
         url: '',
         bearer_token: '',
@@ -71,6 +73,48 @@ describe('managed Tauri backend', () => {
       ['get_backend'],
       ['get_backend'],
     ]);
+  });
+
+  it('surfaces a failed first-use install instead of waiting out the readiness window', async () => {
+    const needsInstall = { url: '', bearer_token: '', status: { kind: 'needs_install' } };
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'install_clio') {
+        mocks.listeners.get('clio:install-failed')?.({
+          payload: { code: 1, tail: 'sidecar-launcher: clio-agent-gact not found' },
+        });
+        return undefined;
+      }
+      return needsInstall;
+    });
+
+    await expect(waitForManagedBackend({ pollIntervalMs: 0, timeoutMs: 50 })).rejects.toThrow(
+      'could not be installed: sidecar-launcher: clio-agent-gact not found',
+    );
+    expect(mocks.invoke.mock.calls.filter(([command]) => command === 'install_clio')).toHaveLength(
+      1,
+    );
+    expect(mocks.listeners.size).toBe(0);
+  });
+
+  it('does not cut off a first-use install that outlasts the readiness window', async () => {
+    let installed = false;
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'install_clio') {
+        setTimeout(() => {
+          installed = true;
+          mocks.listeners.get('clio:install-done')?.({ payload: undefined });
+        }, 40);
+        return undefined;
+      }
+      return installed
+        ? { url: 'http://127.0.0.1:17800', bearer_token: '', status: { kind: 'ready' } }
+        : { url: '', bearer_token: '', status: { kind: 'needs_install' } };
+    });
+
+    await expect(
+      waitForManagedBackend({ pollIntervalMs: 0, timeoutMs: 10 }),
+    ).resolves.toMatchObject({ url: 'http://127.0.0.1:17800' });
+    expect(mocks.listeners.size).toBe(0);
   });
 
   it('publishes a typed supervisor failure instead of falling back to port 8787', async () => {
@@ -115,7 +159,9 @@ describe('managed Tauri backend', () => {
   it('forwards streamed install-progress lines and unsubscribes once settled', async () => {
     const lines: string[] = [];
     mocks.invoke.mockImplementationOnce(async () => {
-      mocks.listeners.get('clio:install-progress')?.({ payload: { line: 'Installing clio-agent...' } });
+      mocks.listeners.get('clio:install-progress')?.({
+        payload: { line: 'Installing clio-agent...' },
+      });
       mocks.listeners.get('clio:install-progress')?.({
         payload: { line: 'Successfully installed clio-agent-0.9.4.3' },
       });
@@ -126,7 +172,10 @@ describe('managed Tauri backend', () => {
       updateManagedClio('v0.9.4.3', { restartApp: false, onProgress: (line) => lines.push(line) }),
     ).resolves.toBeUndefined();
 
-    expect(lines).toEqual(['Installing clio-agent...', 'Successfully installed clio-agent-0.9.4.3']);
+    expect(lines).toEqual([
+      'Installing clio-agent...',
+      'Successfully installed clio-agent-0.9.4.3',
+    ]);
     expect(mocks.listeners.size).toBe(0);
   });
 
@@ -152,5 +201,18 @@ describe('managed Tauri backend', () => {
     await expect(updateManagedClio('v0.9.4.3', { restartApp: true })).rejects.toThrow(
       'verification failed',
     );
+  });
+
+  it('stops with a typed reason when it attached to an agent it cannot sign in to (#1478)', async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: '',
+      status: { kind: 'auth_unavailable', detail: 'it did not publish its access token' },
+    });
+
+    await expect(waitForManagedBackend({ pollIntervalMs: 0 })).rejects.toThrow(
+      /already running at http:\/\/127\.0\.0\.1:17800, but this app can't sign in to it: it did not publish its access token/u,
+    );
+    expect(mocks.invoke).toHaveBeenCalledTimes(1);
   });
 });

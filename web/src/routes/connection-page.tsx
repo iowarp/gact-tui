@@ -716,7 +716,11 @@ export function ConnectionPage() {
               {!mutation.error && credentialError ? (
                 <Alert variant="destructive">
                   <TriangleAlertIcon aria-hidden="true" />
-                  <AlertTitle>Saved access token unavailable</AlertTitle>
+                  <AlertTitle>
+                    {managedBackendStatus?.kind === 'auth_unavailable'
+                      ? `Can't sign in to the running ${vocab.agent}`
+                      : 'Saved access token unavailable'}
+                  </AlertTitle>
                   <AlertDescription>{credentialError}</AlertDescription>
                 </Alert>
               ) : null}
