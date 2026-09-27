@@ -27,12 +27,10 @@ export interface ClioMoreDetailsPanelProps {
   onAddToChat: (text: string) => void;
 }
 
-function messageText(message: Message): string {
-  return message.blocks
-    .map((block) => (block.type === 'text' ? block.text : ''))
-    .filter(Boolean)
-    .join('\n\n')
-    .trim();
+/** An answer's final prose: its last text block (earlier ones narrate the work). */
+function answerText(message: Message): string {
+  const texts = message.blocks.flatMap((block) => (block.type === 'text' ? [block.text] : []));
+  return (texts.at(-1) ?? '').trim();
 }
 
 /**
@@ -70,7 +68,7 @@ export function ClioMoreDetailsPanel({
     side && isSessionActive(entities.sessions[side.id]?.state ?? 'completed'),
   );
   const latestAnswer = [...exchange].reverse().find((message) => message.role === 'assistant');
-  const latestAnswerText = latestAnswer ? messageText(latestAnswer) : '';
+  const latestAnswerText = latestAnswer ? answerText(latestAnswer) : '';
   const open = Boolean(selection);
 
   const submit = async (event: FormEvent) => {
