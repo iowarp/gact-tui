@@ -1,10 +1,16 @@
 import { z } from 'zod';
 import {
   a2uiCapabilitiesResponseSchema,
+  a2uiReferenceResolutionSchema,
   decodeA2uiCatalogRows,
   mergeA2uiClientMetadata,
 } from './a2ui/index.js';
-import type { A2uiCapabilitiesResponse, A2uiCatalogListDecodeResult } from './a2ui/index.js';
+import type {
+  A2uiCapabilitiesResponse,
+  A2uiCatalogListDecodeResult,
+  A2uiReferenceResolution,
+} from './a2ui/index.js';
+import { readArtifactWithCustodyFallback, readBytesPath } from './artifact-custody.js';
 import { PresentationRepository } from './presentation-repository.js';
 
 /**
@@ -75,5 +81,46 @@ export class A2uiRepository extends PresentationRepository {
       decode: (value) => a2uiCapabilitiesResponseSchema.parse(value),
       signal,
     });
+  }
+
+  /**
+   * Resolves one CLIO content reference (`artifact:` / `resource:` / bare id)
+   * a surface of `sessionId` carries. The service owns the URI grammar; the
+   * reference travels verbatim as one percent-encoded query value.
+   */
+  public resolveA2uiReference(
+    sessionId: string,
+    uri: string,
+    signal?: AbortSignal,
+  ): Promise<A2uiReferenceResolution> {
+    const query = new URLSearchParams({ uri });
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/references/resolve?${query.toString()}`,
+      decode: (value) => a2uiReferenceResolutionSchema.parse(value),
+      signal,
+    });
+  }
+
+  /**
+   * Reads a resolved reference's bytes through this repository's transport
+   * (so a remote service receives its bearer). An artifact follows only the
+   * server-authorized `custody_not_cas` redirect; every other failure stays typed.
+   */
+  public readA2uiReferenceBytes(
+    resolution: A2uiReferenceResolution,
+    signal?: AbortSignal,
+  ): Promise<Uint8Array> {
+    const read = (path: string, requestSignal?: AbortSignal) =>
+      readBytesPath(this.transport, path, requestSignal);
+    if (resolution.kind === 'artifact') {
+      return readArtifactWithCustodyFallback(
+        resolution.artifact_id ?? '',
+        resolution.fetch_path,
+        read,
+        signal,
+      );
+    }
+    return read(resolution.fetch_path, signal);
   }
 }
