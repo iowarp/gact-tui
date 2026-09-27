@@ -1529,6 +1529,33 @@ const server = createServer(async (request, response) => {
     sendJson(response, { processes: [] });
     return;
   }
+  // The agent-task registry read behind the observability child-agent list
+  // (GET /v1/sessions/{sid}/agent-tasks). The fixture session's registry holds
+  // the one delegated specialist its transcript shows; every other session has
+  // none.
+  const agentTasksMatch = url.pathname.match(/^\/v1\/sessions\/([^/]+)\/agent-tasks$/u);
+  if (request.method === 'GET' && agentTasksMatch) {
+    const tasks =
+      decodeURIComponent(agentTasksMatch[1]) === sessionId
+        ? [
+            {
+              task_id: 'subagent_station',
+              parent_session_id: sessionId,
+              child_session_id: '',
+              agent_ref: { expert_id: 'station_evidence' },
+              run_index: 0,
+              run_label: 'Station evidence specialist',
+              status: 'completed',
+              live_state: 'completed',
+              error_reason: '',
+              created_at: '2026-08-22T00:00:00Z',
+              updated_at: '2026-08-22T00:00:00Z',
+            },
+          ]
+        : [];
+    sendJson(response, { tasks });
+    return;
+  }
   if (request.method === 'GET' && url.pathname === `/v1/workspaces/${workspaceId}/files`) {
     // Matched on pathname only (query params like include_hidden /
     // exclude_service_storage never affect this fixture's response), but
