@@ -339,6 +339,14 @@ export interface ProviderCatalogModel {
   native_tool_calling: boolean;
   context_window?: number;
   loaded_context_window?: number;
+  /** The model's own context ceiling, whatever the server serves. */
+  native_context_window?: number;
+  /**
+   * What `context_window` rests on: `served` (the server serves it now),
+   * `configured` (nothing loaded yet; it applies when the model loads) or
+   * `native` (only the model's own ceiling is known).
+   */
+  context_basis?: 'served' | 'configured' | 'native';
   output_limit?: number;
   /**
    * What the service reports about this model's usability — `available`,

@@ -375,9 +375,7 @@ export const providerCatalogSchema = z.object({
           // The shared clio-schemas ModelFacts record: description, release
           // date (and whether it is recent), pricing and size, each with its
           // evidence. Optional: older services do not report facts.
-          model_facts: modelFactsGeneratedSchema
-            .nullish()
-            .transform((value) => value ?? undefined),
+          model_facts: modelFactsGeneratedSchema.nullish().transform((value) => value ?? undefined),
           // The shared clio-schemas AcceptedParameter records: only the
           // response settings this model accepts. Optional: older services.
           accepted_parameters: z
@@ -400,6 +398,14 @@ export const providerCatalogSchema = z.object({
             .transform((value) => value ?? undefined),
           loaded_context_window: z
             .number()
+            .nullish()
+            .transform((value) => value ?? undefined),
+          native_context_window: z
+            .number()
+            .nullish()
+            .transform((value) => value ?? undefined),
+          context_basis: z
+            .enum(['served', 'configured', 'native'])
             .nullish()
             .transform((value) => value ?? undefined),
           output_limit: z

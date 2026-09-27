@@ -51,6 +51,10 @@ export interface ClioModelOption {
   toolCalling?: boolean;
   /** The model's context window in tokens, when the service reports one. */
   contextWindow?: number;
+  /** What `contextWindow` rests on (served now, configured for load, or native). */
+  contextBasis?: 'served' | 'configured' | 'native';
+  /** The model's own context ceiling. */
+  nativeContextWindow?: number;
   /** False only for a model known to be another type than chat. */
   chatSelectable?: boolean;
   /** The service's capability tags for this model, each with its evidence
@@ -334,6 +338,8 @@ function liveProviderOptions(
       reasoning: modelReasoningLevels(model.reasoning),
       toolCalling: model.native_tool_calling,
       contextWindow: model.loaded_context_window || model.context_window,
+      contextBasis: model.context_basis,
+      nativeContextWindow: model.native_context_window,
       chatSelectable: model.chat_selectable,
       capabilityTags: model.capability_tags,
       modelFacts: model.model_facts,
