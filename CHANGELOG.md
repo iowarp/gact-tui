@@ -25,6 +25,12 @@ UI aren't tracked.
   "Up to date" in red, and a session waiting on permission read "Up to date"
   too; they now read "Failed" and "Permission needed". The idle live-region
   text is "No active work", and the dock never says "Up to date".
+- A remote deploy that CLIO refuses to attach says why instead of "CLIO
+  rejected the SSH transport attachment" (clio-agent#1478). The desktop offers
+  the `clio.infrastructure.v2` bridge protocol, waits for CLIO's `attached`
+  confirmation, and turns a refusal (sign-in not accepted, host no longer
+  saved, not an SSH host) into a plain sentence. An older CLIO that refuses
+  before the connection opens is named as giving no reason.
 
 ## [0.11.2.19] — 2026-09-26
 
