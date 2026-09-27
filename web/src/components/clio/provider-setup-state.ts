@@ -65,11 +65,23 @@ export function providerSetupSentence(group: ProviderGroup, flow: ProviderAction
 }
 
 /**
+ * What `providerActionError` needs to know about a provider: its name, and --
+ * where a catalog row is at hand (the picker, Settings) -- its latest health
+ * and when that was reported. A surface without a catalog row (a failed
+ * turn's sign-in card) passes the name alone; nothing then supersedes a failure.
+ */
+export type ProviderStanding = Pick<ProviderGroup, 'name'> &
+  Partial<Pick<ProviderGroup, 'health' | 'freshness'>>;
+
+/**
  * Whether the provider has reported healthy SINCE a check ran: a later
  * catalog read is newer evidence than the check's failure, which then no
  * longer describes the provider (a server that was down and came up).
  */
-function supersededByHealthyCatalog(group: ProviderGroup, checkedAt: string | undefined): boolean {
+function supersededByHealthyCatalog(
+  group: ProviderStanding,
+  checkedAt: string | undefined,
+): boolean {
   if (group.health !== 'healthy' || !group.freshness || !checkedAt) return false;
   const reported = Date.parse(group.freshness);
   const checked = Date.parse(checkedAt);
@@ -83,7 +95,7 @@ function supersededByHealthyCatalog(group: ProviderGroup, checkedAt: string | un
  */
 export function providerActionError(
   actions: ProviderActions,
-  group: ProviderGroup,
+  group: ProviderStanding,
 ): string | undefined {
   const providerLabel = group.name;
   const handshakeResult = actions.handshakeResult;

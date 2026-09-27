@@ -33,7 +33,8 @@ export function TurnProviderSignIn({ providerId, providerLabel }: TurnProviderSi
   });
   const flow: ProviderActionFlow =
     preset?.auth_method === 'subscription' || preset?.auth_method === 'oauth' ? 'sign_in' : 'check';
-  const failure = actions.stage ? undefined : providerActionError(actions, providerLabel);
+  // No catalog row here: the provider is named, and its failure stands.
+  const failure = actions.stage ? undefined : providerActionError(actions, { name: providerLabel });
   return (
     <div className="mt-2 flex flex-col gap-1.5" data-slot="turn-provider-sign-in">
       <ProviderSetupAction
