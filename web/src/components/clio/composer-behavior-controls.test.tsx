@@ -124,3 +124,33 @@ describe('ClioComposerBehaviorControls', () => {
     expect(screen.queryByText('Execution mode')).not.toBeInTheDocument();
   });
 });
+
+describe('ClioComposerBehaviorControls SPOTTER availability', () => {
+  it('offers SPOTTER review disabled, with what to enable, when the service cannot arm it', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <ClioComposerBehaviorControls
+        behavior={behavior}
+        modelControl={null}
+        onChange={onChange}
+        reasoningLevels={ALL_LEVELS}
+        spotterAvailability={{
+          available: false,
+          reason: 'spotter_watcher_provenance_unavailable',
+          message: 'SPOTTER surveillance was not armed: no provenance store to read.',
+          remedy: 'enable an agentic provenance provider (provenance.agentic.providers: [jsonl])',
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Confirmation policy: Ask first' }));
+    const spotter = await screen.findByRole('menuitemradio', { name: /SPOTTER review/ });
+    expect(spotter).toHaveAttribute('aria-disabled', 'true');
+    expect(spotter).toHaveTextContent(
+      'Unavailable. To enable: Enable an agentic provenance provider',
+    );
+    await user.click(spotter);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});

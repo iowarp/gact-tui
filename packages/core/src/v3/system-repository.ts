@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { InfrastructureRepository } from './infrastructure-repository.js';
+import { spotterAvailabilitySchema, type SpotterAvailability } from './spotter-domain.js';
 
 /**
  * The latest published CLIO release, as the connected server reports it (see
@@ -31,6 +32,24 @@ export class SystemRepository extends InfrastructureRepository {
       method: 'GET',
       path: '/v1/system/latest-release',
       decode: (value) => latestReleaseSchema.parse(value),
+      signal,
+    });
+  }
+
+  /** Whether SPOTTER review can be armed for this session (or workspace), and why not. */
+  public spotterAvailability(
+    scope: { sessionId?: string; workspaceId?: string },
+    signal?: AbortSignal,
+  ): Promise<SpotterAvailability> {
+    const query = new URLSearchParams();
+    if (scope.sessionId) query.set('session_id', scope.sessionId);
+    if (scope.workspaceId) query.set('workspace_id', scope.workspaceId);
+    const encoded = query.toString();
+    const suffix = encoded ? `?${encoded}` : '';
+    return this.transport.request({
+      method: 'GET',
+      path: `/v1/spotter/availability${suffix}`,
+      decode: (value) => spotterAvailabilitySchema.parse(value),
       signal,
     });
   }

@@ -43,6 +43,7 @@ import {
 import { ClioStatus } from './status';
 import { ClioModelPicker } from './model-picker';
 import { useComposerModelSelection } from './use-composer-model-selection';
+import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
 import { Button } from '@/components/ui/button';
 import { providerLogoId } from '@/lib/provider-presentation';
 import { cn } from '@/lib/utils';
@@ -197,6 +198,7 @@ export function ClioComposer({
   focusRequestKey,
   variant = 'docked',
 }: ClioComposerProps) {
+  const spotterAvailability = useSpotterAvailability(workspaceId);
   const { selectedOption, selectedTransport, selectModel } = useComposerModelSelection(
     modelOptions,
     provider,
@@ -621,6 +623,7 @@ export function ClioComposer({
             ) : null}
             <ClioComposerBehaviorControls
               behavior={messageBehavior}
+              spotterAvailability={spotterAvailability}
               reasoningLevels={selectedOption?.reasoning?.levels ?? []}
               defaultEffortLabel={defaultReasoningLabel(
                 configuredEffort,
@@ -662,9 +665,7 @@ export function ClioComposer({
                         <ModelSelectorLogo provider={providerLogoId(selectedOption.providerId)} />
                       ) : null}
                       <span className="truncate">
-                        {selectedOption
-                          ? composerModelLabel(selectedOption)
-                          : 'Choose model'}
+                        {selectedOption ? composerModelLabel(selectedOption) : 'Choose model'}
                       </span>
                     </Button>
                   }

@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useRepository } from '@/hooks/use-repository';
+import { useSpotterAvailability } from '@/hooks/use-spotter-availability';
+import { approvalOptionViews } from './approval-option-availability';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import { providerDisplayName } from '@/lib/provider-presentation';
 import { useModelReasoningLevels } from '@/hooks/use-model-reasoning-levels';
@@ -48,6 +50,7 @@ function SectionHeading() {
 export function SessionDefaultsSettings() {
   const repository = useRepository();
   const queryClient = useQueryClient();
+  const approvalOptions = approvalOptionViews(SESSION_APPROVAL_OPTIONS, useSpotterAvailability(''));
   const { settings } = useConnectionSettings();
   const defaults = useQuery({
     queryKey: queryKeys.key('session-defaults', settings.endpoint),
@@ -147,8 +150,7 @@ export function SessionDefaultsSettings() {
   const selectedMode =
     SESSION_MODE_OPTIONS.find((option) => option.value === form.mode) ?? SESSION_MODE_OPTIONS[0];
   const selectedApproval =
-    SESSION_APPROVAL_OPTIONS.find((option) => option.value === form.approval_mode) ??
-    SESSION_APPROVAL_OPTIONS[0];
+    approvalOptions.find((option) => option.value === form.approval_mode) ?? approvalOptions[0];
 
   return (
     <div className="grid gap-6">
@@ -343,11 +345,12 @@ export function SessionDefaultsSettings() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {SESSION_APPROVAL_OPTIONS.map((option) => {
+              {approvalOptions.map((option) => {
                 const Icon = option.icon;
                 return (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem disabled={option.disabled} key={option.value} value={option.value}>
                     <Icon aria-hidden="true" className="size-4" /> {option.label}
+                    {option.disabled ? ' (unavailable)' : null}
                   </SelectItem>
                 );
               })}
