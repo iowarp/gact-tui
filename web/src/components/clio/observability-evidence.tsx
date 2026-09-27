@@ -25,13 +25,13 @@ import {
   FileTextIcon,
   ListChecksIcon,
   ListTreeIcon,
+  PanelRightOpenIcon,
   PanelsTopLeftIcon,
   ServerIcon,
   WaypointsIcon,
   WrenchIcon,
 } from 'lucide-react';
-import {
-} from '@/lib/icon-vocabulary';
+import {} from '@/lib/icon-vocabulary';
 import {
   CodeBlock,
   CodeBlockActions,
@@ -148,16 +148,18 @@ export function ClioEvidenceView(props: ClioEvidenceViewProps) {
             <TaskEvidence tasks={tasks} />
           </EvidenceSection>
         ) : null}
-        {subagents.length ? (
-          <EvidenceSection
-            icon={BoxesIcon}
-            label="Child agents"
-            value="child-agents"
-            count={subagents.length}
-          >
-            <SubagentEvidence onOpenSubagent={props.onOpenSubagent} subagents={subagents} />
-          </EvidenceSection>
-        ) : null}
+        {/* Always present: the list of child agents is the one place every
+            delegated agent, child session, and standing watcher of this
+            session can be found and opened, so its absence must read as
+            "none yet", never as a missing feature. */}
+        <EvidenceSection
+          icon={BoxesIcon}
+          label="Child agents"
+          value="child-agents"
+          count={subagents.length}
+        >
+          <SubagentEvidence onOpenSubagent={props.onOpenSubagent} subagents={subagents} />
+        </EvidenceSection>
         {tools.length ? (
           <EvidenceSection icon={WrenchIcon} label="Tool calls" value="tools" count={tools.length}>
             <ToolEvidence tools={tools} />
@@ -302,20 +304,73 @@ function SubagentEvidence({
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
   subagents: readonly SubagentRun[];
 }) {
+  if (!subagents.length) {
+    return (
+      <p className="px-2 py-1 text-xs text-muted-foreground">
+        No child agents in this session yet.
+      </p>
+    );
+  }
   return (
     <div className="grid gap-1">
       {subagents.map((subagent) => {
         const assignment = getChildAgentAssignment(subagent);
         const canOpen = Boolean(subagent.child_session_id && onOpenSubagent);
+        // The child-agent semantics every other surface uses (subagent card,
+        // lifecycle line, dock popover, Gantt): a plain click makes the child
+        // the central conversation; Shift-click, Shift+Enter, or the visible
+        // canvas action keeps this conversation central and opens the child
+        // in a canvas tab beside it.
         return (
           <ClioInteractiveRow
+            actions={
+              canOpen ? (
+                <Button
+                  aria-label={`Open ${subagent.title} in canvas`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onOpenSubagent?.(subagent, 'canvas');
+                  }}
+                  size="icon"
+                  title="Open in canvas"
+                  type="button"
+                  variant="ghost"
+                >
+                  <PanelRightOpenIcon aria-hidden="true" />
+                </Button>
+              ) : undefined
+            }
             aria-label={canOpen ? `Open child conversation ${subagent.title}` : undefined}
             className={canOpen ? 'cursor-pointer' : undefined}
             disabled={!canOpen}
             key={subagent.id}
-            onClick={canOpen ? () => onOpenSubagent?.(subagent, 'conversation') : undefined}
+            onClick={
+              canOpen
+                ? (event) => onOpenSubagent?.(subagent, event.shiftKey ? 'canvas' : 'conversation')
+                : undefined
+            }
+            onKeyDown={
+              canOpen
+                ? (event) => {
+                    if (event.shiftKey && (event.key === 'Enter' || event.key === ' ')) {
+                      event.preventDefault();
+                      onOpenSubagent?.(subagent, 'canvas');
+                    }
+                  }
+                : undefined
+            }
+            onMouseDown={
+              canOpen
+                ? (event) => {
+                    if (event.shiftKey) event.preventDefault();
+                  }
+                : undefined
+            }
             role={canOpen ? 'button' : undefined}
             running={subagent.state === 'running'}
+            title={
+              canOpen ? 'Open child conversation. Shift-click to open it in the canvas.' : undefined
+            }
           >
             <EvidenceRecord
               detail={assignment.detail ?? assignment.label}
@@ -552,7 +607,6 @@ function ArtifactEvidence({
   );
 }
 
-
 function FileEvidence({
   files,
   onOpenFile,
@@ -634,7 +688,6 @@ function PlanEvidence({
     </div>
   );
 }
-
 
 function EmptyEvidence({ label }: { label: string }) {
   return (
