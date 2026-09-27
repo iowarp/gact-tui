@@ -39,6 +39,8 @@ export * from './mcp-app-repository.js';
 export * from './search-repository.js';
 export * from './context-repository.js';
 export * from './administration-repository.js';
+export * from './attention-domain.js';
+export * from './attention-repository.js';
 export * from './blueprint-repository.js';
 export * from './reducer.js';
 export * from './repository.js';

@@ -10,7 +10,7 @@ import type { SandboxSetupResult, SandboxStatus } from './sandbox-domain.js';
 import type { MemoryEvent, MemoryStatistics } from './memory-domain.js';
 import type { AgentDefinition } from './agent-domain.js';
 import { agentDefinitionSchema } from './schemas.js';
-import { SessionHistoryRepository } from './session-history-repository.js';
+import { AttentionRepository } from './attention-repository.js';
 
 /**
  * Memory events read per request when a caller does not name a budget.
@@ -248,7 +248,7 @@ const runtimeMetricsSchema = z.object({
 });
 
 /** Administrative catalogs and diagnostics owned by the connected service. */
-export class AdministrationRepository extends SessionHistoryRepository {
+export class AdministrationRepository extends AttentionRepository {
   public agent(agentId: string, signal?: AbortSignal): Promise<AgentDefinition> {
     return this.transport.request({
       method: 'GET',
