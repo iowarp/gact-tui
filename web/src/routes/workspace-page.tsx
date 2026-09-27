@@ -72,7 +72,6 @@ export function WorkspacePage() {
   const [filesViewActive, setFilesViewActive] = useState(false);
   const [contextTargetId, setContextTargetId] = useContextTargetSelection(sessionId);
   const sessionHistory = useSessionHistoryActions(sessionId, workspaceId);
-  const attention = useAttentionMode(sessionId);
   const diffActions = useSessionDiffActions();
   const { commands, isPending, run } = useSessionCommands(sessionId, workspaceId);
   const {
@@ -156,6 +155,7 @@ export function WorkspacePage() {
       ),
     [sessionId],
   );
+  const attention = useAttentionMode(sessionId, transcript.data?.messages.length ?? 0);
   // messageCount lags transcript.isFetching by a render tick (it only
   // hydrates from transcript.data via use-workspace-data.ts's mergeSnapshots
   // effect), which used to flash the welcome variant -- remounting the

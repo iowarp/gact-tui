@@ -112,6 +112,19 @@ export interface AttentionUnavailable {
 
 export type AttentionResult = AttentionAvailable | AttentionUnavailable;
 
+/**
+ * `GET /v1/sessions/{sid}/attention/availability`: whether this session can
+ * show attention at all (`enabled`, with the typed `reason`/`message` when not),
+ * and which assistant answers have it (`messages[id]`).
+ */
+export interface AttentionSessionAvailability {
+  enabled: boolean;
+  reason?: string;
+  message?: string;
+  detail?: string;
+  messages: Record<string, boolean>;
+}
+
 export const ATTENTION_DOMAIN_LABELS: Record<AttentionDomain, string> = {
   system: 'System prompt',
   user: 'Your messages',

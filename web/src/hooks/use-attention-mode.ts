@@ -1,4 +1,5 @@
 import type { AttentionAvailable } from '@clio/core/v3';
+import { useQuery } from '@tanstack/react-query';
 import { RadarIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -25,11 +26,26 @@ export type AttentionModeState =
  * transport failure (the request never reached or returned from the server)
  * is reported as an error toast, same as `useMoreDetails`.
  */
-export function useAttentionMode(sessionId: string): {
+export function useAttentionMode(
+  sessionId: string,
+  /** Changes when the transcript gains messages, so new answers are re-checked. */
+  transcriptRevision: number,
+): {
   state: AttentionModeState;
   dismiss: () => void;
 } {
   const repository = useRepository();
+  // Which answers can show attention. The action is offered only on those, so
+  // a CLIO without attention capture, or an answer from another provider, never
+  // shows it.
+  const availability = useQuery({
+    queryKey: ['attention-availability', sessionId, transcriptRevision],
+    queryFn: ({ signal }) => repository.attentionAvailability(sessionId, signal),
+    enabled: Boolean(sessionId),
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
+  });
+  const availableAnswers = availability.data?.enabled ? availability.data.messages : undefined;
   const [held, setHeld] = useState<{ sessionId: string; state: AttentionModeState }>({
     sessionId,
     state: { status: 'idle' },
@@ -88,11 +104,12 @@ export function useAttentionMode(sessionId: string): {
       icon: RadarIcon,
       order: 30,
       kinds: ['agent-answer-text'],
-      // An attention view answers about this session's own transcript.
-      isAvailable: (target) => target.sessionId === sessionId,
+      // Only this session's answers that the service reports attention for.
+      isAvailable: (target) =>
+        target.sessionId === sessionId && availableAnswers?.[target.messageId] === true,
       run: (target) => void request(target),
     }),
-    [request, sessionId],
+    [availableAnswers, request, sessionId],
   );
   useSelectionAction(action);
 

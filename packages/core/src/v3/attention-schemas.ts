@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { AttentionResult } from './attention-domain.js';
+import type { AttentionResult, AttentionSessionAvailability } from './attention-domain.js';
 
 const attentionRunSchema = z.tuple([z.number(), z.number(), z.number()]);
 
@@ -93,3 +93,13 @@ export const attentionResultSchema: z.ZodType<AttentionResult> = z.union([
   attentionAvailableSchema,
   attentionUnavailableSchema,
 ]) as z.ZodType<AttentionResult>;
+
+export const attentionSessionAvailabilitySchema: z.ZodType<AttentionSessionAvailability> = z
+  .object({
+    enabled: z.boolean(),
+    reason: z.string().optional(),
+    message: z.string().optional(),
+    detail: z.string().optional(),
+    messages: z.record(z.string(), z.boolean()),
+  })
+  .passthrough() as z.ZodType<AttentionSessionAvailability>;

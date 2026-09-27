@@ -1,5 +1,5 @@
-import type { AttentionResult } from './attention-domain.js';
-import { attentionResultSchema } from './attention-schemas.js';
+import type { AttentionResult, AttentionSessionAvailability } from './attention-domain.js';
+import { attentionResultSchema, attentionSessionAvailabilitySchema } from './attention-schemas.js';
 import { SessionHistoryRepository } from './session-history-repository.js';
 
 /**
@@ -26,16 +26,18 @@ export class AttentionRepository extends SessionHistoryRepository {
     });
   }
 
-  /** Cheap pre-check: whether an attention view could be produced at all, without computing it. */
+  /**
+   * Whether this session can show attention, and for which answers. Cheap on
+   * the service: config, the recorded model calls and one Flowcept query.
+   */
   public attentionAvailability(
     sessionId: string,
-    messageId: string,
     signal?: AbortSignal,
-  ): Promise<AttentionResult> {
+  ): Promise<AttentionSessionAvailability> {
     return this.transport.request({
       method: 'GET',
-      path: `/v1/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/attention/availability`,
-      decode: (value) => attentionResultSchema.parse(value),
+      path: `/v1/sessions/${encodeURIComponent(sessionId)}/attention/availability`,
+      decode: (value) => attentionSessionAvailabilitySchema.parse(value),
       signal,
     });
   }
