@@ -31,6 +31,7 @@ import {
   TEXT_PREVIEW_RENDER_CHARS,
 } from '@/lib/runtime-limits';
 import { cn } from '@/lib/utils';
+import { describeReferenceError } from '@/lib/a2ui/reference-failure';
 import { isMissingArtifactPayload, uniqueWorkspaceArtifactFile } from './artifact-custody';
 
 export interface ClioArtifactCardProps {
@@ -153,7 +154,13 @@ export function ClioArtifactCard({
     mediaType: artifact.media_type,
     url: imageUrl ?? '',
   };
-  const contentUnavailable = Boolean(imageBytes.error || textPreview.error);
+  const contentError = imageBytes.error ?? textPreview.error;
+  // A missing payload keeps the custody wording; any other failure (a remote
+  // service refusing the token, an unreachable host) names its real reason.
+  const contentFailure =
+    contentError && !isMissingArtifactPayload(contentError)
+      ? describeReferenceError(contentError)
+      : undefined;
 
   return (
     <Artifact
@@ -250,13 +257,17 @@ export function ClioArtifactCard({
                 : `Open this artifact to read the full ${formatBytes(artifact.size)} result.`}
             </p>
           ) : null}
-          {contentUnavailable ? (
-            <Alert className="m-3 w-auto border-warning/35 bg-warning/5">
+          {contentError ? (
+            <Alert
+              className="m-3 w-auto border-warning/35 bg-warning/5"
+              data-reason={contentFailure?.code ?? 'not_found'}
+            >
               <TriangleAlertIcon aria-hidden="true" />
               <AlertTitle>Saved content unavailable</AlertTitle>
               <AlertDescription>
-                The service remembers this result, but its saved content is no longer available.
-                Inspect its details for custody and provenance.
+                {contentFailure
+                  ? contentFailure.message
+                  : 'The service remembers this result, but its saved content is no longer available. Inspect its details for custody and provenance.'}
               </AlertDescription>
             </Alert>
           ) : null}

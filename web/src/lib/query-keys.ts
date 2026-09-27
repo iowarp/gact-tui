@@ -1,6 +1,8 @@
 type QueryKeyPart = string | number | boolean | null | undefined;
 
 export type ClioQueryNamespace =
+  | 'a2ui-reference'
+  | 'a2ui-reference-bytes'
   | 'agent-blueprint-sources'
   | 'agent-blueprints'
   | 'agents'
