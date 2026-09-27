@@ -53,11 +53,11 @@ import {
 import {
   configurationForVariant,
   modelRuntimeInModels,
-  runtimeFactLabels,
   targetLabel,
   targetMatchesHost,
   waitForOperation,
 } from './managed-service-target-utils';
+import { ManagedServiceHostFacts } from './managed-service-host-facts';
 
 type Target = ManagedTargetKind;
 /** Desktop controls for CLIO-managed providers and supporting resources. */
@@ -403,18 +403,7 @@ export function ManagedServices({
                       ? `Choose this computer or another computer over SSH. ${vocab.agent} owns the target and every managed deployment.`
                       : `Deploy directly on this ${vocab.agent}’s computer. The existing ${vocab.agent} connection carries every lifecycle request.`}
                   </p>
-                  {catalog.data ? (
-                    <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground">
-                      <span>{catalog.data.facts.os}</span>
-                      <span>{catalog.data.facts.arch}</span>
-                      <span>{catalog.data.facts.accelerator} accelerator</span>
-                      {runtimeFactLabels(catalog.data.facts).map((label) => (
-                        <span key={label} title={label}>
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
+                  {catalog.data ? <ManagedServiceHostFacts facts={catalog.data.facts} /> : null}
                   <Button
                     className="mt-4"
                     disabled={catalog.isFetching}
