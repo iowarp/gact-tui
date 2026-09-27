@@ -12,6 +12,7 @@ import { Component, useCallback, useEffect, useState, type ErrorInfo, type React
 import { useRepository } from '@/hooks/use-repository';
 import { A2uiSurface } from '@/lib/a2ui/kernel-catalog';
 import { useA2uiCatalogRegistry, useA2uiSurfaceModel } from '@/lib/a2ui/processor-store';
+import { A2uiReferenceSessionProvider } from '@/lib/a2ui/reference-session';
 import { A2uiUrlViolationProvider } from '@/lib/a2ui/url-guard';
 import { cn } from '@/lib/utils';
 import { ClioA2UIActionLifecycle } from './a2ui-action-lifecycle';
@@ -135,9 +136,11 @@ function ClioA2UISurfaceContent({
 }) {
   const repository = useRepository();
   const queryClient = useQueryClient();
-  const { registry, catalogs, isLoading: catalogsLoading } = useA2uiCatalogRegistry(
-    surface.session_id,
-  );
+  const {
+    registry,
+    catalogs,
+    isLoading: catalogsLoading,
+  } = useA2uiCatalogRegistry(surface.session_id);
   const [validationPostFailure, setValidationPostFailure] = useState<string>();
   const [localNotice, setLocalNotice] = useState<string>();
   const [localActionPending, setLocalActionPending] = useState(false);
@@ -288,10 +291,18 @@ function ClioA2UISurfaceContent({
     return null;
   }
   const renderedSurface = (
-    <div className={chrome === 'bare' ? '[--a2ui-tabs-content-padding:0]' : 'p-3 [--a2ui-tabs-content-padding:0]'}>
+    <div
+      className={
+        chrome === 'bare'
+          ? '[--a2ui-tabs-content-padding:0]'
+          : 'p-3 [--a2ui-tabs-content-padding:0]'
+      }
+    >
       <MarkdownContext.Provider value={renderMarkdown}>
         <A2uiUrlViolationProvider value={reportUrlViolation}>
-          <A2uiSurface surface={model} />
+          <A2uiReferenceSessionProvider value={surface.session_id}>
+            <A2uiSurface surface={model} />
+          </A2uiReferenceSessionProvider>
         </A2uiUrlViolationProvider>
       </MarkdownContext.Provider>
     </div>
@@ -302,18 +313,26 @@ function ClioA2UISurfaceContent({
       {localActionPending || localActionStatus ? (
         <div aria-live="polite" className="border-t px-4 py-2 text-xs">
           <ClioStatus
-            label={localActionPending ? 'Applying action in this workspace' : localActionStatus || 'Action completed'}
+            label={
+              localActionPending
+                ? 'Applying action in this workspace'
+                : localActionStatus || 'Action completed'
+            }
             value={localActionPending ? 'running' : 'completed'}
           />
         </div>
       ) : null}
-      {localNotice ? <p className="border-t px-4 py-2 text-xs text-destructive">{localNotice}</p> : null}
+      {localNotice ? (
+        <p className="border-t px-4 py-2 text-xs text-destructive">{localNotice}</p>
+      ) : null}
       {validationPostFailure ? (
         <p className="border-t px-4 py-2 text-xs text-destructive">
           The service could not record the rendering problem: {validationPostFailure}
         </p>
       ) : null}
-      {error ? <p className="border-t px-4 py-2 text-xs text-destructive">{error.message}</p> : null}
+      {error ? (
+        <p className="border-t px-4 py-2 text-xs text-destructive">{error.message}</p>
+      ) : null}
     </>
   );
   if (chrome === 'bare') {
