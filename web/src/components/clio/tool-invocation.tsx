@@ -6,6 +6,7 @@ import { ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
 import { ActivityRow } from './activity-row';
+import { ClioAttentionToolBadge } from './attention-tool-badge';
 import { ToolResultPresentation } from './tool-result-presentation';
 import { ResultDialogContent } from './result-dialog-content';
 import { PresentationLink } from './presentation-link';
@@ -14,12 +15,15 @@ import { withWorkflowPresentation, workflowDescriptor } from './workflow-tool-pr
 import { PresentationNavigation } from './presentation-navigation';
 
 export function ClioToolInvocation({
+  attention,
   tool,
   defaultOpen,
 }: {
   tool?: ToolInvocation;
   defaultOpen?: boolean;
   embedded?: boolean;
+  /** Attention-mode badge: this tool call's share of the selection's attention, and its intensity bucket. */
+  attention?: { share: number; bucket: number };
 }) {
   const navigation = useContext(PresentationNavigation);
   if (!tool) return <p className="text-sm text-muted-foreground">Tool details unavailable</p>;
@@ -78,6 +82,9 @@ export function ClioToolInvocation({
           metadata={headerMetadata}
           status={status}
           duration={tool.duration_ms}
+          attention={
+            attention ? <ClioAttentionToolBadge bucket={attention.bucket} share={attention.share} /> : null
+          }
           action={
             <DialogTrigger asChild>
               <Button

@@ -48,6 +48,7 @@ import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { toolOutputDiffKey } from './declared-diff-key';
+import type { MessageAttentionIndex } from '@/lib/attention-tool-index';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -112,6 +113,8 @@ export function DeferredA2UISurface({
 type MessageBlockViewProps = Omit<ClioConversationProps, 'messages'> & {
   activeMcpAppId?: string;
   block: MessageBlock;
+  messageId?: string;
+  messageAttentionIndex?: MessageAttentionIndex;
   messageSessionId?: string;
   reasoningDefaultOpen?: boolean;
 };
@@ -134,15 +137,27 @@ function MessageBlockView({
   reasoningDefaultOpen,
   activeMcpAppId,
   mcpAppRepository,
+  messageId,
+  messageAttentionIndex,
   messageSessionId,
   interactions,
   onInteractionResponse,
 }: MessageBlockViewProps) {
   switch (block.type) {
-    case 'text':
+    case 'text': {
+      const attentionBlock = messageAttentionIndex?.textBlocksByPartId.get(block.id);
+      // A block with no attention block of its own can still be the exact
+      // selected span (the server rarely attends a token to itself).
+      const isSelectedPart =
+        messageAttentionIndex?.selectionPartId === block.id &&
+        messageAttentionIndex.selectionField === 'text';
+      const attentionTagged = Boolean(attentionBlock) || isSelectedPart;
       return (
         <div
           className="min-w-0 max-w-full group-[.is-user]:rounded-lg group-[.is-user]:bg-secondary group-[.is-user]:px-4 group-[.is-user]:py-3"
+          data-field={attentionTagged ? 'text' : undefined}
+          data-message-id={attentionTagged ? messageId : undefined}
+          data-part-id={attentionTagged ? block.id : undefined}
           data-slot="message-text"
         >
           {block.streaming ? (
@@ -152,6 +167,7 @@ function MessageBlockView({
           )}
         </div>
       );
+    }
     case 'reasoning':
     case 'tool':
     case 'task':
@@ -161,6 +177,8 @@ function MessageBlockView({
         <ConversationProcessSequence
           block={block}
           artifacts={artifacts}
+          messageId={messageId}
+          messageAttentionIndex={messageAttentionIndex}
           onInteractionResponse={onInteractionResponse}
           onOpenArtifact={onOpenArtifact}
           onOpenSubagent={onOpenSubagent}

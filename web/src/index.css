@@ -314,6 +314,31 @@
   background: color-mix(in oklch, var(--muted-foreground) 52%, transparent);
 }
 
+/* "Understand attention" heat, applied through the CSS Custom Highlight API
+   (CSS.highlights) rather than re-rendering markdown: a Highlight's ranges
+   can only be styled through a global ::highlight() rule, never inline. Four
+   intensity buckets over the warm "signal" chart hue, plus one for the
+   selection itself. */
+::highlight(clio-attn-heat-0) {
+  background-color: color-mix(in oklch, var(--chart-5) 14%, transparent);
+}
+::highlight(clio-attn-heat-1) {
+  background-color: color-mix(in oklch, var(--chart-5) 30%, transparent);
+}
+::highlight(clio-attn-heat-2) {
+  background-color: color-mix(in oklch, var(--chart-5) 50%, transparent);
+}
+::highlight(clio-attn-heat-3) {
+  background-color: color-mix(in oklch, var(--chart-5) 72%, transparent);
+  color: var(--foreground);
+}
+::highlight(clio-attn-selected) {
+  background-color: color-mix(in oklch, var(--primary) 22%, transparent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--primary) 70%, transparent);
+  text-decoration-thickness: 2px;
+}
+
 /* Radix uses an inline table wrapper so generic scroll areas can measure
    horizontal content. Pending interactions are strictly vertical; forcing
    that wrapper to block layout prevents percentage-width fields from taking

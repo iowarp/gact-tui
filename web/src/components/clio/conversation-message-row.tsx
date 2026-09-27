@@ -32,6 +32,7 @@ import type { ConversationMessageRowProps } from './conversation-types';
 import { specialMessageExecutionMode } from './conversation-message-projection';
 import { McpAppResponseMessageRow } from './conversation-message-projections';
 import { useConversationTurn } from './use-conversation-turn';
+import { useMessageAttentionIndex } from './use-message-attention-index';
 import { turnSignInProvider } from '@/lib/turn-sign-in-provider';
 import { TurnProviderSignIn } from './turn-provider-sign-in';
 import { brand } from '@brand';
@@ -70,6 +71,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
     (block) => block.type !== 'subagent' || !linkedSubagentIds.has(block.subagent_id),
   );
   const executionMode = specialMessageExecutionMode(message);
+  const messageAttentionIndex = useMessageAttentionIndex(entities.attentionData, message);
 
   if (mcpAppResponse) {
     return (
@@ -275,6 +277,7 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                     interactions={entities.interactions}
                     iterations={turn.iterations}
                     mcpAppRepository={entities.mcpAppRepository}
+                    messageAttentionIndex={messageAttentionIndex}
                     messageSessionId={message.session_id}
                     mode={displayMode}
                     onOpenSubagent={entities.onOpenSubagent}
@@ -285,6 +288,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
                 </div>
                 <MessageBlockSequence
                   blocks={visibleResidualBlocks}
+                  messageId={message.id}
+                  messageAttentionIndex={messageAttentionIndex}
                   messageSessionId={message.session_id}
                   {...entities}
                 />
@@ -292,6 +297,8 @@ export const ConversationMessageRow = memo(function ConversationMessageRow({
             ) : (
               <MessageBlockSequence
                 blocks={message.blocks}
+                messageId={message.id}
+                messageAttentionIndex={messageAttentionIndex}
                 messageSessionId={message.session_id}
                 resourcesFirst={message.role === 'user'}
                 {...entities}
@@ -397,6 +404,7 @@ export function conversationMessageRowPropsEqual(
     left.activeMcpAppId !== right.activeMcpAppId ||
     left.mcpAppRepository !== right.mcpAppRepository ||
     left.mcpAppResponse !== right.mcpAppResponse ||
+    left.attentionData !== right.attentionData ||
     !routedInteractionsEqual(left, right, messageEntityRefs(left.message).tools) ||
     left.onOpenArtifact !== right.onOpenArtifact ||
     left.onOpenFile !== right.onOpenFile ||
