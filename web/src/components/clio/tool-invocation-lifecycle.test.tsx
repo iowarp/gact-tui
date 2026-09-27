@@ -5,14 +5,14 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PresentationNavigation } from './presentation-navigation';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+// These assertions exercise the completed Markdown view, not lazy-module startup.
+// Importing the Markdown module here loads it during collection (no timeout), so
+// the React.lazy boundary resolves from the module cache.
+import '@/components/ai-elements/markdown';
 import { ClioToolInvocation } from './tool-invocation';
 
 afterEach(cleanup);
-// These assertions exercise the completed Markdown view, not lazy-module startup.
-beforeAll(async () => {
-  await import('@/components/ai-elements/markdown');
-});
 beforeEach(() => {
   Range.prototype.getClientRects = vi.fn(() => [] as unknown as DOMRectList);
 });
