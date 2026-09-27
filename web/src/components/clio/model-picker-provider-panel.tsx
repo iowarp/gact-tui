@@ -2,7 +2,11 @@ import type { LanguageModelPreset } from '@clio/core/v3';
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { CascaderColumnSection } from '@/components/reui/cascader/cascader-columns';
 import type { CascaderNode } from '@/components/reui/cascader/cascader-types';
-import { providerUsableModelCount, type PickerNodeData, type ProviderGroup } from './model-picker-model';
+import {
+  providerUsableModelCount,
+  type PickerNodeData,
+  type ProviderGroup,
+} from './model-picker-model';
 import { ProviderComponentStatus } from './provider-component-status';
 import { useProviderComponentUpdate } from './provider-component-update';
 import { ProviderConnectState } from './provider-connect-state';
@@ -148,7 +152,12 @@ export function useProviderPanel({ group, preset, open, notice }: UseProviderPan
         data-transport={section.transport.id}
       >
         <TransportLabel focusable section={section} />
-        <TransportLogin actions={transportActions} group={group} preset={preset} section={section} />
+        <TransportLogin
+          actions={transportActions}
+          group={group}
+          preset={preset}
+          section={section}
+        />
       </div>
     </div>
   ));

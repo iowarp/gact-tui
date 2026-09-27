@@ -57,7 +57,9 @@ export function providerSetupSentence(group: ProviderGroup, flow: ProviderAction
     default:
       return (
         group.detail ||
-        (failed ? `${group.name} isn't responding right now.` : `${group.name} hasn't been checked yet.`)
+        (failed
+          ? `${group.name} isn't responding right now.`
+          : `${group.name} hasn't been checked yet.`)
       );
   }
 }
@@ -79,7 +81,10 @@ function supersededByHealthyCatalog(group: ProviderGroup, checkedAt: string | un
  * nothing. The action hook keeps results per provider, so another provider's
  * failure never reaches here.
  */
-export function providerActionError(actions: ProviderActions, group: ProviderGroup): string | undefined {
+export function providerActionError(
+  actions: ProviderActions,
+  group: ProviderGroup,
+): string | undefined {
   const providerLabel = group.name;
   const handshakeResult = actions.handshakeResult;
   const rejected =
@@ -106,4 +111,3 @@ export function providerActionError(actions: ProviderActions, group: ProviderGro
     actions.removeApiKey.error?.message
   );
 }
-

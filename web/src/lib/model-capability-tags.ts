@@ -26,10 +26,10 @@ export type ModelCapabilityAxis =
   | 'size';
 
 export interface ModelCapabilityEvidence {
-  /** Who stated it: `openrouter`, `server_report`, `overlay`, `hf_repo`, ... */
+  /** Who stated it: `openrouter`, `server_report`, `overlay`, `hf_repo`, ...
+   * The upstream field and value the service also sends are raw provenance
+   * and are not carried: a tooltip says what a tag means and who said it. */
   source: string;
-  /** The upstream field and value as the source stated it. */
-  detail: string;
 }
 
 export interface ModelCapabilityTag {
@@ -91,7 +91,7 @@ export function displayedTags(tags: readonly ModelCapabilityTag[]): ModelCapabil
 }
 
 function evidenceOf(rows: readonly TagEvidence[]): ModelCapabilityEvidence[] {
-  return rows.map((row) => ({ source: row.source, detail: row.detail }));
+  return rows.map((row) => ({ source: row.source }));
 }
 
 /**
@@ -155,11 +155,7 @@ export function modelCapabilityTagsFromOption(option: ClioModelOption): ModelCap
     tags.push({
       axis: 'context',
       value: String(option.contextWindow),
-      evidence: [
-        // No detail line: the tooltip's meaning already says what the size
-        // rests on, and the source line where it came from.
-        { source: provenance?.source || 'catalog', detail: '' },
-      ],
+      evidence: [{ source: provenance?.source || 'catalog' }],
       contextBasis: option.contextBasis,
       nativeContext: option.nativeContextWindow,
     });
@@ -298,7 +294,10 @@ export function modelCapabilityTagMeaning(tag: ModelCapabilityTag): string {
         ? 'A specialist model: it does one task rather than hold a conversation.'
         : 'A general model: it can hold a conversation.';
     case 'task': {
-      const hub = tag.hubTasks?.length ? ` Hugging Face task: ${tag.hubTasks.join(', ')}.` : '';
+      // Hub task ids read as words ("text-classification" -> "text classification").
+      const hub = tag.hubTasks?.length
+        ? ` Hugging Face task: ${tag.hubTasks.map((task) => task.replaceAll('-', ' ')).join(', ')}.`
+        : '';
       return `${modelCapabilityTagLabel(tag)}.${hub}`;
     }
     case 'domain':
@@ -339,11 +338,6 @@ export function modelCapabilityTagSource(tag: ModelCapabilityTag): string {
   const joined =
     names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0];
   return `From ${joined}.`;
-}
-
-/** The upstream field the winning source stated it in, verbatim (may be empty). */
-export function modelCapabilityTagDetail(tag: ModelCapabilityTag): string {
-  return tag.evidence[0]?.detail ?? '';
 }
 
 function sentenceCase(value: string): string {

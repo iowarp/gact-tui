@@ -1,7 +1,13 @@
 import type { LanguageModelPreset } from '@clio/core/v3';
 import { ModelSelectorLogo } from '@/components/ai-elements/model-selector';
 import { IconTile } from '@/components/reui/icon-tile';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+} from '@/components/ui/empty';
 import {
   providerNeedsReauthentication,
   translateKnownProviderErrorReason,
@@ -58,7 +64,9 @@ export function ProviderConnectState({ group, preset, actions }: ProviderConnect
         <ProviderSetupAction
           actions={actions}
           failed={
-            group.health === 'degraded' || group.health === 'unavailable' || group.setupNeed === 'start'
+            group.health === 'degraded' ||
+            group.health === 'unavailable' ||
+            group.setupNeed === 'start'
           }
           flow={flow}
           loginLabel={refused ? 'Sign in again' : undefined}

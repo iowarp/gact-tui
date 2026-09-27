@@ -210,7 +210,9 @@ export function useProviderActions({
       setStage('Waiting for you to log in…');
       if (result.browser) {
         openExternalUrl(result.browser.authorization_url).catch((error: unknown) =>
-          setAuthLaunchError(error instanceof Error ? error.message : 'Could not open the sign-in page.'),
+          setAuthLaunchError(
+            error instanceof Error ? error.message : 'Could not open the sign-in page.',
+          ),
         );
       }
     },

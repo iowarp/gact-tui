@@ -124,11 +124,15 @@ describe('ClioModelPicker: a provider action belongs to the provider it ran for'
   });
 
   it('never carries a failed action from one provider to the next', async () => {
-    repository.refreshProviderModels.mockRejectedValueOnce(new Error('The service could not be reached.'));
+    repository.refreshProviderModels.mockRejectedValueOnce(
+      new Error('The service could not be reached.'),
+    );
     const user = await openOn('local-vllm');
 
     await user.click(screen.getByRole('button', { name: 'Reload models' }));
-    await waitFor(() => expect(footerAlert()).toHaveTextContent('The service could not be reached.'));
+    await waitFor(() =>
+      expect(footerAlert()).toHaveTextContent('The service could not be reached.'),
+    );
 
     await user.click(screen.getByText('Codex'));
 
@@ -145,7 +149,9 @@ describe('ClioModelPicker: a provider action belongs to the provider it ran for'
 
     // The server came up and a later catalog read reported it healthy.
     const recovered = options.map((option) =>
-      option.providerId === 'local-vllm' ? { ...option, freshness: '2026-09-27T12:05:00Z' } : option,
+      option.providerId === 'local-vllm'
+        ? { ...option, freshness: '2026-09-27T12:05:00Z' }
+        : option,
     );
     act(() => showOptions(recovered));
 

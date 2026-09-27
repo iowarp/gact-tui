@@ -12,7 +12,9 @@ import { useCallback, useState } from 'react';
  * so it can only ever write to its own provider; a read returns the current
  * owner's value and nothing else.
  */
-export function useOwnedState<T>(owner: string): [T | undefined, (next: T | undefined) => void, () => void] {
+export function useOwnedState<T>(
+  owner: string,
+): [T | undefined, (next: T | undefined) => void, () => void] {
   const [slots, setSlots] = useState<ReadonlyMap<string, T>>(() => new Map());
   const set = useCallback(
     (next: T | undefined) =>
