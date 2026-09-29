@@ -118,7 +118,9 @@ function ChangeList({ entries }: { entries: ChangelogEntry[] }) {
                 <span className="ml-2 font-normal text-muted-foreground">{entry.date}</span>
               ) : null}
             </h3>
-            <MarkdownText className="mt-2 text-sm leading-6">{entry.body}</MarkdownText>
+            <MarkdownText className="mt-2 text-sm leading-6 [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-muted-foreground">
+              {entry.body}
+            </MarkdownText>
           </section>
         ))}
       </div>
