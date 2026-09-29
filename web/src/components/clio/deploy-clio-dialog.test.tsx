@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => ({
   listAllSshProfiles: vi.fn(),
   saveSshProfile: vi.fn(),
   deleteSshProfile: vi.fn(),
+  invoke: vi.fn(),
   setSshProfileHidden: vi.fn(),
   setSshProfileRoute: vi.fn(),
   waitForManagedBackend: vi.fn(),
@@ -34,6 +35,19 @@ const mocks = vi.hoisted(() => ({
 
 /** Desktop event handlers the dialog registered, by event name. */
 const handlers = new Map<string, (event: { payload: unknown }) => void>();
+
+/** A `gact_http` bridge that answers the health check with `status`. */
+function nativeHealth(status: number) {
+  return async (command: string) => {
+    if (command !== 'gact_http') throw new Error(`unexpected native command ${command}`);
+    return {
+      status,
+      status_text: status === 200 ? 'OK' : 'Bad Gateway',
+      headers: {},
+      body: status === 200 ? '{"status":"ok"}' : 'bad gateway',
+    };
+  };
+}
 
 vi.mock('@/hooks/use-repository', () => ({
   useRepository: () => ({
@@ -71,6 +85,8 @@ vi.mock('@/tauri/ssh-infrastructure-transport', () => ({
   writeSshTransport: mocks.writeSshTransport,
 }));
 vi.mock('@tauri-apps/api/event', () => ({ listen: mocks.listen }));
+// The native HTTP bridge (`gact_http`) that carries the health check.
+vi.mock('@tauri-apps/api/core', () => ({ invoke: mocks.invoke }));
 vi.mock('@/tauri/managed-backend', () => ({
   getManagedBackend: mocks.getManagedBackend,
   retryManagedBackend: mocks.retryManagedBackend,
@@ -200,8 +216,10 @@ beforeEach(() => {
     services: [{ id: 'clio_agent', state: 'running', connection_url: 'http://127.0.0.1:64123' }],
   });
   mocks.sshTransportLog.mockResolvedValue('');
-  // The remote CLIO's own answer through the tunnel.
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })));
+  // The remote CLIO's own answer through the tunnel, via the native bridge.
+  mocks.invoke.mockReset().mockImplementation(nativeHealth(200));
+  // The WebView's fetch is never the path: it is CORS-blocked in the desktop.
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
   mocks.writeSshTransport.mockResolvedValue(undefined);
   mocks.cancelSshTransport.mockResolvedValue(undefined);
   mocks.cancelInfrastructureOperation.mockResolvedValue({
@@ -299,7 +317,10 @@ describe('DeployClioDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
 
     await waitFor(() => expect(onReady).toHaveBeenCalledOnce());
-    expect(fetch).toHaveBeenCalledWith('http://127.0.0.1:64123/v1/health', expect.anything());
+    expect(mocks.invoke).toHaveBeenCalledWith('gact_http', {
+      req: expect.objectContaining({ method: 'GET', url: 'http://127.0.0.1:64123/v1/health' }),
+    });
+    expect(fetch).not.toHaveBeenCalled();
     // Until the connection itself opens, Connecting is still running.
     expect(stage(`Connecting to ${vocab.agent}`)).toHaveAttribute('data-state', 'running');
     expect(screen.getByRole('dialog', { name: `Deploy ${vocab.agent}` })).toBeVisible();
@@ -313,7 +334,7 @@ describe('DeployClioDialog', () => {
 
   it('keeps the dialog open on Connecting when the remote CLIO does not answer', async () => {
     const user = userEvent.setup();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('bad gateway', { status: 502 })));
+    mocks.invoke.mockImplementation(nativeHealth(502));
     const onReady = renderDialog();
     await chooseRemoteHost(user);
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
@@ -357,7 +378,7 @@ describe('DeployClioDialog', () => {
     expect(
       within(alert).getByText(`${vocab.agent} on homelab is not running (stopped).`),
     ).toBeVisible();
-    expect(fetch).not.toHaveBeenCalled();
+    expect(mocks.invoke).not.toHaveBeenCalledWith('gact_http', expect.anything());
     expect(onReady).not.toHaveBeenCalled();
   });
 

@@ -6,6 +6,14 @@ UI aren't tracked.
 
 ## Unreleased
 
+### Fixed
+
+- Deploying CLIO to a remote computer no longer fails at the last step with
+  "CLIO did not answer through the tunnel: Failed to fetch" when CLIO started
+  fine. The desktop now checks the remote CLIO through the same connection
+  path it uses to talk to it, instead of a browser request that the desktop
+  window's security rules blocked (iowarp/clio-agent#1528).
+
 ## [0.11.2.22] — 2026-09-29
 
 ### Big screen zoom support (hotfix)
