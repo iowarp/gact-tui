@@ -6,6 +6,8 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.23] — 2026-09-29
+
 ### Fixed
 
 - Deploying CLIO to a remote computer no longer fails at the last step with
