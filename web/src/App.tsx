@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { useMenuAction, useNativeMenuBridge } from '@/tauri/menu-actions';
 import { WorkspacePage } from '@/routes/workspace-page';
 import { DesktopTitleBar } from '@/components/clio/desktop-title-bar';
+import { WhatsNewDialog } from '@/components/clio/whats-new-dialog';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { scheduleBackgroundUpdateCheck } from '@/tauri/desktop-updater';
 import { openExternalUrlOrToast } from '@/tauri/external-url';
@@ -119,6 +120,7 @@ export default function App() {
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background">
       <DesktopTitleBar />
       <div className="desktop-content min-h-0 flex-1 overflow-hidden">{appContent}</div>
+      <WhatsNewDialog />
     </div>
   );
 }
