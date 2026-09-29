@@ -15,6 +15,7 @@
     "core:window:allow-set-fullscreen",
     "core:window:allow-start-dragging",
     "core:window:allow-toggle-maximize",
+    "core:webview:allow-set-webview-zoom",
     "notification:default",
     "dialog:allow-open",
     {
