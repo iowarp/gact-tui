@@ -6,6 +6,18 @@ UI aren't tracked.
 
 ## Unreleased
 
+### Big screen zoom support (hotfix)
+
+- Zoom the whole desktop window with Ctrl + mouse wheel, Ctrl + `+` / `-`,
+  or Zoom in / Zoom out in the app menu (Cmd on macOS). Ctrl + `0` or Reset
+  zoom returns to the default. Your zoom is remembered between launches.
+- On a large screen with little Windows scaling, such as a 4K monitor at 100%,
+  the app now starts at 125% or 150% so text is readable without zooming by
+  hand. Moving the window to another monitor adjusts it until you pick a zoom
+  yourself.
+- After an update, a "What's new" window lists what changed since the version
+  you had.
+
 ## [0.11.2.21] — 2026-09-27
 
 ## [0.11.2.20] — 2026-09-27
