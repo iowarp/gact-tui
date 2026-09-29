@@ -17,6 +17,8 @@ import { ClioToolInvocation } from './tool-invocation';
 import { questionInteractionsForTool } from './agent-answer-domain';
 import { ConversationInteractionActivity } from './conversation-interaction-activity';
 import { GroundedMessageResponse } from './grounded-message-response';
+import { bucketIntensity } from '@/lib/attention-text';
+import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
 
 export type ProcessBlock = Extract<
   MessageBlock,
@@ -37,6 +39,8 @@ interface ConversationProcessSequenceProps {
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
   ) => Promise<void>;
+  messageId?: string;
+  messageAttentionIndex?: MessageAttentionIndex;
 }
 
 type ProcessEntities = Omit<ConversationProcessSequenceProps, 'block'>;
@@ -53,6 +57,8 @@ export function ConversationProcessSequence({
   artifacts,
   onOpenArtifact,
   onInteractionResponse,
+  messageId,
+  messageAttentionIndex,
 }: ConversationProcessSequenceProps) {
   return renderSingleProcessBlock(block, {
     onOpenSubagent,
@@ -64,6 +70,8 @@ export function ConversationProcessSequence({
     artifacts,
     onOpenArtifact,
     onInteractionResponse,
+    messageId,
+    messageAttentionIndex,
   });
 }
 
@@ -93,15 +101,30 @@ function renderSingleProcessBlock(block: ProcessBlock, entities: ProcessEntities
   if (block.type === 'tool') {
     const tool = entities.tools[block.tool_id];
     const questions = questionInteractionsForTool(entities.interactions, block.tool_id);
+    const attentionEntries = entities.messageAttentionIndex?.toolStepsByToolId.get(block.tool_id);
+    const thoughtAttention = attentionEntries?.find((entry) => entry.kind === 'thought');
+    const toolShare = toolStepShare(attentionEntries);
+    const maxToolShare = entities.messageAttentionIndex?.maxToolStepShare ?? 0;
+    const attentionBadge =
+      attentionEntries && toolShare > 0
+        ? { share: toolShare, bucket: bucketIntensity(toolShare, maxToolShare) }
+        : undefined;
     return (
       <div className="space-y-1">
         {block.thought ? (
           <Reasoning className="mb-0">
             <ReasoningTrigger className="min-h-6" getThinkingMessage={() => 'Thinking'} />
-            <ReasoningContent className="mt-1 leading-5">{block.thought}</ReasoningContent>
+            <ReasoningContent
+              className="mt-1 leading-5"
+              data-field={thoughtAttention?.field}
+              data-message-id={thoughtAttention ? entities.messageId : undefined}
+              data-part-id={thoughtAttention?.part_id}
+            >
+              {block.thought}
+            </ReasoningContent>
           </Reasoning>
         ) : null}
-        <ClioToolInvocation tool={tool} />
+        <ClioToolInvocation attention={attentionBadge} tool={tool} />
         {questions.map((interaction) => (
           <ConversationInteractionActivity
             artifacts={entities.artifacts ?? {}}

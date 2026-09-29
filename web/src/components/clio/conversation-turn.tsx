@@ -17,6 +17,7 @@ import type {
   PendingInteractionResponse,
   SubagentRun,
   Task,
+  ToolInvocation,
 } from '@clio/core/v3';
 import type { ConversationIteration } from './conversation-turn-model';
 import { ClioStatus, clioStatusLabel } from './status';
@@ -34,12 +35,24 @@ import { questionInteractionsForTool } from './agent-answer-domain';
 import { McpAppHistoryLine, McpAppSurface } from './mcp-app-surface';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { workflowDescriptor } from './workflow-tool-presentation';
+import { bucketIntensity } from '@/lib/attention-text';
+import { toolStepShare, type MessageAttentionIndex } from '@/lib/attention-tool-index';
 
 type McpAppActivityEntry = Extract<ConversationIteration['activity'][number], { kind: 'mcp_app' }>;
 type SubagentActivityEntry = Extract<
   ConversationIteration['activity'][number],
   { kind: 'subagent' }
 >;
+
+/** This tool's attention-mode badge, or `undefined` when it carried no traced heat. */
+function toolAttentionBadge(
+  tool: ToolInvocation,
+  index: MessageAttentionIndex | undefined,
+): { share: number; bucket: number } | undefined {
+  const entries = index?.toolStepsByToolId.get(tool.id);
+  const share = toolStepShare(entries);
+  return entries && share > 0 ? { share, bucket: bucketIntensity(share, index?.maxToolStepShare ?? 0) } : undefined;
+}
 
 interface ConversationTurnProps {
   iterations: readonly ConversationIteration[];
@@ -56,6 +69,7 @@ interface ConversationTurnProps {
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
   ) => Promise<void>;
+  messageAttentionIndex?: MessageAttentionIndex;
 }
 
 /** Shared Full and Chain projection of the same authoritative iteration objects. */
@@ -71,6 +85,7 @@ export function ConversationTurn({
   artifacts = {},
   onOpenArtifact,
   onInteractionResponse,
+  messageAttentionIndex,
 }: ConversationTurnProps) {
   if (iterations.length === 0) return null;
   // Plan decisions are conversation boundaries, not details of hidden activity.
@@ -148,6 +163,7 @@ export function ConversationTurn({
               artifacts={artifacts}
               onOpenArtifact={onOpenArtifact}
               onInteractionResponse={onInteractionResponse}
+              messageAttentionIndex={messageAttentionIndex}
             />
           ),
         )}
@@ -172,6 +188,7 @@ export function ConversationTurn({
               artifacts={artifacts}
               onInteractionResponse={onInteractionResponse}
               onOpenArtifact={onOpenArtifact}
+              messageAttentionIndex={messageAttentionIndex}
             />
           ))}
         </div>
@@ -196,6 +213,7 @@ export function ConversationTurn({
             artifacts={artifacts}
             onInteractionResponse={onInteractionResponse}
             onOpenArtifact={onOpenArtifact}
+            messageAttentionIndex={messageAttentionIndex}
           />
         ))}
       </ChainOfThoughtContent>
@@ -214,6 +232,7 @@ function IterationSummary({
   artifacts,
   onOpenArtifact,
   onInteractionResponse,
+  messageAttentionIndex,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
@@ -228,6 +247,7 @@ function IterationSummary({
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
   ) => Promise<void>;
+  messageAttentionIndex?: MessageAttentionIndex;
 }) {
   const [manualOpen, setManualOpen] = useState(false);
   const open = iteration.streaming || manualOpen;
@@ -332,6 +352,7 @@ function IterationSummary({
               showSubagents={false}
               showTasks={false}
               subagents={subagents}
+              messageAttentionIndex={messageAttentionIndex}
             />
           </CollapsibleContent>
         </ChainOfThoughtStep>
@@ -364,6 +385,7 @@ function IterationDetail({
   artifacts,
   onOpenArtifact,
   onInteractionResponse,
+  messageAttentionIndex,
 }: {
   iteration: ConversationIteration;
   onOpenSubagent?: (subagent: SubagentRun, target: SubagentOpenTarget) => void;
@@ -378,6 +400,7 @@ function IterationDetail({
   messageSessionId?: string;
   artifacts: Record<string, Artifact>;
   onOpenArtifact?: (artifact: Artifact) => void;
+  messageAttentionIndex?: MessageAttentionIndex;
   onInteractionResponse?: (
     interaction: PendingInteraction,
     response: PendingInteractionResponse,
@@ -432,7 +455,10 @@ function IterationDetail({
           entry.kind === 'tool' ? (
             <Fragment key={`tool:${entry.id}`}>
               <div className="space-y-1" data-turn-activity={`tool:${entry.id}`}>
-                <ClioToolInvocation tool={entry.tool} />
+                <ClioToolInvocation
+                  attention={toolAttentionBadge(entry.tool, messageAttentionIndex)}
+                  tool={entry.tool}
+                />
                 {workflowDescriptor(entry.tool) ? (
                   <WorkflowChildGroup
                     descriptor={workflowDescriptor(entry.tool)!}

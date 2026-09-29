@@ -11,6 +11,7 @@ import { useConversationDisplay } from '@/providers/conversation-display-provide
 import { useAppearancePreferences } from '@/providers/appearance-provider';
 import { DeferredA2UISurface } from './conversation-message-blocks';
 import { ClioTranscriptMinimap } from './transcript-minimap';
+import { useAttentionHighlights } from '@/hooks/use-attention-highlights';
 import type { ClioConversationProps } from './conversation-types';
 import {
   isProjectedQuestionResumeEnvelope,
@@ -210,6 +211,8 @@ function ConversationBody({
     [disengage, markUserScrollIntent, messages, virtualized, virtualizer],
   );
 
+  useAttentionHighlights(scrollRef, entities.attentionData, messages, entities.tools);
+
   const conversationViewportWidth = useTranscriptWidth({
     virtualized,
     scrollRef,
@@ -274,12 +277,15 @@ function ConversationBody({
   return (
     <div className="relative h-full min-h-0">
       {messages.length > 0 ? (
-        <ClioTranscriptMinimap
-          activeIndex={activeMessageIndex}
-          messages={messages}
-          onJump={jumpToMessage}
-          visible={minimapVisible}
-        />
+        <>
+          <ClioTranscriptMinimap
+            activeIndex={activeMessageIndex}
+            attention={entities.attentionData}
+            messages={messages}
+            onJump={jumpToMessage}
+            visible={minimapVisible}
+          />
+        </>
       ) : null}
       <div
         aria-label="Conversation"
