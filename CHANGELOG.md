@@ -6,6 +6,8 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.22] — 2026-09-29
+
 ### Big screen zoom support (hotfix)
 
 - Zoom the whole desktop window with Ctrl + mouse wheel, Ctrl + `+` / `-`,
