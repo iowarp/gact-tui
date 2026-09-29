@@ -6,6 +6,8 @@ import {
   MinusIcon,
   PanelTopIcon,
   ServerIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
 } from 'lucide-react';
 import {
   AddIcon,
@@ -41,6 +43,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DesktopTitleContext } from '@/components/clio/desktop-title-context';
 import { LiveConnectionIndicator } from '@/components/clio/live-connection-indicator';
+import { useDesktopZoom } from '@/hooks/use-desktop-zoom';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { vocab } from '@/lib/brand-vocabulary';
 import { isMacOS } from '@/lib/platform';
@@ -116,6 +119,7 @@ export function DesktopTitleBar() {
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [macOS] = useState(isMacOS);
+  const desktopZoom = useDesktopZoom();
 
   // Native close (Alt+F4, the OS close box, the traffic light) opens the
   // same confirmation prompt as the title-bar close button and hamburger
@@ -247,6 +251,33 @@ export function DesktopTitleBar() {
               <PanelTopIcon aria-hidden="true" />
               Toggle fullscreen
               <DropdownMenuShortcut>F11</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={(event) => {
+                // Keep the menu open so repeated clicks keep zooming.
+                event.preventDefault();
+                desktopZoom.zoomIn();
+              }}
+            >
+              <ZoomInIcon aria-hidden="true" />
+              Zoom in
+              <DropdownMenuShortcut>{macOS ? '⌘+' : 'Ctrl +'}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                desktopZoom.zoomOut();
+              }}
+            >
+              <ZoomOutIcon aria-hidden="true" />
+              Zoom out
+              <DropdownMenuShortcut>{macOS ? '⌘-' : 'Ctrl -'}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => desktopZoom.resetZoom()}>
+              <RefreshIcon aria-hidden="true" />
+              Reset zoom ({Math.round(desktopZoom.zoom * 100)}%)
+              <DropdownMenuShortcut>{macOS ? '⌘0' : 'Ctrl 0'}</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => dispatchMenuAction('help-docs')}>

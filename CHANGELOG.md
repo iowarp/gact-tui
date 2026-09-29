@@ -6,6 +6,30 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.23] — 2026-09-29
+
+### Fixed
+
+- Deploying CLIO to a remote computer no longer fails at the last step with
+  "CLIO did not answer through the tunnel: Failed to fetch" when CLIO started
+  fine. The desktop now checks the remote CLIO through the same connection
+  path it uses to talk to it, instead of a browser request that the desktop
+  window's security rules blocked (iowarp/clio-agent#1528).
+
+## [0.11.2.22] — 2026-09-29
+
+### Big screen zoom support (hotfix)
+
+- Zoom the whole desktop window with Ctrl + mouse wheel, Ctrl + `+` / `-`,
+  or Zoom in / Zoom out in the app menu (Cmd on macOS). Ctrl + `0` or Reset
+  zoom returns to the default. Your zoom is remembered between launches.
+- On a large screen with little Windows scaling, such as a 4K monitor at 100%,
+  the app now starts at 125% or 150% so text is readable without zooming by
+  hand. Moving the window to another monitor adjusts it until you pick a zoom
+  yourself.
+- After an update, a "What's new" window lists what changed since the version
+  you had.
+
 ## [0.11.2.21] — 2026-09-27
 
 ## [0.11.2.20] — 2026-09-27
