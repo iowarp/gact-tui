@@ -1,9 +1,10 @@
-import type { InfrastructureTarget } from '@clio/core/v3';
+import { TransportError, type InfrastructureTarget } from '@clio/core/v3';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { useRepository } from '@/hooks/use-repository';
 import { vocab } from '@/lib/brand-vocabulary';
 import type { ConnectionSettings } from '@/lib/connection';
 import type { SshHost } from '@/lib/ssh-hosts';
+import { TauriClioTransport } from '@/lib/transport/tauri-transport';
 import { useConnectionSettings } from '@/providers/connection-provider';
 import {
   attachInfrastructureSshTransport,
@@ -212,19 +213,31 @@ export function useRemoteDeployment(
 /**
  * The remote agent's own answer through the tunnel: `/v1/health` returns 200,
  * or 503 while a dependency is still starting. Anything else is a failure.
+ *
+ * Asked through the desktop's native HTTP bridge, the same path the
+ * connection itself uses next. A WebView `fetch()` cannot be used: the page's
+ * origin (`http://tauri.localhost`) is cross-origin to the tunnel's loopback
+ * port and CLIO sends no CORS headers for it, so the browser discards the
+ * answer and reports "Failed to fetch" even when CLIO replied (#1528).
  */
 async function checkHealth(endpoint: string, signal: AbortSignal): Promise<void> {
-  let response: Response;
+  const transport = new TauriClioTransport({ endpoint });
   try {
-    response = await fetch(`${endpoint.replace(/\/+$/u, '')}/v1/health`, { signal });
+    await transport.request<unknown>({
+      method: 'GET',
+      path: '/v1/health',
+      acceptStatuses: [503],
+      decode: (value) => value,
+      signal,
+    });
   } catch (error) {
     if (signal.aborted) throw error;
+    if (error instanceof TransportError && error.status !== undefined)
+      throw new Error(`${vocab.agent} did not answer through the tunnel (HTTP ${error.status}).`);
     throw new Error(
       `${vocab.agent} did not answer through the tunnel: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-  if (response.status !== 200 && response.status !== 503)
-    throw new Error(`${vocab.agent} did not answer through the tunnel (HTTP ${response.status}).`);
 }
 
 /** Create or update the durable infrastructure target for this host. */
