@@ -1,6 +1,7 @@
 import { ChartLineIcon } from 'lucide-react';
 import { CloseIcon } from '@/lib/icon-vocabulary';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContainerQuery } from '@/hooks/use-container-query';
 import type { View } from 'vega';
 import {
   Frame,
@@ -47,7 +48,9 @@ import {
   type ChartZoomRange,
 } from './chart-zoom';
 import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
+import { DATA_HEADER_LABEL_MIN_WIDTH, DataHeaderCompactContext } from './data-header-density';
 import { DataReferenceThisButton } from './data-reference-this-button';
+import { dataViewFlexStyle } from './data-view-layout';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
 import {
   columnKindFromRows,
@@ -441,6 +444,8 @@ export function ClioChart(props: ClioChartProps) {
     return () => observer.disconnect();
   }, [failure, hasRows, singleView]);
 
+  const frameRef = useRef<HTMLDivElement>(null);
+  const roomyHeader = useContainerQuery(frameRef, DATA_HEADER_LABEL_MIN_WIDTH);
   const heading = title || 'Chart';
   const description = describeChart(spec, rows, loading, note);
   const label = a2uiAccessibilityLabel(accessibility) ?? `${heading} chart`;
@@ -465,50 +470,55 @@ export function ClioChart(props: ClioChartProps) {
     <div
       className="min-w-0"
       data-slot="a2ui-chart"
-      style={typeof weight === 'number' ? { flex: `${weight}`, minHeight: 0 } : undefined}
+      ref={frameRef}
+      style={dataViewFlexStyle(weight)}
     >
       <Frame {...a2uiAccessibilityProps(accessibility)} aria-label={label} dense role="group">
-        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
-          <ChartLineIcon aria-hidden="true" className="size-4 text-primary" />
-          <div className="min-w-0 flex-1">
-            <FrameTitle className="truncate">{heading}</FrameTitle>
-            <FrameDescription>{description}</FrameDescription>
-          </div>
-          {props.dataUri && filterableFields.length ? (
-            <DataFilterPopover
-              fields={filterableFields}
-              filters={filters}
-              onFilterChange={handleFilterChange}
-            />
-          ) : null}
-          {linkable && selectionField && selectionCandidates.length > 0 ? (
-            <Select onValueChange={handleSelectCandidate} value={selectedCandidate}>
-              <SelectTrigger
-                aria-label={`Select a ${selectionField} by keyboard`}
-                className="text-xs"
-                size="sm"
-              >
-                <SelectValue placeholder={`Select ${selectionField}…`} />
-              </SelectTrigger>
-              <SelectContent>
-                {selectionCandidates.map((candidate) => (
-                  <SelectItem key={String(candidate)} value={String(candidate)}>
-                    {String(candidate)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-          {zoomRange ? (
-            <Button className="gap-1 text-xs" onClick={clearZoom} size="sm" variant="ghost">
-              <CloseIcon aria-hidden="true" className="size-3.5" />
-              Reset zoom
-            </Button>
-          ) : null}
-          {props.dataUri && hasRows ? (
-            <DataReferenceThisButton buildReference={buildReference} />
-          ) : null}
-        </FrameHeader>
+        <DataHeaderCompactContext.Provider value={!roomyHeader}>
+          <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
+            <ChartLineIcon aria-hidden="true" className="size-4 text-primary" />
+            <div className="min-w-0 flex-1">
+              <FrameTitle className="truncate">{heading}</FrameTitle>
+              <FrameDescription className="truncate" title={description}>
+                {description}
+              </FrameDescription>
+            </div>
+            {props.dataUri && filterableFields.length ? (
+              <DataFilterPopover
+                fields={filterableFields}
+                filters={filters}
+                onFilterChange={handleFilterChange}
+              />
+            ) : null}
+            {linkable && selectionField && selectionCandidates.length > 0 ? (
+              <Select onValueChange={handleSelectCandidate} value={selectedCandidate}>
+                <SelectTrigger
+                  aria-label={`Select a ${selectionField} by keyboard`}
+                  className="text-xs"
+                  size="sm"
+                >
+                  <SelectValue placeholder={`Select ${selectionField}…`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectionCandidates.map((candidate) => (
+                    <SelectItem key={String(candidate)} value={String(candidate)}>
+                      {String(candidate)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            {zoomRange ? (
+              <Button className="gap-1 text-xs" onClick={clearZoom} size="sm" variant="ghost">
+                <CloseIcon aria-hidden="true" className="size-3.5" />
+                Reset zoom
+              </Button>
+            ) : null}
+            {props.dataUri && hasRows ? (
+              <DataReferenceThisButton buildReference={buildReference} />
+            ) : null}
+          </FrameHeader>
+        </DataHeaderCompactContext.Provider>
         <FramePanel className="p-0">
           {failure ? (
             <p className="p-4 text-sm text-destructive">Chart unavailable: {failure}</p>

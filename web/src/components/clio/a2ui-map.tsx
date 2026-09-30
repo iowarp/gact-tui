@@ -8,7 +8,7 @@ import {
 } from '@clio/core/v3';
 import { createComponentImplementation } from '@a2ui/react/v0_9';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { MapIcon, MapPinIcon, MousePointerSquareDashedIcon } from 'lucide-react';
+import { ListIcon, MapIcon, MapPinIcon, MousePointerSquareDashedIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { z } from 'zod';
@@ -30,8 +30,15 @@ import {
 } from './a2ui-accessibility';
 import { refinedStrictObject } from './a2ui-refined-schema';
 import { DataFilterPopover, type DataFilterField } from './data-filter-popover';
+import { DATA_HEADER_LABEL_MIN_WIDTH, DataHeaderCompactContext } from './data-header-density';
 import { DataReferenceThisButton } from './data-reference-this-button';
-import { columnKindFromRows, columnKindFromSchema, describeQueryFilter, mergeFilters } from './data-query-filters';
+import { dataViewFlexStyle } from './data-view-layout';
+import {
+  columnKindFromRows,
+  columnKindFromSchema,
+  describeQueryFilter,
+  mergeFilters,
+} from './data-query-filters';
 import { dataQuerySchema, fieldNameSchema } from './data-query-schema';
 import { buildZoneReference, type DataZoneReference } from './data-zone-reference';
 import type { ClioColumnFilterValue } from './data-table-column-filter';
@@ -199,6 +206,10 @@ export function ClioScientificMap({
   };
   const surfaceRef = useRef<HTMLDivElement>(null);
   const sideBySide = useContainerQuery(surfaceRef, 700);
+  const roomyHeader = useContainerQuery(surfaceRef, DATA_HEADER_LABEL_MIN_WIDTH);
+  // The list repeats what the map (and usually a table beside it) already shows,
+  // so it opens on request instead of taking half the view by default.
+  const [showList, setShowList] = useState(false);
   const selectedPoint = points.find((point) => point.id === selectedId);
   const canvasRef = useRef<HTMLDivElement>(null);
   // The side list can hold as many rows as `points` (schema cap: 500) —
@@ -237,27 +248,45 @@ export function ClioScientificMap({
         dense
         role="group"
       >
-        <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
-          <MapIcon aria-hidden="true" className="size-4 text-primary" />
-          <div className="min-w-0 flex-1">
-            <FrameTitle>{title}</FrameTitle>
-            <FrameDescription>{points.length} labeled locations</FrameDescription>
-          </div>
-          {headerExtra}
-          {setSelection ? (
-            <span
-              className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex"
-              title="Hold Shift and drag a rectangle to select every point inside it"
+        <DataHeaderCompactContext.Provider value={!roomyHeader}>
+          <FrameHeader className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
+            <MapIcon aria-hidden="true" className="size-4 text-primary" />
+            <div className="min-w-0 flex-1">
+              <FrameTitle className="truncate">{title}</FrameTitle>
+              <FrameDescription className="truncate">
+                {points.length.toLocaleString()} locations
+              </FrameDescription>
+            </div>
+            {setSelection ? (
+              <span
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+                title="Hold Shift and drag a rectangle to select every point inside it"
+              >
+                <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
+                <span className={sideBySide ? undefined : 'sr-only'}>
+                  Shift+drag to select an area
+                </span>
+              </span>
+            ) : null}
+            {headerExtra}
+            <Button
+              aria-label="Locations list"
+              aria-pressed={showList}
+              className="gap-1.5"
+              onClick={() => setShowList((current) => !current)}
+              size="sm"
+              title={showList ? 'Hide the locations list' : 'Show the locations list'}
+              variant="outline"
             >
-              <MousePointerSquareDashedIcon aria-hidden="true" className="size-3.5" />
-              Shift+drag to select an area
-            </span>
-          ) : null}
-        </FrameHeader>
+              <ListIcon aria-hidden="true" className="size-3.5" />
+              {roomyHeader ? 'List' : null}
+            </Button>
+          </FrameHeader>
+        </DataHeaderCompactContext.Provider>
         <FramePanel
           className={cn(
-            'grid min-h-[26rem] gap-0 p-0',
-            sideBySide && 'grid-cols-[minmax(0,1fr)_15rem]',
+            'grid gap-0 p-0',
+            showList && sideBySide && 'grid-cols-[minmax(0,1fr)_15rem]',
           )}
         >
           <div
@@ -274,8 +303,8 @@ export function ClioScientificMap({
               // every pixel-coordinate interaction, including #1533's
               // shift-drag zone selection). A definite height here is never
               // overridden by an ancestor's stretch.
-              'h-[20rem] overflow-hidden border-b',
-              sideBySide && 'border-r border-b-0',
+              'relative h-(--a2ui-map-height,26rem) overflow-hidden',
+              showList && (sideBySide ? 'border-r' : 'border-b'),
             )}
             ref={canvasRef}
           >
@@ -292,80 +321,96 @@ export function ClioScientificMap({
                 selectedId={selectedId}
               />
             </Suspense>
-          </div>
-          <div className="flex min-h-0 flex-col">
-            <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
-              {/* A visible, non-virtualized count: with the point list
-                  virtualized (MEDIUM 6) and a large point count drawn as one
-                  GeoJSON layer rather than individually pressed buttons, an
-                  "N of M" zone selection would otherwise have no on-screen
-                  indication at all once the highlighted points scroll out of
-                  the rendered window — sighted or not. */}
-              {boundIds && boundIds.size !== points.length
-                ? `${boundIds.size.toLocaleString()} of ${points.length.toLocaleString()} selected`
-                : 'Locations'}
-            </div>
-            <div
-              className={cn('max-h-64 flex-1 overflow-y-auto p-2', sideBySide && 'max-h-none')}
-              data-slot="a2ui-map-points-list"
-              ref={listRef}
-            >
-              <div className="relative w-full" style={{ height: pointsVirtualizer.getTotalSize() }}>
-                {pointsVirtualizer.getVirtualItems().map((row) => {
-                  const point = points[row.index];
-                  if (!point) return null;
-                  return (
-                    <div
-                      className="absolute inset-x-0 top-0 pb-1"
-                      key={row.key}
-                      style={{ height: row.size, transform: `translateY(${row.start}px)` }}
-                    >
-                      <Button
-                        aria-pressed={isSelected(point.id)}
-                        className={cn(
-                          'h-full w-full justify-start gap-2 px-2 py-2 text-left',
-                          isSelected(point.id) && 'border-primary/50 bg-primary/10',
-                        )}
-                        onClick={() => setSelectedId(point.id)}
-                        variant="ghost"
-                      >
-                        <MapPinIcon aria-hidden="true" className="size-3.5 shrink-0 text-primary" />
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium">{point.label}</span>
-                          {point.category ? (
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {point.category}
-                            </span>
-                          ) : null}
-                        </span>
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-            {selectedPoint ? (
-              <div className="border-t p-3 text-xs">
-                <p className="font-medium">{selectedPoint.label}</p>
-                <p className="mt-1 font-mono text-muted-foreground">
-                  {selectedPoint.latitude.toFixed(5)}, {selectedPoint.longitude.toFixed(5)}
-                </p>
-                {selectedPoint.detail ? (
-                  <p className="mt-2 text-muted-foreground">{selectedPoint.detail}</p>
-                ) : null}
-                {action ? (
-                  <Button className="mt-3 w-full" onClick={() => void action()} size="sm">
-                    {actionLabel}
-                  </Button>
-                ) : null}
-              </div>
+            {/* A visible, non-virtualized count: a large point count is drawn as
+                one GeoJSON layer and the list is usually closed, so an "N of M"
+                zone selection would otherwise have no on-screen indication at
+                all, sighted or not. */}
+            {boundIds && boundIds.size > 0 && boundIds.size !== points.length ? (
+              <p
+                aria-live="polite"
+                className="pointer-events-none absolute start-2 top-2 rounded-md border bg-background/90 px-2 py-1 text-xs font-medium backdrop-blur-sm"
+                data-slot="a2ui-map-selection-count"
+              >
+                {`${boundIds.size.toLocaleString()} of ${points.length.toLocaleString()} selected`}
+              </p>
             ) : null}
           </div>
+          {showList ? (
+            <div className="flex min-h-0 flex-col">
+              <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+                Locations
+              </div>
+              <div
+                className={cn('max-h-64 flex-1 overflow-y-auto p-2', sideBySide && 'max-h-none')}
+                data-slot="a2ui-map-points-list"
+                ref={listRef}
+              >
+                <div
+                  className="relative w-full"
+                  style={{ height: pointsVirtualizer.getTotalSize() }}
+                >
+                  {pointsVirtualizer.getVirtualItems().map((row) => {
+                    const point = points[row.index];
+                    if (!point) return null;
+                    return (
+                      <div
+                        className="absolute inset-x-0 top-0 pb-1"
+                        key={row.key}
+                        style={{ height: row.size, transform: `translateY(${row.start}px)` }}
+                      >
+                        <Button
+                          aria-pressed={isSelected(point.id)}
+                          className={cn(
+                            'h-full w-full justify-start gap-2 px-2 py-2 text-left',
+                            isSelected(point.id) && 'border-primary/50 bg-primary/10',
+                          )}
+                          onClick={() => setSelectedId(point.id)}
+                          variant="ghost"
+                        >
+                          <MapPinIcon
+                            aria-hidden="true"
+                            className="size-3.5 shrink-0 text-primary"
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium">{point.label}</span>
+                            {point.category ? (
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {point.category}
+                              </span>
+                            ) : null}
+                          </span>
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : null}
         </FramePanel>
+        {selectedPoint ? (
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t px-3 py-2 text-xs"
+            data-slot="a2ui-map-selected-point"
+          >
+            <span className="min-w-0 truncate font-medium">{selectedPoint.label}</span>
+            <span className="font-mono text-muted-foreground tabular-nums">
+              {selectedPoint.latitude.toFixed(5)}, {selectedPoint.longitude.toFixed(5)}
+            </span>
+            {selectedPoint.detail ? (
+              <span className="min-w-0 truncate text-muted-foreground">{selectedPoint.detail}</span>
+            ) : null}
+            {action ? (
+              <Button className="ms-auto" onClick={() => void action()} size="sm">
+                {actionLabel}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
         {unsupportedSelectionField ? (
           <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-            This map's points have no “{selectionField}” value to select by — inline points support
-            only id, label, or category. Selecting a point here does nothing.
+            This map's points have no “{selectionField}” value to select by — inline points
+            support only id, label, or category. Selecting a point here does nothing.
           </p>
         ) : null}
       </Frame>
@@ -374,7 +419,8 @@ export function ClioScientificMap({
 }
 
 function toFiniteNumber(value: unknown): number | undefined {
-  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  const parsed =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
@@ -407,7 +453,10 @@ export interface MapFieldNames {
  * whenever `selection` is bound) instead.
  */
 // oxlint-disable-next-line react/only-export-components
-export function pointsFromRows(rows: readonly QueryRow[], fields: MapFieldNames): ScientificMapPoint[] {
+export function pointsFromRows(
+  rows: readonly QueryRow[],
+  fields: MapFieldNames,
+): ScientificMapPoint[] {
   const points: ScientificMapPoint[] = [];
   rows.forEach((row, index) => {
     const latitude = toFiniteNumber(row[fields.latitudeField]);
@@ -422,7 +471,9 @@ export function pointsFromRows(rows: readonly QueryRow[], fields: MapFieldNames)
       longitude,
       detail: fields.detailField ? toText(row[fields.detailField]) : undefined,
       category: fields.categoryField ? toText(row[fields.categoryField]) : undefined,
-      selectionValue: fields.selectionField ? toSelectionValue(row[fields.selectionField]) : undefined,
+      selectionValue: fields.selectionField
+        ? toSelectionValue(row[fields.selectionField])
+        : undefined,
     });
   });
   return points;
@@ -466,7 +517,15 @@ function ClioMapArtifactSource({
       selectionField,
     ];
     return [...new Set(names.filter((name): name is string => Boolean(name)))];
-  }, [categoryField, detailField, idField, labelField, latitudeField, longitudeField, selectionField]);
+  }, [
+    categoryField,
+    detailField,
+    idField,
+    labelField,
+    latitudeField,
+    longitudeField,
+    selectionField,
+  ]);
   // The same server-side filter controls the table gets, layered onto (never
   // replacing) the producer's own `dataQuery.filter` (owner ruling, #1533).
   const [filters, setFilters] = useState<ReadonlyMap<string, ClioColumnFilterValue>>(new Map());
@@ -504,14 +563,22 @@ function ClioMapArtifactSource({
     return fields;
   }, [categoryField, detailField, rows, schema]);
   const filterPopover = filterableFields.length ? (
-    <DataFilterPopover fields={filterableFields} filters={filters} onFilterChange={handleFilterChange} />
+    <DataFilterPopover
+      fields={filterableFields}
+      filters={filters}
+      onFilterChange={handleFilterChange}
+    />
   ) : undefined;
   const buildReference = (): DataZoneReference => {
     const total = matchedRows ?? rows?.length ?? 0;
     const shown = returnedRows ?? rows?.length ?? 0;
-    const previewColumns = [idField, labelField, categoryField, latitudeField, longitudeField].filter(
-      (name): name is string => Boolean(name),
-    );
+    const previewColumns = [
+      idField,
+      labelField,
+      categoryField,
+      latitudeField,
+      longitudeField,
+    ].filter((name): name is string => Boolean(name));
     return buildZoneReference({
       componentLabel: title,
       datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
@@ -595,9 +662,7 @@ function ClioMapArtifactSource({
         selectionField={selectionField}
         title={title}
       />
-      {reducedCaption ? (
-        <p className="text-xs text-muted-foreground">{reducedCaption}</p>
-      ) : null}
+      {reducedCaption ? <p className="text-xs text-muted-foreground">{reducedCaption}</p> : null}
     </div>
   );
 }
@@ -605,7 +670,10 @@ function ClioMapArtifactSource({
 const mapDataProperties = {
   title: CommonSchemas.DynamicString.optional(),
   points: z.array(pointSchema).min(1).max(A2UI_MAP_POINTS_MAX).optional(),
-  dataUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
+  dataUri: z
+    .string()
+    .regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u)
+    .optional(),
   dataQuery: dataQuerySchema.optional(),
   latitudeField: fieldNameSchema.optional(),
   longitudeField: fieldNameSchema.optional(),
@@ -642,7 +710,10 @@ function checkMapComponent(value: MapShape, context: z.RefinementCtx): void {
     context.addIssue({ code: 'custom', message: 'dataQuery applies only to dataUri' });
   }
   if (isBoundToPath(value.selection) && !value.selectionField) {
-    context.addIssue({ code: 'custom', message: 'selectionField is required when selection is bound' });
+    context.addIssue({
+      code: 'custom',
+      message: 'selectionField is required when selection is bound',
+    });
   }
 }
 
@@ -657,42 +728,44 @@ export const ClioMapCatalogComponent = createComponentImplementation(
     const setSelection = isBoundToPath(context.componentModel.properties.selection)
       ? (props.setSelection as unknown as SelectionWriter)
       : undefined;
-    if (props.dataUri) {
-      return (
-        <ClioMapArtifactSource
-          accessibility={props.accessibility}
-          action={props.action ? () => void props.action?.() : undefined}
-          actionLabel={props.actionLabel}
-          categoryField={props.categoryField}
-          componentId={context.componentModel.id}
-          dataQuery={props.dataQuery as TableDataQuery | undefined}
-          dataUri={props.dataUri}
-          detailField={props.detailField}
-          idField={props.idField}
-          labelField={props.labelField!}
-          latitudeField={props.latitudeField!}
-          longitudeField={props.longitudeField!}
-          selected={props.selected}
-          selection={props.selection}
-          selectionField={props.selectionField}
-          setSelection={setSelection}
-          title={props.title}
-        />
-      );
-    }
+    // The flex item in an A2UI Row/Column: see `dataViewFlexStyle`.
     return (
-      <ClioScientificMap
-        accessibility={props.accessibility}
-        action={props.action ? () => void props.action?.() : undefined}
-        actionLabel={props.actionLabel}
-        componentId={context.componentModel.id}
-        points={props.points!}
-        selected={props.selected}
-        selection={props.selection}
-        selectionField={props.selectionField}
-        setSelection={setSelection}
-        title={props.title}
-      />
+      <div style={dataViewFlexStyle(props.weight)}>
+        {props.dataUri ? (
+          <ClioMapArtifactSource
+            accessibility={props.accessibility}
+            action={props.action ? () => void props.action?.() : undefined}
+            actionLabel={props.actionLabel}
+            categoryField={props.categoryField}
+            componentId={context.componentModel.id}
+            dataQuery={props.dataQuery as TableDataQuery | undefined}
+            dataUri={props.dataUri}
+            detailField={props.detailField}
+            idField={props.idField}
+            labelField={props.labelField!}
+            latitudeField={props.latitudeField!}
+            longitudeField={props.longitudeField!}
+            selected={props.selected}
+            selection={props.selection}
+            selectionField={props.selectionField}
+            setSelection={setSelection}
+            title={props.title}
+          />
+        ) : (
+          <ClioScientificMap
+            accessibility={props.accessibility}
+            action={props.action ? () => void props.action?.() : undefined}
+            actionLabel={props.actionLabel}
+            componentId={context.componentModel.id}
+            points={props.points!}
+            selected={props.selected}
+            selection={props.selection}
+            selectionField={props.selectionField}
+            setSelection={setSelection}
+            title={props.title}
+          />
+        )}
+      </div>
     );
   },
 );

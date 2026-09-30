@@ -30,13 +30,55 @@ const POINTS = [
   { id: 'PBO3', label: 'Cholame', latitude: 35.7, longitude: -120.3, category: 'south' },
 ];
 
+/** The locations list starts closed; these tests select points through it. */
+function openLocationsList() {
+  fireEvent.click(screen.getByRole('button', { name: 'Locations list' }));
+}
+
 function pressed(label: RegExp) {
   return screen.getByRole('button', { name: label }).getAttribute('aria-pressed');
 }
 
+describe('clio.map.v1 layout', () => {
+  it('keeps the locations list closed until the reader asks for it', () => {
+    render(<ClioScientificMap points={POINTS} />);
+    const toggle = screen.getByRole('button', { name: 'Locations list' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('button', { name: /Parkfield/u })).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /Parkfield/u })).toBeInTheDocument();
+  });
+
+  it('shows no selection count until something is selected', () => {
+    const { rerender } = render(
+      <ClioScientificMap
+        componentId="map"
+        points={POINTS}
+        selection={{ field: 'id', values: [] }}
+        setSelection={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/of 3 selected/u)).not.toBeInTheDocument();
+
+    rerender(
+      <ClioScientificMap
+        componentId="map"
+        points={POINTS}
+        selection={{ field: 'id', values: ['PBO2'] }}
+        setSelection={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('1 of 3 selected')).toBeInTheDocument();
+  });
+});
+
 describe('clio.map.v1 selection', () => {
   it('keeps its own selection, starting at `selected`, when the selection is not bound', () => {
     render(<ClioScientificMap points={POINTS} selected="PBO2" />);
+    openLocationsList();
     expect(pressed(/Parkfield/u)).toBe('true');
 
     fireEvent.click(screen.getByRole('button', { name: /Cholame/u }));
@@ -48,6 +90,7 @@ describe('clio.map.v1 selection', () => {
   it('writes a click to the bound selection, with itself as the source', () => {
     const setSelection = vi.fn();
     render(<ClioScientificMap componentId="map" points={POINTS} setSelection={setSelection} />);
+    openLocationsList();
 
     fireEvent.click(screen.getByRole('button', { name: /Parkfield/u }));
 
@@ -64,6 +107,7 @@ describe('clio.map.v1 selection', () => {
         setSelection={setSelection}
       />,
     );
+    openLocationsList();
     expect(pressed(/Parkfield/u)).toBe('true');
     expect(pressed(/Cholame/u)).toBe('true');
     expect(pressed(/Mount Tam/u)).toBe('false');
@@ -105,6 +149,7 @@ describe('clio.map.v1 selection', () => {
         setSelection={vi.fn()}
       />,
     );
+    openLocationsList();
     expect(POINTS.map((point) => pressed(new RegExp(point.label, 'u')))).toEqual([
       'false',
       'false',
@@ -130,6 +175,7 @@ describe('clio.map.v1 selection', () => {
         setSelection={setSelection}
       />,
     );
+    openLocationsList();
     expect(pressed(/Station A/u)).toBe('true');
     expect(pressed(/Station B/u)).toBe('false');
 
