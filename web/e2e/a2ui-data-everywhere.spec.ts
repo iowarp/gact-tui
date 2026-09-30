@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 
 // This spec's very first real test has, in this sandboxed environment, been
@@ -15,7 +14,7 @@ test.beforeAll(async ({ browser }, testInfo) => {
   const page = await browser.newPage();
   try {
     await page.route('https://tile.openstreetmap.org/**', async (route) => {
-      await route.fulfill({ contentType: 'image/png', path: tilePlaceholderPath });
+      await route.fulfill({ contentType: 'image/png', body: TILE_PNG });
     });
     const reset = await page.request.post(`${fixtureEndpoint}/__test/reset`);
     expect(reset.ok()).toBe(true);
@@ -60,11 +59,16 @@ const unexpectedErrors = new WeakMap<Page, string[]>();
 // local fixture tile instead (#1533 item 6 — local tile routing for
 // screenshots, the desktop-map-csp.spec.ts pattern from gact-tui #505), the
 // map's own background is deterministic and instant in every test here.
-const tilePlaceholderPath = fileURLToPath(new URL('./fixtures/tile-placeholder.png', import.meta.url));
+// A light-gray 1x1 PNG, generated in code: the repo's media policy forbids committed
+// test images, and any valid image lets MapLibre finish a tile.
+const TILE_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mN48uTJfwAIHAPA7h4SLgAAAABJRU5ErkJggg==',
+  'base64',
+);
 
 test.beforeEach(async ({ page }) => {
   await page.route('https://tile.openstreetmap.org/**', async (route) => {
-    await route.fulfill({ contentType: 'image/png', path: tilePlaceholderPath });
+    await route.fulfill({ contentType: 'image/png', body: TILE_PNG });
   });
   const errors: string[] = [];
   unexpectedErrors.set(page, errors);
