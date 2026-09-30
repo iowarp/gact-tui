@@ -24,21 +24,18 @@ import {
 } from './deploy-progress-model';
 import {
   abortableDelay,
+  claimClioAgent,
   savedSshRoute,
   sshTargetDefinition,
   targetMatchesHost,
-  VersionConflictError,
-  waitForOperation,
+  waitForConflictAnswer,
+  type ConflictAnswer,
+  type FoundConflict,
 } from './managed-service-target-utils';
 
 export type RemoteDeploymentPhase = 'idle' | 'running' | 'cancelling' | 'failed' | 'cancelled';
 
-/** A healthy CLIO the claim step found running, awaiting "Connect" or "Replace". */
-export type FoundConflict = {
-  installedVersion: string;
-  pid: string;
-  health: 'healthy' | 'unresponsive' | 'unknown';
-};
+export type { FoundConflict } from './managed-service-target-utils';
 
 export type RemoteDeployment = {
   phase: RemoteDeploymentPhase;
@@ -78,9 +75,7 @@ export function useRemoteDeployment(
   const session = useRef<string | undefined>(undefined);
   const operation = useRef<string | undefined>(undefined);
   const abort = useRef<AbortController | undefined>(undefined);
-  const conflictChoice = useRef<
-    ((choice: 'connect' | 'replace' | 'cancelled') => void) | undefined
-  >(undefined);
+  const conflictChoice = useRef<((choice: ConflictAnswer) => void) | undefined>(undefined);
 
   const resolveConflict = useCallback((choice: 'connect' | 'replace') => {
     conflictChoice.current?.(choice);
@@ -125,49 +120,29 @@ export function useRemoteDeployment(
 
   /**
    * Run the `clio_agent` install action to completion. A found conflict
-   * (a healthy CLIO already running under a different root or version, see
-   * VersionConflictError) pauses here instead of failing the deployment:
-   * `conflict` is set for the dialog to show "Connect to the running CLIO
-   * (vX)" or "Replace it", and the action is re-issued with the person's
-   * answer once `resolveConflict` is called. Never decides which itself.
+   * pauses here instead of failing the deployment: `conflict` is set for
+   * the dialog to show "Connect to the running CLIO (vX)" or "Replace it",
+   * and the action is re-issued with the person's answer once
+   * `resolveConflict` is called. Never decides which itself.
    */
   const runInstallToCompletion = useCallback(
-    async (registered: InfrastructureTarget, signal: AbortSignal) => {
-      let configuration: Record<string, string> = {};
-      for (;;) {
-        const started = await repository.runManagedServiceAction('clio_agent', {
-          target_id: registered.id,
-          action: 'install',
-          variant_id: 'released',
-          configuration,
-        });
-        operation.current = started.id;
-        try {
-          return await waitForOperation(repository, started, signal);
-        } catch (error) {
-          if (!(error instanceof VersionConflictError)) throw error;
-          setConflict({
-            installedVersion: error.installedVersion,
-            pid: error.pid,
-            health: error.health,
-          });
-          const choice = await new Promise<'connect' | 'replace' | 'cancelled'>((resolve) => {
-            if (signal.aborted) {
-              resolve('cancelled');
-              return;
-            }
-            conflictChoice.current = resolve;
-            signal.addEventListener('abort', () => resolve('cancelled'), { once: true });
-          });
-          setConflict(undefined);
-          conflictChoice.current = undefined;
-          if (choice === 'cancelled') {
-            throw new DOMException('Deployment cancelled', 'AbortError');
+    (registered: InfrastructureTarget, signal: AbortSignal) =>
+      claimClioAgent(
+        repository,
+        registered.id,
+        signal,
+        async (found) => {
+          setConflict(found);
+          try {
+            return await waitForConflictAnswer(signal, conflictChoice);
+          } finally {
+            setConflict(undefined);
           }
-          configuration = { on_conflict: choice };
-        }
-      }
-    },
+        },
+        (id) => {
+          operation.current = id;
+        },
+      ),
     [repository],
   );
 

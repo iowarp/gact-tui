@@ -17,21 +17,7 @@ export function targetLabel(target: ManagedTargetKind, host?: SshHost): string {
   return target === 'local' ? 'this computer' : host?.label || 'the SSH host';
 }
 
-export function targetMatchesHost(target: InfrastructureTarget, host: SshHost): boolean {
-  if (target.kind !== 'ssh' || !target.ssh) return false;
-  if (host.profile && target.ssh.profile) {
-    return host.profile.toLocaleLowerCase() === target.ssh.profile.toLocaleLowerCase();
-  }
-  return (
-    Boolean(host.host && target.ssh.host) &&
-    host.host?.toLocaleLowerCase() === target.ssh.host.toLocaleLowerCase() &&
-    host.port === target.ssh.port &&
-    (host.user ?? '') === target.ssh.user &&
-    JSON.stringify(host.jumpHosts ?? []) === JSON.stringify(target.ssh.jump_hosts)
-  );
-}
-
-/** The SSH host shape `sshTargetDefinition` and `savedSshRoute` both need. */
+/** The SSH host shape `sshTargetDefinition`, `savedSshRoute` and `targetMatchesHost` need. */
 type SshRouteFields = Pick<
   SshHost,
   | 'label'
@@ -44,6 +30,28 @@ type SshRouteFields = Pick<
   | 'identityFile'
   | 'platform'
 >;
+
+/**
+ * Whether `target` is the SSH host `host` names. `host` can be a picker's
+ * `SshHost` (deploying) or a saved connection's `SavedSshRoute` (resolving
+ * one) -- both are `SshRouteFields`. A target id is a label slug, not a
+ * unique identifier across computers (`store.py`'s `_next_target_id`), so
+ * this route comparison is what a caller MUST use before trusting a
+ * found-by-id target belongs to the host it thinks it does (#1528 review).
+ */
+export function targetMatchesHost(target: InfrastructureTarget, host: SshRouteFields): boolean {
+  if (target.kind !== 'ssh' || !target.ssh) return false;
+  if (host.profile && target.ssh.profile) {
+    return host.profile.toLocaleLowerCase() === target.ssh.profile.toLocaleLowerCase();
+  }
+  return (
+    Boolean(host.host && target.ssh.host) &&
+    host.host?.toLocaleLowerCase() === target.ssh.host.toLocaleLowerCase() &&
+    host.port === target.ssh.port &&
+    (host.user ?? '') === target.ssh.user &&
+    JSON.stringify(host.jumpHosts ?? []) === JSON.stringify(target.ssh.jump_hosts)
+  );
+}
 
 /** Build the infrastructure target request an SSH host's deploy registers. */
 export function sshTargetDefinition(host: SshRouteFields): CreateInfrastructureTargetInput {
@@ -101,6 +109,84 @@ export class VersionConflictError extends Error {
     );
     this.name = 'VersionConflictError';
   }
+}
+
+/** A healthy CLIO the claim step found running, awaiting "Connect" or "Replace". */
+export type FoundConflict = {
+  installedVersion: string;
+  pid: string;
+  health: 'healthy' | 'unresponsive' | 'unknown';
+};
+
+/** The person's answer to a found conflict, or "cancelled" (abort/Cancel). */
+export type ConflictAnswer = 'connect' | 'replace' | 'cancelled';
+
+/**
+ * Run the `clio_agent` claim step to completion -- the same path a fresh
+ * "Deploy and connect" uses to adopt or install: `install` claims the
+ * conventional port, adopting an exact match, and pausing on `onConflict`
+ * for a found mismatch (never decided by clio itself). Reused by the deploy
+ * dialog and by a reconnect that had to rebuild its target and so has no
+ * confirmed service record to trust yet (#1528 review).
+ */
+export async function claimClioAgent(
+  repository: Pick<ClioRepository, 'runManagedServiceAction' | 'infrastructureOperation'>,
+  targetId: string,
+  signal: AbortSignal,
+  onConflict: (conflict: FoundConflict) => Promise<ConflictAnswer>,
+  onOperationStarted?: (operationId: string) => void,
+): Promise<InfrastructureOperation> {
+  let configuration: Record<string, string> = {};
+  for (;;) {
+    const started = await repository.runManagedServiceAction('clio_agent', {
+      target_id: targetId,
+      action: 'install',
+      variant_id: 'released',
+      configuration,
+    });
+    onOperationStarted?.(started.id);
+    try {
+      return await waitForOperation(repository, started, signal);
+    } catch (error) {
+      if (!(error instanceof VersionConflictError)) throw error;
+      const choice = await onConflict({
+        installedVersion: error.installedVersion,
+        pid: error.pid,
+        health: error.health,
+      });
+      if (choice === 'cancelled') {
+        throw new DOMException('Deployment cancelled', 'AbortError');
+      }
+      configuration = { on_conflict: choice };
+    }
+  }
+}
+
+/**
+ * A promise-based "ask the person Connect or Replace": resolves via
+ * `choiceRef.current(...)` (wired to the UI button that answers) or when
+ * `signal` aborts, whichever is first, and always removes its own abort
+ * listener either way -- no listener is left behind across conflict rounds
+ * within one deploy/reconnect (#1528 review).
+ */
+export function waitForConflictAnswer(
+  signal: AbortSignal,
+  choiceRef: { current: ((choice: ConflictAnswer) => void) | undefined },
+): Promise<ConflictAnswer> {
+  return new Promise<ConflictAnswer>((resolve) => {
+    if (signal.aborted) {
+      resolve('cancelled');
+      return;
+    }
+    const settle = (choice: ConflictAnswer) => {
+      signal.removeEventListener('abort', onAbort);
+      choiceRef.current = undefined;
+      resolve(choice);
+    };
+    const onAbort = () => settle('cancelled');
+    choiceRef.current = settle;
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 export async function waitForOperation(
