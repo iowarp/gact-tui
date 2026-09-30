@@ -114,6 +114,21 @@ function ClioDataGridHeaderCell<TData extends object>({
       {canResize ? (
         <div
           aria-label={`Resize ${column.columnDef.meta?.headerTitle || column.id}`}
+          // A draggable `role="separator"` is an ARIA range widget (like a
+          // slider) — `aria-valuenow` is a REQUIRED attribute for it, not
+          // optional polish (axe: aria-required-attr, critical impact).
+          // `maxSize` is TanStack's own unset-default (Number.MAX_SAFE_INTEGER),
+          // which would announce a meaningless huge number, so it's only
+          // published when the column declares a real, finite one.
+          aria-valuemax={
+            Number.isFinite(column.columnDef.maxSize) &&
+            (column.columnDef.maxSize ?? 0) < Number.MAX_SAFE_INTEGER
+              ? Math.round(column.columnDef.maxSize!)
+              : undefined
+          }
+          aria-valuemin={Math.round(column.columnDef.minSize ?? 0)}
+          aria-valuenow={Math.round(column.getSize())}
+          aria-valuetext={`${Math.round(column.getSize())} pixels wide`}
           className={cn(
             'absolute inset-y-0 -end-2 z-10 flex w-5 cursor-col-resize touch-none select-none justify-center',
             'before:w-px before:bg-border',
