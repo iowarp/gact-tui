@@ -282,7 +282,10 @@ function iterationSummary(
 }
 
 function compactSentence(value: string): string {
-  const line = value.replace(/\s+/gu, ' ').trim();
+  // A one-line summary is plain text: inline markdown markers (a reasoning
+  // summary's **heading**, `code`, # levels) are dropped, never shown raw.
+  const plain = value.replace(/(\*\*|__|`)/gu, '').replace(/^\s*#{1,6}\s+/gmu, '');
+  const line = plain.replace(/\s+/gu, ' ').trim();
   const sentenceEnd = line.search(/(?<=[.!?])\s/u);
   const sentence = (sentenceEnd >= 0 ? line.slice(0, sentenceEnd + 1) : line).trim();
   return truncate(sentence, SUMMARY_TRUNCATE_CHARS);

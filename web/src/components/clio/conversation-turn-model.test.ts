@@ -502,6 +502,26 @@ describe('conversationTurnPresentation', () => {
     expect(view.iterations[0]?.thinking[0]?.label).toBe('Thinking');
   });
 
+  it('shows a markdown-headed reasoning summary as plain text', () => {
+    const message: Message = {
+      id: 'assistant_markdown_summary',
+      session_id: 'session_1',
+      role: 'assistant',
+      created_at: '2026-09-29T00:00:00Z',
+      blocks: [
+        {
+          id: 'thinking_markdown',
+          type: 'reasoning',
+          text: '**Clarifying projection concepts**\n\nThe two measures differ.',
+        },
+      ],
+    };
+
+    const view = conversationTurnPresentation(message, tools);
+
+    expect(view.iterations[0]?.summary).toBe('Clarifying projection concepts The two measures differ.');
+  });
+
   it('keeps a tool block whose invocation has not arrived in the residual lane', () => {
     const message: Message = {
       id: 'assistant_unresolved_tool',
