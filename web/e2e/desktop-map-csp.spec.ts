@@ -23,6 +23,11 @@ const TILE_PNG = Buffer.from(
   'base64',
 );
 
+// The fixture server is shared by every spec file: leave the map demo off.
+test.afterEach(async ({ request }) => {
+  await request.post(`${fixtureEndpoint}/__test/a2ui-map-demo`, { data: { enabled: false } });
+});
+
 test('a map surface loads its basemap tiles under the desktop CSP', async ({ page }) => {
   const reset = await page.request.post(`${fixtureEndpoint}/__test/reset`);
   expect(reset.ok()).toBe(true);
