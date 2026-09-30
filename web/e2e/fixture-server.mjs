@@ -566,6 +566,99 @@ function earthScopeMapInteractions() {
   ].filter((interaction) => !resolvedInteractionIds.has(interaction.id));
 }
 
+// clio.chart.v1 demo surfaces (iowarp/clio-agent#1533 phase 1): the branch that
+// added the chart kernel shipped no Playwright chart fixture, so these back the
+// e2e smoke added alongside it. Both use the clio-workspace v1 catalog's
+// scatter preset over INLINE `data` rows — no dataUri/artifact plumbing needed
+// for a render/selection smoke.
+const CHART_DEMO_CATALOG_ID = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
+const CHART_DEMO_ROWS = [
+  { run: 'alpha', t: 0, v: 1.2 },
+  { run: 'alpha', t: 1, v: 2.6 },
+  { run: 'alpha', t: 2, v: 1.9 },
+  { run: 'beta', t: 0, v: 3.1 },
+  { run: 'beta', t: 1, v: 2.2 },
+  { run: 'beta', t: 2, v: 4.0 },
+  { run: 'gamma', t: 0, v: 0.4 },
+  { run: 'gamma', t: 1, v: 1.1 },
+  { run: 'gamma', t: 2, v: 0.8 },
+];
+
+/** A lone clio.chart.v1 (scatter preset, inline data) — proves the kernel draws. */
+function chartDemoMessages() {
+  return [
+    {
+      version: 'v0.9.1',
+      createSurface: { surfaceId: 'surface_chart_demo', catalogId: CHART_DEMO_CATALOG_ID },
+    },
+    {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: 'surface_chart_demo',
+        components: [
+          { id: 'root', component: 'Column', children: ['chart'] },
+          {
+            id: 'chart',
+            component: 'clio.chart.v1',
+            title: 'Wave amplitude by run',
+            preset: 'scatter',
+            xField: 't',
+            yField: 'v',
+            entityField: 'run',
+            data: CHART_DEMO_ROWS,
+          },
+        ],
+      },
+    },
+  ];
+}
+
+/**
+ * A clio.chart.v1 and a clio.data-table.v1 bound to the same `/selection/sel`
+ * path. The e2e drives the selection from the TABLE side (a real DOM row
+ * click) rather than a chart canvas pixel click, which is not a reliable
+ * click target in headless Chromium — the write-then-broadcast wiring is the
+ * same either way, since both components are bound to the one shared path.
+ */
+function linkedSelectionDemoMessages() {
+  return [
+    {
+      version: 'v0.9.1',
+      createSurface: {
+        surfaceId: 'surface_linked_selection_demo',
+        catalogId: CHART_DEMO_CATALOG_ID,
+      },
+    },
+    {
+      version: 'v0.9.1',
+      updateComponents: {
+        surfaceId: 'surface_linked_selection_demo',
+        components: [
+          { id: 'root', component: 'Column', children: ['chart', 'table'] },
+          {
+            id: 'chart',
+            component: 'clio.chart.v1',
+            title: 'Wave amplitude by run',
+            preset: 'scatter',
+            xField: 't',
+            yField: 'v',
+            entityField: 'run',
+            data: CHART_DEMO_ROWS,
+            selection: { path: '/selection/sel' },
+          },
+          {
+            id: 'table',
+            component: 'clio.data-table.v1',
+            columns: ['run', 't', 'v'],
+            rows: CHART_DEMO_ROWS,
+            selection: { path: '/selection/sel' },
+          },
+        ],
+      },
+    },
+  ];
+}
+
 /** Apply the CORS and version headers used by every fixture response. */
 function commonHeaders(contentType = 'application/json') {
   return {
@@ -890,6 +983,36 @@ const server = createServer(async (request, response) => {
       messages: loginFormExampleMessages(),
     };
     publish('a2ui.surface.upserted', surface);
+    sendJson(response, { status: 'published', surface_id: surfaceId }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-chart-demo') {
+    const surfaceId = 'surface_chart_demo';
+    publish('a2ui.surface.upserted', {
+      id: surfaceId,
+      session_id: sessionId,
+      catalog_id: CHART_DEMO_CATALOG_ID,
+      protocol_version: '0.9.1',
+      revision: 1,
+      state: 'ready',
+      messages: chartDemoMessages(),
+    });
+    sendJson(response, { status: 'published', surface_id: surfaceId }, 202);
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-linked-selection-demo') {
+    const surfaceId = 'surface_linked_selection_demo';
+    publish('a2ui.surface.upserted', {
+      id: surfaceId,
+      session_id: sessionId,
+      catalog_id: CHART_DEMO_CATALOG_ID,
+      protocol_version: '0.9.1',
+      revision: 1,
+      state: 'ready',
+      messages: linkedSelectionDemoMessages(),
+    });
     sendJson(response, { status: 'published', surface_id: surfaceId }, 202);
     return;
   }
