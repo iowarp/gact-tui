@@ -141,41 +141,46 @@ function mapPointButton(page: Page, id: string) {
 }
 
 /**
- * The map's GeoJSON point layer's own declared data, past the
- * virtualization threshold (#1533 MEDIUM 6) where points draw as one
- * maplibre circle layer rather than 500 DOM markers. A "500 labeled
- * locations" list item only proves the data resolved into React props; this
- * proves the map component turned it into a real maplibre source and layer.
+ * The map's GeoJSON point layer — its declared data AND how many of its
+ * points the WebGL canvas has ACTUALLY painted, past the virtualization
+ * threshold (#1533 MEDIUM 6) where points draw as one maplibre circle layer
+ * rather than 500 DOM markers. A "500 labeled locations" list item only
+ * proves the data resolved into React props; `renderedCount` (via the live
+ * map's own `queryRenderedFeatures`) proves the canvas actually drew it —
+ * exactly the coordinator's original ask (#1533 review), which caught TWO
+ * real, stacked defects DOM-only assertions had both missed entirely:
  *
- * A coordinator review (#1533) asked for proof the canvas actually PAINTS
- * the points, not just a DOM assertion — the right ask: a real defect (the
- * layer silently never rendering on a `reuseMaps`-recycled map instance,
- * fixed in `scientific-map-view.tsx` by tracking the map instance in React
- * state instead of a ref that could miss it) was exactly the kind of thing a
- * DOM-only assertion here would never catch. The originally-attempted check
- * used the live map's own `queryRenderedFeatures`, which needs a completed
- * WebGL paint. Investigating a live failure of that check showed it is not
- * reliable in this harness specifically: `onLoad` fires, `addSource` and
- * `addLayer` both succeed (confirmed via `getStyle()`), the canvas has a
- * real non-zero size and a plausible zoom/center for the dataset, the page
- * is visible (not throttled), `requestAnimationFrame` keeps ticking, and
- * forcing `triggerRepaint()` plus extra frames does not help — but the
- * GeoJSON source's own `isSourceLoaded()` never turns true even after 20+
- * seconds, with no `error` event on the map and no failed network request.
- * That points at the maplibre GeoJSON-tiling Web Worker round trip stalling
- * in this specific automated browser, not at the application code (the same
- * source/layer logic is covered against a fully mocked map, including the
- * "does not add the layer while the style is still loading" and "swaps the
- * source data in place" cases, in `scientific-map-view.test.tsx`, and passes
- * there). This checks the layer exists and the source's declared data is
- * correct via maplibre-gl's own public `GeoJSONSource.getData()`, which does
- * not depend on that worker round trip completing — real product-code
- * verification, short of a live pixel paint this harness cannot reliably
- * prove; a visual check in the desktop app is the way to confirm the paint.
+ * 1. The layer could silently never be (re-)created at all: `mapRef.current`
+ *    stays null until react-map-gl's async `import('maplibre-gl')` resolves,
+ *    so an effect gated on a one-shot dependency reading that ref had
+ *    exactly one chance to catch the real instance. Fixed in
+ *    `scientific-map-view.tsx` by tracking the instance via `onLoad` into
+ *    React state instead.
+ * 2. Even with the layer correctly declared, nothing ever painted: verified
+ *    live (real, headed Microsoft Edge, no test-machine load) that
+ *    `/assets/maplibre-gl-worker.mjs` — the worker maplibre-gl's GeoJSON
+ *    tiling pipeline runs on — closed and errored moments after starting,
+ *    because Vite never emitted it as a build output at all (nothing in our
+ *    source statically references it; maplibre-gl constructs its URL as a
+ *    runtime string relative to its own bundled chunk) nor its sibling
+ *    `maplibre-gl-shared.mjs` the worker itself imports — `vite preview`'s
+ *    SPA fallback served `index.html` for both requests instead, which the
+ *    browser can't parse as a module. Every `postMessage` into that dead
+ *    worker (including our circle layer's own data) was then a silent
+ *    no-op: no error ever reached the main thread, `isSourceLoaded()` never
+ *    turned true, and nothing painted — an entirely GeoJSON-only failure
+ *    mode, invisible on any prior map here, since a raster-only style never
+ *    depends on this worker being alive. Fixed in
+ *    `vite-plugin-maplibre-worker.ts`, which serves both files itself
+ *    (read live from the installed package, in dev and build).
  */
-async function mapPointsLayerData(
-  page: Page,
-): Promise<{ hasLayer: boolean; featureCount: number; highlightedCount: number }> {
+async function mapPointsLayerData(page: Page): Promise<{
+  hasLayer: boolean;
+  featureCount: number;
+  highlightedCount: number;
+  renderedCount: number;
+  renderedHighlightedCount: number;
+}> {
   return page.locator('[data-slot="a2ui-map-surface"]').evaluate(async (element) => {
     // `expect.poll` does not retry past a thrown exception (only past a
     // failed match), so a not-yet-exposed instance — genuinely possible on
@@ -183,16 +188,22 @@ async function mapPointsLayerData(
     // as "not ready yet" (falsy/empty), not thrown, or the very first poll
     // tick fails the whole assertion instead of waiting out its timeout.
     const map = (element as unknown as { __clioMap?: import('maplibre-gl').Map }).__clioMap;
-    if (!map) return { hasLayer: false, featureCount: 0, highlightedCount: 0 };
+    const empty = { hasLayer: false, featureCount: 0, highlightedCount: 0, renderedCount: 0, renderedHighlightedCount: 0 };
+    if (!map) return empty;
     const hasLayer = Boolean(map.getLayer('clio-map-points-circles'));
+    const rendered = map.queryRenderedFeatures(undefined, { layers: ['clio-map-points-circles'] });
+    const renderedCount = rendered.length;
+    const renderedHighlightedCount = rendered.filter((feature) => feature.properties?.['highlighted'] === true).length;
     const source = map.getSource('clio-map-points') as import('maplibre-gl').GeoJSONSource | undefined;
-    if (!source) return { hasLayer, featureCount: 0, highlightedCount: 0 };
+    if (!source) return { ...empty, hasLayer, renderedCount, renderedHighlightedCount };
     const data = await source.getData();
     const features = 'features' in data ? data.features : [];
     return {
       hasLayer,
       featureCount: features.length,
       highlightedCount: features.filter((feature) => feature.properties?.['highlighted'] === true).length,
+      renderedCount,
+      renderedHighlightedCount,
     };
   });
 }
@@ -237,16 +248,18 @@ for (const theme of ['light', 'dark'] as const) {
     // rendering strategy) is what proves the whole referenced dataset loaded.
     await expect(page.getByText('500 labeled locations')).toBeVisible({ timeout: 60_000 });
     // The DOM list proves the data resolved; this proves the map component
-    // itself turned it into a real layer (#1533 coordinator review — the
-    // layer previously never rendered at all while every DOM-only assertion
-    // here kept passing). See `mapPointsLayerData`'s own doc comment for why
-    // this checks the declared layer/source rather than rendered pixels.
+    // itself turned it into a real layer AND that the canvas actually
+    // painted it (#1533 coordinator review — see `mapPointsLayerData`'s own
+    // doc comment for the two stacked defects this caught).
     await expect
       .poll(async () => (await mapPointsLayerData(page)).hasLayer, { timeout: 20_000 })
       .toBe(true);
     await expect
       .poll(async () => (await mapPointsLayerData(page)).featureCount, { timeout: 20_000 })
       .toBe(500);
+    await expect
+      .poll(async () => (await mapPointsLayerData(page)).renderedCount, { timeout: 20_000 })
+      .toBeGreaterThan(0);
     // The generated-UI surface lives inside the transcript's own scrolling
     // container, not the document, and is taller than even this viewport:
     // `fullPage` only extends to the document's height (capturing whatever
@@ -326,6 +339,9 @@ test('renders a chart, map, table, and metric from one referenced dataset', asyn
   await expect
     .poll(async () => (await mapPointsLayerData(page)).featureCount, { timeout: 20_000 })
     .toBe(500);
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).renderedCount, { timeout: 20_000 })
+    .toBeGreaterThan(0);
 
   // The table shows the agent's own base view (magnitude 2.0+), highest first.
   const table = page.getByRole('table');
@@ -503,6 +519,9 @@ test('brushing the chart re-queries the range at full detail and the zone links 
   await expect
     .poll(async () => (await mapPointsLayerData(page)).featureCount, { timeout: 20_000 })
     .toBe(500);
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).renderedCount, { timeout: 20_000 })
+    .toBeGreaterThan(0);
 
   const chartView = page.locator('[data-slot="a2ui-chart-view"]');
   // The demo surface is far taller than the viewport inside the transcript's
@@ -541,11 +560,13 @@ test('brushing the chart re-queries the range at full detail and the zone links 
   expect(selected).toBeGreaterThan(0);
   expect(selected).toBeLessThan(500);
   // Not just listed as selected — the map's own layer data carries the
-  // highlight flag for a real subset of points (see `mapPointsLayerData`'s
-  // doc comment for why this checks declared data rather than rendered
-  // pixels in this harness).
+  // highlight flag for a real subset of points, AND the canvas actually
+  // paints that subset differently (see `mapPointsLayerData`'s doc comment).
   await expect
     .poll(async () => (await mapPointsLayerData(page)).highlightedCount, { timeout: 20_000 })
+    .toBeGreaterThan(0);
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).renderedHighlightedCount, { timeout: 20_000 })
     .toBeGreaterThan(0);
 
   await page.setViewportSize({ height: 1400, width: 1280 });
@@ -594,6 +615,9 @@ test('shift+dragging a rectangle on the map selects points and links the table',
   await expect
     .poll(async () => (await mapPointsLayerData(page)).featureCount, { timeout: 20_000 })
     .toBe(500);
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).renderedCount, { timeout: 20_000 })
+    .toBeGreaterThan(0);
 
   const mapSurface = page.locator('[data-slot="a2ui-map-surface"]');
   // See the same call in the chart brush test above: `page.mouse` needs
