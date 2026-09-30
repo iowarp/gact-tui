@@ -366,6 +366,13 @@ function ClioDataTableArtifactSource({
     const start = pageIndex * pageSize + 1;
     const end = start + rows.length - 1;
     const previewColumns = renderColumns.slice(0, 5).map(columnKey);
+    const sortSuffix = effectiveSort[0]
+      ? `, sorted by ${effectiveSort[0].column} ${effectiveSort[0].desc ? 'desc' : 'asc'}`
+      : '';
+    const zoneDescription =
+      start === 1 && end === total
+        ? `the whole view (${total.toLocaleString()} rows)${sortSuffix}`
+        : `rows ${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}${sortSuffix}`;
     return buildZoneReference({
       componentLabel: a2uiAccessibilityLabel(accessibility) ?? 'Data table',
       datasetLabel: artifactIdFromDataUri(dataUri) ?? dataUri,
@@ -373,7 +380,7 @@ function ClioDataTableArtifactSource({
       previewColumns,
       previewRows: rows.slice(0, 5),
       query: { dataQuery: effectiveDataQuery, dataUri },
-      zoneDescription: `rows ${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}${effectiveSort[0] ? `, sorted by ${effectiveSort[0].column} ${effectiveSort[0].desc ? 'desc' : 'asc'}` : ''}`,
+      zoneDescription,
     });
   };
   return (

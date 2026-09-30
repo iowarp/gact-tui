@@ -234,6 +234,7 @@ export function ClioChart(props: ClioChartProps) {
     rows,
     loading,
     error: dataError,
+    matchedRows,
     note,
     schema,
   } = useChartRows({
@@ -429,9 +430,11 @@ export function ClioChart(props: ClioChartProps) {
   const description = describeChart(spec, rows, loading, note);
   const label = a2uiAccessibilityLabel(accessibility) ?? `${heading} chart`;
   const buildReference = (): DataZoneReference => {
+    const shownRows = (rows ?? []).length;
+    const totalRows = matchedRows ?? shownRows;
     const zoneDescription = zoomRange
-      ? `${xField} ${formatZoomBound(zoomRange.min, xType)}–${formatZoomBound(zoomRange.max, xType)}`
-      : `the current view (${(rows ?? []).length.toLocaleString()} rows)`;
+      ? `${shownRows.toLocaleString()} of ${totalRows.toLocaleString()} rows — ${xField} ${formatZoomBound(zoomRange.min, xType)}–${formatZoomBound(zoomRange.max, xType)}`
+      : `the whole view (${totalRows.toLocaleString()} rows)`;
     return buildZoneReference({
       componentLabel: heading,
       datasetLabel: artifactIdFromDataUri(props.dataUri) ?? props.dataUri ?? 'inline data',

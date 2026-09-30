@@ -30,6 +30,12 @@ export interface DataZoneReferenceInput {
 export interface DataZoneReference {
   /** Short label for the composer card. */
   title: string;
+  /**
+   * One plain-language line for the composer chip itself, e.g. "172 of 500
+   * rows — depth 6.762–14.85" or "the whole view (500 rows)" — never
+   * markdown, so the chip can show it verbatim with no flattened syntax.
+   */
+  summary: string;
   /** The full reference block, ready to quote into the composer. */
   markdown: string;
 }
@@ -54,5 +60,9 @@ export function buildZoneReference(input: DataZoneReferenceInput): DataZoneRefer
   const table = previewTable(input.previewColumns, input.previewRows);
   if (table) sections.push(table);
   sections.push(['```json', JSON.stringify(input.query, null, 2), '```'].join('\n'));
-  return { markdown: sections.join('\n\n'), title: input.componentLabel };
+  return {
+    markdown: sections.join('\n\n'),
+    summary: input.zoneDescription,
+    title: input.componentLabel,
+  };
 }

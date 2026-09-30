@@ -271,10 +271,20 @@ describe('clio.data-table.v1 dataUri rendering', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
+    // The card itself: a plain-language label and one-line summary, never
+    // the dataset id or the full markdown block (#1533 coordinator review —
+    // those belong to the full reference, shown on request via the expand
+    // control below, and sent with the message; not flattened onto the card).
     const attached = screen.getByRole('list', { name: 'Attached selections' });
     expect(attached).toHaveTextContent('Earthquake table');
-    expect(attached).toHaveTextContent('artifact_events01');
-    expect(attached).toHaveTextContent('magnitude');
+    expect(attached).toHaveTextContent('rows 1–1 of 270');
+    expect(attached.textContent).not.toContain('artifact_events01');
+
+    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
+    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
+    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    expect(popoverBody).toHaveTextContent('artifact_events01');
+    expect(popoverBody).toHaveTextContent('magnitude');
   });
 
   it('asks the server for every column when neither columns nor dataQuery.columns is given', async () => {

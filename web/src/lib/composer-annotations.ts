@@ -26,6 +26,8 @@ export interface DataZoneQuoteAnnotation {
   kind: 'data-zone-quote';
   /** Short label for the card, e.g. "Depth vs. magnitude chart". */
   title: string;
+  /** One plain-language line for the card itself, e.g. "the whole view (500 rows)". */
+  summary: string;
   /** The full reference block — see `data-zone-reference.ts`'s `buildZoneReference`. */
   markdown: string;
 }
@@ -37,7 +39,13 @@ export function annotationFromSelection(target: SelectionTarget): ComposerAnnota
   sequence += 1;
   const id = `annotation-${Date.now().toString(36)}-${sequence}`;
   if (target.kind === 'data-surface-zone') {
-    return { id, kind: 'data-zone-quote', markdown: target.markdown, title: target.title };
+    return {
+      id,
+      kind: 'data-zone-quote',
+      markdown: target.markdown,
+      summary: target.summary,
+      title: target.title,
+    };
   }
   return { id, kind: 'text-quote', messageId: target.messageId, sessionId: target.sessionId, text: target.text };
 }

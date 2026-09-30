@@ -37,6 +37,8 @@ export interface DataSurfaceZoneSelection {
   kind: 'data-surface-zone';
   /** Short label for the composer card, e.g. "Depth vs. magnitude chart". */
   title: string;
+  /** One plain-language line for the composer chip, e.g. "the whole view (500 rows)". */
+  summary: string;
   /** The full reference block: component, dataset, filters, zone, and a preview. */
   markdown: string;
 }

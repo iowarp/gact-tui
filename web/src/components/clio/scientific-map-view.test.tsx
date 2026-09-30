@@ -11,12 +11,46 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  * callback. `a2ui-map-data-source.test.tsx` mocks this component out
  * entirely for the same reason; this file is the map view's own coverage.
  */
-const fakeMap = vi.hoisted(() => ({
-  boxZoom: { disable: vi.fn() },
-  unproject: vi.fn((point: [number, number]) => ({ lat: point[1] / 10, lng: point[0] / 10 })),
-}));
+/**
+ * A faithful-enough stand-in for the imperative maplibre-gl surface
+ * `scientific-map-view.tsx` now drives directly (`isStyleLoaded`,
+ * `addSource`/`getSource`/`removeSource`, `addLayer`/`getLayer`/
+ * `removeLayer`, `on`/`off`) — the component no longer uses
+ * `react-map-gl/maplibre`'s declarative `<Source>`/`<Layer>` bridge at all
+ * (see `scientific-map-view.tsx`'s comment on why: it silently never
+ * (re-)creates a layer on a `reuseMaps`-recycled instance).
+ */
+const fakeMap = vi.hoisted(() => {
+  const sources = new Map<string, { type: string; data?: unknown; setData: (data: unknown) => void }>();
+  const layers = new Map<string, { id: string; type: string; source: string; paint?: unknown }>();
+  return {
+    boxZoom: { disable: vi.fn() },
+    unproject: vi.fn((point: [number, number]) => ({ lat: point[1] / 10, lng: point[0] / 10 })),
+    isStyleLoaded: vi.fn(() => true),
+    getSource: vi.fn((id: string) => sources.get(id)),
+    addSource: vi.fn((id: string, spec: { type: string; data?: unknown }) => {
+      const record = {
+        ...spec,
+        setData: vi.fn((data: unknown) => {
+          record.data = data;
+        }),
+      };
+      sources.set(id, record);
+    }),
+    removeSource: vi.fn((id: string) => sources.delete(id)),
+    getLayer: vi.fn((id: string) => layers.get(id)),
+    addLayer: vi.fn((spec: { id: string; type: string; source: string; paint?: unknown }) => {
+      layers.set(spec.id, spec);
+    }),
+    removeLayer: vi.fn((id: string) => layers.delete(id)),
+    on: vi.fn(),
+    off: vi.fn(),
+    /** Test-only accessors, not part of maplibre's own API. */
+    __sources: sources,
+    __layers: layers,
+  };
+});
 const capturedMapProps = vi.hoisted(() => ({ current: undefined as Record<string, unknown> | undefined }));
-const capturedSourceData = vi.hoisted(() => ({ current: undefined as unknown }));
 
 vi.mock('react-map-gl/maplibre', async () => {
   const react = await import('react');
@@ -39,15 +73,9 @@ vi.mock('react-map-gl/maplibre', async () => {
   return {
     __esModule: true,
     default: MapMock,
-    Layer: (props: { id?: string }) =>
-      react.createElement('div', { 'data-layer-id': props.id, 'data-testid': 'map-points-layer' }),
     Marker: (props: { children?: ReactNode }) => props.children,
     NavigationControl: () => null,
     Popup: (props: { children?: ReactNode }) => props.children,
-    Source: (props: { children?: ReactNode; data?: unknown }) => {
-      capturedSourceData.current = props.data;
-      return props.children;
-    },
   };
 });
 
@@ -76,6 +104,8 @@ function stubContainerRect(element: Element) {
 
 afterEach(() => {
   vi.clearAllMocks();
+  fakeMap.__sources.clear();
+  fakeMap.__layers.clear();
 });
 
 describe('ClioScientificMapView zone selection', () => {
@@ -178,11 +208,16 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
       <ClioScientificMapView onSelect={vi.fn()} points={manyPoints(151)} />,
     );
 
-    // No per-point DOM marker buttons — the whole point set is one layer.
+    // No per-point DOM marker buttons — the whole point set is one layer,
+    // added on the live map instance itself (not the declarative <Source>/
+    // <Layer> bridge — see the comment in scientific-map-view.tsx on why).
     expect(container.querySelectorAll('button[aria-label^="Select "]')).toHaveLength(0);
-    const layer = container.querySelector('[data-testid="map-points-layer"]');
-    expect(layer).not.toBeNull();
-    expect(layer).toHaveAttribute('data-layer-id', 'clio-map-points-circles');
+    expect(fakeMap.addSource).toHaveBeenCalledWith(
+      'clio-map-points',
+      expect.objectContaining({ type: 'geojson' }),
+    );
+    const layer = fakeMap.__layers.get('clio-map-points-circles');
+    expect(layer).toMatchObject({ id: 'clio-map-points-circles', source: 'clio-map-points', type: 'circle' });
     expect(capturedMapProps.current?.interactiveLayerIds).toEqual(['clio-map-points-circles']);
   });
 
@@ -192,7 +227,22 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
     );
 
     expect(container.querySelectorAll('button[aria-label^="Select "]')).toHaveLength(5);
-    expect(container.querySelector('[data-testid="map-points-layer"]')).toBeNull();
+    expect(fakeMap.__layers.has('clio-map-points-circles')).toBe(false);
+  });
+
+  it('does not add the layer while the style is still loading, but does once it settles', () => {
+    fakeMap.isStyleLoaded.mockReturnValueOnce(false);
+    render(<ClioScientificMapView onSelect={vi.fn()} points={manyPoints(151)} />);
+
+    expect(fakeMap.__layers.has('clio-map-points-circles')).toBe(false);
+    expect(fakeMap.on).toHaveBeenCalledWith('load', expect.any(Function));
+    expect(fakeMap.on).toHaveBeenCalledWith('style.load', expect.any(Function));
+
+    // What a real 'style.load' does once the style actually finishes.
+    const retry = fakeMap.on.mock.calls.find(([event]) => event === 'style.load')?.[1] as () => void;
+    retry();
+
+    expect(fakeMap.__layers.has('clio-map-points-circles')).toBe(true);
   });
 
   it('selects the clicked feature through the layer click handler', () => {
@@ -228,10 +278,32 @@ describe('ClioScientificMapView at scale (#1533 MEDIUM 6)', () => {
         points={points}
       />,
     );
-    const geojson = capturedSourceData.current as {
+    const geojson = fakeMap.__sources.get('clio-map-points')?.data as {
       features: Array<{ properties: { highlighted: boolean; id: string } }>;
     };
     const highlighted = geojson.features.filter((feature) => feature.properties.highlighted);
     expect(highlighted.map((feature) => feature.properties.id).sort()).toEqual(['p1', 'p2', 'p3']);
+  });
+
+  it('swaps the source data in place on a selection change, without tearing the layer down', () => {
+    const points = manyPoints(151);
+    const { rerender } = render(
+      <ClioScientificMapView highlightedIds={new Set(['p1'])} onSelect={vi.fn()} points={points} />,
+    );
+    const source = fakeMap.__sources.get('clio-map-points');
+    expect(source).toBeDefined();
+    fakeMap.addSource.mockClear();
+
+    rerender(
+      <ClioScientificMapView highlightedIds={new Set(['p2'])} onSelect={vi.fn()} points={points} />,
+    );
+
+    // The layer/source are never removed and re-added for a plain data swap.
+    expect(fakeMap.addSource).not.toHaveBeenCalled();
+    expect(source?.setData).toHaveBeenCalled();
+    const latestData = source?.data as { features: Array<{ properties: { highlighted: boolean; id: string } }> };
+    expect(
+      latestData.features.filter((feature) => feature.properties.highlighted).map((feature) => feature.properties.id),
+    ).toEqual(['p2']);
   });
 });

@@ -331,10 +331,18 @@ describe('clio.map.v1 dataUri rendering', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
+    // The card: a plain label and one-line summary only (#1533 coordinator
+    // review) — the dataset id lives in the full reference, reached via the
+    // expand control and sent with the message.
     const attached = screen.getByRole('list', { name: 'Attached selections' });
     expect(attached).toHaveTextContent('GNSS stations');
-    expect(attached).toHaveTextContent('artifact_stations01');
     expect(attached).toHaveTextContent('1 of 2 points');
+    expect(attached.textContent).not.toContain('artifact_stations01');
+
+    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
+    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
+    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    expect(popoverBody).toHaveTextContent('artifact_stations01');
   });
 
   it('states a table-query refusal instead of a blank map', async () => {

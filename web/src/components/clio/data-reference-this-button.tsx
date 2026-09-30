@@ -38,6 +38,7 @@ export function DataReferenceThisButton({
         const target: DataSurfaceZoneSelection = {
           kind: 'data-surface-zone',
           markdown: reference.markdown,
+          summary: reference.summary,
           title: reference.title,
         };
         for (const action of registry.actionsFor(target)) action.run(target);

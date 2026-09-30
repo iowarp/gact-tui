@@ -410,10 +410,19 @@ describe('ClioChart', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reference this' }));
 
+    // The card: a plain label and one-line summary only (#1533 coordinator
+    // review) — the dataset id and filter live in the full reference,
+    // reached via the expand control and sent with the message.
     const attached = screen.getByRole('list', { name: 'Attached selections' });
     expect(attached).toHaveTextContent('Loss over time');
-    expect(attached).toHaveTextContent('artifact_runs01');
-    expect(attached).toHaveTextContent('run = a');
+    expect(attached).toHaveTextContent('the whole view (4 rows)');
+    expect(attached.textContent).not.toContain('artifact_runs01');
+
+    await user.click(screen.getByRole('button', { name: /Show the full .* reference/u }));
+    const popover = await screen.findByText('Sent with your next message, exactly as shown below.');
+    const popoverBody = popover.closest('[data-slot="popover-content"]') as HTMLElement;
+    expect(popoverBody).toHaveTextContent('artifact_runs01');
+    expect(popoverBody).toHaveTextContent('run = a');
   });
 
   it('says when a bound selection has no selection param to follow', async () => {

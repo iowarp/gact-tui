@@ -141,6 +141,63 @@ function mapPointButton(page: Page, id: string) {
 }
 
 /**
+ * The map's GeoJSON point layer's own declared data, past the
+ * virtualization threshold (#1533 MEDIUM 6) where points draw as one
+ * maplibre circle layer rather than 500 DOM markers. A "500 labeled
+ * locations" list item only proves the data resolved into React props; this
+ * proves the map component turned it into a real maplibre source and layer.
+ *
+ * A coordinator review (#1533) asked for proof the canvas actually PAINTS
+ * the points, not just a DOM assertion — the right ask: a real defect (the
+ * layer silently never rendering on a `reuseMaps`-recycled map instance,
+ * fixed in `scientific-map-view.tsx` by tracking the map instance in React
+ * state instead of a ref that could miss it) was exactly the kind of thing a
+ * DOM-only assertion here would never catch. The originally-attempted check
+ * used the live map's own `queryRenderedFeatures`, which needs a completed
+ * WebGL paint. Investigating a live failure of that check showed it is not
+ * reliable in this harness specifically: `onLoad` fires, `addSource` and
+ * `addLayer` both succeed (confirmed via `getStyle()`), the canvas has a
+ * real non-zero size and a plausible zoom/center for the dataset, the page
+ * is visible (not throttled), `requestAnimationFrame` keeps ticking, and
+ * forcing `triggerRepaint()` plus extra frames does not help — but the
+ * GeoJSON source's own `isSourceLoaded()` never turns true even after 20+
+ * seconds, with no `error` event on the map and no failed network request.
+ * That points at the maplibre GeoJSON-tiling Web Worker round trip stalling
+ * in this specific automated browser, not at the application code (the same
+ * source/layer logic is covered against a fully mocked map, including the
+ * "does not add the layer while the style is still loading" and "swaps the
+ * source data in place" cases, in `scientific-map-view.test.tsx`, and passes
+ * there). This checks the layer exists and the source's declared data is
+ * correct via maplibre-gl's own public `GeoJSONSource.getData()`, which does
+ * not depend on that worker round trip completing — real product-code
+ * verification, short of a live pixel paint this harness cannot reliably
+ * prove; a visual check in the desktop app is the way to confirm the paint.
+ */
+async function mapPointsLayerData(
+  page: Page,
+): Promise<{ hasLayer: boolean; featureCount: number; highlightedCount: number }> {
+  return page.locator('[data-slot="a2ui-map-surface"]').evaluate(async (element) => {
+    // `expect.poll` does not retry past a thrown exception (only past a
+    // failed match), so a not-yet-exposed instance — genuinely possible on
+    // an early poll, since the map mounts asynchronously — must be reported
+    // as "not ready yet" (falsy/empty), not thrown, or the very first poll
+    // tick fails the whole assertion instead of waiting out its timeout.
+    const map = (element as unknown as { __clioMap?: import('maplibre-gl').Map }).__clioMap;
+    if (!map) return { hasLayer: false, featureCount: 0, highlightedCount: 0 };
+    const hasLayer = Boolean(map.getLayer('clio-map-points-circles'));
+    const source = map.getSource('clio-map-points') as import('maplibre-gl').GeoJSONSource | undefined;
+    if (!source) return { hasLayer, featureCount: 0, highlightedCount: 0 };
+    const data = await source.getData();
+    const features = 'features' in data ? data.features : [];
+    return {
+      hasLayer,
+      featureCount: features.length,
+      highlightedCount: features.filter((feature) => feature.properties?.['highlighted'] === true).length,
+    };
+  });
+}
+
+/**
  * Past the virtualization threshold (#1533 MEDIUM 6), the side list only
  * mounts rows scrolled into view — a point deep in the 500-row list (the
  * earthquake fixture orders points by timestamp, not by id, so a given id's
@@ -179,6 +236,17 @@ for (const theme of ['light', 'dark'] as const) {
     // "labeled locations" (driven by the resolved point count itself, not a
     // rendering strategy) is what proves the whole referenced dataset loaded.
     await expect(page.getByText('500 labeled locations')).toBeVisible({ timeout: 60_000 });
+    // The DOM list proves the data resolved; this proves the map component
+    // itself turned it into a real layer (#1533 coordinator review — the
+    // layer previously never rendered at all while every DOM-only assertion
+    // here kept passing). See `mapPointsLayerData`'s own doc comment for why
+    // this checks the declared layer/source rather than rendered pixels.
+    await expect
+      .poll(async () => (await mapPointsLayerData(page)).hasLayer, { timeout: 20_000 })
+      .toBe(true);
+    await expect
+      .poll(async () => (await mapPointsLayerData(page)).featureCount, { timeout: 20_000 })
+      .toBe(500);
     // The generated-UI surface lives inside the transcript's own scrolling
     // container, not the document, and is taller than even this viewport:
     // `fullPage` only extends to the document's height (capturing whatever
@@ -192,6 +260,51 @@ for (const theme of ['light', 'dark'] as const) {
     await page.screenshot({ path: `${screenshotDir}/earthquake-demo-${theme}.png` });
   });
 }
+
+test('a detached surface never overlaps the subagent card in the message before it', async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await openEarthquakeDemo(page);
+  // The earthquake demo surface is "detached" (no owning message — the
+  // fixture publishes it directly), rendered as a normal-flow sibling right
+  // after the virtualized message list. A coordinator review found that
+  // sibling overlapping the tail of the preceding message by ~53px in real
+  // measurements: the virtualized container's declared height came from
+  // `virtualizer.getTotalSize()`, a cached/estimated size that can
+  // persistently undercount a row (here, a message expanded to show a
+  // completed subagent card) with no further resize event ever correcting
+  // it. `conversation.tsx` now independently measures the real DOM and pads
+  // the gap; this proves it holds for the actual card+artifact+surface
+  // sequence the bug was found in, not just in principle.
+  const card = page.getByLabel('Open child conversation Station evidence specialist');
+  const surface = page.locator('[aria-label^="Generated UI,"]').last();
+  await surface.evaluate((element) => element.scrollIntoView({ block: 'start' }));
+  const cardBox = await card.boundingBox();
+  const surfaceBox = await surface.boundingBox();
+  expect(cardBox).not.toBeNull();
+  expect(surfaceBox).not.toBeNull();
+  const gap = surfaceBox!.y - (cardBox!.y + cardBox!.height);
+  expect(gap).toBeGreaterThanOrEqual(0);
+  // Re-screenshot the seam itself (#1533 coordinator review) — the numeric
+  // gap above is the real proof, but a visual capture of the card sitting
+  // just above the frame, with normal spacing between them, is what the
+  // coordinator asked to see re-shot.
+  await card.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  const seamCardBox = await card.boundingBox();
+  const seamSurfaceBox = await surface.boundingBox();
+  if (seamCardBox && seamSurfaceBox) {
+    await page.screenshot({
+      path: `${exploreShotsDir}/card-surface-seam.png`,
+      clip: {
+        height: Math.min(seamSurfaceBox.y + 96 - seamCardBox.y, 900),
+        width: Math.max(seamCardBox.width, seamSurfaceBox.width),
+        x: Math.min(seamCardBox.x, seamSurfaceBox.x),
+        y: seamCardBox.y,
+      },
+    });
+  }
+});
 
 test('renders a chart, map, table, and metric from one referenced dataset', async ({ page }) => {
   test.setTimeout(90_000);
@@ -207,6 +320,12 @@ test('renders a chart, map, table, and metric from one referenced dataset', asyn
   // map's own virtualization threshold (#1533 MEDIUM 6), 500 points draw as
   // one GeoJSON layer rather than 500 DOM markers.
   await expect(page.getByText('500 labeled locations')).toBeVisible();
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).hasLayer, { timeout: 20_000 })
+    .toBe(true);
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).featureCount, { timeout: 20_000 })
+    .toBe(500);
 
   // The table shows the agent's own base view (magnitude 2.0+), highest first.
   const table = page.getByRole('table');
@@ -378,6 +497,12 @@ test('brushing the chart re-queries the range at full detail and the zone links 
   // Past the map's own virtualization threshold (#1533 MEDIUM 6), 500 points
   // draw as one GeoJSON layer rather than 500 DOM markers.
   await expect(page.getByText('500 labeled locations')).toBeVisible({ timeout: 20_000 });
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).hasLayer, { timeout: 20_000 })
+    .toBe(true);
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).featureCount, { timeout: 20_000 })
+    .toBe(500);
 
   const chartView = page.locator('[data-slot="a2ui-chart-view"]');
   // The demo surface is far taller than the viewport inside the transcript's
@@ -415,6 +540,13 @@ test('brushing the chart re-queries the range at full detail and the zone links 
   const selected = Number.parseInt(selectedText, 10);
   expect(selected).toBeGreaterThan(0);
   expect(selected).toBeLessThan(500);
+  // Not just listed as selected — the map's own layer data carries the
+  // highlight flag for a real subset of points (see `mapPointsLayerData`'s
+  // doc comment for why this checks declared data rather than rendered
+  // pixels in this harness).
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).highlightedCount, { timeout: 20_000 })
+    .toBeGreaterThan(0);
 
   await page.setViewportSize({ height: 1400, width: 1280 });
   const surface = page.locator('[aria-label^="Generated UI,"]').last();
@@ -456,6 +588,12 @@ test('shift+dragging a rectangle on the map selects points and links the table',
   // Past the map's own virtualization threshold (#1533 MEDIUM 6), 500 points
   // draw as one GeoJSON layer rather than 500 DOM markers.
   await expect(page.getByText('500 labeled locations')).toBeVisible({ timeout: 20_000 });
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).hasLayer, { timeout: 20_000 })
+    .toBe(true);
+  await expect
+    .poll(async () => (await mapPointsLayerData(page)).featureCount, { timeout: 20_000 })
+    .toBe(500);
 
   const mapSurface = page.locator('[data-slot="a2ui-map-surface"]');
   // See the same call in the chart brush test above: `page.mouse` needs
@@ -476,7 +614,9 @@ test('shift+dragging a rectangle on the map selects points and links the table',
   await expect.poll(async () => selectedRows.count(), { timeout: 20_000 }).toBeGreaterThan(0);
 });
 
-test('"Reference this" puts a precise, re-queryable block in the composer', async ({ page }) => {
+test('"Reference this" puts a clean chip in the composer and a properly rendered quote once sent', async ({
+  page,
+}) => {
   test.setTimeout(90_000);
   await openEarthquakeDemo(page);
   await expect(page.getByRole('table')).toBeVisible();
@@ -485,13 +625,43 @@ test('"Reference this" puts a precise, re-queryable block in the composer', asyn
   await expect(referenceButtons.first()).toBeVisible({ timeout: 20_000 });
   await referenceButtons.first().click();
 
+  // The chip: a plain-language one-line summary, never the full markdown
+  // block flattened onto one line (#1533 coordinator review). No zone is
+  // selected on this chart, so it names the whole view.
   const attached = page.getByRole('list', { name: 'Attached selections' });
   await expect(attached).toBeVisible();
-  await expect(attached).toContainText('```json');
-  await expect(attached).toContainText('artifact_earthquake');
+  await expect(attached).toContainText('the whole view');
+  expect(await attached.innerText()).not.toContain('```json');
+  expect(await attached.innerText()).not.toContain('**');
+  expect((await attached.innerText()).includes('artifact_earthquake')).toBe(false);
 
   await page.screenshot({
     path: `${exploreShotsDir}/reference-this-composer.png`,
     clip: (await attached.boundingBox()) ?? undefined,
   });
+
+  // Expand: the full machine-readable reference, properly rendered (a real
+  // <table>, not a pipe-delimited line), not just present as text.
+  await attached.getByRole('button', { name: /Show the full .* reference/u }).click();
+  const popover = page.getByText('Sent with your next message, exactly as shown below.');
+  await expect(popover).toBeVisible();
+  const popoverBody = page.locator('[data-slot="popover-content"]');
+  await expect(popoverBody.getByRole('table')).toBeVisible();
+  await expect(popoverBody).toContainText('artifact_earthquake');
+  await page.keyboard.press('Escape');
+
+  // NOTE on the "sent" round trip (#1533 coordinator review item 2): this
+  // suite's fixture server has no route for the composer's real
+  // POST /v1/sessions/{id}/messages, so a live send-and-render check can't
+  // be driven end to end here without building that fixture infrastructure.
+  // That the reference's markdown "goes into the SENT message as a properly
+  // rendered quote block" is instead proven at the unit level, on this exact
+  // markdown string and the exact MarkdownText/Streamdown renderer the
+  // transcript uses for every other message: `messageTextWithAnnotations`
+  // (web/src/lib/composer-annotations.ts) wraps it as a '> ...' blockquote
+  // ahead of the typed text (composer-annotations.test.ts), and
+  // data-reference-this-button.test.tsx's "shows the plain summary on the
+  // card, never the flattened full markdown block" test renders that same
+  // markdown through MarkdownText and asserts a real <table> comes out.
+  // Flagged explicitly rather than silently dropped.
 });

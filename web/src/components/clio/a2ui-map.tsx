@@ -519,7 +519,10 @@ function ClioMapArtifactSource({
       previewColumns,
       previewRows: (rows ?? []).slice(0, 5),
       query: { dataQuery: effectiveDataQuery, dataUri },
-      zoneDescription: shown < total ? `${shown.toLocaleString()} of ${total.toLocaleString()} points` : `${total.toLocaleString()} points shown`,
+      zoneDescription:
+        shown < total
+          ? `${shown.toLocaleString()} of ${total.toLocaleString()} points`
+          : `the whole view (${total.toLocaleString()} points)`,
     });
   };
   const headerExtra = (

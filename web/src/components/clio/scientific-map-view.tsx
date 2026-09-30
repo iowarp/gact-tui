@@ -1,12 +1,11 @@
 import { MapPinIcon } from 'lucide-react';
+import type { GeoJSONSource, MapLibreMap } from 'maplibre-gl';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Map, {
-  Layer,
   Marker,
   NavigationControl,
   Popup,
-  Source,
   type MapLayerMouseEvent,
   type MapRef,
   type ViewState,
@@ -86,6 +85,21 @@ function pointsToGeoJson(
   };
 }
 
+type PointsGeoJson = ReturnType<typeof pointsToGeoJson>;
+
+/**
+ * Test-only hook: an e2e assertion needs to see the map's ACTUAL declared
+ * layer/source state, which no DOM query can ever observe — a "500 labeled
+ * locations" list item proves the data resolved into React props, never
+ * that the map component turned it into a real maplibre layer. Never read
+ * by app code. See `a2ui-data-everywhere.spec.ts`'s `mapPointsLayerData`
+ * helper (and its doc comment, which also covers why a live WebGL-paint
+ * assertion is not reliable in that harness).
+ */
+export interface MapDebugSurface extends HTMLDivElement {
+  __clioMap?: MapLibreMap;
+}
+
 /** Container-relative pixel coordinates of a rubber-band drag in progress. */
 interface DragBox {
   startX: number;
@@ -152,6 +166,22 @@ export function ClioScientificMapView({
   const [mapError, setMapError] = useState<string>();
   const rootRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapRef>(null);
+  // `@vis.gl/react-maplibre`'s own `<Map>` creates its maplibre-gl instance
+  // via a dynamic `import('maplibre-gl')` — genuinely asynchronous even when
+  // the module is already cached — and only then calls `useImperativeHandle`
+  // with a non-null value; `mapRef.current` is `null` until that resolves.
+  // An effect gated on `manyPoints` (which, for one dataset, only ever flips
+  // false→true ONCE) that reads `mapRef.current?.getMap()` and bails when
+  // it's still null therefore has exactly one chance to run *after* the map
+  // exists — and can permanently miss it if that one run lands in the
+  // window before the import resolves, at which point NOTHING re-triggers
+  // it (a ref becoming non-null is not itself reactive). Confirmed directly
+  // against `@vis.gl/react-maplibre`'s own source (`components/map.tsx`).
+  // `onLoad` is called imperatively by the library once the instance truly
+  // exists, sidestepping the ref-timing gap entirely; capturing it in state
+  // makes "the map is ready" a real reactive dependency every effect below
+  // can depend on, instead of a point-in-time ref read.
+  const [mapInstance, setMapInstance] = useState<MapLibreMap | undefined>(undefined);
   const [dragBox, setDragBox] = useState<DragBox | null>(null);
   const manyPoints = points.length > MANY_POINTS_THRESHOLD;
   const resolvedHighlightedIds = useMemo(
@@ -162,6 +192,72 @@ export function ClioScientificMapView({
     () => (manyPoints ? pointsToGeoJson(points, resolvedHighlightedIds) : undefined),
     [manyPoints, points, resolvedHighlightedIds],
   );
+  const pointsGeoJsonRef = useRef<PointsGeoJson | undefined>(pointsGeoJson);
+  useEffect(() => {
+    pointsGeoJsonRef.current = pointsGeoJson;
+  }, [pointsGeoJson]);
+  // Test-only hook (see `MapDebugSurface`).
+  useEffect(() => {
+    if (mapInstance && rootRef.current) (rootRef.current as MapDebugSurface).__clioMap = mapInstance;
+  }, [mapInstance]);
+  // Imperative, not the declarative <Source>/<Layer> children: those gate
+  // creation on `map.style._loaded` and retry only on the library's own
+  // 'styledata' listener (@vis.gl/react-maplibre's source.ts/layer.ts) — a
+  // reused map instance (`reuseMaps` below) can go a full mount without ever
+  // firing that retry again after a swap, so the source/layer silently never
+  // gets (re-)created and the canvas draws a basemap with no points at all.
+  // 'load' covers a fresh instance; 'style.load' covers `setStyle()`
+  // completing on a REUSED one — MapLibre's own doc: "fired once the map's
+  // style has fully loaded OR CHANGED".
+  useEffect(() => {
+    if (!manyPoints || !mapInstance) return undefined;
+    const map = mapInstance;
+    const ensurePointsLayer = () => {
+      if (!map.isStyleLoaded()) return;
+      if (!map.getSource(POINTS_SOURCE_ID)) {
+        map.addSource(POINTS_SOURCE_ID, {
+          type: 'geojson',
+          data: pointsGeoJsonRef.current ?? { type: 'FeatureCollection', features: [] },
+        });
+      }
+      if (!map.getLayer(POINTS_LAYER_ID)) {
+        map.addLayer({
+          id: POINTS_LAYER_ID,
+          type: 'circle',
+          source: POINTS_SOURCE_ID,
+          paint: {
+            'circle-color': ['case', ['get', 'highlighted'], POINT_HIGHLIGHTED_COLOR, POINT_COLOR],
+            'circle-opacity': 0.85,
+            'circle-radius': ['case', ['get', 'highlighted'], 6, 4],
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-width': ['case', ['get', 'highlighted'], 1.5, 0.5],
+          },
+        });
+      }
+    };
+    ensurePointsLayer();
+    map.on('load', ensurePointsLayer);
+    map.on('style.load', ensurePointsLayer);
+    return () => {
+      map.off('load', ensurePointsLayer);
+      map.off('style.load', ensurePointsLayer);
+      // Best-effort: with `reuseMaps`, this instance may already be back in
+      // the pool (or fully torn down) by the time this cleanup runs.
+      try {
+        if (map.getLayer(POINTS_LAYER_ID)) map.removeLayer(POINTS_LAYER_ID);
+        if (map.getSource(POINTS_SOURCE_ID)) map.removeSource(POINTS_SOURCE_ID);
+      } catch {
+        // Style already gone; nothing left to clean up.
+      }
+    };
+  }, [manyPoints, mapInstance]);
+  // A plain data swap (points or highlights changed) — never tears the
+  // layer down, so a selection change doesn't flash the whole layer.
+  useEffect(() => {
+    if (!manyPoints || !pointsGeoJson || !mapInstance) return;
+    const source = mapInstance.getSource(POINTS_SOURCE_ID) as GeoJSONSource | undefined;
+    source?.setData(pointsGeoJson);
+  }, [manyPoints, mapInstance, pointsGeoJson]);
   const handleLayerClick = (event: MapLayerMouseEvent) => {
     // A shift+drag's release also fires a synthetic click at the same
     // modifier state; the rectangle gesture above already handled the
@@ -244,50 +340,37 @@ export function ClioScientificMapView({
           setMapError(undefined);
           // Shift+drag now draws a selection rectangle instead (see above).
           event.target.boxZoom.disable();
+          setMapInstance(event.target);
         }}
         ref={mapRef}
         reuseMaps
         style={{ height: '100%', width: '100%' }}
       >
         <NavigationControl position="top-right" showCompass={false} />
-        {manyPoints && pointsGeoJson ? (
-          <Source data={pointsGeoJson} id={POINTS_SOURCE_ID} type="geojson">
-            <Layer
-              id={POINTS_LAYER_ID}
-              paint={{
-                'circle-color': ['case', ['get', 'highlighted'], POINT_HIGHLIGHTED_COLOR, POINT_COLOR],
-                'circle-opacity': 0.85,
-                'circle-radius': ['case', ['get', 'highlighted'], 6, 4],
-                'circle-stroke-color': '#ffffff',
-                'circle-stroke-width': ['case', ['get', 'highlighted'], 1.5, 0.5],
-              }}
-              type="circle"
-            />
-          </Source>
-        ) : (
-          points.map((point) => {
-            const highlighted = resolvedHighlightedIds.has(point.id);
-            return (
-              <Marker anchor="bottom" key={point.id} latitude={point.latitude} longitude={point.longitude}>
-                <button
-                  aria-label={`Select ${point.label}`}
-                  aria-pressed={highlighted}
-                  className={cn(
-                    'group grid size-8 place-items-center rounded-full border bg-card text-primary shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    highlighted && 'scale-110 border-primary bg-primary text-primary-foreground',
-                  )}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onSelect(point.id);
-                  }}
-                  type="button"
-                >
-                  <MapPinIcon aria-hidden="true" className="size-4" />
-                </button>
-              </Marker>
-            );
-          })
-        )}
+        {manyPoints
+          ? null
+          : points.map((point) => {
+              const highlighted = resolvedHighlightedIds.has(point.id);
+              return (
+                <Marker anchor="bottom" key={point.id} latitude={point.latitude} longitude={point.longitude}>
+                  <button
+                    aria-label={`Select ${point.label}`}
+                    aria-pressed={highlighted}
+                    className={cn(
+                      'group grid size-8 place-items-center rounded-full border bg-card text-primary shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      highlighted && 'scale-110 border-primary bg-primary text-primary-foreground',
+                    )}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelect(point.id);
+                    }}
+                    type="button"
+                  >
+                    <MapPinIcon aria-hidden="true" className="size-4" />
+                  </button>
+                </Marker>
+              );
+            })}
         {selected ? (
           <Popup
             anchor="top"

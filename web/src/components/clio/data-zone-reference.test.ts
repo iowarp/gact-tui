@@ -3,7 +3,7 @@ import { buildZoneReference } from './data-zone-reference';
 
 describe('buildZoneReference', () => {
   it('names the component, dataset, filters, zone, a preview table, and the re-query JSON', () => {
-    const { markdown, title } = buildZoneReference({
+    const { markdown, summary, title } = buildZoneReference({
       componentLabel: 'Depth vs. magnitude chart',
       datasetLabel: 'artifact_earthquakes01',
       filters: ['magnitude ≥ 2'],
@@ -20,6 +20,12 @@ describe('buildZoneReference', () => {
     });
 
     expect(title).toBe('Depth vs. magnitude chart');
+    // A plain one-line summary — never markdown — for the composer chip
+    // itself (#1533 coordinator review: the chip previously showed the full
+    // markdown block flattened onto one line).
+    expect(summary).toBe('depth 2–8 — 23 of 270 rows');
+    expect(summary).not.toContain('**');
+    expect(summary).not.toContain('|');
     expect(markdown).toContain('**Depth vs. magnitude chart** — artifact_earthquakes01');
     expect(markdown).toContain('Filters: magnitude ≥ 2.');
     expect(markdown).toContain('Zone: depth 2–8 — 23 of 270 rows.');
