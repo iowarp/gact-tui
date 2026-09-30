@@ -98,6 +98,7 @@ function buildSurface(extra: ExtraComponents = NO_EXTRA) {
             columns: ['run', 't', 'v'],
             rows: ROWS,
             selection: { path: '/selection/runs' },
+            selectionField: 'run',
           },
           {
             id: 'map',
@@ -107,6 +108,7 @@ function buildSurface(extra: ExtraComponents = NO_EXTRA) {
               { id: 'b', label: 'Run B', latitude: 40.7, longitude: -74.0 },
             ],
             selection: { path: '/selection/runs' },
+            selectionField: 'id',
           },
         ],
       },

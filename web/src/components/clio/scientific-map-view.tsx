@@ -11,6 +11,13 @@ export interface ScientificMapPoint {
   longitude: number;
   detail?: string;
   category?: string;
+  /**
+   * The referenced dataset's `selectionField` column value for this point,
+   * when `clio.map.v1` names one — the value a bound selection reads and
+   * writes, independent of `id`/`label`/`category`. Unset for inline points
+   * and for a dataUri map with no `selectionField`.
+   */
+  selectionValue?: string | number;
 }
 
 interface ScientificMapViewProps {

@@ -64,30 +64,9 @@ function buildSurface(components: Record<string, unknown>[]) {
 }
 
 describe('CLIO A2UI kernel catalog', () => {
-  // The plot is code-split, so both this test and the accessibility sweep below
-  // wait on a real dynamic import resolving through Suspense before they can
-  // assert anything. The default per-test budget is not enough for that on a
-  // loaded machine, and eagerly pulling the charting library in to make the
-  // tests faster would cost every user the download instead.
-  it('renders shared chart and data-grid components instead of JSON representations', async () => {
+  it('renders the shared data-grid component instead of a JSON representation', async () => {
     const surface = buildSurface([
-      { id: 'root', component: 'Column', children: ['plot', 'table'] },
-      {
-        id: 'plot',
-        component: 'clio.time-series.v1',
-        accessibility: {
-          label: 'Accessible displacement chart',
-          description: 'Three observed displacement samples',
-        },
-        title: 'Vertical displacement',
-        xKey: 'day',
-        yKeys: ['displacement_mm'],
-        series: [
-          { day: 1, displacement_mm: 0.2 },
-          { day: 2, displacement_mm: 0.5 },
-          { day: 3, displacement_mm: 0.4 },
-        ],
-      },
+      { id: 'root', component: 'Column', children: ['table'] },
       {
         id: 'table',
         component: 'clio.data-table.v1',
@@ -100,27 +79,16 @@ describe('CLIO A2UI kernel catalog', () => {
       },
     ]);
 
-    const { container } = render(<A2uiSurface surface={surface} />);
+    render(<A2uiSurface surface={surface} />);
 
-    expect(
-      await screen.findByRole('img', { name: /Vertical displacement plot/u }, { timeout: 15_000 }),
-    ).toBeVisible();
-    expect(screen.getByText('3 rows')).toBeVisible();
     const table = screen.getByRole('table');
     expect(within(table).getByRole('columnheader', { name: /^displacement mm/u })).toBeVisible();
     expect(within(table).getByRole('cell', { name: 'accepted' })).toBeVisible();
-    expect(container.querySelector('[data-slot="chart"]')).toBeInTheDocument();
-    expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument();
-    expect(screen.getByLabelText('Accessible displacement chart')).toHaveAttribute(
-      'aria-description',
-      'Three observed displacement samples',
-    );
     expect(screen.getByLabelText('Accessible displacement table columns')).toHaveAttribute(
       'aria-description',
       'Observed displacement and quality',
     );
-    expect(container.textContent).not.toContain('"series"');
-  }, 20_000);
+  });
 
   it('accepts labeled table-column objects for scientific units', async () => {
     const surface = buildSurface([

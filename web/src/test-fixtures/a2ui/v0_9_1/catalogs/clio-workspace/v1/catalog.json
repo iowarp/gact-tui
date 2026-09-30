@@ -32,18 +32,32 @@
       },
       "type": "object"
     },
-    "ChartDataQuery": {
+    "ChoiceOption": {
       "additionalProperties": false,
-      "description": "A server-side table query applied to dataUri: the table-query request body (POST /v1/artifacts/{id}/table-query) without format. The server runs filter, then aggregate, then downsample, then limit. Omit columns to request the preset fill fields, the selection field and the spec's fields.",
+      "properties": {
+        "label": {
+          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "type": "object"
+    },
+    "DataQuery": {
+      "additionalProperties": false,
+      "description": "A server-side table query applied to dataUri: the table-query request body (POST /v1/artifacts/{id}/table-query) without format. The server runs filter, then aggregate, then downsample, then limit. Omit columns to request the columns implied by the component (its named *Field properties and its selection field). Shared by clio.chart.v1, clio.map.v1, and clio.data-table.v1.",
       "properties": {
         "aggregate": {
-          "$ref": "#/$defs/ChartQueryAggregate"
+          "$ref": "#/$defs/QueryAggregate"
         },
         "columns": {
           "items": {
-            "maxLength": 128,
-            "minLength": 1,
-            "type": "string"
+            "$ref": "#/$defs/FieldName"
           },
           "maxItems": 64,
           "minItems": 1,
@@ -51,11 +65,11 @@
           "uniqueItems": true
         },
         "downsample": {
-          "$ref": "#/$defs/ChartQueryDownsample"
+          "$ref": "#/$defs/QueryDownsample"
         },
         "filter": {
           "items": {
-            "$ref": "#/$defs/ChartQueryFilter"
+            "$ref": "#/$defs/QueryFilter"
           },
           "maxItems": 64,
           "type": "array"
@@ -68,15 +82,86 @@
       },
       "type": "object"
     },
-    "ChartQueryAggregate": {
+    "DataTableColumn": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "type": "object"
+    },
+    "FieldName": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "IconSvgPath": {
+      "additionalProperties": false,
+      "properties": {
+        "svgPath": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "svgPath"
+      ],
+      "type": "object"
+    },
+    "MapPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "detail": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 240,
+          "minLength": 1,
+          "type": "string"
+        },
+        "latitude": {
+          "maximum": 90,
+          "minimum": -90,
+          "type": "number"
+        },
+        "longitude": {
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "latitude",
+        "longitude"
+      ],
+      "type": "object"
+    },
+    "QueryAggregate": {
       "additionalProperties": false,
       "description": "Group rows by groupBy (empty or omitted: one global group) and reduce; each metric becomes a result column named {column}_{fn}, which must not repeat a groupBy column.",
       "properties": {
         "groupBy": {
           "items": {
-            "maxLength": 128,
-            "minLength": 1,
-            "type": "string"
+            "$ref": "#/$defs/FieldName"
           },
           "maxItems": 64,
           "type": "array",
@@ -87,9 +172,7 @@
             "additionalProperties": false,
             "properties": {
               "column": {
-                "maxLength": 128,
-                "minLength": 1,
-                "type": "string"
+                "$ref": "#/$defs/FieldName"
               },
               "fn": {
                 "enum": [
@@ -120,7 +203,7 @@
       ],
       "type": "object"
     },
-    "ChartQueryDownsample": {
+    "QueryDownsample": {
       "additionalProperties": false,
       "description": "How the server thins rows before limit applies. none keeps every row; stride keeps evenly spaced rows (per entityColumn up to maxPerEntity when set, else overall up to limit); per_entity_lttb runs LTTB on (x, y) per entityColumn (the whole table is one series without it) and needs x and y.",
       "if": {
@@ -135,9 +218,7 @@
       },
       "properties": {
         "entityColumn": {
-          "maxLength": 128,
-          "minLength": 1,
-          "type": "string"
+          "$ref": "#/$defs/FieldName"
         },
         "maxPerEntity": {
           "default": 500,
@@ -155,14 +236,10 @@
           "type": "string"
         },
         "x": {
-          "maxLength": 128,
-          "minLength": 1,
-          "type": "string"
+          "$ref": "#/$defs/FieldName"
         },
         "y": {
-          "maxLength": 128,
-          "minLength": 1,
-          "type": "string"
+          "$ref": "#/$defs/FieldName"
         }
       },
       "then": {
@@ -173,7 +250,7 @@
       },
       "type": "object"
     },
-    "ChartQueryFilter": {
+    "QueryFilter": {
       "additionalProperties": false,
       "allOf": [
         {
@@ -279,9 +356,7 @@
       "description": "One predicate; all filter entries are AND-ed. eq: value is a non-null scalar. in: value is a non-empty list of scalars. range: value is [min, max], inclusive, either side may be null. isnull: value omitted or true matches nulls, false matches non-nulls.",
       "properties": {
         "column": {
-          "maxLength": 128,
-          "minLength": 1,
-          "type": "string"
+          "$ref": "#/$defs/FieldName"
         },
         "op": {
           "enum": [
@@ -297,90 +372,6 @@
       "required": [
         "column",
         "op"
-      ],
-      "type": "object"
-    },
-    "ChoiceOption": {
-      "additionalProperties": false,
-      "properties": {
-        "label": {
-          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
-        },
-        "value": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "label",
-        "value"
-      ],
-      "type": "object"
-    },
-    "DataTableColumn": {
-      "additionalProperties": false,
-      "properties": {
-        "key": {
-          "type": "string"
-        },
-        "label": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "key",
-        "label"
-      ],
-      "type": "object"
-    },
-    "IconSvgPath": {
-      "additionalProperties": false,
-      "properties": {
-        "svgPath": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "svgPath"
-      ],
-      "type": "object"
-    },
-    "MapPoint": {
-      "additionalProperties": false,
-      "properties": {
-        "category": {
-          "maxLength": 120,
-          "type": "string"
-        },
-        "detail": {
-          "maxLength": 2000,
-          "type": "string"
-        },
-        "id": {
-          "maxLength": 128,
-          "minLength": 1,
-          "type": "string"
-        },
-        "label": {
-          "maxLength": 240,
-          "minLength": 1,
-          "type": "string"
-        },
-        "latitude": {
-          "maximum": 90,
-          "minimum": -90,
-          "type": "number"
-        },
-        "longitude": {
-          "maximum": 180,
-          "minimum": -180,
-          "type": "number"
-        }
-      },
-      "required": [
-        "id",
-        "label",
-        "latitude",
-        "longitude"
       ],
       "type": "object"
     },
@@ -571,9 +562,6 @@
           "$ref": "#/components/clio.status.v1"
         },
         {
-          "$ref": "#/components/clio.time-series.v1"
-        },
-        {
           "$ref": "#/components/clio.workflow.v1"
         }
       ]
@@ -697,6 +685,7 @@
           "type": "object"
         }
       ],
+      "description": "A clickable control wrapping one child, firing an action.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -731,6 +720,7 @@
           "type": "object"
         }
       ],
+      "description": "A single labeled boolean toggle.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -788,6 +778,7 @@
           "type": "object"
         }
       ],
+      "description": "A single- or multiple-selection picker over a fixed option list.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -836,6 +827,7 @@
           "type": "object"
         }
       ],
+      "description": "A vertical layout container for child components.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -866,6 +858,7 @@
           "type": "object"
         }
       ],
+      "description": "A horizontal or vertical rule separating layout regions.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -899,6 +892,7 @@
           "type": "object"
         }
       ],
+      "description": "A titled container around one child component.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -935,6 +929,7 @@
           "type": "object"
         }
       ],
+      "description": "A fixed-column grid layout container for child components.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -972,6 +967,7 @@
           "type": "object"
         }
       ],
+      "description": "A named or SVG icon glyph.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1023,6 +1019,7 @@
           "type": "object"
         }
       ],
+      "description": "A raster or vector image by URL, sized to a preset variant.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1066,6 +1063,7 @@
           "type": "object"
         }
       ],
+      "description": "A vertical or horizontal list of child components, optionally templated from bound data.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1097,6 +1095,7 @@
           "type": "object"
         }
       ],
+      "description": "A dialog opened by a trigger component, showing one content component.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1145,6 +1144,7 @@
           "type": "object"
         }
       ],
+      "description": "A horizontal layout container for child components.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1185,6 +1185,7 @@
           "type": "object"
         }
       ],
+      "description": "A whole-number range control (see clio.slider.v1 for fractional steps).",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1216,6 +1217,7 @@
           "type": "object"
         }
       ],
+      "description": "A tabbed switcher between named child components.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1255,6 +1257,7 @@
           "type": "object"
         }
       ],
+      "description": "A run of text, plain or headed (h1-h5, caption, body).",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1300,6 +1303,7 @@
           "type": "object"
         }
       ],
+      "description": "A single- or multi-line text input.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1343,6 +1347,7 @@
           "type": "object"
         }
       ],
+      "description": "A short pitch with up to six labeled actions.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1387,6 +1392,7 @@
           "type": "object"
         }
       ],
+      "description": "A gated decision with one to four actions.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1428,6 +1434,7 @@
           "type": "object"
         }
       ],
+      "description": "A reference card for one registered artifact.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1466,6 +1473,7 @@
           "type": "object"
         }
       ],
+      "description": "A short flagged note distinct from plain text (info/warning/error severity).",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1485,14 +1493,13 @@
           },
           "properties": {
             "colorField": {
-              "maxLength": 128,
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/FieldName"
             },
             "component": {
               "const": "clio.chart.v1"
             },
             "data": {
+              "description": "Inline rows (at most 10000); use dataUri for more.",
               "items": {
                 "additionalProperties": {
                   "type": [
@@ -1508,21 +1515,19 @@
               "type": "array"
             },
             "dataQuery": {
-              "$ref": "#/$defs/ChartDataQuery"
+              "$ref": "#/$defs/DataQuery",
+              "description": "Server-side table query narrowing dataUri; ignored without it."
             },
             "dataUri": {
+              "description": "A registered artifact reference (artifact://...); never a raw path.",
               "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
               "type": "string"
             },
             "entityField": {
-              "maxLength": 128,
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/FieldName"
             },
             "facetField": {
-              "maxLength": 128,
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/FieldName"
             },
             "height": {
               "maximum": 2000,
@@ -1544,9 +1549,7 @@
               "description": "Bind to /selection/<key>; the bound value is a SelectionState ({field, values[], source?}, see $defs/SelectionState). Components bound to the same path share one selection."
             },
             "selectionField": {
-              "maxLength": 128,
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/FieldName"
             },
             "selectionParam": {
               "default": "sel",
@@ -1585,9 +1588,7 @@
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
             },
             "xField": {
-              "maxLength": 128,
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/FieldName"
             },
             "xType": {
               "enum": [
@@ -1598,9 +1599,7 @@
               "type": "string"
             },
             "yField": {
-              "maxLength": 128,
-              "minLength": 1,
-              "type": "string"
+              "$ref": "#/$defs/FieldName"
             }
           },
           "required": [
@@ -1808,7 +1807,7 @@
           }
         }
       ],
-      "description": "A Vega-Lite chart over inline rows (data) or an artifact (dataUri), from a preset or a guarded spec, with a selection bindable to /selection/<key>.",
+      "description": "Any chart over tabular rows: a preset or an Altair/Vega-Lite spec.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1823,10 +1822,16 @@
         {
           "properties": {
             "code": {
-              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Inline source; use dataUri instead for a referenced file."
             },
             "component": {
               "const": "clio.code.v1"
+            },
+            "dataUri": {
+              "description": "A registered artifact reference (artifact://...); never a raw path. Its file content is the source.",
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
             },
             "language": {
               "type": "string"
@@ -1837,12 +1842,37 @@
           },
           "required": [
             "component",
-            "code",
             "language"
           ],
           "type": "object"
+        },
+        {
+          "description": "Exactly one of code or dataUri is required.",
+          "oneOf": [
+            {
+              "not": {
+                "required": [
+                  "dataUri"
+                ]
+              },
+              "required": [
+                "code"
+              ]
+            },
+            {
+              "not": {
+                "required": [
+                  "code"
+                ]
+              },
+              "required": [
+                "dataUri"
+              ]
+            }
+          ]
         }
       ],
+      "description": "Syntax-highlighted source, inline or from a referenced file.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1855,11 +1885,17 @@
           "$ref": "#/$defs/CatalogComponentCommon"
         },
         {
+          "dependentRequired": {
+            "dataQuery": [
+              "dataUri"
+            ]
+          },
           "properties": {
             "action": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/Action"
             },
             "columns": {
+              "description": "Required with inline rows; optional with dataUri (defaults to the queried/dataset columns).",
               "items": {
                 "oneOf": [
                   {
@@ -1875,24 +1911,72 @@
             "component": {
               "const": "clio.data-table.v1"
             },
+            "dataQuery": {
+              "$ref": "#/$defs/DataQuery",
+              "description": "Server-side table query narrowing dataUri; ignored without it."
+            },
+            "dataUri": {
+              "description": "A registered artifact reference (artifact://...); never a raw path.",
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
             "rows": {
+              "description": "Inline rows; use dataUri instead for a registered dataset.",
               "items": {
                 "type": "object"
               },
               "type": "array"
             },
             "selection": {
-              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue"
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicValue",
+              "description": "Bind to /selection/<key>; the bound value is a SelectionState ({field, values[], source?}, see $defs/SelectionState). Components bound to the same path share one selection."
             }
           },
           "required": [
-            "component",
-            "columns",
-            "rows"
+            "component"
           ],
           "type": "object"
+        },
+        {
+          "description": "Exactly one of rows or dataUri is required.",
+          "oneOf": [
+            {
+              "not": {
+                "required": [
+                  "dataUri"
+                ]
+              },
+              "required": [
+                "rows"
+              ]
+            },
+            {
+              "not": {
+                "required": [
+                  "rows"
+                ]
+              },
+              "required": [
+                "dataUri"
+              ]
+            }
+          ]
+        },
+        {
+          "description": "columns is required alongside inline rows.",
+          "if": {
+            "required": [
+              "rows"
+            ]
+          },
+          "then": {
+            "required": [
+              "columns"
+            ]
+          }
         }
       ],
+      "description": "Tabular rows, inline or from a referenced dataset.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1912,8 +1996,14 @@
             "component": {
               "const": "clio.diff.v1"
             },
+            "dataUri": {
+              "description": "A registered artifact reference (artifact://...); never a raw path. Its file content is the diff text.",
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
             "diff": {
-              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Inline unified diff text; use dataUri instead for a referenced file."
             },
             "path": {
               "type": "string"
@@ -1924,12 +2014,37 @@
           },
           "required": [
             "component",
-            "path",
-            "diff"
+            "path"
           ],
           "type": "object"
+        },
+        {
+          "description": "Exactly one of diff or dataUri is required.",
+          "oneOf": [
+            {
+              "not": {
+                "required": [
+                  "dataUri"
+                ]
+              },
+              "required": [
+                "diff"
+              ]
+            },
+            {
+              "not": {
+                "required": [
+                  "diff"
+                ]
+              },
+              "required": [
+                "dataUri"
+              ]
+            }
+          ]
         }
       ],
+      "description": "A unified diff for one path, inline or from a referenced file.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1942,6 +2057,11 @@
           "$ref": "#/$defs/CatalogComponentCommon"
         },
         {
+          "dependentRequired": {
+            "dataQuery": [
+              "dataUri"
+            ]
+          },
           "properties": {
             "action": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/Action"
@@ -1949,10 +2069,44 @@
             "actionLabel": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
             },
+            "categoryField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Dataset column grouping points into categories."
+            },
             "component": {
               "const": "clio.map.v1"
             },
+            "dataQuery": {
+              "$ref": "#/$defs/DataQuery",
+              "description": "Server-side table query narrowing dataUri; ignored without it."
+            },
+            "dataUri": {
+              "description": "A registered artifact reference (artifact://...); never a raw path. Requires latitudeField/longitudeField/labelField; a referenced dataset is bounded by dataQuery/limit, not the inline point cap.",
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            "detailField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Dataset column holding each point's detail text."
+            },
+            "idField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Dataset column holding each point's stable id."
+            },
+            "labelField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Dataset column holding each point's label (required with dataUri)."
+            },
+            "latitudeField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Dataset column holding latitude (required with dataUri)."
+            },
+            "longitudeField": {
+              "$ref": "#/$defs/FieldName",
+              "description": "Dataset column holding longitude (required with dataUri)."
+            },
             "points": {
+              "description": "Inline points (at most 500); use dataUri for more.",
               "items": {
                 "$ref": "#/$defs/MapPoint"
               },
@@ -1973,13 +2127,52 @@
             }
           },
           "required": [
-            "component",
-            "points"
+            "component"
           ],
           "type": "object"
+        },
+        {
+          "description": "Exactly one of points or dataUri is required.",
+          "oneOf": [
+            {
+              "not": {
+                "required": [
+                  "dataUri"
+                ]
+              },
+              "required": [
+                "points"
+              ]
+            },
+            {
+              "not": {
+                "required": [
+                  "points"
+                ]
+              },
+              "required": [
+                "dataUri"
+              ]
+            }
+          ]
+        },
+        {
+          "description": "dataUri requires the point field names.",
+          "if": {
+            "required": [
+              "dataUri"
+            ]
+          },
+          "then": {
+            "required": [
+              "latitudeField",
+              "longitudeField",
+              "labelField"
+            ]
+          }
         }
       ],
-      "description": "Interactive bounded geospatial component.",
+      "description": "Points on an interactive map (stations, sites, epicenters).",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -1996,20 +2189,51 @@
             "component": {
               "const": "clio.mermaid.v1"
             },
+            "dataUri": {
+              "description": "A registered artifact reference (artifact://...); never a raw path. Its file content is the source.",
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
             "source": {
-              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
+              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString",
+              "description": "Inline diagram source; use dataUri instead for a referenced file."
             },
             "title": {
               "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
             }
           },
           "required": [
-            "component",
-            "source"
+            "component"
           ],
           "type": "object"
+        },
+        {
+          "description": "Exactly one of source or dataUri is required.",
+          "oneOf": [
+            {
+              "not": {
+                "required": [
+                  "dataUri"
+                ]
+              },
+              "required": [
+                "source"
+              ]
+            },
+            {
+              "not": {
+                "required": [
+                  "source"
+                ]
+              },
+              "required": [
+                "dataUri"
+              ]
+            }
+          ]
         }
       ],
+      "description": "A declarative Mermaid diagram, inline source or from a referenced file.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2074,6 +2298,7 @@
           "type": "object"
         }
       ],
+      "description": "An orbitable 3D view of one registered mesh artifact, colored by a field.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2114,6 +2339,7 @@
           "type": "object"
         }
       ],
+      "description": "One labeled number, optionally with a unit and trend.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2153,6 +2379,7 @@
           "type": "object"
         }
       ],
+      "description": "A bounded or indeterminate operation's progress.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2198,6 +2425,7 @@
           "type": "object"
         }
       ],
+      "description": "A fractional-step numeric control for a physical parameter, with a typed value box.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2235,95 +2463,7 @@
           "type": "object"
         }
       ],
-      "type": "object",
-      "unevaluatedProperties": false
-    },
-    "clio.time-series.v1": {
-      "allOf": [
-        {
-          "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/ComponentCommon"
-        },
-        {
-          "$ref": "#/$defs/CatalogComponentCommon"
-        },
-        {
-          "properties": {
-            "component": {
-              "const": "clio.time-series.v1"
-            },
-            "dataUri": {
-              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
-              "type": "string"
-            },
-            "series": {
-              "items": {
-                "additionalProperties": {
-                  "type": [
-                    "string",
-                    "number",
-                    "null"
-                  ]
-                },
-                "type": "object"
-              },
-              "maxItems": 10000,
-              "minItems": 1,
-              "type": "array"
-            },
-            "title": {
-              "$ref": "https://a2ui.org/specification/v0_9/common_types.json#/$defs/DynamicString"
-            },
-            "xKey": {
-              "minLength": 1,
-              "pattern": "\\S",
-              "type": "string"
-            },
-            "yKeys": {
-              "items": {
-                "minLength": 1,
-                "pattern": "\\S",
-                "type": "string"
-              },
-              "maxItems": 5,
-              "minItems": 1,
-              "type": "array",
-              "uniqueItems": true
-            }
-          },
-          "required": [
-            "component",
-            "xKey",
-            "yKeys"
-          ],
-          "type": "object"
-        },
-        {
-          "description": "Exactly one of series or dataUri is required.",
-          "oneOf": [
-            {
-              "not": {
-                "required": [
-                  "dataUri"
-                ]
-              },
-              "required": [
-                "series"
-              ]
-            },
-            {
-              "not": {
-                "required": [
-                  "series"
-                ]
-              },
-              "required": [
-                "dataUri"
-              ]
-            }
-          ]
-        }
-      ],
-      "description": "Inline or artifact-backed interactive time-series component.",
+      "description": "A single labeled state, e.g. a running step.",
       "type": "object",
       "unevaluatedProperties": false
     },
@@ -2343,7 +2483,13 @@
             "component": {
               "const": "clio.workflow.v1"
             },
+            "dataUri": {
+              "description": "A registered artifact reference (artifact://...); never a raw path. A JSON file shaped {\"nodes\": [...], \"edges\": [...]}}.",
+              "pattern": "^artifact://artifact_[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
             "edges": {
+              "description": "Inline edges, alongside nodes.",
               "items": {
                 "$ref": "#/$defs/WorkflowEdge"
               },
@@ -2351,6 +2497,7 @@
               "type": "array"
             },
             "nodes": {
+              "description": "Inline nodes; give edges too, or use dataUri instead of both.",
               "items": {
                 "$ref": "#/$defs/WorkflowNode"
               },
@@ -2363,19 +2510,52 @@
             }
           },
           "required": [
-            "component",
-            "nodes",
-            "edges"
+            "component"
           ],
           "type": "object"
+        },
+        {
+          "description": "Exactly one of nodes+edges or dataUri is required.",
+          "oneOf": [
+            {
+              "not": {
+                "required": [
+                  "dataUri"
+                ]
+              },
+              "required": [
+                "nodes",
+                "edges"
+              ]
+            },
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "nodes"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "edges"
+                    ]
+                  }
+                ]
+              },
+              "required": [
+                "dataUri"
+              ]
+            }
+          ]
         }
       ],
-      "description": "Bounded interactive workflow topology.",
+      "description": "A step/edge graph showing a multi-step plan's progress.",
       "type": "object",
       "unevaluatedProperties": false
     }
   },
-  "description": "The 33 CLIO scientific-agent A2UI 0.9.1 components, in official catalog-file style.",
+  "description": "The 32 CLIO scientific-agent A2UI 0.9.1 components, in official catalog-file style.",
   "functions": {
     "and": {
       "description": "Performs a logical AND operation on a list of boolean values.",
