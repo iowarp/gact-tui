@@ -14,6 +14,8 @@ UI aren't tracked.
   icons when space is tight so titles stay readable.
 - Maps are taller and no longer list every location beside them; the list opens
   from the map's List button, and a selection shows as a count on the map.
+- A turn's Activity folds away as soon as the answer starts, like a finished
+  thinking step; earlier turns open folded. Open it again any time.
 
 ### Added
 
@@ -22,6 +24,8 @@ UI aren't tracked.
 ### Fixed
 
 - A map opened full screen could show no points.
+- Scrolling up in a conversation no longer jumps back to the bottom a moment
+  later, whether the agent is still working or the turn has ended.
 
 ## [0.11.2.24] — 2026-09-30
 
