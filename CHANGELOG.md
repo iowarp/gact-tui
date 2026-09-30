@@ -20,6 +20,11 @@ UI aren't tracked.
   different install root or version no longer stops it silently. The dialog
   now shows the version found running and asks "Connect to the running CLIO
   (vX)" or "Replace it" before doing either (iowarp/clio-agent#1528).
+- Maps in agent-built views show the geography again in the desktop app.
+  The desktop's security policy blocked the OpenStreetMap tiles, so only the
+  markers appeared over a blank background; the tile server is now allowed.
+  The web app was not affected. Showing a map sends the visible area to
+  OpenStreetMap's tile servers.
 
 ## [0.11.2.23] — 2026-09-29
 
