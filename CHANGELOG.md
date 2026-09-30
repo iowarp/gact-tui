@@ -6,6 +6,33 @@ UI aren't tracked.
 
 ## Unreleased
 
+## [0.11.2.24] — 2026-09-30
+
+### Added
+
+- Agent-built views can chart anything. Charts are drawn with a single
+  Altair / Vega-Lite layer: the agent picks a preset (trajectories, spectra,
+  scatter, box plot, heatmap) or writes its own chart, instead of the old
+  limited time series.
+- Maps, tables and charts can show a whole dataset. The agent points them
+  at a file in the workspace instead of copying values into the view, so
+  nothing is cut short.
+- Charts, maps and tables that show the same dataset are linked: select
+  points in one and the others highlight the same rows.
+- You can explore the data yourself: filter any chart, map or table column,
+  zoom or brush a range on a chart (it reloads that range in full detail),
+  drag a rectangle on a map, and page, sort and filter tables of any size
+  (choose how many rows per page).
+- Reference this: select a zone in a chart, map or table and add it to your
+  message, then write your feedback. The agent gets exactly which data you
+  selected and can look at it again.
+
+### Changed
+
+- The old time series chart is gone; charts use the new layer. A
+  conversation that still contains one shows a short note asking the agent
+  to redraw it.
+
 ### Fixed
 
 - Connecting to a saved remote CLIO failed with "The CLIO-owned SSH target no
