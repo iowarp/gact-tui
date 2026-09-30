@@ -47,6 +47,7 @@ func isCacheablePartType(partType string) bool {
 		gact.PartTypeSubagentCall,
 		gact.PartTypeSubagentResult,
 		gact.PartTypeCompaction,
+		gact.PartTypeInjection,
 		gact.PartTypeError,
 		partTypeRuntimeProvenance:
 		return true

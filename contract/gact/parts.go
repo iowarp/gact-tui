@@ -22,6 +22,9 @@ const (
 	PartTypeExpertHandoff    = "expert_handoff"
 	PartTypeAgentQuestion    = "agent_question"
 	PartTypeRetryAttempt     = "retry_attempt"
+	// PartTypeInjection is data CLIO (the harness) put into the agent's context:
+	// Source names what it is, Text is exactly what the agent got.
+	PartTypeInjection = "injection"
 )
 
 // Part is a single content block within a Message (SPEC §4.5).

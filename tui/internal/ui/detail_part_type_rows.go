@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JaimeCernuda/gact-tui/contract/gact"
+	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/render"
 	"github.com/JaimeCernuda/gact-tui/tui/internal/ui/valuefmt"
 )
 
@@ -69,6 +70,13 @@ func partTypeDetailRows(p gact.Part) ([]string, string) {
 		if p.Message != "" {
 			rows = append(rows, detailFieldRows("message", p.Message)...)
 		}
+	case gact.PartTypeInjection:
+		rows = append(rows, detailFieldRows("given by CLIO", render.InjectionLabel(render.InjectionSource(p)))...)
+		rows = append(rows, detailFieldRows("source", orPlaceholder(render.InjectionSource(p), "unknown"))...)
+		if call := valuefmt.StringValue(p.Metadata["call_id"]); call != "" {
+			rows = append(rows, detailFieldRows("tool call", call)...)
+		}
+		rows = append(rows, detailFieldRows("exactly what the agent got", p.Text)...)
 	case gact.PartTypeCompaction:
 		rows = append(rows, detailFieldRows("auto", fmt.Sprintf("%v", p.Auto))...)
 		if p.Summary != "" {

@@ -243,3 +243,52 @@ func TestRenderPart_ThinkingUsesContinuationGlyph(t *testing.T) {
 		t.Errorf("thinking body should be hidden inline: %q", plain)
 	}
 }
+
+func injectionPart(source, text string) gact.Part {
+	return gact.Part{
+		ID:       "inj_1",
+		Type:     gact.PartTypeInjection,
+		Source:   source,
+		Text:     text,
+		Metadata: map[string]any{"actor": "algorithm", "call_id": "call_7"},
+	}
+}
+
+func TestInjectionRendersWhatTheHarnessGaveTheAgent(t *testing.T) {
+	theme := DefaultTheme()
+	part := injectionPart("result_spilled", "[clio: result_spilled] This result is 90,000 characters…")
+
+	out := ansi.Strip(theme.renderPart(part, 60))
+	if !strings.Contains(out, "💉") || !strings.Contains(out, "CLIO gave the agent: Large result saved to a file") {
+		t.Fatalf("injection should name what the agent got behind a syringe, got %q", out)
+	}
+	if strings.Contains(out, "90,000") {
+		t.Fatalf("the transcript row is collapsed; the exact text lives in the detail view: %q", out)
+	}
+	if !strings.Contains(out, "Ctrl+E") {
+		t.Fatalf("the row should advertise the detail view: %q", out)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if w := ansi.StringWidth(line); w > 60 {
+			t.Fatalf("line wider than the wrap width (%d > 60): %q", w, line)
+		}
+	}
+}
+
+func TestInjectionUnknownSourceIsHumanized(t *testing.T) {
+	out := ansi.Strip(DefaultTheme().renderPart(injectionPart("earlier_turns", "x"), 60))
+	if !strings.Contains(out, "CLIO gave the agent: Earlier turns") {
+		t.Fatalf("an unlisted source should read as words, got %q", out)
+	}
+}
+
+func TestInjectionDetailShowsTheExactText(t *testing.T) {
+	text := "[clio: path_hint]\nargument 'path': 'a.csv' does not exist. Did you mean 'data/a.csv'?"
+	detail, _ := partTypeDetailRows(injectionPart("path_hint", text))
+	rows := strings.Join(detail, "\n")
+	for _, want := range []string{"path_hint", "call_7", "Did you mean 'data/a.csv'?"} {
+		if !strings.Contains(rows, want) {
+			t.Fatalf("detail should carry %q, got %q", want, rows)
+		}
+	}
+}
