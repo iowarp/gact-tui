@@ -213,17 +213,18 @@ export function DeployClioDialog({
           ) : null}
 
           {remote.conflict ? (
-            <div className="grid gap-3 rounded-xl border bg-card p-4">
+            <div className="grid gap-3 rounded-xl border bg-card p-4" role="alert" aria-live="assertive">
               <p className="text-sm">
                 {remote.conflict.health === 'healthy' ? (
                   <>
                     {vocab.agent} {remote.conflict.installedVersion} is already running on{' '}
-                    {host?.label ?? 'this host'} (pid {remote.conflict.pid}).
+                    {host?.label ?? 'this host'}
+                    {remote.conflict.pid ? ` (pid ${remote.conflict.pid})` : ''}.
                   </>
                 ) : (
                   <>
-                    {vocab.agent} on {host?.label ?? 'this host'} isn&apos;t answering (pid{' '}
-                    {remote.conflict.pid}) &mdash; Replace it?
+                    {vocab.agent} on {host?.label ?? 'this host'} isn&apos;t answering
+                    {remote.conflict.pid ? ` (pid ${remote.conflict.pid})` : ''} &mdash; Replace it?
                   </>
                 )}
               </p>
