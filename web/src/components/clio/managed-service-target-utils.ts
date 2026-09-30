@@ -92,8 +92,13 @@ export class VersionConflictError extends Error {
   constructor(
     public readonly installedVersion: string,
     public readonly pid: string,
+    public readonly health: 'healthy' | 'unresponsive' | 'unknown' = 'unknown',
   ) {
-    super(`${vocab.agent} ${installedVersion} is already running (pid ${pid}).`);
+    super(
+      health === 'healthy'
+        ? `${vocab.agent} ${installedVersion} is already running (pid ${pid}).`
+        : `A ${vocab.agent}-looking process (pid ${pid}) is on the port but isn't answering.`,
+    );
     this.name = 'VersionConflictError';
   }
 }
@@ -114,6 +119,7 @@ export async function waitForOperation(
         throw new VersionConflictError(
           operation.conflict.installed_version,
           operation.conflict.pid,
+          operation.conflict.health,
         );
       }
       throw new Error(operation.error || operation.progress || `${operation.action} failed.`);

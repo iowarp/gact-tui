@@ -243,7 +243,7 @@ describe('DeployClioDialog found-CLIO conflict', () => {
       ...runningOperation,
       state: 'failed',
       error: 'clio_deploy_version_conflict',
-      conflict: { installed_version: '0.9.4.1', pid: '321' },
+      conflict: { installed_version: '0.9.4.1', pid: '321', health: 'healthy' },
     });
 
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
@@ -271,22 +271,64 @@ describe('DeployClioDialog found-CLIO conflict', () => {
 
   it('re-issues the install with "replace" when the person chooses to replace a found CLIO', async () => {
     const user = userEvent.setup();
-    renderDialog();
+    const onReady = renderDialog();
     await chooseRemoteHost(user);
     mocks.runManagedServiceAction
       .mockResolvedValueOnce({ ...runningOperation, state: 'running' })
-      .mockResolvedValueOnce({ ...runningOperation, id: 'operation-2', state: 'running' });
-    mocks.infrastructureOperation
-      .mockResolvedValueOnce({
-        ...runningOperation,
-        state: 'failed',
-        error: 'clio_deploy_version_conflict',
-        conflict: { installed_version: '0.9.4.1', pid: '321' },
-      })
-      .mockResolvedValue({ ...runningOperation, id: 'operation-2', state: 'running' });
+      // Terminal on its own first answer: no further polling, so nothing is
+      // left running past this test (a "running" default here would keep
+      // `waitForOperation` polling forever and leak into the next test).
+      .mockResolvedValueOnce({ ...runningOperation, id: 'operation-2', state: 'succeeded' });
+    mocks.infrastructureOperation.mockResolvedValueOnce({
+      ...runningOperation,
+      state: 'failed',
+      error: 'clio_deploy_version_conflict',
+      conflict: { installed_version: '0.9.4.1', pid: '321', health: 'healthy' },
+    });
 
     await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
     await screen.findByText((_, element) => isConflictText(element), {}, { timeout: 5000 });
+    await user.click(screen.getByRole('button', { name: 'Replace it' }));
+
+    await waitFor(() => expect(onReady).toHaveBeenCalled());
+    expect(mocks.runManagedServiceAction).toHaveBeenLastCalledWith('clio_agent', {
+      target_id: 'target-homelab',
+      action: 'install',
+      variant_id: 'released',
+      configuration: { on_conflict: 'replace' },
+    });
+  });
+
+  it('offers only Replace, with "isn\'t answering" wording, for an unresponsive found CLIO (#1528 review)', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+    await chooseRemoteHost(user);
+    mocks.runManagedServiceAction.mockResolvedValueOnce({ ...runningOperation, state: 'running' });
+    mocks.infrastructureOperation.mockResolvedValueOnce({
+      ...runningOperation,
+      state: 'failed',
+      error: 'clio_deploy_version_conflict',
+      conflict: { installed_version: 'unknown', pid: '321', health: 'unresponsive' },
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Deploy and connect' }));
+
+    expect(
+      await screen.findByText(
+        (_, element) =>
+          element?.textContent ===
+          `${vocab.agent} on homelab isn't answering (pid 321) — Replace it?`,
+        {},
+        { timeout: 8000 },
+      ),
+    ).toBeVisible();
+    // Connecting to something that never answered makes no sense: only
+    // Replace is offered, never Connect (#1528 review).
+    expect(
+      screen.queryByRole('button', { name: /Connect to the running/u }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Replace it' })).toBeVisible();
+
     await user.click(screen.getByRole('button', { name: 'Replace it' }));
 
     await waitFor(() =>
@@ -297,5 +339,5 @@ describe('DeployClioDialog found-CLIO conflict', () => {
         configuration: { on_conflict: 'replace' },
       }),
     );
-  });
+  }, 15_000);
 });

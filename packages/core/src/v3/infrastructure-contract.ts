@@ -177,6 +177,10 @@ export const managedServiceCatalogSchema = z.object({
 export const versionConflictDetailSchema = z.object({
   installed_version: z.string(),
   pid: z.string(),
+  // "healthy" answered its own health check; "unresponsive"/"unknown" did
+  // not (or could not be asked) -- never, on its own, a reason it was
+  // stopped. A `"connect"` answer only makes sense when `"healthy"`.
+  health: z.enum(['healthy', 'unresponsive', 'unknown']).default('unknown'),
 });
 
 export const infrastructureOperationSchema = z.object({

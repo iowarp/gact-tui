@@ -34,7 +34,11 @@ import {
 export type RemoteDeploymentPhase = 'idle' | 'running' | 'cancelling' | 'failed' | 'cancelled';
 
 /** A healthy CLIO the claim step found running, awaiting "Connect" or "Replace". */
-export type FoundConflict = { installedVersion: string; pid: string };
+export type FoundConflict = {
+  installedVersion: string;
+  pid: string;
+  health: 'healthy' | 'unresponsive' | 'unknown';
+};
 
 export type RemoteDeployment = {
   phase: RemoteDeploymentPhase;
@@ -142,7 +146,11 @@ export function useRemoteDeployment(
           return await waitForOperation(repository, started, signal);
         } catch (error) {
           if (!(error instanceof VersionConflictError)) throw error;
-          setConflict({ installedVersion: error.installedVersion, pid: error.pid });
+          setConflict({
+            installedVersion: error.installedVersion,
+            pid: error.pid,
+            health: error.health,
+          });
           const choice = await new Promise<'connect' | 'replace' | 'cancelled'>((resolve) => {
             if (signal.aborted) {
               resolve('cancelled');
