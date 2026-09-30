@@ -788,6 +788,7 @@ const server = createServer(async (request, response) => {
     permissionPending = true;
     questionPending = true;
     mcpV2UiDemo = false;
+    a2uiMapDemo = false;
     attachmentsEnabled = false;
     mcpAppGeneration = 1;
     mcpAppToolCalls = 0;
