@@ -175,6 +175,26 @@ const compactionMessageBlockSchema = additivelyTolerant(
     })
     .strict(),
 );
+/**
+ * Harness data the agent was given: CLIO's own additions (plan reminder, todos,
+ * task results, ...) and notes on a tool call (a path hint, a circuit-breaker
+ * warning, an oversize result's file). `text` is exactly what the agent received.
+ */
+const injectionMessageBlockSchema = additivelyTolerant(
+  z
+    .object({
+      id: z.string(),
+      type: z.literal('injection'),
+      source: z.string(),
+      text: z.string(),
+      call_id: z.string().optional(),
+      agent_id: z.string().optional(),
+      sequence: z.number().int().positive().optional(),
+      stream_source: z.string().optional(),
+      channel: z.string().optional(),
+    })
+    .strict(),
+);
 const unknownMessageBlockSchema = z
   .object({
     id: z.string(),
@@ -208,6 +228,7 @@ export const messageBlockSchema = z.union([
   subagentMessageBlockSchema,
   agentMessageBlockSchema,
   compactionMessageBlockSchema,
+  injectionMessageBlockSchema,
   knownMessageBlockSchema,
   additiveKnownMessageBlockSchema,
   unknownMessageBlockSchema,

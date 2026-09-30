@@ -38,6 +38,14 @@ export type MessageBlock = MessageBlockContext &
         summary: string;
         auto?: boolean;
       }
+    | {
+        /** Harness data the agent was given (plan reminder, todos, a path hint, ...). */
+        id: string;
+        type: 'injection';
+        source: string;
+        text: string;
+        call_id?: string;
+      }
     | { id: string; type: 'task'; task_id: string }
     | { id: string; type: 'subagent'; subagent_id: string; stage?: string; task?: string }
     | {

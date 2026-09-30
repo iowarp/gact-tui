@@ -12,6 +12,7 @@ import {
   PackageOpenIcon,
   PanelsTopLeftIcon,
   RouteIcon,
+  SyringeIcon,
 } from 'lucide-react';
 import { createElement, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
@@ -48,6 +49,7 @@ import { ClioStreamingText } from './streaming-text';
 import { TranscriptResourceAttachments } from './transcript-resource-attachment';
 import { GroundedMessageResponse } from './grounded-message-response';
 import { toolOutputDiffKey } from './declared-diff-key';
+import { vocab } from '@/lib/brand-vocabulary';
 
 type ResourceBlock = Extract<MessageBlock, { type: 'resource' }>;
 
@@ -198,6 +200,8 @@ function MessageBlockView({
       );
     case 'compaction':
       return <CompactionSummary block={block} />;
+    case 'injection':
+      return <HarnessInjection block={block} />;
     case 'artifact': {
       const artifact = artifacts[block.artifact_id];
       return artifact ? (
@@ -384,6 +388,53 @@ function MessageBlockView({
         </Alert>
       );
   }
+}
+
+type InjectionBlock = Extract<MessageBlock, { type: 'injection' }>;
+
+const INJECTION_LABELS: Record<string, string> = {
+  todos: 'Todo list',
+  plan_mode: 'Plan reminder',
+  replan: 'Replanning suggestion',
+  memory_search: 'Memory search results',
+  task_results: 'Results from background tasks',
+  path_hint: 'Path suggestion',
+  circuit_breaker: 'Repeated-failure warning',
+  result_spilled: 'Large result saved to a file',
+  hook: 'Hook',
+};
+
+/**
+ * Harness data the agent was given (a syringe: CLIO put this into the agent's
+ * context). Collapsed to what it is; expanded to exactly the text the agent got,
+ * so the user sees the same thing the agent saw.
+ */
+function HarnessInjection({ block }: { block: InjectionBlock }) {
+  const [expanded, setExpanded] = useState(false);
+  const label = INJECTION_LABELS[block.source] ?? humanizeProtocolValue(block.source);
+  return (
+    <section className="min-w-0 max-w-full" data-slot="harness-injection">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-muted-foreground">
+        <SyringeIcon aria-hidden="true" className="size-4 shrink-0" />
+        <span>
+          {vocab.product} gave the agent: {label}
+        </span>
+        <button
+          aria-expanded={expanded}
+          className="text-xs font-medium text-primary underline-offset-2 hover:text-primary/80 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          onClick={() => setExpanded((value) => !value)}
+          type="button"
+        >
+          {expanded ? 'Hide' : 'Show what it got'}
+        </button>
+      </div>
+      {expanded ? (
+        <pre className="mt-2 min-w-0 max-w-full whitespace-pre-wrap break-words rounded-md bg-muted p-2 text-xs leading-5">
+          {block.text}
+        </pre>
+      ) : null}
+    </section>
+  );
 }
 
 type CompactionBlock = Extract<MessageBlock, { type: 'compaction' }>;

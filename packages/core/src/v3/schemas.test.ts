@@ -126,6 +126,25 @@ describe('forward-compatible wire enums', () => {
     ).toBe('unknown');
   });
 
+  it('reads an injection block: what the harness gave the agent, verbatim', () => {
+    expect(
+      messageBlockSchema.parse({
+        id: 'inj_1',
+        type: 'injection',
+        source: 'path_hint',
+        text: "[clio: path_hint]\nargument 'path': 'a.csv' does not exist.",
+        call_id: 'call_1',
+        agent_id: 'main',
+      }),
+    ).toMatchObject({
+      id: 'inj_1',
+      type: 'injection',
+      source: 'path_hint',
+      text: "[clio: path_hint]\nargument 'path': 'a.csv' does not exist.",
+      call_id: 'call_1',
+    });
+  });
+
   it('degrades a malformed known block without disguising what the service sent', () => {
     expect(messageBlockSchema.parse({ id: 'block_1', type: 'text' })).toEqual({
       id: 'block_1',
