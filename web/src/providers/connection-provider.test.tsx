@@ -15,8 +15,11 @@ const mocks = vi.hoisted(() => ({
   closeInfrastructureSshTransport: vi.fn(),
   createRepository: vi.fn(),
   infrastructureTargets: vi.fn(),
+  createInfrastructureTarget: vi.fn(),
   setInfrastructureTransportState: vi.fn(),
   managedServiceCatalog: vi.fn(),
+  runManagedServiceAction: vi.fn(),
+  infrastructureOperation: vi.fn(),
 }));
 
 vi.mock('@/lib/transport/tauri-runtime', () => ({ inTauri: mocks.inTauri }));
@@ -50,6 +53,8 @@ function ConnectionState() {
   const { credentialsReady, credentialError, recents, settings } = context;
   const [resolvedToken, setResolvedToken] = useState('not-resolved');
   const [resolvedEndpoint, setResolvedEndpoint] = useState('not-resolved');
+  const [resolvedTargetId, setResolvedTargetId] = useState('not-resolved');
+  const [resolveError, setResolveError] = useState('none');
   const [connectCount, setConnectCount] = useState(0);
   return (
     <div>
@@ -74,12 +79,21 @@ function ConnectionState() {
       <output aria-label="recent count">{recents.length}</output>
       <output aria-label="resolved token">{resolvedToken}</output>
       <output aria-label="resolved endpoint">{resolvedEndpoint}</output>
+      <output aria-label="resolved target id">{resolvedTargetId}</output>
+      <output aria-label="resolve error">{resolveError}</output>
       <button
         onClick={() =>
-          void context.resolveConnection(settings).then((resolved) => {
-            setResolvedToken(resolved.token ?? 'none');
-            setResolvedEndpoint(resolved.endpoint);
-          })
+          void context
+            .resolveConnection(settings)
+            .then((resolved) => {
+              setResolvedToken(resolved.token ?? 'none');
+              setResolvedEndpoint(resolved.endpoint);
+              setResolvedTargetId(resolved.infrastructure?.targetId ?? 'none');
+              setResolveError('none');
+            })
+            .catch((error: unknown) => {
+              setResolveError(error instanceof Error ? error.name : String(error));
+            })
         }
         type="button"
       >
@@ -119,16 +133,22 @@ describe('connection provider credentials', () => {
     mocks.closeInfrastructureSshTransport.mockReset();
     mocks.createRepository.mockReset();
     mocks.infrastructureTargets.mockReset();
+    mocks.createInfrastructureTarget.mockReset();
     mocks.setInfrastructureTransportState.mockReset();
     mocks.managedServiceCatalog.mockReset();
+    mocks.runManagedServiceAction.mockReset();
+    mocks.infrastructureOperation.mockReset();
     mocks.finishInstallerInfrastructure.mockResolvedValue(undefined);
     mocks.recoverInfrastructureSshTransports.mockResolvedValue(undefined);
     mocks.closeInfrastructureSshTransport.mockResolvedValue(undefined);
     mocks.setInfrastructureTransportState.mockResolvedValue(undefined);
     mocks.createRepository.mockReturnValue({
       infrastructureTargets: mocks.infrastructureTargets,
+      createInfrastructureTarget: mocks.createInfrastructureTarget,
       setInfrastructureTransportState: mocks.setInfrastructureTransportState,
       managedServiceCatalog: mocks.managedServiceCatalog,
+      runManagedServiceAction: mocks.runManagedServiceAction,
+      infrastructureOperation: mocks.infrastructureOperation,
     });
   });
 
@@ -239,6 +259,42 @@ describe('connection provider credentials', () => {
     });
     expect(mocks.attachInfrastructureSshTransport).toHaveBeenCalledTimes(2);
     expect(mocks.setInfrastructureTransportState).toHaveBeenCalledWith('homelab', 'connected');
+  });
+
+  it('fails with a typed, plain reason (not "no longer exists") when a target is gone and unrebuildable', async () => {
+    // No `route` was saved (a connection remembered before this fix shipped,
+    // or one whose target was never an SSH host) -- nothing to rebuild from.
+    localStorage.setItem(
+      'clio.recent-connections',
+      JSON.stringify([
+        {
+          endpoint: 'http://127.0.0.1:43123',
+          label: 'Ares lab',
+          infrastructure: { targetId: 'gone-target', serviceId: 'clio_agent' },
+        },
+      ]),
+    );
+    mocks.inTauri.mockReturnValue(false);
+    mocks.waitForManagedBackend.mockResolvedValue({
+      url: 'http://127.0.0.1:17800',
+      bearer_token: 'controller-token',
+    });
+    mocks.infrastructureTargets.mockResolvedValue([]);
+
+    render(
+      <ConnectionProvider>
+        <ConnectionState />
+      </ConnectionProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve active connection' }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('resolve error')).toHaveTextContent(
+        'InfrastructureTargetGoneError',
+      );
+    });
+    expect(mocks.createInfrastructureTarget).not.toHaveBeenCalled();
+    expect(screen.getByLabelText('resolved endpoint')).toHaveTextContent('not-resolved');
   });
 
   it('shows the OpenSSH prompt while a remembered target needs reauthentication', async () => {
