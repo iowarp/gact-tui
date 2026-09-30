@@ -4,8 +4,6 @@ import {
   A2UI_MAP_POINT_DETAIL_MAX_CHARS,
   A2UI_MAP_POINT_ID_MAX_CHARS,
   A2UI_MAP_POINT_LABEL_MAX_CHARS,
-  A2UI_TIME_SERIES_ROWS_MAX,
-  A2UI_TIME_SERIES_Y_KEYS_MAX,
   A2UI_WORKFLOW_EDGES_MAX,
   A2UI_WORKFLOW_NODES_MAX,
 } from '@clio/core/v3';
@@ -53,12 +51,6 @@ describe('A2UI CLIO workspace catalog caps', () => {
     expect(point.label?.maxLength).toBe(A2UI_MAP_POINT_LABEL_MAX_CHARS);
     expect(point.detail?.maxLength).toBe(A2UI_MAP_POINT_DETAIL_MAX_CHARS);
     expect(point.category?.maxLength).toBe(A2UI_MAP_POINT_CATEGORY_MAX_CHARS);
-  });
-
-  it('states the time-series caps the vendored catalog file enforces', () => {
-    const timeSeries = componentSchema('clio.time-series.v1');
-    expect(timeSeries.properties.series?.maxItems).toBe(A2UI_TIME_SERIES_ROWS_MAX);
-    expect(timeSeries.properties.yKeys?.maxItems).toBe(A2UI_TIME_SERIES_Y_KEYS_MAX);
   });
 
   it('states the workflow caps the vendored catalog file enforces', () => {

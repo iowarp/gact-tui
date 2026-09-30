@@ -4,6 +4,7 @@ import { createElement, lazy, Suspense } from 'react';
 import { z } from 'zod';
 import guardRules from './chart-assets/guard_rules.json';
 import type { ChartDataQuery, ChartRow } from './chart-data';
+import { dataQuerySchema, fieldNameSchema } from './data-query-schema';
 import type { SelectionWriter } from './selection-state';
 
 // vega, vega-lite and vega-embed are only fetched once a surface contains a chart.
@@ -11,86 +12,10 @@ const LazyChart = lazy(() =>
   import('./a2ui-chart').then((module) => ({ default: module.ClioChart })),
 );
 
-const fieldName = z.string().min(1).max(128);
-const distinct = (values: readonly unknown[]) =>
-  new Set(values.map((value) => JSON.stringify(value))).size === values.length;
-const queryScalar = z.union([z.string(), z.number(), z.boolean()]);
-
-/**
- * `$defs/ChartQueryFilter`: one predicate whose `value` rule depends on `op`
- * (the catalog's per-op `if/then` branches).
- */
-const chartQueryFilterSchema = z
-  .object({
-    column: fieldName,
-    op: z.enum(['eq', 'in', 'range', 'isnull']),
-    value: z.unknown().optional(),
-  })
-  .strict()
-  .superRefine(({ op, value }, context) => {
-    const valueRule = {
-      eq: queryScalar,
-      in: z.array(queryScalar).min(1).max(10_000),
-      range: z.tuple([queryScalar.nullable(), queryScalar.nullable()]),
-      isnull: z.boolean().nullable().optional(),
-    }[op];
-    if (!valueRule.safeParse(value).success) {
-      context.addIssue({ code: 'custom', path: ['value'], message: `Not a valid ${op} value` });
-    }
-  });
-
-/** `$defs/ChartQueryAggregate`; a metric's output column is `{column}_{fn}`. */
-const chartQueryAggregateSchema = z
-  .object({
-    groupBy: z.array(fieldName).max(64).refine(distinct, 'groupBy repeats a column').optional(),
-    metrics: z
-      .array(
-        z
-          .object({
-            column: fieldName,
-            fn: z.enum(['mean', 'min', 'max', 'count', 'sum', 'median']),
-          })
-          .strict(),
-      )
-      .min(1)
-      .max(64)
-      .refine(distinct, 'metrics repeat'),
-  })
-  .strict()
-  .refine(
-    ({ groupBy = [], metrics }) =>
-      !metrics.some(({ column, fn }) => groupBy.includes(`${column}_${fn}`)),
-    'A metric output name repeats a groupBy column',
-  );
-
-/** `$defs/ChartQueryDownsample`. */
-const chartQueryDownsampleSchema = z
-  .object({
-    mode: z.enum(['none', 'stride', 'per_entity_lttb']).optional(),
-    entityColumn: fieldName.optional(),
-    x: fieldName.optional(),
-    y: fieldName.optional(),
-    maxPerEntity: z.number().int().min(1).max(2_000).optional(),
-  })
-  .strict()
-  .refine(
-    ({ mode, x, y }) => mode !== 'per_entity_lttb' || (x !== undefined && y !== undefined),
-    'per_entity_lttb needs x and y',
-  );
-
-/**
- * `$defs/ChartDataQuery`: the table-query server's request model (without
- * `format`), closed at every level, so a query that parses here is sent as is.
- */
-const chartDataQuerySchema = z
-  .object({
-    columns: z.array(fieldName).min(1).max(64).refine(distinct, 'columns repeat').optional(),
-    filter: z.array(chartQueryFilterSchema).max(64).optional(),
-    aggregate: chartQueryAggregateSchema.optional(),
-    downsample: chartQueryDownsampleSchema.optional(),
-    limit: z.number().int().min(1).max(50_000).optional(),
-  })
-  .strict();
+const fieldName = fieldNameSchema;
+// `$defs/DataQuery` (`data-query-schema.ts`): shared verbatim by
+// clio.chart.v1, clio.map.v1, and clio.data-table.v1 — never redefined here.
+const chartDataQuerySchema = dataQuerySchema;
 
 const allowedTopLevelKeys = new Set<string>(guardRules.allowedTopLevelKeys);
 const PRESET_NAMES = guardRules.presets as [string, ...string[]];

@@ -232,6 +232,44 @@ describe('buildExecutionProvenanceGraph', () => {
     );
   });
 
+  it('renders a combined provider edge kind as a readable list, not a raw "|"-joined string', () => {
+    // A provider can report several relation tags joined with "|" on one edge
+    // (e.g. a combined read+write data-flow edge) — meaningful as data, but
+    // `|` reads as field-separator clutter on a rendered graph edge (#1533 LOW).
+    const graph = buildExecutionProvenanceGraph(
+      {
+        schema_version: 'clio.execution_provenance.v1',
+        provider: 'flowcept',
+        session_id: 'sess_1',
+        complete: false,
+        truncated: false,
+        provider_health: {},
+        campaigns: [],
+        workflows: [],
+        agents: [],
+        spans: [],
+        nodes: [
+          {
+            id: 'tool_1',
+            kind: 'tool',
+            label: 'Stage resource',
+            status: 'completed',
+            session_id: 'sess_1',
+            agent_id: 'main',
+            start_time: 1,
+            end_time: 2,
+            attributes: {},
+          },
+        ],
+        edges: [{ id: 'edge_1', source: 'tool_1', target: 'artifact_missing', kind: 'reads|writes' }],
+      },
+      'LR',
+    );
+
+    expect(graph.edges[0]).toMatchObject({ label: 'reads, writes' });
+    expect(graph.edges[0]!.label).not.toContain('|');
+  });
+
   it('preserves child owner and task navigation identity on projected nodes', () => {
     const graph = buildExecutionProvenanceGraph(
       {

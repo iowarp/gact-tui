@@ -22,6 +22,21 @@ vi.mock('@/providers/connection-provider', () => ({
 vi.mock('@/components/clio/scientific-map-view', () => ({
   ClioScientificMapView: () => <div data-testid="map-canvas" />,
 }));
+// See a2ui-map-data-source.test.tsx for why the map's side-list virtualizer
+// is stubbed to render every row in tests (jsdom never resolves a real
+// scroll-container height).
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getTotalSize: () => count * 56,
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        size: 56,
+        start: index * 56,
+      })),
+  }),
+}));
 vi.mock('vega-embed', async (importOriginal) => {
   const original = await importOriginal<typeof import('vega-embed')>();
   return {
@@ -49,11 +64,17 @@ const catalog = new Catalog(
   [...KERNEL_COMPONENTS.values()],
   [...KERNEL_FUNCTIONS.values()],
 );
+// The chart/table/map are all bound to one `/selection/runs` path, so — the
+// actual protocol invariant a producer must uphold — they all declare the
+// SAME `selectionField` name ("id"): an inline-points map (no `dataUri`) can
+// only ever select by id/label/category (`isSelectablePointField`), so a
+// producer wanting a chart or table to link with it authors that field name
+// throughout, not a differently-named column that happens to share values.
 const ROWS = [
-  { t: 0, v: 1.5, run: 'a' },
-  { t: 1, v: 1.2, run: 'a' },
-  { t: 0, v: 2.0, run: 'b' },
-  { t: 1, v: 2.4, run: 'b' },
+  { t: 0, v: 1.5, id: 'a' },
+  { t: 1, v: 1.2, id: 'a' },
+  { t: 0, v: 2.0, id: 'b' },
+  { t: 1, v: 2.4, id: 'b' },
 ];
 
 /** More components for the surface: `rootChildren` are added under the root column. */
@@ -87,7 +108,7 @@ function buildSurface(extra: ExtraComponents = NO_EXTRA) {
             preset: 'scatter',
             xField: 't',
             yField: 'v',
-            entityField: 'run',
+            entityField: 'id',
             data: ROWS,
             selection: { path: '/selection/runs' },
             title: 'Runs',
@@ -95,9 +116,10 @@ function buildSurface(extra: ExtraComponents = NO_EXTRA) {
           {
             id: 'table',
             component: 'clio.data-table.v1',
-            columns: ['run', 't', 'v'],
+            columns: ['id', 't', 'v'],
             rows: ROWS,
             selection: { path: '/selection/runs' },
+            selectionField: 'id',
           },
           {
             id: 'map',
@@ -107,6 +129,7 @@ function buildSurface(extra: ExtraComponents = NO_EXTRA) {
               { id: 'b', label: 'Run B', latitude: 40.7, longitude: -74.0 },
             ],
             selection: { path: '/selection/runs' },
+            selectionField: 'id',
           },
         ],
       },
@@ -135,7 +158,7 @@ async function chartView(): Promise<View> {
   return view;
 }
 
-function tableRow(run: string, t: number): HTMLElement {
+function tableRow(id: string, t: number): HTMLElement {
   const table = screen.getByRole('table');
   const row = within(table)
     .getAllByRole('row')
@@ -143,9 +166,9 @@ function tableRow(run: string, t: number): HTMLElement {
       const cells = within(candidate)
         .queryAllByRole('cell')
         .map((cell) => cell.textContent);
-      return cells[0] === run && cells[1] === String(t);
+      return cells[0] === id && cells[1] === String(t);
     });
-  if (!row) throw new Error(`No row for ${run} at ${t}`);
+  if (!row) throw new Error(`No row for ${id} at ${t}`);
   return row;
 }
 
@@ -164,11 +187,11 @@ describe('linked selection on one surface', () => {
     fireEvent.click(tableRow('b', 0));
 
     expect(surface.dataModel.get('/selection/runs')).toEqual({
-      field: 'run',
+      field: 'id',
       values: ['b'],
       source: 'table',
     });
-    await waitFor(() => expect(view.signal('sel')).toMatchObject({ run: ['b'] }));
+    await waitFor(() => expect(view.signal('sel')).toMatchObject({ id: ['b'] }));
     expect(tableRow('b', 0)).toHaveAttribute('aria-selected', 'true');
     expect(tableRow('b', 1)).toHaveAttribute('aria-selected', 'true');
     expect(tableRow('a', 0)).not.toHaveAttribute('aria-selected');
@@ -201,7 +224,7 @@ describe('linked selection on one surface', () => {
 
     await waitFor(() =>
       expect(surface.dataModel.get('/selection/runs')).toEqual({
-        field: 'run',
+        field: 'id',
         values: ['a'],
         source: 'chart',
       }),
@@ -223,8 +246,9 @@ describe('linked selection on one surface', () => {
       values: ['b'],
       source: 'map',
     });
-    // The chart highlights rows whose `id` is "b" — this data has none, so none light up,
-    // but the chart does not overwrite the map's selection either.
+    // All three components share `selectionField: 'id'`, so the chart adopts
+    // the map's click same as it would its own — but does not echo it back
+    // (checked below) as a fresh `source: 'chart'` write.
     await waitFor(() => expect(view.signal('sel')).toMatchObject({ id: ['b'] }));
     await new Promise((resolve) => setTimeout(resolve, 300));
     expect(surface.dataModel.get('/selection/runs')).toMatchObject({ source: 'map' });
@@ -235,10 +259,10 @@ describe('linked selection on one surface', () => {
     const view = await chartView();
 
     act(() => {
-      surface.dataModel.set('/selection/runs', { field: 'run', values: ['a', 'b'] });
+      surface.dataModel.set('/selection/runs', { field: 'id', values: ['a', 'b'] });
     });
 
-    await waitFor(() => expect(view.signal('sel')).toMatchObject({ run: ['a', 'b'] }));
+    await waitFor(() => expect(view.signal('sel')).toMatchObject({ id: ['a', 'b'] }));
     expect(tableRow('a', 1)).toHaveAttribute('aria-selected', 'true');
     expect(tableRow('b', 1)).toHaveAttribute('aria-selected', 'true');
   }, 20_000);
@@ -250,11 +274,11 @@ describe('linked selection on one surface', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select run a' }));
 
     expect(surface.dataModel.get('/selection/runs')).toEqual({
-      field: 'run',
+      field: 'id',
       values: ['a'],
       source: 'selectData',
     });
-    await waitFor(() => expect(view.signal('sel')).toMatchObject({ run: ['a'] }));
+    await waitFor(() => expect(view.signal('sel')).toMatchObject({ id: ['a'] }));
     expect(tableRow('a', 0)).toHaveAttribute('aria-selected', 'true');
     expect(tableRow('b', 0)).not.toHaveAttribute('aria-selected');
     expect(screen.getByRole('button', { name: /Run A/u })).toHaveAttribute('aria-pressed', 'true');
@@ -285,7 +309,7 @@ function selectDataButton(args: Record<string, unknown>): ExtraComponents {
       action: {
         functionCall: {
           call: 'selectData',
-          args: { path: '/selection/runs', field: 'run', rowIds: ['a'], ...args },
+          args: { path: '/selection/runs', field: 'id', rowIds: ['a'], ...args },
           returnType: 'void',
         },
       },

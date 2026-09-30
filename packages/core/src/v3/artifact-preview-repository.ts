@@ -43,7 +43,8 @@ export type TableQueryScalar = string | number | boolean;
  * One table-query predicate; all of a request's predicates are AND-ed.
  * `eq`: a scalar. `in`: a non-empty scalar list. `range`: `[min, max]`,
  * inclusive, either side null. `isnull`: omitted/`true` matches nulls,
- * `false` non-nulls.
+ * `false` non-nulls. `contains`: a case-insensitive substring match — the
+ * data-table's own text column filter.
  */
 export type TableQueryFilter =
   | { column: string; op: 'eq'; value: TableQueryScalar }
@@ -53,7 +54,8 @@ export type TableQueryFilter =
       op: 'range';
       value: readonly [TableQueryScalar | null, TableQueryScalar | null];
     }
-  | { column: string; op: 'isnull'; value?: boolean | null };
+  | { column: string; op: 'isnull'; value?: boolean | null }
+  | { column: string; op: 'contains'; value: string };
 
 export type TableQueryMetricFn = 'mean' | 'min' | 'max' | 'count' | 'sum' | 'median';
 
@@ -73,16 +75,37 @@ export interface TableQueryDownsample {
 }
 
 /**
+ * One sort key — the viewer's click-to-sort headers, or the producer's own
+ * choice. `sort` is a LIST of these (clio-agent `TableQueryRequest.sort:
+ * list[TableSort]`, `TableSort {column, desc: bool}`): multiple keys apply in
+ * order for a stable, compound sort, though the table UI drives at most one
+ * at a time. `desc`, not `direction`, matches the wire contract exactly.
+ */
+export interface TableQuerySort {
+  column: string;
+  desc: boolean;
+}
+
+/**
  * `POST /v1/artifacts/{id}/table-query` request (clio-agent
- * `TableQueryRequest`, which clio-schemas' `$defs/ChartDataQuery` mirrors):
- * a projection, AND-ed filters, an optional aggregate and downsample, and the
- * row budget the caller will accept. `format` is always `json`, added here.
+ * `TableQueryRequest`, which clio-schemas' `$defs/DataQuery` mirrors):
+ * a projection, AND-ed filters, an optional aggregate, downsample, sort,
+ * offset and the row budget the caller will accept. `format` is always
+ * `json`, added here.
+ * `columns` is optional: an omitted projection asks the server for every
+ * column of the referenced table (bounded by `limit`); the schema still
+ * requires it whenever `aggregate` is set, since a group-by/metric shape
+ * cannot be inferred. `offset` pages through a dataset larger than one
+ * response — rows go to the table viewer, never the agent, so `limit` is a
+ * per-response transfer guard, not a cap on what the dataset holds.
  */
 export interface ArtifactTableQueryRequest {
-  columns: readonly string[];
+  columns?: readonly string[];
   filter?: readonly TableQueryFilter[];
   aggregate?: TableQueryAggregate;
   downsample?: TableQueryDownsample;
+  sort?: readonly TableQuerySort[];
+  offset?: number;
   limit: number;
 }
 

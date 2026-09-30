@@ -180,6 +180,49 @@ describe('chart selection wiring (vega-lite store format)', () => {
     expect(write).not.toHaveBeenCalled();
   });
 
+  it('select() highlights a value exactly like a native click, and reports it like one too (#1533 #506 LOW)', async () => {
+    // A keyboard-operable control (a <Select>, since arbitrary brush/lasso
+    // gestures have no keyboard equivalent) drives selection through this
+    // method instead of simulating pointer events — it must take the
+    // identical path apply()/a real click do: the view highlights it AND the
+    // signal listener reports it through `write`, unlike apply() (which is
+    // for showing an externally-sourced state, and never echoes back).
+    vi.useFakeTimers();
+    const view = await headlessView();
+    const write = vi.fn();
+    const binding = bindChartSelection(view, {
+      componentId: 'chart',
+      param: 'sel',
+      field: 'run',
+      write,
+    });
+
+    await binding.select(['b']);
+
+    expect(view.data(selectionStoreName('sel'))).toHaveLength(1);
+    const opacity = opacityByRun(view);
+    expect(new Set(opacity.b)).toEqual(new Set([1]));
+    expect(new Set([...opacity.a!, ...opacity.c!])).toEqual(new Set([0.15]));
+    await vi.runAllTimersAsync();
+    expect(write).toHaveBeenCalledWith({ field: 'run', values: ['b'], source: 'chart' });
+    binding.dispose();
+  });
+
+  it('select() is a no-op once disposed', async () => {
+    const view = await headlessView();
+    const binding = bindChartSelection(view, {
+      componentId: 'chart',
+      param: 'sel',
+      field: 'run',
+      write: vi.fn(),
+    });
+    binding.dispose();
+
+    await binding.select(['a']);
+
+    expect(view.data(selectionStoreName('sel'))).toEqual([]);
+  });
+
   it('knows whether a spec defines the selection param', async () => {
     const view = await headlessView();
     expect(viewHasSignal(view, 'sel')).toBe(true);

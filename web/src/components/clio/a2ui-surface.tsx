@@ -355,11 +355,11 @@ function ClioA2UISurfaceContent({
   return (
     <section
       aria-label={`Generated UI, ${surfaceKind}`}
-      className="scroll-m-8 overflow-hidden rounded-xl border bg-card/70 focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+      className="scroll-m-8 overflow-hidden rounded-xl border bg-card focus:outline-2 focus:outline-offset-2 focus:outline-primary"
       id={a2uiSurfaceDomId(surface.id)}
       tabIndex={-1}
     >
-      <div className="flex items-center gap-2 border-b bg-muted/30 px-3 py-2 text-xs">
+      <div className="flex items-center gap-2 border-b bg-muted px-3 py-2 text-xs">
         <BoxesIcon aria-hidden="true" className="size-3.5 text-primary" />
         <span className="font-medium">Generated UI</span>
         <span className="text-muted-foreground">{surfaceKind}</span>

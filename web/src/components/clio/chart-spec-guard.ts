@@ -22,7 +22,11 @@ export type ChartSpecViolationCode =
   | 'top_level_key_not_allowed'
   | 'too_many_views'
   | 'data_not_named_source'
-  | 'forbidden_key';
+  | 'forbidden_key'
+  // Client-only addition ahead of the shared `guard_rules.json` (#1533 #506
+  // LOW) — not yet in the Python guard's `errorCodes`; reported upstream so
+  // the schema/server guard picks up the same rule.
+  | 'forbidden_bind_element';
 
 /** One guard failure: a stable code, a JSON Pointer to the offending node, and a message. */
 export interface ChartSpecViolation {
@@ -91,6 +95,21 @@ function isNamedSource(value: unknown): boolean {
   return isJsonObject(value) && Object.keys(value).length === 1 && value.name === DATA_SOURCE_NAME;
 }
 
+/**
+ * No `element` key inside any `bind` object, at any depth — Vega's own
+ * signal-binding escape hatch to mount an input widget into an arbitrary
+ * element by CSS selector, anywhere on the host page, not just inside the
+ * chart's own container.
+ *
+ * `guard_rules.json` (this port's parity source, `errorCodes`) doesn't have
+ * this rule yet, but clio-schemas' own catalog schema already forbids it —
+ * confirmed directly against `$defs/SpecNoBindElement` in
+ * `iowarp/clio-schemas`' `feat/a2ui-data-everywhere` branch, which walks
+ * every `bind` object recursively (not just `params[].bind`) the same way
+ * this does. This client-only check exists so a bad spec is refused here
+ * too, before it ever reaches the server (#1533 #506 LOW).
+ */
+
 /** Every guard violation in `spec`, in the same order as the Python guard (empty when it passes). */
 export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
   if (!isJsonObject(spec)) {
@@ -144,6 +163,12 @@ export function checkChartSpec(spec: unknown): ChartSpecViolation[] {
             code: 'forbidden_key',
             path: pointer(path, key),
             message: `'${key}' is not allowed anywhere`,
+          });
+        } else if (key === 'bind' && isJsonObject(child) && 'element' in child) {
+          violations.push({
+            code: 'forbidden_bind_element',
+            path: pointer(pointer(path, key), 'element'),
+            message: "'bind.element' is not allowed — it can bind to any element on the page",
           });
         } else if (key === 'data' && !isNamedSource(child)) {
           violations.push({

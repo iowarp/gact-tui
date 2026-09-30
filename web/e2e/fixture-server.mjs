@@ -15,6 +15,11 @@ import {
   allExampleMessages,
   loginFormExampleMessages,
 } from './a2ui-fixtures.mjs';
+import {
+  EARTHQUAKE_ROWS,
+  earthquakeCsv,
+  runEarthquakeTableQuery,
+} from './a2ui-data-demo-fixture.mjs';
 
 const port = Number.parseInt(process.env['CLIO_FIXTURE_PORT'] ?? '18799', 10);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65_535) {
@@ -26,6 +31,7 @@ let permissionPending = true;
 let questionPending = true;
 let mcpV2UiDemo = false;
 let a2uiMapDemo = false;
+let a2uiDataDemo = false;
 let attachmentsEnabled = false;
 let mcpAppGeneration = 1;
 let mcpAppToolCalls = 0;
@@ -180,6 +186,133 @@ const artifactRecord = {
     },
   ],
 };
+
+const earthquakeArtifactId = 'artifact_earthquakes01';
+const earthquakeArtifactUri = `artifact://${earthquakeArtifactId}`;
+const earthquakeCsvBytes = Buffer.from(earthquakeCsv(), 'utf8');
+
+const earthquakeArtifactRecord = {
+  workspace_id: workspaceId,
+  name: 'earthquakes.csv',
+  kind: 'text/csv',
+  latest_version: 1,
+  head_artifact_id: earthquakeArtifactId,
+  aliases: {},
+  producing_session_ids: [sessionId],
+  versions: [
+    {
+      artifact_id: earthquakeArtifactId,
+      workspace_id: workspaceId,
+      name: 'earthquakes.csv',
+      version: 1,
+      kind: 'text/csv',
+      custody: 'fixture',
+      mechanism: 'fixture_capture',
+      evidence_class: 'test_owned',
+      sha256: 'fixture-earthquakes-v1',
+      size_bytes: earthquakeCsvBytes.length,
+      created_at: observedAt,
+      producer: { session_id: sessionId },
+      uri: 'artifact://flat-ndp/earthquakes.csv@v1',
+      fetch_url: `/v1/artifacts/${earthquakeArtifactId}/bytes`,
+    },
+  ],
+};
+
+/**
+ * One surface: a chart, a map, and a table all reading `EARTHQUAKE_ROWS`
+ * through `earthquakeArtifactUri`, plus a metric — sharing one selection
+ * path (`/selection/earthquakes`) keyed by `id`. Demonstrates issue #1533
+ * phase 3's data-by-reference contract for map/table alongside the chart.
+ */
+function earthquakeDataSurface() {
+  const surfaceId = 'surface_earthquake_data';
+  const catalogId = 'https://iowarp.ai/a2ui/catalogs/clio-workspace/v1';
+  return {
+    id: surfaceId,
+    session_id: sessionId,
+    run_id: 'run_earthquake_data',
+    message_id: 'message_earthquake_data',
+    part_id: 'part_earthquake_data',
+    catalog_id: catalogId,
+    protocol_version: '0.9.1',
+    revision: 1,
+    state: 'ready',
+    messages: [
+      { version: 'v0.9.1', createSurface: { surfaceId, catalogId } },
+      {
+        version: 'v0.9.1',
+        updateComponents: {
+          surfaceId,
+          components: [
+            { id: 'root', component: 'Column', children: ['metric', 'chart', 'map', 'table'] },
+            {
+              id: 'metric',
+              component: 'clio.metric.v1',
+              label: 'Events reviewed',
+              value: EARTHQUAKE_ROWS.length,
+              unit: 'events',
+            },
+            {
+              id: 'chart',
+              component: 'clio.chart.v1',
+              title: 'Depth vs. magnitude',
+              preset: 'scatter',
+              xField: 'depth',
+              yField: 'magnitude',
+              entityField: 'id',
+              colorField: 'place',
+              selectionField: 'id',
+              dataUri: earthquakeArtifactUri,
+              selection: { path: '/selection/earthquakes' },
+              accessibility: {
+                label: 'Depth versus magnitude',
+                description: `${EARTHQUAKE_ROWS.length} reviewed earthquakes`,
+              },
+            },
+            {
+              id: 'map',
+              component: 'clio.map.v1',
+              title: 'Epicenters',
+              dataUri: earthquakeArtifactUri,
+              latitudeField: 'lat',
+              longitudeField: 'lon',
+              labelField: 'id',
+              idField: 'id',
+              detailField: 'time',
+              categoryField: 'place',
+              selectionField: 'id',
+              selection: { path: '/selection/earthquakes' },
+              accessibility: {
+                label: 'Epicenter map',
+                description: `${EARTHQUAKE_ROWS.length} reviewed earthquake epicenters`,
+              },
+            },
+            {
+              id: 'table',
+              component: 'clio.data-table.v1',
+              dataUri: earthquakeArtifactUri,
+              dataQuery: {
+                columns: ['id', 'time', 'place', 'magnitude', 'depth'],
+                // The agent's own base view: magnitude 2.0+ only. The viewer's
+                // paging/sorting/filtering layers on top of this and never
+                // drops it (a2ui-component-design skill, rule 1).
+                filter: [{ column: 'magnitude', op: 'range', value: [2, null] }],
+                sort: [{ column: 'magnitude', desc: true }],
+              },
+              selectionField: 'id',
+              selection: { path: '/selection/earthquakes' },
+              accessibility: {
+                label: 'Earthquake table',
+                description: 'Reviewed earthquakes, highest magnitude first',
+              },
+            },
+          ],
+        },
+      },
+    ],
+  };
+}
 
 /** Resources the fixture holds, keyed by id: the seeded one plus any uploaded. */
 let resources = new Map();
@@ -923,6 +1056,15 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'POST' && url.pathname === '/__test/a2ui-data-demo') {
+    const body = await readJson(request);
+    a2uiDataDemo = body.enabled !== false;
+    permissionPending = !a2uiDataDemo;
+    questionPending = !a2uiDataDemo;
+    sendJson(response, { status: a2uiDataDemo ? 'ready' : 'disabled' }, 202);
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/__test/mcp-v2-ui-replace') {
     mcpAppGeneration = 2;
     sendJson(response, { status: 'replaced' }, 202);
@@ -1220,8 +1362,24 @@ const server = createServer(async (request, response) => {
           size: artifactPng.length,
           created_at: observedAt,
         },
+        ...(a2uiDataDemo
+          ? [
+              {
+                id: earthquakeArtifactId,
+                session_id: sessionId,
+                name: 'earthquakes.csv',
+                media_type: 'text/csv',
+                uri: 'artifact://flat-ndp/earthquakes.csv@v1',
+                size: earthquakeCsvBytes.length,
+                created_at: observedAt,
+              },
+            ]
+          : []),
       ],
-      surfaces: a2uiMapDemo ? [earthScopeMapSurface()] : [],
+      surfaces: [
+        ...(a2uiMapDemo ? [earthScopeMapSurface()] : []),
+        ...(a2uiDataDemo ? [earthquakeDataSurface()] : []),
+      ],
     });
     return;
   }
@@ -1355,10 +1513,11 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/artifacts`) {
+    const artifacts = a2uiDataDemo ? [artifactRecord, earthquakeArtifactRecord] : [artifactRecord];
     sendJson(response, {
-      artifacts: [artifactRecord],
+      artifacts,
       used: [],
-      count: 1,
+      count: artifacts.length,
       include_children: true,
       child_session_ids: [],
       next_cursor: null,
@@ -1375,6 +1534,30 @@ const server = createServer(async (request, response) => {
       'Content-Length': String(artifactPng.length),
     });
     response.end(artifactPng);
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/artifacts/${earthquakeArtifactId}`) {
+    sendJson(response, {
+      artifact: earthquakeArtifactRecord,
+      resolved: earthquakeArtifactRecord.versions[0],
+    });
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === `/v1/artifacts/${earthquakeArtifactId}/bytes`) {
+    response.writeHead(200, {
+      ...commonHeaders('text/csv'),
+      'Content-Length': String(earthquakeCsvBytes.length),
+    });
+    response.end(earthquakeCsvBytes);
+    return;
+  }
+  if (
+    request.method === 'POST' &&
+    url.pathname === `/v1/artifacts/${earthquakeArtifactId}/table-query`
+  ) {
+    const body = await readJson(request);
+    const result = runEarthquakeTableQuery(body);
+    sendJson(response, result.body, result.status);
     return;
   }
   if (request.method === 'GET' && url.pathname === `/v1/sessions/${sessionId}/events`) {

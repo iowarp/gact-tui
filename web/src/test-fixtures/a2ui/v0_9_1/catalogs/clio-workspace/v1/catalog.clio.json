@@ -107,9 +107,6 @@
     "clio.status.v1": {
       "kernel": "clio.status.v1"
     },
-    "clio.time-series.v1": {
-      "kernel": "clio.time-series.v1"
-    },
     "clio.workflow.v1": {
       "kernel": "clio.workflow.v1"
     }
