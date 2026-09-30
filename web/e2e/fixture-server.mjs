@@ -785,6 +785,13 @@ function linkedSelectionDemoMessages() {
             columns: ['run', 't', 'v'],
             rows: CHART_DEMO_ROWS,
             selection: { path: '/selection/sel' },
+            // Required once `selection` is bound (#1533 data-by-reference:
+            // `selectionField` names the column a bound selection reads and
+            // writes). Matches the chart's own effective selection field
+            // here, which falls back to its `entityField: 'run'` above, so
+            // clicking a table row and the chart's own selection agree on
+            // the same column.
+            selectionField: 'run',
           },
         ],
       },
