@@ -292,7 +292,23 @@ describe('DeployClioDialog', () => {
         endpoint: 'http://127.0.0.1:64123',
         label: 'homelab',
         location: 'homelab',
-        infrastructure: { targetId: 'target-homelab', serviceId: 'clio_agent' },
+        infrastructure: {
+          targetId: 'target-homelab',
+          serviceId: 'clio_agent',
+          // Saved alongside the target id so a desktop that later loses (or
+          // never had) that record can rebuild it instead of failing (#1528).
+          route: {
+            label: 'homelab',
+            installRoot: '',
+            profile: 'homelab',
+            host: '10.0.0.102',
+            user: 'alice',
+            port: 22,
+            jumpHosts: [],
+            identityFile: '',
+            platform: 'linux',
+          },
+        },
       }),
     );
     expect(mocks.runManagedServiceAction).toHaveBeenCalledWith('clio_agent', {

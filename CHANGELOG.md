@@ -8,6 +8,18 @@ UI aren't tracked.
 
 ### Fixed
 
+- Connecting to a saved remote CLIO failed with "The CLIO-owned SSH target no
+  longer exists" whenever this computer's local CLIO never created (or no
+  longer has) that connection's target record -- after a reinstall, on a
+  second computer, or from a different local CLIO. Every deploy now saves the
+  SSH route alongside the connection, and reconnecting rebuilds the record
+  from it instead of failing; a connection saved before this fix (no route)
+  still fails, but with a plain, typed reason instead of that message
+  (iowarp/clio-agent#1528).
+- Deploying to a remote host that already runs a healthy CLIO under a
+  different install root or version no longer stops it silently. The dialog
+  now shows the version found running and asks "Connect to the running CLIO
+  (vX)" or "Replace it" before doing either (iowarp/clio-agent#1528).
 - Maps in agent-built views show the geography again in the desktop app.
   The desktop's security policy blocked the OpenStreetMap tiles, so only the
   markers appeared over a blank background; the tile server is now allowed.

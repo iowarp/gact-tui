@@ -49,6 +49,7 @@ import type { ConnectionAvailability } from '@/hooks/use-connection-availability
 import {
   createRepository,
   DEFAULT_ENDPOINT,
+  InfrastructureTargetGoneError,
   normalizeEndpoint,
   type ConnectionSettings,
 } from '@/lib/connection';
@@ -706,10 +707,34 @@ export function ConnectionPage() {
               )}
 
               {mutation.error ? (
-                <Alert variant="destructive">
+                <Alert role="alert" variant="destructive">
                   <TriangleAlertIcon aria-hidden="true" />
                   <AlertTitle>Connection unavailable</AlertTitle>
-                  <AlertDescription>{mutation.error.message}</AlertDescription>
+                  <AlertDescription>
+                    {mutation.error.message}
+                    {mutation.error instanceof InfrastructureTargetGoneError &&
+                    mutation.variables ? (
+                      <div className="mt-3">
+                        <Button
+                          onClick={() => {
+                            const goneEndpoint = mutation.variables.endpoint;
+                            void forget(goneEndpoint);
+                            mutation.reset();
+                            setManualModeRequested(false);
+                            setSelectedEndpoint((current) =>
+                              current === goneEndpoint ? DEFAULT_ENDPOINT : current,
+                            );
+                            setDeployOpen(true);
+                          }}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          Remove it and deploy {vocab.agent} again
+                        </Button>
+                      </div>
+                    ) : null}
+                  </AlertDescription>
                 </Alert>
               ) : null}
 
