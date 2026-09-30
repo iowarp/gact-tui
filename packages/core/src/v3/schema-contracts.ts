@@ -26,10 +26,6 @@ export const A2UI_MAP_POINT_LABEL_MAX_CHARS = 240;
 export const A2UI_MAP_POINT_DETAIL_MAX_CHARS = 2_000;
 /** Length of a map point's category name. Unit: characters. */
 export const A2UI_MAP_POINT_CATEGORY_MAX_CHARS = 120;
-/** Rows accepted by one `clio.time-series.v1` surface. Unit: rows. */
-export const A2UI_TIME_SERIES_ROWS_MAX = 10_000;
-/** Plotted series accepted by one time-series surface. Unit: keys. */
-export const A2UI_TIME_SERIES_Y_KEYS_MAX = 5;
 /** Nodes accepted by one `clio.workflow.v1` surface. Unit: nodes. */
 export const A2UI_WORKFLOW_NODES_MAX = 128;
 /** Edges accepted by one workflow surface. Unit: edges. */

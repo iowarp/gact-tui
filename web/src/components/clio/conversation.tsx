@@ -161,6 +161,42 @@ function ConversationBody({
   const lastVirtualRow = virtualRows.at(-1);
   const virtualRangeKey = `${firstVirtualRow?.index ?? -1}:${firstVirtualRow?.start ?? -1}:${lastVirtualRow?.index ?? -1}:${lastVirtualRow?.end ?? -1}`;
 
+  // A detached surface (#1533 coordinator review) renders as a normal-flow
+  // sibling right after the virtualized message list, whose own height is
+  // set from `virtualizer.getTotalSize()` — the library's own cached/
+  // estimated size for the last row, not a live DOM read. That cache can
+  // persistently undercount a row (observed directly: a real session's last
+  // message, expanded to show a completed subagent card, measured ~53px
+  // taller than the virtualizer believed, with no further resize event ever
+  // arriving to correct it), which overlaps the detached surface behind it.
+  // Independently measuring the messages container's own real last child and
+  // padding the gap to match closes that regardless of why the cache was
+  // wrong — a correction, not a guess at the library's own internal cause.
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [detachedSurfacesGap, setDetachedSurfacesGap] = useState(0);
+  useLayoutEffect(() => {
+    if (!virtualized || detachedSurfaces.length === 0) {
+      setDetachedSurfacesGap(0);
+      return undefined;
+    }
+    const container = messagesContainerRef.current;
+    if (!container) return undefined;
+    const recompute = () => {
+      const lastChild = container.lastElementChild;
+      if (!lastChild) return;
+      const realBottom = lastChild.getBoundingClientRect().bottom;
+      const containerTop = container.getBoundingClientRect().top;
+      const declaredHeight = virtualizer.getTotalSize();
+      setDetachedSurfacesGap(Math.max(0, realBottom - containerTop - declaredHeight));
+    };
+    recompute();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(recompute);
+    observer.observe(container);
+    if (container.lastElementChild) observer.observe(container.lastElementChild);
+    return () => observer.disconnect();
+  }, [detachedSurfaces.length, virtualRangeKey, virtualized, virtualizer]);
+
   const { scrollIntentVersionRef, captureReadingAnchor, markUserScrollIntent } =
     useTranscriptReadingPosition({
       messageCount: messages.length,
@@ -358,7 +394,10 @@ function ConversationBody({
           />
         ) : (
           <div
-            ref={autoscroll.observeContent}
+            ref={(node) => {
+              autoscroll.observeContent(node);
+              messagesContainerRef.current = node;
+            }}
             className={`${virtualized ? 'relative' : ''} mx-auto w-full ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
             style={virtualized ? { height: virtualizer.getTotalSize() } : undefined}
           >
@@ -394,6 +433,7 @@ function ConversationBody({
           <div
             ref={autoscroll.observeContent}
             className={`mx-auto grid w-full gap-4 px-5 pb-8 lg:px-8 ${conversationWidth === 'wide' ? 'max-w-6xl' : 'max-w-4xl'}`}
+            style={detachedSurfacesGap ? { marginTop: detachedSurfacesGap } : undefined}
           >
             {detachedSurfaces.map((surface) => (
               <DeferredA2UISurface

@@ -222,10 +222,6 @@
           "kernel": "clio.status.v1",
           "presets": null
         },
-        "clio.time-series.v1": {
-          "kernel": "clio.time-series.v1",
-          "presets": null
-        },
         "clio.workflow.v1": {
           "kernel": "clio.workflow.v1",
           "presets": null

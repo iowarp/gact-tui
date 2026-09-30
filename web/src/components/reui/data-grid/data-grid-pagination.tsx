@@ -1,4 +1,5 @@
 import type { JSX, ReactNode } from "react"
+import { useId } from "react"
 import { useDataGrid } from "@/components/reui/data-grid/data-grid"
 
 import { cn } from "@/lib/utils"
@@ -32,6 +33,13 @@ interface DataGridPaginationProps {
 
 function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
   const { table, recordCount, isLoading } = useDataGrid()
+  // Associates the trigger with the visible "Rows per page" text so it has a
+  // real accessible name even on a render where `<SelectValue />` has no
+  // matching `<SelectItem>` for the current page size yet (a controlled
+  // Select shows no text for a value it doesn't recognize) — axe's
+  // button-name rule (critical impact) does not credit a value that hasn't
+  // resolved, and a real name must not depend on that resolving first.
+  const rowsPerPageLabelId = useId()
 
   const defaultProps: Partial<DataGridPaginationProps> = {
     sizes: [5, 10, 25, 50, 100],
@@ -146,7 +154,7 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
           mergedProps.sizesSkeleton
         ) : (
           <>
-            <div className="text-muted-foreground text-sm">
+            <div className="text-muted-foreground text-sm" id={rowsPerPageLabelId}>
               {mergedProps.rowsPerPageLabel}
             </div>
             <Select
@@ -156,7 +164,11 @@ function DataGridPagination(props: DataGridPaginationProps): JSX.Element {
                 table.setPageSize(newPageSize)
               }}
             >
-              <SelectTrigger className="w-16" size="sm">
+              <SelectTrigger
+                aria-labelledby={rowsPerPageLabelId}
+                className="w-16"
+                size="sm"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent

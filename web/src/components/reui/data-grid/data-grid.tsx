@@ -56,6 +56,21 @@ export interface DataGridColumnMeta<TData> {
   skeleton?: ReactNode
   expandedContent?: (row: TData) => ReactNode
   autoSize?: boolean
+  /**
+   * Extra content shown inside this column's header dropdown (e.g. a
+   * per-column filter control). Threaded through `meta` rather than a
+   * closure captured by an inline `header`/`cell` render function: those
+   * functions are read off `column.columnDef.header`/`.cell` and
+   * instantiated by reference (`flexRender` -> `React.createElement(Comp,
+   * props)`), and v9 rebuilds `table`/column wrapper objects on every render
+   * (see the comment above `createDataGridAutoSizeController`). An inline
+   * arrow function loses identity on every such rebuild, which React reads
+   * as a different component type at that slot and discards the previous
+   * instance - including any open dropdown state it held. A column-def
+   * `header`/`cell` should be a stable, module-scope function reference that
+   * reads its per-column data from `meta` instead.
+   */
+  headerFilter?: ReactNode
 }
 
 /**
@@ -299,7 +314,13 @@ export interface DataGridProps<
   table?: Table<TFeatures, TData>
   recordCount: number
   children?: ReactNode
-  onRowClick?: (row: TData) => void
+  /**
+   * `interaction.index` is the row's position within the current page's data
+   * (TanStack's own `row.index`) and `interaction.shiftKey` names the click's
+   * modifier key, for a consumer that supports shift-click range selection
+   * (`ClioSelectableDataTable`'s row-range "zone", #1533 item 4).
+   */
+  onRowClick?: (row: TData, interaction: { index: number; shiftKey: boolean }) => void
   isLoading?: boolean
   loadingMode?: "skeleton" | "spinner"
   loadingMessage?: ReactNode | string

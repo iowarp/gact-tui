@@ -1,0 +1,103 @@
+{
+  "defaults": {
+    "selectionParam": "sel",
+    "xType": "quantitative"
+  },
+  "description": "One point per row: yField against xField. Color by colorField when given; facet by facetField when given. Clicking a point selects its entity.",
+  "optionalFields": [
+    "colorField",
+    "facetField",
+    "xType",
+    "selectionParam"
+  ],
+  "preset": "scatter",
+  "requiredFields": [
+    "xField",
+    "yField",
+    "entityField"
+  ],
+  "template": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+    "data": {
+      "name": "source"
+    },
+    "description": "{{yField}} against {{xField}}, one point per row.",
+    "encoding": {
+      "color": {
+        "$if": "colorField",
+        "then": {
+          "field": "{{colorField}}",
+          "type": "nominal"
+        }
+      },
+      "facet": {
+        "$if": "facetField",
+        "then": {
+          "columns": 3,
+          "field": "{{facetField}}",
+          "type": "nominal"
+        }
+      },
+      "opacity": {
+        "condition": {
+          "param": "{{selectionParam}}",
+          "value": 1
+        },
+        "value": 0.15
+      },
+      "size": {
+        "condition": {
+          "param": "{{selectionParam}}",
+          "value": 90
+        },
+        "value": 30
+      },
+      "tooltip": [
+        {
+          "field": "{{entityField}}",
+          "type": "nominal"
+        },
+        {
+          "$if": "colorField",
+          "then": {
+            "field": "{{colorField}}",
+            "type": "nominal"
+          }
+        },
+        {
+          "field": "{{xField}}",
+          "type": "{{xType}}"
+        },
+        {
+          "field": "{{yField}}",
+          "type": "quantitative"
+        }
+      ],
+      "x": {
+        "field": "{{xField}}",
+        "type": "{{xType}}"
+      },
+      "y": {
+        "field": "{{yField}}",
+        "type": "quantitative"
+      }
+    },
+    "mark": {
+      "filled": true,
+      "type": "point"
+    },
+    "params": [
+      {
+        "name": "{{selectionParam}}",
+        "select": {
+          "clear": "dblclick",
+          "fields": [
+            "{{entityField}}"
+          ],
+          "on": "click",
+          "type": "point"
+        }
+      }
+    ]
+  }
+}

@@ -7,7 +7,6 @@ import {
   componentId,
 } from '@a2ui/web_core/v0_9';
 import type { ResolvedChildRef } from '@a2ui/web_core/v0_9';
-import { A2UI_WORKFLOW_EDGES_MAX, A2UI_WORKFLOW_NODES_MAX } from '@clio/core/v3';
 import {
   A2uiSurface,
   Button as A2UIButton,
@@ -48,22 +47,23 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { truncate } from '@/lib/format';
-import { DIAGRAM_LABEL_TRUNCATE_CHARS } from '@/lib/runtime-limits';
 import {
-  a2uiAccessibilityDescription,
   a2uiAccessibilityLabel,
   a2uiAccessibilityProps,
   type A2UIAccessibility,
 } from '@/components/clio/a2ui-accessibility';
-import { ClioDataTable, type ClioDataColumn, type ClioDataRow } from '@/components/clio/data-table';
 import { ClioArtifactCatalogComponent } from '@/components/clio/a2ui-artifact';
 import { A2uiMedia } from '@/components/clio/a2ui-media';
+import { refinedStrictObject } from '@/components/clio/a2ui-refined-schema';
+import { ClioChartCatalogComponent } from '@/components/clio/a2ui-chart-catalog';
+import { ClioDataTableCatalogComponent } from '@/components/clio/a2ui-data-table';
 import { ClioMapCatalogComponent } from '@/components/clio/a2ui-map';
+import { ClioMermaidCatalogComponent } from '@/components/clio/a2ui-mermaid-catalog';
 import { ClioMeshViewportCatalogComponent } from '@/components/clio/a2ui-mesh-viewport-catalog';
 import { ClioSliderCatalogComponent } from '@/components/clio/a2ui-slider-catalog';
-import { ClioTimeSeriesCatalogComponent } from '@/components/clio/a2ui-time-series-catalog';
-import { ClioMermaidDiagram } from '@/components/clio/mermaid-diagram';
+import { ClioTimeSeriesFallbackCatalogComponent } from '@/components/clio/a2ui-time-series-fallback';
+import { ClioWorkflowCatalogComponent } from '@/components/clio/a2ui-workflow-catalog';
+import { useArtifactText } from '@/components/clio/artifact-text-query';
 import { ClioStatus, type ClioStatusProps } from '@/components/clio/status';
 
 const ClioA2UICodeView = lazy(() =>
@@ -315,141 +315,6 @@ const Callout = createComponentImplementation(
   ),
 );
 
-const DataTable = createComponentImplementation(
-  {
-    name: 'clio.data-table.v1',
-    schema: z
-      .object({
-        columns: z.array(
-          z.union([z.string(), z.object({ key: z.string(), label: z.string() }).strict()]),
-        ),
-        rows: z.array(z.record(z.unknown())),
-        selection: z.string().optional(),
-        action: CommonSchemas.Action.optional(),
-        accessibility,
-        weight,
-      })
-      .strict(),
-  },
-  ({ props }) => (
-    <ClioDataTable
-      columns={props.columns as ClioDataColumn[]}
-      description={a2uiAccessibilityDescription(props.accessibility)}
-      label={a2uiAccessibilityLabel(props.accessibility)}
-      onRowClick={props.action ? () => void props.action?.() : undefined}
-      rows={props.rows as ClioDataRow[]}
-    />
-  ),
-);
-
-const Mermaid = createComponentImplementation(
-  {
-    name: 'clio.mermaid.v1',
-    schema: z
-      .object({
-        source: CommonSchemas.DynamicString,
-        title: CommonSchemas.DynamicString.optional(),
-        accessibility,
-        weight,
-      })
-      .strict(),
-  },
-  ({ props }) => (
-    <ClioMermaidDiagram
-      accessibilityDescription={a2uiAccessibilityDescription(props.accessibility)}
-      accessibilityLabel={a2uiAccessibilityLabel(props.accessibility)}
-      source={props.source}
-      title={props.title}
-    />
-  ),
-);
-
-const workflowNode = z
-  .object({
-    id: z.string(),
-    label: z.string(),
-    state: z.string().optional(),
-    detail: z.string().optional(),
-  })
-  .strict();
-const workflowEdge = z
-  .object({ source: z.string(), target: z.string(), label: z.string().optional() })
-  .strict();
-
-function mermaidLabel(value: string): string {
-  const line = value
-    .replace(/["<>\r\n]/gu, ' ')
-    .replace(/\s+/gu, ' ')
-    .trim();
-  return truncate(line, DIAGRAM_LABEL_TRUNCATE_CHARS);
-}
-
-function workflowSource(
-  nodes: Array<z.infer<typeof workflowNode>>,
-  edges: Array<z.infer<typeof workflowEdge>>,
-  selected?: string,
-): string {
-  const identifiers = new Map(nodes.map((node, index) => [node.id, `node${index}`]));
-  const lines = ['flowchart LR'];
-  for (const node of nodes) {
-    const id = identifiers.get(node.id)!;
-    const state = node.state ? `, ${node.state.replaceAll('_', ' ')}` : '';
-    lines.push(`  ${id}["${mermaidLabel(node.label + state)}"]`);
-  }
-  for (const edge of edges) {
-    const source = identifiers.get(edge.source);
-    const target = identifiers.get(edge.target);
-    if (!source || !target) continue;
-    lines.push(
-      edge.label
-        ? `  ${source} -->|${mermaidLabel(edge.label)}| ${target}`
-        : `  ${source} --> ${target}`,
-    );
-  }
-  const selectedId = selected ? identifiers.get(selected) : undefined;
-  if (selectedId) {
-    lines.push('  classDef selected fill:#2d2418,stroke:#f39a55,stroke-width:3px');
-    lines.push(`  class ${selectedId} selected`);
-  }
-  return lines.join('\n');
-}
-
-const Workflow = createComponentImplementation(
-  {
-    name: 'clio.workflow.v1',
-    schema: z
-      .object({
-        nodes: z.array(workflowNode).min(1).max(A2UI_WORKFLOW_NODES_MAX),
-        edges: z.array(workflowEdge).max(A2UI_WORKFLOW_EDGES_MAX),
-        selected: z.string().optional(),
-        action: CommonSchemas.Action.optional(),
-        accessibility,
-        weight,
-      })
-      .strict(),
-  },
-  ({ props }) => (
-    <div {...a2uiAccessibilityProps(props.accessibility)} className="grid gap-2" role="group">
-      <ClioMermaidDiagram
-        accessibilityDescription={a2uiAccessibilityDescription(props.accessibility)}
-        accessibilityLabel={a2uiAccessibilityLabel(props.accessibility)}
-        source={workflowSource(props.nodes, props.edges, props.selected)}
-        title="Workflow"
-      />
-      {props.action && props.selected ? (
-        <Button
-          className="justify-self-start"
-          onClick={() => void props.action?.()}
-          size="sm"
-          variant="outline"
-        >
-          Focus {props.nodes.find((node) => node.id === props.selected)?.label ?? 'selected step'}
-        </Button>
-      ) : null}
-    </div>
-  ),
-);
-
 function RenderedCode({
   accessibility: componentAccessibility,
   code,
@@ -473,67 +338,170 @@ function RenderedCode({
   );
 }
 
-const Code = createComponentImplementation(
-  {
-    name: 'clio.code.v1',
-    schema: z
-      .object({
-        code: CommonSchemas.DynamicString,
-        language: z.string(),
-        title: CommonSchemas.DynamicString.optional(),
-        accessibility,
-        weight,
-      })
-      .strict(),
-  },
-  ({ props }) => (
-    <RenderedCode
-      accessibility={props.accessibility}
-      code={props.code}
-      language={props.language}
-      title={props.title}
-    />
-  ),
-);
+function ClioCodeArtifactSource({
+  accessibility,
+  dataUri,
+  language,
+  title,
+}: {
+  accessibility?: A2UIAccessibility;
+  dataUri: string;
+  language: string;
+  title?: string;
+}) {
+  const { text, loading, error } = useArtifactText(dataUri);
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Code unavailable</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+  if (loading || text === undefined) {
+    return <div className="h-24 animate-pulse rounded-lg bg-muted" />;
+  }
+  return (
+    <RenderedCode accessibility={accessibility} code={text} language={language} title={title} />
+  );
+}
 
-const Diff = createComponentImplementation(
-  {
-    name: 'clio.diff.v1',
-    schema: z
-      .object({
-        path: z.string(),
-        diff: CommonSchemas.DynamicString,
-        status: CommonSchemas.DynamicString.optional(),
-        action: CommonSchemas.Action.optional(),
-        accessibility,
-        weight,
-      })
-      .strict(),
-  },
-  ({ props }) => (
-    <div {...a2uiAccessibilityProps(props.accessibility)} className="grid gap-2" role="group">
+const codeDataProperties = {
+  code: CommonSchemas.DynamicString.optional(),
+  dataUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
+  language: z.string(),
+  title: CommonSchemas.DynamicString.optional(),
+  accessibility,
+  weight,
+};
+type CodeShape = z.infer<z.ZodObject<typeof codeDataProperties>>;
+function checkCodeComponent(value: CodeShape, context: z.RefinementCtx): void {
+  // Presence, not truthiness: `code: ''` is a legitimately provided (if
+  // empty) inline code block, not an absent one — `Boolean('')` reading as
+  // "not provided" would fail an old surface that deliberately sends an
+  // empty snippet inline instead of a `dataUri`.
+  if ((value.code !== undefined) === (value.dataUri !== undefined)) {
+    context.addIssue({ code: 'custom', message: 'Provide exactly one of code or dataUri' });
+  }
+}
+
+const Code = createComponentImplementation(
+  { name: 'clio.code.v1', schema: refinedStrictObject(codeDataProperties, checkCodeComponent) },
+  ({ props }) =>
+    props.dataUri ? (
+      <ClioCodeArtifactSource
+        accessibility={props.accessibility}
+        dataUri={props.dataUri}
+        language={props.language}
+        title={props.title}
+      />
+    ) : (
       <RenderedCode
         accessibility={props.accessibility}
-        code={props.diff}
-        language="diff"
-        title={props.path}
+        code={props.code!}
+        language={props.language}
+        title={props.title}
       />
+    ),
+);
+
+function ClioDiffView({
+  accessibility,
+  action,
+  diff,
+  path,
+  status,
+}: {
+  accessibility?: A2UIAccessibility;
+  action?: () => void;
+  diff: string;
+  path: string;
+  status?: string;
+}) {
+  return (
+    <div {...a2uiAccessibilityProps(accessibility)} className="grid gap-2" role="group">
+      <RenderedCode accessibility={accessibility} code={diff} language="diff" title={path} />
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <GitCompareArrowsIcon aria-hidden="true" className="size-3.5" />
-        <span>{props.status || 'Proposed change'}</span>
-        {props.action ? (
-          <Button
-            className="ml-auto"
-            onClick={() => void props.action?.()}
-            size="sm"
-            variant="outline"
-          >
+        <span>{status || 'Proposed change'}</span>
+        {action ? (
+          <Button className="ml-auto" onClick={() => void action()} size="sm" variant="outline">
             Open diff
           </Button>
         ) : null}
       </div>
     </div>
-  ),
+  );
+}
+
+function ClioDiffArtifactSource({
+  accessibility,
+  action,
+  dataUri,
+  path,
+  status,
+}: {
+  accessibility?: A2UIAccessibility;
+  action?: () => void;
+  dataUri: string;
+  path: string;
+  status?: string;
+}) {
+  const { text, loading, error } = useArtifactText(dataUri);
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertTitle>Diff unavailable</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+  if (loading || text === undefined) {
+    return <div className="h-24 animate-pulse rounded-lg bg-muted" />;
+  }
+  return (
+    <ClioDiffView accessibility={accessibility} action={action} diff={text} path={path} status={status} />
+  );
+}
+
+const diffDataProperties = {
+  path: z.string(),
+  diff: CommonSchemas.DynamicString.optional(),
+  dataUri: z.string().regex(/^artifact:\/\/artifact_[A-Za-z0-9_-]+$/u).optional(),
+  status: CommonSchemas.DynamicString.optional(),
+  action: CommonSchemas.Action.optional(),
+  accessibility,
+  weight,
+};
+type DiffShape = z.infer<z.ZodObject<typeof diffDataProperties>>;
+function checkDiffComponent(value: DiffShape, context: z.RefinementCtx): void {
+  // Presence, not truthiness — see checkCodeComponent above: `diff: ''` is a
+  // provided (empty) inline diff, not an absent one.
+  if ((value.diff !== undefined) === (value.dataUri !== undefined)) {
+    context.addIssue({ code: 'custom', message: 'Provide exactly one of diff or dataUri' });
+  }
+}
+
+const Diff = createComponentImplementation(
+  { name: 'clio.diff.v1', schema: refinedStrictObject(diffDataProperties, checkDiffComponent) },
+  ({ props }) =>
+    props.dataUri ? (
+      <ClioDiffArtifactSource
+        accessibility={props.accessibility}
+        action={props.action ? () => void props.action?.() : undefined}
+        dataUri={props.dataUri}
+        path={props.path}
+        status={props.status}
+      />
+    ) : (
+      <ClioDiffView
+        accessibility={props.accessibility}
+        action={props.action ? () => void props.action?.() : undefined}
+        diff={props.diff!}
+        path={props.path}
+        status={props.status}
+      />
+    ),
 );
 
 const cardAction = z
@@ -694,14 +662,15 @@ const KERNEL_COMPONENT_LIST: ReactComponentImplementation[] = [
   Metric,
   ClioProgress,
   Callout,
-  DataTable,
-  ClioTimeSeriesCatalogComponent,
-  Mermaid,
+  ClioDataTableCatalogComponent,
+  ClioChartCatalogComponent,
+  ClioMermaidCatalogComponent,
   ClioMapCatalogComponent,
   ClioMeshViewportCatalogComponent,
   ClioSliderCatalogComponent,
-  Workflow,
+  ClioWorkflowCatalogComponent,
   ClioArtifactCatalogComponent,
+  ClioTimeSeriesFallbackCatalogComponent,
   Code,
   Diff,
   ActionCard,

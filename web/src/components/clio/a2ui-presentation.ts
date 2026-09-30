@@ -9,7 +9,7 @@ const INPUT_COMPONENTS = new Set([
 ]);
 
 const COMPONENT_KIND_LABELS = new Map([
-  ['clio.time-series.v1', 'Chart'],
+  ['clio.chart.v1', 'Chart'],
   ['clio.data-table.v1', 'Table'],
   ['clio.map.v1', 'Map'],
   ['clio.mermaid.v1', 'Diagram'],

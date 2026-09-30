@@ -48,4 +48,84 @@ describe('ArtifactPreviewRepository', () => {
       'Artifact preview identity did not match',
     );
   });
+
+  it('posts a bounded table query and decodes the columnar result', async () => {
+    const request = vi.fn(async (input: TransportRequest<unknown>) =>
+      input.decode({
+        artifact_id: 'artifact_runs',
+        name: 'runs.parquet',
+        schema: [
+          { name: 't', type: 'double' },
+          { name: 'run', type: 'string' },
+        ],
+        columns: { t: [0, 1], run: ['a', 'a'] },
+        totalRows: 360_000,
+        matchedRows: 1_000,
+        returnedRows: 2,
+        truncated: true,
+        downsample: { mode: 'per_entity_lttb', inputRows: 1_000 },
+        cached: false,
+      }),
+    );
+    const transport = { request, stream: vi.fn() } as unknown as ClioTransport;
+    const repository = new ArtifactPreviewRepository(transport);
+
+    await expect(
+      repository.artifactTableQuery('artifact_runs', {
+        columns: ['t', 'run'],
+        filter: [{ column: 'run', op: 'in', value: ['a'] }],
+        limit: 50,
+      }),
+    ).resolves.toMatchObject({ returnedRows: 2, truncated: true, columns: { run: ['a', 'a'] } });
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        path: '/v1/artifacts/artifact_runs/table-query',
+        body: {
+          columns: ['t', 'run'],
+          filter: [{ column: 'run', op: 'in', value: ['a'] }],
+          limit: 50,
+          format: 'json',
+        },
+      }),
+    );
+  });
+
+  it('refuses a table query whose columns disagree with the returned row count', async () => {
+    const request = vi.fn(async (input: TransportRequest<unknown>) =>
+      input.decode({
+        schema: [{ name: 't', type: 'double' }],
+        columns: { t: [0, 1, 2] },
+        totalRows: 3,
+        returnedRows: 2,
+        truncated: false,
+        downsample: { mode: 'none' },
+      }),
+    );
+    const transport = { request, stream: vi.fn() } as unknown as ClioTransport;
+    const repository = new ArtifactPreviewRepository(transport);
+
+    await expect(
+      repository.artifactTableQuery('artifact_runs', { columns: ['t'], limit: 10 }),
+    ).rejects.toThrow('does not match the returned row count');
+  });
+
+  it('refuses a table query that returns more rows than the requested limit', async () => {
+    const request = vi.fn(async (input: TransportRequest<unknown>) =>
+      input.decode({
+        schema: [{ name: 't', type: 'double' }],
+        columns: { t: [0, 1, 2] },
+        totalRows: 3,
+        returnedRows: 3,
+        truncated: false,
+        downsample: { mode: 'none' },
+      }),
+    );
+    const transport = { request, stream: vi.fn() } as unknown as ClioTransport;
+    const repository = new ArtifactPreviewRepository(transport);
+
+    await expect(
+      repository.artifactTableQuery('artifact_runs', { columns: ['t'], limit: 2 }),
+    ).rejects.toThrow('exceeded the requested row limit');
+  });
 });

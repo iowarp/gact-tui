@@ -95,11 +95,22 @@ export function DeferredA2UISurface({
   }, [nearViewport]);
 
   const renderSurface = live || nearViewport;
+  // The label belongs on this wrapper only while it IS the accessible
+  // content — an empty reserved-height placeholder before the surface has
+  // scrolled near. Once mounted, `ClioA2UISurface` renders its own labeled
+  // `<section aria-label="Generated UI, …">`; a `<section>` with a name
+  // carries an implicit `role="region"`, so its `aria-label` is valid, but
+  // a bare `<div>` has no role at all — carrying the SAME kind of label
+  // here unconditionally put `aria-label` on a role-less div once mounted
+  // (an axe `aria-prohibited-attr` violation) and duplicated the surface's
+  // own name besides. `role="group"` on the placeholder is enough to make
+  // its OWN label valid while it is genuinely all there is to announce.
   return (
     <div
-      aria-label={`${PROTOCOL.a2ui} surface`}
+      aria-label={renderSurface ? undefined : `${PROTOCOL.a2ui} surface`}
       data-a2ui-viewport={renderSurface ? 'mounted' : 'deferred'}
       ref={hostRef}
+      role={renderSurface ? undefined : 'group'}
       style={renderSurface ? undefined : { minHeight: reservedHeight }}
     >
       {renderSurface ? (
