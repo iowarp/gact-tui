@@ -168,6 +168,7 @@ export const sessionSchema = z.object({
   cost_usd: z.number().nullish(),
   provider_id: z.string().optional(),
   model_id: z.string().optional(),
+  model_transport: z.string().optional(),
   effort: z.string().optional(),
   branch: z.string().optional(),
   parent_session_id: z.string().optional(),

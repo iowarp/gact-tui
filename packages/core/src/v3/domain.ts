@@ -103,6 +103,8 @@ export interface Session {
   cost_usd?: number | null;
   provider_id?: string;
   model_id?: string;
+  /** How a multi-transport provider is reached for this session (Codex: sdk | direct). */
+  model_transport?: string;
   effort?: string;
   branch?: string;
   parent_session_id?: string;

@@ -28,6 +28,7 @@ export function useComposerModelSelection(
   modelOptions: readonly ClioModelOption[],
   provider: string | undefined,
   model: string | undefined,
+  transport?: string,
 ) {
   const [selection, setSelection] = useState<ModelSelection>(() => ({
     provider,
@@ -39,7 +40,9 @@ export function useComposerModelSelection(
     selection.authoritativeProvider === provider ? selection.provider : provider;
   const current = selection.authoritativeModel === model;
   const selectedModel = current ? selection.model : model;
-  const selectedTransport = current ? selection.transport : undefined;
+  // Without an explicit pick, the session's own transport applies: the same model id
+  // is listed under each half, and the model alone would pick the first (the wrong one).
+  const selectedTransport = (current ? selection.transport : undefined) ?? transport;
   // A pick whose provider only needs its sign-in re-checked stays picked: the
   // service re-asks that provider when the message is sent (#1455), so stale
   // sign-in state never turns the composer back to "Choose model".

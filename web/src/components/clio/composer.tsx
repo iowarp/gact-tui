@@ -79,6 +79,8 @@ export interface ClioComposerProps {
   attachments: boolean;
   provider?: string;
   model?: string;
+  /** The session's transport of a multi-transport provider (Codex: sdk | direct). */
+  transport?: string;
   modelCatalogStatus?: 'error' | 'loading' | 'ready';
   effort?: string;
   /** The configured (global) level: displayed when nothing is picked, never sent. */
@@ -204,12 +206,14 @@ export function ClioComposer({
   onAnnotationsChange,
   focusRequestKey,
   variant = 'docked',
+  transport,
 }: ClioComposerProps) {
   const spotterAvailability = useSpotterAvailability(workspaceId);
   const { selectedOption, selectedTransport, selectModel } = useComposerModelSelection(
     modelOptions,
     provider,
     model,
+    transport,
   );
   const [behaviorSelection, setBehaviorSelection] = useState<{
     behavior: MessageBehavior;

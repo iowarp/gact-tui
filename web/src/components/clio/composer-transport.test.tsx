@@ -57,12 +57,18 @@ function half(transport: string): ClioModelOption {
     transport,
     transports: [
       { id: 'sdk', label: 'Codex (local)', health: 'ready', reason: '' },
-      { id: 'direct', label: 'Direct', health: 'ready', reason: '', auth: { method: 'oauth', logout: true } },
+      {
+        id: 'direct',
+        label: 'Direct',
+        health: 'ready',
+        reason: '',
+        auth: { method: 'oauth', logout: true },
+      },
     ],
   };
 }
 
-function renderComposer(onSubmit: ClioComposerProps['onSubmit']) {
+function renderComposer(onSubmit: ClioComposerProps['onSubmit'], transport?: string) {
   render(
     <QueryClientProvider client={new QueryClient()}>
       <PromptInputProvider>
@@ -73,6 +79,7 @@ function renderComposer(onSubmit: ClioComposerProps['onSubmit']) {
           onSubmit={onSubmit}
           provider="codex"
           state="completed"
+          transport={transport}
         />
       </PromptInputProvider>
     </QueryClientProvider>,
@@ -123,5 +130,13 @@ describe('ClioComposer transport selection', () => {
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
     expect(onSubmit.mock.calls[0]?.[0].transport).toBeUndefined();
+  });
+
+  it("names the session's own transport, not the first half listed", () => {
+    renderComposer(vi.fn(), 'direct');
+    expect(screen.getByRole('button', { name: 'Change model' })).toHaveTextContent(
+      'Codex · Direct / gpt-5.5',
+    );
+    expect(screen.getByTestId('picker-transport')).toHaveTextContent('direct');
   });
 });
