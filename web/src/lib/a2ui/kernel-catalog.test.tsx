@@ -7,6 +7,23 @@ vi.mock('@/components/clio/scientific-map-view', () => ({
   ClioScientificMapView: () => <div data-testid="professional-map-renderer" />,
 }));
 
+// The map's side list virtualizes with `@tanstack/react-virtual` (#1533
+// MEDIUM 6); jsdom never resolves a real scroll-container height, so — same
+// as every other virtualized list in this codebase — stub it to render every
+// row, keeping these tests about catalog wiring rather than virtualization.
+vi.mock('@tanstack/react-virtual', () => ({
+  useVirtualizer: ({ count }: { count: number }) => ({
+    getTotalSize: () => count * 56,
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, index) => ({
+        index,
+        key: index,
+        size: 56,
+        start: index * 56,
+      })),
+  }),
+}));
+
 vi.mock('@/components/clio/mermaid-diagram', () => ({
   ClioMermaidDiagram: ({
     accessibilityDescription,
@@ -64,30 +81,9 @@ function buildSurface(components: Record<string, unknown>[]) {
 }
 
 describe('CLIO A2UI kernel catalog', () => {
-  // The plot is code-split, so both this test and the accessibility sweep below
-  // wait on a real dynamic import resolving through Suspense before they can
-  // assert anything. The default per-test budget is not enough for that on a
-  // loaded machine, and eagerly pulling the charting library in to make the
-  // tests faster would cost every user the download instead.
-  it('renders shared chart and data-grid components instead of JSON representations', async () => {
+  it('renders the shared data-grid component instead of a JSON representation', async () => {
     const surface = buildSurface([
-      { id: 'root', component: 'Column', children: ['plot', 'table'] },
-      {
-        id: 'plot',
-        component: 'clio.time-series.v1',
-        accessibility: {
-          label: 'Accessible displacement chart',
-          description: 'Three observed displacement samples',
-        },
-        title: 'Vertical displacement',
-        xKey: 'day',
-        yKeys: ['displacement_mm'],
-        series: [
-          { day: 1, displacement_mm: 0.2 },
-          { day: 2, displacement_mm: 0.5 },
-          { day: 3, displacement_mm: 0.4 },
-        ],
-      },
+      { id: 'root', component: 'Column', children: ['table'] },
       {
         id: 'table',
         component: 'clio.data-table.v1',
@@ -100,27 +96,16 @@ describe('CLIO A2UI kernel catalog', () => {
       },
     ]);
 
-    const { container } = render(<A2uiSurface surface={surface} />);
+    render(<A2uiSurface surface={surface} />);
 
-    expect(
-      await screen.findByRole('img', { name: /Vertical displacement plot/u }, { timeout: 15_000 }),
-    ).toBeVisible();
-    expect(screen.getByText('3 rows')).toBeVisible();
     const table = screen.getByRole('table');
     expect(within(table).getByRole('columnheader', { name: /^displacement mm/u })).toBeVisible();
     expect(within(table).getByRole('cell', { name: 'accepted' })).toBeVisible();
-    expect(container.querySelector('[data-slot="chart"]')).toBeInTheDocument();
-    expect(container.querySelector('.recharts-responsive-container')).toBeInTheDocument();
-    expect(screen.getByLabelText('Accessible displacement chart')).toHaveAttribute(
-      'aria-description',
-      'Three observed displacement samples',
-    );
     expect(screen.getByLabelText('Accessible displacement table columns')).toHaveAttribute(
       'aria-description',
       'Observed displacement and quality',
     );
-    expect(container.textContent).not.toContain('"series"');
-  }, 20_000);
+  });
 
   it('accepts labeled table-column objects for scientific units', async () => {
     const surface = buildSurface([
@@ -349,4 +334,59 @@ describe('CLIO A2UI kernel catalog', () => {
       expect((await screen.findAllByLabelText(label)).length).toBeGreaterThan(0);
     }
   }, 20_000);
+
+  it('shows a clean fallback card, not the raw red "Unknown component" error, for a retired clio.time-series.v1', () => {
+    // #1533 MEDIUM 7: `clio.time-series.v1` was retired in favor of the
+    // preset-based `clio.chart.v1`, but old transcripts still name it. A
+    // legacy payload's shape is whatever the deleted schema once allowed —
+    // an arbitrary `points`/`series` blob here stands in for "anything at
+    // all", since the fallback reads none of it.
+    const surface = buildSurface([
+      { id: 'root', component: 'Column', children: ['legacy-chart'] },
+      {
+        id: 'legacy-chart',
+        component: 'clio.time-series.v1',
+        title: 'Displacement over time',
+        series: [{ label: 'GNSS01', points: [{ x: 1, y: 2 }] }],
+      },
+    ]);
+
+    render(<A2uiSurface surface={surface} />);
+
+    expect(screen.getByText('This chart type is no longer supported')).toBeVisible();
+    expect(screen.getByText(/ask the agent to redraw it/iu)).toBeVisible();
+    expect(screen.queryByText(/Unknown component type/iu)).not.toBeInTheDocument();
+  });
+
+  describe('"exactly one of X or dataUri" exclusivity checks (#1533 LOW)', () => {
+    // `Boolean('')` reads the same as `Boolean(undefined)` — an inline field
+    // provided as an explicit empty string must still count as "provided",
+    // or an old surface sending one deliberately fails validation outright.
+    it.each([
+      ['clio.code.v1', { code: '', language: 'python' }],
+      ['clio.diff.v1', { path: 'a/b.py', diff: '' }],
+      ['clio.mermaid.v1', { source: '' }],
+    ] as const)('accepts an empty-string inline value for %s', (name, props) => {
+      const schema = KERNEL_COMPONENTS.get(name)!.schema;
+      expect(schema.safeParse(props).success).toBe(true);
+    });
+
+    it.each([
+      ['clio.code.v1', { language: 'python' }],
+      ['clio.diff.v1', { path: 'a/b.py' }],
+      ['clio.mermaid.v1', {}],
+    ] as const)('still rejects %s when neither the inline value nor dataUri is given', (name, props) => {
+      const schema = KERNEL_COMPONENTS.get(name)!.schema;
+      expect(schema.safeParse(props).success).toBe(false);
+    });
+
+    it.each([
+      ['clio.code.v1', { code: 'x', dataUri: 'artifact://artifact_1', language: 'python' }],
+      ['clio.diff.v1', { path: 'a/b.py', diff: 'x', dataUri: 'artifact://artifact_1' }],
+      ['clio.mermaid.v1', { source: 'x', dataUri: 'artifact://artifact_1' }],
+    ] as const)('still rejects %s when both the inline value and dataUri are given', (name, props) => {
+      const schema = KERNEL_COMPONENTS.get(name)!.schema;
+      expect(schema.safeParse(props).success).toBe(false);
+    });
+  });
 });

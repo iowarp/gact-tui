@@ -99,7 +99,14 @@ __pycache__/
 # Local clio-agent runtime state (sessions, messages) — never source.
 .clio/
 # Local component-catalog skills installed for coding agents; not product source.
-/.agents/
+# Exception: a2ui-component-design is real product source, vendored from
+# clio-schemas (issue #1533) — its Codex/.agents copy must be tracked the
+# same as its .claude/skills twin, or the byte-identity test has nothing to
+# compare against in CI.
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/a2ui-component-design/
 /.cursor/
 /.opencode/
 /.claude/skills/21st-cli-use/

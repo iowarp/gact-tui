@@ -22,6 +22,40 @@ export interface SavedConnection {
 export interface InfrastructureConnection {
   targetId: string;
   serviceId: 'clio_agent';
+  /**
+   * The SSH route `targetId` was created from, saved so a desktop that
+   * never created -- or no longer has -- that target's record (a fresh
+   * install after an update, a second computer, a different local CLIO)
+   * can rebuild it instead of failing outright. Absent for the built-in
+   * local target and for connections saved before this field existed.
+   */
+  route?: SavedSshRoute;
+}
+
+/** Enough of an SSH host's route to recreate its infrastructure target. */
+export interface SavedSshRoute {
+  label: string;
+  installRoot: string;
+  profile: string;
+  host: string;
+  user: string;
+  port: number;
+  jumpHosts: string[];
+  identityFile: string;
+  platform: 'auto' | 'linux' | 'windows';
+}
+
+/**
+ * A saved connection's infrastructure target is missing on this computer's
+ * local CLIO, and there was no saved route to rebuild it from (or rebuilding
+ * it failed). Distinct from a plain `Error` so the UI can offer a concrete
+ * recovery action instead of just showing the message.
+ */
+export class InfrastructureTargetGoneError extends Error {
+  constructor(public readonly label: string) {
+    super(`${label} is not known on this computer. Remove it and deploy it again to reconnect.`);
+    this.name = 'InfrastructureTargetGoneError';
+  }
 }
 
 export const DEFAULT_ENDPOINT = 'http://127.0.0.1:8787';

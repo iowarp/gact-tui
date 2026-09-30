@@ -36,6 +36,106 @@ const artifactTablePreviewSchema = z
 
 export type ArtifactTablePreview = z.infer<typeof artifactTablePreviewSchema>;
 
+/** A JSON scalar a table-query filter compares against. */
+export type TableQueryScalar = string | number | boolean;
+
+/**
+ * One table-query predicate; all of a request's predicates are AND-ed.
+ * `eq`: a scalar. `in`: a non-empty scalar list. `range`: `[min, max]`,
+ * inclusive, either side null. `isnull`: omitted/`true` matches nulls,
+ * `false` non-nulls. `contains`: a case-insensitive substring match — the
+ * data-table's own text column filter.
+ */
+export type TableQueryFilter =
+  | { column: string; op: 'eq'; value: TableQueryScalar }
+  | { column: string; op: 'in'; value: readonly TableQueryScalar[] }
+  | {
+      column: string;
+      op: 'range';
+      value: readonly [TableQueryScalar | null, TableQueryScalar | null];
+    }
+  | { column: string; op: 'isnull'; value?: boolean | null }
+  | { column: string; op: 'contains'; value: string };
+
+export type TableQueryMetricFn = 'mean' | 'min' | 'max' | 'count' | 'sum' | 'median';
+
+/** Group by `groupBy` (empty: one group) and reduce; each metric is a column `{column}_{fn}`. */
+export interface TableQueryAggregate {
+  groupBy?: readonly string[];
+  metrics: readonly { column: string; fn: TableQueryMetricFn }[];
+}
+
+/** How the server thins rows before the limit; `per_entity_lttb` needs `x` and `y`. */
+export interface TableQueryDownsample {
+  mode?: 'none' | 'stride' | 'per_entity_lttb';
+  entityColumn?: string;
+  x?: string;
+  y?: string;
+  maxPerEntity?: number;
+}
+
+/**
+ * One sort key — the viewer's click-to-sort headers, or the producer's own
+ * choice. `sort` is a LIST of these (clio-agent `TableQueryRequest.sort:
+ * list[TableSort]`, `TableSort {column, desc: bool}`): multiple keys apply in
+ * order for a stable, compound sort, though the table UI drives at most one
+ * at a time. `desc`, not `direction`, matches the wire contract exactly.
+ */
+export interface TableQuerySort {
+  column: string;
+  desc: boolean;
+}
+
+/**
+ * `POST /v1/artifacts/{id}/table-query` request (clio-agent
+ * `TableQueryRequest`, which clio-schemas' `$defs/DataQuery` mirrors):
+ * a projection, AND-ed filters, an optional aggregate, downsample, sort,
+ * offset and the row budget the caller will accept. `format` is always
+ * `json`, added here.
+ * `columns` is optional: an omitted projection asks the server for every
+ * column of the referenced table (bounded by `limit`); the schema still
+ * requires it whenever `aggregate` is set, since a group-by/metric shape
+ * cannot be inferred. `offset` pages through a dataset larger than one
+ * response — rows go to the table viewer, never the agent, so `limit` is a
+ * per-response transfer guard, not a cap on what the dataset holds.
+ */
+export interface ArtifactTableQueryRequest {
+  columns?: readonly string[];
+  filter?: readonly TableQueryFilter[];
+  aggregate?: TableQueryAggregate;
+  downsample?: TableQueryDownsample;
+  sort?: readonly TableQuerySort[];
+  offset?: number;
+  limit: number;
+}
+
+const tableQueryValueSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const artifactTableQuerySchema = z
+  .object({
+    artifact_id: z.string().optional(),
+    schema: z.array(z.object({ name: z.string(), type: z.string() }).passthrough()),
+    columns: z.record(z.array(tableQueryValueSchema)),
+    totalRows: z.number().int().nonnegative(),
+    matchedRows: z.number().int().nonnegative().optional(),
+    returnedRows: z.number().int().nonnegative(),
+    truncated: z.boolean(),
+    downsample: z.object({ mode: z.string() }).passthrough(),
+  })
+  .passthrough()
+  .superRefine((value, context) => {
+    for (const [name, values] of Object.entries(value.columns)) {
+      if (values.length !== value.returnedRows) {
+        context.addIssue({
+          code: 'custom',
+          message: `column ${name} does not match the returned row count`,
+        });
+      }
+    }
+  });
+
+/** A columnar slice of a registered table: one array per column, all `returnedRows` long. */
+export type ArtifactTableQueryResult = z.infer<typeof artifactTableQuerySchema>;
+
 /** Bounded structured previews for immutable registered artifacts. */
 export class ArtifactPreviewRepository extends ProviderRepository {
   public artifactTablePreview(
@@ -60,6 +160,30 @@ export class ArtifactPreviewRepository extends ProviderRepository {
           throw new Error('Artifact preview exceeded the requested row limit.');
         }
         return preview;
+      },
+      signal,
+    });
+  }
+
+  /** Filter → aggregate → downsample → limit over a registered CSV/Parquet artifact. */
+  public artifactTableQuery(
+    artifactId: string,
+    query: ArtifactTableQueryRequest,
+    signal?: AbortSignal,
+  ): Promise<ArtifactTableQueryResult> {
+    return this.transport.request({
+      method: 'POST',
+      path: `/v1/artifacts/${encodeURIComponent(artifactId)}/table-query`,
+      body: { ...query, format: 'json' },
+      decode: (value) => {
+        const result = artifactTableQuerySchema.parse(value);
+        if (result.artifact_id !== undefined && result.artifact_id !== artifactId) {
+          throw new Error('Artifact table query identity did not match the requested artifact.');
+        }
+        if (result.returnedRows > query.limit) {
+          throw new Error('Artifact table query exceeded the requested row limit.');
+        }
+        return result;
       },
       signal,
     });

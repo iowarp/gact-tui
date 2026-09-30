@@ -1,7 +1,28 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { ClioDataTable, type ClioDataRow } from './data-table';
+import { ClioDataTable, type ClioDataRow, type ClioDataTableServerControl } from './data-table';
+
+/** A brand-new server control object every render — the churn a live A2UI/query-client re-render produces. */
+function ServerDrivenHarness({ nonce }: { nonce: number }) {
+  const server: ClioDataTableServerControl = {
+    columnKind: () => 'text',
+    filters: new Map(),
+    onFilterChange: () => {},
+    onPaginationChange: () => {},
+    onSortChange: () => {},
+    pageIndex: 0,
+    pageSize: 50,
+    totalRows: 2,
+  };
+  return (
+    <ClioDataTable
+      columns={[{ key: 'station', label: 'station' }]}
+      rows={[{ station: `A-${nonce}` }, { station: 'B' }]}
+      server={server}
+    />
+  );
+}
 
 describe('ClioDataTable', () => {
   it('paginates the ReUI grid and exposes wide columns through a scroll region', async () => {
@@ -52,5 +73,33 @@ describe('ClioDataTable', () => {
     await user.keyboard('{Enter}');
 
     expect(selected).toEqual([{ station: 'MTA1' }]);
+  });
+
+  // Regression for #1533: a server-driven column's header dropdown (filter +
+  // sort menu) was being discarded and remounted — not toggled closed — by
+  // any unrelated re-render that rebuilt the `columns` array (TanStack v9
+  // rebuilds its table/column wrapper objects on every render; the real
+  // failure came from the A2UI/ARC/query-client stack's own re-render churn
+  // on top of that). `flexRender` instantiates `column.columnDef.header` BY
+  // REFERENCE, so an inline arrow `header`/`cell` loses its previous
+  // instance's state (the dropdown's open flag) the moment that reference
+  // changes. See `ClioColumnHeaderCell` in `data-table.tsx`.
+  it('keeps a column header dropdown open across a full columns-array rebuild', async () => {
+    const user = userEvent.setup();
+    // Scoped to this render's own container: earlier tests in this file
+    // leave their DOM mounted (no global RTL `cleanup()` is registered here),
+    // and more than one of them renders a same-named "station" column.
+    const { container, rerender } = render(<ServerDrivenHarness nonce={0} />);
+
+    await user.click(within(container).getByRole('button', { name: 'station' }));
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+
+    // Re-render with brand-new `columns`/`server` object and function
+    // references — the exact churn the real regression reproduced under —
+    // without any DOM event Radix would read as an outside interaction.
+    rerender(<ServerDrivenHarness nonce={1} />);
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByLabelText('Filter station, contains')).toBeInTheDocument();
   });
 });

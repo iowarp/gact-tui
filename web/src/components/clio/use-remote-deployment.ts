@@ -24,11 +24,18 @@ import {
 } from './deploy-progress-model';
 import {
   abortableDelay,
+  claimClioAgent,
+  savedSshRoute,
+  sshTargetDefinition,
   targetMatchesHost,
-  waitForOperation,
+  waitForConflictAnswer,
+  type ConflictAnswer,
+  type FoundConflict,
 } from './managed-service-target-utils';
 
 export type RemoteDeploymentPhase = 'idle' | 'running' | 'cancelling' | 'failed' | 'cancelled';
+
+export type { FoundConflict } from './managed-service-target-utils';
 
 export type RemoteDeployment = {
   phase: RemoteDeploymentPhase;
@@ -37,6 +44,10 @@ export type RemoteDeployment = {
   transport?: SshTransportStatus;
   /** The cleaned transport log, fetched when a deployment fails. */
   details?: string;
+  /** Set while `deploy` is paused on "Connect to the running CLIO (vX)" or "Replace it". */
+  conflict?: FoundConflict;
+  /** Answer a found conflict; a no-op when none is pending. */
+  resolveConflict: (choice: 'connect' | 'replace') => void;
   deploy: (host: SshHost, name: string) => Promise<void>;
   cancel: () => Promise<void>;
 };
@@ -60,9 +71,15 @@ export function useRemoteDeployment(
   const [phase, setPhase] = useState<RemoteDeploymentPhase>('idle');
   const [transport, setTransport] = useState<SshTransportStatus>();
   const [details, setDetails] = useState<string>();
+  const [conflict, setConflict] = useState<FoundConflict>();
   const session = useRef<string | undefined>(undefined);
   const operation = useRef<string | undefined>(undefined);
   const abort = useRef<AbortController | undefined>(undefined);
+  const conflictChoice = useRef<((choice: ConflictAnswer) => void) | undefined>(undefined);
+
+  const resolveConflict = useCallback((choice: 'connect' | 'replace') => {
+    conflictChoice.current?.(choice);
+  }, []);
 
   const listening = useRef<Promise<Array<() => void>> | undefined>(undefined);
 
@@ -101,6 +118,34 @@ export function useRemoteDeployment(
     if (status.state === 'connected') dispatch({ type: 'connected', at: Date.now() });
   }, []);
 
+  /**
+   * Run the `clio_agent` install action to completion. A found conflict
+   * pauses here instead of failing the deployment: `conflict` is set for
+   * the dialog to show "Connect to the running CLIO (vX)" or "Replace it",
+   * and the action is re-issued with the person's answer once
+   * `resolveConflict` is called. Never decides which itself.
+   */
+  const runInstallToCompletion = useCallback(
+    (registered: InfrastructureTarget, signal: AbortSignal) =>
+      claimClioAgent(
+        repository,
+        registered.id,
+        signal,
+        async (found) => {
+          setConflict(found);
+          try {
+            return await waitForConflictAnswer(signal, conflictChoice);
+          } finally {
+            setConflict(undefined);
+          }
+        },
+        (id) => {
+          operation.current = id;
+        },
+      ),
+    [repository],
+  );
+
   const deploy = useCallback(
     async (host: SshHost, name: string) => {
       const controller = new AbortController();
@@ -132,14 +177,7 @@ export function useRemoteDeployment(
         }
         await repository.setInfrastructureTransportState(registered.id, 'connected');
         await attachInfrastructureSshTransport(settings.endpoint, settings.token, registered);
-        const started = await repository.runManagedServiceAction('clio_agent', {
-          target_id: registered.id,
-          action: 'install',
-          variant_id: 'released',
-          configuration: {},
-        });
-        operation.current = started.id;
-        await waitForOperation(repository, started, controller.signal);
+        await runInstallToCompletion(registered, controller.signal);
         dispatch({ type: 'open', at: Date.now() });
         const catalog = await repository.managedServiceCatalog(registered.id, controller.signal);
         const service = catalog.services.find((candidate) => candidate.id === 'clio_agent');
@@ -152,7 +190,11 @@ export function useRemoteDeployment(
           endpoint: service.connection_url,
           label: name,
           location: host.label,
-          infrastructure: { targetId: registered.id, serviceId: 'clio_agent' },
+          infrastructure: {
+            targetId: registered.id,
+            serviceId: 'clio_agent',
+            route: savedSshRoute(host),
+          },
         });
         dispatch({ type: 'opened', at: Date.now() });
         setPhase('idle');
@@ -170,7 +212,15 @@ export function useRemoteDeployment(
         setPhase('failed');
       }
     },
-    [listen, observe, onReady, repository, settings.endpoint, settings.token],
+    [
+      listen,
+      observe,
+      onReady,
+      repository,
+      runInstallToCompletion,
+      settings.endpoint,
+      settings.token,
+    ],
   );
 
   /**
@@ -207,7 +257,7 @@ export function useRemoteDeployment(
     if (problems.length) setDetails(problems.join('\n'));
   }, [repository]);
 
-  return { phase, progress, transport, details, deploy, cancel };
+  return { phase, progress, transport, details, conflict, resolveConflict, deploy, cancel };
 }
 
 /**
@@ -246,23 +296,7 @@ async function registerTarget(
   host: SshHost,
 ): Promise<InfrastructureTarget> {
   const targets = await repository.infrastructureTargets();
-  const definition = {
-    kind: 'ssh' as const,
-    label: host.label,
-    // Saved OpenSSH profiles come from the desktop's Rust bridge, whose
-    // optional fields round-trip as `null` when unset; the backend stores
-    // plain strings, so a bare `null` fails request validation (#1438).
-    install_root: host.installRoot || '',
-    ssh: {
-      profile: host.profile ?? '',
-      host: host.host ?? '',
-      user: host.user ?? '',
-      port: host.port,
-      jump_hosts: host.jumpHosts ?? [],
-      identity_file: host.identityFile ?? '',
-      platform: host.platform,
-    },
-  };
+  const definition = sshTargetDefinition(host);
   const existing = targets.find((candidate) => targetMatchesHost(candidate, host));
   return existing
     ? repository.updateInfrastructureTarget(existing.id, definition)

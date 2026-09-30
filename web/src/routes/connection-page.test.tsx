@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
     | { kind: 'auth_unavailable'; detail: string }
     | undefined,
   credentialError: undefined as string | undefined,
-  recents: [] as Array<{ endpoint: string; label?: string }>,
+  recents: [] as Array<{ endpoint: string; label?: string; infrastructure?: unknown }>,
   repository: {
     allSessions: vi.fn(),
     capabilities: vi.fn(),
@@ -59,6 +59,7 @@ vi.mock('@/providers/connection-provider', () => ({
 
 import { ConnectionPage } from './connection-page';
 import { clearConnectionOutcomes, connectionOutcomes } from '@/lib/connection-outcomes';
+import { InfrastructureTargetGoneError } from '@/lib/connection';
 
 beforeEach(() => {
   localStorage.clear();
@@ -355,6 +356,47 @@ it("settles a known connection's badge to Unavailable as soon as connecting to i
   await waitFor(() => expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0), {
     timeout: 200,
   });
+});
+
+it('offers to remove and redeploy a saved connection whose infrastructure target is gone (#1528)', async () => {
+  mocks.inTauri = true;
+  mocks.recents = [
+    {
+      endpoint: 'http://127.0.0.1:43123',
+      label: 'Ares lab',
+      infrastructure: { targetId: 'gone-target', serviceId: 'clio_agent' },
+    },
+  ];
+  mocks.resolveConnection.mockRejectedValue(new InfrastructureTargetGoneError('Ares lab'));
+  const user = userEvent.setup();
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/?intent=connect']}>
+        <Routes>
+          <Route element={<ConnectionPage />} path="/" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  await user.click(screen.getByRole('button', { name: 'Open workspace' }));
+
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent(
+    'Ares lab is not known on this computer. Remove it and deploy it again to reconnect.',
+  );
+  const recover = within(alert).getByRole('button', { name: /Remove it and deploy/u });
+
+  await user.click(recover);
+
+  expect(mocks.forget).toHaveBeenCalledWith('http://127.0.0.1:43123');
+  // The typed error's recovery action opens the deploy flow instead of
+  // stranding the person on a dead alert with no way forward.
+  expect(await screen.findByRole('dialog', { name: /Deploy/u })).toBeVisible();
+  expect(screen.queryByText('Connection unavailable')).not.toBeInTheDocument();
 });
 
 it('shows "Deploy CLIO" only in the Tauri desktop app, never on the web build', () => {

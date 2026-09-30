@@ -10,10 +10,20 @@ import {
 } from 'react';
 import {
   DEFAULT_ENDPOINT,
+  InfrastructureTargetGoneError,
   normalizeEndpoint,
   type ConnectionSettings,
   type SavedConnection,
+  type SavedSshRoute,
 } from '@/lib/connection';
+import {
+  claimClioAgent,
+  sshTargetDefinition,
+  targetMatchesHost,
+  waitForConflictAnswer,
+  type ConflictAnswer,
+  type FoundConflict,
+} from '@/components/clio/managed-service-target-utils';
 import { inTauri } from '@/lib/transport/tauri-runtime';
 import { vocab } from '@/lib/brand-vocabulary';
 import {
@@ -62,11 +72,32 @@ function readManagedLabel(): string | undefined {
  */
 const RECENT_CONNECTIONS_LIMIT = 5;
 
+function parseSavedRoute(value: unknown): SavedSshRoute | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const item = value as Record<string, unknown>;
+  if (typeof item.host !== 'string' || typeof item.label !== 'string') return undefined;
+  const platform = item.platform;
+  return {
+    label: item.label,
+    installRoot: typeof item.installRoot === 'string' ? item.installRoot : '',
+    profile: typeof item.profile === 'string' ? item.profile : '',
+    host: item.host,
+    user: typeof item.user === 'string' ? item.user : '',
+    port: typeof item.port === 'number' ? item.port : 22,
+    jumpHosts: Array.isArray(item.jumpHosts)
+      ? item.jumpHosts.filter((v) => typeof v === 'string')
+      : [],
+    identityFile: typeof item.identityFile === 'string' ? item.identityFile : '',
+    platform: platform === 'linux' || platform === 'windows' ? platform : 'auto',
+  };
+}
+
 function parseInfrastructure(value: unknown): ConnectionSettings['infrastructure'] {
   if (!value || typeof value !== 'object') return undefined;
   const item = value as Record<string, unknown>;
   if (typeof item.targetId !== 'string' || item.serviceId !== 'clio_agent') return undefined;
-  return { targetId: item.targetId, serviceId: 'clio_agent' };
+  const route = parseSavedRoute(item.route);
+  return { targetId: item.targetId, serviceId: 'clio_agent', ...(route ? { route } : {}) };
 }
 
 interface ConnectionContextValue {
@@ -181,6 +212,11 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
     status: SshTransportStatus;
   }>();
   const cancelledSsh = useRef(new Set<string>());
+  const [pendingConflict, setPendingConflict] = useState<{
+    label: string;
+    found: FoundConflict;
+  }>();
+  const conflictChoice = useRef<((choice: ConflictAnswer) => void) | undefined>(undefined);
 
   useEffect(() => {
     if (!inTauri()) return;
@@ -252,60 +288,123 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
           endpoint: controllerEndpoint,
           token: controllerToken,
         });
-        const target = (await controller.infrastructureTargets()).find(
-          (candidate) => candidate.id === next.infrastructure?.targetId,
-        );
-        if (!target) throw new Error(`The ${vocab.agent}-owned SSH target no longer exists.`);
+        const route = next.infrastructure.route;
+        const targets = await controller.infrastructureTargets();
+        let target = targets.find((candidate) => candidate.id === next.infrastructure?.targetId);
+        // A target id is a label slug, not a unique identifier across
+        // computers (`store.py`'s `_next_target_id`) -- a match found by id
+        // must still be the SAME host the saved route names, or a stale or
+        // reused id would attach to (and hand the saved bearer token to) a
+        // completely unrelated machine (#1528 review).
+        if (target && route && !targetMatchesHost(target, route)) {
+          target = undefined;
+        }
+        let rebuilt = false;
+        if (!target && route) {
+          // This computer's local CLIO never created (or no longer has) that
+          // target's record -- a fresh install after an update, a second
+          // computer, or a different local CLIO. Reuse an existing target for
+          // this same route before minting a duplicate (the same check
+          // `registerTarget` uses for a fresh deploy), and otherwise rebuild
+          // it from the saved route, exactly like a fresh "Deploy and
+          // connect" would, instead of failing outright (#1528).
+          target = targets.find((candidate) => targetMatchesHost(candidate, route));
+          if (!target) {
+            try {
+              target = await controller.createInfrastructureTarget(sshTargetDefinition(route));
+            } catch {
+              throw new InfrastructureTargetGoneError(next.label || 'This connection');
+            }
+          }
+          rebuilt = true;
+        }
+        if (!target) {
+          throw new InfrastructureTargetGoneError(next.label || 'This connection');
+        }
+        const confirmed = target;
         const status = await attachInfrastructureSshTransport(
           controllerEndpoint,
           controllerToken,
-          target,
+          confirmed,
         );
         let current = status;
         if (current.state !== 'connected') {
           setPendingSsh({
-            label: next.label || target.label,
-            targetId: target.id,
+            label: next.label || confirmed.label,
+            targetId: confirmed.id,
             status: current,
           });
           for (let attempt = 0; current.state !== 'connected' && attempt < 3_600; attempt += 1) {
             if (cancelledSsh.current.delete(current.session_id)) {
-              throw new Error(`SSH authentication for ${target.label} was cancelled.`);
+              throw new Error(`SSH authentication for ${confirmed.label} was cancelled.`);
             }
             await new Promise((resolve) => window.setTimeout(resolve, 250));
             try {
               current = await sshTransportStatus(current.session_id);
               if (current.state === 'disconnected') {
-                throw new Error(current.failure || `OpenSSH disconnected from ${target.label}.`);
+                throw new Error(current.failure || `OpenSSH disconnected from ${confirmed.label}.`);
               }
             } catch (error) {
               await controller.setInfrastructureTransportState(
-                target.id,
+                confirmed.id,
                 'reauthentication_required',
               );
               setPendingSsh(undefined);
               throw error;
             }
             setPendingSsh({
-              label: next.label || target.label,
-              targetId: target.id,
+              label: next.label || confirmed.label,
+              targetId: confirmed.id,
               status: current,
             });
           }
           setPendingSsh(undefined);
         }
-        await controller.setInfrastructureTransportState(target.id, current.state);
+        await controller.setInfrastructureTransportState(confirmed.id, current.state);
         if (current.state !== 'connected')
-          throw new Error(`SSH authentication timed out for ${target.label}.`);
-        await attachInfrastructureSshTransport(controllerEndpoint, controllerToken, target);
-        const catalog = await controller.managedServiceCatalog(target.id);
+          throw new Error(`SSH authentication timed out for ${confirmed.label}.`);
+        await attachInfrastructureSshTransport(controllerEndpoint, controllerToken, confirmed);
+        if (rebuilt) {
+          // No confirmed service record exists yet for this (re)built target,
+          // so the catalog below would only ever report `not_installed` --
+          // run the same claim step "Deploy and connect" uses so a CLIO
+          // already running on the host is found and adopted, pausing on
+          // Connect/Replace for a genuine conflict, instead of failing
+          // outright on a host that already has a working CLIO (#1528 review).
+          const claimAbort = new AbortController();
+          try {
+            await claimClioAgent(controller, confirmed.id, claimAbort.signal, async (found) => {
+              setPendingConflict({ label: next.label || confirmed.label, found });
+              try {
+                return await waitForConflictAnswer(claimAbort.signal, conflictChoice);
+              } finally {
+                setPendingConflict(undefined);
+              }
+            });
+          } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+              throw new Error(`Connecting to ${confirmed.label} was cancelled.`);
+            }
+            throw error;
+          }
+        }
+        const catalog = await controller.managedServiceCatalog(confirmed.id);
         const service = catalog.services.find(
           (candidate) => candidate.id === next.infrastructure?.serviceId,
         );
         if (service?.state !== 'running' || !service.connection_url) {
-          throw new Error(`The managed ${vocab.agent} service is not running on ${target.label}.`);
+          throw new Error(
+            `The managed ${vocab.agent} service is not running on ${confirmed.label}.`,
+          );
         }
-        next = { ...next, endpoint: service.connection_url };
+        next = {
+          ...next,
+          endpoint: service.connection_url,
+          // A rebuild above may have minted a new target id (or the saved
+          // one just happened to collide with something else); carry the
+          // real one forward so it is what gets remembered next.
+          infrastructure: { ...next.infrastructure, targetId: confirmed.id },
+        };
       }
       const endpoint = normalizeEndpoint(next.endpoint);
       const normalized = {
@@ -484,6 +583,60 @@ export function ConnectionProvider({ children }: PropsWithChildren) {
               variant="outline"
             >
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        onOpenChange={(open) => {
+          if (open || !pendingConflict) return;
+          conflictChoice.current?.('cancelled');
+        }}
+        open={Boolean(pendingConflict)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{vocab.agent} already on {pendingConflict?.label}</DialogTitle>
+            <DialogDescription className="sr-only">
+              Choose whether to connect to the running {vocab.agent} or replace it.
+            </DialogDescription>
+          </DialogHeader>
+          {pendingConflict ? (
+            <p aria-live="assertive" className="text-sm" role="alert">
+              {pendingConflict.found.health === 'healthy' ? (
+                <>
+                  {vocab.agent} {pendingConflict.found.installedVersion} is already running on{' '}
+                  {pendingConflict.label}
+                  {pendingConflict.found.pid ? ` (pid ${pendingConflict.found.pid})` : ''}.
+                </>
+              ) : (
+                <>
+                  {vocab.agent} on {pendingConflict.label} isn&apos;t answering
+                  {pendingConflict.found.pid ? ` (pid ${pendingConflict.found.pid})` : ''} &mdash;
+                  Replace it?
+                </>
+              )}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button
+              onClick={() => conflictChoice.current?.('cancelled')}
+              type="button"
+              variant="outline"
+            >
+              Cancel
+            </Button>
+            {pendingConflict?.found.health === 'healthy' ? (
+              <Button
+                onClick={() => conflictChoice.current?.('connect')}
+                type="button"
+                variant="outline"
+              >
+                Connect to the running {vocab.agent}
+              </Button>
+            ) : null}
+            <Button onClick={() => conflictChoice.current?.('replace')} type="button">
+              Replace it
             </Button>
           </DialogFooter>
         </DialogContent>

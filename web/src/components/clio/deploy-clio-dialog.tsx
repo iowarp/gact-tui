@@ -212,6 +212,39 @@ export function DeployClioDialog({
             <SshAuthentication prompt={prompt} sessionId={remote.transport.session_id} />
           ) : null}
 
+          {remote.conflict ? (
+            <div className="grid gap-3 rounded-xl border bg-card p-4" role="alert" aria-live="assertive">
+              <p className="text-sm">
+                {remote.conflict.health === 'healthy' ? (
+                  <>
+                    {vocab.agent} {remote.conflict.installedVersion} is already running on{' '}
+                    {host?.label ?? 'this host'}
+                    {remote.conflict.pid ? ` (pid ${remote.conflict.pid})` : ''}.
+                  </>
+                ) : (
+                  <>
+                    {vocab.agent} on {host?.label ?? 'this host'} isn&apos;t answering
+                    {remote.conflict.pid ? ` (pid ${remote.conflict.pid})` : ''} &mdash; Replace it?
+                  </>
+                )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {remote.conflict.health === 'healthy' ? (
+                  <Button
+                    onClick={() => remote.resolveConflict('connect')}
+                    type="button"
+                    variant="outline"
+                  >
+                    Connect to the running {vocab.agent} ({remote.conflict.installedVersion})
+                  </Button>
+                ) : null}
+                <Button onClick={() => remote.resolveConflict('replace')} type="button">
+                  Replace it
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           {target === 'ssh' && remote.phase === 'failed' && remote.progress.failure ? (
             <DeployFailure
               details={

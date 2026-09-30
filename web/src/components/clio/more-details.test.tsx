@@ -119,7 +119,9 @@ function Harness() {
         sessionId="sess_main"
         workspaceId="ws_1"
       />
-      <output data-testid="attached">{annotations.map((item) => item.text).join('|')}</output>
+      <output data-testid="attached">
+        {annotations.map((item) => (item.kind === 'text-quote' ? item.text : '')).join('|')}
+      </output>
     </>
   );
 }

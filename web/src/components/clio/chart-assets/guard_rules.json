@@ -1,0 +1,77 @@
+{
+  "allowedTopLevelKeys": [
+    "$schema",
+    "mark",
+    "encoding",
+    "layer",
+    "facet",
+    "hconcat",
+    "vconcat",
+    "concat",
+    "repeat",
+    "spec",
+    "transform",
+    "params",
+    "width",
+    "height",
+    "title",
+    "resolve",
+    "config",
+    "autosize",
+    "description",
+    "data"
+  ],
+  "compositionArrayKeys": [
+    "layer",
+    "concat",
+    "hconcat",
+    "vconcat"
+  ],
+  "defaultSelectionParam": "sel",
+  "depthCounting": "The top-level object is depth 1; each nested object or array adds 1.",
+  "errorCodes": [
+    "spec_not_object",
+    "spec_too_deep",
+    "spec_too_large",
+    "top_level_key_not_allowed",
+    "too_many_views",
+    "data_not_named_source",
+    "forbidden_key"
+  ],
+  "forbiddenKeys": [
+    "url",
+    "usermeta"
+  ],
+  "maxDepth": 64,
+  "maxInlineRows": 10000,
+  "maxSpecBytes": 65536,
+  "maxViews": 8,
+  "presetSlots": [
+    "xField",
+    "yField",
+    "entityField",
+    "colorField",
+    "facetField",
+    "xType",
+    "selectionParam"
+  ],
+  "presets": [
+    "trajectories",
+    "heatmap",
+    "spectra",
+    "boxplot",
+    "scatter"
+  ],
+  "requiredDataObject": {
+    "name": "source"
+  },
+  "selectionParamPattern": "^[A-Za-z_][A-Za-z0-9_]{0,63}$",
+  "sizeMeasure": "UTF-8 byte length of compact JSON: separators (',', ':'), no ASCII escaping, keys in their given order (JSON.stringify).",
+  "version": 1,
+  "viewCounting": "An object with a layer/concat/hconcat/vconcat array counts its children; an object with facet or repeat and an object spec counts that spec; otherwise an object with mark counts 1.",
+  "xTypes": [
+    "temporal",
+    "quantitative",
+    "ordinal"
+  ]
+}
